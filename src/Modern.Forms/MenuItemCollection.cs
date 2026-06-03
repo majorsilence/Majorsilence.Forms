@@ -16,6 +16,15 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Adds a range of MenuItems to the collection.
+        /// </summary>
+        public void AddRange (IEnumerable<MenuItem> items)
+        {
+            foreach (var item in items)
+                Add (item);
+        }
+
+        /// <summary>
         /// Adds the MenuItem to the collection.
         /// </summary>
         public T Add<T> (T item) where T : MenuItem

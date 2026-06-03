@@ -311,6 +311,19 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Gets or sets the password character (WinForms compatibility alias for PasswordCharacter).
+        /// </summary>
+        public char PasswordChar {
+            get => document.PasswordCharacter ?? '\0';
+            set => document.PasswordCharacter = value == '\0' ? null : value;
+        }
+
+        /// <summary>
+        /// Gets or sets which scroll bars appear (informational; Modern.Forms shows scroll bars automatically).
+        /// </summary>
+        public ScrollBars ScrollBars { get; set; }
+
+        /// <summary>
         /// Inserts any text on the clipboard into the TextBox.
         /// </summary>
         public void Paste ()

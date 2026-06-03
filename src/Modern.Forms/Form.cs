@@ -108,6 +108,16 @@ namespace Modern.Forms
         /// </summary>
         public event EventHandler<CancelEventArgs>? Closing;
 
+        /// <summary>
+        /// Raised before the form is closed (WinForms compatibility alias for Closing).
+        /// </summary>
+        public event EventHandler<FormClosingEventArgs>? FormClosing;
+
+        /// <summary>
+        /// Raised after the form is closed.
+        /// </summary>
+        public event EventHandler<FormClosedEventArgs>? FormClosed;
+
         /// <inheritdoc/>
         protected override System.Drawing.Size DefaultSize => new System.Drawing.Size (1080, 720);
 
@@ -310,6 +320,29 @@ namespace Modern.Forms
         public virtual void OnClosing (CancelEventArgs e)
         {
             Closing?.Invoke (this, e);
+
+            var form_closing_args = new FormClosingEventArgs { Cancel = e.Cancel };
+            FormClosing?.Invoke (this, form_closing_args);
+
+            if (form_closing_args.Cancel)
+                e.Cancel = true;
+        }
+
+        /// <summary>
+        /// Displays the window modally using the first open form as the parent.
+        /// </summary>
+        public DialogResult ShowDialog ()
+        {
+            var parent = Application.OpenForms.FirstOrDefault (f => f != this);
+
+            if (parent == null) {
+                Show ();
+                return DialogResult.OK;
+            }
+
+            var result = ShowDialog (parent).GetAwaiter ().GetResult ();
+            FormClosed?.Invoke (this, new FormClosedEventArgs ());
+            return result;
         }
 
         /// <summary>
@@ -394,6 +427,34 @@ namespace Modern.Forms
             get => new System.Drawing.Size ((int)window.ClientSize.Width, (int)window.ClientSize.Height);
             set => Window.Resize (new Modern.WindowKit.Size (value.Width, value.Height));
         }
+
+        /// <summary>
+        /// Gets the currently active form (the most recently focused open form).
+        /// </summary>
+        public static Form? ActiveForm => Application.OpenForms.LastOrDefault ();
+
+        /// <summary>
+        /// Gets or sets the client area size (equivalent to Size for Modern.Forms).
+        /// </summary>
+        public System.Drawing.Size ClientSize {
+            get => Size;
+            set => Size = value;
+        }
+
+        /// <summary>
+        /// Gets or sets the automatic scaling mode. No-op in Modern.Forms.
+        /// </summary>
+        public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Font;
+
+        /// <summary>
+        /// Gets or sets the auto-scale dimensions. No-op in Modern.Forms.
+        /// </summary>
+        public System.Drawing.SizeF AutoScaleDimensions { get; set; }
+
+        /// <summary>
+        /// Gets or sets the binding context. No-op in Modern.Forms.
+        /// </summary>
+        public object? BindingContext { get; set; }
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);

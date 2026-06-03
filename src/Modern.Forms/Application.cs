@@ -45,6 +45,16 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Enables visual styles for the application. No-op in Modern.Forms.
+        /// </summary>
+        public static void EnableVisualStyles () { }
+
+        /// <summary>
+        /// Sets compatible text rendering default. No-op in Modern.Forms.
+        /// </summary>
+        public static void SetCompatibleTextRenderingDefault (bool defaultValue) { }
+
+        /// <summary>
         /// Exits the application.
         /// </summary>
         public static void Exit ()

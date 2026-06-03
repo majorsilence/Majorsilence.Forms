@@ -31,6 +31,9 @@
             SetRenderer<SplitContainer> (new SplitContainerRenderer ());
             SetRenderer<Splitter> (new SplitterRenderer ());
             SetRenderer<StatusBar> (new StatusBarRenderer ());
+            SetRenderer<StatusStrip> (new StatusStripRenderer ());
+            SetRenderer<GroupBox> (new GroupBoxRenderer ());
+            SetRenderer<NumericUpDown> (new NumericUpDownRenderer ());
             SetRenderer<TabControl> (new TabControlRenderer ());
             SetRenderer<TabStrip> (new TabStripRenderer ());
             SetRenderer<TextBox> (new TextBoxRenderer ());

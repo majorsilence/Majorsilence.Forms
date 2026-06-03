@@ -10,6 +10,7 @@ namespace Modern.Forms
         private string header_text = string.Empty;
         private int width = 100;
         private DataGridView? owner;
+        private DataGridViewCellStyle default_cell_style = new DataGridViewCellStyle ();
 
         /// <summary>
         /// Initializes a new instance of the DataGridViewColumn class.
@@ -25,6 +26,44 @@ namespace Modern.Forms
         {
             header_text = headerText;
         }
+
+        /// <summary>
+        /// Gets or sets the name used to identify this column.
+        /// </summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the data source property name for this column.
+        /// </summary>
+        public string DataPropertyName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether cells in this column are read-only.
+        /// </summary>
+        public bool ReadOnly { get; set; }
+
+        /// <summary>
+        /// Gets or sets the tooltip text for this column.
+        /// </summary>
+        public string ToolTipText { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the default cell style for this column.
+        /// </summary>
+        public DataGridViewCellStyle DefaultCellStyle {
+            get => default_cell_style;
+            set => default_cell_style = value ?? new DataGridViewCellStyle ();
+        }
+
+        /// <summary>
+        /// Gets or sets whether the column is resizable.
+        /// </summary>
+        public DataGridViewTriState Resizable { get; set; } = DataGridViewTriState.NotSet;
+
+        /// <summary>
+        /// Gets or sets the sort mode for this column.
+        /// </summary>
+        public DataGridViewColumnSortMode SortMode { get; set; } = DataGridViewColumnSortMode.Automatic;
 
         /// <summary>
         /// Gets the bounding rectangle of the column header.

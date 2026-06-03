@@ -9,7 +9,7 @@ namespace Modern.Forms
     /// <summary>
     /// Represents a DataGridView control for displaying tabular data.
     /// </summary>
-    public class DataGridView : Control
+    public class DataGridView : Control, System.ComponentModel.ISupportInitialize
     {
         private int header_height = 30;
         private int row_height = 25;
@@ -135,6 +135,12 @@ namespace Modern.Forms
         /// <summary>
         /// Raised when a cell begins editing.
         /// </summary>
+        /// <summary>Raised when a cell is clicked.</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? CellClick;
+
+        /// <summary>Raised when a cell's tooltip text is needed.</summary>
+        public event EventHandler<DataGridViewCellToolTipTextNeededEventArgs>? CellToolTipTextNeeded;
+
         public event EventHandler<DataGridViewCellEditEventArgs>? CellBeginEdit;
 
         /// <summary>
@@ -164,6 +170,19 @@ namespace Modern.Forms
         /// Gets the collection of columns in the DataGridView.
         /// </summary>
         public DataGridViewColumnCollection Columns { get; }
+
+        /// <summary>
+        /// Gets or sets how column widths are automatically adjusted.
+        /// </summary>
+        public DataGridViewAutoSizeColumnsMode AutoSizeColumnsMode { get; set; } = DataGridViewAutoSizeColumnsMode.None;
+
+        /// <summary>
+        /// Gets or sets how the height of the column header row is adjusted.
+        /// </summary>
+        public DataGridViewColumnHeadersHeightSizeMode ColumnHeadersHeightSizeMode { get; set; } = DataGridViewColumnHeadersHeightSizeMode.EnableResizing;
+
+        void System.ComponentModel.ISupportInitialize.BeginInit () { }
+        void System.ComponentModel.ISupportInitialize.EndInit () { }
 
         /// <summary>
         /// Gets or sets the data source for the DataGridView.
@@ -782,13 +801,18 @@ namespace Modern.Forms
             var row = GetRowAtLocation (e.Location);
 
             if (row >= 0) {
+                int col;
+
                 if (selection_mode == DataGridViewSelectionMode.FullRowSelect) {
                     SelectedRowIndex = row;
+                    col = GetColumnAtLocation (e.Location);
                 } else {
-                    var col = GetColumnAtLocation (e.Location);
+                    col = GetColumnAtLocation (e.Location);
                     SelectedRowIndex = row;
                     SelectedColumnIndex = col;
                 }
+
+                CellClick?.Invoke (this, new DataGridViewCellEventArgs (col, row));
             }
         }
 

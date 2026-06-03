@@ -13,6 +13,8 @@ namespace Modern.Forms.Renderers
             foreach (var item in control.Items)
                 if (item is MenuSeparatorItem msi)
                     RenderMenuSeparatorItem (control, msi, e);
+                else if (item is ToolStripSeparator tss)
+                    RenderMenuSeparatorItem (control, tss, e);
                 else
                     RenderItem (control, item, e);
         }
@@ -50,6 +52,20 @@ namespace Modern.Forms.Renderers
         }
 
         /// <summary>
+        /// Renders a ToolStripSeparator as a visual divider.
+        /// </summary>
+        protected virtual void RenderMenuSeparatorItem (MenuDropDown control, ToolStripSeparator item, PaintEventArgs e)
+        {
+            e.Canvas.FillRectangle (item.Bounds, Theme.ControlLowColor);
+
+            var center = item.Bounds.GetCenter ();
+            var thickness = e.LogicalToDeviceUnits (1);
+            var padding = e.LogicalToDeviceUnits (item.Padding);
+
+            e.Canvas.DrawLine (item.Bounds.X + padding.Top, center.Y, item.Bounds.Right - padding.Right, center.Y, Theme.ControlHighlightLowColor, thickness);
+        }
+
+        /// <summary>
         /// Renders a MenuSeparatorItem.
         /// </summary>
         protected virtual void RenderMenuSeparatorItem (MenuDropDown control, MenuSeparatorItem item, PaintEventArgs e)
@@ -72,11 +88,25 @@ namespace Modern.Forms.Renderers
             if (item is MenuSeparatorItem msi)
                 return GetPreferredSeparatorItemSize (control, msi, proposedSize);
 
+            if (item is ToolStripSeparator tss)
+                return GetPreferredSeparatorItemSize (control, tss, proposedSize);
+
             var padding = control.LogicalToDeviceUnits (item.Padding);
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
             var text_size = TextMeasurer.MeasureText (item.Text, Theme.UIFont, font_size);
 
             return new Size ((int)Math.Round (text_size.Width, 0, MidpointRounding.AwayFromZero) + padding.Horizontal + control.LogicalToDeviceUnits (70), (int)Math.Round (text_size.Height, 0, MidpointRounding.AwayFromZero) + control.LogicalToDeviceUnits (8));
+        }
+
+        /// <summary>
+        /// Gets the preferred size of a ToolStripSeparator.
+        /// </summary>
+        protected virtual Size GetPreferredSeparatorItemSize (MenuDropDown control, ToolStripSeparator item, Size proposedSize)
+        {
+            var padding = control.LogicalToDeviceUnits (item.Padding.Vertical);
+            var thickness = control.LogicalToDeviceUnits (1);
+
+            return new Size (item.Bounds.Width, thickness + padding);
         }
 
         /// <summary>

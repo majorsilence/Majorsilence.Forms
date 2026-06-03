@@ -1850,6 +1850,21 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the control uses its visual style's background color (no-op compatibility property).
+        /// </summary>
+        public bool UseVisualStyleBackColor { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the foreground color (WinForms compatibility property; use Style.ForegroundColor for full control).
+        /// </summary>
+        public System.Drawing.Color ForeColor { get; set; }
+
+        /// <summary>
+        /// Gets or sets the font (WinForms compatibility property; use Theme or Style for full control).
+        /// </summary>
+        public System.Drawing.Font? Font { get; set; }
+
+        /// <summary>
         /// Gets or sets user defined data.
         /// </summary>
         public object? Tag {

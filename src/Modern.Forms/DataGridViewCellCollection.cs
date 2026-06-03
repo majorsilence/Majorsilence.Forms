@@ -18,6 +18,29 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Gets the cell corresponding to the column with the specified name.
+        /// </summary>
+        public DataGridViewCell? this[string columnName]
+        {
+            get {
+                var dgv = owner.DataGridView;
+
+                if (dgv == null)
+                    return null;
+
+                for (int i = 0; i < dgv.Columns.Count; i++) {
+                    var col = dgv.Columns[i];
+
+                    if (string.Equals (col.Name, columnName, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals (col.DataPropertyName, columnName, StringComparison.OrdinalIgnoreCase))
+                        return i < Count ? this[i] : null;
+                }
+
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Adds a cell with the specified value to the collection.
         /// </summary>
         public DataGridViewCell Add (string value)
