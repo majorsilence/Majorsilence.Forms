@@ -287,6 +287,14 @@ namespace Modern.Forms
             if (!shown)
                 return;
 
+            // Sync the adapter's logical bounds with the current window size before every paint.
+            // On macOS, DoPaint can be called during live resize before the OnResize callback
+            // fires, which would leave child controls at stale positions and sizes, producing
+            // grey artefacts where the new window area wasn't covered by any control.
+            // SetBounds is idempotent – it is a no-op when the bounds haven't changed.
+            var display = DisplayRectangle;
+            adapter.SetBounds (display.Left, display.Top, display.Width, display.Height);
+
             var skia_framebuffer = window.Surfaces.OfType<IFramebufferPlatformSurface> ().First ();
 
             using var framebuffer = skia_framebuffer.Lock ();
@@ -304,7 +312,8 @@ namespace Modern.Forms
             e.Canvas.DrawBorder (new System.Drawing.Rectangle (0, 0, (int)scaled_client_size.Width, (int)scaled_client_size.Height), CurrentStyle);
             OnPaint (e);
 
-            e.Canvas.ClipRect (new SKRect (scaled_display_rect.Left, scaled_display_rect.Top, scaled_display_rect.Width + 1, scaled_display_rect.Height + 1));
+            // Use Right/Bottom (not Width/Height) as the SKRect constructor takes (left, top, right, bottom).
+            e.Canvas.ClipRect (new SKRect (scaled_display_rect.Left, scaled_display_rect.Top, scaled_display_rect.Right + 1, scaled_display_rect.Bottom + 1));
 
             adapter.RaisePaintBackground (e);
             adapter.RaisePaint (e);
