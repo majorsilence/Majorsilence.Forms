@@ -287,29 +287,51 @@ namespace Modern.Forms
             if (!shown)
                 return;
 
-            // Sync the adapter's logical bounds with the current window size before every paint.
-            // On macOS, DoPaint can be called during live resize before the OnResize callback
-            // fires, which would leave child controls at stale positions and sizes, producing
-            // grey artefacts where the new window area wasn't covered by any control.
-            // SetBounds is idempotent – it is a no-op when the bounds haven't changed.
-            var display = DisplayRectangle;
-            adapter.SetBounds (display.Left, display.Top, display.Width, display.Height);
-
             var skia_framebuffer = window.Surfaces.OfType<IFramebufferPlatformSurface> ().First ();
 
             using var framebuffer = skia_framebuffer.Lock ();
 
+            // The framebuffer is the authoritative size of the surface we are about to paint.
+            // During a native live-resize (notably on macOS) the OS resizes the surface and asks
+            // us to repaint before window.ClientSize has caught up, so reading ClientSize / Size /
+            // DisplayRectangle here yields a stale size. That left docked children (e.g. a
+            // DockStyle.Left TreeView) sized to the old bounds, with the newly exposed strip
+            // painted in the bare Form background ("grey rectangle"). Derive everything we need
+            // from the framebuffer instead so the layout and the paint always agree.
+            var scaled_client_size = new System.Drawing.Size (framebuffer.Size.Width, framebuffer.Size.Height);
+
+            var border = CurrentStyle.Border;
+            var border_left = border.Left.GetWidth ();
+            var border_top = border.Top.GetWidth ();
+
+            // Convert the device-pixel framebuffer size into the logical units the layout uses.
+            var logical_width = (int)Math.Round (scaled_client_size.Width / Scaling);
+            var logical_height = (int)Math.Round (scaled_client_size.Height / Scaling);
+
+            // Sync the adapter's logical bounds with the surface before painting. SetBoundsCore
+            // relies on Parent.ResumeLayout to re-run dock/anchor layout, but the adapter has no
+            // parent so that path is skipped; call PerformLayout directly to guarantee every
+            // docked child gets the correct height/width when the window is resized.
+            if (adapter.Left != border_left || adapter.Top != border_top ||
+                adapter.Width != logical_width || adapter.Height != logical_height) {
+                adapter.SetBounds (border_left, border_top, logical_width, logical_height);
+                adapter.PerformLayout ();
+            }
+
+            var scaled_display_rect = new System.Drawing.Rectangle (
+                border_left,
+                border_top,
+                scaled_client_size.Width - border.Right.GetWidth () - border_left,
+                scaled_client_size.Height - border.Bottom.GetWidth () - border_top);
+
             var framebufferImageInfo = new SKImageInfo (framebuffer.Size.Width, framebuffer.Size.Height,
                 framebuffer.Format.ToSkColorType (), framebuffer.Format == PixelFormat.Rgb565 ? SKAlphaType.Opaque : SKAlphaType.Premul);
-
-            var scaled_client_size = ScaledClientSize;
-            var scaled_display_rect = ScaledDisplayRectangle;
 
             using var surface = SKSurface.Create (framebufferImageInfo, framebuffer.Address, framebuffer.RowBytes);
 
             var e = new PaintEventArgs (framebufferImageInfo, surface.Canvas, Scaling);
             OnPaintBackground (e);
-            e.Canvas.DrawBorder (new System.Drawing.Rectangle (0, 0, (int)scaled_client_size.Width, (int)scaled_client_size.Height), CurrentStyle);
+            e.Canvas.DrawBorder (new System.Drawing.Rectangle (0, 0, scaled_client_size.Width, scaled_client_size.Height), CurrentStyle);
             OnPaint (e);
 
             // Use Right/Bottom (not Width/Height) as the SKRect constructor takes (left, top, right, bottom).
@@ -353,7 +375,9 @@ namespace Modern.Forms
 
         private void OnResize (Size size, WindowResizeReason reason)
         {
-            adapter.SetBounds (DisplayRectangle.Left, DisplayRectangle.Top, Size.Width, Size.Height);
+            var display = DisplayRectangle;
+            adapter.SetBounds (display.Left, display.Top, Size.Width, Size.Height);
+            adapter.PerformLayout ();
         }
 
         /// <summary>
