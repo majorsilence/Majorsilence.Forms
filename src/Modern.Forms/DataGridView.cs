@@ -672,6 +672,24 @@ namespace Modern.Forms
             if (data_source is null || data_source.Count == 0)
                 return;
 
+            // Special-case ADO.NET data binding (DataView / DataTable.DefaultView): generate
+            // columns and rows from the DataColumns rather than the DataRowView's CLR properties.
+            if (data_source is System.Data.DataView data_view) {
+                foreach (System.Data.DataColumn column in data_view.Table!.Columns)
+                    Columns.Add (column.ColumnName, EstimateColumnWidth (column.ColumnName));
+
+                foreach (System.Data.DataRowView row_view in data_view) {
+                    var cells = new string[data_view.Table.Columns.Count];
+
+                    for (var i = 0; i < cells.Length; i++)
+                        cells[i] = row_view[i]?.ToString () ?? string.Empty;
+
+                    Rows.Add (cells);
+                }
+
+                return;
+            }
+
             // Get the element type
             var element_type = GetElementType (data_source);
 

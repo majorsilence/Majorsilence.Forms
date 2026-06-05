@@ -1154,6 +1154,10 @@ namespace Modern.Forms
             }
 
             e.Canvas.DrawBackground (ScaledBounds, CurrentStyle);
+
+            if (BackgroundImage is not null)
+                PaintBackgroundImage (e);
+
             e.Canvas.DrawBorder (ScaledBounds, CurrentStyle);
         }
 
@@ -1855,9 +1859,28 @@ namespace Modern.Forms
         public bool UseVisualStyleBackColor { get; set; } = true;
 
         /// <summary>
-        /// Gets or sets the foreground color (WinForms compatibility property; use Style.ForegroundColor for full control).
+        /// Gets or sets the background color of the control. This is a convenience wrapper over
+        /// <see cref="ControlStyle.BackgroundColor"/> using <see cref="System.Drawing.Color"/>.
         /// </summary>
-        public System.Drawing.Color ForeColor { get; set; }
+        public System.Drawing.Color BackColor {
+            get => Style.BackgroundColor?.ToDrawingColor () ?? Style.GetBackgroundColor ().ToDrawingColor ();
+            set {
+                Style.BackgroundColor = value.ToSKColor ();
+                Invalidate ();
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the foreground (text) color of the control. This is a convenience wrapper
+        /// over <see cref="ControlStyle.ForegroundColor"/> using <see cref="System.Drawing.Color"/>.
+        /// </summary>
+        public System.Drawing.Color ForeColor {
+            get => Style.ForegroundColor?.ToDrawingColor () ?? Style.GetForegroundColor ().ToDrawingColor ();
+            set {
+                Style.ForegroundColor = value.ToSKColor ();
+                Invalidate ();
+            }
+        }
 
         /// <summary>
         /// Gets or sets the font (WinForms compatibility property; use Theme or Style for full control).

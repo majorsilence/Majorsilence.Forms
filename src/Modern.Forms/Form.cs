@@ -123,6 +123,18 @@ namespace Modern.Forms
         /// </summary>
         public event EventHandler<FormClosedEventArgs>? FormClosed;
 
+        /// <summary>
+        /// Raised when the form is first shown (WinForms compatibility alias; raised together with Shown).
+        /// </summary>
+        public event EventHandler? Load;
+
+        /// <inheritdoc/>
+        protected override void OnShown (EventArgs e)
+        {
+            Load?.Invoke (this, e);
+            base.OnShown (e);
+        }
+
         /// <inheritdoc/>
         protected override System.Drawing.Size DefaultSize => new System.Drawing.Size (1080, 720);
 

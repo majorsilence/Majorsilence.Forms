@@ -162,6 +162,30 @@ namespace Modern.Forms
         public void Invalidate (System.Drawing.Rectangle rectangle) => Invalidate ();
 
         /// <summary>
+        /// Executes the specified delegate asynchronously on the window's UI thread.
+        /// </summary>
+        public void BeginInvoke (Action action)
+        {
+            ArgumentNullException.ThrowIfNull (action);
+            Modern.WindowKit.Threading.Dispatcher.UIThread.Post (action);
+        }
+
+        /// <summary>
+        /// Executes the specified delegate synchronously on the window's UI thread.
+        /// </summary>
+        public void Invoke (Action action)
+        {
+            ArgumentNullException.ThrowIfNull (action);
+
+            if (Modern.WindowKit.Threading.Dispatcher.UIThread.CheckAccess ()) {
+                action ();
+                return;
+            }
+
+            Modern.WindowKit.Threading.Dispatcher.UIThread.InvokeAsync (action).GetAwaiter ().GetResult ();
+        }
+
+        /// <summary>
         /// Gets the unscaled location of the control.
         /// </summary>
         public System.Drawing.Point Location {

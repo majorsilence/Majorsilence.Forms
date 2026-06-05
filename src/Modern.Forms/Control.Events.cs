@@ -140,6 +140,14 @@ public partial class Control
     }
 
     /// <summary>
+    /// Raised when input focus leaves the control (WinForms compatibility alias for <see cref="LostFocus"/>).
+    /// </summary>
+    public event EventHandler? Leave {
+        add => Events.AddHandler (s_lostFocusEvent, value);
+        remove => Events.RemoveHandler (s_lostFocusEvent, value);
+    }
+
+    /// <summary>
     /// Raised when the user presses down a key.
     /// </summary>
     public event EventHandler<KeyEventArgs>? KeyDown {
