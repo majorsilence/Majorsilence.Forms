@@ -64,6 +64,43 @@ namespace Modern.Forms
             }
         }
 
+        /// <summary>
+        /// Gets or sets the minimum logical size of the auto-scroll area. Setting a non-empty value
+        /// enables <see cref="AutoScroll"/> so a custom-drawn control can scroll a virtual canvas
+        /// larger than its visible bounds (e.g. a report page surface).
+        /// </summary>
+        public Size AutoScrollMinSize {
+            get => auto_scroll_min_size;
+            set {
+                if (auto_scroll_min_size != value) {
+                    auto_scroll_min_size = value;
+
+                    if (!value.IsEmpty)
+                        auto_scroll = true;
+
+                    PerformLayout (this, nameof (AutoScrollMinSize));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the current scroll position. Following WinForms semantics the value returned
+        /// is expressed as negative offsets; the setter accepts either sign.
+        /// </summary>
+        public Point AutoScrollPosition {
+            get => new Point (-scroll_position.X, -scroll_position.Y);
+            set {
+                var x = Math.Abs (value.X);
+                var y = Math.Abs (value.Y);
+
+                if (hscrollbar.Visible)
+                    hscrollbar.Value = Math.Max (hscrollbar.Minimum, Math.Min (x, hscrollbar.Maximum));
+
+                if (vscrollbar.Visible)
+                    vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (y, vscrollbar.Maximum));
+            }
+        }
+
         // Calculates and sets the current canvas size.
         private void CalculateCanvasSize ()
         {

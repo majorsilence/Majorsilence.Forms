@@ -19,6 +19,9 @@ namespace Modern.Forms
         public KeyEventArgs (Keys keyData)
         {
             KeyData = keyData;
+
+            // Keep the static Control.ModifierKeys current for WinForms-compatible callers.
+            Modern.Forms.Control.ModifierKeys = keyData & Keys.Modifiers;
         }
 
         /// <summary>

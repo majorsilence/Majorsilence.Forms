@@ -123,6 +123,104 @@ namespace Modern.Forms
 
         /// <summary>Gets or sets whether this item is visible.</summary>
         public bool Visible { get; set; } = true;
+
+        /// <summary>Gets or sets the tooltip text shown for this item.</summary>
+        public string ToolTipText { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Represents a clickable button on a ToolStrip / toolbar.
+    /// </summary>
+    public class ToolStripButton : ToolStripItem
+    {
+        /// <summary>Initializes a new instance of the ToolStripButton class.</summary>
+        public ToolStripButton () { }
+
+        /// <summary>Initializes a new instance of the ToolStripButton class with the specified text.</summary>
+        public ToolStripButton (string text)
+        {
+            Text = text;
+        }
+
+        /// <summary>Initializes a new instance of the ToolStripButton class with text, image, and click handler.</summary>
+        public ToolStripButton (string text, SkiaSharp.SKBitmap? image, EventHandler<MouseEventArgs>? onClick = null)
+        {
+            Text = text;
+            Image = image;
+
+            if (onClick is not null)
+                Click += onClick;
+        }
+
+        /// <summary>Gets or sets whether the button is in the checked (pressed) state.</summary>
+        public bool Checked { get; set; }
+
+        /// <summary>Gets or sets whether clicking the button toggles its checked state.</summary>
+        public bool CheckOnClick { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a non-interactive text label on a ToolStrip / toolbar.
+    /// </summary>
+    public class ToolStripLabel : ToolStripItem
+    {
+        /// <summary>Initializes a new instance of the ToolStripLabel class.</summary>
+        public ToolStripLabel () { }
+
+        /// <summary>Initializes a new instance of the ToolStripLabel class with the specified text.</summary>
+        public ToolStripLabel (string text)
+        {
+            Text = text;
+        }
+    }
+
+    /// <summary>
+    /// Represents an editable text box embedded on a ToolStrip / toolbar.
+    /// </summary>
+    public class ToolStripTextBox : ToolStripItem
+    {
+        private string text = string.Empty;
+
+        /// <summary>Initializes a new instance of the ToolStripTextBox class.</summary>
+        public ToolStripTextBox () { }
+
+        /// <summary>Initializes a new instance of the ToolStripTextBox class with the specified name.</summary>
+        public ToolStripTextBox (string name)
+        {
+            Name = name;
+        }
+
+        /// <summary>Gets or sets the text contained in the text box.</summary>
+        public new string Text {
+            get => text;
+            set {
+                if (text != value) {
+                    text = value ?? string.Empty;
+                    TextChanged?.Invoke (this, EventArgs.Empty);
+                }
+            }
+        }
+
+        /// <summary>Raised when the text changes.</summary>
+        public event EventHandler? TextChanged;
+    }
+
+    /// <summary>
+    /// Represents a button on a ToolStrip that displays a drop-down menu when clicked.
+    /// </summary>
+    public class ToolStripDropDownButton : ToolStripItem
+    {
+        /// <summary>Initializes a new instance of the ToolStripDropDownButton class.</summary>
+        public ToolStripDropDownButton () { }
+
+        /// <summary>Initializes a new instance of the ToolStripDropDownButton class with the specified text.</summary>
+        public ToolStripDropDownButton (string text)
+        {
+            Text = text;
+        }
+
+        /// <summary>Gets the collection of items shown in the drop-down.</summary>
+        public MenuItemCollection DropDownItems => Items;
     }
 
     /// <summary>
@@ -308,6 +406,11 @@ namespace Modern.Forms
     /// Represents a menu bar docked at the top of a form. Alias for Menu.
     /// </summary>
     public class MenuStrip : Menu { }
+
+    /// <summary>
+    /// Represents a shortcut (context) menu. WinForms compatibility alias for <see cref="ContextMenu"/>.
+    /// </summary>
+    public class ContextMenuStrip : ContextMenu { }
 
     /// <summary>
     /// Represents a status bar with items docked at the bottom of a form.

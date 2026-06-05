@@ -26,6 +26,9 @@ namespace Modern.Forms
             Y = y;
             ScreenLocation = new Point (screenX ?? x, screenY ?? y);
             key_data = keyData;
+
+            // Keep the static Control.ModifierKeys current for WinForms-compatible callers.
+            Modern.Forms.Control.ModifierKeys = keyData & Keys.Modifiers;
         }
 
         /// <summary>

@@ -11,6 +11,61 @@ namespace Modern.Forms
     {
         private SKBitmap? background_image;
         private ImageLayout background_image_layout = ImageLayout.Tile;
+        private ControlStyles control_styles = ControlStyles.Selectable | ControlStyles.StandardClick | ControlStyles.StandardDoubleClick | ControlStyles.UserPaint | ControlStyles.DoubleBuffer | ControlStyles.OptimizedDoubleBuffer;
+
+        /// <summary>
+        /// Gets the combination of modifier keys (Ctrl/Shift/Alt) currently held down, as captured
+        /// from the most recent input event. WinForms compatibility for code that reads the static
+        /// Control.ModifierKeys (e.g. detecting Ctrl during a mouse-wheel zoom).
+        /// </summary>
+        public static Keys ModifierKeys { get; internal set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating the control is double-buffered. Modern.Forms always renders
+        /// each control into its own off-screen surface, so this is effectively always true; the setter
+        /// is accepted for WinForms source compatibility.
+        /// </summary>
+        public bool DoubleBuffered { get; set; } = true;
+
+        /// <summary>
+        /// Forces the control to invalidate and immediately repaint.
+        /// </summary>
+        public void Refresh () => Invalidate ();
+
+        /// <summary>
+        /// Sets input focus to the control. Returns true if focus was successfully set.
+        /// </summary>
+        public bool Focus ()
+        {
+            Select ();
+            return Focused;
+        }
+
+        /// <summary>
+        /// Computes the location of the specified screen point into client coordinates.
+        /// </summary>
+        public Point PointToClient (Point point)
+        {
+            var origin = PointToScreen (Point.Empty);
+            return new Point (point.X - origin.X, point.Y - origin.Y);
+        }
+
+        /// <summary>
+        /// Sets the specified <see cref="ControlStyles"/> flag. Provided for WinForms source
+        /// compatibility; the flags are stored but rendering remains Skia-based double-buffered.
+        /// </summary>
+        public void SetStyle (ControlStyles flag, bool value)
+        {
+            if (value)
+                control_styles |= flag;
+            else
+                control_styles &= ~flag;
+        }
+
+        /// <summary>
+        /// Returns whether the specified <see cref="ControlStyles"/> flag is set.
+        /// </summary>
+        public bool GetStyle (ControlStyles flag) => (control_styles & flag) == flag;
 
         /// <summary>
         /// Gets or sets the background image displayed in the control.
