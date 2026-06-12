@@ -131,7 +131,7 @@ namespace Modern.Forms
         }
 
         /// <summary>Marks the entire window as needing to be redrawn.</summary>
-        public void Invalidate () => AvWindow.InvalidateVisual ();
+        public void Invalidate () => AvWindow.IsDirty = true;
 
         /// <summary>Marks the specified portion of the window as needing to be redrawn.</summary>
         public void Invalidate (System.Drawing.Rectangle rectangle) => Invalidate ();

@@ -101,12 +101,13 @@ namespace Modern.Forms
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
             var parent = Application.OpenForms.FirstOrDefault ();
-            var form = new MessageBoxForm (caption, text);
+            var form = new MessageBoxForm (caption, text, buttons);
 
             if (parent != null)
-                form.ShowDialog (parent);
+                return form.ShowDialog (parent).GetAwaiter ().GetResult ();
 
-            return buttons == MessageBoxButtons.YesNo ? DialogResult.Yes : DialogResult.OK;
+            form.Show ();
+            return DialogResult.OK;
         }
     }
 

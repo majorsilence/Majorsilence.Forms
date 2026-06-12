@@ -36,11 +36,17 @@ namespace Modern.Forms
 
         internal AvPointerPressedEventArgs? LastPointerPressed;
 
-        // The bitmap is the "framebuffer". We create it at logical pixel size;
-        // Avalonia stretches it to fill the window.
+        // The bitmap is the "framebuffer". We create it at physical pixel size;
+        // Avalonia displays it at logical size via the Image control.
         private WriteableBitmap? _framebuffer;
         private readonly AvImage _surface;
         private DispatcherTimer? _renderTimer;
+
+        // Track last-known adapter dimensions so we can detect window-resize repaints.
+        private int _lastAdapterW, _lastAdapterH;
+
+        // Set by InvalidateVisual() calls so the timer knows to repaint.
+        internal bool IsDirty = true;
 
         internal ModernFormsWindowHost (WindowBase owner)
         {
@@ -112,6 +118,7 @@ namespace Modern.Forms
                     PixelFormat.Bgra8888,
                     AlphaFormat.Premul);
                 _surface.Source = _framebuffer;
+                IsDirty = true;
             }
         }
 
@@ -136,6 +143,15 @@ namespace Modern.Forms
         {
             if (_framebuffer is null)
                 return;
+
+            // Skip if nothing needs painting.
+            var adapter = _owner.adapter;
+            bool frameDirty = IsDirty || adapter.NeedsPaint;
+
+            if (!frameDirty)
+                return;
+
+            IsDirty = false;
 
             try {
                 using var fb = _framebuffer.Lock ();
@@ -167,8 +183,6 @@ namespace Modern.Forms
                 var physBorderTop  = (int)(borderTop  * scaling);
                 var physBorderRight  = (int)(border.Right.GetWidth ()  * scaling);
                 var physBorderBottom = (int)(border.Bottom.GetWidth () * scaling);
-
-                var adapter = _owner.adapter;
 
                 if (adapter.Left != borderLeft || adapter.Top != borderTop ||
                     adapter.Width != logicalW || adapter.Height != logicalH) {
