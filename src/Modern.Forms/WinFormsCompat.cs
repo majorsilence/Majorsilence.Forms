@@ -261,6 +261,15 @@ namespace Modern.Forms
             set => combo_box.SelectedIndex = value;
         }
 
+        /// <summary>Gets or sets the drop-down style of the underlying combo box.</summary>
+        public ComboBoxStyle DropDownStyle {
+            get => combo_box.DropDownStyle;
+            set => combo_box.DropDownStyle = value;
+        }
+
+        /// <summary>Gets the items collection of the underlying combo box.</summary>
+        public new ListBoxItemCollection Items => combo_box.Items;
+
         /// <summary>Raised when the selected index changes.</summary>
         public event EventHandler? SelectedIndexChanged {
             add => combo_box.SelectedIndexChanged += value;
@@ -401,6 +410,9 @@ namespace Modern.Forms
 
         /// <summary>Gets or sets the minimum value.</summary>
         public int Minimum { get; set; }
+
+        /// <summary>Gets or sets the display style (Blocks, Continuous, or Marquee).</summary>
+        public ProgressBarStyle Style { get; set; } = ProgressBarStyle.Blocks;
     }
 
     /// <summary>

@@ -109,4 +109,17 @@ namespace Modern.Forms
             }
         }
     }
+
+    /// <summary>
+    /// Specifies the display style of a ProgressBar control.
+    /// </summary>
+    public enum ProgressBarStyle
+    {
+        /// <summary>The progress bar displays progress as a series of rectangular blocks.</summary>
+        Blocks,
+        /// <summary>The progress bar displays progress as a solid bar.</summary>
+        Continuous,
+        /// <summary>The progress bar animates continuously (indeterminate).</summary>
+        Marquee
+    }
 }

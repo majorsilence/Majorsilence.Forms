@@ -65,6 +65,18 @@ namespace Modern.Forms
     public class DataGridViewCheckBoxColumn : DataGridViewColumn { }
 
     /// <summary>
+    /// Represents a button column in a DataGridView.
+    /// </summary>
+    public class DataGridViewButtonColumn : DataGridViewColumn
+    {
+        /// <summary>Gets or sets the button text.</summary>
+        public string Text { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets whether the column HeaderText is used as button text.</summary>
+        public bool UseColumnTextForButtonValue { get; set; }
+    }
+
+    /// <summary>
     /// Represents a combo box column in a DataGridView.
     /// </summary>
     public class DataGridViewComboBoxColumn : DataGridViewColumn

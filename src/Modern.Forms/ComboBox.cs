@@ -61,6 +61,16 @@ namespace Modern.Forms
         public event EventHandler? DropDownOpened;
 
         /// <summary>
+        /// Gets or sets the appearance and behavior of the combo box.
+        /// </summary>
+        public ComboBoxStyle DropDownStyle { get; set; } = ComboBoxStyle.DropDown;
+
+        /// <summary>
+        /// Gets or sets whether items are formatted before display (WinForms compatibility stub).
+        /// </summary>
+        public bool FormattingEnabled { get; set; }
+
+        /// <summary>
         /// Gets or sets whether the drop down portion of the ComboBox is currently shown.
         /// </summary>
         public bool DroppedDown {
@@ -195,5 +205,18 @@ namespace Modern.Forms
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+    }
+
+    /// <summary>
+    /// Specifies the appearance and behavior of a ComboBox.
+    /// </summary>
+    public enum ComboBoxStyle
+    {
+        /// <summary>Text portion is editable; list opens on arrow click.</summary>
+        DropDown,
+        /// <summary>Text portion is read-only; list opens on arrow click.</summary>
+        DropDownList,
+        /// <summary>Text portion is editable; list is always visible.</summary>
+        Simple
     }
 }

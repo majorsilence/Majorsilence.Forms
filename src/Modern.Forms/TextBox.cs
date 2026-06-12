@@ -320,7 +320,7 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets which scroll bars appear (informational; Modern.Forms shows scroll bars automatically).
         /// </summary>
-        public ScrollBars ScrollBars { get; set; }
+        public new ScrollBars ScrollBars { get; set; }
 
         /// <summary>
         /// Inserts any text on the clipboard into the TextBox.
@@ -398,9 +398,46 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Gets or sets the number of characters selected.
+        /// </summary>
+        public int SelectionLength {
+            get {
+                if (document.SelectionStart < 0 || document.SelectionEnd < 0)
+                    return 0;
+
+                return Math.Abs (document.SelectionEnd - document.SelectionStart);
+            }
+            set {
+                var start = document.SelectionStart < 0 ? 0 : document.SelectionStart;
+                document.SelectionEnd = start + value;
+            }
+        }
+
+        /// <summary>
+        /// Gets the currently selected text.
+        /// </summary>
+        public string SelectedText => document.SelectedText;
+
+        /// <summary>
         /// Selects all text in the TextBox.
         /// </summary>
         public void SelectAll () => document.SelectAll ();
+
+        /// <summary>
+        /// Appends text to the current text of the TextBox.
+        /// </summary>
+        public void AppendText (string text)
+        {
+            if (string.IsNullOrEmpty (text))
+                return;
+
+            Text += text;
+        }
+
+        /// <summary>
+        /// Gets or sets whether text wraps to the next line when the edge is reached.
+        /// </summary>
+        public bool WordWrap { get; set; } = true;
 
         // Sets cursor to specified character index and scrolls TextBox to cursor.
         private void SetCursorToCharIndex (int index)

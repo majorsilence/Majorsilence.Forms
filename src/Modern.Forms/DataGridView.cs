@@ -181,6 +181,12 @@ namespace Modern.Forms
         /// </summary>
         public DataGridViewColumnHeadersHeightSizeMode ColumnHeadersHeightSizeMode { get; set; } = DataGridViewColumnHeadersHeightSizeMode.EnableResizing;
 
+        /// <summary>
+        /// Gets or sets whether columns are created automatically when DataSource is set.
+        /// Modern.Forms stub — column creation from DataSource is not automatically generated.
+        /// </summary>
+        public bool AutoGenerateColumns { get; set; } = true;
+
         void System.ComponentModel.ISupportInitialize.BeginInit () { }
         void System.ComponentModel.ISupportInitialize.EndInit () { }
 
@@ -664,9 +670,9 @@ namespace Modern.Forms
 
         // Populates rows and columns from the DataSource.
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
+        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
         private void OnDataSourceChanged ()
         {
-            Columns.Clear ();
             Rows.Clear ();
 
             if (data_source is null || data_source.Count == 0)
@@ -675,11 +681,15 @@ namespace Modern.Forms
             // Special-case ADO.NET data binding (DataView / DataTable.DefaultView): generate
             // columns and rows from the DataColumns rather than the DataRowView's CLR properties.
             if (data_source is System.Data.DataView data_view) {
-                foreach (System.Data.DataColumn column in data_view.Table!.Columns)
-                    Columns.Add (column.ColumnName, EstimateColumnWidth (column.ColumnName));
+                if (AutoGenerateColumns) {
+                    Columns.Clear ();
+
+                    foreach (System.Data.DataColumn column in data_view.Table!.Columns)
+                        Columns.Add (column.ColumnName, EstimateColumnWidth (column.ColumnName));
+                }
 
                 foreach (System.Data.DataRowView row_view in data_view) {
-                    var cells = new string[data_view.Table.Columns.Count];
+                    var cells = new string[data_view.Table!.Columns.Count];
 
                     for (var i = 0; i < cells.Length; i++)
                         cells[i] = row_view[i]?.ToString () ?? string.Empty;
@@ -690,31 +700,51 @@ namespace Modern.Forms
                 return;
             }
 
-            // Get the element type
-            var element_type = GetElementType (data_source);
+            if (AutoGenerateColumns) {
+                // Auto-generate columns from public readable properties
+                Columns.Clear ();
+                var element_type = GetElementType (data_source);
 
-            if (element_type is null)
-                return;
+                if (element_type is null)
+                    return;
 
-            // Auto-generate columns from public readable properties
-            var properties = element_type.GetProperties (BindingFlags.Public | BindingFlags.Instance)
-                .Where (p => p.CanRead)
-                .ToArray ();
+                var properties = element_type.GetProperties (BindingFlags.Public | BindingFlags.Instance)
+                    .Where (p => p.CanRead)
+                    .ToArray ();
 
-            foreach (var prop in properties)
-                Columns.Add (prop.Name, EstimateColumnWidth (prop.Name));
+                foreach (var prop in properties)
+                    Columns.Add (prop.Name, EstimateColumnWidth (prop.Name));
 
-            // Populate rows
-            foreach (var item in data_source) {
-                if (item is null)
-                    continue;
+                foreach (var item in data_source) {
+                    if (item is null)
+                        continue;
 
-                var values = new string[properties.Length];
+                    var values = new string[properties.Length];
 
-                for (var i = 0; i < properties.Length; i++)
-                    values[i] = properties[i].GetValue (item)?.ToString () ?? string.Empty;
+                    for (var i = 0; i < properties.Length; i++)
+                        values[i] = properties[i].GetValue (item)?.ToString () ?? string.Empty;
 
-                Rows.Add (values);
+                    Rows.Add (values);
+                }
+            } else {
+                // Columns were manually defined — populate rows via DataPropertyName (or HeaderText fallback)
+                foreach (var item in data_source) {
+                    if (item is null)
+                        continue;
+
+                    var values = new string[Columns.Count];
+
+                    for (var i = 0; i < Columns.Count; i++) {
+                        var col = Columns[i];
+                        var prop_name = string.IsNullOrEmpty (col.DataPropertyName) ? col.HeaderText : col.DataPropertyName;
+                        var prop = string.IsNullOrEmpty (prop_name)
+                            ? null
+                            : item.GetType ().GetProperty (prop_name, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+                        values[i] = prop?.GetValue (item)?.ToString () ?? string.Empty;
+                    }
+
+                    Rows.Add (values);
+                }
             }
         }
 
@@ -1139,6 +1169,26 @@ namespace Modern.Forms
                     OnSelectionChanged (EventArgs.Empty);
                     Invalidate ();
                 }
+            }
+        }
+
+        /// <summary>
+        /// Gets the collection of selected rows (read-only).
+        /// </summary>
+        public IReadOnlyList<DataGridViewRow> SelectedRows =>
+            Rows.Where (r => r.Selected).ToList ().AsReadOnly ();
+
+        /// <summary>
+        /// Gets the collection of selected cells (read-only, returns cells in the selected rows).
+        /// </summary>
+        public IReadOnlyList<DataGridViewCell> SelectedCells {
+            get {
+                var cells = new List<DataGridViewCell> ();
+
+                foreach (var row in SelectedRows)
+                    cells.AddRange (row.Cells);
+
+                return cells.AsReadOnly ();
             }
         }
 
