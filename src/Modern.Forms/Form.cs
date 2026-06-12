@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using SkiaSharp;
 
 namespace Modern.Forms
@@ -16,7 +17,7 @@ namespace Modern.Forms
 
         private Avalonia.Controls.Window? dialog_parent;
         private DialogResult dialog_result = DialogResult.None;
-        private TaskCompletionSource<DialogResult>? dialog_task;
+        internal TaskCompletionSource<DialogResult>? dialog_task;
         private System.Drawing.Size minimum_size;
         private System.Drawing.Size maximum_size;
 
@@ -52,6 +53,9 @@ namespace Modern.Forms
             host.Height = DefaultSize.Height;
         }
 
+        /// <summary>Gets or sets the button that is activated when Enter is pressed.</summary>
+        public Button? AcceptButton { get; set; }
+
         /// <summary>Gets or sets whether the form can be maximized.</summary>
         public bool AllowMaximize {
             get => TitleBar.AllowMaximize;
@@ -63,6 +67,12 @@ namespace Modern.Forms
             get => TitleBar.AllowMinimize;
             set => TitleBar.AllowMinimize = value;
         }
+
+        /// <summary>Gets or sets the button that is activated when Escape is pressed.</summary>
+        public Button? CancelButton { get; set; }
+
+        /// <summary>Gets or sets whether the form receives key events before child controls.</summary>
+        public bool KeyPreview { get; set; }
 
         /// <summary>Begins dragging the window to move it.</summary>
         public void BeginMoveDrag () => AvWindow.StartMoveDrag ();
@@ -297,9 +307,19 @@ namespace Modern.Forms
                 return DialogResult.OK;
             }
 
-            var result = ShowDialog (parent).GetAwaiter ().GetResult ();
+            var result = RunModal (ShowDialog (parent));
             FormClosed?.Invoke (this, new FormClosedEventArgs ());
             return result;
+        }
+
+        // Blocks the current call while running a nested Avalonia dispatcher frame so the
+        // modal dialog can receive and handle input events without deadlocking the UI thread.
+        internal static T RunModal<T> (Task<T> modalTask)
+        {
+            var frame = new DispatcherFrame ();
+            modalTask.ContinueWith (_ => frame.Continue = false, TaskScheduler.Default);
+            Dispatcher.UIThread.PushFrame (frame);
+            return modalTask.GetAwaiter ().GetResult ();
         }
 
         /// <summary>Called when the theme changes.</summary>

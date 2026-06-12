@@ -18,6 +18,24 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Returns the column with the specified name (header text or Name property), or null.
+        /// </summary>
+        public DataGridViewColumn? this[string name] {
+            get {
+                foreach (var col in this)
+                    if (string.Equals (col.Name, name, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals (col.HeaderText, name, StringComparison.OrdinalIgnoreCase))
+                        return col;
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Returns true if a column with the given name exists.
+        /// </summary>
+        public bool Contains (string name) => this[name] is not null;
+
+        /// <summary>
         /// Adds a column with the specified header text to the collection.
         /// </summary>
         public DataGridViewColumn Add (string headerText)

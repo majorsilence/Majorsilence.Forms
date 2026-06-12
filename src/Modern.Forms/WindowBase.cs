@@ -255,6 +255,40 @@ namespace Modern.Forms
             var keys = AvaloniaKeyInterop.AddModifiers (AvaloniaKeyInterop.ToFormsKey (e.Key), e.KeyModifiers);
             var kd_e = new KeyEventArgs (keys);
 
+            // Form-level shortcuts: AcceptButton / CancelButton / modal Escape
+            if (this is Form form) {
+                var baseKey = keys & Keys.KeyCode;
+
+                if (baseKey == Keys.Return && form.AcceptButton != null) {
+                    form.AcceptButton.PerformClick ();
+                    e.Handled = true;
+                    return;
+                }
+
+                if (baseKey == Keys.Escape) {
+                    if (form.CancelButton != null) {
+                        form.CancelButton.PerformClick ();
+                        e.Handled = true;
+                        return;
+                    }
+
+                    if (form.dialog_task is not null) {
+                        form.DialogResult = DialogResult.Cancel;
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                // KeyPreview: let the form see the key first
+                if (form.KeyPreview) {
+                    OnKeyDown (kd_e);
+                    if (kd_e.Handled) { e.Handled = true; return; }
+                    adapter.RaiseKeyDown (kd_e);
+                    if (kd_e.Handled) e.Handled = true;
+                    return;
+                }
+            }
+
             OnKeyDown (kd_e);
 
             if (kd_e.Handled) {

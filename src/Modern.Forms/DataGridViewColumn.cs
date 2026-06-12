@@ -145,6 +145,21 @@ namespace Modern.Forms
     }
 
     /// <summary>
+    /// Specifies the appearance of a control.
+    /// </summary>
+    public enum FlatStyle
+    {
+        /// <summary>Flat appearance.</summary>
+        Flat,
+        /// <summary>Popup appearance.</summary>
+        Popup,
+        /// <summary>Standard (3D) appearance.</summary>
+        Standard,
+        /// <summary>Uses the system default.</summary>
+        System
+    }
+
+    /// <summary>
     /// Specifies the sort order for a column.
     /// </summary>
     public enum SortOrder

@@ -67,7 +67,20 @@ namespace Modern.Forms
     /// <summary>
     /// Represents a combo box column in a DataGridView.
     /// </summary>
-    public class DataGridViewComboBoxColumn : DataGridViewColumn { }
+    public class DataGridViewComboBoxColumn : DataGridViewColumn
+    {
+        /// <summary>Gets or sets the data source for the combo box items.</summary>
+        public object? DataSource { get; set; }
+
+        /// <summary>Gets or sets the property used for display text.</summary>
+        public string DisplayMember { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the property used as the underlying value.</summary>
+        public string ValueMember { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the flat style (stub).</summary>
+        public FlatStyle FlatStyle { get; set; }
+    }
 
     /// <summary>
     /// Specifies how the widths of columns are adjusted when the DataGridView is resized.

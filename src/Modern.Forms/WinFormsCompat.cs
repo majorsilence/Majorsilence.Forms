@@ -104,7 +104,7 @@ namespace Modern.Forms
             var form = new MessageBoxForm (caption, text, buttons);
 
             if (parent != null)
-                return form.ShowDialog (parent).GetAwaiter ().GetResult ();
+                return Form.RunModal (form.ShowDialog (parent));
 
             form.Show ();
             return DialogResult.OK;

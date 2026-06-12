@@ -1376,6 +1376,16 @@ namespace Modern.Forms
         internal void RaiseKeyDown (KeyEventArgs e)
         {
             if (this is ControlAdapter adapter) {
+                // Tab moves focus; handle here so it works even if no TextInput fires.
+                if ((e.KeyData & Keys.KeyCode) == Keys.Tab) {
+                    if (adapter.FindForm () is Form f)
+                        f.ShowFocusCues = true;
+
+                    SelectNextControl (adapter.SelectedControl, !e.Shift, true, true, true);
+                    e.Handled = true;
+                    return;
+                }
+
                 adapter.SelectedControl?.RaiseKeyDown (e);
                 return;
             }
