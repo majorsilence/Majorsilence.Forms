@@ -7,7 +7,7 @@ namespace Modern.Forms
     /// </summary>
     public class DataGridViewCell
     {
-        private string value = string.Empty;
+        private object? value;
         private DataGridViewRow? owner;
 
         // Default style used as the base parent for all cell Style instances.
@@ -27,7 +27,7 @@ namespace Modern.Forms
         /// <summary>
         /// Initializes a new instance of the DataGridViewCell class with the specified value.
         /// </summary>
-        public DataGridViewCell (string value)
+        public DataGridViewCell (object? value)
         {
             this.value = value;
         }
@@ -75,13 +75,38 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the value of this cell.
         /// </summary>
-        public string Value {
+        public object? Value {
             get => value;
             set {
-                if (this.value != value) {
+                if (!Equals (this.value, value)) {
                     this.value = value;
                     owner?.DataGridView?.Invalidate ();
                 }
+            }
+        }
+
+        /// <summary>Gets the formatted (display) value of this cell.</summary>
+        public object? FormattedValue => value?.ToString ();
+
+        /// <summary>Gets or sets whether this cell is read-only.</summary>
+        public bool ReadOnly { get; set; }
+
+        /// <summary>Gets or sets the tooltip text for this cell.</summary>
+        public string ToolTipText { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the error message text for this cell. Stub in Modern.Forms.</summary>
+        public string ErrorText { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets whether this cell is visible. Stub in Modern.Forms.</summary>
+        public bool Visible { get; set; } = true;
+
+        /// <summary>Gets the column that contains this cell.</summary>
+        public DataGridViewColumn? OwningColumn {
+            get {
+                var colIndex = ColumnIndex;
+                var dgv = DataGridView;
+                if (dgv is null || colIndex < 0 || colIndex >= dgv.Columns.Count) return null;
+                return dgv.Columns[colIndex];
             }
         }
 

@@ -26,10 +26,29 @@ namespace Modern.Forms
             return item;
         }
 
-        /// <summary>
-        /// Adds a new TabPage to the collection with the specified text.
-        /// </summary>
+        /// <summary>Adds a new TabPage with the specified text.</summary>
         public TabPage Add (string text) => Add (new TabPage (text));
+
+        /// <summary>Adds a new TabPage with the specified key and text.</summary>
+        public TabPage Add (string key, string text)
+        {
+            var page = new TabPage (text) { Name = key };
+            return Add (page);
+        }
+
+        /// <summary>Adds a new TabPage with the specified key, text, and image index.</summary>
+        public TabPage Add (string key, string text, int imageIndex)
+        {
+            var page = new TabPage (text) { Name = key, ImageIndex = imageIndex };
+            return Add (page);
+        }
+
+        /// <summary>Gets the TabPage with the specified key (Name), or null.</summary>
+        public TabPage? this[string key]
+            => this.FirstOrDefault (p => string.Equals (p.Name, key, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>Returns true if a TabPage with the specified key exists.</summary>
+        public bool ContainsKey (string key) => this.Any (p => string.Equals (p.Name, key, StringComparison.OrdinalIgnoreCase));
 
         /// <inheritdoc/>
         protected override void InsertItem (int index, TabPage item)

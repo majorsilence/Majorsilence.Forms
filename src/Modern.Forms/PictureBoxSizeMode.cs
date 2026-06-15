@@ -7,6 +7,29 @@ namespace Modern.Forms
     /// <summary>
     ///  Specifies how an image is positioned within a <see cref='PictureBox'/>.
     /// </summary>
+    /// <summary>Specifies the border style of a PictureBox.</summary>
+    public enum PictureBoxBorderStyle
+    {
+        /// <summary>No border.</summary>
+        None,
+        /// <summary>A single-line border.</summary>
+        FixedSingle,
+        /// <summary>A three-dimensional border.</summary>
+        Fixed3D
+    }
+
+    /// <summary>Specifies the border style used by certain controls (WinForms compatibility alias for <see cref="PictureBoxBorderStyle"/>).</summary>
+    public enum BorderStyle
+    {
+        /// <summary>No border.</summary>
+        None = 0,
+        /// <summary>A single-line border.</summary>
+        FixedSingle = 1,
+        /// <summary>A three-dimensional border.</summary>
+        Fixed3D = 2
+    }
+
+    /// <summary>Specifies how an image is displayed in a PictureBox.</summary>
     public enum PictureBoxSizeMode
     {
         /// <summary>

@@ -68,5 +68,12 @@ namespace Modern.Forms
 
         /// <summary>Gets the screen that contains the specified control.</summary>
         public static Screen? FromControl (Control control) => PrimaryScreen;
+
+        /// <summary>Gets the screen that has the largest intersection with the specified rectangle.</summary>
+        public static Screen? FromRectangle (System.Drawing.Rectangle rect)
+        {
+            var pt = new Point (rect.X + rect.Width / 2, rect.Y + rect.Height / 2);
+            return FromPoint (pt);
+        }
     }
 }

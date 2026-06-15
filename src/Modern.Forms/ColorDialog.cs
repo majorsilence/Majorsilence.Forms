@@ -90,5 +90,11 @@ namespace Modern.Forms
 
         /// <summary>Gets or sets the set of custom colors shown in the dialog. Informational.</summary>
         public int[] CustomColors { get; set; } = Array.Empty<int> ();
+
+        /// <summary>Gets or sets whether the user is restricted to selecting solid colors only. Stub in Modern.Forms.</summary>
+        public bool SolidColorOnly { get; set; }
+
+        /// <summary>Gets or sets whether the Help button is displayed. Stub in Modern.Forms.</summary>
+        public bool ShowHelp { get; set; }
     }
 }

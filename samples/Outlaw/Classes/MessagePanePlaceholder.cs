@@ -9,7 +9,7 @@ namespace Outlaw
 
         public MessagePanePlaceholder ()
         {
-            image = ImageLoader.Get ("email.png");
+            image = ImageLoader.Get ("email.png").ToSKBitmap ()!;
         }
 
         protected override void OnPaint (PaintEventArgs e)

@@ -33,7 +33,7 @@ public class NavigationPaneRenderer : Renderer<NavigationPane>
 
         e.Canvas.DrawText (item.Text, font, font_size, item.Bounds, font_color, ContentAlignment.MiddleCenter);
 
-        if (item.Image is SKBitmap image) {
+        if (item.ImageSK is SKBitmap image) {
             var image_rect = item.Bounds.CenterSquare (e.LogicalToDeviceUnits (20));
             e.Canvas.DrawBitmap (image, image_rect, !item.Enabled);
         }

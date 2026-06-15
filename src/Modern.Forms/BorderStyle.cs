@@ -5,17 +5,17 @@ namespace Modern.Forms
     /// <summary>
     /// Defines the border style of a control or form.
     /// </summary>
-    public class BorderStyle
+    public class ControlBorderStyle
     {
-        private readonly BorderStyle? _parent;
+        private readonly ControlBorderStyle? _parent;
 
         private SKColor? color;
         private int? width;
 
         /// <summary>
-        /// Initializes a new instance of the BorderStyle class.
+        /// Initializes a new instance of the ControlBorderStyle class.
         /// </summary>
-        public BorderStyle (BorderStyle? parent)
+        public ControlBorderStyle (ControlBorderStyle? parent)
         {
             _parent = parent;
 

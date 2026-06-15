@@ -34,15 +34,35 @@ namespace Modern.Forms
         /// </summary>
         public ListViewItem Add (string text, SKBitmap image)
         {
-            var item = new ListViewItem {
-                Text = text,
-                Image = image
-            };
-
+            var item = new ListViewItem { Text = text };
+            item.SetImageSK (image);
             Add (item);
-
             return item;
         }
+
+        /// <summary>Adds a new ListViewItem to the collection with the specified text and Modern.Drawing.Image (WinForms compatibility overload).</summary>
+        public ListViewItem Add (string text, Modern.Drawing.Image image)
+        {
+            var item = new ListViewItem { Text = text, Image = image };
+            Add (item);
+            return item;
+        }
+
+        /// <summary>Adds a new ListViewItem with text and image index.</summary>
+        public ListViewItem Add (string text, int imageIndex)
+        {
+            var item = new ListViewItem { Text = text, ImageIndex = imageIndex };
+            Add (item);
+            return item;
+        }
+
+        /// <summary>Finds items whose Name matches the specified key.</summary>
+        public ListViewItem[] Find (string key, bool searchAllSubItems)
+            => this.Where (i => string.Equals (i.Name, key, StringComparison.OrdinalIgnoreCase)).ToArray ();
+
+        /// <summary>Returns the item with the specified key, or null.</summary>
+        public ListViewItem? this[string key]
+            => this.FirstOrDefault (i => string.Equals (i.Name, key, StringComparison.OrdinalIgnoreCase));
 
         /// <inheritdoc/>
         protected override void ClearItems ()

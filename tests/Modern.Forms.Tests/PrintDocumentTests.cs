@@ -1,11 +1,11 @@
 using System.Drawing;
 using System.IO;
 using System.Text;
-using Modern.Forms.Drawing;
+using Modern.Drawing;
 using Modern.Forms.Printing;
 using Xunit;
-using Font = Modern.Forms.Drawing.Font;
-using SolidBrush = Modern.Forms.Drawing.SolidBrush;
+using Font = Modern.Drawing.Font;
+using SolidBrush = Modern.Drawing.SolidBrush;
 
 namespace Modern.Forms.Tests;
 

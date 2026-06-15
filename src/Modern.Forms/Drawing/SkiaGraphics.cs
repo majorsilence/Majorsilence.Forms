@@ -3,7 +3,7 @@ using System.Drawing;
 using SkiaSharp;
 using ContentAlignment = Modern.Forms.ContentAlignment;
 
-namespace Modern.Forms.Drawing
+namespace Modern.Drawing
 {
     /// <summary>
     /// Represents an opaque snapshot of the drawing state of a <see cref="SkiaGraphics"/>.

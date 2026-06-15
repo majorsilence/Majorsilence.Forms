@@ -1,10 +1,10 @@
 using System.Drawing;
-using Modern.Forms.Drawing;
+using Modern.Drawing;
 using SkiaSharp;
 using Xunit;
-using Font = Modern.Forms.Drawing.Font;
-using Pen = Modern.Forms.Drawing.Pen;
-using SolidBrush = Modern.Forms.Drawing.SolidBrush;
+using Font = Modern.Drawing.Font;
+using Pen = Modern.Drawing.Pen;
+using SolidBrush = Modern.Drawing.SolidBrush;
 
 namespace Modern.Forms.Tests;
 

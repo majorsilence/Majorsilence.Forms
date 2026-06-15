@@ -63,10 +63,10 @@ namespace Modern.Forms.Renderers
                     ControlPaint.DrawArrowGlyph (e, glyph_bounds, foreground_color, item.Expanded ? ArrowDirection.Down : ArrowDirection.Right);
             }
 
-            if (control.ShowItemImages == true && item.Image != null) {
+            if (control.ShowItemImages == true && item.ImageSK != null) {
                 var image_bounds = GetImageBounds (control, item, e);
 
-                e.Canvas.DrawBitmap (item.Image!, image_bounds, !control.Enabled);
+                e.Canvas.DrawBitmap (item.ImageSK, image_bounds, !control.Enabled);
             }
 
             if (string.IsNullOrWhiteSpace (item.Text))
@@ -98,7 +98,7 @@ namespace Modern.Forms.Renderers
         /// </summary>
         protected virtual Rectangle GetImageBounds (TreeView control, TreeViewItem item, PaintEventArgs e)
         {
-            if (!control.ShowItemImages || item.Image is null)
+            if (!control.ShowItemImages || item.ImageSK is null)
                 return Rectangle.Empty;
 
             var left_index = control.ShowDropdownGlyph ? GetGlyphBounds (control, item).Right : GetIndentStart (control, item);
@@ -120,7 +120,7 @@ namespace Modern.Forms.Renderers
 
             // One of these will be valid because we handled the other case above
             var padding = e.LogicalToDeviceUnits (6);
-            var used_bounds = show_image && item.Image is not null ? GetImageBounds (control, item, e) : GetGlyphBounds (control, item);
+            var used_bounds = show_image && item.ImageSK is not null ? GetImageBounds (control, item, e) : GetGlyphBounds (control, item);
             return new Rectangle (used_bounds.Right + padding, item.Bounds.Top, item.Bounds.Right - used_bounds.Right - padding, item.Bounds.Height);
         }
 

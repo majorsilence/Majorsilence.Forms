@@ -97,5 +97,65 @@ namespace Modern.Forms
 
         /// <summary>The default wait cursor provided by the operating system.</summary>
         public static Cursor Wait => wait ??= new Cursor (Avalonia.Input.StandardCursorType.Wait);
+
+        /// <summary>The default cursor (alias for Arrow).</summary>
+        public static Cursor Default => Arrow;
+
+        /// <summary>The north-south resize cursor (alias for SizeNorthSouth).</summary>
+        public static Cursor SizeNS => SizeNorthSouth;
+
+        /// <summary>The west-east resize cursor (alias for SizeWestEast).</summary>
+        public static Cursor SizeWE => SizeWestEast;
+
+        /// <summary>The northeast-southwest resize cursor.</summary>
+        public static Cursor SizeNESW => size_nesw ??= new Cursor (Avalonia.Input.StandardCursorType.BottomLeftCorner);
+
+        /// <summary>The northwest-southeast resize cursor.</summary>
+        public static Cursor SizeNWSE => size_nwse ??= new Cursor (Avalonia.Input.StandardCursorType.BottomRightCorner);
+
+        /// <summary>The horizontal split cursor (alias for SizeWestEast).</summary>
+        public static Cursor HSplit => SizeWestEast;
+
+        /// <summary>The vertical split cursor (alias for SizeNorthSouth).</summary>
+        public static Cursor VSplit => SizeNorthSouth;
+
+        /// <summary>The no-move 2D cursor (alias for SizeAll).</summary>
+        public static Cursor NoMove2D => SizeAll;
+
+        /// <summary>The wait/busy cursor (alias for Wait).</summary>
+        public static Cursor WaitCursor => Wait;
+
+        /// <summary>The horizontal no-move cursor (stub — falls back to SizeWestEast).</summary>
+        public static Cursor NoMoveHoriz => SizeWestEast;
+
+        /// <summary>The vertical no-move cursor (stub — falls back to SizeNorthSouth).</summary>
+        public static Cursor NoMoveVert => SizeNorthSouth;
+
+        /// <summary>The pan-east cursor (stub — falls back to SizeWestEast).</summary>
+        public static Cursor PanEast => SizeWestEast;
+
+        /// <summary>The pan-northeast cursor (stub — falls back to SizeAll).</summary>
+        public static Cursor PanNE => SizeAll;
+
+        /// <summary>The pan-north cursor (stub — falls back to SizeNorthSouth).</summary>
+        public static Cursor PanNorth => SizeNorthSouth;
+
+        /// <summary>The pan-northwest cursor (stub — falls back to SizeAll).</summary>
+        public static Cursor PanNW => SizeAll;
+
+        /// <summary>The pan-southeast cursor (stub — falls back to SizeAll).</summary>
+        public static Cursor PanSE => SizeAll;
+
+        /// <summary>The pan-south cursor (stub — falls back to SizeNorthSouth).</summary>
+        public static Cursor PanSouth => SizeNorthSouth;
+
+        /// <summary>The pan-southwest cursor (stub — falls back to SizeAll).</summary>
+        public static Cursor PanSW => SizeAll;
+
+        /// <summary>The pan-west cursor (stub — falls back to SizeWestEast).</summary>
+        public static Cursor PanWest => SizeWestEast;
+
+        private static Cursor? size_nesw;
+        private static Cursor? size_nwse;
     }
 }

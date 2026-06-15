@@ -30,5 +30,20 @@
             get => TabStripItem.Text;
             set => TabStripItem.Text = value;
         }
+
+        /// <summary>Gets or sets the ToolTip text for this tab page.</summary>
+        public string ToolTipText { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the index into the ImageList of the image to display on this tab.</summary>
+        public int ImageIndex { get; set; } = -1;
+
+        /// <summary>Gets or sets the key into the ImageList of the image to display on this tab.</summary>
+        public string ImageKey { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets whether the tab page is enabled.</summary>
+        public new bool Enabled { get; set; } = true;
+
+        /// <summary>Gets or sets whether the tab page uses the visual style of the tab control.</summary>
+        public new bool UseVisualStyleBackColor { get; set; }
     }
 }

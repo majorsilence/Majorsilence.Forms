@@ -26,14 +26,20 @@ namespace Modern.Forms
         }
 
         /// <summary>
-        /// Adds a new TabStripItem to the collection with the specified text.
+        /// Adds a new item to the collection with the specified text.
+        /// Returns a <see cref="TreeNode"/> so WinForms migration code can assign directly to <c>TreeNode</c> variables.
         /// </summary>
-        public TreeViewItem Add (string text) => Add (new TreeViewItem (text));
+        public TreeNode Add (string text) { var n = new TreeNode (text); Add (n); return n; }
 
         /// <summary>
-        /// Adds a new TabStripItem to the collection with the specified text and image.
+        /// Adds a new item to the collection with the specified text and SKBitmap image.
         /// </summary>
-        public TreeViewItem Add (string text, SKBitmap image) => Add (new TreeViewItem (text) { Image = image });
+        public TreeViewItem Add (string text, SKBitmap image) { var item = new TreeViewItem (text); item.SetImageSK (image); return Add (item); }
+
+        /// <summary>
+        /// Adds a new item to the collection with the specified text and image (WinForms compatibility overload).
+        /// </summary>
+        public TreeViewItem Add (string text, Modern.Drawing.Image image) { var item = new TreeViewItem (text); item.Image = image; return Add (item); }
 
         /// <summary>
         /// Adds a collection of TreeViewItems to the collection.

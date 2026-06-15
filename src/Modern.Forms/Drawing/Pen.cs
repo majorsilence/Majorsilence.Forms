@@ -1,7 +1,7 @@
 using System.Drawing;
 using SkiaSharp;
 
-namespace Modern.Forms.Drawing
+namespace Modern.Drawing
 {
     /// <summary>
     /// Specifies the dash style used when stroking lines and shapes.
@@ -30,6 +30,13 @@ namespace Modern.Forms.Drawing
         public Pen (Color color, float width = 1f)
         {
             Color = color;
+            Width = width;
+        }
+
+        /// <summary>Initializes a new Pen from a Brush (uses the brush's first color). Stub in Modern.Forms.</summary>
+        public Pen (Brush brush, float width = 1f)
+        {
+            Color = brush is SolidBrush sb ? sb.Color : Color.Black;
             Width = width;
         }
 

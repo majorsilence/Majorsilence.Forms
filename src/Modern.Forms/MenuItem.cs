@@ -27,9 +27,21 @@ namespace Modern.Forms
         public MenuItem (string text, SKBitmap? image = null, EventHandler<MouseEventArgs>? onClick = null)
         {
             Text = text;
+            SetImageSK (image);
+            Click += onClick;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the MenuItem class (WinForms compatibility overload).
+        /// </summary>
+#pragma warning disable CA1416
+        public MenuItem (string text, Modern.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
+        {
+            Text = text;
             Image = image;
             Click += onClick;
         }
+#pragma warning restore CA1416
 
         /// <summary>
         /// Gets the bounding box of this menu item.
@@ -116,10 +128,28 @@ namespace Modern.Forms
         /// </summary>
         public bool Hovered { get; internal set; }
 
+        private Modern.Drawing.Image? _image;
+        private SKBitmap? _imageSK;
+
         /// <summary>
-        /// Gets or sets an image to be displayed on the menu item.
+        /// Gets or sets an image to be displayed on the menu item. Accepts <see cref="Modern.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
-        public SKBitmap? Image { get; set; }
+#pragma warning disable CA1416
+        public Modern.Drawing.Image? Image {
+            get => _image;
+            set {
+                _image = value;
+                _imageSK?.Dispose ();
+                _imageSK = value?.ToSKBitmap ();
+            }
+        }
+#pragma warning restore CA1416
+
+        /// <summary>Gets the SKBitmap representation of the image (used by renderers).</summary>
+        internal SKBitmap? ImageSK => _imageSK;
+
+        /// <summary>Sets the image directly from an SKBitmap (internal use).</summary>
+        internal void SetImageSK (SKBitmap? bmp) { _image = null; _imageSK = bmp; }
 
         /// <summary>
         /// Gets a value indicating this menu item's drop down is currently open.
@@ -219,5 +249,26 @@ namespace Modern.Forms
         /// Gets or sets the text of the menu item.
         /// </summary>
         public string Text { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets whether the item has a check mark. WinForms compat — use sub-classes for implementation.</summary>
+        public bool Checked { get; set; }
+
+        /// <summary>Gets or sets whether this is the default item. Stub in Modern.Forms.</summary>
+        public bool DefaultItem { get; set; }
+
+        /// <summary>Gets or sets whether the item is drawn by the owner. Stub in Modern.Forms.</summary>
+        public bool OwnerDraw { get; set; }
+
+        /// <summary>Gets or sets whether the item appears as a radio button when checked. Stub in Modern.Forms.</summary>
+        public bool RadioCheck { get; set; }
+
+        /// <summary>Gets or sets whether the shortcut key is shown in the label. Stub in Modern.Forms.</summary>
+        public bool ShowShortcut { get; set; } = true;
+
+        /// <summary>Gets or sets the merge order for menu merging. Stub in Modern.Forms.</summary>
+        public int MergeOrder { get; set; }
+
+        /// <summary>Gets or sets the tag object. Stub in Modern.Forms.</summary>
+        public object? Tag { get; set; }
     }
 }

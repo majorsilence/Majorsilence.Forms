@@ -306,4 +306,106 @@ public partial class Control
         add => Events.AddHandler (s_visibleChangedEvent, value);
         remove => Events.RemoveHandler (s_visibleChangedEvent, value);
     }
+
+    /// <summary>
+    /// Raised when the control receives input focus (WinForms compatibility; maps to GotFocus).
+    /// </summary>
+    public event EventHandler? Enter {
+        add => Events.AddHandler (s_gotFocusEvent, value);
+        remove => Events.RemoveHandler (s_gotFocusEvent, value);
+    }
+
+    /// <summary>
+    /// Raised when the control is being validated (WinForms compat; fires on LostFocus). Stub.
+    /// </summary>
+    public event EventHandler<System.ComponentModel.CancelEventArgs>? Validating { add { } remove { } }
+
+    /// <summary>
+    /// Raised after the control has been validated (WinForms compat; fires on LostFocus). Stub.
+    /// </summary>
+    public event EventHandler? Validated { add { } remove { } }
+
+    /// <summary>Raised when a drag-and-drop operation enters the control. Stub in Modern.Forms.</summary>
+    public event EventHandler<DragEventArgs>? DragEnter { add { } remove { } }
+
+    /// <summary>Raised when the user drags an object over the control. Stub in Modern.Forms.</summary>
+    public event EventHandler<DragEventArgs>? DragOver { add { } remove { } }
+
+    /// <summary>Raised when a drag-and-drop operation leaves the control. Stub in Modern.Forms.</summary>
+    public event EventHandler? DragLeave { add { } remove { } }
+
+    /// <summary>Raised when a drag-and-drop operation is completed. Stub in Modern.Forms.</summary>
+    public event EventHandler<DragEventArgs>? DragDrop { add { } remove { } }
+
+    /// <summary>Raised during a drag-and-drop to provide cursor feedback. Stub in Modern.Forms.</summary>
+    public event EventHandler<GiveFeedbackEventArgs>? GiveFeedback { add { } remove { } }
+
+    /// <summary>Raised to determine whether a drag-and-drop should continue. Stub in Modern.Forms.</summary>
+    public event EventHandler<QueryContinueDragEventArgs>? QueryContinueDrag { add { } remove { } }
+
+    /// <summary>Raised when the control is painted. WinForms compat — hooks into OnPaint.</summary>
+    public event EventHandler<PaintEventArgs>? Paint;
+
+    /// <summary>Raised when the control is moved. Alias for LocationChanged. Stub in Modern.Forms.</summary>
+    public event EventHandler? Move { add { } remove { } }
+
+    /// <summary>Raised when the BackColor property changes. Stub in Modern.Forms.</summary>
+    public event EventHandler? BackColorChanged { add { } remove { } }
+
+    /// <summary>Raised when the ForeColor property changes. Stub in Modern.Forms.</summary>
+    public event EventHandler? ForeColorChanged { add { } remove { } }
+
+    /// <summary>Raised when the Font property changes. Stub in Modern.Forms.</summary>
+    public event EventHandler? FontChanged { add { } remove { } }
+
+    /// <summary>Raised when the control's handle is created. Stub in Modern.Forms (always created).</summary>
+    public event EventHandler? HandleCreated { add { } remove { } }
+
+    /// <summary>Raised when the control's handle is destroyed. Stub in Modern.Forms.</summary>
+    public event EventHandler? HandleDestroyed { add { } remove { } }
+
+    /// <summary>Raised when the mouse is captured or released. Stub in Modern.Forms.</summary>
+    public event EventHandler? MouseCaptureChanged { add { } remove { } }
+
+    /// <summary>Raised when the mouse pointer hovers over the control. Stub in Modern.Forms.</summary>
+    public event EventHandler? MouseHover { add { } remove { } }
+
+    /// <summary>Raised before a key event to allow the key to be previewed. Stub in Modern.Forms.</summary>
+    public event EventHandler<PreviewKeyDownEventArgs>? PreviewKeyDown { add { } remove { } }
+
+    /// <summary>Raised when the control is added to a container control. Stub in Modern.Forms.</summary>
+    public event EventHandler? ChangeUICues { add { } remove { } }
+
+    /// <summary>Raised when the control's HelpRequested event fires. Stub in Modern.Forms.</summary>
+    public event HelpEventHandler? HelpRequested { add { } remove { } }
+
+    /// <summary>Raised when component is being queried for help. Stub in Modern.Forms.</summary>
+    public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp { add { } remove { } }
+
+    /// <summary>Raised when the user clicks the control with the mouse. WinForms alias for Click.</summary>
+    public event EventHandler<MouseEventArgs>? MouseClick {
+        add => Click += value;
+        remove => Click -= value;
+    }
+
+    /// <summary>Raised when the user double-clicks the control with the mouse. WinForms alias for DoubleClick.</summary>
+    public event EventHandler<MouseEventArgs>? MouseDoubleClick {
+        add => DoubleClick += value;
+        remove => DoubleClick -= value;
+    }
+
+    /// <summary>Raised when the user scrolls the control. Stub in Modern.Forms.</summary>
+    public event ScrollEventHandler? Scroll { add { } remove { } }
+
+    /// <summary>Raised when the DPI scaling of the control changes. Stub in Modern.Forms.</summary>
+    public event EventHandler? DpiChangedAfterParent { add { } remove { } }
+
+    /// <summary>Raised before the DPI scaling of the control changes. Stub in Modern.Forms.</summary>
+    public event EventHandler? DpiChangedBeforeParent { add { } remove { } }
+
+    /// <summary>Raised when the data binding context changes. Stub in Modern.Forms.</summary>
+    public event EventHandler? BindingContextChanged { add { } remove { } }
+
+    /// <summary>Raised when the system colors change. Stub in Modern.Forms.</summary>
+    public event EventHandler? SystemColorsChanged { add { } remove { } }
 }

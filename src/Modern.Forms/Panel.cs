@@ -53,6 +53,9 @@ namespace Modern.Forms
             RenderManager.Render (this, e);
         }
 
+        /// <summary>Gets or sets the border style of the panel.</summary>
+        public BorderStyle BorderStyle { get; set; } = BorderStyle.None;
+
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
     }

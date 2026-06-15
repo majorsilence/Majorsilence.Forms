@@ -14,6 +14,12 @@ namespace Modern.Forms
         private PopupWindow? popup;
         private Label? popup_label;
 
+        /// <summary>Initializes a new instance of ToolTip.</summary>
+        public ToolTip () { }
+
+        /// <summary>Initializes a new instance of ToolTip and adds it to the specified container.</summary>
+        public ToolTip (IContainer container) { container.Add (this); }
+
         /// <summary>Gets or sets whether the ToolTip is currently active.</summary>
         public bool Active { get; set; } = true;
 
@@ -86,6 +92,36 @@ namespace Modern.Forms
         /// Hides any visible ToolTip for the specified control.
         /// </summary>
         public void Hide (Control control) => HidePopup ();
+
+        /// <summary>Gets or sets whether the ToolTip appears as a balloon. Stub in Modern.Forms.</summary>
+        public bool IsBalloon { get; set; }
+
+        /// <summary>Gets or sets whether the ToolTip strips ampersands from the text. Stub in Modern.Forms.</summary>
+        public bool StripAmpersands { get; set; }
+
+        /// <summary>Gets or sets whether the ToolTip uses animation. Stub in Modern.Forms.</summary>
+        public bool UseAnimation { get; set; } = true;
+
+        /// <summary>Gets or sets whether the ToolTip fades in and out. Stub in Modern.Forms.</summary>
+        public bool UseFading { get; set; } = true;
+
+        /// <summary>Gets or sets the title text for balloon tooltips. Stub in Modern.Forms.</summary>
+        public string ToolTipTitle { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the ToolTip icon. Stub in Modern.Forms.</summary>
+        public ToolTipIcon ToolTipIcon { get; set; } = ToolTipIcon.None;
+
+        /// <summary>Shows a ToolTip with the given text at the given position relative to the control. Stub in Modern.Forms.</summary>
+        public void Show (string text, Control control) => SetToolTip (control, text);
+
+        /// <summary>Shows a ToolTip with the given text at the given position relative to the control. Stub in Modern.Forms.</summary>
+        public void Show (string text, Control control, int duration) => SetToolTip (control, text);
+
+        /// <summary>Shows a ToolTip with the given text at the given position relative to the control. Stub in Modern.Forms.</summary>
+        public void Show (string text, Control control, int x, int y) => SetToolTip (control, text);
+
+        /// <summary>Shows a ToolTip with the given text at the given position relative to the control. Stub in Modern.Forms.</summary>
+        public void Show (string text, Control control, int x, int y, int duration) => SetToolTip (control, text);
 
         private void Control_MouseEnter (object? sender, MouseEventArgs e)
         {

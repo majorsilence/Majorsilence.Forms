@@ -30,11 +30,11 @@ namespace Modern.Forms.Renderers
             bounds.X += e.LogicalToDeviceUnits (8);
 
             // Image
-            if (item.Image != null) {
+            if (item.ImageSK != null) {
                 var image_size = e.LogicalToDeviceUnits (20);
                 var image_bounds = DrawingExtensions.CenterSquare (item.Bounds, image_size);
                 var image_rect = new Rectangle (bounds.Left, image_bounds.Top, image_size, image_size);
-                e.Canvas.DrawBitmap (item.Image, image_rect, !item.Enabled);
+                e.Canvas.DrawBitmap (item.ImageSK, image_rect, !item.Enabled);
 
                 bounds.X += e.LogicalToDeviceUnits (28);
             } else {
@@ -84,7 +84,7 @@ namespace Modern.Forms.Renderers
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
             width += (int)Math.Round (TextMeasurer.MeasureText (item.Text, Theme.UIFont, font_size).Width);
 
-            if (!(item.Image is null))
+            if (!(item.ImageSK is null))
                 width += control.LogicalToDeviceUnits (20);
 
             if (item.HasItems)

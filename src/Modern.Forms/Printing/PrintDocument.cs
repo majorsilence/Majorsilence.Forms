@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
-using Modern.Forms.Drawing;
+using Modern.Drawing;
 using SkiaSharp;
 
 namespace Modern.Forms.Printing
@@ -34,6 +34,12 @@ namespace Modern.Forms.Printing
 
         /// <summary>Raised after the last page is printed.</summary>
         public event EventHandler? EndPrint;
+
+        /// <summary>Raised before each page is printed to allow per-page settings changes. Stub in Modern.Forms.</summary>
+        public event EventHandler<QueryPageSettingsEventArgs>? QueryPageSettings;
+
+        /// <summary>Gets or sets whether the origin of the graphics object is at the user-defined margins. Stub in Modern.Forms.</summary>
+        public bool OriginAtMargins { get; set; }
 
         /// <summary>Raises the PrintPage event.</summary>
         protected virtual void OnPrintPage (PrintPageEventArgs e) => PrintPage?.Invoke (this, e);
@@ -126,6 +132,9 @@ namespace Modern.Forms.Printing
             OnEndPrint (EventArgs.Empty);
         }
 
+        /// <summary>Gets or sets the print controller. Stored but not used in Modern.Forms — the PDF pipeline is always used.</summary>
+        public PrintController PrintController { get; set; } = new StandardPrintController ();
+
         private static string MakeSafeFileName (string name)
         {
             if (string.IsNullOrWhiteSpace (name))
@@ -136,5 +145,34 @@ namespace Modern.Forms.Printing
 
             return name;
         }
+    }
+
+    /// <summary>Abstract base class for print controllers. Stub in Modern.Forms.</summary>
+    public abstract class PrintController
+    {
+    }
+
+    /// <summary>Sends print jobs directly to the printer. Stub in Modern.Forms — the PDF pipeline is always used.</summary>
+    public class StandardPrintController : PrintController
+    {
+    }
+
+    /// <summary>Wraps a PrintController and shows a status dialog. Stub in Modern.Forms.</summary>
+    public class PrintControllerWithStatusDialog : PrintController
+    {
+        /// <summary>Initializes a new instance wrapping the specified controller.</summary>
+        public PrintControllerWithStatusDialog (PrintController underlyingController)
+        {
+        }
+
+        /// <summary>Initializes a new instance wrapping the specified controller with a dialog title.</summary>
+        public PrintControllerWithStatusDialog (PrintController underlyingController, string dialogTitle)
+        {
+        }
+    }
+
+    /// <summary>Represents a print controller that drives a PrintPreviewControl. Stub in Modern.Forms.</summary>
+    public class PreviewPrintController : PrintController
+    {
     }
 }

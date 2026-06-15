@@ -90,7 +90,7 @@ namespace Modern.Forms
         /// <summary>
         /// Raised when the ScrollBar is scrolled.
         /// </summary>
-        public event EventHandler<ScrollEventArgs>? Scroll;
+        public new event EventHandler<ScrollEventArgs>? Scroll;
 
         /// <summary>
         /// Gets or sets the amount the ScrollBar will change when the increment or decrement arrows are clicked.

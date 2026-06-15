@@ -32,6 +32,15 @@ namespace Modern.Forms
             RenderManager.Render (this, e);
         }
 
+        /// <summary>Gets or sets the flat style of the group box. Stub in Modern.Forms.</summary>
+        public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
+
+        /// <summary>Gets or sets whether compatible text rendering is used. Stub in Modern.Forms.</summary>
+        public bool UseCompatibleTextRendering { get; set; }
+
+        /// <summary>Gets or sets whether the group box is auto-sized. Stub in Modern.Forms.</summary>
+        public new bool AutoSize { get; set; }
+
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
     }

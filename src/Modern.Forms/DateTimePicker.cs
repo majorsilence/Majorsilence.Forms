@@ -55,6 +55,9 @@ namespace Modern.Forms
         /// <summary>Gets or sets whether a spin button is shown instead of a drop-down calendar.</summary>
         public bool ShowUpDown { get; set; }
 
+        /// <summary>Gets or sets the font used for the calendar portion. Stub in Modern.Forms.</summary>
+        public Modern.Drawing.Font? CalendarFont { get; set; }
+
         /// <summary>Gets or sets the minimum date value.</summary>
         public DateTime MinDate { get; set; } = new DateTime (1753, 1, 1);
 
@@ -77,6 +80,24 @@ namespace Modern.Forms
 
         /// <summary>Raised when the Value property changes.</summary>
         public event EventHandler? ValueChanged;
+
+        /// <summary>Gets or sets whether a checkbox is displayed to the left of the selected date. Stub in Modern.Forms.</summary>
+        public bool ShowCheckBox { get; set; }
+
+        /// <summary>Gets or sets whether the date/time value is enabled (meaningful when ShowCheckBox is true). Stub in Modern.Forms.</summary>
+        public bool Checked { get; set; } = true;
+
+        /// <summary>Gets or sets the calendar's foreground color. Stub in Modern.Forms.</summary>
+        public System.Drawing.Color CalendarForeColor { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>Gets or sets the calendar's background color. Stub in Modern.Forms.</summary>
+        public System.Drawing.Color CalendarMonthBackground { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>Gets or sets the calendar's title foreground color. Stub in Modern.Forms.</summary>
+        public System.Drawing.Color CalendarTitleForeColor { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>Gets or sets the calendar's title background color. Stub in Modern.Forms.</summary>
+        public System.Drawing.Color CalendarTitleBackColor { get; set; } = System.Drawing.Color.Empty;
 
         private void UpdateText ()
         {

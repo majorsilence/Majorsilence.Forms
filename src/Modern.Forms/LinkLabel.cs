@@ -76,11 +76,13 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the color used to display active links.
         /// </summary>
-        public SKColor ActiveLinkColor {
-            get => active_link_color == SKColor.Empty ? Theme.AccentColor2 : active_link_color;
+#pragma warning disable CA1416
+        public System.Drawing.Color ActiveLinkColor {
+            get => (active_link_color == SKColor.Empty ? Theme.AccentColor2 : active_link_color).ToDrawingColor ();
             set {
-                if (active_link_color != value) {
-                    active_link_color = value;
+                var sk = value.IsEmpty ? SKColor.Empty : value.ToSKColor ();
+                if (active_link_color != sk) {
+                    active_link_color = sk;
                     Invalidate ();
                 }
             }
@@ -89,15 +91,17 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the color used to display disabled links.
         /// </summary>
-        public SKColor DisabledLinkColor {
-            get => disabled_link_color == SKColor.Empty ? Theme.ForegroundDisabledColor : disabled_link_color;
+        public System.Drawing.Color DisabledLinkColor {
+            get => (disabled_link_color == SKColor.Empty ? Theme.ForegroundDisabledColor : disabled_link_color).ToDrawingColor ();
             set {
-                if (disabled_link_color != value) {
-                    disabled_link_color = value;
+                var sk = value.IsEmpty ? SKColor.Empty : value.ToSKColor ();
+                if (disabled_link_color != sk) {
+                    disabled_link_color = sk;
                     Invalidate ();
                 }
             }
         }
+#pragma warning restore CA1416
 
         /// <summary>
         /// Gets or sets the range in the text treated as the primary link.
@@ -148,15 +152,18 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the color used to display normal links.
         /// </summary>
-        public SKColor LinkColor {
-            get => link_color == SKColor.Empty ? Theme.AccentColor : link_color;
+#pragma warning disable CA1416
+        public System.Drawing.Color LinkColor {
+            get => (link_color == SKColor.Empty ? Theme.AccentColor : link_color).ToDrawingColor ();
             set {
-                if (link_color != value) {
-                    link_color = value;
+                var sk = value.IsEmpty ? SKColor.Empty : value.ToSKColor ();
+                if (link_color != sk) {
+                    link_color = sk;
                     Invalidate ();
                 }
             }
         }
+#pragma warning restore CA1416
 
         /// <summary>
         /// Gets the collection of links contained in this control.
@@ -182,15 +189,18 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the color used to display visited links.
         /// </summary>
-        public SKColor VisitedLinkColor {
-            get => visited_link_color == SKColor.Empty ? SKColors.Purple : visited_link_color;
+#pragma warning disable CA1416
+        public System.Drawing.Color VisitedLinkColor {
+            get => (visited_link_color == SKColor.Empty ? SKColors.Purple : visited_link_color).ToDrawingColor ();
             set {
-                if (visited_link_color != value) {
-                    visited_link_color = value;
+                var sk = value.IsEmpty ? SKColor.Empty : value.ToSKColor ();
+                if (visited_link_color != sk) {
+                    visited_link_color = sk;
                     Invalidate ();
                 }
             }
         }
+#pragma warning restore CA1416
 
         /// <summary>
         /// Occurs when a link is clicked.
@@ -215,15 +225,18 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the color used to display hovered links.
         /// </summary>
-        public SKColor HoverLinkColor {
-            get => hover_link_color == SKColor.Empty ? Theme.AccentColor2 : hover_link_color;
+#pragma warning disable CA1416
+        public System.Drawing.Color HoverLinkColor {
+            get => (hover_link_color == SKColor.Empty ? Theme.AccentColor2 : hover_link_color).ToDrawingColor ();
             set {
-                if (hover_link_color != value) {
-                    hover_link_color = value;
+                var sk = value.IsEmpty ? SKColor.Empty : value.ToSKColor ();
+                if (hover_link_color != sk) {
+                    hover_link_color = sk;
                     Invalidate ();
                 }
             }
         }
+#pragma warning restore CA1416
 
         /// <summary>
         /// Gets the link currently hovered by the pointer.
@@ -464,18 +477,18 @@ namespace Modern.Forms
         internal SKColor ResolveLinkColor (Link link)
         {
             if (!Enabled || !link.Enabled)
-                return DisabledLinkColor;
+                return DisabledLinkColor.ToSKColor ();
 
             if ((link.State & LinkState.Active) == LinkState.Active)
-                return ActiveLinkColor;
+                return ActiveLinkColor.ToSKColor ();
 
             if ((link.State & LinkState.Visited) == LinkState.Visited)
-                return VisitedLinkColor;
+                return VisitedLinkColor.ToSKColor ();
 
             if ((link.State & LinkState.Hover) == LinkState.Hover)
-                return HoverLinkColor;
+                return HoverLinkColor.ToSKColor ();
 
-            return LinkColor;
+            return LinkColor.ToSKColor ();
         }
 
         /// <summary>

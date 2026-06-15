@@ -423,6 +423,9 @@ namespace Modern.Forms
         /// </summary>
         public void SelectAll () => document.SelectAll ();
 
+        /// <summary>Clears all text from the TextBox.</summary>
+        public void Clear () => Text = string.Empty;
+
         /// <summary>
         /// Appends text to the current text of the TextBox.
         /// </summary>
@@ -439,12 +442,69 @@ namespace Modern.Forms
         /// </summary>
         public bool WordWrap { get; set; } = true;
 
+        /// <summary>Gets or sets whether pressing Enter in a multiline TextBox creates a new line. Stub in Modern.Forms.</summary>
+        public bool AcceptsReturn { get; set; }
+
+        /// <summary>Gets or sets whether pressing Tab in a TextBox inserts a tab character. Stub in Modern.Forms.</summary>
+        public bool AcceptsTab { get; set; }
+
+        /// <summary>Gets or sets the character casing applied to text. Stub in Modern.Forms.</summary>
+        public CharacterCasing CharacterCasing { get; set; } = CharacterCasing.Normal;
+
+        /// <summary>Gets or sets whether the selection is hidden when the control loses focus. Stub in Modern.Forms.</summary>
+        public bool HideSelection { get; set; } = true;
+
+        /// <summary>Gets or sets the auto-complete mode. Stub in Modern.Forms.</summary>
+        public AutoCompleteMode AutoCompleteMode { get; set; } = AutoCompleteMode.None;
+
+        /// <summary>Gets or sets the auto-complete source. Stub in Modern.Forms.</summary>
+        public AutoCompleteSource AutoCompleteSource { get; set; } = AutoCompleteSource.None;
+
+        /// <summary>Gets or sets a custom list of strings used for auto-complete. Stub in Modern.Forms.</summary>
+        public System.Collections.Specialized.StringCollection AutoCompleteCustomSource { get; set; } = new System.Collections.Specialized.StringCollection ();
+
+        /// <summary>Gets or sets whether the system's default password character is used. Stub in Modern.Forms.</summary>
+        public bool UseSystemPasswordChar {
+            get => PasswordCharacter.HasValue;
+            set { if (value && PasswordCharacter is null) PasswordCharacter = '*'; else if (!value) PasswordCharacter = null; }
+        }
+
+        /// <summary>Selects text in the TextBox starting at the specified position.</summary>
+        public void Select (int start, int length) { SelectionStart = start; SelectionLength = length; }
+
+        /// <summary>Undoes the last edit. Stub in Modern.Forms.</summary>
+        public void Undo () { }
+
+        /// <summary>Clears the undo buffer. Stub in Modern.Forms.</summary>
+        public void ClearUndo () { }
+
+        /// <summary>Raised when the TextAlign property changes. Stub in Modern.Forms.</summary>
+        public event EventHandler? TextAlignChanged { add { } remove { } }
+
+        /// <summary>Raised when the AcceptsTab property changes. Stub in Modern.Forms.</summary>
+        public event EventHandler? AcceptsTabChanged { add { } remove { } }
+
+        /// <summary>Gets or sets whether the text has been modified since it was last set. Stub in Modern.Forms.</summary>
+        public bool Modified { get; set; }
+
+        /// <summary>Gets or sets the lines of text in the TextBox.</summary>
+        public string[] Lines {
+            get => Text.Split ('\n');
+            set => Text = string.Join ("\n", value);
+        }
+
         // Sets cursor to specified character index and scrolls TextBox to cursor.
         private void SetCursorToCharIndex (int index)
         {
             if (document.SetCursorToCharIndex (index))
                 ScrollToCaret ();
         }
+
+        /// <summary>Gets or sets the horizontal alignment of text in the TextBox. Stub in Modern.Forms.</summary>
+        public HorizontalAlignment TextAlign { get; set; } = HorizontalAlignment.Left;
+
+        /// <summary>Gets or sets the border style of the text box. Stub in Modern.Forms.</summary>
+        public BorderStyle BorderStyle { get; set; } = BorderStyle.Fixed3D;
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);

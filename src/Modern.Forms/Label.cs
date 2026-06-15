@@ -22,6 +22,7 @@ namespace Modern.Forms
         private static readonly BitVector32.Section s_stateMultiline = BitVector32.CreateSection (1, s_stateAutoEllipsis);
 
         private static readonly int s_propImage = PropertyStore.CreateKey ();
+        private static readonly int s_propImageSK = PropertyStore.CreateKey ();
         private static readonly int s_propImageAlign = PropertyStore.CreateKey ();
         private static readonly int s_propImageList = PropertyStore.CreateKey ();
         private static readonly int s_propImageIndex = PropertyStore.CreateKey ();
@@ -74,15 +75,21 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the image that is displayed on a <see cref='Label'/>.
         /// </summary>
-        public SKBitmap? Image {
-            get => Properties.GetObject<SKBitmap> (s_propImage);
+#pragma warning disable CA1416
+        public Modern.Drawing.Image? Image {
+            get => Properties.GetObject<Modern.Drawing.Image> (s_propImage);
             set {
                 if (Image != value) {
                     Properties.SetObject (s_propImage, value);
+                    Properties.SetObject (s_propImageSK, value?.ToSKBitmap ());
                     Invalidate ();
                 }
             }
         }
+#pragma warning restore CA1416
+
+        /// <summary>Gets the SKBitmap representation of the image (used by renderers).</summary>
+        public SKBitmap? ImageSK => Properties.GetObject<SKBitmap> (s_propImageSK);
 
         /// <summary>
         /// Gets or sets the alignment of the image on the <see cref='Label'/>.
@@ -259,5 +266,11 @@ namespace Modern.Forms
         /// Called when the TextAlign property is changed.
         /// </summary>
         protected virtual void OnTextAlignChanged (EventArgs e) => (Events[s_eventTextAlignChanged] as EventHandler)?.Invoke (this, e);
+
+        /// <summary>Gets or sets the border style for the label. Stub in Modern.Forms (does not render borders).</summary>
+        public BorderStyle BorderStyle { get; set; } = BorderStyle.None;
+
+        /// <summary>Gets or sets the flat style for the label. Stub in Modern.Forms.</summary>
+        public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
     }
 }

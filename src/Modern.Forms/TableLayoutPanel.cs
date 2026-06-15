@@ -72,27 +72,8 @@ public class TableLayoutPanel : Panel, IExtenderProvider
     //    }
     //}
 
-    //[DefaultValue (TableLayoutPanelCellBorderStyle.None)]
-    //[Localizable (true)]
-    //public TableLayoutPanelCellBorderStyle CellBorderStyle {
-    //    get { return _tableLayoutSettings.CellBorderStyle; }
-    //    set {
-    //        _tableLayoutSettings.CellBorderStyle = value;
-
-    //        // PERF: don't turn on ResizeRedraw unless we know we need it.
-    //        //if (value != TableLayoutPanelCellBorderStyle.None)
-    //        //{
-    //        //    SetStyle(ControlStyles.ResizeRedraw, true);
-    //        //}
-
-    //        Invalidate ();
-    //        Debug.Assert (CellBorderStyle == value, "CellBorderStyle should be the same as we set it");
-    //    }
-    //}
-
-    //private int CellBorderWidth {
-    //    get { return _tableLayoutSettings.CellBorderWidth; }
-    //}
+    /// <summary>Gets or sets the cell border style for the TableLayoutPanel. Stub in Modern.Forms.</summary>
+    public TableLayoutPanelCellBorderStyle CellBorderStyle { get; set; } = TableLayoutPanelCellBorderStyle.None;
 
     /// <summary>
     /// Gets the collection of controls contained by the control.

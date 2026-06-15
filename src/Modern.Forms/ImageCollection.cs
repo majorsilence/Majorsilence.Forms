@@ -3,6 +3,8 @@ using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using SkiaSharp;
 
+#pragma warning disable CA1416
+
 namespace Modern.Forms;
 
 /// <summary>
@@ -207,4 +209,66 @@ public class ImageCollection : IDictionary<string, SKBitmap>
     /// Gets the images in the collection.
     /// </summary>
     public ICollection<SKBitmap> Values => _images.Values.Cast<SKBitmap> ().ToArray ();
+
+    /// <summary>Adds a Modern.Drawing.Image to the collection with an auto-generated key.</summary>
+    public void Add (Modern.Drawing.Image image)
+    {
+        if (image is null) return;
+        var key = _images.Count.ToString (System.Globalization.CultureInfo.InvariantCulture);
+        while (_images.Contains (key)) key = "_" + key;
+        var bmp = image.ToSKBitmap ();
+        if (bmp is not null) Add (key, bmp);
+    }
+
+    /// <summary>Adds a Modern.Drawing.Image to the collection with the specified key.</summary>
+    public void Add (string key, Modern.Drawing.Image image)
+    {
+        var bmp = image?.ToSKBitmap ();
+        if (bmp is not null) Add (key, bmp);
+    }
+
+    /// <summary>Removes the image at the specified index.</summary>
+    public void RemoveAt (int index)
+    {
+        if (index < 0 || index >= _images.Count) return;
+        var key = _images.Keys.Cast<string> ().ElementAt (index);
+        Remove (key);
+    }
+
+    /// <summary>Adds a Modern.Drawing.Icon to the collection with an auto-generated key.</summary>
+    public void Add (Modern.Drawing.Icon icon)
+    {
+        if (icon is null) return;
+        using var bmp = icon.ToBitmap ();
+        Add (bmp);
+    }
+
+    /// <summary>Adds a Modern.Drawing.Icon to the collection with the specified key.</summary>
+    public void Add (string key, Modern.Drawing.Icon icon)
+    {
+        if (icon is null) return;
+        using var bmp = icon.ToBitmap ();
+        Add (key, (Modern.Drawing.Image)bmp);
+    }
+
+    /// <summary>Adds a range of images to the collection.</summary>
+    public void AddRange (Modern.Drawing.Image[] images)
+    {
+        if (images is null) return;
+        foreach (var img in images)
+            Add (img);
+    }
+
+    /// <summary>Gets the zero-based index of the image with the specified key, or -1 if not found.</summary>
+    public int IndexOfKey (string key)
+    {
+        var keys = _images.Keys.Cast<string> ().ToArray ();
+        for (var i = 0; i < keys.Length; i++)
+            if (string.Equals (keys[i], key, StringComparison.Ordinal)) return i;
+        return -1;
+    }
+
+    /// <summary>Removes the image with the specified key from the collection.</summary>
+    public void RemoveByKey (string key) => Remove (key);
 }
+#pragma warning restore CA1416

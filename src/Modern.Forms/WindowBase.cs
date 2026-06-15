@@ -41,6 +41,7 @@ namespace Modern.Forms
             adapter = new ControlAdapter (this);
 
             AvWindow.Closed += (s, e) => Closed?.Invoke (this, EventArgs.Empty);
+            AvWindow.Activated += (s, e) => Activated?.Invoke (this, EventArgs.Empty);
             AvWindow.Deactivated += (s, e) => {
                 Application.ClosePopups ();
                 Deactivated?.Invoke (this, EventArgs.Empty);
@@ -93,6 +94,9 @@ namespace Modern.Forms
 
         /// <summary>Raised when the window is deactivated.</summary>
         public event EventHandler? Deactivated;
+
+        /// <summary>Raised when the window becomes the active window.</summary>
+        public event EventHandler? Activated;
 
         /// <summary>Gets the default size of the window.</summary>
         protected virtual System.Drawing.Size DefaultSize => new System.Drawing.Size (100, 100);

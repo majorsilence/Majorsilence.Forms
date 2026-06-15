@@ -1,6 +1,8 @@
-﻿using System.Drawing;
+using System.Drawing;
 using Modern.Forms.Renderers;
 using SkiaSharp;
+
+#pragma warning disable CA1416
 
 namespace Modern.Forms
 {
@@ -11,7 +13,8 @@ namespace Modern.Forms
     {
         private static HttpClient? client;
 
-        private SKBitmap? image;
+        private Modern.Drawing.Image? _systemImage;
+        private SKBitmap? _skImage;
         private string? image_location;
         private PictureBoxSizeMode size_mode;
 
@@ -31,19 +34,24 @@ namespace Modern.Forms
 
         /// <summary>
         /// Gets or sets the image the PictureBox should display.
+        /// Accepts <see cref="Modern.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
-        public SKBitmap? Image {
-            get => image;
+        public Modern.Drawing.Image? Image {
+            get => _systemImage;
             set {
-                if (image != value) {
-                    image = value;
-                    IsErrored = false;
-
-                    UpdateSize ();
-                    Invalidate ();
-                }
+                _systemImage = value;
+                _skImage?.Dispose ();
+                _skImage = value?.ToSKBitmap ();
+                IsErrored = false;
+                UpdateSize ();
+                Invalidate ();
             }
         }
+
+        /// <summary>
+        /// Gets the SKBitmap representation of the current image (for renderer use).
+        /// </summary>
+        internal SKBitmap? SKImage => _skImage;
 
         /// <summary>
         /// Gets or sets the path or URL of the image the PictureBox should display.
@@ -51,6 +59,20 @@ namespace Modern.Forms
         public string? ImageLocation {
             get => image_location;
             set => LoadInternal (value);
+        }
+
+        /// <summary>Sets the image from a <see cref="Modern.Drawing.Bitmap"/>.</summary>
+        public void SetImage (Modern.Drawing.Bitmap bitmap) => Image = bitmap;
+
+        /// <summary>Sets the image from a SKBitmap for Modern.Forms usage.</summary>
+        public void SetSKImage (SKBitmap? bitmap)
+        {
+            _systemImage = null;
+            _skImage?.Dispose ();
+            _skImage = bitmap;
+            IsErrored = false;
+            UpdateSize ();
+            Invalidate ();
         }
 
         /// <summary>
@@ -76,7 +98,9 @@ namespace Modern.Forms
                 return;
 
             if (url is null) {
-                Image = null;
+                _systemImage = null;
+                _skImage?.Dispose ();
+                _skImage = null;
                 return;
             }
 
@@ -84,11 +108,18 @@ namespace Modern.Forms
             image_location = url;
 
             try {
+                SKBitmap? bmp;
                 if (url.Contains ("://")) {
                     var bytes = await Client.GetByteArrayAsync (url);
-                    Image = SKBitmap.Decode (bytes);
+                    bmp = SKBitmap.Decode (bytes);
                 } else
-                    Image = SKBitmap.Decode (url);
+                    bmp = SKBitmap.Decode (url);
+
+                _systemImage = null;
+                _skImage?.Dispose ();
+                _skImage = bmp;
+                UpdateSize ();
+                Invalidate ();
             } catch (Exception) {
                 IsErrored = true;
                 Invalidate ();
@@ -103,12 +134,7 @@ namespace Modern.Forms
             set {
                 if (size_mode != value) {
                     size_mode = value;
-
-                    //AutoSize = size_mode == PictureBoxSizeMode.AutoSize;
-                    //SetAutoSizeMode (size_mode == PictureBoxSizeMode.AutoSize ? AutoSizeMode.GrowAndShrink : AutoSizeMode.GrowOnly);
-
                     UpdateSize ();
-
                     OnSizeModeChanged (EventArgs.Empty);
                 }
             }
@@ -118,6 +144,36 @@ namespace Modern.Forms
         /// Raised when the value of the SizeMode property changes.
         /// </summary>
         public event EventHandler? SizeModeChanged;
+
+        /// <summary>Gets or sets the border style of the PictureBox. Stub in Modern.Forms.</summary>
+        public PictureBoxBorderStyle PictureBoxBorderStyle { get; set; } = PictureBoxBorderStyle.None;
+
+        /// <summary>Gets or sets the border style of the picture box (WinForms compatibility).</summary>
+        public BorderStyle BorderStyle {
+            get => (BorderStyle)(int)PictureBoxBorderStyle;
+            set => PictureBoxBorderStyle = (PictureBoxBorderStyle)(int)value;
+        }
+
+        /// <summary>Gets or sets whether the PictureBox should wait for an image to load before displaying. Stub.</summary>
+        public bool WaitOnLoad { get; set; } = true;
+
+        /// <summary>Gets or sets the image shown when the primary image load fails. Stub in Modern.Forms.</summary>
+        public Modern.Drawing.Image? ErrorImage { get; set; }
+
+        /// <summary>Gets or sets the image shown while the primary image is loading. Stub in Modern.Forms.</summary>
+        public Modern.Drawing.Image? InitialImage { get; set; }
+
+        /// <summary>Loads the image from the specified URL asynchronously. Stub delegates to Load() in Modern.Forms.</summary>
+        public void LoadAsync (string url) => Load (url);
+
+        /// <summary>Cancels a pending asynchronous image load. Stub in Modern.Forms.</summary>
+        public void CancelAsync () { }
+
+        /// <summary>Raised when an asynchronous load completes. Stub in Modern.Forms.</summary>
+        public event EventHandler? LoadCompleted { add { } remove { } }
+
+        /// <summary>Raised to report progress of an asynchronous load. Stub in Modern.Forms.</summary>
+        public event EventHandler? LoadProgressChanged { add { } remove { } }
 
         /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
@@ -135,10 +191,11 @@ namespace Modern.Forms
         // Trigger a resizing.
         private void UpdateSize ()
         {
-            if (image == null)
+            if (_skImage == null)
                 return;
 
             Parent?.PerformLayout (this, nameof (AutoSize));
         }
     }
 }
+#pragma warning restore CA1416

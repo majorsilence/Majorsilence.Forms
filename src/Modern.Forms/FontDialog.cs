@@ -1,6 +1,8 @@
 using System;
 using System.Drawing;
 
+#pragma warning disable CA1416 // Modern.Drawing.Font is Windows-only; FontDialog surfaces it as a WinForms compat API
+
 namespace Modern.Forms
 {
     /// <summary>
@@ -13,7 +15,7 @@ namespace Modern.Forms
         private readonly CheckBox bold_box;
         private readonly CheckBox italic_box;
 
-        // System.Drawing.Font is only supported on Windows, so it is constructed lazily; merely
+        // Modern.Drawing.Font is only supported on Windows, so it is constructed lazily; merely
         // creating the dialog (or running on a non-Windows host) must not throw.
         private Font? selected_font;
 
@@ -65,7 +67,7 @@ namespace Modern.Forms
         }
 
         /// <summary>
-        /// Gets or sets the selected font. Note: <see cref="System.Drawing.Font"/> is only supported
+        /// Gets or sets the selected font. Note: <see cref="Modern.Drawing.Font"/> is only supported
         /// on Windows; accessing this on other platforms throws PlatformNotSupportedException.
         /// </summary>
         public Font Font {
@@ -90,5 +92,38 @@ namespace Modern.Forms
 
         /// <summary>Gets or sets whether the selected font must be an installed font. Informational.</summary>
         public bool FontMustExist { get; set; } = true;
+
+        /// <summary>Gets or sets whether the user can change the character set. Stub in Modern.Forms.</summary>
+        public bool AllowScriptChange { get; set; } = true;
+
+        /// <summary>Gets or sets whether simulated fonts are shown. Stub in Modern.Forms.</summary>
+        public bool AllowSimulations { get; set; } = true;
+
+        /// <summary>Gets or sets whether vector fonts are shown. Stub in Modern.Forms.</summary>
+        public bool AllowVectorFonts { get; set; } = true;
+
+        /// <summary>Gets or sets whether vertical fonts are shown. Stub in Modern.Forms.</summary>
+        public bool AllowVerticalFonts { get; set; } = true;
+
+        /// <summary>Gets or sets whether only fixed-pitch fonts are shown. Stub in Modern.Forms.</summary>
+        public bool FixedPitchOnly { get; set; }
+
+        /// <summary>Gets or sets the maximum font size the user can select. Stub in Modern.Forms.</summary>
+        public int MaxSize { get; set; }
+
+        /// <summary>Gets or sets the minimum font size the user can select. Stub in Modern.Forms.</summary>
+        public int MinSize { get; set; }
+
+        /// <summary>Gets or sets whether the Apply button is shown. Stub in Modern.Forms.</summary>
+        public bool ShowApply { get; set; }
+
+        /// <summary>Gets or sets whether font effects (strikeout, underline) are shown. Stub in Modern.Forms.</summary>
+        public bool ShowEffects { get; set; } = true;
+
+        /// <summary>Gets or sets whether the Help button is shown. Stub in Modern.Forms.</summary>
+        public bool ShowHelp { get; set; }
+
+        /// <summary>Raised when the Apply button is clicked. Stub in Modern.Forms.</summary>
+        public event EventHandler? Apply { add { } remove { } }
     }
 }

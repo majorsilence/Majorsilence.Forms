@@ -27,8 +27,8 @@ namespace Modern.Forms.Renderers
             var image_bounds = DrawingExtensions.CenterSquare (image_area, image_size);
             image_bounds.Y = item.Bounds.Top + e.LogicalToDeviceUnits (3);
 
-            if (item.Image != null)
-                e.Canvas.DrawBitmap (item.Image, image_bounds);
+            if (item.ImageSK != null)
+                e.Canvas.DrawBitmap (item.ImageSK, image_bounds);
 
             if (!string.IsNullOrWhiteSpace (item.Text)) {
                 var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);

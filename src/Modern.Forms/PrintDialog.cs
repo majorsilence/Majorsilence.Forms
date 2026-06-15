@@ -40,6 +40,9 @@ namespace Modern.Forms
         /// <summary>Gets or sets the PrintDocument to preview.</summary>
         public PrintDocument? Document { get; set; }
 
+        /// <summary>Gets or sets whether to use anti-aliasing in the preview. Stub in Modern.Forms.</summary>
+        public bool UseAntiAlias { get; set; } = true;
+
         /// <inheritdoc/>
         public new DialogResult ShowDialog ()
         {
@@ -50,6 +53,49 @@ namespace Modern.Forms
 
             return DialogResult.OK;
         }
+    }
+
+    /// <summary>
+    /// Represents a dialog for configuring page setup (margins, orientation, paper size).
+    /// Stub implementation — shows no UI, returns OK immediately.
+    /// </summary>
+    public class PageSetupDialog : Form
+    {
+        /// <summary>Gets or sets the PrintDocument whose page settings are configured.</summary>
+        public PrintDocument? Document { get; set; }
+
+        /// <summary>Gets or sets the page settings.</summary>
+        public PageSettings PageSettings {
+            get => Document?.DefaultPageSettings ?? new PageSettings ();
+            set {
+                if (Document != null)
+                    Document.DefaultPageSettings = value;
+            }
+        }
+
+        /// <summary>Gets or sets the printer settings.</summary>
+        public PrinterSettings PrinterSettings {
+            get => Document?.PrinterSettings ?? new PrinterSettings ();
+            set {
+                if (Document != null)
+                    Document.PrinterSettings = value;
+            }
+        }
+
+        /// <summary>Gets or sets whether the margins tab is shown.</summary>
+        public bool AllowMargins { get; set; } = true;
+
+        /// <summary>Gets or sets whether the orientation tab is shown.</summary>
+        public bool AllowOrientation { get; set; } = true;
+
+        /// <summary>Gets or sets whether the paper tab is shown.</summary>
+        public bool AllowPaper { get; set; } = true;
+
+        /// <summary>Gets or sets whether the printer button is shown.</summary>
+        public bool AllowPrinter { get; set; } = true;
+
+        /// <summary>Shows the page setup dialog and returns OK (stub — no UI is displayed).</summary>
+        public new DialogResult ShowDialog () => DialogResult.OK;
     }
 
     /// <summary>

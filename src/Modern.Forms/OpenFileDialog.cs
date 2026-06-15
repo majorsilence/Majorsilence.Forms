@@ -13,9 +13,21 @@ namespace Modern.Forms
         public bool AllowMultiple { get; set; }
 
         /// <summary>
-        /// Shows the dialog to the user.
+        /// Gets or sets whether multiple files can be selected (WinForms alias for AllowMultiple).
         /// </summary>
-        public async Task<DialogResult> ShowDialog (Form owner)
+        public bool Multiselect {
+            get => AllowMultiple;
+            set => AllowMultiple = value;
+        }
+
+        /// <summary>Gets the filename with no path information (just file name and extension).</summary>
+        public string SafeFileName => FileName is not null ? Path.GetFileName (FileName) : string.Empty;
+
+        /// <summary>Gets all selected file names with no path information.</summary>
+        public string[] SafeFileNames => FileNames.Select (Path.GetFileName).OfType<string> ().ToArray ();
+
+        /// <inheritdoc/>
+        public override async Task<DialogResult> ShowDialog (Form owner)
         {
             var parent = owner.AvWindow.StorageProvider;
 

@@ -280,7 +280,7 @@ namespace Modern.Forms
         /// Occurs when the control is scrolled by the user or programmatically through value changes
         /// that should be treated as scroll interactions.
         /// </summary>
-        public event EventHandler? Scroll;
+        public new event EventHandler? Scroll;
 
         /// <summary>
         /// Occurs when the <see cref="Value"/> property changes.

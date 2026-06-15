@@ -82,6 +82,11 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Begins editing the currently selected cell (WinForms compat overload). Stub in Modern.Forms.
+        /// </summary>
+        public bool BeginEdit (bool selectAll) { return true; }
+
+        /// <summary>
         /// Begins editing the specified cell.
         /// </summary>
         public void BeginEdit (int rowIndex, int columnIndex)
@@ -101,7 +106,7 @@ namespace Modern.Forms
                 return;
 
             var cell_value = columnIndex < Rows[rowIndex].Cells.Count
-                ? Rows[rowIndex].Cells[columnIndex].Value
+                ? Rows[rowIndex].Cells[columnIndex].Value?.ToString () ?? string.Empty
                 : string.Empty;
 
             // Raise CellBeginEdit event
@@ -141,17 +146,170 @@ namespace Modern.Forms
         /// <summary>Raised when a cell's tooltip text is needed.</summary>
         public event EventHandler<DataGridViewCellToolTipTextNeededEventArgs>? CellToolTipTextNeeded;
 
+        /// <summary>Raised when a cell begins editing.</summary>
         public event EventHandler<DataGridViewCellEditEventArgs>? CellBeginEdit;
 
-        /// <summary>
-        /// Raised when a cell ends editing.
-        /// </summary>
+        /// <summary>Raised when a cell ends editing.</summary>
         public event EventHandler<DataGridViewCellEditEventArgs>? CellEndEdit;
 
-        /// <summary>
-        /// Raised when a cell value has changed.
-        /// </summary>
+        /// <summary>Raised when a cell value has changed.</summary>
         public event EventHandler<DataGridViewCellEditEventArgs>? CellValueChanged;
+
+        private EventHandler<DataGridViewCellFormattingEventArgs>? _cellFormatting;
+        /// <summary>Raised when a cell is being formatted for display.</summary>
+        public event EventHandler<DataGridViewCellFormattingEventArgs>? CellFormatting { add => _cellFormatting += value; remove => _cellFormatting -= value; }
+
+        private EventHandler<DataGridViewRowsAddedEventArgs>? _rowsAdded;
+        /// <summary>Raised when a row is added.</summary>
+        public event EventHandler<DataGridViewRowsAddedEventArgs>? RowsAdded { add => _rowsAdded += value; remove => _rowsAdded -= value; }
+
+        private EventHandler<DataGridViewRowsRemovedEventArgs>? _rowsRemoved;
+        /// <summary>Raised when rows are removed.</summary>
+        public event EventHandler<DataGridViewRowsRemovedEventArgs>? RowsRemoved { add => _rowsRemoved += value; remove => _rowsRemoved -= value; }
+
+        private EventHandler<DataGridViewRowCancelEventArgs>? _userDeletingRow;
+        /// <summary>Raised when the user is about to delete a row.</summary>
+        public event EventHandler<DataGridViewRowCancelEventArgs>? UserDeletingRow { add => _userDeletingRow += value; remove => _userDeletingRow -= value; }
+
+        private EventHandler<DataGridViewRowEventArgs>? _userDeletedRow;
+        /// <summary>Raised after the user has deleted a row.</summary>
+        public event EventHandler<DataGridViewRowEventArgs>? UserDeletedRow { add => _userDeletedRow += value; remove => _userDeletedRow -= value; }
+
+        private EventHandler<DataGridViewDataErrorEventArgs>? _dataError;
+        /// <summary>Raised when a data error occurs (e.g., binding failure).</summary>
+        public event EventHandler<DataGridViewDataErrorEventArgs>? DataError { add => _dataError += value; remove => _dataError -= value; }
+
+        private EventHandler<EventArgs>? _dataBindingComplete;
+        /// <summary>Raised when data binding is complete.</summary>
+        public event EventHandler<EventArgs>? DataBindingComplete { add => _dataBindingComplete += value; remove => _dataBindingComplete -= value; }
+
+        private EventHandler? _currentCellChanged;
+        /// <summary>Raised when the current cell changes.</summary>
+        public event EventHandler? CurrentCellChanged { add => _currentCellChanged += value; remove => _currentCellChanged -= value; }
+
+        private EventHandler? _rowDirtyStateNeeded;
+        /// <summary>Raised when a row enters the dirty state.</summary>
+        public event EventHandler? RowDirtyStateNeeded { add => _rowDirtyStateNeeded += value; remove => _rowDirtyStateNeeded -= value; }
+
+        /// <summary>Raised when a cell is double-clicked.</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? CellDoubleClick { add { } remove { } }
+
+        /// <summary>Raised on a mouse click in a cell.</summary>
+        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseClick { add { } remove { } }
+
+        /// <summary>Raised on a mouse double-click in a cell.</summary>
+        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseDoubleClick { add { } remove { } }
+
+        /// <summary>Raised on a mouse down in a cell.</summary>
+        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseDown { add { } remove { } }
+
+        /// <summary>Raised on a mouse up in a cell.</summary>
+        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseUp { add { } remove { } }
+
+        /// <summary>Raised when the mouse moves over a cell.</summary>
+        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseMove { add { } remove { } }
+
+        /// <summary>Raised when the mouse enters a cell.</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? CellMouseEnter { add { } remove { } }
+
+        /// <summary>Raised when the mouse leaves a cell.</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? CellMouseLeave { add { } remove { } }
+
+        /// <summary>Raised when a cell is validating its content.</summary>
+        public event EventHandler<DataGridViewCellValidatingEventArgs>? CellValidating { add { } remove { } }
+
+        /// <summary>Raised after a cell has been validated.</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? CellValidated { add { } remove { } }
+
+        /// <summary>Raised before a row's header is painted.</summary>
+        public event EventHandler<DataGridViewRowPrePaintEventArgs>? RowPrePaint { add { } remove { } }
+
+        /// <summary>Raised after a row has been painted.</summary>
+        public event EventHandler<DataGridViewRowPostPaintEventArgs>? RowPostPaint { add { } remove { } }
+
+        /// <summary>Raised to supply default values for new rows.</summary>
+        public event EventHandler<DataGridViewRowEventArgs>? DefaultValuesNeeded { add { } remove { } }
+
+        /// <summary>Raised when a column is added to the grid.</summary>
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnAdded { add { } remove { } }
+
+        /// <summary>Raised when a column is removed from the grid.</summary>
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnRemoved { add { } remove { } }
+
+        /// <summary>Raised when the user clicks a row header.</summary>
+        public event EventHandler<DataGridViewCellMouseEventArgs>? RowHeaderMouseClick { add { } remove { } }
+
+        /// <summary>Raised when a new row is added.</summary>
+        public event EventHandler<DataGridViewRowEventArgs>? RowEnter { add { } remove { } }
+
+        /// <summary>Raised when leaving a row.</summary>
+        public event EventHandler<DataGridViewRowEventArgs>? RowLeave { add { } remove { } }
+
+        /// <summary>Raised when a cell's content is clicked.</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? CellContentClick { add { } remove { } }
+
+        /// <summary>Raised when a cell's content is double-clicked.</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? CellContentDoubleClick { add { } remove { } }
+
+        /// <summary>Raised when a cell is being painted.</summary>
+        public event EventHandler<DataGridViewCellPaintingEventArgs>? CellPainting { add { } remove { } }
+
+        /// <summary>Raised when a cell value is being parsed.</summary>
+        public event EventHandler<DataGridViewCellParsingEventArgs>? CellParsing { add { } remove { } }
+
+        /// <summary>Raised when the state of a row changes.</summary>
+        public event EventHandler<DataGridViewRowStateChangedEventArgs>? RowStateChanged { add { } remove { } }
+
+        /// <summary>Raised when the state of a cell changes. Stub in Modern.Forms.</summary>
+        public event EventHandler<DataGridViewCellStateChangedEventArgs>? CellStateChanged { add { } remove { } }
+
+        /// <summary>Raised when a cell enters editing mode and the editing control is about to be shown. Stub in Modern.Forms.</summary>
+        public event EventHandler<DataGridViewEditingControlShowingEventArgs>? EditingControlShowing { add { } remove { } }
+
+        /// <summary>Raised when a column header cell is clicked.</summary>
+        public event EventHandler<DataGridViewCellMouseEventArgs>? ColumnHeaderMouseClick { add { } remove { } }
+
+        /// <summary>Raised when a column header cell is double-clicked.</summary>
+        public event EventHandler<DataGridViewCellMouseEventArgs>? ColumnHeaderMouseDoubleClick { add { } remove { } }
+
+        /// <summary>Raised when the width of a column changes.</summary>
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnWidthChanged { add { } remove { } }
+
+        /// <summary>Raised when a new row is needed (virtual mode). Stub in Modern.Forms.</summary>
+        public event EventHandler<DataGridViewRowEventArgs>? NewRowNeeded { add { } remove { } }
+
+        /// <summary>Raised when the height of a row changes.</summary>
+        public event EventHandler<DataGridViewRowEventArgs>? RowHeightChanged { add { } remove { } }
+
+        /// <summary>Raised when a row header cell is double-clicked.</summary>
+        public event EventHandler<DataGridViewCellMouseEventArgs>? RowHeaderMouseDoubleClick { add { } remove { } }
+
+        /// <summary>Raised when the user is deleting a row. Fires before the row is deleted.</summary>
+        public event EventHandler<DataGridViewRowEventArgs>? UserAddedRow { add { } remove { } }
+
+        /// <summary>Raised when the sort glyph direction changes.</summary>
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnSortModeChanged { add { } remove { } }
+
+        /// <summary>Raised when a column's display index changes.</summary>
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnDisplayIndexChanged { add { } remove { } }
+
+        /// <summary>Raised when the column header height changes.</summary>
+        public event EventHandler? ColumnHeadersHeightChanged { add { } remove { } }
+
+        /// <summary>Raised when the row header width changes.</summary>
+        public event EventHandler? RowHeadersWidthChanged { add { } remove { } }
+
+        /// <summary>Raised when auto-sizing in a column finishes.</summary>
+        public event EventHandler<DataGridViewAutoSizeColumnModeEventArgs>? AutoSizeColumnModeChanged { add { } remove { } }
+
+        /// <summary>Raised in virtual mode to retrieve the value for a cell.</summary>
+        public event EventHandler<DataGridViewCellValueEventArgs>? CellValueNeeded { add { } remove { } }
+
+        /// <summary>Raised in virtual mode to push a new cell value back to the data source.</summary>
+        public event EventHandler<DataGridViewCellValueEventArgs>? CellValuePushed { add { } remove { } }
+
+        /// <summary>Raised to allow custom sorting comparison. Stub in Modern.Forms.</summary>
+        public event EventHandler<DataGridViewSortCompareEventArgs>? SortCompare { add { } remove { } }
 
         /// <summary>
         /// Gets or sets whether column headers are visible.
@@ -175,6 +333,12 @@ namespace Modern.Forms
         /// Gets or sets how column widths are automatically adjusted.
         /// </summary>
         public DataGridViewAutoSizeColumnsMode AutoSizeColumnsMode { get; set; } = DataGridViewAutoSizeColumnsMode.None;
+
+        /// <summary>Gets or sets how row heights are automatically adjusted. Stub in Modern.Forms.</summary>
+        public DataGridViewAutoSizeRowsMode AutoSizeRowsMode { get; set; } = DataGridViewAutoSizeRowsMode.None;
+
+        /// <summary>Gets or sets what is copied to the clipboard. Stub in Modern.Forms.</summary>
+        public DataGridViewClipboardCopyMode ClipboardCopyMode { get; set; } = DataGridViewClipboardCopyMode.EnableWithAutoHeaderText;
 
         /// <summary>
         /// Gets or sets how the height of the column header row is adjusted.
@@ -213,6 +377,21 @@ namespace Modern.Forms
                 style.Border.Width = 1;
             });
 
+        /// <summary>Gets or sets the data member within the data source. Stub in Modern.Forms.</summary>
+        public string DataMember { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the cell border style. Stub in Modern.Forms.</summary>
+        public DataGridViewCellBorderStyle CellBorderStyle { get; set; } = DataGridViewCellBorderStyle.Single;
+
+        /// <summary>Gets or sets whether users can add new rows. Stub in Modern.Forms.</summary>
+        public bool AllowUserToAddRows { get; set; } = true;
+
+        /// <summary>Gets or sets whether users can delete rows. Stub in Modern.Forms.</summary>
+        public bool AllowUserToDeleteRows { get; set; } = true;
+
+        /// <summary>Gets or sets whether users can order columns. Stub in Modern.Forms.</summary>
+        public bool AllowUserToOrderColumns { get; set; }
+
         /// <summary>
         /// Gets or sets whether the user can resize columns by dragging column header borders.
         /// </summary>
@@ -222,6 +401,24 @@ namespace Modern.Forms
         /// Gets or sets whether the user can resize rows by dragging row header borders.
         /// </summary>
         public bool AllowUserToResizeRows { get; set; } = true;
+
+        /// <summary>Gets or sets whether multiple rows can be selected.</summary>
+        public bool MultiSelect { get; set; } = true;
+
+        /// <summary>Gets or sets the background color of the DataGridView. Stub in Modern.Forms.</summary>
+        public System.Drawing.Color BackgroundColor { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>Gets or sets the color of the grid lines. Stub in Modern.Forms.</summary>
+        public System.Drawing.Color GridColor { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>Gets or sets the edit mode of the DataGridView. Stub in Modern.Forms.</summary>
+        public DataGridViewEditMode EditMode { get; set; } = DataGridViewEditMode.EditOnKeystrokeOrF2;
+
+        /// <summary>Gets or sets the size mode for the row header width. Stub in Modern.Forms.</summary>
+        public DataGridViewRowHeadersWidthSizeMode RowHeadersWidthSizeMode { get; set; } = DataGridViewRowHeadersWidthSizeMode.EnableResizing;
+
+        /// <summary>Gets or sets the tab key behavior in the DataGridView. Stub in Modern.Forms.</summary>
+        public bool StandardTab { get; set; }
 
         /// <summary>
         /// Gets the default cell style applied to alternating rows.
@@ -244,6 +441,14 @@ namespace Modern.Forms
         public ControlStyle RowHeadersDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
+        /// Gets the default cell style applied to all rows.
+        /// </summary>
+        public ControlStyle RowsDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+
+        /// <summary>Commits any pending edit for the specified context. Delegates to EndEdit in Modern.Forms.</summary>
+        public bool CommitEdit (DataGridViewDataErrorContexts context) => EndEdit ();
+
+        /// <summary>
         /// Commits the current edit and hides the edit TextBox.
         /// </summary>
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
@@ -259,7 +464,7 @@ namespace Modern.Forms
             while (row.Cells.Count <= editing_column_index)
                 row.Cells.Add (string.Empty);
 
-            var old_value = row.Cells[editing_column_index].Value;
+            var old_value = row.Cells[editing_column_index].Value?.ToString () ?? string.Empty;
 
             if (old_value != new_value) {
                 row.Cells[editing_column_index].Value = new_value;
@@ -277,7 +482,7 @@ namespace Modern.Forms
                                 prop.SetValue (item, converted);
                             } catch {
                                 // Conversion failed - revert cell value
-                                row.Cells[editing_column_index].Value = old_value;
+                                row.Cells[editing_column_index].Value = (object)old_value;
                                 committed = false;
                             }
                         }
@@ -428,6 +633,23 @@ namespace Modern.Forms
             var col_width = LogicalToDeviceUnits (Columns[columnIndex].Width);
             return new Rectangle (x, y, col_width, scaled_row_height);
         }
+
+        /// <summary>
+        /// Returns the display rectangle for a cell, in client (logical) coordinates.
+        /// Pass <paramref name="cutOverflow"/> = true to clip the rectangle to the control bounds.
+        /// </summary>
+        public Rectangle GetCellDisplayRectangle (int columnIndex, int rowIndex, bool cutOverflow)
+        {
+            var bounds = DeviceToLogicalUnits (GetCellBounds (rowIndex, columnIndex));
+
+            if (cutOverflow)
+                bounds = Rectangle.Intersect (bounds, ClientRectangle);
+
+            return bounds;
+        }
+
+        private Rectangle DeviceToLogicalUnits (Rectangle r) =>
+            new Rectangle (DeviceToLogicalUnits (r.X), DeviceToLogicalUnits (r.Y), DeviceToLogicalUnits (r.Width), DeviceToLogicalUnits (r.Height));
 
         /// <summary>
         /// Gets the content area, accounting for scrollbars.
@@ -586,6 +808,24 @@ namespace Modern.Forms
         /// </summary>
         public Point CurrentCellAddress => new Point (selected_column_index, selected_row_index);
 
+        /// <summary>Gets the cell at the specified column and row indices. In WinForms, [columnIndex, rowIndex].</summary>
+        public DataGridViewCell? this[int columnIndex, int rowIndex] {
+            get {
+                if (rowIndex < 0 || rowIndex >= Rows.Count) return null;
+                var row = Rows[rowIndex];
+                if (columnIndex < 0 || columnIndex >= row.Cells.Count) return null;
+                return row.Cells[columnIndex];
+            }
+        }
+
+        /// <summary>Gets the cell at the specified column name and row index.</summary>
+        public DataGridViewCell? this[string columnName, int rowIndex] {
+            get {
+                if (rowIndex < 0 || rowIndex >= Rows.Count) return null;
+                return Rows[rowIndex].Cells[columnName];
+            }
+        }
+
         /// <summary>
         /// Gets the row containing the currently selected cell, or null if no row is selected.
         /// </summary>
@@ -670,7 +910,6 @@ namespace Modern.Forms
 
         // Populates rows and columns from the DataSource.
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
-        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
         private void OnDataSourceChanged ()
         {
             Rows.Clear ();
@@ -743,9 +982,12 @@ namespace Modern.Forms
                         values[i] = prop?.GetValue (item)?.ToString () ?? string.Empty;
                     }
 
-                    Rows.Add (values);
+                    var row = Rows.Add (values);
+                    row.DataBoundItem = item;
                 }
             }
+
+            _dataBindingComplete?.Invoke (this, EventArgs.Empty);
         }
 
         // Gets the element type from an IList.
@@ -1263,8 +1505,8 @@ namespace Modern.Forms
             var sorted = Rows.ToList ();
 
             sorted.Sort ((a, b) => {
-                var val_a = columnIndex < a.Cells.Count ? a.Cells[columnIndex].Value : string.Empty;
-                var val_b = columnIndex < b.Cells.Count ? b.Cells[columnIndex].Value : string.Empty;
+                var val_a = columnIndex < a.Cells.Count ? a.Cells[columnIndex].Value?.ToString () ?? string.Empty : string.Empty;
+                var val_b = columnIndex < b.Cells.Count ? b.Cells[columnIndex].Value?.ToString () ?? string.Empty : string.Empty;
 
                 // Try numeric comparison first
                 if (double.TryParse (val_a, out var num_a) && double.TryParse (val_b, out var num_b)) {
@@ -1280,6 +1522,103 @@ namespace Modern.Forms
             // Replace rows without triggering per-item change notifications
             Rows.ReplaceAll (sorted);
         }
+
+        /// <summary>Clears the current selection.</summary>
+        public void ClearSelection ()
+        {
+            foreach (var row in Rows)
+                row.Selected = false;
+
+            selected_row_index = -1;
+            selected_column_index = -1;
+            Invalidate ();
+        }
+
+        /// <summary>Sorts the data by the specified column in the specified direction.</summary>
+        public void Sort (DataGridViewColumn column, System.ComponentModel.ListSortDirection direction)
+        {
+            var idx = Columns.IndexOf (column);
+
+            if (idx >= 0)
+                SortByColumn (idx, direction == System.ComponentModel.ListSortDirection.Ascending ? SortOrder.Ascending : SortOrder.Descending);
+        }
+
+        /// <summary>Invalidates a specific cell, forcing it to repaint.</summary>
+        public void InvalidateCell (int columnIndex, int rowIndex) => Invalidate ();
+
+        /// <summary>Gets a row that serves as a template for new rows. Stub in Modern.Forms.</summary>
+        public DataGridViewRow RowTemplate { get; } = new DataGridViewRow ();
+
+        /// <summary>Gets the index of the row for new records, or -1 if AllowUserToAddRows is false.</summary>
+        public int NewRowIndex => AllowUserToAddRows ? Rows.Count : -1;
+
+        /// <summary>Gets or sets the column used for row headers. Stub in Modern.Forms.</summary>
+        public DataGridViewColumn? SortedColumn { get; private set; }
+
+        /// <summary>Gets the sort order of the current sort. None if not sorted.</summary>
+        public SortOrder SortOrder { get; private set; } = SortOrder.None;
+
+        /// <summary>Adjusts the width of all columns to fit their contents. Stub in Modern.Forms.</summary>
+        public void AutoResizeColumns () => Invalidate ();
+
+        /// <summary>Adjusts the width of all columns using the specified sizing mode. Stub in Modern.Forms.</summary>
+        public void AutoResizeColumns (DataGridViewAutoSizeColumnsMode autoSizeColumnsMode) => Invalidate ();
+
+        /// <summary>Adjusts the width of the specified column to fit its contents. Stub in Modern.Forms.</summary>
+        public void AutoResizeColumn (int columnIndex) => Invalidate ();
+
+        /// <summary>Adjusts the width of the specified column using the specified sizing mode. Stub in Modern.Forms.</summary>
+        public void AutoResizeColumn (int columnIndex, DataGridViewAutoSizeColumnMode autoSizeColumnMode) => Invalidate ();
+
+        /// <summary>Adjusts the height of all rows to fit their contents. Stub in Modern.Forms.</summary>
+        public void AutoResizeRows () => Invalidate ();
+
+        /// <summary>Adjusts the height of all rows using the specified sizing mode. Stub in Modern.Forms.</summary>
+        public void AutoResizeRow (int rowIndex) => Invalidate ();
+
+        /// <summary>Selects all cells, rows, or columns, depending on selection mode.</summary>
+        public void SelectAll ()
+        {
+            if (SelectionMode == DataGridViewSelectionMode.FullRowSelect) {
+                foreach (var row in Rows)
+                    row.Selected = true;
+            } else {
+                foreach (var row in Rows)
+                    foreach (var cell in row.Cells)
+                        cell.Selected = true;
+            }
+
+            Invalidate ();
+        }
+
+        /// <summary>Scrolls the DataGridView so that the specified cell is visible.</summary>
+        public void ScrollIntoView (int columnIndex, int rowIndex) => Invalidate ();
+
+        /// <summary>Scrolls the DataGridView to ensure the specified cell is visible.</summary>
+        public void EnsureVisible (int rowIndex, int columnIndex) => ScrollIntoView (columnIndex, rowIndex);
+
+        /// <summary>Returns the number of cells that have the specified state.</summary>
+        public int GetCellCount (DataGridViewElementStates includeFilter)
+        {
+            if (includeFilter == DataGridViewElementStates.Selected)
+                return SelectedCells.Count;
+            return Rows.Count * Columns.Count;
+        }
+
+        /// <summary>Invalidates a specific row, forcing it to repaint.</summary>
+        public void InvalidateRow (int rowIndex) => Invalidate ();
+
+        /// <summary>Invalidates a specific column, forcing it to repaint.</summary>
+        public void InvalidateColumn (int columnIndex) => Invalidate ();
+
+        /// <summary>Notifies the DataGridView that the current cell value has changed. Stub in Modern.Forms.</summary>
+        public void NotifyCurrentCellDirty (bool dirty) { }
+
+        /// <summary>Updates the value displayed in the specified cell. Invalidates the cell in Modern.Forms.</summary>
+        public void UpdateCellValue (int columnIndex, int rowIndex) => Invalidate ();
+
+        /// <summary>Resets the editing control for the current cell. Stub in Modern.Forms.</summary>
+        public void RefreshEdit () { }
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
@@ -1347,6 +1686,39 @@ namespace Modern.Forms
                 horizontal_scroll_offset = 0;
             }
         }
+
+        /// <summary>Gets the number of columns in the grid.</summary>
+        public int ColumnCount => Columns.Count;
+
+        /// <summary>Gets or sets which scroll bars are displayed. Stub in Modern.Forms.</summary>
+        public ScrollBars ScrollBars { get; set; } = ScrollBars.Both;
+
+        /// <summary>Gets or sets the horizontal scrolling offset in pixels. Stub in Modern.Forms.</summary>
+        public int HorizontalScrollingOffset { get; set; }
+
+        /// <summary>Gets or sets the first column index that is displayed.</summary>
+        public int FirstDisplayedScrollingColumnIndex { get; set; }
+
+        /// <summary>Gets or sets whether the grid is in virtual mode. Stub in Modern.Forms.</summary>
+        public bool VirtualMode { get; set; }
+
+        /// <summary>Gets or sets whether the selection highlight is hidden when the control loses focus. Stub in Modern.Forms.</summary>
+        public bool HideSelection { get; set; }
+
+        /// <summary>Gets or sets the number of rows in the grid. Setting adds/removes rows to reach the count.</summary>
+        public int RowCount {
+            get => Rows.Count;
+            set {
+                while (Rows.Count < value) Rows.Add ();
+                while (Rows.Count > value && Rows.Count > 0) Rows.RemoveAt (Rows.Count - 1);
+            }
+        }
+
+        /// <summary>Gets the control used to edit the current cell, or null if not in edit mode. Stub in Modern.Forms.</summary>
+        public Control? EditingControl => null;
+
+        /// <summary>Gets the panel that contains editing controls. Stub in Modern.Forms.</summary>
+        public Panel? EditingPanel => null;
 
         /// <summary>
         /// Gets the number of full rows that can be displayed at a time.

@@ -107,5 +107,20 @@ namespace Modern.Forms
                     Height = value;
             }
         }
+
+        /// <summary>Gets or sets the current position of the splitter. Alias for SplitterWidth. Stub in Modern.Forms.</summary>
+        public int SplitPosition { get => SplitterWidth; set => SplitterWidth = value; }
+
+        /// <summary>Gets or sets the minimum size of the first panel. Stub in Modern.Forms.</summary>
+        public int MinSize { get; set; } = 25;
+
+        /// <summary>Gets or sets the minimum remaining space after the splitter. Stub in Modern.Forms.</summary>
+        public int MinExtra { get; set; } = 25;
+
+        /// <summary>Raised when the splitter is moved. Stub in Modern.Forms.</summary>
+        public event EventHandler<SplitterEventArgs>? SplitterMoved { add { } remove { } }
+
+        /// <summary>Raised while the splitter is being moved. Stub in Modern.Forms.</summary>
+        public event EventHandler<SplitterCancelEventArgs>? SplitterMoving { add { } remove { } }
     }
 }

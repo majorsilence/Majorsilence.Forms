@@ -55,6 +55,21 @@ namespace Modern.Forms
             }
         }
 
+        /// <summary>Toggles the expanded/collapsed state of this item.</summary>
+        public void Toggle ()
+        {
+            if (Expanded)
+                Collapse ();
+            else
+                Expand ();
+        }
+
+        /// <summary>Begins editing the label of this tree node. Stub in Modern.Forms.</summary>
+        public void BeginEdit () { }
+
+        /// <summary>Ends the editing of the label of this tree node. Stub in Modern.Forms.</summary>
+        public void EndEdit (bool cancel) { }
+
         /// <summary>
         /// Gets or sets a context menu to display when the item is right-clicked.
         /// </summary>
@@ -73,7 +88,8 @@ namespace Modern.Forms
         /// </summary>
         public void Expand ()
         {
-            TreeView?.OnBeforeExpand (new EventArgs<TreeViewItem> (this));
+            if (TreeView?.OnBeforeExpand (this) == false)
+                return;
 
             // If no nodes were added, don't actually expand
             // Note this also calls Items, which creates the collection, denoting that an
@@ -167,10 +183,28 @@ namespace Modern.Forms
         /// </summary>
         public bool HasChildren => (items?.Count ?? 0) > 0;
 
+        private Modern.Drawing.Image? _image;
+        private SKBitmap? _imageSK;
+
         /// <summary>
-        /// Gets or sets the image of the item.
+        /// Gets or sets the image of the item. Accepts <see cref="Modern.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
-        public SKBitmap? Image { get; set; }
+#pragma warning disable CA1416
+        public Modern.Drawing.Image? Image {
+            get => _image;
+            set {
+                _image = value;
+                _imageSK?.Dispose ();
+                _imageSK = value?.ToSKBitmap ();
+            }
+        }
+#pragma warning restore CA1416
+
+        /// <summary>Gets the SKBitmap representation of the image (used by renderers).</summary>
+        internal SKBitmap? ImageSK => _imageSK;
+
+        /// <summary>Sets the image directly from an SKBitmap (internal use).</summary>
+        internal void SetImageSK (SKBitmap? bmp) { _image = null; _imageSK = bmp; }
 
         /// <summary>
         /// Gets a value indicating how many levels this item is nested from the root.
@@ -199,6 +233,9 @@ namespace Modern.Forms
         /// Gets the collection of child nodes.
         /// </summary>
         public TreeViewItemCollection Items => items ??= new TreeViewItemCollection (this);
+
+        /// <summary>WinForms compatibility alias for <see cref="Items"/>.</summary>
+        public TreeViewItemCollection Nodes => Items;
 
         /// <summary>
         /// Gets the amount of margin to leave around this item. This is internal API and should not be called.
@@ -253,6 +290,68 @@ namespace Modern.Forms
         /// </summary>
         public object? Tag { get; set; }
 
+        /// <summary>Gets or sets the ToolTip text shown for this item.</summary>
+        public string ToolTipText { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the name of the item.</summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets whether the item is checked (when TreeView.CheckBoxes is true).</summary>
+        public bool Checked { get; set; }
+
+        /// <summary>Gets or sets the foreground color override for this item. Empty means use default.</summary>
+        public System.Drawing.Color ForeColor { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>Gets or sets the background color override for this item. Empty means use default.</summary>
+        public System.Drawing.Color BackColor { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>Gets the depth level (0 = root's children).</summary>
+        public int Level => IndentLevel - 1;
+
+        /// <summary>Gets whether this item is currently expanded.</summary>
+        public bool IsExpanded => Expanded;
+
+        /// <summary>Gets whether this item is currently selected.</summary>
+        public bool IsSelected => TreeView?.SelectedItem == this;
+
+        /// <summary>Gets the full path of node names from root to this node.</summary>
+        public string FullPath {
+            get {
+                if (Parent is null)
+                    return Text;
+
+                return Parent.Parent is null ? Text : Parent.FullPath + "\\" + Text;
+            }
+        }
+
+        /// <summary>Gets the first child node of this item, or null if no children.</summary>
+        public TreeViewItem? FirstNode => Items.Count > 0 ? Items[0] : null;
+
+        /// <summary>Gets the last child node of this item, or null if no children.</summary>
+        public TreeViewItem? LastNode => Items.Count > 0 ? Items[Items.Count - 1] : null;
+
+        /// <summary>Gets the next sibling item.</summary>
+        public TreeViewItem? NextNode {
+            get {
+                if (Parent is null)
+                    return null;
+
+                var idx = Parent.Items.IndexOf (this);
+                return idx >= 0 && idx < Parent.Items.Count - 1 ? Parent.Items[idx + 1] : null;
+            }
+        }
+
+        /// <summary>Gets the previous sibling item.</summary>
+        public TreeViewItem? PrevNode {
+            get {
+                if (Parent is null)
+                    return null;
+
+                var idx = Parent.Items.IndexOf (this);
+                return idx > 0 ? Parent.Items[idx - 1] : null;
+            }
+        }
+
         /// <summary>
         /// Gets or sets the text of the item.
         /// </summary>
@@ -268,6 +367,48 @@ namespace Modern.Forms
 
                 return Parent?.TreeView;
             }
+        }
+
+        /// <summary>Gets the zero-based index of this node in its parent's Nodes collection.</summary>
+        public int Index => Parent is null ? (TreeView?.Items.IndexOf (this) ?? -1) : Parent.Items.IndexOf (this);
+
+        /// <summary>Gets or sets the font for this node. Null means use the TreeView font.</summary>
+#pragma warning disable CA1416
+        public Modern.Drawing.Font? NodeFont { get; set; }
+#pragma warning restore CA1416
+
+        /// <summary>Gets or sets the image list index for this node's image. Stub in Modern.Forms.</summary>
+        public int ImageIndex { get; set; } = -1;
+
+        /// <summary>Gets or sets the image list key for this node's image. Stub in Modern.Forms.</summary>
+        public string ImageKey { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the image list index shown when this node is selected. Stub in Modern.Forms.</summary>
+        public int SelectedImageIndex { get; set; } = -1;
+
+        /// <summary>Gets or sets the image list key shown when this node is selected. Stub in Modern.Forms.</summary>
+        public string SelectedImageKey { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the state image index for the node. Stub in Modern.Forms.</summary>
+        public int StateImageIndex { get; set; } = -1;
+
+
+        /// <summary>Removes this node from its parent's collection.</summary>
+        public void Remove ()
+        {
+            if (Parent != null)
+                Parent.Items.Remove (this);
+            else
+                TreeView?.Items.Remove (this);
+        }
+
+        /// <summary>Returns the number of child nodes, optionally counting all descendants.</summary>
+        public int GetNodeCount (bool includeSubTrees)
+        {
+            if (!includeSubTrees) return Items.Count;
+            int count = 0;
+            foreach (var child in Items) count += 1 + child.GetNodeCount (true);
+            return count;
         }
 
         private int LogicalToDeviceUnits (int value) => TreeView?.LogicalToDeviceUnits (value) ?? value;

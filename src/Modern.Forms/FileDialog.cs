@@ -8,6 +8,7 @@ namespace Modern.Forms
     public abstract class FileDialog : FileSystemDialog
     {
         internal List<FilePickerFileType> filters = [];
+        private string _filter = string.Empty;
 
         /// <summary>
         /// Adds a file filter choice to the dialog.
@@ -21,6 +22,79 @@ namespace Modern.Forms
             };
 
             filters.Add (filter);
+        }
+
+        /// <summary>
+        /// Gets or sets the filter string in WinForms format: "Name|*.ext|Name2|*.ext2"
+        /// Setting this parses and populates the internal filter list.
+        /// </summary>
+        public string Filter {
+            get => _filter;
+            set {
+                _filter = value ?? string.Empty;
+                filters.Clear ();
+                if (string.IsNullOrEmpty (_filter)) return;
+                var parts = _filter.Split ('|');
+                for (var i = 0; i + 1 < parts.Length; i += 2) {
+                    var name = parts[i].Trim ();
+                    var patterns = parts[i + 1].Trim ().Split (';')
+                        .Select (p => p.Trim ())
+                        .ToList ();
+                    filters.Add (new FilePickerFileType (name) { Patterns = patterns });
+                }
+            }
+        }
+
+        /// <summary>Gets or sets the index of the currently selected filter (1-based). Stub in Modern.Forms.</summary>
+        public int FilterIndex { get; set; } = 1;
+
+        /// <summary>Gets or sets the default extension added to file names without an extension.</summary>
+        public string DefaultExt { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets whether to add the extension automatically. Stub in Modern.Forms.</summary>
+        public bool AddExtension { get; set; } = true;
+
+        /// <summary>Gets or sets whether shortcuts should be dereferenced. Stub in Modern.Forms.</summary>
+        public bool DereferenceLinks { get; set; } = true;
+
+        /// <summary>Gets or sets a help button. Stub in Modern.Forms.</summary>
+        public bool ShowHelp { get; set; }
+
+        /// <summary>Gets or sets whether the dialog verifies that the file exists before returning. Stub.</summary>
+        public bool CheckFileExists { get; set; } = true;
+
+        /// <summary>Gets or sets whether the dialog verifies that the path exists before returning. Stub.</summary>
+        public bool CheckPathExists { get; set; } = true;
+
+        /// <summary>Gets or sets whether the dialog supports read-only files. Stub.</summary>
+        public bool ShowReadOnly { get; set; }
+
+        /// <summary>Gets or sets whether the read-only checkbox is initially checked. Stub.</summary>
+        public bool ReadOnlyChecked { get; set; }
+
+        /// <summary>Gets or sets whether the dialog box creates a file if the user specifies a nonexistent file. Stub.</summary>
+        public bool CreatePrompt { get; set; }
+
+        /// <summary>Gets or sets whether the dialog box prompts the user before overwriting an existing file. Stub.</summary>
+        public bool OverwritePrompt { get; set; } = true;
+
+        /// <summary>Gets or sets whether to restore the current directory after closing. Stub.</summary>
+        public bool RestoreDirectory { get; set; }
+
+        /// <summary>Gets or sets whether to support network browsing. Stub.</summary>
+        public bool SupportMultiDottedExtensions { get; set; }
+
+        /// <summary>Gets or sets whether the dialog validates file names. Stub in Modern.Forms.</summary>
+        public bool ValidateNames { get; set; } = true;
+
+        /// <summary>Resets properties to default values.</summary>
+        public virtual void Reset ()
+        {
+            filters.Clear ();
+            _filter = string.Empty;
+            FilterIndex = 1;
+            DefaultExt = string.Empty;
+            FileNames.Clear ();
         }
 
         /// <summary>
@@ -40,5 +114,21 @@ namespace Modern.Forms
         /// Gets or sets the selected files.
         /// </summary>
         public List<string> FileNames { get; } = [];
+
+        /// <summary>Shows the dialog synchronously with the first open form as the owner. WinForms compatibility.</summary>
+        public DialogResult ShowDialog ()
+        {
+            var owner = Application.OpenForms.FirstOrDefault ();
+            return owner is not null ? ShowDialogSync (owner) : DialogResult.Cancel;
+        }
+
+        /// <summary>Shows the dialog synchronously. WinForms compatibility (calls ShowDialogSync).</summary>
+        public DialogResult ShowDialog (IWin32Window owner) => ShowDialog ();
+
+        /// <summary>Shows the dialog asynchronously with the specified owner form.</summary>
+        public abstract Task<DialogResult> ShowDialog (Form owner);
+
+        /// <summary>Shows the dialog synchronously with the specified form owner.</summary>
+        public DialogResult ShowDialogSync (Form owner) => AsyncHelper.RunSync (() => ShowDialog (owner));
     }
 }

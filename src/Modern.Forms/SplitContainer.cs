@@ -115,9 +115,9 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the color of the splitter.
         /// </summary>
-        public SKColor SplitterColor {
-            get => splitter.Style.GetBackgroundColor ();
-            set => splitter.Style.BackgroundColor = value;
+        public System.Drawing.Color SplitterColor {
+            get => splitter.Style.GetBackgroundColor ().ToDrawingColor ();
+            set => splitter.Style.BackgroundColor = value.ToSKColor ();
         }
 
         /// <summary>
@@ -127,6 +127,45 @@ namespace Modern.Forms
             get => splitter.SplitterWidth;
             set => splitter.SplitterWidth = value;
         }
+
+        /// <summary>Gets or sets the distance in pixels from the left or top edge to the splitter.</summary>
+        public int SplitterDistance {
+            get => orientation == Orientation.Vertical ? Panel1.Width : Panel1.Height;
+            set => ResizePanels (value);
+        }
+
+        /// <summary>Gets or sets whether the splitter is fixed. Stub in Modern.Forms.</summary>
+        public FixedPanel FixedPanel { get; set; } = FixedPanel.None;
+
+        /// <summary>Gets or sets whether Panel1 is collapsed. Stub in Modern.Forms.</summary>
+        public bool Panel1Collapsed {
+            get => !Panel1.Visible;
+            set => Panel1.Visible = !value;
+        }
+
+        /// <summary>Gets or sets whether Panel2 is collapsed. Stub in Modern.Forms.</summary>
+        public bool Panel2Collapsed {
+            get => !Panel2.Visible;
+            set => Panel2.Visible = !value;
+        }
+
+        /// <summary>Gets or sets whether the splitter can be moved by the user.</summary>
+        public bool IsSplitterFixed { get; set; }
+
+        /// <summary>Gets or sets the minimum size (in pixels) of Panel1. Stub in Modern.Forms.</summary>
+        public int Panel1MinSize { get; set; } = 25;
+
+        /// <summary>Gets or sets the minimum size (in pixels) of Panel2. Stub in Modern.Forms.</summary>
+        public int Panel2MinSize { get; set; } = 25;
+
+        /// <summary>Gets or sets the number of pixels the splitter moves when incremented via keyboard. Stub in Modern.Forms.</summary>
+        public int SplitterIncrement { get; set; } = 1;
+
+        /// <summary>Raised when the splitter is moved. Stub in Modern.Forms.</summary>
+        public event EventHandler<SplitterEventArgs>? SplitterMoved { add { } remove { } }
+
+        /// <summary>Raised while the splitter is being moved. Stub in Modern.Forms.</summary>
+        public event EventHandler<SplitterCancelEventArgs>? SplitterMoving { add { } remove { } }
 
         // Handles the splitter's Drag event.
         private void Splitter_Drag (object? sender, EventArgs<Point> e)

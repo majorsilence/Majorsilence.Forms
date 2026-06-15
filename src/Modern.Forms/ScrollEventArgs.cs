@@ -2,8 +2,12 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+#pragma warning disable CA1711  // WinForms compat: ScrollEventHandler and TextFormatFlags are canonical WinForms names
+
 namespace Modern.Forms
 {
+    /// <summary>Represents the method that handles scroll events.</summary>
+    public delegate void ScrollEventHandler (object sender, ScrollEventArgs e);
     /// <summary>
     ///  Provides data for the ScrollBar.Scroll event.
     /// </summary>

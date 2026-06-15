@@ -23,6 +23,14 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="Timer"/> class and adds it to the specified container.
+        /// </summary>
+        public Timer (IContainer container)
+        {
+            container.Add (this);
+        }
+
+        /// <summary>
         /// Occurs when the specified timer interval has elapsed and the timer is enabled.
         /// </summary>
         public event EventHandler Tick {

@@ -1,4 +1,5 @@
-﻿using Modern.Forms;
+﻿using System.Drawing;
+using Modern.Forms;
 using SkiaSharp;
 
 namespace ControlGallery.Panels;
@@ -7,8 +8,8 @@ public class ImageListPanel : Panel
 {
     public ImageListPanel ()
     {
-        var image_list_16 = new ImageList { ImageSize = new SKSize (16, 16) };
-        var image_list_32 = new ImageList { ImageSize = new SKSize (32, 32) };
+        var image_list_16 = new ImageList { ImageSize = new Size (16, 16) };
+        var image_list_32 = new ImageList { ImageSize = new Size (32, 32) };
 
         AddImages (image_list_16);
         AddImages (image_list_32);

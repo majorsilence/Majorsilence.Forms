@@ -165,5 +165,118 @@ namespace Modern.Forms
             if (state == CheckState.Checked)
                 e.Canvas.FillCircle (origin.X, origin.Y, inner_radius, disabled ? Theme.ForegroundDisabledColor : Theme.AccentColor2);
         }
+
+        // --- WinForms compatibility overloads taking Modern.Forms.Graphics ---
+
+        /// <summary>Draws a focus rectangle on the given graphics surface.</summary>
+        public static void DrawFocusRectangle (Graphics graphics, Rectangle rectangle)
+            => graphics.DrawFocusRectangle (rectangle);
+
+        /// <summary>Draws a focus rectangle using foreground and background colors. Stub in Modern.Forms.</summary>
+        public static void DrawFocusRectangle (Graphics graphics, Rectangle rectangle, System.Drawing.Color foreColor, System.Drawing.Color backColor)
+            => graphics.DrawFocusRectangle (rectangle);
+
+        /// <summary>Draws a 3D border around a rectangle. Stub in Modern.Forms.</summary>
+        public static void DrawBorder3D (Graphics graphics, Rectangle rectangle) { }
+
+        /// <summary>Draws a 3D border with the specified style. Stub in Modern.Forms.</summary>
+        public static void DrawBorder3D (Graphics graphics, Rectangle rectangle, Border3DStyle style) { }
+
+        /// <summary>Draws a border around a rectangle. Stub in Modern.Forms.</summary>
+        public static void DrawBorder (Graphics graphics, Rectangle bounds, System.Drawing.Color color, ButtonBorderStyle style) { }
+
+        /// <summary>Draws a border with different style on each side. Stub in Modern.Forms.</summary>
+        public static void DrawBorder (Graphics graphics, Rectangle bounds,
+            System.Drawing.Color leftColor, int leftWidth, ButtonBorderStyle leftStyle,
+            System.Drawing.Color topColor, int topWidth, ButtonBorderStyle topStyle,
+            System.Drawing.Color rightColor, int rightWidth, ButtonBorderStyle rightStyle,
+            System.Drawing.Color bottomColor, int bottomWidth, ButtonBorderStyle bottomStyle) { }
+
+        /// <summary>Draws a button control. Stub in Modern.Forms.</summary>
+        public static void DrawButton (Graphics graphics, Rectangle rectangle, ButtonState state) { }
+
+        /// <summary>Draws a button control using x/y/width/height. Stub in Modern.Forms.</summary>
+        public static void DrawButton (Graphics graphics, int x, int y, int width, int height, ButtonState state)
+            => DrawButton (graphics, new Rectangle (x, y, width, height), state);
+
+        /// <summary>Draws a standard check box. Stub in Modern.Forms.</summary>
+        public static void DrawCheckBox (Graphics graphics, Rectangle rectangle, ButtonState state) { }
+
+        /// <summary>Draws a check box using x/y/width/height. Stub in Modern.Forms.</summary>
+        public static void DrawCheckBox (Graphics graphics, int x, int y, int width, int height, ButtonState state)
+            => DrawCheckBox (graphics, new Rectangle (x, y, width, height), state);
+
+        /// <summary>Draws a combo box drop-down button. Stub in Modern.Forms.</summary>
+        public static void DrawComboButton (Graphics graphics, Rectangle rectangle, ButtonState state) { }
+
+        /// <summary>Draws a combo box button using x/y/width/height. Stub in Modern.Forms.</summary>
+        public static void DrawComboButton (Graphics graphics, int x, int y, int width, int height, ButtonState state)
+            => DrawComboButton (graphics, new Rectangle (x, y, width, height), state);
+
+        /// <summary>Draws a menu glyph. Stub in Modern.Forms.</summary>
+        public static void DrawMenuGlyph (Graphics graphics, Rectangle rectangle, MenuGlyph glyph) { }
+
+        /// <summary>Draws a radio button. Stub in Modern.Forms.</summary>
+        public static void DrawRadioButton (Graphics graphics, Rectangle rectangle, ButtonState state) { }
+
+        /// <summary>Draws a scroll button. Stub in Modern.Forms.</summary>
+        public static void DrawScrollButton (Graphics graphics, Rectangle rectangle, ScrollButton button, ButtonState state) { }
+
+        /// <summary>Draws a size grip. Stub in Modern.Forms.</summary>
+        public static void DrawSizeGrip (Graphics graphics, System.Drawing.Color backColor, Rectangle bounds) { }
+
+        /// <summary>Draws a size grip using x/y/width/height. Stub in Modern.Forms.</summary>
+        public static void DrawSizeGrip (Graphics graphics, System.Drawing.Color backColor, int x, int y, int width, int height)
+            => DrawSizeGrip (graphics, backColor, new Rectangle (x, y, width, height));
+
+        /// <summary>Draws a string in its disabled/grayed state. Stub in Modern.Forms.</summary>
+        public static void DrawStringDisabled (Graphics graphics, string s, Modern.Drawing.Font font, System.Drawing.Color color, RectangleF layoutRectangle, Modern.Drawing.StringFormat? format) { }
+
+#pragma warning disable CA1416
+        /// <summary>Draws a string at the specified coordinates. Stub in Modern.Forms.</summary>
+        public static void DrawString (Graphics graphics, string s, Modern.Drawing.Font font, System.Drawing.Color color, int x, int y)
+        {
+            using var brush = new Modern.Drawing.SolidBrush (color);
+            graphics.DrawString (s, font, brush, x, y);
+        }
+
+        /// <summary>Draws a string within the specified rectangle. Stub in Modern.Forms.</summary>
+        public static void DrawString (Graphics graphics, string s, Modern.Drawing.Font font, System.Drawing.Color color, Rectangle layoutRectangle)
+        {
+            using var brush = new Modern.Drawing.SolidBrush (color);
+            graphics.DrawString (s, font, brush, new System.Drawing.RectangleF (layoutRectangle.X, layoutRectangle.Y, layoutRectangle.Width, layoutRectangle.Height));
+        }
+
+        /// <summary>Draws a string within the specified RectangleF with a StringFormat. Stub in Modern.Forms.</summary>
+        public static void DrawString (Graphics graphics, string s, Modern.Drawing.Font font, System.Drawing.Color color, System.Drawing.RectangleF layoutRectangle, Modern.Drawing.StringFormat format)
+        {
+            using var brush = new Modern.Drawing.SolidBrush (color);
+            graphics.DrawString (s, font, brush, layoutRectangle);
+        }
+#pragma warning restore CA1416
+
+        /// <summary>Creates a color that is lighter than the given color.</summary>
+        public static System.Drawing.Color Light (System.Drawing.Color baseColor, float percOfLightLight = 10f)
+        {
+            var r = Math.Min (255, baseColor.R + (int)(percOfLightLight * 2.55f));
+            var g = Math.Min (255, baseColor.G + (int)(percOfLightLight * 2.55f));
+            var b = Math.Min (255, baseColor.B + (int)(percOfLightLight * 2.55f));
+            return System.Drawing.Color.FromArgb (baseColor.A, r, g, b);
+        }
+
+        /// <summary>Creates a color that is darker than the given color.</summary>
+        public static System.Drawing.Color Dark (System.Drawing.Color baseColor, float percOfDarkDark = 10f)
+        {
+            var r = Math.Max (0, baseColor.R - (int)(percOfDarkDark * 2.55f));
+            var g = Math.Max (0, baseColor.G - (int)(percOfDarkDark * 2.55f));
+            var b = Math.Max (0, baseColor.B - (int)(percOfDarkDark * 2.55f));
+            return System.Drawing.Color.FromArgb (baseColor.A, r, g, b);
+        }
+
+        /// <summary>Returns a color significantly lighter than the given base color.</summary>
+        public static System.Drawing.Color LightLight (System.Drawing.Color baseColor) => Light (baseColor, 40f);
+
+        /// <summary>Returns a color significantly darker than the given base color.</summary>
+        public static System.Drawing.Color DarkDark (System.Drawing.Color baseColor) => Dark (baseColor, 40f);
     }
 }

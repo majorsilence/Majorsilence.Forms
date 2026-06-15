@@ -90,8 +90,19 @@ namespace Modern.Forms
         /// </summary>
         public int Step { get; set; } = 10;
 
-        /// <inheritdoc/>
-        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+        /// <summary>Advances the current position of the ProgressBar by the amount of the Step property.</summary>
+        public void PerformStep () => Increment (Step);
+
+        private ProgressBarStyle _barStyle = ProgressBarStyle.Blocks;
+
+        /// <summary>Gets or sets the progress bar display style. Shadows Control.Style for WinForms compatibility.</summary>
+        public new ProgressBarStyle Style {
+            get => _barStyle;
+            set { _barStyle = value; Invalidate (); }
+        }
+
+        /// <summary>Gets or sets the animation speed (in ms) when Style is Marquee. Stub in Modern.Forms.</summary>
+        public int MarqueeAnimationSpeed { get; set; } = 100;
 
         /// <summary>
         /// Gets or sets the current value of the ProgressBar.

@@ -10,7 +10,7 @@ namespace Modern.Forms
     /// <summary>
     /// Represents a top-level window to display to the user.
     /// </summary>
-    public class Form : WindowBase, ICloseable
+    public class Form : WindowBase, ICloseable, IWin32Window
     {
         // If the border is only 1 pixel it's too hard to resize, so we may steal some pixels from the client area
         private const int MINIMUM_RESIZE_PIXELS = 4;
@@ -117,8 +117,45 @@ namespace Modern.Forms
         /// <summary>Raised after the form is closed.</summary>
         public event EventHandler<FormClosedEventArgs>? FormClosed;
 
+
         /// <summary>Raised when the form is first shown (WinForms compatibility alias; raised together with Shown).</summary>
         public event EventHandler? Load;
+
+        /// <summary>Raised when the user begins to resize the form. Stub in Modern.Forms.</summary>
+        public event EventHandler? ResizeBegin { add { } remove { } }
+
+        /// <summary>Raised when the user finishes resizing the form. Stub in Modern.Forms.</summary>
+        public event EventHandler? ResizeEnd { add { } remove { } }
+
+        /// <summary>Raised when the form is activated. Wired to the underlying Avalonia Activated event.</summary>
+        public new event EventHandler? Activated {
+            add => base.Activated += value;
+            remove => base.Activated -= value;
+        }
+
+        /// <summary>Raised when the form is deactivated. Wired to the underlying Avalonia Deactivated event.</summary>
+        public event EventHandler? Deactivate {
+            add => base.Deactivated += value;
+            remove => base.Deactivated -= value;
+        }
+
+        /// <summary>Raised when an MDI child form is activated. Stub in Modern.Forms.</summary>
+        public event EventHandler? MdiChildActivate { add { } remove { } }
+
+        /// <summary>Raised when the DPI setting for the form changes. Stub in Modern.Forms.</summary>
+        public event EventHandler? DpiChanged { add { } remove { } }
+
+        /// <summary>Raised when the input language changes. Stub in Modern.Forms.</summary>
+        public event EventHandler<InputLanguageChangedEventArgs>? InputLanguageChanged { add { } remove { } }
+
+        /// <summary>Raised when the input language is changing. Stub in Modern.Forms.</summary>
+        public event EventHandler<InputLanguageChangingEventArgs>? InputLanguageChanging { add { } remove { } }
+
+        /// <summary>Raised when the form is first displayed to the user.</summary>
+        public new event EventHandler? Shown {
+            add => base.Shown += value;
+            remove => base.Shown -= value;
+        }
 
         /// <inheritdoc/>
         protected override void OnShown (EventArgs e)
@@ -152,8 +189,27 @@ namespace Modern.Forms
         /// <summary>Gets the next control in tab order.</summary>
         public Control? GetNextControl (Control? start, bool forward = true) => adapter.GetNextControl (start, forward);
 
-        /// <summary>Gets or sets the icon for the form.</summary>
-        public SKBitmap? Image {
+        private Modern.Drawing.Icon? _formIcon;
+
+        /// <summary>
+        /// Gets or sets the icon for the form. Accepts <see cref="Modern.Drawing.Icon"/> for WinForms compatibility.
+        /// </summary>
+#pragma warning disable CA1416
+        public Modern.Drawing.Icon? Icon {
+            get => _formIcon;
+            set {
+                _formIcon = value;
+                if (value is null)
+                    Image = null;
+                else
+                    Image = value.ToBitmap ();
+            }
+        }
+#pragma warning restore CA1416
+
+        /// <summary>Gets or sets the image shown in the form's title bar.</summary>
+#pragma warning disable CA1416
+        public Modern.Drawing.Image? Image {
             get => TitleBar.Image;
             set {
                 TitleBar.Image = value;
@@ -161,13 +217,17 @@ namespace Modern.Forms
                 if (value is null) {
                     AvWindow.Icon = null;
                 } else {
-                    using var ms = new System.IO.MemoryStream ();
-                    value.Encode (ms, SKEncodedImageFormat.Png, 100);
-                    ms.Seek (0, System.IO.SeekOrigin.Begin);
-                    AvWindow.Icon = new Avalonia.Controls.WindowIcon (ms);
+                    using var sk = value.ToSKBitmap ();
+                    if (sk is not null) {
+                        using var ms = new System.IO.MemoryStream ();
+                        sk.Encode (ms, SKEncodedImageFormat.Png, 100);
+                        ms.Seek (0, System.IO.SeekOrigin.Begin);
+                        AvWindow.Icon = new Avalonia.Controls.WindowIcon (ms);
+                    }
                 }
             }
         }
+#pragma warning restore CA1416
 
         /// <summary>Gets or sets the unscaled location of the control.</summary>
         public new System.Drawing.Point Location {
@@ -312,6 +372,15 @@ namespace Modern.Forms
             return result;
         }
 
+        /// <summary>Shows the form as a modal dialog with the specified owner window. Stub — ignores owner parameter.</summary>
+        public DialogResult ShowDialog (IWin32Window owner) => ShowDialog ();
+
+        /// <summary>Shows the form, ignoring the owner parameter (Modern.Forms has no Win32 parenting).</summary>
+        public void Show (IWin32Window owner) => Show ();
+
+        /// <summary>Implements IWin32Window: returns IntPtr.Zero (Modern.Forms has no Win32 handle).</summary>
+        IntPtr IWin32Window.Handle => IntPtr.Zero;
+
         // Blocks the current call while running a nested Avalonia dispatcher frame so the
         // modal dialog can receive and handle input events without deadlocking the UI thread.
         internal static T RunModal<T> (Task<T> modalTask)
@@ -418,6 +487,12 @@ namespace Modern.Forms
         /// <summary>Gets or sets the auto-scale dimensions. No-op in Modern.Forms.</summary>
         public System.Drawing.SizeF AutoScaleDimensions { get; set; }
 
+        /// <summary>Gets or sets how the form performs implicit validation when focus leaves a child control.</summary>
+        public AutoValidate AutoValidate { get; set; } = AutoValidate.EnablePreventFocusChange;
+
+        /// <summary>Validates all selectable child controls. Always returns true (stub).</summary>
+        public bool ValidateChildren () => true;
+
         /// <summary>Gets or sets the binding context. No-op in Modern.Forms.</summary>
         public object? BindingContext { get; set; }
 
@@ -453,6 +528,9 @@ namespace Modern.Forms
             get => AvWindow.Opacity;
             set => AvWindow.Opacity = value;
         }
+
+        /// <summary>Gets or sets the color treated as transparent. Stub in Modern.Forms.</summary>
+        public System.Drawing.Color TransparencyKey { get; set; } = System.Drawing.Color.Empty;
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
@@ -497,6 +575,138 @@ namespace Modern.Forms
             get => (FormWindowState)(int)AvWindow.WindowState;
             set => AvWindow.WindowState = (Avalonia.Controls.WindowState)(int)value;
         }
+
+        /// <summary>Gets or sets the active control on the form.</summary>
+        public Control? ActiveControl {
+            get => adapter.GetNextControl (null, true);
+            set => value?.Select ();
+        }
+
+        /// <summary>Gets or sets whether the form is an MDI container. Stub — MDI is not supported in Modern.Forms.</summary>
+        public bool IsMdiContainer { get; set; }
+
+        /// <summary>Gets the MDI parent form. Always null in Modern.Forms.</summary>
+        public Form? MdiParent { get; set; }
+
+        /// <summary>Gets the MDI child forms. Always empty in Modern.Forms.</summary>
+        public Form[] MdiChildren => [];
+
+        /// <summary>Gets whether this form is a child of an MDI container. Always false in Modern.Forms.</summary>
+        public bool IsMdiChild => false;
+
+        /// <summary>Gets the active MDI child form. Always null in Modern.Forms.</summary>
+        public Form? ActiveMdiChild => null;
+
+        /// <summary>Activates the specified MDI child form. Stub in Modern.Forms.</summary>
+        public void ActivateMdiChild (Form? form) { }
+
+        /// <summary>Arranges the MDI child forms. Stub in Modern.Forms.</summary>
+        public void LayoutMdi (MdiLayout value) { }
+
+        /// <summary>Gets or sets the form that owns this form.</summary>
+        public Form? Owner { get; set; }
+
+        private List<Form>? _ownedForms;
+
+        /// <summary>Gets the array of forms that are owned by this form.</summary>
+        public Form[] OwnedForms => _ownedForms?.ToArray () ?? [];
+
+        /// <summary>Adds an owned form to this form.</summary>
+        public void AddOwnedForm (Form form)
+        {
+            _ownedForms ??= [];
+            if (!_ownedForms.Contains (form))
+                _ownedForms.Add (form);
+            form.Owner = this;
+        }
+
+        /// <summary>Removes an owned form from this form.</summary>
+        public void RemoveOwnedForm (Form form)
+        {
+            _ownedForms?.Remove (form);
+            if (form.Owner == this)
+                form.Owner = null;
+        }
+
+        /// <summary>Gets or sets the MenuStrip that is the main menu for the form.</summary>
+        public MenuStrip? MainMenuStrip { get; set; }
+
+        /// <summary>Gets or sets whether the form is a top-level window.</summary>
+        public bool TopLevel { get; set; } = true;
+
+        /// <summary>Gets or sets the start position of the form when it is first shown.</summary>
+        public new FormStartPosition StartPosition { get; set; } = FormStartPosition.WindowsDefaultLocation;
+
+        /// <summary>Gets or sets the desktop bounds of the form.</summary>
+        public System.Drawing.Rectangle DesktopBounds {
+            get => new System.Drawing.Rectangle (Location.X, Location.Y, Size.Width, Size.Height);
+            set { Location = new System.Drawing.Point (value.X, value.Y); Size = new System.Drawing.Size (value.Width, value.Height); }
+        }
+
+        /// <summary>Gets or sets the desktop location of the form.</summary>
+        public System.Drawing.Point DesktopLocation {
+            get => new System.Drawing.Point (Location.X, Location.Y);
+            set => Location = value;
+        }
+
+        /// <summary>Activates the form and gives it focus. No-op stub in Modern.Forms.</summary>
+        public void Activate () { }
+
+        /// <summary>Centers the form in its parent or on screen.</summary>
+        public void CenterToScreen ()
+        {
+            if (StartPosition != FormStartPosition.Manual)
+                StartPosition = FormStartPosition.CenterScreen;
+        }
+
+        /// <summary>Centers the form within its owner form, or on the screen if there is no owner.</summary>
+        public void CenterToParent ()
+        {
+            if (Owner != null) {
+                var ob = Owner.Bounds;
+                var b = Bounds;
+                Location = new System.Drawing.Point (ob.Left + (ob.Width - b.Width) / 2, ob.Top + (ob.Height - b.Height) / 2);
+            } else {
+                CenterToScreen ();
+            }
+        }
+
+        /// <summary>Brings the form to the front of the z-order.</summary>
+        public void BringToFront () => AvWindow?.Activate ();
+
+        /// <summary>Gets the bounds of the form when it is not minimized or maximized.</summary>
+        public System.Drawing.Rectangle RestoreBounds => Bounds;
+
+        /// <summary>Gets or sets whether the form is displayed in the Windows taskbar.</summary>
+        public bool ControlBox { get; set; } = true;
+
+        /// <summary>Gets or sets the help button visibility in the title bar. Stub in Modern.Forms.</summary>
+        public bool HelpButton { get; set; }
+
+        /// <summary>Gets or sets whether to display the icon in the title bar. Stub in Modern.Forms.</summary>
+        public bool ShowIcon { get; set; } = true;
+
+        /// <summary>Raises the Load event on next show. Stub in Modern.Forms.</summary>
+        public void OnLoad (EventArgs e) => Load?.Invoke (this, e);
+
+        /// <summary>Gets whether the form is displayed as a modal dialog.</summary>
+        public bool Modal { get; private set; }
+
+        /// <summary>Gets or sets the description of the form as an accessible object. Stub in Modern.Forms.</summary>
+        public string? AccessibleDescription { get; set; }
+
+        /// <summary>Gets or sets the name of the form as an accessible object. Stub in Modern.Forms.</summary>
+        public string? AccessibleName { get; set; }
+
+
+        /// <summary>Returns the currently focused control within the form, or null.</summary>
+        public Control? GetFocusedControl () => Controls.GetAllControls ().FirstOrDefault (c => c.Focused);
+
+        /// <summary>Sets the form position to the specified screen coordinates.</summary>
+        public void SetDesktopBounds (int x, int y, int width, int height) { Location = new System.Drawing.Point (x, y); Size = new System.Drawing.Size (width, height); }
+
+        /// <summary>Sets the location of the form in screen coordinates.</summary>
+        public void SetDesktopLocation (int x, int y) { Location = new System.Drawing.Point (x, y); }
 
         private enum WindowElement
         {

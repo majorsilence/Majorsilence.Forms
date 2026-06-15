@@ -65,6 +65,15 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Gets or sets the extra margin (in pixels) added around the auto-scroll area.
+        /// Stub in Modern.Forms — the value is stored but not applied to layout.
+        /// </summary>
+        public Size AutoScrollMargin { get; set; } = Size.Empty;
+
+        /// <summary>Sets the size of the auto-scroll margin around the control (WinForms compat for AutoScrollMargin property).</summary>
+        public void SetAutoScrollMargin (int x, int y) => AutoScrollMargin = new Size (x, y);
+
+        /// <summary>
         /// Gets or sets the minimum logical size of the auto-scroll area. Setting a non-empty value
         /// enables <see cref="AutoScroll"/> so a custom-drawn control can scroll a virtual canvas
         /// larger than its visible bounds (e.g. a report page surface).
@@ -294,7 +303,7 @@ namespace Modern.Forms
         /// <summary>
         /// Raised when the ScrollableControl is scrolled.
         /// </summary>
-        public event EventHandler<ScrollEventArgs>? Scroll;
+        public new event EventHandler<ScrollEventArgs>? Scroll;
 
         // Scrolls the control by the requested offsets.
         private void ScrollWindow (int xOffset, int yOffset)
@@ -316,5 +325,11 @@ namespace Modern.Forms
         /// Provides access to the properties of the vertical scrollbar.
         /// </summary>
         public ScrollProperties VerticalScrollProperties => new ScrollProperties (vscrollbar);
+
+        /// <summary>Gets the horizontal scroll properties (WinForms alias for HorizontalScrollProperties).</summary>
+        public ScrollProperties HorizontalScroll => HorizontalScrollProperties;
+
+        /// <summary>Gets the vertical scroll properties (WinForms alias for VerticalScrollProperties).</summary>
+        public ScrollProperties VerticalScroll => VerticalScrollProperties;
     }
 }

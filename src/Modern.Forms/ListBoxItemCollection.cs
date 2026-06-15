@@ -31,6 +31,26 @@ namespace Modern.Forms
             owner.ResumeLayout (true);
         }
 
+        /// <summary>
+        /// Adds an item with an optional checked state (WinForms compat for CheckedListBox.Items.Add).
+        /// </summary>
+        public int Add (object item, bool isChecked)
+        {
+            var wrapped = new CheckedListBoxItem (item, isChecked);
+            Add (wrapped);
+            return Count - 1;
+        }
+
+        /// <summary>
+        /// Adds an item with a CheckState (WinForms compat for CheckedListBox.Items.Add).
+        /// </summary>
+        public int Add (object item, CheckState state)
+        {
+            var wrapped = new CheckedListBoxItem (item, state == CheckState.Checked || state == CheckState.Indeterminate);
+            Add (wrapped);
+            return Count - 1;
+        }
+
         internal void AddSelectedIndex (int index, bool single)
         {
             if (single)

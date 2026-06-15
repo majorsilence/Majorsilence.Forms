@@ -30,9 +30,17 @@ public class NavigationPaneItemCollection : Collection<NavigationPaneItem>
     }
 
     /// <summary>
-    /// Adds a new NavigationPaneItem to the collection with the specified text.
+    /// Adds a new NavigationPaneItem to the collection with the specified SKBitmap image.
     /// </summary>
     public NavigationPaneItem Add (SKBitmap image) => Add (new NavigationPaneItem (image));
+
+    /// <summary>
+    /// Adds a new NavigationPaneItem to the collection with the specified Modern.Drawing.Image.
+    /// </summary>
+#pragma warning disable CA1416
+    public NavigationPaneItem Add (Modern.Drawing.Image image, string? text = null)
+        => Add (new NavigationPaneItem (image, text));
+#pragma warning restore CA1416
 
     internal int FocusedIndex {
         get => focused_index;

@@ -1,4 +1,6 @@
-﻿using System.Drawing;
+﻿using System.Collections;
+using System.Diagnostics.CodeAnalysis;
+using System.Drawing;
 using Modern.Forms.Renderers;
 
 namespace Modern.Forms
@@ -11,6 +13,9 @@ namespace Modern.Forms
         private PopupWindow? popup;
         private readonly ListBox popup_listbox;
         private bool suppress_popup_close;
+        private object? _dataSource;
+        private string _displayMember = string.Empty;
+        private string _valueMember = string.Empty;
 
         /// <summary>
         /// Initializes a new instance of the ComboBox class.
@@ -60,6 +65,9 @@ namespace Modern.Forms
         /// </summary>
         public event EventHandler? DropDownOpened;
 
+        /// <summary>Raised when the selected item changes and the drop-down closes. Stub in Modern.Forms.</summary>
+        public event EventHandler? SelectionChangeCommitted { add { } remove { } }
+
         /// <summary>
         /// Gets or sets the appearance and behavior of the combo box.
         /// </summary>
@@ -69,6 +77,48 @@ namespace Modern.Forms
         /// Gets or sets whether items are formatted before display (WinForms compatibility stub).
         /// </summary>
         public bool FormattingEnabled { get; set; }
+
+        /// <summary>Gets or sets the data source for the ComboBox.</summary>
+        public object? DataSource {
+            get => _dataSource;
+            set {
+                _dataSource = value;
+                RefreshDataSource ();
+            }
+        }
+
+        /// <summary>Gets or sets the property to display from the data source.</summary>
+        public string DisplayMember {
+            get => _displayMember;
+            set {
+                _displayMember = value ?? string.Empty;
+                RefreshDataSource ();
+            }
+        }
+
+        /// <summary>Gets or sets the property used as the value from the data source.</summary>
+        public string ValueMember {
+            get => _valueMember;
+            set => _valueMember = value ?? string.Empty;
+        }
+
+        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
+        private void RefreshDataSource ()
+        {
+            if (_dataSource is not IList list)
+                return;
+
+            Items.Clear ();
+
+            foreach (var item in list) {
+                if (!string.IsNullOrEmpty (_displayMember)) {
+                    var prop = item?.GetType ().GetProperty (_displayMember);
+                    Items.Add (prop?.GetValue (item)?.ToString () ?? item?.ToString () ?? string.Empty);
+                } else {
+                    Items.Add (item?.ToString () ?? string.Empty);
+                }
+            }
+        }
 
         /// <summary>
         /// Gets or sets whether the drop down portion of the ComboBox is currently shown.
@@ -202,6 +252,157 @@ namespace Modern.Forms
         /// Raised when the value of the SelectedIndex property changes.
         /// </summary>
         public event EventHandler? SelectedIndexChanged;
+
+        /// <summary>Raised when the SelectedValue property changes.</summary>
+        public event EventHandler? SelectedValueChanged { add { } remove { } }
+
+        /// <summary>Gets or sets the width of the drop-down list. 0 means match control width.</summary>
+        public int DropDownWidth { get; set; }
+
+        /// <summary>Gets or sets the maximum number of items shown in the drop-down list.</summary>
+        public int MaxDropDownItems { get; set; } = 8;
+
+        /// <summary>Gets or sets whether the combo box items are sorted alphabetically.</summary>
+        public bool Sorted { get; set; }
+
+        /// <summary>Gets or sets whether the selection is hidden when the control loses focus. Stub in Modern.Forms.</summary>
+        public bool HideSelection { get; set; } = true;
+
+        /// <summary>Gets or sets the starting position of text selected in the editable portion. Stub in Modern.Forms.</summary>
+        public int SelectionStart { get; set; }
+
+        /// <summary>Gets or sets the number of characters selected in the editable portion. Stub in Modern.Forms.</summary>
+        public int SelectionLength { get; set; }
+
+        /// <summary>Gets or sets the text in the editable portion of the ComboBox.</summary>
+        public string SelectedText {
+            get => SelectionLength > 0 && SelectionStart >= 0 ? Text.Substring (SelectionStart, Math.Min (SelectionLength, Text.Length - SelectionStart)) : string.Empty;
+            set { }
+        }
+
+        /// <summary>Gets or sets the maximum number of characters that can be entered in the editable portion. Stub in Modern.Forms.</summary>
+        public int MaxLength { get; set; }
+
+        /// <summary>Gets or sets whether the height of the ComboBox is limited to prevent partial items. Stub in Modern.Forms.</summary>
+        public bool IntegralHeight { get; set; } = true;
+
+        /// <summary>Selects a range of text in the editable portion of the ComboBox. Stub in Modern.Forms.</summary>
+        public void Select (int start, int length) { SelectionStart = start; SelectionLength = length; }
+
+        /// <summary>Gets or sets the height in pixels of the drop-down portion. Stub in Modern.Forms.</summary>
+        public int DropDownHeight { get; set; } = 106;
+
+        /// <summary>Gets or sets the height of each item in the combo box. Stub in Modern.Forms.</summary>
+        public int ItemHeight { get; set; } = 15;
+
+        /// <summary>Gets or sets the auto-complete mode. Stub in Modern.Forms.</summary>
+        public AutoCompleteMode AutoCompleteMode { get; set; } = AutoCompleteMode.None;
+
+        /// <summary>Gets or sets the source of auto-complete strings. Stub in Modern.Forms.</summary>
+        public AutoCompleteSource AutoCompleteSource { get; set; } = AutoCompleteSource.None;
+
+        /// <summary>Gets or sets the custom source for auto-complete strings. Stub in Modern.Forms.</summary>
+        public AutoCompleteStringCollection AutoCompleteCustomSource { get; set; } = new AutoCompleteStringCollection ();
+
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
+        private static object? GetPropValue (object? item, string prop) => item?.GetType ().GetProperty (prop)?.GetValue (item);
+
+        /// <summary>Gets or sets the selected value (uses ValueMember if set).</summary>
+        public object? SelectedValue {
+            get {
+                if (SelectedIndex < 0 || DataSource is not System.Collections.IList list || SelectedIndex >= list.Count)
+                    return SelectedItem;
+
+                var item = list[SelectedIndex];
+
+                return string.IsNullOrEmpty (ValueMember) ? item : GetPropValue (item, ValueMember);
+            }
+            set {
+                if (DataSource is not System.Collections.IList list || value == null) {
+                    SelectedItem = value;
+                    return;
+                }
+
+                for (int i = 0; i < list.Count; i++) {
+                    var item_value = string.IsNullOrEmpty (ValueMember) ? list[i] : GetPropValue (list[i], ValueMember);
+
+                    if (Equals (item_value, value)) {
+                        SelectedIndex = i;
+                        return;
+                    }
+                }
+            }
+        }
+
+        /// <summary>Prevents the control from drawing until EndUpdate is called.</summary>
+        public new void BeginUpdate () => SuspendLayout ();
+
+        /// <summary>Resumes drawing the control after BeginUpdate.</summary>
+        public new void EndUpdate () { ResumeLayout (false); Invalidate (); }
+
+        /// <summary>Returns the display text for the given item, using DisplayMember if set.</summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
+        public string GetItemText (object? item)
+        {
+            if (item is null) return string.Empty;
+            if (!string.IsNullOrEmpty (DisplayMember)) {
+                var prop = item.GetType ().GetProperty (DisplayMember);
+                if (prop != null) return prop.GetValue (item)?.ToString () ?? string.Empty;
+            }
+            return item.ToString () ?? string.Empty;
+        }
+
+        /// <summary>Finds the first item that exactly matches the given string (case-insensitive).</summary>
+        public int FindStringExact (string s, int startIndex = -1)
+        {
+            var items = Items;
+            int start = startIndex < 0 ? 0 : startIndex + 1;
+            for (int i = 0; i < items.Count; i++) {
+                int idx = (start + i) % items.Count;
+                if (string.Equals (GetItemText (items[idx]), s, StringComparison.OrdinalIgnoreCase))
+                    return idx;
+            }
+            return -1;
+        }
+
+        /// <inheritdoc/>
+        public override string Text {
+            get {
+                if (SelectedIndex >= 0)
+                    return GetItemText (SelectedItem);
+                return base.Text;
+            }
+            set {
+                int idx = FindStringExact (value);
+                if (idx >= 0)
+                    SelectedIndex = idx;
+                else
+                    base.Text = value;
+            }
+        }
+
+        /// <summary>Gets or sets the drawing mode for the elements of the ComboBox. Stub in Modern.Forms.</summary>
+        public DrawMode DrawMode { get; set; } = DrawMode.Normal;
+
+        /// <summary>Raised when an owner-drawn element needs to be drawn. Stub in Modern.Forms.</summary>
+        public event EventHandler<DrawItemEventArgs>? DrawItem { add { } remove { } }
+
+        /// <summary>Raised when an owner-drawn element needs to be measured. Stub in Modern.Forms.</summary>
+        public event EventHandler<MeasureItemEventArgs>? MeasureItem { add { } remove { } }
+
+        /// <summary>Finds the first item starting with the given string (case-insensitive).</summary>
+        public int FindString (string s, int startIndex = -1)
+        {
+            var items = Items;
+            int start = startIndex < 0 ? 0 : startIndex + 1;
+            for (int i = 0; i < items.Count; i++) {
+                int idx = (start + i) % items.Count;
+                var text = GetItemText (items[idx]);
+                if (text.StartsWith (s, StringComparison.OrdinalIgnoreCase))
+                    return idx;
+            }
+            return -1;
+        }
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);

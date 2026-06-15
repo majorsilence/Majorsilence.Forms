@@ -118,10 +118,32 @@ namespace Modern.Forms
         /// </summary>
         public object? Tag { get; set; }
 
-        /// <summary>
-        /// Gets or sets whether the column is visible.
-        /// </summary>
+        /// <summary>Gets or sets whether the column is visible.</summary>
         public bool Visible { get; set; } = true;
+
+        /// <summary>Gets or sets the auto-size mode. Stub in Modern.Forms.</summary>
+        public DataGridViewAutoSizeColumnMode AutoSizeMode { get; set; } = DataGridViewAutoSizeColumnMode.None;
+
+        /// <summary>Gets or sets the relative fill weight for fill-mode auto-sizing. Stub.</summary>
+        public float FillWeight { get; set; } = 100f;
+
+        /// <summary>Gets or sets whether the column is frozen (does not scroll horizontally). Stub.</summary>
+        public bool Frozen { get; set; }
+
+        /// <summary>Gets or sets the width of the column divider. Stub in Modern.Forms.</summary>
+        public int DividerWidth { get; set; }
+
+        /// <summary>Gets or sets the template used to create new cells. Stub in Modern.Forms.</summary>
+        public DataGridViewCell? CellTemplate { get; set; }
+
+        /// <summary>Gets or sets the display order of the column. Stub in Modern.Forms.</summary>
+        public int DisplayIndex {
+            get => Index;
+            set { /* ordering not implemented */ }
+        }
+
+        /// <summary>Gets or sets the column cell content alignment.</summary>
+        public ContentAlignment DefaultCellStyleAlignment { get; set; } = ContentAlignment.MiddleLeft;
 
         /// <summary>
         /// Gets or sets the width, in pixels, of the column.

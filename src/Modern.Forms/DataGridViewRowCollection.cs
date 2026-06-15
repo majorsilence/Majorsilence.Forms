@@ -27,8 +27,56 @@ namespace Modern.Forms
             foreach (var value in values)
                 row.Cells.Add (value);
 
-            Add (row);
+            base.Add (row);
             return row;
+        }
+
+        /// <summary>
+        /// Adds a new row with the specified object cell values.
+        /// </summary>
+        public DataGridViewRow Add (params object[] values)
+        {
+            var row = new DataGridViewRow ();
+
+            foreach (var value in values)
+                row.Cells.Add (value);
+
+            base.Add (row);
+            return row;
+        }
+
+        /// <summary>
+        /// Adds the specified number of new empty rows.
+        /// </summary>
+        public int Add (int count)
+        {
+            for (var i = 0; i < count; i++) {
+                var row = new DataGridViewRow ();
+                base.Add (row);
+            }
+            return Count;
+        }
+
+        /// <summary>
+        /// Returns the index of the specified row, or -1 if not found.
+        /// </summary>
+        public new int IndexOf (DataGridViewRow row) => Items.IndexOf (row);
+
+        /// <summary>Inserts a new row at the specified index with the given cell values.</summary>
+        public void Insert (int rowIndex, params object[] values)
+        {
+            var row = new DataGridViewRow ();
+            foreach (var value in values)
+                row.Cells.Add (value);
+            Insert (rowIndex, row);
+        }
+
+        /// <summary>Inserts the specified row at the specified index.</summary>
+        public new void Insert (int rowIndex, DataGridViewRow dataGridViewRow)
+        {
+            dataGridViewRow.SetOwner (owner);
+            Items.Insert (rowIndex, dataGridViewRow);
+            owner.OnRowsChanged ();
         }
 
         /// <inheritdoc/>

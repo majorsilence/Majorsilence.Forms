@@ -1,4 +1,4 @@
-﻿using SkiaSharp;
+using SkiaSharp;
 
 namespace Modern.Forms;
 
@@ -8,7 +8,8 @@ interface IHaveTextAndImageAlign
     ContentAlignment ImageAlign { get; set; }
     ContentAlignment TextAlign { get; set; }
     TextImageRelation TextImageRelation { get; set; }
-    SKBitmap? Image { get; set; }
+    Modern.Drawing.Image? Image { get; set; }
+    SKBitmap? ImageSK { get; }
     ImageList? ImageList { get; set; }
     int ImageIndex { get; set; }
     string ImageKey { get; set; }
@@ -16,8 +17,8 @@ interface IHaveTextAndImageAlign
 
     public SKBitmap? GetImage ()
     {
-        if (Image is not null)
-            return Image;
+        if (ImageSK is not null)
+            return ImageSK;
 
         if (ImageList is null)
             return null;

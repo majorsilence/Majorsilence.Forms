@@ -273,7 +273,7 @@ namespace Modern.Forms
         /// the created state allows us to avoid some stuff like layouts if the controls
         /// aren't actually being used yet.
         /// </summary>
-        internal void CreateControl ()
+        public void CreateControl ()
         {
             // Don't run this more than once
             if (Created)
@@ -1566,7 +1566,7 @@ namespace Modern.Forms
         internal void RaisePaint (PaintEventArgs e)
         {
             OnPaint (e);
-
+            Paint?.Invoke (this, e);
             SetState (States.IsDirty, false);
         }
 
@@ -1895,7 +1895,7 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the font (WinForms compatibility property; use Theme or Style for full control).
         /// </summary>
-        public System.Drawing.Font? Font { get; set; }
+        public Modern.Drawing.Font? Font { get; set; }
 
         /// <summary>
         /// Gets or sets user defined data.
@@ -1978,6 +1978,7 @@ namespace Modern.Forms
                     c.Dispose (disposing);
 
                 disposedValue = true;
+                _isDisposed = true;
             }
 
             base.Dispose (disposing);

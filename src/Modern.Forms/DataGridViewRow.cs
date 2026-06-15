@@ -67,6 +67,36 @@ namespace Modern.Forms
         public object? Tag { get; set; }
 
         /// <summary>
+        /// Gets or sets the data-source object bound to this row.
+        /// Set automatically when AutoGenerateColumns=false and DataSource is assigned.
+        /// </summary>
+        public object? DataBoundItem { get; set; }
+
+        /// <summary>Gets whether this row is the new-row placeholder. Always false in Modern.Forms.</summary>
+        public bool IsNewRow => false;
+
+        /// <summary>Gets or sets whether all cells in this row are read-only.</summary>
+        public bool ReadOnly { get; set; }
+
+        /// <summary>Gets or sets the minimum height for this row.</summary>
+        public int MinimumHeight { get; set; } = 10;
+
+        /// <summary>Gets or sets the default cell style applied to cells in this row.</summary>
+        public DataGridViewCellStyle DefaultCellStyle { get; set; } = new DataGridViewCellStyle ();
+
+        /// <summary>Gets or sets whether this row is visible.</summary>
+        public bool Visible { get; set; } = true;
+
+        /// <summary>Gets or sets whether the row can be resized by the user. Stub in Modern.Forms.</summary>
+        public DataGridViewTriState Resizable { get; set; } = DataGridViewTriState.NotSet;
+
+        /// <summary>Gets a value indicating whether this row is frozen (cannot scroll). Stub in Modern.Forms.</summary>
+        public bool Frozen { get; set; }
+
+        /// <summary>Gets or sets the error text for this row. Stub in Modern.Forms.</summary>
+        public string ErrorText { get; set; } = string.Empty;
+
+        /// <summary>
         /// Sets the owning DataGridView.
         /// </summary>
         internal void SetOwner (DataGridView? dataGridView) => owner = dataGridView;

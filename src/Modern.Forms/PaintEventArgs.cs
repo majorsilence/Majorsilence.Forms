@@ -18,10 +18,18 @@ namespace Modern.Forms
             Scaling = scaling;
         }
 
+        private Graphics? _graphics;
+
         /// <summary>
         /// Gets the canvas needed to paint the control.
         /// </summary>
         public SKCanvas Canvas { get; }
+
+        /// <summary>
+        /// WinForms compatibility: gets a <see cref="Graphics"/> object wrapping the Skia canvas.
+        /// Allows WinForms-style drawing code to compile without changes.
+        /// </summary>
+        public Graphics Graphics => _graphics ??= new Graphics (Canvas);
 
         /// <summary>
         /// Gets information about the image canvas.

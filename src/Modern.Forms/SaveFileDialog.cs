@@ -12,10 +12,8 @@ namespace Modern.Forms
         /// </summary>
         public string? DefaultExtension { get; set; }
 
-        /// <summary>
-        /// Shows the dialog to the user.
-        /// </summary>
-        public async Task<DialogResult> ShowDialog (Form owner)
+        /// <inheritdoc/>
+        public override async Task<DialogResult> ShowDialog (Form owner)
         {
             var parent = owner.AvWindow.StorageProvider;
 
@@ -25,7 +23,7 @@ namespace Modern.Forms
                 startLocation = await parent.TryGetFolderFromPathAsync (new Uri (initPath));
 
             var options = new FilePickerSaveOptions {
-                DefaultExtension = DefaultExtension,
+                DefaultExtension = DefaultExtension ?? DefaultExt,
                 SuggestedStartLocation = startLocation,
                 SuggestedFileName = FileName,
                 Title = Title,

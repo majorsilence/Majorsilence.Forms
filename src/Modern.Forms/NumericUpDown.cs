@@ -75,11 +75,47 @@ namespace Modern.Forms
             }
         }
 
+        /// <summary>Gets or sets whether the thousands separator is shown.</summary>
+        public bool ThousandsSeparator { get; set; }
+
+        /// <summary>Gets or sets whether arrow keys increment/decrement the value.</summary>
+        public bool InterceptArrowKeys { get; set; } = true;
+
+        /// <summary>Gets or sets whether the value is displayed in hexadecimal format.</summary>
+        public bool Hexadecimal { get; set; }
+
+        /// <summary>Gets a value indicating whether the user has edited the text in the spin box. Stub in Modern.Forms.</summary>
+        public bool UserEdit { get; protected set; }
+
+        /// <summary>Gets or sets whether the control is read-only.</summary>
+        public bool ReadOnly { get; set; }
+
+        /// <summary>Gets or sets the value by which to increment or decrement the NumericUpDown.</summary>
+        public decimal Increment { get; set; } = 1;
+
+        /// <summary>Gets or sets the alignment of the text in the control. Stub in Modern.Forms.</summary>
+        public HorizontalAlignment TextAlign { get; set; } = HorizontalAlignment.Left;
+
+        /// <summary>Gets or sets whether the up/down buttons are aligned to the left. Stub in Modern.Forms.</summary>
+        public LeftRightAlignment UpDownAlign { get; set; } = LeftRightAlignment.Right;
+
         /// <summary>Raised when the value changes.</summary>
         public event EventHandler? ValueChanged;
 
         /// <summary>Raises the ValueChanged event.</summary>
         protected virtual void OnValueChanged (EventArgs e) => ValueChanged?.Invoke (this, e);
+
+        /// <summary>Increments the value by the amount of the Increment property.</summary>
+        public void UpButton () => Value = Math.Min (Value + Increment, Maximum);
+
+        /// <summary>Decrements the value by the amount of the Increment property.</summary>
+        public void DownButton () => Value = Math.Max (Value - Increment, Minimum);
+
+        /// <summary>Increments the value by the Increment amount.</summary>
+        public void PerformIncrement () => UpButton ();
+
+        /// <summary>Decrements the value by the Increment amount.</summary>
+        public void PerformDecrement () => DownButton ();
 
         internal Rectangle GetIncrementArea () => new Rectangle (Width - ButtonWidth, 0, ButtonWidth, Height / 2);
         internal Rectangle GetDecrementArea () => new Rectangle (Width - ButtonWidth, Height / 2, ButtonWidth, Height - Height / 2);

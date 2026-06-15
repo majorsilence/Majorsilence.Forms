@@ -1,6 +1,6 @@
 using System;
 using System.Drawing;
-using Modern.Forms.Drawing;
+using Modern.Drawing;
 
 namespace Modern.Forms.Printing
 {

@@ -17,7 +17,7 @@ namespace Modern.Forms
         {
             _parent = parent;
 
-            Border = new BorderStyle (parent?.Border);
+            Border = new ControlBorderStyle (parent?.Border);
 
             setDefaults (this);
 
@@ -32,7 +32,7 @@ namespace Modern.Forms
         {
             _parent = parent;
 
-            Border = new BorderStyle (parent?.Border);
+            Border = new ControlBorderStyle (parent?.Border);
         }
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace Modern.Forms
         /// <summary>
         /// Provides access to border style properties.
         /// </summary>
-        public BorderStyle Border { get; }
+        public ControlBorderStyle Border { get; }
 
         /// <summary>
         /// Gets or sets the font.

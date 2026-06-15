@@ -34,12 +34,24 @@ namespace Modern.Forms
         }
 
         /// <summary>
-        /// Adds a new MenuItem to the collection with the specified text, image, and Click handler.
+        /// Adds a new MenuItem to the collection with the specified text, image (SKBitmap), and Click handler.
         /// </summary>
         public MenuItem Add (string text, SKBitmap? image = null, EventHandler<MouseEventArgs>? onClick = null)
         {
             return Add (new MenuItem (text, image, onClick));
         }
+
+        /// <summary>
+        /// Adds a new MenuItem to the collection with the specified text, image, and Click handler.
+        /// </summary>
+#pragma warning disable CA1416
+        public MenuItem Add (string text, Modern.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
+        {
+            var item = new MenuItem (text, (SKBitmap?)null, onClick);
+            item.Image = image;
+            return Add (item);
+        }
+#pragma warning restore CA1416
 
         /// <inheritdoc/>
         protected override void InsertItem (int index, MenuItem item)

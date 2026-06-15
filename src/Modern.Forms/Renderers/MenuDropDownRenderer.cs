@@ -29,11 +29,11 @@ namespace Modern.Forms.Renderers
             e.Canvas.FillRectangle (item.Bounds, background_color);
 
             // Image
-            if (item.Image != null) {
+            if (item.ImageSK != null) {
                 var image_size = e.LogicalToDeviceUnits (16);
                 var image_bounds = DrawingExtensions.CenterSquare (item.Bounds, image_size);
                 var image_rect = new Rectangle (item.Bounds.Left + e.LogicalToDeviceUnits (6), image_bounds.Top, image_size, image_size);
-                e.Canvas.DrawBitmap (item.Image, image_rect, !item.Enabled);
+                e.Canvas.DrawBitmap (item.ImageSK, image_rect, !item.Enabled);
             }
 
             // Text

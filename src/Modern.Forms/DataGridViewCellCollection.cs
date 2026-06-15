@@ -43,10 +43,12 @@ namespace Modern.Forms
         /// <summary>
         /// Adds a cell with the specified value to the collection.
         /// </summary>
-        public DataGridViewCell Add (string value)
+        public DataGridViewCell Add (object? value)
         {
             var cell = new DataGridViewCell (value);
-            Add (cell);
+            // Call the base Collection<T>.Add explicitly: because this class declares its own
+            // Add(object?), C# overload resolution would otherwise pick it again and recurse forever.
+            base.Add (cell);
             return cell;
         }
 

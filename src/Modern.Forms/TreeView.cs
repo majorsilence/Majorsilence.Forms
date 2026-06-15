@@ -45,9 +45,9 @@ namespace Modern.Forms
         }
 
         /// <summary>
-        /// Raised before a node is expanded.
+        /// Raised before a node is expanded. Set Cancel=true to prevent expansion.
         /// </summary>
-        public event EventHandler<EventArgs<TreeViewItem>>? BeforeExpand;
+        public event EventHandler<TreeViewCancelEventArgs>? BeforeExpand;
 
         /// <inheritdoc/>
         public new static readonly TreeViewControlStyle DefaultStyle = new TreeViewControlStyle (Control.DefaultStyle,
@@ -163,6 +163,222 @@ namespace Modern.Forms
         /// </summary>
         public event EventHandler<EventArgs<TreeViewItem>>? ItemSelected;
 
+        /// <summary>WinForms compatibility: raised after an item is selected (alias for ItemSelected).</summary>
+        public event EventHandler<TreeViewEventArgs>? AfterSelect;
+
+        /// <summary>WinForms compatibility: raised after an item is expanded.</summary>
+        public event EventHandler<TreeViewEventArgs>? AfterExpand;
+
+        /// <summary>WinForms compatibility: raised after an item is collapsed.</summary>
+        public event EventHandler<TreeViewEventArgs>? AfterCollapse;
+
+        /// <summary>WinForms compatibility: raised before an item is selected.</summary>
+        public event EventHandler<TreeViewCancelEventArgs>? BeforeSelect { add { } remove { } }
+
+        /// <summary>WinForms compatibility: raised before an item is collapsed.</summary>
+        public event EventHandler<TreeViewCancelEventArgs>? BeforeCollapse { add { } remove { } }
+
+        /// <summary>WinForms compatibility: raised after an item's check state changes.</summary>
+        public event EventHandler<TreeViewEventArgs>? AfterCheck { add { } remove { } }
+
+        /// <summary>WinForms compatibility: raised before an item's check state changes.</summary>
+        public event EventHandler<TreeViewCancelEventArgs>? BeforeCheck { add { } remove { } }
+
+        /// <summary>WinForms compatibility: raised after a node label is edited.</summary>
+        public event EventHandler<NodeLabelEditEventArgs>? AfterLabelEdit { add { } remove { } }
+
+        /// <summary>WinForms compatibility: raised before a node label is edited.</summary>
+        public event EventHandler<NodeLabelEditEventArgs>? BeforeLabelEdit { add { } remove { } }
+
+        /// <summary>WinForms compatibility: raised when the user clicks a node with the mouse.</summary>
+        public event EventHandler<TreeNodeMouseClickEventArgs>? NodeMouseClick;
+
+        /// <summary>WinForms compatibility: raised when the user double-clicks a node with the mouse.</summary>
+        public event EventHandler<TreeNodeMouseClickEventArgs>? NodeMouseDoubleClick { add { } remove { } }
+
+        /// <summary>WinForms compatibility: raised when the mouse enters a node.</summary>
+        public event EventHandler<TreeNodeMouseHoverEventArgs>? NodeMouseHover { add { } remove { } }
+
+        /// <summary>Raised when the user begins dragging a node. Stub in Modern.Forms.</summary>
+        public event EventHandler<ItemDragEventArgs>? ItemDrag { add { } remove { } }
+
+        /// <summary>Gets or sets whether check boxes appear next to tree items.</summary>
+        public bool CheckBoxes { get; set; }
+
+        /// <summary>Gets or sets whether clicking a tree node selects the full row. Stub in Modern.Forms.</summary>
+        public bool FullRowSelect { get; set; }
+
+        /// <summary>Gets or sets whether selections remain highlighted when the control loses focus. Stub in Modern.Forms.</summary>
+        public bool HideSelection { get; set; }
+
+        /// <summary>Gets or sets the height of each tree node row in pixels.</summary>
+        public int ItemHeight { get; set; } = 20;
+
+        /// <summary>Gets or sets whether in-place label editing is enabled. Stub in Modern.Forms.</summary>
+        public bool LabelEdit { get; set; }
+
+        /// <summary>Gets or sets the separator character used in node paths.</summary>
+        public string PathSeparator { get; set; } = "\\";
+
+        /// <summary>Gets or sets whether lines are drawn between tree nodes. Stub in Modern.Forms.</summary>
+        public bool ShowLines { get; set; } = true;
+
+        /// <summary>Gets or sets whether expand/collapse buttons are shown. Stub in Modern.Forms.</summary>
+        public bool ShowPlusMinus { get; set; } = true;
+
+        /// <summary>Gets or sets whether root-level tree lines are drawn. Stub in Modern.Forms.</summary>
+        public bool ShowRootLines { get; set; } = true;
+
+        /// <summary>Gets or sets the ImageList for tree item images.</summary>
+        public ImageList? ImageList { get; set; }
+
+        /// <summary>Gets or sets the default image index for items.</summary>
+        public int ImageIndex { get; set; } = -1;
+
+        /// <summary>Gets or sets the image index shown for selected items.</summary>
+        public int SelectedImageIndex { get; set; } = -1;
+
+        /// <summary>Gets or sets whether nodes are highlighted when the mouse pointer hovers over them. Stub in Modern.Forms.</summary>
+        public bool HotTracking { get; set; }
+
+        /// <summary>Gets or sets the ImageList used for state images. Stub in Modern.Forms.</summary>
+        public ImageList? StateImageList { get; set; }
+
+        /// <summary>Gets or sets the indentation width in pixels for child items.</summary>
+        public int Indent { get; set; } = 19;
+
+        /// <summary>Returns the tree node at the specified client coordinates, or null if none.</summary>
+        public TreeViewItem? GetNodeAt (int x, int y) => GetNodeAt (new System.Drawing.Point (x, y));
+
+        /// <summary>Returns the tree node at the specified client point, or null if none.</summary>
+        public TreeViewItem? GetNodeAt (System.Drawing.Point pt)
+        {
+            foreach (var item in GetAllItems ())
+                if (GetItemBounds (item).Contains (pt))
+                    return item;
+            return null;
+        }
+
+        private IEnumerable<TreeViewItem> GetAllItems ()
+        {
+            var stack = new Stack<TreeViewItem> (Items);
+            while (stack.Count > 0) {
+                var item = stack.Pop ();
+                yield return item;
+                if (item.IsExpanded)
+                    foreach (var child in item.Items)
+                        stack.Push (child);
+            }
+        }
+
+        private System.Drawing.Rectangle GetItemBounds (TreeViewItem item)
+        {
+            // Approximate — items are stacked vertically
+            var all = GetAllItems ().ToList ();
+            var index = all.IndexOf (item);
+            if (index < 0) return System.Drawing.Rectangle.Empty;
+            return new System.Drawing.Rectangle (0, index * ItemHeight, Width, ItemHeight);
+        }
+
+        /// <summary>Gets or sets the selected tree node (WinForms compatibility alias for SelectedItem).</summary>
+        public TreeViewItem? SelectedNode {
+            get => SelectedItem;
+            set { if (value is not null) SelectedItem = value; }
+        }
+
+        /// <summary>Gets the root tree nodes (WinForms compatibility alias for Items).</summary>
+        public TreeViewItemCollection Nodes => Items;
+
+        /// <summary>Gets or sets the first visible node in the tree. Stub in Modern.Forms.</summary>
+        public TreeViewItem? TopNode {
+            get => Items.FirstOrDefault ();
+            set { }
+        }
+
+        /// <summary>Gets or sets the object used to sort tree nodes. Stub in Modern.Forms.</summary>
+        public System.Collections.IComparer? TreeViewNodeSorter { get; set; }
+
+        /// <summary>Sorts all nodes in the tree using the default string comparison. Stub in Modern.Forms.</summary>
+        public void Sort () { }
+
+        /// <summary>Returns the number of tree nodes in the collection, optionally including subnodes.</summary>
+        public int GetNodeCount (bool includeSubTrees)
+        {
+            if (!includeSubTrees) return Items.Count;
+            var count = 0;
+            CountNodes (Items, ref count);
+            return count;
+        }
+
+        private static void CountNodes (TreeViewItemCollection items, ref int count)
+        {
+            count += items.Count;
+            foreach (var item in items)
+                CountNodes (item.Items, ref count);
+        }
+
+        /// <summary>Expands all tree nodes.</summary>
+        public void ExpandAll ()
+        {
+            foreach (var item in Items)
+                ExpandRecursive (item);
+
+            Invalidate ();
+        }
+
+        /// <summary>Collapses all tree nodes.</summary>
+        public void CollapseAll ()
+        {
+            foreach (var item in Items)
+                CollapseRecursive (item);
+
+            Invalidate ();
+        }
+
+        private static void ExpandRecursive (TreeViewItem item)
+        {
+            item.Expand ();
+
+            foreach (var child in item.Items)
+                ExpandRecursive (child);
+        }
+
+        private static void CollapseRecursive (TreeViewItem item)
+        {
+            foreach (var child in item.Items)
+                CollapseRecursive (child);
+
+            item.Collapse ();
+        }
+
+        /// <summary>Gets the item with the specified full path, or null if not found.</summary>
+        public TreeViewItem? FindNodeByFullPath (string fullPath)
+        {
+            foreach (var item in Items) {
+                var found = FindNodeByFullPathRecursive (item, fullPath);
+
+                if (found != null)
+                    return found;
+            }
+
+            return null;
+        }
+
+        private static TreeViewItem? FindNodeByFullPathRecursive (TreeViewItem item, string fullPath)
+        {
+            if (item.FullPath == fullPath)
+                return item;
+
+            foreach (var child in item.Items) {
+                var found = FindNodeByFullPathRecursive (child, fullPath);
+
+                if (found != null)
+                    return found;
+            }
+
+            return null;
+        }
+
         // Runs a layout pass on all TreeViewItems.
         private List<TreeViewItem> LayoutItems ()
         {
@@ -180,9 +396,14 @@ namespace Modern.Forms
         }
 
         /// <summary>
-        /// Raises the BeforeExpand event.
+        /// Raises the BeforeExpand event. Returns true if expansion should proceed (was not cancelled).
         /// </summary>
-        public void OnBeforeExpand (EventArgs<TreeViewItem> e) => BeforeExpand?.Invoke (this, e);
+        public bool OnBeforeExpand (TreeViewItem node)
+        {
+            var e = new TreeViewCancelEventArgs (node, false, TreeViewAction.Expand);
+            BeforeExpand?.Invoke (this, e);
+            return !e.Cancel;
+        }
 
         /// <inheritdoc/>
         protected override void OnClick (MouseEventArgs e)
@@ -211,10 +432,24 @@ namespace Modern.Forms
 
             var element = item.GetElementAtLocation (e.Location);
 
-            if (element == TreeViewItem.TreeViewItemElement.Glyph)
+            if (element == TreeViewItem.TreeViewItemElement.Glyph) {
+                var was_expanded = item.Expanded;
+                if (!was_expanded && !OnBeforeExpand (item))
+                    return;
                 item.Expanded = !item.Expanded;
-            else
+                RaiseExpandCollapseEvents (item, was_expanded);
+            } else {
                 SelectedItem = item;
+                NodeMouseClick?.Invoke (this, new TreeNodeMouseClickEventArgs (item, e.Button, e.Clicks, e.X, e.Y));
+            }
+        }
+
+        private void RaiseExpandCollapseEvents (TreeViewItem item, bool wasExpanded)
+        {
+            if (item.Expanded && !wasExpanded)
+                AfterExpand?.Invoke (this, new TreeViewEventArgs (item, TreeViewAction.Expand));
+            else if (!item.Expanded && wasExpanded)
+                AfterCollapse?.Invoke (this, new TreeViewEventArgs (item, TreeViewAction.Collapse));
         }
 
         /// <inheritdoc/>
@@ -232,8 +467,11 @@ namespace Modern.Forms
 
             var element = item.GetElementAtLocation (e.Location);
 
-            if (element != TreeViewItem.TreeViewItemElement.Glyph)
+            if (element != TreeViewItem.TreeViewItemElement.Glyph) {
+                var was_expanded = item.Expanded;
                 item.Expanded = !item.Expanded;
+                RaiseExpandCollapseEvents (item, was_expanded);
+            }
         }
 
         /// <summary>
@@ -244,7 +482,11 @@ namespace Modern.Forms
         /// <summary>
         /// Raises the ItemSelected event.
         /// </summary>
-        protected virtual void OnItemSelected (EventArgs<TreeViewItem> e) => ItemSelected?.Invoke (this, e);
+        protected virtual void OnItemSelected (EventArgs<TreeViewItem> e)
+        {
+            ItemSelected?.Invoke (this, e);
+            AfterSelect?.Invoke (this, new TreeViewEventArgs (e.Value, TreeViewAction.ByMouse));
+        }
 
         /// <inheritdoc/>
         protected override void OnKeyDown (KeyEventArgs e)
@@ -453,6 +695,12 @@ namespace Modern.Forms
                 }
             }
         }
+
+        /// <summary>Prevents the control from drawing until EndUpdate is called.</summary>
+        public new void BeginUpdate () => SuspendLayout ();
+
+        /// <summary>Resumes drawing the control after BeginUpdate.</summary>
+        public new void EndUpdate () { ResumeLayout (false); Invalidate (); }
 
         /// <inheritdoc/>
         public override TreeViewControlStyle Style { get; } = new TreeViewControlStyle (DefaultStyle);

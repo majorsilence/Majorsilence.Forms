@@ -14,6 +14,7 @@ namespace Modern.Forms
         private static readonly BitVector32.Section s_stateAutoEllipsis = BitVector32.CreateSection (1);
 
         private static readonly int s_propImage = PropertyStore.CreateKey ();
+        private static readonly int s_propImageSK = PropertyStore.CreateKey ();
         private static readonly int s_propImageAlign = PropertyStore.CreateKey ();
         private static readonly int s_propImageList = PropertyStore.CreateKey ();
         private static readonly int s_propImageIndex = PropertyStore.CreateKey ();
@@ -100,18 +101,33 @@ namespace Modern.Forms
         /// </summary>
         public DialogResult DialogResult { get; set; }
 
+        /// <summary>Gets or sets the flat style appearance of the button. Stub in Modern.Forms.</summary>
+        public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
+
+        /// <summary>Gets the appearance settings used when the button has a flat appearance. Stub in Modern.Forms.</summary>
+        public FlatButtonAppearance FlatAppearance { get; } = new FlatButtonAppearance ();
+
+        /// <summary>Gets or sets whether the button uses the system visual style. Stub in Modern.Forms.</summary>
+        public bool UseCompatibleTextRendering { get; set; }
+
         /// <summary>
         /// Gets or sets the image displayed on the <see cref='Button'/>.
         /// </summary>
-        public SKBitmap? Image {
-            get => Properties.GetObject<SKBitmap> (s_propImage);
+#pragma warning disable CA1416
+        public Modern.Drawing.Image? Image {
+            get => Properties.GetObject<Modern.Drawing.Image> (s_propImage);
             set {
                 if (Image != value) {
                     Properties.SetObject (s_propImage, value);
+                    Properties.SetObject (s_propImageSK, value?.ToSKBitmap ());
                     Invalidate ();
                 }
             }
         }
+#pragma warning restore CA1416
+
+        /// <summary>Gets the SKBitmap representation of the image (used by renderers).</summary>
+        public SKBitmap? ImageSK => Properties.GetObject<SKBitmap> (s_propImageSK);
 
         /// <summary>
         /// Gets or sets the alignment of the image on the <see cref='Button'/>.

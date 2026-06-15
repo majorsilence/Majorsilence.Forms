@@ -46,6 +46,16 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Adds a column with the specified internal name and header text (WinForms-compatible overload).
+        /// </summary>
+        public DataGridViewColumn Add (string name, string headerText)
+        {
+            var column = new DataGridViewColumn (headerText) { Name = name };
+            Add (column);
+            return column;
+        }
+
+        /// <summary>
         /// Adds a column with the specified header text and width to the collection.
         /// </summary>
         public DataGridViewColumn Add (string headerText, int width)

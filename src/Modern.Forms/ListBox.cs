@@ -1,4 +1,6 @@
-﻿using System.ComponentModel;
+﻿using System.Collections;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Globalization;
 using Modern.Forms.Renderers;
@@ -15,6 +17,9 @@ namespace Modern.Forms
         private bool scrollbar_always_visible;
         private int top_index;
         private readonly VerticalScrollBar vscrollbar;
+        private object? _dataSource;
+        private string _displayMember = string.Empty;
+        private string _valueMember = string.Empty;
 
         /// <summary>
         /// Initializes a new instance of the ListBox class.
@@ -165,6 +170,48 @@ namespace Modern.Forms
         /// Gets the collection of items contained by this ListBox.
         /// </summary>
         public ListBoxItemCollection Items { get; }
+
+        /// <summary>Gets or sets the data source for the ListBox.</summary>
+        public object? DataSource {
+            get => _dataSource;
+            set {
+                _dataSource = value;
+                RefreshDataSource ();
+            }
+        }
+
+        /// <summary>Gets or sets the property to display from the data source.</summary>
+        public string DisplayMember {
+            get => _displayMember;
+            set {
+                _displayMember = value ?? string.Empty;
+                RefreshDataSource ();
+            }
+        }
+
+        /// <summary>Gets or sets the property used as the value from the data source.</summary>
+        public string ValueMember {
+            get => _valueMember;
+            set => _valueMember = value ?? string.Empty;
+        }
+
+        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
+        private void RefreshDataSource ()
+        {
+            if (_dataSource is not IList list)
+                return;
+
+            Items.Clear ();
+
+            foreach (var item in list) {
+                if (!string.IsNullOrEmpty (_displayMember)) {
+                    var prop = item?.GetType ().GetProperty (_displayMember);
+                    Items.Add (prop?.GetValue (item)?.ToString () ?? item?.ToString () ?? string.Empty);
+                } else {
+                    Items.Add (item?.ToString () ?? string.Empty);
+                }
+            }
+        }
 
         // The height that would be needed to display all items.
         private int NeededHeightForItems => ScaledItemHeight * Items.Count;
@@ -452,6 +499,9 @@ namespace Modern.Forms
         /// </summary>
         public event EventHandler? SelectedIndexChanged;
 
+        /// <summary>Raised when the SelectedValue property changes.</summary>
+        public event EventHandler? SelectedValueChanged { add { } remove { } }
+
         /// <summary>
         /// Gets or sets the currently selected item, if any.  If there are multiple selected items, the first selected item will be returned.
         /// </summary>
@@ -503,6 +553,123 @@ namespace Modern.Forms
         /// Gets or sets whether the item currently containing the mouse pointer should be highlighted.
         /// </summary>
         public bool ShowHover { get; set; }
+
+        /// <summary>Gets or sets the selected value using ValueMember reflection.</summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
+        public object? SelectedValue {
+            get {
+                if (SelectedIndex < 0 || DataSource is not System.Collections.IList list || SelectedIndex >= list.Count)
+                    return SelectedItem;
+
+                var item = list[SelectedIndex];
+
+                if (string.IsNullOrEmpty (ValueMember))
+                    return item;
+
+                return item?.GetType ().GetProperty (ValueMember)?.GetValue (item);
+            }
+            set {
+                if (DataSource is not System.Collections.IList list || value == null) {
+                    SelectedItem = value;
+                    return;
+                }
+
+                for (int i = 0; i < list.Count; i++) {
+                    var item = list[i];
+                    var item_value = string.IsNullOrEmpty (ValueMember)
+                        ? item
+                        : item?.GetType ().GetProperty (ValueMember)?.GetValue (item);
+
+                    if (Equals (item_value, value)) {
+                        SelectedIndex = i;
+                        return;
+                    }
+                }
+            }
+        }
+
+        /// <summary>Gets or sets whether items are sorted alphabetically.</summary>
+        public bool Sorted { get; set; }
+
+        /// <summary>Gets or sets the height of each item when DrawMode is OwnerDrawFixed. Stub in Modern.Forms.</summary>
+        public DrawMode DrawMode { get; set; } = DrawMode.Normal;
+
+        /// <summary>Gets or sets whether the control height resizes to avoid showing partial items. Stub in Modern.Forms.</summary>
+        public bool IntegralHeight { get; set; } = true;
+
+        /// <summary>Gets or sets whether the selection is hidden when the control loses focus. Stub in Modern.Forms.</summary>
+        public bool HideSelection { get; set; } = true;
+
+        /// <summary>Gets or sets the horizontal extent to enable horizontal scrolling. Stub in Modern.Forms.</summary>
+        public int HorizontalExtent { get; set; }
+
+        /// <summary>Gets or sets whether tab stops are used in the ListBox. Stub in Modern.Forms.</summary>
+        public bool UseTabStops { get; set; } = true;
+
+        /// <summary>Gets or sets whether the ListBox always shows a scroll bar. Stub in Modern.Forms.</summary>
+        public bool ScrollAlwaysVisible { get; set; }
+
+        /// <summary>Gets or sets whether a horizontal scrollbar is shown. Stub in Modern.Forms.</summary>
+        public bool HorizontalScrollbar { get; set; }
+
+        /// <summary>Gets or sets whether the ListBox displays items in multiple columns. Stub in Modern.Forms.</summary>
+        public bool MultiColumn { get; set; }
+
+        /// <summary>Gets or sets the width of each column in a multi-column ListBox. Stub in Modern.Forms.</summary>
+        public int ColumnWidth { get; set; }
+
+        /// <summary>Gets or sets the index of the first visible item. Stub in Modern.Forms.</summary>
+        public int TopIndex {
+            get => top_index;
+            set {
+                top_index = Math.Max (0, Math.Min (value, Items.Count - 1));
+                Invalidate ();
+            }
+        }
+
+        /// <summary>Deselects all items in the ListBox.</summary>
+        public void ClearSelected ()
+        {
+            Items.SelectedIndexes.Clear ();
+            Invalidate ();
+        }
+
+        /// <summary>Selects or deselects the item at the specified index.</summary>
+        public void SetSelected (int index, bool value)
+        {
+            if (index < 0 || index >= Items.Count) return;
+            if (value) Items.AddSelectedIndex (index, false);
+            else Items.RemoveSelectedIndex (index);
+        }
+
+        /// <summary>Returns whether the item at the specified index is selected.</summary>
+        public bool GetSelected (int index) => Items.SelectedIndexes.Contains (index);
+
+        /// <summary>Returns the collection of indices of all currently selected items.</summary>
+        public IEnumerable<int> SelectedIndices => new System.Collections.ObjectModel.ReadOnlyCollection<int> (Items.SelectedIndexes);
+
+        /// <summary>Finds the first item that exactly matches the specified string, starting at the given index.</summary>
+        public int FindStringExact (string s, int startIndex = -1)
+        {
+            for (var i = (startIndex < 0 ? 0 : startIndex + 1) % Items.Count; i < Items.Count; i++) {
+                var text = Items[i]?.ToString () ?? string.Empty;
+                if (string.Equals (text, s, StringComparison.OrdinalIgnoreCase))
+                    return i;
+            }
+            return -1;
+        }
+
+        /// <summary>Raised when items are added. Stub in Modern.Forms.</summary>
+        public event EventHandler<MeasureItemEventArgs>? MeasureItem { add { } remove { } }
+
+        /// <summary>Raised when an item needs to be drawn (OwnerDraw). Stub in Modern.Forms.</summary>
+        public event EventHandler<DrawItemEventArgs>? DrawItem { add { } remove { } }
+
+        /// <summary>Prevents the control from drawing until EndUpdate is called.</summary>
+        public new void BeginUpdate () => SuspendLayout ();
+
+        /// <summary>Resumes drawing the control after BeginUpdate.</summary>
+        public new void EndUpdate () { ResumeLayout (false); Invalidate (); }
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);

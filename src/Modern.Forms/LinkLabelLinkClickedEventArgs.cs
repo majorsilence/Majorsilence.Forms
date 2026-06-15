@@ -1,5 +1,10 @@
-﻿namespace Modern.Forms
+﻿#pragma warning disable CA1711
+namespace Modern.Forms
 {
+    /// <summary>Represents the method that handles the LinkClicked event of a LinkLabel control.</summary>
+    public delegate void LinkLabelLinkClickedEventHandler (object sender, LinkLabelLinkClickedEventArgs e);
+#pragma warning restore CA1711
+
     /// <summary>
     /// Provides data for the <see cref="LinkLabel.LinkClicked"/> event.
     /// </summary>

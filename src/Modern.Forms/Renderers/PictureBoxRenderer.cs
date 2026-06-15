@@ -10,29 +10,29 @@ namespace Modern.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (PictureBox control, PaintEventArgs e)
         {
-            if (control.Image != null) {
+            if (control.SKImage != null) {
                 var client = control.PaddedClientRectangle;
 
                 switch (control.SizeMode) {
                     //case PictureBoxSizeMode.AutoSize:
                     case PictureBoxSizeMode.Normal:
-                        e.Canvas.DrawBitmap (control.Image, new Rectangle (0, 0, control.Image.Width, control.Image.Height), !control.Enabled);
+                        e.Canvas.DrawBitmap (control.SKImage, new Rectangle (0, 0, control.SKImage.Width, control.SKImage.Height), !control.Enabled);
                         break;
                     case PictureBoxSizeMode.StretchImage:
-                        e.Canvas.DrawBitmap (control.Image, client, !control.Enabled);
+                        e.Canvas.DrawBitmap (control.SKImage, client, !control.Enabled);
                         break;
                     case PictureBoxSizeMode.CenterImage:
-                        e.Canvas.DrawBitmap (control.Image, (client.Width / 2) - (control.Image.Width / 2), (client.Height / 2) - (control.Image.Height / 2), !control.Enabled);
+                        e.Canvas.DrawBitmap (control.SKImage, (client.Width / 2) - (control.SKImage.Width / 2), (client.Height / 2) - (control.SKImage.Height / 2), !control.Enabled);
                         break;
                     case PictureBoxSizeMode.Zoom:
                         Size image_size;
 
-                        if (((float)control.Image.Width / control.Image.Height) >= ((float)client.Width / client.Height))
-                            image_size = new Size (client.Width, (control.Image.Height * client.Width) / control.Image.Width);
+                        if (((float)control.SKImage.Width / control.SKImage.Height) >= ((float)client.Width / client.Height))
+                            image_size = new Size (client.Width, (control.SKImage.Height * client.Width) / control.SKImage.Width);
                         else
-                            image_size = new Size ((control.Image.Width * client.Height) / control.Image.Height, client.Height);
+                            image_size = new Size ((control.SKImage.Width * client.Height) / control.SKImage.Height, client.Height);
 
-                        e.Canvas.DrawBitmap (control.Image, new Rectangle ((client.Width / 2) - (image_size.Width / 2), (client.Height / 2) - (image_size.Height / 2), image_size.Width, image_size.Height), !control.Enabled);
+                        e.Canvas.DrawBitmap (control.SKImage, new Rectangle ((client.Width / 2) - (image_size.Width / 2), (client.Height / 2) - (image_size.Height / 2), image_size.Width, image_size.Height), !control.Enabled);
                         break;
                 }
             } else if (control.IsErrored) {

@@ -184,13 +184,13 @@ namespace Modern.Forms.Renderers
                 var col_width = control.LogicalToDeviceUnits (column.Width);
                 var cell_rect = new Rectangle (x, bounds.Top, col_width, bounds.Height);
 
-                var cell_value = i < row.Cells.Count ? row.Cells[i].Value : string.Empty;
+                var cell_value = i < row.Cells.Count ? row.Cells[i].Value?.ToString () ?? string.Empty : string.Empty;
 
                 if (i < row.Cells.Count)
                     row.Cells[i].Bounds = cell_rect;
 
                 var cell_style = i < row.Cells.Count ? row.Cells[i].Style : null;
-                RenderCell (control, cell_value, rowIndex, i, cell_rect, cell_style, e);
+                RenderCell (control, column, cell_value, rowIndex, i, cell_rect, cell_style, e);
 
                 x += col_width;
             }
@@ -230,7 +230,7 @@ namespace Modern.Forms.Renderers
         /// <summary>
         /// Renders a single cell.
         /// </summary>
-        protected virtual void RenderCell (DataGridView control, string value, int rowIndex, int columnIndex, Rectangle bounds, ControlStyle? cellStyle, PaintEventArgs e)
+        protected virtual void RenderCell (DataGridView control, DataGridViewColumn column, string value, int rowIndex, int columnIndex, Rectangle bounds, ControlStyle? cellStyle, PaintEventArgs e)
         {
             // Draw per-cell background if set
             var cell_bg = cellStyle?.BackgroundColor;
@@ -245,15 +245,61 @@ namespace Modern.Forms.Renderers
             if (control.SelectionMode != DataGridViewSelectionMode.FullRowSelect && control.SelectedRowIndex == rowIndex && control.SelectedColumnIndex == columnIndex)
                 e.Canvas.DrawRectangle (bounds, Theme.AccentColor, 2);
 
-            // Draw text using cell style or default cell style
             var text_bounds = bounds;
             text_bounds.Inflate (-4, 0);
 
             var fg = cellStyle?.ForegroundColor ?? control.DefaultCellStyle.ForegroundColor ?? Theme.ForegroundColor;
             var font = cellStyle?.Font ?? control.DefaultCellStyle.Font ?? Theme.UIFont;
             var font_size = cellStyle?.FontSize ?? control.DefaultCellStyle.FontSize ?? Theme.ItemFontSize;
+            var scaled_font = control.LogicalToDeviceUnits (font_size);
 
-            e.Canvas.DrawText (value, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, ContentAlignment.MiddleLeft, maxLines: 1);
+            if (column is DataGridViewCheckBoxColumn) {
+                RenderCheckBoxCell (e, bounds, value);
+            } else if (column is DataGridViewButtonColumn btn_col) {
+                var btn_text = btn_col.UseColumnTextForButtonValue ? btn_col.HeaderText : value;
+                RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg);
+            } else if (column is DataGridViewComboBoxColumn) {
+                RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg);
+            } else {
+                e.Canvas.DrawText (value, font, scaled_font, text_bounds, fg, ContentAlignment.MiddleLeft, maxLines: 1);
+            }
+        }
+
+        private static void RenderCheckBoxCell (PaintEventArgs e, Rectangle bounds, string value)
+        {
+            var size = Math.Min (bounds.Width, bounds.Height) - 6;
+            var cx = bounds.Left + (bounds.Width - size) / 2;
+            var cy = bounds.Top + (bounds.Height - size) / 2;
+            var box = new Rectangle (cx, cy, size, size);
+
+            e.Canvas.DrawRectangle (box, Theme.BorderLowColor);
+
+            var checked_ = value == "True" || value == "1" || value.Equals ("true", StringComparison.OrdinalIgnoreCase);
+
+            if (checked_) {
+                var inset = box;
+                inset.Inflate (-3, -3);
+                e.Canvas.FillRectangle (inset, Theme.AccentColor);
+            }
+        }
+
+        private static void RenderButtonCell (PaintEventArgs e, Rectangle bounds, string text, SKTypeface font, int fontSize, SKColor fg)
+        {
+            e.Canvas.DrawRectangle (bounds, Theme.BorderLowColor);
+            e.Canvas.DrawText (text, font, fontSize, bounds, fg, ContentAlignment.MiddleCenter, maxLines: 1);
+        }
+
+        private static void RenderComboBoxCell (PaintEventArgs e, Rectangle bounds, string value, SKTypeface font, int fontSize, SKColor fg)
+        {
+            var arrow_size = 10;
+            var text_rect = new Rectangle (bounds.Left, bounds.Top, bounds.Width - arrow_size - 4, bounds.Height);
+            e.Canvas.DrawText (value, font, fontSize, text_rect, fg, ContentAlignment.MiddleLeft, maxLines: 1);
+
+            // Draw dropdown arrow
+            var ax = bounds.Right - arrow_size;
+            var ay = bounds.Top + (bounds.Height - arrow_size) / 2;
+            e.Canvas.DrawLine (bounds.Right - arrow_size - 2, bounds.Top, bounds.Right - arrow_size - 2, bounds.Bottom, Theme.BorderLowColor);
+            e.Canvas.DrawText ("▾", font, fontSize, new Rectangle (ax - 2, ay - 2, arrow_size + 4, arrow_size + 4), fg, ContentAlignment.MiddleCenter);
         }
 
         /// <summary>

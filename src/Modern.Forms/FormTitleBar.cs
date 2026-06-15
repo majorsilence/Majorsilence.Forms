@@ -95,16 +95,24 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the image used as the upper-left icon of the titlebar.
         /// </summary>
-        public SKBitmap? Image {
+#pragma warning disable CA1416
+        public Modern.Drawing.Image? Image {
             get => form_image.Image;
             set {
-                if (form_image.Image != value) {
-                    form_image.Image = value;
-
-                    form_image.Visible = form_image.Image is not null && show_image;
-                    Invalidate ();
-                }
+                form_image.Image = value;
+                form_image.Visible = form_image.Image is not null && show_image;
+                Invalidate ();
             }
+        }
+#pragma warning restore CA1416
+
+        internal SKBitmap? SKImage => form_image.SKImage;
+
+        internal void SetSKImage (SKBitmap? bmp)
+        {
+            form_image.SetSKImage (bmp);
+            form_image.Visible = form_image.SKImage is not null && show_image;
+            Invalidate ();
         }
 
         /// <inheritdoc/>
@@ -144,7 +152,7 @@ namespace Modern.Forms
             set {
                 if (show_image != value) {
                     show_image = value;
-                    form_image.Visible = value && form_image.Image is not null;
+                    form_image.Visible = value && (form_image.Image is not null || form_image.SKImage is not null);
                     Invalidate (); // TODO: Shouldn't be required
                 }
             }

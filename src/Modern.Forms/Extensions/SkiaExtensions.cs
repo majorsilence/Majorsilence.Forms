@@ -262,32 +262,16 @@ namespace Modern.Forms
         public static Size GetSize (this SKBitmap bitmap) => new Size (bitmap.Width, bitmap.Height);
 
         /// <summary>
-        /// Convers an SKImage to a Bitmap.
+        /// Converts an SKImage to a cross-platform <see cref="Bitmap"/>.
         /// </summary>
-        [SupportedOSPlatform ("windows")]
         public static Bitmap ToBitmap (this SKImage skiaImage)
-        {
-            // TODO: maybe keep the same color types where we can, instead of just going to the platform default
-            var bitmap = new Bitmap (skiaImage.Width, skiaImage.Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
-            var data = bitmap.LockBits (new Rectangle (0, 0, bitmap.Width, bitmap.Height), System.Drawing.Imaging.ImageLockMode.WriteOnly, bitmap.PixelFormat);
-
-            // copy
-            using (var pixmap = new SKPixmap (new SKImageInfo (data.Width, data.Height), data.Scan0, data.Stride))
-                skiaImage.ReadPixels (pixmap, 0, 0);
-
-            bitmap.UnlockBits (data);
-            return bitmap;
-        }
+            => new Bitmap (SKBitmap.FromImage (skiaImage));
 
         /// <summary>
-        /// Convers an SKBitmap to a Bitmap.
+        /// Converts an SKBitmap to a cross-platform <see cref="Bitmap"/>.
         /// </summary>
-        [SupportedOSPlatform ("windows")]
         public static Bitmap ToBitmap (this SKBitmap skiaBitmap)
-        {
-            using (var image = SKImage.FromPixels (skiaBitmap.PeekPixels ()))
-                return ToBitmap (image);
-        }
+            => new Bitmap (skiaBitmap.Copy ());
 
         /// <summary>
         /// Converts an SKRect to a Rectangle.

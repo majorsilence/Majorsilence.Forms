@@ -1,12 +1,12 @@
-﻿using Modern.Forms;
-using SkiaSharp;
+﻿using System.Drawing;
+using Modern.Forms;
 using ContentAlignment = Modern.Forms.ContentAlignment;
 
 namespace ControlGallery.Panels
 {
     public class CheckBoxPanel : Panel
     {
-        private static SKBitmap _swatches = ImageLoader.Get ("swatches.png");
+        private static Bitmap _swatches = ImageLoader.Get ("swatches.png");
 
         public CheckBoxPanel ()
         {

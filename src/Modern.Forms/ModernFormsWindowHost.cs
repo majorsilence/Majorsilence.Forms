@@ -30,6 +30,7 @@ namespace Modern.Forms
     /// <see cref="Avalonia.Controls.Image"/> control displays the result. This mirrors the original
     /// native-framebuffer approach and is reliable across all Avalonia 12 platforms.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_framebuffer is disposed in OnClosed; Window lifecycle manages the call.")]
     internal class ModernFormsWindowHost : Window
     {
         private readonly WindowBase _owner;
@@ -57,14 +58,14 @@ namespace Modern.Forms
             // Surface image fills the window. Stretch = Fill maps the framebuffer
             // pixels 1:1 with the window client area at logical pixel resolution.
             _surface = new AvImage {
-                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
                 Stretch = Stretch.Fill
             };
 
             // Grid stretches its children to fill available space.
             var grid = new Grid {
-                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch
             };
             grid.Children.Add (_surface);

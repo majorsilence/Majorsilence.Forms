@@ -145,7 +145,7 @@ namespace ControlGallery
                 case "SplitContainer":
                     return new SplitContainerPanel ();
                 case "StatusBar":
-                    return new StatusBarPanel ();
+                    return new Panels.StatusBarPanel ();
                 case "StatusStrip":
                     return new StatusStripPanel ();
                 case "TabControl":
@@ -202,7 +202,7 @@ namespace ControlGallery
         private static void DrawThemeColor (SKCanvas canvas, int x, int y, int width, int height, SKColor color)
         {
             canvas.FillRectangle (x, y, width, height, color);
-            canvas.DrawText (color.ToString (), x + 10, y + 20, new SKPaint { Typeface = Theme.UIFont, Color = Theme.ForegroundColor });
+            canvas.DrawText (color.ToString (), Theme.UIFont, 12, new System.Drawing.Rectangle (x + 4, y + 4, width - 8, height - 8), Theme.ForegroundColor, ContentAlignment.MiddleLeft);
         }
 
         protected override void OnPaintBackground (PaintEventArgs e)
