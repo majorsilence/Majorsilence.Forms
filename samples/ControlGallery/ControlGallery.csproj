@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modern.Forms\Modern.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Modern.Forms.Avalonia\Modern.Forms.Avalonia.csproj" />
   </ItemGroup>
 
   <ItemGroup>

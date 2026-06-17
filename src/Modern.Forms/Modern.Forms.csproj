@@ -15,11 +15,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" />
-    <PackageReference Include="Avalonia.Desktop" />
-    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="SkiaSharp" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
     <PackageReference Include="Topten.RichTextKit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Avalonia backend lives in a separate assembly and reaches into the core's
+         internal window/render/input plumbing through the IWindowBackend seam. -->
+    <InternalsVisibleTo Include="Modern.Forms.Avalonia" />
   </ItemGroup>
 
 </Project>
