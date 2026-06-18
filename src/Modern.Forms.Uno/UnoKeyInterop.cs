@@ -9,6 +9,22 @@ namespace Modern.Forms.Uno
     {
         public static MouseButtons ToButton (PointerPointProperties props)
         {
+            // On a button press/release, the pressed-flags reflect the state AFTER the transition
+            // (so on release no button is "pressed"). PointerUpdateKind carries which button changed —
+            // essential for clicks/right-clicks where the release must report the released button.
+            switch (props.PointerUpdateKind) {
+                case PointerUpdateKind.LeftButtonPressed:
+                case PointerUpdateKind.LeftButtonReleased:
+                    return MouseButtons.Left;
+                case PointerUpdateKind.RightButtonPressed:
+                case PointerUpdateKind.RightButtonReleased:
+                    return MouseButtons.Right;
+                case PointerUpdateKind.MiddleButtonPressed:
+                case PointerUpdateKind.MiddleButtonReleased:
+                    return MouseButtons.Middle;
+            }
+
+            // No button transition (e.g. a move/drag): report the currently-held buttons.
             var buttons = MouseButtons.None;
             if (props.IsLeftButtonPressed) buttons |= MouseButtons.Left;
             if (props.IsRightButtonPressed) buttons |= MouseButtons.Right;

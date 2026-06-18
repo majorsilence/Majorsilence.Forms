@@ -132,6 +132,28 @@ public class HeadlessBackendTests
     }
 
     [Fact]
+    public void RightClick_OpensContextMenu ()
+    {
+        // Right-click must reach OnClick with MouseButtons.Right and open the control's context menu.
+        var form = new Form ();
+        var panel = new Panel { Left = 0, Top = 0, Width = 200, Height = 100 };
+        var menu = new ContextMenu ();
+        menu.Items.Add ("Copy");
+        menu.Items.Add ("Paste");
+        panel.ContextMenu = menu;
+        form.Controls.Add (panel);
+        form.Show ();
+
+        HeadlessRenderer.CapturePng (form, 200, 100);              // force a layout pass
+        HeadlessRenderer.Click (form, 50, 30, MouseButtons.Right); // right-click the panel
+
+        Assert.True (menu.Visible);   // the context-menu popup opened
+
+        Application.ClosePopups ();
+        form.Close ();
+    }
+
+    [Fact]
     public void ShowDialog_CompletesWithoutRecursion ()
     {
         // Regression: Form.ShowDialog(Form) must call the base window helper, not recurse into itself.
