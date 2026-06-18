@@ -67,6 +67,41 @@ public class HeadlessBackendTests
     }
 
     [Fact]
+    public void Clipboard_RoundTripsThroughBackend ()
+    {
+        Clipboard.SetText ("round-trip-value");
+        Assert.Equal ("round-trip-value", Clipboard.GetText ());
+
+        Clipboard.Clear ();
+        Assert.Equal (string.Empty, Clipboard.GetText ());
+    }
+
+    [Fact]
+    public void Screens_ComeFromBackend ()
+    {
+        var screens = Screen.AllScreens;
+
+        Assert.NotEmpty (screens);
+        Assert.NotNull (Screen.PrimaryScreen);
+        Assert.Equal (1920, Screen.PrimaryScreen!.Bounds.Width);
+        Assert.Equal (1080, Screen.PrimaryScreen!.Bounds.Height);
+    }
+
+    [Fact]
+    public void TextInput_ReachesFocusedTextBox ()
+    {
+        var form = new Form ();
+        var textbox = new TextBox { Left = 10, Top = 10, Width = 200, Height = 30 };
+        form.Controls.Add (textbox);
+
+        HeadlessRenderer.CapturePng (form, 240, 60);   // force a layout pass
+        HeadlessRenderer.Click (form, 100, 25);         // click to focus the textbox
+        HeadlessRenderer.TextInput (form, "Hello");
+
+        Assert.Equal ("Hello", textbox.Text);
+    }
+
+    [Fact]
     public void ShowDialog_CompletesWithoutRecursion ()
     {
         // Regression: Form.ShowDialog(Form) must call the base window helper, not recurse into itself.

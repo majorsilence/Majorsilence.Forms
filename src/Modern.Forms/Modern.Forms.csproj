@@ -30,6 +30,7 @@
          plumbing (RenderFrame, Handle*, OnBackend*, the Backend field) through the IWindowBackend seam. -->
     <InternalsVisibleTo Include="Modern.Forms.Avalonia" />
     <InternalsVisibleTo Include="Modern.Forms.Headless" />
+    <InternalsVisibleTo Include="Modern.Forms.Uno" />
   </ItemGroup>
 
 </Project>

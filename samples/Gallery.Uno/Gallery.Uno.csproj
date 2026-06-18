@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Standalone head: manage its own (nuget.org-only) versions, independent of the repo CPM. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <NoWarn>$(NoWarn);CA1416;Uno0001;NU1903</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modern.Forms\Modern.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Modern.Forms.Uno\Modern.Forms.Uno.csproj" />
+    <!-- Reuse the full ControlGallery MainForm to render the whole gallery on Uno. -->
+    <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The gallery loads PNGs from an "Images" folder relative to the working dir. -->
+    <Content Include="..\ControlGallery\Images\**\*.png" Link="Images\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" Version="6.0.465" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.X11" Version="6.0.465" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" Version="6.0.465" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.MacOS" Version="6.0.465" />
+  </ItemGroup>
+
+</Project>

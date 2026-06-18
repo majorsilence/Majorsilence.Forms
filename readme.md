@@ -21,6 +21,11 @@ The goal is to create a spiritual successor to Winforms that is:
 
 To create your own `Modern.Forms` application, see [Getting Started](docs/getting-started.md).
 
+### Architecture
+
+Modern.Forms renders everything with SkiaSharp and runs on a swappable host backend (Avalonia by
+default). See [Platform backends](docs/backends.md) for the backend seam and how to add one.
+
 ## How to Run
 
 ### Sample Application
