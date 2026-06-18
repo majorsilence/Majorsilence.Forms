@@ -31,6 +31,29 @@ public sealed class ModernFormsUnoApp : Microsoft.UI.Xaml.Application
         System.Console.WriteLine ("[uno-head] OnLaunched — installing UnoPlatformBackend");
         Modern.Forms.Backends.Platform.Backend = new UnoPlatformBackend ();
 
+        // Diagnostics: MF_OPEN_MENU=1 opens a context menu programmatically so the Uno popup
+        // chrome/position can be traced (set MF_UNO_TRACE=1) without manual clicking.
+        if (Environment.GetEnvironmentVariable ("MF_OPEN_MENU") is not null) {
+            var f = new Form { Text = "menu-trace" };
+            var label = new Label { Text = "host", Left = 40, Top = 40, Width = 200, Height = 30 };
+            f.Controls.Add (label);
+            var menu = new ContextMenu ();
+            menu.Items.Add ("Copy");
+            menu.Items.Add ("Cut");
+            menu.Items.Add ("Paste");
+            var timer = new Modern.Forms.Timer { Interval = 1200 };
+            timer.Tick += (_, _) => {
+                timer.Stop ();
+                // Use the real coordinate path (Control.PointToScreen) like a right-click context menu.
+                var screen = label.PointToScreen (new System.Drawing.Point (0, label.Height));
+                System.Console.Error.WriteLine ($"[uno-head] opening context menu at screen=({screen.X},{screen.Y})");
+                menu.Show (label, screen);
+            };
+            f.Show ();
+            timer.Start ();
+            return;
+        }
+
         var form = new ControlGallery.MainForm ();
         System.Console.WriteLine ($"[uno-head] ControlGallery.MainForm created on backend={Modern.Forms.Backends.Platform.Backend.Name}; showing");
         form.Show ();

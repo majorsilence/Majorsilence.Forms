@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Modern.Forms.Backends;
 using SkiaSharp.Views.Windows;
@@ -14,92 +15,221 @@ namespace Modern.Forms.Uno
     /// An <see cref="IWindowBackend"/> that presents a Modern.Forms window through a Uno
     /// <c>SKXamlCanvas</c>: its <c>PaintSurface</c> calls <c>WindowBase.RenderFrame</c>, and Uno
     /// pointer/keyboard/character events are translated into the neutral <c>WindowBase.Handle*</c> path.
+    ///
+    /// Top-level windows use a <see cref="Window"/>. Popups (menus, combo dropdowns) use an in-window
+    /// <see cref="Popup"/> overlay parented to the main window's XamlRoot — Uno's macOS Skia head does
+    /// not place/strip-chrome secondary <see cref="Window"/>s correctly (AppWindow.Position returns
+    /// (0,0), Move uses an AppKit bottom-left origin, and the title bar can't be removed).
     /// </summary>
     internal sealed class UnoWindowHost : IWindowBackend
     {
         private readonly WindowBase _owner;
-        private readonly Window _window;
+        private readonly bool _isPopup;
+        private readonly UnoWindowHost? _parentHost;
         private readonly CursorCanvas _canvas;
+
+        // Exactly one of these is non-null: _window for top-level windows, _popup for overlays.
+        private readonly Window? _window;
+        private readonly Popup? _popup;
+
         private Size _size = new (800, 600);
         private Point _location;
+        private bool _systemDecorations;
 
-        public UnoWindowHost (WindowBase owner, bool isPopup)
+        private bool PopupMode => _popup is not null;
+
+        public UnoWindowHost (WindowBase owner, bool isPopup, UnoWindowHost? parentHost)
         {
             _owner = owner;
+            _isPopup = isPopup;
+            _parentHost = parentHost;
+            _systemDecorations = !isPopup;
 
             _canvas = new CursorCanvas ();
             _canvas.PaintSurface += OnPaintSurface;
 
-            _window = new Window { Content = _canvas };
-
             WireInput ();
-            WireLifecycle ();
+
+            if (isPopup && parentHost is not null) {
+                // In-window overlay — no separate OS window, so no chrome / positioning quirks.
+                _popup = new Popup { Child = _canvas };
+            } else {
+                _window = new Window { Content = _canvas };
+                WireLifecycle ();
+                ApplyDecorations ();
+            }
         }
+
+        internal Microsoft.UI.Xaml.XamlRoot? CanvasXamlRoot => _canvas.XamlRoot;
+        internal double HostScaling => _canvas.XamlRoot?.RasterizationScale ?? 1.0;
+
+        private Microsoft.UI.Windowing.OverlappedPresenter? Presenter
+            => _window?.AppWindow?.Presenter as Microsoft.UI.Windowing.OverlappedPresenter;
 
         // ── Geometry ──
         public Point Location {
-            get => _location;
-            set { _location = value; TryMove (value); }
+            get {
+                if (PopupMode)
+                    return _location;
+                try {
+                    var p = _window!.AppWindow?.Position;
+                    if (p is not null)
+                        return new Point (p.Value.X, p.Value.Y);
+                } catch { }
+                return _location;
+            }
+            set { _location = value; if (!PopupMode) TryMove (value); }
         }
 
         public Size Size {
             get => _size;
-            set { _size = value; TryResize (value); }
+            set {
+                _size = value;
+                if (PopupMode) {
+                    _canvas.Width = value.Width;
+                    _canvas.Height = value.Height;
+                } else {
+                    TryResize (value);
+                }
+            }
         }
 
         public Size ClientSize => _size;
 
-        public double Scaling => _canvas.XamlRoot?.RasterizationScale ?? 1.0;
+        public double Scaling => _canvas.XamlRoot?.RasterizationScale ?? _parentHost?.HostScaling ?? 1.0;
 
         private void TryResize (Size size)
         {
-            try { _window.AppWindow?.Resize (new Windows.Graphics.SizeInt32 { Width = size.Width, Height = size.Height }); } catch { }
+            var s = Scaling;
+            try { _window!.AppWindow?.Resize (new Windows.Graphics.SizeInt32 { Width = (int) (size.Width * s), Height = (int) (size.Height * s) }); } catch { }
         }
 
         private void TryMove (Point location)
         {
-            try { _window.AppWindow?.Move (new Windows.Graphics.PointInt32 { X = location.X, Y = location.Y }); } catch { }
+            try { _window!.AppWindow?.Move (new Windows.Graphics.PointInt32 { X = location.X, Y = location.Y }); } catch { }
         }
 
         // ── Lifecycle ──
-        public void Show () => _window.Activate ();
-        public void ShowDialog (IWindowBackend? owner) => _window.Activate ();
-        public void Hide () { try { _window.AppWindow?.Hide (); } catch { } }
-        public void Close () => _window.Close ();
-        public void Activate () => _window.Activate ();
+        public void Show ()
+        {
+            if (PopupMode) {
+                ShowPopup ();
+                return;
+            }
+
+            ApplyDecorations ();
+            _window!.Activate ();
+        }
+
+        private void ShowPopup ()
+        {
+            _canvas.Width = _size.Width;
+            _canvas.Height = _size.Height;
+
+            var xamlRoot = _parentHost?.CanvasXamlRoot;
+            if (xamlRoot is not null)
+                _popup!.XamlRoot = xamlRoot;
+
+            // _location is physical, relative to the parent window's origin (Control.PointToScreen adds
+            // the parent window position, which is (0,0) on Uno macOS). Popup offsets are logical and
+            // window-relative, so subtract the parent's reported position and divide by scaling.
+            var scaling = _parentHost?.HostScaling ?? 1.0;
+            if (scaling <= 0) scaling = 1.0;
+            var parentPos = _parentHost?.Location ?? Point.Empty;
+
+            _popup!.HorizontalOffset = (_location.X - parentPos.X) / scaling;
+            _popup!.VerticalOffset = (_location.Y - parentPos.Y) / scaling;
+
+            _popup!.IsOpen = true;
+            _owner.OnBackendActivated ();
+            _canvas.Invalidate ();
+        }
+
+        public void ShowDialog (IWindowBackend? owner) => Show ();
+
+        public void Hide ()
+        {
+            if (PopupMode) {
+                _popup!.IsOpen = false;
+                return;
+            }
+            try { _window!.AppWindow?.Hide (); } catch { }
+        }
+
+        public void Close ()
+        {
+            if (PopupMode) {
+                _popup!.IsOpen = false;
+                _owner.OnBackendClosed ();
+                return;
+            }
+            _window!.Close ();
+        }
+
+        public void Activate ()
+        {
+            if (PopupMode)
+                _owner.OnBackendActivated ();
+            else
+                _window!.Activate ();
+        }
 
         private void WireLifecycle ()
         {
-            _window.Activated += (_, e) => {
+            _window!.Activated += (_, e) => {
                 if (e.WindowActivationState == Windows.UI.Core.CoreWindowActivationState.Deactivated)
                     _owner.OnBackendDeactivated ();
                 else
                     _owner.OnBackendActivated ();
             };
 
-            _window.Closed += (_, _) => _owner.OnBackendClosed ();
+            _window!.Closed += (_, _) => _owner.OnBackendClosed ();
         }
 
         // ── Appearance / behaviour ──
-        public string Title { set { try { _window.Title = value; } catch { } } }
+        public string Title { set { try { if (_window is not null) _window.Title = value; } catch { } } }
         public bool Topmost { get; set; }
+
         public void SetSystemDecorations (bool useSystemDecorations)
         {
-            try { _window.ExtendsContentIntoTitleBar = !useSystemDecorations; } catch { }
+            _systemDecorations = useSystemDecorations;
+            ApplyDecorations ();
         }
+
+        // Borderless when system decorations are off (top-level windows only; popups are chromeless overlays).
+        private void ApplyDecorations ()
+        {
+            if (PopupMode)
+                return;
+            try {
+                if (Presenter is { } p) {
+                    if (!_systemDecorations) {
+                        p.IsResizable = false;
+                        p.IsMaximizable = false;
+                        p.IsMinimizable = false;
+                    }
+                    p.SetBorderAndTitleBar (_systemDecorations, _systemDecorations);
+                }
+                _window!.ExtendsContentIntoTitleBar = !_systemDecorations;
+            } catch { /* presenter not available on every target */ }
+        }
+
         public void SetCursor (CursorType cursor) => _canvas.SetCursorShape (UnoKeyInterop.ToCursorShape (cursor));
+
         public void SetIcon (byte[]? iconPng)
         {
+            if (PopupMode)
+                return;
             try {
                 if (iconPng is null || iconPng.Length == 0)
                     return;
 
-                // AppWindow.SetIcon takes a file path; persist the PNG to a temp file.
                 var path = System.IO.Path.Combine (System.IO.Path.GetTempPath (), $"mf-uno-icon-{Guid.NewGuid ():N}.png");
                 System.IO.File.WriteAllBytes (path, iconPng);
-                _window.AppWindow?.SetIcon (path);
+                _window!.AppWindow?.SetIcon (path);
             } catch { /* icon is best-effort */ }
         }
+
         public Size MinimumSize { set { } }
         public Size MaximumSize { set { } }
         public bool CanResize { get; set; } = true;
@@ -109,14 +239,26 @@ namespace Modern.Forms.Uno
         public bool Enabled { get; set; } = true;
 
         // ── Coordinate conversion ──
-        public Point PointToClient (Point screen) => new (screen.X - _location.X, screen.Y - _location.Y);
-        public Point PointToScreen (Point client) => new (client.X + _location.X, client.Y + _location.Y);
+        // screen coords are physical, window-relative (parent position is (0,0) on Uno macOS); client logical.
+        public Point PointToClient (Point screen)
+        {
+            var pos = Location;
+            var s = Scaling;
+            return new Point ((int) ((screen.X - pos.X) / s), (int) ((screen.Y - pos.Y) / s));
+        }
 
-        // ── Drag (custom chrome) ──
-        public void BeginMoveDrag () { /* TODO: AppWindow drag via the title bar region. */ }
-        public void BeginResizeDrag (WindowEdge edge) { /* TODO: platform-specific resize drag. */ }
+        public Point PointToScreen (Point client)
+        {
+            var pos = Location;
+            var s = Scaling;
+            return new Point (pos.X + (int) (client.X * s), pos.Y + (int) (client.Y * s));
+        }
 
-        // ── File/folder pickers (WinUI Windows.Storage.Pickers, bound to this window) ──
+        // ── Drag (custom chrome) — no portable Uno API; see docs/backends.md. ──
+        public void BeginMoveDrag () { }
+        public void BeginResizeDrag (WindowEdge edge) { }
+
+        // ── File/folder pickers (top-level windows only) ──
         public async Task<string[]> ShowOpenFileDialog (OpenFileRequest request)
         {
             var picker = new Windows.Storage.Pickers.FileOpenPicker ();
@@ -160,7 +302,6 @@ namespace Modern.Forms.Uno
         {
             foreach (var filter in filters)
                 foreach (var pattern in filter.Patterns) {
-                    // "*.txt" -> ".txt"; bare "*" -> "*".
                     var ext = pattern.StartsWith ("*.", StringComparison.Ordinal) ? pattern[1..] : pattern;
                     if (!target.Contains (ext))
                         target.Add (ext);
@@ -172,10 +313,12 @@ namespace Modern.Forms.Uno
 
         private void InitializeWithWindow (object picker)
         {
+            if (_window is null)
+                return;
             try {
                 var hwnd = WinRT.Interop.WindowNative.GetWindowHandle (_window);
                 WinRT.Interop.InitializeWithWindow.Initialize (picker, hwnd);
-            } catch { /* Not required / unsupported on some Skia desktop targets. */ }
+            } catch { /* not required / unsupported on some Skia desktop targets */ }
         }
 
         // ── Rendering ──

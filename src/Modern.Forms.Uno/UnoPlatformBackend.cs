@@ -82,8 +82,17 @@ namespace Modern.Forms.Uno
             // Uno has no synchronous "pump pending work" primitive; the dispatcher drains on its own.
         }
 
+        private UnoWindowHost? _mainHost;
+
         /// <inheritdoc/>
-        public IWindowBackend CreateWindow (WindowBase owner, bool isPopup) => new UnoWindowHost (owner, isPopup);
+        public IWindowBackend CreateWindow (WindowBase owner, bool isPopup)
+        {
+            // Popups render as in-window overlays parented to the main window's XamlRoot.
+            var host = new UnoWindowHost (owner, isPopup, isPopup ? _mainHost : null);
+            if (!isPopup)
+                _mainHost = host;
+            return host;
+        }
 
         /// <inheritdoc/>
         public IPlatformTimer CreateTimer () => new UnoTimer ();
