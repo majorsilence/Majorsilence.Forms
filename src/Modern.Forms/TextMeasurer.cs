@@ -9,7 +9,7 @@ namespace Modern.Forms
     /// </summary>
     public static class TextMeasurer
     {
-        internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false)
+        internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false, int mnemonicIndex = -1)
         {
             if (maxLines == 1) {
                 text = text.Replace ("\n\r", "»");
@@ -32,7 +32,27 @@ namespace Modern.Forms
                 FontWeight = font.FontWeight
             };
 
-            tb.AddText (text, styleNormal);
+            // Underline the mnemonic character (the access key) by splitting the text into a
+            // normal run, a single underlined run for that character, and a trailing normal run.
+            if (mnemonicIndex >= 0 && mnemonicIndex < text.Length) {
+                var styleMnemonic = new Style {
+                    FontFamily = font.FamilyName,
+                    FontSize = fontSize,
+                    TextColor = color,
+                    FontWeight = font.FontWeight,
+                    Underline = UnderlineStyle.Solid
+                };
+
+                if (mnemonicIndex > 0)
+                    tb.AddText (text.Substring (0, mnemonicIndex), styleNormal);
+
+                tb.AddText (text.Substring (mnemonicIndex, 1), styleMnemonic);
+
+                if (mnemonicIndex + 1 < text.Length)
+                    tb.AddText (text.Substring (mnemonicIndex + 1), styleNormal);
+            } else {
+                tb.AddText (text, styleNormal);
+            }
 
             // Above, for a single line, we did not limit the width, and we need to fix it here
             // - If it fits, we need to set MaxWidth so Left/Center/Right alignment will work

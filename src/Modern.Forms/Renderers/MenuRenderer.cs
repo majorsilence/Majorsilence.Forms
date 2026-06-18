@@ -30,7 +30,7 @@ namespace Modern.Forms.Renderers
             var font_color = item.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
 
-            e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, item.Bounds, font_color, ContentAlignment.MiddleCenter);
+            e.Canvas.DrawMnemonicText (item.Text, Theme.UIFont, font_size, item.Bounds, font_color, ContentAlignment.MiddleCenter);
         }
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace Modern.Forms.Renderers
 
             var padding = control.LogicalToDeviceUnits (item.Padding.Horizontal);
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
-            var text_size = (int)Math.Round (TextMeasurer.MeasureText (item.Text, Theme.UIFont, font_size).Width);
+            var text_size = (int)Math.Round (TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), Theme.UIFont, font_size).Width);
 
             return new Size (text_size + padding, item.Bounds.Height);
         }

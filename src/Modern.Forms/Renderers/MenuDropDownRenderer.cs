@@ -41,7 +41,7 @@ namespace Modern.Forms.Renderers
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
             var bounds = item.Bounds;
             bounds.X += e.LogicalToDeviceUnits (28);
-            e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, bounds, font_color, ContentAlignment.MiddleLeft);
+            e.Canvas.DrawMnemonicText (item.Text, Theme.UIFont, font_size, bounds, font_color, ContentAlignment.MiddleLeft);
 
             // Dropdown Arrow
             if (item.HasItems) {
@@ -93,7 +93,7 @@ namespace Modern.Forms.Renderers
 
             var padding = control.LogicalToDeviceUnits (item.Padding);
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
-            var text_size = TextMeasurer.MeasureText (item.Text, Theme.UIFont, font_size);
+            var text_size = TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), Theme.UIFont, font_size);
 
             return new Size ((int)Math.Round (text_size.Width, 0, MidpointRounding.AwayFromZero) + padding.Horizontal + control.LogicalToDeviceUnits (70), (int)Math.Round (text_size.Height, 0, MidpointRounding.AwayFromZero) + control.LogicalToDeviceUnits (8));
         }

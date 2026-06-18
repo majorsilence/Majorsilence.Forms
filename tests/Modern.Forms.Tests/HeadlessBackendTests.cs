@@ -153,6 +153,22 @@ public class HeadlessBackendTests
         form.Close ();
     }
 
+    [Theory]
+    [InlineData ("File", "File", -1)]            // no prefix: unchanged, no mnemonic
+    [InlineData ("&File", "File", 0)]            // leading prefix: 'F' is the mnemonic
+    [InlineData ("E&xit", "Exit", 1)]            // mid-string prefix: 'x' is the mnemonic
+    [InlineData ("Save && Close", "Save & Close", -1)]  // doubled '&' is a literal ampersand
+    [InlineData ("R&&D", "R&D", -1)]             // doubled '&' between letters
+    [InlineData ("Trailing&", "Trailing", -1)]   // trailing '&' is dropped
+    [InlineData ("", "", -1)]                     // empty
+    public void Mnemonics_Parse_StripsPrefixAndLocatesAccessKey (string input, string expectedDisplay, int expectedIndex)
+    {
+        var display = Mnemonics.Parse (input, out var index);
+
+        Assert.Equal (expectedDisplay, display);
+        Assert.Equal (expectedIndex, index);
+    }
+
     [Fact]
     public void ShowDialog_CompletesWithoutRecursion ()
     {

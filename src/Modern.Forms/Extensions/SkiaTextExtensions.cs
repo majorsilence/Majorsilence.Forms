@@ -50,6 +50,36 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Draws a string of text, interpreting WinForms mnemonic prefixes: an ampersand marks the
+        /// following character as the access key (drawn underlined), and a doubled ampersand is a
+        /// literal ampersand.
+        /// </summary>
+        public static void DrawMnemonicText (this SKCanvas canvas, string text, SKTypeface font, int fontSize, Rectangle bounds, SKColor color, ContentAlignment alignment, int? maxLines = null, bool ellipsis = false)
+        {
+            if (string.IsNullOrWhiteSpace (text))
+                return;
+
+            var display = Mnemonics.Parse (text, out var mnemonicIndex);
+
+            if (string.IsNullOrEmpty (display))
+                return;
+
+            var tb = TextMeasurer.CreateTextBlock (display, font, fontSize, bounds.Size, TextMeasurer.GetTextAlign (alignment), color, maxLines, ellipsis, mnemonicIndex);
+            var location = bounds.Location;
+            var vertical = TextMeasurer.GetVerticalAlign (alignment);
+
+            if (vertical == SKTextAlign.Right)
+                location.Y = bounds.Bottom - (int)tb.MeasuredHeight;
+            else if (vertical == SKTextAlign.Center)
+                location.Y += (bounds.Height - (int)tb.MeasuredHeight) / 2;
+
+            canvas.Save ();
+            canvas.Clip (bounds);
+            tb.Paint (canvas, new SKPoint (location.X, location.Y), CreateOptions ());
+            canvas.Restore ();
+        }
+
+        /// <summary>
         /// Draws a block of text.
         /// </summary>
         public static void DrawTextBlock (this SKCanvas canvas, TextBlock block, Point location, TextSelection selection)
