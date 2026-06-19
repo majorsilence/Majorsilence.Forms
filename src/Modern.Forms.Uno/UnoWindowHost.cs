@@ -322,14 +322,42 @@ namespace Modern.Forms.Uno
         }
 
         // ── Rendering ──
-        public void Invalidate () => _canvas.Invalidate ();
+        // On Uno's macOS Skia head SKXamlCanvas.Invalidate() paints synchronously, so an Invalidate()
+        // raised *during* a paint (controls routinely invalidate while rendering — e.g. TextBox updating
+        // its scrollbars) would re-enter OnPaintSurface and recurse until the stack overflows. Coalesce
+        // any such re-entrant invalidations into a single repaint scheduled on the next dispatcher tick,
+        // matching the async-invalidation behaviour the Avalonia backend gets for free.
+        private bool _painting;
+        private bool _invalidatePending;
+
+        public void Invalidate ()
+        {
+            if (_painting) {
+                _invalidatePending = true;
+                return;
+            }
+
+            _canvas.Invalidate ();
+        }
 
         private void OnPaintSurface (object? sender, SKPaintSurfaceEventArgs e)
         {
             var info = e.Info;
             var scaling = Scaling;
             _size = new Size ((int) (info.Width / scaling), (int) (info.Height / scaling));
-            _owner.RenderFrame (e.Surface.Canvas, info.Width, info.Height, scaling);
+
+            _painting = true;
+            _invalidatePending = false;
+            try {
+                _owner.RenderFrame (e.Surface.Canvas, info.Width, info.Height, scaling);
+            } finally {
+                _painting = false;
+            }
+
+            // A control changed something that needs redrawing while we were painting. Repaint on the
+            // next tick rather than synchronously, so state settles and we don't re-enter this frame.
+            if (_invalidatePending)
+                _canvas.DispatcherQueue?.TryEnqueue (() => _canvas.Invalidate ());
         }
 
         // ── Input ──
