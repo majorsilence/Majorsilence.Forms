@@ -262,8 +262,46 @@ namespace Modern.Forms
         /// <summary>Gets or sets the maximum number of items shown in the drop-down list.</summary>
         public int MaxDropDownItems { get; set; } = 8;
 
+        private bool _sorted;
+
         /// <summary>Gets or sets whether the combo box items are sorted alphabetically.</summary>
-        public bool Sorted { get; set; }
+        public bool Sorted {
+            get => _sorted;
+            set {
+                if (_sorted == value)
+                    return;
+
+                _sorted = value;
+
+                if (_sorted)
+                    SortItems ();
+            }
+        }
+
+        // Sorts the current items in ascending order by their display text, matching
+        // WinForms' behavior when Sorted is set to true. The selection is preserved.
+        private void SortItems ()
+        {
+            if (Items.Count < 2)
+                return;
+
+            var selected = SelectedItem;
+
+            var sorted = Items.Cast<object> ()
+                              .OrderBy (i => GetItemText (i), StringComparer.CurrentCulture)
+                              .ToList ();
+
+            Items.Clear ();
+
+            foreach (var item in sorted)
+                Items.Add (item);
+
+            if (selected is not null) {
+                var index = Items.IndexOf (selected);
+                if (index >= 0)
+                    SelectedIndex = index;
+            }
+        }
 
         /// <summary>Gets or sets whether the selection is hidden when the control loses focus. Stub in Modern.Forms.</summary>
         public bool HideSelection { get; set; } = true;

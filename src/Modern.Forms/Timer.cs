@@ -27,8 +27,16 @@ namespace Modern.Forms
         /// </summary>
         public Timer (IContainer container)
         {
+            ArgumentNullException.ThrowIfNull (container);
+
             container.Add (this);
         }
+
+        /// <summary>
+        /// Gets or sets user defined data associated with the timer.
+        /// </summary>
+        [DefaultValue (null)]
+        public object? Tag { get; set; }
 
         /// <summary>
         /// Occurs when the specified timer interval has elapsed and the timer is enabled.

@@ -13,6 +13,13 @@ namespace Modern.Forms
         public string? DefaultExtension { get; set; }
 
         /// <inheritdoc/>
+        public override void Reset ()
+        {
+            base.Reset ();
+            DefaultExtension = null;
+        }
+
+        /// <inheritdoc/>
         public override async Task<DialogResult> ShowDialog (Form owner)
         {
             var request = new SaveFileRequest {

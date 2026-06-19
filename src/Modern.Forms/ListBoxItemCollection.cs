@@ -3,7 +3,6 @@ using System.Collections.Specialized;
 
 namespace Modern.Forms
 {
-    // TODO: Update selected indexes when adding/removing items
     /// <summary>
     /// Represents a collection of items for ListBox.
     /// </summary>
@@ -103,9 +102,59 @@ namespace Modern.Forms
         /// <inheritdoc/>
         protected override void OnCollectionChanged (NotifyCollectionChangedEventArgs e)
         {
+            // Keep the selected/focused indexes in sync as items are added, removed,
+            // or the collection is reset. Stale indexes would otherwise point at the
+            // wrong item (or out of range) after a mutation.
+            switch (e.Action) {
+                case NotifyCollectionChangedAction.Remove:
+                    AdjustIndexesForRemove (e.OldStartingIndex);
+                    break;
+
+                case NotifyCollectionChangedAction.Add:
+                    AdjustIndexesForInsert (e.NewStartingIndex);
+                    break;
+
+                case NotifyCollectionChangedAction.Reset:
+                    SelectedIndexes.Clear ();
+                    focused_index = 0;
+                    break;
+            }
+
             base.OnCollectionChanged (e);
 
             owner.Invalidate ();
+        }
+
+        private void AdjustIndexesForRemove (int removedIndex)
+        {
+            if (removedIndex < 0)
+                return;
+
+            // Drop the removed index and shift everything after it down by one.
+            for (var i = SelectedIndexes.Count - 1; i >= 0; i--) {
+                if (SelectedIndexes[i] == removedIndex)
+                    SelectedIndexes.RemoveAt (i);
+                else if (SelectedIndexes[i] > removedIndex)
+                    SelectedIndexes[i]--;
+            }
+
+            if (focused_index > removedIndex || focused_index >= Count)
+                focused_index = Math.Max (0, focused_index - 1);
+        }
+
+        private void AdjustIndexesForInsert (int insertedIndex)
+        {
+            if (insertedIndex < 0)
+                return;
+
+            // Shift any selected index at or after the insertion point up by one.
+            for (var i = 0; i < SelectedIndexes.Count; i++) {
+                if (SelectedIndexes[i] >= insertedIndex)
+                    SelectedIndexes[i]++;
+            }
+
+            if (focused_index >= insertedIndex)
+                focused_index++;
         }
 
         internal void RemoveSelectedIndex (int index)

@@ -27,7 +27,17 @@ namespace Modern.Forms
         public string Filter {
             get => _filter;
             set {
-                _filter = value ?? string.Empty;
+                var newValue = value ?? string.Empty;
+
+                if (!string.IsNullOrEmpty (newValue)) {
+                    // WinForms semantics: the filter must consist of name/pattern pairs,
+                    // so the number of '|'-separated parts must be even (and non-zero).
+                    var formatLength = newValue.Split ('|').Length;
+                    if (formatLength % 2 != 0)
+                        throw new ArgumentException ("The provided filter string is invalid.", nameof (value));
+                }
+
+                _filter = newValue;
                 filters.Clear ();
                 if (string.IsNullOrEmpty (_filter)) return;
                 var parts = _filter.Split ('|');
@@ -91,6 +101,20 @@ namespace Modern.Forms
             FilterIndex = 1;
             DefaultExt = string.Empty;
             FileNames.Clear ();
+            Title = string.Empty;
+            InitialDirectory = null;
+            AddExtension = true;
+            DereferenceLinks = true;
+            ShowHelp = false;
+            CheckFileExists = true;
+            CheckPathExists = true;
+            ShowReadOnly = false;
+            ReadOnlyChecked = false;
+            CreatePrompt = false;
+            OverwritePrompt = true;
+            RestoreDirectory = false;
+            SupportMultiDottedExtensions = false;
+            ValidateNames = true;
         }
 
         /// <summary>

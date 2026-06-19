@@ -65,6 +65,18 @@ namespace Modern.Forms
             return column;
         }
 
+        /// <summary>
+        /// Adds a range of columns to the collection.
+        /// </summary>
+        public void AddRange (params DataGridViewColumn[] columns)
+        {
+            if (columns is null)
+                throw new ArgumentNullException (nameof (columns));
+
+            foreach (var column in columns)
+                Add (column);
+        }
+
         /// <inheritdoc/>
         protected override void ClearItems ()
         {

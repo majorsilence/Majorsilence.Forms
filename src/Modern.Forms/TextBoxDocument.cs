@@ -194,8 +194,9 @@ namespace Modern.Forms
         public bool IsTextSelected => selection_start >= 0 && selection_end >= 0 && SelectionLength != 0;
 
         public int MaxLength {
+            // 0 means "no limit" (WinForms convention), stored internally as int.MaxValue.
             get => max_length == int.MaxValue ? 0 : max_length;
-            set => max_length = max_length == 0 ? int.MaxValue : max_length;
+            set => max_length = value <= 0 ? int.MaxValue : value;
         }
 
         private int? MaxLines => multiline ? (int?)null : 1;

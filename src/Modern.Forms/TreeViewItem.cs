@@ -305,8 +305,22 @@ namespace Modern.Forms
         /// <summary>Gets or sets the background color override for this item. Empty means use default.</summary>
         public System.Drawing.Color BackColor { get; set; } = System.Drawing.Color.Empty;
 
-        /// <summary>Gets the depth level (0 = root's children).</summary>
-        public int Level => IndentLevel - 1;
+        /// <summary>Gets the depth level (0 = nodes directly in the TreeView, matching WinForms).</summary>
+        public int Level {
+            get {
+                // WinForms: nodes directly in the TreeView (or a detached node) are Level 0,
+                // their children are Level 1, etc. The internal root node is not counted.
+                var level = 0;
+                var parent = Parent;
+
+                while (parent != null && parent.tree_view == null) {
+                    level++;
+                    parent = parent.Parent;
+                }
+
+                return level;
+            }
+        }
 
         /// <summary>Gets whether this item is currently expanded.</summary>
         public bool IsExpanded => Expanded;
@@ -370,7 +384,15 @@ namespace Modern.Forms
         }
 
         /// <summary>Gets the zero-based index of this node in its parent's Nodes collection.</summary>
-        public int Index => Parent is null ? (TreeView?.Items.IndexOf (this) ?? -1) : Parent.Items.IndexOf (this);
+        public int Index {
+            get {
+                // WinForms returns 0 for a detached node (one with no parent collection).
+                if (Parent is null)
+                    return TreeView?.Items.IndexOf (this) ?? 0;
+
+                return Parent.Items.IndexOf (this);
+            }
+        }
 
         /// <summary>Gets or sets the font for this node. Null means use the TreeView font.</summary>
 #pragma warning disable CA1416

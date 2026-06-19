@@ -1,8 +1,6 @@
 using System;
 using System.Drawing;
 
-#pragma warning disable CA1416 // Modern.Drawing.Font is Windows-only; FontDialog surfaces it as a WinForms compat API
-
 namespace Modern.Forms
 {
     /// <summary>
@@ -67,8 +65,7 @@ namespace Modern.Forms
         }
 
         /// <summary>
-        /// Gets or sets the selected font. Note: <see cref="Modern.Drawing.Font"/> is only supported
-        /// on Windows; accessing this on other platforms throws PlatformNotSupportedException.
+        /// Gets or sets the selected font.
         /// </summary>
         public Font Font {
             get => selected_font ??= BuildFont ();
@@ -91,7 +88,7 @@ namespace Modern.Forms
         public bool ShowColor { get; set; }
 
         /// <summary>Gets or sets whether the selected font must be an installed font. Informational.</summary>
-        public bool FontMustExist { get; set; } = true;
+        public bool FontMustExist { get; set; }
 
         /// <summary>Gets or sets whether the user can change the character set. Stub in Modern.Forms.</summary>
         public bool AllowScriptChange { get; set; } = true;
@@ -108,11 +105,36 @@ namespace Modern.Forms
         /// <summary>Gets or sets whether only fixed-pitch fonts are shown. Stub in Modern.Forms.</summary>
         public bool FixedPitchOnly { get; set; }
 
-        /// <summary>Gets or sets the maximum font size the user can select. Stub in Modern.Forms.</summary>
-        public int MaxSize { get; set; }
+        private int min_size;
+        private int max_size;
 
-        /// <summary>Gets or sets the minimum font size the user can select. Stub in Modern.Forms.</summary>
-        public int MinSize { get; set; }
+        /// <summary>Gets or sets the maximum font size the user can select. A value of 0 means no maximum.</summary>
+        public int MaxSize {
+            get => max_size;
+            set {
+                if (value < 0)
+                    value = 0;
+
+                max_size = value;
+
+                if (max_size != 0 && max_size < min_size)
+                    min_size = max_size;
+            }
+        }
+
+        /// <summary>Gets or sets the minimum font size the user can select. A value of 0 means no minimum.</summary>
+        public int MinSize {
+            get => min_size;
+            set {
+                if (value < 0)
+                    value = 0;
+
+                min_size = value;
+
+                if (max_size != 0 && max_size < min_size)
+                    max_size = min_size;
+            }
+        }
 
         /// <summary>Gets or sets whether the Apply button is shown. Stub in Modern.Forms.</summary>
         public bool ShowApply { get; set; }
@@ -125,5 +147,29 @@ namespace Modern.Forms
 
         /// <summary>Raised when the Apply button is clicked. Stub in Modern.Forms.</summary>
         public event EventHandler? Apply { add { } remove { } }
+
+        /// <summary>Resets all dialog options to their default values.</summary>
+        public virtual void Reset ()
+        {
+            selected_font = null;
+            family_box.Text = "Arial";
+            size_box.Value = 9;
+            bold_box.Checked = false;
+            italic_box.Checked = false;
+
+            Color = Color.Black;
+            ShowColor = false;
+            FontMustExist = false;
+            AllowScriptChange = true;
+            AllowSimulations = true;
+            AllowVectorFonts = true;
+            AllowVerticalFonts = true;
+            FixedPitchOnly = false;
+            min_size = 0;
+            max_size = 0;
+            ShowApply = false;
+            ShowEffects = true;
+            ShowHelp = false;
+        }
     }
 }

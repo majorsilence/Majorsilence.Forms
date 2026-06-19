@@ -90,8 +90,18 @@ namespace Modern.Forms
         /// <summary>Gets or sets whether the control is read-only.</summary>
         public bool ReadOnly { get; set; }
 
+        private decimal increment = 1;
+
         /// <summary>Gets or sets the value by which to increment or decrement the NumericUpDown.</summary>
-        public decimal Increment { get; set; } = 1;
+        public decimal Increment {
+            get => increment;
+            set {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, "Increment cannot be negative.");
+
+                increment = value;
+            }
+        }
 
         /// <summary>Gets or sets the alignment of the text in the control. Stub in Modern.Forms.</summary>
         public HorizontalAlignment TextAlign { get; set; } = HorizontalAlignment.Left;
@@ -106,10 +116,32 @@ namespace Modern.Forms
         protected virtual void OnValueChanged (EventArgs e) => ValueChanged?.Invoke (this, e);
 
         /// <summary>Increments the value by the amount of the Increment property.</summary>
-        public void UpButton () => Value = Math.Min (Value + Increment, Maximum);
+        public void UpButton ()
+        {
+            decimal new_value;
+
+            try {
+                new_value = Math.Min (current_value + Increment, maximum);
+            } catch (OverflowException) {
+                new_value = maximum;
+            }
+
+            Value = new_value;
+        }
 
         /// <summary>Decrements the value by the amount of the Increment property.</summary>
-        public void DownButton () => Value = Math.Max (Value - Increment, Minimum);
+        public void DownButton ()
+        {
+            decimal new_value;
+
+            try {
+                new_value = Math.Max (current_value - Increment, minimum);
+            } catch (OverflowException) {
+                new_value = minimum;
+            }
+
+            Value = new_value;
+        }
 
         /// <summary>Increments the value by the Increment amount.</summary>
         public void PerformIncrement () => UpButton ();

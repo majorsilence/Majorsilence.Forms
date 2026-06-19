@@ -64,6 +64,32 @@ namespace Modern.Forms.Tests
         }
 
         [Fact]
+        public void Text_DefaultsToEmpty ()
+        {
+            using var control = new Control ();
+            Assert.Equal (string.Empty, control.Text);
+        }
+
+        [Fact]
+        public void Text_SetNull_CoercedToEmpty ()
+        {
+            // WinForms compat: Control.Text is never null; a null assignment becomes string.Empty.
+            using var control = new Control { Text = "hello" };
+
+            var changed = 0;
+            control.TextChanged += (_, _) => changed++;
+
+            control.Text = null!;
+            Assert.Equal (string.Empty, control.Text);
+            Assert.Equal (1, changed);
+
+            // Setting null again when already empty is a no-op (no spurious TextChanged).
+            control.Text = null!;
+            Assert.Equal (string.Empty, control.Text);
+            Assert.Equal (1, changed);
+        }
+
+        [Fact]
         public void GetNextControl_BasicTabIndex ()
         {
             var container = new Control ();

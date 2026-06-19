@@ -1911,6 +1911,9 @@ namespace Modern.Forms
         public virtual string Text {
             get => text;
             set {
+                // WinForms compat: Text is never null — a null assignment is coerced to empty.
+                value ??= string.Empty;
+
                 if (text == value)
                     return;
 

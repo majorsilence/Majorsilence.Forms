@@ -28,7 +28,7 @@
         /// <inheritdoc/>
         public override string Text {
             get => TabStripItem.Text;
-            set => TabStripItem.Text = value;
+            set => TabStripItem.Text = value ?? string.Empty;
         }
 
         /// <summary>Gets or sets the ToolTip text for this tab page.</summary>

@@ -1,4 +1,6 @@
+using System;
 using System.Drawing;
+using System.Globalization;
 
 namespace Modern.Forms
 {
@@ -36,8 +38,25 @@ namespace Modern.Forms
     /// <summary>
     /// Stores style information for a DataGridView cell.
     /// </summary>
-    public class DataGridViewCellStyle
+    public class DataGridViewCellStyle : ICloneable
     {
+        private object? null_value = string.Empty;
+        private object? data_source_null_value = DBNull.Value;
+        private System.IFormatProvider? format_provider;
+        private Padding padding = Padding.Empty;
+
+        /// <summary>Initializes a new instance of the <see cref="DataGridViewCellStyle"/> class.</summary>
+        public DataGridViewCellStyle ()
+        {
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="DataGridViewCellStyle"/> class, copying values from the supplied style.</summary>
+        public DataGridViewCellStyle (DataGridViewCellStyle dataGridViewCellStyle)
+        {
+            ArgumentNullException.ThrowIfNull (dataGridViewCellStyle);
+            ApplyStyle (dataGridViewCellStyle);
+        }
+
         /// <summary>Gets or sets the background color.</summary>
         public Color BackColor { get; set; } = Color.Empty;
 
@@ -45,7 +64,20 @@ namespace Modern.Forms
         public Color ForeColor { get; set; } = Color.Empty;
 
         /// <summary>Gets or sets the format string applied to cell content.</summary>
-        public string Format { get; set; } = string.Empty;
+        public string Format {
+            get => format ?? string.Empty;
+            set => format = string.IsNullOrEmpty (value) ? string.Empty : value;
+        }
+        private string format = string.Empty;
+
+        /// <summary>Gets or sets the object used to provide culture-specific formatting of cell values.</summary>
+        public System.IFormatProvider FormatProvider {
+            get => format_provider ?? CultureInfo.CurrentCulture;
+            set => format_provider = value;
+        }
+
+        /// <summary>Gets a value indicating whether the <see cref="FormatProvider"/> property has been set.</summary>
+        public bool IsFormatProviderDefault => format_provider is null;
 
         /// <summary>Gets or sets the selection background color.</summary>
         public Color SelectionBackColor { get; set; } = Color.Empty;
@@ -59,19 +91,144 @@ namespace Modern.Forms
 #pragma warning restore CA1416
 
         /// <summary>Gets or sets how cell content is aligned within the cell.</summary>
-        public DataGridViewContentAlignment Alignment { get; set; } = DataGridViewContentAlignment.MiddleLeft;
+        public DataGridViewContentAlignment Alignment { get; set; } = DataGridViewContentAlignment.NotSet;
 
         /// <summary>Gets or sets how text is wrapped within a cell.</summary>
         public DataGridViewTriState WrapMode { get; set; } = DataGridViewTriState.NotSet;
 
-        /// <summary>Gets or sets the null value displayed when a cell's value is null.</summary>
-        public object? NullValue { get; set; }
+        /// <summary>Gets or sets the value displayed when a cell's value is null.</summary>
+        public object? NullValue {
+            get => null_value;
+            set => null_value = value;
+        }
 
-        /// <summary>Gets or sets the padding within the cell.</summary>
-        public Padding Padding { get; set; } = Padding.Empty;
+        /// <summary>Gets a value indicating whether the <see cref="NullValue"/> property is set to its default value (the empty string).</summary>
+        public bool IsNullValueDefault => null_value is string s && s.Length == 0;
+
+        /// <summary>Gets or sets the value stored in the data source when the user enters a null value.</summary>
+        public object? DataSourceNullValue {
+            get => data_source_null_value;
+            set => data_source_null_value = value;
+        }
+
+        /// <summary>Gets a value indicating whether the <see cref="DataSourceNullValue"/> property is set to its default value (<see cref="DBNull.Value"/>).</summary>
+        public bool IsDataSourceNullValueDefault => ReferenceEquals (data_source_null_value, DBNull.Value);
+
+        /// <summary>Gets or sets an object that contains additional data associated with the style.</summary>
+        public object? Tag { get; set; }
+
+        /// <summary>Gets the scope of the style. Always <see cref="DataGridViewCellStyleScopes.None"/> in Modern.Forms.</summary>
+        public DataGridViewCellStyleScopes Scope => DataGridViewCellStyleScopes.None;
+
+        /// <summary>Gets or sets the padding within the cell. Negative values are clamped to zero.</summary>
+        public Padding Padding {
+            get => padding;
+            set {
+                if (value.Left < 0 || value.Top < 0 || value.Right < 0 || value.Bottom < 0)
+                    value = new Padding (
+                        Math.Max (0, value.Left),
+                        Math.Max (0, value.Top),
+                        Math.Max (0, value.Right),
+                        Math.Max (0, value.Bottom));
+
+                padding = value;
+            }
+        }
+
+        /// <summary>Copies the values from the supplied style into this style.</summary>
+        public void ApplyStyle (DataGridViewCellStyle dataGridViewCellStyle)
+        {
+            ArgumentNullException.ThrowIfNull (dataGridViewCellStyle);
+
+            if (!dataGridViewCellStyle.BackColor.IsEmpty)
+                BackColor = dataGridViewCellStyle.BackColor;
+            if (!dataGridViewCellStyle.ForeColor.IsEmpty)
+                ForeColor = dataGridViewCellStyle.ForeColor;
+            if (!dataGridViewCellStyle.SelectionBackColor.IsEmpty)
+                SelectionBackColor = dataGridViewCellStyle.SelectionBackColor;
+            if (!dataGridViewCellStyle.SelectionForeColor.IsEmpty)
+                SelectionForeColor = dataGridViewCellStyle.SelectionForeColor;
+            if (dataGridViewCellStyle.Font is not null)
+                Font = dataGridViewCellStyle.Font;
+            if (!dataGridViewCellStyle.IsNullValueDefault)
+                NullValue = dataGridViewCellStyle.NullValue;
+            if (!dataGridViewCellStyle.IsDataSourceNullValueDefault)
+                DataSourceNullValue = dataGridViewCellStyle.DataSourceNullValue;
+            if (dataGridViewCellStyle.Format.Length != 0)
+                Format = dataGridViewCellStyle.Format;
+            if (!dataGridViewCellStyle.IsFormatProviderDefault)
+                FormatProvider = dataGridViewCellStyle.FormatProvider;
+            if (dataGridViewCellStyle.Alignment != DataGridViewContentAlignment.NotSet)
+                Alignment = dataGridViewCellStyle.Alignment;
+            if (dataGridViewCellStyle.WrapMode != DataGridViewTriState.NotSet)
+                WrapMode = dataGridViewCellStyle.WrapMode;
+            if (dataGridViewCellStyle.Padding != Padding.Empty)
+                Padding = dataGridViewCellStyle.Padding;
+            if (dataGridViewCellStyle.Tag is not null)
+                Tag = dataGridViewCellStyle.Tag;
+        }
 
         /// <summary>Returns a clone of this DataGridViewCellStyle.</summary>
-        public DataGridViewCellStyle Clone () => (DataGridViewCellStyle)MemberwiseClone ();
+        public DataGridViewCellStyle Clone () => new DataGridViewCellStyle (this) {
+            // The copy constructor uses ApplyStyle, which only copies non-default values.
+            // Copy the remaining (defaultable) members directly so the clone is exact.
+            NullValue = NullValue,
+            DataSourceNullValue = DataSourceNullValue,
+            Tag = Tag
+        };
+
+        object ICloneable.Clone () => Clone ();
+
+        /// <inheritdoc/>
+        public override bool Equals (object? o)
+        {
+            if (o is not DataGridViewCellStyle other)
+                return false;
+
+            return BackColor == other.BackColor
+                && ForeColor == other.ForeColor
+                && SelectionBackColor == other.SelectionBackColor
+                && SelectionForeColor == other.SelectionForeColor
+                && Equals (Font, other.Font)
+                && Alignment == other.Alignment
+                && WrapMode == other.WrapMode
+                && Padding == other.Padding
+                && Format == other.Format
+                && Equals (format_provider, other.format_provider)
+                && Equals (NullValue, other.NullValue)
+                && Equals (DataSourceNullValue, other.DataSourceNullValue)
+                && Equals (Tag, other.Tag);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode ()
+        {
+            var hash = new HashCode ();
+            hash.Add (BackColor);
+            hash.Add (ForeColor);
+            hash.Add (SelectionBackColor);
+            hash.Add (SelectionForeColor);
+            hash.Add (Font);
+            hash.Add (Alignment);
+            hash.Add (WrapMode);
+            hash.Add (Padding);
+            hash.Add (Format);
+            return hash.ToHashCode ();
+        }
+    }
+
+    /// <summary>Defines the scope to which a DataGridViewCellStyle applies. Modern.Forms only exposes <see cref="None"/>.</summary>
+    [Flags]
+    public enum DataGridViewCellStyleScopes
+    {
+        /// <summary>No scope.</summary>
+        None = 0,
+        /// <summary>The cell scope.</summary>
+        Cell = 1,
+        /// <summary>The column scope.</summary>
+        Column = 2,
+        /// <summary>The row scope.</summary>
+        Row = 4
     }
 
     /// <summary>

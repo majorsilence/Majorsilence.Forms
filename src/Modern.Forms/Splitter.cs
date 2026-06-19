@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using Modern.Forms.Renderers;
 
 namespace Modern.Forms
@@ -12,6 +13,8 @@ namespace Modern.Forms
         private bool is_dragging;
         private Point drag_start_point;
         private Point? last_drag_point;
+        private int min_size = 25;
+        private int min_extra = 25;
 
         /// <summary>
         /// Initializes a new instance of the Splitter class.
@@ -111,11 +114,17 @@ namespace Modern.Forms
         /// <summary>Gets or sets the current position of the splitter. Alias for SplitterWidth. Stub in Modern.Forms.</summary>
         public int SplitPosition { get => SplitterWidth; set => SplitterWidth = value; }
 
-        /// <summary>Gets or sets the minimum size of the first panel. Stub in Modern.Forms.</summary>
-        public int MinSize { get; set; } = 25;
+        /// <summary>Gets or sets the minimum size of the first panel. Negative values are coerced to 0. Stub in Modern.Forms.</summary>
+        public int MinSize {
+            get => min_size;
+            set => min_size = Math.Max (0, value);
+        }
 
-        /// <summary>Gets or sets the minimum remaining space after the splitter. Stub in Modern.Forms.</summary>
-        public int MinExtra { get; set; } = 25;
+        /// <summary>Gets or sets the minimum remaining space after the splitter. Negative values are coerced to 0. Stub in Modern.Forms.</summary>
+        public int MinExtra {
+            get => min_extra;
+            set => min_extra = Math.Max (0, value);
+        }
 
         /// <summary>Raised when the splitter is moved. Stub in Modern.Forms.</summary>
         public event EventHandler<SplitterEventArgs>? SplitterMoved { add { } remove { } }

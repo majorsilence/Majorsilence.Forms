@@ -115,6 +115,11 @@ namespace Modern.Forms
                 if (Links.Count == 0)
                     return new LinkArea (0, 0);
 
+                // The implicit default link (0, -1) spanning the whole text is
+                // reported as an empty LinkArea (0, 0), matching WinForms semantics.
+                if (Links.Count == 1 && Links[0].Start == 0 && Links[0].RawLength == -1)
+                    return new LinkArea (0, 0);
+
                 return new LinkArea (Links[0].Start, Links[0].RawLength);
             }
             set {

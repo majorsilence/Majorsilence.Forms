@@ -61,12 +61,28 @@ namespace Modern.Forms
         }
 
         /// <inheritdoc/>
+        protected override void ClearItems ()
+        {
+            // Collection<T>.Clear () routes through here; remove each item individually so the
+            // owning TabControl's Controls and the backing TabStrip's Tabs stay in sync.
+            while (Count > 0)
+                RemoveItem (Count - 1);
+
+            base.ClearItems ();
+        }
+
+        /// <inheritdoc/>
         protected override void RemoveItem (int index)
         {
             base.RemoveItem (index);
 
             owner.Controls.RemoveAt (index);
             tab_strip.Tabs.RemoveAt (index);
+
+            // When the last page is removed there is nothing left to select; clear the stale
+            // selection so SelectedIndex reports -1 and SelectedTab returns null instead of throwing.
+            if (tab_strip.Tabs.Count == 0)
+                tab_strip.SelectedTab = null;
         }
 
         /// <inheritdoc/>

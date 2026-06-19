@@ -1,3 +1,6 @@
+using System;
+using System.ComponentModel;
+
 namespace Modern.Forms
 {
     /// <summary>
@@ -13,6 +16,20 @@ namespace Modern.Forms
         {
             TabStop = true;
             SetControlBehavior (ControlBehaviors.Selectable, true);
+        }
+
+        /// <summary>
+        /// Gets or sets how the UserControl behaves when its AutoSize property is enabled.
+        /// </summary>
+        public AutoSizeMode AutoSizeMode {
+            get => GetAutoSizeMode ();
+            set {
+                if (!Enum.IsDefined (typeof (AutoSizeMode), value))
+                    throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (AutoSizeMode));
+
+                if (GetAutoSizeMode () != value)
+                    SetAutoSizeMode (value);
+            }
         }
 
         /// <summary>Gets or sets how the control should scale when its parent changes DPI.</summary>

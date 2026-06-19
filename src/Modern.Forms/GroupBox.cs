@@ -36,7 +36,7 @@ namespace Modern.Forms
         public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
 
         /// <summary>Gets or sets whether compatible text rendering is used. Stub in Modern.Forms.</summary>
-        public bool UseCompatibleTextRendering { get; set; }
+        public bool UseCompatibleTextRendering { get; set; } = true;
 
         /// <summary>Gets or sets whether the group box is auto-sized. Stub in Modern.Forms.</summary>
         public new bool AutoSize { get; set; }

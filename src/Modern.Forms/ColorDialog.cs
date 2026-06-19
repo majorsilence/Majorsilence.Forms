@@ -21,6 +21,12 @@ namespace Modern.Forms
         private const int Gap = 4;
         private const int Margin = 12;
 
+        // WinForms default for an uninitialized custom-color slot.
+        private const int DefaultCustomColor = 0x00FFFFFF;
+
+        private Color color = Color.Black;
+        private int[] custom_colors = CreateDefaultCustomColors ();
+
         /// <summary>
         /// Initializes a new instance of the ColorDialog class.
         /// </summary>
@@ -76,8 +82,11 @@ namespace Modern.Forms
             Size = new Size (Margin * 2 + grid_width + 16, buttons_top + 40 + 40);
         }
 
-        /// <summary>Gets or sets the color selected by the user.</summary>
-        public Color Color { get; set; } = Color.Black;
+        /// <summary>Gets or sets the color selected by the user. Setting <see cref="Color.Empty"/> resets to black.</summary>
+        public Color Color {
+            get => color;
+            set => color = value.IsEmpty ? Color.Black : value;
+        }
 
         /// <summary>Gets or sets whether the user can use the dialog to define custom colors. Informational.</summary>
         public bool AllowFullOpen { get; set; } = true;
@@ -88,13 +97,50 @@ namespace Modern.Forms
         /// <summary>Gets or sets whether the dialog displays all available colors. Informational.</summary>
         public bool AnyColor { get; set; }
 
-        /// <summary>Gets or sets the set of custom colors shown in the dialog. Informational.</summary>
-        public int[] CustomColors { get; set; } = Array.Empty<int> ();
+        /// <summary>Gets or sets the set of custom colors shown in the dialog. Always 16 entries; getting returns a copy. Informational.</summary>
+        public int[] CustomColors {
+            get => (int[])custom_colors.Clone ();
+            set => custom_colors = NormalizeCustomColors (value);
+        }
 
         /// <summary>Gets or sets whether the user is restricted to selecting solid colors only. Stub in Modern.Forms.</summary>
         public bool SolidColorOnly { get; set; }
 
         /// <summary>Gets or sets whether the Help button is displayed. Stub in Modern.Forms.</summary>
         public bool ShowHelp { get; set; }
+
+        /// <summary>Resets the properties of the dialog to their default values.</summary>
+        public virtual void Reset ()
+        {
+            color = Color.Black;
+            custom_colors = CreateDefaultCustomColors ();
+            AllowFullOpen = true;
+            FullOpen = false;
+            AnyColor = false;
+            SolidColorOnly = false;
+            ShowHelp = false;
+        }
+
+        private static int[] CreateDefaultCustomColors ()
+        {
+            var result = new int[16];
+
+            for (var i = 0; i < result.Length; i++)
+                result[i] = DefaultCustomColor;
+
+            return result;
+        }
+
+        // WinForms keeps exactly 16 custom-color slots: a null or short array is padded with the
+        // default white value, and a longer array is truncated.
+        private static int[] NormalizeCustomColors (int[]? value)
+        {
+            var result = CreateDefaultCustomColors ();
+
+            if (value != null)
+                Array.Copy (value, result, Math.Min (value.Length, result.Length));
+
+            return result;
+        }
     }
 }

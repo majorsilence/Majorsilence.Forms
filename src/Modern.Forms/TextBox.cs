@@ -354,6 +354,18 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Gets or sets text to display if the TextBox contains no text.
+        /// WinForms-compatible alias for <see cref="Placeholder"/>; a null value is coerced to an empty string.
+        /// </summary>
+        public string PlaceholderText {
+            get => document.Placeholder;
+            set => document.Placeholder = value ?? string.Empty;
+        }
+
+        /// <summary>Gets the number of characters of text currently in the TextBox.</summary>
+        public int TextLength => Text.Length;
+
+        /// <summary>
         /// Gets or sets a value indicating if the text can be edited.
         /// </summary>
         public bool ReadOnly {
@@ -498,8 +510,9 @@ namespace Modern.Forms
 
         /// <summary>Gets or sets the lines of text in the TextBox.</summary>
         public string[] Lines {
-            get => Text.Split ('\n');
-            set => Text = string.Join ("\n", value);
+            // WinForms returns an empty array (not a single empty string) when there is no text.
+            get => Text.Length == 0 ? Array.Empty<string> () : Text.Replace ("\r\n", "\n").Replace ("\r", "\n").Split ('\n');
+            set => Text = value is null ? string.Empty : string.Join ("\n", value);
         }
 
         // Sets cursor to specified character index and scrolls TextBox to cursor.

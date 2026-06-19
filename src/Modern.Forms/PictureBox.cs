@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Drawing;
 using Modern.Forms.Renderers;
 using SkiaSharp;
@@ -98,9 +99,11 @@ namespace Modern.Forms
                 return;
 
             if (url is null) {
+                image_location = null;
                 _systemImage = null;
                 _skImage?.Dispose ();
                 _skImage = null;
+                Invalidate ();
                 return;
             }
 
@@ -132,6 +135,9 @@ namespace Modern.Forms
         public PictureBoxSizeMode SizeMode {
             get => size_mode;
             set {
+                if (!Enum.IsDefined (typeof (PictureBoxSizeMode), value))
+                    throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (PictureBoxSizeMode));
+
                 if (size_mode != value) {
                     size_mode = value;
                     UpdateSize ();

@@ -27,6 +27,13 @@ namespace Modern.Forms
         public string[] SafeFileNames => FileNames.Select (Path.GetFileName).OfType<string> ().ToArray ();
 
         /// <inheritdoc/>
+        public override void Reset ()
+        {
+            base.Reset ();
+            AllowMultiple = false;
+        }
+
+        /// <inheritdoc/>
         public override async Task<DialogResult> ShowDialog (Form owner)
         {
             var request = new OpenFileRequest {

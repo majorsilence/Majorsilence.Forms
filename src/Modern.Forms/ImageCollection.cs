@@ -210,14 +210,26 @@ public class ImageCollection : IDictionary<string, SKBitmap>
     /// </summary>
     public ICollection<SKBitmap> Values => _images.Values.Cast<SKBitmap> ().ToArray ();
 
+    /// <summary>Adds an image to the collection with an auto-generated key.</summary>
+    public void Add (SKBitmap image)
+    {
+        if (image is null) return;
+        Add (GenerateAutoKey (), image);
+    }
+
+    private string GenerateAutoKey ()
+    {
+        var key = _images.Count.ToString (System.Globalization.CultureInfo.InvariantCulture);
+        while (_images.Contains (key)) key = "_" + key;
+        return key;
+    }
+
     /// <summary>Adds a Modern.Drawing.Image to the collection with an auto-generated key.</summary>
     public void Add (Modern.Drawing.Image image)
     {
         if (image is null) return;
-        var key = _images.Count.ToString (System.Globalization.CultureInfo.InvariantCulture);
-        while (_images.Contains (key)) key = "_" + key;
         var bmp = image.ToSKBitmap ();
-        if (bmp is not null) Add (key, bmp);
+        if (bmp is not null) Add (GenerateAutoKey (), bmp);
     }
 
     /// <summary>Adds a Modern.Drawing.Image to the collection with the specified key.</summary>

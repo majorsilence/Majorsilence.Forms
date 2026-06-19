@@ -127,22 +127,26 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the maximum value of the control range.
         /// </summary>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown when the assigned value is less than <see cref="Minimum"/>.
-        /// </exception>
+        /// <remarks>
+        /// If the assigned value is less than <see cref="Minimum"/>, <see cref="Minimum"/>
+        /// is lowered to the new maximum. This matches WinForms behavior; no exception is thrown.
+        /// </remarks>
         public int Maximum {
             get => maximum;
             set {
                 if (maximum == value)
                     return;
 
+                // WinForms coerces Minimum down rather than throwing when Maximum < Minimum.
                 if (value < minimum)
-                    throw new ArgumentOutOfRangeException (nameof (Maximum), $"Value '{value}' must be greater than or equal to Minimum.");
+                    minimum = value;
 
                 maximum = value;
 
                 if (current_value > maximum)
                     SetValueCore (maximum, raiseScroll: false);
+                else if (current_value < minimum)
+                    SetValueCore (minimum, raiseScroll: false);
 
                 Invalidate ();
             }
@@ -151,22 +155,26 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the minimum value of the control range.
         /// </summary>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown when the assigned value is greater than <see cref="Maximum"/>.
-        /// </exception>
+        /// <remarks>
+        /// If the assigned value is greater than <see cref="Maximum"/>, <see cref="Maximum"/>
+        /// is raised to the new minimum. This matches WinForms behavior; no exception is thrown.
+        /// </remarks>
         public int Minimum {
             get => minimum;
             set {
                 if (minimum == value)
                     return;
 
+                // WinForms coerces Maximum up rather than throwing when Minimum > Maximum.
                 if (value > maximum)
-                    throw new ArgumentOutOfRangeException (nameof (Minimum), $"Value '{value}' must be less than or equal to Maximum.");
+                    maximum = value;
 
                 minimum = value;
 
                 if (current_value < minimum)
                     SetValueCore (minimum, raiseScroll: false);
+                else if (current_value > maximum)
+                    SetValueCore (maximum, raiseScroll: false);
 
                 Invalidate ();
             }
@@ -227,15 +235,13 @@ namespace Modern.Forms
         /// <summary>
         /// Gets or sets the spacing between tick marks, expressed in value units.
         /// </summary>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown when the value is less than or equal to zero.
-        /// </exception>
+        /// <remarks>
+        /// WinForms accepts any value (including zero and negative values) without throwing.
+        /// Snapping and tick drawing logic treats non-positive frequencies as "no ticks".
+        /// </remarks>
         public int TickFrequency {
             get => tick_frequency;
             set {
-                if (value <= 0)
-                    throw new ArgumentOutOfRangeException (nameof (TickFrequency), $"Value '{value}' must be greater than 0.");
-
                 if (tick_frequency != value) {
                     tick_frequency = value;
 

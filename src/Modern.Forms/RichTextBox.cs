@@ -11,6 +11,15 @@ namespace Modern.Forms
         private string _rtf = string.Empty;
 
         /// <summary>
+        /// Initializes a new instance of the RichTextBox class.
+        /// </summary>
+        public RichTextBox ()
+        {
+            // WinForms RichTextBox is multi-line by default (unlike the base TextBox).
+            MultiLine = true;
+        }
+
+        /// <summary>
         /// Gets or sets the text in RTF format. The RTF is stored verbatim for round-trip
         /// compatibility; only the plain-text content is rendered.
         /// </summary>

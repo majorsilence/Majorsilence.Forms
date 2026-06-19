@@ -57,7 +57,7 @@ namespace Modern.Forms
         /// Gets or sets a value indicating whether the menu item is enabled.
         /// </summary>
         public bool Enabled {
-            get => enabled && OwnerControl?.Enabled == true;
+            get => enabled && (OwnerControl?.Enabled ?? true);
             set {
                 if (enabled != value) {
                     enabled = value;

@@ -66,6 +66,17 @@ namespace Modern.Forms
         }
 
         /// <inheritdoc/>
+        protected override void ClearItems ()
+        {
+            foreach (var item in this)
+                item.Parent = null;
+
+            base.ClearItems ();
+
+            owner.Invalidate ();
+        }
+
+        /// <inheritdoc/>
         protected override void RemoveItem (int index)
         {
             var item = this[index];

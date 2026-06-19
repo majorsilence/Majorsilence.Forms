@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 
 namespace Modern.Forms
@@ -9,7 +10,7 @@ namespace Modern.Forms
     /// </summary>
     public class BindingSource : Component, IList
     {
-        private IList _list = Array.Empty<object> ();
+        private IList _list = new List<object?> ();
         private object? _dataSource;
 
         /// <summary>Initializes a new instance of BindingSource.</summary>
@@ -29,7 +30,8 @@ namespace Modern.Forms
             get => _dataSource;
             set {
                 _dataSource = value;
-                _list = value as IList ?? Array.Empty<object> ();
+                _list = value as IList ?? new List<object?> ();
+                Position = _list.Count > 0 ? 0 : -1;
             }
         }
 

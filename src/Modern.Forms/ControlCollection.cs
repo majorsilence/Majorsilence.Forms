@@ -386,9 +386,12 @@ public partial class Control
                 // ContainerControl needs to see it needs to find a new ActiveControl. TODO
                 //if (Owner.GetContainerControl () is ContainerControl cc)
                 //    cc.AfterControlRemoved (value, Owner);
+
+                return true;
             }
 
-            return true;
+            // The control was not a child of this collection, so nothing was removed.
+            return false;
         }
 
         /// <summary>

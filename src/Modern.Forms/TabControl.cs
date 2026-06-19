@@ -69,8 +69,11 @@ namespace Modern.Forms
 
                 var index = TabPages.IndexOf (value);
 
-                if (index == -1)
-                    throw new ArgumentException ("TabPage is not part of this TabControl");
+                // WinForms quietly clears the selection when the page is not part of this control.
+                if (index == -1) {
+                    tab_strip.SelectedTab = null;
+                    return;
+                }
 
                 tab_strip.SelectedIndex = index;
             }

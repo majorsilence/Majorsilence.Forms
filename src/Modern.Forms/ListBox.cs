@@ -651,15 +651,33 @@ namespace Modern.Forms
         /// <summary>Returns the collection of indices of all currently selected items.</summary>
         public IEnumerable<int> SelectedIndices => new System.Collections.ObjectModel.ReadOnlyCollection<int> (Items.SelectedIndexes);
 
-        /// <summary>Finds the first item that exactly matches the specified string, starting at the given index.</summary>
+        /// <summary>Finds the first item that exactly matches the specified string, starting at the given index. This search is case-insensitive and wraps around.</summary>
         public int FindStringExact (string s, int startIndex = -1)
         {
-            for (var i = (startIndex < 0 ? 0 : startIndex + 1) % Items.Count; i < Items.Count; i++) {
-                var text = Items[i]?.ToString () ?? string.Empty;
-                if (string.Equals (text, s, StringComparison.OrdinalIgnoreCase))
-                    return i;
+            if (s is null || Items.Count == 0)
+                return -1;
+
+            if (startIndex < -1 || startIndex >= Items.Count)
+                throw new ArgumentOutOfRangeException (nameof (startIndex));
+
+            // We look for matches AFTER the start index, wrapping around the collection.
+            startIndex = (startIndex == Items.Count - 1) ? 0 : startIndex + 1;
+            var current = startIndex;
+
+            while (true) {
+                var text = Items[current]?.ToString () ?? string.Empty;
+
+                if (string.Equals (text, s, StringComparison.CurrentCultureIgnoreCase))
+                    return current;
+
+                current++;
+
+                if (current == Items.Count)
+                    current = 0;
+
+                if (current == startIndex)
+                    return -1;
             }
-            return -1;
         }
 
         /// <summary>Raised when items are added. Stub in Modern.Forms.</summary>

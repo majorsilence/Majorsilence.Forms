@@ -463,17 +463,22 @@ internal partial class PropertyStore
         if (_intEntries[index].Mask == 0) {
             // This object entry is no longer in use - let's remove it all together
             // not great for perf but very simple and we don't expect to remove much
-            var newEntries = new IntegerEntry[_intEntries.Length - 1];
-            if (index > 0) {
-                Array.Copy (_intEntries, 0, newEntries, 0, index);
-            }
+            if (_intEntries.Length == 1) {
+                // Instead of allocating an array of length 0, we simply reset the array to null.
+                _intEntries = null;
+            } else {
+                var newEntries = new IntegerEntry[_intEntries.Length - 1];
+                if (index > 0) {
+                    Array.Copy (_intEntries, 0, newEntries, 0, index);
+                }
 
-            if (index < newEntries.Length) {
-                Debug.Assert (_intEntries.Length - index - 1 > 0);
-                Array.Copy (_intEntries, index + 1, newEntries, index, _intEntries.Length - index - 1);
-            }
+                if (index < newEntries.Length) {
+                    Debug.Assert (_intEntries.Length - index - 1 > 0);
+                    Array.Copy (_intEntries, index + 1, newEntries, index, _intEntries.Length - index - 1);
+                }
 
-            _intEntries = newEntries;
+                _intEntries = newEntries;
+            }
         } else {
             // This object entry is still in use - let's just clean up the deleted element
             switch (element) {

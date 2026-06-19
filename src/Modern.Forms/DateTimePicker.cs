@@ -23,7 +23,15 @@ namespace Modern.Forms
     /// </summary>
     public class DateTimePicker : TextBox
     {
+        /// <summary>The minimum date value supported by the DateTimePicker (January 1, 1753).</summary>
+        public static readonly DateTime MinDateTime = new DateTime (1753, 1, 1);
+
+        /// <summary>The maximum date value supported by the DateTimePicker (December 31, 9998).</summary>
+        public static readonly DateTime MaxDateTime = new DateTime (9998, 12, 31);
+
         private DateTime _value = DateTime.Now;
+        private DateTime _min = MinDateTime;
+        private DateTime _max = MaxDateTime;
         private string _customFormat = "G";
         private DateTimePickerFormat _format = DateTimePickerFormat.Long;
 
@@ -32,6 +40,12 @@ namespace Modern.Forms
         {
             UpdateText ();
         }
+
+        /// <summary>Gets the minimum date/time value supported by the control.</summary>
+        public static DateTime MinimumDateTime => MinDateTime;
+
+        /// <summary>Gets the maximum date/time value supported by the control.</summary>
+        public static DateTime MaximumDateTime => MaxDateTime;
 
         /// <summary>Gets or sets the custom format string (used when Format = Custom).</summary>
         public string CustomFormat {
@@ -59,19 +73,61 @@ namespace Modern.Forms
         public Modern.Drawing.Font? CalendarFont { get; set; }
 
         /// <summary>Gets or sets the minimum date value.</summary>
-        public DateTime MinDate { get; set; } = new DateTime (1753, 1, 1);
+        public DateTime MinDate {
+            get => _min;
+            set {
+                if (value == _min)
+                    return;
+
+                if (value < MinDateTime)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, $"MinDate cannot be less than {MinDateTime}.");
+                if (value > MaxDateTime)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, $"MinDate cannot be greater than {MaxDateTime}.");
+                if (value > _max)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, "MinDate cannot be greater than MaxDate.");
+
+                _min = value;
+
+                // Coerce Value up to the new minimum if needed.
+                if (_value < _min)
+                    Value = _min;
+            }
+        }
 
         /// <summary>Gets or sets the maximum date value.</summary>
-        public DateTime MaxDate { get; set; } = new DateTime (9998, 12, 31);
+        public DateTime MaxDate {
+            get => _max;
+            set {
+                if (value == _max)
+                    return;
+
+                if (value > MaxDateTime)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, $"MaxDate cannot be greater than {MaxDateTime}.");
+                if (value < MinDateTime)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, $"MaxDate cannot be less than {MinDateTime}.");
+                if (value < _min)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, "MaxDate cannot be less than MinDate.");
+
+                _max = value;
+
+                // Coerce Value down to the new maximum if needed.
+                if (_value > _max)
+                    Value = _max;
+            }
+        }
 
         /// <summary>Gets or sets the current date/time value.</summary>
         public DateTime Value {
-            get {
-                if (DateTime.TryParse (Text, out var parsed))
-                    return parsed;
-                return _value;
-            }
+            get => _value;
             set {
+                if (value < MinDateTime || value > MaxDateTime)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, $"Value must be between {MinDateTime} and {MaxDateTime}.");
+                if (value < _min || value > _max)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, "Value must be between MinDate and MaxDate.");
+
+                if (value == _value)
+                    return;
+
                 _value = value;
                 UpdateText ();
                 ValueChanged?.Invoke (this, EventArgs.Empty);

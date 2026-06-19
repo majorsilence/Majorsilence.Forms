@@ -18,6 +18,16 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Adds the specified existing row to the collection and returns its index.
+        /// </summary>
+        public int Add (DataGridViewRow dataGridViewRow)
+        {
+            // Routes through InsertItem, which assigns the owning DataGridView.
+            base.Add (dataGridViewRow);
+            return Count - 1;
+        }
+
+        /// <summary>
         /// Adds a new row with the specified cell values.
         /// </summary>
         public DataGridViewRow Add (params string[] values)

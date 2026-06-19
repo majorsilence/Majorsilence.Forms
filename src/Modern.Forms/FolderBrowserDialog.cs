@@ -7,13 +7,23 @@ namespace Modern.Forms
     /// </summary>
     public class FolderBrowserDialog : FileSystemDialog
     {
-        /// <summary>
-        /// Gets or sets the selected folder path.
-        /// </summary>
-        public string? SelectedPath { get; set; }
+        private string selected_path = string.Empty;
+        private string description = string.Empty;
 
-        /// <summary>Gets or sets the descriptive text above the tree view. Stub in Modern.Forms (used as window title).</summary>
-        public string Description { get; set; } = string.Empty;
+        /// <summary>
+        /// Gets or sets the selected folder path. Setting null coerces to an empty string,
+        /// matching WinForms semantics (the getter never returns null).
+        /// </summary>
+        public string SelectedPath {
+            get => selected_path;
+            set => selected_path = value ?? string.Empty;
+        }
+
+        /// <summary>Gets or sets the descriptive text above the tree view. Stub in Modern.Forms (used as window title). Setting null coerces to an empty string.</summary>
+        public string Description {
+            get => description;
+            set => description = value ?? string.Empty;
+        }
 
         /// <summary>Gets or sets whether a New Folder button is shown. Stub in Modern.Forms.</summary>
         public bool ShowNewFolderButton { get; set; } = true;
@@ -40,9 +50,25 @@ namespace Modern.Forms
                 Title = Title
             };
 
-            SelectedPath = await owner.Backend.ShowOpenFolderDialog (request);
+            var result = await owner.Backend.ShowOpenFolderDialog (request);
 
-            return SelectedPath is null ? DialogResult.Cancel : DialogResult.OK;
+            SelectedPath = result ?? string.Empty;
+
+            return result is null ? DialogResult.Cancel : DialogResult.OK;
+        }
+
+        /// <summary>
+        /// Resets the properties of the dialog to their default values.
+        /// </summary>
+        public void Reset ()
+        {
+            selected_path = string.Empty;
+            description = string.Empty;
+            ShowNewFolderButton = true;
+            UseDescriptionForTitle = false;
+            RootFolder = Environment.SpecialFolder.Desktop;
+            InitialDirectory = null;
+            Title = string.Empty;
         }
     }
 }

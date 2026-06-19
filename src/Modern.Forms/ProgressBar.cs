@@ -34,6 +34,9 @@ namespace Modern.Forms
         /// </summary>
         public void Increment (int? value = null)
         {
+            if (Style == ProgressBarStyle.Marquee)
+                throw new InvalidOperationException ("Increment should not be called if the style is Marquee.");
+
             var new_value = Value + value.GetValueOrDefault (Step);
 
             new_value = new_value.Clamp (minimum, maximum);
@@ -101,8 +104,18 @@ namespace Modern.Forms
             set { _barStyle = value; Invalidate (); }
         }
 
+        private int _marqueeAnimationSpeed = 100;
+
         /// <summary>Gets or sets the animation speed (in ms) when Style is Marquee. Stub in Modern.Forms.</summary>
-        public int MarqueeAnimationSpeed { get; set; } = 100;
+        public int MarqueeAnimationSpeed {
+            get => _marqueeAnimationSpeed;
+            set {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException (nameof (MarqueeAnimationSpeed), $"Value '{value}' must be greater than or equal to 0.");
+
+                _marqueeAnimationSpeed = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the current value of the ProgressBar.

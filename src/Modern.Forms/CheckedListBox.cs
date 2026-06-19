@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 
 namespace Modern.Forms
@@ -14,6 +15,22 @@ namespace Modern.Forms
         /// <summary>Gets the items collection with checked-item Add overloads.</summary>
         public new CheckedObjectCollection Items => _checkedItems ??= new CheckedObjectCollection (base.Items);
 
+        // Returns the CheckedListBoxItem wrapper stored in the underlying collection for the
+        // given index, creating one in place if a raw value was added directly. All check-state
+        // operations go through the wrappers, not the unwrapped public Items indexer.
+        private CheckedListBoxItem GetWrapper (int index)
+        {
+            var raw = base.Items[index];
+
+            if (raw is CheckedListBoxItem cli)
+                return cli;
+
+            // Promote a raw value to a wrapped item so we have somewhere to store check state.
+            var wrapped = new CheckedListBoxItem (raw);
+            base.Items[index] = wrapped;
+            return wrapped;
+        }
+
         /// <summary>Gets the collection of checked items.</summary>
         public IEnumerable<object> CheckedItems => base.Items.Where (i => i is CheckedListBoxItem cli && cli.Checked).Select (i => ((CheckedListBoxItem)i).Value ?? i);
 
@@ -24,53 +41,56 @@ namespace Modern.Forms
         public bool ThreeDCheckBoxes { get; set; }
 
         /// <summary>Returns whether the item at the specified index is checked.</summary>
-        public bool GetItemChecked (int index)
-        {
-            if (index < 0 || index >= Items.Count)
-                return false;
-
-            return Items[index] is CheckedListBoxItem cli && cli.Checked;
-        }
+        public bool GetItemChecked (int index) => GetItemCheckState (index) != CheckState.Unchecked;
 
         /// <summary>Sets the checked state of the item at the specified index.</summary>
-        public void SetItemChecked (int index, bool value)
-        {
-            if (index < 0 || index >= Items.Count)
-                return;
+        public void SetItemChecked (int index, bool value) => SetItemCheckState (index, value ? CheckState.Checked : CheckState.Unchecked);
 
-            if (Items[index] is CheckedListBoxItem cli)
-                cli.Checked = value;
-        }
-
-        /// <summary>Gets or sets the check state of the item at the specified index.</summary>
+        /// <summary>Gets the check state of the item at the specified index.</summary>
         public CheckState GetItemCheckState (int index)
         {
-            if (index < 0 || index >= Items.Count)
-                return CheckState.Unchecked;
+            if (index < 0 || index >= base.Items.Count)
+                throw new ArgumentOutOfRangeException (nameof (index));
 
-            return Items[index] is CheckedListBoxItem cli && cli.Checked ? CheckState.Checked : CheckState.Unchecked;
+            return GetWrapper (index).CheckState;
         }
 
         /// <summary>Sets the check state of the item at the specified index.</summary>
         public void SetItemCheckState (int index, CheckState value)
         {
-            if (index < 0 || index >= Items.Count)
+            if (index < 0 || index >= base.Items.Count)
+                throw new ArgumentOutOfRangeException (nameof (index));
+
+            if (!Enum.IsDefined (value))
+                throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (CheckState));
+
+            var wrapper = GetWrapper (index);
+            var current = wrapper.CheckState;
+
+            if (current == value)
                 return;
 
-            if (Items[index] is CheckedListBoxItem cli)
-                cli.Checked = value == CheckState.Checked;
+            var e = new ItemCheckEventArgs (index, value, current);
+            OnItemCheck (e);
+
+            wrapper.CheckState = e.NewValue;
+
+            Invalidate ();
         }
 
         /// <summary>Gets the collection of indices of checked items.</summary>
         public IEnumerable<int> CheckedIndices {
             get {
-                for (int i = 0; i < Items.Count; i++)
+                for (int i = 0; i < base.Items.Count; i++)
                     if (GetItemChecked (i)) yield return i;
             }
         }
 
+        /// <summary>Raises the <see cref="ItemCheck"/> event.</summary>
+        protected virtual void OnItemCheck (ItemCheckEventArgs e) => ItemCheck?.Invoke (this, e);
+
         /// <summary>Raised when the check state of an item changes.</summary>
-        public event EventHandler<ItemCheckEventArgs>? ItemCheck { add { } remove { } }
+        public event EventHandler<ItemCheckEventArgs>? ItemCheck;
     }
 
     /// <summary>Wraps a CheckedListBox item with a check state.</summary>
@@ -80,14 +100,20 @@ namespace Modern.Forms
         public CheckedListBoxItem (object? value, bool isChecked = false)
         {
             Value = value;
-            Checked = isChecked;
+            CheckState = isChecked ? CheckState.Checked : CheckState.Unchecked;
         }
 
         /// <summary>Gets or sets the underlying value.</summary>
         public object? Value { get; set; }
 
-        /// <summary>Gets or sets whether this item is checked.</summary>
-        public bool Checked { get; set; }
+        /// <summary>Gets or sets the check state of this item.</summary>
+        public CheckState CheckState { get; set; }
+
+        /// <summary>Gets or sets whether this item is checked. Matches WinForms: true when Checked or Indeterminate.</summary>
+        public bool Checked {
+            get => CheckState != CheckState.Unchecked;
+            set => CheckState = value ? CheckState.Checked : CheckState.Unchecked;
+        }
 
         /// <inheritdoc/>
         public override string ToString () => Value?.ToString () ?? string.Empty;
@@ -110,7 +136,10 @@ namespace Modern.Forms
 
         /// <summary>Adds an item with the specified initial check state.</summary>
         public int Add (object item, CheckState checkState)
-            => Add (item, checkState == CheckState.Checked);
+        {
+            _inner.Add (new CheckedListBoxItem (item) { CheckState = checkState });
+            return _inner.Count - 1;
+        }
 
         /// <summary>Adds an item (unchecked by default).</summary>
         public int Add (object item)

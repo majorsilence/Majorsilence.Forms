@@ -80,8 +80,13 @@ namespace Modern.Forms
         /// <summary>Gets or sets the index into the ImageList of the image for this item.</summary>
         public int ImageIndex { get; set; } = -1;
 
+        private string _imageKey = string.Empty;
+
         /// <summary>Gets or sets the key into the ImageList of the image for this item.</summary>
-        public string ImageKey { get; set; } = string.Empty;
+        public string ImageKey {
+            get => _imageKey;
+            set => _imageKey = value ?? string.Empty;
+        }
 
         /// <summary>
         /// Gets the ListView this item is currently a part of.
@@ -121,10 +126,15 @@ namespace Modern.Forms
         /// </summary>
         public object? Tag { get; set; }
 
+        private string _text = string.Empty;
+
         /// <summary>
         /// Gets or sets the text displayed on the item.
         /// </summary>
-        public string Text { get; set; } = string.Empty;
+        public string Text {
+            get => _text;
+            set => _text = value ?? string.Empty;
+        }
 
         /// <summary>Gets or sets whether subitems inherit the style of the parent item. Stub in Modern.Forms.</summary>
         public bool UseItemStyleForSubItems { get; set; } = true;
@@ -173,8 +183,13 @@ namespace Modern.Forms
             return clone;
         }
 
+        private string _name = string.Empty;
+
         /// <summary>Gets or sets the name/key of the item.</summary>
-        public string Name { get; set; } = string.Empty;
+        public string Name {
+            get => _name;
+            set => _name = value ?? string.Empty;
+        }
 
         /// <summary>Represents a single sub-item in a ListViewItem.</summary>
         public class ListViewSubItem

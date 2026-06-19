@@ -96,7 +96,9 @@ namespace Modern.Forms
         /// Gets or sets the amount the ScrollBar will change when the increment or decrement arrows are clicked.
         /// </summary>
         public int SmallChange {
-            get => small_change;
+            // We can't have SmallChange > LargeChange, but we shouldn't manipulate
+            // the set value, so clamp on the way out to match WinForms behavior.
+            get => Math.Min (small_change, LargeChange);
             set {
                 if (value < 0)
                     throw new ArgumentOutOfRangeException (nameof (SmallChange), $"Value '{value}' must be greater than or equal to 0.");

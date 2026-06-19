@@ -26,17 +26,57 @@ namespace Modern.Forms
         /// <summary>Gets or sets whether the ToolTip is shown even when its parent form is not active.</summary>
         public bool ShowAlways { get; set; }
 
+        private int automatic_delay = 500;
+        private int auto_pop_delay = 5000;
+        private int reshow_delay = 100;
+        private int initial_delay = 500;
+
         /// <summary>Gets or sets the automatic delay, in milliseconds. Setting this adjusts the other delays.</summary>
-        public int AutomaticDelay { get; set; } = 500;
+        public int AutomaticDelay {
+            get => automatic_delay;
+            set {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, null);
+
+                automatic_delay = value;
+                AutoPopDelay = value * 10;
+                InitialDelay = value;
+                ReshowDelay = value / 5;
+            }
+        }
 
         /// <summary>Gets or sets the period, in milliseconds, that the ToolTip remains visible.</summary>
-        public int AutoPopDelay { get; set; } = 5000;
+        public int AutoPopDelay {
+            get => auto_pop_delay;
+            set {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, null);
+
+                auto_pop_delay = value;
+            }
+        }
 
         /// <summary>Gets or sets the delay, in milliseconds, before a subsequent ToolTip appears.</summary>
-        public int ReshowDelay { get; set; } = 100;
+        public int ReshowDelay {
+            get => reshow_delay;
+            set {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, null);
+
+                reshow_delay = value;
+            }
+        }
 
         /// <summary>Gets or sets the delay, in milliseconds, before the ToolTip first appears.</summary>
-        public int InitialDelay { get; set; } = 500;
+        public int InitialDelay {
+            get => initial_delay;
+            set {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, null);
+
+                initial_delay = value;
+            }
+        }
 
         /// <summary>Gets or sets the background color of the ToolTip.</summary>
         public Color BackColor { get; set; } = Color.FromArgb (255, 255, 255, 225);
@@ -50,7 +90,7 @@ namespace Modern.Forms
         public void SetToolTip (Control control, string caption)
         {
             if (control is null)
-                return;
+                throw new ArgumentNullException (nameof (control));
 
             control.MouseEnter -= Control_MouseEnter;
             control.MouseLeave -= Control_MouseLeave;

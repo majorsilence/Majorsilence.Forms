@@ -72,8 +72,19 @@ public class TableLayoutPanel : Panel, IExtenderProvider
     //    }
     //}
 
-    /// <summary>Gets or sets the cell border style for the TableLayoutPanel. Stub in Modern.Forms.</summary>
-    public TableLayoutPanelCellBorderStyle CellBorderStyle { get; set; } = TableLayoutPanelCellBorderStyle.None;
+    /// <summary>Gets or sets the cell border style for the TableLayoutPanel.</summary>
+    [DefaultValue (TableLayoutPanelCellBorderStyle.None)]
+    public TableLayoutPanelCellBorderStyle CellBorderStyle {
+        get => _tableLayoutSettings.CellBorderStyle;
+        set {
+            // Valid values are None (0) through OutsetPartial (6).
+            if (value < TableLayoutPanelCellBorderStyle.None || value > TableLayoutPanelCellBorderStyle.OutsetPartial)
+                throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (TableLayoutPanelCellBorderStyle));
+
+            _tableLayoutSettings.CellBorderStyle = value;
+            Debug.Assert (CellBorderStyle == value, "CellBorderStyle should be the same as we set it");
+        }
+    }
 
     /// <summary>
     /// Gets the collection of controls contained by the control.

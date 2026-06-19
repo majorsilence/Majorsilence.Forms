@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using SkiaSharp;
@@ -12,18 +13,58 @@ namespace Modern.Forms
     public class ErrorProvider : Component
     {
         private readonly Dictionary<Control, string> _errors = new ();
+        private readonly Dictionary<Control, ErrorIconAlignment> _iconAlignments = new ();
+        private readonly Dictionary<Control, int> _iconPaddings = new ();
+        private int _blinkRate = 250;
+        private ErrorBlinkStyle _blinkStyle = ErrorBlinkStyle.BlinkIfDifferentError;
+        private bool _rightToLeft;
 
         /// <summary>Initializes a new instance of ErrorProvider.</summary>
         public ErrorProvider () { }
 
         /// <summary>Initializes a new instance of ErrorProvider and adds it to the specified container.</summary>
-        public ErrorProvider (IContainer container) { container.Add (this); }
+        public ErrorProvider (IContainer container)
+        {
+            if (container is null)
+                throw new ArgumentNullException (nameof (container));
 
-        /// <summary>Gets or sets the rate in milliseconds at which the error icon blinks. Stub in Modern.Forms.</summary>
-        public int BlinkRate { get; set; } = 250;
+            container.Add (this);
+        }
+
+        /// <summary>
+        /// Gets or sets the rate in milliseconds at which the error icon blinks. Stub in Modern.Forms.
+        /// Setting the rate to zero forces <see cref="BlinkStyle"/> to <see cref="ErrorBlinkStyle.NeverBlink"/>.
+        /// </summary>
+        public int BlinkRate {
+            get => _blinkRate;
+            set {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), $"Value '{value}' must be greater than or equal to 0.");
+
+                _blinkRate = value;
+
+                // If the blinkRate is zero, then set blinkStyle to NeverBlink to match WinForms.
+                if (_blinkRate == 0)
+                    _blinkStyle = ErrorBlinkStyle.NeverBlink;
+            }
+        }
 
         /// <summary>Gets or sets the blink style for the error icon. Stub in Modern.Forms.</summary>
-        public ErrorBlinkStyle BlinkStyle { get; set; } = ErrorBlinkStyle.BlinkIfDifferentError;
+        public ErrorBlinkStyle BlinkStyle {
+            get {
+                // If the blink rate is zero the icon can never blink.
+                if (_blinkRate == 0)
+                    return ErrorBlinkStyle.NeverBlink;
+
+                return _blinkStyle;
+            }
+            set {
+                if (value < ErrorBlinkStyle.BlinkIfDifferentError || value > ErrorBlinkStyle.NeverBlink)
+                    throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (ErrorBlinkStyle));
+
+                _blinkStyle = value;
+            }
+        }
 
         /// <summary>Gets or sets the container control (form) to watch. Stub in Modern.Forms.</summary>
         public Form? ContainerControl { get; set; }
@@ -31,9 +72,36 @@ namespace Modern.Forms
         /// <summary>Gets or sets the icon displayed next to a control with an error. Stub in Modern.Forms.</summary>
         public Modern.Drawing.Icon? Icon { get; set; }
 
+        /// <summary>Gets a value indicating whether the error provider currently has errors for any control.</summary>
+        public bool HasErrors => _errors.Count > 0;
+
+        /// <summary>Gets or sets user-defined data associated with this error provider.</summary>
+        public object? Tag { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether the component is laid out right-to-left.</summary>
+        public bool RightToLeft {
+            get => _rightToLeft;
+            set {
+                if (_rightToLeft == value)
+                    return;
+
+                _rightToLeft = value;
+                OnRightToLeftChanged (EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Occurs when the <see cref="RightToLeft"/> property changes.</summary>
+        public event EventHandler? RightToLeftChanged;
+
+        /// <summary>Raises the <see cref="RightToLeftChanged"/> event.</summary>
+        protected virtual void OnRightToLeftChanged (EventArgs e) => RightToLeftChanged?.Invoke (this, e);
+
         /// <summary>Sets the error description string for the specified control.</summary>
         public void SetError (Control control, string value)
         {
+            if (control is null)
+                throw new ArgumentNullException (nameof (control));
+
             if (string.IsNullOrEmpty (value))
                 _errors.Remove (control);
             else
@@ -43,6 +111,9 @@ namespace Modern.Forms
         /// <summary>Gets the error description string for the specified control.</summary>
         public string GetError (Control control)
         {
+            if (control is null)
+                throw new ArgumentNullException (nameof (control));
+
             return _errors.TryGetValue (control, out var msg) ? msg : string.Empty;
         }
 
@@ -50,16 +121,43 @@ namespace Modern.Forms
         public void Clear () => _errors.Clear ();
 
         /// <summary>Sets the icon alignment for the specified control. Stub in Modern.Forms.</summary>
-        public void SetIconAlignment (Control control, ErrorIconAlignment value) { }
+        public void SetIconAlignment (Control control, ErrorIconAlignment value)
+        {
+            if (control is null)
+                throw new ArgumentNullException (nameof (control));
+
+            if (value < ErrorIconAlignment.TopLeft || value > ErrorIconAlignment.BottomRight)
+                throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (ErrorIconAlignment));
+
+            _iconAlignments[control] = value;
+        }
 
         /// <summary>Gets the icon alignment for the specified control. Stub in Modern.Forms.</summary>
-        public ErrorIconAlignment GetIconAlignment (Control control) => ErrorIconAlignment.MiddleRight;
+        public ErrorIconAlignment GetIconAlignment (Control control)
+        {
+            if (control is null)
+                throw new ArgumentNullException (nameof (control));
+
+            return _iconAlignments.TryGetValue (control, out var alignment) ? alignment : ErrorIconAlignment.MiddleRight;
+        }
 
         /// <summary>Sets the icon padding for the specified control. Stub in Modern.Forms.</summary>
-        public void SetIconPadding (Control control, int padding) { }
+        public void SetIconPadding (Control control, int padding)
+        {
+            if (control is null)
+                throw new ArgumentNullException (nameof (control));
+
+            _iconPaddings[control] = padding;
+        }
 
         /// <summary>Gets the icon padding for the specified control. Stub in Modern.Forms.</summary>
-        public int GetIconPadding (Control control) => 0;
+        public int GetIconPadding (Control control)
+        {
+            if (control is null)
+                throw new ArgumentNullException (nameof (control));
+
+            return _iconPaddings.TryGetValue (control, out var padding) ? padding : 0;
+        }
 
         /// <summary>Gets or sets the data source for automatic validation. Stub in Modern.Forms.</summary>
         public object? DataSource { get; set; }

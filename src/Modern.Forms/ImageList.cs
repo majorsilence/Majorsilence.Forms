@@ -8,7 +8,8 @@ namespace Modern.Forms;
 /// </summary>
 public class ImageList : Component
 {
-    private static readonly SKSize s_defaultImageSize = new (32, 32);
+    // WinForms default ImageList.ImageSize is 16x16.
+    private static readonly SKSize s_defaultImageSize = new (16, 16);
 
     /// <summary>
     /// Initializes a new instance of the ImageList class.

@@ -41,6 +41,17 @@ namespace Modern.Forms
         }
 
         /// <summary>
+        /// Adds the specified existing cell to the collection and returns it.
+        /// </summary>
+        public DataGridViewCell Add (DataGridViewCell cell)
+        {
+            // Routes through InsertItem, which assigns the owning row. Without this overload an
+            // existing cell would bind to Add(object?) and be wrapped as a new cell's value.
+            base.Add (cell);
+            return cell;
+        }
+
+        /// <summary>
         /// Adds a cell with the specified value to the collection.
         /// </summary>
         public DataGridViewCell Add (object? value)

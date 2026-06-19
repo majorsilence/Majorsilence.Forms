@@ -22,6 +22,31 @@ namespace Modern.Forms
             GC.SuppressFinalize (this);
         }
 
+        /// <inheritdoc/>
+        public override bool Equals (object? obj)
+            => obj is Cursor other && other.CursorType == CursorType;
+
+        /// <inheritdoc/>
+        public override int GetHashCode () => (int)CursorType;
+
+        /// <summary>Determines whether two cursors represent the same cursor type.</summary>
+        public static bool operator == (Cursor? left, Cursor? right)
+        {
+            if (ReferenceEquals (left, right))
+                return true;
+
+            if (left is null || right is null)
+                return false;
+
+            return left.CursorType == right.CursorType;
+        }
+
+        /// <summary>Determines whether two cursors represent different cursor types.</summary>
+        public static bool operator != (Cursor? left, Cursor? right) => !(left == right);
+
+        /// <inheritdoc/>
+        public override string ToString () => $"[Cursor: {CursorType}]";
+
         /// <summary>
         /// The default cursor provided by the operating system.
         /// </summary>

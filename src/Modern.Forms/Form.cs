@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Modern.Forms.Layout;
 using SkiaSharp;
 
 namespace Modern.Forms
@@ -479,7 +480,14 @@ namespace Modern.Forms
         public object? BindingContext { get; set; }
 
         /// <summary>Gets or sets the border style of the form (stub — actual decoration is controlled by UseSystemDecorations).</summary>
-        public FormBorderStyle FormBorderStyle { get; set; } = FormBorderStyle.Sizable;
+        public FormBorderStyle FormBorderStyle {
+            get => form_border_style;
+            set {
+                SourceGenerated.EnumValidator.Validate (value);
+                form_border_style = value;
+            }
+        }
+        private FormBorderStyle form_border_style = FormBorderStyle.Sizable;
 
         /// <summary>Gets or sets whether a maximize button appears in the title bar.</summary>
         public bool MaximizeBox {
@@ -503,12 +511,26 @@ namespace Modern.Forms
         }
 
         /// <summary>Gets or sets the size-grip style for the form (stub).</summary>
-        public SizeGripStyle SizeGripStyle { get; set; } = SizeGripStyle.Auto;
+        public SizeGripStyle SizeGripStyle {
+            get => size_grip_style;
+            set {
+                SourceGenerated.EnumValidator.Validate (value);
+                size_grip_style = value;
+            }
+        }
+        private SizeGripStyle size_grip_style = SizeGripStyle.Auto;
 
-        /// <summary>Gets or sets the form opacity (0.0 = transparent, 1.0 = opaque).</summary>
+        /// <summary>Gets or sets the form opacity (0.0 = transparent, 1.0 = opaque). Values are clamped to the range [0, 1].</summary>
         public double Opacity {
             get => Backend.Opacity;
-            set => Backend.Opacity = value;
+            set {
+                if (value > 1.0)
+                    value = 1.0;
+                else if (value < 0.0)
+                    value = 0.0;
+
+                Backend.Opacity = value;
+            }
         }
 
         /// <summary>Gets or sets the color treated as transparent. Stub in Modern.Forms.</summary>
@@ -554,7 +576,10 @@ namespace Modern.Forms
         /// <summary>Gets or sets the state of the form (normal/minimized/maximized).</summary>
         public FormWindowState WindowState {
             get => Backend.WindowState;
-            set => Backend.WindowState = value;
+            set {
+                SourceGenerated.EnumValidator.Validate (value);
+                Backend.WindowState = value;
+            }
         }
 
         /// <summary>Gets or sets the active control on the form.</summary>
@@ -616,7 +641,14 @@ namespace Modern.Forms
         public bool TopLevel { get; set; } = true;
 
         /// <summary>Gets or sets the start position of the form when it is first shown.</summary>
-        public new FormStartPosition StartPosition { get; set; } = FormStartPosition.WindowsDefaultLocation;
+        public new FormStartPosition StartPosition {
+            get => start_position;
+            set {
+                SourceGenerated.EnumValidator.Validate (value);
+                start_position = value;
+            }
+        }
+        private FormStartPosition start_position = FormStartPosition.WindowsDefaultLocation;
 
         /// <summary>Gets or sets the desktop bounds of the form.</summary>
         public System.Drawing.Rectangle DesktopBounds {

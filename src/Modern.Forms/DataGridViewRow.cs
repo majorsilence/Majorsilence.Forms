@@ -76,7 +76,19 @@ namespace Modern.Forms
         public bool IsNewRow => false;
 
         /// <summary>Gets or sets whether all cells in this row are read-only.</summary>
-        public bool ReadOnly { get; set; }
+        public bool ReadOnly {
+            get => read_only;
+            set {
+                read_only = value;
+
+                // WinForms semantics: setting the row's ReadOnly cascades to every cell. Clearing it
+                // also clears the cell-level flags.
+                foreach (var cell in Cells)
+                    cell.ReadOnly = value;
+            }
+        }
+
+        private bool read_only;
 
         /// <summary>Gets or sets the minimum height for this row.</summary>
         public int MinimumHeight { get; set; } = 10;

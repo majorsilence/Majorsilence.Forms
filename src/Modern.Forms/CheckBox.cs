@@ -123,9 +123,17 @@ namespace Modern.Forms
             get => _state;
             set {
                 if (_state != value) {
+                    var old_checked = Checked;
+
                     _state = value;
                     Invalidate ();
-                    OnCheckedChanged (EventArgs.Empty);
+
+                    // Checked is (_state != Unchecked), so transitions like
+                    // Checked -> Indeterminate do not change Checked and must
+                    // not raise CheckedChanged (matches WinForms semantics).
+                    if (old_checked != Checked)
+                        OnCheckedChanged (EventArgs.Empty);
+
                     OnCheckStateChanged (EventArgs.Empty);
                 }
             }

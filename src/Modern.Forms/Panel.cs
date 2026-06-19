@@ -1,4 +1,6 @@
-﻿using System.Drawing;
+﻿using System;
+using System.ComponentModel;
+using System.Drawing;
 using Modern.Forms.Renderers;
 
 namespace Modern.Forms
@@ -53,8 +55,21 @@ namespace Modern.Forms
             RenderManager.Render (this, e);
         }
 
+        private BorderStyle border_style = BorderStyle.None;
+
         /// <summary>Gets or sets the border style of the panel.</summary>
-        public BorderStyle BorderStyle { get; set; } = BorderStyle.None;
+        public BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (!Enum.IsDefined (typeof (BorderStyle), value))
+                    throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (BorderStyle));
+
+                if (border_style != value) {
+                    border_style = value;
+                    Invalidate ();
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);

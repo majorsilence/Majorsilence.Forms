@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using System.Drawing;
 using SkiaSharp;
@@ -15,12 +16,22 @@ namespace Modern.Forms
     {
         private string _text = string.Empty;
         private bool _visible;
+        private ToolTipIcon _balloonTipIcon;
+
+        /// <summary>The maximum number of characters allowed in the <see cref="Text"/> property.</summary>
+        public const int MaxTextSize = 63;
 
         /// <summary>Initializes a new instance of NotifyIcon.</summary>
         public NotifyIcon () { }
 
         /// <summary>Initializes a new instance of NotifyIcon and adds it to the specified container.</summary>
-        public NotifyIcon (IContainer container) { container.Add (this); }
+        public NotifyIcon (IContainer container)
+        {
+            if (container is null)
+                throw new ArgumentNullException (nameof (container));
+
+            container.Add (this);
+        }
 
         /// <summary>Gets or sets the icon displayed in the notification area.</summary>
         public Modern.Drawing.Icon? Icon { get; set; }
@@ -28,8 +39,18 @@ namespace Modern.Forms
         /// <summary>Gets or sets the ToolTip text displayed when the mouse hovers over the icon.</summary>
         public string Text {
             get => _text;
-            set => _text = value ?? string.Empty;
+            set {
+                value ??= string.Empty;
+
+                if (value.Length > MaxTextSize)
+                    throw new ArgumentOutOfRangeException (nameof (Text), $"'{nameof (Text)}' must be {MaxTextSize} characters or fewer.");
+
+                _text = value;
+            }
         }
+
+        /// <summary>Gets or sets an object that contains data about the control.</summary>
+        public object? Tag { get; set; }
 
         /// <summary>Gets or sets whether the icon is visible in the notification area.</summary>
         public bool Visible {
@@ -64,20 +85,58 @@ namespace Modern.Forms
         /// <summary>Occurs when the balloon tip is shown.</summary>
         public event EventHandler? BalloonTipShown { add { } remove { } }
 
+        private string _balloonTipTitle = string.Empty;
+        private string _balloonTipText = string.Empty;
+
         /// <summary>Gets or sets the title displayed on the balloon tooltip.</summary>
-        public string BalloonTipTitle { get; set; } = string.Empty;
+        public string BalloonTipTitle {
+            get => _balloonTipTitle;
+            set => _balloonTipTitle = value ?? string.Empty;
+        }
 
         /// <summary>Gets or sets the text displayed on the balloon tooltip.</summary>
-        public string BalloonTipText { get; set; } = string.Empty;
+        public string BalloonTipText {
+            get => _balloonTipText;
+            set => _balloonTipText = value ?? string.Empty;
+        }
 
         /// <summary>Gets or sets the icon shown on the balloon tooltip.</summary>
-        public ToolTipIcon BalloonTipIcon { get; set; }
+        public ToolTipIcon BalloonTipIcon {
+            get => _balloonTipIcon;
+            set {
+                if (value < ToolTipIcon.None || value > ToolTipIcon.Error)
+                    throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (ToolTipIcon));
 
-        /// <summary>Displays a balloon notification for the specified duration. No-op in Modern.Forms.</summary>
-        public void ShowBalloonTip (int timeout) { }
+                _balloonTipIcon = value;
+            }
+        }
 
-        /// <summary>Displays a balloon notification with the specified title and text. No-op in Modern.Forms.</summary>
-        public void ShowBalloonTip (int timeout, string tipTitle, string tipText, ToolTipIcon tipIcon) { }
+        /// <summary>
+        /// Displays a balloon notification for the specified duration using the current
+        /// <see cref="BalloonTipTitle"/>, <see cref="BalloonTipText"/> and <see cref="BalloonTipIcon"/>.
+        /// Modern.Forms has no native tray support, so no balloon is shown, but argument validation
+        /// matches WinForms.
+        /// </summary>
+        public void ShowBalloonTip (int timeout)
+        {
+            ShowBalloonTip (timeout, BalloonTipTitle, BalloonTipText, BalloonTipIcon);
+        }
+
+        /// <summary>
+        /// Displays a balloon notification with the specified title and text. Modern.Forms has no
+        /// native tray support, so no balloon is shown, but argument validation matches WinForms.
+        /// </summary>
+        public void ShowBalloonTip (int timeout, string tipTitle, string tipText, ToolTipIcon tipIcon)
+        {
+            if (timeout < 0)
+                throw new ArgumentOutOfRangeException (nameof (timeout), timeout, $"'{nameof (timeout)}' must be greater than or equal to 0.");
+
+            if (string.IsNullOrEmpty (tipText))
+                throw new ArgumentException ($"'{nameof (tipText)}' must not be null or empty.", nameof (tipText));
+
+            if (tipIcon < ToolTipIcon.None || tipIcon > ToolTipIcon.Error)
+                throw new InvalidEnumArgumentException (nameof (tipIcon), (int)tipIcon, typeof (ToolTipIcon));
+        }
 
         /// <inheritdoc/>
         protected override void Dispose (bool disposing)
