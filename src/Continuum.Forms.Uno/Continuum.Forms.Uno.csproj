@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Uno's analyzers/skia profile; keep warnings non-fatal here. -->
+    <NoWarn>$(NoWarn);CA1416;Uno0001</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Continuum.Forms.Uno</PackageId>
+    <Version>0.3.0</Version>
+    <Description>Uno Platform (Skia) platform backend for Continuum.Forms.</Description>
+    <PackageTags>Modern;Forms;Uno;Skia;Backend;Cross;Platform</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Continuum.Forms\Continuum.Forms.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+    <PackageReference Include="SkiaSharp.Views.Uno.WinUI" />
+  </ItemGroup>
+
+</Project>

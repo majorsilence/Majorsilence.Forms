@@ -1,8 +1,8 @@
 ## Third Party Sources
-`Modern.Forms` contains code from multiple MIT licensed sources:
+`Continuum.Forms` contains code from multiple MIT licensed sources:
 
 ### Avalonia
-* This code is found in `src/Modern.Forms/Avalonia`
+* This code is found in `src/Continuum.Forms/Avalonia`
 * https://github.com/AvaloniaUI/Avalonia
 
 The MIT License (MIT)

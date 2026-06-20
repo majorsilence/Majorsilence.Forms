@@ -1,15 +1,15 @@
-using Modern.Forms;
-using Modern.Forms.Telerik;
+using Continuum.Forms;
+using Continuum.Forms.Telerik;
 
 namespace ControlGallery.Panels
 {
-    // Showcases RadPageView/RadPageViewPage (Modern.Forms.Telerik) — backed by Modern.Forms.TabControl.
+    // Showcases RadPageView/RadPageViewPage (Continuum.Forms.Telerik) — backed by Continuum.Forms.TabControl.
     public class TelerikPageViewPanel : BasePanel
     {
         public TelerikPageViewPanel ()
         {
             Controls.Add (new Label {
-                Text = "RadPageView with RadPageViewPages — backed by Modern.Forms.TabControl.",
+                Text = "RadPageView with RadPageViewPages — backed by Continuum.Forms.TabControl.",
                 Left = 10, Top = 10, Width = 760
             });
 

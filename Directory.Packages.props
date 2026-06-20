@@ -19,7 +19,7 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.201" />
     <PackageVersion Include="Topten.RichTextKit" Version="0.4.167" />
-    <!-- Uno backend (restored from nuget.org via src/Modern.Forms.Uno/nuget.config). -->
+    <!-- Uno backend (restored from nuget.org via src/Continuum.Forms.Uno/nuget.config). -->
     <PackageVersion Include="Uno.WinUI" Version="6.0.465" />
     <PackageVersion Include="Uno.WinUI.Runtime.Skia.X11" Version="6.0.465" />
     <PackageVersion Include="Uno.WinUI.Runtime.Skia.Win32" Version="6.0.465" />

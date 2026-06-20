@@ -1,17 +1,17 @@
-using Modern.Forms;
-using Modern.Forms.Telerik;
+using Continuum.Forms;
+using Continuum.Forms.Telerik;
 
 namespace ControlGallery.Panels
 {
-    // Showcases the Telerik (Rad*) compatibility controls from the Modern.Forms.Telerik namespace.
+    // Showcases the Telerik (Rad*) compatibility controls from the Continuum.Forms.Telerik namespace.
     // Migrated WinForms+Telerik code uses these by swapping `Imports Telerik.WinControls.*`
-    // for `Imports Modern.Forms.Telerik`; each is backed by a native Modern.Forms control.
+    // for `Imports Continuum.Forms.Telerik`; each is backed by a native Continuum.Forms control.
     public class TelerikControlsPanel : BasePanel
     {
         public TelerikControlsPanel ()
         {
             Controls.Add (new Label {
-                Text = "Telerik compatibility controls (Modern.Forms.Telerik) — backed by native Modern.Forms controls.",
+                Text = "Telerik compatibility controls (Continuum.Forms.Telerik) — backed by native Continuum.Forms controls.",
                 Left = 20, Top = 16, Width = 720
             });
 

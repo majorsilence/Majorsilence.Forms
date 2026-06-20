@@ -1,4 +1,4 @@
-﻿using Modern.Forms;
+﻿using Continuum.Forms;
 
 namespace ControlGallery.Panels;
 

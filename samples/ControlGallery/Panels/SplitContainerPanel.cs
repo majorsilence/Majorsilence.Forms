@@ -1,5 +1,5 @@
 ﻿using System.Drawing;
-using Modern.Forms;
+using Continuum.Forms;
 using SkiaSharp;
 
 namespace ControlGallery.Panels

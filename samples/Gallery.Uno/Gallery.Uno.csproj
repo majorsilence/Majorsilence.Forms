@@ -11,8 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modern.Forms\Modern.Forms.csproj" />
-    <ProjectReference Include="..\..\src\Modern.Forms.Uno\Modern.Forms.Uno.csproj" />
+    <ProjectReference Include="..\..\src\Continuum.Forms\Continuum.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Continuum.Forms.Uno\Continuum.Forms.Uno.csproj" />
     <!-- Reuse the full ControlGallery MainForm to render the whole gallery on Uno. -->
     <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
   </ItemGroup>

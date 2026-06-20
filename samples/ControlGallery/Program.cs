@@ -1,7 +1,7 @@
 using System;
 using System.IO;
-using Modern.Forms;
-using Modern.Forms.Headless;
+using Continuum.Forms;
+using Continuum.Forms.Headless;
 
 namespace ControlGallery
 {
@@ -35,7 +35,7 @@ namespace ControlGallery
 
                 var png = HeadlessRenderer.CapturePng (form, width, height);
                 File.WriteAllBytes (path, png);
-                Console.WriteLine ($"Rendered ControlGallery on the {Modern.Forms.Backends.Platform.Backend.Name} backend → {path} ({png.Length} bytes, {width}x{height}).");
+                Console.WriteLine ($"Rendered ControlGallery on the {Continuum.Forms.Backends.Platform.Backend.Name} backend → {path} ({png.Length} bytes, {width}x{height}).");
                 return;
             }
 
@@ -52,7 +52,7 @@ namespace ControlGallery
                 HeadlessRenderer.CapturePng (form, 300, 200);   // force a layout pass
                 HeadlessRenderer.Click (form, 80, 40);          // center of the button
 
-                var backend = Modern.Forms.Backends.Platform.Backend.Name;
+                var backend = Continuum.Forms.Backends.Platform.Backend.Name;
                 Console.WriteLine ($"[headless-selftest] backend={backend} Button.Click fired {clicks}x → {(clicks > 0 ? "PASS" : "FAIL")}");
                 Environment.ExitCode = clicks > 0 ? 0 : 1;
                 return;

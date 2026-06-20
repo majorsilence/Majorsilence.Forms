@@ -1,0 +1,112 @@
+﻿using System.Collections.ObjectModel;
+using SkiaSharp;
+
+namespace Continuum.Forms
+{
+    /// <summary>
+    /// Represents a collection of ListViewItems.
+    /// </summary>
+    public class ListViewItemCollection : Collection<ListViewItem>
+    {
+        private readonly ListView owner;
+
+        internal ListViewItemCollection (ListView owner)
+        {
+            this.owner = owner;
+        }
+
+        /// <summary>
+        /// Adds a new ListViewItem to the collection with the specified text.
+        /// </summary>
+        public ListViewItem Add (string text)
+        {
+            var item = new ListViewItem {
+                Text = text
+            };
+
+            Add (item);
+
+            return item;
+        }
+
+        /// <summary>
+        /// Adds a new ListViewItem to the collection with the specified text and image.
+        /// </summary>
+        public ListViewItem Add (string text, SKBitmap image)
+        {
+            var item = new ListViewItem { Text = text };
+            item.SetImageSK (image);
+            Add (item);
+            return item;
+        }
+
+        /// <summary>Adds a new ListViewItem to the collection with the specified text and Continuum.Drawing.Image (WinForms compatibility overload).</summary>
+        public ListViewItem Add (string text, Continuum.Drawing.Image image)
+        {
+            var item = new ListViewItem { Text = text, Image = image };
+            Add (item);
+            return item;
+        }
+
+        /// <summary>Adds a new ListViewItem with text and image index.</summary>
+        public ListViewItem Add (string text, int imageIndex)
+        {
+            var item = new ListViewItem { Text = text, ImageIndex = imageIndex };
+            Add (item);
+            return item;
+        }
+
+        /// <summary>Finds items whose Name matches the specified key.</summary>
+        public ListViewItem[] Find (string key, bool searchAllSubItems)
+            => this.Where (i => string.Equals (i.Name, key, StringComparison.OrdinalIgnoreCase)).ToArray ();
+
+        /// <summary>Returns the item with the specified key, or null.</summary>
+        public ListViewItem? this[string key]
+            => this.FirstOrDefault (i => string.Equals (i.Name, key, StringComparison.OrdinalIgnoreCase));
+
+        /// <inheritdoc/>
+        protected override void ClearItems ()
+        {
+            foreach (var item in Items)
+                item.Parent = null;
+
+            base.ClearItems ();
+
+            owner.Invalidate ();
+        }
+
+        /// <inheritdoc/>
+        protected override void InsertItem (int index, ListViewItem item)
+        {
+            base.InsertItem (index, item);
+
+            item.Parent = owner;
+            owner.Invalidate ();
+        }
+
+        /// <inheritdoc/>
+        protected override void RemoveItem (int index)
+        {
+            var item = this[index];
+
+            base.RemoveItem (index);
+
+            item.Parent = null;
+            owner.Invalidate ();
+        }
+
+        /// <inheritdoc/>
+        protected override void SetItem (int index, ListViewItem item)
+        {
+            var old_item = this.ElementAtOrDefault (index);
+
+            if (old_item != null)
+                old_item.Parent = null;
+
+            base.SetItem (index, item);
+
+            item.Parent = owner;
+            owner.Invalidate ();
+        }
+    }
+}

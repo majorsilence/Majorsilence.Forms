@@ -6,9 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modern.Forms\Modern.Forms.csproj" />
-    <ProjectReference Include="..\..\src\Modern.Forms.Avalonia\Modern.Forms.Avalonia.csproj" />
-    <ProjectReference Include="..\..\src\Modern.Forms.Headless\Modern.Forms.Headless.csproj" />
+    <ProjectReference Include="..\..\src\Continuum.Forms\Continuum.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Continuum.Forms.Avalonia\Continuum.Forms.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\Continuum.Forms.Headless\Continuum.Forms.Headless.csproj" />
   </ItemGroup>
 
   <ItemGroup>

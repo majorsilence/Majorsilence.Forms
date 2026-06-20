@@ -1,6 +1,6 @@
 ﻿using System.Drawing;
-using Modern.Forms;
-using ContentAlignment = Modern.Forms.ContentAlignment;
+using Continuum.Forms;
+using ContentAlignment = Continuum.Forms.ContentAlignment;
 
 namespace ControlGallery.Panels
 {

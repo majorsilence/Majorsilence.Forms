@@ -1,12 +1,12 @@
 using System;
 using System.Data;
 using System.Drawing;
-using Modern.Forms;
-using Modern.Forms.Telerik;
+using Continuum.Forms;
+using Continuum.Forms.Telerik;
 
 namespace ControlGallery.Panels
 {
-    // Showcases RadGridView (Modern.Forms.Telerik) — backed by Modern.Forms.DataGridView. Demonstrates
+    // Showcases RadGridView (Continuum.Forms.Telerik) — backed by Continuum.Forms.DataGridView. Demonstrates
     // the GridView* column types, FormatString (currency), right-aligned numbers, a foreign-key combo
     // column (stores DeptId, shows the name), a toggleable check-box column, header-click sorting, and
     // the CellFormatting / RowFormatting data-driven coloring events.

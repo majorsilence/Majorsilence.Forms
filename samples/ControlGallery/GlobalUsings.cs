@@ -1,1 +1,1 @@
-global using Modern.Drawing;
+global using Continuum.Drawing;

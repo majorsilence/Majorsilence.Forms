@@ -1,4 +1,4 @@
-using Modern.Forms;
+using Continuum.Forms;
 
 namespace ControlGallery.Panels
 {
@@ -101,7 +101,7 @@ namespace ControlGallery.Panels
 
             // --- Show contrast with the existing Menu API ---
             Controls.Add (new Label {
-                Text = "For comparison — native Modern.Forms Menu API:",
+                Text = "For comparison — native Continuum.Forms Menu API:",
                 Left = 20, Top = 105, Width = 400
             });
 
