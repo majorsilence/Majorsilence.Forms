@@ -13,7 +13,7 @@
 * Ensure `Explore` is set as the Startup project
 * Launch with F5
 
-![Windows Explore Screenshot](https://github.com/modern-forms/Continuum.Forms/blob/main/docs/explorer-windows.png "Windows Explore Screenshot")
+![Windows Explore Screenshot](explorer-windows.png "Windows Explore Screenshot")
 
 #### Ubuntu 19.04 AMD64
 
@@ -23,7 +23,7 @@
 * Navigate to `samples/Explorer`
 * Run `dotnet run`
 
-![Ubuntu Explore Screenshot](https://github.com/modern-forms/Continuum.Forms/blob/main/docs/explorer-ubuntu.png "Ubuntu Explore Screenshot")
+![Ubuntu Explore Screenshot](explorer-ubuntu.png "Ubuntu Explore Screenshot")
 
 #### Mac OSX
 
@@ -33,7 +33,7 @@
 * Navigate to `samples/Explorer`
 * Run `dotnet run`
 
-![Mac Explore Screenshot](https://github.com/modern-forms/Continuum.Forms/blob/main/docs/explorer-osx.png "Mac Explore Screenshot")
+![Mac Explore Screenshot](explorer-osx.png "Mac Explore Screenshot")
 
 ### Outlaw
 
@@ -41,7 +41,7 @@
 
 Follow the steps above for your system, replacing with `Outlaw` for the startup project or directory.
 
-![Windows Outlaw Screenshot](https://github.com/modern-forms/Continuum.Forms/blob/main/docs/outlaw-windows.png "Windows Outlaw Screenshot")
+![Windows Outlaw Screenshot](outlaw-windows.png "Windows Outlaw Screenshot")
 
 
 ### ControlGallery
@@ -50,4 +50,4 @@ Follow the steps above for your system, replacing with `Outlaw` for the startup 
 
 Follow the steps above for your system, replacing with `ControlGallery` for the startup project or directory.
 
-![Windows ControlGallery Screenshot](https://github.com/modern-forms/Continuum.Forms/blob/main/docs/controlgallery-windows.png "Windows ControlGallery Screenshot")
+![Windows ControlGallery Screenshot](controlgallery-windows.png "Windows ControlGallery Screenshot")

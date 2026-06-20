@@ -9,7 +9,7 @@
     <PackageId>Continuum.Forms.Avalonia</PackageId>
     <Version>0.3.0</Version>
     <Description>Avalonia 12 platform backend for Continuum.Forms.</Description>
-    <PackageTags>Modern;Forms;Avalonia;Backend;Cross;Platform</PackageTags>
+    <PackageTags>Continuum;Forms;Avalonia;Backend;Cross;Platform</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
   </PropertyGroup>
 

@@ -11,7 +11,7 @@
     <PackageId>Continuum.Forms.Uno</PackageId>
     <Version>0.3.0</Version>
     <Description>Uno Platform (Skia) platform backend for Continuum.Forms.</Description>
-    <PackageTags>Modern;Forms;Uno;Skia;Backend;Cross;Platform</PackageTags>
+    <PackageTags>Continuum;Forms;Uno;Skia;Backend;Cross;Platform</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
   </PropertyGroup>
 

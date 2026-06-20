@@ -9,7 +9,7 @@
     <PackageId>Continuum.Forms.Headless</PackageId>
     <Version>0.3.0</Version>
     <Description>Headless SkiaSharp platform backend for Continuum.Forms — offscreen rendering for tests and a reference second backend.</Description>
-    <PackageTags>Modern;Forms;Headless;Skia;Backend;Testing</PackageTags>
+    <PackageTags>Continuum;Forms;Headless;Skia;Backend;Testing</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
   </PropertyGroup>
 

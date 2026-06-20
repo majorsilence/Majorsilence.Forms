@@ -6,7 +6,7 @@
     
     <!-- NuGet packaging info -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/modern-forms/Continuum.Forms</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/majorsilence/Continuum.Forms</PackageProjectUrl>
     
     <!-- SourceLink info -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

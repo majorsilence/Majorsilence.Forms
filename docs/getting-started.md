@@ -15,9 +15,8 @@ This will run create and run a basic Hello World Continuum.Forms application.
 
 There isn't documentation available yet, but the API should be relatively familiar for developers with Windows.Forms
 experience.  A good resource is to look at the source code of our sample applications:
-* [ControlGallery](https://github.com/modern-forms/Continuum.Forms/tree/main/samples/ControlGallery)
-* [Explore](https://github.com/modern-forms/Continuum.Forms/tree/main/samples/Explorer)
-* [ModernDecompile](https://github.com/modern-forms/ModernDecompile/tree/main/src)
+* [ControlGallery](../samples/ControlGallery)
+* [Explore](../samples/Explorer)
 
 ## From Scratch
 
