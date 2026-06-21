@@ -45,13 +45,15 @@ internal static class NamespaceMap
     /// </summary>
     public static readonly HashSet<string> ContinuumDrawingTypes = new(StringComparer.Ordinal)
     {
-        "Bitmap", "Brush", "CompositingMode", "CompositingQuality", "DashStyle", "FillMode",
+        "Bitmap", "Brush", "Brushes", "CompositingMode", "CompositingQuality", "DashStyle", "FillMode",
         "Font", "FontFamily", "FontStyle", "GraphicsPath", "GraphicsState", "GraphicsUnit",
         "HatchBrush", "HatchStyle", "HotkeyPrefix", "Icon", "Image", "ImageFormat",
         "ImageLockMode", "InterpolationMode", "LinearGradientBrush", "LineCap", "LineJoin",
-        "Matrix", "MatrixOrder", "Pen", "PixelFormat", "PixelOffsetMode", "Region",
-        "RotateFlipType", "SmoothingMode", "SolidBrush", "StringAlignment", "StringFormat",
-        "StringFormatFlags", "StringTrimming", "TextRenderingHint", "WrapMode",
+        "Matrix", "MatrixOrder", "Pen", "Pens", "PixelFormat", "PixelOffsetMode",
+        "PathGradientBrush", "Region", "RotateFlipType", "SmoothingMode", "SolidBrush",
+        "StringAlignment", "StringFormat", "StringFormatFlags", "StringTrimming", "TextureBrush",
+        "TextRenderingHint", "WrapMode", "SystemIcons", "ImageAnimator", "ColorConverter",
+        "BufferedGraphics", "BufferedGraphicsContext", "BufferedGraphicsManager",
     };
 
     /// <summary>
@@ -86,8 +88,8 @@ internal static class NamespaceMap
     /// </summary>
     public static readonly HashSet<string> UnmappedDrawingTypes = new(StringComparer.Ordinal)
     {
-        "Pens", "Brushes", "SystemIcons", "TextureBrush", "PathGradientBrush",
-        "BufferedGraphics", "BufferedGraphicsContext", "ImageAnimator", "ColorConverter",
+        "Metafile", "MetafileHeader", "ImageAttributes", "ColorMatrix", "ColorMap",
+        "Encoder", "EncoderParameter", "EncoderParameters", "CharacterRange",
     };
 
     /// <summary>The namespace the GDI+ replacements live in; added alongside a kept <c>System.Drawing</c> import.</summary>

@@ -43,6 +43,11 @@ public class SourceConverterTests
     [InlineData ("Pen")]
     [InlineData ("SolidBrush")]
     [InlineData ("Icon")]
+    [InlineData ("Brushes")]
+    [InlineData ("Pens")]
+    [InlineData ("TextureBrush")]
+    [InlineData ("PathGradientBrush")]
+    [InlineData ("SystemIcons")]
     public void Redirects_GDI_plus_types_to_Continuum_Drawing (string gdiType)
     {
         var result = SourceConverter.Convert ($"System.Drawing.{gdiType} x;");
@@ -52,9 +57,9 @@ public class SourceConverterTests
     [Fact]
     public void Warns_on_unmapped_GDI_plus_type_and_leaves_it ()
     {
-        var result = SourceConverter.Convert ("System.Drawing.TextureBrush b;");
-        Assert.Contains ("System.Drawing.TextureBrush", result.Text); // left as-is
-        Assert.Contains (result.Warnings, w => w.Contains ("System.Drawing.TextureBrush"));
+        var result = SourceConverter.Convert ("System.Drawing.Metafile b;");
+        Assert.Contains ("System.Drawing.Metafile", result.Text); // left as-is
+        Assert.Contains (result.Warnings, w => w.Contains ("System.Drawing.Metafile"));
     }
 
     [Theory]
@@ -141,16 +146,16 @@ public class SourceConverterTests
     [Fact]
     public void Warns_on_unqualified_unmapped_GDI_type_under_drawing_import ()
     {
-        var result = SourceConverter.Convert ("using System.Drawing;\nvar p = Pens.Red;");
-        Assert.Contains (result.Warnings, w => w.Contains ("Pens"));
+        var result = SourceConverter.Convert ("using System.Drawing;\nImageAttributes a;");
+        Assert.Contains (result.Warnings, w => w.Contains ("ImageAttributes"));
     }
 
     [Fact]
     public void Does_not_warn_on_unmapped_type_without_drawing_import ()
     {
-        // No `using System.Drawing;` — `Pens` is almost certainly an unrelated identifier.
-        var result = SourceConverter.Convert ("var Pens = 1;");
-        Assert.DoesNotContain (result.Warnings, w => w.Contains ("Pens"));
+        // No `using System.Drawing;` — `ImageAttributes` is almost certainly an unrelated identifier.
+        var result = SourceConverter.Convert ("var ImageAttributes = 1;");
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("ImageAttributes"));
     }
 
     [Fact]

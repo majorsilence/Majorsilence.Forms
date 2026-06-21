@@ -63,8 +63,8 @@ public class MigratorTests : IDisposable
     [Fact]
     public void Strict_mode_returns_nonzero_on_warnings ()
     {
-        // TextureBrush has no Continuum equivalent → a manual-review warning.
-        Write ("Four.cs", "class C { System.Drawing.TextureBrush b; }");
+        // Metafile has no Continuum equivalent → a manual-review warning.
+        Write ("Four.cs", "class C { System.Drawing.Metafile b; }");
 
         var exit = new Migrator (new MigrationOptions { Input = _dir, DryRun = true, NoReport = true, Strict = true }).Run ();
 
