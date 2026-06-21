@@ -5,21 +5,19 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Standalone head: manage its own (nuget.org-only) versions, independent of the repo CPM. -->
+    <!-- Self-contained: own (nuget.org-only) versions, independent of any parent CPM/build props. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
-    <NoWarn>$(NoWarn);CA1416;Uno0001;NU1903</NoWarn>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CA1416;Uno0001;NU1903;CS0618</NoWarn>
   </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Continuum.Forms\Continuum.Forms.csproj" />
-    <ProjectReference Include="..\..\src\Continuum.Forms.Uno\Continuum.Forms.Uno.csproj" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Uno.WinUI" Version="6.5.237" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.X11" Version="6.5.237" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" Version="6.5.237" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.MacOS" Version="6.5.237" />
+    <PackageReference Include="SkiaSharp.Views.Uno.WinUI" Version="3.119.4" />
   </ItemGroup>
 
 </Project>

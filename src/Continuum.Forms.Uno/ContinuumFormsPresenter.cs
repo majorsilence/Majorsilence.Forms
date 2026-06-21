@@ -52,7 +52,8 @@ namespace Continuum.Forms.Uno
 
             _canvas = new CursorCanvas ();
             _canvas.PaintSurface += OnPaintSurface;
-            _canvas.Loaded += (_, _) => TryFocus ();
+            // Grab keyboard focus and wire the macOS native keyboard once the canvas is in the tree.
+            _canvas.Loaded += (_, _) => { TryFocus (); WireMacOSKeyboard (); };
             Children.Add (_canvas);
 
             WireInput ();
@@ -118,7 +119,11 @@ namespace Continuum.Forms.Uno
 
         private void WireInput ()
         {
-            _canvas.PointerPressed += (_, e) => { TryFocus (); DispatchPointer (e, _host.HandlePointerPressed); };
+            _canvas.PointerPressed += (_, e) => {
+                try { _canvas.Focus (FocusState.Pointer); } catch { }
+                WireMacOSKeyboard ();
+                DispatchPointer (e, _host.HandlePointerPressed);
+            };
             _canvas.PointerReleased += (_, e) => {
                 if (DispatchPointer (e, _host.HandlePointerReleased) == MouseButtons.Right)
                     _lastPointerRightTicks = Environment.TickCount64;
@@ -128,12 +133,19 @@ namespace Continuum.Forms.Uno
             _canvas.PointerWheelChanged += (_, e) => DispatchWheel (e);
 
             _canvas.AddHandler (UIElement.KeyDownEvent,
-                new Microsoft.UI.Xaml.Input.KeyEventHandler ((_, e) => { if (!e.Handled && _host.HandleKeyDown (UnoKeyInterop.ToKeys (e.Key))) e.Handled = true; }),
+                new Microsoft.UI.Xaml.Input.KeyEventHandler ((_, e) => {
+                    if (!e.Handled && _host.HandleKeyDown (UnoKeyInterop.ToKeys (e.Key))) e.Handled = true;
+                }),
                 handledEventsToo: true);
             _canvas.AddHandler (UIElement.KeyUpEvent,
                 new Microsoft.UI.Xaml.Input.KeyEventHandler ((_, e) => { if (!e.Handled && _host.HandleKeyUp (UnoKeyInterop.ToKeys (e.Key))) e.Handled = true; }),
                 handledEventsToo: true);
-            _canvas.CharacterReceived += (_, e) => { if (_host.HandleTextInput (e.Character.ToString ())) e.Handled = true; };
+            // On non-macOS heads, XAML CharacterReceived carries typed text. On the macOS head it does not
+            // reach a nested SKXamlCanvas, so we synthesize text from the native KeyDown hook instead (see
+            // OnMacKeyDown); suppress this path there to avoid double insertion.
+            _canvas.CharacterReceived += (_, e) => {
+                if (!_macKeyboardWired && _host.HandleTextInput (e.Character.ToString ())) e.Handled = true;
+            };
 
             _canvas.ContextRequested += OnContextRequested;
         }
@@ -181,6 +193,173 @@ namespace Continuum.Forms.Uno
         private void TryFocus ()
         {
             try { _canvas.Focus (FocusState.Programmatic); } catch { }
+        }
+
+        // On the macOS Skia head, routed XAML key events don't reach a nested SKXamlCanvas, so hook the
+        // native MacOSWindowHost.KeyDown/KeyUp directly (via reflection — the type is internal). Unlike the
+        // standalone window host we don't own a Window, so match the host by XamlRoot. No-op on other heads.
+        private bool _macKeyboardWired;
+
+        private void WireMacOSKeyboard ()
+        {
+            if (_macKeyboardWired)
+                return;
+
+            var xamlRoot = _canvas.XamlRoot;
+            if (xamlRoot is null)
+                return;
+
+            try {
+                var hostType = Type.GetType ("Uno.UI.Runtime.Skia.MacOS.MacOSWindowHost, Uno.UI.Runtime.Skia.MacOS");
+                if (hostType is null)
+                    return;   // not the macOS head
+
+                var windowsField = hostType.GetField ("_windows", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+                var winField = hostType.GetField ("_winUIWindow", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var keyDownEvt = hostType.GetEvent ("KeyDown");
+                var keyUpEvt = hostType.GetEvent ("KeyUp");
+                if (windowsField?.GetValue (null) is not System.Collections.IDictionary dict || winField is null || keyDownEvt is null)
+                    return;
+
+                foreach (var value in dict.Values) {
+                    if (value is null)
+                        continue;
+                    var tryGet = value.GetType ().GetMethod ("TryGetTarget");
+                    if (tryGet is null)
+                        continue;
+                    var args = new object?[] { null };
+                    if (tryGet.Invoke (value, args) is not true || args[0] is not { } host)
+                        continue;
+
+                    // Match the host whose window contains our canvas (same XamlRoot).
+                    if ((winField.GetValue (host) as Window)?.Content?.XamlRoot != xamlRoot)
+                        continue;
+
+                    keyDownEvt.AddEventHandler (host, new Windows.Foundation.TypedEventHandler<object, Windows.UI.Core.KeyEventArgs> (OnMacKeyDown));
+                    keyUpEvt?.AddEventHandler (host, new Windows.Foundation.TypedEventHandler<object, Windows.UI.Core.KeyEventArgs> (OnMacKeyUp));
+                    _macKeyboardWired = true;
+                    return;
+                }
+            } catch {
+                // Reflection into the internal host is best-effort; routed handlers remain as a fallback.
+            }
+        }
+
+        // Tracks Shift for synthesizing typed characters from the native KeyDown (the macOS head delivers
+        // no character event and routes no CharacterReceived to a nested canvas).
+        private bool _shiftDown;
+
+        // The native KeyDown is window-level (fires regardless of focus). We route it to Continuum UNLESS
+        // keyboard focus is on an element OUTSIDE this presenter (a real host native control) — that way a
+        // sibling native control keeps its own typing, but the embedded scene still works even when the
+        // SKXamlCanvas can't hold XAML focus (this macOS head drops canvas focus immediately after a click).
+        private bool ShouldRouteToContinuum ()
+        {
+            try {
+                var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement (_canvas.XamlRoot) as Microsoft.UI.Xaml.DependencyObject;
+                if (focused is null)
+                    return true;   // nothing specific focused → treat as ours
+
+                for (Microsoft.UI.Xaml.DependencyObject? d = focused; d is not null; d = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent (d))
+                    if (ReferenceEquals (d, this))
+                        return true;   // focus is within this presenter → ours
+
+                return false;          // focus is on a sibling/native control → don't steal its input
+            } catch {
+                return true;
+            }
+        }
+
+        private void OnMacKeyDown (object sender, Windows.UI.Core.KeyEventArgs e)
+        {
+            if (!ShouldRouteToContinuum ())
+                return;
+
+            var vk = e.VirtualKey;
+            if (vk is Windows.System.VirtualKey.Shift or Windows.System.VirtualKey.LeftShift or Windows.System.VirtualKey.RightShift)
+                _shiftDown = true;
+
+            _host.HandleKeyDown (UnoKeyInterop.ToKeys (vk));
+
+            // Editing/navigation keys are handled above (OnKeyDown); printable keys produce text here.
+            var text = ToText (vk, _shiftDown);
+            if (text is not null)
+                _host.HandleTextInput (text);
+
+            // Mark handled: we've routed the key into the embedded scene. NOTE: this does NOT stop the macOS
+            // "unhandled key" beep — that fires from AppKit's interpretKeyEvents because no NSTextInputClient
+            // holds focus (a nested SKXamlCanvas can't, on this head). The beep is a known Uno-macOS
+            // limitation tracked separately (see samples/UnoCanvasFocusRepro); typing itself works.
+            e.Handled = true;
+        }
+
+        private void OnMacKeyUp (object sender, Windows.UI.Core.KeyEventArgs e)
+        {
+            var vk = e.VirtualKey;
+            if (vk is Windows.System.VirtualKey.Shift or Windows.System.VirtualKey.LeftShift or Windows.System.VirtualKey.RightShift)
+                _shiftDown = false;
+
+            if (!ShouldRouteToContinuum ())
+                return;
+
+            if (_host.HandleKeyUp (UnoKeyInterop.ToKeys (vk)))
+                e.Handled = true;
+        }
+
+        private static bool CapsLockOn ()
+        {
+            try {
+                return Microsoft.UI.Input.InputKeyboardSource
+                    .GetKeyStateForCurrentThread (Windows.System.VirtualKey.CapitalLock)
+                    .HasFlag (Windows.UI.Core.CoreVirtualKeyStates.Locked);
+            } catch {
+                return false;
+            }
+        }
+
+        // Maps a VirtualKey + Shift/CapsLock to the character it types (US layout). Returns null for
+        // non-printable keys. Used only on the macOS head, which gives us no character event.
+        private static string? ToText (Windows.System.VirtualKey vk, bool shift)
+        {
+            var code = (int) vk;
+
+            // Letters A–Z
+            if (code is >= 0x41 and <= 0x5A) {
+                var upper = shift ^ CapsLockOn ();
+                var c = (char) ('a' + (code - 0x41));
+                return (upper ? char.ToUpperInvariant (c) : c).ToString ();
+            }
+
+            // Top-row digits 0–9 (and shifted symbols)
+            if (code is >= 0x30 and <= 0x39) {
+                if (!shift)
+                    return ((char) ('0' + (code - 0x30))).ToString ();
+                return code switch {
+                    0x30 => ")", 0x31 => "!", 0x32 => "@", 0x33 => "#", 0x34 => "$",
+                    0x35 => "%", 0x36 => "^", 0x37 => "&", 0x38 => "*", 0x39 => "(", _ => null
+                };
+            }
+
+            // Numpad digits
+            if (code is >= 0x60 and <= 0x69)
+                return ((char) ('0' + (code - 0x60))).ToString ();
+
+            return code switch {
+                0x20 => " ",                       // Space
+                0x6A => "*", 0x6B => "+", 0x6D => "-", 0x6E => ".", 0x6F => "/",   // Numpad ops
+                0xBA => shift ? ":" : ";",
+                0xBB => shift ? "+" : "=",
+                0xBC => shift ? "<" : ",",
+                0xBD => shift ? "_" : "-",
+                0xBE => shift ? ">" : ".",
+                0xBF => shift ? "?" : "/",
+                0xC0 => shift ? "~" : "`",
+                0xDB => shift ? "{" : "[",
+                0xDC => shift ? "|" : "\\",
+                0xDD => shift ? "}" : "]",
+                0xDE => shift ? "\"" : "'",
+                _ => null
+            };
         }
 
         // ── IWindowBackend ─────────────────────────────────────────────────────────

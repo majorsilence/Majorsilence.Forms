@@ -31,6 +31,14 @@ public sealed class EmbeddingApp : Application
 {
     private Window? _window;
 
+    public EmbeddingApp ()
+    {
+        // Native WinUI controls (TextBox/Button/ComboBox) need their default styles; without this the
+        // native TextBox/Button render unstyled (often invisible). Continuum.Forms draws its own controls,
+        // so this is only required because the host app uses native controls alongside the presenter.
+        Resources.MergedDictionaries.Add (new Microsoft.UI.Xaml.Controls.XamlControlsResources ());
+    }
+
     protected override void OnLaunched (LaunchActivatedEventArgs args)
     {
         _window = new Window ();
