@@ -10,7 +10,7 @@ That host is abstracted behind a small seam so Continuum.Forms can run on more t
 |----------|---------|-------|
 | `Continuum.Forms.Avalonia` | Avalonia 12 (`AvaloniaPlatformBackend`) | Default desktop backend (Windows/macOS/Linux). |
 | `Continuum.Forms.Headless` | Dependency-free SkiaSharp (`HeadlessPlatformBackend`) | Offscreen rendering for tests/servers; the reference second backend. |
-| `Continuum.Forms.Uno` | Uno Platform / Skia (`UnoPlatformBackend`) | Builds against `Uno.WinUI 6.0.465` + `SkiaSharp.Views.Uno.WinUI`; presents via `SKXamlCanvas`. Runs through a Uno app head (`samples/Gallery.Uno`) — verified bootstrapping + rendering Continuum.Forms on macOS. |
+| `Continuum.Forms.Uno` | Uno Platform / Skia (`UnoPlatformBackend`) | Builds against `Uno.WinUI 6.5.237` + `SkiaSharp.Views.Uno.WinUI`; presents via `SKXamlCanvas`. Runs through a Uno app head (`samples/Gallery.Uno`) — verified bootstrapping + rendering Continuum.Forms on macOS. |
 
 The **core `Continuum.Forms` assembly references no windowing toolkit** — only SkiaSharp. Backends are
 separate assemblies that depend on the core and reach into its internal render/input plumbing via
@@ -101,7 +101,7 @@ nuget.org via `src/Continuum.Forms.Uno/nuget.config`, since the corporate feeds 
 `SkiaSharp.Views.Uno.WinUI` to `3.119.4` to match the core `SkiaSharp` version.
 
 **Running it** needs a Uno *app head* — a sample is provided at `samples/Gallery.Uno`. It references
-the platform Skia runtimes (`Uno.WinUI.Runtime.Skia.X11`/`.Win32`/`.MacOS`, all at Uno `6.0.465`),
+the platform Skia runtimes (`Uno.WinUI.Runtime.Skia.X11`/`.Win32`/`.MacOS`, all at Uno `6.5.237`),
 builds the host, installs the backend, and shows a Continuum.Forms window:
 
 ```csharp
