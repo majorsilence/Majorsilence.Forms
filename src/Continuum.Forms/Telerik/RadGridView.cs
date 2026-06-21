@@ -37,6 +37,8 @@ namespace Continuum.Forms.Telerik
         private bool _applyingAutoSize;
         // Group path keys (see BuildGroupKey) that the user has collapsed.
         private readonly HashSet<string> _collapsed = new (StringComparer.Ordinal);
+        // Master rows (by reference) whose child/detail view is currently expanded.
+        private readonly HashSet<DataGridViewRow> _expandedMasters = new (ReferenceEqualityComparer.Instance);
 
         // ── Interaction state (read by RadGridViewRenderer) ──
         private int _headerDragColumn = -1;
@@ -46,6 +48,10 @@ namespace Continuum.Forms.Telerik
         internal Point DragLocation { get; private set; }
         internal int DragTargetColumn { get; private set; } = -1;
         internal bool DragOverGroupPanel { get; private set; }
+
+        // Inline filter-row editor (one active at a time, hosted over the focused filter cell).
+        private TextBox? _filterEditBox;
+        private int _filterEditColumn = -1;
 
         // Layout rectangles published by the renderer for hit-testing.
         internal readonly List<GroupPillLayout> GroupPillLayouts = new ();
@@ -334,6 +340,69 @@ namespace Continuum.Forms.Telerik
         /// <inheritdoc/>
         protected override int ContentTopOffset => ShowGroupPanel ? LogicalToDeviceUnits (GroupPanelLogicalHeight) : 0;
 
+        /// <summary>Logical height of the inline filter row.</summary>
+        internal const int FilterRowLogicalHeight = 26;
+
+        private bool _showFilterRow;
+        /// <summary>Gets or sets whether the inline filter row (a live per-column quick filter) is shown below the headers.</summary>
+        public bool ShowFilterRow {
+            get => _showFilterRow;
+            set {
+                if (_showFilterRow == value)
+                    return;
+                _showFilterRow = value;
+                if (!value)
+                    CloseFilterEditor ();
+                RefreshLayout ();
+            }
+        }
+
+        /// <summary>Device-pixel height of the filter-row band (0 when hidden). Used by the renderer.</summary>
+        internal int FilterRowBandHeight => ShowFilterRow ? LogicalToDeviceUnits (FilterRowLogicalHeight) : 0;
+
+        /// <inheritdoc/>
+        protected internal override int HeaderExtraHeight => FilterRowBandHeight;
+
+        // ── Master-detail ──
+
+        private Func<DataGridViewRow, GridChildView?>? _childViewProvider;
+        /// <summary>
+        /// Gets or sets the provider that supplies a child (detail) view for a master row, enabling
+        /// master-detail. When set, each data row shows an expander; expanding injects a drawn child table.
+        /// Return null for rows that have no detail.
+        /// </summary>
+        public Func<DataGridViewRow, GridChildView?>? ChildViewProvider {
+            get => _childViewProvider;
+            set { _childViewProvider = value; RebuildView (); Invalidate (); }
+        }
+
+        /// <summary>Whether a child-view provider is configured (master-detail enabled).</summary>
+        internal bool HasChildView => _childViewProvider is not null;
+
+        /// <summary>Returns whether the master row's detail view is currently expanded.</summary>
+        internal bool IsRowExpanded (DataGridViewRow row) => _expandedMasters.Contains (row);
+
+        /// <summary>Expands the master row's child/detail view.</summary>
+        public void ExpandRow (DataGridViewRow row)
+        {
+            if (row is not null && _expandedMasters.Add (row))
+                RebuildView ();
+        }
+
+        /// <summary>Collapses the master row's child/detail view.</summary>
+        public void CollapseRow (DataGridViewRow row)
+        {
+            if (row is not null && _expandedMasters.Remove (row))
+                RebuildView ();
+        }
+
+        private void ToggleMasterRow (DataGridViewRow row)
+        {
+            if (!_expandedMasters.Remove (row))
+                _expandedMasters.Add (row);
+            RebuildView ();
+        }
+
         private string _searchText = string.Empty;
         /// <summary>
         /// Gets or sets the quick-search text. When non-empty, only rows where some visible column's
@@ -358,7 +427,8 @@ namespace Continuum.Forms.Telerik
         /// <summary>True when the displayed rows differ from the raw master (any filter, search, sort, group, or summary applied).</summary>
         internal bool HasViewTransform =>
             GroupDescriptors.Count > 0 || SortDescriptors.Count > 0 || FilterDescriptors.Any (f => f.IsActive)
-            || SummaryRowsTop.Count > 0 || SummaryRowsBottom.Count > 0 || !string.IsNullOrEmpty (_searchText);
+            || SummaryRowsTop.Count > 0 || SummaryRowsBottom.Count > 0 || !string.IsNullOrEmpty (_searchText)
+            || _expandedMasters.Count > 0;
 
         /// <summary>Returns whether the row is an injected group-header row.</summary>
         internal static bool IsGroupRow (DataGridViewRow row) => row.Tag is GridGroupRow;
@@ -367,7 +437,7 @@ namespace Continuum.Forms.Telerik
         internal static bool IsSummaryRow (DataGridViewRow row) => row.Tag is GridSummaryRow;
 
         /// <summary>Returns whether the row is an injected structural row (group header or summary) rather than data.</summary>
-        internal static bool IsStructuralRow (DataGridViewRow row) => row.Tag is GridGroupRow || row.Tag is GridSummaryRow;
+        internal static bool IsStructuralRow (DataGridViewRow row) => row.Tag is GridGroupRow || row.Tag is GridSummaryRow || row.Tag is GridDetailRow;
 
         /// <summary>Returns whether the column currently has an active filter (used by the renderer to highlight the funnel).</summary>
         internal bool ColumnHasActiveFilter (DataGridViewColumn column)
@@ -521,6 +591,10 @@ namespace Continuum.Forms.Telerik
 
             var display = HasViewTransform ? BuildDisplayRows (respectCollapse: true) : new List<DataGridViewRow> (_master);
 
+            // Master-detail: inject a child (detail) row after each expanded master row.
+            if (HasChildView && _expandedMasters.Count > 0)
+                display = InjectDetailRows (display);
+
             // Grand summary rows are computed over the filtered data set and bracket the display rows.
             if (SummaryRowsTop.Count > 0 || SummaryRowsBottom.Count > 0) {
                 var data = FilteredMaster ();
@@ -539,6 +613,38 @@ namespace Continuum.Forms.Telerik
             } finally {
                 _applyingView = false;
             }
+        }
+
+        // Interleaves a detail row after each expanded master row (single hierarchy level).
+        private List<DataGridViewRow> InjectDetailRows (List<DataGridViewRow> display)
+        {
+            var result = new List<DataGridViewRow> (display.Count);
+
+            foreach (var row in display) {
+                result.Add (row);
+
+                if (IsStructuralRow (row) || !_expandedMasters.Contains (row))
+                    continue;
+
+                var child = _childViewProvider! (row);
+                if (child is null)
+                    continue;
+
+                result.Add (new DataGridViewRow {
+                    Tag = new GridDetailRow { Child = child },
+                    Height = ComputeDetailHeight (child)
+                });
+            }
+
+            return result;
+        }
+
+        // Logical height of a detail row: child header + child rows + padding (bounded).
+        private static int ComputeDetailHeight (GridChildView child)
+        {
+            const int childHeaderHeight = 22, childRowHeight = 22, padding = 10;
+            var rows = Math.Max (1, child.Rows.Count);
+            return Math.Min (320, childHeaderHeight + rows * childRowHeight + padding);
         }
 
         // The master data rows after applying any active column filters and the quick-search text.
@@ -916,8 +1022,29 @@ namespace Continuum.Forms.Telerik
                     }
                 }
 
-                // 3) Structural row: toggle a group header; otherwise just swallow (summary rows aren't selectable).
+                // 2b) Filter row band (below the header): open the inline filter editor for the column.
+                if (ShowFilterRow) {
+                    var bandTop = content.Top + (ColumnHeadersVisible ? ScaledHeaderHeight : 0);
+                    if (e.Location.Y >= bandTop && e.Location.Y < bandTop + FilterRowBandHeight) {
+                        var fcol = GetColumnAtLocation (e.Location);
+                        if (fcol >= 0)
+                            OpenFilterEditor (fcol);
+                        return;
+                    }
+                }
+
                 var rowIndex = GetRowAtLocation (e.Location);
+
+                // 2c) Master-detail expander zone (left edge of a data row).
+                if (HasChildView && rowIndex >= 0 && rowIndex < base.Rows.Count && !IsStructuralRow (base.Rows[rowIndex])) {
+                    var zoneLeft = content.Left + (RowHeadersVisible ? ScaledRowHeadersWidth : 0);
+                    if (e.Location.X >= zoneLeft && e.Location.X <= zoneLeft + LogicalToDeviceUnits (18)) {
+                        ToggleMasterRow (base.Rows[rowIndex]);
+                        return;
+                    }
+                }
+
+                // 3) Structural row: toggle a group header; otherwise just swallow (summary rows aren't selectable).
                 if (rowIndex >= 0 && rowIndex < base.Rows.Count && IsStructuralRow (base.Rows[rowIndex])) {
                     if (IsGroupRow (base.Rows[rowIndex]))
                         ToggleGroupRow (base.Rows[rowIndex]);
@@ -990,6 +1117,122 @@ namespace Continuum.Forms.Telerik
                     return true;
             }
             return false;
+        }
+
+        // ── Inline filter row ──
+
+        /// <summary>Returns the current quick-filter (Contains) text shown in a column's filter-row cell.</summary>
+        internal string CurrentColumnFilterText (int columnIndex)
+        {
+            if (columnIndex < 0 || columnIndex >= base.Columns.Count)
+                return string.Empty;
+            var column = base.Columns[columnIndex];
+            var existing = FilterDescriptors.Find (f => f.Operator == FilterOperator.Contains && NameMatches (f.PropertyName, column));
+            return existing?.Value?.ToString () ?? string.Empty;
+        }
+
+        /// <summary>Index of the column whose filter cell is currently being edited, or -1.</summary>
+        internal int FilterEditColumn => _filterEditColumn;
+
+        private void OpenFilterEditor (int columnIndex)
+        {
+            if (columnIndex < 0 || columnIndex >= base.Columns.Count || FindWindow () is null)
+                return;
+
+            CloseFilterEditor ();
+
+            _filterEditColumn = columnIndex;
+            _filterEditBox = new TextBox { Text = CurrentColumnFilterText (columnIndex) };
+            _filterEditBox.Style.Border.Width = 0;
+            _filterEditBox.TextChanged += FilterEditBox_TextChanged;
+            _filterEditBox.KeyDown += FilterEditBox_KeyDown;
+
+            Controls.Add (_filterEditBox);
+            PositionFilterEditor ();
+            _filterEditBox.Select ();
+            Invalidate ();
+        }
+
+        private void CloseFilterEditor ()
+        {
+            if (_filterEditBox is null)
+                return;
+
+            _filterEditBox.TextChanged -= FilterEditBox_TextChanged;
+            _filterEditBox.KeyDown -= FilterEditBox_KeyDown;
+            Controls.Remove (_filterEditBox);
+            _filterEditBox.Dispose ();
+            _filterEditBox = null;
+            _filterEditColumn = -1;
+            Invalidate ();
+        }
+
+        // Positions the editor over its filter cell (re-run on paint so it tracks scrolling/resize).
+        private void PositionFilterEditor ()
+        {
+            if (_filterEditBox is null || _filterEditColumn < 0 || _filterEditColumn >= base.Columns.Count)
+                return;
+
+            var content = GetContentArea ();
+            var x = GetColumnDeviceLeft (_filterEditColumn);
+            var y = content.Top + (ColumnHeadersVisible ? ScaledHeaderHeight : 0);
+            var w = LogicalToDeviceUnits (base.Columns[_filterEditColumn].Width);
+
+            _filterEditBox.Left = DeviceToLogicalUnits (x) + 1;
+            _filterEditBox.Top = DeviceToLogicalUnits (y) + 1;
+            _filterEditBox.Width = Math.Max (1, DeviceToLogicalUnits (w) - 2);
+            _filterEditBox.Height = Math.Max (1, DeviceToLogicalUnits (FilterRowBandHeight) - 2);
+        }
+
+        private void FilterEditBox_TextChanged (object? sender, EventArgs e)
+        {
+            if (_filterEditColumn >= 0)
+                ApplyFilterRowText (_filterEditColumn, _filterEditBox?.Text ?? string.Empty);
+        }
+
+        private void FilterEditBox_KeyDown (object? sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter) {
+                CloseFilterEditor ();
+                e.Handled = true;
+            } else if (e.KeyCode == Keys.Escape) {
+                var col = _filterEditColumn;
+                CloseFilterEditor ();
+                if (col >= 0)
+                    ApplyFilterRowText (col, string.Empty);   // clear the column's quick filter
+                e.Handled = true;
+            }
+        }
+
+        // Sets (or clears) a column's Contains filter from the filter-row text, live.
+        private void ApplyFilterRowText (int columnIndex, string text)
+        {
+            if (columnIndex < 0 || columnIndex >= base.Columns.Count)
+                return;
+
+            var column = base.Columns[columnIndex];
+            var name = !string.IsNullOrEmpty (column.Name) ? column.Name : column.HeaderText;
+            var existing = FilterDescriptors.Find (f => f.Operator == FilterOperator.Contains && NameMatches (f.PropertyName, column));
+
+            _suspendRebuild = true;
+            if (existing is not null)
+                FilterDescriptors.Remove (existing);
+            if (!string.IsNullOrEmpty (text))
+                FilterDescriptors.Add (new FilterDescriptor (name, FilterOperator.Contains, text));
+            _suspendRebuild = false;
+
+            RebuildView ();
+            Invalidate ();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnPaint (PaintEventArgs e)
+        {
+            base.OnPaint (e);
+
+            // Keep the inline filter editor aligned with its cell as the grid scrolls/resizes.
+            if (_filterEditBox is not null)
+                PositionFilterEditor ();
         }
 
         private void ToggleGroupRow (DataGridViewRow row)
@@ -1203,6 +1446,41 @@ namespace Continuum.Forms.Telerik
         /// <summary>Exports the grid to a CSV file (see <see cref="ExportToCsv(bool)"/>).</summary>
         public void ExportToCsv (string fileName, bool includeHeaders = true)
             => File.WriteAllText (fileName, ExportToCsv (includeHeaders));
+
+        /// <summary>
+        /// Exports the current view to an Open XML (.xlsx) workbook (visible columns, formatted text,
+        /// current view order; structural rows excluded). No spreadsheet library is required.
+        /// </summary>
+        public byte[] ExportToXlsxBytes (string sheetName = "Sheet1", bool includeHeaders = true)
+        {
+            var cols = new List<DataGridViewColumn> ();
+            foreach (DataGridViewColumn c in base.Columns)
+                if (c.Visible)
+                    cols.Add (c);
+
+            List<string>? headers = null;
+            if (includeHeaders) {
+                headers = new List<string> ();
+                foreach (var c in cols)
+                    headers.Add (string.IsNullOrEmpty (c.HeaderText) ? c.Name : c.HeaderText);
+            }
+
+            var rows = new List<IReadOnlyList<string>> ();
+            foreach (var row in base.Rows) {
+                if (IsStructuralRow (row))
+                    continue;
+                var values = new List<string> (cols.Count);
+                foreach (var c in cols)
+                    values.Add (GetCellDisplay (row, c.Index));
+                rows.Add (values);
+            }
+
+            return RadGridXlsxExport.Build (sheetName, headers, rows);
+        }
+
+        /// <summary>Exports the current view to an .xlsx file (see <see cref="ExportToXlsxBytes"/>).</summary>
+        public void ExportToXlsx (string fileName, string sheetName = "Sheet1", bool includeHeaders = true)
+            => File.WriteAllBytes (fileName, ExportToXlsxBytes (sheetName, includeHeaders));
 
         // Quotes a CSV field when it contains a comma, quote, or line break (doubling embedded quotes).
         private static string CsvEscape (string value)
@@ -1709,6 +1987,12 @@ namespace Continuum.Forms.Telerik
         public int Level;
     }
 
+    /// <summary>Describes an injected master-detail child row (stored on <see cref="DataGridViewRow.Tag"/>).</summary>
+    internal sealed class GridDetailRow
+    {
+        public GridChildView Child = null!;
+    }
+
     /// <summary>Layout of a single group-panel "pill", published by the renderer for hit-testing.</summary>
     internal sealed class GroupPillLayout
     {
@@ -1820,10 +2104,14 @@ namespace Continuum.Forms.Telerik
         /// <summary>Gets or sets whether the column appears in the column chooser. Stub.</summary>
         public bool VisibleInColumnChooser { get; set; } = true;
         private PinnedColumnPosition _pinPosition;
-        /// <summary>Gets or sets the pinned position. <see cref="PinnedColumnPosition.Left"/> freezes the column to the left.</summary>
+        /// <summary>Gets or sets the pinned position. <see cref="PinnedColumnPosition.Left"/> freezes the column to the left; <see cref="PinnedColumnPosition.Right"/> pins it to the right.</summary>
         public PinnedColumnPosition PinPosition {
             get => _pinPosition;
-            set { _pinPosition = value; Frozen = value == PinnedColumnPosition.Left; }
+            set {
+                _pinPosition = value;
+                Frozen = value == PinnedColumnPosition.Left;
+                PinnedRight = value == PinnedColumnPosition.Right;
+            }
         }
         /// <summary>Gets or sets whether text wraps. Stub.</summary>
         public bool WrapText { get; set; }

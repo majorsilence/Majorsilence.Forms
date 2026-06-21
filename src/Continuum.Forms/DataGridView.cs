@@ -616,7 +616,7 @@ namespace Continuum.Forms
                 return Rectangle.Empty;
 
             var client = GetContentArea ();
-            var row_top = client.Top + (ColumnHeadersVisible ? ScaledHeaderHeight : 0);
+            var row_top = client.Top + RowsTopOffset;
 
             // Accumulate y by summing individual row heights from the first visible row
             var y = row_top;
@@ -649,9 +649,21 @@ namespace Continuum.Forms
             }
         }
 
+        /// <summary>Total device-pixel width of the visible right-pinned columns.</summary>
+        internal int RightPinnedColumnsWidth {
+            get {
+                var total = 0;
+                foreach (var col in Columns)
+                    if (col.Visible && col.PinnedRight)
+                        total += LogicalToDeviceUnits (col.Width);
+                return total;
+            }
+        }
+
         /// <summary>
-        /// Device-pixel left X of a column's content. Frozen columns are pinned at the left and ignore the
-        /// horizontal scroll offset; non-frozen columns are laid out after the frozen band and scroll.
+        /// Device-pixel left X of a column's content. Left-frozen columns pin to the left and right-pinned
+        /// columns pin to the right edge (both ignore the horizontal scroll offset); the remaining columns
+        /// occupy the scrolling middle band.
         /// </summary>
         internal int GetColumnDeviceLeft (int columnIndex)
         {
@@ -661,7 +673,9 @@ namespace Continuum.Forms
             if (columnIndex < 0 || columnIndex >= Columns.Count)
                 return left0;
 
-            if (Columns[columnIndex].Frozen) {
+            var column = Columns[columnIndex];
+
+            if (column.Frozen) {
                 var fx = left0;
                 for (var i = 0; i < columnIndex; i++)
                     if (Columns[i].Visible && Columns[i].Frozen)
@@ -669,9 +683,17 @@ namespace Continuum.Forms
                 return fx;
             }
 
+            if (column.PinnedRight) {
+                var rx = client.Right - RightPinnedColumnsWidth;
+                for (var i = 0; i < columnIndex; i++)
+                    if (Columns[i].Visible && Columns[i].PinnedRight)
+                        rx += LogicalToDeviceUnits (Columns[i].Width);
+                return rx;
+            }
+
             var x = left0 + FrozenColumnsWidth - horizontal_scroll_offset;
             for (var i = 0; i < columnIndex; i++)
-                if (Columns[i].Visible && !Columns[i].Frozen)
+                if (Columns[i].Visible && !Columns[i].Frozen && !Columns[i].PinnedRight)
                     x += LogicalToDeviceUnits (Columns[i].Width);
             return x;
         }
@@ -716,6 +738,20 @@ namespace Continuum.Forms
         protected virtual int ContentTopOffset => 0;
 
         /// <summary>
+        /// Device-pixel height of an extra fixed band drawn below the column headers and above the data
+        /// rows (e.g. the Telerik-compat <c>RadGridView</c> filter row). Because every geometry helper and
+        /// the renderer derive the row-start from <see cref="RowsTopOffset"/>, the data rows shift down to
+        /// make room and the band is the subclass's to paint and hit-test. Default 0.
+        /// </summary>
+        protected internal virtual int HeaderExtraHeight => 0;
+
+        /// <summary>
+        /// Device-pixel offset from the content top to the first data row: the column-header band (when
+        /// visible) plus <see cref="HeaderExtraHeight"/>.
+        /// </summary>
+        internal int RowsTopOffset => (ColumnHeadersVisible ? ScaledHeaderHeight : 0) + HeaderExtraHeight;
+
+        /// <summary>
         /// Whether the renderer paints alternating-row striping. Default true (the plain grid always
         /// stripes). Subclasses (e.g. the Telerik-compat <c>RadGridView</c>, whose
         /// <c>EnableAlternatingRowColor</c> defaults to false) override to gate it.
@@ -728,24 +764,25 @@ namespace Continuum.Forms
         internal int GetColumnAtLocation (Point location)
         {
             var client = GetContentArea ();
-            var frozen_edge = client.Left + (row_headers_visible ? ScaledRowHeadersWidth : 0) + FrozenColumnsWidth;
+            var left_end = client.Left + (row_headers_visible ? ScaledRowHeadersWidth : 0) + FrozenColumnsWidth;
+            var right_start = client.Right - RightPinnedColumnsWidth;
 
-            // Frozen columns sit on top at the left; test them first.
+            // Pinned columns (left and right) sit on top of the scrolling band; test them first.
             for (var i = 0; i < Columns.Count; i++) {
-                if (!Columns[i].Visible || !Columns[i].Frozen)
+                if (!Columns[i].Visible || (!Columns[i].Frozen && !Columns[i].PinnedRight))
                     continue;
-                var x = GetColumnDeviceLeft (i);
-                var w = LogicalToDeviceUnits (Columns[i].Width);
-                if (location.X >= x && location.X < x + w)
+                var px = GetColumnDeviceLeft (i);
+                var pw = LogicalToDeviceUnits (Columns[i].Width);
+                if (location.X >= px && location.X < px + pw)
                     return i;
             }
 
-            // Scrollable columns occupy only the region to the right of the frozen band.
-            if (location.X < frozen_edge)
+            // Scrollable columns occupy only the middle band, between the two pinned bands.
+            if (location.X < left_end || location.X >= right_start)
                 return -1;
 
             for (var i = 0; i < Columns.Count; i++) {
-                if (!Columns[i].Visible || Columns[i].Frozen)
+                if (!Columns[i].Visible || Columns[i].Frozen || Columns[i].PinnedRight)
                     continue;
                 var x = GetColumnDeviceLeft (i);
                 var w = LogicalToDeviceUnits (Columns[i].Width);
@@ -767,7 +804,8 @@ namespace Continuum.Forms
             if (!header_rect.Contains (location))
                 return -1;
 
-            var frozen_edge = client.Left + (row_headers_visible ? ScaledRowHeadersWidth : 0) + FrozenColumnsWidth;
+            var left_end = client.Left + (row_headers_visible ? ScaledRowHeadersWidth : 0) + FrozenColumnsWidth;
+            var right_start = client.Right - RightPinnedColumnsWidth;
             var resize_zone = LogicalToDeviceUnits (4);
 
             for (var i = 0; i < Columns.Count; i++) {
@@ -776,8 +814,9 @@ namespace Continuum.Forms
 
                 var right = GetColumnDeviceLeft (i) + LogicalToDeviceUnits (Columns[i].Width);
 
-                // Skip scrollable column edges hidden behind the frozen band.
-                if (!Columns[i].Frozen && right < frozen_edge)
+                // Skip scrollable column edges hidden behind either pinned band.
+                var scrollable = !Columns[i].Frozen && !Columns[i].PinnedRight;
+                if (scrollable && (right < left_end || right > right_start))
                     continue;
 
                 if (Math.Abs (location.X - right) <= resize_zone)
@@ -796,7 +835,7 @@ namespace Continuum.Forms
                 return -1;
 
             var client = GetContentArea ();
-            var header_offset = ColumnHeadersVisible ? ScaledHeaderHeight : 0;
+            var header_offset = RowsTopOffset;
             var row_header_rect = new Rectangle (client.Left, client.Top + header_offset, ScaledRowHeadersWidth, Math.Max (0, client.Height - header_offset));
 
             if (!row_header_rect.Contains (location))
@@ -825,7 +864,7 @@ namespace Continuum.Forms
         internal int GetRowAtLocation (Point location)
         {
             var client = GetContentArea ();
-            var row_top = client.Top + (ColumnHeadersVisible ? ScaledHeaderHeight : 0);
+            var row_top = client.Top + RowsTopOffset;
 
             if (location.Y < row_top)
                 return -1;
@@ -1743,7 +1782,7 @@ namespace Continuum.Forms
         private void UpdateScrollBars ()
         {
             var client = GetContentArea ();
-            var header_offset = ColumnHeadersVisible ? ScaledHeaderHeight : 0;
+            var header_offset = RowsTopOffset;
             var content_height = client.Height - header_offset;
 
             // Count how many rows fit in the content area using their actual heights
@@ -1775,10 +1814,10 @@ namespace Continuum.Forms
             // Horizontal scrollbar
             var available_width = client.Width - (vscrollbar.Visible ? (int)Math.Ceiling (vscrollbar.Width * ScaleFactor.Width) : 0);
 
-            // Frozen columns are always visible, so only the scrollable columns drive the H-scrollbar.
-            var frozen_width = FrozenColumnsWidth;
-            var scrollable_total = TotalColumnsWidth - frozen_width;
-            var scrollable_available = available_width - frozen_width;
+            // Pinned columns (left + right) are always visible, so only the scrollable columns drive the H-scrollbar.
+            var pinned_width = FrozenColumnsWidth + RightPinnedColumnsWidth;
+            var scrollable_total = TotalColumnsWidth - pinned_width;
+            var scrollable_available = available_width - pinned_width;
 
             if (scrollable_total > scrollable_available && scrollable_available > 0) {
                 hscrollbar.Visible = true;
@@ -1830,7 +1869,7 @@ namespace Continuum.Forms
         public int DisplayedRowCount {
             get {
                 var content = GetContentArea ();
-                var available = content.Height - (ColumnHeadersVisible ? ScaledHeaderHeight : 0);
+                var available = content.Height - RowsTopOffset;
                 var count = 0;
                 var h = 0;
 

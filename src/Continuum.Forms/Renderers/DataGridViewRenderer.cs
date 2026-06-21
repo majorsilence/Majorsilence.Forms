@@ -35,8 +35,10 @@ namespace Continuum.Forms.Renderers
             var row_header_offset = control.RowHeadersVisible ? control.ScaledRowHeadersWidth : 0;
             var y = contentArea.Top;
             var left0 = contentArea.Left + row_header_offset;
-            var frozen_width = control.FrozenColumnsWidth;
-            var frozen_edge = left0 + frozen_width;
+            var left_width = control.FrozenColumnsWidth;
+            var right_width = control.RightPinnedColumnsWidth;
+            var left_end = left0 + left_width;
+            var right_start = contentArea.Right - right_width;
 
             // Draw header background
             var header_rect = new Rectangle (contentArea.Left, y, contentArea.Width, header_height);
@@ -50,19 +52,28 @@ namespace Continuum.Forms.Renderers
                 e.Canvas.DrawLine (corner_rect.Right - 1, corner_rect.Top, corner_rect.Right - 1, corner_rect.Bottom, Theme.BorderLowColor);
             }
 
-            // Scrollable headers (clipped right of the frozen band), then frozen headers on top.
+            // Scrollable headers (clipped to the middle band), then pinned headers (left + right) on top.
             e.Canvas.Save ();
-            e.Canvas.Clip (new Rectangle (frozen_edge, y, Math.Max (0, contentArea.Right - frozen_edge), header_height));
+            e.Canvas.Clip (new Rectangle (left_end, y, Math.Max (0, right_start - left_end), header_height));
             for (var i = 0; i < control.Columns.Count; i++)
-                if (control.Columns[i].Visible && !control.Columns[i].Frozen)
+                if (control.Columns[i].Visible && !control.Columns[i].Frozen && !control.Columns[i].PinnedRight)
                     RenderColumnHeaderAt (control, i, y, header_height, e);
             e.Canvas.Restore ();
 
-            if (frozen_width > 0) {
+            if (left_width > 0) {
                 e.Canvas.Save ();
-                e.Canvas.Clip (new Rectangle (left0, y, frozen_width, header_height));
+                e.Canvas.Clip (new Rectangle (left0, y, left_width, header_height));
                 for (var i = 0; i < control.Columns.Count; i++)
                     if (control.Columns[i].Visible && control.Columns[i].Frozen)
+                        RenderColumnHeaderAt (control, i, y, header_height, e);
+                e.Canvas.Restore ();
+            }
+
+            if (right_width > 0) {
+                e.Canvas.Save ();
+                e.Canvas.Clip (new Rectangle (right_start, y, right_width, header_height));
+                for (var i = 0; i < control.Columns.Count; i++)
+                    if (control.Columns[i].Visible && control.Columns[i].PinnedRight)
                         RenderColumnHeaderAt (control, i, y, header_height, e);
                 e.Canvas.Restore ();
             }
@@ -136,7 +147,7 @@ namespace Continuum.Forms.Renderers
         /// </summary>
         protected virtual void RenderRows (DataGridView control, PaintEventArgs e, Rectangle contentArea)
         {
-            var header_offset = control.ColumnHeadersVisible ? control.ScaledHeaderHeight : 0;
+            var header_offset = control.RowsTopOffset;
             var y = contentArea.Top + header_offset;
 
             for (var i = control.FirstDisplayedScrollingRowIndex; i < control.Rows.Count; i++) {
@@ -187,24 +198,35 @@ namespace Continuum.Forms.Renderers
                 RenderRowHeader (control, row, rowIndex, rh_rect, e);
             }
 
-            // Draw cells. Scrollable columns are clipped to the area right of the frozen band; frozen
-            // columns are drawn last (on top) so they stay pinned and never reveal scrolled content.
+            // Draw cells. Scrollable columns are clipped to the middle band; pinned columns (left + right)
+            // are drawn last (on top) so they stay put and never reveal scrolled content.
             var left0 = bounds.Left + (control.RowHeadersVisible ? control.ScaledRowHeadersWidth : 0);
-            var frozen_width = control.FrozenColumnsWidth;
-            var frozen_edge = left0 + frozen_width;
+            var left_width = control.FrozenColumnsWidth;
+            var right_width = control.RightPinnedColumnsWidth;
+            var left_end = left0 + left_width;
+            var right_start = bounds.Right - right_width;
 
             e.Canvas.Save ();
-            e.Canvas.Clip (new Rectangle (frozen_edge, bounds.Top, Math.Max (0, bounds.Right - frozen_edge), bounds.Height));
+            e.Canvas.Clip (new Rectangle (left_end, bounds.Top, Math.Max (0, right_start - left_end), bounds.Height));
             for (var i = 0; i < control.Columns.Count; i++)
-                if (control.Columns[i].Visible && !control.Columns[i].Frozen)
+                if (control.Columns[i].Visible && !control.Columns[i].Frozen && !control.Columns[i].PinnedRight)
                     RenderRowCell (control, row, rowIndex, i, bounds, e);
             e.Canvas.Restore ();
 
-            if (frozen_width > 0) {
+            if (left_width > 0) {
                 e.Canvas.Save ();
-                e.Canvas.Clip (new Rectangle (left0, bounds.Top, frozen_width, bounds.Height));
+                e.Canvas.Clip (new Rectangle (left0, bounds.Top, left_width, bounds.Height));
                 for (var i = 0; i < control.Columns.Count; i++)
                     if (control.Columns[i].Visible && control.Columns[i].Frozen)
+                        RenderRowCell (control, row, rowIndex, i, bounds, e);
+                e.Canvas.Restore ();
+            }
+
+            if (right_width > 0) {
+                e.Canvas.Save ();
+                e.Canvas.Clip (new Rectangle (right_start, bounds.Top, right_width, bounds.Height));
+                for (var i = 0; i < control.Columns.Count; i++)
+                    if (control.Columns[i].Visible && control.Columns[i].PinnedRight)
                         RenderRowCell (control, row, rowIndex, i, bounds, e);
                 e.Canvas.Restore ();
             }

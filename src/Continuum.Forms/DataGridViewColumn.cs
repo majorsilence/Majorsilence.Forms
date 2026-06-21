@@ -127,8 +127,14 @@ namespace Continuum.Forms
         /// <summary>Gets or sets the relative fill weight for fill-mode auto-sizing. Stub.</summary>
         public float FillWeight { get; set; } = 100f;
 
-        /// <summary>Gets or sets whether the column is frozen (does not scroll horizontally). Stub.</summary>
+        /// <summary>Gets or sets whether the column is frozen to the left (does not scroll horizontally).</summary>
         public bool Frozen { get; set; }
+
+        /// <summary>
+        /// Whether the column is pinned to the right edge (does not scroll horizontally). Telerik-only
+        /// concept, set via <c>GridViewColumn.PinPosition = PinnedColumnPosition.Right</c>.
+        /// </summary>
+        internal bool PinnedRight { get; set; }
 
         /// <summary>Gets or sets the width of the column divider. Stub in Continuum.Forms.</summary>
         public int DividerWidth { get; set; }

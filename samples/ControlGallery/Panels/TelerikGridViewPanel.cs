@@ -25,11 +25,11 @@ namespace ControlGallery.Panels
         public TelerikGridViewPanel ()
         {
             Controls.Add (new Label {
-                Text = "RadGridView: filtering, sorting (Shift-click = multi-sort), grouping, group footers, summary row, reorder, frozen Name column, layout XML.",
+                Text = "RadGridView: filter row + funnel filtering, multi-sort (Shift-click), grouping + footers, summary row, reorder, frozen column, master-detail, CSV/Excel export, layout XML.",
                 Left = 10, Top = 10, Width = 760
             });
             Controls.Add (new Label {
-                Text = "Drag a header into the gray group panel (or right-click a header). Click the funnel to filter. Drag one header onto another to reorder.",
+                Text = "Type in the filter row to filter live. Click the [+] at a row's left for its detail table. Drag a header to the group panel; drag one header onto another to reorder.",
                 Left = 10, Top = 30, Width = 760
             });
 
@@ -45,6 +45,7 @@ namespace ControlGallery.Panels
             grid = new RadGridView {
                 Left = 10, Top = 56, Width = 760, Height = 340,
                 ShowGroupPanel = true,
+                ShowFilterRow = true,
                 EnableGrouping = true,
                 EnableFiltering = true,
                 EnableSorting = true,
@@ -116,6 +117,16 @@ namespace ControlGallery.Panels
             // Group footers — per-group salary total shown under each group when grouping is active.
             grid.GroupSummaryItems.Add (new GridViewSummaryItem ("Salary", GridAggregateFunction.Sum, "C0"));
 
+            // Master-detail — click the [+] at the left of a row to reveal a child (projects) table.
+            grid.ChildViewProvider = row => {
+                var name = row.Cells["Name"]?.Value?.ToString () ?? "Employee";
+                var view = new GridChildView ("Project", "Role", "Hours");
+                view.AddRow (name.Split (' ')[0] + " Onboarding", "Lead", "40");
+                view.AddRow ("Platform Migration", "Member", "24");
+                view.AddRow ("Quarterly Review", "Reviewer", "8");
+                return view;
+            };
+
             Controls.Add (grid);
 
             // ── Search box (quick-filter across all columns) ──
@@ -136,6 +147,11 @@ namespace ControlGallery.Panels
             AddButton ("Save Layout", x, 368, SaveLayout);
             AddButton ("Load Layout", x, 404, LoadLayout);
             AddButton ("Export CSV", x, 440, () => xml_box.Text = grid.ExportToCsv ());
+            AddButton ("Export Excel", x, 476, () => {
+                var path = System.IO.Path.Combine (System.IO.Path.GetTempPath (), "radgridview.xlsx");
+                grid.ExportToXlsx (path, "Employees");
+                xml_box.Text = "Exported to: " + path;
+            });
 
             Controls.Add (new Label {
                 Text = "Saved layout XML (click \"Save Layout\"):",

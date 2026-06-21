@@ -1,0 +1,415 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Globalization;
+using System.Linq;
+
+namespace Continuum.Forms.Telerik
+{
+    /// <summary>
+    /// Telerik-compat filter comparison operators. Mirrors the commonly-used members of
+    /// <c>Telerik.WinControls.Data.FilterOperator</c> so migrated filter code compiles and the
+    /// in-UI filter popup can offer the same conditions.
+    /// </summary>
+    public enum FilterOperator
+    {
+        /// <summary>No condition (the descriptor matches everything unless a value set is supplied).</summary>
+        None,
+        /// <summary>The cell text contains the value.</summary>
+        Contains,
+        /// <summary>The cell text does not contain the value.</summary>
+        NotContains,
+        /// <summary>The cell text equals the value.</summary>
+        IsEqualTo,
+        /// <summary>The cell text does not equal the value.</summary>
+        IsNotEqualTo,
+        /// <summary>The cell text starts with the value.</summary>
+        StartsWith,
+        /// <summary>The cell text ends with the value.</summary>
+        EndsWith,
+        /// <summary>The cell value is greater than the value.</summary>
+        IsGreaterThan,
+        /// <summary>The cell value is greater than or equal to the value.</summary>
+        IsGreaterThanOrEqualTo,
+        /// <summary>The cell value is less than the value.</summary>
+        IsLessThan,
+        /// <summary>The cell value is less than or equal to the value.</summary>
+        IsLessThanOrEqualTo,
+        /// <summary>The cell value is null or empty.</summary>
+        IsNull,
+        /// <summary>The cell value is not null or empty.</summary>
+        IsNotNull
+    }
+
+    /// <summary>
+    /// Telerik-compat filter descriptor. Describes a per-column filter as either an Excel-style
+    /// distinct-value selection (<see cref="SelectedValues"/>) and/or a single
+    /// <see cref="Operator"/>/<see cref="Value"/> condition. Both styles round-trip through the
+    /// grid's layout XML.
+    /// </summary>
+    public class FilterDescriptor
+    {
+        /// <summary>Initializes a new, empty filter descriptor.</summary>
+        public FilterDescriptor () { }
+
+        /// <summary>Initializes a filter descriptor with a condition.</summary>
+        public FilterDescriptor (string propertyName, FilterOperator op, object? value)
+        {
+            PropertyName = propertyName;
+            Operator = op;
+            Value = value;
+        }
+
+        /// <summary>Gets or sets the name (column Name/FieldName) the filter applies to.</summary>
+        public string PropertyName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the comparison operator.</summary>
+        public FilterOperator Operator { get; set; } = FilterOperator.None;
+
+        /// <summary>Gets or sets the value compared against the cell.</summary>
+        public object? Value { get; set; }
+
+        /// <summary>
+        /// Gets or sets the set of selected distinct display values (Excel-style checklist). When set,
+        /// a row matches only if its cell display text is in this set. Use null to rely solely on
+        /// <see cref="Operator"/>/<see cref="Value"/>. The set is case-insensitive.
+        /// </summary>
+        public HashSet<string>? SelectedValues { get; set; }
+
+        /// <summary>Gets whether this descriptor would actually filter anything.</summary>
+        public bool IsActive => SelectedValues is not null || Operator != FilterOperator.None;
+
+        /// <summary>Returns whether the supplied cell display text passes this filter.</summary>
+        public bool Matches (string cellText)
+        {
+            cellText ??= string.Empty;
+
+            if (SelectedValues is not null && !SelectedValues.Contains (cellText))
+                return false;
+
+            if (Operator == FilterOperator.None)
+                return true;
+
+            var target = Value?.ToString () ?? string.Empty;
+
+            switch (Operator) {
+                case FilterOperator.Contains:
+                    return cellText.IndexOf (target, StringComparison.CurrentCultureIgnoreCase) >= 0;
+                case FilterOperator.NotContains:
+                    return cellText.IndexOf (target, StringComparison.CurrentCultureIgnoreCase) < 0;
+                case FilterOperator.IsEqualTo:
+                    return Compare (cellText, target) == 0;
+                case FilterOperator.IsNotEqualTo:
+                    return Compare (cellText, target) != 0;
+                case FilterOperator.StartsWith:
+                    return cellText.StartsWith (target, StringComparison.CurrentCultureIgnoreCase);
+                case FilterOperator.EndsWith:
+                    return cellText.EndsWith (target, StringComparison.CurrentCultureIgnoreCase);
+                case FilterOperator.IsGreaterThan:
+                    return Compare (cellText, target) > 0;
+                case FilterOperator.IsGreaterThanOrEqualTo:
+                    return Compare (cellText, target) >= 0;
+                case FilterOperator.IsLessThan:
+                    return Compare (cellText, target) < 0;
+                case FilterOperator.IsLessThanOrEqualTo:
+                    return Compare (cellText, target) <= 0;
+                case FilterOperator.IsNull:
+                    return string.IsNullOrEmpty (cellText);
+                case FilterOperator.IsNotNull:
+                    return !string.IsNullOrEmpty (cellText);
+                default:
+                    return true;
+            }
+        }
+
+        // Numeric/date-aware comparison, falling back to a case-insensitive string compare. The numeric
+        // parse allows currency symbols and thousands separators so a formatted column (e.g. "$85,000"
+        // from a "C0" FormatString) still sorts and filters numerically.
+        private const NumberStyles NumericStyles = NumberStyles.Any | NumberStyles.AllowCurrencySymbol;
+
+        internal static int Compare (string a, string b)
+        {
+            if (double.TryParse (a, NumericStyles, CultureInfo.CurrentCulture, out var na)
+                && double.TryParse (b, NumericStyles, CultureInfo.CurrentCulture, out var nb))
+                return na.CompareTo (nb);
+
+            if (DateTime.TryParse (a, CultureInfo.CurrentCulture, DateTimeStyles.None, out var da)
+                && DateTime.TryParse (b, CultureInfo.CurrentCulture, DateTimeStyles.None, out var db))
+                return da.CompareTo (db);
+
+            return string.Compare (a, b, StringComparison.CurrentCultureIgnoreCase);
+        }
+    }
+
+    /// <summary>Telerik-compat sort descriptor. Mirrors <c>SortDescriptor</c>.</summary>
+    public class SortDescriptor
+    {
+        /// <summary>Initializes a new sort descriptor.</summary>
+        public SortDescriptor () { }
+
+        /// <summary>Initializes a sort descriptor for a column and direction.</summary>
+        public SortDescriptor (string propertyName, ListSortDirection direction)
+        {
+            PropertyName = propertyName;
+            Direction = direction;
+        }
+
+        /// <summary>Gets or sets the name (column Name/FieldName) to sort by.</summary>
+        public string PropertyName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the sort direction.</summary>
+        public ListSortDirection Direction { get; set; } = ListSortDirection.Ascending;
+    }
+
+    /// <summary>Telerik-compat group descriptor. Mirrors <c>GroupDescriptor</c>.</summary>
+    public class GroupDescriptor
+    {
+        /// <summary>Initializes a new group descriptor.</summary>
+        public GroupDescriptor () { }
+
+        /// <summary>Initializes a group descriptor for a column and direction.</summary>
+        public GroupDescriptor (string propertyName, ListSortDirection direction = ListSortDirection.Ascending)
+        {
+            PropertyName = propertyName;
+            Direction = direction;
+        }
+
+        /// <summary>Gets or sets the name (column Name/FieldName) to group by.</summary>
+        public string PropertyName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the order groups are arranged in.</summary>
+        public ListSortDirection Direction { get; set; } = ListSortDirection.Ascending;
+    }
+
+    /// <summary>Telerik-compat pinned-column position. Mirrors <c>PinnedColumnPosition</c>.</summary>
+    public enum PinnedColumnPosition
+    {
+        /// <summary>The column is not pinned.</summary>
+        None,
+        /// <summary>The column is pinned to the left (frozen during horizontal scroll).</summary>
+        Left,
+        /// <summary>The column is pinned to the right edge (frozen during horizontal scroll).</summary>
+        Right
+    }
+
+    /// <summary>
+    /// A child (detail) view shown under an expanded master row in a master-detail RadGridView: a simple
+    /// read-only table with its own columns and rows. Returned by <c>RadGridView.ChildViewProvider</c>.
+    /// </summary>
+    public sealed class GridChildView
+    {
+        /// <summary>Initializes an empty child view.</summary>
+        public GridChildView () { }
+
+        /// <summary>Initializes a child view with the given column headers.</summary>
+        public GridChildView (params string[] columns) => Columns.AddRange (columns);
+
+        /// <summary>Gets the child column headers.</summary>
+        public List<string> Columns { get; } = new ();
+
+        /// <summary>Gets the child rows (each an array of cell display strings aligned to <see cref="Columns"/>).</summary>
+        public List<string[]> Rows { get; } = new ();
+
+        /// <summary>Adds a child row.</summary>
+        public void AddRow (params string[] cells) => Rows.Add (cells);
+    }
+
+    /// <summary>Telerik-compat column auto-size mode. Mirrors the common <c>GridViewAutoSizeColumnsMode</c> values.</summary>
+    public enum GridViewAutoSizeColumnsMode
+    {
+        /// <summary>Columns keep their explicit widths.</summary>
+        None,
+        /// <summary>Visible columns are sized (by <see cref="DataGridViewColumn.FillWeight"/>) to fill the viewport width.</summary>
+        Fill
+    }
+
+    /// <summary>Telerik-compat condition types for <see cref="ConditionalFormattingObject"/>. Mirrors <c>ConditionTypes</c>.</summary>
+    public enum ConditionTypes
+    {
+        /// <summary>Cell equals the value.</summary>
+        Equal,
+        /// <summary>Cell does not equal the value.</summary>
+        NotEqual,
+        /// <summary>Cell is greater than the value.</summary>
+        Greater,
+        /// <summary>Cell is less than the value.</summary>
+        Less,
+        /// <summary>Cell is greater than or equal to the value.</summary>
+        GreaterOrEqual,
+        /// <summary>Cell is less than or equal to the value.</summary>
+        LessOrEqual,
+        /// <summary>Cell contains the value.</summary>
+        Contains,
+        /// <summary>Cell starts with the value.</summary>
+        StartsWith,
+        /// <summary>Cell ends with the value.</summary>
+        EndsWith,
+        /// <summary>Cell is between value1 and value2 (inclusive).</summary>
+        Between
+    }
+
+    /// <summary>
+    /// Telerik-compat conditional-formatting rule. Added to a column's
+    /// <c>ConditionalFormattingObjectList</c>; when its condition matches a cell, the configured colors
+    /// are applied to the cell (or the whole row when <see cref="ApplyToRow"/> is set).
+    /// </summary>
+    public class ConditionalFormattingObject
+    {
+        /// <summary>Initializes a new conditional-formatting rule.</summary>
+        public ConditionalFormattingObject () { }
+
+        /// <summary>Initializes a conditional-formatting rule.</summary>
+        public ConditionalFormattingObject (string name, ConditionTypes condition, string value1, string value2 = "", bool applyToRow = false)
+        {
+            Name = name;
+            Condition = condition;
+            Value1 = value1;
+            Value2 = value2;
+            ApplyToRow = applyToRow;
+        }
+
+        /// <summary>Gets or sets the rule name.</summary>
+        public string Name { get; set; } = string.Empty;
+        /// <summary>Gets or sets the comparison condition.</summary>
+        public ConditionTypes Condition { get; set; }
+        /// <summary>Gets or sets the first comparison value.</summary>
+        public string Value1 { get; set; } = string.Empty;
+        /// <summary>Gets or sets the second comparison value (used by <see cref="ConditionTypes.Between"/>).</summary>
+        public string Value2 { get; set; } = string.Empty;
+        /// <summary>Gets or sets whether the formatting applies to the whole row rather than just the cell.</summary>
+        public bool ApplyToRow { get; set; }
+
+        /// <summary>Gets or sets the cell background color when the rule matches.</summary>
+        public System.Drawing.Color CellBackColor { get; set; } = System.Drawing.Color.Empty;
+        /// <summary>Gets or sets the cell text color when the rule matches.</summary>
+        public System.Drawing.Color CellForeColor { get; set; } = System.Drawing.Color.Empty;
+        /// <summary>Gets or sets the row background color when the rule matches (with <see cref="ApplyToRow"/>).</summary>
+        public System.Drawing.Color RowBackColor { get; set; } = System.Drawing.Color.Empty;
+        /// <summary>Gets or sets the row text color when the rule matches (with <see cref="ApplyToRow"/>).</summary>
+        public System.Drawing.Color RowForeColor { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>Returns whether the supplied cell display text satisfies this rule.</summary>
+        public bool Matches (string cellText)
+        {
+            cellText ??= string.Empty;
+
+            return Condition switch {
+                ConditionTypes.Equal => FilterDescriptor.Compare (cellText, Value1) == 0,
+                ConditionTypes.NotEqual => FilterDescriptor.Compare (cellText, Value1) != 0,
+                ConditionTypes.Greater => FilterDescriptor.Compare (cellText, Value1) > 0,
+                ConditionTypes.Less => FilterDescriptor.Compare (cellText, Value1) < 0,
+                ConditionTypes.GreaterOrEqual => FilterDescriptor.Compare (cellText, Value1) >= 0,
+                ConditionTypes.LessOrEqual => FilterDescriptor.Compare (cellText, Value1) <= 0,
+                ConditionTypes.Contains => cellText.IndexOf (Value1, StringComparison.CurrentCultureIgnoreCase) >= 0,
+                ConditionTypes.StartsWith => cellText.StartsWith (Value1, StringComparison.CurrentCultureIgnoreCase),
+                ConditionTypes.EndsWith => cellText.EndsWith (Value1, StringComparison.CurrentCultureIgnoreCase),
+                ConditionTypes.Between => FilterDescriptor.Compare (cellText, Value1) >= 0 && FilterDescriptor.Compare (cellText, Value2) <= 0,
+                _ => false
+            };
+        }
+    }
+
+    /// <summary>Telerik-compat aggregate functions for summary rows. Mirrors <c>GridAggregateFunction</c>.</summary>
+    public enum GridAggregateFunction
+    {
+        /// <summary>No aggregate.</summary>
+        None,
+        /// <summary>Sum of the numeric cell values.</summary>
+        Sum,
+        /// <summary>Count of rows.</summary>
+        Count,
+        /// <summary>Average of the numeric cell values.</summary>
+        Average,
+        /// <summary>Minimum value.</summary>
+        Min,
+        /// <summary>Maximum value.</summary>
+        Max,
+        /// <summary>First value.</summary>
+        First,
+        /// <summary>Last value.</summary>
+        Last
+    }
+
+    /// <summary>
+    /// Telerik-compat summary item. Describes one aggregate (over a named column) shown in a summary row.
+    /// </summary>
+    public class GridViewSummaryItem
+    {
+        /// <summary>Initializes a new summary item.</summary>
+        public GridViewSummaryItem () { }
+
+        /// <summary>Initializes a summary item for a column, aggregate, and optional format string.</summary>
+        public GridViewSummaryItem (string name, GridAggregateFunction aggregate, string formatString = "")
+        {
+            Name = name;
+            Aggregate = aggregate;
+            FormatString = formatString;
+        }
+
+        /// <summary>Gets or sets the name (column Name/FieldName) the aggregate is computed over and shown in.</summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the aggregate function.</summary>
+        public GridAggregateFunction Aggregate { get; set; } = GridAggregateFunction.Sum;
+
+        /// <summary>
+        /// Gets or sets the format applied to the aggregate. Supports a composite form ("Total: {0:C0}")
+        /// or a bare numeric/standard format ("C0"); empty uses the raw value.
+        /// </summary>
+        public string FormatString { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Telerik-compat summary row. A collection of <see cref="GridViewSummaryItem"/>s that together make
+    /// up one rendered summary row (e.g. a grand total line).
+    /// </summary>
+    public class GridViewSummaryRowItem : Collection<GridViewSummaryItem>
+    {
+        /// <summary>Initializes an empty summary row.</summary>
+        public GridViewSummaryRowItem () { }
+
+        /// <summary>Initializes a summary row with the specified items.</summary>
+        public GridViewSummaryRowItem (params GridViewSummaryItem[] items)
+        {
+            foreach (var item in items)
+                Add (item);
+        }
+    }
+
+    /// <summary>
+    /// Mutation-observing descriptor collection used for the grid's sort/group/filter descriptors.
+    /// Any change (add/remove/clear/replace) invokes <see cref="Changed"/> so the grid can rebuild
+    /// its view.
+    /// </summary>
+    public class GridDescriptorCollection<T> : Collection<T>
+    {
+        internal Action? Changed { get; set; }
+
+        /// <summary>Adds several descriptors at once, raising a single change notification.</summary>
+        public void AddRange (IEnumerable<T> items)
+        {
+            var suppress = Changed;
+            Changed = null;
+            try {
+                foreach (var item in items)
+                    Add (item);
+            } finally {
+                Changed = suppress;
+            }
+            Changed?.Invoke ();
+        }
+
+        /// <inheritdoc/>
+        protected override void InsertItem (int index, T item) { base.InsertItem (index, item); Changed?.Invoke (); }
+        /// <inheritdoc/>
+        protected override void RemoveItem (int index) { base.RemoveItem (index); Changed?.Invoke (); }
+        /// <inheritdoc/>
+        protected override void SetItem (int index, T item) { base.SetItem (index, item); Changed?.Invoke (); }
+        /// <inheritdoc/>
+        protected override void ClearItems () { base.ClearItems (); Changed?.Invoke (); }
+
+        /// <summary>Returns the first descriptor matching the predicate, or null.</summary>
+        public T? Find (Func<T, bool> predicate) => this.FirstOrDefault (predicate);
+    }
+}
