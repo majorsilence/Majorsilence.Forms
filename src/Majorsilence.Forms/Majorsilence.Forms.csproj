@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms</PackageId>
+    <Description>Cross-platform spiritual successor to Winforms for .NET Core</Description>
+    <PackageTags>Majorsilence;Forms;Winforms;GUI;UI;Cross;Platform</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
+    <!-- Pin HarfBuzz to the SkiaSharp 3.x-aligned versions (overrides RichTextKit's 2.88 transitive). -->
+    <PackageReference Include="SkiaSharp.HarfBuzz" />
+    <PackageReference Include="HarfBuzzSharp" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <PackageReference Include="Topten.RichTextKit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Backend assemblies live separately and reach into the core's internal window/render/input
+         plumbing (RenderFrame, Handle*, OnBackend*, the Backend field) through the IWindowBackend seam. -->
+    <InternalsVisibleTo Include="Majorsilence.Forms.Avalonia" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Headless" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Uno" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+  </ItemGroup>
+
+</Project>

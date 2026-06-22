@@ -1,5 +1,5 @@
 ﻿using System;
-using Modern.Forms;
+using Majorsilence.Forms;
 
 namespace Explore
 {

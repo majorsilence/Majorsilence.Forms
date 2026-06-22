@@ -1,5 +1,5 @@
 ﻿using System.Drawing;
-using Modern.Forms;
+using Majorsilence.Forms;
 
 namespace ControlGallery
 {

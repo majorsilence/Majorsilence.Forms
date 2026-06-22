@@ -1,11 +1,12 @@
-﻿using Modern.Forms;
-using SkiaSharp;
+﻿using System.Drawing;
+using Majorsilence.Forms;
+using ContentAlignment = Majorsilence.Forms.ContentAlignment;
 
 namespace ControlGallery.Panels
 {
     public class RadioButtonPanel : Panel
     {
-        private static readonly SKBitmap _swatches = ImageLoader.Get ("swatches.png");
+        private static readonly Bitmap _swatches = ImageLoader.Get ("swatches.png");
 
         public RadioButtonPanel ()
         {

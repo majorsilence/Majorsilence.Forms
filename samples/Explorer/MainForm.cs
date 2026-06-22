@@ -1,4 +1,4 @@
-﻿using Modern.Forms;
+﻿using Majorsilence.Forms;
 using SkiaSharp;
 
 namespace Explore

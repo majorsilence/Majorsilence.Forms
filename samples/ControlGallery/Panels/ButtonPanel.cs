@@ -1,5 +1,5 @@
-﻿using Modern.Forms;
-using Modern.Forms.Renderers;
+﻿using Majorsilence.Forms;
+using Majorsilence.Forms.Renderers;
 using SkiaSharp;
 
 namespace ControlGallery.Panels

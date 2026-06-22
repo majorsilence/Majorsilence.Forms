@@ -1,5 +1,5 @@
-﻿using Modern.Forms;
-using SkiaSharp;
+﻿using System.Drawing;
+using Majorsilence.Forms;
 
 namespace ControlGallery.Panels
 {
@@ -23,7 +23,7 @@ namespace ControlGallery.Panels
             Controls.Add (view);
         }
 
-        private static SKBitmap GetImage ()
+        private static Bitmap GetImage ()
         {
             switch (random.Next () % 2) {
                 case 0:

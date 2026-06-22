@@ -1,5 +1,5 @@
 ﻿using ControlGallery.Panels;
-using Modern.Forms;
+using Majorsilence.Forms;
 using SkiaSharp;
 
 namespace ControlGallery
@@ -27,6 +27,7 @@ namespace ControlGallery
             tree.Items.Add ("FileDialogs", ImageLoader.Get ("button.png"));
             tree.Items.Add ("FlowLayoutPanel", ImageLoader.Get ("button.png"));
             tree.Items.Add ("FormPaint", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("GroupBox", ImageLoader.Get ("button.png"));
             tree.Items.Add ("FormShortcuts", ImageLoader.Get ("button.png"));
             tree.Items.Add ("ImageList", ImageLoader.Get ("button.png"));
             tree.Items.Add ("Label", ImageLoader.Get ("button.png"));
@@ -34,8 +35,10 @@ namespace ControlGallery
             tree.Items.Add ("ListBox", ImageLoader.Get ("button.png"));
             tree.Items.Add ("ListView", ImageLoader.Get ("button.png"));
             tree.Items.Add ("Menu", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("MenuStrip", ImageLoader.Get ("button.png"));
             tree.Items.Add ("MessageBox", ImageLoader.Get ("button.png"));
             tree.Items.Add ("NavigationPane", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("NumericUpDown", ImageLoader.Get ("button.png"));
             tree.Items.Add ("Panel", ImageLoader.Get ("button.png"));
             tree.Items.Add ("PictureBox", ImageLoader.Get ("button.png"));
             tree.Items.Add ("ProgressBar", ImageLoader.Get ("button.png"));
@@ -45,10 +48,16 @@ namespace ControlGallery
             tree.Items.Add ("ScrollBar", ImageLoader.Get ("button.png"));
             tree.Items.Add ("SplitContainer", ImageLoader.Get ("button.png"));
             tree.Items.Add ("StatusBar", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("StatusStrip", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TabControl", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: Controls", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: GridView", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: PageView", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: PropertyGrid", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TableLayoutPanel", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TabStrip", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TextBox", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("TimePicker", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TitleBar", ImageLoader.Get ("button.png"));
             tree.Items.Add ("ToolBar", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TrackBar", ImageLoader.Get ("button.png"));
@@ -99,6 +108,8 @@ namespace ControlGallery
                     return new FileDialogPanel ();
                 case "FlowLayoutPanel":
                     return new FlowLayoutPanelPanel ();
+                case "GroupBox":
+                    return new GroupBoxPanel ();
                 case "FormShortcuts":
                     return new FormShortcutsPanel (this);
                 case "ImageList":
@@ -113,10 +124,14 @@ namespace ControlGallery
                     return new ListViewPanel ();
                 case "Menu":
                     return new MenuPanel ();
+                case "MenuStrip":
+                    return new MenuStripPanel ();
                 case "MessageBox":
                     return new MessageBoxPanel ();
                 case "NavigationPane":
                     return new NavigationPanePanel ();
+                case "NumericUpDown":
+                    return new NumericUpDownPanel ();
                 case "Panel":
                     return new PanelPanel ();
                 case "PictureBox":
@@ -134,15 +149,27 @@ namespace ControlGallery
                 case "SplitContainer":
                     return new SplitContainerPanel ();
                 case "StatusBar":
-                    return new StatusBarPanel ();
+                    return new Panels.StatusBarPanel ();
+                case "StatusStrip":
+                    return new StatusStripPanel ();
                 case "TabControl":
                     return new TabControlPanel ();
+                case "Telerik: Controls":
+                    return new TelerikControlsPanel ();
+                case "Telerik: GridView":
+                    return new TelerikGridViewPanel ();
+                case "Telerik: PageView":
+                    return new TelerikPageViewPanel ();
+                case "Telerik: PropertyGrid":
+                    return new TelerikPropertyGridPanel ();
                 case "TableLayoutPanel":
                     return new TableLayoutPanelPanel ();
                 case "TabStrip":
                     return new TabStripPanel ();
                 case "TextBox":
                     return new TextBoxPanel ();
+                case "TimePicker":
+                    return new TimePickerPanel ();
                 case "TitleBar":
                     return new TitleBarPanel ();
                 case "ToolBar":
@@ -187,7 +214,7 @@ namespace ControlGallery
         private static void DrawThemeColor (SKCanvas canvas, int x, int y, int width, int height, SKColor color)
         {
             canvas.FillRectangle (x, y, width, height, color);
-            canvas.DrawText (color.ToString (), x + 10, y + 20, new SKPaint { Typeface = Theme.UIFont, Color = Theme.ForegroundColor });
+            canvas.DrawText (color.ToString (), Theme.UIFont, 12, new System.Drawing.Rectangle (x + 4, y + 4, width - 8, height - 8), Theme.ForegroundColor, ContentAlignment.MiddleLeft);
         }
 
         protected override void OnPaintBackground (PaintEventArgs e)

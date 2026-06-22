@@ -1,0 +1,4 @@
+<!-- Empty on purpose: isolates this repro from any parent Directory.Build.props so it is fully
+     self-describing and can be copied out and built standalone. -->
+<Project>
+</Project>

@@ -1,4 +1,5 @@
-﻿using Modern.Forms;
+﻿using System.Drawing;
+using Majorsilence.Forms;
 using SkiaSharp;
 
 namespace ControlGallery.Panels;
@@ -18,7 +19,7 @@ public class FlowLayoutPanelPanel : Panel
 
     public FlowLayoutPanelPanel ()
     {
-        var container = Controls.Add (new SplitContainer { Orientation = Orientation.Vertical, SplitterColor = SKColors.DarkGray });
+        var container = Controls.Add (new SplitContainer { Orientation = Orientation.Vertical, SplitterColor = Color.DarkGray });
 
         var ltr = container.Panel1.Controls.Add (new FlowLayoutPanel { Dock = DockStyle.Fill });
         var ttb = container.Panel2.Controls.Add (new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown });

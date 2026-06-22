@@ -1,18 +1,22 @@
-﻿using SkiaSharp;
+using Majorsilence.Drawing;
 
 namespace Outlaw
 {
     public static class ImageLoader
     {
-        private static readonly Dictionary<string, SKBitmap> _cache = [];
+        private static readonly Dictionary<string, Bitmap> _cache = [];
         private static readonly string _defaultLocation = "Images";
 
-        public static SKBitmap Get (string filename)
+        public static Bitmap Get (string filename)
         {
-            if (!_cache.ContainsKey (filename.ToLowerInvariant ()))
-                _cache.Add (filename.ToLowerInvariant (), SKBitmap.Decode (Path.Combine (_defaultLocation, filename)));
+            var key = filename.ToLowerInvariant ();
 
-            return _cache[filename.ToLowerInvariant ()];
+            if (!_cache.TryGetValue (key, out var bitmap)) {
+                bitmap = new Bitmap (Path.Combine (_defaultLocation, filename));
+                _cache[key] = bitmap;
+            }
+
+            return bitmap;
         }
     }
 }

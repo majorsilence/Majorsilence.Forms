@@ -1,6 +1,5 @@
 ﻿using System.Drawing;
-using Modern.Forms;
-using SkiaSharp;
+using Majorsilence.Forms;
 
 namespace ControlGallery.Panels
 {
@@ -30,8 +29,8 @@ namespace ControlGallery.Panels
                 Location = new Point (20, 20),
                 Width = 400,
                 Height = 30,
-                HoverLinkColor = SKColors.Red,
-                VisitedLinkColor = SKColors.Purple
+                HoverLinkColor = Color.Red,
+                VisitedLinkColor = Color.Purple
             };
 
             simple.LinkClicked += (s, e) => {
@@ -92,7 +91,7 @@ namespace ControlGallery.Panels
                 Width = 400,
                 Height = 30,
                 LinkBehavior = LinkBehavior.HoverUnderline,
-                HoverLinkColor = SKColors.Red
+                HoverLinkColor = Color.Red
             };
 
             hover.LinkClicked += (s, e) => {
@@ -107,9 +106,9 @@ namespace ControlGallery.Panels
                 Location = new Point (20, 270),
                 Width = 400,
                 Height = 30,
-                LinkColor = SKColors.Green,
-                ActiveLinkColor = SKColors.Red,
-                VisitedLinkColor = SKColors.Purple
+                LinkColor = Color.Green,
+                ActiveLinkColor = Color.Red,
+                VisitedLinkColor = Color.Purple
             };
 
             custom.LinkClicked += (s, e) => {

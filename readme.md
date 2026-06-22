@@ -1,53 +1,90 @@
-## What is `Modern.Forms`?
+# Majorsilence.Forms
 
-*** **This framework is currently in its early stages. Use at your own risk.** ***
+**Take your WinForms apps cross-platform — without rewriting them.**
 
-`Modern.Forms` is an open-source cross-platform spiritual successor to Winforms for .NET 6, supporting Windows, Mac, and Linux.
+Majorsilence.Forms is a WinForms-style UI framework that lets you move legacy *and* modern
+WinForms applications onto a modern, cross-platform stack. You keep the programming model you
+already know — `Form`s, controls, event handlers, even the `*.Designer.cs` files — and gain
+Windows, macOS, and Linux out of the box, with mobile and web within reach through
+[Uno Platform](https://platform.uno).
 
-If you are looking for an open-source cross-platform spiritual successor to WPF, see [Avalonia](https://github.com/AvaloniaUI/Avalonia).
+> ⚠️ **Early stage.** The API is stabilizing and not every WinForms corner is covered yet.
+> Great for new cross-platform LOB apps and for migrating real apps today — just pin your version.
 
-### Motivation
+## Why Majorsilence.Forms?
 
-The goal is to create a spiritual successor to Winforms that is:
-* Cross platform (Windows / Mac / Linux)
-* Familiar for Winforms developers (ie: not XAML)
-  * Sample Form:
-    * [MainForm.cs](https://github.com/modern-forms/Modern.Forms/blob/main/samples/Explorer/MainForm.cs)
-    * [MainForm.Designer.cs](https://github.com/modern-forms/Modern.Forms/blob/main/samples/Explorer/MainForm.Designer.cs)
-* Great for LOB applications and quick apps
-* Updated with modern controls and modern aesthetics
+Migrating a WinForms app usually means a ground-up rewrite in a new UI paradigm (XAML, MVVM, the
+web). That's expensive, risky, and throws away years of working business logic and UX.
 
-### Getting Started
+Majorsilence.Forms is built to **collapse that migration**. It mirrors the WinForms API surface and
+ships a compatibility layer so your existing forms, controls, and code move over with far less
+churn — then runs everywhere on top of best-in-class hosts:
 
-To create your own `Modern.Forms` application, see [Getting Started](docs/getting-started.md).
+- **Reuse, don't rewrite.** The same control model and event-driven code you wrote in WinForms.
+  No XAML, no forced MVVM rewrite, no relearning the framework.
+- **Cross-platform by construction.** Everything is drawn with [SkiaSharp](https://github.com/mono/SkiaSharp)
+  and runs on a swappable host backend — [Avalonia](https://avaloniaui.net) by default,
+  [Uno Platform](https://platform.uno) for the broadest reach (desktop, mobile, WebAssembly).
+- **Bring your skills, your team, your code.** WinForms muscle memory transfers directly, so the
+  ramp-up cost for an existing .NET shop is close to zero.
+- **Modern under the hood.** GPU-accelerated Skia rendering, HiDPI, current .NET — a clean
+  foundation, not a museum piece.
 
-## How to Run
+If you're moving a WinForms codebase off the Windows-only desktop and want to keep momentum
+instead of starting over, this framework is for you.
 
-### Sample Application
+## How it works
 
-The quickest way to see `Modern.Forms` in action is through our `ModernDecompiler` sample application, 
-which allows you to decompile .NET assemblies. ([Source Code](https://github.com/modern-forms/ModernDecompile))
-
-From a Windows, Mac, or Linux command line with .NET 6 installed:
 ```
-dotnet tool install --global ModernDecompile
-decompile
+        Your app  (Forms, controls, Designer files — the WinForms model you know)
+            │
+       Majorsilence.Forms  (controls + WinForms-compatible API, drawn with SkiaSharp)
+            │
+   Swappable host backend
+   ├─ Avalonia   → Windows · macOS · Linux            (default)
+   ├─ Uno         → desktop · iOS · Android · WebAssembly
+   └─ Headless    → offscreen rendering for tests / CI
 ```
 
-This will launch the sample application built with `Modern.Forms`.
+Majorsilence.Forms owns the controls and rendering; the backend only puts pixels on screen and
+delivers input. That seam is what lets the same app target Avalonia today and Uno tomorrow.
+See [Platform backends](docs/backends.md) for the details and how to add your own.
 
-![ModernDecompiler Screenshot](https://github.com/modern-forms/Modern.Forms/blob/main/docs/modern-decompile.png "ModernDecompiler Screenshot")
+`Majorsilence.Drawing` provides a Skia-backed, cross-platform replacement for the Windows-only
+`System.Drawing.Common` (GDI+) APIs, so drawing code migrates too.
 
-### Other Samples
+## Getting started
 
-Some smaller samples are available in the `Modern.Forms` repository:
+See [Getting Started](docs/getting-started.md) to scaffold your first Majorsilence.Forms app.
 
-* [`ControlGallery`](samples/ControlGallery) - Gallery of the controls included in Modern.Forms in action.
-* [`Explore`](samples/Explorer) - A Windows Explorer clone.
-* [`Outlaw`](samples/Outlaw) - A Microsoft Outlook clone.
+A form looks exactly like you'd expect:
 
-For information on building and running these samples, see [Samples](docs/samples.md).
+- [`samples/Explorer/MainForm.cs`](samples/Explorer/MainForm.cs)
+- [`samples/Explorer/MainForm.Designer.cs`](samples/Explorer/MainForm.Designer.cs)
 
-## Build Status
+## Samples
 
-[![.NET Build](https://github.com/modern-forms/Modern.Forms/actions/workflows/dotnet.yml/badge.svg)](https://github.com/modern-forms/Modern.Forms/actions/workflows/dotnet.yml)
+Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) folder:
+
+- [`ControlGallery`](samples/ControlGallery) — every built-in control, live.
+- [`Gallery.Uno`](samples/Gallery.Uno) — the control gallery running on the **Uno** backend.
+- [`Explorer`](samples/Explorer) — a Windows Explorer clone.
+- [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
+
+Run the gallery on the default (Avalonia) backend:
+
+```bash
+dotnet run --project samples/ControlGallery
+```
+
+Or on the Uno backend:
+
+```bash
+dotnet run --project samples/Gallery.Uno
+```
+
+For build and run details, see [Samples](docs/samples.md).
+
+## License
+
+See [license.md](license.md).
