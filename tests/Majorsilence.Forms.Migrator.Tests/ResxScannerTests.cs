@@ -44,12 +44,41 @@ public class ResxScannerTests
         Assert.Equal (1, result.RecoverableImageBlobCount);
     }
 
+    // Design-time SqlParameter values (System.Data.SqlTypes / DBNull) are recovered by the resource
+    // manager, so they're consumable — not a blocker.
+    [Theory]
+    [InlineData ("System.Data.SqlTypes.SqlInt32")]
+    [InlineData ("System.UnitySerializationHolder")]
+    public void Design_time_component_value_blob_is_consumable (string typeMarker)
+    {
+        var blob = System.Convert.ToBase64String (
+            System.Text.Encoding.UTF8.GetBytes ($"....{typeMarker}....payload...."));
+        var xml = $"""<root><data name="p.SqlValue" mimetype="application/x-microsoft.net.object.binary.base64"><value>{blob}</value></data></root>""";
+
+        var result = ResxScanner.Scan (xml);
+        Assert.False (result.NeedsReview);
+        Assert.True (result.HasConsumableResources);
+    }
+
+    [Fact]
+    public void ActiveX_OcxState_blob_is_flagged_as_ActiveX ()
+    {
+        var blob = System.Convert.ToBase64String (
+            System.Text.Encoding.UTF8.GetBytes ("....System.Windows.Forms.AxHost+State....ocx...."));
+        var xml = $"""<root><data name="ax.OcxState" mimetype="application/x-microsoft.net.object.binary.base64"><value>{blob}</value></data></root>""";
+
+        var result = ResxScanner.Scan (xml);
+        Assert.True (result.NeedsReview);
+        Assert.Equal (1, result.ActiveXBlobCount);
+        Assert.Equal (0, result.BinaryResourceCount);
+    }
+
     [Fact]
     public void Binary_blob_of_unsupported_type_still_needs_review ()
     {
         var blob = System.Convert.ToBase64String (
-            System.Text.Encoding.UTF8.GetBytes ("....System.Data.SqlTypes.SqlInt32....not an image...."));
-        var xml = $"""<root><data name="p.Value" mimetype="application/x-microsoft.net.object.binary.base64"><value>{blob}</value></data></root>""";
+            System.Text.Encoding.UTF8.GetBytes ("....System.Collections.Hashtable....arbitrary...."));
+        var xml = $"""<root><data name="x" mimetype="application/x-microsoft.net.object.binary.base64"><value>{blob}</value></data></root>""";
 
         var result = ResxScanner.Scan (xml);
         Assert.True (result.NeedsReview);

@@ -199,12 +199,16 @@ internal sealed class Migrator
             CopyResxToOutput(path);
         }
 
-        // BinaryFormatter/SOAP payloads cannot be deserialized on modern .NET — these are the only
-        // entries that still need a human.
-        if (result.NeedsReview)
+        // What's left needs a human, with guidance specific to what the blob actually is.
+        if (result.ActiveXBlobCount > 0)
+            _warnings.Add($"{Rel(path)}: contains {result.ActiveXBlobCount} ActiveX/COM control state(s) " +
+                "(AxHost) — ActiveX is Windows-COM-only with no managed equivalent; replace the control with " +
+                "a managed one and drop the serialized OcxState");
+
+        if (result.BinaryResourceCount > 0)
             _warnings.Add($"{Rel(path)}: contains {result.BinaryResourceCount} BinaryFormatter/SOAP-serialized " +
-                "resource(s) (binary/soap base64) which cannot be read cross-platform — re-export them to " +
-                "files (e.g. PNG/ICO) and load them in code");
+                "object(s) of an unsupported type — re-create the value in code (BinaryFormatter is gone from " +
+                "modern .NET)");
     }
 
     // Unlike source/project files, a .resx is not rewritten; copy it verbatim into the output tree.

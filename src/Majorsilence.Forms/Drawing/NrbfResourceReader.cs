@@ -1,4 +1,5 @@
 using System;
+using System.Data.SqlTypes;
 using System.Formats.Nrbf;
 using System.IO;
 
@@ -19,12 +20,16 @@ namespace Majorsilence.Forms
     ///   <item><c>System.Windows.Forms.ImageListStreamer</c> — a <c>Data</c> byte[] decoded by
     ///         <see cref="ImageListStreamDecoder"/>.</item>
     /// </list>
-    /// Anything else (arbitrary serialized objects) returns <see langword="null"/> — genuinely not
-    /// portable, and left for manual handling.
+    /// It also recovers the design-time component values WinForms commonly serialized into a form's
+    /// <c>.resx</c> — <c>System.Data.SqlTypes</c> scalars (a <c>SqlCommand</c>'s parameter defaults) and
+    /// <c>DBNull</c> (serialized via <c>UnitySerializationHolder</c>).
+    ///
+    /// Anything else (arbitrary serialized objects, ActiveX <c>AxHost+State</c>, …) returns
+    /// <see langword="null"/> — genuinely not portable, and left for manual handling.
     /// </summary>
     internal static class NrbfResourceReader
     {
-        public static object? TryReadImage (byte[] blob)
+        public static object? TryReadObject (byte[] blob)
         {
             try
             {
@@ -59,12 +64,63 @@ namespace Majorsilence.Forms
                     return new ImageListStreamer (frames, size);
                 }
 
+                if (typeName.StartsWith ("System.Data.SqlTypes.", StringComparison.Ordinal))
+                    return TryReadSqlType (record, typeName);
+
+                if (typeName.StartsWith ("System.UnitySerializationHolder", StringComparison.Ordinal))
+                    return TryReadUnityHolder (record);
+
                 return null;
             }
             catch
             {
                 return null;   // malformed payload or an unexpected NRBF shape — not fatal.
             }
+        }
+
+        // System.Data.SqlTypes scalars store a not-null flag plus the raw value. We rebuild the common
+        // ones faithfully (a SqlCommand's design-time parameter defaults); exotic ones return null.
+        private static object? TryReadSqlType (ClassRecord record, string typeName)
+        {
+            bool NotNull () => !record.HasMember ("m_fNotNull") || record.GetBoolean ("m_fNotNull");
+
+            try
+            {
+                return typeName["System.Data.SqlTypes.".Length..] switch
+                {
+                    "SqlInt32" => NotNull () ? new SqlInt32 (record.GetInt32 ("m_value")) : SqlInt32.Null,
+                    "SqlInt16" => NotNull () ? new SqlInt16 (record.GetInt16 ("m_value")) : SqlInt16.Null,
+                    "SqlInt64" => NotNull () ? new SqlInt64 (record.GetInt64 ("m_value")) : SqlInt64.Null,
+                    "SqlByte" => NotNull () ? new SqlByte (record.GetByte ("m_value")) : SqlByte.Null,
+                    "SqlDouble" => NotNull () ? new SqlDouble (record.GetDouble ("m_value")) : SqlDouble.Null,
+                    "SqlSingle" => NotNull () ? new SqlSingle (record.GetSingle ("m_value")) : SqlSingle.Null,
+                    "SqlString" => NotNull () ? new SqlString (record.GetString ("m_value")) : SqlString.Null,
+                    // SqlBoolean.m_value: 0 = Null, 1 = False, 2 = True.
+                    "SqlBoolean" => record.GetByte ("m_value") switch { 0 => SqlBoolean.Null, 2 => SqlBoolean.True, _ => SqlBoolean.False },
+                    "SqlDateTime" => NotNull () ? new SqlDateTime (record.GetInt32 ("m_day"), record.GetInt32 ("m_time")) : SqlDateTime.Null,
+                    _ => null,   // SqlDecimal/SqlMoney/SqlGuid/… — rare; leave as a design-time default.
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // DBNull (and a few framework singletons) serialize through UnitySerializationHolder. We recover
+        // the DBNull case — the usual design-time value of a SqlParameter.Value.
+        private static object? TryReadUnityHolder (ClassRecord record)
+        {
+            try
+            {
+                // DBNull serializes with a null "Data" member; Type/Assembly/Module holders carry the
+                // (non-null) name there. In a form .resx the only value-typed holder is DBNull.
+                var data = record.HasMember ("Data") ? record.GetString ("Data") : null;
+                if (string.IsNullOrEmpty (data))
+                    return DBNull.Value;
+            }
+            catch { /* a non-string Data member — not the DBNull shape we handle. */ }
+            return null;
         }
 
         private static byte[]? ReadByteArray (ClassRecord record, string memberName)

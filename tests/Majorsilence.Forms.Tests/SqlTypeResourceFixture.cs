@@ -1,0 +1,12 @@
+namespace Majorsilence.Forms.Tests;
+
+// Real design-time SqlParameter values captured from a production .resx (ApplyPostDatedCheques.resx) —
+// the BinaryFormatter blobs a SqlCommand serialized for its parameters. Used to validate cross-platform
+// recovery via NRBF (no BinaryFormatter).
+internal static class SqlTypeResourceFixture
+{
+    public const string SqlInt32  = "AAEAAAD/////AQAAAAAAAAAMAgAAAE5TeXN0ZW0uRGF0YSwgVmVyc2lvbj00LjAuMC4wLCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPWI3N2E1YzU2MTkzNGUwODkFAQAAAB1TeXN0ZW0uRGF0YS5TcWxUeXBlcy5TcWxJbnQzMgIAAAAKbV9mTm90TnVsbAdtX3ZhbHVlAAABCAIAAAAAAAAAAAs=";
+    public const string SqlString = "AAEAAAD/////AQAAAAAAAAAMAgAAAE5TeXN0ZW0uRGF0YSwgVmVyc2lvbj00LjAuMC4wLCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPWI3N2E1YzU2MTkzNGUwODkFAQAAAB5TeXN0ZW0uRGF0YS5TcWxUeXBlcy5TcWxTdHJpbmcFAAAAB21fdmFsdWUJbV9jbXBJbmZvBm1fbGNpZAZtX2ZsYWcKbV9mTm90TnVsbAEDAAQAIFN5c3RlbS5HbG9iYWxpemF0aW9uLkNvbXBhcmVJbmZvCCZTeXN0ZW0uRGF0YS5TcWxUeXBlcy5TcWxDb21wYXJlT3B0aW9ucwIAAAABAgAAAAoKAAAAAAX9////JlN5c3RlbS5EYXRhLlNxbFR5cGVzLlNxbENvbXBhcmVPcHRpb25zAQAAAAd2YWx1ZV9fAAgCAAAAAAAAAAAL";
+    public const string SqlBoolean = "AAEAAAD/////AQAAAAAAAAAMAgAAAE5TeXN0ZW0uRGF0YSwgVmVyc2lvbj00LjAuMC4wLCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPWI3N2E1YzU2MTkzNGUwODkFAQAAAB9TeXN0ZW0uRGF0YS5TcWxUeXBlcy5TcWxCb29sZWFuAQAAAAdtX3ZhbHVlAAICAAAAAAs=";
+    public const string UnityDbNull = "AAEAAAD/////AQAAAAAAAAAMAgAAAEhTeXN0ZW0uUHJpdmF0ZS5Db3JlTGliLCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPTdjZWM4NWQ3YmVhNzc5OGUFAQAAAB9TeXN0ZW0uVW5pdHlTZXJpYWxpemF0aW9uSG9sZGVyAwAAAAREYXRhCVVuaXR5VHlwZQxBc3NlbWJseU5hbWUBAAEIAgAAAAoCAAAABgMAAAAACw==";
+}

@@ -155,7 +155,7 @@ namespace Majorsilence.Forms
                 {
                     if (!TryDecodeBase64 (entry.RawValue, out var blob))
                         return null;
-                    return NrbfResourceReader.TryReadImage (blob);   // null if it's not an image we handle
+                    return NrbfResourceReader.TryReadObject (blob);   // null if it's not a type we handle
                 }
 
                 // bytearray.base64 — the payload is raw image/file bytes.

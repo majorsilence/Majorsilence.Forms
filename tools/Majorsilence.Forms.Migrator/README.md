@@ -70,13 +70,16 @@ Because of that, the migrator only flags what genuinely can't be carried across:
 - **Plain string tables**, **primitive designer values** (`Point`/`Size`/`Color`/`Boolean`/`Int32`/…),
   and **images stored as `bytearray.base64`** (the modern form — raw image bytes decoded by SkiaSharp)
   are all *consumable*. They're not flagged; with `--output` the `.resx` is copied into the mirrored tree.
-- **`BinaryFormatter`/SOAP image blobs** (`binary.base64` / `soap.base64`) for `System.Drawing.Bitmap`,
-  `Icon`, and `ImageListStreamer` are also recovered — without running `BinaryFormatter`. The resource
-  manager reads the NRBF wire format (via `System.Formats.Nrbf`) to pull out the image bytes, and decodes
-  the comctl32 image-list strip (RLE + BMP + mask) into per-frame images. These are *consumable*, not flagged.
-- **`BinaryFormatter`/SOAP blobs of any other type** (a serialized component value, ActiveX OCX state, …)
-  are the remaining hard case — that serializer is gone from modern .NET and the object isn't an image.
-  Only these are flagged for manual re-export.
+- **`BinaryFormatter`/SOAP blobs are recovered from the NRBF wire format** (via `System.Formats.Nrbf`),
+  without running `BinaryFormatter`:
+  - `System.Drawing.Bitmap`/`Icon` → the embedded image bytes;
+  - `System.Windows.Forms.ImageListStreamer` → the comctl32 image-list strip (RLE + BMP + mask) decoded
+    into per-frame images;
+  - `System.Data.SqlTypes` scalars and `DBNull` (a `SqlCommand`'s design-time parameter defaults).
+  These are *consumable*, not flagged.
+- **The genuinely unportable cases** are flagged with case-specific guidance: **ActiveX/COM control state**
+  (`AxHost`/OCX) has no managed equivalent — replace the control; any **other** serialized object must be
+  re-created in code (`BinaryFormatter` is gone from modern .NET).
 
 > To let `new ComponentResourceManager(typeof(Form))` find its `.resx` at runtime, embed the **raw**
 > `.resx` (logical name `<FullTypeName>.resx`) or keep it beside the assembly. Constructing from an
