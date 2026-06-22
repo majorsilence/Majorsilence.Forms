@@ -95,11 +95,17 @@ internal static class SourceConverter
         //    used unqualified under it now live in Majorsilence.Drawing, so add a companion import.
         text = AddCompanionDrawingImport(text);
 
-        // 4. Flag any namespace we deliberately refused to rewrite.
+        // 4. Flag any namespace we deliberately refused to rewrite — but only when a reference actually
+        //    resolves to something cross-platform-unavailable. Some types under these namespaces ship in
+        //    the BCL (e.g. System.ComponentModel.Design.HelpKeywordAttribute, used by typed-DataSet
+        //    designer code), and flagging those is a false positive.
         foreach (var unsupported in NamespaceMap.UnsupportedNamespaces)
         {
-            if (original.Contains(unsupported, StringComparison.Ordinal))
-                Warn($"references '{unsupported}', which has no Majorsilence equivalent — review manually");
+            if (!original.Contains(unsupported, StringComparison.Ordinal))
+                continue;
+            if (OnlyReferencesAvailableTypes(original, unsupported))
+                continue;
+            Warn($"references '{unsupported}', which has no Majorsilence equivalent — review manually");
         }
 
         // 5. Unqualified GDI+ types brought in via `using System.Drawing;` are invisible to the textual
@@ -114,31 +120,165 @@ internal static class SourceConverter
             }
         }
 
-        // 6. Visual Basic specifics. The VB 'My' application framework and a couple of Windows-only
-        //    Microsoft.VisualBasic types have no cross-platform form; they need a human, not a rewrite.
+        // 6. ComponentResourceManager: designer code instantiates the WinForms-flavoured
+        //    System.ComponentModel.ComponentResourceManager. Majorsilence.Forms ships a cross-platform
+        //    equivalent (reads the .resx directly, returns Majorsilence.Drawing images), so redirect just
+        //    that one type — System.ComponentModel itself stays put (it holds many unrelated BCL types).
+        text = Regex.Replace(text,
+            @"(?<![\w.])System\.ComponentModel\.ComponentResourceManager\b",
+            "Majorsilence.Forms.ComponentResourceManager");
+
+        // 7. Visual Basic specifics. With MyType=Empty there is no implicit WinForms constructor, so
+        //    inject the explicit one each form needs; then flag the 'My' framework and Windows-only types
+        //    that genuinely need a human.
         if (language == SourceLanguage.VisualBasic)
+        {
+            text = InjectVbConstructor(text, Warn);
             WarnVisualBasic(original, Warn);
+        }
 
         return new Result(text, !string.Equals(text, original, StringComparison.Ordinal), warnings);
+    }
+
+    // A VB class header, capturing leading indentation and the class name. Tolerates a Partial / access
+    // modifier prefix; an attribute list on its own preceding line is matched separately when inserting.
+    private static readonly Regex VbClassHeader =
+        new(@"(?im)^(?<indent>[ \t]*)(Partial[ \t]+)?(Public[ \t]+|Friend[ \t]+|Private[ \t]+|Protected[ \t]+)*(NotInheritable[ \t]+|MustInherit[ \t]+)?Class[ \t]+(?<name>\w+)[ \t]*\r?$",
+        RegexOptions.Compiled);
+
+    // An `Inherits <Base>` line — the VB rule is it must be the first statement in the class body, so a
+    // constructor has to be inserted *after* it, not before.
+    private static readonly Regex VbInheritsLine =
+        new(@"(?im)^[ \t]*Inherits[ \t]+[^\r\n]+\r?$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// VB's WinForms application framework synthesised a parameterless constructor that called
+    /// <c>InitializeComponent()</c>. <c>MyType=Empty</c> (which the project converter sets for
+    /// cross-platform builds) removes that, so a form whose designer defines
+    /// <c>InitializeComponent</c> but has no explicit <c>Sub New()</c> would no longer initialise its
+    /// controls. Insert the constructor the framework used to generate.
+    /// </summary>
+    private static string InjectVbConstructor(string text, Action<string> warn)
+    {
+        // Nothing to do unless the file defines/uses InitializeComponent and lacks any constructor.
+        if (!text.Contains("InitializeComponent", StringComparison.Ordinal))
+            return text;
+        if (Regex.IsMatch(text, @"(?i)\bSub\s+New\s*\("))
+            return text;
+
+        var header = VbClassHeader.Match(text);
+        if (!header.Success)
+        {
+            warn("VB form has InitializeComponent but no 'Public Sub New()' and no class header could be " +
+                 "located to inject one — add a constructor that calls InitializeComponent() manually");
+            return text;
+        }
+
+        var indent = header.Groups["indent"].Value;
+        var memberIndent = indent + "    ";
+
+        // The constructor must follow `Inherits`/`Implements` if present, else sit right after the
+        // class line. Scan the lines immediately after the header for a leading Inherits/Implements.
+        var insertAt = header.Index + header.Length;
+        var scan = insertAt;
+        while (true)
+        {
+            // Skip the newline the header regex stopped on, plus any blank lines.
+            var nextLineStart = SkipNewlinesAndBlankLines(text, scan);
+            var lineEnd = LineEnd(text, nextLineStart);
+            var line = text[nextLineStart..lineEnd];
+            if (Regex.IsMatch(line, @"^[ \t]*(Inherits|Implements)\b", RegexOptions.IgnoreCase))
+            {
+                insertAt = lineEnd;
+                scan = lineEnd;
+                continue;
+            }
+            break;
+        }
+
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var ctor =
+            $"{newline}{newline}{memberIndent}' [majorsilence-migrate] MyType=Empty removes VB's implicit WinForms constructor; added explicitly.{newline}" +
+            $"{memberIndent}Public Sub New(){newline}" +
+            $"{memberIndent}    InitializeComponent(){newline}" +
+            $"{memberIndent}End Sub";
+
+        return text[..insertAt] + ctor + text[insertAt..];
+    }
+
+    // Advance past consecutive newline characters and whitespace-only lines, returning the start index
+    // of the next line that contains non-whitespace (or end-of-text).
+    private static int SkipNewlinesAndBlankLines(string text, int index)
+    {
+        while (index < text.Length)
+        {
+            var lineEnd = LineEnd(text, index);
+            if (text[index..lineEnd].Trim().Length != 0)
+                return index;
+            index = lineEnd < text.Length && text[lineEnd] == '\r' && lineEnd + 1 < text.Length && text[lineEnd + 1] == '\n'
+                ? lineEnd + 2
+                : lineEnd + 1;
+        }
+        return index;
+    }
+
+    private static int LineEnd(string text, int index)
+    {
+        var nl = text.IndexOf('\n', index);
+        if (nl < 0)
+            return text.Length;
+        return nl > index && text[nl - 1] == '\r' ? nl - 1 : nl;
+    }
+
+    // A handful of types under otherwise-unsupported namespaces actually ship in the cross-platform BCL,
+    // so a reference to them is not a blocker. Keyed by namespace -> the member names that are available.
+    private static readonly Dictionary<string, string[]> AvailableTypesUnderUnsupportedNamespace = new(StringComparer.Ordinal)
+    {
+        // Design-time attributes emitted into typed-DataSet (.xsd) designer code. Pure data-layer files
+        // (System.Data), no WinForms — these compile and run as-is on modern .NET.
+        ["System.ComponentModel.Design"] = new[] { "HelpKeywordAttribute" },
+    };
+
+    // True when every reference to <paramref name="ns"/> in the file targets a known-available type, so
+    // there is nothing for a human to fix.
+    private static bool OnlyReferencesAvailableTypes(string text, string ns)
+    {
+        if (!AvailableTypesUnderUnsupportedNamespace.TryGetValue(ns, out var available))
+            return false;
+
+        foreach (Match m in Regex.Matches(text, $@"(?<![\w.]){Regex.Escape(ns)}\.(\w+)"))
+            if (!available.Contains(m.Groups[1].Value))
+                return false;   // a reference to some other (unavailable) member — keep the warning.
+        return true;
     }
 
     private static void WarnVisualBasic(string original, Action<string> warn)
     {
         // The 'My' namespace (My.Settings/My.Resources/My.Application/My.Computer/…) is generated by the
         // VB WinForms application framework, which MyType=Empty switches off for cross-platform builds.
-        if (Regex.IsMatch(original, @"(?<![\w.])My\.(Settings|Resources|Application|Computer|Forms|User|WebServices|Log|Request|Response)\b"))
-            warn("uses the VB 'My.*' namespace, which MyType=Empty disables — replace with explicit code (e.g. a file-based settings module)");
+        // Name the specific members in play so the human gets a targeted replacement, not a generic note.
+        var myHints = new List<string>();
+        void Hint(string member, string advice)
+        {
+            if (Regex.IsMatch(original, $@"(?<![\w.])My\.{member}\b"))
+                myHints.Add(advice);
+        }
+        Hint("Resources", "My.Resources.X → load from the project .resx (e.g. Majorsilence.Forms.ComponentResourceManager / a ResourceManager)");
+        Hint("MySettings", "My.Settings/My.MySettings → a settings class backed by a config/JSON file");
+        Hint("Settings", "My.Settings/My.MySettings → a settings class backed by a config/JSON file");
+        Hint("Application", "My.Application.X → AppContext/Assembly APIs (e.g. Info.DirectoryPath → AppContext.BaseDirectory)");
+        Hint("Computer", "My.Computer.X → System.IO / RuntimeInformation equivalents");
+        Hint("User", "My.User → System.Security.Principal / your own identity accessor");
+        Hint("Forms", "My.Forms → hold and reuse your own Form instances");
+        if (myHints.Count > 0)
+            warn("uses the VB 'My.*' namespace, which MyType=Empty disables — " + string.Join("; ", myHints.Distinct()));
 
         // Microsoft.VisualBasic.Devices.ComputerInfo (and My.Computer.Info) is Windows-desktop only.
         if (original.Contains("ComputerInfo", StringComparison.Ordinal))
             warn("uses 'ComputerInfo', which is Windows-only — replace e.g. OSFullName with RuntimeInformation.OSDescription");
 
-        // With MyType=Empty there's no auto WinForms constructor, so each Form needs an explicit
-        // Public Sub New() that calls InitializeComponent(). Flag forms that don't appear to have one.
-        if (Regex.IsMatch(original, @"(?im)^\s*(Partial\s+)?(Public\s+|Friend\s+)?Class\s+\w+", RegexOptions.None)
-            && original.Contains("InitializeComponent", StringComparison.Ordinal)
-            && !Regex.IsMatch(original, @"(?i)\bSub\s+New\s*\("))
-            warn("VB form has InitializeComponent but no 'Public Sub New()' — with MyType=Empty you must add a constructor that calls InitializeComponent()");
+        // The missing-constructor case (MyType=Empty drops VB's implicit WinForms ctor) is now fixed
+        // automatically by InjectVbConstructor, which warns only if it cannot find where to insert it.
     }
 
     // Matches a standalone `using System.Drawing;` (C#) or `Imports System.Drawing` (VB) import line.
