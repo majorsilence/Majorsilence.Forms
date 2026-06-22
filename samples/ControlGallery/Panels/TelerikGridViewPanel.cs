@@ -2,12 +2,12 @@ using System;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
-using Continuum.Forms;
-using Continuum.Forms.Telerik;
+using Majorsilence.Forms;
+using Majorsilence.Forms.Telerik;
 
 namespace ControlGallery.Panels
 {
-    // Showcases RadGridView (Continuum.Forms.Telerik) — backed by Continuum.Forms.DataGridView. In addition
+    // Showcases RadGridView (Majorsilence.Forms.Telerik) — backed by Majorsilence.Forms.DataGridView. In addition
     // to the data surface (GridView* column types, currency FormatString, FK combo column, check-box
     // column, Cell/RowFormatting), this panel demonstrates the *interactive* RadGridView features:
     //   • Filtering   — click a column's funnel glyph for a distinct-value checklist + condition.

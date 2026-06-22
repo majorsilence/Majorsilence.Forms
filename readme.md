@@ -1,8 +1,8 @@
-# Continuum.Forms
+# Majorsilence.Forms
 
 **Take your WinForms apps cross-platform — without rewriting them.**
 
-Continuum.Forms is a WinForms-style UI framework that lets you move legacy *and* modern
+Majorsilence.Forms is a WinForms-style UI framework that lets you move legacy *and* modern
 WinForms applications onto a modern, cross-platform stack. You keep the programming model you
 already know — `Form`s, controls, event handlers, even the `*.Designer.cs` files — and gain
 Windows, macOS, and Linux out of the box, with mobile and web within reach through
@@ -11,12 +11,12 @@ Windows, macOS, and Linux out of the box, with mobile and web within reach throu
 > ⚠️ **Early stage.** The API is stabilizing and not every WinForms corner is covered yet.
 > Great for new cross-platform LOB apps and for migrating real apps today — just pin your version.
 
-## Why Continuum.Forms?
+## Why Majorsilence.Forms?
 
 Migrating a WinForms app usually means a ground-up rewrite in a new UI paradigm (XAML, MVVM, the
 web). That's expensive, risky, and throws away years of working business logic and UX.
 
-Continuum.Forms is built to **collapse that migration**. It mirrors the WinForms API surface and
+Majorsilence.Forms is built to **collapse that migration**. It mirrors the WinForms API surface and
 ships a compatibility layer so your existing forms, controls, and code move over with far less
 churn — then runs everywhere on top of best-in-class hosts:
 
@@ -38,7 +38,7 @@ instead of starting over, this framework is for you.
 ```
         Your app  (Forms, controls, Designer files — the WinForms model you know)
             │
-       Continuum.Forms  (controls + WinForms-compatible API, drawn with SkiaSharp)
+       Majorsilence.Forms  (controls + WinForms-compatible API, drawn with SkiaSharp)
             │
    Swappable host backend
    ├─ Avalonia   → Windows · macOS · Linux            (default)
@@ -46,16 +46,16 @@ instead of starting over, this framework is for you.
    └─ Headless    → offscreen rendering for tests / CI
 ```
 
-Continuum.Forms owns the controls and rendering; the backend only puts pixels on screen and
+Majorsilence.Forms owns the controls and rendering; the backend only puts pixels on screen and
 delivers input. That seam is what lets the same app target Avalonia today and Uno tomorrow.
 See [Platform backends](docs/backends.md) for the details and how to add your own.
 
-`Continuum.Drawing` provides a Skia-backed, cross-platform replacement for the Windows-only
+`Majorsilence.Drawing` provides a Skia-backed, cross-platform replacement for the Windows-only
 `System.Drawing.Common` (GDI+) APIs, so drawing code migrates too.
 
 ## Getting started
 
-See [Getting Started](docs/getting-started.md) to scaffold your first Continuum.Forms app.
+See [Getting Started](docs/getting-started.md) to scaffold your first Majorsilence.Forms app.
 
 A form looks exactly like you'd expect:
 
@@ -64,7 +64,7 @@ A form looks exactly like you'd expect:
 
 ## Samples
 
-Explore real apps built with Continuum.Forms in the [`samples/`](samples) folder:
+Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) folder:
 
 - [`ControlGallery`](samples/ControlGallery) — every built-in control, live.
 - [`Gallery.Uno`](samples/Gallery.Uno) — the control gallery running on the **Uno** backend.

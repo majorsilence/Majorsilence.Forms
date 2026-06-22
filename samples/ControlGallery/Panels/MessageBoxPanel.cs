@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using Continuum.Forms;
+using Majorsilence.Forms;
 
 namespace ControlGallery.Panels
 {

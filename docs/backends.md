@@ -1,24 +1,24 @@
 # Platform backends
 
-Continuum.Forms does **all of its own drawing** with SkiaSharp. Every control paints into an
+Majorsilence.Forms does **all of its own drawing** with SkiaSharp. Every control paints into an
 `SKSurface`/`SKCanvas`; the windowing toolkit underneath is only a *host* — it creates native
 windows, runs the message loop, delivers input, and presents the Skia surface to the screen.
 
-That host is abstracted behind a small seam so Continuum.Forms can run on more than one toolkit:
+That host is abstracted behind a small seam so Majorsilence.Forms can run on more than one toolkit:
 
 | Assembly | Backend | Notes |
 |----------|---------|-------|
-| `Continuum.Forms.Avalonia` | Avalonia 12 (`AvaloniaPlatformBackend`) | Default desktop backend (Windows/macOS/Linux). |
-| `Continuum.Forms.Headless` | Dependency-free SkiaSharp (`HeadlessPlatformBackend`) | Offscreen rendering for tests/servers; the reference second backend. |
-| `Continuum.Forms.Uno` | Uno Platform / Skia (`UnoPlatformBackend`) | Builds against `Uno.WinUI 6.5.237` + `SkiaSharp.Views.Uno.WinUI`; presents via `SKXamlCanvas`. Runs through a Uno app head (`samples/Gallery.Uno`) — verified bootstrapping + rendering Continuum.Forms on macOS. |
+| `Majorsilence.Forms.Avalonia` | Avalonia 12 (`AvaloniaPlatformBackend`) | Default desktop backend (Windows/macOS/Linux). |
+| `Majorsilence.Forms.Headless` | Dependency-free SkiaSharp (`HeadlessPlatformBackend`) | Offscreen rendering for tests/servers; the reference second backend. |
+| `Majorsilence.Forms.Uno` | Uno Platform / Skia (`UnoPlatformBackend`) | Builds against `Uno.WinUI 6.5.237` + `SkiaSharp.Views.Uno.WinUI`; presents via `SKXamlCanvas`. Runs through a Uno app head (`samples/Gallery.Uno`) — verified bootstrapping + rendering Majorsilence.Forms on macOS. |
 
-The **core `Continuum.Forms` assembly references no windowing toolkit** — only SkiaSharp. Backends are
+The **core `Majorsilence.Forms` assembly references no windowing toolkit** — only SkiaSharp. Backends are
 separate assemblies that depend on the core and reach into its internal render/input plumbing via
 `[InternalsVisibleTo]`.
 
 ## The seam
 
-Two interfaces in `Continuum.Forms.Backends` define everything a host must provide.
+Two interfaces in `Majorsilence.Forms.Backends` define everything a host must provide.
 
 ### `IPlatformBackend` — application + process services
 
@@ -41,7 +41,7 @@ ShowOpenFileDialog / ShowSaveFileDialog / ShowOpenFolderDialog
 ```
 
 `IWindowBackend` is the **pull** side — operations `WindowBase` invokes on its window. The **push**
-side (native input → Continuum.Forms, and paint requests) is delivered by the backend calling the
+side (native input → Majorsilence.Forms, and paint requests) is delivered by the backend calling the
 owning window's neutral methods directly, none of which expose any platform type:
 
 - **Paint:** `WindowBase.RenderFrame(SKCanvas canvas, int physW, int physH, double scaling)` — the
@@ -52,25 +52,25 @@ owning window's neutral methods directly, none of which expose any platform type
 - **Lifecycle:** `OnBackendActivated/OnBackendDeactivated/OnBackendClosed()` and
   `OnBackendClosing()→bool` (true = cancel the close).
 
-All coordinates crossing the seam are `System.Drawing` value types and `Continuum.Forms` enums
+All coordinates crossing the seam are `System.Drawing` value types and `Majorsilence.Forms` enums
 (`MouseButtons`, `Keys`, `CursorType`, `WindowEdge`, `FormWindowState`); no toolkit types leak into
 the core.
 
 ### Selecting the backend
 
-`Continuum.Forms.Backends.Platform.Backend` holds the active `IPlatformBackend`. If unset, it is
-resolved by name (reflection) to `Continuum.Forms.Backends.AvaloniaPlatformBackend, Continuum.Forms.Avalonia`
-when that assembly is referenced — so a desktop app just references `Continuum.Forms.Avalonia` and calls
+`Majorsilence.Forms.Backends.Platform.Backend` holds the active `IPlatformBackend`. If unset, it is
+resolved by name (reflection) to `Majorsilence.Forms.Backends.AvaloniaPlatformBackend, Majorsilence.Forms.Avalonia`
+when that assembly is referenced — so a desktop app just references `Majorsilence.Forms.Avalonia` and calls
 `Application.Run(new MyForm())` with zero configuration. To use a different backend, set it before the
 first window is created:
 
 ```csharp
-Continuum.Forms.Backends.Platform.Backend = new Continuum.Forms.Headless.HeadlessPlatformBackend ();
+Majorsilence.Forms.Backends.Platform.Backend = new Majorsilence.Forms.Headless.HeadlessPlatformBackend ();
 ```
 
 ## The Headless backend (reference)
 
-`Continuum.Forms.Headless` is the simplest possible backend and a good template:
+`Majorsilence.Forms.Headless` is the simplest possible backend and a good template:
 
 - `HeadlessPlatformBackend` — a work-queue "message loop", in-memory clipboard, a virtual screen,
   a `System.Threading.Timer`-based `IPlatformTimer`, and a `RunModalLoop` that pumps the queue.
@@ -79,7 +79,7 @@ Continuum.Forms.Backends.Platform.Backend = new Continuum.Forms.Headless.Headles
   input-injection helpers (`Click`, `MouseDown/Up/Move`, `KeyDown/Up`, `TextInput`) drive the same
   neutral `Handle*` path a real backend uses.
 
-It needs no display, so it powers the unit tests (`tests/Continuum.Forms.Tests` runs entirely on it via a
+It needs no display, so it powers the unit tests (`tests/Majorsilence.Forms.Tests` runs entirely on it via a
 `[ModuleInitializer]`) and can render the ControlGallery headlessly:
 
 ```
@@ -88,7 +88,7 @@ dotnet run --project samples/ControlGallery -- --render-headless out.png 1100 75
 
 ## The Uno backend
 
-`Continuum.Forms.Uno` implements the seam on Uno Platform's Skia target:
+`Majorsilence.Forms.Uno` implements the seam on Uno Platform's Skia target:
 
 - `UnoPlatformBackend : IPlatformBackend` — drives the Uno `DispatcherQueue`
   (`Post`/`Invoke`/`CheckAccess`), a `DispatcherTimer`, the WinUI clipboard, and `RunModalLoop`.
@@ -97,16 +97,16 @@ dotnet run --project samples/ControlGallery -- --render-headless out.png 1100 75
   events are translated (via `UnoKeyInterop`) into the neutral `owner.Handle*` calls.
 
 The backend **library** depends only on `Uno.WinUI` + `SkiaSharp.Views.Uno.WinUI` (restored from
-nuget.org via `src/Continuum.Forms.Uno/nuget.config`, since the corporate feeds 403 on Uno). It pins
+nuget.org via `src/Majorsilence.Forms.Uno/nuget.config`, since the corporate feeds 403 on Uno). It pins
 `SkiaSharp.Views.Uno.WinUI` to `3.119.4` to match the core `SkiaSharp` version.
 
 **Running it** needs a Uno *app head* — a sample is provided at `samples/Gallery.Uno`. It references
 the platform Skia runtimes (`Uno.WinUI.Runtime.Skia.X11`/`.Win32`/`.MacOS`, all at Uno `6.5.237`),
-builds the host, installs the backend, and shows a Continuum.Forms window:
+builds the host, installs the backend, and shows a Majorsilence.Forms window:
 
 ```csharp
 var host = UnoPlatformHostBuilder.Create ()
-    .App (() => new ContinuumFormsUnoApp ())   // OnLaunched: Platform.Backend = new UnoPlatformBackend(); new DemoForm().Show();
+    .App (() => new MajorsilenceFormsUnoApp ())   // OnLaunched: Platform.Backend = new UnoPlatformBackend(); new DemoForm().Show();
     .UseX11 ().UseWin32 ().UseMacOS ()
     .Build ();
 host.Run ();
@@ -127,7 +127,7 @@ Verified on macOS: the Uno host launches, `UnoPlatformBackend` creates the windo
 ### Window drag & resize with self-drawn chrome
 
 `BeginMoveDrag`/`BeginResizeDrag` are no-ops on the Uno backend — WinUI/Uno has no programmatic
-"begin drag from code" API. Instead, window move/resize for Continuum.Forms' custom (self-drawn)
+"begin drag from code" API. Instead, window move/resize for Majorsilence.Forms' custom (self-drawn)
 chrome is handled **declaratively**:
 
 - **Resize** comes for free: a borderless `OverlappedPresenter`
@@ -150,7 +150,7 @@ use `UseSystemDecorations` there if you need OS window dragging.
 
 ### Adding another backend
 
-A new backend is a new assembly referencing `Continuum.Forms` (core) + the toolkit, implementing the two
+A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two
 interfaces — mirror the Avalonia/Headless/Uno trio: drive the dispatcher + lifecycle in the
 `IPlatformBackend`, and present a Skia surface (calling `owner.RenderFrame`) + translate input
 (`owner.Handle*`) in the `IWindowBackend`. Add an `[InternalsVisibleTo]` entry in the core `.csproj`.

@@ -1,10 +1,10 @@
 using System.ComponentModel;
-using Continuum.Forms;
-using Continuum.Forms.Telerik;
+using Majorsilence.Forms;
+using Majorsilence.Forms.Telerik;
 
 namespace ControlGallery.Panels
 {
-    // Showcases RadPropertyGrid (Continuum.Forms.Telerik) — backed by the real Continuum.Forms.PropertyGrid.
+    // Showcases RadPropertyGrid (Majorsilence.Forms.Telerik) — backed by the real Majorsilence.Forms.PropertyGrid.
     // Setting SelectedObject displays the object's public properties grouped by [Category].
     public class TelerikPropertyGridPanel : BasePanel
     {

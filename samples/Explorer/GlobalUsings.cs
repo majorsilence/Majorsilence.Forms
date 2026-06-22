@@ -1,1 +1,1 @@
-global using Continuum.Drawing;
+global using Majorsilence.Drawing;

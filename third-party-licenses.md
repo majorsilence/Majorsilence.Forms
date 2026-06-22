@@ -1,8 +1,8 @@
 ## Third Party Sources
-`Continuum.Forms` contains code from multiple MIT licensed sources:
+`Majorsilence.Forms` contains code from multiple MIT licensed sources:
 
 ### Avalonia
-* This code is found in `src/Continuum.Forms/Avalonia`
+* This code is found in `src/Majorsilence.Forms/Avalonia`
 * https://github.com/AvaloniaUI/Avalonia
 
 The MIT License (MIT)

@@ -10,7 +10,7 @@ public sealed class App : Application
     public override void Initialize ()
     {
         // The host owns the theme — Fluent provides light/dark variants and the SystemAccentColor
-        // resource that the Continuum.Forms theme bridge picks up.
+        // resource that the Majorsilence.Forms theme bridge picks up.
         Styles.Add (new FluentTheme ());
         RequestedThemeVariant = ThemeVariant.Light;
     }

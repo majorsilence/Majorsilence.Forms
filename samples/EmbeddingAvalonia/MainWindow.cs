@@ -4,18 +4,18 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 
-using CF = Continuum.Forms;
+using CF = Majorsilence.Forms;
 
 namespace EmbeddingAvalonia;
 
 // A native Avalonia Window whose content is a mix of native Avalonia controls and an embedded
-// Continuum.Forms scene (hosted by ContinuumFormsPresenter). A "Toggle theme" button flips the host's
-// theme variant; the embedded Continuum content recolors automatically via the theme bridge.
+// Majorsilence.Forms scene (hosted by MajorsilenceFormsPresenter). A "Toggle theme" button flips the host's
+// theme variant; the embedded Majorsilence content recolors automatically via the theme bridge.
 public sealed class MainWindow : Window
 {
     public MainWindow ()
     {
-        Title = "Continuum.Forms embedded in Avalonia";
+        Title = "Majorsilence.Forms embedded in Avalonia";
         Width = 820;
         Height = 560;
 
@@ -46,13 +46,13 @@ public sealed class MainWindow : Window
         };
 
         var subheading = new TextBlock {
-            Text = "Embedded Continuum.Forms (ContinuumFormsPresenter)",
+            Text = "Embedded Majorsilence.Forms (MajorsilenceFormsPresenter)",
             FontWeight = FontWeight.SemiBold,
             Margin = new Thickness (12, 4)
         };
 
-        var presenter = new CF.ContinuumFormsPresenter {
-            Content = BuildContinuumScene (),
+        var presenter = new CF.MajorsilenceFormsPresenter {
+            Content = BuildMajorsilenceScene (),
             Margin = new Thickness (12, 4, 12, 12)
         };
 
@@ -73,13 +73,13 @@ public sealed class MainWindow : Window
         Content = grid;
     }
 
-    // Builds a small Continuum.Forms control tree exercising render + input + popups.
-    private static CF.Control BuildContinuumScene ()
+    // Builds a small Majorsilence.Forms control tree exercising render + input + popups.
+    private static CF.Control BuildMajorsilenceScene ()
     {
         var panel = new CF.Panel ();
 
         var label = new CF.Label {
-            Text = "Continuum.Forms controls (theme follows the host):",
+            Text = "Majorsilence.Forms controls (theme follows the host):",
             Left = 12, Top = 12, Width = 420, Height = 24
         };
 
@@ -96,7 +96,7 @@ public sealed class MainWindow : Window
         combo.Items.Add ("Third");
 
         var button = new CF.Button {
-            Text = "Continuum Button",
+            Text = "Majorsilence Button",
             Left = 12, Top = 124, Width = 160, Height = 34
         };
 
@@ -108,7 +108,7 @@ public sealed class MainWindow : Window
         var clicks = 0;
         button.Click += (_, _) => { clicks++; status.Text = $"Clicks: {clicks} — text: \"{textbox.Text}\""; };
 
-        // Phase 5: a real native Avalonia control hosted *inside* the Continuum scene (airspace overlay).
+        // Phase 5: a real native Avalonia control hosted *inside* the Majorsilence scene (airspace overlay).
         var nativeButton = new Button { Content = "Native Avalonia button" };
         var nativeHost = new CF.NativeControlHost {
             Left = 280, Top = 44, Width = 240, Height = 40,

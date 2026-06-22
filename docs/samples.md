@@ -1,15 +1,15 @@
-## Continuum.Forms Samples
+## Majorsilence.Forms Samples
 
 ### Explore
 
-`Explore` is a clone of Windows' Explorer application.  It is available in the `Continuum.Forms` repository.
+`Explore` is a clone of Windows' Explorer application.  It is available in the `Majorsilence.Forms` repository.
 
 #### Windows
 
 * Clone this repository
 * Install .NET 6
   * https://dotnet.microsoft.com/download/dotnet-core
-* Open `Continuum.Forms.sln` in Visual Studio 2022
+* Open `Majorsilence.Forms.sln` in Visual Studio 2022
 * Ensure `Explore` is set as the Startup project
 * Launch with F5
 
@@ -37,7 +37,7 @@
 
 ### Outlaw
 
-`Outlaw` is a clone of Microsoft's Outlook, showing off how `Continuum.Forms` can be used to create a complex modern application.
+`Outlaw` is a clone of Microsoft's Outlook, showing off how `Majorsilence.Forms` can be used to create a complex modern application.
 
 Follow the steps above for your system, replacing with `Outlaw` for the startup project or directory.
 
@@ -46,7 +46,7 @@ Follow the steps above for your system, replacing with `Outlaw` for the startup 
 
 ### ControlGallery
 
-`ControlGallery` shows off the various controls and features currently available in `Continuum.Forms`.
+`ControlGallery` shows off the various controls and features currently available in `Majorsilence.Forms`.
 
 Follow the steps above for your system, replacing with `ControlGallery` for the startup project or directory.
 

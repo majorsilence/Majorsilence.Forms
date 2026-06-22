@@ -1,17 +1,17 @@
-## Getting Started with Continuum.Forms
+## Getting Started with Majorsilence.Forms
 
 ## From Template
 
-The easiest way to get started creating a Continuum.Forms application is with our `dotnet` template available from NuGet.
+The easiest way to get started creating a Majorsilence.Forms application is with our `dotnet` template available from NuGet.
 
 To install and run:
 ```
-dotnet new --install ContinuumForms.Templates
-dotnet new continuumforms
+dotnet new --install MajorsilenceForms.Templates
+dotnet new majorsilenceforms
 dotnet run
 ```
 
-This will run create and run a basic Hello World Continuum.Forms application.
+This will run create and run a basic Hello World Majorsilence.Forms application.
 
 There isn't documentation available yet, but the API should be relatively familiar for developers with Windows.Forms
 experience.  A good resource is to look at the source code of our sample applications:
@@ -20,7 +20,7 @@ experience.  A good resource is to look at the source code of our sample applica
 
 ## From Scratch
 
-To turn a regular .NET Core Console Application into a Continuum.Forms application, make the following changes.
+To turn a regular .NET Core Console Application into a Majorsilence.Forms application, make the following changes.
 
 #### Project File
 
@@ -33,10 +33,10 @@ Ensure the following properties are set:
 </PropertyGroup>
 ```
 
-Add a NuGet reference to `Continuum.Forms`:
+Add a NuGet reference to `Majorsilence.Forms`:
 ```
 <ItemGroup>
-    <PackageReference Include="Continuum.Forms" Version="0.2.0" />
+    <PackageReference Include="Majorsilence.Forms" Version="0.2.0" />
 </ItemGroup>
 ```
 
@@ -44,7 +44,7 @@ Add a NuGet reference to `Continuum.Forms`:
 
 Create an empty Form class:
 ```csharp
-using Continuum.Forms;
+using Majorsilence.Forms;
 
 public class MainForm : Form
 {

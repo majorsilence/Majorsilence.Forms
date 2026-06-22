@@ -1,5 +1,5 @@
-﻿using Continuum.Forms;
-using Continuum.Forms.Renderers;
+﻿using Majorsilence.Forms;
+using Majorsilence.Forms.Renderers;
 using SkiaSharp;
 
 namespace ControlGallery.Panels

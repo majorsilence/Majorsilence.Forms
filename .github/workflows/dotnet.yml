@@ -33,7 +33,7 @@ jobs:
 
     - name: Package NuGet
       if: runner.os == 'Windows'
-      run: dotnet pack src\Continuum.Forms\Continuum.Forms.csproj --configuration Release
+      run: dotnet pack src\Majorsilence.Forms\Majorsilence.Forms.csproj --configuration Release
 
     - name: Upload NuGet
       uses: actions/upload-artifact@v4.0.0

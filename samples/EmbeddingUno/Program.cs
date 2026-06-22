@@ -1,16 +1,16 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Continuum.Forms.Uno;
+using Majorsilence.Forms.Uno;
 using Uno.UI.Hosting;
 
-using CF = Continuum.Forms;
+using CF = Majorsilence.Forms;
 using MuxButton = Microsoft.UI.Xaml.Controls.Button;
 using MuxTextBox = Microsoft.UI.Xaml.Controls.TextBox;
 
 namespace EmbeddingUno;
 
-// A host-owned Uno Platform (Skia desktop) head that embeds Continuum.Forms content via
-// ContinuumFormsPresenter. Run on a desktop session: `dotnet run --project samples/EmbeddingUno`.
+// A host-owned Uno Platform (Skia desktop) head that embeds Majorsilence.Forms content via
+// MajorsilenceFormsPresenter. Run on a desktop session: `dotnet run --project samples/EmbeddingUno`.
 public static class Program
 {
     [System.STAThread]
@@ -34,7 +34,7 @@ public sealed class EmbeddingApp : Application
     public EmbeddingApp ()
     {
         // Native WinUI controls (TextBox/Button/ComboBox) need their default styles; without this the
-        // native TextBox/Button render unstyled (often invisible). Continuum.Forms draws its own controls,
+        // native TextBox/Button render unstyled (often invisible). Majorsilence.Forms draws its own controls,
         // so this is only required because the host app uses native controls alongside the presenter.
         Resources.MergedDictionaries.Add (new Microsoft.UI.Xaml.Controls.XamlControlsResources ());
     }
@@ -68,16 +68,16 @@ public sealed class EmbeddingApp : Application
         root.Children.Add (nativeRow);
 
         var subheading = new TextBlock {
-            Text = "Embedded Continuum.Forms (ContinuumFormsPresenter)",
+            Text = "Embedded Majorsilence.Forms (MajorsilenceFormsPresenter)",
             Margin = new Thickness (12, 0, 12, 8),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
         };
         Grid.SetRow (subheading, 1);
         root.Children.Add (subheading);
 
-        // ── Embedded Continuum.Forms ──
-        var presenter = new ContinuumFormsPresenter {
-            Content = BuildContinuumScene (),
+        // ── Embedded Majorsilence.Forms ──
+        var presenter = new MajorsilenceFormsPresenter {
+            Content = BuildMajorsilenceScene (),
             Margin = new Thickness (12, 0, 12, 12)
         };
         Grid.SetRow (presenter, 2);
@@ -89,12 +89,12 @@ public sealed class EmbeddingApp : Application
         System.Console.WriteLine ($"[uno-embed] window shown; backend={CF.Backends.Platform.Backend.Name}");
     }
 
-    private static CF.Control BuildContinuumScene ()
+    private static CF.Control BuildMajorsilenceScene ()
     {
         var panel = new CF.Panel ();
 
         var label = new CF.Label {
-            Text = "Continuum.Forms controls (theme follows the host):",
+            Text = "Majorsilence.Forms controls (theme follows the host):",
             Left = 12, Top = 12, Width = 420, Height = 24
         };
         var textbox = new CF.TextBox { Text = "Edit me", Left = 12, Top = 44, Width = 240, Height = 30 };
@@ -102,13 +102,13 @@ public sealed class EmbeddingApp : Application
         combo.Items.Add ("First");
         combo.Items.Add ("Second");
         combo.Items.Add ("Third");
-        var button = new CF.Button { Text = "Continuum Button", Left = 12, Top = 124, Width = 160, Height = 34 };
+        var button = new CF.Button { Text = "Majorsilence Button", Left = 12, Top = 124, Width = 160, Height = 34 };
         var status = new CF.Label { Text = "Clicks: 0", Left = 12, Top = 168, Width = 300, Height = 24 };
 
         var clicks = 0;
         button.Click += (_, _) => { clicks++; status.Text = $"Clicks: {clicks} — text: \"{textbox.Text}\""; };
 
-        // Phase 5: a real native Uno control hosted *inside* the Continuum scene (airspace overlay).
+        // Phase 5: a real native Uno control hosted *inside* the Majorsilence scene (airspace overlay).
         var nativeButton = new MuxButton { Content = "Native Uno button" };
         nativeButton.Click += (_, _) => status.Text = "Native Uno button clicked!";
         var nativeHost = new CF.NativeControlHost {

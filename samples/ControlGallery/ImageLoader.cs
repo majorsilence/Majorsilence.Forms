@@ -1,4 +1,4 @@
-using Continuum.Drawing;
+using Majorsilence.Drawing;
 
 namespace ControlGallery
 {

@@ -11,8 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Continuum.Forms\Continuum.Forms.csproj" />
-    <ProjectReference Include="..\..\src\Continuum.Forms.Uno\Continuum.Forms.Uno.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Uno\Majorsilence.Forms.Uno.csproj" />
   </ItemGroup>
 
   <ItemGroup>

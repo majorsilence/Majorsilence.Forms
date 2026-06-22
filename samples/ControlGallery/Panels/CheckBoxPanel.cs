@@ -1,6 +1,6 @@
 ﻿using System.Drawing;
-using Continuum.Forms;
-using ContentAlignment = Continuum.Forms.ContentAlignment;
+using Majorsilence.Forms;
+using ContentAlignment = Majorsilence.Forms.ContentAlignment;
 
 namespace ControlGallery.Panels
 {
