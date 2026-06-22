@@ -553,6 +553,114 @@ namespace Continuum.Forms.Tests
         }
 
         [Fact]
+        public void Editability_FlagsGateBaseReadOnly ()
+        {
+            using var grid = Populated ();
+            Assert.True (grid.CanEditCells);
+
+            grid.AllowEditRow = false;
+            Assert.True (((DataGridView)grid).ReadOnly);
+            Assert.False (grid.CanEditCells);
+
+            grid.AllowEditRow = true;
+            Assert.False (((DataGridView)grid).ReadOnly);
+
+            grid.MasterTemplate.ReadOnly = true;
+            Assert.True (((DataGridView)grid).ReadOnly);
+            Assert.False (grid.CanEditCells);
+        }
+
+        [Fact]
+        public void AutoExpandGroups_False_StartsCollapsed ()
+        {
+            using var grid = Populated ();
+            grid.EnableGrouping = true;
+            grid.MasterTemplate.AutoExpandGroups = false;
+            grid.GroupByColumn ("Dept");
+
+            Assert.Equal (0, grid.RowCount);   // every group starts collapsed
+            grid.ExpandAllGroups ();
+            Assert.Equal (5, grid.RowCount);
+        }
+
+        [Fact]
+        public void Xlsx_ExportsNumericCellsAsNumbers ()
+        {
+            using var grid = Populated ();
+            var bytes = grid.ExportToXlsxBytes ();
+            using var ms = new MemoryStream (bytes);
+            using var zip = new ZipArchive (ms, ZipArchiveMode.Read);
+            using var reader = new StreamReader (zip.GetEntry ("xl/worksheets/sheet1.xml")!.Open ());
+            var xml = reader.ReadToEnd ();
+
+            Assert.Contains ("<v>85000</v>", xml);                          // Salary as a real number
+            Assert.Contains ("<t xml:space=\"preserve\">Alice</t>", xml);   // text stays inline string
+        }
+
+        [Fact]
+        public void AddNewRow_PlaceholderAndAppend ()
+        {
+            using var grid = Populated ();
+            var dgv = (DataGridView)grid;
+
+            Assert.True (grid.ShowNewRow);                                  // on by default (Telerik)
+            Assert.Contains (dgv.Rows, r => r.Tag is GridNewRow);
+
+            var before = grid.RowCount;
+            grid.AddNewRow ();
+            Assert.Equal (before + 1, grid.RowCount);
+
+            grid.AllowAddNewRow = false;
+            Assert.DoesNotContain (dgv.Rows, r => r.Tag is GridNewRow);
+        }
+
+        [Fact]
+        public void Paging_SlicesRows ()
+        {
+            using var grid = Populated ();   // 5 data rows
+            grid.PageSize = 2;
+            grid.EnablePaging = true;
+
+            Assert.Equal (3, grid.PageCount);   // ceil(5/2)
+            Assert.Equal (2, grid.RowCount);    // page 0
+
+            grid.NextPage ();
+            Assert.Equal (2, grid.RowCount);    // page 1
+
+            grid.GoToPage (2);
+            Assert.Equal (1, grid.RowCount);    // last page
+        }
+
+        [Fact]
+        public void Filter_TwoConditions_AndOr ()
+        {
+            var between = new FilterDescriptor ("Salary", FilterOperator.IsGreaterThan, 40000) {
+                SecondOperator = FilterOperator.IsLessThan, SecondValue = 60000, CombineWithOr = false
+            };
+            Assert.True (between.Matches ("48000"));
+            Assert.False (between.Matches ("85000"));
+
+            var either = new FilterDescriptor ("Salary", FilterOperator.IsLessThan, 45000) {
+                SecondOperator = FilterOperator.IsGreaterThan, SecondValue = 80000, CombineWithOr = true
+            };
+            Assert.True (either.Matches ("42500"));
+            Assert.True (either.Matches ("85000"));
+            Assert.False (either.Matches ("64000"));
+        }
+
+        [Fact]
+        public void ChildViewExpanding_CanCancel ()
+        {
+            using var grid = Populated ();
+            grid.ChildViewProvider = _ => new GridChildView ("X");
+            grid.ChildViewExpanding += (_, ev) => ev.Cancel = true;
+
+            var alice = ((DataGridView)grid).Rows[0];
+            grid.ExpandRow (alice);
+            Assert.False (grid.IsRowExpanded (alice));
+        }
+
+        [Fact]
         public void MasterDetail_ExpandInjectsDetailRow ()
         {
             using var grid = Populated ();

@@ -69,6 +69,33 @@ namespace Continuum.Forms.Telerik
                 Text = current?.Value?.ToString () ?? string.Empty
             };
             popup.Controls.Add (valueBox);
+            y += 30;
+
+            // Second condition: And/Or + operator + value.
+            var combineCombo = new ComboBox {
+                Left = margin, Top = y, Width = 64, Height = 24, DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            combineCombo.Items.Add ("And", false);
+            combineCombo.Items.Add ("Or", false);
+            combineCombo.SelectedIndex = current?.CombineWithOr == true ? 1 : 0;
+            popup.Controls.Add (combineCombo);
+
+            var secondOperatorCombo = new ComboBox {
+                Left = combineCombo.Right + 4, Top = y, Width = width - margin * 2 - 68, Height = 24,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            foreach (var entry in Operators)
+                secondOperatorCombo.Items.Add (entry.Label, false);
+            secondOperatorCombo.SelectedIndex = current is null
+                ? 0 : Math.Max (0, Array.FindIndex (Operators, o => o.Op == current.SecondOperator));
+            popup.Controls.Add (secondOperatorCombo);
+            y += 30;
+
+            var secondValueBox = new TextBox {
+                Left = margin, Top = y, Width = width - margin * 2, Height = 24,
+                Text = current?.SecondValue?.ToString () ?? string.Empty
+            };
+            popup.Controls.Add (secondValueBox);
             y += 32;
 
             // Distinct-value checklist (skipped when there are too many distinct values).
@@ -124,7 +151,8 @@ namespace Continuum.Forms.Telerik
             y += rowH + margin;
 
             applyButton.Click += (_, _) => {
-                onApply (BuildDescriptor (operatorCombo.SelectedIndex, valueBox.Text, valueChecks));
+                onApply (BuildDescriptor (operatorCombo.SelectedIndex, valueBox.Text,
+                    secondOperatorCombo.SelectedIndex, secondValueBox.Text, combineCombo.SelectedIndex == 1, valueChecks));
                 popup.Hide ();
             };
             clearButton.Click += (_, _) => {
@@ -136,7 +164,8 @@ namespace Continuum.Forms.Telerik
             popup.Show (screenLocation);
         }
 
-        private static FilterDescriptor? BuildDescriptor (int operatorIndex, string value, List<CheckBox> valueChecks)
+        private static FilterDescriptor? BuildDescriptor (int operatorIndex, string value,
+            int secondOperatorIndex, string secondValue, bool combineWithOr, List<CheckBox> valueChecks)
         {
             HashSet<string>? selected = null;
 
@@ -146,14 +175,18 @@ namespace Continuum.Forms.Telerik
                     StringComparer.CurrentCultureIgnoreCase);
 
             var op = operatorIndex >= 0 && operatorIndex < Operators.Length ? Operators[operatorIndex].Op : FilterOperator.None;
+            var op2 = secondOperatorIndex >= 0 && secondOperatorIndex < Operators.Length ? Operators[secondOperatorIndex].Op : FilterOperator.None;
 
             // Nothing selected to filter on → clear.
-            if (selected is null && op == FilterOperator.None)
+            if (selected is null && op == FilterOperator.None && op2 == FilterOperator.None)
                 return null;
 
             return new FilterDescriptor {
                 Operator = op,
                 Value = string.IsNullOrEmpty (value) ? null : value,
+                SecondOperator = op2,
+                SecondValue = string.IsNullOrEmpty (secondValue) ? null : secondValue,
+                CombineWithOr = combineWithOr,
                 SelectedValues = selected
             };
         }

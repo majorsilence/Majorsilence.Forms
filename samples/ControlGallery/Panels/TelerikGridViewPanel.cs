@@ -55,7 +55,7 @@ namespace ControlGallery.Panels
             };
 
             grid.MasterTemplate.ViewDefinition = new TableViewDefinition ();
-            grid.MasterTemplate.AllowAddNewRow = false;
+            grid.MasterTemplate.AllowAddNewRow = true;   // shows the "click here to add a new row" placeholder
 
             grid.Columns.Add (new GridViewTextBoxColumn ("Name") { HeaderText = "Name", Width = 150 });
             grid.Columns.Add (new GridViewComboBoxColumn ("Dept") {
@@ -152,6 +152,9 @@ namespace ControlGallery.Panels
                 grid.ExportToXlsx (path, "Employees");
                 xml_box.Text = "Exported to: " + path;
             });
+            AddButton ("Toggle Paging (6)", x, 520, () => { grid.PageSize = 6; grid.EnablePaging = !grid.EnablePaging; });
+            AddButton ("Prev Page", x, 556, () => grid.PrevPage ());
+            AddButton ("Next Page", x, 592, () => grid.NextPage ());
 
             Controls.Add (new Label {
                 Text = "Saved layout XML (click \"Save Layout\"):",

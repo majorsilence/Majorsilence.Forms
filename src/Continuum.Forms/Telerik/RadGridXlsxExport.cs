@@ -15,8 +15,16 @@ namespace Continuum.Forms.Telerik
     {
         private static readonly Encoding Utf8NoBom = new UTF8Encoding (false);
 
+        /// <summary>One exported cell: its text and whether it should be written as a numeric value.</summary>
+        internal readonly struct Cell
+        {
+            public Cell (string text, bool isNumber) { Text = text; IsNumber = isNumber; }
+            public string Text { get; }
+            public bool IsNumber { get; }
+        }
+
         /// <summary>Builds an .xlsx file (as bytes) from an optional header row and the data rows.</summary>
-        public static byte[] Build (string sheetName, IReadOnlyList<string>? headers, IReadOnlyList<IReadOnlyList<string>> rows)
+        public static byte[] Build (string sheetName, IReadOnlyList<string>? headers, IReadOnlyList<IReadOnlyList<Cell>> rows)
         {
             using var ms = new MemoryStream ();
 
@@ -68,7 +76,7 @@ namespace Continuum.Forms.Telerik
             "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
             "</Relationships>";
 
-        private static string Worksheet (IReadOnlyList<string>? headers, IReadOnlyList<IReadOnlyList<string>> rows)
+        private static string Worksheet (IReadOnlyList<string>? headers, IReadOnlyList<IReadOnlyList<Cell>> rows)
         {
             var sb = new StringBuilder ();
             sb.Append ("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
@@ -76,8 +84,12 @@ namespace Continuum.Forms.Telerik
 
             var rowNumber = 1;
 
-            if (headers is not null)
-                AppendRow (sb, rowNumber++, headers);
+            if (headers is not null) {
+                var headerCells = new List<Cell> (headers.Count);
+                foreach (var h in headers)
+                    headerCells.Add (new Cell (h, false));
+                AppendRow (sb, rowNumber++, headerCells);
+            }
 
             foreach (var row in rows)
                 AppendRow (sb, rowNumber++, row);
@@ -86,15 +98,20 @@ namespace Continuum.Forms.Telerik
             return sb.ToString ();
         }
 
-        private static void AppendRow (StringBuilder sb, int rowNumber, IReadOnlyList<string> cells)
+        private static void AppendRow (StringBuilder sb, int rowNumber, IReadOnlyList<Cell> cells)
         {
             sb.Append ("<row r=\"").Append (rowNumber).Append ("\">");
 
             for (var i = 0; i < cells.Count; i++) {
                 var reference = ColumnName (i) + rowNumber.ToString (System.Globalization.CultureInfo.InvariantCulture);
-                sb.Append ("<c r=\"").Append (reference).Append ("\" t=\"inlineStr\"><is><t xml:space=\"preserve\">")
-                  .Append (XmlEscape (cells[i] ?? string.Empty))
-                  .Append ("</t></is></c>");
+                var cell = cells[i];
+
+                if (cell.IsNumber)
+                    sb.Append ("<c r=\"").Append (reference).Append ("\"><v>").Append (cell.Text).Append ("</v></c>");
+                else
+                    sb.Append ("<c r=\"").Append (reference).Append ("\" t=\"inlineStr\"><is><t xml:space=\"preserve\">")
+                      .Append (XmlEscape (cell.Text ?? string.Empty))
+                      .Append ("</t></is></c>");
             }
 
             sb.Append ("</row>");

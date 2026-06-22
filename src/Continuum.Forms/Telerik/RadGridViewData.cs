@@ -77,8 +77,15 @@ namespace Continuum.Forms.Telerik
         /// </summary>
         public HashSet<string>? SelectedValues { get; set; }
 
+        /// <summary>Gets or sets an optional second comparison operator (for a two-condition filter).</summary>
+        public FilterOperator SecondOperator { get; set; } = FilterOperator.None;
+        /// <summary>Gets or sets the value for the second condition.</summary>
+        public object? SecondValue { get; set; }
+        /// <summary>When true the two conditions are OR-combined; otherwise AND. Default AND.</summary>
+        public bool CombineWithOr { get; set; }
+
         /// <summary>Gets whether this descriptor would actually filter anything.</summary>
-        public bool IsActive => SelectedValues is not null || Operator != FilterOperator.None;
+        public bool IsActive => SelectedValues is not null || Operator != FilterOperator.None || SecondOperator != FilterOperator.None;
 
         /// <summary>Returns whether the supplied cell display text passes this filter.</summary>
         public bool Matches (string cellText)
@@ -88,12 +95,23 @@ namespace Continuum.Forms.Telerik
             if (SelectedValues is not null && !SelectedValues.Contains (cellText))
                 return false;
 
-            if (Operator == FilterOperator.None)
+            var first = Evaluate (Operator, cellText, Value);
+            if (SecondOperator == FilterOperator.None)
+                return first;
+
+            var second = Evaluate (SecondOperator, cellText, SecondValue);
+            return CombineWithOr ? first || second : first && second;
+        }
+
+        // Evaluates a single operator against the cell text (None matches everything).
+        private static bool Evaluate (FilterOperator op, string cellText, object? value)
+        {
+            if (op == FilterOperator.None)
                 return true;
 
-            var target = Value?.ToString () ?? string.Empty;
+            var target = value?.ToString () ?? string.Empty;
 
-            switch (Operator) {
+            switch (op) {
                 case FilterOperator.Contains:
                     return cellText.IndexOf (target, StringComparison.CurrentCultureIgnoreCase) >= 0;
                 case FilterOperator.NotContains:

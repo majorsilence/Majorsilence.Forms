@@ -169,6 +169,15 @@ namespace Continuum.Forms.Telerik
         public Type? CellType { get; set; }
     }
 
+    /// <summary>Provides data for the RadGridView ChildViewExpanding event (master-detail).</summary>
+    public class ChildViewExpandingEventArgs : EventArgs
+    {
+        /// <summary>Gets or sets the master row whose child view is expanding.</summary>
+        public GridViewRowInfo? Row { get; set; }
+        /// <summary>Gets or sets whether to cancel the expansion.</summary>
+        public bool Cancel { get; set; }
+    }
+
     /// <summary>Provides data for the Telerik grid ContextMenuOpening event.</summary>
     public class ContextMenuOpeningEventArgs : EventArgs
     {

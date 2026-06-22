@@ -54,13 +54,28 @@ namespace Continuum.Forms.Renderers
             e.Canvas.DrawLine (band.Left, band.Bottom - 1, band.Right, band.Bottom - 1, Theme.BorderMidColor);
 
             var fontSize = grid.LogicalToDeviceUnits (Theme.ItemFontSize);
+            var left0 = content.Left + (grid.RowHeadersVisible ? grid.ScaledRowHeadersWidth : 0);
+            var leftEnd = left0 + grid.FrozenColumnsWidth;
+            var rightStart = content.Right - grid.RightPinnedColumnsWidth;
 
+            // Scrollable filter cells (clipped to the middle band), then pinned cells on top — matches the data rows.
+            DrawFilterCells (grid, e, y, h, fontSize, c => !c.Frozen && !c.PinnedRight,
+                new Rectangle (leftEnd, y, Math.Max (0, rightStart - leftEnd), h));
+            if (grid.FrozenColumnsWidth > 0)
+                DrawFilterCells (grid, e, y, h, fontSize, c => c.Frozen, new Rectangle (left0, y, grid.FrozenColumnsWidth, h));
+            if (grid.RightPinnedColumnsWidth > 0)
+                DrawFilterCells (grid, e, y, h, fontSize, c => c.PinnedRight, new Rectangle (rightStart, y, grid.RightPinnedColumnsWidth, h));
+        }
+
+        private static void DrawFilterCells (RadGridView grid, PaintEventArgs e, int y, int h, int fontSize,
+            Func<DataGridViewColumn, bool> include, Rectangle clip)
+        {
             e.Canvas.Save ();
-            e.Canvas.Clip (band);
+            e.Canvas.Clip (clip);
 
             for (var i = 0; i < grid.Columns.Count; i++) {
                 var column = grid.Columns[i];
-                if (!column.Visible)
+                if (!column.Visible || !include (column))
                     continue;
 
                 var x = grid.GetColumnDeviceLeft (i);
@@ -68,14 +83,11 @@ namespace Continuum.Forms.Renderers
                 var cell = new Rectangle (x, y, w, h);
                 e.Canvas.DrawLine (cell.Right - 1, cell.Top, cell.Right - 1, cell.Bottom, Theme.BorderLowColor);
 
-                if (i == grid.FilterEditColumn)
-                    continue;   // the editor TextBox overlays this cell
+                if (i == grid.FilterEditColumn || !RadGridView.ColumnAllowsFiltering (column))
+                    continue;   // editor overlays this cell, or filtering not allowed
 
                 var rect = cell;
                 rect.Inflate (-6, 0);
-
-                if (!RadGridView.ColumnAllowsFiltering (column))
-                    continue;
 
                 var text = grid.CurrentColumnFilterText (i);
                 if (string.IsNullOrEmpty (text))
@@ -92,7 +104,7 @@ namespace Continuum.Forms.Renderers
         {
             base.RenderColumnHeader (control, column, columnIndex, bounds, e);
 
-            if (control is not RadGridView grid || !grid.EnableFiltering || !RadGridView.ColumnAllowsFiltering (column))
+            if (control is not RadGridView grid || !grid.EnableFiltering || !RadGridView.ColumnAllowsFiltering (column) || !FunnelFits (column))
                 return;
 
             // Funnel glyph at the right of the header (left of the sort glyph), recorded for hit-testing.
@@ -118,12 +130,15 @@ namespace Continuum.Forms.Renderers
         /// <inheritdoc/>
         protected override int HeaderRightInset (DataGridView control, DataGridViewColumn column)
         {
-            if (control is RadGridView grid && grid.EnableFiltering && RadGridView.ColumnAllowsFiltering (column))
+            if (control is RadGridView grid && grid.EnableFiltering && RadGridView.ColumnAllowsFiltering (column) && FunnelFits (column))
                 return control.LogicalToDeviceUnits (26);   // keep text left of the funnel (drawn at Right-30)
             if (column.Sortable && column.SortOrder != SortOrder.None)
                 return control.LogicalToDeviceUnits (16);   // room for the sort glyph alone
             return 0;
         }
+
+        // The funnel glyph is suppressed on very narrow columns (it would crowd out the header text).
+        private static bool FunnelFits (DataGridViewColumn column) => column.Width >= 60;
 
         // The physically leftmost visible column (where the master-detail expander is drawn): the first
         // visible frozen column if any, otherwise the first visible column.
@@ -158,11 +173,33 @@ namespace Continuum.Forms.Renderers
                 return;
             }
 
+            if (row.Tag is GridNewRow) {
+                RenderNewRow (control, bounds, e);
+                return;
+            }
+
             base.RenderRow (control, row, rowIndex, bounds, e);
 
             // Master-detail expander glyph at the left of a data row.
             if (control is RadGridView mdGrid && mdGrid.HasChildView)
                 RenderExpander (control, bounds, mdGrid.IsRowExpanded (row), e);
+
+            // Validation error indicator: a red bar at the row's left edge.
+            if (!string.IsNullOrEmpty (row.ErrorText)) {
+                var w = control.LogicalToDeviceUnits (3);
+                e.Canvas.FillRectangle (new Rectangle (bounds.Left, bounds.Top, w, bounds.Height), new SKColor (200, 0, 0));
+            }
+        }
+
+        private static void RenderNewRow (DataGridView control, Rectangle bounds, PaintEventArgs e)
+        {
+            e.Canvas.FillRectangle (bounds, Theme.ControlLowColor);
+            e.Canvas.DrawLine (bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1, Theme.BorderLowColor);
+
+            var rect = bounds;
+            rect.Inflate (-control.LogicalToDeviceUnits (8), 0);
+            e.Canvas.DrawText ("Click here to add a new row", Theme.UIFont, control.LogicalToDeviceUnits (Theme.ItemFontSize),
+                rect, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1);
         }
 
         // ── Master-detail ──

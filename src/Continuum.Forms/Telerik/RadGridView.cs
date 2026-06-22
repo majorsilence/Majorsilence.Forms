@@ -37,6 +37,8 @@ namespace Continuum.Forms.Telerik
         private bool _applyingAutoSize;
         // Group path keys (see BuildGroupKey) that the user has collapsed.
         private readonly HashSet<string> _collapsed = new (StringComparer.Ordinal);
+        // Group keys already encountered (so that, when AutoExpandGroups is off, only *new* groups default collapsed).
+        private readonly HashSet<string> _seenGroupKeys = new (StringComparer.Ordinal);
         // Master rows (by reference) whose child/detail view is currently expanded.
         private readonly HashSet<DataGridViewRow> _expandedMasters = new (ReferenceEqualityComparer.Instance);
 
@@ -74,7 +76,7 @@ namespace Continuum.Forms.Telerik
 
             // Descriptor changes (add/remove/clear) rebuild the displayed view.
             SortDescriptors.Changed = () => { SyncSortGlyphs (); RebuildView (); };
-            GroupDescriptors.Changed = () => { RefreshLayout (); RebuildView (); };
+            GroupDescriptors.Changed = () => { _seenGroupKeys.Clear (); RefreshLayout (); RebuildView (); };
             FilterDescriptors.Changed = RebuildView;
             SummaryRowsTop.Changed = RebuildView;
             SummaryRowsBottom.Changed = RebuildView;
@@ -90,8 +92,13 @@ namespace Continuum.Forms.Telerik
                 _commandCellClick?.Invoke (this, args);
             };
             base.CellValueChanged += (_, e) => {
+                // Validation first: a handler may reject the new value (revert to the captured old value).
+                if (RaiseCellValidating (e.ColumnIndex, e.RowIndex))
+                    return;
+
                 // Enforce GridViewDecimalColumn constraints (min/max/decimal places) on the new value.
                 NormalizeDecimalCell (e.ColumnIndex, e.RowIndex);
+                NormalizeTextCell (e.ColumnIndex, e.RowIndex);
 
                 var args = BuildCellArgs (e.ColumnIndex, e.RowIndex);
                 _cellValueChanged?.Invoke (this, args);
@@ -102,7 +109,10 @@ namespace Continuum.Forms.Telerik
                     RebuildView ();
             };
             base.CellEndEdit += (_, e) => _cellEndEdit?.Invoke (this, BuildCellArgs (e.ColumnIndex, e.RowIndex));
-            base.CellBeginEdit += (_, e) => _cellBeginEdit?.Invoke (this, new GridViewCellCancelEventArgs { RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex, Row = RowAt (e.RowIndex) });
+            base.CellBeginEdit += (_, e) => {
+                _editOldValue = CellValueAt (e.RowIndex, e.ColumnIndex);
+                _cellBeginEdit?.Invoke (this, new GridViewCellCancelEventArgs { RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex, Row = RowAt (e.RowIndex) });
+            };
             base.SelectionChanged += (_, e) => {
                 _selectionChanged?.Invoke (this, e);
                 _currentRowChanged?.Invoke (this, e);
@@ -151,12 +161,18 @@ namespace Continuum.Forms.Telerik
 
         // ── Telerik config surface (forwarded to MasterTemplate so grid.X and grid.MasterTemplate.X agree) ──
 
-        /// <summary>Gets or sets whether a new-row entry is shown.</summary>
-        public bool AllowAddNewRow { get => MasterTemplate.AllowAddNewRow; set => MasterTemplate.AllowAddNewRow = value; }
-        /// <summary>Gets or sets whether rows can be deleted.</summary>
+        /// <summary>Gets or sets whether the "add new row" placeholder is shown.</summary>
+        public bool AllowAddNewRow { get => MasterTemplate.AllowAddNewRow; set { MasterTemplate.AllowAddNewRow = value; RebuildView (); Invalidate (); } }
+        /// <summary>Gets or sets whether rows can be deleted (via the Delete key).</summary>
         public bool AllowDeleteRow { get => MasterTemplate.AllowDeleteRow; set => MasterTemplate.AllowDeleteRow = value; }
-        /// <summary>Gets or sets whether rows can be edited.</summary>
-        public bool AllowEditRow { get => MasterTemplate.AllowEditRow; set => MasterTemplate.AllowEditRow = value; }
+        /// <summary>Gets or sets whether rows can be edited. Setting false makes the grid read-only.</summary>
+        public bool AllowEditRow { get => MasterTemplate.AllowEditRow; set { MasterTemplate.AllowEditRow = value; ApplyEditability (); } }
+
+        // Editing is allowed only when not read-only (grid- or template-level) and AllowEditRow is set.
+        internal bool CanEditCells => AllowEditRow && !MasterTemplate.ReadOnly && !base.ReadOnly;
+
+        // Reflects the Telerik read-only flags onto the base grid so all edit paths (F2, text, etc.) honor them.
+        internal void ApplyEditability () => base.ReadOnly = MasterTemplate.ReadOnly || !MasterTemplate.AllowEditRow;
         /// <summary>Gets or sets whether columns can be reordered by dragging their headers.</summary>
         public bool AllowColumnReorder { get => MasterTemplate.AllowColumnReorder; set => MasterTemplate.AllowColumnReorder = value; }
         /// <summary>Gets or sets whether the column chooser is allowed.</summary>
@@ -274,6 +290,24 @@ namespace Continuum.Forms.Telerik
                 cell.Value = clamped;
         }
 
+        // Enforces GridViewTextBoxColumn.MaxInputLength by truncating an over-long value.
+        private void NormalizeTextCell (int columnIndex, int rowIndex)
+        {
+            if (columnIndex < 0 || columnIndex >= base.Columns.Count
+                || base.Columns[columnIndex] is not GridViewTextBoxColumn tc || tc.MaxInputLength <= 0)
+                return;
+            if (rowIndex < 0 || rowIndex >= base.Rows.Count)
+                return;
+
+            var row = base.Rows[rowIndex];
+            if (IsStructuralRow (row) || columnIndex >= row.Cells.Count)
+                return;
+
+            var cell = row.Cells[columnIndex];
+            if (cell.Value?.ToString () is string text && text.Length > tc.MaxInputLength)
+                cell.Value = text.Substring (0, tc.MaxInputLength);
+        }
+
         /// <summary>Clamps a value to the column's [Minimum, Maximum] range and rounds to its DecimalPlaces.</summary>
         internal static decimal ClampDecimal (GridViewDecimalColumn column, decimal value)
         {
@@ -311,6 +345,38 @@ namespace Continuum.Forms.Telerik
                     ClearGrouping ();
             }
         }
+
+        private int _currentPage;
+        /// <summary>Gets or sets whether paging is enabled. When on (with a positive <see cref="PageSize"/>), only the current page is shown.</summary>
+        public bool EnablePaging {
+            get => MasterTemplate.EnablePaging;
+            set { MasterTemplate.EnablePaging = value; _currentPage = 0; RebuildView (); Invalidate (); }
+        }
+        /// <summary>Gets or sets the number of rows per page.</summary>
+        public int PageSize {
+            get => MasterTemplate.PageSize;
+            set { MasterTemplate.PageSize = Math.Max (0, value); _currentPage = 0; RebuildView (); Invalidate (); }
+        }
+        /// <summary>Whether paging is currently in effect (enabled, positive page size, and not grouping).</summary>
+        internal bool PagingActive => MasterTemplate.EnablePaging && MasterTemplate.PageSize > 0 && GroupDescriptors.Count == 0;
+        /// <summary>Gets the number of pages given the current filter/search and page size.</summary>
+        public int PageCount => PagingActive ? Math.Max (1, (FilteredMaster ().Count + PageSize - 1) / PageSize) : 1;
+        /// <summary>Gets or sets the current (0-based) page index.</summary>
+        public int CurrentPageIndex { get => _currentPage; set => GoToPage (value); }
+        /// <summary>Navigates to the specified (0-based) page, clamped to the valid range.</summary>
+        public void GoToPage (int index)
+        {
+            var clamped = Math.Max (0, Math.Min (index, PageCount - 1));
+            if (clamped == _currentPage)
+                return;
+            _currentPage = clamped;
+            RebuildView ();
+            Invalidate ();
+        }
+        /// <summary>Moves to the next page.</summary>
+        public void NextPage () => GoToPage (_currentPage + 1);
+        /// <summary>Moves to the previous page.</summary>
+        public void PrevPage () => GoToPage (_currentPage - 1);
 
         private bool _enableAlternatingRowColor;
         /// <summary>Gets or sets whether alternating rows are colored. Defaults to false (Telerik default).</summary>
@@ -382,11 +448,28 @@ namespace Continuum.Forms.Telerik
         /// <summary>Returns whether the master row's detail view is currently expanded.</summary>
         internal bool IsRowExpanded (DataGridViewRow row) => _expandedMasters.Contains (row);
 
-        /// <summary>Expands the master row's child/detail view.</summary>
+        private EventHandler<ChildViewExpandingEventArgs>? _childViewExpanding;
+        /// <summary>
+        /// Raised before a master row's child view expands. Handlers may set <c>e.Cancel</c> to veto, or
+        /// lazily populate the data the <see cref="ChildViewProvider"/> will return for this row.
+        /// </summary>
+        public event EventHandler<ChildViewExpandingEventArgs>? ChildViewExpanding { add => _childViewExpanding += value; remove => _childViewExpanding -= value; }
+
+        /// <summary>Expands the master row's child/detail view (raises <see cref="ChildViewExpanding"/>).</summary>
         public void ExpandRow (DataGridViewRow row)
         {
-            if (row is not null && _expandedMasters.Add (row))
-                RebuildView ();
+            if (row is null || _expandedMasters.Contains (row))
+                return;
+
+            if (_childViewExpanding is not null) {
+                var args = new ChildViewExpandingEventArgs { Row = new GridViewRowInfo (row) };
+                _childViewExpanding.Invoke (this, args);
+                if (args.Cancel)
+                    return;
+            }
+
+            _expandedMasters.Add (row);
+            RebuildView ();
         }
 
         /// <summary>Collapses the master row's child/detail view.</summary>
@@ -398,9 +481,26 @@ namespace Continuum.Forms.Telerik
 
         private void ToggleMasterRow (DataGridViewRow row)
         {
-            if (!_expandedMasters.Remove (row))
-                _expandedMasters.Add (row);
+            if (_expandedMasters.Contains (row))
+                CollapseRow (row);
+            else
+                ExpandRow (row);
+        }
+
+        /// <summary>Appends a new, empty data row (the action behind the "add new row" placeholder) and returns it.</summary>
+        public GridViewRowInfo? AddNewRow ()
+        {
+            if (!ShowNewRow)
+                return null;
+
+            var row = new DataGridViewRow ();
+            foreach (DataGridViewColumn _ in base.Columns)
+                row.Cells.Add (string.Empty);
+
+            _master.Add (row);
             RebuildView ();
+            Invalidate ();
+            return new GridViewRowInfo (row);
         }
 
         private string _searchText = string.Empty;
@@ -428,7 +528,7 @@ namespace Continuum.Forms.Telerik
         internal bool HasViewTransform =>
             GroupDescriptors.Count > 0 || SortDescriptors.Count > 0 || FilterDescriptors.Any (f => f.IsActive)
             || SummaryRowsTop.Count > 0 || SummaryRowsBottom.Count > 0 || !string.IsNullOrEmpty (_searchText)
-            || _expandedMasters.Count > 0;
+            || _expandedMasters.Count > 0 || ShowNewRow || PagingActive;
 
         /// <summary>Returns whether the row is an injected group-header row.</summary>
         internal static bool IsGroupRow (DataGridViewRow row) => row.Tag is GridGroupRow;
@@ -437,7 +537,11 @@ namespace Continuum.Forms.Telerik
         internal static bool IsSummaryRow (DataGridViewRow row) => row.Tag is GridSummaryRow;
 
         /// <summary>Returns whether the row is an injected structural row (group header or summary) rather than data.</summary>
-        internal static bool IsStructuralRow (DataGridViewRow row) => row.Tag is GridGroupRow || row.Tag is GridSummaryRow || row.Tag is GridDetailRow;
+        internal static bool IsStructuralRow (DataGridViewRow row) => row.Tag is GridGroupRow || row.Tag is GridSummaryRow || row.Tag is GridDetailRow || row.Tag is GridNewRow;
+
+        /// <summary>Whether the "add new row" placeholder should be shown (master-detail style, at the end).</summary>
+        internal bool ShowNewRow => MasterTemplate is not null && MasterTemplate.AllowAddNewRow && MasterTemplate.AllowEditRow
+            && !MasterTemplate.ReadOnly && !base.ReadOnly && base.Columns.Count > 0;
 
         /// <summary>Returns whether the column currently has an active filter (used by the renderer to highlight the funnel).</summary>
         internal bool ColumnHasActiveFilter (DataGridViewColumn column)
@@ -469,6 +573,10 @@ namespace Continuum.Forms.Telerik
         internal static bool ColumnAllowsGrouping (DataGridViewColumn column)
             => column is not GridViewColumn g || g.AllowGroup;
 
+        /// <summary>Returns whether the column permits the end user to reorder it.</summary>
+        internal static bool ColumnAllowsReorder (DataGridViewColumn column)
+            => column is not GridViewColumn g || g.AllowReorder;
+
         /// <summary>Removes the grouping for the named column.</summary>
         public void UngroupColumn (string columnName)
         {
@@ -483,6 +591,7 @@ namespace Continuum.Forms.Telerik
             if (GroupDescriptors.Count == 0)
                 return;
             _collapsed.Clear ();
+            _seenGroupKeys.Clear ();
             GroupDescriptors.Clear ();
         }
 
@@ -607,6 +716,10 @@ namespace Continuum.Forms.Telerik
                 display = combined;
             }
 
+            // "Click here to add a new row" placeholder at the very end.
+            if (ShowNewRow)
+                display.Add (new DataGridViewRow { Tag = new GridNewRow () });
+
             _applyingView = true;
             try {
                 base.Rows.ReplaceAll (display);
@@ -682,6 +795,16 @@ namespace Continuum.Forms.Telerik
             // Sort (group keys first so groups are contiguous, then explicit sort descriptors). Stable.
             if (GroupDescriptors.Count > 0 || SortDescriptors.Count > 0)
                 list = StableSort (list);
+
+            // Paging: slice to the current page (paging is disabled while grouping is active).
+            if (PagingActive) {
+                var pages = Math.Max (1, (list.Count + PageSize - 1) / PageSize);
+                if (_currentPage >= pages)
+                    _currentPage = pages - 1;
+                if (_currentPage < 0)
+                    _currentPage = 0;
+                list = list.Skip (_currentPage * PageSize).Take (PageSize).ToList ();
+            }
 
             if (GroupDescriptors.Count == 0)
                 return list;
@@ -818,6 +941,11 @@ namespace Continuum.Forms.Telerik
                 }
 
                 var key = BuildGroupKey (parentKey, level, value);
+
+                // When AutoExpandGroups is off, a group collapses by default the first time it appears.
+                if (respectCollapse && !MasterTemplate.AutoExpandGroups && _seenGroupKeys.Add (key))
+                    _collapsed.Add (key);
+
                 var collapsed = respectCollapse && _collapsed.Contains (key);
 
                 var groupRow = new DataGridViewRow {
@@ -1044,10 +1172,12 @@ namespace Continuum.Forms.Telerik
                     }
                 }
 
-                // 3) Structural row: toggle a group header; otherwise just swallow (summary rows aren't selectable).
+                // 3) Structural row: toggle a group header, add a row from the new-row placeholder, else swallow.
                 if (rowIndex >= 0 && rowIndex < base.Rows.Count && IsStructuralRow (base.Rows[rowIndex])) {
                     if (IsGroupRow (base.Rows[rowIndex]))
                         ToggleGroupRow (base.Rows[rowIndex]);
+                    else if (base.Rows[rowIndex].Tag is GridNewRow)
+                        AddNewRow ();
                     return;
                 }
             }
@@ -1090,7 +1220,8 @@ namespace Continuum.Forms.Telerik
                         var column = col < base.Columns.Count ? base.Columns[col] : null;
                         if (column is not null)
                             GroupByColumn (!string.IsNullOrEmpty (column.Name) ? column.Name : column.HeaderText);
-                    } else if (AllowColumnReorder && DragTargetColumn >= 0 && DragTargetColumn != col) {
+                    } else if (AllowColumnReorder && DragTargetColumn >= 0 && DragTargetColumn != col
+                               && col < base.Columns.Count && ColumnAllowsReorder (base.Columns[col])) {
                         MoveColumn (col, DragTargetColumn);
                     }
 
@@ -1465,13 +1596,23 @@ namespace Continuum.Forms.Telerik
                     headers.Add (string.IsNullOrEmpty (c.HeaderText) ? c.Name : c.HeaderText);
             }
 
-            var rows = new List<IReadOnlyList<string>> ();
+            var rows = new List<IReadOnlyList<RadGridXlsxExport.Cell>> ();
             foreach (var row in base.Rows) {
                 if (IsStructuralRow (row))
                     continue;
-                var values = new List<string> (cols.Count);
-                foreach (var c in cols)
-                    values.Add (GetCellDisplay (row, c.Index));
+                var values = new List<RadGridXlsxExport.Cell> (cols.Count);
+                foreach (var c in cols) {
+                    var raw = c.Index < row.Cells.Count ? row.Cells[c.Index].Value : null;
+                    // Numeric values export as real numbers (Excel right-aligns + supports math); others as text.
+                    if (raw is not null and not string and not bool && raw is IConvertible) {
+                        try {
+                            var n = Convert.ToDouble (raw, CultureInfo.InvariantCulture);
+                            values.Add (new RadGridXlsxExport.Cell (n.ToString ("R", CultureInfo.InvariantCulture), true));
+                            continue;
+                        } catch { }
+                    }
+                    values.Add (new RadGridXlsxExport.Cell (GetCellDisplay (row, c.Index), false));
+                }
                 rows.Add (values);
             }
 
@@ -1545,7 +1686,33 @@ namespace Continuum.Forms.Telerik
                 return;
             }
 
+            if (e.KeyCode == Keys.Delete && AllowDeleteRow && !MasterTemplate.ReadOnly) {
+                DeleteSelectedRows ();
+                e.Handled = true;
+                return;
+            }
+
             base.OnKeyDown (e);
+        }
+
+        // Removes the selected data rows (skips structural rows). Used by the Delete key.
+        private void DeleteSelectedRows ()
+        {
+            var toRemove = new List<DataGridViewRow> ();
+            foreach (var row in base.Rows)
+                if (!IsStructuralRow (row) && row.Selected)
+                    toRemove.Add (row);
+
+            if (toRemove.Count == 0)
+                return;
+
+            // Remove from the master set; OnRowsChanged-driven resync + RebuildView refresh the view.
+            _suspendRebuild = true;
+            foreach (var row in toRemove)
+                _master.Remove (row);
+            _suspendRebuild = false;
+            RebuildView ();
+            Invalidate ();
         }
 
         // ── Events (forwarded from the base grid; see ctor) ──
@@ -1568,6 +1735,15 @@ namespace Continuum.Forms.Telerik
         public new event EventHandler<GridViewCellEventArgs>? CellEndEdit { add => _cellEndEdit += value; remove => _cellEndEdit -= value; }
         /// <summary>Raised before a cell enters edit mode.</summary>
         public new event EventHandler<GridViewCellCancelEventArgs>? CellBeginEdit { add => _cellBeginEdit += value; remove => _cellBeginEdit -= value; }
+
+        private EventHandler<GridViewCellValidatingEventArgs>? _cellValidating;
+        // The value captured when editing began, used to revert a rejected (CellValidating-cancelled) edit.
+        private object? _editOldValue;
+        /// <summary>
+        /// Raised after a cell value changes. Set <c>e.Cancel</c> to reject the new value (it reverts to the
+        /// prior value); set the row's <c>ErrorText</c> in the handler to show an error indicator.
+        /// </summary>
+        public new event EventHandler<GridViewCellValidatingEventArgs>? CellValidating { add => _cellValidating += value; remove => _cellValidating -= value; }
         /// <summary>Raised when the selection changes.</summary>
         public new event EventHandler? SelectionChanged { add => _selectionChanged += value; remove => _selectionChanged -= value; }
         /// <summary>Raised when the current row changes (fires alongside <see cref="SelectionChanged"/>).</summary>
@@ -1655,6 +1831,14 @@ namespace Continuum.Forms.Telerik
                     menu.Items.Add (new MenuItem ("Clear Filter", (SKBitmap?)null, (_, _) => ClearColumnFilter (name)));
             }
 
+            // Pin submenu-style entries (the API exists via PinPosition; expose it in the UI).
+            if (column.Frozen || column.PinnedRight)
+                menu.Items.Add (new MenuItem ("Unpin Column", (SKBitmap?)null, (_, _) => SetColumnPin (column, PinnedColumnPosition.None)));
+            if (!column.Frozen)
+                menu.Items.Add (new MenuItem ("Pin Left", (SKBitmap?)null, (_, _) => SetColumnPin (column, PinnedColumnPosition.Left)));
+            if (!column.PinnedRight)
+                menu.Items.Add (new MenuItem ("Pin Right", (SKBitmap?)null, (_, _) => SetColumnPin (column, PinnedColumnPosition.Right)));
+
             menu.Items.Add (new MenuItem ("Best Fit Columns", (SKBitmap?)null, (_, _) => BestFitColumns ()));
 
             if (AllowColumnChooser)
@@ -1662,6 +1846,19 @@ namespace Continuum.Forms.Telerik
 
             if (menu.Items.Count > 0)
                 menu.Show (this, PointToScreen (location));
+        }
+
+        // Pins/unpins a column (via PinPosition for GridViewColumn, else the base Frozen/PinnedRight flags).
+        private void SetColumnPin (DataGridViewColumn column, PinnedColumnPosition position)
+        {
+            if (column is GridViewColumn gvc) {
+                gvc.PinPosition = position;
+            } else {
+                column.Frozen = position == PinnedColumnPosition.Left;
+                column.PinnedRight = position == PinnedColumnPosition.Right;
+            }
+            OnColumnsChanged ();
+            Invalidate ();
         }
 
         /// <summary>Shows the column chooser popup, letting the user toggle column visibility.</summary>
@@ -1964,6 +2161,43 @@ namespace Continuum.Forms.Telerik
         private GridViewRowInfo? RowAt (int rowIndex)
             => rowIndex >= 0 && rowIndex < base.Rows.Count && !IsStructuralRow (base.Rows[rowIndex])
                 ? new GridViewRowInfo (base.Rows[rowIndex]) : null;
+
+        // Reads a cell value by row/column index (null if out of range).
+        private object? CellValueAt (int rowIndex, int columnIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= base.Rows.Count)
+                return null;
+            var row = base.Rows[rowIndex];
+            return columnIndex >= 0 && columnIndex < row.Cells.Count ? row.Cells[columnIndex].Value : null;
+        }
+
+        // Raises CellValidating; if a handler cancels, reverts the cell to the captured old value. Returns true if rejected.
+        private bool RaiseCellValidating (int columnIndex, int rowIndex)
+        {
+            if (_cellValidating is null || rowIndex < 0 || rowIndex >= base.Rows.Count)
+                return false;
+
+            var row = base.Rows[rowIndex];
+            if (IsStructuralRow (row) || columnIndex < 0 || columnIndex >= row.Cells.Count)
+                return false;
+
+            var args = new GridViewCellValidatingEventArgs {
+                RowIndex = rowIndex,
+                ColumnIndex = columnIndex,
+                Value = row.Cells[columnIndex].Value,
+                OldValue = _editOldValue,
+                Row = new GridViewRowInfo (row),
+                Column = columnIndex < base.Columns.Count ? base.Columns[columnIndex] : null
+            };
+            _cellValidating.Invoke (this, args);
+
+            if (!args.Cancel)
+                return false;
+
+            row.Cells[columnIndex].Value = _editOldValue;   // reject: revert
+            Invalidate ();
+            return true;
+        }
     }
 
     /// <summary>Describes an injected group-header row (stored on <see cref="DataGridViewRow.Tag"/>).</summary>
@@ -1992,6 +2226,9 @@ namespace Continuum.Forms.Telerik
     {
         public GridChildView Child = null!;
     }
+
+    /// <summary>Marks the injected "click here to add a new row" placeholder (stored on <see cref="DataGridViewRow.Tag"/>).</summary>
+    internal sealed class GridNewRow { }
 
     /// <summary>Layout of a single group-panel "pill", published by the renderer for hit-testing.</summary>
     internal sealed class GroupPillLayout
@@ -2033,8 +2270,9 @@ namespace Continuum.Forms.Telerik
         public bool AutoExpandGroups { get; set; } = true;
         /// <summary>Gets or sets whether multiple rows can be selected.</summary>
         public bool MultiSelect { get; set; }
+        private bool _readOnly;
         /// <summary>Gets or sets whether the grid is read-only.</summary>
-        public bool ReadOnly { get; set; }
+        public bool ReadOnly { get => _readOnly; set { _readOnly = value; _grid.ApplyEditability (); } }
         private GridViewAutoSizeColumnsMode _autoSizeColumnsMode = GridViewAutoSizeColumnsMode.None;
         /// <summary>Gets or sets the auto-size columns mode. <see cref="GridViewAutoSizeColumnsMode.Fill"/> sizes visible columns to fill the viewport.</summary>
         public GridViewAutoSizeColumnsMode AutoSizeColumnsMode {
