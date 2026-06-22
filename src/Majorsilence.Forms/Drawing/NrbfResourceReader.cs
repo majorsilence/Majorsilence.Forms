@@ -109,7 +109,7 @@ namespace Majorsilence.Forms
 
         // DBNull (and a few framework singletons) serialize through UnitySerializationHolder. We recover
         // the DBNull case — the usual design-time value of a SqlParameter.Value.
-        private static object? TryReadUnityHolder (ClassRecord record)
+        private static DBNull? TryReadUnityHolder (ClassRecord record)
         {
             try
             {
