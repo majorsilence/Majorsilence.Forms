@@ -364,7 +364,9 @@ namespace Majorsilence.Forms.Tests
         public void IsList_AssignableToIList ()
         {
             using var source = new BindingSource ();
+#pragma warning disable CA1859 // The IList static type is the point of this test (asserts BindingSource is assignable to IList).
             IList list = source;
+#pragma warning restore CA1859
 
             list.Add ("a");
             Assert.Equal (1, list.Count);

@@ -123,3 +123,10 @@ dotnet_diagnostic.CA1826.severity = none        # CA1826: Do not use Enumerable 
 dotnet_diagnostic.CA1863.severity = none        # CA1863: Use 'CompositeFormat'
 dotnet_diagnostic.CA2208.severity = none        # CA2208: Call ArgumentException constructor with parameters
 dotnet_diagnostic.CA2211.severity = none        # CA2211: Non-constant fields should not be visible
+
+# Test and sample projects are not shipped. CA1861 (hoist constant array arguments to
+# static readonly fields) is a production hot-path performance rule — in test data and
+# sample code it only adds noise (and harms test readability), so relax it there only.
+# Shipping projects under src/ keep it enforced.
+[{tests,samples}/**.cs]
+dotnet_diagnostic.CA1861.severity = none

@@ -65,14 +65,14 @@ namespace Majorsilence.Forms.Tests
         [InlineData (null)]
         [InlineData ("")]
         [InlineData ("Name")]
-        public void Name_Set_GetReturnsExpected (string value)
+        public void Name_Set_GetReturnsExpected (string? value)
         {
-            var column = new DataGridViewColumn { Name = value };
+            var column = new DataGridViewColumn { Name = value! };
 
             Assert.Equal (value, column.Name);
 
             // Set same.
-            column.Name = value;
+            column.Name = value!;
             Assert.Equal (value, column.Name);
         }
 
@@ -80,14 +80,14 @@ namespace Majorsilence.Forms.Tests
         [InlineData (null)]
         [InlineData ("")]
         [InlineData ("HeaderText")]
-        public void HeaderText_Set_GetReturnsExpected (string value)
+        public void HeaderText_Set_GetReturnsExpected (string? value)
         {
-            var column = new DataGridViewColumn { HeaderText = value };
+            var column = new DataGridViewColumn { HeaderText = value! };
 
             Assert.Equal (value, column.HeaderText);
 
             // Set same.
-            column.HeaderText = value;
+            column.HeaderText = value!;
             Assert.Equal (value, column.HeaderText);
         }
 
@@ -95,9 +95,9 @@ namespace Majorsilence.Forms.Tests
         [InlineData (null)]
         [InlineData ("")]
         [InlineData ("DataPropertyName")]
-        public void DataPropertyName_Set_GetReturnsExpected (string value)
+        public void DataPropertyName_Set_GetReturnsExpected (string? value)
         {
-            var column = new DataGridViewColumn { DataPropertyName = value };
+            var column = new DataGridViewColumn { DataPropertyName = value! };
 
             Assert.Equal (value, column.DataPropertyName);
         }
@@ -106,9 +106,9 @@ namespace Majorsilence.Forms.Tests
         [InlineData (null)]
         [InlineData ("")]
         [InlineData ("ToolTipText")]
-        public void ToolTipText_Set_GetReturnsExpected (string value)
+        public void ToolTipText_Set_GetReturnsExpected (string? value)
         {
-            var column = new DataGridViewColumn { ToolTipText = value };
+            var column = new DataGridViewColumn { ToolTipText = value! };
 
             Assert.Equal (value, column.ToolTipText);
         }

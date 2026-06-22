@@ -230,8 +230,8 @@ namespace Majorsilence.Forms.Tests
             var node = treeView.Nodes.Add ("Node 0");
             var other = new TreeViewItem ("Other");
 
-            Assert.True (treeView.Nodes.Contains (node));
-            Assert.False (treeView.Nodes.Contains (other));
+            Assert.Contains (node, treeView.Nodes);
+            Assert.DoesNotContain (other, treeView.Nodes);
         }
 
         [Fact]

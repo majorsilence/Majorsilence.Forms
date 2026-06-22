@@ -13,7 +13,11 @@ public class MigratorTests : IDisposable
         Directory.CreateDirectory (_dir);
     }
 
-    public void Dispose () => Directory.Delete (_dir, recursive: true);
+    public void Dispose ()
+    {
+        Directory.Delete (_dir, recursive: true);
+        GC.SuppressFinalize (this);
+    }
 
     private string Write (string name, string content)
     {

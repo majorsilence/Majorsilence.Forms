@@ -45,7 +45,7 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (1, owner.Controls.Count);
             Assert.Same (owner, child.Parent);
-            Assert.True (owner.Controls.Contains (child));
+            Assert.Contains (child, owner.Controls);
             Assert.Same (child, owner.Controls[0]);
         }
 
@@ -112,8 +112,8 @@ namespace Majorsilence.Forms.Tests
             Assert.Same (owner2, child.Parent);
             Assert.Equal (0, owner1.Controls.Count);
             Assert.Equal (1, owner2.Controls.Count);
-            Assert.False (owner1.Controls.Contains (child));
-            Assert.True (owner2.Controls.Contains (child));
+            Assert.DoesNotContain (child, owner1.Controls);
+            Assert.Contains (child, owner2.Controls);
         }
 
         [Fact]
@@ -172,7 +172,7 @@ namespace Majorsilence.Forms.Tests
             Assert.True (result);
             Assert.Equal (0, owner.Controls.Count);
             Assert.Null (child.Parent);
-            Assert.False (owner.Controls.Contains (child));
+            Assert.DoesNotContain (child, owner.Controls);
         }
 
         [Fact]
@@ -243,8 +243,8 @@ namespace Majorsilence.Forms.Tests
             var stranger = new Control ();
             owner.Controls.Add (child);
 
-            Assert.True (owner.Controls.Contains (child));
-            Assert.False (owner.Controls.Contains (stranger));
+            Assert.Contains (child, owner.Controls);
+            Assert.DoesNotContain (stranger, owner.Controls);
         }
 
         [Fact]
@@ -327,7 +327,7 @@ namespace Majorsilence.Forms.Tests
             child.Parent = owner;
 
             Assert.Same (owner, child.Parent);
-            Assert.True (owner.Controls.Contains (child));
+            Assert.Contains (child, owner.Controls);
             Assert.Equal (1, owner.Controls.Count);
         }
 

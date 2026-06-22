@@ -76,7 +76,7 @@ namespace Majorsilence.Forms.Tests
         public void BalloonTipIcon_SetInvalidValue_ThrowsInvalidEnumArgumentException (ToolTipIcon value)
         {
             using var notifyIcon = new NotifyIcon ();
-            Assert.Throws<InvalidEnumArgumentException> ("value", () => notifyIcon.BalloonTipIcon = value);
+            Assert.Throws<InvalidEnumArgumentException> (nameof (value), () => notifyIcon.BalloonTipIcon = value);
         }
 
         [Theory]
@@ -467,7 +467,7 @@ namespace Majorsilence.Forms.Tests
         public void ShowBalloonTip_InvokeInvalidTipIcon_ThrowsInvalidEnumArgumentException (ToolTipIcon tipIcon)
         {
             using var notifyIcon = new NotifyIcon ();
-            Assert.Throws<InvalidEnumArgumentException> ("tipIcon", () => notifyIcon.ShowBalloonTip (0, "Title", "Text", tipIcon));
+            Assert.Throws<InvalidEnumArgumentException> (nameof (tipIcon), () => notifyIcon.ShowBalloonTip (0, "Title", "Text", tipIcon));
         }
     }
 }

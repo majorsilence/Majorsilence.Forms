@@ -382,8 +382,8 @@ namespace Majorsilence.Forms.Tests
             control.Links.Clear ();
             var link = control.Links.Add (0, 5);
 
-            Assert.True (control.Links.Contains (link));
-            Assert.False (control.Links.Contains (new LinkLabel.Link (0, 1)));
+            Assert.Contains (link, control.Links);
+            Assert.DoesNotContain (new LinkLabel.Link (0, 1), control.Links);
         }
 
         [Fact]
@@ -529,7 +529,7 @@ namespace Majorsilence.Forms.Tests
             Assert.True (area1 != area3);
         }
 
-        private class TestLinkLabel : LinkLabel
+        private sealed class TestLinkLabel : LinkLabel
         {
             public new void OnLinkClicked (LinkLabelLinkClickedEventArgs e) => base.OnLinkClicked (e);
         }

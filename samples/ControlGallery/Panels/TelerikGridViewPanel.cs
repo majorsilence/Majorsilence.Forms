@@ -146,11 +146,11 @@ namespace ControlGallery.Panels
             AddButton ("Column Chooser", x, 332, () => grid.ShowColumnChooser ());
             AddButton ("Save Layout", x, 368, SaveLayout);
             AddButton ("Load Layout", x, 404, LoadLayout);
-            AddButton ("Export CSV", x, 440, () => xml_box.Text = grid.ExportToCsv ());
+            AddButton ("Export CSV", x, 440, () => xml_box!.Text = grid.ExportToCsv ());
             AddButton ("Export Excel", x, 476, () => {
                 var path = System.IO.Path.Combine (System.IO.Path.GetTempPath (), "radgridview.xlsx");
                 grid.ExportToXlsx (path, "Employees");
-                xml_box.Text = "Exported to: " + path;
+                xml_box!.Text = "Exported to: " + path;
             });
             AddButton ("Toggle Paging (6)", x, 520, () => { grid.PageSize = 6; grid.EnablePaging = !grid.EnablePaging; });
             AddButton ("Prev Page", x, 556, () => grid.PrevPage ());

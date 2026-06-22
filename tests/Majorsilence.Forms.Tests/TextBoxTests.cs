@@ -229,10 +229,10 @@ namespace Majorsilence.Forms.Tests
         [Theory]
         [InlineData (null)]
         [InlineData ("")]
-        public void AppendText_NullOrEmpty_DoesNotChangeText (string value)
+        public void AppendText_NullOrEmpty_DoesNotChangeText (string? value)
         {
             using var control = new TextBox { Text = "abc" };
-            control.AppendText (value);
+            control.AppendText (value!);
             Assert.Equal ("abc", control.Text);
         }
 

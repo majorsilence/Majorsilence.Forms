@@ -234,7 +234,7 @@ namespace Majorsilence.Forms.Tests
         [InlineData (null)]
         [InlineData ("")]
         [InlineData ("value")]
-        public void Tag_Set_GetReturnsExpected (string value)
+        public void Tag_Set_GetReturnsExpected (string? value)
         {
             var row = new DataGridViewRow { Tag = value };
             Assert.Equal (value, row.Tag);
@@ -248,7 +248,7 @@ namespace Majorsilence.Forms.Tests
         [InlineData (null)]
         [InlineData ("")]
         [InlineData ("value")]
-        public void Tag_SetWithNonNullOldValue_GetReturnsExpected (string value)
+        public void Tag_SetWithNonNullOldValue_GetReturnsExpected (string? value)
         {
             var row = new DataGridViewRow { Tag = "OldValue" };
 

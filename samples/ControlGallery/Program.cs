@@ -27,7 +27,7 @@ namespace ControlGallery
                 var selRow = 0;
                 var selIndex = Array.IndexOf (args, "--select-row");
                 if (selIndex >= 0 && selIndex + 1 < args.Length)
-                    int.TryParse (args[selIndex + 1], out selRow);
+                    _ = int.TryParse (args[selIndex + 1], out selRow);
                 if (selIndex >= 0) {
                     const int rowHeight = 24, firstRowCenterY = 12, treeX = 60;
                     HeadlessRenderer.Click (form, treeX, firstRowCenterY + selRow * rowHeight);

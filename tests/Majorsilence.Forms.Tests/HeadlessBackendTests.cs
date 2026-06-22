@@ -170,7 +170,7 @@ public class HeadlessBackendTests
     }
 
     [Fact]
-    public void ShowDialog_CompletesWithoutRecursion ()
+    public async System.Threading.Tasks.Task ShowDialog_CompletesWithoutRecursion ()
     {
         // Regression: Form.ShowDialog(Form) must call the base window helper, not recurse into itself.
         var parent = new Form ();
@@ -183,7 +183,7 @@ public class HeadlessBackendTests
         dialog.DialogResult = DialogResult.OK;   // triggers Close → completes the dialog task
 
         Assert.True (task.IsCompleted);
-        Assert.Equal (DialogResult.OK, task.Result);
+        Assert.Equal (DialogResult.OK, await task);
 
         parent.Close ();
         Assert.Equal (0, Application.OpenForms.Count);

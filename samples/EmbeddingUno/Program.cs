@@ -89,7 +89,7 @@ public sealed class EmbeddingApp : Application
         System.Console.WriteLine ($"[uno-embed] window shown; backend={CF.Backends.Platform.Backend.Name}");
     }
 
-    private static CF.Control BuildMajorsilenceScene ()
+    private static CF.Panel BuildMajorsilenceScene ()
     {
         var panel = new CF.Panel ();
 

@@ -680,7 +680,7 @@ namespace Majorsilence.Forms.Tests
             Assert.True (grid.IsRowExpanded (alice));
             Assert.Same (alice, dgv.Rows[0]);
             Assert.IsType<GridDetailRow> (dgv.Rows[1].Tag);             // detail row follows its master
-            Assert.Single (dgv.Rows.Where (r => r.Tag is GridDetailRow));
+            Assert.Single (dgv.Rows, r => r.Tag is GridDetailRow);
             Assert.Equal (5, grid.RowCount);                            // detail isn't a data row
 
             // Render with an expanded detail + expander glyphs must not throw.
@@ -691,7 +691,7 @@ namespace Majorsilence.Forms.Tests
 
             grid.CollapseRow (alice);
             Assert.False (grid.IsRowExpanded (alice));
-            Assert.Empty (dgv.Rows.Where (r => r.Tag is GridDetailRow));
+            Assert.DoesNotContain (dgv.Rows, r => r.Tag is GridDetailRow);
             Assert.Equal (5, grid.RowCount);
         }
 

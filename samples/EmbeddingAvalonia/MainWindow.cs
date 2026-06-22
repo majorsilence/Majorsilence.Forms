@@ -30,7 +30,7 @@ public sealed class MainWindow : Window
             Spacing = 8,
             Margin = new Thickness (12, 0, 12, 8)
         };
-        var nativeBox = new TextBox { Watermark = "A native Avalonia TextBox", Width = 260 };
+        var nativeBox = new TextBox { PlaceholderText = "A native Avalonia TextBox", Width = 260 };
         var themeButton = new Button { Content = "Toggle host theme" };
         themeButton.Click += (_, _) => {
             Application.Current!.RequestedThemeVariant =
@@ -74,7 +74,7 @@ public sealed class MainWindow : Window
     }
 
     // Builds a small Majorsilence.Forms control tree exercising render + input + popups.
-    private static CF.Control BuildMajorsilenceScene ()
+    private static CF.Panel BuildMajorsilenceScene ()
     {
         var panel = new CF.Panel ();
 

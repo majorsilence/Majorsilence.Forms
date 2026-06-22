@@ -13,7 +13,11 @@ public class SolutionReaderTests : IDisposable
         Directory.CreateDirectory (_dir);
     }
 
-    public void Dispose () => Directory.Delete (_dir, recursive: true);
+    public void Dispose ()
+    {
+        Directory.Delete (_dir, recursive: true);
+        GC.SuppressFinalize (this);
+    }
 
     [Fact]
     public void Extracts_only_existing_csproj_paths ()

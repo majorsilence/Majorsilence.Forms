@@ -133,8 +133,8 @@ namespace Majorsilence.Forms.Tests
             using var control = new ListBox ();
             control.Items.AddRange ("a", "b", "c");
 
-            Assert.True (control.Items.Contains ("b"));
-            Assert.False (control.Items.Contains ("z"));
+            Assert.Contains ("b", control.Items);
+            Assert.DoesNotContain ("z", control.Items);
             Assert.Equal (2, control.Items.IndexOf ("c"));
             Assert.Equal (-1, control.Items.IndexOf ("z"));
         }

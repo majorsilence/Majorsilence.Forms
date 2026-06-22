@@ -159,12 +159,12 @@ namespace Majorsilence.Forms.Tests
         [Theory]
         [InlineData (null)]
         [InlineData ("")]
-        public void Rtf_SetNullOrEmpty_EmptiesText (string value)
+        public void Rtf_SetNullOrEmpty_EmptiesText (string? value)
         {
             using var control = new RichTextBox { Rtf = "{\\rtf1Hello World}" };
             Assert.Equal ("Hello World", control.Text);
 
-            control.Rtf = value;
+            control.Rtf = value!;
             Assert.Equal (string.Empty, control.Text);
             Assert.Equal (string.Empty, control.Rtf);
         }

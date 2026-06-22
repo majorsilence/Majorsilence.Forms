@@ -23,7 +23,7 @@ namespace ControlGallery.Panels
             Controls.Add (view);
         }
 
-        private static Image GetImage ()
+        private static Bitmap GetImage ()
         {
             switch (random.Next () % 2) {
                 case 0:
