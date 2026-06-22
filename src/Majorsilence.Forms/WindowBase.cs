@@ -109,6 +109,26 @@ namespace Majorsilence.Forms
             Backend.Close ();
         }
 
+        /// <summary>
+        /// Releases the window's resources. Disposing a window also detaches it from global window
+        /// state (Application.OpenForms and the active-popup tracking) so a window that is disposed
+        /// without an explicit <see cref="Close"/> — e.g. a <c>using</c>-scoped form — does not leak
+        /// into that shared state. Mirrors WinForms, where disposing a Form removes it from
+        /// Application.OpenForms.
+        /// </summary>
+        protected override void Dispose (bool disposing)
+        {
+            if (disposing) {
+                if (this is Form f)
+                    Application.OpenForms.Remove (f);
+
+                if (Application.ActivePopupWindow == this)
+                    Application.ActivePopupWindow = null;
+            }
+
+            base.Dispose (disposing);
+        }
+
         /// <summary>Raised when the window is closed.</summary>
         public event EventHandler? Closed;
 

@@ -90,7 +90,10 @@ public class HeadlessBackendTests
     [Fact]
     public void TextInput_ReachesFocusedTextBox ()
     {
-        var form = new Form ();
+        // UseSystemDecorations gives a clean client area on every platform: without it the custom
+        // FormTitleBar (drawn in-client on Windows/Linux) overlaps a control at the top and would
+        // intercept the focusing click. macOS defers to native chrome so the title bar is already hidden.
+        var form = new Form { UseSystemDecorations = true };
         var textbox = new TextBox { Left = 10, Top = 10, Width = 200, Height = 30 };
         form.Controls.Add (textbox);
 
@@ -135,7 +138,9 @@ public class HeadlessBackendTests
     public void RightClick_OpensContextMenu ()
     {
         // Right-click must reach OnClick with MouseButtons.Right and open the control's context menu.
-        var form = new Form ();
+        // Clean client area (no in-client title bar) so the right-click lands on the panel, not the
+        // FormTitleBar — see TextInput_ReachesFocusedTextBox.
+        var form = new Form { UseSystemDecorations = true };
         var panel = new Panel { Left = 0, Top = 0, Width = 200, Height = 100 };
         var menu = new ContextMenu ();
         menu.Items.Add ("Copy");

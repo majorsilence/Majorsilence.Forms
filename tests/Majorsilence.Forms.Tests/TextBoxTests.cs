@@ -49,7 +49,9 @@ namespace Majorsilence.Forms.Tests
         public void MaxLength_LimitsTextLengthOnInput ()
         {
             // With a 3-char limit, only the first 3 characters of injected input are accepted.
-            using var form = new Form ();
+            // UseSystemDecorations gives a clean client area so the focusing click lands on the textbox
+            // rather than the in-client FormTitleBar on Windows/Linux.
+            using var form = new Form { UseSystemDecorations = true };
             var control = new TextBox { Left = 0, Top = 0, Width = 200, Height = 30, MaxLength = 3 };
             form.Controls.Add (control);
             form.Show ();
