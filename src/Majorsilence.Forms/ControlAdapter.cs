@@ -24,7 +24,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        public WindowBase ParentForm { get; }
+        public new WindowBase ParentForm { get; }
 
         protected override void OnPaint (PaintEventArgs e)
         {

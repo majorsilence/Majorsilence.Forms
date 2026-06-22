@@ -113,7 +113,7 @@ namespace Majorsilence.Forms.Telerik
 
             switch (op) {
                 case FilterOperator.Contains:
-                    return cellText.IndexOf (target, StringComparison.CurrentCultureIgnoreCase) >= 0;
+                    return cellText.Contains (target, StringComparison.CurrentCultureIgnoreCase);
                 case FilterOperator.NotContains:
                     return cellText.IndexOf (target, StringComparison.CurrentCultureIgnoreCase) < 0;
                 case FilterOperator.IsEqualTo:
@@ -319,7 +319,7 @@ namespace Majorsilence.Forms.Telerik
                 ConditionTypes.Less => FilterDescriptor.Compare (cellText, Value1) < 0,
                 ConditionTypes.GreaterOrEqual => FilterDescriptor.Compare (cellText, Value1) >= 0,
                 ConditionTypes.LessOrEqual => FilterDescriptor.Compare (cellText, Value1) <= 0,
-                ConditionTypes.Contains => cellText.IndexOf (Value1, StringComparison.CurrentCultureIgnoreCase) >= 0,
+                ConditionTypes.Contains => cellText.Contains (Value1, StringComparison.CurrentCultureIgnoreCase),
                 ConditionTypes.StartsWith => cellText.StartsWith (Value1, StringComparison.CurrentCultureIgnoreCase),
                 ConditionTypes.EndsWith => cellText.EndsWith (Value1, StringComparison.CurrentCultureIgnoreCase),
                 ConditionTypes.Between => FilterDescriptor.Compare (cellText, Value1) >= 0 && FilterDescriptor.Compare (cellText, Value2) <= 0,

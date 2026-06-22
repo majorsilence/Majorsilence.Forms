@@ -7,7 +7,6 @@
 
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.Headless</PackageId>
-    <Version>0.3.0</Version>
     <Description>Headless SkiaSharp platform backend for Majorsilence.Forms — offscreen rendering for tests and a reference second backend.</Description>
     <PackageTags>Majorsilence;Forms;Headless;Skia;Backend;Testing</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>

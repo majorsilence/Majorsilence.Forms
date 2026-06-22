@@ -36,7 +36,9 @@ namespace Majorsilence.Forms.Printing
         public event EventHandler? EndPrint;
 
         /// <summary>Raised before each page is printed to allow per-page settings changes. Stub in Majorsilence.Forms.</summary>
+#pragma warning disable CS0067 // Event is part of the WinForms-compat surface; not yet raised (printing is a stub).
         public event EventHandler<QueryPageSettingsEventArgs>? QueryPageSettings;
+#pragma warning restore CS0067
 
         /// <summary>Gets or sets whether the origin of the graphics object is at the user-defined margins. Stub in Majorsilence.Forms.</summary>
         public bool OriginAtMargins { get; set; }

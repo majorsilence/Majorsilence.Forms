@@ -57,7 +57,7 @@ namespace Majorsilence.Forms
         public void GoHome () { }
 
         /// <summary>Stops the current navigation. Stub in Majorsilence.Forms.</summary>
-        public new void Stop () { }
+        public void Stop () { }
 
         /// <summary>Prints the current document. Stub in Majorsilence.Forms.</summary>
         public void Print () { }

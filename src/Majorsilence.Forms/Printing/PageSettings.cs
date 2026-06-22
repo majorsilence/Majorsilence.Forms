@@ -126,13 +126,51 @@ namespace Majorsilence.Forms.Printing
     }
 
     /// <summary>Specifies a standard paper kind.</summary>
-    public enum PaperKind { Custom, Letter, Legal, A4, A3 }
+    public enum PaperKind
+    {
+        /// <summary>A paper kind defined by the user.</summary>
+        Custom,
+        /// <summary>Letter paper (8.5 x 11 in).</summary>
+        Letter,
+        /// <summary>Legal paper (8.5 x 14 in).</summary>
+        Legal,
+        /// <summary>A4 paper (210 x 297 mm).</summary>
+        A4,
+        /// <summary>A3 paper (297 x 420 mm).</summary>
+        A3
+    }
 
     /// <summary>Specifies the paper source tray.</summary>
-    public enum PaperSourceKind { AutomaticFeed, Upper, Lower, Manual, Envelope, Custom }
+    public enum PaperSourceKind
+    {
+        /// <summary>The automatically selected feed.</summary>
+        AutomaticFeed,
+        /// <summary>The upper bin.</summary>
+        Upper,
+        /// <summary>The lower bin.</summary>
+        Lower,
+        /// <summary>Manual feed.</summary>
+        Manual,
+        /// <summary>The envelope feed.</summary>
+        Envelope,
+        /// <summary>A paper source defined by the user.</summary>
+        Custom
+    }
 
     /// <summary>Specifies the print resolution kind.</summary>
-    public enum PrinterResolutionKind { High, Medium, Low, Draft, Custom }
+    public enum PrinterResolutionKind
+    {
+        /// <summary>High resolution.</summary>
+        High,
+        /// <summary>Medium resolution.</summary>
+        Medium,
+        /// <summary>Low resolution.</summary>
+        Low,
+        /// <summary>Draft-quality resolution.</summary>
+        Draft,
+        /// <summary>A resolution defined by the user.</summary>
+        Custom
+    }
 
     /// <summary>Provides data for the QueryPageSettings event.</summary>
     public class QueryPageSettingsEventArgs : System.ComponentModel.CancelEventArgs

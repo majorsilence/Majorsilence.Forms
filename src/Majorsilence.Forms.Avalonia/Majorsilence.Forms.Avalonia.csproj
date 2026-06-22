@@ -7,7 +7,6 @@
 
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.Avalonia</PackageId>
-    <Version>0.3.0</Version>
     <Description>Avalonia 12 platform backend for Majorsilence.Forms.</Description>
     <PackageTags>Majorsilence;Forms;Avalonia;Backend;Cross;Platform</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>

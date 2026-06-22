@@ -61,7 +61,7 @@ namespace Majorsilence.Forms
         public BorderStyle BorderStyle {
             get => border_style;
             set {
-                if (!Enum.IsDefined (typeof (BorderStyle), value))
+                if (!Enum.IsDefined (value))
                     throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (BorderStyle));
 
                 if (border_style != value) {

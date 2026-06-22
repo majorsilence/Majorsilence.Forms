@@ -149,7 +149,7 @@ namespace Majorsilence.Forms.Telerik
         public new GridViewRowInfoCollection Rows => new GridViewRowInfoCollection (base.Rows);
 
         /// <summary>Gets the number of data rows (excludes injected group-header rows).</summary>
-        public int RowCount {
+        public new int RowCount {
             get {
                 var count = 0;
                 foreach (var row in base.Rows)
@@ -661,9 +661,9 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Begins a batch update. Suspends view rebuilds until <see cref="EndUpdate"/>.</summary>
-        public void BeginUpdate () => _suspendRebuild = true;
+        public new void BeginUpdate () => _suspendRebuild = true;
         /// <summary>Ends a batch update and rebuilds the view.</summary>
-        public void EndUpdate () { _suspendRebuild = false; RebuildView (); Invalidate (); }
+        public new void EndUpdate () { _suspendRebuild = false; RebuildView (); Invalidate (); }
 
         // ── View pipeline ──────────────────────────────────────────────────────
 
@@ -781,7 +781,7 @@ namespace Majorsilence.Forms.Telerik
             for (var i = 0; i < base.Columns.Count; i++) {
                 if (!base.Columns[i].Visible)
                     continue;
-                if (GetCellDisplay (row, i).IndexOf (_searchText, StringComparison.CurrentCultureIgnoreCase) >= 0)
+                if (GetCellDisplay (row, i).Contains (_searchText, StringComparison.CurrentCultureIgnoreCase))
                     return true;
             }
             return false;
@@ -1627,7 +1627,7 @@ namespace Majorsilence.Forms.Telerik
         private static string CsvEscape (string value)
         {
             value ??= string.Empty;
-            if (value.IndexOfAny (new[] { ',', '"', '\r', '\n' }) >= 0)
+            if (value.IndexOfAny (anyOf) >= 0)
                 return "\"" + value.Replace ("\"", "\"\"") + "\"";
             return value;
         }
@@ -1759,6 +1759,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raised when a row is being formatted. Set <c>e.RowElement.BackColor</c> (with <c>DrawFill=true</c>) to color the row.</summary>
         public event EventHandler<GridViewRowFormattingEventArgs>? RowFormatting { add => _rowFormatting += value; remove => _rowFormatting -= value; }
         private EventHandler<ContextMenuOpeningEventArgs>? _contextMenuOpening;
+        private static readonly char[] anyOf = new[] { ',', '"', '\r', '\n' };
 
         /// <summary>
         /// Raised on right-click before the context menu is shown. Handlers populate
@@ -2482,6 +2483,10 @@ namespace Majorsilence.Forms.Telerik
         };
 
         // Reads a named member, supporting DataRow/DataRowView columns and CLR properties.
+        // The CLR-property path reflects over the bound item's runtime type, which trimming
+        // cannot analyze statically; the consumer is responsible for preserving bound types.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075",
+            Justification = "Data binding reflects over the user-supplied item type, which cannot be statically annotated.")]
         private static object? GetMemberValue (object item, string member)
         {
             try {

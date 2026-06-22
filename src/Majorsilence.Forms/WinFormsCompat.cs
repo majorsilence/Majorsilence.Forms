@@ -1102,7 +1102,7 @@ namespace Majorsilence.Forms
         public Control Control { get; }
 
         /// <summary>Gets or sets the size of the hosted control.</summary>
-        public System.Drawing.Size Size {
+        public new System.Drawing.Size Size {
             get => Control.Size;
             set => Control.Size = value;
         }
@@ -1111,16 +1111,16 @@ namespace Majorsilence.Forms
         public event EventHandler? ContentChanged { add { } remove { } }
 
         /// <summary>Raised when the hosted control receives focus. Stub in Majorsilence.Forms.</summary>
-        public new event EventHandler? GotFocus { add { } remove { } }
+        public event EventHandler? GotFocus { add { } remove { } }
 
         /// <summary>Raised when the hosted control loses focus. Stub in Majorsilence.Forms.</summary>
-        public new event EventHandler? LostFocus { add { } remove { } }
+        public event EventHandler? LostFocus { add { } remove { } }
 
         /// <summary>Raised when a key is pressed while focus is on the hosted control. Stub in Majorsilence.Forms.</summary>
-        public new event EventHandler<KeyEventArgs>? KeyDown { add { } remove { } }
+        public event EventHandler<KeyEventArgs>? KeyDown { add { } remove { } }
 
         /// <summary>Raised when a key is released while focus is on the hosted control. Stub in Majorsilence.Forms.</summary>
-        public new event EventHandler<KeyEventArgs>? KeyUp { add { } remove { } }
+        public event EventHandler<KeyEventArgs>? KeyUp { add { } remove { } }
     }
 
     /// <summary>Represents a ToolStrip-hosted drop-down control. Stub in Majorsilence.Forms.</summary>
@@ -1179,7 +1179,7 @@ namespace Majorsilence.Forms
         public ToolStripSplitButton (string text, Majorsilence.Drawing.Image? image) { Text = text; Image = image; }
 
         /// <summary>Gets or sets the default item clicked when the button portion is clicked. Stub in Majorsilence.Forms.</summary>
-        public ToolStripItem? DefaultItem { get; set; }
+        public new ToolStripItem? DefaultItem { get; set; }
 
         /// <summary>Gets the width of the drop-down button portion. Stub in Majorsilence.Forms.</summary>
         public int DropDownButtonWidth { get; set; } = 11;
@@ -1727,7 +1727,9 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when the selected item changes.</summary>
+#pragma warning disable CS0067 // Event is part of the WinForms-compat surface; not yet raised (stub).
         public event EventHandler? SelectedItemChanged;
+#pragma warning restore CS0067
     }
 
     /// <summary>Specifies the rendering mode for a ToolStrip.</summary>

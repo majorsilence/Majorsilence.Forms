@@ -15,7 +15,7 @@ namespace Majorsilence.Forms.Uno
     /// <c>Microsoft.UI.Xaml.Application.Start(...)</c>. This backend runs inside that app and drives
     /// work through the <see cref="DispatcherQueue"/>. See docs/backends.md.
     /// </summary>
-    public sealed class UnoPlatformBackend : IPlatformBackend
+    public sealed class UnoPlatformBackend : IPlatformBackend, IDisposable
     {
         private DispatcherQueue? _dispatcher;
         private readonly ManualResetEventSlim _stop = new (false);
@@ -35,8 +35,10 @@ namespace Majorsilence.Forms.Uno
         public void RunMainLoop (CancellationToken token)
         {
             // The Uno head owns the real message loop (Application.Start). Block until cancelled.
+            // The registration sets _stop on cancel, so we wait without forwarding the token —
+            // CancellationToken.None makes that intent explicit (we return cleanly rather than throw).
             using var reg = token.Register (() => _stop.Set ());
-            _stop.Wait ();
+            _stop.Wait (CancellationToken.None);
         }
 
         /// <inheritdoc/>
@@ -162,6 +164,9 @@ namespace Majorsilence.Forms.Uno
                     completed.Wait (1);
             }
         }
+
+        /// <summary>Releases the wait handle that backs <see cref="RunMainLoop"/>.</summary>
+        public void Dispose () => _stop.Dispose ();
 
         private sealed class UnoTimer : IPlatformTimer
         {

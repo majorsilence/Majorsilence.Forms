@@ -23,7 +23,7 @@ namespace Majorsilence.Forms.Uno
     ///
     /// Targets Uno 6.0+ on the SkiaSharp backend.
     /// </summary>
-    public sealed class MajorsilenceFormsPresenter : Microsoft.UI.Xaml.Controls.Grid, IWindowBackend, IUnoHostSurface, INativeControlHostBackend
+    public sealed class MajorsilenceFormsPresenter : Microsoft.UI.Xaml.Controls.Grid, IWindowBackend, IUnoHostSurface, INativeControlHostBackend, IDisposable
     {
         private readonly HostedSurface _host;
         private readonly CursorCanvas _canvas;
@@ -73,6 +73,15 @@ namespace Majorsilence.Forms.Uno
         /// <summary>Gets the underlying hosted surface (advanced scenarios: multiple roots, events).</summary>
         public HostedSurface Surface => _host;
 
+        /// <summary>Disposes the hosted surface, then runs the base element cleanup. Call when the host
+        /// removes this presenter from its tree. (FrameworkElement exposes a non-virtual Dispose() but does
+        /// not implement IDisposable, so this hides it with `new` and implements IDisposable explicitly.)</summary>
+        public new void Dispose ()
+        {
+            _host.Dispose ();
+            base.Dispose ();
+        }
+
         /// <summary>
         /// Gets or sets whether the embedded scene automatically follows the host Uno application's theme
         /// (light/dark + accent). Defaults to true. Because Majorsilence's Theme is global, the last presenter
@@ -81,7 +90,9 @@ namespace Majorsilence.Forms.Uno
         public bool SyncTheme { get; set; } = true;
 
         // ── IUnoHostSurface (popup anchoring) ────────────────────────────────────
+        /// <inheritdoc/>
         public Microsoft.UI.Xaml.XamlRoot? CanvasXamlRoot => _canvas.XamlRoot;
+        /// <inheritdoc/>
         public double HostScaling => _canvas.XamlRoot?.RasterizationScale ?? 1.0;
 
         // For popup offset math the presenter reports the window origin; PointToScreen already bakes in
@@ -256,7 +267,11 @@ namespace Majorsilence.Forms.Uno
         private bool ShouldRouteToMajorsilence ()
         {
             try {
-                var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement (_canvas.XamlRoot) as Microsoft.UI.Xaml.DependencyObject;
+                var xamlRoot = _canvas.XamlRoot;
+                if (xamlRoot is null)
+                    return true;   // not yet attached to a tree → treat as ours
+
+                var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement (xamlRoot) as Microsoft.UI.Xaml.DependencyObject;
                 if (focused is null)
                     return true;   // nothing specific focused → treat as ours
 
@@ -374,6 +389,7 @@ namespace Majorsilence.Forms.Uno
             return new WinPoint (0, 0);
         }
 
+        /// <inheritdoc/>
         public Point Location {
             get {
                 var off = WindowOffsetLogical ();
@@ -383,34 +399,55 @@ namespace Majorsilence.Forms.Uno
             set { /* position is owned by the host layout */ }
         }
 
+        /// <inheritdoc/>
         public Size Size {
             get => new Size ((int) ActualWidth, (int) ActualHeight);
             set { /* size is owned by the host layout */ }
         }
 
+        /// <inheritdoc/>
         public Size ClientSize => new Size ((int) ActualWidth, (int) ActualHeight);
 
+        /// <inheritdoc/>
         public double Scaling => _canvas.XamlRoot?.RasterizationScale ?? 1.0;
 
+        /// <inheritdoc/>
         public void Show () { /* shown by the host visual tree */ }
+        /// <inheritdoc/>
         public void ShowDialog (IWindowBackend? owner) { /* embedded surfaces are not shown modally */ }
+        /// <inheritdoc/>
         public void Hide () => Visibility = Visibility.Collapsed;
+        /// <inheritdoc/>
         public void Close () { /* lifetime owned by the host */ }
+        /// <inheritdoc/>
         public void Activate () => TryFocus ();
 
+        /// <inheritdoc/>
         public string Title { set { } }
+        /// <inheritdoc/>
         public bool Topmost { get; set; }
+        /// <inheritdoc/>
         public void SetSystemDecorations (bool useSystemDecorations) { }
+        /// <inheritdoc/>
         public void SetCursor (CursorType cursor) => _canvas.SetCursorShape (UnoKeyInterop.ToCursorShape (cursor));
+        /// <inheritdoc/>
         public void SetIcon (byte[]? iconPng) { }
+        /// <inheritdoc/>
         public Size MinimumSize { set { } }
+        /// <inheritdoc/>
         public Size MaximumSize { set { } }
+        /// <inheritdoc/>
         public bool CanResize { get; set; }
+        /// <inheritdoc/>
         public bool ShowInTaskbar { get; set; }
-        public double Opacity { get => base.Opacity; set => base.Opacity = value; }
+        /// <inheritdoc/>
+        public new double Opacity { get => base.Opacity; set => base.Opacity = value; }
+        /// <inheritdoc/>
         public FormWindowState WindowState { get; set; } = FormWindowState.Normal;
+        /// <inheritdoc/>
         public bool Enabled { get; set; } = true;
 
+        /// <inheritdoc/>
         public Point PointToClient (Point screen)
         {
             var pos = Location;
@@ -418,6 +455,7 @@ namespace Majorsilence.Forms.Uno
             return new Point ((int) ((screen.X - pos.X) / s), (int) ((screen.Y - pos.Y) / s));
         }
 
+        /// <inheritdoc/>
         public Point PointToScreen (Point client)
         {
             var pos = Location;
@@ -425,7 +463,9 @@ namespace Majorsilence.Forms.Uno
             return new Point (pos.X + (int) (client.X * s), pos.Y + (int) (client.Y * s));
         }
 
+        /// <inheritdoc/>
         public void BeginMoveDrag () { }
+        /// <inheritdoc/>
         public void BeginResizeDrag (WindowEdge edge) { }
 
         // ── INativeControlHostBackend (native Uno UIElements hosted inside the Majorsilence scene) ────────
@@ -471,6 +511,7 @@ namespace Majorsilence.Forms.Uno
                 Children.Remove (element);
         }
 
+        /// <inheritdoc/>
         public void Invalidate ()
         {
             if (_painting) {
@@ -481,6 +522,7 @@ namespace Majorsilence.Forms.Uno
         }
 
         // ── File/folder pickers (best-effort; embedded heads may require a window handle we don't own) ──
+        /// <inheritdoc/>
         public async Task<string[]> ShowOpenFileDialog (OpenFileRequest request)
         {
             try {
@@ -502,6 +544,7 @@ namespace Majorsilence.Forms.Uno
             }
         }
 
+        /// <inheritdoc/>
         public async Task<string?> ShowSaveFileDialog (SaveFileRequest request)
         {
             try {
@@ -515,6 +558,7 @@ namespace Majorsilence.Forms.Uno
             }
         }
 
+        /// <inheritdoc/>
         public async Task<string?> ShowOpenFolderDialog (FolderDialogRequest request)
         {
             try {

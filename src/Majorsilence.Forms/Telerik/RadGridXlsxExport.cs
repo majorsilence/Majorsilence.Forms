@@ -7,7 +7,7 @@ using System.Text;
 namespace Majorsilence.Forms.Telerik
 {
     /// <summary>
-    /// Minimal, dependency-free Open XML (.xlsx) writer used by <see cref="RadGridView.ExportToXlsx(string)"/>.
+    /// Minimal, dependency-free Open XML (.xlsx) writer used by <see cref="RadGridView.ExportToXlsx(string, string, bool)"/>.
     /// Produces a single-worksheet workbook with inline-string cells — enough for a faithful data export
     /// that any spreadsheet app opens, without referencing a spreadsheet library.
     /// </summary>

@@ -42,6 +42,8 @@ namespace Majorsilence.Drawing
         /// <summary>Gets or sets the center point of the gradient.</summary>
         public PointF CenterPoint { get; set; }
 
+        private static readonly float[] colorPos = new[] { 0f, 1f };
+
         internal override SKPaint CreatePaint ()
         {
             var edge = SurroundColors is { Length: > 0 } ? SurroundColors[0] : Color.White;
@@ -51,7 +53,7 @@ namespace Majorsilence.Drawing
                 new SKPoint (CenterPoint.X, CenterPoint.Y),
                 radius,
                 new[] { ToSK (CenterColor), ToSK (edge) },
-                new[] { 0f, 1f },
+                colorPos,
                 SKShaderTileMode.Clamp);
 
             return new SKPaint { Shader = shader, Style = SKPaintStyle.Fill, IsAntialias = true };

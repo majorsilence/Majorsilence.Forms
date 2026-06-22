@@ -180,9 +180,9 @@ namespace Majorsilence.Forms
         object ICloneable.Clone () => Clone ();
 
         /// <inheritdoc/>
-        public override bool Equals (object? o)
+        public override bool Equals (object? obj)
         {
-            if (o is not DataGridViewCellStyle other)
+            if (obj is not DataGridViewCellStyle other)
                 return false;
 
             return BackColor == other.BackColor
@@ -338,6 +338,7 @@ namespace Majorsilence.Forms
         EnableWithAutoHeaderText
     }
 
+    /// <summary>Specifies how column widths are automatically sized.</summary>
     public enum DataGridViewAutoSizeColumnsMode
     {
         /// <summary>Column widths are not automatically adjusted.</summary>

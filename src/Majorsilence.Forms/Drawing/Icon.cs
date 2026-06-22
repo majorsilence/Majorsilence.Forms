@@ -34,7 +34,7 @@ namespace Majorsilence.Drawing
             if (source is null)
                 return;
 
-            backing = source.Resize (new SKImageInfo (Math.Max (1, width), Math.Max (1, height)), SKFilterQuality.High);
+            backing = source.Resize (new SKImageInfo (Math.Max (1, width), Math.Max (1, height)), new SKSamplingOptions (SKCubicResampler.Mitchell));
         }
 
         // Wraps an existing SKBitmap.

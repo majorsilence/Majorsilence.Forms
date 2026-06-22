@@ -38,10 +38,8 @@ namespace Majorsilence.Forms
                 if (_selectionStart == value)
                     return;
 
-                if (value < _minDate)
-                    throw new ArgumentOutOfRangeException (nameof (value));
-                if (value > _maxDate)
-                    throw new ArgumentOutOfRangeException (nameof (value));
+                ArgumentOutOfRangeException.ThrowIfLessThan (value, _minDate);
+                ArgumentOutOfRangeException.ThrowIfGreaterThan (value, _maxDate);
 
                 // If we've moved SelectionStart beyond SelectionEnd, move SelectionEnd forward.
                 if (_selectionEnd < value)
@@ -62,10 +60,8 @@ namespace Majorsilence.Forms
                 if (_selectionEnd == value)
                     return;
 
-                if (value < _minDate)
-                    throw new ArgumentOutOfRangeException (nameof (value));
-                if (value > _maxDate)
-                    throw new ArgumentOutOfRangeException (nameof (value));
+                ArgumentOutOfRangeException.ThrowIfLessThan (value, _minDate);
+                ArgumentOutOfRangeException.ThrowIfGreaterThan (value, _maxDate);
 
                 // If we've moved SelectionEnd before SelectionStart, move SelectionStart back.
                 if (_selectionStart > value)
@@ -92,10 +88,8 @@ namespace Majorsilence.Forms
                 if (value == _minDate)
                     return;
 
-                if (value > EffectiveMaxDate (_maxDate))
-                    throw new ArgumentOutOfRangeException (nameof (value));
-                if (value < MinimumDateTime)
-                    throw new ArgumentOutOfRangeException (nameof (value));
+                ArgumentOutOfRangeException.ThrowIfGreaterThan (value, EffectiveMaxDate (_maxDate));
+                ArgumentOutOfRangeException.ThrowIfLessThan (value, MinimumDateTime);
 
                 _minDate = value;
                 SetRange ();
@@ -109,8 +103,7 @@ namespace Majorsilence.Forms
                 if (value == _maxDate)
                     return;
 
-                if (value < EffectiveMinDate (_minDate))
-                    throw new ArgumentOutOfRangeException (nameof (value));
+                ArgumentOutOfRangeException.ThrowIfLessThan (value, EffectiveMinDate (_minDate));
 
                 _maxDate = value;
                 SetRange ();
@@ -124,8 +117,7 @@ namespace Majorsilence.Forms
         public int MaxSelectionCount {
             get => _maxSelectionCount;
             set {
-                if (value < 1)
-                    throw new ArgumentOutOfRangeException (nameof (value));
+                ArgumentOutOfRangeException.ThrowIfLessThan (value, 1);
 
                 _maxSelectionCount = value;
             }
@@ -151,10 +143,8 @@ namespace Majorsilence.Forms
             get => _todayDateSet ? _todaysDate : DateTime.Now.Date;
             set {
                 if (!_todayDateSet || DateTime.Compare (value, _todaysDate) != 0) {
-                    if (value > _maxDate)
-                        throw new ArgumentOutOfRangeException (nameof (value));
-                    if (value < _minDate)
-                        throw new ArgumentOutOfRangeException (nameof (value));
+                    ArgumentOutOfRangeException.ThrowIfGreaterThan (value, _maxDate);
+                    ArgumentOutOfRangeException.ThrowIfLessThan (value, _minDate);
 
                     _todaysDate = value.Date;
                     _todayDateSet = true;
@@ -196,10 +186,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public void SetDate (DateTime date)
         {
-            if (date < _minDate)
-                throw new ArgumentOutOfRangeException (nameof (date));
-            if (date > _maxDate)
-                throw new ArgumentOutOfRangeException (nameof (date));
+            ArgumentOutOfRangeException.ThrowIfLessThan (date, _minDate);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan (date, _maxDate);
 
             SetSelectionRange (date, date);
         }
@@ -207,14 +195,10 @@ namespace Majorsilence.Forms
         /// <summary>Sets the selection range to the given dates.</summary>
         public void SetSelectionRange (DateTime date1, DateTime date2)
         {
-            if (date1 < _minDate)
-                throw new ArgumentOutOfRangeException (nameof (date1));
-            if (date1 > _maxDate)
-                throw new ArgumentOutOfRangeException (nameof (date1));
-            if (date2 < _minDate)
-                throw new ArgumentOutOfRangeException (nameof (date2));
-            if (date2 > _maxDate)
-                throw new ArgumentOutOfRangeException (nameof (date2));
+            ArgumentOutOfRangeException.ThrowIfLessThan (date1, _minDate);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan (date1, _maxDate);
+            ArgumentOutOfRangeException.ThrowIfLessThan (date2, _minDate);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan (date2, _maxDate);
 
             // If date1 > date2, we just select date2 (compat).
             if (date1 > date2)

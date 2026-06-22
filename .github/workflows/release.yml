@@ -1,0 +1,259 @@
+name: Release Packages
+
+# Builds the Majorsilence.Forms NuGet packages and the majorsilence-migrate
+# migration tool. Runs on tags (v*) for a real release, on demand via the
+# Actions tab, and on PRs / main pushes that touch packable code as a smoke test.
+#
+# - Tag push (v1.2.3)        -> packs + publishes binaries, uploads artifacts,
+#                               creates a GitHub Release, optionally pushes to NuGet.
+# - workflow_dispatch        -> same, with an overridable version and a "push to
+#                               nuget.org" toggle (off by default).
+# - pull_request / main push -> packs + publishes only, to verify nothing is broken.
+
+on:
+  push:
+    # Tags always trigger a real release. (Note: path filters are intentionally
+    # omitted here — combining `paths` with `tags` can cause tag pushes to be
+    # skipped, and a release must never be silently filtered out.)
+    tags:
+      - 'v*'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tools/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version (e.g. 0.3.1). Leave blank to use the version in the csproj files.'
+        required: false
+        default: ''
+      push_to_nuget:
+        description: 'Push the packed .nupkg files to nuget.org'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write   # needed to create the GitHub Release on tag builds
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  # Projects that produce shipped NuGet packages.
+  PACKABLE_PROJECTS: >-
+    src/Majorsilence.Forms/Majorsilence.Forms.csproj
+    src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
+    src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
+    src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Resolve the version once so every package + binary shares it.
+  # ---------------------------------------------------------------------------
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      is_release: ${{ steps.resolve.outputs.is_release }}
+    steps:
+      - id: resolve
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Tag like refs/tags/v1.2.3 -> 1.2.3
+            VERSION="${GITHUB_REF_NAME#v}"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+          else
+            # Fall back to whatever the csproj files declare.
+            VERSION=""
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: '${VERSION:-(from csproj)}'"
+
+  # ---------------------------------------------------------------------------
+  # Pack the four NuGet packages. Platform-agnostic, so a single runner is enough.
+  # ---------------------------------------------------------------------------
+  pack:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so SourceLink embeds correct commit info
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build version arg
+        id: args
+        shell: bash
+        run: |
+          if [ -n "${{ needs.version.outputs.version }}" ]; then
+            echo "version_arg=-p:Version=${{ needs.version.outputs.version }} -p:PackageVersion=${{ needs.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_arg=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack NuGet packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          for proj in $PACKABLE_PROJECTS; do
+            echo "::group::pack $proj"
+            dotnet pack "$proj" \
+              --configuration Release \
+              --output "${{ github.workspace }}/nupkg" \
+              ${{ steps.args.outputs.version_arg }}
+            echo "::endgroup::"
+          done
+
+      - name: List packages
+        run: ls -lh "${{ github.workspace }}/nupkg"
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: nupkg/*.nupkg
+          if-no-files-found: error
+
+      - name: Upload symbol packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: symbol-packages
+          path: nupkg/*.snupkg
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Publish the migration tool as self-contained, single-file binaries per OS.
+  # majorsilence-migrate is IsPackable=false, so it ships as a downloadable
+  # binary rather than a NuGet package.
+  # ---------------------------------------------------------------------------
+  migrator:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [win-x64, linux-x64, osx-x64, osx-arm64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build version arg
+        id: args
+        shell: bash
+        run: |
+          if [ -n "${{ needs.version.outputs.version }}" ]; then
+            echo "version_arg=-p:Version=${{ needs.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_arg=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish majorsilence-migrate (${{ matrix.rid }})
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj \
+            --configuration Release \
+            --runtime ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            ${{ steps.args.outputs.version_arg }} \
+            --output "${{ github.workspace }}/migrator/${{ matrix.rid }}"
+
+      - name: Archive binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ github.workspace }}/migrator/${{ matrix.rid }}"
+          NAME="majorsilence-migrate-${{ matrix.rid }}"
+          if [ "${{ matrix.rid }}" = "win-x64" ]; then
+            zip -r "${{ github.workspace }}/${NAME}.zip" .
+          else
+            tar -czf "${{ github.workspace }}/${NAME}.tar.gz" .
+          fi
+
+      - name: Upload migrator binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: migrator-${{ matrix.rid }}
+          path: |
+            majorsilence-migrate-${{ matrix.rid }}.zip
+            majorsilence-migrate-${{ matrix.rid }}.tar.gz
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # On a tag build, collect everything into a GitHub Release and (optionally)
+  # push the packages to nuget.org.
+  # ---------------------------------------------------------------------------
+  release:
+    needs: [version, pack, migrator]
+    runs-on: ubuntu-latest
+    if: needs.version.outputs.is_release == 'true' || github.event.inputs.push_to_nuget == 'true'
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Stage release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          find artifacts -type f \( -name '*.nupkg' -o -name '*.snupkg' -o -name '*.zip' -o -name '*.tar.gz' \) \
+            -exec cp {} release/ \;
+          ls -lh release
+
+      - name: Push to nuget.org
+        if: needs.version.outputs.is_release == 'true' || github.event.inputs.push_to_nuget == 'true'
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${NUGET_API_KEY:-}" ]; then
+            echo "NUGET_API_KEY secret is not set; skipping push to nuget.org."
+            exit 0
+          fi
+          dotnet nuget push "release/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Create GitHub Release
+        if: needs.version.outputs.is_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Majorsilence.Forms ${{ needs.version.outputs.version }}
+          generate_release_notes: true
+          files: release/*

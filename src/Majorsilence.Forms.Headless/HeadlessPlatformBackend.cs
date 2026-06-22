@@ -13,7 +13,7 @@ namespace Majorsilence.Forms.Headless
     /// (2) a reference second backend proving the <see cref="IPlatformBackend"/>/<see cref="IWindowBackend"/>
     /// seam is genuinely toolkit-agnostic — the same shape a real Uno backend follows.
     /// </summary>
-    public sealed class HeadlessPlatformBackend : IPlatformBackend
+    public sealed class HeadlessPlatformBackend : IPlatformBackend, IDisposable
     {
         private readonly ConcurrentQueue<Action> _queue = new ();
         private readonly AutoResetEvent _signal = new (false);
@@ -102,6 +102,13 @@ namespace Majorsilence.Forms.Headless
         {
             while (_queue.TryDequeue (out var action))
                 action ();
+        }
+
+        /// <summary>Stops the loop and releases the wait handle backing the message queue.</summary>
+        public void Dispose ()
+        {
+            _running = false;
+            _signal.Dispose ();
         }
 
         /// <inheritdoc/>

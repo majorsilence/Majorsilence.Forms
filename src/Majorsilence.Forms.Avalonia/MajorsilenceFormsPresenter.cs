@@ -31,14 +31,14 @@ namespace Majorsilence.Forms
     ///
     /// Majorsilence.Forms is rendered on the UI thread into a <see cref="WriteableBitmap"/> framebuffer
     /// (matching the proven, thread-safe path used by the standalone window host) and that framebuffer
-    /// is composited into the host window's surface in <see cref="Render"/>. Popups (combo dropdowns,
+    /// is composited into the host window's surface in <c>Render</c>. Popups (combo dropdowns,
     /// menus, tooltips) and modal dialogs opened from the embedded content continue to work because they
-    /// create their own small top-level windows positioned via <see cref="PointToScreen"/>.
+    /// create their own small top-level windows positioned via <c>PointToScreen</c>.
     ///
     /// Derives from <see cref="Canvas"/> so it can also overlay native Avalonia controls hosted inside the
     /// Majorsilence scene via <see cref="NativeControlHost"/> (the airspace interop model).
     /// </summary>
-    public class MajorsilenceFormsPresenter : Canvas, IWindowBackend, INativeControlHostBackend
+    public class MajorsilenceFormsPresenter : Canvas, IWindowBackend, INativeControlHostBackend, IDisposable
     {
         private readonly HostedSurface _host;
         private WriteableBitmap? _framebuffer;
@@ -87,6 +87,15 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the underlying hosted surface (advanced scenarios: multiple roots, events).</summary>
         public HostedSurface Surface => _host;
+
+        /// <summary>Disposes the hosted surface and framebuffer. Call when the host removes this presenter.</summary>
+        public void Dispose ()
+        {
+            _host.Dispose ();
+            _framebuffer?.Dispose ();
+            _framebuffer = null;
+            GC.SuppressFinalize (this);
+        }
 
         // The render/DPI scale of the host window. Plain Avalonia controls don't expose RenderScaling
         // (that lives on TopLevel), so read it from the hosting top-level.
@@ -192,6 +201,7 @@ namespace Majorsilence.Forms
 
         // ── Input forwarding (Avalonia → Majorsilence.Forms; positions scaled to physical pixels) ───────
 
+        /// <inheritdoc/>
         protected override void OnPointerPressed (AvPointerPressedEventArgs e)
         {
             Focus ();
@@ -205,6 +215,7 @@ namespace Majorsilence.Forms
             base.OnPointerPressed (e);
         }
 
+        /// <inheritdoc/>
         protected override void OnPointerReleased (AvPointerReleasedEventArgs e)
         {
             var pos = e.GetPosition (this);
@@ -216,6 +227,7 @@ namespace Majorsilence.Forms
             base.OnPointerReleased (e);
         }
 
+        /// <inheritdoc/>
         protected override void OnPointerMoved (AvPointerEventArgs e)
         {
             var pos = e.GetPosition (this);
@@ -227,6 +239,7 @@ namespace Majorsilence.Forms
             base.OnPointerMoved (e);
         }
 
+        /// <inheritdoc/>
         protected override void OnPointerWheelChanged (AvPointerWheelChangedEventArgs e)
         {
             var pos = e.GetPosition (this);
@@ -239,6 +252,7 @@ namespace Majorsilence.Forms
             base.OnPointerWheelChanged (e);
         }
 
+        /// <inheritdoc/>
         protected override void OnPointerExited (AvPointerEventArgs e)
         {
             var pos = e.GetPosition (this);
@@ -250,6 +264,7 @@ namespace Majorsilence.Forms
             base.OnPointerExited (e);
         }
 
+        /// <inheritdoc/>
         protected override void OnKeyDown (AvKeyEventArgs e)
         {
             if (_host.HandleKeyDown (AvaloniaKeyInterop.AddModifiers (AvaloniaKeyInterop.ToFormsKey (e.Key), e.KeyModifiers)))
@@ -257,6 +272,7 @@ namespace Majorsilence.Forms
             base.OnKeyDown (e);
         }
 
+        /// <inheritdoc/>
         protected override void OnKeyUp (AvKeyEventArgs e)
         {
             if (_host.HandleKeyUp (AvaloniaKeyInterop.AddModifiers (AvaloniaKeyInterop.ToFormsKey (e.Key), e.KeyModifiers)))
@@ -264,6 +280,7 @@ namespace Majorsilence.Forms
             base.OnKeyUp (e);
         }
 
+        /// <inheritdoc/>
         protected override void OnTextInput (AvTextInputEventArgs e)
         {
             if (_host.HandleTextInput (e.Text ?? string.Empty))

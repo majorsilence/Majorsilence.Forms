@@ -140,7 +140,7 @@ namespace Majorsilence.Forms.Telerik
     public class RadPanel : Panel
     {
         /// <summary>Gets or sets the header text. Stub.</summary>
-        public string Text { get; set; } = string.Empty;
+        public new string Text { get; set; } = string.Empty;
     }
 
     /// <summary>Telerik-compat form. Backed by <see cref="Majorsilence.Forms.Form"/>.</summary>

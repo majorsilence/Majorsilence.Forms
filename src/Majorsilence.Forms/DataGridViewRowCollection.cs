@@ -20,7 +20,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Adds the specified existing row to the collection and returns its index.
         /// </summary>
-        public int Add (DataGridViewRow dataGridViewRow)
+        public new int Add (DataGridViewRow dataGridViewRow)
         {
             // Routes through InsertItem, which assigns the owning DataGridView.
             base.Add (dataGridViewRow);

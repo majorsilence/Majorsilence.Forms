@@ -16,7 +16,6 @@ namespace Majorsilence.Forms.Headless
         private readonly WindowBase _owner;
         private Size _size = new (800, 600);
         private Point _location;
-        private bool _dirty = true;
 
         public HeadlessWindowHost (WindowBase owner) => _owner = owner;
 
@@ -68,8 +67,8 @@ namespace Majorsilence.Forms.Headless
         public void BeginMoveDrag () { }
         public void BeginResizeDrag (WindowEdge edge) { }
 
-        // ── Rendering ──
-        public void Invalidate () => _dirty = true;
+        // ── Rendering ── (headless renders on demand via Render(), so there is nothing to schedule)
+        public void Invalidate () { }
 
         // ── Pickers (unavailable headless) ──
         public Task<string[]> ShowOpenFileDialog (OpenFileRequest request) => Task.FromResult (Array.Empty<string> ());
@@ -86,7 +85,6 @@ namespace Majorsilence.Forms.Headless
             using var surface = SKSurface.Create (new SKImageInfo (physW, physH, SKColorType.Bgra8888, SKAlphaType.Premul));
             _owner.RenderFrame (surface.Canvas, physW, physH, scaling);
             surface.Canvas.Flush ();
-            _dirty = false;
             return surface.Snapshot ();
         }
 

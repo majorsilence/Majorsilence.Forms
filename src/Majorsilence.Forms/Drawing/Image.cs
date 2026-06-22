@@ -159,7 +159,7 @@ namespace Majorsilence.Drawing
                 return;
             }
 
-            backing = source.Resize (new SKImageInfo (width, height), SKFilterQuality.High) ?? source.Copy ();
+            backing = source.Resize (new SKImageInfo (width, height), new SKSamplingOptions (SKCubicResampler.Mitchell)) ?? source.Copy ();
         }
 
         // Wraps an existing SKBitmap (takes ownership). Used by conversion helpers.

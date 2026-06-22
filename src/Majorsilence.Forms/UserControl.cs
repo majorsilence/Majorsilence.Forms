@@ -24,7 +24,7 @@ namespace Majorsilence.Forms
         public AutoSizeMode AutoSizeMode {
             get => GetAutoSizeMode ();
             set {
-                if (!Enum.IsDefined (typeof (AutoSizeMode), value))
+                if (!Enum.IsDefined (value))
                     throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (AutoSizeMode));
 
                 if (GetAutoSizeMode () != value)

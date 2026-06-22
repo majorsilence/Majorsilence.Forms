@@ -21,7 +21,7 @@ namespace Majorsilence.Forms.Telerik
         public bool MainDocumentContainerVisible { get; set; } = true;
 
         /// <summary>Returns a docking service. Stub returns null.</summary>
-        public object? GetService (Type serviceType) => null;
+        public new object? GetService (Type serviceType) => null;
         /// <summary>Returns a docking service. Stub returns default.</summary>
         public T? GetService<T> () where T : class => null;
 

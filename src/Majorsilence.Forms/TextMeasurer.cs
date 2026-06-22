@@ -44,12 +44,12 @@ namespace Majorsilence.Forms
                 };
 
                 if (mnemonicIndex > 0)
-                    tb.AddText (text.Substring (0, mnemonicIndex), styleNormal);
+                    tb.AddText (text.AsSpan (0, mnemonicIndex), styleNormal);
 
-                tb.AddText (text.Substring (mnemonicIndex, 1), styleMnemonic);
+                tb.AddText (text.AsSpan (mnemonicIndex, 1), styleMnemonic);
 
                 if (mnemonicIndex + 1 < text.Length)
-                    tb.AddText (text.Substring (mnemonicIndex + 1), styleNormal);
+                    tb.AddText (text.AsSpan (mnemonicIndex + 1), styleNormal);
             } else {
                 tb.AddText (text, styleNormal);
             }

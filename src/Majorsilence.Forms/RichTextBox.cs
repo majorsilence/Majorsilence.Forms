@@ -113,7 +113,7 @@ namespace Majorsilence.Forms
         public bool SelectionUnderline { get; set; }
 
         /// <summary>Gets or sets the character length of the control's content. Stub — same as Text.Length.</summary>
-        public int TextLength => Text.Length;
+        public new int TextLength => Text.Length;
 
         /// <summary>Gets or sets the bullet indent size. Stub in Majorsilence.Forms.</summary>
         public int BulletIndent { get; set; }

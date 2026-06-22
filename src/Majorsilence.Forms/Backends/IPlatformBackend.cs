@@ -8,7 +8,7 @@ namespace Majorsilence.Forms.Backends
     /// runs on. Majorsilence.Forms does all of its own drawing with SkiaSharp; a backend only provides
     /// application bootstrap, the UI thread / message loop, and (in later phases) windows and input.
     ///
-    /// The default backend is Avalonia (<see cref="AvaloniaPlatformBackend"/>); a Uno backend can be
+    /// The default backend is Avalonia (<c>AvaloniaPlatformBackend</c>); a Uno backend can be
     /// substituted via <see cref="Platform.Backend"/> before the first window is created.
     /// </summary>
     public interface IPlatformBackend

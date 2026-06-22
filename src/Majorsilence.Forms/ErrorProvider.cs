@@ -25,8 +25,7 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of ErrorProvider and adds it to the specified container.</summary>
         public ErrorProvider (IContainer container)
         {
-            if (container is null)
-                throw new ArgumentNullException (nameof (container));
+            ArgumentNullException.ThrowIfNull (container);
 
             container.Add (this);
         }
@@ -99,8 +98,7 @@ namespace Majorsilence.Forms
         /// <summary>Sets the error description string for the specified control.</summary>
         public void SetError (Control control, string value)
         {
-            if (control is null)
-                throw new ArgumentNullException (nameof (control));
+            ArgumentNullException.ThrowIfNull (control);
 
             if (string.IsNullOrEmpty (value))
                 _errors.Remove (control);
@@ -111,8 +109,7 @@ namespace Majorsilence.Forms
         /// <summary>Gets the error description string for the specified control.</summary>
         public string GetError (Control control)
         {
-            if (control is null)
-                throw new ArgumentNullException (nameof (control));
+            ArgumentNullException.ThrowIfNull (control);
 
             return _errors.TryGetValue (control, out var msg) ? msg : string.Empty;
         }
@@ -123,8 +120,7 @@ namespace Majorsilence.Forms
         /// <summary>Sets the icon alignment for the specified control. Stub in Majorsilence.Forms.</summary>
         public void SetIconAlignment (Control control, ErrorIconAlignment value)
         {
-            if (control is null)
-                throw new ArgumentNullException (nameof (control));
+            ArgumentNullException.ThrowIfNull (control);
 
             if (value < ErrorIconAlignment.TopLeft || value > ErrorIconAlignment.BottomRight)
                 throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (ErrorIconAlignment));
@@ -135,8 +131,7 @@ namespace Majorsilence.Forms
         /// <summary>Gets the icon alignment for the specified control. Stub in Majorsilence.Forms.</summary>
         public ErrorIconAlignment GetIconAlignment (Control control)
         {
-            if (control is null)
-                throw new ArgumentNullException (nameof (control));
+            ArgumentNullException.ThrowIfNull (control);
 
             return _iconAlignments.TryGetValue (control, out var alignment) ? alignment : ErrorIconAlignment.MiddleRight;
         }
@@ -144,8 +139,7 @@ namespace Majorsilence.Forms
         /// <summary>Sets the icon padding for the specified control. Stub in Majorsilence.Forms.</summary>
         public void SetIconPadding (Control control, int padding)
         {
-            if (control is null)
-                throw new ArgumentNullException (nameof (control));
+            ArgumentNullException.ThrowIfNull (control);
 
             _iconPaddings[control] = padding;
         }
@@ -153,8 +147,7 @@ namespace Majorsilence.Forms
         /// <summary>Gets the icon padding for the specified control. Stub in Majorsilence.Forms.</summary>
         public int GetIconPadding (Control control)
         {
-            if (control is null)
-                throw new ArgumentNullException (nameof (control));
+            ArgumentNullException.ThrowIfNull (control);
 
             return _iconPaddings.TryGetValue (control, out var padding) ? padding : 0;
         }

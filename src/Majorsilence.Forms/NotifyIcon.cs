@@ -27,8 +27,7 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of NotifyIcon and adds it to the specified container.</summary>
         public NotifyIcon (IContainer container)
         {
-            if (container is null)
-                throw new ArgumentNullException (nameof (container));
+            ArgumentNullException.ThrowIfNull (container);
 
             container.Add (this);
         }
