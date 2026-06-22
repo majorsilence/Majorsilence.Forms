@@ -51,7 +51,7 @@ internal sealed class Migrator
             ConvertSource(src);
 
         foreach (var resx in resxFiles)
-            ScanResx(resx);
+            ProcessResx(resx);
 
         CopySolutionFile();
 
@@ -121,6 +121,12 @@ internal sealed class Migrator
 
     private void ConvertSource(string path)
     {
+        // The VB "My Project" designer files (Resources/Settings/Application .Designer.vb) are excluded
+        // from compilation by the project converter (they don't build with MyType=Empty), so there's
+        // nothing to convert or flag in them — skip entirely rather than emit false-positive warnings.
+        if (IsExcludedVbDesignerFile(path))
+            return;
+
         _filesScanned++;
         var text = File.ReadAllText(path);
         var language = Path.GetExtension(path).Equals(".vb", StringComparison.OrdinalIgnoreCase)
@@ -138,6 +144,16 @@ internal sealed class Migrator
         Console.WriteLine($"  [src ] {Rel(path)}");
         MaybePrintDiff(Rel(path), text, result.Text);
         WriteResult(path, result.Text);
+    }
+
+    // Matches the project converter's `<Compile Remove="My Project\*.Designer.vb" />`: a *.Designer.vb
+    // directly under a "My Project" folder (the VB application-framework designer files).
+    private static bool IsExcludedVbDesignerFile(string path)
+    {
+        if (!path.EndsWith(".Designer.vb", StringComparison.OrdinalIgnoreCase))
+            return false;
+        var dir = Path.GetFileName(Path.GetDirectoryName(path));
+        return string.Equals(dir, "My Project", StringComparison.OrdinalIgnoreCase);
     }
 
     private void MaybePrintDiff(string relPath, string oldText, string newText)
@@ -168,20 +184,37 @@ internal sealed class Migrator
         Console.WriteLine($"  [sln ] {Path.GetFileName(_options.Input)}");
     }
 
-    private void ScanResx(string path)
+    private void ProcessResx(string path)
     {
         _filesScanned++;
         var result = ResxScanner.Scan(File.ReadAllText(path));
-        if (!result.NeedsReview)
-            return;
 
-        var parts = new List<string>();
-        if (result.DesignerResourceCount > 0)
-            parts.Add($"{result.DesignerResourceCount} typed designer resource(s)");
-        if (result.BinaryResourceCount > 0)
-            parts.Add($"{result.BinaryResourceCount} binary-serialized object(s)");
-        _warnings.Add($"{Rel(path)}: contains {string.Join(" and ", parts)} — " +
-            "Majorsilence.Forms builds UI in code (no ComponentResourceManager); port these manually");
+        // Designer values, primitive metadata, and bytearray images all load cross-platform via
+        // Majorsilence.Forms.ComponentResourceManager — mirror the .resx into the output tree so the
+        // converted project keeps them and the resource manager can read them at runtime.
+        if (result.HasConsumableResources)
+        {
+            _changes.Add(("resx", Rel(path)));
+            Console.WriteLine($"  [resx] {Rel(path)}");
+            CopyResxToOutput(path);
+        }
+
+        // BinaryFormatter/SOAP payloads cannot be deserialized on modern .NET — these are the only
+        // entries that still need a human.
+        if (result.NeedsReview)
+            _warnings.Add($"{Rel(path)}: contains {result.BinaryResourceCount} BinaryFormatter/SOAP-serialized " +
+                "resource(s) (binary/soap base64) which cannot be read cross-platform — re-export them to " +
+                "files (e.g. PNG/ICO) and load them in code");
+    }
+
+    // Unlike source/project files, a .resx is not rewritten; copy it verbatim into the output tree.
+    private void CopyResxToOutput(string path)
+    {
+        if (_options.DryRun || _options.Output is null)
+            return;
+        var destination = DestinationFor(path);
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        File.Copy(path, destination, overwrite: true);
     }
 
     private void WriteResult(string sourcePath, string content)

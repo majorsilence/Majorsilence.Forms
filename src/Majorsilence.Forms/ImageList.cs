@@ -1,4 +1,6 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using SkiaSharp;
 
 namespace Majorsilence.Forms;
@@ -49,10 +51,33 @@ public class ImageList : Component
 
     /// <summary>
     /// Gets or sets the image stream used to (de)serialize the image list (e.g. from a .resx resource).
-    /// Stub in Majorsilence.Forms — accepting a deserialized <see cref="ImageListStreamer"/> is supported for
-    /// source compatibility, but the resx image stream is not unpacked.
+    /// When the streamer carries frames decoded from a WinForms <c>ImageStream</c> resource (see
+    /// <see cref="ComponentResourceManager"/>), assigning it populates <see cref="Images"/>.
     /// </summary>
-    public ImageListStreamer? ImageStream { get; set; }
+    public ImageListStreamer? ImageStream {
+        get => _imageStream;
+        set {
+            _imageStream = value;
+            ApplyStreamer (value);
+        }
+    }
+
+    private ImageListStreamer? _imageStream;
+
+    private void ApplyStreamer (ImageListStreamer? streamer)
+    {
+        if (streamer is null || streamer.Frames.Count == 0)
+            return;
+
+        Images.Clear ();
+
+        // Adopt the streamer's native frame size so frames aren't resized to the 16x16 default.
+        if (streamer.FrameSize is { Width: > 0, Height: > 0 } size)
+            Images.SetImageSize (new SKSize (size.Width, size.Height));
+
+        foreach (var frame in streamer.Frames)
+            Images.Add (frame);
+    }
 
     /// <summary>Draws the image at the specified index at the given point.</summary>
     public void Draw (Graphics g, System.Drawing.Point pt, int index) => Draw (g, pt.X, pt.Y, index);
@@ -84,10 +109,24 @@ public class ImageList : Component
 /// <summary>
 /// WinForms compatibility: represents the serialized image-stream of an <see cref="ImageList"/>,
 /// as produced by designer-generated <c>resources.GetObject("imageList.ImageStream")</c> calls.
-/// Stub in Majorsilence.Forms — accepted for source compatibility but not unpacked.
+/// <see cref="ComponentResourceManager"/> decodes the WinForms <c>ImageStream</c> resource into the
+/// <see cref="Frames"/> here, which <see cref="ImageList.ImageStream"/> then adopts.
 /// </summary>
 public sealed class ImageListStreamer
 {
     /// <summary>Initializes a new, empty instance of the ImageListStreamer class.</summary>
-    public ImageListStreamer () { }
+    public ImageListStreamer () => Frames = Array.Empty<SKBitmap> ();
+
+    /// <summary>Initializes a streamer carrying frames decoded from a WinForms ImageStream resource.</summary>
+    internal ImageListStreamer (IReadOnlyList<SKBitmap> frames, System.Drawing.Size frameSize)
+    {
+        Frames = frames;
+        FrameSize = frameSize;
+    }
+
+    /// <summary>The decoded frames (empty when the streamer was constructed without a resource).</summary>
+    internal IReadOnlyList<SKBitmap> Frames { get; }
+
+    /// <summary>The native frame size of the image list, or empty when unknown.</summary>
+    internal System.Drawing.Size FrameSize { get; }
 }

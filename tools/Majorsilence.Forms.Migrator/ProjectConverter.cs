@@ -146,10 +146,22 @@ internal static class ProjectConverter
             }
         }
 
-        // 4. With MyType=Empty there is no auto-generated entry point or form constructor.
-        warnings.Add("VB project: MyType=Empty removes the auto entry point — add a Module with " +
-            "<STAThread> Sub Main calling Application.Run(...), set <StartupObject>, and ensure each " +
-            "Form's constructor calls InitializeComponent()");
+        // 4. With MyType=Empty there is no auto-generated entry point — but only an executable needs one.
+        //    Class libraries (the SDK default when <OutputType> is absent) have no entry point to lose,
+        //    so warning about them is just noise.
+        if (IsExecutable(root))
+            warnings.Add("VB project: MyType=Empty removes the auto entry point — add a Module with " +
+                "<STAThread> Sub Main calling Application.Run(...), set <StartupObject>, and ensure each " +
+                "Form's constructor calls InitializeComponent()");
+    }
+
+    // An SDK project is an app only when OutputType is Exe/WinExe; absent OutputType defaults to a library.
+    private static bool IsExecutable(XElement root)
+    {
+        var outputType = root.Descendants().FirstOrDefault(e => e.Name.LocalName == "OutputType")?.Value;
+        return outputType is not null
+            && (outputType.Equals("Exe", StringComparison.OrdinalIgnoreCase)
+                || outputType.Equals("WinExe", StringComparison.OrdinalIgnoreCase));
     }
 
     private static XElement AddTo(XElement parent, XElement child)

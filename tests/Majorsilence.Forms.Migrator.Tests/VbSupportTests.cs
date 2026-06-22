@@ -38,19 +38,53 @@ public class VbSupportTests
     }
 
     [Fact]
-    public void Warns_when_VB_form_lacks_constructor ()
+    public void Injects_constructor_when_VB_form_lacks_one ()
     {
         var src = "Public Class Form1\n  Private Sub Setup()\n    InitializeComponent()\n  End Sub\nEnd Class";
         var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
-        Assert.Contains (result.Warnings, w => w.Contains ("Public Sub New"));
+        Assert.True (result.Changed);
+        Assert.Contains ("Public Sub New()", result.Text);
+        Assert.Contains ("InitializeComponent()", result.Text);
+        // It's an applied fix, not a manual-review item.
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("Public Sub New"));
     }
 
     [Fact]
-    public void Does_not_warn_when_VB_form_has_constructor ()
+    public void Injects_constructor_after_Inherits_line ()
+    {
+        var src = "Partial Class Form1\n    Inherits Majorsilence.Forms.Form\n    Private Sub InitializeComponent()\n    End Sub\nEnd Class\n";
+        var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
+        var text = result.Text.Replace ("\r\n", "\n");
+        // Constructor must sit *after* Inherits (VB requires Inherits to be the first statement).
+        Assert.True (text.IndexOf ("Inherits", System.StringComparison.Ordinal)
+                     < text.IndexOf ("Public Sub New()", System.StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Does_not_inject_when_VB_form_already_has_constructor ()
     {
         var src = "Public Class Form1\n  Public Sub New()\n    InitializeComponent()\n  End Sub\nEnd Class";
         var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
-        Assert.DoesNotContain (result.Warnings, w => w.Contains ("Public Sub New"));
+        Assert.False (result.Changed);
+        Assert.DoesNotContain ("[majorsilence-migrate]", result.Text);
+    }
+
+    [Fact]
+    public void Does_not_inject_constructor_for_non_form_VB_files ()
+    {
+        // No InitializeComponent => not a form => nothing injected.
+        var src = "Public Class Helper\n  Public Sub Work()\n  End Sub\nEnd Class";
+        var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
+        Assert.DoesNotContain ("Public Sub New", result.Text);
+    }
+
+    [Fact]
+    public void Redirects_ComponentResourceManager_to_Majorsilence ()
+    {
+        var src = "var r = new System.ComponentModel.ComponentResourceManager(typeof(Form1));";
+        var result = SourceConverter.Convert (src);
+        Assert.Contains ("Majorsilence.Forms.ComponentResourceManager", result.Text);
+        Assert.DoesNotContain ("System.ComponentModel.ComponentResourceManager", result.Text);
     }
 
     [Fact]
@@ -132,5 +166,49 @@ public class VbSupportTests
     {
         var result = ProjectConverter.Convert (VbProj, Options (), ".", isVisualBasic: false);
         Assert.DoesNotContain ("MyType>Empty", result.Xml);
+    }
+
+    [Fact]
+    public void Library_VB_project_gets_no_entry_point_warning ()
+    {
+        // A class library has no entry point to lose, so MyType=Empty doesn't warrant the warning.
+        var lib = """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><OutputType>Library</OutputType><UseWindowsForms>true</UseWindowsForms></PropertyGroup>
+            </Project>
+            """;
+        var result = ProjectConverter.Convert (lib, Options (), ".", isVisualBasic: true);
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("entry point"));
+    }
+
+    [Fact]
+    public void VB_project_without_OutputType_gets_no_entry_point_warning ()
+    {
+        // Absent <OutputType> defaults to a library under the SDK.
+        var proj = """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><UseWindowsForms>true</UseWindowsForms></PropertyGroup>
+            </Project>
+            """;
+        var result = ProjectConverter.Convert (proj, Options (), ".", isVisualBasic: true);
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("entry point"));
+    }
+
+    // Typed-DataSet (.xsd) designer files only touch System.ComponentModel.Design via HelpKeywordAttribute,
+    // which is available cross-platform — they are pure System.Data and must not be flagged.
+    [Fact]
+    public void HelpKeywordAttribute_alone_is_not_flagged ()
+    {
+        var src = "<Global.System.ComponentModel.Design.HelpKeywordAttribute(\"vs.data.DataSet\")> _\nPartial Public Class ds\nEnd Class";
+        var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("System.ComponentModel.Design"));
+    }
+
+    [Fact]
+    public void Other_ComponentModel_Design_type_is_still_flagged ()
+    {
+        var src = "Dim d As System.ComponentModel.Design.IDesigner";
+        var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("System.ComponentModel.Design"));
     }
 }

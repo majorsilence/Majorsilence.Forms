@@ -18,6 +18,9 @@
     <PackageVersion Include="HarfBuzzSharp" Version="8.3.1.5" />
     <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
     <PackageVersion Include="System.Drawing.Common" Version="8.0.7" />
+    <!-- Safe reader for the legacy BinaryFormatter wire format (NRBF) — used to recover images from
+         WinForms .resx binary.base64 resources without running BinaryFormatter. -->
+    <PackageVersion Include="System.Formats.Nrbf" Version="9.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.201" />
     <PackageVersion Include="Topten.RichTextKit" Version="0.4.167" />
