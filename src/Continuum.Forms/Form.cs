@@ -155,6 +155,39 @@ namespace Continuum.Forms
         }
 
         /// <inheritdoc/>
+        protected override void OnClientLayoutChanged ()
+        {
+            base.OnClientLayoutChanged ();
+            UpdateCaptionRegions ();
+        }
+
+        // Publishes the draggable title-bar region to the backend (declarative window-drag for backends
+        // that can't begin a drag from code, e.g. Uno). Nothing to declare under system decorations —
+        // the OS owns the title bar then.
+        private void UpdateCaptionRegions ()
+        {
+            if (use_system_decorations || !TitleBar.Visible) {
+                Backend.SetCaptionRegions (System.Array.Empty<System.Drawing.Rectangle> ());
+                return;
+            }
+
+            // Logical, window-relative: the title-bar strip inside the border, minus the caption buttons
+            // (close/maximize/minimize stay client area so their clicks reach Continuum.Forms).
+            var border = CurrentStyle.Border;
+            var left = border.Left.GetWidth ();
+            var top = border.Top.GetWidth ();
+            var width = Backend.ClientSize.Width - left - border.Right.GetWidth () - TitleBar.CaptionButtonsWidth;
+            var height = TitleBar.Height;
+
+            if (width <= 0 || height <= 0) {
+                Backend.SetCaptionRegions (System.Array.Empty<System.Drawing.Rectangle> ());
+                return;
+            }
+
+            Backend.SetCaptionRegions (new[] { new System.Drawing.Rectangle (left, top, width, height) });
+        }
+
+        /// <inheritdoc/>
         protected override System.Drawing.Size DefaultSize => new System.Drawing.Size (1080, 720);
 
         /// <summary>Gets the default style for all forms.</summary>

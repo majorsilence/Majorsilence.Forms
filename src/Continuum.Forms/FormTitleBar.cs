@@ -85,6 +85,14 @@ namespace Continuum.Forms
             }
         }
 
+        // Total logical width of the caption buttons docked at the right (close + optional maximize/
+        // minimize). The Form treats the rest of the title bar as a draggable caption region, so the
+        // buttons stay clickable client area rather than OS drag/snap surface.
+        internal int CaptionButtonsWidth =>
+            (close_button.Visible ? close_button.Width : 0)
+            + (maximize_button.Visible ? maximize_button.Width : 0)
+            + (minimize_button.Visible ? minimize_button.Width : 0);
+
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (600, 34);
 

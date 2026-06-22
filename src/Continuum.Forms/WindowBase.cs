@@ -144,6 +144,7 @@ namespace Continuum.Forms
                 adapter.Width != logicalW || adapter.Height != logicalH) {
                 adapter.SetBounds (borderLeft, borderTop, logicalW, logicalH);
                 adapter.PerformLayout ();
+                OnClientLayoutChanged ();
             }
 
             var e = new PaintEventArgs (skInfo, canvas, scaling);
@@ -352,6 +353,9 @@ namespace Continuum.Forms
             adapter.RaiseKeyPress (kp_e);
             return kp_e.Handled;
         }
+
+        /// <summary>Called after the client area is (re)laid out due to a size change. Override to react to resizes.</summary>
+        protected virtual void OnClientLayoutChanged () { }
 
         /// <summary>Raises the MaximumSizeChanged event.</summary>
         protected virtual void OnMaximumSizeChanged (EventArgs e) => MaximumSizeChanged?.Invoke (this, e);

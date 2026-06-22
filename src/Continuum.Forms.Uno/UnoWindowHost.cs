@@ -132,7 +132,8 @@ namespace Continuum.Forms.Uno
             _window!.Activate ();
             TryFocus ();
             // Activation/focus and the native host can settle a tick later; retry on the dispatcher too.
-            _canvas.DispatcherQueue?.TryEnqueue (() => { TryFocus (); WireMacOSKeyboard (); });
+            // Re-declare caption regions then as well — the AppWindow id and scaling are reliably available.
+            _canvas.DispatcherQueue?.TryEnqueue (() => { TryFocus (); WireMacOSKeyboard (); ApplyCaptionRegions (); });
             WireMacOSKeyboard ();
         }
 
@@ -279,11 +280,11 @@ namespace Continuum.Forms.Uno
                 return;
             try {
                 if (Presenter is { } p) {
-                    if (!_systemDecorations) {
-                        p.IsResizable = false;
-                        p.IsMaximizable = false;
-                        p.IsMinimizable = false;
-                    }
+                    // A borderless OverlappedPresenter keeps OS resize margins, so even with self-drawn
+                    // chrome the window stays resizable — gate it on CanResize, never force it off.
+                    p.IsResizable = _canResize;
+                    p.IsMaximizable = _canResize;
+                    p.IsMinimizable = true;
                     p.SetBorderAndTitleBar (_systemDecorations, _systemDecorations);
                 }
                 _window!.ExtendsContentIntoTitleBar = !_systemDecorations;
@@ -308,7 +309,8 @@ namespace Continuum.Forms.Uno
 
         public Size MinimumSize { set { } }
         public Size MaximumSize { set { } }
-        public bool CanResize { get; set; } = true;
+        private bool _canResize = true;
+        public bool CanResize { get => _canResize; set { _canResize = value; ApplyDecorations (); } }
         public bool ShowInTaskbar { get; set; } = true;
         public double Opacity { get; set; } = 1.0;
         public FormWindowState WindowState { get; set; } = FormWindowState.Normal;
@@ -330,9 +332,56 @@ namespace Continuum.Forms.Uno
             return new Point (pos.X + (int) (client.X * s), pos.Y + (int) (client.Y * s));
         }
 
-        // ── Drag (custom chrome) — no portable Uno API; see docs/backends.md. ──
+        // ── Drag (custom chrome) ──
+        // WinUI/Uno has no "begin drag from code" API, so the interactive entry points are no-ops.
+        // Window move/resize is instead OS-driven: edge-resize comes from the borderless
+        // OverlappedPresenter's retained resize margins (see ApplyDecorations), and title-bar drag +
+        // Snap Layouts come from the declarative caption regions (see SetCaptionRegions). See docs/backends.md.
         public void BeginMoveDrag () { }
         public void BeginResizeDrag (WindowEdge edge) { }
+
+        // The Form's draggable title-bar region(s) in logical, window-relative pixels (see SetCaptionRegions).
+        private System.Collections.Generic.IReadOnlyList<Rectangle> _captionRects = System.Array.Empty<Rectangle> ();
+
+        public void SetCaptionRegions (System.Collections.Generic.IReadOnlyList<Rectangle> captionRects)
+        {
+            _captionRects = captionRects;
+            ApplyCaptionRegions ();
+        }
+
+        // Declares the caption regions to the OS so it handles window drag and Snap Layouts over them.
+        // Supported on the Windows-desktop / WinAppSDK heads only; a no-op (caught) on X11/macOS.
+        private void ApplyCaptionRegions ()
+        {
+            if (PopupMode || _window is null)
+                return;
+            try {
+                var windowId = _window.AppWindow?.Id;
+                if (windowId is null)
+                    return;
+
+                var source = Microsoft.UI.Input.InputNonClientPointerSource.GetForWindowId (windowId.Value);
+
+                // Region rects are physical pixels (not scaled points) and must track size/DPI changes —
+                // the Form re-declares them on every resize via OnClientLayoutChanged.
+                var scaling = Scaling;
+                if (scaling <= 0) scaling = 1.0;
+
+                var rects = new Windows.Graphics.RectInt32[_captionRects.Count];
+                for (var i = 0; i < _captionRects.Count; i++) {
+                    var r = _captionRects[i];
+                    rects[i] = new Windows.Graphics.RectInt32 {
+                        X = (int) (r.X * scaling), Y = (int) (r.Y * scaling),
+                        Width = (int) (r.Width * scaling), Height = (int) (r.Height * scaling)
+                    };
+                }
+
+                source.SetRegionRects (Microsoft.UI.Input.NonClientRegionKind.Caption, rects);
+            } catch {
+                // InputNonClientPointerSource is unavailable on non-Windows-desktop heads; OS drag isn't
+                // offered there (custom-chrome windows simply aren't draggable, as before).
+            }
+        }
 
         // ── INativeControlHostBackend (native Uno UIElements hosted inside the Continuum scene) ────────
         public void AttachNativeControl (Continuum.Forms.NativeControlHost host, object nativeControl)

@@ -74,6 +74,15 @@ namespace Continuum.Forms.Backends
         /// <summary>Begins an interactive window resize drag from the given edge.</summary>
         void BeginResizeDrag (WindowEdge edge);
 
+        /// <summary>
+        /// Declares the window's draggable caption (title-bar) regions in logical, window-relative
+        /// pixels — the declarative alternative to <see cref="BeginMoveDrag"/> for backends that can't
+        /// start a drag from code (e.g. WinUI/Uno: the OS handles dragging and Snap Layouts over these
+        /// regions). An empty list clears them. Backends that use the interactive
+        /// <see cref="BeginMoveDrag"/> path ignore this. Re-declared by the Form on layout/resize.
+        /// </summary>
+        void SetCaptionRegions (System.Collections.Generic.IReadOnlyList<Rectangle> captionRects) { }
+
         // ── Rendering ────────────────────────────────────────────────────────────
         /// <summary>Marks the window as needing a repaint.</summary>
         void Invalidate ();

@@ -124,15 +124,29 @@ dotnet run --project samples/Gallery.Uno
 Verified on macOS: the Uno host launches, `UnoPlatformBackend` creates the window, and the gallery's
 `MainForm` renders into the `SKXamlCanvas` (RenderFrame 1080×720).
 
-### Known limitation: interactive window drag
+### Window drag & resize with self-drawn chrome
 
-`BeginMoveDrag`/`BeginResizeDrag` are no-ops on the Uno backend. WinUI/Uno has no programmatic
-"begin drag from code" API — window move/resize is OS-driven via a designated title-bar region
-(`Window.SetTitleBar` + `ExtendsContentIntoTitleBar`) rather than a call invoked from a pointer-down
-handler. Supporting Continuum.Forms' custom (self-drawn) chrome would require mapping its title-bar
-layout onto WinUI's non-client `InputNonClientPointerSource` regions (with passthrough holes for the
-caption buttons) — a platform-specific integration left as future work. Use native decorations
-(`UseSystemDecorations`) on Uno if you need OS window dragging.
+`BeginMoveDrag`/`BeginResizeDrag` are no-ops on the Uno backend — WinUI/Uno has no programmatic
+"begin drag from code" API. Instead, window move/resize for Continuum.Forms' custom (self-drawn)
+chrome is handled **declaratively**:
+
+- **Resize** comes for free: a borderless `OverlappedPresenter`
+  (`SetBorderAndTitleBar(false, false)`) keeps the OS resize margins, so the window stays resizable
+  as long as `IsResizable` isn't forced off. `UnoWindowHost.ApplyDecorations` drives it from
+  `CanResize`.
+- **Title-bar drag + Snap Layouts** come from the new `IWindowBackend.SetCaptionRegions` seam. The
+  `Form` publishes its title-bar strip (minus the caption buttons, which stay clickable client area)
+  on every layout/resize via `OnClientLayoutChanged`; `UnoWindowHost` forwards it to WinUI's
+  `InputNonClientPointerSource.SetRegionRects(NonClientRegionKind.Caption, …)` in physical pixels.
+
+`SetCaptionRegions` is a default no-op on the interface, so backends using the interactive
+`BeginMoveDrag` path (Avalonia) ignore it.
+
+**Platform support:** `InputNonClientPointerSource` is a Windows-desktop / WinAppSDK API, so OS
+title-bar drag works on the **Win32 desktop head**. On the macOS head `Form` uses native decorations
+(`UseSystemDecorations`) and the OS owns drag/resize. On the **X11 head** the caption-region call
+no-ops (caught) — edge-resize may still work via the presenter, but title-bar drag is unavailable;
+use `UseSystemDecorations` there if you need OS window dragging.
 
 ### Adding another backend
 
