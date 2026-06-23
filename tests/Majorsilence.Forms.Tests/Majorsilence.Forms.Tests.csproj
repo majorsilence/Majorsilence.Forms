@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WebDriver\Majorsilence.Forms.WebDriver.csproj" />
   </ItemGroup>
 
 </Project>

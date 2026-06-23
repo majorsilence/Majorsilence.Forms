@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.WebDriver</PackageId>
+    <Description>A W3C WebDriver (Selenium-compatible) HTTP server for automating Majorsilence.Forms apps — maps WebDriver commands onto the automation tree, neutral input injection, and offscreen screenshots.</Description>
+    <PackageTags>Majorsilence;Forms;WebDriver;Selenium;Automation;Testing</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>
