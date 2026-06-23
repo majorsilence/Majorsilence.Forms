@@ -9,11 +9,19 @@ namespace Majorsilence.Forms.Migrator;
 /// </summary>
 internal static class ProjectConverter
 {
-    public sealed record Result(string Xml, bool Changed, IReadOnlyList<string> Warnings);
+    public sealed record Result(string Xml, bool Changed, IReadOnlyList<string> Warnings, IReadOnlyList<string> AddedPackages);
 
-    public static Result Convert(string xml, MigrationOptions options, string projectDirectory, bool isVisualBasic = false)
+    /// <param name="centralPackageManagement">
+    /// When true, the project is governed by a <c>Directory.Packages.props</c> with central management
+    /// on, so added <c>PackageReference</c>s omit their <c>Version</c> (the version belongs in the props
+    /// file). The added package ids are returned via <see cref="Result.AddedPackages"/> so the caller can
+    /// pin their versions centrally.
+    /// </param>
+    public static Result Convert(string xml, MigrationOptions options, string projectDirectory,
+        bool isVisualBasic = false, bool centralPackageManagement = false)
     {
         var warnings = new List<string>();
+        var addedPackages = new List<string>();
         XDocument doc;
         try
         {
@@ -24,21 +32,21 @@ internal static class ProjectConverter
         catch (System.Xml.XmlException ex)
         {
             warnings.Add($"could not parse project XML ({ex.Message}); skipped");
-            return new Result(xml, Changed: false, warnings);
+            return new Result(xml, Changed: false, warnings, addedPackages);
         }
 
         var root = doc.Root;
         if (root is null || !string.Equals(root.Name.LocalName, "Project", StringComparison.Ordinal))
         {
             warnings.Add("not a recognizable MSBuild project; skipped");
-            return new Result(xml, Changed: false, warnings);
+            return new Result(xml, Changed: false, warnings, addedPackages);
         }
 
         // Majorsilence.Forms only supports SDK-style projects. A legacy project has no Sdk attribute.
         if (root.Attribute("Sdk") is null)
         {
             warnings.Add("legacy (non-SDK) project format — convert to SDK-style first; skipped");
-            return new Result(xml, Changed: false, warnings);
+            return new Result(xml, Changed: false, warnings, addedPackages);
         }
 
         var changed = false;
@@ -81,15 +89,15 @@ internal static class ProjectConverter
             changed = true;
         }
 
-        AddReferences(root, options, projectDirectory, ref changed, warnings);
+        AddReferences(root, options, projectDirectory, centralPackageManagement, ref changed, warnings, addedPackages);
 
         if (isVisualBasic)
             ApplyVisualBasicFixups(root, ref changed, warnings);
 
         if (!changed)
-            return new Result(xml, Changed: false, warnings);
+            return new Result(xml, Changed: false, warnings, addedPackages);
 
-        return new Result(doc.ToString(), Changed: true, warnings);
+        return new Result(doc.ToString(), Changed: true, warnings, addedPackages);
     }
 
     // VB WinForms projects lean on the "My" application framework (MyType=Windows/WindowsForms), which
@@ -170,7 +178,8 @@ internal static class ProjectConverter
         return child;
     }
 
-    private static void AddReferences(XElement root, MigrationOptions options, string projectDirectory, ref bool changed, List<string> warnings)
+    private static void AddReferences(XElement root, MigrationOptions options, string projectDirectory,
+        bool centralPackageManagement, ref bool changed, List<string> warnings, List<string> addedPackages)
     {
         var ns = root.Name.Namespace;
         var backendCore = options.Backend switch
@@ -191,9 +200,14 @@ internal static class ProjectConverter
 
             if (options.ReferenceMode == ReferenceMode.Package)
             {
-                itemGroup.Add(new XElement(ns + "PackageReference",
-                    new XAttribute("Include", pkg),
-                    new XAttribute("Version", options.PackageVersion)));
+                var packageRef = new XElement(ns + "PackageReference", new XAttribute("Include", pkg));
+                // Under central package management the version is pinned in Directory.Packages.props,
+                // and a Version here would be a build error (NU1008) — omit it and report the package
+                // so the caller can add the central <PackageVersion> entry.
+                if (!centralPackageManagement)
+                    packageRef.Add(new XAttribute("Version", options.PackageVersion));
+                itemGroup.Add(packageRef);
+                addedPackages.Add(pkg);
             }
             else
             {

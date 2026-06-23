@@ -9,11 +9,12 @@ if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
 string? input = null;
 string? output = null;
 var dryRun = false;
+var noBackup = false;
 var showDiff = false;
 var backend = Backend.Avalonia;
 var referenceMode = ReferenceMode.Package;
 var targetFramework = "net10.0";
-var packageVersion = "0.3.0";
+var packageVersion = "1.0.1";
 string? repoRoot = null;
 var strict = false;
 var noReport = false;
@@ -30,6 +31,9 @@ for (var i = 0; i < args.Length; i++)
             break;
         case "--dry-run" or "-n":
             dryRun = true;
+            break;
+        case "--no-backup":
+            noBackup = true;
             break;
         case "--diff":
             showDiff = true;
@@ -82,6 +86,7 @@ var options = new MigrationOptions
     Input = Path.GetFullPath(input),
     Output = output is null ? null : Path.GetFullPath(output),
     DryRun = dryRun,
+    NoBackup = noBackup,
     ShowDiff = showDiff,
     Backend = backend,
     ReferenceMode = referenceMode,
@@ -139,6 +144,8 @@ static void PrintUsage()
           -o, --output <dir>      Write converted files to <dir> (mirrors the input tree).
                                   Omit to convert in place (a .bak is left beside each changed file).
           -n, --dry-run           Report what would change without writing anything.
+              --no-backup         In-place: don't leave a .bak beside each changed file
+                                  (e.g. when the source is under version control).
               --diff              Print a unified diff for each changed file.
               --backend <name>    Platform backend to reference: avalonia (default) | uno | headless.
               --references <mode>  How to reference Majorsilence.Forms: package (default) | project.

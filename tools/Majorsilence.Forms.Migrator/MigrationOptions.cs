@@ -32,6 +32,13 @@ internal sealed class MigrationOptions
     /// <summary>Report what would change without writing anything.</summary>
     public bool DryRun { get; init; }
 
+    /// <summary>
+    /// Skip the <c>.bak</c> copy normally left beside each changed file during an in-place conversion.
+    /// Useful when the source is under version control (git already preserves the originals). No effect
+    /// when <see cref="Output"/> is set — that mode never touches the originals.
+    /// </summary>
+    public bool NoBackup { get; init; }
+
     /// <summary>Print a unified diff for each changed file.</summary>
     public bool ShowDiff { get; init; }
 

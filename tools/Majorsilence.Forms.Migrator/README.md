@@ -15,6 +15,11 @@ dotnet run --project tools/Majorsilence.Forms.Migrator -- <input> [options]
 - Retargets the framework (e.g. `net8.0-windows` → `net10.0`).
 - Drops the `Microsoft.WindowsDesktop.App` framework reference.
 - Adds `Majorsilence.Forms` + a platform backend reference (package or project).
+- **Honours Central Package Management.** When a `Directory.Packages.props` governs the project (found by
+  walking up from the project) and central management is on, the added `PackageReference`s omit their
+  `Version` and the versions are pinned in that `Directory.Packages.props` via `<PackageVersion>` entries
+  instead (existing entries are left untouched). With `--output` the props file is mirrored into the
+  output tree; a repo-wide props file above the migrated tree is flagged for manual editing instead.
 - Skips legacy non-SDK projects and malformed XML with a warning (never throws).
 
 ### Source files (`.cs` / `.vb`)
@@ -91,6 +96,7 @@ Because of that, the migrator only flags what genuinely can't be carried across:
 | --- | --- |
 | `-o, --output <dir>` | Write to a mirrored tree. Omit to convert in place (leaves `.bak` files). |
 | `-n, --dry-run` | Report changes without writing. |
+| `--no-backup` | In-place mode: don't leave a `.bak` beside each changed file (e.g. when under git). |
 | `--diff` | Print a unified diff for each changed file. |
 | `--backend <name>` | `avalonia` (default) \| `uno` \| `headless`. |
 | `--references <mode>` | `package` (default) \| `project`. |

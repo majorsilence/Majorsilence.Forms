@@ -12,6 +12,11 @@ internal sealed class Migrator
     private readonly List<string> _warnings = new();
     private CustomMap _customMap = CustomMap.Empty;
 
+    // Packages that need a central <PackageVersion> entry, grouped by the governing
+    // Directory.Packages.props they belong to. Populated as projects under central package management
+    // are converted, then flushed once per props file by UpdateCentralPackageFiles().
+    private readonly Dictionary<string, HashSet<string>> _centralPackagesByProps = new(StringComparer.OrdinalIgnoreCase);
+
     public Migrator(MigrationOptions options) => _options = options;
 
     public int Run()
@@ -46,6 +51,8 @@ internal sealed class Migrator
 
         foreach (var proj in projects)
             ConvertProject(proj);
+
+        UpdateCentralPackageFiles();
 
         foreach (var src in sourceFiles)
             ConvertSource(src);
@@ -105,7 +112,13 @@ internal sealed class Migrator
         _filesScanned++;
         var xml = File.ReadAllText(path);
         var isVb = Path.GetExtension(path).Equals(".vbproj", StringComparison.OrdinalIgnoreCase);
-        var result = ProjectConverter.Convert(xml, _options, Path.GetDirectoryName(path)!, isVb);
+
+        // If a Directory.Packages.props governs this project and central management is on, the converter
+        // must emit version-less PackageReferences and we pin the versions in that props file instead.
+        var propsPath = CentralPackageManagement.Find(Path.GetDirectoryName(path)!);
+        var useCpm = propsPath is not null && CentralPackageManagement.IsEnabled(File.ReadAllText(propsPath));
+
+        var result = ProjectConverter.Convert(xml, _options, Path.GetDirectoryName(path)!, isVb, useCpm);
 
         foreach (var w in result.Warnings)
             _warnings.Add($"{Rel(path)}: {w}");
@@ -113,10 +126,80 @@ internal sealed class Migrator
         if (!result.Changed)
             return;
 
+        if (useCpm && result.AddedPackages.Count > 0)
+        {
+            if (!_centralPackagesByProps.TryGetValue(propsPath!, out var set))
+                _centralPackagesByProps[propsPath!] = set = new(StringComparer.OrdinalIgnoreCase);
+            foreach (var pkg in result.AddedPackages)
+                set.Add(pkg);
+        }
+
         _changes.Add(("proj", Rel(path)));
         Console.WriteLine($"  [proj] {Rel(path)}");
         MaybePrintDiff(Rel(path), xml, result.Xml);
         WriteResult(path, result.Xml);
+    }
+
+    /// <summary>
+    /// Pins the migrated packages' versions in each governing <c>Directory.Packages.props</c> that was
+    /// found while converting projects under central package management. Each props file is written once,
+    /// with the union of packages added across the projects it governs.
+    /// </summary>
+    private void UpdateCentralPackageFiles()
+    {
+        foreach (var (propsPath, ids) in _centralPackagesByProps)
+        {
+            var xml = File.ReadAllText(propsPath);
+            var packages = ids.Select(id => (id, _options.PackageVersion));
+            var (updated, changed) = CentralPackageManagement.EnsureVersions(xml, packages);
+            if (!changed)
+                continue;
+
+            _changes.Add(("props", Rel(propsPath)));
+            Console.WriteLine($"  [props] {Rel(propsPath)}");
+            MaybePrintDiff(Rel(propsPath), xml, updated);
+
+            if (_options.DryRun)
+                continue;
+
+            var destination = CentralPackagesDestination(propsPath);
+            if (destination is null)
+            {
+                _warnings.Add($"{Rel(propsPath)}: central package file is outside the migrated output tree — " +
+                    $"add PackageVersion entries for {string.Join(", ", ids)} manually");
+                continue;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(destination))!);
+            if (_options.Output is null && !_options.NoBackup)
+            {
+                // In-place: keep a one-time backup, matching how source/project files are handled.
+                var backup = propsPath + ".bak";
+                if (!File.Exists(backup))
+                    File.Copy(propsPath, backup);
+            }
+            File.WriteAllText(destination, updated);
+        }
+    }
+
+    /// <summary>
+    /// Where the updated <c>Directory.Packages.props</c> should be written. In place it's the file itself;
+    /// with <c>--output</c> it's mirrored to the same relative location — unless the props file lives above
+    /// the migrated input tree (a shared, repo-wide file), in which case there's no safe mirror target and
+    /// the caller warns instead.
+    /// </summary>
+    private string? CentralPackagesDestination(string propsPath)
+    {
+        if (_options.Output is null)
+            return propsPath;
+
+        var inputRoot = Directory.Exists(_options.Input)
+            ? _options.Input
+            : Path.GetDirectoryName(Path.GetFullPath(_options.Input))!;
+        var relative = Path.GetRelativePath(Path.GetFullPath(inputRoot), Path.GetFullPath(propsPath));
+        if (relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative))
+            return null;
+        return Path.Combine(_options.Output, relative);
     }
 
     private void ConvertSource(string path)
@@ -229,7 +312,7 @@ internal sealed class Migrator
         var destination = DestinationFor(sourcePath);
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
 
-        if (_options.Output is null)
+        if (_options.Output is null && !_options.NoBackup)
         {
             // In-place: keep a one-time backup so the edit is reversible.
             var backup = sourcePath + ".bak";

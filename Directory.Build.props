@@ -29,7 +29,10 @@
     <!-- CA1711/CA1716: this is a WinForms/Telerik/System.Drawing compatibility layer, so public
          API names (e.g. StringFormatFlags, GridViewCellCollection, a Stop() method) intentionally
          mirror the originals and cannot be renamed to satisfy these naming-convention analyzers. -->
-    <NoWarn>$(NoWarn);NU5104;CA1711;CA1716</NoWarn>
+    <!-- NU1507: fires when the machine has multiple NuGet sources configured under central package
+         management. The source list is environment-specific (enterprise feeds), not something the
+         repo controls, so it shouldn't fail a Release build under TreatWarningsAsErrors. -->
+    <NoWarn>$(NoWarn);NU5104;CA1711;CA1716;NU1507</NoWarn>
   </PropertyGroup>
 
   <!-- Required for Deterministic -->

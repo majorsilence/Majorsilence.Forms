@@ -101,6 +101,30 @@ public class ProjectConverterTests
     }
 
     [Fact]
+    public void Central_package_management_omits_the_version_attribute ()
+    {
+        var result = ProjectConverter.Convert (WinFormsCsproj, Options (), ".", centralPackageManagement: true);
+        Assert.Contains ("<PackageReference Include=\"Majorsilence.Forms\" />", result.Xml);
+        Assert.Contains ("<PackageReference Include=\"Majorsilence.Forms.Avalonia\" />", result.Xml);
+        // No inline Version anywhere — it belongs in Directory.Packages.props.
+        Assert.DoesNotContain ("Version=", result.Xml);
+    }
+
+    [Fact]
+    public void Central_package_management_reports_added_packages ()
+    {
+        var result = ProjectConverter.Convert (WinFormsCsproj, Options (Backend.Uno), ".", centralPackageManagement: true);
+        Assert.Equal (new[] { "Majorsilence.Forms", "Majorsilence.Forms.Uno" }, result.AddedPackages);
+    }
+
+    [Fact]
+    public void Non_central_management_still_pins_the_version_inline ()
+    {
+        var result = ProjectConverter.Convert (WinFormsCsproj, Options (), ".");
+        Assert.Contains ("Version=\"0.3.0\"", result.Xml);
+    }
+
+    [Fact]
     public void Skips_legacy_non_sdk_project_with_warning ()
     {
         var xml = """<Project ToolsVersion="4.0"><PropertyGroup /></Project>""";

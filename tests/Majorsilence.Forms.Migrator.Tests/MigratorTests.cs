@@ -65,6 +65,17 @@ public class MigratorTests : IDisposable
     }
 
     [Fact]
+    public void No_backup_converts_in_place_without_a_bak_file ()
+    {
+        var input = Write ("Three.cs", "using System.Windows.Forms;\n");
+
+        new Migrator (new MigrationOptions { Input = _dir, NoBackup = true, NoReport = true }).Run ();
+
+        Assert.Contains ("using Majorsilence.Forms;", File.ReadAllText (input));
+        Assert.False (File.Exists (input + ".bak"));
+    }
+
+    [Fact]
     public void Strict_mode_returns_nonzero_on_warnings ()
     {
         // Metafile has no Majorsilence equivalent → a manual-review warning.
@@ -73,6 +84,49 @@ public class MigratorTests : IDisposable
         var exit = new Migrator (new MigrationOptions { Input = _dir, DryRun = true, NoReport = true, Strict = true }).Run ();
 
         Assert.NotEqual (0, exit);
+    }
+
+    private const string WinFormsCsproj = """
+        <Project Sdk="Microsoft.NET.Sdk">
+          <PropertyGroup>
+            <OutputType>WinExe</OutputType>
+            <TargetFramework>net8.0-windows</TargetFramework>
+            <UseWindowsForms>true</UseWindowsForms>
+          </PropertyGroup>
+        </Project>
+        """;
+
+    [Fact]
+    public void Central_package_management_pins_versions_in_props_and_omits_inline_versions ()
+    {
+        Write ("Directory.Packages.props", "<Project>\n  <PropertyGroup>\n    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>\n  </PropertyGroup>\n  <ItemGroup />\n</Project>");
+        Write ("App.csproj", WinFormsCsproj);
+        var outDir = Path.Combine (_dir, "out");
+
+        var exit = new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+
+        Assert.Equal (0, exit);
+
+        var csproj = File.ReadAllText (Path.Combine (outDir, "App.csproj"));
+        Assert.Contains ("<PackageReference Include=\"Majorsilence.Forms\" />", csproj);
+        Assert.DoesNotContain ("Version=", csproj);
+
+        var props = File.ReadAllText (Path.Combine (outDir, "Directory.Packages.props"));
+        Assert.Contains ("<PackageVersion Include=\"Majorsilence.Forms\" Version=\"0.3.0\" />", props);
+        Assert.Contains ("<PackageVersion Include=\"Majorsilence.Forms.Avalonia\" Version=\"0.3.0\" />", props);
+    }
+
+    [Fact]
+    public void Without_central_management_versions_stay_inline ()
+    {
+        Write ("App.csproj", WinFormsCsproj);
+        var outDir = Path.Combine (_dir, "out");
+
+        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+
+        var csproj = File.ReadAllText (Path.Combine (outDir, "App.csproj"));
+        Assert.Contains ("Version=\"0.3.0\"", csproj);
+        Assert.False (File.Exists (Path.Combine (outDir, "Directory.Packages.props")));
     }
 
     [Fact]
