@@ -28,6 +28,14 @@ namespace Majorsilence.Forms
         /// </summary>
         public TabPageCollection TabPages { get; }
 
+        // Hides/shows the built-in tab header strip. Used when the headers are presented elsewhere
+        // (e.g. RadTabbedForm draws document tabs in the title bar and uses the TabControl only as a
+        // content host). The hidden strip is Dock=Top with no space, so pages fill the whole control.
+        internal bool TabStripVisible {
+            get => tab_strip.Visible;
+            set => tab_strip.Visible = value;
+        }
+
         private TabPage? GetPageFromTab (TabStripItem? item) => TabPages.FirstOrDefault (p => p.TabStripItem == item);
 
         /// <summary>

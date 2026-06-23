@@ -55,6 +55,7 @@ namespace ControlGallery
             tree.Items.Add ("Telerik: GridView", ImageLoader.Get ("button.png"));
             tree.Items.Add ("Telerik: PageView", ImageLoader.Get ("button.png"));
             tree.Items.Add ("Telerik: PropertyGrid", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: TabbedForm", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TableLayoutPanel", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TabStrip", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TextBox", ImageLoader.Get ("button.png"));
@@ -165,6 +166,8 @@ namespace ControlGallery
                     return new TelerikPageViewPanel ();
                 case "Telerik: PropertyGrid":
                     return new TelerikPropertyGridPanel ();
+                case "Telerik: TabbedForm":
+                    return new TelerikTabbedFormPanel ();
                 case "TableLayoutPanel":
                     return new TableLayoutPanelPanel ();
                 case "TabStrip":
