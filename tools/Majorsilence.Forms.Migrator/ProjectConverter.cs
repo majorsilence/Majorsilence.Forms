@@ -17,9 +17,14 @@ internal static class ProjectConverter
     /// file). The added package ids are returned via <see cref="Result.AddedPackages"/> so the caller can
     /// pin their versions centrally.
     /// </param>
+    /// <param name="addMajorsilenceReferences">
+    /// Whether to add the <c>Majorsilence.Forms</c> + backend references. The migrator sets this false for
+    /// a project that is neither a WinForms project nor contains any WinForms code, so non-UI projects in a
+    /// solution aren't given a dependency they don't need.
+    /// </param>
     public static Result Convert(string xml, MigrationOptions options, string projectDirectory,
         bool isVisualBasic = false, bool centralPackageManagement = false,
-        IReadOnlyList<string>? removePackagePatterns = null)
+        IReadOnlyList<string>? removePackagePatterns = null, bool addMajorsilenceReferences = true)
     {
         var warnings = new List<string>();
         var addedPackages = new List<string>();
@@ -105,7 +110,8 @@ internal static class ProjectConverter
         // and the rest are Windows-desktop-only, so the original packages don't belong here.
         RemoveWinFormsPackages(root, removePackagePatterns ?? WinFormsPackages.DefaultPatterns, ref changed);
 
-        AddReferences(root, options, projectDirectory, centralPackageManagement, ref changed, warnings, addedPackages);
+        if (addMajorsilenceReferences)
+            AddReferences(root, options, projectDirectory, centralPackageManagement, ref changed, warnings, addedPackages);
 
         if (isVisualBasic)
             ApplyVisualBasicFixups(root, ref changed, warnings);

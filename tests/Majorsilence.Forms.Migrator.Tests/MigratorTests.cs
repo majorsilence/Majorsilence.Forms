@@ -241,6 +241,42 @@ public class MigratorTests : IDisposable
     }
 
     [Fact]
+    public void Does_not_reference_Majorsilence_for_a_non_winforms_project ()
+    {
+        // A windows-targeted library with no WinForms opt-in and no WinForms code.
+        Write ("Lib.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        Write ("Service.cs", "namespace Lib { public class Service { public int Add (int a, int b) => a + b; } }");
+        var outDir = Path.Combine (_dir, "out");
+
+        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+
+        var csproj = File.ReadAllText (Path.Combine (outDir, "Lib.csproj"));
+        Assert.DoesNotContain ("Majorsilence.Forms", csproj);     // no UI dependency forced on it
+        Assert.Contains ("<TargetFramework>net8.0</TargetFramework>", csproj); // but still converted
+    }
+
+    [Fact]
+    public void References_Majorsilence_when_source_uses_winforms_without_the_opt_in ()
+    {
+        // No <UseWindowsForms>, but the code clearly uses WinForms.
+        Write ("App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        Write ("Form1.cs", "using System.Windows.Forms;\npublic class Form1 : Form { }");
+        var outDir = Path.Combine (_dir, "out");
+
+        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+
+        Assert.Contains ("Majorsilence.Forms", File.ReadAllText (Path.Combine (outDir, "App.csproj")));
+    }
+
+    [Fact]
     public void Writes_report_by_default ()
     {
         Write ("Five.cs", "using System.Windows.Forms;\n");

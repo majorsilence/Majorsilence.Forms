@@ -22,7 +22,11 @@ dotnet run --project tools/Majorsilence.Forms.Migrator -- <input> [options]
   (their `<PackageReference>`s, and any now-empty `<ItemGroup>`). The Telerik/DevExpress namespaces map onto
   the `Majorsilence.Forms.*` compat layers via the source rewrites / a `--map` file; add more packages to
   drop with a map file's `removePackages` globs (`*` wildcard, case-insensitive).
-- Adds `Majorsilence.Forms` + a platform backend reference (package or project).
+- Adds `Majorsilence.Forms` + a platform backend reference (package or project) — but **only to projects
+  that are actually WinForms**: a project is treated as WinForms when it opts in
+  (`<UseWindowsForms>`, a `System.Windows.Forms` assembly reference / VB project import) or any of its
+  source uses `System.Windows.Forms`. Non-UI projects in a solution (data/service libraries) are left
+  without a UI dependency.
 - **Honours Central Package Management.** When a `Directory.Packages.props` governs the project (found by
   walking up from the project) and central management is on, the added `PackageReference`s omit their
   `Version` and the versions are pinned in that `Directory.Packages.props` via `<PackageVersion>` entries

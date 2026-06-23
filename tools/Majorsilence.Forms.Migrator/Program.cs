@@ -163,7 +163,8 @@ static void PrintUsage()
           * Project files: removes UseWindowsForms/UseWPF, drops the -windows TFM suffix
             (net8.0-windows -> net8.0; also in any imported .props/.targets), drops the
             Windows-desktop framework reference, removes WinForms-only NuGet packages
-            (Telerik UI for WinForms, DevExpress, ...), and adds Majorsilence.Forms + a backend reference.
+            (Telerik UI for WinForms, DevExpress, ...), and adds Majorsilence.Forms + a backend reference
+            (only to projects that are/use WinForms; non-UI projects are left alone).
           * Source files: rewrites System.Windows.Forms -> Majorsilence.Forms and
             System.Drawing[.*] -> Majorsilence.Drawing[.*]. APIs with no equivalent are flagged
             as warnings for manual review.

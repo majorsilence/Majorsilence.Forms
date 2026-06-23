@@ -197,6 +197,20 @@ public class ProjectConverterTests
     }
 
     [Fact]
+    public void Does_not_add_references_when_not_a_winforms_project ()
+    {
+        var xml = """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework></PropertyGroup>
+            </Project>
+            """;
+        var result = ProjectConverter.Convert (xml, Options (), ".", addMajorsilenceReferences: false);
+        Assert.DoesNotContain ("Majorsilence.Forms", result.Xml);
+        // Other transforms still apply — the -windows suffix is dropped.
+        Assert.Contains ("<TargetFramework>net8.0</TargetFramework>", result.Xml);
+    }
+
+    [Fact]
     public void Skips_legacy_non_sdk_project_with_warning ()
     {
         var xml = """<Project ToolsVersion="4.0"><PropertyGroup /></Project>""";

@@ -136,7 +136,12 @@ internal sealed class Migrator
 
         // Built-in WinForms-only package patterns plus any the user added via a --map file.
         var removePackages = WinFormsPackages.DefaultPatterns.Concat(_customMap.RemovePackages).ToList();
-        var result = ProjectConverter.Convert(xml, _options, Path.GetDirectoryName(path)!, isVb, useCpm, removePackages);
+
+        // Only wire in Majorsilence.Forms when the project actually is/uses WinForms — a non-UI project in
+        // a solution (a data/service library) shouldn't gain a UI-framework dependency it never needed.
+        var addReferences = ProjectUsesWinForms(Path.GetDirectoryName(path)!, xml);
+
+        var result = ProjectConverter.Convert(xml, _options, Path.GetDirectoryName(path)!, isVb, useCpm, removePackages, addReferences);
 
         foreach (var w in result.Warnings)
             _warnings.Add($"{Rel(path)}: {w}");
@@ -534,6 +539,58 @@ internal sealed class Migrator
     }
 
     private static readonly string[] ProjectGlobs = { "*.csproj", "*.vbproj" };
+
+    /// <summary>
+    /// True when the project is a WinForms project or contains WinForms code — the test for whether to
+    /// wire in Majorsilence.Forms. Looks at the project XML (UseWindowsForms, a System.Windows.Forms
+    /// assembly Reference or VB project import) and, failing that, scans the project's source for any
+    /// <c>System.Windows.Forms</c> usage.
+    /// </summary>
+    private bool ProjectUsesWinForms(string projectDir, string projectXml) =>
+        XmlSignalsWinForms(projectXml) || SourceSignalsWinForms(projectDir);
+
+    private static bool XmlSignalsWinForms(string xml)
+    {
+        XDocument doc;
+        try { doc = XDocument.Parse(xml); }
+        catch (System.Xml.XmlException) { return false; }
+
+        foreach (var e in doc.Descendants()) {
+            switch (e.Name.LocalName) {
+                case "UseWindowsForms" when e.Value.Trim().Equals("true", StringComparison.OrdinalIgnoreCase):
+                    return true;
+                // VB project-level global import: <Import Include="System.Windows.Forms" />
+                case "Import" when (e.Attribute("Include")?.Value ?? "").Equals("System.Windows.Forms", StringComparison.OrdinalIgnoreCase):
+                    return true;
+                // Legacy assembly reference: <Reference Include="System.Windows.Forms" />
+                case "Reference" when (e.Attribute("Include")?.Value ?? "").StartsWith("System.Windows.Forms", StringComparison.OrdinalIgnoreCase):
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool SourceSignalsWinForms(string projectDir)
+    {
+        if (!Directory.Exists(projectDir))
+            return false;
+
+        foreach (var pattern in new[] { "*.cs", "*.vb" }) {
+            foreach (var file in Directory.EnumerateFiles(projectDir, pattern, SearchOption.AllDirectories)) {
+                if (IsInIgnoredDirectory(file) || IsUnderOutput(file))
+                    continue;
+                try {
+                    if (File.ReadAllText(file).Contains("System.Windows.Forms", StringComparison.Ordinal))
+                        return true;
+                } catch (IOException) {
+                    // Unreadable file — ignore for the heuristic.
+                }
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>The directories to walk for source/resource files, derived from the input kind.</summary>
     private List<string> InputRoots()
