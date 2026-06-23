@@ -20,7 +20,7 @@ namespace ControlGallery.Panels
             list_box = Controls.Add (new ListBox { Left = 200, Top = 10, Width = 550 });
         }
 
-        private async void Button1_Click (object? sender, MouseEventArgs e)
+        private async void Button1_Click (object? sender, EventArgs e)
         {
             list_box.Items.Clear ();
 
@@ -39,7 +39,7 @@ namespace ControlGallery.Panels
                     list_box.Items.Add (file);
         }
 
-        private async void Button2_Click (object? sender, MouseEventArgs e)
+        private async void Button2_Click (object? sender, EventArgs e)
         {
             list_box.Items.Clear ();
 
@@ -58,7 +58,7 @@ namespace ControlGallery.Panels
                     list_box.Items.Add (file);
         }
 
-        private async void Button3_Click (object? sender, MouseEventArgs e)
+        private async void Button3_Click (object? sender, EventArgs e)
         {
             list_box.Items.Clear ();
 

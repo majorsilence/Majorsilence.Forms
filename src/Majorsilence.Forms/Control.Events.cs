@@ -12,6 +12,8 @@ public partial class Control
     // https://docs.microsoft.com/en-us/dotnet/standard/events/how-to-handle-multiple-events-using-event-properties
     private static readonly object s_autoSizeChangedEvent = new object ();
     private static readonly object s_clickEvent = new object ();
+    private static readonly object s_mouseClickEvent = new object ();
+    private static readonly object s_mouseDoubleClickEvent = new object ();
     private static readonly object s_contextMenuChangedEvent = new object ();
     private static readonly object s_controlAddedEvent = new object ();
     private static readonly object s_controlRemovedEvent = new object ();
@@ -52,9 +54,11 @@ public partial class Control
     }
 
     /// <summary>
-    /// Raised when this control is clicked.
+    /// Raised when this control is clicked. Matches WinForms: a plain <see cref="EventHandler"/>
+    /// (the event args passed are a <see cref="MouseEventArgs"/>, but handlers receive them as
+    /// <see cref="EventArgs"/>). Use <see cref="MouseClick"/> for the typed mouse variant.
     /// </summary>
-    public event EventHandler<MouseEventArgs>? Click {
+    public event EventHandler? Click {
         add => Events.AddHandler (s_clickEvent, value);
         remove => Events.RemoveHandler (s_clickEvent, value);
     }
@@ -100,9 +104,10 @@ public partial class Control
     }
 
     /// <summary>
-    /// Raised when this control is double-clicked.
+    /// Raised when this control is double-clicked. Matches WinForms: a plain <see cref="EventHandler"/>.
+    /// Use <see cref="MouseDoubleClick"/> for the typed mouse variant.
     /// </summary>
-    public event EventHandler<MouseEventArgs>? DoubleClick {
+    public event EventHandler? DoubleClick {
         add => Events.AddHandler (s_doubleClickEvent, value);
         remove => Events.RemoveHandler (s_doubleClickEvent, value);
     }
@@ -382,16 +387,16 @@ public partial class Control
     /// <summary>Raised when component is being queried for help. Stub in Majorsilence.Forms.</summary>
     public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp { add { } remove { } }
 
-    /// <summary>Raised when the user clicks the control with the mouse. WinForms alias for Click.</summary>
+    /// <summary>Raised when the user clicks the control with the mouse (typed mouse variant of <see cref="Click"/>).</summary>
     public event EventHandler<MouseEventArgs>? MouseClick {
-        add => Click += value;
-        remove => Click -= value;
+        add => Events.AddHandler (s_mouseClickEvent, value);
+        remove => Events.RemoveHandler (s_mouseClickEvent, value);
     }
 
-    /// <summary>Raised when the user double-clicks the control with the mouse. WinForms alias for DoubleClick.</summary>
+    /// <summary>Raised when the user double-clicks the control with the mouse (typed mouse variant of <see cref="DoubleClick"/>).</summary>
     public event EventHandler<MouseEventArgs>? MouseDoubleClick {
-        add => DoubleClick += value;
-        remove => DoubleClick -= value;
+        add => Events.AddHandler (s_mouseDoubleClickEvent, value);
+        remove => Events.RemoveHandler (s_mouseDoubleClickEvent, value);
     }
 
     /// <summary>Raised when the user scrolls the control. Stub in Majorsilence.Forms.</summary>

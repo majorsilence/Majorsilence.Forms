@@ -956,7 +956,8 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            (Events[s_clickEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+            (Events[s_clickEvent] as EventHandler)?.Invoke (this, e);
+            (Events[s_mouseClickEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
         }
 
         /// <summary>
@@ -998,7 +999,11 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the DoubleClick event.
         /// </summary>
-        protected virtual void OnDoubleClick (MouseEventArgs e) => (Events[s_doubleClickEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+        protected virtual void OnDoubleClick (MouseEventArgs e)
+        {
+            (Events[s_doubleClickEvent] as EventHandler)?.Invoke (this, e);
+            (Events[s_mouseDoubleClickEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+        }
 
         /// <summary>
         /// Raises the EnabledChanged event.

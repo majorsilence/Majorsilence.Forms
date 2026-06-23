@@ -95,7 +95,7 @@ namespace ControlGallery.Panels
         private static void AddButton (Panel bar, string text, ref int left, int width, EventHandler<MouseEventArgs> onClick)
         {
             var b = new Button { Text = text, Left = left, Top = 8, Width = width, Height = 28 };
-            b.Click += onClick;
+            b.MouseClick += onClick;
             bar.Controls.Add (b);
             left += width + 6;
         }

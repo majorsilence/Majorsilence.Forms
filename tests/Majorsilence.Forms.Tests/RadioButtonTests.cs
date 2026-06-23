@@ -189,7 +189,7 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new SubRadioButton ();
             var callCount = 0;
-            EventHandler<MouseEventArgs> handler = (sender, e) => {
+            EventHandler handler = (sender, e) => {
                 Assert.Same (control, sender);
                 callCount++;
             };

@@ -65,8 +65,13 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the container control (form) to watch. Stub in Majorsilence.Forms.</summary>
-        public Form? ContainerControl { get; set; }
+        /// <summary>
+        /// Gets or sets the container (a Form or a control such as a UserControl) to watch. Stub in
+        /// Majorsilence.Forms. Typed as <see cref="Component"/> because Form and Control sit on separate
+        /// inheritance branches here (unlike WinForms, where both derive from ContainerControl), so a
+        /// single common base is needed to accept either as the assignment target.
+        /// </summary>
+        public Component? ContainerControl { get; set; }
 
         /// <summary>Gets or sets the icon displayed next to a control with an error. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Drawing.Icon? Icon { get; set; }

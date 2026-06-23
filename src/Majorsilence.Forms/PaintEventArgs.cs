@@ -37,6 +37,17 @@ namespace Majorsilence.Forms
         public SKImageInfo Info { get; }
 
         /// <summary>
+        /// WinForms compatibility: gets the rectangle in which to paint, in the canvas's current
+        /// (control-local) coordinate space. Derived from the canvas clip bounds.
+        /// </summary>
+        public Rectangle ClipRectangle {
+            get {
+                var bounds = Canvas.LocalClipBounds;
+                return Rectangle.Round (new System.Drawing.RectangleF (bounds.Left, bounds.Top, bounds.Width, bounds.Height));
+            }
+        }
+
+        /// <summary>
         /// Gets the current scale factor of the form.
         /// </summary>
         public double Scaling { get; }

@@ -500,5 +500,40 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether the window is displayed to the user.</summary>
         public bool Visible { get; internal set; }
+
+        // ── WinForms layout/handle/color compatibility ───────────────────────────
+        // Form sits on a separate inheritance branch from Control (Form : WindowBase, not
+        // Form : ContainerControl as in WinForms), so it does not inherit Control's layout
+        // members. These shims forward to the root ControlAdapter — which IS a Control and
+        // already hosts the window's children — so migrated WinForms code that calls
+        // SuspendLayout/ResumeLayout/PerformLayout on a Form compiles and behaves correctly.
+
+        /// <summary>Temporarily suspends the layout logic for the window's controls.</summary>
+        public void SuspendLayout () => adapter.SuspendLayout ();
+
+        /// <summary>Resumes normal layout logic, optionally forcing an immediate layout.</summary>
+        public void ResumeLayout (bool performLayout = true) => adapter.ResumeLayout (performLayout);
+
+        /// <summary>Forces the window's controls to apply layout logic.</summary>
+        public void PerformLayout () => adapter.PerformLayout ();
+
+        /// <summary>
+        /// Gets whether the window's backing handle has been created. In Majorsilence.Forms the
+        /// platform handle exists once the window has been shown; migrated code uses this to guard
+        /// cross-thread Invoke/BeginInvoke calls.
+        /// </summary>
+        public bool IsHandleCreated => shown;
+
+        /// <summary>
+        /// Gets or sets the background color of the window. Convenience wrapper over
+        /// <see cref="ControlStyle.BackgroundColor"/>, mirroring <see cref="Control.BackColor"/>.
+        /// </summary>
+        public System.Drawing.Color BackColor {
+            get => Style.BackgroundColor?.ToDrawingColor () ?? Style.GetBackgroundColor ().ToDrawingColor ();
+            set {
+                Style.BackgroundColor = value.ToSKColor ();
+                Invalidate ();
+            }
+        }
     }
 }

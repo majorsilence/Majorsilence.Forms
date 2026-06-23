@@ -244,7 +244,7 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new SubButton ();
             var callCount = 0;
-            EventHandler<MouseEventArgs> handler = (sender, e) => {
+            EventHandler handler = (sender, e) => {
                 Assert.Same (control, sender);
                 callCount++;
             };
@@ -265,7 +265,7 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new Button ();
             var callCount = 0;
-            EventHandler<MouseEventArgs> handler = (sender, e) => {
+            EventHandler handler = (sender, e) => {
                 Assert.Same (control, sender);
                 callCount++;
             };
