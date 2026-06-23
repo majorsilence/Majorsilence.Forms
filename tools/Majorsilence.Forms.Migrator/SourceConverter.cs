@@ -18,6 +18,24 @@ internal enum SourceLanguage
     VisualBasic,
 }
 
+/// <summary>
+/// Whether to inject the explicit VB constructor that <c>MyType=Empty</c> removes. The migrator decides
+/// this per file with cross-file knowledge of a form's partials (so it never duplicates a constructor
+/// that already lives in a sibling, and never writes one into a designer file). Direct callers default
+/// to <see cref="Auto"/>, the original single-file heuristic.
+/// </summary>
+internal enum VbConstructorMode
+{
+    /// <summary>Inject only if this file alone looks like a form lacking a constructor (single-file heuristic).</summary>
+    Auto,
+
+    /// <summary>This file is the chosen target — inject unless it already has a constructor.</summary>
+    Inject,
+
+    /// <summary>Never inject here (a designer file, or a sibling already supplies the constructor).</summary>
+    Suppress,
+}
+
 internal static class SourceConverter
 {
     public sealed record Result(string Text, bool Changed, IReadOnlyList<string> Warnings);
@@ -27,7 +45,8 @@ internal static class SourceConverter
     private static readonly Regex DrawingType =
         new(@"(?<![\w.])System\.Drawing\.([A-Za-z_][A-Za-z0-9_]*)", RegexOptions.Compiled);
 
-    public static Result Convert(string text, CustomMap? customMap = null, SourceLanguage language = SourceLanguage.CSharp)
+    public static Result Convert(string text, CustomMap? customMap = null, SourceLanguage language = SourceLanguage.CSharp,
+        VbConstructorMode vbConstructor = VbConstructorMode.Auto)
     {
         var warnings = new List<string>();
         var seenWarnings = new HashSet<string>(StringComparer.Ordinal);
@@ -91,9 +110,10 @@ internal static class SourceConverter
             return m.Value;
         });
 
-        // 3. A bare `using System.Drawing;` is kept (it still resolves the primitives), but GDI+ types
-        //    used unqualified under it now live in Majorsilence.Drawing, so add a companion import.
-        text = AddCompanionDrawingImport(text);
+        // 3. Reconcile a bare `using System.Drawing;`. It's only still needed when the file uses a
+        //    System.Drawing primitive (Color/Point/…) unqualified; otherwise drop it. GDI+ types used
+        //    unqualified now live in Majorsilence.Drawing, so add/keep that import when they're present.
+        text = RewriteDrawingImports(text);
 
         // 4. Flag any namespace we deliberately refused to rewrite — but only when a reference actually
         //    resolves to something cross-platform-unavailable. Some types under these namespaces ship in
@@ -133,7 +153,7 @@ internal static class SourceConverter
         //    that genuinely need a human.
         if (language == SourceLanguage.VisualBasic)
         {
-            text = InjectVbConstructor(text, Warn);
+            text = ApplyVbConstructor(text, vbConstructor, Warn);
             WarnVisualBasic(original, Warn);
         }
 
@@ -154,15 +174,33 @@ internal static class SourceConverter
     /// <summary>
     /// VB's WinForms application framework synthesised a parameterless constructor that called
     /// <c>InitializeComponent()</c>. <c>MyType=Empty</c> (which the project converter sets for
-    /// cross-platform builds) removes that, so a form whose designer defines
-    /// <c>InitializeComponent</c> but has no explicit <c>Sub New()</c> would no longer initialise its
-    /// controls. Insert the constructor the framework used to generate.
+    /// cross-platform builds) removes that, so a form that has no explicit <c>Sub New()</c> would no
+    /// longer initialise its controls. This decides, for the current file, whether to inject it.
     /// </summary>
+    private static string ApplyVbConstructor(string text, VbConstructorMode mode, Action<string> warn)
+    {
+        switch (mode)
+        {
+            case VbConstructorMode.Suppress:
+                // A designer file, or a sibling partial already supplies the constructor.
+                return text;
+
+            case VbConstructorMode.Auto:
+                // Single-file heuristic: only a file that itself looks like a form (uses
+                // InitializeComponent) and has no constructor gets one. The migrator uses the explicit
+                // Inject/Suppress modes instead, having looked across the form's partials.
+                if (!text.Contains("InitializeComponent", StringComparison.Ordinal))
+                    return text;
+                return InjectVbConstructor(text, warn);
+
+            default: // Inject — the migrator chose this file as the form's constructor home.
+                return InjectVbConstructor(text, warn);
+        }
+    }
+
     private static string InjectVbConstructor(string text, Action<string> warn)
     {
-        // Nothing to do unless the file defines/uses InitializeComponent and lacks any constructor.
-        if (!text.Contains("InitializeComponent", StringComparison.Ordinal))
-            return text;
+        // Idempotent / safe: never add a second constructor.
         if (Regex.IsMatch(text, @"(?i)\bSub\s+New\s*\("))
             return text;
 
@@ -287,23 +325,54 @@ internal static class SourceConverter
     private static readonly Regex BareDrawingImport =
         new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+System\.Drawing[ \t]*;?[ \t]*$", RegexOptions.Compiled);
 
-    private static string AddCompanionDrawingImport(string text)
+    private static string RewriteDrawingImports(string text)
     {
-        // Already imported (e.g. a previous run, or an idempotent re-convert)? Nothing to do.
-        if (Regex.IsMatch(text, @"(?m)^[ \t]*(using|Imports)[ \t]+Majorsilence\.Drawing[ \t]*;?[ \t]*$"))
-            return text;
-
         var match = BareDrawingImport.Match(text);
         if (!match.Success)
             return text;
 
+        // The import is only needed for the primitives Majorsilence.Forms keeps in System.Drawing;
+        // GDI+ types used unqualified need the Majorsilence.Drawing companion instead.
+        var needsSystemDrawing = NamespaceMap.DrawingPrimitives.Any(p => UsedUnqualified(text, p));
+        var usesGdiPlus = NamespaceMap.MajorsilenceDrawingTypes.Any(t => UsedUnqualified(text, t));
+        var companionPresent = Regex.IsMatch(text,
+            @"(?m)^[ \t]*(using|Imports)[ \t]+Majorsilence\.Drawing[ \t]*;?[ \t]*$");
+
         var indent = match.Groups["indent"].Value;
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
         var companion = match.Groups["kw"].Value == "Imports"
             ? $"{indent}Imports {NamespaceMap.DrawingTarget}"
             : $"{indent}using {NamespaceMap.DrawingTarget};";
 
-        // Insert directly after the matched import line, preserving the file's existing newline style.
-        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-        return text[..match.Index] + match.Value + newline + companion + text[(match.Index + match.Length)..];
+        if (needsSystemDrawing)
+        {
+            // Keep System.Drawing; add the GDI+ companion only when it's actually used and not already there.
+            if (usesGdiPlus && !companionPresent)
+                return text[..match.Index] + match.Value + newline + companion + text[(match.Index + match.Length)..];
+            return text;
+        }
+
+        // System.Drawing is no longer needed. Replace it with the Majorsilence.Drawing import when GDI+
+        // types are used unqualified, otherwise drop the line entirely.
+        var replacement = usesGdiPlus && !companionPresent ? companion : null;
+        return RemoveImportLine(text, match, replacement, newline);
+    }
+
+    // A type name used unqualified (a whole word not preceded by '.' or another identifier char), i.e. one
+    // that depends on an imported namespace rather than a fully-qualified reference.
+    private static bool UsedUnqualified(string text, string typeName) =>
+        Regex.IsMatch(text, $@"(?<![\w.]){Regex.Escape(typeName)}(?![\w])");
+
+    // Removes the import line the match covers, including its trailing newline so no blank line is left;
+    // optionally substitutes a replacement import line in its place.
+    private static string RemoveImportLine(string text, Match match, string? replacement, string newline)
+    {
+        var start = match.Index;
+        var end = match.Index + match.Length;
+        if (end < text.Length && text[end] == '\r') end++;
+        if (end < text.Length && text[end] == '\n') end++;
+
+        var insert = replacement is null ? "" : replacement + newline;
+        return text[..start] + insert + text[end..];
     }
 }

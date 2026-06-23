@@ -46,8 +46,12 @@ internal sealed class MigrationOptions
 
     public ReferenceMode ReferenceMode { get; init; } = ReferenceMode.Package;
 
-    /// <summary>Target framework written into converted project files.</summary>
-    public string TargetFramework { get; init; } = "net10.0";
+    /// <summary>
+    /// Target framework for converted projects. When null (the default) the converter keeps each
+    /// project's .NET version and only drops the Windows desktop platform suffix
+    /// (<c>net8.0-windows</c> → <c>net8.0</c>). Set it (via <c>--tfm</c>) to force one exact framework.
+    /// </summary>
+    public string? TargetFramework { get; init; }
 
     /// <summary>NuGet version used when <see cref="ReferenceMode"/> is <see cref="ReferenceMode.Package"/>.</summary>
     public string PackageVersion { get; init; } = "0.3.0";

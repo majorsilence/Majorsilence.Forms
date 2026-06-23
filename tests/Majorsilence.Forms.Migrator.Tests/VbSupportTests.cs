@@ -17,10 +17,26 @@ public class VbSupportTests
     }
 
     [Fact]
-    public void Adds_companion_VB_drawing_import_directly_after ()
+    public void Removes_unused_VB_drawing_import ()
     {
         var result = SourceConverter.Convert ("Imports System.Drawing\nPublic Class C\nEnd Class\n", language: SourceLanguage.VisualBasic);
-        Assert.Contains ("Imports System.Drawing\nImports Majorsilence.Drawing", result.Text.Replace ("\r\n", "\n"));
+        Assert.DoesNotContain ("Imports System.Drawing", result.Text);
+    }
+
+    [Fact]
+    public void Keeps_VB_drawing_import_when_a_primitive_is_used ()
+    {
+        var result = SourceConverter.Convert ("Imports System.Drawing\nPublic Class C\n  Dim p As Point\nEnd Class\n", language: SourceLanguage.VisualBasic);
+        Assert.Contains ("Imports System.Drawing", result.Text);
+    }
+
+    [Fact]
+    public void Replaces_VB_drawing_import_with_companion_for_GDI_plus ()
+    {
+        var result = SourceConverter.Convert ("Imports System.Drawing\nPublic Class C\n  Dim b As Bitmap\nEnd Class\n", language: SourceLanguage.VisualBasic);
+        var text = result.Text.Replace ("\r\n", "\n");
+        Assert.DoesNotContain ("Imports System.Drawing\n", text);
+        Assert.Contains ("Imports Majorsilence.Drawing", text);
     }
 
     [Fact]

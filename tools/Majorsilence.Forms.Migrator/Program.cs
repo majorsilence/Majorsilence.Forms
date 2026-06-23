@@ -13,7 +13,7 @@ var noBackup = false;
 var showDiff = false;
 var backend = Backend.Avalonia;
 var referenceMode = ReferenceMode.Package;
-var targetFramework = "net10.0";
+string? targetFramework = null;
 var packageVersion = "1.0.1";
 string? repoRoot = null;
 var strict = false;
@@ -149,7 +149,8 @@ static void PrintUsage()
               --diff              Print a unified diff for each changed file.
               --backend <name>    Platform backend to reference: avalonia (default) | uno | headless.
               --references <mode>  How to reference Majorsilence.Forms: package (default) | project.
-              --tfm <tfm>         Target framework for converted projects (default: net10.0).
+              --tfm <tfm>         Force a target framework. Default: keep the project's version and
+                                  just drop the -windows suffix (net8.0-windows -> net8.0).
               --package-version <v>  NuGet version for package references (default: 0.3.0).
               --repo-root <dir>   Repo root for resolving --references project paths (default: cwd).
               --map <file>        JSON file of extra namespace mappings (repeatable, e.g. Telerik).
@@ -159,14 +160,20 @@ static void PrintUsage()
           -h, --help              Show this help.
 
         WHAT IT DOES
-          * Project files: removes UseWindowsForms/UseWPF, retargets the TFM, drops the
-            Windows-desktop framework reference, and adds Majorsilence.Forms + a backend reference.
+          * Project files: removes UseWindowsForms/UseWPF, drops the -windows TFM suffix
+            (net8.0-windows -> net8.0; also in any imported .props/.targets), drops the
+            Windows-desktop framework reference, removes WinForms-only NuGet packages
+            (Telerik UI for WinForms, DevExpress, ...), and adds Majorsilence.Forms + a backend reference.
           * Source files: rewrites System.Windows.Forms -> Majorsilence.Forms and
             System.Drawing[.*] -> Majorsilence.Drawing[.*]. APIs with no equivalent are flagged
             as warnings for manual review.
 
         MAP FILE FORMAT (JSON)
-          { "namespaces": { "Telerik.WinControls.UI": "Majorsilence.Forms.Telerik" } }
+          {
+            "namespaces":    { "Telerik.WinControls.UI": "Majorsilence.Forms.Telerik" },
+            "removePackages": [ "Acme.WinForms.*" ]
+          }
+          (removePackages are extra WinForms-only package globs to drop, on top of the built-ins.)
 
         EXAMPLES
           majorsilence-migrate ./LegacyApp --dry-run

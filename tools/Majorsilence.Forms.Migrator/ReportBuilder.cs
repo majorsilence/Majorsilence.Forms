@@ -18,7 +18,7 @@ internal static class ReportBuilder
         sb.AppendLine($"- **Output:** {(options.Output is null ? "_(in place)_" : $"`{options.Output}`")}");
         sb.AppendLine($"- **Backend:** {options.Backend}");
         sb.AppendLine($"- **Reference mode:** {options.ReferenceMode}");
-        sb.AppendLine($"- **Target framework:** {options.TargetFramework}");
+        sb.AppendLine($"- **Target framework:** {options.TargetFramework ?? "preserve version, drop -windows suffix"}");
         sb.AppendLine($"- **Mode:** {(options.DryRun ? "dry run (no files written)" : "write")}");
         sb.AppendLine();
 

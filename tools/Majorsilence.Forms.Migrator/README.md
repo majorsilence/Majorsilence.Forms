@@ -12,8 +12,16 @@ dotnet run --project tools/Majorsilence.Forms.Migrator -- <input> [options]
 
 ### Project files (`.csproj`)
 - Removes `UseWindowsForms` / `UseWPF` / `EnableWindowsTargeting`.
-- Retargets the framework (e.g. `net8.0-windows` → `net10.0`).
+- Drops the `-windows` TFM suffix, keeping the .NET version (`net8.0-windows` → `net8.0`,
+  `net10.0-windows10.0.19041.0` → `net10.0`). A multi-target `<TargetFrameworks>` stays plural with each
+  entry stripped. Pass `--tfm` to instead force one exact framework. **The same `-windows` strip is applied
+  to any custom `.props`/`.targets` the project pulls in via `<Import Project="…" />`.**
 - Drops the `Microsoft.WindowsDesktop.App` framework reference.
+- **Removes WinForms-only NuGet packages.** Vendor UI suites — `Telerik.UI.for.WinForms*`,
+  `DevExpress.Win*`, `Infragistics.Win*`, `C1.Win*` (ComponentOne), `Syncfusion.*.WinForms*` — are dropped
+  (their `<PackageReference>`s, and any now-empty `<ItemGroup>`). The Telerik/DevExpress namespaces map onto
+  the `Majorsilence.Forms.*` compat layers via the source rewrites / a `--map` file; add more packages to
+  drop with a map file's `removePackages` globs (`*` wildcard, case-insensitive).
 - Adds `Majorsilence.Forms` + a platform backend reference (package or project).
 - **Honours Central Package Management.** When a `Directory.Packages.props` governs the project (found by
   walking up from the project) and central management is on, the added `PackageReference`s omit their
@@ -30,7 +38,9 @@ dotnet run --project tools/Majorsilence.Forms.Migrator -- <input> [options]
   - GDI+ types (`Bitmap`, `Brush`, `Pen`, `Font`, …) → `Majorsilence.Drawing`.
   - WinForms-compat types Majorsilence relocates (`Graphics`, `ContentAlignment`, `SystemColors`,
     `SystemBrushes`, `SystemPens`, `SystemFonts`, `ColorTranslator`) → `Majorsilence.Forms`.
-  - A bare `using System.Drawing;` is kept and a `using Majorsilence.Drawing;` companion is added.
+  - A bare `using System.Drawing;` is reconciled: it's **kept only when a primitive (`Color`/`Point`/…)
+    is used unqualified**, otherwise removed. When GDI+ types are used unqualified, a
+    `using Majorsilence.Drawing;` is added (replacing the `System.Drawing` import if it's no longer needed).
 - `System.Drawing.Drawing2D` / `.Imaging` / `.Text` → `Majorsilence.Drawing.*`; `.Printing` → `Majorsilence.Forms.Printing`.
 - `System.ComponentModel.ComponentResourceManager` → `Majorsilence.Forms.ComponentResourceManager`
   (the cross-platform resource manager — see Resources below). Only that one type is redirected;
@@ -51,8 +61,10 @@ itself is copied into the output tree (project paths are preserved), so the resu
 - Excludes the generated `My Project\*.Designer.vb` files (they don't compile with `MyType=Empty`).
 - Rewrites project-level VB global imports (`<Import Include="System.Windows.Forms" />`).
 - **Adds the missing form constructor automatically.** `MyType=Empty` removes VB's implicit WinForms
-  constructor, so each `Form` whose designer defines `InitializeComponent` but has no `Public Sub New()`
-  gets one injected (after `Inherits`), marked with a `' [majorsilence-migrate]` comment. It only warns
+  constructor, so a form that uses `InitializeComponent` but has no `Public Sub New()` gets one injected
+  (after `Inherits`), marked with a `' [majorsilence-migrate]` comment. The decision is made **across the
+  form's partial files** (`Form1.vb` + `Form1.Designer.vb`): the constructor is injected only when *no*
+  partial already declares one, and always into the **code-behind**, never a designer file. It only warns
   if it can't find where to insert.
 - **Entry-point warning only for executables.** `MyType=Empty` removes the auto entry point, but only
   `Exe`/`WinExe` projects need one — class libraries (the SDK default) are not flagged.
@@ -100,7 +112,7 @@ Because of that, the migrator only flags what genuinely can't be carried across:
 | `--diff` | Print a unified diff for each changed file. |
 | `--backend <name>` | `avalonia` (default) \| `uno` \| `headless`. |
 | `--references <mode>` | `package` (default) \| `project`. |
-| `--tfm <tfm>` | Target framework (default `net10.0`). |
+| `--tfm <tfm>` | Force a target framework. Default: keep the version, just drop the `-windows` suffix. |
 | `--package-version <v>` | NuGet version for package references (default `0.3.0`). |
 | `--repo-root <dir>` | Repo root for resolving `--references project` paths. |
 | `--map <file>` | JSON file of extra namespace mappings (repeatable). |
@@ -117,9 +129,13 @@ Bring third-party controls across with a JSON map (layered on the built-in rules
   "namespaces": {
     "Telerik.WinControls.UI": "Majorsilence.Forms.Telerik",
     "DevExpress.XtraEditors":  "Majorsilence.Forms.DevExpress"
-  }
+  },
+  "removePackages": [ "Acme.WinForms.*" ]
 }
 ```
+
+`removePackages` is an optional list of extra WinForms-only package-id globs to drop (on top of the
+built-in Telerik/DevExpress/Infragistics/ComponentOne/Syncfusion patterns).
 
 ```
 majorsilence-migrate ./LegacyApp --map telerik.json --strict

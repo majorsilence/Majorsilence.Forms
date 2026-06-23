@@ -130,6 +130,117 @@ public class MigratorTests : IDisposable
     }
 
     [Fact]
+    public void Strips_windows_suffix_in_an_imported_custom_props_file ()
+    {
+        Write ("build/common.props", "<Project>\n  <PropertyGroup>\n    <TargetFramework>net8.0-windows</TargetFramework>\n  </PropertyGroup>\n</Project>");
+        Write ("App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <Import Project="build\common.props" />
+              <PropertyGroup>
+                <OutputType>WinExe</OutputType>
+                <UseWindowsForms>true</UseWindowsForms>
+              </PropertyGroup>
+            </Project>
+            """);
+        var outDir = Path.Combine (_dir, "out");
+
+        var exit = new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+
+        Assert.Equal (0, exit);
+        var props = File.ReadAllText (Path.Combine (outDir, "build", "common.props"));
+        Assert.Contains ("<TargetFramework>net8.0</TargetFramework>", props);
+        Assert.DoesNotContain ("net8.0-windows", props);
+    }
+
+    [Fact]
+    public void In_place_project_keeps_its_version_and_drops_windows ()
+    {
+        var proj = Write ("App.csproj", WinFormsCsproj);
+
+        new Migrator (new MigrationOptions { Input = _dir, NoReport = true }).Run ();
+
+        var converted = File.ReadAllText (proj);
+        Assert.Contains ("<TargetFramework>net8.0</TargetFramework>", converted);
+        Assert.DoesNotContain ("net8.0-windows", converted);
+    }
+
+    [Fact]
+    public void Removes_Telerik_package_end_to_end ()
+    {
+        Write ("App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><OutputType>WinExe</OutputType><UseWindowsForms>true</UseWindowsForms></PropertyGroup>
+              <ItemGroup><PackageReference Include="Telerik.UI.for.WinForms" Version="2024.1.1" /></ItemGroup>
+            </Project>
+            """);
+        var outDir = Path.Combine (_dir, "out");
+
+        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+
+        Assert.DoesNotContain ("Telerik", File.ReadAllText (Path.Combine (outDir, "App.csproj")));
+    }
+
+    [Fact]
+    public void Map_file_removePackages_drops_a_custom_package ()
+    {
+        var map = Write ("map.json", """{ "removePackages": [ "Acme.WinForms.*" ] }""");
+        Write ("App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><OutputType>WinExe</OutputType><UseWindowsForms>true</UseWindowsForms></PropertyGroup>
+              <ItemGroup><PackageReference Include="Acme.WinForms.Grid" Version="1.0.0" /></ItemGroup>
+            </Project>
+            """);
+        var outDir = Path.Combine (_dir, "out");
+
+        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true, MapFiles = new[] { map } }).Run ();
+
+        Assert.DoesNotContain ("Acme.WinForms", File.ReadAllText (Path.Combine (outDir, "App.csproj")));
+    }
+
+    [Fact]
+    public void Does_not_inject_constructor_when_a_sibling_partial_already_has_one ()
+    {
+        // Code-behind already defines the constructor; the designer holds InitializeComponent.
+        Write ("Form1.vb", "Imports System.Windows.Forms\nPublic Class Form1\n  Public Sub New()\n    InitializeComponent()\n  End Sub\nEnd Class\n");
+        Write ("Form1.Designer.vb", "Partial Class Form1\n  Inherits System.Windows.Forms.Form\n  Private Sub InitializeComponent()\n  End Sub\nEnd Class\n");
+        var outDir = Path.Combine (_dir, "out");
+
+        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+
+        // Nothing injected anywhere — and certainly not a duplicate in the designer file.
+        var designer = File.ReadAllText (Path.Combine (outDir, "Form1.Designer.vb"));
+        Assert.DoesNotContain ("Sub New", designer);
+        Assert.DoesNotContain ("[majorsilence-migrate]", designer);
+        var codeBehind = File.ReadAllText (Path.Combine (outDir, "Form1.vb"));
+        Assert.Equal (1, CountOccurrences (codeBehind, "Sub New"));
+    }
+
+    [Fact]
+    public void Injects_constructor_into_the_code_behind_not_the_designer ()
+    {
+        // Neither partial has a constructor; the form uses InitializeComponent (in the designer).
+        Write ("Form1.vb", "Imports System.Windows.Forms\nPublic Class Form1\nEnd Class\n");
+        Write ("Form1.Designer.vb", "Partial Class Form1\n  Inherits System.Windows.Forms.Form\n  Private Sub InitializeComponent()\n  End Sub\nEnd Class\n");
+        var outDir = Path.Combine (_dir, "out");
+
+        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+
+        var codeBehind = File.ReadAllText (Path.Combine (outDir, "Form1.vb"));
+        Assert.Contains ("Public Sub New()", codeBehind);
+        Assert.Contains ("[majorsilence-migrate]", codeBehind);
+
+        var designer = File.ReadAllText (Path.Combine (outDir, "Form1.Designer.vb"));
+        Assert.DoesNotContain ("Public Sub New", designer);
+    }
+
+    private static int CountOccurrences (string haystack, string needle)
+    {
+        int count = 0, i = 0;
+        while ((i = haystack.IndexOf (needle, i, StringComparison.Ordinal)) >= 0) { count++; i += needle.Length; }
+        return count;
+    }
+
+    [Fact]
     public void Writes_report_by_default ()
     {
         Write ("Five.cs", "using System.Windows.Forms;\n");

@@ -71,6 +71,21 @@ public class CustomMapTests : IDisposable
     }
 
     [Fact]
+    public void Loads_removePackages_patterns ()
+    {
+        var path = WriteJson ("m.json", """{ "removePackages": [ "Acme.WinForms.*", "Foo.Bar" ] }""");
+        var map = CustomMap.Load (new[] { path });
+        Assert.Equal (new[] { "Acme.WinForms.*", "Foo.Bar" }, map.RemovePackages);
+    }
+
+    [Fact]
+    public void RemovePackages_is_empty_when_absent ()
+    {
+        var path = WriteJson ("m.json", """{ "namespaces": { "N": "X" } }""");
+        Assert.Empty (CustomMap.Load (new[] { path }).RemovePackages);
+    }
+
+    [Fact]
     public void SourceConverter_applies_custom_mapping ()
     {
         var path = WriteJson ("m.json", """{ "namespaces": { "Telerik.WinControls.UI": "Majorsilence.Forms.Telerik" } }""");

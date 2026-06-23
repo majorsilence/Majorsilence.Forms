@@ -91,17 +91,42 @@ public class SourceConverterTests
     }
 
     [Fact]
-    public void Keeps_bare_Drawing_import_and_adds_companion ()
+    public void Removes_unused_bare_Drawing_import ()
     {
-        var result = SourceConverter.Convert ("using System.Drawing;\n");
-        Assert.Contains ("using System.Drawing;", result.Text);    // primitives still resolve
-        Assert.Contains ("using Majorsilence.Drawing;", result.Text); // GDI+ replacements
+        // Nothing from System.Drawing is used here, so the import is dropped entirely.
+        var result = SourceConverter.Convert ("using System.Drawing;\nclass C { }\n");
+        Assert.DoesNotContain ("using System.Drawing;", result.Text);
+        Assert.DoesNotContain ("using Majorsilence.Drawing;", result.Text);
     }
 
     [Fact]
-    public void Companion_import_is_idempotent ()
+    public void Keeps_bare_Drawing_import_when_a_primitive_is_used ()
     {
-        var once = SourceConverter.Convert ("using System.Drawing;\n").Text;
+        var result = SourceConverter.Convert ("using System.Drawing;\nColor c;\n");
+        Assert.Contains ("using System.Drawing;", result.Text); // Color resolves from System.Drawing
+    }
+
+    [Fact]
+    public void Replaces_bare_Drawing_import_with_companion_when_only_GDI_plus_is_used ()
+    {
+        // Bitmap moves to Majorsilence.Drawing and no primitive is used, so the import is swapped.
+        var result = SourceConverter.Convert ("using System.Drawing;\nBitmap b;\n");
+        Assert.DoesNotContain ("using System.Drawing;", result.Text);
+        Assert.Contains ("using Majorsilence.Drawing;", result.Text);
+    }
+
+    [Fact]
+    public void Keeps_both_imports_when_a_primitive_and_GDI_plus_are_used ()
+    {
+        var result = SourceConverter.Convert ("using System.Drawing;\nColor c; Bitmap b;\n");
+        Assert.Contains ("using System.Drawing;", result.Text);
+        Assert.Contains ("using Majorsilence.Drawing;", result.Text);
+    }
+
+    [Fact]
+    public void Drawing_import_rewrite_is_idempotent ()
+    {
+        var once = SourceConverter.Convert ("using System.Drawing;\nBitmap b;\n").Text;
         var twice = SourceConverter.Convert (once).Text;
         Assert.Equal (once, twice);
         Assert.Equal (1, CountOccurrences (twice, "using Majorsilence.Drawing;"));

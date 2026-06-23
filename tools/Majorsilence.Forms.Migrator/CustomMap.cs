@@ -13,7 +13,8 @@ namespace Majorsilence.Forms.Migrator;
 ///   "namespaces": {
 ///     "Telerik.WinControls.UI": "Majorsilence.Forms.Telerik",
 ///     "DevExpress.XtraEditors":  "Majorsilence.Forms.DevExpress"
-///   }
+///   },
+///   "removePackages": [ "Acme.WinForms.*" ]
 /// }
 /// </code>
 /// </summary>
@@ -22,13 +23,21 @@ internal sealed class CustomMap
     /// <summary>Whole-namespace prefix rewrites, ordered longest-first so nested prefixes win.</summary>
     public IReadOnlyList<(string From, string To)> Namespaces { get; }
 
-    private CustomMap(IReadOnlyList<(string, string)> namespaces) => Namespaces = namespaces;
+    /// <summary>Extra WinForms-only package-id glob patterns to drop, on top of the built-in defaults.</summary>
+    public IReadOnlyList<string> RemovePackages { get; }
 
-    public static readonly CustomMap Empty = new(Array.Empty<(string, string)>());
+    private CustomMap(IReadOnlyList<(string, string)> namespaces, IReadOnlyList<string> removePackages)
+    {
+        Namespaces = namespaces;
+        RemovePackages = removePackages;
+    }
+
+    public static readonly CustomMap Empty = new(Array.Empty<(string, string)>(), Array.Empty<string>());
 
     private sealed class Schema
     {
         public Dictionary<string, string>? Namespaces { get; set; }
+        public List<string>? RemovePackages { get; set; }
     }
 
     public static CustomMap Load(IReadOnlyList<string> files)
@@ -37,6 +46,7 @@ internal sealed class CustomMap
             return Empty;
 
         var merged = new Dictionary<string, string>(StringComparer.Ordinal);
+        var removePackages = new List<string>();
         var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip };
 
         foreach (var file in files)
@@ -54,11 +64,15 @@ internal sealed class CustomMap
                 throw new FormatException($"invalid map file '{file}': {ex.Message}", ex);
             }
 
-            if (schema?.Namespaces is null)
+            if (schema is null)
                 continue;
 
-            foreach (var (from, to) in schema.Namespaces)
+            foreach (var (from, to) in schema.Namespaces ?? new())
                 merged[from] = to; // later files override earlier ones
+
+            foreach (var pattern in schema.RemovePackages ?? new())
+                if (!string.IsNullOrWhiteSpace(pattern))
+                    removePackages.Add(pattern);
         }
 
         var ordered = merged
@@ -66,6 +80,6 @@ internal sealed class CustomMap
             .OrderByDescending(m => m.Key.Length)
             .ToList();
 
-        return new CustomMap(ordered);
+        return new CustomMap(ordered, removePackages);
     }
 }

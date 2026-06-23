@@ -18,7 +18,8 @@ internal static class ProjectConverter
     /// pin their versions centrally.
     /// </param>
     public static Result Convert(string xml, MigrationOptions options, string projectDirectory,
-        bool isVisualBasic = false, bool centralPackageManagement = false)
+        bool isVisualBasic = false, bool centralPackageManagement = false,
+        IReadOnlyList<string>? removePackagePatterns = null)
     {
         var warnings = new List<string>();
         var addedPackages = new List<string>();
@@ -62,21 +63,31 @@ internal static class ProjectConverter
             }
         }
 
-        // Retarget the framework. WinForms projects pin a -windows TFM (e.g. net8.0-windows); replace
-        // whichever form is present with the cross-platform target.
-        foreach (var name in new[] { "TargetFramework", "TargetFrameworks" })
+        // Retarget the framework. WinForms projects pin a -windows TFM (e.g. net8.0-windows).
+        if (options.TargetFramework is { } forcedTfm)
         {
-            foreach (var el in root.Descendants().Where(e => e.Name.LocalName == name).ToList())
+            // Explicit --tfm: force the exact framework and collapse a plural list to it.
+            foreach (var name in new[] { "TargetFramework", "TargetFrameworks" })
             {
-                if (!string.Equals(el.Value, options.TargetFramework, StringComparison.Ordinal))
+                foreach (var el in root.Descendants().Where(e => e.Name.LocalName == name).ToList())
                 {
-                    el.Value = options.TargetFramework;
-                    changed = true;
+                    if (!string.Equals(el.Value, forcedTfm, StringComparison.Ordinal))
+                    {
+                        el.Value = forcedTfm;
+                        changed = true;
+                    }
+                    // Always normalize to the singular element name.
+                    if (name == "TargetFrameworks")
+                        el.Name = el.Name.Namespace + "TargetFramework";
                 }
-                // Always normalize to the singular element name.
-                if (name == "TargetFrameworks")
-                    el.Name = el.Name.Namespace + "TargetFramework";
             }
+        }
+        else
+        {
+            // Default: keep the project's .NET version, just drop the Windows desktop platform suffix
+            // (net8.0-windows -> net8.0). A plural <TargetFrameworks> stays plural.
+            if (TargetFrameworkRewriter.StripWindowsTargetFrameworks(root))
+                changed = true;
         }
 
         // Drop a WinForms FrameworkReference / Windows-desktop SDK reference if present.
@@ -88,6 +99,11 @@ internal static class ProjectConverter
             fr.Remove();
             changed = true;
         }
+
+        // Drop WinForms-only NuGet packages (Telerik UI for WinForms, DevExpress, …). Their vendor UI
+        // suites map onto the Majorsilence.Forms.* compat layers (wired up via source rewrites / --map),
+        // and the rest are Windows-desktop-only, so the original packages don't belong here.
+        RemoveWinFormsPackages(root, removePackagePatterns ?? WinFormsPackages.DefaultPatterns, ref changed);
 
         AddReferences(root, options, projectDirectory, centralPackageManagement, ref changed, warnings, addedPackages);
 
@@ -220,6 +236,33 @@ internal static class ProjectConverter
 
         if (itemGroup.HasElements)
             root.Add(itemGroup);
+    }
+
+    // Removes every <PackageReference> (and any matching <PackageVersion>, for central package
+    // management) whose id matches a WinForms-only pattern, tidying up any ItemGroup it empties out.
+    private static void RemoveWinFormsPackages(XElement root, IReadOnlyList<string> patterns, ref bool changed)
+    {
+        if (patterns.Count == 0)
+            return;
+
+        var toRemove = root.Descendants()
+            .Where(e => e.Name.LocalName is "PackageReference" or "PackageVersion")
+            .Where(e =>
+            {
+                var id = e.Attribute("Include")?.Value ?? e.Attribute("Update")?.Value;
+                return id is not null && WinFormsPackages.IsMatch(id, patterns);
+            })
+            .ToList();
+
+        foreach (var el in toRemove)
+        {
+            var parent = el.Parent;
+            el.Remove();
+            changed = true;
+            // Don't leave an empty <ItemGroup> behind once its last reference is gone.
+            if (parent is not null && parent.Name.LocalName == "ItemGroup" && !parent.Elements().Any())
+                parent.Remove();
+        }
     }
 
     private static bool ReferenceAlreadyPresent(XElement root, string id) =>
