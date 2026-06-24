@@ -93,6 +93,12 @@ namespace Majorsilence.Forms
                 parent = parent.Parent;
             }
 
+            // If the control hasn't been laid out yet (e.g. SelectedItem set in a constructor),
+            // there's no viewport to scroll within. The next layout pass (SetBoundsCore ->
+            // UpdateVerticalScrollBar) reconciles the scroll position, so just bail out.
+            if (VisibleItemCount <= 0)
+                return;
+
             var all_items = root_item.GetVisibleItems ().Skip (1).ToList ();
 
             if (all_items.Count <= VisibleItemCount)
@@ -100,17 +106,25 @@ namespace Majorsilence.Forms
 
             var index = all_items.IndexOf (item);
 
-            if (index < top_index) {
-                top_index = index;
-                vscrollbar.Value = top_index;
+            if (index < 0)
                 return;
-            }
 
-            if (index >= top_index + VisibleItemCount - 1) {
-                // top_index = index - (VisibleItemCount - 1);
-                vscrollbar.Value = index - (VisibleItemCount - 1);
+            int target;
+
+            if (index < top_index)
+                target = index;
+            else if (index >= top_index + VisibleItemCount - 1)
+                target = index - (VisibleItemCount - 1);
+            else
                 return;
-            }
+
+            // Make sure the scrollbar's range reflects the current item count, then clamp so we
+            // never assign a value outside [Minimum, Maximum] (ScrollBar.Value throws otherwise).
+            UpdateVerticalScrollBar ();
+
+            target = Math.Clamp (target, vscrollbar.Minimum, vscrollbar.Maximum);
+            top_index = target;
+            vscrollbar.Value = target;
         }
 
         /// <summary>
