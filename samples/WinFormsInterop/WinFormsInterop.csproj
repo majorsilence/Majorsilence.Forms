@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows-only validation sample for the WinForms interop bridge. NOT added to the solution, so it never
+       runs on the Linux/macOS CI legs. Run on Windows:  dotnet run --project samples/WinFormsInterop -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WindowsFormsInterop\Majorsilence.Forms.WindowsFormsInterop.csproj" />
+  </ItemGroup>
+
+</Project>
