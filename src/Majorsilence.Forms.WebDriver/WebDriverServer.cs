@@ -293,6 +293,7 @@ namespace Majorsilence.Forms.WebDriver
             "value" => e.Value ?? string.Empty,
             "enabled" => e.Enabled ? "true" : "false",
             "visible" => e.Visible ? "true" : "false",
+            "focused" => e.Focused ? "true" : "false",
             "x" => e.Bounds.X.ToString (System.Globalization.CultureInfo.InvariantCulture),
             "y" => e.Bounds.Y.ToString (System.Globalization.CultureInfo.InvariantCulture),
             "width" => e.Bounds.Width.ToString (System.Globalization.CultureInfo.InvariantCulture),

@@ -7,7 +7,9 @@ consumers:
 1. **In-process UI tests** — `Majorsilence.Forms.Automation` (in the core package).
 2. **Remote automation** — `Majorsilence.Forms.WebDriver`, a W3C WebDriver server that any
    Selenium client can drive.
-3. **OS screen readers** — *(planned)* per-platform bridges (UI Automation / AT-SPI / NSAccessibility).
+3. **OS screen readers & magnifiers** — `Majorsilence.Forms.WindowsUIAutomation` bridges the tree to
+   **Windows UI Automation** (Narrator/NVDA/JAWS + focus-following magnifiers). AT-SPI (Linux) and
+   NSAccessibility (macOS) bridges are still *planned*.
 
 The tree reads the same logical bounds/state the renderers use, so it behaves identically on the
 headless and real (Avalonia/Uno) backends.
@@ -211,6 +213,44 @@ var task = Task.Run (RunWebDriverFlow);
 while (!task.IsCompleted) { Platform.Backend.DoEvents (); Thread.Sleep (5); }
 ```
 
+## Screen readers & magnifiers (Windows)
+
+`Majorsilence.Forms.WindowsUIAutomation` projects the automation tree onto **Windows UI Automation** so
+screen readers (Narrator, NVDA, JAWS) can navigate, read, and activate controls, and focus-following
+magnifiers track the caret. It's backend-neutral (works for any Windows host that supplies a native
+window handle) and Windows-only — off Windows the package is an empty stub.
+
+```csharp
+using Majorsilence.Forms.WindowsUIAutomation;
+
+form.Show ();                       // the window must be shown first (it needs a native handle)
+WindowsUIAutomation.Enable (form);  // detaches automatically when the window closes
+```
+
+How it maps:
+
+- Each control becomes a UIA element: **Name** (accessible name), **AutomationId** (`Control.Name`),
+  **ControlType** (button/edit/checkbox/…), **IsEnabled**, **HasKeyboardFocus**, and a screen
+  **BoundingRectangle**.
+- **Patterns:** `Invoke` (buttons) is live now; `Value` (text/combo) and `Toggle` (checkbox) are
+  exposed for reading and Phase 2 completes write support.
+- **Events:** when keyboard focus moves, a UIA focus-changed event fires (this is what makes a screen
+  reader announce the new control and a magnifier follow it); the focused control's value changes raise
+  a property-changed event.
+
+What's not in this first cut: per-keystroke value events for `TextBox` (the control doesn't yet raise
+`TextChanged`, so screen readers fall back to their own typed-character echo — the field's value is
+still announced on focus); structure-changed events; and sub-control items (individual tabs/list rows).
+These are Phase 2.
+
+### Verifying the native bridge
+
+The pure tree/role logic is unit-tested (`Majorsilence.Forms.WindowsUIAutomation.Tests`, Windows CI).
+The full COM round-trip needs an interactive Windows desktop session: run a sample app, `Enable` the
+bridge, then inspect with **accessibility insights / inspect.exe** or turn on **Narrator** and tab
+through the window — each control should be announced with its name and role, and a button should
+activate from the screen reader.
+
 ## What about Playwright?
 
 **Playwright is not a fit.** It automates *browser engines* over the Chrome DevTools Protocol against a
@@ -224,9 +264,11 @@ client. For desktop UI automation, use the WebDriver server (Selenium) or the in
 
 ## Roadmap
 
-- Bridge the automation tree to **OS accessibility** (UI Automation on Windows first) so screen readers
-  announce controls and so existing UIA tools (FlaUI, Appium/WinAppDriver) drive the app with no custom
-  protocol code.
+- ✅ **Windows UI Automation bridge** (`Majorsilence.Forms.WindowsUIAutomation`) — screen readers and
+  magnifiers, and existing UIA tools (FlaUI, Appium/WinAppDriver) drive the app with no custom protocol.
+- Complete the UIA patterns: `Value`/`Toggle` write support, structure-changed events, and `TextBox`
+  per-keystroke value events (raise `TextChanged` from the editor).
+- **AT-SPI (Linux)** and **NSAccessibility (macOS)** bridges over the same tree.
 - Expand roles/states (selection, expand/collapse, value ranges) and surface non-control items such as
   individual tabs and list items.
 - A higher-level `Majorsilence.Forms.Testing` ergonomics layer (fluent helpers, golden-image asserts).

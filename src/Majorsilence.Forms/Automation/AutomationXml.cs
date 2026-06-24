@@ -37,6 +37,7 @@ namespace Majorsilence.Forms.Automation
                 new XAttribute ("value", e.Value ?? string.Empty),
                 new XAttribute ("enabled", e.Enabled ? "true" : "false"),
                 new XAttribute ("visible", e.Visible ? "true" : "false"),
+                new XAttribute ("focused", e.Focused ? "true" : "false"),
                 new XAttribute ("x", e.Bounds.X.ToString (CultureInfo.InvariantCulture)),
                 new XAttribute ("y", e.Bounds.Y.ToString (CultureInfo.InvariantCulture)),
                 new XAttribute ("width", e.Bounds.Width.ToString (CultureInfo.InvariantCulture)),

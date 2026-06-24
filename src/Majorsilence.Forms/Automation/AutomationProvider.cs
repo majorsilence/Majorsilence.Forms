@@ -31,6 +31,7 @@ namespace Majorsilence.Forms.Automation
                 value: null,
                 enabled: true,
                 visible: true,
+                focused: false,
                 bounds: new Rectangle (origin, adapter.Size),
                 children: children);
         }
@@ -63,6 +64,7 @@ namespace Majorsilence.Forms.Automation
                 value: ValueOf (c),
                 enabled: c.Enabled,
                 visible: c.Visible,
+                focused: c.Focused,
                 bounds: new Rectangle (origin, c.Size),
                 children: children);
         }

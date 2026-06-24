@@ -249,6 +249,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets the unscaled location of the window.</summary>
         public System.Drawing.Point Location => Backend.Location;
 
+        /// <summary>
+        /// Gets the native OS window handle (HWND on Windows), or <see cref="System.IntPtr.Zero"/> if the
+        /// backend can't provide one. Used by platform accessibility bridges to attach to the host window.
+        /// </summary>
+        public System.IntPtr PlatformHandle => Backend.TryGetPlatformHandle ();
+
         /// <summary>Raised when the MaximumSize property is changed.</summary>
         public event EventHandler? MaximumSizeChanged;
 

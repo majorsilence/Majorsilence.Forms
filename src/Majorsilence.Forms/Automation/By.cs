@@ -75,7 +75,7 @@ namespace Majorsilence.Forms.Automation
         public static By XPath (string expression) =>
             new ($"xpath={expression}", root => EvaluateXPath (root, expression));
 
-        private static IEnumerable<AutomationElement> EvaluateXPath (AutomationElement root, string expression)
+        private static List<AutomationElement> EvaluateXPath (AutomationElement root, string expression)
         {
             var tree = AutomationXml.ToXml (root);
             var results = new List<AutomationElement> ();

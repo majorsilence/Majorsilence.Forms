@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows-only accessibility bridge: projects the backend-neutral Majorsilence.Forms automation tree
+       onto the Windows UI Automation provider API so screen readers (Narrator/NVDA/JAWS) and focus-following
+       magnifiers can drive a Majorsilence.Forms window. UI Automation only exists on Windows, so off Windows
+       this project compiles to an empty placeholder assembly — keeping the full-solution `dotnet build` green
+       on the Linux/macOS CI legs (Release / TreatWarningsAsErrors). -->
+
+  <PropertyGroup>
+    <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageId>Majorsilence.Forms.WindowsUIAutomation</PackageId>
+    <Description>Windows-only UI Automation bridge so screen readers and magnifiers can drive a Majorsilence.Forms window.</Description>
+    <PackageTags>Majorsilence;Forms;Accessibility;UIAutomation;ScreenReader;Windows</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
+    <!-- Nothing to compile off Windows. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <!-- UI Automation provider + types, and WindowsBase for System.Windows.Rect; from the WindowsDesktop pack. -->
+    <Reference Include="UIAutomationProvider" />
+    <Reference Include="UIAutomationTypes" />
+    <Reference Include="WindowsBase" />
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.WindowsUIAutomation.Tests" />
+  </ItemGroup>
+
+</Project>

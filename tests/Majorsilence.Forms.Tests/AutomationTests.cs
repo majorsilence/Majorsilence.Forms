@@ -108,6 +108,58 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Focused_ReflectsKeyboardFocus ()
+        {
+            using var form = BuildForm (out _, out var textbox);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            // No control focused yet.
+            Assert.DoesNotContain (AutomationProvider.BuildTree (form).Self (), e => e.Focused);
+
+            textbox.Select ();
+
+            var focused = AutomationProvider.BuildTree (form).Self ().Where (e => e.Focused).ToList ();
+            var one = Assert.Single (focused);
+            Assert.Equal ("nameBox", one.AutomationId);
+        }
+
+        [Fact]
+        public void Observer_RaisesFocusChanged ()
+        {
+            using var form = BuildForm (out var button, out var textbox);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            using var observer = new AutomationObserver (form);
+            AutomationElement? lastFocus = null;
+            observer.FocusChanged += (_, el) => lastFocus = el;
+
+            textbox.Select ();
+            Assert.Equal ("nameBox", lastFocus?.AutomationId);
+
+            button.Select ();
+            Assert.Equal ("okButton", lastFocus?.AutomationId);
+        }
+
+        [Fact]
+        public void Observer_RaisesValueChanged_ForFocusedControl ()
+        {
+            using var form = BuildForm (out _, out _);
+            var check = new CheckBox { Name = "agree", Text = "Agree", Left = 10, Top = 90, Width = 120, Height = 24 };
+            form.Controls.Add (check);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            using var observer = new AutomationObserver (form);
+            AutomationElement? changed = null;
+            observer.ValueChanged += (_, el) => changed = el;
+
+            check.Select ();          // value tracking follows focus
+            check.Checked = true;
+
+            Assert.Equal ("agree", changed?.AutomationId);
+            Assert.Equal ("true", changed?.Value);
+        }
+
+        [Fact]
         public void SendKeys_TypesIntoTextBox ()
         {
             using var form = BuildForm (out _, out var textbox);

@@ -20,6 +20,7 @@ namespace Majorsilence.Forms.Automation
             string? value,
             bool enabled,
             bool visible,
+            bool focused,
             Rectangle bounds,
             IReadOnlyList<AutomationElement> children)
         {
@@ -31,6 +32,7 @@ namespace Majorsilence.Forms.Automation
             Value = value;
             Enabled = enabled;
             Visible = visible;
+            Focused = focused;
             Bounds = bounds;
             Children = children;
         }
@@ -59,6 +61,9 @@ namespace Majorsilence.Forms.Automation
 
         /// <summary>Whether the control is visible.</summary>
         public bool Visible { get; }
+
+        /// <summary>Whether the control currently has keyboard focus (a per-snapshot reading of live state).</summary>
+        public bool Focused { get; }
 
         /// <summary>The element's bounds in window-client (logical) coordinates.</summary>
         public Rectangle Bounds { get; }

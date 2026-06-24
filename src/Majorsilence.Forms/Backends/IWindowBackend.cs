@@ -62,6 +62,16 @@ namespace Majorsilence.Forms.Backends
         /// <summary>Gets or sets whether the window accepts input (used to disable a modal dialog's parent).</summary>
         bool Enabled { get; set; }
 
+        // ── Native interop / accessibility ───────────────────────────────────────
+        /// <summary>
+        /// Gets the native OS window handle (HWND on Windows), or <see cref="System.IntPtr.Zero"/> when the
+        /// backend has none or it is unavailable. Used by platform accessibility bridges (e.g. the Windows
+        /// UI Automation bridge) to attach to the host window. Backend-neutral callers must treat
+        /// <see cref="System.IntPtr.Zero"/> as "unsupported" and no-op. Defaults to Zero so backends that
+        /// can't expose a handle (headless) need not implement it.
+        /// </summary>
+        System.IntPtr TryGetPlatformHandle () => System.IntPtr.Zero;
+
         // ── Coordinate conversion ────────────────────────────────────────────────
         /// <summary>Converts a screen point to client coordinates.</summary>
         Point PointToClient (Point screen);

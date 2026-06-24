@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows-only tests for the UI Automation bridge's pure tree/mapping logic. The bridge only compiles
+       on Windows (the UIA provider API is Windows-only), so off Windows this project is an empty stub that
+       keeps the full-solution build green on the Linux/macOS CI legs. -->
+
+  <PropertyGroup>
+    <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
+    <UseWindowsForms>true</UseWindowsForms>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);xUnit2013</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.v3" />
+    <Reference Include="UIAutomationTypes" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WindowsUIAutomation\Majorsilence.Forms.WindowsUIAutomation.csproj" />
+  </ItemGroup>
+
+</Project>
