@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Provides a repository of color resources.
     /// </summary>
-    public static class Theme
+    public static partial class Theme
     {
         private static int suspend_count;
         private static bool suspended_raise_waiting;

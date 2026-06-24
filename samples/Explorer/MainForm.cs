@@ -11,6 +11,10 @@ namespace Explore
         {
             InitializeComponent ();
 
+            // Register a custom theme that is defined entirely in XML (see Themes/Ocean.xml).
+            // Once registered it can be applied by name with Theme.ApplyTheme ("Ocean").
+            Theme.RegisterThemeFromFile (Path.Combine (AppContext.BaseDirectory, "Themes", "Ocean.xml"));
+
             // Populate the drive list
             foreach (var drive in DriveInfo.GetDrives ().Where (d => d.IsReady))
                 tree.Items.Add ($"{drive.Name.Trim ('\\')} - {drive.VolumeLabel}", ImageLoader.Get ("drive.png")).Tag = drive.Name;
@@ -73,6 +77,14 @@ namespace Explore
         private void ThemeButton_Clicked (object sender, EventArgs args)
         {
             var item = sender as MenuItem;
+
+            // The "Ocean (XML)" entry is a custom theme loaded from Themes/Ocean.xml. It declares
+            // its own base (Dark) plus overrides, so apply it directly instead of resetting to Light.
+            if (item?.Text == "Ocean (XML)") {
+                Theme.ApplyTheme ("Ocean");
+                Invalidate ();
+                return;
+            }
 
             Theme.SetBuiltInTheme (BuiltInTheme.Light);
 
