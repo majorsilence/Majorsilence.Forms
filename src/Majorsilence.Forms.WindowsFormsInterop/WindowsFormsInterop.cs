@@ -51,7 +51,7 @@ namespace Majorsilence.Forms.Interop
         /// <summary>Show a legacy form modeless. Returns immediately; the form runs on the shared Win32 pump.</summary>
         public static void Show(WF.Form form, MF.Form? owner = null)
         {
-            if (form is null) throw new ArgumentNullException(nameof(form));
+            ArgumentNullException.ThrowIfNull(form);
             EnsureWindows();
             Initialize();
 
@@ -70,7 +70,7 @@ namespace Majorsilence.Forms.Interop
         /// <summary>Show a legacy form modally. Blocks the UI thread (WinForms' own nested Win32 loop) and returns the result.</summary>
         public static WF.DialogResult ShowDialog(WF.Form form, MF.Form? owner = null)
         {
-            if (form is null) throw new ArgumentNullException(nameof(form));
+            ArgumentNullException.ThrowIfNull(form);
             EnsureWindows();
             Initialize();
 
@@ -88,7 +88,7 @@ namespace Majorsilence.Forms.Interop
         public static WF.DialogResult ShowDialog(Func<WF.Form> factory, MF.Form? owner = null)
             => ShowDialog((factory ?? throw new ArgumentNullException(nameof(factory)))(), owner);
 
-        private static WF.IWin32Window? WrapOwner(MF.Form? owner)
+        private static Win32Window? WrapOwner(MF.Form? owner)
         {
             var resolver = OwnerHandleResolver;
             if (owner is null || resolver is null) return null;

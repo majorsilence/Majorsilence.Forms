@@ -13,6 +13,11 @@
   <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
     <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Pulls in the Microsoft.WindowsDesktop.App.WPF framework reference, which ships WindowsBase,
+         UIAutomationProvider and UIAutomationTypes — the assemblies the bare <Reference>s below resolve
+         against. Without it those references don't resolve (System.Windows.Automation / IRawElementProviderSimple
+         not found) and WindowsBase gets pulled in ambiguously. -->
+    <UseWPF>true</UseWPF>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PackageId>Majorsilence.Forms.WindowsUIAutomation</PackageId>
     <Description>Windows-only UI Automation bridge so screen readers and magnifiers can drive a Majorsilence.Forms window.</Description>
@@ -29,10 +34,11 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
-    <!-- UI Automation provider + types, and WindowsBase for System.Windows.Rect; from the WindowsDesktop pack. -->
+    <!-- UI Automation provider + types from the WindowsDesktop pack. WindowsBase (System.Windows.Rect)
+         comes in automatically via UseWPF, so it must not be referenced explicitly here (that re-introduces
+         the ambiguous-WindowsBase conflict). -->
     <Reference Include="UIAutomationProvider" />
     <Reference Include="UIAutomationTypes" />
-    <Reference Include="WindowsBase" />
     <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <InternalsVisibleTo Include="Majorsilence.Forms.WindowsUIAutomation.Tests" />
   </ItemGroup>
