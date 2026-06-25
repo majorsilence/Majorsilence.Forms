@@ -384,12 +384,11 @@ namespace Majorsilence.Forms.Telerik
 
             var tab = TabAt (e.Location);
 
-            // Empty space, or a single-tab window: nothing to reorder, and tearing off the only tab
-            // would leave an empty window. When the strip lives in the title bar (custom chrome, or
-            // merged into the native macOS title bar), fall back to dragging the whole window so the
-            // empty caption area still works; when it's docked in the client area there's no window-drag
-            // affordance to mimic, so just ignore.
-            if (tab is null || Tabs.Count <= 1) {
+            // Empty space (no tab under the pointer): nothing to drag. When the strip lives in the title
+            // bar (custom chrome, or merged into the native macOS title bar), fall back to dragging the
+            // whole window so the empty caption area still works; when it's docked in the client area
+            // there's no window-drag affordance to mimic, so just ignore.
+            if (tab is null) {
                 _drag_item = null;
                 _dragging = false;
                 Capture = false;
@@ -398,6 +397,11 @@ namespace Majorsilence.Forms.Telerik
                 return;
             }
 
+            // A real tab was grabbed — track our own drag for reorder / tear-off / re-attach. This runs
+            // even for a single-tab window (e.g. one produced by an earlier tear-off): grabbing its only
+            // tab must be draggable so it can be re-attached to another tabbed form. (Falling back to
+            // BeginMoveDrag here, as we do for empty space, would hand the gesture to the OS move loop and
+            // we'd never see the drop — which is exactly why re-attach from a torn-off window failed.)
             SelectedTab = tab;
             _drag_item = ItemOf (tab);
             _dragging = _drag_item != null;
@@ -453,11 +457,21 @@ namespace Majorsilence.Forms.Telerik
                 target.TabbedFormControl.Items.Add (item);
                 target.TabbedFormControl.SelectedItem = item;
                 target.BringToFront ();
+
+                // If that move emptied this window, close it. Defer via BeginInvoke so the form isn't
+                // disposed while we're still unwinding its own strip's mouse-up handler.
+                if (_control.Items.Count == 0)
+                    _form.BeginInvoke (_form.Close);
                 return;
             }
 
-            // Dropped on empty desktop → tear off into a new window at the drop point.
-            DetachToNewWindow (item, dropScreen);
+            // Dropped on empty desktop. If this is the only tab there's nothing to tear off into a *new*
+            // window — that would just abandon an empty source window — so move this window to the drop
+            // point instead. Otherwise tear the tab off into a new window at the drop point.
+            if (_control.Items.Count <= 1)
+                _form.Location = new Point (dropScreen.X - 40, dropScreen.Y - 8);
+            else
+                DetachToNewWindow (item, dropScreen);
         }
 
         private void DetachToNewWindow (RadTabbedFormControlItem item, Point dropScreen)
