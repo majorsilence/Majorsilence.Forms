@@ -4,6 +4,9 @@ using System.Windows.Automation;
 using System.Windows.Automation.Provider;
 using Majorsilence.Forms.Automation;
 using Majorsilence.Forms.Backends;
+// Both Majorsilence.Forms.Automation and System.Windows.Automation declare an AutomationElement;
+// in this file the bare name always means the Majorsilence tree node.
+using MfAutomationElement = Majorsilence.Forms.Automation.AutomationElement;
 
 namespace Majorsilence.Forms.WindowsUIAutomation
 {
@@ -57,7 +60,7 @@ namespace Majorsilence.Forms.WindowsUIAutomation
 
         // ── Tree resolution (all reads marshalled to the UI thread; pure walks live in UiaTree) ────
 
-        public AutomationElement? Resolve (int[] path) => OnUi (() => UiaTree.Follow (AutomationProvider.BuildTree (_window), path));
+        public MfAutomationElement? Resolve (int[] path) => OnUi (() => UiaTree.Follow (AutomationProvider.BuildTree (_window), path));
 
         public Rect ScreenRect (int[] path) => OnUi (() => {
             var el = UiaTree.Follow (AutomationProvider.BuildTree (_window), path);
@@ -122,7 +125,7 @@ namespace Majorsilence.Forms.WindowsUIAutomation
 
         // ── UIA events from the observer ───────────────────────────────────────────
 
-        private void OnFocusChanged (object? sender, AutomationElement? _)
+        private void OnFocusChanged (object? sender, MfAutomationElement? _)
         {
             if (!AutomationInteropProvider.ClientsAreListening)
                 return;
@@ -135,7 +138,7 @@ namespace Majorsilence.Forms.WindowsUIAutomation
                     new AutomationFocusChangedEventArgs (0, 0));
         }
 
-        private void OnValueChanged (object? sender, AutomationElement? _)
+        private void OnValueChanged (object? sender, MfAutomationElement? _)
         {
             if (!AutomationInteropProvider.ClientsAreListening)
                 return;

@@ -34,11 +34,9 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
-    <!-- UI Automation provider + types from the WindowsDesktop pack. WindowsBase (System.Windows.Rect)
-         comes in automatically via UseWPF, so it must not be referenced explicitly here (that re-introduces
-         the ambiguous-WindowsBase conflict). -->
-    <Reference Include="UIAutomationProvider" />
-    <Reference Include="UIAutomationTypes" />
+    <!-- UseWPF brings in the Microsoft.WindowsDesktop.App.WPF framework reference, which already supplies
+         WindowsBase (System.Windows.Rect) plus UIAutomationProvider/UIAutomationTypes transitively. Referencing
+         any of them explicitly here resolves a second copy and triggers the ambiguous-reference (MSB3243) warning. -->
     <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <InternalsVisibleTo Include="Majorsilence.Forms.WindowsUIAutomation.Tests" />
   </ItemGroup>
