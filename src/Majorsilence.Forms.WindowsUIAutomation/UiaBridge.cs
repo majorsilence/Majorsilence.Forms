@@ -52,8 +52,8 @@ namespace Majorsilence.Forms.WindowsUIAutomation
         private IntPtr SubclassWndProc (IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr id, IntPtr data)
         {
             // Only hijack the UI Automation request; chain everything else (incl. MSAA) to the backend.
-            // lParam carries the object id (a small well-known constant); truncating the pointer is intended.
-            if (msg == Native.WM_GETOBJECT && unchecked((int) lParam) == Native.UiaRootObjectId)
+            // Compare in pointer width (lParam is sign-extended) to dodge the IntPtr->int narrowing (CA2020).
+            if (msg == Native.WM_GETOBJECT && lParam == (IntPtr) Native.UiaRootObjectId)
                 return AutomationInteropProvider.ReturnRawElementProvider (hWnd, wParam, lParam, Root);
 
             return Native.DefSubclassProc (hWnd, msg, wParam, lParam);
