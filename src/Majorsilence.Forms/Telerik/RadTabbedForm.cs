@@ -28,24 +28,34 @@ namespace Majorsilence.Forms.Telerik
         {
             TabbedFormControl = new RadTabbedFormControl ();
 
+            // On macOS the base Form uses the native title bar; opt into extending our content up into it
+            // (Avalonia 12 full-size content view) so the tab strip lives in the title bar like it does on
+            // the custom-chrome platforms, instead of being docked below the OS title bar.
+            if (OperatingSystem.IsMacOS ())
+                ExtendsContentIntoTitleBar = true;
+
             // Always present the headers with our own drag-capable strip; the TabControl is used purely
             // as a content host, so hide its built-in header strip.
             TabbedFormControl.Host.TabStripVisible = false;
             tab_strip = new RadDocumentTabStrip (this, TabbedFormControl);
 
-            if (!UseSystemDecorations) {
-                // Tabs in the title bar. Docking is processed in z-order from the highest child index
-                // to the lowest, and a control's Fill claims whatever space is left when it is reached.
-                // The title bar's caption buttons are IMPLICIT children, which sort after explicit ones,
-                // so adding the strip as an EXPLICIT child gives it the lowest index — the buttons
-                // (Right) and icon (Left) claim their edges first and the Fill strip takes the centre.
+            if (!UseSystemDecorations || ExtendsContentIntoTitleBar) {
+                // Tabs in the title bar — either fully custom chrome, or merged into the native macOS
+                // title bar (ExtendsContentIntoTitleBar). Docking is processed in z-order from the
+                // highest child index to the lowest, and a control's Fill claims whatever space is left
+                // when it is reached. The title bar's caption buttons / traffic-light inset are IMPLICIT
+                // children, which sort after explicit ones, so adding the strip as an EXPLICIT child
+                // gives it the lowest index — the buttons/inset (Left/Right) claim their edges first and
+                // the Fill strip takes the centre (after the macOS traffic lights when merged).
                 tab_strip.Dock = DockStyle.Fill;
+                // The tab strip owns the title bar, so don't also paint the window title over it.
+                TitleBar.ShowText = false;
                 Controls.Add (TabbedFormControl.Host);
                 TitleBar.Controls.Add (tab_strip);
             } else {
-                // Native chrome (macOS): the OS owns the title bar, so dock the strip at the top of the
-                // client area (just below it). Add the Fill content FIRST so the higher-indexed Top
-                // strip is processed first and reserves its space before the content fills the rest.
+                // Plain native chrome: the OS owns the title bar and we don't extend into it, so dock the
+                // strip at the top of the client area (just below it). Add the Fill content FIRST so the
+                // higher-indexed Top strip is processed first and reserves its space before the rest.
                 tab_strip.Dock = DockStyle.Top;
                 Controls.Add (TabbedFormControl.Host);
                 Controls.Add (tab_strip);
@@ -374,19 +384,24 @@ namespace Majorsilence.Forms.Telerik
 
             var tab = TabAt (e.Location);
 
-            // Empty space, or a single-tab window: nothing to reorder, and tearing off the only tab
-            // would leave an empty window. When the strip lives in the title bar, fall back to dragging
-            // the whole window (so the empty caption area still works); when it's docked in the client
-            // area (native chrome) there's no window-drag affordance to mimic, so just ignore.
-            if (tab is null || Tabs.Count <= 1) {
+            // Empty space (no tab under the pointer): nothing to drag. When the strip lives in the title
+            // bar (custom chrome, or merged into the native macOS title bar), fall back to dragging the
+            // whole window so the empty caption area still works; when it's docked in the client area
+            // there's no window-drag affordance to mimic, so just ignore.
+            if (tab is null) {
                 _drag_item = null;
                 _dragging = false;
                 Capture = false;
-                if (!_form.UseSystemDecorations)
+                if (!_form.UseSystemDecorations || _form.ExtendsContentIntoTitleBar)
                     _form.BeginMoveDrag ();
                 return;
             }
 
+            // A real tab was grabbed — track our own drag for reorder / tear-off / re-attach. This runs
+            // even for a single-tab window (e.g. one produced by an earlier tear-off): grabbing its only
+            // tab must be draggable so it can be re-attached to another tabbed form. (Falling back to
+            // BeginMoveDrag here, as we do for empty space, would hand the gesture to the OS move loop and
+            // we'd never see the drop — which is exactly why re-attach from a torn-off window failed.)
             SelectedTab = tab;
             _drag_item = ItemOf (tab);
             _dragging = _drag_item != null;
@@ -442,11 +457,21 @@ namespace Majorsilence.Forms.Telerik
                 target.TabbedFormControl.Items.Add (item);
                 target.TabbedFormControl.SelectedItem = item;
                 target.BringToFront ();
+
+                // If that move emptied this window, close it. Defer via BeginInvoke so the form isn't
+                // disposed while we're still unwinding its own strip's mouse-up handler.
+                if (_control.Items.Count == 0)
+                    _form.BeginInvoke (_form.Close);
                 return;
             }
 
-            // Dropped on empty desktop → tear off into a new window at the drop point.
-            DetachToNewWindow (item, dropScreen);
+            // Dropped on empty desktop. If this is the only tab there's nothing to tear off into a *new*
+            // window — that would just abandon an empty source window — so move this window to the drop
+            // point instead. Otherwise tear the tab off into a new window at the drop point.
+            if (_control.Items.Count <= 1)
+                _form.Location = new Point (dropScreen.X - 40, dropScreen.Y - 8);
+            else
+                DetachToNewWindow (item, dropScreen);
         }
 
         private void DetachToNewWindow (RadTabbedFormControlItem item, Point dropScreen)

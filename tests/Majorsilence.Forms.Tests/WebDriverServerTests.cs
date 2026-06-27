@@ -88,6 +88,49 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void WebDriverFlow_SourceXPathAndAttribute ()
+        {
+            using var form = new Form { UseSystemDecorations = true };
+            var button = new Button { Name = "okButton", Text = "OK", Left = 10, Top = 10, Width = 100, Height = 30 };
+            form.Controls.Add (button);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            using var server = new WebDriverServer (form, FreePort ());
+            server.Start ();
+            var baseUrl = server.Url.ToString ();
+
+            var (source, role, name) = RunPumped (async () => {
+                using var http = new HttpClient { BaseAddress = new Uri (baseUrl) };
+
+                var session = await PostJson (http, "session", "{}");
+                var sid = session.RootElement.GetProperty ("value").GetProperty ("sessionId").GetString ();
+
+                // Page source is XML containing the button.
+                var src = await GetJson (http, $"session/{sid}/source");
+                var xml = src.RootElement.GetProperty ("value").GetString ();
+
+                // Find by XPath, then read an attribute through getAttribute.
+                var find = await PostJson (http, $"session/{sid}/element",
+                    "{\"using\":\"xpath\",\"value\":\"//Button[@id='okButton']\"}");
+                var eid = find.RootElement.GetProperty ("value").GetProperty (ElementKey).GetString ();
+
+                var roleResp = await GetJson (http, $"session/{sid}/element/{eid}/attribute/role");
+                var nameResp = await GetJson (http, $"session/{sid}/element/{eid}/attribute/name");
+
+                return (xml,
+                        roleResp.RootElement.GetProperty ("value").GetString (),
+                        nameResp.RootElement.GetProperty ("value").GetString ());
+            });
+
+            Assert.Contains ("<Button", source);
+            Assert.Contains ("id=\"okButton\"", source);
+            Assert.Equal ("button", role);
+            Assert.Equal ("OK", name);
+
+            server.Stop ();
+        }
+
+        [Fact]
         public void Status_ReportsReady ()
         {
             using var form = new Form { UseSystemDecorations = true };

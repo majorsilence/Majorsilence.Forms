@@ -7,9 +7,9 @@ namespace ControlGallery.Panels
     // Showcases RadTabbedForm (Majorsilence.Forms.Telerik) — a form whose document tabs are
     // managed through TabbedFormControl.Items, backed by Majorsilence.Forms.TabControl.
     // RadTabbedForm is a Form, so it is opened in its own window (shown modeless so the tear-off
-    // windows can live alongside it). On custom-chrome platforms (Windows/Linux) the tabs render in
-    // the title bar with drag-to-reorder, tear-off and re-attach; on macOS native chrome the tabs
-    // fall back to a docked strip below the OS title bar.
+    // windows can live alongside it). The tabs render in the title bar with drag-to-reorder, tear-off
+    // and re-attach: on Windows/Linux in the custom-drawn chrome, and on macOS merged into the native
+    // title bar (RadTabbedForm sets ExtendsContentIntoTitleBar) after the traffic lights.
     public class TelerikTabbedFormPanel : BasePanel
     {
         public TelerikTabbedFormPanel ()

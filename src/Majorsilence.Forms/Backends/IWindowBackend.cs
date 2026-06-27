@@ -62,6 +62,16 @@ namespace Majorsilence.Forms.Backends
         /// <summary>Gets or sets whether the window accepts input (used to disable a modal dialog's parent).</summary>
         bool Enabled { get; set; }
 
+        // ── Native interop / accessibility ───────────────────────────────────────
+        /// <summary>
+        /// Gets the native OS window handle (HWND on Windows), or <see cref="System.IntPtr.Zero"/> when the
+        /// backend has none or it is unavailable. Used by platform accessibility bridges (e.g. the Windows
+        /// UI Automation bridge) to attach to the host window. Backend-neutral callers must treat
+        /// <see cref="System.IntPtr.Zero"/> as "unsupported" and no-op. Defaults to Zero so backends that
+        /// can't expose a handle (headless) need not implement it.
+        /// </summary>
+        System.IntPtr TryGetPlatformHandle () => System.IntPtr.Zero;
+
         // ── Coordinate conversion ────────────────────────────────────────────────
         /// <summary>Converts a screen point to client coordinates.</summary>
         Point PointToClient (Point screen);
@@ -82,6 +92,16 @@ namespace Majorsilence.Forms.Backends
         /// <see cref="BeginMoveDrag"/> path ignore this. Re-declared by the Form on layout/resize.
         /// </summary>
         void SetCaptionRegions (System.Collections.Generic.IReadOnlyList<Rectangle> captionRects) { }
+
+        /// <summary>
+        /// On platforms with a native title bar (macOS), extends the client/content area up into the
+        /// title bar so the application can paint into it while the OS keeps drawing the native caption
+        /// buttons (traffic lights), rounded corners and window shadow — Avalonia 12's
+        /// WindowDecorations.Full + ExtendClientAreaToDecorationsHint. <paramref name="titleBarHeight"/>
+        /// is the logical height of the title-bar strip to reserve (0 = system default). No-op where
+        /// unsupported.
+        /// </summary>
+        void SetExtendClientIntoTitleBar (bool extend, int titleBarHeight) { }
 
         // ── Rendering ────────────────────────────────────────────────────────────
         /// <summary>Marks the window as needing a repaint.</summary>

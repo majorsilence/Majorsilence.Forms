@@ -13,6 +13,9 @@ namespace Majorsilence.Forms
 
         private MdiChildWindow? active;
 
+        // Guards against re-entrancy: clamping a child's bounds in OnLayout re-triggers the client's layout.
+        private bool laying_out;
+
         // Child order mirrors paint/hit order: the LAST control is topmost. Newly activated children are
         // moved to the end. This list is in activation order (front = last) for window-list/Next purposes.
         private readonly List<MdiChildWindow> frames = new ();
@@ -51,7 +54,7 @@ namespace Majorsilence.Forms
             frames.Add (frame);
             Controls.Add (frame);
             Activate (child);
-            ClampToClient (frame);
+            FitToClient (frame);
             UpdateScrollExtent ();
             return frame;
         }
@@ -120,6 +123,67 @@ namespace Majorsilence.Forms
             frame.ChildForm.RaiseMdiResize ();
             UpdateScrollExtent ();
             Invalidate ();
+        }
+
+        // Re-fits children when the client is laid out — i.e. when the parent is first shown or resized.
+        // A normal child is never allowed to be wider/taller than the client (so it stays within the
+        // parent's bounds), and maximized children grow/shrink to keep filling the client. Minimized
+        // children are left to ArrangeMinimized/LayoutMdi. This runs after the parent gains a real size,
+        // which is the common case for children added in the parent's constructor (before Show).
+        /// <inheritdoc/>
+        protected override void OnLayout (LayoutEventArgs e)
+        {
+            base.OnLayout (e);
+
+            if (laying_out)
+                return;
+
+            var area = DisplayRectangle;
+            if (area.Width <= 0 || area.Height <= 0)
+                return;
+
+            laying_out = true;
+            try {
+                foreach (var f in frames) {
+                    if (f.WindowState == FormWindowState.Maximized) {
+                        if (f.Bounds != new Rectangle (0, 0, area.Width, area.Height)) {
+                            f.Bounds = new Rectangle (0, 0, area.Width, area.Height);
+                            f.ChildForm.RaiseMdiResize ();
+                        }
+                    } else if (f.WindowState == FormWindowState.Normal) {
+                        FitToClient (f);
+                    }
+                }
+            } finally {
+                laying_out = false;
+            }
+
+            UpdateScrollExtent ();
+        }
+
+        // Shrinks a normal child to fit within the client (never larger than the parent) and nudges it
+        // back on-screen, leaving it untouched when it already fits. Shrink-only: a child is never grown
+        // to fill a larger parent, matching MDI semantics. No-op until the client has a real size.
+        private void FitToClient (MdiChildWindow frame)
+        {
+            if (frame.WindowState != FormWindowState.Normal)
+                return;
+
+            var area = DisplayRectangle;
+            if (area.Width <= 0 || area.Height <= 0)
+                return;
+
+            var w = Math.Min (frame.Width, area.Width);
+            var h = Math.Min (frame.Height, area.Height);
+            var x = Math.Max (0, Math.Min (frame.Left, area.Width - w));
+            var y = Math.Max (0, Math.Min (frame.Top, area.Height - h));
+
+            var bounds = new Rectangle (x, y, w, h);
+            if (frame.Bounds != bounds) {
+                frame.Bounds = bounds;
+                frame.RestoreBounds = frame.Bounds;
+                frame.ChildForm.RaiseMdiResize ();
+            }
         }
 
         // Keeps the child's top-left within the client so its caption stays reachable.

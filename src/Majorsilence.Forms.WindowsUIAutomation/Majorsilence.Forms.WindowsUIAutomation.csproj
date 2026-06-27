@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows-only accessibility bridge: projects the backend-neutral Majorsilence.Forms automation tree
+       onto the Windows UI Automation provider API so screen readers (Narrator/NVDA/JAWS) and focus-following
+       magnifiers can drive a Majorsilence.Forms window. UI Automation only exists on Windows, so off Windows
+       this project compiles to an empty placeholder assembly — keeping the full-solution `dotnet build` green
+       on the Linux/macOS CI legs (Release / TreatWarningsAsErrors). -->
+
+  <PropertyGroup>
+    <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Pulls in the Microsoft.WindowsDesktop.App.WPF framework reference, which ships WindowsBase,
+         UIAutomationProvider and UIAutomationTypes — the assemblies the bare <Reference>s below resolve
+         against. Without it those references don't resolve (System.Windows.Automation / IRawElementProviderSimple
+         not found) and WindowsBase gets pulled in ambiguously. -->
+    <UseWPF>true</UseWPF>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageId>Majorsilence.Forms.WindowsUIAutomation</PackageId>
+    <Description>Windows-only UI Automation bridge so screen readers and magnifiers can drive a Majorsilence.Forms window.</Description>
+    <PackageTags>Majorsilence;Forms;Accessibility;UIAutomation;ScreenReader;Windows</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
+    <!-- Nothing to compile off Windows. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <!-- UseWPF brings in the Microsoft.WindowsDesktop.App.WPF framework reference, which already supplies
+         WindowsBase (System.Windows.Rect) plus UIAutomationProvider/UIAutomationTypes transitively. Referencing
+         any of them explicitly here resolves a second copy and triggers the ambiguous-reference (MSB3243) warning. -->
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.WindowsUIAutomation.Tests" />
+  </ItemGroup>
+
+</Project>

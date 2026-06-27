@@ -23,11 +23,18 @@ namespace Majorsilence.Forms.Automation
         /// <summary>Builds a fresh snapshot of the window's automation tree (rooted at the window node).</summary>
         public AutomationElement Root => AutomationProvider.BuildTree (_window);
 
+        /// <summary>
+        /// The window's automation tree rendered as XML page source — the same shape <see cref="By.XPath"/>
+        /// queries against (tag = control type; attributes id/name/role/type/value/enabled/visible/bounds).
+        /// Lets an inspector (e.g. Appium Inspector) display the tree and capture XPath locators.
+        /// </summary>
+        public string GetPageSource () => AutomationXml.ToXml (Root).Document.ToString ();
+
         /// <summary>Finds the first element matching the locator, or null.</summary>
         public AutomationElement? Find (By by)
         {
             ArgumentNullException.ThrowIfNull (by);
-            return Root.Self ().FirstOrDefault (by.Matches);
+            return by.Select (Root).FirstOrDefault ();
         }
 
         /// <summary>Finds the first element matching the locator, or throws if none.</summary>
@@ -38,7 +45,7 @@ namespace Majorsilence.Forms.Automation
         public IReadOnlyList<AutomationElement> FindAll (By by)
         {
             ArgumentNullException.ThrowIfNull (by);
-            return Root.Self ().Where (by.Matches).ToList ();
+            return by.Select (Root).ToList ();
         }
 
         /// <summary>Clicks the element by synthesizing move → press → release at its center.</summary>

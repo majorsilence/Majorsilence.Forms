@@ -143,6 +143,25 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Oversized_child_is_clamped_to_the_client ()
+        {
+            using var parent = new Form { IsMdiContainer = true };
+            parent.MdiClientControl!.Dock = DockStyle.None;
+            parent.MdiClientControl!.SetBounds (0, 0, 400, 300, BoundsSpecified.All);
+
+            // A child larger than the client (e.g. one that kept the default form size) must be clamped
+            // so it stays within the parent's bounds rather than spilling out to the monitor width.
+            using var child = Child (1080, 720);
+            child.MdiParent = parent; child.Show ();
+
+            var area = parent.MdiClientControl!.DisplayRectangle;
+            Assert.True (child.MdiHost!.Width <= area.Width);
+            Assert.True (child.MdiHost!.Height <= area.Height);
+            Assert.True (child.Location.X >= 0);
+            Assert.True (child.Location.Y >= 0);
+        }
+
+        [Fact]
         public void Maximizing_a_child_fills_the_client ()
         {
             using var parent = new Form { IsMdiContainer = true };

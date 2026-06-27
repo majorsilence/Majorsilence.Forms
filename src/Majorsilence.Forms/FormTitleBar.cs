@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using Majorsilence.Forms.Renderers;
 using SkiaSharp;
 
@@ -9,12 +9,19 @@ namespace Majorsilence.Forms
     /// </summary>
     public class FormTitleBar : Control
     {
+        // Logical width reserved on the left for the native macOS traffic-light buttons when the
+        // title bar is merged into the OS title bar (native-overlay mode).
+        private const int MAC_TRAFFIC_LIGHT_INSET = 78;
+
         private readonly TitleBarButton minimize_button;
         private readonly TitleBarButton maximize_button;
         private readonly TitleBarButton close_button;
         private readonly PictureBox form_image;
+        private Control? overlay_spacer;
 
         private bool show_image = true;
+        private bool show_text = true;
+        private bool native_overlay;
 
         /// <summary>
         /// Initializes a new instance of the FormTitleBar class.
@@ -63,12 +70,65 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Whether the title bar is merged into a native OS title bar (macOS): the OS draws the caption
+        /// buttons (traffic lights) and frame, while this control paints the title/background into the
+        /// extended title-bar area. In this mode our own caption buttons are hidden and a left margin is
+        /// reserved for the traffic lights.
+        /// </summary>
+        internal bool NativeOverlay {
+            get => native_overlay;
+            set {
+                if (native_overlay == value)
+                    return;
+
+                native_overlay = value;
+                ApplyNativeOverlay ();
+            }
+        }
+
+        // Which side the (logical) caption buttons occupy. The reserved traffic-light inset is on the
+        // left in native-overlay mode; our own buttons are on the right otherwise.
+        internal bool CaptionButtonsOnLeft => native_overlay;
+
+        private void ApplyNativeOverlay ()
+        {
+            // The OS draws the caption buttons in native-overlay mode, so hide ours and reserve room on
+            // the left for the traffic lights. The strip blends with the window background rather than
+            // using the accent color.
+            minimize_button.Visible = !native_overlay;
+            maximize_button.Visible = !native_overlay;
+            close_button.Visible = !native_overlay;
+
+            if (native_overlay && overlay_spacer is null) {
+                overlay_spacer = Controls.AddImplicitControl (new Control { Dock = DockStyle.Left, Width = MAC_TRAFFIC_LIGHT_INSET });
+                overlay_spacer.Style.BackgroundColor = SKColors.Transparent;
+                overlay_spacer.SetControlBehavior (ControlBehaviors.ReceivesMouseEvents, false);
+            }
+
+            if (overlay_spacer is not null)
+                overlay_spacer.Visible = native_overlay;
+
+            Style.BackgroundColor = native_overlay ? Theme.BackgroundColor : DefaultStyle.GetBackgroundColor ();
+            Invalidate ();
+        }
+
+        /// <inheritdoc/>
+        protected internal override void OnThemeChanged (EventArgs e)
+        {
+            // The merged (native-overlay) title bar blends with the window background, which tracks the theme.
+            if (native_overlay)
+                Style.BackgroundColor = Theme.BackgroundColor;
+
+            base.OnThemeChanged (e);
+        }
+
+        /// <summary>
         /// Gets or sets whenther the Maximize button is shown.
         /// </summary>
         public bool AllowMaximize {
             get => maximize_button.Visible;
             set {
-                maximize_button.Visible = value;
+                maximize_button.Visible = value && !native_overlay;
                 UpdateMaximizeButtonGlyph ();
                 Invalidate (); // TODO: Shouldn't be necessary, should automatically be triggered
             }
@@ -80,18 +140,23 @@ namespace Majorsilence.Forms
         public bool AllowMinimize {
             get => minimize_button.Visible;
             set {
-                minimize_button.Visible = value;
+                minimize_button.Visible = value && !native_overlay;
                 Invalidate (); // TODO: Shouldn't be necessary, should automatically be triggered
             }
         }
 
-        // Total logical width of the caption buttons docked at the right (close + optional maximize/
-        // minimize). The Form treats the rest of the title bar as a draggable caption region, so the
-        // buttons stay clickable client area rather than OS drag/snap surface.
+        // Total logical width of the caption-button cluster: in native-overlay mode the reserved
+        // traffic-light inset on the left; otherwise close + optional maximize/minimize on the right.
+        // The Form treats the rest of the title bar as a draggable caption region.
         internal int CaptionButtonsWidth =>
-            (close_button.Visible ? close_button.Width : 0)
-            + (maximize_button.Visible ? maximize_button.Width : 0)
-            + (minimize_button.Visible ? minimize_button.Width : 0);
+            native_overlay
+                ? (overlay_spacer?.Width ?? 0)
+                : (close_button.Visible ? close_button.Width : 0)
+                    + (maximize_button.Visible ? maximize_button.Width : 0)
+                    + (minimize_button.Visible ? minimize_button.Width : 0);
+
+        // The preferred title-bar height, used to size the extended (merged) title-bar region.
+        internal int PreferredHeight => DefaultSize.Height;
 
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (600, 34);
@@ -150,6 +215,20 @@ namespace Majorsilence.Forms
             form_image.Width = Height;
 
             UpdateMaximizeButtonGlyph ();
+        }
+
+        /// <summary>
+        /// Specifies whether the Form's title text is painted in the title bar. Set to false when the
+        /// title bar hosts its own content (e.g. a tab strip) that would otherwise collide with the text.
+        /// </summary>
+        public bool ShowText {
+            get => show_text;
+            set {
+                if (show_text != value) {
+                    show_text = value;
+                    Invalidate ();
+                }
+            }
         }
 
         /// <summary>

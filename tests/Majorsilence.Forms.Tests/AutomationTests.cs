@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Xml.XPath;
 using Majorsilence.Forms.Automation;
 using Majorsilence.Forms.Headless;
 using Xunit;
@@ -66,6 +67,96 @@ namespace Majorsilence.Forms.Tests
             session.Click (session.FindOrThrow (By.Id ("okButton")));
 
             Assert.Equal (1, clicks);
+        }
+
+        [Fact]
+        public void Find_ByXPath_LocatesElements ()
+        {
+            using var form = BuildForm (out _, out _);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+            var session = new AutomationSession (form);
+
+            // By tag (control type) + attribute predicate.
+            var btn = session.Find (By.XPath ("//Button[@id='okButton']"));
+            Assert.NotNull (btn);
+            Assert.Equal ("okButton", btn!.AutomationId);
+
+            // Attribute-only and descendant forms.
+            Assert.NotNull (session.Find (By.XPath ("//*[@name='OK']")));
+            Assert.NotNull (session.Find (By.XPath ("//TextBox")));
+
+            // No match returns null; multiple matches come back in document order.
+            Assert.Null (session.Find (By.XPath ("//Button[@id='missing']")));
+            Assert.Equal (2, session.FindAll (By.XPath ("//Button | //TextBox")).Count);
+        }
+
+        [Fact]
+        public void GetPageSource_RendersTreeAsXml ()
+        {
+            using var form = BuildForm (out _, out _);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+            var session = new AutomationSession (form);
+
+            var xml = session.GetPageSource ();
+
+            Assert.Contains ("<Button", xml);
+            Assert.Contains ("id=\"okButton\"", xml);
+            Assert.Contains ("<TextBox", xml);
+            // The source is well-formed and queryable by the same XPath used to find elements.
+            var doc = System.Xml.Linq.XDocument.Parse (xml);
+            Assert.NotEmpty (doc.XPathSelectElements ("//Button[@id='okButton']"));
+        }
+
+        [Fact]
+        public void Focused_ReflectsKeyboardFocus ()
+        {
+            using var form = BuildForm (out _, out var textbox);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            // No control focused yet.
+            Assert.DoesNotContain (AutomationProvider.BuildTree (form).Self (), e => e.Focused);
+
+            textbox.Select ();
+
+            var focused = AutomationProvider.BuildTree (form).Self ().Where (e => e.Focused).ToList ();
+            var one = Assert.Single (focused);
+            Assert.Equal ("nameBox", one.AutomationId);
+        }
+
+        [Fact]
+        public void Observer_RaisesFocusChanged ()
+        {
+            using var form = BuildForm (out var button, out var textbox);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            using var observer = new AutomationObserver (form);
+            AutomationElement? lastFocus = null;
+            observer.FocusChanged += (_, el) => lastFocus = el;
+
+            textbox.Select ();
+            Assert.Equal ("nameBox", lastFocus?.AutomationId);
+
+            button.Select ();
+            Assert.Equal ("okButton", lastFocus?.AutomationId);
+        }
+
+        [Fact]
+        public void Observer_RaisesValueChanged_ForFocusedControl ()
+        {
+            using var form = BuildForm (out _, out _);
+            var check = new CheckBox { Name = "agree", Text = "Agree", Left = 10, Top = 90, Width = 120, Height = 24 };
+            form.Controls.Add (check);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            using var observer = new AutomationObserver (form);
+            AutomationElement? changed = null;
+            observer.ValueChanged += (_, el) => changed = el;
+
+            check.Select ();          // value tracking follows focus
+            check.Checked = true;
+
+            Assert.Equal ("agree", changed?.AutomationId);
+            Assert.Equal ("true", changed?.Value);
         }
 
         [Fact]

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows-only bridge: lets a Majorsilence.Forms app host legacy System.Windows.Forms forms during an
+       incremental migration. System.Windows.Forms only exists on Windows, so off Windows this project compiles
+       to an empty placeholder assembly — that keeps the full-solution `dotnet build` green on the Linux/macOS
+       CI legs (which run Release with TreatWarningsAsErrors). -->
+
+  <PropertyGroup>
+    <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PackageId>Majorsilence.Forms.WindowsFormsInterop</PackageId>
+    <Description>Windows-only bridge to host legacy System.Windows.Forms forms from a Majorsilence.Forms app during an incremental migration.</Description>
+    <PackageTags>Majorsilence;Forms;Winforms;Interop;Migration;Windows</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
+    <!-- Nothing to compile off Windows. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -82,6 +82,10 @@ namespace Majorsilence.Forms.Uno
             get {
                 if (PopupMode)
                     return _location;
+                // macOS: AppWindow.Position is unreliable (stale (0,0) until moved, and bottom-left origin),
+                // so read the true top-left from the native NSWindow frame. See NativeWindowHandle.
+                if (OperatingSystem.IsMacOS () && TryGetNativeTopLeft (out var nativeTopLeft))
+                    return nativeTopLeft;
                 try {
                     var p = _window!.AppWindow?.Position;
                     if (p is not null)
@@ -117,6 +121,9 @@ namespace Majorsilence.Forms.Uno
 
         private void TryMove (Point location)
         {
+            // macOS: place by true top-left (convert to the AppKit bottom-left origin AppWindow.Move wants).
+            if (OperatingSystem.IsMacOS () && TryMoveNativeTopLeft (location))
+                return;
             try { _window!.AppWindow?.Move (new Windows.Graphics.PointInt32 { X = location.X, Y = location.Y }); } catch { }
         }
 
@@ -180,6 +187,104 @@ namespace Majorsilence.Forms.Uno
                 // Reflection into the internal host is best-effort; the routed handlers remain as a fallback.
             }
         }
+
+        // ── macOS true window geometry ──────────────────────────────────────────────────────────────────
+        // On the macOS Skia head AppWindow.Position is unreliable: it stays (0,0) for a window that hasn't
+        // been moved programmatically (even though the OS placed it elsewhere), and it reports the AppKit
+        // BOTTOM-LEFT origin rather than the top-left origin the rest of Majorsilence.Forms assumes. That
+        // breaks cross-window screen hit-testing — e.g. re-attaching a RadTabbedForm tab onto another
+        // window's tab strip, where the two windows must agree on a common screen coordinate space.
+        //
+        // The native NSWindow frame is always accurate, so on macOS we read it directly (via objc) and
+        // convert AppKit bottom-left to top-left. The window's NSWindow* is reached by reflecting into Uno's
+        // internal MacOSWindowHost (the same host we hook for keyboard above). Non-macOS heads keep using
+        // AppWindow.Position, where it works.
+        private IntPtr _nsWindowHandle;
+
+        private IntPtr NativeWindowHandle ()
+        {
+            if (_nsWindowHandle != IntPtr.Zero || _window is null)
+                return _nsWindowHandle;
+            try {
+                var hostType = Type.GetType ("Uno.UI.Runtime.Skia.MacOS.MacOSWindowHost, Uno.UI.Runtime.Skia.MacOS");
+                if (hostType is null)
+                    return IntPtr.Zero;   // not the macOS head
+
+                var windowsField = hostType.GetField ("_windows", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+                var winField = hostType.GetField ("_winUIWindow", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (windowsField?.GetValue (null) is not System.Collections.IDictionary dict || winField is null)
+                    return IntPtr.Zero;
+
+                foreach (var value in dict.Values) {
+                    var tryGet = value?.GetType ().GetMethod ("TryGetTarget");
+                    if (tryGet is null)
+                        continue;
+                    var args = new object?[] { null };
+                    if (tryGet.Invoke (value, args) is not true || args[0] is not { } host)
+                        continue;
+                    if (!ReferenceEquals (winField.GetValue (host), _window))
+                        continue;
+
+                    var native = host.GetType ().GetField ("_nativeWindow", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue (host);
+                    var handle = native?.GetType ().GetProperty ("Handle", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue (native);
+                    if (handle is IntPtr h && h != IntPtr.Zero)
+                        _nsWindowHandle = h;   // cache; NSWindow* is stable for the window's lifetime
+                    return _nsWindowHandle;
+                }
+            } catch {
+                // Reflection into the internal host is best-effort; callers fall back to AppWindow.Position.
+            }
+            return IntPtr.Zero;
+        }
+
+        // The window's true top-left screen position (logical points), from the native NSWindow frame.
+        private bool TryGetNativeTopLeft (out Point topLeft)
+        {
+            topLeft = default;
+            var h = NativeWindowHandle ();
+            if (h == IntPtr.Zero)
+                return false;
+            var frame = ObjcRect (h, "frame");
+            var screenH = PrimaryScreenHeight ();
+            if (frame.W <= 0 || frame.H <= 0 || screenH <= 0)
+                return false;
+            // AppKit frames are bottom-left origin: top-left Y = screenHeight - (frame.Y + frame.Height).
+            topLeft = new Point ((int) Math.Round (frame.X), (int) Math.Round (screenH - frame.Y - frame.H));
+            return true;
+        }
+
+        // Moves the window so its top-left lands at the given screen point (inverse of TryGetNativeTopLeft).
+        private bool TryMoveNativeTopLeft (Point topLeft)
+        {
+            var h = NativeWindowHandle ();
+            if (h == IntPtr.Zero)
+                return false;
+            var frame = ObjcRect (h, "frame");
+            var screenH = PrimaryScreenHeight ();
+            if (frame.H <= 0 || screenH <= 0)
+                return false;
+            // AppWindow.Move sets the AppKit bottom-left origin, so convert top-left back to bottom-left.
+            var bottomY = screenH - topLeft.Y - frame.H;
+            try { _window!.AppWindow?.Move (new Windows.Graphics.PointInt32 { X = topLeft.X, Y = (int) Math.Round (bottomY) }); return true; }
+            catch { return false; }
+        }
+
+        private static double PrimaryScreenHeight ()
+        {
+            try { return ObjcRect (ObjcPtr (ObjcGetClass ("NSScreen"), "mainScreen"), "frame").H; }
+            catch { return 0; }
+        }
+
+        // ── objc interop (macOS only; resolved lazily, no-op on other heads) ──
+        [System.Runtime.InteropServices.StructLayout (System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct NSRect { public double X, Y, W, H; }
+        [System.Runtime.InteropServices.DllImport ("/usr/lib/libobjc.A.dylib", BestFitMapping = false, ThrowOnUnmappableChar = true)] private static extern IntPtr sel_registerName ([System.Runtime.InteropServices.MarshalAs (System.Runtime.InteropServices.UnmanagedType.LPStr)] string name);
+        [System.Runtime.InteropServices.DllImport ("/usr/lib/libobjc.A.dylib", BestFitMapping = false, ThrowOnUnmappableChar = true)] private static extern IntPtr objc_getClass ([System.Runtime.InteropServices.MarshalAs (System.Runtime.InteropServices.UnmanagedType.LPStr)] string name);
+        [System.Runtime.InteropServices.DllImport ("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")] private static extern IntPtr objc_msgSend_ptr (IntPtr receiver, IntPtr sel);
+        [System.Runtime.InteropServices.DllImport ("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")] private static extern NSRect objc_msgSend_rect (IntPtr receiver, IntPtr sel);
+        private static IntPtr ObjcGetClass (string name) => objc_getClass (name);
+        private static IntPtr ObjcPtr (IntPtr receiver, string selector) => objc_msgSend_ptr (receiver, sel_registerName (selector));
+        private static NSRect ObjcRect (IntPtr receiver, string selector) => objc_msgSend_rect (receiver, sel_registerName (selector));
 
         private void OnMacKeyDown (object sender, Windows.UI.Core.KeyEventArgs e)
         {
@@ -529,16 +634,43 @@ namespace Majorsilence.Forms.Uno
 
         // ── Input ──
         private long _lastPointerRightTicks;
+        private bool _pointerCaptured;
 
         private void WireInput ()
         {
-            _canvas.PointerPressed += (_, e) => { TryFocus (); DispatchPointer (e, _owner.HandlePointerPressed); };
+            // WinUI/Uno does NOT implicitly capture the pointer on press (unlike Avalonia, which routes all
+            // move/release events to the pressed control until release). Without capture, the canvas stops
+            // receiving PointerMoved/Released the instant the pointer leaves its bounds — which breaks any
+            // press-drag-release gesture that wanders outside the window, e.g. tearing a RadTabbedForm tab
+            // off (drag below the strip) or re-attaching it onto another window (release over a different
+            // form). Capture on press / release on up so the managed Control.Capture path actually holds the
+            // pointer for the whole gesture and the terminating mouse-up is always delivered here.
+            _canvas.PointerPressed += (_, e) => {
+                TryFocus ();
+                _pointerCaptured = _canvas.CapturePointer (e.Pointer);
+                DispatchPointer (e, _owner.HandlePointerPressed);
+            };
             _canvas.PointerReleased += (_, e) => {
-                if (DispatchPointer (e, _owner.HandlePointerReleased) == MouseButtons.Right)
+                var button = DispatchPointer (e, _owner.HandlePointerReleased);
+                if (_pointerCaptured) {
+                    _pointerCaptured = false;
+                    _canvas.ReleasePointerCapture (e.Pointer);
+                }
+                if (button == MouseButtons.Right)
                     _lastPointerRightTicks = Environment.TickCount64;
             };
             _canvas.PointerMoved += (_, e) => DispatchPointer (e, _owner.HandlePointerMoved);
             _canvas.PointerExited += (_, e) => DispatchPointer (e, _owner.HandlePointerExited);
+
+            // If the OS yanks the capture mid-drag (focus change, system gesture) PointerReleased may never
+            // arrive. Synthesize a release at the last position so the in-progress drag (tab reorder /
+            // tear-off) completes instead of wedging with Control.Capture stuck on.
+            _canvas.PointerCaptureLost += (_, e) => {
+                if (!_pointerCaptured)
+                    return;   // a normal release already cleared capture
+                _pointerCaptured = false;
+                DispatchPointer (e, _owner.HandlePointerReleased);
+            };
 
             // Routed key events — the standard path on the Windows/X11 Skia heads. (On the macOS head these
             // never fire for the canvas; WireMacOSKeyboard hooks the native host's KeyDown there instead.)

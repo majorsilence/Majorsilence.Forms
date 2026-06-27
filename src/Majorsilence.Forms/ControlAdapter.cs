@@ -67,6 +67,10 @@ namespace Majorsilence.Forms
             set { }
         }
 
+        // Raised when the focused (selected) control changes. The single choke-point for keyboard focus,
+        // consumed by AutomationObserver to feed UI Automation focus-changed events.
+        internal event EventHandler<Control?>? SelectedControlChanged;
+
         internal Control? SelectedControl {
             get => selected_control;
             set {
@@ -80,6 +84,7 @@ namespace Majorsilence.Forms
 
                 // Note they could be setting this to null
                 selected_control = value;
+                SelectedControlChanged?.Invoke (this, selected_control);
                 selected_control?.Select ();
             }
         }

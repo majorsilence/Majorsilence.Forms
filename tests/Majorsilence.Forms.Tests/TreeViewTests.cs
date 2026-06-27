@@ -168,6 +168,26 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void SelectedItem_BeforeLayout_DoesNotThrow ()
+        {
+            // Regression: setting SelectedItem before the control is laid out (e.g. in a form
+            // constructor) used to throw ArgumentOutOfRangeException from ScrollBar.Value because
+            // EnsureItemVisible computed a scroll target outside the scrollbar's range.
+            using var treeView = new TreeView ();
+            var nodes = new TreeViewItem[20];
+
+            for (var i = 0; i < nodes.Length; i++) {
+                nodes[i] = new TreeViewItem ($"Node {i}");
+                treeView.Nodes.Add (nodes[i]);
+            }
+
+            var ex = Record.Exception (() => treeView.SelectedItem = nodes[15]);
+
+            Assert.Null (ex);
+            Assert.Same (nodes[15], treeView.SelectedItem);
+        }
+
+        [Fact]
         public void TreeNodeCollection_Insert_Success ()
         {
             using var treeView = new TreeView ();

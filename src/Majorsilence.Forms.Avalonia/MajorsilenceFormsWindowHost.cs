@@ -52,10 +52,16 @@ namespace Majorsilence.Forms
         {
             _owner = owner;
 
-            // Majorsilence.Forms draws its own decorations on Windows/Linux.
-            // macOS uses native chrome (set in Form constructor).
+            // Default to custom chrome (Windows/Linux). On macOS the Form constructor switches to the
+            // NATIVE title bar and extends our content up into it (SetSystemDecorations(true) +
+            // SetExtendClientIntoTitleBar), so the OS keeps the traffic lights / rounded corners / shadow.
             WindowDecorations = WindowDecorations.None;
             ExtendClientAreaToDecorationsHint = true;
+
+            // On macOS, force an opaque backdrop so the extended title-bar area doesn't pick up the
+            // translucent "vibrancy" effect and our content renders solid.
+            if (OperatingSystem.IsMacOS ())
+                TransparencyLevelHint = new[] { WindowTransparencyLevel.None };
 
             // Surface image fills the window. Stretch = Fill maps the framebuffer
             // pixels 1:1 with the window client area at logical pixel resolution.
@@ -310,6 +316,11 @@ namespace Majorsilence.Forms
 
         double Backends.IWindowBackend.Scaling => RenderScaling;
 
+        // The native window handle (HWND on Windows) from Avalonia's TopLevel. Unqualified
+        // TryGetPlatformHandle resolves to the inherited Avalonia Window method, not this explicit impl.
+        System.IntPtr Backends.IWindowBackend.TryGetPlatformHandle ()
+            => TryGetPlatformHandle ()?.Handle ?? System.IntPtr.Zero;
+
         void Backends.IWindowBackend.Show () => Show ();
 
         void Backends.IWindowBackend.ShowDialog (Backends.IWindowBackend? owner)
@@ -342,6 +353,14 @@ namespace Majorsilence.Forms
         {
             WindowDecorations = useSystemDecorations ? WindowDecorations.Full : WindowDecorations.None;
             ExtendClientAreaToDecorationsHint = !useSystemDecorations;
+        }
+
+        void Backends.IWindowBackend.SetExtendClientIntoTitleBar (bool extend, int titleBarHeight)
+        {
+            // Keep the native chrome (WindowDecorations.Full) but extend our content up into the title
+            // bar; on macOS this yields the full-size content view with floating traffic lights.
+            ExtendClientAreaToDecorationsHint = extend;
+            ExtendClientAreaTitleBarHeightHint = extend && titleBarHeight > 0 ? titleBarHeight : -1;
         }
 
         void Backends.IWindowBackend.SetCursor (Backends.CursorType cursor) => Cursor = MapCursor (cursor);
@@ -549,9 +568,9 @@ namespace Majorsilence.Forms
 
             // On macOS, a borderless window with ExtendClientAreaToDecorationsHint = true (inherited
             // from the base host) is rendered with a translucent "vibrancy" backdrop. For a menu or
-            // combo-box popup that shows up as a grey, blurry square instead of the menu. The main
-            // Form avoids this by switching to native decorations on macOS; a popup has no chrome,
-            // so we just make it a plain opaque borderless window.
+            // combo-box popup that shows up as a grey, blurry square instead of the menu. The base
+            // host already forces an opaque backdrop on macOS; a popup additionally has no chrome to
+            // extend into, so collapse the extended client area too.
             if (OperatingSystem.IsMacOS ()) {
                 ExtendClientAreaToDecorationsHint = false;
                 TransparencyLevelHint = new[] { WindowTransparencyLevel.None };

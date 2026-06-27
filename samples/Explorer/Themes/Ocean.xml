@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A custom Majorsilence.Forms theme defined entirely in XML and loaded at runtime.
+  It starts from the built-in Dark theme (base="Dark") and overrides a handful of
+  colors to give a deep blue-green "ocean" look. Child element names match the
+  public properties on Majorsilence.Forms.Theme; colors accept "#AARRGGBB",
+  "#RRGGBB", or "r,g,b[,a]".
+-->
+<Theme name="Ocean" base="Dark">
+  <BackgroundColor>#FF0A1929</BackgroundColor>
+  <ControlLowColor>#FF0A1929</ControlLowColor>
+  <ControlMidColor>#FF102A43</ControlMidColor>
+  <ControlMidHighColor>#FF15395C</ControlMidHighColor>
+  <ControlHighColor>#FF1E4A73</ControlHighColor>
+  <ControlHighlightLowColor>#FF1E90FF</ControlHighlightLowColor>
+  <BorderLowColor>#FF15395C</BorderLowColor>
+  <BorderMidColor>#FF1E4A73</BorderMidColor>
+  <BorderHighColor>#FF3FA7D6</BorderHighColor>
+  <ForegroundColor>#FFCFE8FF</ForegroundColor>
+  <AccentColor>30,144,255</AccentColor>
+  <AccentColor2>0,105,148</AccentColor2>
+  <ForegroundColorOnAccent>#FFFFFFFF</ForegroundColorOnAccent>
+  <TextSelectionBackgroundColor>30,144,255,128</TextSelectionBackgroundColor>
+</Theme>

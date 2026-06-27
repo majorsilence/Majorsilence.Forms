@@ -21,7 +21,7 @@ namespace Majorsilence.Forms
         private enum Drag { None, Move, ResizeL, ResizeR, ResizeT, ResizeB, ResizeTL, ResizeTR, ResizeBL, ResizeBR }
 
         private Drag drag = Drag.None;
-        private Point drag_start;            // device px, client-relative
+        private Point drag_start;            // device px, MDI-client-relative (stable while the frame moves)
         private Rectangle drag_origin;       // logical bounds at drag start
         private SKBitmap? content_buffer;
 
@@ -176,7 +176,7 @@ namespace Majorsilence.Forms
                 var mode = HitResizeEdge (lx, ly);
                 if (mode != Drag.None) {
                     drag = mode;
-                    drag_start = new Point (e.X, e.Y);
+                    drag_start = e.ScreenLocation;
                     drag_origin = Bounds;
                     return;
                 }
@@ -185,7 +185,7 @@ namespace Majorsilence.Forms
             // Caption (not a button) → move.
             if (ly >= FrameBorder && ly < FrameBorder + CaptionHeight && WindowState != FormWindowState.Maximized) {
                 drag = Drag.Move;
-                drag_start = new Point (e.X, e.Y);
+                drag_start = e.ScreenLocation;
                 drag_origin = Bounds;
                 return;
             }
@@ -259,8 +259,10 @@ namespace Majorsilence.Forms
         private void ApplyDrag (MouseEventArgs e)
         {
             var scaling = FrameScaling;
-            var dx = (int) ((e.X - drag_start.X) / scaling);
-            var dy = (int) ((e.Y - drag_start.Y) / scaling);
+            // Track against the MDI-client-relative position (ScreenLocation), not the frame-relative e.X/e.Y:
+            // the frame moves as we drag it, so frame-relative deltas feed back on themselves and jitter.
+            var dx = (int) ((e.ScreenLocation.X - drag_start.X) / scaling);
+            var dy = (int) ((e.ScreenLocation.Y - drag_start.Y) / scaling);
             var b = drag_origin;
             var min = MinChildSize;
 

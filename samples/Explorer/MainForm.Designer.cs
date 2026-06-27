@@ -56,6 +56,7 @@ namespace Explore
             group3.Items.Add ("Orange", ImageLoader.Get ("swatches.png"), new EventHandler<MouseEventArgs> (ThemeButton_Clicked));
             group3.Items.Add ("Purple", ImageLoader.Get ("swatches.png"), new EventHandler<MouseEventArgs> (ThemeButton_Clicked));
             group3.Items.Add ("Hotdog Stand", ImageLoader.Get ("swatches.png"), new EventHandler<MouseEventArgs> (ThemeButton_Clicked));
+            group3.Items.Add ("Ocean (XML)", ImageLoader.Get ("swatches.png"), new EventHandler<MouseEventArgs> (ThemeButton_Clicked));
 
             // StatusBar
             statusbar = Controls.Add (new StatusBar ());

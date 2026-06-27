@@ -157,6 +157,13 @@ namespace Majorsilence.Forms.WebDriver
                 return;
             }
 
+            // GET /session/{id}/source  — XML page source (the tree XPath also runs against)
+            if (method == "GET" && segments is [_, _, "source"]) {
+                var xml = OnUi (() => Session ().GetPageSource ());
+                WriteValue (ctx, xml);
+                return;
+            }
+
             // /session/{id}/element/{eid}/...
             if (segments.Length >= 5 && segments[2] == "element") {
                 var eid = segments[3];
@@ -174,6 +181,11 @@ namespace Majorsilence.Forms.WebDriver
                     case ("GET", "text"): WriteValue (ctx, OnUi (() => Session ().GetText (Resolve (elem)))); return;
                     case ("GET", "name"): WriteValue (ctx, OnUi (() => Resolve (elem).Role)); return;
                     case ("GET", "enabled"): WriteValue (ctx, OnUi (() => Resolve (elem).Enabled)); return;
+                    case ("GET", "attribute"): {
+                        var attr = segments.Length >= 6 ? segments[5] : string.Empty;
+                        WriteValue (ctx, OnUi (() => AttributeOf (Resolve (elem), attr)));
+                        return;
+                    }
                     case ("GET", "rect"): {
                         var r = OnUi (() => Resolve (elem).Bounds);
                         WriteValue (ctx, new { x = r.X, y = r.Y, width = r.Width, height = r.Height });
@@ -194,7 +206,14 @@ namespace Majorsilence.Forms.WebDriver
                 body.TryGetProperty ("using", out var u) ? u.GetString () ?? string.Empty : string.Empty,
                 body.TryGetProperty ("value", out var v) ? v.GetString () ?? string.Empty : string.Empty);
 
-            var matches = OnUi (() => Session ().FindAll (by));
+            IReadOnlyList<AutomationElement> matches;
+            try {
+                matches = OnUi (() => Session ().FindAll (by));
+            } catch (System.Xml.XPath.XPathException ex) {
+                // A malformed XPath selector is a client error, not a server fault.
+                TryWriteError (ctx, 400, "invalid selector", ex.Message);
+                return;
+            }
 
             if (plural) {
                 var refs = new List<object> ();
@@ -264,6 +283,24 @@ namespace Majorsilence.Forms.WebDriver
 
         private static Dictionary<string, string> Wrap (string elementId) => new () { [ElementKey] = elementId };
 
+        // getAttribute: exposes the same fields as the XML page source, so a locator captured from an
+        // attribute resolves identically. Unknown names return null (W3C: absent attribute → null).
+        private static string? AttributeOf (AutomationElement e, string name) => name switch {
+            "id" => e.AutomationId,
+            "name" => e.Name,
+            "role" => e.Role,
+            "type" => e.ControlType,
+            "value" => e.Value ?? string.Empty,
+            "enabled" => e.Enabled ? "true" : "false",
+            "visible" => e.Visible ? "true" : "false",
+            "focused" => e.Focused ? "true" : "false",
+            "x" => e.Bounds.X.ToString (System.Globalization.CultureInfo.InvariantCulture),
+            "y" => e.Bounds.Y.ToString (System.Globalization.CultureInfo.InvariantCulture),
+            "width" => e.Bounds.Width.ToString (System.Globalization.CultureInfo.InvariantCulture),
+            "height" => e.Bounds.Height.ToString (System.Globalization.CultureInfo.InvariantCulture),
+            _ => null
+        };
+
         // Maps WebDriver locator strategies (and a few custom ones) onto our By locators.
         private static By ToBy (string strategy, string value) => strategy switch {
             "id" => By.Id (value),
@@ -273,6 +310,7 @@ namespace Majorsilence.Forms.WebDriver
             "type" => By.Type (value),
             "link text" => By.Text (value),
             "partial link text" => By.Text (value),
+            "xpath" => By.XPath (value),
             // Selenium's default strategy is "css selector"; support the common #id / [name='x'] forms.
             "css selector" => CssToBy (value),
             _ => By.Name (value)
