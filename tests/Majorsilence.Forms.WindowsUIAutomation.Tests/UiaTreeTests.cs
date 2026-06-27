@@ -16,6 +16,7 @@ namespace Majorsilence.Forms.WindowsUIAutomation.Tests
     {
         private static Form BuildForm (out Button button, out TextBox textbox)
         {
+            Majorsilence.Forms.Backends.Platform.Backend = new Majorsilence.Forms.Headless.HeadlessPlatformBackend ();
             var form = new Form { UseSystemDecorations = true };
             button = new Button { Name = "okButton", Text = "OK", Left = 10, Top = 10, Width = 100, Height = 30 };
             textbox = new TextBox { Name = "nameBox", Left = 10, Top = 50, Width = 200, Height = 30 };
