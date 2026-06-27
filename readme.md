@@ -70,6 +70,7 @@ Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) fol
 - [`Gallery.Uno`](samples/Gallery.Uno) — the control gallery running on the **Uno** backend.
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
+- [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
 
 Run the gallery on the default (Avalonia) backend:
 

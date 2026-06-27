@@ -44,6 +44,18 @@ Follow the steps above for your system, replacing with `Outlaw` for the startup 
 ![Windows Outlaw Screenshot](outlaw-windows.png "Windows Outlaw Screenshot")
 
 
+### WinFormsInterop (Windows-only)
+
+Demonstrates bi-directional interop between `System.Windows.Forms` and Majorsilence.Forms in a
+single process. The sample starts as a real WinForms host (Direction B: WF → MF) and each
+opened Majorsilence window can in turn open legacy WinForms forms (Direction A: MF → WF).
+
+See [WinForms Interop](winforms-interop.md) for full API documentation.
+
+```bash
+dotnet run --project samples/WinFormsInterop
+```
+
 ### ControlGallery
 
 `ControlGallery` shows off the various controls and features currently available in `Majorsilence.Forms`.
