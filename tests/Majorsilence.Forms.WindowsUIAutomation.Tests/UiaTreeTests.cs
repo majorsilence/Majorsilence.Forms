@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Automation;
@@ -26,14 +26,14 @@ namespace Majorsilence.Forms.WindowsUIAutomation.Tests
         }
 
         // Finds the child-index path of the first element with the given automation id.
-        private static int[] PathOf (AutomationElement root, string automationId)
+        private static int[] PathOf (Majorsilence.Forms.Automation.AutomationElement root, string automationId)
         {
             var path = new List<int> ();
             Assert.True (Walk (root, automationId, path), $"no element with id '{automationId}'");
             return path.ToArray ();
         }
 
-        private static bool Walk (AutomationElement node, string id, List<int> path)
+        private static bool Walk (Majorsilence.Forms.Automation.AutomationElement node, string id, List<int> path)
         {
             for (var i = 0; i < node.Children.Count; i++) {
                 path.Add (i);
