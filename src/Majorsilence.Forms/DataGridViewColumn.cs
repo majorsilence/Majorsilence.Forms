@@ -38,6 +38,17 @@ namespace Majorsilence.Forms
         public string DataPropertyName { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the data type of the values in this column's cells. WinForms compatibility —
+        /// used to drive default formatting; null when unbound/unknown.
+        /// </summary>
+        public Type? ValueType { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether this column is bound to a data source. WinForms compatibility stub.
+        /// </summary>
+        public bool IsDataBound { get; set; }
+
+        /// <summary>
         /// Gets or sets whether cells in this column are read-only.
         /// </summary>
         public bool ReadOnly { get; set; }
