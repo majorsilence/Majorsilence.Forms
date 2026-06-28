@@ -22,6 +22,12 @@ internal static class NamespaceMap
     /// </summary>
     public static readonly (string From, string To)[] NamespacePrefixes =
     {
+        // Telerik UI for WinForms -> the Majorsilence.Forms.Telerik compat layer (src/Majorsilence.Forms/Telerik/*.cs).
+        // Both the controls (Telerik.WinControls.UI) and their enums (Telerik.WinControls.Enumerations) live in
+        // that single namespace, so they collapse to the same target; the import-dedup pass in SourceConverter
+        // removes the resulting duplicate `using`. Listed longest-first, ahead of the parent System prefixes.
+        ("Telerik.WinControls.Enumerations", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinControls.UI", "Majorsilence.Forms.Telerik"),
         ("System.Drawing.Drawing2D", "Majorsilence.Drawing.Drawing2D"),
         ("System.Drawing.Imaging", "Majorsilence.Drawing.Imaging"),
         ("System.Drawing.Text", "Majorsilence.Drawing.Text"),

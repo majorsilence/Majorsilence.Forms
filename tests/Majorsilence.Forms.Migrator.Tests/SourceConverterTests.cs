@@ -191,6 +191,44 @@ public class SourceConverterTests
         Assert.Empty (result.Warnings);
     }
 
+    [Theory]
+    [InlineData ("Telerik.WinControls.UI")]
+    [InlineData ("Telerik.WinControls.Enumerations")]
+    public void Rewrites_Telerik_using_directive (string ns)
+    {
+        var result = SourceConverter.Convert ($"using {ns};\n");
+        Assert.Contains ("using Majorsilence.Forms.Telerik;", result.Text);
+        Assert.DoesNotContain ("Telerik.WinControls", result.Text);
+        Assert.True (result.Changed);
+    }
+
+    [Fact]
+    public void Rewrites_fully_qualified_Telerik_reference ()
+    {
+        var result = SourceConverter.Convert ("Telerik.WinControls.UI.RadGridView grid;");
+        Assert.Contains ("Majorsilence.Forms.Telerik.RadGridView", result.Text);
+        Assert.DoesNotContain ("Telerik.WinControls", result.Text);
+    }
+
+    [Fact]
+    public void Collapses_duplicate_Telerik_usings_to_one ()
+    {
+        // Both Telerik namespaces map to Majorsilence.Forms.Telerik; the result must not contain the
+        // duplicate `using` that would otherwise trigger CS0105.
+        var src = "using Telerik.WinControls.UI;\nusing Telerik.WinControls.Enumerations;\n";
+        var result = SourceConverter.Convert (src);
+        Assert.Equal (1, CountOccurrences (result.Text, "using Majorsilence.Forms.Telerik;"));
+    }
+
+    [Fact]
+    public void Dedup_keeps_distinct_imports ()
+    {
+        var src = "using System.Text;\nusing System.Linq;\n";
+        var result = SourceConverter.Convert (src);
+        Assert.Contains ("using System.Text;", result.Text);
+        Assert.Contains ("using System.Linq;", result.Text);
+    }
+
     private static int CountOccurrences (string haystack, string needle)
     {
         int count = 0, i = 0;
