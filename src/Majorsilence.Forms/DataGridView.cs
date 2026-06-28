@@ -155,6 +155,9 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a cell value has changed.</summary>
         public event EventHandler<DataGridViewCellEditEventArgs>? CellValueChanged;
 
+        /// <summary>Raised when the <see cref="DataSource"/> changes. WinForms compatibility.</summary>
+        public event EventHandler? DataSourceChanged;
+
         private EventHandler<DataGridViewCellFormattingEventArgs>? _cellFormatting;
         /// <summary>Raised when a cell is being formatted for display.</summary>
         public event EventHandler<DataGridViewCellFormattingEventArgs>? CellFormatting { add => _cellFormatting += value; remove => _cellFormatting -= value; }
@@ -372,6 +375,7 @@ namespace Majorsilence.Forms
                     _ => data_source
                 };
                 OnDataSourceChanged ();
+                DataSourceChanged?.Invoke (this, EventArgs.Empty);
             }
         }
 
@@ -712,6 +716,74 @@ namespace Majorsilence.Forms
             return bounds;
         }
 
+        /// <summary>
+        /// Returns information about the grid element at the given client coordinates (WinForms compatibility).
+        /// Best-effort: scans visible cells via <see cref="GetCellDisplayRectangle"/> and reports the
+        /// containing cell, or <see cref="HitTestInfo.Nowhere"/> when the point hits no cell.
+        /// </summary>
+        public HitTestInfo HitTest (int x, int y)
+        {
+            for (var col = 0; col < Columns.Count; col++) {
+                for (var row = 0; row < Rows.Count; row++) {
+                    var rect = GetCellDisplayRectangle (col, row, false);
+                    if (rect.Width > 0 && rect.Height > 0 && rect.Contains (x, y))
+                        return new HitTestInfo (col, row, rect.X, rect.Y, DataGridViewHitTestType.Cell);
+                }
+            }
+
+            return HitTestInfo.Nowhere;
+        }
+
+        /// <summary>Specifies the part of the <see cref="DataGridView"/> identified by a hit test.</summary>
+        public enum DataGridViewHitTestType
+        {
+            /// <summary>The point is not part of the grid.</summary>
+            None,
+            /// <summary>The point is over a cell.</summary>
+            Cell,
+            /// <summary>The point is over a column header.</summary>
+            ColumnHeader,
+            /// <summary>The point is over a row header.</summary>
+            RowHeader,
+            /// <summary>The point is over the top-left header.</summary>
+            TopLeftHeader,
+            /// <summary>The point is over the horizontal scroll bar.</summary>
+            HorizontalScrollBar,
+            /// <summary>The point is over the vertical scroll bar.</summary>
+            VerticalScrollBar
+        }
+
+        /// <summary>Contains information about a part of the <see cref="DataGridView"/> at a given location.</summary>
+        public sealed class HitTestInfo
+        {
+            /// <summary>Represents a hit test result that is not over any part of the grid.</summary>
+            public static readonly HitTestInfo Nowhere = new HitTestInfo (-1, -1, -1, -1, DataGridViewHitTestType.None);
+
+            internal HitTestInfo (int columnIndex, int rowIndex, int columnX, int rowY, DataGridViewHitTestType type)
+            {
+                ColumnIndex = columnIndex;
+                RowIndex = rowIndex;
+                ColumnX = columnX;
+                RowY = rowY;
+                Type = type;
+            }
+
+            /// <summary>The zero-based column index of the cell under the point, or -1.</summary>
+            public int ColumnIndex { get; }
+
+            /// <summary>The zero-based row index of the cell under the point, or -1.</summary>
+            public int RowIndex { get; }
+
+            /// <summary>The x-coordinate of the left edge of the hit column.</summary>
+            public int ColumnX { get; }
+
+            /// <summary>The y-coordinate of the top edge of the hit row.</summary>
+            public int RowY { get; }
+
+            /// <summary>The part of the grid that was hit.</summary>
+            public DataGridViewHitTestType Type { get; }
+        }
+
         private Rectangle DeviceToLogicalUnits (Rectangle r) =>
             new Rectangle (DeviceToLogicalUnits (r.X), DeviceToLogicalUnits (r.Y), DeviceToLogicalUnits (r.Width), DeviceToLogicalUnits (r.Height));
 
@@ -912,7 +984,22 @@ namespace Majorsilence.Forms
 
                 return Rows[selected_row_index].Cells[selected_column_index];
             }
+            set {
+                // WinForms compatibility: setting CurrentCell moves the selection to that cell.
+                if (value is null)
+                    return;
+
+                SelectedColumnIndex = value.ColumnIndex;
+                SelectedRowIndex = value.RowIndex;
+                _currentCellChanged?.Invoke (this, EventArgs.Empty);
+            }
         }
+
+        /// <summary>
+        /// Gets or sets whether the header cells use the system's visual styles. Stub in
+        /// Majorsilence.Forms (headers are theme-rendered) — kept for WinForms compatibility.
+        /// </summary>
+        public bool EnableHeadersVisualStyles { get; set; } = true;
 
         /// <summary>
         /// Gets the row and column indices of the currently selected cell.

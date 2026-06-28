@@ -79,5 +79,27 @@ namespace Majorsilence.Forms
         /// Gets the computed foreground color.
         /// </summary>
         public SKColor GetForegroundColor () => ForegroundColor ?? _parent?.GetForegroundColor () ?? Theme.ForegroundColor;
+
+        // WinForms compatibility (DataGridViewCellStyle surface): System.Drawing.Color accessors.
+        // BackColor/ForeColor bridge to the underlying SkiaSharp colors; the Selection* colors are
+        // stored for compatibility (Majorsilence.Forms paints selection via the theme).
+
+        /// <summary>Gets or sets the background color as a <see cref="System.Drawing.Color"/>. WinForms compatibility.</summary>
+        public System.Drawing.Color BackColor {
+            get => BackgroundColor is { } c ? System.Drawing.Color.FromArgb (c.Alpha, c.Red, c.Green, c.Blue) : System.Drawing.Color.Empty;
+            set => BackgroundColor = value.IsEmpty ? null : new SKColor (value.R, value.G, value.B, value.A);
+        }
+
+        /// <summary>Gets or sets the foreground color as a <see cref="System.Drawing.Color"/>. WinForms compatibility.</summary>
+        public System.Drawing.Color ForeColor {
+            get => ForegroundColor is { } c ? System.Drawing.Color.FromArgb (c.Alpha, c.Red, c.Green, c.Blue) : System.Drawing.Color.Empty;
+            set => ForegroundColor = value.IsEmpty ? null : new SKColor (value.R, value.G, value.B, value.A);
+        }
+
+        /// <summary>Gets or sets the selection background color. WinForms compatibility stub (stored, not rendered).</summary>
+        public System.Drawing.Color SelectionBackColor { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>Gets or sets the selection foreground color. WinForms compatibility stub (stored, not rendered).</summary>
+        public System.Drawing.Color SelectionForeColor { get; set; } = System.Drawing.Color.Empty;
     }
 }
