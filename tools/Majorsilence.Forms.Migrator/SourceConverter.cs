@@ -157,6 +157,12 @@ internal static class SourceConverter
             WarnVisualBasic(original, Warn);
         }
 
+        // 8. Collapse duplicate import directives. Distinct source namespaces can map to the same target —
+        //    e.g. Telerik.WinControls.UI and Telerik.WinControls.Enumerations both become
+        //    Majorsilence.Forms.Telerik — leaving redundant `using`/`Imports` lines (CS0105). Drop the
+        //    later exact duplicates, keeping the first.
+        text = DeduplicateImports(text);
+
         return new Result(text, !string.Equals(text, original, StringComparison.Ordinal), warnings);
     }
 
@@ -317,6 +323,44 @@ internal static class SourceConverter
 
         // The missing-constructor case (MyType=Empty drops VB's implicit WinForms ctor) is now fixed
         // automatically by InjectVbConstructor, which warns only if it cannot find where to insert it.
+    }
+
+    // A plain namespace import directive: `using A.B.C;` (C#) or `Imports A.B.C` (VB). Deliberately does
+    // NOT match `using static …`, alias imports (`using X = Y;`), or `using (…)` resource statements —
+    // those carry meaning beyond the namespace and must never be deduped away.
+    private static readonly Regex ImportDirective =
+        new(@"^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+(?<ns>[A-Za-z_][\w.]*)[ \t]*;?[ \t]*$",
+            RegexOptions.Compiled);
+
+    /// <summary>
+    /// Removes redundant import directives, keeping the first occurrence of each. Only plain namespace
+    /// imports are considered (see <see cref="ImportDirective"/>); all other lines pass through untouched
+    /// and order is preserved. Returns the original text unchanged when there is nothing to remove.
+    /// </summary>
+    private static string DeduplicateImports(string text)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var lines = text.Split('\n');
+        var kept = new List<string>(lines.Length);
+        var removedAny = false;
+
+        foreach (var raw in lines)
+        {
+            var line = raw.EndsWith('\r') ? raw[..^1] : raw;
+            var m = ImportDirective.Match(line);
+            if (m.Success && !seen.Add($"{m.Groups["kw"].Value} {m.Groups["ns"].Value}"))
+            {
+                removedAny = true;
+                continue; // an identical import already appeared earlier — drop this one.
+            }
+            kept.Add(line);
+        }
+
+        if (!removedAny)
+            return text;
+
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        return string.Join(newline, kept);
     }
 
     // Matches a standalone `using System.Drawing;` (C#) or `Imports System.Drawing` (VB) import line.
