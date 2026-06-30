@@ -47,6 +47,22 @@ namespace Majorsilence.Forms.Uno
             _parentHost = parentHost;
             _systemDecorations = !isPopup;
 
+            // Wrap the drawing canvas in a Grid so native controls hosted inside the Majorsilence scene
+            // (NativeControlHost / airspace overlay) can be layered above it.
+            _root = new Microsoft.UI.Xaml.Controls.Grid ();
+
+            if (isPopup && parentHost is not null) {
+                // In-window overlay — no separate OS window, so no chrome / positioning quirks.
+                _popup = new Popup { Child = _root };
+            } else {
+                // Create the Window before the canvas: on X11, SKXamlCanvas.Initialize() calls
+                // DisplayInformation.GetForCurrentView() which requires a X11XamlRootHost, and that
+                // host is only available once a Window exists.
+                _window = new Window { Content = _root };
+                WireLifecycle ();
+                ApplyDecorations ();
+            }
+
             _canvas = new CursorCanvas ();
             _canvas.PaintSurface += OnPaintSurface;
             // On the Windows/X11 heads the canvas only receives keyboard events while it holds focus; grab it
@@ -55,20 +71,7 @@ namespace Majorsilence.Forms.Uno
             _canvas.Loaded += (_, _) => { TryFocus (); WireMacOSKeyboard (); };
 
             WireInput ();
-
-            // Wrap the drawing canvas in a Grid so native controls hosted inside the Majorsilence scene
-            // (NativeControlHost / airspace overlay) can be layered above it.
-            _root = new Microsoft.UI.Xaml.Controls.Grid ();
             _root.Children.Add (_canvas);
-
-            if (isPopup && parentHost is not null) {
-                // In-window overlay — no separate OS window, so no chrome / positioning quirks.
-                _popup = new Popup { Child = _root };
-            } else {
-                _window = new Window { Content = _root };
-                WireLifecycle ();
-                ApplyDecorations ();
-            }
         }
 
         public Microsoft.UI.Xaml.XamlRoot? CanvasXamlRoot => _canvas.XamlRoot;
