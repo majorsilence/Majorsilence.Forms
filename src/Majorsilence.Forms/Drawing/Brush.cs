@@ -99,7 +99,7 @@ namespace Majorsilence.Drawing
     }
 
     /// <summary>
-    /// A brush that fills with a hatch pattern. Stub in Majorsilence.Forms — fills with the foreground color.
+    /// A brush that fills with a hatch pattern using an 8×8 tiled SKShader.
     /// </summary>
     public sealed class HatchBrush : Brush
     {
@@ -125,8 +125,80 @@ namespace Majorsilence.Drawing
         /// <summary>Gets the foreground color of this brush.</summary>
         public Color ForegroundColor => foreColor;
 
-        internal override SKPaint CreatePaint () =>
-            new SKPaint { Color = new SKColor (foreColor.R, foreColor.G, foreColor.B, foreColor.A), Style = SKPaintStyle.Fill };
+        internal override SKPaint CreatePaint ()
+        {
+            var skFore = new SKColor (foreColor.R, foreColor.G, foreColor.B, foreColor.A);
+            var skBack = new SKColor (BackgroundColor.R, BackgroundColor.G, BackgroundColor.B, BackgroundColor.A);
+
+            using var tile = new SKBitmap (8, 8, SKColorType.Bgra8888, SKAlphaType.Premul);
+
+            var pat = GetPattern (HatchStyle);
+            for (int y = 0; y < 8; y++)
+                for (int x = 0; x < 8; x++)
+                    tile.SetPixel (x, y, (pat[y] & (0x80 >> x)) != 0 ? skFore : skBack);
+
+            var shader = SKShader.CreateBitmap (tile, SKShaderTileMode.Repeat, SKShaderTileMode.Repeat);
+            return new SKPaint { Shader = shader, Style = SKPaintStyle.Fill };
+        }
+
+        // Each entry is an 8-byte row pattern. Bit 7 (MSB) = pixel x=0, bit 0 (LSB) = pixel x=7.
+        private static byte[] GetPattern (HatchStyle style) => style switch {
+            HatchStyle.Horizontal            => [0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00],
+            HatchStyle.Vertical              => [0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88],
+            HatchStyle.ForwardDiagonal       => [0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01],
+            HatchStyle.BackwardDiagonal      => [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80],
+            HatchStyle.Cross                 => [0xFF, 0x88, 0x88, 0x88, 0xFF, 0x88, 0x88, 0x88],
+            HatchStyle.DiagonalCross         => [0x81, 0x42, 0x24, 0x18, 0x18, 0x24, 0x42, 0x81],
+            HatchStyle.Percent05             => [0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            HatchStyle.Percent10             => [0x80, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00],
+            HatchStyle.Percent20             => [0x88, 0x00, 0x00, 0x00, 0x88, 0x00, 0x00, 0x00],
+            HatchStyle.Percent25             => [0x88, 0x00, 0x22, 0x00, 0x88, 0x00, 0x22, 0x00],
+            HatchStyle.Percent30             => [0xAA, 0x00, 0x44, 0x00, 0xAA, 0x00, 0x44, 0x00],
+            HatchStyle.Percent40             => [0xAA, 0x44, 0xAA, 0x00, 0xAA, 0x44, 0xAA, 0x00],
+            HatchStyle.Percent50             => [0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55],
+            HatchStyle.Percent60             => [0x55, 0xBB, 0x55, 0xFF, 0x55, 0xBB, 0x55, 0xFF],
+            HatchStyle.Percent70             => [0x55, 0xFF, 0xBB, 0xFF, 0x55, 0xFF, 0xBB, 0xFF],
+            HatchStyle.Percent75             => [0x77, 0xFF, 0xDD, 0xFF, 0x77, 0xFF, 0xDD, 0xFF],
+            HatchStyle.Percent80             => [0x77, 0xFF, 0xFF, 0xFF, 0xF7, 0xFF, 0xFF, 0xFF],
+            HatchStyle.Percent90             => [0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0xFF, 0xFF, 0xF7],
+            HatchStyle.LightDownwardDiagonal => [0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01],
+            HatchStyle.LightUpwardDiagonal   => [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80],
+            HatchStyle.DarkDownwardDiagonal  => [0xC0, 0x60, 0x30, 0x18, 0x0C, 0x06, 0x03, 0x81],
+            HatchStyle.DarkUpwardDiagonal    => [0x03, 0x06, 0x0C, 0x18, 0x30, 0x60, 0xC0, 0x81],
+            HatchStyle.WideDownwardDiagonal  => [0xE0, 0x70, 0x38, 0x1C, 0x0E, 0x07, 0x83, 0xC1],
+            HatchStyle.WideUpwardDiagonal    => [0x07, 0x0E, 0x1C, 0x38, 0x70, 0xE0, 0xC1, 0x83],
+            HatchStyle.LightVertical         => [0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22],
+            HatchStyle.LightHorizontal       => [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            HatchStyle.NarrowVertical        => [0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA],
+            HatchStyle.NarrowHorizontal      => [0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00],
+            HatchStyle.DarkVertical          => [0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC],
+            HatchStyle.DarkHorizontal        => [0xFF, 0xFF, 0x00, 0xFF, 0xFF, 0xFF, 0x00, 0xFF],
+            HatchStyle.DashedDownwardDiagonal=> [0x80, 0x00, 0x20, 0x00, 0x08, 0x00, 0x02, 0x00],
+            HatchStyle.DashedUpwardDiagonal  => [0x01, 0x00, 0x04, 0x00, 0x10, 0x00, 0x40, 0x00],
+            HatchStyle.DashedHorizontal      => [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            HatchStyle.DashedVertical        => [0x80, 0x80, 0x80, 0x80, 0x00, 0x00, 0x00, 0x00],
+            HatchStyle.SmallConfetti         => [0x44, 0x88, 0x22, 0x11, 0x44, 0x88, 0x22, 0x11],
+            HatchStyle.LargeConfetti         => [0x40, 0x80, 0x02, 0x10, 0x40, 0x80, 0x02, 0x10],
+            HatchStyle.ZigZag                => [0x81, 0x42, 0x24, 0x18, 0x81, 0x42, 0x24, 0x18],
+            HatchStyle.Wave                  => [0x1C, 0x22, 0xC1, 0x00, 0x1C, 0x22, 0xC1, 0x00],
+            HatchStyle.DiagonalBrick         => [0x20, 0x10, 0x08, 0x04, 0xFE, 0x01, 0x80, 0x40],
+            HatchStyle.HorizontalBrick       => [0xFF, 0x80, 0x80, 0x80, 0xFF, 0x08, 0x08, 0x08],
+            HatchStyle.Weave                 => [0x55, 0xA0, 0x45, 0x08, 0x15, 0x0A, 0x51, 0x80],
+            HatchStyle.Plaid                 => [0xFF, 0xAA, 0xFF, 0xAA, 0x0F, 0x0A, 0x0F, 0x0A],
+            HatchStyle.Divot                 => [0x20, 0x20, 0xC0, 0x00, 0x02, 0x02, 0x03, 0x00],
+            HatchStyle.DottedGrid            => [0x88, 0x00, 0x00, 0x00, 0x88, 0x00, 0x00, 0x00],
+            HatchStyle.DottedDiamond         => [0x80, 0x40, 0x20, 0x40, 0x80, 0x40, 0x20, 0x40],
+            HatchStyle.Shingle               => [0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x60, 0x10],
+            HatchStyle.Trellis               => [0xFF, 0xAA, 0xFF, 0xAA, 0xFF, 0xAA, 0xFF, 0xAA],
+            HatchStyle.Sphere                => [0xFF, 0x81, 0xBD, 0xBD, 0xBD, 0xBD, 0x81, 0xFF],
+            HatchStyle.SmallGrid             => [0xFF, 0x80, 0x80, 0x80, 0xFF, 0x80, 0x80, 0x80],
+            HatchStyle.SmallCheckerBoard     => [0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55],
+            HatchStyle.LargeCheckerBoard     => [0xF0, 0xF0, 0xF0, 0xF0, 0x0F, 0x0F, 0x0F, 0x0F],
+            HatchStyle.OutlinedDiamond       => [0x10, 0x28, 0x44, 0x82, 0x44, 0x28, 0x10, 0x00],
+            HatchStyle.SolidDiamond          => [0x10, 0x38, 0x7C, 0xFE, 0x7C, 0x38, 0x10, 0x00],
+            HatchStyle.Solid                 => [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+            _                                => [0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00],
+        };
     }
 
     /// <summary>Specifies the hatch pattern used by a HatchBrush.</summary>
@@ -136,24 +208,108 @@ namespace Majorsilence.Drawing
         Horizontal = 0,
         /// <summary>Vertical lines.</summary>
         Vertical = 1,
-        /// <summary>Forward diagonal lines.</summary>
+        /// <summary>Lines from upper-left to lower-right (\).</summary>
         ForwardDiagonal = 2,
-        /// <summary>Backward diagonal lines.</summary>
+        /// <summary>Lines from upper-right to lower-left (/).</summary>
         BackwardDiagonal = 3,
         /// <summary>Cross (horizontal and vertical lines).</summary>
         Cross = 4,
-        /// <summary>Diagonal cross.</summary>
+        /// <summary>Diagonal cross (both diagonals).</summary>
         DiagonalCross = 5,
-        /// <summary>Percent 05 pattern.</summary>
+        /// <summary>5% foreground density.</summary>
         Percent05 = 6,
-        /// <summary>Percent 10 pattern.</summary>
+        /// <summary>10% foreground density.</summary>
         Percent10 = 7,
-        /// <summary>Percent 20 pattern.</summary>
+        /// <summary>20% foreground density.</summary>
         Percent20 = 8,
-        /// <summary>Percent 25 pattern.</summary>
+        /// <summary>25% foreground density.</summary>
         Percent25 = 9,
-        /// <summary>Percent 30 pattern.</summary>
+        /// <summary>30% foreground density.</summary>
         Percent30 = 10,
+        /// <summary>40% foreground density.</summary>
+        Percent40 = 11,
+        /// <summary>50% foreground density.</summary>
+        Percent50 = 12,
+        /// <summary>60% foreground density.</summary>
+        Percent60 = 13,
+        /// <summary>70% foreground density.</summary>
+        Percent70 = 14,
+        /// <summary>75% foreground density.</summary>
+        Percent75 = 15,
+        /// <summary>80% foreground density.</summary>
+        Percent80 = 16,
+        /// <summary>90% foreground density.</summary>
+        Percent90 = 17,
+        /// <summary>Light downward (forward) diagonal lines.</summary>
+        LightDownwardDiagonal = 18,
+        /// <summary>Light upward (backward) diagonal lines.</summary>
+        LightUpwardDiagonal = 19,
+        /// <summary>Dark downward diagonal lines (2-pixel wide).</summary>
+        DarkDownwardDiagonal = 20,
+        /// <summary>Dark upward diagonal lines (2-pixel wide).</summary>
+        DarkUpwardDiagonal = 21,
+        /// <summary>Wide downward diagonal lines (3-pixel wide).</summary>
+        WideDownwardDiagonal = 22,
+        /// <summary>Wide upward diagonal lines (3-pixel wide).</summary>
+        WideUpwardDiagonal = 23,
+        /// <summary>Light vertical lines.</summary>
+        LightVertical = 24,
+        /// <summary>Light horizontal lines.</summary>
+        LightHorizontal = 25,
+        /// <summary>Narrow vertical lines.</summary>
+        NarrowVertical = 26,
+        /// <summary>Narrow horizontal lines.</summary>
+        NarrowHorizontal = 27,
+        /// <summary>Dark vertical lines.</summary>
+        DarkVertical = 28,
+        /// <summary>Dark horizontal lines.</summary>
+        DarkHorizontal = 29,
+        /// <summary>Dashed downward diagonal lines.</summary>
+        DashedDownwardDiagonal = 30,
+        /// <summary>Dashed upward diagonal lines.</summary>
+        DashedUpwardDiagonal = 31,
+        /// <summary>Dashed horizontal lines.</summary>
+        DashedHorizontal = 32,
+        /// <summary>Dashed vertical lines.</summary>
+        DashedVertical = 33,
+        /// <summary>Small confetti pattern.</summary>
+        SmallConfetti = 34,
+        /// <summary>Large confetti pattern.</summary>
+        LargeConfetti = 35,
+        /// <summary>Zigzag pattern.</summary>
+        ZigZag = 36,
+        /// <summary>Wave pattern.</summary>
+        Wave = 37,
+        /// <summary>Diagonal brick pattern.</summary>
+        DiagonalBrick = 38,
+        /// <summary>Horizontal brick pattern.</summary>
+        HorizontalBrick = 39,
+        /// <summary>Weave pattern.</summary>
+        Weave = 40,
+        /// <summary>Plaid pattern.</summary>
+        Plaid = 41,
+        /// <summary>Divot pattern.</summary>
+        Divot = 42,
+        /// <summary>Dotted grid pattern.</summary>
+        DottedGrid = 43,
+        /// <summary>Dotted diamond pattern.</summary>
+        DottedDiamond = 44,
+        /// <summary>Shingle pattern.</summary>
+        Shingle = 45,
+        /// <summary>Trellis pattern.</summary>
+        Trellis = 46,
+        /// <summary>Sphere pattern.</summary>
+        Sphere = 47,
+        /// <summary>Small grid pattern.</summary>
+        SmallGrid = 48,
+        /// <summary>Small checkerboard pattern.</summary>
+        SmallCheckerBoard = 49,
+        /// <summary>Large checkerboard pattern.</summary>
+        LargeCheckerBoard = 50,
+        /// <summary>Outlined diamond pattern.</summary>
+        OutlinedDiamond = 51,
+        /// <summary>Solid diamond pattern.</summary>
+        SolidDiamond = 52,
         /// <summary>Solid fill (100%).</summary>
         Solid = 100
     }
