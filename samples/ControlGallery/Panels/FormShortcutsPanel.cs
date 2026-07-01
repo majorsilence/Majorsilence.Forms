@@ -32,6 +32,13 @@ public class FormShortcutsPanel : BasePanel
         form.KeyPress += HandleKeyPress;
     }
 
+    public override void LoadPanel ()
+    {
+        form.KeyDown += HandleKeyDown;
+        form.KeyUp += HandleKeyUp;
+        form.KeyPress += HandleKeyPress;
+    }
+
     public override void UnloadPanel ()
     {
         form.KeyDown -= HandleKeyDown;

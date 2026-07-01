@@ -1,4 +1,4 @@
-﻿using ControlGallery.Panels;
+using ControlGallery.Panels;
 using Majorsilence.Forms;
 using SkiaSharp;
 
@@ -8,6 +8,8 @@ namespace ControlGallery
     {
         private Panel? current_panel;
         private readonly TreeView tree;
+        private readonly Dictionary<string, Panel> _panelCache = new ();
+        private Queue<string>? _preWarmQueue;
 
         public MainForm ()
         {
@@ -80,18 +82,99 @@ namespace ControlGallery
                 if (current_panel is BasePanel bp)
                     bp.UnloadPanel ();
 
-                current_panel.Dispose ();
-                current_panel = null;
+                // Keep the panel in the cache for instant reuse — do NOT dispose.
             }
 
-            var new_panel = CreatePanel (e.Value.Text);
+            var name = e.Value.Text;
 
-            if (new_panel != null) {
-                current_panel = new_panel;
-                new_panel.Dock = DockStyle.Fill;
-                Controls.Insert (0, new_panel);
+            if (!_panelCache.TryGetValue (name, out var panel)) {
+                panel = CreatePanel (name);
+
+                if (panel != null)
+                    _panelCache[name] = panel;
+            }
+
+            current_panel = panel;
+
+            if (panel != null) {
+                panel.Dock = DockStyle.Fill;
+                Controls.Insert (0, panel);
+                // Ensure the panel renders even if IsDirty was cleared by a prior pre-warm.
+                panel.Invalidate ();
+
+                if (panel is BasePanel bp2)
+                    bp2.LoadPanel ();
             }
         }
+
+        protected override void OnPaint (PaintEventArgs e)
+        {
+            base.OnPaint (e);
+
+            if (tree.SelectedItem.Text == "FormPaint") {
+                e.Canvas.FillRectangle (Scale (300), Scale (50), Scale (100), Scale (100), SKColors.Red);
+
+                DrawThemeColor (e.Canvas, Scale (450), Scale (50), Scale (150), Scale (40), Theme.BackgroundColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (90), Scale (150), Scale (40), Theme.ControlLowColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (130), Scale (150), Scale (40), Theme.ControlMidColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (170), Scale (150), Scale (40), Theme.ControlMidHighColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (210), Scale (150), Scale (40), Theme.ControlHighColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (250), Scale (150), Scale (40), Theme.ControlVeryHighColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (290), Scale (150), Scale (40), Theme.ControlHighlightLowColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (330), Scale (150), Scale (40), Theme.ControlHighlightMidColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (370), Scale (150), Scale (40), Theme.ControlHighlightHighColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (410), Scale (150), Scale (40), Theme.BorderLowColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (450), Scale (150), Scale (40), Theme.BorderMidColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (490), Scale (150), Scale (40), Theme.BorderHighColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (530), Scale (150), Scale (40), Theme.ForegroundColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (570), Scale (150), Scale (40), Theme.ForegroundDisabledColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (610), Scale (150), Scale (40), Theme.ForegroundColorOnAccent);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (650), Scale (150), Scale (40), Theme.AccentColor);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (690), Scale (150), Scale (40), Theme.AccentColor2);
+                DrawThemeColor (e.Canvas, Scale (450), Scale (730), Scale (150), Scale (40), Theme.WarningHighlightColor);
+            }
+
+            // After each paint, silently pre-warm the next uncached panel so that
+            // first-visit lag is eliminated before the user reaches those items.
+            _preWarmQueue ??= new Queue<string> (GetPreWarmNames ());
+
+            while (_preWarmQueue.Count > 0) {
+                var name = _preWarmQueue.Dequeue ();
+
+                if (_panelCache.ContainsKey (name))
+                    continue; // already visible or previously pre-warmed
+
+                var panel = CreatePanel (name);
+
+                if (panel != null) {
+                    // Render into a throwaway bitmap: populates the TextBlock cache and
+                    // pre-renders child back buffers so first-show is a cheap blit.
+                    panel.PreWarm ((float)Scaling);
+                    _panelCache[name] = panel;
+                }
+
+                // One panel per frame keeps the UI responsive during the warm-up burst.
+                Invalidate ();
+                break;
+            }
+        }
+
+        private static string[] GetPreWarmNames () =>
+            new[]
+            {
+                "Button", "CheckBox", "ComboBox", "DataGridView", "Dialogs", "FileDialogs",
+                "FlowLayoutPanel", "GroupBox", "ImageList", "Label", "LinkLabel",
+                "ListBox", "ListView", "Menu", "MenuStrip", "MessageBox",
+                "NavigationPane", "NumericUpDown", "Panel", "PictureBox", "ProgressBar",
+                "RadioButton", "Ribbon", "ScrollableControl", "ScrollBar", "SplitContainer",
+                "StatusBar", "StatusStrip", "TabControl", "TableLayoutPanel", "TabStrip",
+                "TextBox", "TimePicker", "TitleBar", "ToolBar", "TrackBar", "TreeView",
+                // Panels with side effects (open child windows / register events) are
+                // pre-warmed last; their PreWarm just renders static children into back buffers.
+                "Telerik: Controls", "Telerik: GridView", "Telerik: PageView",
+                "Telerik: PropertyGrid", "Telerik: TabbedForm",
+                "FormShortcuts", "MDI",
+            };
 
         private Panel? CreatePanel (string text)
         {
@@ -189,46 +272,18 @@ namespace ControlGallery
             return null;
         }
 
-        protected override void OnPaint (PaintEventArgs e)
-        {
-            base.OnPaint (e);
-
-            if (tree.SelectedItem.Text == "FormPaint") {
-                e.Canvas.FillRectangle (Scale (300), Scale (50), Scale (100), Scale (100), SKColors.Red);
-
-                DrawThemeColor (e.Canvas, Scale (450), Scale (50), Scale (150), Scale (40), Theme.BackgroundColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (90), Scale (150), Scale (40), Theme.ControlLowColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (130), Scale (150), Scale (40), Theme.ControlMidColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (170), Scale (150), Scale (40), Theme.ControlMidHighColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (210), Scale (150), Scale (40), Theme.ControlHighColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (250), Scale (150), Scale (40), Theme.ControlVeryHighColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (290), Scale (150), Scale (40), Theme.ControlHighlightLowColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (330), Scale (150), Scale (40), Theme.ControlHighlightMidColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (370), Scale (150), Scale (40), Theme.ControlHighlightHighColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (410), Scale (150), Scale (40), Theme.BorderLowColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (450), Scale (150), Scale (40), Theme.BorderMidColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (490), Scale (150), Scale (40), Theme.BorderHighColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (530), Scale (150), Scale (40), Theme.ForegroundColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (570), Scale (150), Scale (40), Theme.ForegroundDisabledColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (610), Scale (150), Scale (40), Theme.ForegroundColorOnAccent);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (650), Scale (150), Scale (40), Theme.AccentColor);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (690), Scale (150), Scale (40), Theme.AccentColor2);
-                DrawThemeColor (e.Canvas, Scale (450), Scale (730), Scale (150), Scale (40), Theme.WarningHighlightColor);
-            }
-        }
-
-        private static void DrawThemeColor (SKCanvas canvas, int x, int y, int width, int height, SKColor color)
-        {
-            canvas.FillRectangle (x, y, width, height, color);
-            canvas.DrawText (color.ToString (), Theme.UIFont, 12, new System.Drawing.Rectangle (x + 4, y + 4, width - 8, height - 8), Theme.ForegroundColor, ContentAlignment.MiddleLeft);
-        }
-
         protected override void OnPaintBackground (PaintEventArgs e)
         {
             base.OnPaintBackground (e);
 
             if (tree.SelectedItem.Text == "FormPaint")
                 e.Canvas.Clear (SKColors.Green);
+        }
+
+        private static void DrawThemeColor (SKCanvas canvas, int x, int y, int width, int height, SKColor color)
+        {
+            canvas.FillRectangle (x, y, width, height, color);
+            canvas.DrawText (color.ToString (), Theme.UIFont, 12, new System.Drawing.Rectangle (x + 4, y + 4, width - 8, height - 8), Theme.ForegroundColor, ContentAlignment.MiddleLeft);
         }
 
         private int Scale (int value) => (int)(value * Scaling);

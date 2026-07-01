@@ -813,6 +813,27 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Renders this control and all its visible descendants into a throwaway bitmap,
+        /// populating the TextBlock layout cache and pre-rendering child back buffers.
+        /// Call on a hidden control before adding it to the form to eliminate first-show lag.
+        /// </summary>
+        public void PreWarm (float scaling)
+        {
+            var w = (int)(_width * scaling);
+            var h = (int)(_height * scaling);
+
+            if (w <= 0 || h <= 0)
+                return;
+
+            var info = new SKImageInfo (w, h, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+            using var bitmap = new SKBitmap (info);
+            using var canvas = new SKCanvas (bitmap);
+            var args = new PaintEventArgs (info, canvas, scaling);
+            RaisePaintBackground (args);
+            RaisePaint (args);
+        }
+
+        /// <summary>
         /// Is the mouse currently over the control.
         /// </summary>
         public bool IsHovering {
