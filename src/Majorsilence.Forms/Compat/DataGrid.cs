@@ -7,16 +7,36 @@ using static Majorsilence.Forms.DataGridView;
 
 namespace Majorsilence.Forms
 {
+    /// <summary>
+    ///  A legacy WinForms-compat data grid control that hosts a <see cref="DataGridView"/> and mirrors the classic DataGrid API surface.
+    /// </summary>
     public partial class DataGrid : Panel, System.ComponentModel.ISupportInitialize, IDisposable
     {
         private DataGridView _grid;
 
+        /// <summary>
+        ///  Gets the underlying <see cref="DataGridView"/> that renders this grid's data.
+        /// </summary>
         public DataGridView Grid { get => _grid; }
 
-        public new event EventHandler<EventArgs> Click;
-        public new event EventHandler<EventArgs> DoubleClick;
-        public event EventHandler<EventArgs> CurrentCellChanged;
+        /// <summary>
+        ///  Occurs when the grid is clicked.
+        /// </summary>
+        public new event EventHandler<EventArgs>? Click;
 
+        /// <summary>
+        ///  Occurs when the grid is double-clicked.
+        /// </summary>
+        public new event EventHandler<EventArgs>? DoubleClick;
+
+        /// <summary>
+        ///  Occurs when the current cell changes.
+        /// </summary>
+        public event EventHandler<EventArgs>? CurrentCellChanged;
+
+        /// <summary>
+        ///  Initializes a new instance of the <see cref="DataGrid"/> class.
+        /// </summary>
         public DataGrid()
         {
             _grid = new DataGridView();
@@ -59,7 +79,7 @@ namespace Majorsilence.Forms
             _grid.ClearSelection();
         }
 
-        private void _grid_Click(object sender, EventArgs e)
+        private void _grid_Click(object? sender, EventArgs e)
         {
             if (Click != null)
             {
@@ -67,7 +87,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void _grid_DoubleClick(object sender, EventArgs e)
+        private void _grid_DoubleClick(object? sender, EventArgs e)
         {
             if (DoubleClick != null)
             {
@@ -75,18 +95,18 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void grid_tableStyles_CollectionChanged(object sender, DataGridTableStyle e)
+        private void grid_tableStyles_CollectionChanged(object? sender, DataGridTableStyle e)
         {
             e.GridColumnStyles.CollectionChanged -= grid_columnsStyles_CollectionChanged;
             e.GridColumnStyles.CollectionChanged += grid_columnsStyles_CollectionChanged;
         }
 
-        private void grid_columnsStyles_CollectionChanged(object sender, IDataGridColumnStyle e)
+        private void grid_columnsStyles_CollectionChanged(object? sender, IDataGridColumnStyle e)
         {
             if (e.GetType() == typeof(Majorsilence.Forms.DataGridColumnStyle))
             {
                 var col = e as Majorsilence.Forms.DataGridColumnStyle;
-                if (!_grid.Columns.Contains(col))
+                if (col != null && !_grid.Columns.Contains(col))
                 {
                     _grid.Columns.Add(col);
                 }
@@ -94,7 +114,7 @@ namespace Majorsilence.Forms
             else if (e.GetType() == typeof(DataGridViewComboBoxColumn) || e.GetType().IsSubclassOf(typeof(DataGridViewComboBoxColumn)))
             {
                 var col = e as DataGridViewComboBoxColumn;
-                if (!_grid.Columns.Contains(col))
+                if (col != null && !_grid.Columns.Contains(col))
                 {
                     _grid.Columns.Add(col);
                 }
@@ -102,7 +122,7 @@ namespace Majorsilence.Forms
             else if (e.GetType() == typeof(DataGridViewColumn) || e.GetType().IsSubclassOf(typeof(DataGridViewColumn)))
             {
                 var col = e as DataGridViewColumn;
-                if (!_grid.Columns.Contains(col))
+                if (col != null && !_grid.Columns.Contains(col))
                 {
                     _grid.Columns.Add(col);
                 }
@@ -114,19 +134,19 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void grid_CellValidating(object sender,
+        private void grid_CellValidating(object? sender,
         DataGridViewCellValidatingEventArgs e)
         {
             int output;
 
             // Confirm that the cell is an integer.
             var dg = sender as DataGridView;
-            var column = dg.Columns[e.ColumnIndex];
-            if (column.ReadOnly) return;
+            var column = dg?.Columns[e.ColumnIndex];
+            if (column is null || column.ReadOnly) return;
 
             if (column.GetType() == typeof(Majorsilence.Forms.DataGridDecimalsColumn))
             {
-                if (!decimal.TryParse(e.FormattedValue.ToString(), out _))
+                if (!decimal.TryParse(e.FormattedValue?.ToString(), out _))
                 {
                     _grid.Rows[e.RowIndex].ErrorText = $"{column.Name} must be numeric";
                     e.Cancel = true;
@@ -135,7 +155,7 @@ namespace Majorsilence.Forms
             }
             else if (column.GetType() == typeof(Majorsilence.Forms.DataGridIntegersColumn))
             {
-                if (!int.TryParse(e.FormattedValue.ToString(), out _))
+                if (!int.TryParse(e.FormattedValue?.ToString(), out _))
                 {
                     _grid.Rows[e.RowIndex].ErrorText = $"{column.Name} must be numeric";
                     e.Cancel = true;
@@ -144,7 +164,7 @@ namespace Majorsilence.Forms
             }
             else if (column.ValueType == typeof(decimal) || column.ValueType == typeof(double) || column.ValueType == typeof(float))
             {
-                if (!decimal.TryParse(e.FormattedValue.ToString(), out _))
+                if (!decimal.TryParse(e.FormattedValue?.ToString(), out _))
                 {
                     _grid.Rows[e.RowIndex].ErrorText = $"{column.Name} must be numeric";
                     e.Cancel = true;
@@ -156,7 +176,7 @@ namespace Majorsilence.Forms
                 && (column.ValueType == typeof(int) || column.ValueType == typeof(long) || column.ValueType == typeof(short))
                 )
             {
-                if (!int.TryParse(e.FormattedValue.ToString(), out output))
+                if (!int.TryParse(e.FormattedValue?.ToString(), out output))
                 {
                     _grid.Rows[e.RowIndex].ErrorText = $"{column.Name} must be numeric";
                     e.Cancel = true;
@@ -165,18 +185,19 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void grid_CellEndEdit(object sender, DataGridViewCellEditEventArgs e)
+        private void grid_CellEndEdit(object? sender, DataGridViewCellEditEventArgs e)
         {
             // Clear the row error in case the user presses ESC.
             _grid.Rows[e.RowIndex].ErrorText = String.Empty;
         }
 
-        private void grid_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        private void grid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
         {
             if (e.ColumnIndex < 0 || e.RowIndex < 0) return;
 
             var dg = sender as DataGridView;
-            var column = dg.Columns[e.ColumnIndex];
+            var column = dg?.Columns[e.ColumnIndex];
+            if (column is null) return;
             if (column.ValueType == typeof(decimal) || column.ValueType == typeof(double) || column.ValueType == typeof(float))
             {
                 column.DefaultCellStyle.Format = "N2";
@@ -199,7 +220,7 @@ namespace Majorsilence.Forms
 
         }
 
-        private void grid_CellChanged(object sender, EventArgs e)
+        private void grid_CellChanged(object? sender, EventArgs e)
         {
             if (CurrentCellChanged != null)
             {
@@ -207,7 +228,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void grid_DataSourceChanged(object sender, EventArgs e)
+        private void grid_DataSourceChanged(object? sender, EventArgs e)
         {
             if (_grid.DataSource != null)
             {
@@ -264,6 +285,9 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        ///  Releases the unmanaged resources used by the <see cref="DataGrid"/> and unhooks event handlers from the inner grid.
+        /// </summary>
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -285,8 +309,11 @@ namespace Majorsilence.Forms
             base.Dispose(disposing);
         }
 
+        /// <summary>
+        ///  Gets or sets the currently active cell.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-        public DataGridViewCell CurrentCell
+        public DataGridViewCell? CurrentCell
         {
             get => _grid.CurrentCell;
             set
@@ -298,11 +325,17 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        ///  Gets or sets a value indicating whether the grid is read-only.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public bool ReadOnly { get => _grid.ReadOnly; set => _grid.ReadOnly = value; }
 
         private Label captionLabel;
 
+        /// <summary>
+        ///  Gets or sets a value indicating whether the caption bar is visible.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public bool CaptionVisible
         {
@@ -314,12 +347,21 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        ///  Gets or sets the background color of the caption bar.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color CaptionBackColor { get => captionLabel.BackColor; set => captionLabel.BackColor = value; }
 
+        /// <summary>
+        ///  Gets or sets the foreground color of the caption bar.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color CaptionForeColor { get => captionLabel.ForeColor; set => captionLabel.ForeColor = value; }
 
+        /// <summary>
+        ///  Gets or sets the text displayed in the caption bar.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public string CaptionText
         {
@@ -345,6 +387,9 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        ///  Repositions the caption and inner grid when the control is resized.
+        /// </summary>
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
@@ -352,70 +397,136 @@ namespace Majorsilence.Forms
             UpdateGridPosition();
         }
 
+        /// <summary>
+        ///  Gets or sets the data source that populates the grid.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-        public object DataSource { get => _grid.DataSource; set => _grid.DataSource = value; }
-        public DataGridViewRow CurrentRow { get => _grid.CurrentRow; }
+        public object? DataSource { get => _grid.DataSource; set => _grid.DataSource = value; }
 
+        /// <summary>
+        ///  Gets the row containing the current cell.
+        /// </summary>
+        public DataGridViewRow? CurrentRow { get => _grid.CurrentRow; }
+
+        /// <summary>
+        ///  Gets or sets the index of the current row.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public int CurrentRowIndex { get => _grid.CurrentRow?.Index ?? 0; set => Select(value); }
 
+        /// <summary>
+        ///  Gets or sets the background color of odd-numbered rows.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-        public Color AlternatingBackColor { get => _grid.AlternatingRowsDefaultCellStyle.BackColor; 
+        public Color AlternatingBackColor { get => _grid.AlternatingRowsDefaultCellStyle.BackColor;
             set {
                 _grid.EnableHeadersVisualStyles = false;
                 _grid.AlternatingRowsDefaultCellStyle.BackColor = value;
             }
         }
 
+        /// <summary>
+        ///  Gets or sets the color of the grid lines. Not wired to the inner grid; retained for compatibility.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color GridLineColor { get; set; }
 
+        /// <summary>
+        ///  Gets or sets the background color of the column headers.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color HeaderBackColor { get => _grid.ColumnHeadersDefaultCellStyle.BackColor; set => _grid.ColumnHeadersDefaultCellStyle.BackColor = value; }
 
+        /// <summary>
+        ///  Gets or sets the style used to draw the grid lines. Not wired to the inner grid; retained for compatibility.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public DataGridLineStyle GridLineStyle { get; set; }
 
+        /// <summary>
+        ///  Gets or sets the font used to render the column headers. Not wired to the inner grid; retained for compatibility.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-        public Font HeaderFont { get; set; }
+        public Font? HeaderFont { get; set; }
 
+        /// <summary>
+        ///  Gets or sets the foreground color of the column headers.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color HeaderForeColor { get => _grid.ColumnHeadersDefaultCellStyle.ForeColor; set => _grid.ColumnHeadersDefaultCellStyle.ForeColor = value; }
 
+        /// <summary>
+        ///  Gets or sets the color used to render hyperlinks in the grid. Not wired to the inner grid; retained for compatibility.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color LinkColor { get; set; }
 
+        /// <summary>
+        ///  Gets or sets the background color of parent rows. Not wired to the inner grid; retained for compatibility.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color ParentRowsBackColor { get; set; }
 
+        /// <summary>
+        ///  Gets or sets the foreground color of parent rows. Not wired to the inner grid; retained for compatibility.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color ParentRowsForeColor { get; set; }
 
+        /// <summary>
+        ///  Gets or sets the preferred width of columns. Not wired to the inner grid; retained for compatibility.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public int PreferredColumnWidth { get; set; }
 
+        /// <summary>
+        ///  Gets or sets the background color of selected cells.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color SelectionBackColor { get => _grid.RowsDefaultCellStyle.SelectionBackColor; set => _grid.RowsDefaultCellStyle.SelectionBackColor = value; }
 
+        /// <summary>
+        ///  Gets or sets the foreground color of selected cells.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color SelectionForeColor { get => _grid.RowsDefaultCellStyle.SelectionForeColor; set => _grid.RowsDefaultCellStyle.SelectionForeColor = value; }
 
+        /// <summary>
+        ///  Gets or sets the background color of the grid.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color BackgroundColor { get => _grid.BackgroundColor; set => _grid.BackgroundColor = value; }
 
+        /// <summary>
+        ///  Gets or sets the name of the list or table in the data source for which the grid displays data.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public string DataMember { get => _grid.DataMember; set => _grid.DataMember = value; }
 
+        /// <summary>
+        ///  Gets or sets the collection of table styles associated with the grid.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Content)]
         public GridTableStylesCollection TableStyles { get; set; }
 
+        /// <summary>
+        ///  Gets or sets a value indicating whether the grid is displayed in flat mode. Not wired to the inner grid; retained for compatibility.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public bool FlatMode { get; set; }
 
+        /// <summary>
+        ///  Gets or sets a value indicating whether the grid allows sorting by clicking column headers. Not wired to the inner grid; retained for compatibility.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public bool AllowSorting { get; set; }
 
-        public event EventHandler<NavigateEventArgs> Navigate;
+        /// <summary>
+        ///  Occurs when the user navigates to a different table via a relation. Never raised by this compat shim.
+        /// </summary>
+#pragma warning disable CS0067 // Event is part of the WinForms-compat surface; this shim never raises it.
+        public event EventHandler<NavigateEventArgs>? Navigate;
+#pragma warning restore CS0067
         //protected virtual void Navigate(object sender, EventArgs e)
         //{
         //    // Check if there are any subscribers
@@ -425,6 +536,9 @@ namespace Majorsilence.Forms
         //    }
         //}
 
+        /// <summary>
+        ///  Gets the cell at the specified row and visible column index.
+        /// </summary>
         public DataGridViewCell Item(int rowIndex, int columnIndex)
         {
 
@@ -447,13 +561,16 @@ namespace Majorsilence.Forms
 
             if (cell.GetType() == typeof(DataGridCell))
             {
-                return cell as DataGridCell;
+                return (DataGridCell)cell;
             }
 
             return cell;
         }
 
-        public DataGridViewCell Item(int rowIndex, string columnName)
+        /// <summary>
+        ///  Gets the cell at the specified row and named column, or <see langword="null"/> if the column is not found.
+        /// </summary>
+        public DataGridViewCell? Item(int rowIndex, string columnName)
         {
             int columnIndex = -1;
 
@@ -472,17 +589,23 @@ namespace Majorsilence.Forms
 
             if (cell.GetType() == typeof(DataGridCell))
             {
-                return cell as DataGridCell;
+                return (DataGridCell)cell;
             }
 
             return cell;
         }
 
+        /// <summary>
+        ///  Returns the specified cell, for compatibility with the WinForms API surface.
+        /// </summary>
         public DataGridCell Item(DataGridCell cell)
         {
             return cell;
         }
 
+        /// <summary>
+        ///  Sets the current cell to the cell at the specified row and column indices.
+        /// </summary>
         public void SelectCell(int rowIndex, int columnIndex)
         {
             if (rowIndex >= 0 && rowIndex < _grid.Rows.Count &&
@@ -492,6 +615,9 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        ///  Scrolls the grid so that the specified row becomes visible.
+        /// </summary>
         public void SendToRow(int row)
         {
             if (_grid.DataSource != null)
@@ -500,11 +626,17 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        ///  Determines whether the row at the specified index is selected.
+        /// </summary>
         public bool IsSelected(int rowIndex)
         {
             return _grid.Rows[rowIndex].Selected;
         }
 
+        /// <summary>
+        ///  Selects the row at the specified index and scrolls it into view.
+        /// </summary>
         public void Select(int rowIndex)
         {
             if (rowIndex >= 0 && rowIndex < _grid.Rows.Count)
@@ -521,6 +653,9 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        ///  Deselects the row at the specified index and scrolls it into view.
+        /// </summary>
         public void UnSelect(int rowIndex)
         {
             if (rowIndex >= 0 && rowIndex < _grid.Rows.Count)
@@ -533,11 +668,14 @@ namespace Majorsilence.Forms
                     _grid.Rows[rowIndex].Selected = true;
                 }
 
-                               
+
                 _grid.FirstDisplayedScrollingRowIndex = rowIndex;
             }
         }
 
+        /// <summary>
+        ///  Handles vertical scroll events by scrolling the inner grid to the requested row.
+        /// </summary>
         protected virtual void GridVScrolled(object sender, ScrollEventArgs se)
         {
             ScrollToRow(_grid, se.NewValue);
@@ -558,26 +696,41 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        ///  Gets the bounding rectangle of the cell at the specified row and column indices.
+        /// </summary>
         public Rectangle GetCellBounds(int rowIndex, int columnIndex)
         {
             return _grid.GetCellDisplayRectangle(columnIndex, rowIndex, false);
         }
 
+        /// <summary>
+        ///  Returns information about which grid element is located at the specified point.
+        /// </summary>
         public HitTestInfo HitTest(Point point)
         {
             return _grid.HitTest(point.X, point.Y);
         }
 
+        /// <summary>
+        ///  Returns information about which grid element is located at the specified coordinates.
+        /// </summary>
         public HitTestInfo HitTest(int x, int y)
         {
             return _grid.HitTest(x, y);
         }
 
+        /// <summary>
+        ///  Signals the start of the grid's initialization. No-op in this compat shim.
+        /// </summary>
         public void BeginInit()
         {
 
         }
 
+        /// <summary>
+        ///  Signals the end of the grid's initialization. No-op in this compat shim.
+        /// </summary>
         public void EndInit()
         {
 

@@ -1,26 +1,28 @@
 namespace Majorsilence.Forms
 {
+    /// <summary>
+    ///  Specifies how a menu item is merged with items of another menu.
+    /// </summary>
     public enum MenuMerge
     {
-        //
-        // Summary:
-        //     The Majorsilence.Forms.MenuItem is added to the collection of existing Majorsilence.Forms.MenuItem
-        //     objects in a merged menu.
+        /// <summary>
+        ///  The menu item is added to the collection of existing menu items in a merged menu.
+        /// </summary>
         Add,
-        //
-        // Summary:
-        //     The Majorsilence.Forms.MenuItem replaces an existing Majorsilence.Forms.MenuItem
-        //     at the same position in a merged menu.
+
+        /// <summary>
+        ///  The menu item replaces an existing menu item at the same position in a merged menu.
+        /// </summary>
         Replace,
-        //
-        // Summary:
-        //     All submenu items of this Majorsilence.Forms.MenuItem are merged with those
-        //     of existing Majorsilence.Forms.MenuItem objects at the same position in a merged
-        //     menu.
+
+        /// <summary>
+        ///  All submenu items of this menu item are merged with those of existing menu items at the same position in a merged menu.
+        /// </summary>
         MergeItems,
-        //
-        // Summary:
-        //     The Majorsilence.Forms.MenuItem is not included in a merged menu.
+
+        /// <summary>
+        ///  The menu item is not included in a merged menu.
+        /// </summary>
         Remove
     }
 }
