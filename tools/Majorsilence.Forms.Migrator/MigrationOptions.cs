@@ -72,5 +72,5 @@ internal sealed class MigrationOptions
     public string? ReportPath { get; init; }
 
     /// <summary>Additional namespace/type mapping files (JSON) layered on top of the built-in rules.</summary>
-    public IReadOnlyList<string> MapFiles { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> MapFiles { get; init; } = [];
 }

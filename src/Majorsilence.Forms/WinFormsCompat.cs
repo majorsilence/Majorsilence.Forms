@@ -867,7 +867,7 @@ namespace Majorsilence.Forms
         public string Name { get; set; } = string.Empty;
 
         /// <summary>Gets or sets the size of this item (informational only).</summary>
-        public Size Size { get; set; }
+        public virtual Size Size { get; set; }
 
         /// <summary>Gets or sets whether this item is visible.</summary>
         public bool Visible { get; set; } = true;
@@ -892,7 +892,7 @@ namespace Majorsilence.Forms
         /// The converted <see cref="SkiaSharp.SKBitmap"/> is synced to the base class so renderers can access it.
         /// </summary>
 #pragma warning disable CA1416
-        public new Majorsilence.Drawing.Image? Image {
+        public new virtual Majorsilence.Drawing.Image? Image {
             get => _toolStripImage;
             set {
                 _toolStripImage = value;
@@ -919,7 +919,7 @@ namespace Majorsilence.Forms
         public ToolStripItemOverflow Overflow { get; set; } = ToolStripItemOverflow.AsNeeded;
 
         /// <summary>Gets or sets the text align within the item. Stub in Majorsilence.Forms.</summary>
-        public ContentAlignment TextAlign { get; set; } = ContentAlignment.MiddleCenter;
+        public virtual ContentAlignment TextAlign { get; set; } = ContentAlignment.MiddleCenter;
 
         /// <summary>Gets or sets the right-to-left mode. Stub in Majorsilence.Forms.</summary>
         public RightToLeft RightToLeft { get; set; } = RightToLeft.No;

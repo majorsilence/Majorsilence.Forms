@@ -1,13 +1,8 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Xml.Linq;
-using Majorsilence.Forms;
 using Majorsilence.Forms.Renderers;
 using SkiaSharp;
 
@@ -72,7 +67,8 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new instance of the RadGridView class.</summary>
         public RadGridView ()
         {
-            MasterTemplate = new GridViewTemplate (this);
+            MasterTemplate = new MasterGridViewTemplate (this);
+            TableElement = new GridTableElement { ViewElement = RootElement };
 
             // Descriptor changes (add/remove/clear) rebuild the displayed view.
             SortDescriptors.Changed = () => { SyncSortGlyphs (); RebuildView (); };
@@ -92,7 +88,12 @@ namespace Majorsilence.Forms.Telerik
                 _commandCellClick?.Invoke (this, args);
             };
             base.CellValueChanged += (_, e) => {
-                // Validation first: a handler may reject the new value (revert to the captured old value).
+                // ValueChanging first (Telerik's pre-validation hook): a handler may reject the new
+                // value outright, same revert-to-old-value behavior as a CellValidating cancel.
+                if (RaiseValueChanging (e.ColumnIndex, e.RowIndex))
+                    return;
+
+                // Validation next: a handler may reject the new value (revert to the captured old value).
                 if (RaiseCellValidating (e.ColumnIndex, e.RowIndex))
                     return;
 
@@ -115,7 +116,7 @@ namespace Majorsilence.Forms.Telerik
             };
             base.SelectionChanged += (_, e) => {
                 _selectionChanged?.Invoke (this, e);
-                _currentRowChanged?.Invoke (this, e);
+                RaiseCurrentRowOrColumnChanged ();
             };
             // Base CellDoubleClick is not raised; derive it from the control's double-click + current cell.
             DoubleClick += (_, _) => {
@@ -126,7 +127,7 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Gets the master template (Telerik configuration façade over this grid).</summary>
-        public GridViewTemplate MasterTemplate { get; }
+        public MasterGridViewTemplate MasterTemplate { get; }
 
         /// <summary>Gets or sets the theme name. No-op stub.</summary>
         public string ThemeName { get; set; } = string.Empty;
@@ -137,11 +138,21 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the root element of the grid (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
 
+        /// <summary>Gets the table (view) element shared by every row of this grid. Passed to <see cref="RowFormatting"/> handlers as <c>e.RowElement.TableElement</c>.</summary>
+        public GridTableElement TableElement { get; }
+
+        /// <summary>Gets or sets how the grid is split into panes. No-op stub; setting it invalidates the grid.</summary>
+        public RadGridViewSplitMode SplitMode {
+            get => _splitMode;
+            set { _splitMode = value; Invalidate (); }
+        }
+        private RadGridViewSplitMode _splitMode = RadGridViewSplitMode.None;
+
         /// <summary>Gets the current row as a Telerik <see cref="GridViewRowInfo"/>, or null (group-header rows return null).</summary>
         public new GridViewRowInfo? CurrentRow {
             get {
                 var row = base.CurrentRow;
-                return row is null || IsStructuralRow (row) ? null : new GridViewRowInfo (row);
+                return row is null || IsStructuralRow (row) ? null : new GridViewDataRowInfo (row);
             }
         }
 
@@ -462,7 +473,7 @@ namespace Majorsilence.Forms.Telerik
                 return;
 
             if (_childViewExpanding is not null) {
-                var args = new ChildViewExpandingEventArgs { Row = new GridViewRowInfo (row) };
+                var args = new ChildViewExpandingEventArgs { Row = new GridViewDataRowInfo (row) };
                 _childViewExpanding.Invoke (this, args);
                 if (args.Cancel)
                     return;
@@ -500,7 +511,7 @@ namespace Majorsilence.Forms.Telerik
             _master.Add (row);
             RebuildView ();
             Invalidate ();
-            return new GridViewRowInfo (row);
+            return new GridViewDataRowInfo (row);
         }
 
         private string _searchText = string.Empty;
@@ -1495,19 +1506,19 @@ namespace Majorsilence.Forms.Telerik
 
                 // Descriptors.
                 SortDescriptors.Clear ();
-                foreach (var se in root.Element ("SortDescriptors")?.Elements ("SortDescriptor") ?? Enumerable.Empty<XElement> ())
+                foreach (var se in root.Element ("SortDescriptors")?.Elements ("SortDescriptor") ?? [])
                     SortDescriptors.Add (new SortDescriptor (
                         (string?)se.Attribute ("PropertyName") ?? string.Empty,
                         ParseDirection ((string?)se.Attribute ("Direction"))));
 
                 GroupDescriptors.Clear ();
-                foreach (var ge in root.Element ("GroupDescriptors")?.Elements ("GroupDescriptor") ?? Enumerable.Empty<XElement> ())
+                foreach (var ge in root.Element ("GroupDescriptors")?.Elements ("GroupDescriptor") ?? [])
                     GroupDescriptors.Add (new GroupDescriptor (
                         (string?)ge.Attribute ("PropertyName") ?? string.Empty,
                         ParseDirection ((string?)ge.Attribute ("Direction"))));
 
                 FilterDescriptors.Clear ();
-                foreach (var fe in root.Element ("FilterDescriptors")?.Elements ("FilterDescriptor") ?? Enumerable.Empty<XElement> ()) {
+                foreach (var fe in root.Element ("FilterDescriptors")?.Elements ("FilterDescriptor") ?? []) {
                     var descriptor = new FilterDescriptor {
                         PropertyName = (string?)fe.Attribute ("PropertyName") ?? string.Empty,
                         Operator = Enum.TryParse<FilterOperator> ((string?)fe.Attribute ("Operator"), out var op) ? op : FilterOperator.None,
@@ -1719,7 +1730,12 @@ namespace Majorsilence.Forms.Telerik
 
         private EventHandler<GridViewCellEventArgs>? _cellClick, _commandCellClick, _cellDoubleClick, _cellValueChanged, _valueChanged, _cellEndEdit;
         private EventHandler<GridViewCellCancelEventArgs>? _cellBeginEdit;
-        private EventHandler? _selectionChanged, _currentRowChanged;
+        private EventHandler? _selectionChanged;
+        private EventHandler<CurrentRowChangedEventArgs>? _currentRowChanged;
+        private EventHandler<CurrentColumnChangedEventArgs>? _currentColumnChanged;
+        // Tracked so RaiseCurrentRowOrColumnChanged only fires when the row/column actually changed
+        // (not on every SelectionChanged, e.g. a same-row multi-select toggle).
+        private int _lastCurrentRowIndex = -1, _lastCurrentColumnIndex = -1;
 
         /// <summary>Raised when a cell is clicked.</summary>
         public new event EventHandler<GridViewCellEventArgs>? CellClick { add => _cellClick += value; remove => _cellClick -= value; }
@@ -1737,17 +1753,69 @@ namespace Majorsilence.Forms.Telerik
         public new event EventHandler<GridViewCellCancelEventArgs>? CellBeginEdit { add => _cellBeginEdit += value; remove => _cellBeginEdit -= value; }
 
         private EventHandler<GridViewCellValidatingEventArgs>? _cellValidating;
-        // The value captured when editing began, used to revert a rejected (CellValidating-cancelled) edit.
+        private EventHandler<ValueChangingEventArgs>? _valueChanging;
+        // The value captured when editing began, used to revert a rejected (CellValidating/ValueChanging-cancelled) edit.
         private object? _editOldValue;
         /// <summary>
         /// Raised after a cell value changes. Set <c>e.Cancel</c> to reject the new value (it reverts to the
         /// prior value); set the row's <c>ErrorText</c> in the handler to show an error indicator.
         /// </summary>
         public new event EventHandler<GridViewCellValidatingEventArgs>? CellValidating { add => _cellValidating += value; remove => _cellValidating -= value; }
+        /// <summary>
+        /// Raised when a cell value is about to change, before <see cref="CellValidating"/>. Set <c>e.Cancel</c>
+        /// to reject the new value (it reverts to the prior value).
+        /// </summary>
+        public event EventHandler<ValueChangingEventArgs>? ValueChanging { add => _valueChanging += value; remove => _valueChanging -= value; }
         /// <summary>Raised when the selection changes.</summary>
         public new event EventHandler? SelectionChanged { add => _selectionChanged += value; remove => _selectionChanged -= value; }
-        /// <summary>Raised when the current row changes (fires alongside <see cref="SelectionChanged"/>).</summary>
-        public event EventHandler? CurrentRowChanged { add => _currentRowChanged += value; remove => _currentRowChanged -= value; }
+        /// <summary>Raised when the current row actually changes (not on every selection change; see <see cref="SelectionChanged"/> for that).</summary>
+        public event EventHandler<CurrentRowChangedEventArgs>? CurrentRowChanged { add => _currentRowChanged += value; remove => _currentRowChanged -= value; }
+        /// <summary>Raised when the current column actually changes.</summary>
+        public event EventHandler<CurrentColumnChangedEventArgs>? CurrentColumnChanged { add => _currentColumnChanged += value; remove => _currentColumnChanged -= value; }
+
+        // Raises CurrentRowChanged/CurrentColumnChanged when the underlying current cell's row/column index
+        // actually moved since the last call (SelectionChanged fires more often, e.g. multi-select toggles).
+        private void RaiseCurrentRowOrColumnChanged ()
+        {
+            var cell = base.CurrentCell;
+            var rowIndex = cell?.RowIndex ?? -1;
+            var columnIndex = cell?.ColumnIndex ?? -1;
+
+            if (rowIndex != _lastCurrentRowIndex) {
+                var oldRow = RowAt (_lastCurrentRowIndex);
+                var newRow = RowAt (rowIndex);
+                _lastCurrentRowIndex = rowIndex;
+                _currentRowChanged?.Invoke (this, new CurrentRowChangedEventArgs (oldRow, newRow));
+            }
+
+            if (columnIndex != _lastCurrentColumnIndex) {
+                var oldColumn = _lastCurrentColumnIndex >= 0 && _lastCurrentColumnIndex < base.Columns.Count ? base.Columns[_lastCurrentColumnIndex] : null;
+                var newColumn = columnIndex >= 0 && columnIndex < base.Columns.Count ? base.Columns[columnIndex] : null;
+                _lastCurrentColumnIndex = columnIndex;
+                _currentColumnChanged?.Invoke (this, new CurrentColumnChangedEventArgs (oldColumn, newColumn));
+            }
+        }
+
+        // Raises ValueChanging; if a handler cancels, reverts the cell to the captured old value. Returns true if rejected.
+        private bool RaiseValueChanging (int columnIndex, int rowIndex)
+        {
+            if (_valueChanging is null || rowIndex < 0 || rowIndex >= base.Rows.Count)
+                return false;
+
+            var row = base.Rows[rowIndex];
+            if (IsStructuralRow (row) || columnIndex < 0 || columnIndex >= row.Cells.Count)
+                return false;
+
+            var args = new ValueChangingEventArgs { OldValue = _editOldValue, NewValue = row.Cells[columnIndex].Value };
+            _valueChanging.Invoke (this, args);
+
+            if (!args.Cancel)
+                return false;
+
+            row.Cells[columnIndex].Value = _editOldValue;   // reject: revert
+            Invalidate ();
+            return true;
+        }
 
         private EventHandler<GridViewCellFormattingEventArgs>? _cellFormatting, _viewCellFormatting;
         private EventHandler<GridViewRowFormattingEventArgs>? _rowFormatting;
@@ -1759,7 +1827,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raised when a row is being formatted. Set <c>e.RowElement.BackColor</c> (with <c>DrawFill=true</c>) to color the row.</summary>
         public event EventHandler<GridViewRowFormattingEventArgs>? RowFormatting { add => _rowFormatting += value; remove => _rowFormatting -= value; }
         private EventHandler<ContextMenuOpeningEventArgs>? _contextMenuOpening;
-        private static readonly char[] anyOf = new[] { ',', '"', '\r', '\n' };
+        private static readonly char[] anyOf = [',', '"', '\r', '\n'];
 
         /// <summary>
         /// Raised on right-click before the context menu is shown. Handlers populate
@@ -1888,7 +1956,7 @@ namespace Majorsilence.Forms.Telerik
                     continue;
                 foreach (DataGridViewCell cell in row.Cells)
                     if (cell.Bounds.Contains (location))
-                        return new GridViewRowElement { RowInfo = new GridViewRowInfo (row) };
+                        return new GridViewRowElement { RowInfo = new GridViewDataRowInfo (row) };
             }
 
             return null;
@@ -2006,7 +2074,7 @@ namespace Majorsilence.Forms.Telerik
             if (_rowFormatting is null)
                 return;
 
-            var element = new GridViewRowElement { RowInfo = new GridViewRowInfo (row) };
+            var element = new GridViewRowElement { RowInfo = new GridViewDataRowInfo (row), TableElement = TableElement };
             _rowFormatting.Invoke (this, new GridViewRowFormattingEventArgs { RowElement = element, Row = element.RowInfo });
 
             if (element.BackColor != Color.Empty) {
@@ -2039,13 +2107,19 @@ namespace Majorsilence.Forms.Telerik
 
             // Raise the Telerik formatting events (handlers may further change Text / colors).
             if (_cellFormatting is not null || _viewCellFormatting is not null) {
-                var element = new GridViewCellElement {
-                    Value = cell.Value,
-                    Text = displayText,
-                    RowIndex = rowIndex,
-                    ColumnInfo = column,
-                    RowInfo = new GridViewRowInfo (row)
+                // Financial does e.g. TryCast(e.CellElement, GridCommandCellElement) — construct the
+                // concrete element type by column kind so that cast succeeds for the columns it applies to.
+                GridViewCellElement element = column switch {
+                    GridViewCommandColumn or DataGridViewButtonColumn => new GridCommandCellElement (),
+                    GridViewDateTimeColumn => new GridDateTimeCellElement (),
+                    _ => new GridCellElement ()
                 };
+                element.Value = cell.Value;
+                element.Text = displayText;
+                element.RowIndex = rowIndex;
+                element.ColumnIndex = columnIndex;
+                element.ColumnInfo = column;
+                element.RowInfo = new GridViewDataRowInfo (row);
 
                 var args = new GridViewCellFormattingEventArgs {
                     CellElement = element, RowIndex = rowIndex, ColumnIndex = columnIndex,
@@ -2159,9 +2233,9 @@ namespace Majorsilence.Forms.Telerik
         }
 
         // Wraps the base row at the given index, or null if out of range / a structural row.
-        private GridViewRowInfo? RowAt (int rowIndex)
+        private GridViewDataRowInfo? RowAt (int rowIndex)
             => rowIndex >= 0 && rowIndex < base.Rows.Count && !IsStructuralRow (base.Rows[rowIndex])
-                ? new GridViewRowInfo (base.Rows[rowIndex]) : null;
+                ? new GridViewDataRowInfo (base.Rows[rowIndex]) : null;
 
         // Reads a cell value by row/column index (null if out of range).
         private object? CellValueAt (int rowIndex, int columnIndex)
@@ -2187,7 +2261,7 @@ namespace Majorsilence.Forms.Telerik
                 ColumnIndex = columnIndex,
                 Value = row.Cells[columnIndex].Value,
                 OldValue = _editOldValue,
-                Row = new GridViewRowInfo (row),
+                Row = new GridViewDataRowInfo (row),
                 Column = columnIndex < base.Columns.Count ? base.Columns[columnIndex] : null
             };
             _cellValidating.Invoke (this, args);
@@ -2241,16 +2315,36 @@ namespace Majorsilence.Forms.Telerik
 
     /// <summary>
     /// Telerik-compat grid configuration façade. The column/data members forward to the owning
-    /// <see cref="RadGridView"/>; the descriptor collections are the grid's own.
+    /// <see cref="RadGridView"/> when attached; Financial's <c>VirtualMasterGridViewTemplate</c> pattern
+    /// (inheriting a template class and constructing it standalone, before it's ever attached to a grid)
+    /// requires this base to also support a detached instance — see the protected constructor and
+    /// <see cref="Attach"/>.
     /// </summary>
     public class GridViewTemplate
     {
-        private readonly RadGridView _grid;
+        // Not readonly: detached instances (see the protected ctor) attach to a grid later via Attach().
+        private RadGridView? _grid;
+
+        // Local backing used only while detached; once attached, the grid's own collections/values are
+        // the source of truth (and these become unreachable dead storage, which is fine for a compat shim).
+        // Columns has no detached fallback (Columns throws instead, per the compat-layer design) since a
+        // standalone DataGridViewColumnCollection needs an owning grid to construct.
+        private GridDescriptorCollection<SortDescriptor>? _detachedSort;
+        private GridDescriptorCollection<GroupDescriptor>? _detachedGroup;
+        private GridDescriptorCollection<FilterDescriptor>? _detachedFilter;
+        private GridDescriptorCollection<GridViewSummaryRowItem>? _detachedSummaryBottom;
+        private GridDescriptorCollection<GridViewSummaryRowItem>? _detachedSummaryTop;
 
         internal GridViewTemplate (RadGridView grid) => _grid = grid;
 
-        /// <summary>Gets the columns of the grid.</summary>
-        public DataGridViewColumnCollection Columns => _grid.Columns;
+        /// <summary>Initializes a detached template, not yet associated with a <see cref="RadGridView"/>. Used by subclasses constructed standalone (e.g. before being assigned to a grid's designer-generated template).</summary>
+        protected GridViewTemplate () { }
+
+        /// <summary>Associates this (previously detached) template with a grid. Subsequent member access forwards to the grid.</summary>
+        internal void Attach (RadGridView grid) => _grid = grid;
+
+        /// <summary>Gets the columns of the grid. Throws if the template is not yet attached to a <see cref="RadGridView"/>.</summary>
+        public DataGridViewColumnCollection Columns => _grid?.Columns ?? throw new InvalidOperationException ("GridViewTemplate is not attached to a RadGridView");
         /// <summary>Gets or sets the view definition (assigning a <see cref="TableViewDefinition"/> is a no-op).</summary>
         public object? ViewDefinition { get; set; }
         /// <summary>Gets or sets whether a new-row entry is shown.</summary>
@@ -2273,36 +2367,55 @@ namespace Majorsilence.Forms.Telerik
         public bool MultiSelect { get; set; }
         private bool _readOnly;
         /// <summary>Gets or sets whether the grid is read-only.</summary>
-        public bool ReadOnly { get => _readOnly; set { _readOnly = value; _grid.ApplyEditability (); } }
+        public bool ReadOnly { get => _readOnly; set { _readOnly = value; _grid?.ApplyEditability (); } }
         private GridViewAutoSizeColumnsMode _autoSizeColumnsMode = GridViewAutoSizeColumnsMode.None;
         /// <summary>Gets or sets the auto-size columns mode. <see cref="GridViewAutoSizeColumnsMode.Fill"/> sizes visible columns to fill the viewport.</summary>
         public GridViewAutoSizeColumnsMode AutoSizeColumnsMode {
             get => _autoSizeColumnsMode;
-            set { _autoSizeColumnsMode = value; _grid.ApplyAutoSizeColumns (); }
+            set { _autoSizeColumnsMode = value; _grid?.ApplyAutoSizeColumns (); }
         }
         /// <summary>Gets or sets whether paging is enabled.</summary>
         public bool EnablePaging { get; set; }
         /// <summary>Gets or sets the page size.</summary>
         public int PageSize { get; set; }
-        /// <summary>Gets the sort descriptors (the grid's own collection).</summary>
-        public GridDescriptorCollection<SortDescriptor> SortDescriptors => _grid.SortDescriptors;
-        /// <summary>Gets the group descriptors (the grid's own collection).</summary>
-        public GridDescriptorCollection<GroupDescriptor> GroupDescriptors => _grid.GroupDescriptors;
-        /// <summary>Gets the filter descriptors (the grid's own collection).</summary>
-        public GridDescriptorCollection<FilterDescriptor> FilterDescriptors => _grid.FilterDescriptors;
-        /// <summary>Gets the summary rows shown below the data (the grid's own collection).</summary>
-        public GridDescriptorCollection<GridViewSummaryRowItem> SummaryRowsBottom => _grid.SummaryRowsBottom;
-        /// <summary>Gets the summary rows shown above the data (the grid's own collection).</summary>
-        public GridDescriptorCollection<GridViewSummaryRowItem> SummaryRowsTop => _grid.SummaryRowsTop;
+        /// <summary>Gets the sort descriptors (the grid's own collection when attached; a standalone one otherwise).</summary>
+        public GridDescriptorCollection<SortDescriptor> SortDescriptors => _grid?.SortDescriptors ?? (_detachedSort ??= new ());
+        /// <summary>Gets the group descriptors (the grid's own collection when attached; a standalone one otherwise).</summary>
+        public GridDescriptorCollection<GroupDescriptor> GroupDescriptors => _grid?.GroupDescriptors ?? (_detachedGroup ??= new ());
+        /// <summary>Gets the filter descriptors (the grid's own collection when attached; a standalone one otherwise).</summary>
+        public GridDescriptorCollection<FilterDescriptor> FilterDescriptors => _grid?.FilterDescriptors ?? (_detachedFilter ??= new ());
+        /// <summary>Gets the summary rows shown below the data (the grid's own collection when attached; a standalone one otherwise).</summary>
+        public GridDescriptorCollection<GridViewSummaryRowItem> SummaryRowsBottom => _grid?.SummaryRowsBottom ?? (_detachedSummaryBottom ??= new ());
+        /// <summary>Gets the summary rows shown above the data (the grid's own collection when attached; a standalone one otherwise).</summary>
+        public GridDescriptorCollection<GridViewSummaryRowItem> SummaryRowsTop => _grid?.SummaryRowsTop ?? (_detachedSummaryTop ??= new ());
 
-        /// <summary>Auto-sizes columns.</summary>
-        public void BestFitColumns () => _grid.BestFitColumns ();
-        /// <summary>Refreshes the grid.</summary>
-        public void Refresh () => _grid.Invalidate ();
-        /// <summary>Expands all groups.</summary>
-        public void ExpandAllGroups () => _grid.ExpandAllGroups ();
-        /// <summary>Collapses all groups.</summary>
-        public void CollapseAllGroups () => _grid.CollapseAllGroups ();
+        /// <summary>Auto-sizes columns. No-op when detached.</summary>
+        public void BestFitColumns () => _grid?.BestFitColumns ();
+        /// <summary>Refreshes the grid. No-op when detached.</summary>
+        public void Refresh () => _grid?.Invalidate ();
+        /// <summary>Expands all groups. No-op when detached.</summary>
+        public void ExpandAllGroups () => _grid?.ExpandAllGroups ();
+        /// <summary>Collapses all groups. No-op when detached.</summary>
+        public void CollapseAllGroups () => _grid?.CollapseAllGroups ();
+    }
+
+    /// <summary>
+    /// Telerik-compat master (top-level) grid template. Financial subclasses this directly
+    /// (<c>VirtualMasterGridViewTemplate : MasterGridViewTemplate</c>), constructing an instance before
+    /// it is attached to a <see cref="RadGridView"/> — hence the public parameterless constructor
+    /// alongside the internal attached one used by <see cref="RadGridView"/> itself.
+    /// </summary>
+    public class MasterGridViewTemplate : GridViewTemplate
+    {
+        /// <summary>Initializes a new, detached instance. Attach it to a grid via the grid's designer-generated template assignment.</summary>
+        public MasterGridViewTemplate () : base () { }
+
+        internal MasterGridViewTemplate (RadGridView grid) : base (grid) { }
+
+        /// <summary>Gets or sets whether (and how) the vertical auto-hide scrollbar is shown. Stub.</summary>
+        public ScrollState HorizontalScrollState { get; set; } = ScrollState.AlwaysShow;
+        /// <summary>Gets or sets whether copy/paste is allowed. Stub.</summary>
+        public CopyPasteMode AllowCopyPaste { get; set; } = CopyPasteMode.All;
     }
 
     /// <summary>Telerik-compat view definition. Assignable to <see cref="GridViewTemplate.ViewDefinition"/> as a no-op.</summary>
@@ -2540,6 +2653,19 @@ namespace Majorsilence.Forms.Telerik
         public GridViewDateTimeColumn (string fieldName) { FieldName = fieldName; Name = fieldName; }
     }
 
+    /// <summary>Telerik-compat command (button) column. Cells format as a <see cref="GridCommandCellElement"/>.</summary>
+    public class GridViewCommandColumn : GridViewDataColumn
+    {
+        /// <summary>Initializes a new instance.</summary>
+        public GridViewCommandColumn () { }
+        /// <summary>Initializes a new instance bound to the specified field.</summary>
+        public GridViewCommandColumn (string fieldName) { FieldName = fieldName; Name = fieldName; }
+        /// <summary>Gets or sets whether the column's default text is used regardless of the bound value. Stub.</summary>
+        public bool UseDefaultText { get; set; }
+        /// <summary>Gets or sets the default button text shown when <see cref="UseDefaultText"/> is set (or the bound value is empty).</summary>
+        public string DefaultText { get; set; } = string.Empty;
+    }
+
     // ── Row / cell wrappers ────────────────────────────────────────────────────
 
     /// <summary>
@@ -2568,7 +2694,7 @@ namespace Majorsilence.Forms.Telerik
         public int Count => DataRows.Count;
 
         /// <summary>Gets the data row at the specified index as a <see cref="GridViewRowInfo"/>.</summary>
-        public GridViewRowInfo this[int index] => new GridViewRowInfo (DataRows[index]);
+        public GridViewRowInfo this[int index] => new GridViewDataRowInfo (DataRows[index]);
 
         /// <summary>Adds a row with the specified cell values.</summary>
         public void Add (params object[] values) => _rows.Add (values);
@@ -2589,7 +2715,7 @@ namespace Majorsilence.Forms.Telerik
         public IEnumerator<GridViewRowInfo> GetEnumerator ()
         {
             foreach (var row in DataRows)
-                yield return new GridViewRowInfo (row);
+                yield return new GridViewDataRowInfo (row);
         }
 
         IEnumerator IEnumerable.GetEnumerator () => GetEnumerator ();
@@ -2635,6 +2761,26 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Deletes this row from the grid.</summary>
         public void Delete () => _row.DataGridView?.Rows.Remove (_row);
+    }
+
+    /// <summary>
+    /// Telerik-compat data row info — the concrete type constructed for ordinary (non-group-header) rows,
+    /// so Financial's <c>TryCast(row, GridViewDataRowInfo)</c> succeeds.
+    /// </summary>
+    public class GridViewDataRowInfo : GridViewRowInfo
+    {
+        internal GridViewDataRowInfo (DataGridViewRow row) : base (row) { }
+    }
+
+    /// <summary>
+    /// Telerik-compat group-header row info — the concrete type constructed for injected group-header rows.
+    /// </summary>
+    public class GridViewGroupRowInfo : GridViewRowInfo
+    {
+        internal GridViewGroupRowInfo (DataGridViewRow row) : base (row) { }
+
+        /// <summary>Gets the group header text (e.g. "Field: Value (Count)").</summary>
+        public string HeaderText => DataRow.Tag is GridGroupRow g ? g.HeaderText : string.Empty;
     }
 
     /// <summary>Telerik-compat cell collection over a <see cref="DataGridViewRow"/>.</summary>

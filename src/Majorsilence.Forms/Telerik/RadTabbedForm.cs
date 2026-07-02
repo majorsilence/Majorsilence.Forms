@@ -1,9 +1,5 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
-using Majorsilence.Forms;
 
 namespace Majorsilence.Forms.Telerik
 {
@@ -320,9 +316,11 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
-        private TabStripItem? TabAt (Point location) => Tabs.FirstOrDefault (t => t.Bounds.Contains (location));
+        // Fully qualified: Majorsilence.Forms.Telerik also declares a (Telerik-compat) TabStripItem;
+        // this strip is UI chrome and always means the Majorsilence.Forms one.
+        private Majorsilence.Forms.TabStripItem? TabAt (Point location) => Tabs.FirstOrDefault (t => t.Bounds.Contains (location));
 
-        private static RadTabbedFormControlItem? ItemOf (TabStripItem? tab) => tab?.Tag as RadTabbedFormControlItem;
+        private static RadTabbedFormControlItem? ItemOf (Majorsilence.Forms.TabStripItem? tab) => tab?.Tag as RadTabbedFormControlItem;
 
         // Rebuilds the visible tabs from the owning control's items, preserving selection.
         private void SyncFromOwner ()
@@ -331,7 +329,7 @@ namespace Majorsilence.Forms.Telerik
             try {
                 Tabs.Clear ();
                 foreach (var item in _control.Items)
-                    Tabs.Add (new TabStripItem (item.Text) { Tag = item });
+                    Tabs.Add (new Majorsilence.Forms.TabStripItem (item.Text) { Tag = item });
 
                 ApplyOwnerSelection ();
             } finally {

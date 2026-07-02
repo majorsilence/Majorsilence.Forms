@@ -1,6 +1,4 @@
-using System;
 using System.Drawing;
-using Majorsilence.Forms;
 
 namespace Majorsilence.Forms.Telerik
 {
@@ -57,11 +55,51 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether each item shows a close button. Stub.</summary>
         public bool ShowItemCloseButton { get; set; }
         /// <summary>Gets or sets the item fit mode. Stub.</summary>
-        public object? ItemFitMode { get; set; }
+        public StripViewItemFitMode ItemFitMode { get; set; } = StripViewItemFitMode.Default;
         /// <summary>Gets or sets the item size mode. Stub.</summary>
         public PageViewItemSizeMode ItemSizeMode { get; set; } = PageViewItemSizeMode.EqualWidth;
         /// <summary>Gets or sets the highlight color. Stub.</summary>
         public Color HighlightColor { get; set; } = Color.Empty;
+    }
+
+    /// <summary>Telerik-compat page-view tab-strip element (the <c>RadPageView.Mode = PageViewMode.RibbonBar/ExplorerBar/…</c> strip). Stub.</summary>
+    public class RadPageViewTabStripElement : RadPageViewStripElement
+    {
+        /// <summary>Gets or sets the orientation items are laid out in. Stub.</summary>
+        public PageViewContentOrientation ItemContentOrientation { get; set; } = PageViewContentOrientation.Horizontal;
+    }
+
+    /// <summary>Telerik-compat container hosted by a strip-view item (e.g. a pinned/floating tab content host). Stub.</summary>
+    public class StripViewItemContainer : RadElement { }
+
+    /// <summary>
+    /// Telerik-compat strip item (a single tab header). Note: this collides in name with the pre-existing
+    /// <see cref="Majorsilence.Forms.TabStripItem"/>; files that import both <c>Majorsilence.Forms</c> and
+    /// <c>Majorsilence.Forms.Telerik</c> must qualify one of the two.
+    /// </summary>
+    public class TabStripItem : RadItem
+    {
+        /// <summary>Gets or sets the item's image.</summary>
+        public Majorsilence.Drawing.Image? Image { get; set; }
+        /// <summary>Gets or sets whether this item (page) is the selected one. Stub.</summary>
+        public bool IsSelected { get; set; }
+        /// <summary>Gets or sets whether this item is pinned (not scrolled/reordered). Stub.</summary>
+        public bool IsPinned { get; set; }
+        /// <summary>Gets or sets the item's title (Telerik alias for <see cref="RadItem.Text"/>).</summary>
+        public string Title {
+            get => Text;
+            set => Text = value;
+        }
+    }
+
+    /// <summary>Provides data for Telerik page-view events (e.g. PageViewChanging/Changed).</summary>
+    public class RadPageViewEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance with the specified page.</summary>
+        public RadPageViewEventArgs (RadPageViewPage? page) => Page = page;
+
+        /// <summary>Gets the affected page.</summary>
+        public RadPageViewPage? Page { get; }
     }
 
     /// <summary>Telerik-compat split container. Backed by <see cref="Majorsilence.Forms.SplitContainer"/>.</summary>
@@ -157,4 +195,115 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Items fill the strip.</summary>
         Fill = 3
     }
+
+    /// <summary>Specifies the overall visual mode of a <see cref="RadPageView"/>. Compat for Telerik PageViewMode.</summary>
+    public enum PageViewMode
+    {
+        /// <summary>Classic tab-strip mode.</summary>
+        Tabs = 0,
+        /// <summary>Ribbon-bar style mode.</summary>
+        RibbonBar = 1,
+        /// <summary>Outlook-style explorer bar mode.</summary>
+        ExplorerBar = 2,
+        /// <summary>Backstage (full-screen menu) mode.</summary>
+        Backstage = 3
+    }
+
+    /// <summary>Specifies the layout orientation of page-view strip content. Compat for Telerik PageViewContentOrientation.</summary>
+    public enum PageViewContentOrientation
+    {
+        /// <summary>Items are laid out horizontally.</summary>
+        Horizontal = 0,
+        /// <summary>Items are laid out vertically.</summary>
+        Vertical = 1
+    }
+
+    /// <summary>Specifies how strip-view items are sized to fit the strip. Compat for Telerik StripViewItemFitMode.</summary>
+    public enum StripViewItemFitMode
+    {
+        /// <summary>Items keep their natural (content-driven) size.</summary>
+        Default = 0,
+        /// <summary>Items stretch to fill the strip.</summary>
+        Fill = 1,
+        /// <summary>Items wrap onto multiple lines instead of scrolling.</summary>
+        MultiLine = 2,
+        /// <summary>Items shrink/scroll as needed to fit the available space.</summary>
+        Fit = 3
+    }
+
+    /// <summary>
+    /// Telerik-compat collapsible panel. Backed by <see cref="Majorsilence.Forms.Panel"/>; hosts a single
+    /// child <see cref="PanelContainer"/> whose visibility is toggled by <see cref="IsExpanded"/>.
+    /// </summary>
+    public class RadCollapsiblePanel : Panel
+    {
+        private bool _isExpanded = true;
+
+        /// <summary>Initializes a new instance of the RadCollapsiblePanel class.</summary>
+        public RadCollapsiblePanel ()
+        {
+            PanelContainer = new Panel { Dock = DockStyle.Fill };
+            Controls.Add (PanelContainer);
+        }
+
+        /// <summary>Gets the panel hosting the collapsible content.</summary>
+        public Panel PanelContainer { get; }
+
+        /// <summary>Gets or sets the header text shown above the content.</summary>
+        public string HeaderText { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets whether the panel is expanded (showing its content) or collapsed.</summary>
+        public bool IsExpanded {
+            get => _isExpanded;
+            set {
+                if (_isExpanded == value)
+                    return;
+                if (value)
+                    Expand ();
+                else
+                    Collapse ();
+            }
+        }
+
+        /// <summary>Gets or sets whether expand/collapse is animated. Stub (no animation is performed).</summary>
+        public bool EnableAnimation { get; set; } = true;
+
+        /// <summary>Raised after the panel expands.</summary>
+        public event EventHandler? Expanded;
+        /// <summary>Raised after the panel collapses.</summary>
+        public event EventHandler? Collapsed;
+
+        /// <summary>Expands the panel, showing its content.</summary>
+        public void Expand ()
+        {
+            _isExpanded = true;
+            PanelContainer.Visible = true;
+            Expanded?.Invoke (this, EventArgs.Empty);
+        }
+
+        /// <summary>Collapses the panel, hiding its content.</summary>
+        public void Collapse ()
+        {
+            _isExpanded = false;
+            PanelContainer.Visible = false;
+            Collapsed?.Invoke (this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>Telerik-compat scrollable panel. Backed by <see cref="Majorsilence.Forms.Panel"/>; hosts a single filling <see cref="RadScrollablePanelContainer"/>.</summary>
+    public class RadScrollablePanel : Panel
+    {
+        /// <summary>Initializes a new instance of the RadScrollablePanel class.</summary>
+        public RadScrollablePanel ()
+        {
+            PanelContainer = new RadScrollablePanelContainer { Dock = DockStyle.Fill };
+            Controls.Add (PanelContainer);
+        }
+
+        /// <summary>Gets the panel hosting the scrollable content.</summary>
+        public RadScrollablePanelContainer PanelContainer { get; }
+    }
+
+    /// <summary>Telerik-compat container hosted by a <see cref="RadScrollablePanel"/>. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
+    public class RadScrollablePanelContainer : Panel { }
 }

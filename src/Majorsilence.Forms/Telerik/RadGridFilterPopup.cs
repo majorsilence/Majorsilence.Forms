@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
-using Majorsilence.Forms;
 
 namespace Majorsilence.Forms.Telerik
 {
@@ -15,7 +11,7 @@ namespace Majorsilence.Forms.Telerik
     internal static class RadGridFilterPopup
     {
         // Operator entries shown in the condition combo (label, operator).
-        private static readonly (string Label, FilterOperator Op)[] Operators = {
+        private static readonly (string Label, FilterOperator Op)[] Operators = [
             ("No condition", FilterOperator.None),
             ("Contains", FilterOperator.Contains),
             ("Does not contain", FilterOperator.NotContains),
@@ -27,7 +23,7 @@ namespace Majorsilence.Forms.Telerik
             ("Less than", FilterOperator.IsLessThan),
             ("Is empty", FilterOperator.IsNull),
             ("Is not empty", FilterOperator.IsNotNull),
-        };
+        ];
 
         private const string BlanksLabel = "(Blanks)";
         private const int MaxChecklistValues = 14;

@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Drawing;
-using Majorsilence.Forms;
 
 namespace Majorsilence.Forms.Telerik
 {

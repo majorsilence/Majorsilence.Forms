@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Migrator;
+﻿using Majorsilence.Forms.Migrator;
 
 if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
 {
@@ -14,7 +14,7 @@ var showDiff = false;
 var backend = Backend.Avalonia;
 var referenceMode = ReferenceMode.Package;
 string? targetFramework = null;
-var packageVersion = "1.0.2";
+var packageVersion = "1.0.4";
 string? repoRoot = null;
 var strict = false;
 var noReport = false;

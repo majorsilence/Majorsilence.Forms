@@ -1,6 +1,4 @@
-using System;
-using System.Collections.Generic;
-using Majorsilence.Forms;
+using System.Drawing;
 
 namespace Majorsilence.Forms.Telerik
 {
@@ -101,5 +99,47 @@ namespace Majorsilence.Forms.Telerik
         public RadCheckedListDataItemEventArgs (RadCheckedListDataItem item) => Item = item;
         /// <summary>Gets the item whose checked state changed.</summary>
         public RadCheckedListDataItem Item { get; }
+    }
+
+    /// <summary>Specifies the drop-down editing behavior of a Telerik drop-down control. Compat for Telerik RadDropDownStyle.</summary>
+    public enum RadDropDownStyle
+    {
+        /// <summary>The text portion is editable and a drop-down list is offered.</summary>
+        DropDown = 0,
+        /// <summary>The text portion is read-only; only the drop-down list may be used.</summary>
+        DropDownList = 1
+    }
+
+    /// <summary>
+    /// Telerik-compat drop-down button: a push button that shows a menu of <see cref="RadMenuItem"/>s below
+    /// itself when clicked. Backed by <see cref="Majorsilence.Forms.Button"/>.
+    /// </summary>
+    public class RadDropDownButton : Button
+    {
+        /// <summary>Initializes a new instance of the RadDropDownButton class.</summary>
+        public RadDropDownButton () => Click += (_, _) => ShowDropDown ();
+
+        /// <summary>Gets the drop-down's menu items.</summary>
+        public List<RadMenuItem> Items { get; } = new ();
+
+        /// <summary>Gets or sets whether the drop-down arrow glyph is shown. Stub.</summary>
+        public bool ShowArrow { get; set; } = true;
+
+        /// <summary>Raised before the drop-down menu is shown, so handlers can populate <see cref="Items"/> lazily.</summary>
+        public event EventHandler? DropDownOpening;
+
+        private void ShowDropDown ()
+        {
+            DropDownOpening?.Invoke (this, EventArgs.Empty);
+
+            if (Items.Count == 0)
+                return;
+
+            var menu = new ContextMenu ();
+            foreach (var item in Items)
+                menu.Items.Add (item);
+
+            menu.Show (this, new Point (0, Height));
+        }
     }
 }

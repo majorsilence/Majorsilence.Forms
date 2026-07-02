@@ -21,13 +21,25 @@ internal static class NamespaceMap
     /// Ordered longest-first so a sub-namespace is handled before its parent prefix can clip it.
     /// </summary>
     public static readonly (string From, string To)[] NamespacePrefixes =
-    {
+    [
+        // Telerik UI for WinForms -> the Majorsilence.Forms.Telerik compat layer (src/Majorsilence.Forms/Telerik/*.cs).
+        // All of it — controls (Telerik.WinControls.UI), their enums (Telerik.WinControls.Enumerations),
+        // docking (.UI.Docking), grid data (.UI.Data / .Data), and the bare root namespace itself — collapses
+        // to the same flat target; the import-dedup pass in SourceConverter removes the resulting duplicate
+        // `using`. Listed longest-first (an entry must precede any entry that is its dotted extension), with
+        // the bare `Telerik.WinControls` last so it never clips a more specific sub-namespace first.
+        ("Telerik.WinControls.UI.Docking", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinControls.UI.Data", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinControls.Enumerations", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinControls.UI", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinControls.Data", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinControls", "Majorsilence.Forms.Telerik"),
         ("System.Drawing.Drawing2D", "Majorsilence.Drawing.Drawing2D"),
         ("System.Drawing.Imaging", "Majorsilence.Drawing.Imaging"),
         ("System.Drawing.Text", "Majorsilence.Drawing.Text"),
         ("System.Drawing.Printing", "Majorsilence.Forms.Printing"),
         ("System.Windows.Forms", "Majorsilence.Forms"),
-    };
+    ];
 
     /// <summary>
     /// <c>System.Drawing</c> primitive value types that Majorsilence.Forms keeps verbatim. A
@@ -61,10 +73,32 @@ internal static class NamespaceMap
     /// untouched rather than being rewritten into something that does not exist.
     /// </summary>
     public static readonly string[] UnsupportedNamespaces =
-    {
+    [
         "System.Windows.Forms.VisualStyles",
         "System.Drawing.Design",
         "System.ComponentModel.Design",
+        "Telerik.WinControls.Themes",
+        "Telerik.WinControls.UI.Export",
+        "Telerik.WinControls.Design",
+        "Telerik.WinControls.Primitives",
+        "Telerik.WinControls.Layouts",
+    ];
+
+    /// <summary>The <c>Telerik.WinControls.UI</c> namespace, used to qualify the leaf names in <see cref="UnmappedTelerikTypes"/>.</summary>
+    public const string TelerikUiNamespace = "Telerik.WinControls.UI";
+
+    /// <summary>
+    /// Telerik types with no Majorsilence.Forms.Telerik equivalent — deliberately unimplemented heavyweights
+    /// (PDF, rich text, spell check, scheduler data layer, printing, ribbon). A reference to one of these is
+    /// left unrewritten rather than being pointed at a type that doesn't exist; see Pass 5b in
+    /// <see cref="SourceConverter"/>.
+    /// </summary>
+    public static readonly HashSet<string> UnmappedTelerikTypes = new(StringComparer.Ordinal)
+    {
+        "RadPdfViewer", "RadPdfViewerNavigator", "FixedDocumentViewerMode", "ReadingMode",
+        "RadRichTextEditor", "RichTextEditorRibbonBar", "RichTextEditorRibbonUI", "RadSpellChecker",
+        "SchedulerBindingDataSource", "AppointmentMappingInfo", "ResourceMappingInfo", "SchedulerDailyPrintStyle",
+        "RadPrintDocument", "RadPrintWatermark", "RadDesktopAlert", "RadRibbonBarElement", "RibbonTab", "RibbonLayout",
     };
 
     /// <summary>

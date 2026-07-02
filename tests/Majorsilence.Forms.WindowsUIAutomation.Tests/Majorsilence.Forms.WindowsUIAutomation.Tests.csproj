@@ -29,7 +29,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="xunit.v3" />
-    <Reference Include="UIAutomationTypes" />
+    <!-- No explicit <Reference Include="UIAutomationTypes" /> here: the ProjectReference below already
+         pulls in UseWPF's Microsoft.WindowsDesktop.App.WPF framework reference (which supplies
+         UIAutomationTypes/System.Windows.Automation) transitively. Adding an explicit Reference resolves
+         a second, differently-versioned copy and triggers MSB3243/MSB3245 — see the same note in
+         Majorsilence.Forms.WindowsUIAutomation.csproj. -->
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.WindowsUIAutomation\Majorsilence.Forms.WindowsUIAutomation.csproj" />

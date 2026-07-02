@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Drawing;
-using Majorsilence.Forms;
 
 namespace Majorsilence.Forms.Telerik
 {
@@ -51,6 +48,8 @@ namespace Majorsilence.Forms.Telerik
         public DockState DockState { get; set; } = DockState.Docked;
         /// <summary>Gets the previous dock state.</summary>
         public DockState PreviousDockState { get; set; } = DockState.Docked;
+        /// <summary>Gets or sets which dock states this window may transition to. Stub.</summary>
+        public AllowedDockState AllowedDockState { get; set; } = AllowedDockState.All;
         /// <summary>Closes the window (hides it).</summary>
         public void Close () => Visible = false;
         /// <summary>Closes and disposes the window.</summary>
@@ -67,8 +66,8 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets the caption.</summary>
         public string Caption { get; set; } = string.Empty;
-        /// <summary>Gets or sets which caption buttons are shown. Stub.</summary>
-        public object? ToolCaptionButtons { get; set; }
+        /// <summary>Gets or sets which caption buttons are shown. Defaults to all.</summary>
+        public ToolStripCaptionButtons ToolCaptionButtons { get; set; } = ToolStripCaptionButtons.All;
         /// <summary>Gets or sets the auto-hide size. Stub.</summary>
         public Size AutoHideSize { get; set; }
         /// <summary>Gets or sets the default floating size. Stub.</summary>
@@ -88,6 +87,37 @@ namespace Majorsilence.Forms.Telerik
         public DocumentWindow (string caption) { Text = caption; }
     }
 
+    /// <summary>
+    /// Telerik-compat auto-hide group: a set of dock windows sharing the same auto-hide tab strip.
+    /// </summary>
+    public class AutoHideGroup
+    {
+        /// <summary>Initializes an empty auto-hide group.</summary>
+        public AutoHideGroup () { }
+
+        /// <summary>Initializes an auto-hide group containing the specified windows.</summary>
+        public AutoHideGroup (params DockWindowBase[] windows) => Windows.AddRange (windows);
+
+        /// <summary>Gets the windows belonging to this group.</summary>
+        public List<DockWindowBase> Windows { get; } = new ();
+    }
+
+    /// <summary>Telerik-compat placeholder marking where a dock window sits within a saved docking layout.</summary>
+    public class DockWindowPlaceholder
+    {
+        /// <summary>Initializes a new, empty placeholder.</summary>
+        public DockWindowPlaceholder () { }
+
+        /// <summary>Initializes a placeholder for the specified window name.</summary>
+        public DockWindowPlaceholder (string dockWindowName) => DockWindowName = dockWindowName;
+
+        /// <summary>Gets or sets the name of the dock window this placeholder represents.</summary>
+        public string DockWindowName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the resolved dock window, once available.</summary>
+        public DockWindowBase? DockWindow { get; set; }
+    }
+
     /// <summary>Telerik-compat tool tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class ToolTabStrip : Panel
     {
@@ -97,6 +127,8 @@ namespace Majorsilence.Forms.Telerik
         public SplitPanelSizeInfo SizeInfo { get; } = new SplitPanelSizeInfo ();
         /// <summary>Gets or sets the splitter width. Stub.</summary>
         public int SplitterWidth { get; set; } = 4;
+        /// <summary>Returns the strip element tree child at the given index (stub).</summary>
+        public RadElement GetChildAt (int index) => RootElement.GetChildAt (index);
     }
 
     /// <summary>Telerik-compat document tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
@@ -108,8 +140,10 @@ namespace Majorsilence.Forms.Telerik
         public SplitPanelSizeInfo SizeInfo { get; } = new SplitPanelSizeInfo ();
         /// <summary>Gets or sets the selected tab. Stub.</summary>
         public object? SelectedTab { get; set; }
-        /// <summary>Gets or sets which document buttons show. Stub.</summary>
-        public object? DocumentButtons { get; set; }
+        /// <summary>Gets or sets which document buttons show. Defaults to all.</summary>
+        public DocumentStripButtons DocumentButtons { get; set; } = DocumentStripButtons.All;
+        /// <summary>Returns the strip element tree child at the given index (stub).</summary>
+        public RadElement GetChildAt (int index) => RootElement.GetChildAt (index);
     }
 
     /// <summary>Telerik-compat document container. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
@@ -171,5 +205,57 @@ namespace Majorsilence.Forms.Telerik
         Hide = 0,
         /// <summary>Close and dispose the window.</summary>
         CloseAndDispose = 1
+    }
+
+    /// <summary>Specifies the dock states a dock window is permitted to transition to. Compat for Telerik AllowedDockState.</summary>
+    [Flags]
+    public enum AllowedDockState
+    {
+        /// <summary>No dock state is allowed.</summary>
+        None = 0,
+        /// <summary>Docked to an edge is allowed.</summary>
+        Docked = 1,
+        /// <summary>Floating is allowed.</summary>
+        Floating = 2,
+        /// <summary>Auto-hide is allowed.</summary>
+        AutoHide = 4,
+        /// <summary>Hidden is allowed.</summary>
+        Hidden = 8,
+        /// <summary>Tabbed-document is allowed.</summary>
+        TabbedDocument = 16,
+        /// <summary>All dock states are allowed.</summary>
+        All = Docked | Floating | AutoHide | Hidden | TabbedDocument
+    }
+
+    /// <summary>Specifies which caption buttons a <see cref="ToolWindow"/> shows. Compat for Telerik.WinControls.UI.Docking.ToolStripCaptionButtons.</summary>
+    [Flags]
+    public enum ToolStripCaptionButtons
+    {
+        /// <summary>No buttons.</summary>
+        None = 0,
+        /// <summary>The close button.</summary>
+        Close = 1,
+        /// <summary>The auto-hide (pin) button.</summary>
+        AutoHide = 2,
+        /// <summary>The menu (options) button.</summary>
+        Menu = 4,
+        /// <summary>All buttons.</summary>
+        All = Close | AutoHide | Menu
+    }
+
+    /// <summary>Specifies which buttons a <see cref="DocumentTabStrip"/> shows. Compat for Telerik.WinControls.UI.Docking.DocumentStripButtons.</summary>
+    [Flags]
+    public enum DocumentStripButtons
+    {
+        /// <summary>No buttons.</summary>
+        None = 0,
+        /// <summary>The close button.</summary>
+        Close = 1,
+        /// <summary>The scroll buttons.</summary>
+        Scroll = 2,
+        /// <summary>The item-list (overflow) button.</summary>
+        ItemList = 4,
+        /// <summary>All buttons.</summary>
+        All = Close | Scroll | ItemList
     }
 }
