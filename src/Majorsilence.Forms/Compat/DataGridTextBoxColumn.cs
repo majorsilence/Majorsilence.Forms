@@ -1,6 +1,4 @@
-using System;
 using System.ComponentModel;
-using Majorsilence.Forms;
 
 namespace Majorsilence.Forms
 {

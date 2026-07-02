@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Majorsilence.Forms
+﻿namespace Majorsilence.Forms
 {
     /// <summary>
     ///  Provides data for the <see cref="DataGrid.Navigate"/> event.

@@ -1,5 +1,3 @@
-using Majorsilence.Forms;
-
 namespace Majorsilence.Forms
 {
     /// <summary>

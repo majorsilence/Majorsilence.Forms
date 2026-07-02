@@ -1,4 +1,3 @@
-using System;
 using System.Drawing;
 
 // Telerik WinControls compatibility layer for Majorsilence.Forms.

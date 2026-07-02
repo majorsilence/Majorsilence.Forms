@@ -32,7 +32,7 @@ internal sealed class CustomMap
         RemovePackages = removePackages;
     }
 
-    public static readonly CustomMap Empty = new(Array.Empty<(string, string)>(), Array.Empty<string>());
+    public static readonly CustomMap Empty = new([], []);
 
     private sealed class Schema
     {

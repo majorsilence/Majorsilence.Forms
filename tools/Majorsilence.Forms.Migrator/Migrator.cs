@@ -538,7 +538,7 @@ internal sealed class Migrator
             .ToList();
     }
 
-    private static readonly string[] ProjectGlobs = { "*.csproj", "*.vbproj" };
+    private static readonly string[] ProjectGlobs = ["*.csproj", "*.vbproj"];
 
     /// <summary>
     /// True when the project is a WinForms project or contains WinForms code — the test for whether to

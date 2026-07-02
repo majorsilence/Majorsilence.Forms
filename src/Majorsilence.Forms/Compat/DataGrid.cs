@@ -1,8 +1,5 @@
-using System;
 using System.ComponentModel;
 using System.Drawing;
-using System.Linq;
-using Majorsilence.Forms;
 using static Majorsilence.Forms.DataGridView;
 
 namespace Majorsilence.Forms

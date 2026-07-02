@@ -1,4 +1,3 @@
-using System;
 using System.Text.RegularExpressions;
 
 namespace Majorsilence.Forms.Migrator;
@@ -64,14 +63,14 @@ internal static partial class ResxScanner
     // the images, plus the design-time component values WinForms serialized into a form's .resx
     // (System.Data.SqlTypes scalars for a SqlCommand's parameters, and DBNull via UnitySerializationHolder).
     private static readonly string[] RecoverableTypes =
-    {
+    [
         "System.Drawing.Bitmap",
         "System.Drawing.Image",
         "System.Drawing.Icon",
         "System.Windows.Forms.ImageListStreamer",
         "System.Data.SqlTypes.",
         "System.UnitySerializationHolder",
-    };
+    ];
 
     public static Result Scan(string xml)
     {

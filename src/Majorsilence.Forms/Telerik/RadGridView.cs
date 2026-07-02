@@ -1,13 +1,8 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Xml.Linq;
-using Majorsilence.Forms;
 using Majorsilence.Forms.Renderers;
 using SkiaSharp;
 
@@ -1511,19 +1506,19 @@ namespace Majorsilence.Forms.Telerik
 
                 // Descriptors.
                 SortDescriptors.Clear ();
-                foreach (var se in root.Element ("SortDescriptors")?.Elements ("SortDescriptor") ?? Enumerable.Empty<XElement> ())
+                foreach (var se in root.Element ("SortDescriptors")?.Elements ("SortDescriptor") ?? [])
                     SortDescriptors.Add (new SortDescriptor (
                         (string?)se.Attribute ("PropertyName") ?? string.Empty,
                         ParseDirection ((string?)se.Attribute ("Direction"))));
 
                 GroupDescriptors.Clear ();
-                foreach (var ge in root.Element ("GroupDescriptors")?.Elements ("GroupDescriptor") ?? Enumerable.Empty<XElement> ())
+                foreach (var ge in root.Element ("GroupDescriptors")?.Elements ("GroupDescriptor") ?? [])
                     GroupDescriptors.Add (new GroupDescriptor (
                         (string?)ge.Attribute ("PropertyName") ?? string.Empty,
                         ParseDirection ((string?)ge.Attribute ("Direction"))));
 
                 FilterDescriptors.Clear ();
-                foreach (var fe in root.Element ("FilterDescriptors")?.Elements ("FilterDescriptor") ?? Enumerable.Empty<XElement> ()) {
+                foreach (var fe in root.Element ("FilterDescriptors")?.Elements ("FilterDescriptor") ?? []) {
                     var descriptor = new FilterDescriptor {
                         PropertyName = (string?)fe.Attribute ("PropertyName") ?? string.Empty,
                         Operator = Enum.TryParse<FilterOperator> ((string?)fe.Attribute ("Operator"), out var op) ? op : FilterOperator.None,
@@ -1832,7 +1827,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raised when a row is being formatted. Set <c>e.RowElement.BackColor</c> (with <c>DrawFill=true</c>) to color the row.</summary>
         public event EventHandler<GridViewRowFormattingEventArgs>? RowFormatting { add => _rowFormatting += value; remove => _rowFormatting -= value; }
         private EventHandler<ContextMenuOpeningEventArgs>? _contextMenuOpening;
-        private static readonly char[] anyOf = new[] { ',', '"', '\r', '\n' };
+        private static readonly char[] anyOf = [',', '"', '\r', '\n'];
 
         /// <summary>
         /// Raised on right-click before the context menu is shown. Handlers populate

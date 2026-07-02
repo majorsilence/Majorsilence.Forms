@@ -21,7 +21,7 @@ internal static class NamespaceMap
     /// Ordered longest-first so a sub-namespace is handled before its parent prefix can clip it.
     /// </summary>
     public static readonly (string From, string To)[] NamespacePrefixes =
-    {
+    [
         // Telerik UI for WinForms -> the Majorsilence.Forms.Telerik compat layer (src/Majorsilence.Forms/Telerik/*.cs).
         // All of it — controls (Telerik.WinControls.UI), their enums (Telerik.WinControls.Enumerations),
         // docking (.UI.Docking), grid data (.UI.Data / .Data), and the bare root namespace itself — collapses
@@ -39,7 +39,7 @@ internal static class NamespaceMap
         ("System.Drawing.Text", "Majorsilence.Drawing.Text"),
         ("System.Drawing.Printing", "Majorsilence.Forms.Printing"),
         ("System.Windows.Forms", "Majorsilence.Forms"),
-    };
+    ];
 
     /// <summary>
     /// <c>System.Drawing</c> primitive value types that Majorsilence.Forms keeps verbatim. A
@@ -73,7 +73,7 @@ internal static class NamespaceMap
     /// untouched rather than being rewritten into something that does not exist.
     /// </summary>
     public static readonly string[] UnsupportedNamespaces =
-    {
+    [
         "System.Windows.Forms.VisualStyles",
         "System.Drawing.Design",
         "System.ComponentModel.Design",
@@ -82,7 +82,7 @@ internal static class NamespaceMap
         "Telerik.WinControls.Design",
         "Telerik.WinControls.Primitives",
         "Telerik.WinControls.Layouts",
-    };
+    ];
 
     /// <summary>The <c>Telerik.WinControls.UI</c> namespace, used to qualify the leaf names in <see cref="UnmappedTelerikTypes"/>.</summary>
     public const string TelerikUiNamespace = "Telerik.WinControls.UI";

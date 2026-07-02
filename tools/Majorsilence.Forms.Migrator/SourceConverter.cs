@@ -328,7 +328,7 @@ internal static class SourceConverter
     {
         // Design-time attributes emitted into typed-DataSet (.xsd) designer code. Pure data-layer files
         // (System.Data), no WinForms — these compile and run as-is on modern .NET.
-        ["System.ComponentModel.Design"] = new[] { "HelpKeywordAttribute" },
+        ["System.ComponentModel.Design"] = ["HelpKeywordAttribute"],
     };
 
     // True when every reference to <paramref name="ns"/> in the file targets a known-available type, so
