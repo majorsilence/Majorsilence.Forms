@@ -1,10 +1,6 @@
-﻿using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Windows.Automation;
+﻿using System.Windows.Automation;
 using Majorsilence.Forms.Automation;
 using Majorsilence.Forms.Headless;
-using Majorsilence.Forms.WindowsUIAutomation;
 using Xunit;
 
 namespace Majorsilence.Forms.WindowsUIAutomation.Tests
@@ -53,7 +49,7 @@ namespace Majorsilence.Forms.WindowsUIAutomation.Tests
 
             var path = PathOf (root, "okButton");
             Assert.Equal ("okButton", UiaTree.Follow (root, path)?.AutomationId);
-            Assert.Null (UiaTree.Follow (root, new[] { 999 }));   // out-of-range => null
+            Assert.Null (UiaTree.Follow (root, [999]));   // out-of-range => null
         }
 
         [Fact]
@@ -78,8 +74,8 @@ namespace Majorsilence.Forms.WindowsUIAutomation.Tests
             using var form = BuildForm (out _, out _);
             var root = AutomationProvider.BuildTree (form);
 
-            var first = UiaTree.FirstChild (root, System.Array.Empty<int> ());
-            var last = UiaTree.LastChild (root, System.Array.Empty<int> ());
+            var first = UiaTree.FirstChild (root, []);
+            var last = UiaTree.LastChild (root, []);
             Assert.NotNull (first);
             Assert.NotNull (last);
             Assert.Equal (0, first![0]);
