@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using Majorsilence.Forms;
 
 namespace Majorsilence.Forms.Telerik
@@ -56,6 +57,112 @@ namespace Majorsilence.Forms.Telerik
 
     /// <summary>Telerik-compat menu separator.</summary>
     public class RadMenuSeparatorItem : MenuSeparatorItem { }
+
+    /// <summary>Base for Telerik-compat command bar items (buttons, separators, etc. hosted in a <see cref="RadCommandBar"/> strip).</summary>
+    public class RadCommandBarBaseItem : RadItem
+    {
+        /// <summary>Gets or sets the display name shown in the command bar customization UI. Stub.</summary>
+        public string DisplayName { get; set; } = string.Empty;
+        /// <summary>Gets or sets whether the item appears in the "more items" overflow menu. Stub.</summary>
+        public bool VisibleInOverflowMenu { get; set; } = true;
+    }
+
+    /// <summary>Telerik-compat command-bar button.</summary>
+    public class CommandBarButton : RadCommandBarBaseItem
+    {
+        /// <summary>Initializes a new instance of the CommandBarButton class.</summary>
+        public CommandBarButton () { }
+        /// <summary>Initializes a new instance of the CommandBarButton class with the specified text.</summary>
+        public CommandBarButton (string text) => Text = text;
+
+        /// <summary>Gets or sets the button image.</summary>
+        public Majorsilence.Drawing.Image? Image { get; set; }
+        /// <summary>Gets or sets whether the button's text is drawn. Stub.</summary>
+        public bool DrawText { get; set; } = true;
+    }
+
+    /// <summary>
+    /// Telerik-compat context menu. Backs <see cref="ContextMenuOpeningEventArgs"/>'s
+    /// <c>ContextMenu</c> property and is settable on any control via
+    /// <see cref="RadContextMenuManager"/>. <see cref="Show(Control, Point)"/> builds and shows a real
+    /// <see cref="Majorsilence.Forms.ContextMenu"/> from <see cref="Items"/>, the same way
+    /// <c>RadGridView.OnClick</c> builds its context menu.
+    /// </summary>
+    public class RadContextMenu
+    {
+        /// <summary>Gets the menu items. Populate with <see cref="RadMenuItem"/>s (or other <see cref="Majorsilence.Forms.MenuItem"/>s).</summary>
+        public List<object> Items { get; } = new ();
+
+        /// <summary>Raised before the menu is shown, so handlers can populate <see cref="Items"/> lazily.</summary>
+        public event EventHandler? DropDownOpening;
+
+        /// <summary>Raises <see cref="DropDownOpening"/>, builds a menu from <see cref="Items"/>, and shows it relative to the specified control.</summary>
+        public void Show (Control control, Point location)
+        {
+            DropDownOpening?.Invoke (this, EventArgs.Empty);
+
+            if (Items.Count == 0)
+                return;
+
+            var menu = new ContextMenu ();
+            foreach (var item in Items)
+                if (item is MenuItem menuItem)
+                    menu.Items.Add (menuItem);
+
+            if (menu.Items.Count > 0)
+                menu.Show (control, location);
+        }
+
+        /// <summary>Raises <see cref="DropDownOpening"/>, builds a menu from <see cref="Items"/>, and shows it at the specified screen coordinates.</summary>
+        public void Show (int x, int y)
+        {
+            DropDownOpening?.Invoke (this, EventArgs.Empty);
+
+            if (Items.Count == 0)
+                return;
+
+            var menu = new ContextMenu ();
+            foreach (var item in Items)
+                if (item is MenuItem menuItem)
+                    menu.Items.Add (menuItem);
+
+            if (menu.Items.Count > 0)
+                menu.Show (x, y);
+        }
+    }
+
+    /// <summary>
+    /// Telerik-compat static manager associating a <see cref="RadContextMenu"/> with a control, mirroring
+    /// <c>RadContextMenuManager.SetRadContextMenu</c>/<c>GetRadContextMenu</c>. Hooks the control's
+    /// right mouse button up to show the associated menu.
+    /// </summary>
+    public static class RadContextMenuManager
+    {
+        // Each entry keeps the menu alongside the exact hooked delegate instance, so a later Set(control, null)
+        // (or replacing the menu) can unhook the correct handler (delegate -= requires the same instance).
+        private static readonly Dictionary<Control, (RadContextMenu Menu, EventHandler<MouseEventArgs> Handler)> _menus = new ();
+
+        /// <summary>Associates the specified <see cref="RadContextMenu"/> with a control (null clears the association).</summary>
+        public static void SetRadContextMenu (Control control, RadContextMenu? menu)
+        {
+            if (_menus.Remove (control, out var existing))
+                control.MouseUp -= existing.Handler;
+
+            if (menu is null)
+                return;
+
+            EventHandler<MouseEventArgs> handler = (_, e) => {
+                if (e.Button == MouseButtons.Right)
+                    menu.Show (control, e.Location);
+            };
+
+            _menus[control] = (menu, handler);
+            control.MouseUp += handler;
+        }
+
+        /// <summary>Gets the <see cref="RadContextMenu"/> associated with the control, or null.</summary>
+        public static RadContextMenu? GetRadContextMenu (Control control) => _menus.TryGetValue (control, out var entry) ? entry.Menu : null;
+    }
 
     /// <summary>Telerik-compat property grid. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
     public class RadPropertyGrid : PropertyGrid

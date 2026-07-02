@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -393,6 +394,90 @@ namespace Majorsilence.Forms.Telerik
             foreach (var item in items)
                 Add (item);
         }
+    }
+
+    /// <summary>Specifies the sort order of a grid column. Compat for Telerik <c>RadSortOrder</c>.</summary>
+    public enum RadSortOrder
+    {
+        /// <summary>Not sorted.</summary>
+        None = 0,
+        /// <summary>Ascending order.</summary>
+        Ascending = 1,
+        /// <summary>Descending order.</summary>
+        Descending = 2
+    }
+
+    /// <summary>Specifies how a grid row enters edit mode. Compat for Telerik <c>GridViewEditModes</c> / begin-edit mode.</summary>
+    public enum RadGridViewBeginEditMode
+    {
+        /// <summary>Edit mode begins only when requested programmatically.</summary>
+        BeginEditProgrammatically = 0,
+        /// <summary>Edit mode begins on a single click.</summary>
+        BeginEditOnSingleClick = 1,
+        /// <summary>Edit mode begins on a double click.</summary>
+        BeginEditOnDoubleClick = 2,
+        /// <summary>Edit mode begins as soon as the cell is selected.</summary>
+        BeginEditOnKeyPressOrSelectFirstChar = 3
+    }
+
+    /// <summary>Specifies how a RadGridView is split into panes. Compat for Telerik <c>RadGridViewSplitMode</c>.</summary>
+    public enum RadGridViewSplitMode
+    {
+        /// <summary>No split.</summary>
+        None = 0,
+        /// <summary>Split into a vertical pair of panes (side-by-side).</summary>
+        Vertical = 1,
+        /// <summary>Split into a horizontal pair of panes (stacked).</summary>
+        Horizontal = 2
+    }
+
+    /// <summary>Specifies whether copy/paste is allowed. Compat for Telerik <c>CopyPasteMode</c>.</summary>
+    [Flags]
+    public enum CopyPasteMode
+    {
+        /// <summary>Copy/paste is disallowed entirely.</summary>
+        Disallow = 0,
+        /// <summary>Copying is allowed.</summary>
+        Copy = 1,
+        /// <summary>Pasting is allowed.</summary>
+        Paste = 2,
+        /// <summary>Both copying and pasting are allowed, including header text in the copied content.</summary>
+        CopyHeaderText = 4,
+        /// <summary>Both copying and pasting are allowed.</summary>
+        All = Copy | Paste
+    }
+
+    /// <summary>
+    /// Telerik-compat enum-to-combo binder. Mirrors <c>Telerik.WinControls.UI.Data.EnumBinder</c>: assigned
+    /// to a combo column's <c>DataSource</c> (via <see cref="Target"/>) after setting <see cref="Source"/>
+    /// to the enum <see cref="Type"/>, producing the enum's named values as selectable items.
+    /// </summary>
+    public class EnumBinder : Component
+    {
+        /// <summary>Initializes a new instance of the EnumBinder class.</summary>
+        public EnumBinder () { }
+
+        /// <summary>Initializes a new instance of the EnumBinder class and adds it to the specified container.</summary>
+        public EnumBinder (IContainer container) => container.Add (this);
+
+        /// <summary>Gets or sets the enum <see cref="Type"/> whose named values are exposed as items.</summary>
+        public Type? Source { get; set; }
+
+        /// <summary>Gets or sets the column (or other data-bindable target) this binder feeds. Designer-shape alias; not itself resolved.</summary>
+        public object? Target { get; set; }
+
+        /// <summary>Gets the enum values of <see cref="Source"/> as a list, suitable for combo-column binding. Empty when <see cref="Source"/> is not an enum type.</summary>
+        public IList Values => Source is { IsEnum: true } ? Enum.GetValues (Source) : Array.Empty<object> ();
+    }
+
+    /// <summary>Provides data for a Telerik grid position-changed event (e.g. paging).</summary>
+    public class PositionChangedEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance with the specified position.</summary>
+        public PositionChangedEventArgs (int position) => Position = position;
+
+        /// <summary>Gets the new position.</summary>
+        public int Position { get; }
     }
 
     /// <summary>

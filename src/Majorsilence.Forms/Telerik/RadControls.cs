@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using Majorsilence.Forms;
 
@@ -192,9 +193,31 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Stops the waiting animation.</summary>
         public void StopWaiting () => IsWaiting = false;
 
-        /// <summary>Returns the child element at the given index (stub).</summary>
-        public RadElement GetChildAt (int index) => new RadElement ();
+        /// <summary>Gets the waiting bar's element tree root (stub).</summary>
+        public RadWaitingBarElement WaitingBarElement { get; } = new RadWaitingBarElement ();
+
+        /// <summary>Returns the child element at the given index. Index 0 is <see cref="WaitingBarElement"/> (stub).</summary>
+        public RadElement GetChildAt (int index) => index == 0 ? WaitingBarElement : new RadElement ();
     }
+
+    /// <summary>Telerik-compat root element of a <see cref="RadWaitingBar"/>'s element tree. Designer-only stub.</summary>
+    public class RadWaitingBarElement : VisualElement
+    {
+        /// <summary>Gets the content element hosting the waiting indicators.</summary>
+        public WaitingBarContentElement ContentElement { get; } = new WaitingBarContentElement ();
+    }
+
+    /// <summary>Telerik-compat waiting-bar content element (hosts the indicator/separator elements). Designer-only stub.</summary>
+    public class WaitingBarContentElement : VisualElement { }
+
+    /// <summary>Telerik-compat waiting-bar separator element. Designer-only stub.</summary>
+    public class WaitingBarSeparatorElement : VisualElement { }
+
+    /// <summary>Telerik-compat "dots" waiting-bar indicator element. Designer-only stub.</summary>
+    public class DotsSpinnerWaitingBarIndicatorElement : VisualElement { }
+
+    /// <summary>Telerik-compat "segmented ring" waiting-bar indicator element. Designer-only stub.</summary>
+    public class SegmentedRingWaitingBarIndicatorElement : VisualElement { }
 
     /// <summary>Telerik-compat list control. Backed by <see cref="Majorsilence.Forms.ListBox"/>.</summary>
     public class RadListControl : ListBox { }
@@ -246,5 +269,187 @@ namespace Majorsilence.Forms.Telerik
         public StateChangedEventArgs (ToggleState toggleState) => ToggleState = toggleState;
         /// <summary>Gets the new toggle state.</summary>
         public ToggleState ToggleState { get; }
+    }
+
+    /// <summary>
+    /// Telerik-compat tree view. Backed by <see cref="Majorsilence.Forms.TreeView"/>, which already supplies
+    /// <c>Nodes</c>/<c>SelectedNode</c>/<c>GetNodeAt</c>/<c>CheckBoxes</c> as WinForms-compat aliases; this
+    /// type layers the Telerik-specific data-binding members, node type (<see cref="RadTreeNode"/>), and
+    /// formatting/check events on top.
+    /// </summary>
+    public class RadTreeView : Majorsilence.Forms.TreeView
+    {
+        /// <summary>Gets or sets the theme name. No-op stub.</summary>
+        public string ThemeName { get; set; } = string.Empty;
+        /// <summary>Gets the root element of the control (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
+
+        /// <summary>Gets or sets the data source used for hierarchical (self-referencing) data binding. Stub (binding is not performed; add <see cref="RadTreeNode"/>s to <see cref="Nodes"/> directly).</summary>
+        public object? DataSource { get; set; }
+        /// <summary>Gets or sets the member supplying each node's display text, when data-bound. Stub.</summary>
+        public string DisplayMember { get; set; } = string.Empty;
+        /// <summary>Gets or sets the member supplying each node's own key, when data-bound. Stub.</summary>
+        public string ChildMember { get; set; } = string.Empty;
+        /// <summary>Gets or sets the member supplying each node's value, when data-bound. Stub.</summary>
+        public string ValueMember { get; set; } = string.Empty;
+        /// <summary>Gets or sets the member supplying each node's parent key, when data-bound. Stub.</summary>
+        public string ParentMember { get; set; } = string.Empty;
+
+        /// <summary>Gets the root-level nodes, typed as <see cref="RadTreeNode"/> (Telerik alias for <see cref="Majorsilence.Forms.TreeView.Nodes"/>).</summary>
+        public new RadTreeNodeCollection Nodes => new RadTreeNodeCollection (base.Nodes);
+
+        /// <summary>Gets or sets the selected node, typed as <see cref="RadTreeNode"/>.</summary>
+        public new RadTreeNode? SelectedNode {
+            get => base.SelectedNode as RadTreeNode;
+            set => base.SelectedNode = value;
+        }
+
+        /// <summary>Returns all nodes (at any depth) matching the specified predicate.</summary>
+        public RadTreeNode[] FindNodes (Predicate<RadTreeNode> match)
+        {
+            var result = new List<RadTreeNode> ();
+            void Visit (System.Collections.Generic.IEnumerable<TreeViewItem> items)
+            {
+                foreach (var item in items) {
+                    if (item is RadTreeNode node && match (node))
+                        result.Add (node);
+                    Visit (item.Items);
+                }
+            }
+            Visit (base.Nodes);
+            return result.ToArray ();
+        }
+
+        /// <summary>Raised when a node is being formatted. Set element appearance from <c>e.Node</c>/<c>e.VisualElement</c>.</summary>
+        public event EventHandler<TreeNodeFormattingEventArgs>? NodeFormatting;
+
+        /// <summary>Raised after a node's checked state changes.</summary>
+        public event EventHandler<TreeNodeCheckedEventArgs>? NodeCheckedChanged;
+
+        /// <summary>Raised before a node's checked state changes. Set <c>e.Cancel</c> to veto.</summary>
+        public event EventHandler<RadTreeViewCancelEventArgs>? NodeCheckedChanging;
+
+        /// <summary>Raises <see cref="NodeFormatting"/> for the specified node.</summary>
+        protected internal virtual void OnNodeFormatting (TreeNodeFormattingEventArgs e) => NodeFormatting?.Invoke (this, e);
+
+        /// <summary>Raises <see cref="NodeCheckedChanging"/> for the specified node. Returns true if the change should proceed (was not cancelled).</summary>
+        protected internal virtual bool OnNodeCheckedChanging (RadTreeNode node)
+        {
+            var e = new RadTreeViewCancelEventArgs (node);
+            NodeCheckedChanging?.Invoke (this, e);
+            return !e.Cancel;
+        }
+
+        /// <summary>Raises <see cref="NodeCheckedChanged"/> for the specified node.</summary>
+        protected internal virtual void OnNodeCheckedChanged (RadTreeNode node) => NodeCheckedChanged?.Invoke (this, new TreeNodeCheckedEventArgs (node));
+    }
+
+    /// <summary>Telerik-compat tree node. Backed by <see cref="Majorsilence.Forms.TreeNode"/>.</summary>
+    public class RadTreeNode : Majorsilence.Forms.TreeNode
+    {
+        /// <summary>Initializes a new instance of the RadTreeNode class.</summary>
+        public RadTreeNode () { }
+        /// <summary>Initializes a new instance of the RadTreeNode class with the specified text.</summary>
+        public RadTreeNode (string text) : base (text) { }
+
+        /// <summary>Gets or sets the value associated with this node (from data binding, or set directly).</summary>
+        public object? Value { get; set; }
+
+        /// <summary>Gets the parent node, typed as <see cref="RadTreeNode"/> (or null for a root-level or detached node).</summary>
+        public new RadTreeNode? Parent => base.Parent as RadTreeNode;
+
+        /// <summary>Gets the child nodes, typed as <see cref="RadTreeNode"/> (Telerik alias for <see cref="Majorsilence.Forms.TreeViewItem.Nodes"/>).</summary>
+        public new RadTreeNodeCollection Nodes => new RadTreeNodeCollection (base.Nodes);
+    }
+
+    /// <summary>
+    /// Telerik-compat typed view over a <see cref="TreeViewItemCollection"/>, yielding/adding <see cref="RadTreeNode"/>s.
+    /// </summary>
+    public class RadTreeNodeCollection : System.Collections.Generic.IEnumerable<RadTreeNode>
+    {
+        private readonly TreeViewItemCollection _items;
+
+        internal RadTreeNodeCollection (TreeViewItemCollection items) => _items = items;
+
+        /// <summary>Gets the number of nodes in the collection.</summary>
+        public int Count => _items.Count;
+
+        /// <summary>Gets the node at the specified index, typed as <see cref="RadTreeNode"/> (or null if the item at that index isn't one).</summary>
+        public RadTreeNode? this[int index] => _items[index] as RadTreeNode;
+
+        /// <summary>Adds the specified node.</summary>
+        public RadTreeNode Add (RadTreeNode node) { _items.Add (node); return node; }
+
+        /// <summary>Adds a new node with the specified text.</summary>
+        public RadTreeNode Add (string text) { var node = new RadTreeNode (text); _items.Add (node); return node; }
+
+        /// <summary>Removes all nodes.</summary>
+        public void Clear () => _items.Clear ();
+
+        /// <inheritdoc/>
+        public System.Collections.Generic.IEnumerator<RadTreeNode> GetEnumerator ()
+        {
+            foreach (var item in _items)
+                if (item is RadTreeNode node)
+                    yield return node;
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () => GetEnumerator ();
+    }
+
+    /// <summary>Provides data for the <see cref="RadTreeView.NodeFormatting"/> event.</summary>
+    public class TreeNodeFormattingEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance for the specified node.</summary>
+        public TreeNodeFormattingEventArgs (RadTreeNode node) => Node = node;
+        /// <summary>Gets the node being formatted.</summary>
+        public RadTreeNode Node { get; }
+        /// <summary>Gets the visual element for the node (stub).</summary>
+        public RadItem VisualElement { get; } = new RadLabelElement ();
+    }
+
+    /// <summary>Provides data for a Telerik tree-view checked-state-changed event.</summary>
+    public class TreeNodeCheckedEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance for the specified node.</summary>
+        public TreeNodeCheckedEventArgs (RadTreeNode node) => Node = node;
+        /// <summary>Gets the node whose checked state changed.</summary>
+        public RadTreeNode Node { get; }
+    }
+
+    /// <summary>Provides data for a general (non-cancelable) Telerik tree-view event.</summary>
+    public class RadTreeViewEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance for the specified node.</summary>
+        public RadTreeViewEventArgs (RadTreeNode node) => Node = node;
+        /// <summary>Gets the affected node.</summary>
+        public RadTreeNode Node { get; }
+    }
+
+    /// <summary>Provides data for a cancelable Telerik tree-view event (e.g. NodeCheckedChanging).</summary>
+    public class RadTreeViewCancelEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        /// <summary>Initializes a new instance for the specified node.</summary>
+        public RadTreeViewCancelEventArgs (RadTreeNode node) => Node = node;
+        /// <summary>Gets the affected node.</summary>
+        public RadTreeNode Node { get; }
+    }
+
+    /// <summary>Telerik-compat calendar. Backed by <see cref="Majorsilence.Forms.MonthCalendar"/>.</summary>
+    public class RadCalendar : MonthCalendar
+    {
+        /// <summary>Gets or sets the theme name. No-op stub.</summary>
+        public string ThemeName { get; set; } = string.Empty;
+        /// <summary>Gets the root element of the control (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
+    }
+
+    /// <summary>Telerik-compat time picker. Backed by <see cref="Majorsilence.Forms.TimePicker"/>.</summary>
+    public class RadTimePicker : TimePicker
+    {
+        /// <summary>Gets or sets the theme name. No-op stub.</summary>
+        public string ThemeName { get; set; } = string.Empty;
+        /// <summary>Gets the root element of the control (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
     }
 }

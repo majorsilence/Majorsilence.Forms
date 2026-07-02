@@ -46,12 +46,27 @@ namespace Majorsilence.Forms.Telerik
         public ContentAlignment TextAlignment { get; set; } = ContentAlignment.MiddleLeft;
         /// <summary>Gets or sets the row index of the cell.</summary>
         public int RowIndex { get; set; }
+        /// <summary>Gets or sets the column index of the cell.</summary>
+        public int ColumnIndex { get; set; } = -1;
         /// <summary>Gets or sets the owning column info.</summary>
         public DataGridViewColumn? ColumnInfo { get; set; }
         /// <summary>Gets or sets the owning row info.</summary>
         public GridViewRowInfo? RowInfo { get; set; }
         /// <summary>Gets the cell style.</summary>
         public RadCellStyle Style { get; } = new RadCellStyle ();
+    }
+
+    /// <summary>Telerik-compat cell visual element for a data (non-command, non-date) cell.</summary>
+    public class GridCellElement : GridViewCellElement { }
+
+    /// <summary>Telerik-compat cell visual element for a <see cref="GridViewDateTimeColumn"/> cell.</summary>
+    public class GridDateTimeCellElement : GridCellElement { }
+
+    /// <summary>Telerik-compat cell visual element for a command (button) column cell.</summary>
+    public class GridCommandCellElement : GridCellElement
+    {
+        /// <summary>Gets the button element hosted by this command cell.</summary>
+        public RadButtonElement CommandButton { get; } = new RadButtonElement ();
     }
 
     /// <summary>Telerik-compat row visual element, exposed by the RowFormatting event.</summary>
@@ -69,6 +84,19 @@ namespace Majorsilence.Forms.Telerik
         public object? GradientStyle { get; set; }
         /// <summary>Gets or sets the font.</summary>
         public Majorsilence.Drawing.Font? Font { get; set; }
+        /// <summary>Gets or sets the table element that owns this row (the grid's shared <see cref="GridTableElement"/>).</summary>
+        public GridTableElement? TableElement { get; set; }
+    }
+
+    /// <summary>Telerik-compat table (view) visual element shared by all rows of a <see cref="RadGridView"/>.</summary>
+    public class GridTableElement : RadElement
+    {
+        /// <summary>Gets or sets the color used for alternating row striping. Stub.</summary>
+        public Color AlternatingRowColor { get; set; } = Color.Empty;
+        /// <summary>Gets or sets the row height. Stub.</summary>
+        public int RowHeight { get; set; }
+        /// <summary>Gets the owning view element (the grid's root element).</summary>
+        public RadElement? ViewElement { get; set; }
     }
 
     /// <summary>Provides data for Telerik grid cell events (CellClick, CellDoubleClick, etc.).</summary>
@@ -90,8 +118,13 @@ namespace Majorsilence.Forms.Telerik
         public Rectangle CellBounds { get; set; }
     }
 
-    /// <summary>Provides data for the Telerik grid CellFormatting / ViewCellFormatting events.</summary>
-    public class GridViewCellFormattingEventArgs : EventArgs
+    /// <summary>
+    /// Provides data for the Telerik grid CellFormatting / ViewCellFormatting events. This is the base
+    /// class also used by the real Telerik <c>CellFormattingEventArgs</c> name; <see cref="GridViewCellFormattingEventArgs"/>
+    /// is an empty subclass kept for the <c>RadGridView.CellFormatting</c> event's original type, so
+    /// handlers written against either name bind (VB <c>AddressOf</c> widening is legal under Option Strict On).
+    /// </summary>
+    public class CellFormattingEventArgs : EventArgs
     {
         /// <summary>Gets or sets the cell element being formatted.</summary>
         public GridViewCellElement CellElement { get; set; } = new GridViewCellElement ();
@@ -107,8 +140,16 @@ namespace Majorsilence.Forms.Telerik
         public object? Value { get; set; }
     }
 
-    /// <summary>Provides data for the Telerik grid RowFormatting event.</summary>
-    public class GridViewRowFormattingEventArgs : EventArgs
+    /// <summary>Provides data for the Telerik grid CellFormatting / ViewCellFormatting events (the type <see cref="RadGridView.CellFormatting"/> is declared with).</summary>
+    public class GridViewCellFormattingEventArgs : CellFormattingEventArgs { }
+
+    /// <summary>
+    /// Provides data for the Telerik grid RowFormatting event. This is the base class also used by the
+    /// real Telerik <c>RowFormattingEventArgs</c> name; <see cref="GridViewRowFormattingEventArgs"/> is an
+    /// empty subclass kept for the <c>RadGridView.RowFormatting</c> event's original type, so handlers
+    /// written against either name bind (VB <c>AddressOf</c> widening is legal under Option Strict On).
+    /// </summary>
+    public class RowFormattingEventArgs : EventArgs
     {
         /// <summary>Gets or sets the row element being formatted.</summary>
         public GridViewRowElement RowElement { get; set; } = new GridViewRowElement ();
@@ -118,6 +159,50 @@ namespace Majorsilence.Forms.Telerik
         public object? Value { get; set; }
         /// <summary>Gets or sets the cell element, if applicable.</summary>
         public GridViewCellElement? CellElement { get; set; }
+    }
+
+    /// <summary>Provides data for the Telerik grid RowFormatting event (the type <see cref="RadGridView.RowFormatting"/> is declared with).</summary>
+    public class GridViewRowFormattingEventArgs : RowFormattingEventArgs { }
+
+    /// <summary>Provides data for the Telerik grid CurrentRowChanged event.</summary>
+    public class CurrentRowChangedEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance.</summary>
+        public CurrentRowChangedEventArgs (GridViewRowInfo? oldRow, GridViewRowInfo? currentRow)
+        {
+            OldRow = oldRow;
+            CurrentRow = currentRow;
+        }
+
+        /// <summary>Gets the previously current row, or null.</summary>
+        public GridViewRowInfo? OldRow { get; }
+        /// <summary>Gets the newly current row, or null.</summary>
+        public GridViewRowInfo? CurrentRow { get; }
+    }
+
+    /// <summary>Provides data for the Telerik grid CurrentColumnChanged event.</summary>
+    public class CurrentColumnChangedEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance.</summary>
+        public CurrentColumnChangedEventArgs (DataGridViewColumn? oldColumn, DataGridViewColumn? newColumn)
+        {
+            OldColumn = oldColumn;
+            NewColumn = newColumn;
+        }
+
+        /// <summary>Gets the previously current column, or null.</summary>
+        public DataGridViewColumn? OldColumn { get; }
+        /// <summary>Gets the newly current column, or null.</summary>
+        public DataGridViewColumn? NewColumn { get; }
+    }
+
+    /// <summary>Provides data for the Telerik grid ValueChanging event.</summary>
+    public class ValueChangingEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        /// <summary>Gets or sets the previous cell value.</summary>
+        public object? OldValue { get; set; }
+        /// <summary>Gets or sets the new (proposed) cell value.</summary>
+        public object? NewValue { get; set; }
     }
 
     /// <summary>Provides data for the Telerik grid CellValidating event.</summary>
@@ -182,17 +267,17 @@ namespace Majorsilence.Forms.Telerik
     public class ContextMenuOpeningEventArgs : EventArgs
     {
         /// <summary>Gets the context menu being opened.</summary>
-        public RadContextMenuStub ContextMenu { get; } = new RadContextMenuStub ();
+        public RadContextMenu ContextMenu { get; } = new RadContextMenu ();
         /// <summary>Gets or sets the provider element that triggered the menu.</summary>
         public RadElement? ContextMenuProvider { get; set; }
         /// <summary>Gets or sets the row element under the cursor.</summary>
         public GridViewRowElement? RowElement { get; set; }
     }
 
-    /// <summary>Minimal Telerik-compat context menu used by <see cref="ContextMenuOpeningEventArgs"/>.</summary>
-    public class RadContextMenuStub
-    {
-        /// <summary>Gets the menu items.</summary>
-        public List<object> Items { get; } = new ();
-    }
+    /// <summary>
+    /// Obsolete alias kept for source compatibility with earlier versions of this compat layer.
+    /// The type has been promoted (and renamed) to <see cref="RadContextMenu"/> in RadMisc.cs.
+    /// </summary>
+    [Obsolete ("Use RadContextMenu instead.")]
+    public class RadContextMenuStub : RadContextMenu { }
 }
