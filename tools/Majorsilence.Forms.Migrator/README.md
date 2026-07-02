@@ -131,7 +131,6 @@ Bring third-party controls across with a JSON map (layered on the built-in rules
 ```json
 {
   "namespaces": {
-    "Telerik.WinControls.UI": "Majorsilence.Forms.Telerik",
     "DevExpress.XtraEditors":  "Majorsilence.Forms.DevExpress"
   },
   "removePackages": [ "Acme.WinForms.*" ]
@@ -140,6 +139,15 @@ Bring third-party controls across with a JSON map (layered on the built-in rules
 
 `removePackages` is an optional list of extra WinForms-only package-id globs to drop (on top of the
 built-in Telerik/DevExpress/Infragistics/ComponentOne/Syncfusion patterns).
+
+> **Telerik is already built in** — all of `Telerik.WinControls`, `.UI`, `.UI.Docking`, `.UI.Data`,
+> `.Data`, and `.Enumerations` map to `Majorsilence.Forms.Telerik` out of the box (see Source files
+> above), including the guards that leave unsupported namespaces (`.Themes`, `.UI.Export`, `.Design`,
+> `.Primitives`, `.Layouts`) and unmapped heavyweight types (`RadPdfViewer`, `RadRichTextEditor`, …)
+> unrewritten with a warning instead of pointing them at a namespace that doesn't exist. **Remove any
+> `Telerik.*` entry from your `--map` file** — custom-map rewrites (Pass 1a) have no such guards, so a
+> leftover Telerik entry will blindly clobber the deliberately-unrewritten heavyweight references the
+> built-in rules are protecting.
 
 ```
 majorsilence-migrate ./LegacyApp --map telerik.json --strict

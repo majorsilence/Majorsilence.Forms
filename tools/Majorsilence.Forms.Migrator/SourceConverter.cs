@@ -45,6 +45,47 @@ internal static class SourceConverter
     private static readonly Regex DrawingType =
         new(@"(?<![\w.])System\.Drawing\.([A-Za-z_][A-Za-z0-9_]*)", RegexOptions.Compiled);
 
+    // Precomputed, compiled rewrite rules for NamespaceMap.NamespacePrefixes. Each rule carries a guard —
+    // a negative lookahead that excludes the specific dotted remainders this prefix must NOT swallow,
+    // because they are deliberately left unrewritten (an UnsupportedNamespaces entry, or a leaf type under
+    // NamespaceMap.TelerikUiNamespace with no compat equivalent). Computing the guard once here, instead of
+    // hardcoding a single special case, means every prefix — not just System.Windows.Forms — automatically
+    // steers clear of whatever the warning passes (4 and 5b) are responsible for reporting.
+    private static readonly (string From, string To, Regex Pattern)[] PrefixRules = BuildPrefixRules();
+
+    private static (string, string, Regex)[] BuildPrefixRules()
+    {
+        // Every "left unrewritten" name, expressed as the full dotted name a rewrite could accidentally
+        // produce or clip into: the UnsupportedNamespaces entries themselves, plus each UnmappedTelerikTypes
+        // leaf qualified under Telerik.WinControls.UI (the only namespace they're ever written under).
+        var protectedNames = NamespaceMap.UnsupportedNamespaces
+            .Concat(NamespaceMap.UnmappedTelerikTypes.Select(t => $"{NamespaceMap.TelerikUiNamespace}.{t}"))
+            .ToArray();
+
+        var rules = new (string, string, Regex)[NamespaceMap.NamespacePrefixes.Length];
+        for (var i = 0; i < NamespaceMap.NamespacePrefixes.Length; i++)
+        {
+            var (from, to) = NamespaceMap.NamespacePrefixes[i];
+            var prefix = from + ".";
+
+            // The remainder of each protected name after this prefix, e.g. prefix "Telerik.WinControls.UI" +
+            // protected "Telerik.WinControls.UI.RadPdfViewer" -> remainder "RadPdfViewer"; prefix
+            // "Telerik.WinControls" + the same protected name -> remainder "UI.RadPdfViewer" (multi-segment,
+            // because the bare prefix would otherwise clip straight through the guarded UI rule's leftovers).
+            var remainders = protectedNames
+                .Where(p => p.StartsWith(prefix, StringComparison.Ordinal))
+                .Select(p => Regex.Escape(p[prefix.Length..]))
+                .ToArray();
+
+            // \b (not \w-boundary alone) after each alternative so a longer name sharing a prefix — e.g.
+            // RadPdfViewerNavigator vs. RadPdfViewer — doesn't accidentally veto the shorter one's rewrite.
+            var guard = remainders.Length == 0 ? "" : $@"(?!\.(?:{string.Join("|", remainders)})\b)";
+            var pattern = $@"(?<![\w.]){Regex.Escape(from)}(?!\w){guard}";
+            rules[i] = (from, to, new Regex(pattern, RegexOptions.Compiled));
+        }
+        return rules;
+    }
+
     public static Result Convert(string text, CustomMap? customMap = null, SourceLanguage language = SourceLanguage.CSharp,
         VbConstructorMode vbConstructor = VbConstructorMode.Auto)
     {
@@ -69,17 +110,12 @@ internal static class SourceConverter
                 return $"// {m.Value} // [majorsilence-migrate] no Majorsilence equivalent";
             });
 
-        // 1. Whole-namespace prefix rewrites (sub-namespaces, Printing, and WinForms). Longest-first
+        // 1. Whole-namespace prefix rewrites (sub-namespaces, Printing, WinForms, and Telerik). Longest-first
         //    so a parent prefix never clips a child. (?!\w) lets a trailing '.' through, so both
-        //    `using X;` and `X.Type` are covered.
-        foreach (var (from, to) in NamespaceMap.NamespacePrefixes)
-        {
-            var guard = from == "System.Windows.Forms"
-                ? @"(?!\.VisualStyles\b)"   // VisualStyles has no equivalent; leave it for the warning pass.
-                : "";
-            var pattern = $@"(?<![\w.]){Regex.Escape(from)}(?!\w){guard}";
-            text = Regex.Replace(text, pattern, to);
-        }
+        //    `using X;` and `X.Type` are covered. Each compiled pattern already carries its own guard —
+        //    see BuildPrefixRules — that steers around whatever the warning passes (4 and 5b) report on.
+        foreach (var (_, to, pattern) in PrefixRules)
+            text = pattern.Replace(text, to);
 
         // 1a. User-supplied namespace rewrites (e.g. Telerik -> Majorsilence.Forms.Telerik). Same boundary
         //     rules as the built-ins; longest-first ordering is guaranteed by CustomMap.Load.
@@ -138,6 +174,18 @@ internal static class SourceConverter
                 if (Regex.IsMatch(original, $@"(?<![\w.])\b{Regex.Escape(type)}\b"))
                     Warn($"uses '{type}' (System.Drawing.Common) which has no Majorsilence.Drawing equivalent — review manually");
             }
+        }
+
+        // 5b. Heavyweight Telerik types with no compat equivalent (RadPdfViewer, RadRichTextEditor, the
+        //     scheduler data layer, …). Pass 1's guards leave the qualified form untouched; this also
+        //     catches the *unqualified* form — e.g. `Dim v As RadPdfViewer` under a bare `Imports
+        //     Telerik.WinControls.UI` has no "Telerik" text anywhere near the reference itself, so (unlike
+        //     Pass 5's UnmappedDrawingTypes, which gates on a `System.Drawing` import) there is deliberately
+        //     no cheaper gate here — the names are distinctive enough that a false positive is unlikely.
+        foreach (var type in NamespaceMap.UnmappedTelerikTypes)
+        {
+            if (Regex.IsMatch(original, $@"(?<!\w){Regex.Escape(type)}\b"))
+                Warn($"uses Telerik '{type}', which has no Majorsilence.Forms.Telerik equivalent — left unrewritten; review manually");
         }
 
         // 6. ComponentResourceManager: designer code instantiates the WinForms-flavoured

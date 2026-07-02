@@ -143,9 +143,11 @@ public class SourceConverterTests
     [Fact]
     public void Warns_on_unsupported_VisualStyles_namespace ()
     {
-        var result = SourceConverter.Convert ("using System.Windows.Forms.VisualStyles;");
+        var result = SourceConverter.Convert ("using System.Windows.Forms.VisualStyles;\nusing System.Windows.Forms.Button;");
         Assert.Contains ("System.Windows.Forms.VisualStyles", result.Text); // left as-is
         Assert.Contains (result.Warnings, w => w.Contains ("VisualStyles"));
+        Assert.Contains ("Majorsilence.Forms.Button", result.Text); // the generalized guard still rewrites the rest
+        Assert.DoesNotContain ("System.Windows.Forms.Button", result.Text);
     }
 
     [Fact]
@@ -194,12 +196,120 @@ public class SourceConverterTests
     [Theory]
     [InlineData ("Telerik.WinControls.UI")]
     [InlineData ("Telerik.WinControls.Enumerations")]
+    [InlineData ("Telerik.WinControls")]
+    [InlineData ("Telerik.WinControls.UI.Docking")]
+    [InlineData ("Telerik.WinControls.UI.Data")]
+    [InlineData ("Telerik.WinControls.Data")]
     public void Rewrites_Telerik_using_directive (string ns)
     {
         var result = SourceConverter.Convert ($"using {ns};\n");
         Assert.Contains ("using Majorsilence.Forms.Telerik;", result.Text);
         Assert.DoesNotContain ("Telerik.WinControls", result.Text);
         Assert.True (result.Changed);
+    }
+
+    [Fact]
+    public void Rewrites_bare_WinControls_vb_imports ()
+    {
+        var result = SourceConverter.Convert ("Imports Telerik.WinControls\n", language: SourceLanguage.VisualBasic);
+        Assert.Contains ("Imports Majorsilence.Forms.Telerik", result.Text);
+        Assert.DoesNotContain ("Telerik.WinControls", result.Text);
+    }
+
+    [Fact]
+    public void Rewrites_fully_qualified_docking_type ()
+    {
+        var result = SourceConverter.Convert ("New Telerik.WinControls.UI.Docking.RadDock()", language: SourceLanguage.VisualBasic);
+        Assert.Contains ("New Majorsilence.Forms.Telerik.RadDock()", result.Text);
+        Assert.DoesNotContain ("Telerik.WinControls", result.Text);
+    }
+
+    [Fact]
+    public void Collapses_bare_and_UI_Telerik_imports_to_one ()
+    {
+        var src = "using Telerik.WinControls;\nusing Telerik.WinControls.UI;\n";
+        var result = SourceConverter.Convert (src);
+        Assert.Equal (1, CountOccurrences (result.Text, "using Majorsilence.Forms.Telerik;"));
+    }
+
+    [Fact]
+    public void Leaves_Themes_namespace_and_warns ()
+    {
+        var result = SourceConverter.Convert ("Telerik.WinControls.Themes.Office2007BlackTheme t;");
+        Assert.Contains ("Telerik.WinControls.Themes.Office2007BlackTheme", result.Text);
+        Assert.Contains (result.Warnings, w => w.Contains ("Telerik.WinControls.Themes"));
+    }
+
+    [Fact]
+    public void Leaves_UI_Export_namespace_and_warns ()
+    {
+        var result = SourceConverter.Convert ("Telerik.WinControls.UI.Export.DisplayFormatType f;");
+        Assert.Contains ("Telerik.WinControls.UI.Export.DisplayFormatType", result.Text);
+        Assert.Contains (result.Warnings, w => w.Contains ("Telerik.WinControls.UI.Export"));
+        Assert.DoesNotContain ("Majorsilence.Forms.Telerik.UI", result.Text); // the clipping regression
+    }
+
+    [Theory]
+    [InlineData ("RadPdfViewer")]
+    [InlineData ("RadRichTextEditor")]
+    [InlineData ("RadPrintDocument")]
+    [InlineData ("SchedulerBindingDataSource")]
+    [InlineData ("RadDesktopAlert")]
+    public void Leaves_unmapped_Telerik_leaf_type_and_warns (string typeName)
+    {
+        var src = $"New Telerik.WinControls.UI.{typeName}()";
+        var result = SourceConverter.Convert (src);
+        Assert.Contains ($"Telerik.WinControls.UI.{typeName}", result.Text);
+        Assert.Contains (result.Warnings, w => w.Contains (typeName));
+    }
+
+    [Fact]
+    public void Warns_on_unqualified_unmapped_Telerik_type ()
+    {
+        var result = SourceConverter.Convert ("Dim v As RadPdfViewer", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("RadPdfViewer"));
+    }
+
+    [Fact]
+    public void Guard_does_not_clip_longer_leaf_type_name ()
+    {
+        var result = SourceConverter.Convert ("Telerik.WinControls.UI.RadPdfViewerNavigator n;");
+        Assert.Contains ("Telerik.WinControls.UI.RadPdfViewerNavigator", result.Text);
+        Assert.DoesNotContain ("Majorsilence.Forms.Telerik", result.Text);
+    }
+
+    [Fact]
+    public void Still_rewrites_mapped_UI_type_alongside_guard ()
+    {
+        var result = SourceConverter.Convert ("Telerik.WinControls.UI.TableViewDefinition d;");
+        Assert.Contains ("Majorsilence.Forms.Telerik.TableViewDefinition", result.Text);
+        Assert.DoesNotContain ("Telerik.WinControls", result.Text);
+    }
+
+    [Fact]
+    public void Rewrites_fully_qualified_bare_WinControls_member ()
+    {
+        var result = SourceConverter.Convert ("Telerik.WinControls.ElementVisibility.Collapsed", language: SourceLanguage.VisualBasic);
+        Assert.Contains ("Majorsilence.Forms.Telerik.ElementVisibility.Collapsed", result.Text);
+        Assert.DoesNotContain ("Telerik.WinControls", result.Text);
+    }
+
+    [Fact]
+    public void Namespace_prefix_order_is_longest_first ()
+    {
+        // Invariant the guard mechanism depends on: every dotted extension of a prefix must appear
+        // *before* its parent, so the parent's rule never fires first and clips the child's text.
+        var prefixes = NamespaceMap.NamespacePrefixes;
+        for (var i = 0; i < prefixes.Length; i++)
+        for (var j = 0; j < prefixes.Length; j++)
+        {
+            if (i == j)
+                continue;
+            var earlier = prefixes[i].From;
+            var later = prefixes[j].From;
+            if (later.StartsWith (earlier + ".", System.StringComparison.Ordinal))
+                Assert.True (j < i, $"'{later}' extends '{earlier}' but does not appear before it");
+        }
     }
 
     [Fact]
