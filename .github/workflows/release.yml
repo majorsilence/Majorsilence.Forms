@@ -52,6 +52,7 @@ env:
     src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
     src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
     src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
+    src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
 
 jobs:
   # ---------------------------------------------------------------------------
