@@ -1,8 +1,8 @@
-﻿using Majorsilence.Drawing.Imaging;
+﻿using Majorsilence.Forms.Drawing.Imaging;
 using SkiaSharp;
 
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     // Import the SkiaSharp library
 

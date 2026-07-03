@@ -18,7 +18,7 @@ namespace Majorsilence.Forms
     /// </code>
     /// The framework version pulls images through <c>System.Drawing</c> (GDI+) and can deserialize
     /// <c>BinaryFormatter</c> payloads, neither of which works cross-platform. This implementation reads
-    /// the <c>.resx</c> XML directly and returns framework primitives + <see cref="Majorsilence.Drawing"/>
+    /// the <c>.resx</c> XML directly and returns framework primitives + <see cref="Majorsilence.Forms.Drawing"/>
     /// images, so a migrated form initialises its controls on Windows, macOS and Linux alike.
     ///
     /// Resources stored as <c>BinaryFormatter</c>/SOAP blobs (<c>binary.base64</c> / <c>soap.base64</c>)
@@ -79,7 +79,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Returns the resource named <paramref name="name"/>: a string, a framework primitive
         /// (<c>Point</c>/<c>Size</c>/<c>Color</c>/<c>bool</c>/<c>int</c>/…), or a
-        /// <see cref="Majorsilence.Drawing"/> image/icon. Returns null for absent or unreadable entries.
+        /// <see cref="Majorsilence.Forms.Drawing"/> image/icon. Returns null for absent or unreadable entries.
         /// </summary>
         public object? GetObject (string name)
             => _entries.TryGetValue (name, out var e) ? Materialize (e) : null;
@@ -142,7 +142,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        // Turns a raw resx entry into a live object: string, primitive, or Majorsilence.Drawing image.
+        // Turns a raw resx entry into a live object: string, primitive, or Majorsilence.Forms.Drawing image.
         private static object? Materialize (ResxEntry entry)
         {
             // A serialized payload (image bytes, or a BinaryFormatter blob).
@@ -186,8 +186,8 @@ namespace Majorsilence.Forms
             try
             {
                 if (type.EndsWith ("Icon", StringComparison.Ordinal))
-                    return new Majorsilence.Drawing.Icon (new MemoryStream (bytes));
-                return Majorsilence.Drawing.Image.FromBytes (bytes);
+                    return new Majorsilence.Forms.Drawing.Icon (new MemoryStream (bytes));
+                return Majorsilence.Forms.Drawing.Image.FromBytes (bytes);
             }
             catch { return null; }
         }
@@ -254,7 +254,7 @@ namespace Majorsilence.Forms
             return System.Drawing.Color.FromName (value);   // a named colour (e.g. "Red", "ControlText").
         }
 
-        private static Majorsilence.Drawing.Font ParseFont (string value)
+        private static Majorsilence.Forms.Drawing.Font ParseFont (string value)
         {
             // Format: "Family, 8.25pt[, style=Bold, Italic]".
             var parts = value.Split (',', StringSplitOptions.TrimEntries);
@@ -264,16 +264,16 @@ namespace Majorsilence.Forms
                 float.TryParse (parts[1].Replace ("pt", "", StringComparison.OrdinalIgnoreCase).Trim (),
                     NumberStyles.Float, CultureInfo.InvariantCulture, out size);
 
-            var style = Majorsilence.Drawing.FontStyle.Regular;
+            var style = Majorsilence.Forms.Drawing.FontStyle.Regular;
             var styleText = value.Contains ("style=", StringComparison.OrdinalIgnoreCase)
                 ? value[(value.IndexOf ("style=", StringComparison.OrdinalIgnoreCase) + 6)..]
                 : string.Empty;
-            if (styleText.Contains ("Bold", StringComparison.OrdinalIgnoreCase)) style |= Majorsilence.Drawing.FontStyle.Bold;
-            if (styleText.Contains ("Italic", StringComparison.OrdinalIgnoreCase)) style |= Majorsilence.Drawing.FontStyle.Italic;
-            if (styleText.Contains ("Underline", StringComparison.OrdinalIgnoreCase)) style |= Majorsilence.Drawing.FontStyle.Underline;
-            if (styleText.Contains ("Strikeout", StringComparison.OrdinalIgnoreCase)) style |= Majorsilence.Drawing.FontStyle.Strikeout;
+            if (styleText.Contains ("Bold", StringComparison.OrdinalIgnoreCase)) style |= Majorsilence.Forms.Drawing.FontStyle.Bold;
+            if (styleText.Contains ("Italic", StringComparison.OrdinalIgnoreCase)) style |= Majorsilence.Forms.Drawing.FontStyle.Italic;
+            if (styleText.Contains ("Underline", StringComparison.OrdinalIgnoreCase)) style |= Majorsilence.Forms.Drawing.FontStyle.Underline;
+            if (styleText.Contains ("Strikeout", StringComparison.OrdinalIgnoreCase)) style |= Majorsilence.Forms.Drawing.FontStyle.Strikeout;
 
-            return new Majorsilence.Drawing.Font (family, size, style);
+            return new Majorsilence.Forms.Drawing.Font (family, size, style);
         }
 
         // ── reflection conversion for ApplyResources ─────────────────────────────────────────

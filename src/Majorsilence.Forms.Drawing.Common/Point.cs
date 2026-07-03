@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     public struct Point : IEquatable<Point>
     {

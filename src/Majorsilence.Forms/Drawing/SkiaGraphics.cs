@@ -3,7 +3,7 @@ using System.Drawing;
 using SkiaSharp;
 using ContentAlignment = Majorsilence.Forms.ContentAlignment;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Represents an opaque snapshot of the drawing state of a <see cref="SkiaGraphics"/>.

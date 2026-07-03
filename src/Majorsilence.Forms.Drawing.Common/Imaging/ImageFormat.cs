@@ -1,4 +1,4 @@
-﻿namespace Majorsilence.Drawing.Imaging
+﻿namespace Majorsilence.Forms.Drawing.Imaging
 {
     // ImageFormat Compatibility
     public enum ImageFormat

@@ -1,5 +1,5 @@
-using Majorsilence.Drawing;
-using Majorsilence.Drawing.Drawing2D;
+using Majorsilence.Forms.Drawing;
+using Majorsilence.Forms.Drawing.Drawing2D;
 
 namespace Majorsilence.Forms.Drawing.Common.Tests;
 

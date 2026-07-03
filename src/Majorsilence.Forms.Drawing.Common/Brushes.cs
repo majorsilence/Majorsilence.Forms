@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     public static class Brushes
     {

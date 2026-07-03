@@ -1,6 +1,6 @@
 using SkiaSharp;
 
-namespace Majorsilence.Drawing.Imaging
+namespace Majorsilence.Forms.Drawing.Imaging
 {
     /// <summary>
     /// Writes multi-page, little-endian TIFF files to a seekable stream without external

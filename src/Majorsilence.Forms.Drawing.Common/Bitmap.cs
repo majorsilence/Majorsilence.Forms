@@ -1,8 +1,8 @@
-﻿using Majorsilence.Drawing.Imaging;
+﻿using Majorsilence.Forms.Drawing.Imaging;
 using SkiaSharp;
 
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     // Compatibility wrapper for Bitmap
     public class Bitmap : Image, IDisposable

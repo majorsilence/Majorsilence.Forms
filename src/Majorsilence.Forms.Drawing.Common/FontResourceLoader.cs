@@ -1,4 +1,4 @@
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Extracts the embedded fallback fonts to a temporary directory so that

@@ -85,7 +85,7 @@ internal static class RoslynSourceConverter
         var changedDocument = editor.GetChangedDocument();
         var rewrittenText = (await changedDocument.GetTextAsync().ConfigureAwait(false)).ToString();
 
-        // Reconcile the System.Drawing / Majorsilence.Drawing import lines now that the qualified names
+        // Reconcile the System.Drawing / Majorsilence.Forms.Drawing import lines now that the qualified names
         // inside the file have been rewritten by symbol resolution above — mirrors Pass 3 of the textual
         // engine, but operating on this engine's already-rewritten text (see the class doc's pass-scope
         // list: "import reconciliation" is reimplemented, not reused, but shares the textual helper's
@@ -184,7 +184,7 @@ internal static class RoslynSourceConverter
 
     // Reconciles a bare `using System.Drawing;` / `Imports System.Drawing` the same way SourceConverter's
     // Pass 3 does, operating on this engine's already-rewritten text: keep it only if a primitive is still
-    // referenced unqualified; add/keep the Majorsilence.Drawing companion import only if a GDI+ type is
+    // referenced unqualified; add/keep the Majorsilence.Forms.Drawing companion import only if a GDI+ type is
     // referenced unqualified.
     private static readonly Regex BareDrawingImportLine =
         new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+System\.Drawing[ \t]*;?[ \t]*$", RegexOptions.Compiled);

@@ -73,7 +73,7 @@ namespace Majorsilence.Forms.Telerik
         public CommandBarButton (string text) => Text = text;
 
         /// <summary>Gets or sets the button image.</summary>
-        public Majorsilence.Drawing.Image? Image { get; set; }
+        public Majorsilence.Forms.Drawing.Image? Image { get; set; }
         /// <summary>Gets or sets whether the button's text is drawn. Stub.</summary>
         public bool DrawText { get; set; } = true;
     }

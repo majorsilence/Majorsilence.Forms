@@ -7,7 +7,7 @@
 // rewritten for the Majorsilence.Forms API. Original work Copyright (c) .NET Foundation and Contributors.
 
 using System.Drawing;
-using Majorsilence.Drawing;
+using Majorsilence.Forms.Drawing;
 using Xunit;
 
 namespace Majorsilence.Forms.Tests

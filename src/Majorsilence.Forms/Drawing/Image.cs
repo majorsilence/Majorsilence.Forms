@@ -1,9 +1,9 @@
 using System;
 using System.IO;
-using Majorsilence.Drawing.Imaging;
+using Majorsilence.Forms.Drawing.Imaging;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Cross-platform, SkiaSharp-backed replacement for <c>System.Drawing.Image</c>. Holds decoded
@@ -27,7 +27,7 @@ namespace Majorsilence.Drawing
         /// <summary>Gets the width and height of this image.</summary>
         public System.Drawing.SizeF PhysicalDimension => new System.Drawing.SizeF (Width, Height);
 
-        /// <summary>Gets the pixel format of this image. Always 32bpp ARGB in Majorsilence.Drawing.</summary>
+        /// <summary>Gets the pixel format of this image. Always 32bpp ARGB in Majorsilence.Forms.Drawing.</summary>
         public PixelFormat PixelFormat => PixelFormat.Format32bppArgb;
 
         /// <summary>Gets the file format of this image.</summary>
@@ -182,10 +182,10 @@ namespace Majorsilence.Drawing
         public void SetPixel (int x, int y, System.Drawing.Color color)
             => backing?.SetPixel (x, y, new SKColor (color.R, color.G, color.B, color.A));
 
-        /// <summary>Makes the default transparent color transparent. No-op in Majorsilence.Drawing.</summary>
+        /// <summary>Makes the default transparent color transparent. No-op in Majorsilence.Forms.Drawing.</summary>
         public void MakeTransparent () { }
 
-        /// <summary>Makes the specified color transparent. No-op in Majorsilence.Drawing.</summary>
+        /// <summary>Makes the specified color transparent. No-op in Majorsilence.Forms.Drawing.</summary>
         public void MakeTransparent (System.Drawing.Color transparentColor) { }
 
         /// <summary>Sets the resolution for this bitmap.</summary>
@@ -195,7 +195,7 @@ namespace Majorsilence.Drawing
             VerticalResolution = yDpi;
         }
 
-        /// <summary>Returns a GDI icon handle. Returns IntPtr.Zero in Majorsilence.Drawing.</summary>
+        /// <summary>Returns a GDI icon handle. Returns IntPtr.Zero in Majorsilence.Forms.Drawing.</summary>
         public IntPtr GetHicon () => IntPtr.Zero;
     }
 

@@ -67,7 +67,7 @@ afterwards, on the now-loadable result, if you still see suspicious rewrites in 
 |---|---|
 | Namespace-prefix rewrites (`System.Windows.Forms`, Telerik, custom `--map` entries) | Reimplemented with real symbol resolution |
 | `System.Drawing` 3-way bucketing (primitive / GDI+ / WinForms-compat) | Reimplemented — **including** types used *unqualified* under a bare `using System.Drawing;`, which the textual engine's corresponding pass can only warn about, never fix (see below) |
-| `using`/`Imports` reconciliation for the `System.Drawing`/`Majorsilence.Drawing` pair | Reimplemented |
+| `using`/`Imports` reconciliation for the `System.Drawing`/`Majorsilence.Forms.Drawing` pair | Reimplemented |
 | `System.ComponentModel.ComponentResourceManager` redirect | Reimplemented (trivial either way — no ambiguity, just consistency with the rest of the engine) |
 | Duplicate `using`/`Imports` dedup | Reimplemented, natively via Roslyn's import-line handling |
 | `ApplicationConfiguration.Initialize()` comment-out | **Not** Roslyn — runs as the same small textual post-process over this engine's re-serialized output. No ambiguity a symbol resolves: a fixed zero-argument static call is a regex either way |
@@ -174,8 +174,8 @@ The rewriter's namespace table has one governing asymmetry:
 |---|---|---|
 | `System.Windows.Forms` (whole namespace) | `Majorsilence.Forms` | The WinForms API surface maps wholesale onto its own namespace. |
 | `System.Drawing` — **primitives** (`Color`, `Point`, `PointF`, `Size`, `SizeF`, `Rectangle`, `RectangleF`) | *unchanged* | These ship in `System.Drawing.Primitives` on every OS/platform already — Majorsilence.Forms keeps using them as-is, so a fully-qualified reference is left alone. |
-| `System.Drawing` — **GDI+ types** (`Bitmap`, `Font`, `Pen`, `Brush`, `Graphics`-adjacent types, etc.) | `Majorsilence.Drawing` | GDI+ is Windows-only in `System.Drawing.Common`; Majorsilence reimplements it cross-platform on SkiaSharp. |
-| `System.Drawing.Drawing2D` / `.Imaging` / `.Text` | `Majorsilence.Drawing.Drawing2D` / `.Imaging` / `.Text` | Same GDI+ split, sub-namespaced. |
+| `System.Drawing` — **GDI+ types** (`Bitmap`, `Font`, `Pen`, `Brush`, `Graphics`-adjacent types, etc.) | `Majorsilence.Forms.Drawing` | GDI+ is Windows-only in `System.Drawing.Common`; Majorsilence reimplements it cross-platform on SkiaSharp. |
+| `System.Drawing.Drawing2D` / `.Imaging` / `.Text` | `Majorsilence.Forms.Drawing.Drawing2D` / `.Imaging` / `.Text` | Same GDI+ split, sub-namespaced. |
 | `System.Drawing.Printing` | `Majorsilence.Forms.Printing` | Printing lives on the Forms side of the compat layer, not the drawing side. |
 | `System.Windows.Forms.VisualStyles`, `System.Drawing.Design`, `System.ComponentModel.Design` | *left unchanged* | No Majorsilence equivalent — flagged for manual review rather than rewritten into something that doesn't exist. |
 
@@ -223,8 +223,8 @@ rather than being silently rewritten.
   project's `My Project\Resources.resx` (replacing the excluded, non-compiling
   `Resources.Designer.vb`), embedding the `.resx` content and exposing one property per resource,
   typed to match real call sites exactly: image entries (`System.Drawing.Bitmap`/`Image`/`Icon`)
-  return `Majorsilence.Drawing.Image` (works both for a direct assignment and an explicit
-  `CType(My.Resources.X, Majorsilence.Drawing.Image)`), `System.Byte[]` entries return `Byte()` (the
+  return `Majorsilence.Forms.Drawing.Image` (works both for a direct assignment and an explicit
+  `CType(My.Resources.X, Majorsilence.Forms.Drawing.Image)`), `System.Byte[]` entries return `Byte()` (the
   shape `BinaryWriter.Write` needs), and everything else returns `String`. Every property forwards to
   `Majorsilence.Forms.ComponentResourceManager`. Observed real usage: **55 occurrences across 25
   files, 26 distinct resource names** (mostly images; 8 occurrences across 5 files are byte-array

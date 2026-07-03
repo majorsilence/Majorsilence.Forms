@@ -1,4 +1,4 @@
-﻿namespace Majorsilence.Drawing
+﻿namespace Majorsilence.Forms.Drawing
 {
     public static class Pens
     {

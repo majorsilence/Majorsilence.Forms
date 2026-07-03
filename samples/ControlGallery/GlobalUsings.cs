@@ -1,1 +1,1 @@
-global using Majorsilence.Drawing;
+global using Majorsilence.Forms.Drawing;

@@ -169,7 +169,7 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void Icon_Set_GetReturnsExpected ()
         {
-            using var icon = new Majorsilence.Drawing.Icon ((SkiaSharp.SKBitmap?)null);
+            using var icon = new Majorsilence.Forms.Drawing.Icon ((SkiaSharp.SKBitmap?)null);
             using var notifyIcon = new NotifyIcon { Icon = icon };
             Assert.Same (icon, notifyIcon.Icon);
 
@@ -185,7 +185,7 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void Icon_SetWithVisible_GetReturnsExpected ()
         {
-            using var icon = new Majorsilence.Drawing.Icon ((SkiaSharp.SKBitmap?)null);
+            using var icon = new Majorsilence.Forms.Drawing.Icon ((SkiaSharp.SKBitmap?)null);
             using var notifyIcon = new NotifyIcon { Visible = true, Icon = icon };
             Assert.Same (icon, notifyIcon.Icon);
         }
@@ -267,7 +267,7 @@ namespace Majorsilence.Forms.Tests
         [InlineData (false)]
         public void Visible_SetWithIcon_GetReturnsExpected (bool value)
         {
-            using var icon = new Majorsilence.Drawing.Icon ((SkiaSharp.SKBitmap?)null);
+            using var icon = new Majorsilence.Forms.Drawing.Icon ((SkiaSharp.SKBitmap?)null);
             using var notifyIcon = new NotifyIcon { Icon = icon, Visible = value };
             Assert.Equal (value, notifyIcon.Visible);
 

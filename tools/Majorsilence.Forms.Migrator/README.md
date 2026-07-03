@@ -39,13 +39,13 @@ dotnet run --project tools/Majorsilence.Forms.Migrator -- <input> [options]
 - `System.Drawing` is **split three ways**:
   - Primitive value types (`Color`, `Point`, `Size`, `Rectangle`, `PointF`, `SizeF`, `RectangleF`)
     are framework types Majorsilence.Forms keeps — **left untouched**.
-  - GDI+ types (`Bitmap`, `Brush`, `Pen`, `Font`, …) → `Majorsilence.Drawing`.
+  - GDI+ types (`Bitmap`, `Brush`, `Pen`, `Font`, …) → `Majorsilence.Forms.Drawing`.
   - WinForms-compat types Majorsilence relocates (`Graphics`, `ContentAlignment`, `SystemColors`,
     `SystemBrushes`, `SystemPens`, `SystemFonts`, `ColorTranslator`) → `Majorsilence.Forms`.
   - A bare `using System.Drawing;` is reconciled: it's **kept only when a primitive (`Color`/`Point`/…)
     is used unqualified**, otherwise removed. When GDI+ types are used unqualified, a
-    `using Majorsilence.Drawing;` is added (replacing the `System.Drawing` import if it's no longer needed).
-- `System.Drawing.Drawing2D` / `.Imaging` / `.Text` → `Majorsilence.Drawing.*`; `.Printing` → `Majorsilence.Forms.Printing`.
+    `using Majorsilence.Forms.Drawing;` is added (replacing the `System.Drawing` import if it's no longer needed).
+- `System.Drawing.Drawing2D` / `.Imaging` / `.Text` → `Majorsilence.Forms.Drawing.*`; `.Printing` → `Majorsilence.Forms.Printing`.
 - `System.ComponentModel.ComponentResourceManager` → `Majorsilence.Forms.ComponentResourceManager`
   (the cross-platform resource manager — see Resources below). Only that one type is redirected;
   the rest of `System.ComponentModel` is left alone.

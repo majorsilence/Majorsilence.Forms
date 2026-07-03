@@ -1,4 +1,4 @@
-using Majorsilence.Drawing;
+using Majorsilence.Forms.Drawing;
 
 namespace Majorsilence.Forms.Drawing.Common.Tests;
 
@@ -54,7 +54,7 @@ public class ColorTranslatorTests
         Assert.Equal(255, color.A);
     }
 
-    // 8-char hex: #RRGGBBAA — migrated from Reporting test (original used Majorsilence.Drawing.Color)
+    // 8-char hex: #RRGGBBAA — migrated from Reporting test (original used Majorsilence.Forms.Drawing.Color)
     [Theory]
     [InlineData("#80FF0000", 128, 255,   0,   0)]
     [InlineData("#7F123456", 127,  18,  52,  86)]

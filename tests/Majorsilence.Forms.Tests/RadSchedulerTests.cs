@@ -522,8 +522,8 @@ namespace Majorsilence.Forms.Tests
         public void RadPrintDocument_HeaderFont_and_FooterFont_are_settable ()
         {
             var document = new RadPrintDocument {
-                HeaderFont = new Majorsilence.Drawing.Font ("Arial", 12),
-                FooterFont = new Majorsilence.Drawing.Font ("Arial", 6),
+                HeaderFont = new Majorsilence.Forms.Drawing.Font ("Arial", 12),
+                FooterFont = new Majorsilence.Forms.Drawing.Font ("Arial", 6),
             };
 
             Assert.Equal (12, document.HeaderFont.Size);

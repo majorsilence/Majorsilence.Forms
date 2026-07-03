@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Drawing;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Pens of width 1 for each named color. Cross-platform replacement for System.Drawing.Pens; each property returns a shared, cached <see cref="Pen"/> (WinForms semantics).

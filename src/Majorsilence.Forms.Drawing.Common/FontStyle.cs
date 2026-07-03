@@ -3,7 +3,7 @@ using System.Drawing.Imaging;
 using System.IO;
 
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
 
     // Enum for FontStyle (simulating System.Drawing.FontStyle)

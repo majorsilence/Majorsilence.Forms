@@ -54,14 +54,14 @@ namespace Majorsilence.Forms
         /// </summary>
         public Rectangle Bounds { get; private set; }
 
-        private Majorsilence.Drawing.Image? _image;
+        private Majorsilence.Forms.Drawing.Image? _image;
         private SKBitmap? _imageSK;
 
         /// <summary>
-        /// Gets or sets the image displayed on the item. Accepts <see cref="Majorsilence.Drawing.Image"/> for WinForms compatibility.
+        /// Gets or sets the image displayed on the item. Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Image? Image {
+        public Majorsilence.Forms.Drawing.Image? Image {
             get => _image;
             set {
                 _image = value;
@@ -208,7 +208,7 @@ namespace Majorsilence.Forms
             public System.Drawing.Color BackColor { get; set; } = System.Drawing.Color.Empty;
 
             /// <summary>Gets or sets the font for this sub-item. Null means use parent item font.</summary>
-            public Majorsilence.Drawing.Font? Font { get; set; }
+            public Majorsilence.Forms.Drawing.Font? Font { get; set; }
 #pragma warning restore CA1416
 
             /// <summary>Initializes a new instance of ListViewSubItem.</summary>
@@ -219,7 +219,7 @@ namespace Majorsilence.Forms
 
 #pragma warning disable CA1416
             /// <summary>Initializes a new instance with text and style.</summary>
-            public ListViewSubItem (string text, System.Drawing.Color foreColor, System.Drawing.Color backColor, Majorsilence.Drawing.Font font)
+            public ListViewSubItem (string text, System.Drawing.Color foreColor, System.Drawing.Color backColor, Majorsilence.Forms.Drawing.Font font)
             {
                 Text = text;
                 ForeColor = foreColor;
@@ -246,7 +246,7 @@ namespace Majorsilence.Forms
 
 #pragma warning disable CA1416
             /// <summary>Adds a sub-item with text and style.</summary>
-            public ListViewSubItem Add (string text, System.Drawing.Color foreColor, System.Drawing.Color backColor, Majorsilence.Drawing.Font font)
+            public ListViewSubItem Add (string text, System.Drawing.Color foreColor, System.Drawing.Color backColor, Majorsilence.Forms.Drawing.Font font)
             {
                 var item = new ListViewSubItem (text, foreColor, backColor, font);
                 Add (item);

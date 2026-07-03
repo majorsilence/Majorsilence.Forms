@@ -1,11 +1,11 @@
 using System.Drawing;
 using System.IO;
 using System.Text;
-using Majorsilence.Drawing;
+using Majorsilence.Forms.Drawing;
 using Majorsilence.Forms.Printing;
 using Xunit;
-using Font = Majorsilence.Drawing.Font;
-using SolidBrush = Majorsilence.Drawing.SolidBrush;
+using Font = Majorsilence.Forms.Drawing.Font;
+using SolidBrush = Majorsilence.Forms.Drawing.SolidBrush;
 
 namespace Majorsilence.Forms.Tests;
 

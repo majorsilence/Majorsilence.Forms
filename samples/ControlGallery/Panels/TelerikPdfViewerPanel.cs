@@ -72,19 +72,19 @@ namespace ControlGallery.Panels
 
         private static PrintDocument BuildDemoPdf ()
         {
-            var titleFont = new Majorsilence.Drawing.Font ("Arial", 16, bold: true);
-            var bodyFont = new Majorsilence.Drawing.Font ("Arial", 10);
+            var titleFont = new Majorsilence.Forms.Drawing.Font ("Arial", 16, bold: true);
+            var bodyFont = new Majorsilence.Forms.Drawing.Font ("Arial", 10);
 
             var doc = new PrintDocument { DocumentName = "telerik-pdf-viewer-demo" };
             doc.PrintPage += (_, e) => {
                 var g = e.Graphics;
                 var rect = e.MarginBounds;
-                g.DrawString ("RadPdfViewer demo document", titleFont, Majorsilence.Drawing.Brushes.Black,
+                g.DrawString ("RadPdfViewer demo document", titleFont, Majorsilence.Forms.Drawing.Brushes.Black,
                     new System.Drawing.RectangleF (rect.Left, rect.Top, rect.Width, 30), ContentAlignment.TopLeft);
-                g.DrawString ($"Generated {DateTime.Now}", bodyFont, Majorsilence.Drawing.Brushes.Gray,
+                g.DrawString ($"Generated {DateTime.Now}", bodyFont, Majorsilence.Forms.Drawing.Brushes.Gray,
                     new System.Drawing.RectangleF (rect.Left, rect.Top + 34, rect.Width, 24), ContentAlignment.TopLeft);
                 g.DrawString ("This PDF was generated at runtime via Majorsilence.Forms.Printing.PrintDocument and loaded into a RadPdfViewer through LoadDocument(Stream).",
-                    bodyFont, Majorsilence.Drawing.Brushes.Black,
+                    bodyFont, Majorsilence.Forms.Drawing.Brushes.Black,
                     new System.Drawing.RectangleF (rect.Left, rect.Top + 70, rect.Width, 80), ContentAlignment.TopLeft);
                 e.HasMorePages = false;
             };

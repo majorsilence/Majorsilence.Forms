@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the text alignment.</summary>
         public ContentAlignment Alignment { get; set; } = ContentAlignment.MiddleLeft;
         /// <summary>Gets or sets the font.</summary>
-        public Majorsilence.Drawing.Font? Font { get; set; }
+        public Majorsilence.Forms.Drawing.Font? Font { get; set; }
         /// <summary>Gets or sets whether the fill is customized.</summary>
         public bool CustomizeFill { get; set; }
         /// <summary>Gets or sets the gradient style. Stub.</summary>
@@ -81,7 +81,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the gradient style. Stub.</summary>
         public object? GradientStyle { get; set; }
         /// <summary>Gets or sets the font.</summary>
-        public Majorsilence.Drawing.Font? Font { get; set; }
+        public Majorsilence.Forms.Drawing.Font? Font { get; set; }
         /// <summary>Gets or sets the table element that owns this row (the grid's shared <see cref="GridTableElement"/>).</summary>
         public GridTableElement? TableElement { get; set; }
     }

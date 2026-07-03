@@ -35,10 +35,10 @@ public class NavigationPaneItemCollection : Collection<NavigationPaneItem>
     public NavigationPaneItem Add (SKBitmap image) => Add (new NavigationPaneItem (image));
 
     /// <summary>
-    /// Adds a new NavigationPaneItem to the collection with the specified Majorsilence.Drawing.Image.
+    /// Adds a new NavigationPaneItem to the collection with the specified Majorsilence.Forms.Drawing.Image.
     /// </summary>
 #pragma warning disable CA1416
-    public NavigationPaneItem Add (Majorsilence.Drawing.Image image, string? text = null)
+    public NavigationPaneItem Add (Majorsilence.Forms.Drawing.Image image, string? text = null)
         => Add (new NavigationPaneItem (image, text));
 #pragma warning restore CA1416
 

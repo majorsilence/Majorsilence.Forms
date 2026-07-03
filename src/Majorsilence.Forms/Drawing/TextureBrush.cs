@@ -1,8 +1,8 @@
 using System.Drawing;
-using Majorsilence.Drawing.Drawing2D;
+using Majorsilence.Forms.Drawing.Drawing2D;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// A brush that fills the interior of a shape with a tiled image. Cross-platform replacement for

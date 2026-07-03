@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing.Imaging
+namespace Majorsilence.Forms.Drawing.Imaging
 {
     /// <summary>
     /// Specifies the file format of an image. Cross-platform replacement for
@@ -72,7 +72,7 @@ namespace Majorsilence.Drawing.Imaging
     }
 
     /// <summary>
-    /// Specifies the pixel format of an image. Majorsilence.Drawing always stores 32bpp ARGB; the other
+    /// Specifies the pixel format of an image. Majorsilence.Forms.Drawing always stores 32bpp ARGB; the other
     /// members are provided for source compatibility.
     /// </summary>
     public enum PixelFormat
@@ -95,7 +95,7 @@ namespace Majorsilence.Drawing.Imaging
         Format8bppIndexed = 198659
     }
 
-    /// <summary>Specifies the access mode used when locking bitmap bits. Stub in Majorsilence.Drawing.</summary>
+    /// <summary>Specifies the access mode used when locking bitmap bits. Stub in Majorsilence.Forms.Drawing.</summary>
     public enum ImageLockMode
     {
         /// <summary>Read-only access.</summary>

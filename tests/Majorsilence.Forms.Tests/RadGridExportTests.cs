@@ -133,7 +133,7 @@ namespace Majorsilence.Forms.Tests
                 var exporter = new GridViewPdfExport (grid) {
                     ShowHeaderAndFooter = true,
                     HeaderHeight = 20,
-                    HeaderFont = new Majorsilence.Drawing.Font ("Arial", 12),
+                    HeaderFont = new Majorsilence.Forms.Drawing.Font ("Arial", 12),
                     MiddleHeader = "Payroll Report",
                     FitToPageWidth = true,
                     Scale = 1,

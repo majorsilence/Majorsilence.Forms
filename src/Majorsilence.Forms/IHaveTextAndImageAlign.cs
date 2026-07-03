@@ -8,7 +8,7 @@ interface IHaveTextAndImageAlign
     ContentAlignment ImageAlign { get; set; }
     ContentAlignment TextAlign { get; set; }
     TextImageRelation TextImageRelation { get; set; }
-    Majorsilence.Drawing.Image? Image { get; set; }
+    Majorsilence.Forms.Drawing.Image? Image { get; set; }
     SKBitmap? ImageSK { get; }
     ImageList? ImageList { get; set; }
     int ImageIndex { get; set; }

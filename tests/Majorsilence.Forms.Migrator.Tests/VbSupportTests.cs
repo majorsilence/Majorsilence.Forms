@@ -35,7 +35,7 @@ public class VbSupportTests
         var result = SourceConverter.Convert ("Imports System.Drawing\nPublic Class C\n  Dim b As Bitmap\nEnd Class\n", language: SourceLanguage.VisualBasic);
         var text = result.Text.Replace ("\r\n", "\n");
         Assert.DoesNotContain ("Imports System.Drawing\n", text);
-        Assert.Contains ("Imports Majorsilence.Drawing", text);
+        Assert.Contains ("Imports Majorsilence.Forms.Drawing", text);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class VbSupportTests
     }
 
     [Theory]
-    [InlineData ("btn.Image = CType(My.Resources.btnSearch, Majorsilence.Drawing.Image)")]
+    [InlineData ("btn.Image = CType(My.Resources.btnSearch, Majorsilence.Forms.Drawing.Image)")]
     [InlineData ("myWriter.Write(My.Resources.t4_2011)")]
     [InlineData ("x = My.Resources.Resources.SomeName")]
     public void Does_not_warn_on_My_Resources (string src)

@@ -33,7 +33,7 @@ public class SourceConverterTests
         var src = $"var x = new System.Drawing.{primitive}();";
         var result = SourceConverter.Convert (src);
         Assert.Contains ($"System.Drawing.{primitive}", result.Text);
-        Assert.DoesNotContain ($"Majorsilence.Drawing.{primitive}", result.Text);
+        Assert.DoesNotContain ($"Majorsilence.Forms.Drawing.{primitive}", result.Text);
     }
 
     [Theory]
@@ -50,7 +50,7 @@ public class SourceConverterTests
     public void Redirects_GDI_plus_types_to_Majorsilence_Drawing (string gdiType)
     {
         var result = SourceConverter.Convert ($"System.Drawing.{gdiType} x;");
-        Assert.Contains ($"Majorsilence.Drawing.{gdiType}", result.Text);
+        Assert.Contains ($"Majorsilence.Forms.Drawing.{gdiType}", result.Text);
     }
 
     [Fact]
@@ -78,8 +78,8 @@ public class SourceConverterTests
     public void Rewrites_drawing_sub_namespaces ()
     {
         var result = SourceConverter.Convert ("using System.Drawing.Drawing2D;\nvar m = new System.Drawing.Drawing2D.Matrix();");
-        Assert.Contains ("using Majorsilence.Drawing.Drawing2D;", result.Text);
-        Assert.Contains ("Majorsilence.Drawing.Drawing2D.Matrix", result.Text);
+        Assert.Contains ("using Majorsilence.Forms.Drawing.Drawing2D;", result.Text);
+        Assert.Contains ("Majorsilence.Forms.Drawing.Drawing2D.Matrix", result.Text);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class SourceConverterTests
         // Nothing from System.Drawing is used here, so the import is dropped entirely.
         var result = SourceConverter.Convert ("using System.Drawing;\nclass C { }\n");
         Assert.DoesNotContain ("using System.Drawing;", result.Text);
-        Assert.DoesNotContain ("using Majorsilence.Drawing;", result.Text);
+        Assert.DoesNotContain ("using Majorsilence.Forms.Drawing;", result.Text);
     }
 
     [Fact]
@@ -108,10 +108,10 @@ public class SourceConverterTests
     [Fact]
     public void Replaces_bare_Drawing_import_with_companion_when_only_GDI_plus_is_used ()
     {
-        // Bitmap moves to Majorsilence.Drawing and no primitive is used, so the import is swapped.
+        // Bitmap moves to Majorsilence.Forms.Drawing and no primitive is used, so the import is swapped.
         var result = SourceConverter.Convert ("using System.Drawing;\nBitmap b;\n");
         Assert.DoesNotContain ("using System.Drawing;", result.Text);
-        Assert.Contains ("using Majorsilence.Drawing;", result.Text);
+        Assert.Contains ("using Majorsilence.Forms.Drawing;", result.Text);
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class SourceConverterTests
     {
         var result = SourceConverter.Convert ("using System.Drawing;\nColor c; Bitmap b;\n");
         Assert.Contains ("using System.Drawing;", result.Text);
-        Assert.Contains ("using Majorsilence.Drawing;", result.Text);
+        Assert.Contains ("using Majorsilence.Forms.Drawing;", result.Text);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class SourceConverterTests
         var once = SourceConverter.Convert ("using System.Drawing;\nBitmap b;\n").Text;
         var twice = SourceConverter.Convert (once).Text;
         Assert.Equal (once, twice);
-        Assert.Equal (1, CountOccurrences (twice, "using Majorsilence.Drawing;"));
+        Assert.Equal (1, CountOccurrences (twice, "using Majorsilence.Forms.Drawing;"));
     }
 
     [Fact]

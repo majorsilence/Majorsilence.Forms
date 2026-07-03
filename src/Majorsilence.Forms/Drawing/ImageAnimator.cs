@@ -1,10 +1,10 @@
 using System;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Animates images that have time-based frames (e.g. animated GIFs). Cross-platform replacement for
-    /// System.Drawing.ImageAnimator. Majorsilence.Drawing renders a single frame, so this is a documented
+    /// System.Drawing.ImageAnimator. Majorsilence.Forms.Drawing renders a single frame, so this is a documented
     /// no-op: <see cref="CanAnimate"/> always reports false and the animate hooks do nothing. Static
     /// images render correctly regardless.
     /// </summary>

@@ -189,7 +189,7 @@ static void PrintUsage()
             (Telerik UI for WinForms, DevExpress, ...), and adds Majorsilence.Forms + a backend reference
             (only to projects that are/use WinForms; non-UI projects are left alone).
           * Source files: rewrites System.Windows.Forms -> Majorsilence.Forms and
-            System.Drawing[.*] -> Majorsilence.Drawing[.*]. APIs with no equivalent are flagged
+            System.Drawing[.*] -> Majorsilence.Forms.Drawing[.*]. APIs with no equivalent are flagged
             as warnings for manual review.
 
         MAP FILE FORMAT (JSON)

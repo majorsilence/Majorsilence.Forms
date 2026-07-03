@@ -1,7 +1,7 @@
 ﻿using SkiaSharp;
 
 
-namespace Majorsilence.Drawing.Imaging
+namespace Majorsilence.Forms.Drawing.Imaging
 {
     // Extension method for converting ImageFormat to SkiaSharp's image encode format
     public static class ImageFormatExtensions

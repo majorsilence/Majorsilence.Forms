@@ -128,7 +128,7 @@ public class RoslynSourceConverterTests : IDisposable
     {
         var result = Convert ($"class F {{ System.Drawing.{primitive} X; }}\n");
         Assert.Contains ($"System.Drawing.{primitive}", result.Text);
-        Assert.DoesNotContain ($"Majorsilence.Drawing.{primitive}", result.Text);
+        Assert.DoesNotContain ($"Majorsilence.Forms.Drawing.{primitive}", result.Text);
     }
 
     [Theory]
@@ -139,7 +139,7 @@ public class RoslynSourceConverterTests : IDisposable
     public void Redirects_GDI_plus_types_to_Majorsilence_Drawing (string gdiType)
     {
         var result = Convert ($"class F {{ System.Drawing.{gdiType} X; }}\n");
-        Assert.Contains ($"Majorsilence.Drawing.{gdiType}", result.Text);
+        Assert.Contains ($"Majorsilence.Forms.Drawing.{gdiType}", result.Text);
     }
 
     [Theory]
@@ -157,10 +157,10 @@ public class RoslynSourceConverterTests : IDisposable
         // The concrete "Roslyn does something text mode structurally cannot" case: SourceConverter's Pass 5
         // can only *warn* about an unqualified Bitmap under `using System.Drawing;` — the Roslyn engine
         // resolves the symbol and fixes the reference outright, and (Pass 3, reimplemented) drops the
-        // now-unnecessary `using System.Drawing;` in favor of `using Majorsilence.Drawing;`.
+        // now-unnecessary `using System.Drawing;` in favor of `using Majorsilence.Forms.Drawing;`.
         var result = Convert ("using System.Drawing;\nclass F { Bitmap b; }\n");
         Assert.DoesNotContain ("using System.Drawing;", result.Text);
-        Assert.Contains ("using Majorsilence.Drawing;", result.Text);
+        Assert.Contains ("using Majorsilence.Forms.Drawing;", result.Text);
         // No manual-review warning for this case — it was fixed, not flagged (Pass 5 is superseded).
         Assert.DoesNotContain (result.Warnings, w => w.Contains ("Bitmap"));
     }
@@ -170,7 +170,7 @@ public class RoslynSourceConverterTests : IDisposable
     {
         var result = Convert ("using System.Drawing;\nclass F { Color c; }\n");
         Assert.Contains ("using System.Drawing;", result.Text);
-        Assert.DoesNotContain ("using Majorsilence.Drawing;", result.Text);
+        Assert.DoesNotContain ("using Majorsilence.Forms.Drawing;", result.Text);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public class RoslynSourceConverterTests : IDisposable
     {
         var result = Convert ("using System.Drawing;\nclass F { Color c; Bitmap b; }\n");
         Assert.Contains ("using System.Drawing;", result.Text);
-        Assert.Contains ("using Majorsilence.Drawing;", result.Text);
+        Assert.Contains ("using Majorsilence.Forms.Drawing;", result.Text);
     }
 
     // ---- Pass 6: ComponentResourceManager redirect ----
@@ -304,7 +304,7 @@ public class RoslynSourceConverterTests : IDisposable
     public void Rewrites_VB_fully_qualified_drawing_type ()
     {
         var result = ConvertVb ("Public Class C\n    Dim b As System.Drawing.Bitmap\nEnd Class\n");
-        Assert.Contains ("Majorsilence.Drawing.Bitmap", result.Text);
+        Assert.Contains ("Majorsilence.Forms.Drawing.Bitmap", result.Text);
     }
 
     [Fact]

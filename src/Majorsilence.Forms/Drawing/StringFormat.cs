@@ -1,6 +1,6 @@
 using System;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Encapsulates text layout information (alignment, trimming, flags). Cross-platform replacement

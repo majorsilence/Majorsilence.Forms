@@ -1,8 +1,8 @@
-using Majorsilence.Drawing.Drawing2D;
+using Majorsilence.Forms.Drawing.Drawing2D;
 using SkiaSharp;
 
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     public class Pen : IDisposable
     {

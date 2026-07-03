@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing.Drawing2D
+namespace Majorsilence.Forms.Drawing.Drawing2D
 {
     /// <summary>
     /// Represents a series of connected lines and curves. Cross-platform replacement for
@@ -380,7 +380,7 @@ namespace Majorsilence.Drawing.Drawing2D
         public void Dispose () { }
     }
 
-    /// <summary>Represents the saved state of a Graphics object. Stub in Majorsilence.Drawing.</summary>
+    /// <summary>Represents the saved state of a Graphics object. Stub in Majorsilence.Forms.Drawing.</summary>
     public sealed class GraphicsState
     {
         internal int Count { get; }

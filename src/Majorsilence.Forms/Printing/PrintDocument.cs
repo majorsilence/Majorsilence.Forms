@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
-using Majorsilence.Drawing;
+using Majorsilence.Forms.Drawing;
 using SkiaSharp;
 
 namespace Majorsilence.Forms.Printing

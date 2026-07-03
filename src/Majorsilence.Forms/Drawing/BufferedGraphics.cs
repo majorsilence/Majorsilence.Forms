@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// A drawing buffer used for double-buffering. Cross-platform replacement for
@@ -59,7 +59,7 @@ namespace Majorsilence.Drawing
             return new BufferedGraphics (new Bitmap (width, height), targetGraphics);
         }
 
-        /// <summary>Releases the resources used by this context. No-op in Majorsilence.Drawing.</summary>
+        /// <summary>Releases the resources used by this context. No-op in Majorsilence.Forms.Drawing.</summary>
         public void Dispose () => GC.SuppressFinalize (this);
     }
 

@@ -2,7 +2,7 @@ using SkiaSharp;
 using System.Collections.Generic;
 
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     public class Color
     {

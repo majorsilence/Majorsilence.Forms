@@ -65,7 +65,7 @@ namespace Majorsilence.Forms.Telerik
     public class VisualElement : RadElement
     {
         /// <summary>Gets or sets the element font.</summary>
-        public Majorsilence.Drawing.Font? Font { get; set; }
+        public Majorsilence.Forms.Drawing.Font? Font { get; set; }
         /// <summary>Gets or sets the text alignment.</summary>
         public ContentAlignment TextAlignment { get; set; } = ContentAlignment.MiddleLeft;
 
@@ -126,7 +126,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets how the button's image/text are displayed.</summary>
         public DisplayStyle DisplayStyle { get; set; } = DisplayStyle.ImageAndText;
         /// <summary>Gets or sets the button image.</summary>
-        public Majorsilence.Drawing.Image? Image { get; set; }
+        public Majorsilence.Forms.Drawing.Image? Image { get; set; }
         /// <summary>Gets or sets how the image is scaled. Stub.</summary>
         public ImageScaling ImageScaling { get; set; } = ImageScaling.None;
         /// <summary>Gets or sets whether the button border is drawn. Stub.</summary>

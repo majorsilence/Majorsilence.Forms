@@ -1,6 +1,6 @@
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     internal static class FontSubstitution
     {

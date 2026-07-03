@@ -19,9 +19,9 @@ namespace Majorsilence.Forms.Migrator;
 ///
 /// Each resource gets a property typed to match what real migrated call sites already expect (confirmed
 /// against Financial's actual usage): image-typed entries (<c>System.Drawing.Bitmap</c>/<c>Image</c>/
-/// <c>Icon</c>) return <see cref="Majorsilence.Drawing.Image"/> — satisfying both a direct assignment to
+/// <c>Icon</c>) return <see cref="Majorsilence.Forms.Drawing.Image"/> — satisfying both a direct assignment to
 /// an <c>Image</c>-typed property and an explicit
-/// <c>CType(My.Resources.X, Majorsilence.Drawing.Image)</c> — <c>System.Byte[]</c> entries return
+/// <c>CType(My.Resources.X, Majorsilence.Forms.Drawing.Image)</c> — <c>System.Byte[]</c> entries return
 /// <c>Byte()</c> (the shape <c>BinaryWriter.Write</c> needs), and everything else (plain string-table
 /// values, or a type this generator doesn't recognize) returns <see cref="string"/> via
 /// <c>GetString</c>/<c>GetObject</c>. Every property forwards to a single
@@ -169,7 +169,7 @@ internal static class MyResourcesGenerator
             sb.Append("\r\n");
             var vbType = resource.Kind switch
             {
-                ResourceKind.Image => "Majorsilence.Drawing.Image",
+                ResourceKind.Image => "Majorsilence.Forms.Drawing.Image",
                 ResourceKind.ByteArray => "Byte()",
                 _ => "String",
             };
@@ -178,7 +178,7 @@ internal static class MyResourcesGenerator
             sb.Append(resource.Kind switch
             {
                 ResourceKind.Image =>
-                    $"                Return CType(_resourceManager.GetObject(\"{EscapeVbString(resource.RawName)}\"), Majorsilence.Drawing.Image)\r\n",
+                    $"                Return CType(_resourceManager.GetObject(\"{EscapeVbString(resource.RawName)}\"), Majorsilence.Forms.Drawing.Image)\r\n",
                 ResourceKind.ByteArray =>
                     $"                Return CType(_resourceManager.GetObject(\"{EscapeVbString(resource.RawName)}\"), Byte())\r\n",
                 _ =>

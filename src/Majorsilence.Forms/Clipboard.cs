@@ -46,10 +46,10 @@ namespace Majorsilence.Forms
         public static bool ContainsImage () => false;
 
         /// <summary>Returns the image on the clipboard, or null. Stub in Majorsilence.Forms — always returns null.</summary>
-        public static Majorsilence.Drawing.Image? GetImage () => null;
+        public static Majorsilence.Forms.Drawing.Image? GetImage () => null;
 
         /// <summary>Places an image on the clipboard. Stub in Majorsilence.Forms — no-op.</summary>
-        public static void SetImage (Majorsilence.Drawing.Image image) { }
+        public static void SetImage (Majorsilence.Forms.Drawing.Image image) { }
 
         /// <summary>Gets the text on the clipboard for the specified format.</summary>
         public static string GetText (TextDataFormat format) => GetText ();

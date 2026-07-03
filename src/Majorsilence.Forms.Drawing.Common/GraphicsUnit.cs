@@ -1,4 +1,4 @@
-﻿namespace Majorsilence.Drawing
+﻿namespace Majorsilence.Forms.Drawing
 {
     public enum GraphicsUnit
     {

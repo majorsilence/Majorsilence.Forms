@@ -13,7 +13,7 @@ namespace Majorsilence.Forms
         private readonly CheckBox bold_box;
         private readonly CheckBox italic_box;
 
-        // Majorsilence.Drawing.Font is only supported on Windows, so it is constructed lazily; merely
+        // Majorsilence.Forms.Drawing.Font is only supported on Windows, so it is constructed lazily; merely
         // creating the dialog (or running on a non-Windows host) must not throw.
         private Font? selected_font;
 

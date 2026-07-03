@@ -113,7 +113,7 @@ public class MyResourcesGeneratorTests
         var resources = MyResourcesGenerator.ParseResources (resx);
         var generated = MyResourcesGenerator.Generate (resources, resx);
 
-        Assert.Contains ("Friend ReadOnly Property btnSearch() As Majorsilence.Drawing.Image", generated);
+        Assert.Contains ("Friend ReadOnly Property btnSearch() As Majorsilence.Forms.Drawing.Image", generated);
     }
 
     [Fact]

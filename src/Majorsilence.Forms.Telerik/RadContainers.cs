@@ -94,7 +94,7 @@ namespace Majorsilence.Forms.Telerik
     public class TabStripItem : RadItem
     {
         /// <summary>Gets or sets the item's image.</summary>
-        public Majorsilence.Drawing.Image? Image { get; set; }
+        public Majorsilence.Forms.Drawing.Image? Image { get; set; }
         /// <summary>Gets or sets whether this item (page) is the selected one. Stub.</summary>
         public bool IsSelected { get; set; }
         /// <summary>Gets or sets whether this item is pinned (not scrolled/reordered). Stub.</summary>

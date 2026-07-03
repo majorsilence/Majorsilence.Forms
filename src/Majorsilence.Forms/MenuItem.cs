@@ -35,7 +35,7 @@ namespace Majorsilence.Forms
         /// Initializes a new instance of the MenuItem class (WinForms compatibility overload).
         /// </summary>
 #pragma warning disable CA1416
-        public MenuItem (string text, Majorsilence.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
+        public MenuItem (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
         {
             Text = text;
             Image = image;
@@ -128,14 +128,14 @@ namespace Majorsilence.Forms
         /// </summary>
         public bool Hovered { get; internal set; }
 
-        private Majorsilence.Drawing.Image? _image;
+        private Majorsilence.Forms.Drawing.Image? _image;
         private SKBitmap? _imageSK;
 
         /// <summary>
-        /// Gets or sets an image to be displayed on the menu item. Accepts <see cref="Majorsilence.Drawing.Image"/> for WinForms compatibility.
+        /// Gets or sets an image to be displayed on the menu item. Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Image? Image {
+        public Majorsilence.Forms.Drawing.Image? Image {
             get => _image;
             set {
                 _image = value;

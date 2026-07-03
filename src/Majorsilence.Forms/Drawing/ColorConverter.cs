@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Converts <see cref="Color"/> values to and from strings. Cross-platform replacement for

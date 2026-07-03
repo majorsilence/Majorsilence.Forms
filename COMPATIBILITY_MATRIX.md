@@ -8,7 +8,7 @@ how source gets here in the first place, see [`MIGRATION.md`](MIGRATION.md).
 
 | Package | Contents | Depends on |
 |---|---|---|
-| `Majorsilence.Forms` | Core: controls, layout, events, `Majorsilence.Drawing` (GDI+ replacement), printing, spellcheck engine, the native-webview seam (`IWebViewFactory`) | SkiaSharp, Topten.RichTextKit |
+| `Majorsilence.Forms` | Core: controls, layout, events, `Majorsilence.Forms.Drawing` (GDI+ replacement), printing, spellcheck engine, the native-webview seam (`IWebViewFactory`) | SkiaSharp, Topten.RichTextKit |
 | `Majorsilence.Forms.Avalonia` | Default backend — Windows/macOS/Linux desktop, real `WebView2`/`WKWebView`/`WebKitGTK` support via `Avalonia.Controls.WebView` | `Majorsilence.Forms` + Avalonia |
 | `Majorsilence.Forms.Uno` | Uno Platform (Skia) backend — desktop, iOS, Android, WebAssembly | `Majorsilence.Forms` + Uno.WinUI |
 | `Majorsilence.Forms.Headless` | Offscreen SkiaSharp backend — CI, automated tests, pixel-diff verification. No native webview support (`IWebViewFactory` is absent, not just unsupported) | `Majorsilence.Forms` |
@@ -63,7 +63,7 @@ WinForms API (WinForms never had built-in spellcheck) — it exists to back
 See [`MIGRATION.md`'s namespace table](MIGRATION.md#namespace-mapping) for the exact rewrite rules.
 Summary: primitive value types (`Color`, `Point`, `Size`, `Rectangle`, ...) are the real
 cross-platform BCL types and need no reimplementation. GDI+ (`Bitmap`, `Font`, `Pen`, `Brush`,
-`Graphics`, imaging/text-layout namespaces) is reimplemented cross-platform in `Majorsilence.Drawing`
+`Graphics`, imaging/text-layout namespaces) is reimplemented cross-platform in `Majorsilence.Forms.Drawing`
 on top of SkiaSharp, replacing the Windows-only `System.Drawing.Common`.
 
 **Printing** (`Majorsilence.Forms.Printing.PrintDocument`) renders pages through the same SkiaSharp

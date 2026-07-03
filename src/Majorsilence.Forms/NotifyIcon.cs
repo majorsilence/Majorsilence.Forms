@@ -33,7 +33,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the icon displayed in the notification area.</summary>
-        public Majorsilence.Drawing.Icon? Icon { get; set; }
+        public Majorsilence.Forms.Drawing.Icon? Icon { get; set; }
 
         /// <summary>Gets or sets the ToolTip text displayed when the mouse hovers over the icon.</summary>
         public string Text {

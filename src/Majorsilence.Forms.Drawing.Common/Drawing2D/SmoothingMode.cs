@@ -1,4 +1,4 @@
-﻿namespace Majorsilence.Drawing.Drawing2D
+﻿namespace Majorsilence.Forms.Drawing.Drawing2D
 {
     public enum SmoothingMode
     {

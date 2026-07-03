@@ -58,37 +58,37 @@ namespace Majorsilence.Forms
         }
 
 #pragma warning disable CA1416
-        /// <summary>Measures text using a Majorsilence.Drawing.Font. Delegates to SKTypeface approximation.</summary>
-        public static Size MeasureText (string text, Majorsilence.Drawing.Font font)
+        /// <summary>Measures text using a Majorsilence.Forms.Drawing.Font. Delegates to SKTypeface approximation.</summary>
+        public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font)
         {
             var tf = SKTypeface.FromFamilyName (font.Name) ?? Theme.UIFont;
             return MeasureText (text, tf, (int)font.SizeInPoints);
         }
 
-        /// <summary>Measures text using a Majorsilence.Drawing.Font with size constraints.</summary>
-        public static Size MeasureText (string text, Majorsilence.Drawing.Font font, Size proposedSize)
+        /// <summary>Measures text using a Majorsilence.Forms.Drawing.Font with size constraints.</summary>
+        public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font, Size proposedSize)
         {
             var tf = SKTypeface.FromFamilyName (font.Name) ?? Theme.UIFont;
             return MeasureText (text, tf, proposedSize, (int)font.SizeInPoints);
         }
 
-        /// <summary>Draws text at the given point using a Majorsilence.Drawing.Font. Stub in Majorsilence.Forms.</summary>
-        public static void DrawText (Graphics g, string text, Majorsilence.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor)
+        /// <summary>Draws text at the given point using a Majorsilence.Forms.Drawing.Font. Stub in Majorsilence.Forms.</summary>
+        public static void DrawText (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor)
         {
-            using var brush = new Majorsilence.Drawing.SolidBrush (foreColor);
+            using var brush = new Majorsilence.Forms.Drawing.SolidBrush (foreColor);
             g.DrawString (text, font, brush, new RectangleF (bounds.X, bounds.Y, bounds.Width, bounds.Height));
         }
 
-        /// <summary>Draws text at the given point using a Majorsilence.Drawing.Font with flags. Stub in Majorsilence.Forms.</summary>
-        public static void DrawText (Graphics g, string text, Majorsilence.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, TextFormatFlags flags)
+        /// <summary>Draws text at the given point using a Majorsilence.Forms.Drawing.Font with flags. Stub in Majorsilence.Forms.</summary>
+        public static void DrawText (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, TextFormatFlags flags)
             => DrawText (g, text, font, bounds, foreColor);
 
-        /// <summary>Draws text at the specified point using a Majorsilence.Drawing.Font.</summary>
-        public static void DrawText (Graphics g, string text, Majorsilence.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor)
+        /// <summary>Draws text at the specified point using a Majorsilence.Forms.Drawing.Font.</summary>
+        public static void DrawText (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor)
             => DrawText (g, text, font, new Rectangle (pt.X, pt.Y, 0, 0), foreColor);
 
-        /// <summary>Draws text at the specified point with flags using a Majorsilence.Drawing.Font.</summary>
-        public static void DrawText (Graphics g, string text, Majorsilence.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, TextFormatFlags flags)
+        /// <summary>Draws text at the specified point with flags using a Majorsilence.Forms.Drawing.Font.</summary>
+        public static void DrawText (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, TextFormatFlags flags)
             => DrawText (g, text, font, new Rectangle (pt.X, pt.Y, 0, 0), foreColor);
 #pragma warning restore CA1416
     }

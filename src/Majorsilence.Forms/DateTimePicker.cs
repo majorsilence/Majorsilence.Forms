@@ -70,7 +70,7 @@ namespace Majorsilence.Forms
         public bool ShowUpDown { get; set; }
 
         /// <summary>Gets or sets the font used for the calendar portion. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Font? CalendarFont { get; set; }
+        public Majorsilence.Forms.Drawing.Font? CalendarFont { get; set; }
 
         /// <summary>Gets or sets the minimum date value.</summary>
         public DateTime MinDate {

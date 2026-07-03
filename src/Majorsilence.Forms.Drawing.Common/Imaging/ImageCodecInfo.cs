@@ -1,4 +1,4 @@
-﻿namespace Majorsilence.Drawing.Imaging
+﻿namespace Majorsilence.Forms.Drawing.Imaging
 {
     // Simulate ImageCodecInfo (simplified)
     public class ImageCodecInfo

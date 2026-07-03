@@ -1,7 +1,7 @@
 using System.Drawing;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Specifies the dash style used when stroking lines and shapes.

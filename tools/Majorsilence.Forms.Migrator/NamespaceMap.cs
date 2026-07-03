@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Migrator;
 ///   Rectangle, …) live in <c>System.Drawing.Primitives</c>, ship with the base framework on every
 ///   OS, and Majorsilence.Forms keeps using them as-is — so they must <b>not</b> be rewritten. The GDI+
 ///   types (Bitmap, Brush, Pen, Font, …) are Windows-only and are reimplemented under
-///   <c>Majorsilence.Drawing</c>, so those <b>are</b> rewritten.</item>
+///   <c>Majorsilence.Forms.Drawing</c>, so those <b>are</b> rewritten.</item>
 /// </list>
 /// </summary>
 internal static class NamespaceMap
@@ -57,9 +57,9 @@ internal static class NamespaceMap
         ("Telerik.WinForms.Documents.FormatProviders.Html", "Majorsilence.Forms.Telerik"),
         ("Telerik.WinForms.Documents.Proofing", "Majorsilence.Forms.Telerik"),
         ("Telerik.WinForms.Documents", "Majorsilence.Forms.Telerik"),
-        ("System.Drawing.Drawing2D", "Majorsilence.Drawing.Drawing2D"),
-        ("System.Drawing.Imaging", "Majorsilence.Drawing.Imaging"),
-        ("System.Drawing.Text", "Majorsilence.Drawing.Text"),
+        ("System.Drawing.Drawing2D", "Majorsilence.Forms.Drawing.Drawing2D"),
+        ("System.Drawing.Imaging", "Majorsilence.Forms.Drawing.Imaging"),
+        ("System.Drawing.Text", "Majorsilence.Forms.Drawing.Text"),
         ("System.Drawing.Printing", "Majorsilence.Forms.Printing"),
         ("System.Windows.Forms", "Majorsilence.Forms"),
     ];
@@ -74,9 +74,9 @@ internal static class NamespaceMap
     };
 
     /// <summary>
-    /// Top-level GDI+ types that Majorsilence.Drawing reimplements. A fully-qualified
+    /// Top-level GDI+ types that Majorsilence.Forms.Drawing reimplements. A fully-qualified
     /// <c>System.Drawing.&lt;name&gt;</c> reference to one of these is rewritten to
-    /// <c>Majorsilence.Drawing.&lt;name&gt;</c>. Kept in sync with <c>src/Majorsilence.Forms/Drawing/*.cs</c>.
+    /// <c>Majorsilence.Forms.Drawing.&lt;name&gt;</c>. Kept in sync with <c>src/Majorsilence.Forms/Drawing/*.cs</c>.
     /// </summary>
     public static readonly HashSet<string> MajorsilenceDrawingTypes = new(StringComparer.Ordinal)
     {
@@ -129,7 +129,7 @@ internal static class NamespaceMap
 
     /// <summary>
     /// <c>System.Drawing</c> types that Majorsilence reimplements in the <b><c>Majorsilence.Forms</c></b>
-    /// namespace (its WinForms-compat surface) rather than <c>Majorsilence.Drawing</c>. A fully-qualified
+    /// namespace (its WinForms-compat surface) rather than <c>Majorsilence.Forms.Drawing</c>. A fully-qualified
     /// <c>System.Drawing.&lt;name&gt;</c> is rewritten to <c>Majorsilence.Forms.&lt;name&gt;</c>. Verified
     /// against the type declarations in <c>src/Majorsilence.Forms/*.cs</c>.
     /// </summary>
@@ -153,5 +153,5 @@ internal static class NamespaceMap
     };
 
     /// <summary>The namespace the GDI+ replacements live in; added alongside a kept <c>System.Drawing</c> import.</summary>
-    public const string DrawingTarget = "Majorsilence.Drawing";
+    public const string DrawingTarget = "Majorsilence.Forms.Drawing";
 }

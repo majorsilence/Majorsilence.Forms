@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Majorsilence.Drawing.Drawing2D
+namespace Majorsilence.Forms.Drawing.Drawing2D
 {
     public enum HatchStyle
     {

@@ -10,7 +10,7 @@ namespace Majorsilence.Forms.Migrator;
 ///
 /// The one piece of real cleverness is the <c>System.Drawing</c> split: primitive value types
 /// (Color/Point/Size/Rectangle/…) are framework types Majorsilence.Forms keeps, so they are left alone,
-/// while GDI+ types (Bitmap/Brush/Pen/…) are redirected to <c>Majorsilence.Drawing</c>. See <see cref="NamespaceMap"/>.
+/// while GDI+ types (Bitmap/Brush/Pen/…) are redirected to <c>Majorsilence.Forms.Drawing</c>. See <see cref="NamespaceMap"/>.
 /// </summary>
 internal enum SourceLanguage
 {
@@ -126,7 +126,7 @@ internal static class SourceConverter
         }
 
         // 2. System.Drawing type references. Three buckets: keep the framework primitives as-is; redirect
-        //    GDI+ types to Majorsilence.Drawing; redirect the WinForms-compat types (Graphics, ContentAlignment,
+        //    GDI+ types to Majorsilence.Forms.Drawing; redirect the WinForms-compat types (Graphics, ContentAlignment,
         //    SystemColors, …) to Majorsilence.Forms; warn on anything with no Majorsilence equivalent at all.
         text = DrawingType.Replace(text, m =>
         {
@@ -151,7 +151,7 @@ internal static class SourceConverter
 
         // 3. Reconcile a bare `using System.Drawing;`. It's only still needed when the file uses a
         //    System.Drawing primitive (Color/Point/…) unqualified; otherwise drop it. GDI+ types used
-        //    unqualified now live in Majorsilence.Drawing, so add/keep that import when they're present.
+        //    unqualified now live in Majorsilence.Forms.Drawing, so add/keep that import when they're present.
         text = RewriteDrawingImports(text);
 
         // 4. Flag any namespace we deliberately refused to rewrite — but only when a reference actually
@@ -175,7 +175,7 @@ internal static class SourceConverter
             foreach (var type in NamespaceMap.UnmappedDrawingTypes)
             {
                 if (Regex.IsMatch(original, $@"(?<![\w.])\b{Regex.Escape(type)}\b"))
-                    Warn($"uses '{type}' (System.Drawing.Common) which has no Majorsilence.Drawing equivalent — review manually");
+                    Warn($"uses '{type}' (System.Drawing.Common) which has no Majorsilence.Forms.Drawing equivalent — review manually");
             }
         }
 
@@ -193,7 +193,7 @@ internal static class SourceConverter
 
         // 6. ComponentResourceManager: designer code instantiates the WinForms-flavoured
         //    System.ComponentModel.ComponentResourceManager. Majorsilence.Forms ships a cross-platform
-        //    equivalent (reads the .resx directly, returns Majorsilence.Drawing images), so redirect just
+        //    equivalent (reads the .resx directly, returns Majorsilence.Forms.Drawing images), so redirect just
         //    that one type — System.ComponentModel itself stays put (it holds many unrelated BCL types).
         text = Regex.Replace(text,
             @"(?<![\w.])System\.ComponentModel\.ComponentResourceManager\b",
@@ -456,7 +456,7 @@ internal static class SourceConverter
             return text;
 
         // The import is only needed for the primitives Majorsilence.Forms keeps in System.Drawing;
-        // GDI+ types used unqualified need the Majorsilence.Drawing companion instead.
+        // GDI+ types used unqualified need the Majorsilence.Forms.Drawing companion instead.
         var needsSystemDrawing = NamespaceMap.DrawingPrimitives.Any(p => UsedUnqualified(text, p));
         var usesGdiPlus = NamespaceMap.MajorsilenceDrawingTypes.Any(t => UsedUnqualified(text, t));
         var companionPresent = Regex.IsMatch(text,
@@ -476,7 +476,7 @@ internal static class SourceConverter
             return text;
         }
 
-        // System.Drawing is no longer needed. Replace it with the Majorsilence.Drawing import when GDI+
+        // System.Drawing is no longer needed. Replace it with the Majorsilence.Forms.Drawing import when GDI+
         // types are used unqualified, otherwise drop the line entirely.
         var replacement = usesGdiPlus && !companionPresent ? companion : null;
         return RemoveImportLine(text, match, replacement, newline);

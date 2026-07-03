@@ -1,9 +1,9 @@
 using System;
 using System.Drawing;
-using Majorsilence.Drawing.Drawing2D;
+using Majorsilence.Forms.Drawing.Drawing2D;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Describes the interior of a graphics shape. Cross-platform replacement for

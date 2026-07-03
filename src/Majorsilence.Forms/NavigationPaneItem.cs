@@ -10,7 +10,7 @@ public class NavigationPaneItem : ILayoutable
 {
     private bool enabled = true;
     private string text;
-    private Majorsilence.Drawing.Image? _image;
+    private Majorsilence.Forms.Drawing.Image? _image;
     private SKBitmap? _imageSK;
 
     /// <summary>
@@ -24,10 +24,10 @@ public class NavigationPaneItem : ILayoutable
     }
 
     /// <summary>
-    /// Initializes a new instance of the NavigationPaneItem class with a Majorsilence.Drawing.Image.
+    /// Initializes a new instance of the NavigationPaneItem class with a Majorsilence.Forms.Drawing.Image.
     /// </summary>
 #pragma warning disable CA1416
-    public NavigationPaneItem (Majorsilence.Drawing.Image image, string? text = null)
+    public NavigationPaneItem (Majorsilence.Forms.Drawing.Image image, string? text = null)
     {
         _image = image;
         _imageSK = image.ToSKBitmap ();
@@ -70,10 +70,10 @@ public class NavigationPaneItem : ILayoutable
     public bool Hovered => Parent?.Items.HoveredIndex == Index;
 
     /// <summary>
-    /// Gets or sets the image displayed on the item. Accepts <see cref="Majorsilence.Drawing.Image"/> for WinForms compatibility.
+    /// Gets or sets the image displayed on the item. Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
     /// </summary>
 #pragma warning disable CA1416
-    public Majorsilence.Drawing.Image? Image {
+    public Majorsilence.Forms.Drawing.Image? Image {
         get => _image;
         set {
             _image = value;

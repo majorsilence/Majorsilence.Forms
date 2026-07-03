@@ -163,7 +163,7 @@ namespace Majorsilence.Forms.Telerik
         public float HeaderHeight { get; set; } = 20f;
 
         /// <summary>Gets or sets the font used to draw the header/middle-header text.</summary>
-        public Majorsilence.Drawing.Font HeaderFont { get; set; } = new Majorsilence.Drawing.Font ("Arial", 10);
+        public Majorsilence.Forms.Drawing.Font HeaderFont { get; set; } = new Majorsilence.Forms.Drawing.Font ("Arial", 10);
 
         /// <summary>Gets or sets the text centered in the header band.</summary>
         public string MiddleHeader { get; set; } = string.Empty;
@@ -353,11 +353,11 @@ namespace Majorsilence.Forms.Telerik
 
                 if (export.ShowHeaderAndFooter && !string.IsNullOrEmpty (export.MiddleHeader)) {
                     var headerRect = new System.Drawing.RectangleF (e.MarginBounds.Left, top, e.MarginBounds.Width, headerBandHeight);
-                    g.DrawString (export.MiddleHeader, export.HeaderFont, Majorsilence.Drawing.Brushes.Black, headerRect, Majorsilence.Forms.ContentAlignment.MiddleCenter);
+                    g.DrawString (export.MiddleHeader, export.HeaderFont, Majorsilence.Forms.Drawing.Brushes.Black, headerRect, Majorsilence.Forms.ContentAlignment.MiddleCenter);
                     top += headerBandHeight;
                 }
 
-                var headerFont = new Majorsilence.Drawing.Font (export.HeaderFont.FamilyName, export.HeaderFont.Size, bold: true);
+                var headerFont = new Majorsilence.Forms.Drawing.Font (export.HeaderFont.FamilyName, export.HeaderFont.Size, bold: true);
                 DrawRow (g, cols.Select (c => string.IsNullOrEmpty (c.HeaderText) ? c.Name : c.HeaderText).ToArray (),
                     colWidths, e.MarginBounds.Left, top, rowHeight, headerFont);
                 top += rowHeight;
@@ -376,12 +376,12 @@ namespace Majorsilence.Forms.Telerik
             return doc;
         }
 
-        private static void DrawRow (Drawing.SkiaGraphics g, string[] values, float[] widths, float left, float top, float height, Majorsilence.Drawing.Font font)
+        private static void DrawRow (Drawing.SkiaGraphics g, string[] values, float[] widths, float left, float top, float height, Majorsilence.Forms.Drawing.Font font)
         {
             var x = left;
             for (var i = 0; i < values.Length && i < widths.Length; i++) {
                 var rect = new System.Drawing.RectangleF (x, top, widths[i], height);
-                g.DrawString (values[i], font, Majorsilence.Drawing.Brushes.Black, rect, Majorsilence.Forms.ContentAlignment.MiddleLeft);
+                g.DrawString (values[i], font, Majorsilence.Forms.Drawing.Brushes.Black, rect, Majorsilence.Forms.ContentAlignment.MiddleLeft);
                 x += widths[i];
             }
         }

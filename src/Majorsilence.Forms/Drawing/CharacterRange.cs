@@ -1,4 +1,4 @@
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Specifies a range of character positions within a string. Cross-platform replacement for

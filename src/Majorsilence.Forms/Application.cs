@@ -81,7 +81,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Sets the default font for the application. No-op in Majorsilence.Forms.
         /// </summary>
-        public static void SetDefaultFont (Majorsilence.Drawing.Font font) { }
+        public static void SetDefaultFont (Majorsilence.Forms.Drawing.Font font) { }
 
         /// <summary>
         /// Exits the application.

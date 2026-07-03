@@ -11,7 +11,7 @@ internal enum DrawingTypeBucket
     /// <summary>A framework primitive (Color/Point/Size/Rectangle/…) — left alone, Majorsilence.Forms uses it as-is.</summary>
     Primitive,
 
-    /// <summary>A GDI+ type (Bitmap/Brush/Pen/…) — redirected to <c>Majorsilence.Drawing</c>.</summary>
+    /// <summary>A GDI+ type (Bitmap/Brush/Pen/…) — redirected to <c>Majorsilence.Forms.Drawing</c>.</summary>
     MajorsilenceDrawing,
 
     /// <summary>A WinForms-compat drawing type (Graphics/SystemColors/…) — redirected to <c>Majorsilence.Forms</c>.</summary>
@@ -33,7 +33,7 @@ internal static class DrawingTypeClassifier
     /// <summary>
     /// Classifies a bare leaf name found after <c>System.Drawing.</c> (e.g. "Bitmap" from
     /// "System.Drawing.Bitmap"). Mirrors the bucket order used by <see cref="SourceConverter"/>'s Pass 2:
-    /// primitives first, then Majorsilence.Drawing types, then Majorsilence.Forms types, then a check for
+    /// primitives first, then Majorsilence.Forms.Drawing types, then Majorsilence.Forms types, then a check for
     /// whether the fully-qualified name falls under an already-flagged unsupported sub-namespace, else
     /// <see cref="DrawingTypeBucket.Unsupported"/>.
     /// </summary>

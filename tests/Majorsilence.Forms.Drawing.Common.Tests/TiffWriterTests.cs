@@ -1,4 +1,4 @@
-using Majorsilence.Drawing.Imaging;
+using Majorsilence.Forms.Drawing.Imaging;
 using SkiaSharp;
 
 namespace Majorsilence.Forms.Drawing.Common.Tests;

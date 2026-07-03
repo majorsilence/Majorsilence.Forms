@@ -1932,7 +1932,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the font (WinForms compatibility property; use Theme or Style for full control).
         /// </summary>
-        public Majorsilence.Drawing.Font? Font { get; set; }
+        public Majorsilence.Forms.Drawing.Font? Font { get; set; }
 
         /// <summary>
         /// Gets or sets user defined data.

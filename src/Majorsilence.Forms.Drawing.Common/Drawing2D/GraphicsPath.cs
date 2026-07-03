@@ -1,7 +1,7 @@
 using SkiaSharp;
 
 
-namespace Majorsilence.Drawing.Drawing2D
+namespace Majorsilence.Forms.Drawing.Drawing2D
 {
     public class GraphicsPath : IDisposable
     {

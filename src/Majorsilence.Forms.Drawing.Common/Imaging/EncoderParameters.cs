@@ -1,4 +1,4 @@
-﻿namespace Majorsilence.Drawing.Imaging
+﻿namespace Majorsilence.Forms.Drawing.Imaging
 {
     // Simulates EncoderParameters in System.Drawing.Common
     public class EncoderParameters
