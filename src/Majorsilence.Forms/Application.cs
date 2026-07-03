@@ -202,6 +202,17 @@ namespace Majorsilence.Forms
                 ?.InformationalVersion
             ?? System.Reflection.Assembly.GetEntryAssembly ()?.GetName ().Version?.ToString ();
 
+        private static ApplicationInfo? application_info;
+
+        /// <summary>
+        /// Gets a <see cref="ApplicationInfo"/> facade grouping assembly metadata — the backing type for
+        /// classic VB's <c>My.Application.Info</c> (Title/AssemblyName/Version/Copyright/CompanyName/
+        /// Description/ProductName). Wraps the same entry-assembly reflection as <see cref="ProductName"/>/
+        /// <see cref="ProductVersion"/>/<see cref="CompanyName"/> rather than recomputing it separately.
+        /// </summary>
+        public static ApplicationInfo Info =>
+            application_info ??= new ApplicationInfo(System.Reflection.Assembly.GetEntryAssembly());
+
         /// <summary>Gets the company name associated with this application.</summary>
         public static string? CompanyName =>
             System.Reflection.Assembly.GetEntryAssembly ()

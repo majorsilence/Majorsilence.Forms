@@ -159,6 +159,23 @@ internal static class ProjectConverter
             changed = true;
         }
 
+        // 2b. My Project\Resources.resx backs classic My.Resources. The migrator generates a companion
+        // My Project\Resources.vb that embeds the .resx content as a string literal and exposes typed
+        // properties over it (see MyResourcesGenerator) — so the SDK's default EmbeddedResource glob,
+        // which would otherwise compile the same .resx into a separate .resources binary nobody reads
+        // (and fails outright on non-string entries without System.Resources.Extensions), needs to leave
+        // it alone.
+        const string myResourcesGlob = @"My Project\Resources.resx";
+        var resourcesAlreadyRemoved = root.Descendants()
+            .Any(e => e.Name.LocalName == "EmbeddedResource" && (e.Attribute("Remove")?.Value ?? "")
+                .Contains("Resources.resx", StringComparison.OrdinalIgnoreCase));
+        if (!resourcesAlreadyRemoved)
+        {
+            root.Add(new XElement(ns + "ItemGroup",
+                new XElement(ns + "EmbeddedResource", new XAttribute("Remove", myResourcesGlob))));
+            changed = true;
+        }
+
         // 3. Rewrite project-level VB global imports (<Import Include="System.Windows.Forms" />).
         foreach (var import in root.Descendants().Where(e => e.Name.LocalName == "Import").ToList())
         {
