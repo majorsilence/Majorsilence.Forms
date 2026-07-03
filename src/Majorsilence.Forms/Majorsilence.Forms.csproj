@@ -29,6 +29,13 @@
     <InternalsVisibleTo Include="Majorsilence.Forms.Headless" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Uno" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Telerik" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pre-expanded, deflate-compressed Hunspell/SCOWL en_US wordlist backing Majorsilence.Forms.SpellCheck.
+         See third-party-licenses.md (SCOWL / Kuenning Ispell section) for licensing. -->
+    <EmbeddedResource Include="SpellCheck/en_US.words.gz" />
   </ItemGroup>
 
 </Project>

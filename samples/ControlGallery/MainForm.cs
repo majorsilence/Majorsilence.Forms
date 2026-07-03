@@ -58,6 +58,12 @@ namespace ControlGallery
             tree.Items.Add ("Telerik: PageView", ImageLoader.Get ("button.png"));
             tree.Items.Add ("Telerik: PropertyGrid", ImageLoader.Get ("button.png"));
             tree.Items.Add ("Telerik: TabbedForm", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: PdfViewer", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: RichTextEditor", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: SpellCheck", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: DesktopAlert", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: GridExport", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Telerik: Scheduler", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TableLayoutPanel", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TabStrip", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TextBox", ImageLoader.Get ("button.png"));
@@ -173,6 +179,8 @@ namespace ControlGallery
                 // pre-warmed last; their PreWarm just renders static children into back buffers.
                 "Telerik: Controls", "Telerik: GridView", "Telerik: PageView",
                 "Telerik: PropertyGrid", "Telerik: TabbedForm",
+                "Telerik: PdfViewer", "Telerik: RichTextEditor", "Telerik: SpellCheck",
+                "Telerik: DesktopAlert", "Telerik: GridExport", "Telerik: Scheduler",
                 "FormShortcuts", "MDI",
             };
 
@@ -251,6 +259,18 @@ namespace ControlGallery
                     return new TelerikPropertyGridPanel ();
                 case "Telerik: TabbedForm":
                     return new TelerikTabbedFormPanel ();
+                case "Telerik: PdfViewer":
+                    return new TelerikPdfViewerPanel ();
+                case "Telerik: RichTextEditor":
+                    return new TelerikRichTextEditorPanel ();
+                case "Telerik: SpellCheck":
+                    return new TelerikSpellCheckPanel ();
+                case "Telerik: DesktopAlert":
+                    return new TelerikDesktopAlertPanel ();
+                case "Telerik: GridExport":
+                    return new TelerikGridExportPanel ();
+                case "Telerik: Scheduler":
+                    return new TelerikSchedulerPanel ();
                 case "TableLayoutPanel":
                     return new TableLayoutPanelPanel ();
                 case "TabStrip":

@@ -10,7 +10,7 @@ namespace Majorsilence.Forms.Backends
     /// The default <see cref="IPlatformBackend"/>: hosts Majorsilence.Forms on Avalonia 12. Application
     /// bootstrap and the message loop are delegated to Avalonia's <see cref="Dispatcher"/>.
     /// </summary>
-    public sealed class AvaloniaPlatformBackend : IPlatformBackend
+    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory
     {
         /// <inheritdoc/>
         public string Name => "Avalonia";
@@ -62,6 +62,51 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public IPlatformTimer CreateTimer () => new AvaloniaTimer ();
+
+        // ── WebView (Avalonia.Controls.WebView — WebView2/WKWebView/WebKitGTK-WPE native engines) ──
+        private static bool? _webViewSupported;
+
+        /// <inheritdoc/>
+        public bool IsSupported {
+            get {
+                if (_webViewSupported is bool cached)
+                    return cached;
+
+                bool supported;
+                try {
+                    // Cheap, non-throwing-by-design probe (Avalonia.Controls.WebView ships this exact
+                    // shape for the purpose): confirmed via the Phase 0 spike on Windows/WebView2. The
+                    // analogous adapter types for macOS (WkWebView) and Linux (WebKitGtk/WpeWebKit) are
+                    // not yet exercised on those platforms — this still degrades safely (catch below)
+                    // rather than throwing if the probe itself is unsupported for the running OS.
+                    var adapterType = OperatingSystem.IsWindows () ? Avalonia.Platform.WebViewAdapterType.WebView2
+                        : OperatingSystem.IsMacOS () ? Avalonia.Platform.WebViewAdapterType.WkWebView
+                        : Avalonia.Platform.WebViewAdapterType.WpeWebKit;
+                    supported = Avalonia.Platform.WebViewAdapterInfo.GetAdapterInfo (adapterType).IsSupported;
+                } catch {
+                    supported = false;
+                }
+
+                _webViewSupported = supported;
+                return supported;
+            }
+        }
+
+        /// <inheritdoc/>
+        public IWebViewHandle? CreateWebView ()
+        {
+            try {
+                // NativeWebView requires the UI thread (it's an Avalonia Control) and — on Windows —
+                // requires the process to be STA and the host app to carry a manifest with a supportedOS
+                // list, or attaching it to the visual tree throws. Both are host-application concerns
+                // (see Phase 0 spike findings); this factory can only guard against engine-level failures.
+                return Dispatcher.UIThread.CheckAccess ()
+                    ? new AvaloniaWebViewHandle ()
+                    : Dispatcher.UIThread.Invoke (() => (IWebViewHandle) new AvaloniaWebViewHandle ());
+            } catch {
+                return null;
+            }
+        }
 
         // ── Clipboard ──
         // Avalonia exposes the clipboard per-TopLevel; use the first open window's clipboard.

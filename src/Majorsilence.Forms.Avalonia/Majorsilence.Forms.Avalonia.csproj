@@ -20,6 +20,7 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Controls.WebView" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 

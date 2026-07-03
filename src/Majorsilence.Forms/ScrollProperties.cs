@@ -21,6 +21,16 @@
         }
 
         /// <summary>
+        /// Gets or sets whether the scrollbar is shown. WinForms compat — in real WinForms this reflects
+        /// whether AutoScroll actually needed the scrollbar; here it's a direct, settable override of the
+        /// underlying scrollbar's visibility.
+        /// </summary>
+        public bool Visible {
+            get => scrollbar.Visible;
+            set => scrollbar.Visible = value;
+        }
+
+        /// <summary>
         /// Gets or sets the large change value of the scrollbar.
         /// </summary>
         public int LargeChange {

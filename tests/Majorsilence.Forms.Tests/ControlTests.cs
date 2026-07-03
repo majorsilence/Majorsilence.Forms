@@ -256,5 +256,140 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal ("Button 4", f.GetNextControl (b3, true)?.Text);
             Assert.Null (f.GetNextControl (b4, true));
         }
+
+        // Test double that records every OnVisibleChanged invocation, used to prove the
+        // OnParentVisibleChanged cascade reaches arbitrarily deep descendants.
+        private sealed class VisibleChangeRecordingControl : Control
+        {
+            public int VisibleChangedCount { get; private set; }
+
+            protected override void OnVisibleChanged (EventArgs e)
+            {
+                VisibleChangedCount++;
+                base.OnVisibleChanged (e);
+            }
+        }
+
+        [Fact]
+        public void OnParentVisibleChanged_CascadesThroughMultipleLevels_WhenAncestorHidden ()
+        {
+            // Form -> Panel A -> Panel B -> deeply-nested control
+            using var form = new Form ();
+            var panelA = new Panel ();
+            var panelB = new Panel ();
+            var leaf = new VisibleChangeRecordingControl ();
+
+            panelB.Controls.Add (leaf);
+            panelA.Controls.Add (panelB);
+            form.Controls.Add (panelA);
+
+            var baseline = leaf.VisibleChangedCount;
+
+            panelA.Visible = false;
+
+            // The cascade must reach the great-grandchild, not stop at panelB.
+            Assert.False (leaf.Visible);
+            Assert.True (leaf.VisibleChangedCount > baseline);
+        }
+
+        [Fact]
+        public void OnParentVisibleChanged_CascadesThroughMultipleLevels_WhenAncestorRemovedFromParent ()
+        {
+            using var form = new Form ();
+            var panelA = new Panel ();
+            var panelB = new Panel ();
+            var leaf = new VisibleChangeRecordingControl ();
+
+            panelB.Controls.Add (leaf);
+            panelA.Controls.Add (panelB);
+            form.Controls.Add (panelA);
+
+            var baseline = leaf.VisibleChangedCount;
+
+            form.Controls.Remove (panelA);
+
+            Assert.False (leaf.Visible);
+            Assert.True (leaf.VisibleChangedCount > baseline);
+        }
+
+        [Fact]
+        public void OnParentVisibleChanged_CascadesBackOnReshow_WhenAncestorReAdded ()
+        {
+            using var form = new Form ();
+            var panelA = new Panel ();
+            var panelB = new Panel ();
+            var leaf = new VisibleChangeRecordingControl ();
+
+            panelB.Controls.Add (leaf);
+            panelA.Controls.Add (panelB);
+            form.Controls.Add (panelA);
+
+            panelA.Visible = false;
+            Assert.False (leaf.Visible);
+
+            var countWhileHidden = leaf.VisibleChangedCount;
+
+            panelA.Visible = true;
+
+            Assert.True (leaf.Visible);
+            Assert.True (leaf.VisibleChangedCount > countWhileHidden);
+        }
+
+        [Fact]
+        public void OnParentVisibleChanged_CascadesBackOnReshow_WhenAncestorReAddedToParent ()
+        {
+            using var form = new Form ();
+            var panelA = new Panel ();
+            var panelB = new Panel ();
+            var leaf = new VisibleChangeRecordingControl ();
+
+            panelB.Controls.Add (leaf);
+            panelA.Controls.Add (panelB);
+            form.Controls.Add (panelA);
+
+            form.Controls.Remove (panelA);
+            Assert.False (leaf.Visible);
+
+            var countWhileRemoved = leaf.VisibleChangedCount;
+
+            form.Controls.Add (panelA);
+
+            Assert.True (leaf.Visible);
+            Assert.True (leaf.VisibleChangedCount > countWhileRemoved);
+        }
+
+        [Fact]
+        public void OnParentVisibleChanged_DoesNotFireForControlExplicitlyHiddenAtIntermediateLevel ()
+        {
+            // panelB is explicitly, locally hidden by the user. Toggling an ancestor's (panelA's)
+            // visibility should not cause panelB's own OnVisibleChanged to fire again on the way down,
+            // since panelB's local Visible flag is already false - matching the original guard's intent
+            // of not spuriously re-notifying an already-(locally)-hidden subtree.
+            using var form = new Form ();
+            var panelA = new Panel ();
+            var panelB = new VisibleChangeRecordingControl ();
+            var leaf = new VisibleChangeRecordingControl ();
+
+            panelB.Controls.Add (leaf);
+            panelA.Controls.Add (panelB);
+            form.Controls.Add (panelA);
+
+            panelB.Visible = false;
+
+            var panelBCountAfterOwnHide = panelB.VisibleChangedCount;
+            var leafCountAfterPanelBHide = leaf.VisibleChangedCount;
+
+            // Toggle the ancestor. panelB's local flag is still false, so panelB itself should not
+            // receive another OnVisibleChanged call, and since panelB stays effectively invisible,
+            // leaf (already effectively hidden) should likewise not fire again.
+            panelA.Visible = false;
+            panelA.Visible = true;
+
+            Assert.Equal (panelBCountAfterOwnHide, panelB.VisibleChangedCount);
+            Assert.Equal (leafCountAfterPanelBHide, leaf.VisibleChangedCount);
+
+            // Sanity: leaf is still effectively hidden because panelB (its direct ancestor) is locally hidden.
+            Assert.False (leaf.Visible);
+        }
     }
 }

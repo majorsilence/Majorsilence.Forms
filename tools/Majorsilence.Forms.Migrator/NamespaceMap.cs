@@ -30,10 +30,33 @@ internal static class NamespaceMap
         // the bare `Telerik.WinControls` last so it never clips a more specific sub-namespace first.
         ("Telerik.WinControls.UI.Docking", "Majorsilence.Forms.Telerik"),
         ("Telerik.WinControls.UI.Data", "Majorsilence.Forms.Telerik"),
+        // The rich text editor's ribbon lives in its own sub-namespace of Telerik.WinControls.UI (its leaf
+        // type, RichTextEditorRibbonTab, is reached via Telerik.WinControls.UI.RichTextEditorRibbonUI in
+        // designer code) — must precede the bare Telerik.WinControls.UI entry below so that entry doesn't
+        // clip it into a nonexistent Majorsilence.Forms.Telerik.RichTextEditorRibbonUI.* namespace first.
+        ("Telerik.WinControls.UI.RichTextEditorRibbonUI", "Majorsilence.Forms.Telerik"),
+        // The grid export surface (GridViewSpreadExport, ExportToCSV, ExportToHTML, GridViewPdfExport, ...)
+        // lives partly under Telerik.WinControls.UI.Export and partly under the sibling Telerik.WinControls.Export
+        // — both collapse to the same flat compat layer (src/Majorsilence.Forms/Telerik/RadGridExport.cs).
+        // Both must precede the bare Telerik.WinControls.UI / Telerik.WinControls entries below: without this,
+        // the bare Telerik.WinControls rule fires first and clips these into a nonexistent
+        // Majorsilence.Forms.Telerik.Export.* namespace (the bug this phase fixes — see
+        // SourceConverterTests' regression test for it).
+        ("Telerik.WinControls.UI.Export", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinControls.Export", "Majorsilence.Forms.Telerik"),
         ("Telerik.WinControls.Enumerations", "Majorsilence.Forms.Telerik"),
         ("Telerik.WinControls.UI", "Majorsilence.Forms.Telerik"),
         ("Telerik.WinControls.Data", "Majorsilence.Forms.Telerik"),
         ("Telerik.WinControls", "Majorsilence.Forms.Telerik"),
+        // Telerik's document model / HTML format provider / proofing namespaces (used by RadRichTextEditor's
+        // HtmlFormatProvider, HtmlExportSettings, ISpellChecker/DocumentSpellChecker — see
+        // src/Majorsilence.Forms/Telerik/RadRichTextEditor.cs) collapse to the same flat compat layer.
+        // Ordered longest-first for the same reason as the WinControls group above, with the bare
+        // Telerik.WinForms.Documents last so it never clips its own more specific sub-namespaces.
+        ("Telerik.WinForms.Documents.Model", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinForms.Documents.FormatProviders.Html", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinForms.Documents.Proofing", "Majorsilence.Forms.Telerik"),
+        ("Telerik.WinForms.Documents", "Majorsilence.Forms.Telerik"),
         ("System.Drawing.Drawing2D", "Majorsilence.Drawing.Drawing2D"),
         ("System.Drawing.Imaging", "Majorsilence.Drawing.Imaging"),
         ("System.Drawing.Text", "Majorsilence.Drawing.Text"),
@@ -78,7 +101,6 @@ internal static class NamespaceMap
         "System.Drawing.Design",
         "System.ComponentModel.Design",
         "Telerik.WinControls.Themes",
-        "Telerik.WinControls.UI.Export",
         "Telerik.WinControls.Design",
         "Telerik.WinControls.Primitives",
         "Telerik.WinControls.Layouts",
@@ -88,17 +110,21 @@ internal static class NamespaceMap
     public const string TelerikUiNamespace = "Telerik.WinControls.UI";
 
     /// <summary>
-    /// Telerik types with no Majorsilence.Forms.Telerik equivalent — deliberately unimplemented heavyweights
-    /// (PDF, rich text, spell check, scheduler data layer, printing, ribbon). A reference to one of these is
-    /// left unrewritten rather than being pointed at a type that doesn't exist; see Pass 5b in
-    /// <see cref="SourceConverter"/>.
+    /// Telerik types with no Majorsilence.Forms.Telerik equivalent. PDF (<c>RadPdfViewer</c>/
+    /// <c>RadPdfViewerNavigator</c>), rich text (<c>RadRichTextEditor</c>/<c>RichTextEditorRibbonBar</c>/
+    /// <c>RadRibbonBar</c>/...), desktop alerts (<c>RadDesktopAlert</c>), and the scheduler data/printing
+    /// surface (<c>SchedulerBindingDataSource</c>, <c>AppointmentMappingInfo</c>, <c>ResourceMappingInfo</c>,
+    /// <c>RadPrintDocument</c>, <c>RadPrintWatermark</c>, and the <c>Scheduler*PrintStyle</c> family) are no
+    /// longer listed here — all now have compat implementations in
+    /// <c>src/Majorsilence.Forms/Telerik/RadPdfViewer.cs</c>, <c>RadRichTextEditor.cs</c>/
+    /// <c>RadRichTextEditorRibbon.cs</c>, <c>RadDesktopAlert.cs</c>, and <c>RadSchedulerData.cs</c>/
+    /// <c>RadScheduler.cs</c>/<c>RadSchedulerPrinting.cs</c> respectively (Phase 5). This set is now empty —
+    /// kept (rather than deleted) as the designated home for any future heavyweight Telerik type found to
+    /// have no compat implementation yet; see Pass 5b in <see cref="SourceConverter"/> for how a reference
+    /// to a type listed here is left unrewritten rather than being pointed at a type that doesn't exist.
     /// </summary>
     public static readonly HashSet<string> UnmappedTelerikTypes = new(StringComparer.Ordinal)
     {
-        "RadPdfViewer", "RadPdfViewerNavigator", "FixedDocumentViewerMode", "ReadingMode",
-        "RadRichTextEditor", "RichTextEditorRibbonBar", "RichTextEditorRibbonUI", "RadSpellChecker",
-        "SchedulerBindingDataSource", "AppointmentMappingInfo", "ResourceMappingInfo", "SchedulerDailyPrintStyle",
-        "RadPrintDocument", "RadPrintWatermark", "RadDesktopAlert", "RadRibbonBarElement", "RibbonTab", "RibbonLayout",
     };
 
     /// <summary>

@@ -23,6 +23,16 @@ namespace Majorsilence.Forms
         private Rectangle last_clip;
         private bool last_visible;
 
+        // Captured when we last attached to a backend, and used (instead of re-resolving FindWindow ())
+        // for every subsequent hide/detach. This matters because an ancestor being removed from the
+        // Controls tree (Control.AssignParent) nulls that ancestor's Parent *before* cascading
+        // OnVisibleChanged down to descendants, so by the time this host's own OnVisibleChanged fires,
+        // FindWindow () can no longer walk up to the window/backend -- it would return null and
+        // SyncNativeControl would silently bail out before ever telling the backend to hide the native
+        // overlay, leaving it stuck on screen. Caching the backend at attach time means the final
+        // visible:false sync (and DetachCore's cleanup) can still reach it after the tree walk breaks.
+        private INativeControlHostBackend? attached_backend;
+
         /// <summary>Initializes a new instance of the <see cref="NativeControlHost"/> class.</summary>
         public NativeControlHost ()
         {
@@ -74,13 +84,18 @@ namespace Majorsilence.Forms
         /// </summary>
         public void SyncNativeControl ()
         {
-            var backend = HostBackend;
+            // While attached, keep using the backend we actually attached to instead of re-resolving
+            // FindWindow () on every call -- once an ancestor is detached from the Controls tree, the
+            // walk up to the window breaks (see attached_backend's comment) even though this host is
+            // still attached to that same backend's overlay and needs one last visible:false update.
+            var backend = attached ? attached_backend : HostBackend;
             if (backend is null || native is null)
                 return;
 
             if (!attached) {
                 backend.AttachNativeControl (this, native);
                 attached = true;
+                attached_backend = backend;
                 last_bounds = Rectangle.Empty;
                 last_clip = Rectangle.Empty;
                 last_visible = false;
@@ -114,8 +129,9 @@ namespace Majorsilence.Forms
         private void DetachCore ()
         {
             if (attached && native is not null)
-                HostBackend?.DetachNativeControl (this);
+                (attached_backend ?? HostBackend)?.DetachNativeControl (this);
             attached = false;
+            attached_backend = null;
         }
 
         /// <inheritdoc/>

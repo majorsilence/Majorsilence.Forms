@@ -30,6 +30,8 @@ namespace Majorsilence.Forms.Telerik
         public Color BackColor { get; set; } = Color.Empty;
         /// <summary>Gets or sets the element foreground color.</summary>
         public Color ForeColor { get; set; } = Color.Empty;
+        /// <summary>Gets or sets the element's padding. Stub — stored but not applied to layout.</summary>
+        public Majorsilence.Forms.Padding Padding { get; set; }
         /// <summary>Gets the child elements of this element.</summary>
         public System.Collections.Generic.List<RadElement> Children { get; } = new ();
         /// <summary>Returns the child element at the specified index, or a new stub element.</summary>
