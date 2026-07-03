@@ -115,7 +115,7 @@ namespace Majorsilence.Drawing
                 if (!name.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                // Resource name format: Majorsilence.Drawing.Common.Fonts.LiberationSans-Regular.ttf
+                // Resource name format: Majorsilence.Forms.Drawing.Common.Fonts.LiberationSans-Regular.ttf
                 // Reconstruct the filename from the last two dot-separated segments.
                 var parts = name.Split('.');
                 if (parts.Length < 2) continue;

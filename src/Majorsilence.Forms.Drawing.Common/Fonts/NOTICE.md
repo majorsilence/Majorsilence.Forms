@@ -1,7 +1,7 @@
 # Bundled Font Notices
 
 The font files in this directory are embedded as resources in the
-Majorsilence.Drawing.Common assembly and used as cross-platform fallback
+Majorsilence.Forms.Drawing.Common assembly and used as cross-platform fallback
 fonts when a requested font is not installed on the target system.
 
 All fonts are distributed under the SIL Open Font License, Version 1.1.

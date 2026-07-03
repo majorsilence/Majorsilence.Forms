@@ -1,7 +1,7 @@
 using Majorsilence.Drawing;
 using Majorsilence.Drawing.Drawing2D;
 
-namespace Majorsilence.Drawing.Common.Tests;
+namespace Majorsilence.Forms.Drawing.Common.Tests;
 
 public class GraphicsPathTests
 {

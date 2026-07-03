@@ -1,6 +1,6 @@
-# Majorsilence.Drawing.Common
+# Majorsilence.Forms.Drawing.Common
 
-This library was originally developed as part of the [Majorsilence.Reporting](https://github.com/majorsilence/My-FyiReporting) project and has been moved to [Majorsilence.Forms](https://github.com/majorsilence/Majorsilence.Forms) to serve as a standalone, cross-platform SkiaSharp-based drawing abstraction referenceable by Majorsilence.Reporting as a NuGet package.
+This library was originally developed as part of the [Majorsilence.Reporting](https://github.com/majorsilence/My-FyiReporting) project and has been moved to [Majorsilence.Forms](https://github.com/majorsilence/Majorsilence.Forms) to serve as a standalone, cross-platform SkiaSharp-based drawing abstraction. It is named `Majorsilence.Forms.Drawing.Common` (rather than `Majorsilence.Drawing.Common`) to avoid a NuGet package ID and namespace collision with Majorsilence.Reporting's own, separately-published `Majorsilence.Drawing.Common` package.
 
 ## License
 

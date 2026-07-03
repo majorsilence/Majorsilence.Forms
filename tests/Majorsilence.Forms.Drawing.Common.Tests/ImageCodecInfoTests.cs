@@ -1,6 +1,6 @@
 using Majorsilence.Drawing.Imaging;
 
-namespace Majorsilence.Drawing.Common.Tests;
+namespace Majorsilence.Forms.Drawing.Common.Tests;
 
 public class ImageCodecInfoTests
 {
