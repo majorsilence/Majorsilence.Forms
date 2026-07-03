@@ -12,6 +12,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="xunit.v3" />
+    <!-- RoslynTestSetup.cs needs MSBuildLocator directly (its own [ModuleInitializer] call), independent of
+         the migrator project reference below. See Microsoft.Build.Framework's ExcludeAssets/PrivateAssets
+         note in the migrator .csproj for why that package needs the same treatment here. -->
+    <PackageReference Include="Microsoft.Build.Locator" />
+    <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

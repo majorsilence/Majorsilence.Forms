@@ -33,6 +33,54 @@ If you need real symbol-aware rewriting (e.g. disambiguating a genuinely name-co
 type), that's a natural candidate for an optional, heavier second pass layered on top of the fast
 textual one — not a replacement for it.
 
+### The optional Roslyn engine (`--engine roslyn`)
+
+That "natural candidate" above is no longer hypothetical — it shipped as an **opt-in** second
+engine, selected with `--engine roslyn` (`--engine text` remains the default and is unchanged byte
+for byte). It uses `MSBuildWorkspace` + real Roslyn symbol resolution
+(`SemanticModel.GetSymbolInfo`) instead of regexes, which lets it do the one thing the textual
+engine categorically cannot: tell a project-local `Panel` apart from `System.Windows.Forms.Panel`
+when both are used by bare name in the same file. It is layered *on top of* the textual engine, not
+a replacement — several passes are deliberately still textual even in `--engine roslyn` mode (see
+the scope table below), and the two engines are designed to produce byte-identical output on every
+file where there's no ambiguity for symbol resolution to add value.
+
+**Trade-offs:**
+
+| | `--engine text` (default) | `--engine roslyn` |
+|---|---|---|
+| Input requirement | Any `.sln`/`.csproj`/`.vbproj`/directory/single file | Needs a loadable `.sln`/`.csproj`/`.vbproj` — a bare directory or single file falls back to the text engine for the whole run, with a warning |
+| Tolerates non-compiling code | Yes — never needs the code to parse or build | No — a project has to actually load via MSBuild; a project that "looks fine" can still fail in-process (implicit restore differences, SDK resolver quirks, multi-targeted projects) |
+| Speed | Seconds, even for large solutions | Orders of magnitude slower — loading a full solution via MSBuild evaluation dominates the run |
+| Cross-project same-named-type disambiguation | No — relies on namespace-prefix/`using` context, which is usually unambiguous but not always | Yes — this is the feature's reason for existing |
+| Failure handling | N/A (never fails) | Fails closed **per project**: one project failing to load falls back to the text engine for just that project's files (with a warning), not the whole run. If MSBuild itself can't be located at all, the whole run hard-fails with a non-zero exit — an explicit opt-in should never silently downgrade to the default with no signal |
+
+**When to reach for it:** you've hit a real, confirmed case of the textual engine's known blind
+spot — a custom type sharing a bare name with a WinForms/GDI+ type in the same file — and you have
+a project that already loads cleanly in MSBuild. For the first pass over a large, possibly
+half-broken legacy codebase, keep using the default `--engine text`; run `--engine roslyn`
+afterwards, on the now-loadable result, if you still see suspicious rewrites in the diff.
+
+**V1 scope — what actually gets Roslyn treatment:**
+
+| Pass | `--engine roslyn` behavior |
+|---|---|
+| Namespace-prefix rewrites (`System.Windows.Forms`, Telerik, custom `--map` entries) | Reimplemented with real symbol resolution |
+| `System.Drawing` 3-way bucketing (primitive / GDI+ / WinForms-compat) | Reimplemented — **including** types used *unqualified* under a bare `using System.Drawing;`, which the textual engine's corresponding pass can only warn about, never fix (see below) |
+| `using`/`Imports` reconciliation for the `System.Drawing`/`Majorsilence.Drawing` pair | Reimplemented |
+| `System.ComponentModel.ComponentResourceManager` redirect | Reimplemented (trivial either way — no ambiguity, just consistency with the rest of the engine) |
+| Duplicate `using`/`Imports` dedup | Reimplemented, natively via Roslyn's import-line handling |
+| `ApplicationConfiguration.Initialize()` comment-out | **Not** Roslyn — runs as the same small textual post-process over this engine's re-serialized output. No ambiguity a symbol resolves: a fixed zero-argument static call is a regex either way |
+| Unsupported-namespace / unmapped-Telerik-type warnings | **Not** Roslyn — reused verbatim from the textual engine for the same reason (nothing here is a symbol-resolution question) |
+| VB constructor injection + `My.*` warnings | **Not** Roslyn — reused verbatim (`SourceConverter.ApplyVbConstructor`/`WarnVisualBasic`, widened to `internal` for this reuse) |
+| Unqualified-GDI+-type-under-bare-import warning (textual engine's corresponding pass) | **Superseded, not reused** — Roslyn mode fixes this case outright instead of flagging it, so it intentionally produces *fewer* warnings here. If you're diffing a `--engine text` report against a `--engine roslyn` report, expect this divergence; it isn't a regression |
+
+**What's NOT better with Roslyn:** the bootstrap comment-out and VB's constructor/`My.*` handling
+are exactly as good under either engine, because they were never symbol-resolution problems — a
+heavier engine buys nothing there, and reimplementing them "in Roslyn terms" would just be the same
+regex wearing a syntax tree as a costume. If your migration pain is in that territory, `--engine
+text` already handles it identically, faster.
+
 ## What it does
 
 1. **Project files** (`.csproj`/`.vbproj`): removes `UseWindowsForms`/`UseWPF`, drops the
@@ -64,6 +112,11 @@ OPTIONS
       --diff              Print a unified diff for each changed file.
       --backend <name>    Platform backend to reference: avalonia (default) | uno | headless.
       --references <mode>  How to reference Majorsilence.Forms: package (default) | project.
+      --engine <name>     Source-rewrite engine: text (default) | roslyn. See "The optional
+                          Roslyn engine" above — roslyn requires a loadable project, is much
+                          slower, and correctly disambiguates same-named types; falls back to
+                          text per-project on load failure, or for the whole run when the
+                          input has no project to load.
       --tfm <tfm>         Force a target framework. Default: keep the project's version and
                           just drop the -windows suffix (net8.0-windows -> net8.0).
       --package-version <v>  NuGet version for package references.

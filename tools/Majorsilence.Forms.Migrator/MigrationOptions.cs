@@ -18,6 +18,25 @@ internal enum ReferenceMode
     Project,
 }
 
+/// <summary>Which engine rewrites source files.</summary>
+internal enum SourceEngine
+{
+    /// <summary>
+    /// The default, fast, regex-based textual rewriter (<see cref="SourceConverter"/>). Tolerates
+    /// non-compiling code and needs no project to load, at the cost of not being able to tell apart two
+    /// same-named types (e.g. a custom <c>Panel</c> vs. <c>System.Windows.Forms.Panel</c>).
+    /// </summary>
+    Text,
+
+    /// <summary>
+    /// Opt-in, heavier engine using real Roslyn symbol resolution (<see cref="RoslynSourceConverter"/>).
+    /// Requires an evaluable project (loaded via MSBuildWorkspace) and is orders of magnitude slower, but
+    /// correctly disambiguates same-named types. Falls back to <see cref="Text"/> per-project on load
+    /// failure, or for the whole run when the input has no project to load.
+    /// </summary>
+    Roslyn,
+}
+
 internal sealed class MigrationOptions
 {
     /// <summary>A .sln, .csproj, or directory to convert.</summary>
@@ -45,6 +64,12 @@ internal sealed class MigrationOptions
     public Backend Backend { get; init; } = Backend.Avalonia;
 
     public ReferenceMode ReferenceMode { get; init; } = ReferenceMode.Package;
+
+    /// <summary>
+    /// Which engine rewrites source files. Defaults to <see cref="SourceEngine.Text"/> — zero behavior
+    /// change for every existing caller/test that doesn't set this.
+    /// </summary>
+    public SourceEngine Engine { get; init; } = SourceEngine.Text;
 
     /// <summary>
     /// Target framework for converted projects. When null (the default) the converter keeps each
