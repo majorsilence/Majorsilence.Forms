@@ -2792,11 +2792,17 @@ namespace Majorsilence.Forms
         public static int ToWin32 (Color color) => ToOle (color);
     }
 
-    /// <summary>WinForms compatibility: provides help for controls on a form. Stub in Majorsilence.Forms.</summary>
+    /// <summary>WinForms compatibility: provides help for controls on a form. Stub in Majorsilence.Forms.
+    /// Targets are keyed as objects so both <see cref="Control"/>s and <see cref="WindowBase"/>-derived
+    /// forms are accepted — in real WinForms a Form IS a Control, and designer code routinely calls
+    /// SetHelpKeyword(Me, …) on the form itself.</summary>
     public class HelpProvider : System.ComponentModel.Component
     {
-        private readonly System.Collections.Generic.Dictionary<Control, string> _helpStrings = new ();
-        private readonly System.Collections.Generic.Dictionary<Control, string> _helpKeywords = new ();
+        private readonly System.Collections.Generic.Dictionary<object, string> _helpStrings = new ();
+        private readonly System.Collections.Generic.Dictionary<object, string> _helpKeywords = new ();
+
+        /// <summary>Initializes a new instance of HelpProvider.</summary>
+        public HelpProvider () { }
 
         /// <summary>Initializes a new instance of HelpProvider and adds it to the specified container.</summary>
         public HelpProvider (System.ComponentModel.IContainer container) { container.Add (this); }
@@ -2807,23 +2813,44 @@ namespace Majorsilence.Forms
         /// <summary>Sets the help string for the specified control.</summary>
         public void SetHelpString (Control ctl, string helpString) => _helpStrings[ctl] = helpString;
 
+        /// <summary>Sets the help string for the specified form or window.</summary>
+        public void SetHelpString (WindowBase window, string helpString) => _helpStrings[window] = helpString;
+
         /// <summary>Gets the help string for the specified control.</summary>
         public string GetHelpString (Control ctl) => _helpStrings.TryGetValue (ctl, out var s) ? s : string.Empty;
+
+        /// <summary>Gets the help string for the specified form or window.</summary>
+        public string GetHelpString (WindowBase window) => _helpStrings.TryGetValue (window, out var s) ? s : string.Empty;
 
         /// <summary>Sets the help keyword for the specified control.</summary>
         public void SetHelpKeyword (Control ctl, string keyword) => _helpKeywords[ctl] = keyword;
 
+        /// <summary>Sets the help keyword for the specified form or window.</summary>
+        public void SetHelpKeyword (WindowBase window, string keyword) => _helpKeywords[window] = keyword;
+
         /// <summary>Gets the help keyword for the specified control.</summary>
         public string GetHelpKeyword (Control ctl) => _helpKeywords.TryGetValue (ctl, out var k) ? k : string.Empty;
+
+        /// <summary>Gets the help keyword for the specified form or window.</summary>
+        public string GetHelpKeyword (WindowBase window) => _helpKeywords.TryGetValue (window, out var k) ? k : string.Empty;
 
         /// <summary>Sets whether the help provider is enabled for the specified control. Stub in Majorsilence.Forms.</summary>
         public void SetShowHelp (Control ctl, bool value) { }
 
+        /// <summary>Sets whether the help provider is enabled for the specified form or window. Stub in Majorsilence.Forms.</summary>
+        public void SetShowHelp (WindowBase window, bool value) { }
+
         /// <summary>Gets whether the help provider is enabled for the specified control. Stub in Majorsilence.Forms.</summary>
         public bool GetShowHelp (Control ctl) => true;
 
+        /// <summary>Gets whether the help provider is enabled for the specified form or window. Stub in Majorsilence.Forms.</summary>
+        public bool GetShowHelp (WindowBase window) => true;
+
         /// <summary>Sets the navigator type for the specified control. Stub in Majorsilence.Forms.</summary>
         public void SetHelpNavigator (Control ctl, HelpNavigator navigator) { }
+
+        /// <summary>Sets the navigator type for the specified form or window. Stub in Majorsilence.Forms.</summary>
+        public void SetHelpNavigator (WindowBase window, HelpNavigator navigator) { }
 
         /// <summary>Gets or sets user-defined data associated with this component. Stub in Majorsilence.Forms.</summary>
         public object? Tag { get; set; }
