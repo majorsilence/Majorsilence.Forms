@@ -1,6 +1,6 @@
 using System;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Defines a group of typefaces having a similar basic design. Cross-platform replacement for
@@ -26,7 +26,7 @@ namespace Majorsilence.Drawing
         /// <summary>Gets a generic monospace font family.</summary>
         public static FontFamily GenericMonospace { get; } = new FontFamily ("Courier New");
 
-        /// <summary>Returns whether the specified style is available for this family. Always true in Majorsilence.Drawing.</summary>
+        /// <summary>Returns whether the specified style is available for this family. Always true in Majorsilence.Forms.Drawing.</summary>
         public bool IsStyleAvailable (FontStyle style) => true;
 
         /// <inheritdoc/>

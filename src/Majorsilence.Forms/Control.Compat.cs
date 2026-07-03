@@ -8,7 +8,7 @@ namespace Majorsilence.Forms
     // WinForms-compatibility surface for Control: BackgroundImage, Invoke/BeginInvoke.
     public partial class Control
     {
-        private Majorsilence.Drawing.Image? background_image;
+        private Majorsilence.Forms.Drawing.Image? background_image;
         private ImageLayout background_image_layout = ImageLayout.Tile;
         private ControlStyles control_styles = ControlStyles.Selectable | ControlStyles.StandardClick | ControlStyles.StandardDoubleClick | ControlStyles.UserPaint | ControlStyles.DoubleBuffer | ControlStyles.OptimizedDoubleBuffer;
 
@@ -80,9 +80,9 @@ namespace Majorsilence.Forms
 
         /// <summary>
         /// Gets or sets the background image displayed in the control.
-        /// Accepts <see cref="Majorsilence.Drawing.Image"/> for WinForms compatibility.
+        /// Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
-        public Majorsilence.Drawing.Image? BackgroundImage {
+        public Majorsilence.Forms.Drawing.Image? BackgroundImage {
             get => background_image;
             set {
                 if (background_image != value) {
@@ -392,11 +392,11 @@ namespace Majorsilence.Forms
         protected virtual CreateParams CreateParams => new CreateParams ();
 
         /// <summary>
-        /// Renders the control and its children to a Majorsilence.Drawing.Bitmap.
+        /// Renders the control and its children to a Majorsilence.Forms.Drawing.Bitmap.
         /// Stub in Majorsilence.Forms — creates an empty bitmap of the control's size.
         /// </summary>
 #pragma warning disable CA1416
-        public void DrawToBitmap (Majorsilence.Drawing.Bitmap bitmap, Rectangle targetBounds)
+        public void DrawToBitmap (Majorsilence.Forms.Drawing.Bitmap bitmap, Rectangle targetBounds)
         {
         }
 #pragma warning restore CA1416
@@ -450,7 +450,7 @@ namespace Majorsilence.Forms
         public void AccessibilityNotifyClients (AccessibleEvents accEvent, int childID) { }
 
         /// <summary>Gets or sets the window region associated with the control. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Region? Region { get; set; }
+        public Majorsilence.Forms.Drawing.Region? Region { get; set; }
 
         /// <summary>Gets whether this control is currently in design mode. Always false in Majorsilence.Forms.</summary>
         public new bool DesignMode => false;
@@ -503,15 +503,15 @@ namespace Majorsilence.Forms
         public static Color ToDrawingColor (this SKColor color) => Color.FromArgb (color.Alpha, color.Red, color.Green, color.Blue);
     }
 
-    /// <summary>Extension methods for converting <see cref="Majorsilence.Drawing.Image"/> to SkiaSharp bitmaps. Fully cross-platform (Skia-backed, no GDI+).</summary>
+    /// <summary>Extension methods for converting <see cref="Majorsilence.Forms.Drawing.Image"/> to SkiaSharp bitmaps. Fully cross-platform (Skia-backed, no GDI+).</summary>
     public static class BitmapCompatExtensions
     {
-        /// <summary>Returns a copy of the SkiaSharp bitmap backing the given <see cref="Majorsilence.Drawing.Bitmap"/>.</summary>
-        public static SkiaSharp.SKBitmap? ToSKBitmap (this Majorsilence.Drawing.Bitmap bitmap)
+        /// <summary>Returns a copy of the SkiaSharp bitmap backing the given <see cref="Majorsilence.Forms.Drawing.Bitmap"/>.</summary>
+        public static SkiaSharp.SKBitmap? ToSKBitmap (this Majorsilence.Forms.Drawing.Bitmap bitmap)
             => bitmap?.GetSKBitmap ()?.Copy ();
 
-        /// <summary>Returns a copy of the SkiaSharp bitmap backing the given <see cref="Majorsilence.Drawing.Image"/>.</summary>
-        public static SkiaSharp.SKBitmap? ToSKBitmap (this Majorsilence.Drawing.Image image)
+        /// <summary>Returns a copy of the SkiaSharp bitmap backing the given <see cref="Majorsilence.Forms.Drawing.Image"/>.</summary>
+        public static SkiaSharp.SKBitmap? ToSKBitmap (this Majorsilence.Forms.Drawing.Image image)
             => image?.GetSKBitmap ()?.Copy ();
     }
 }

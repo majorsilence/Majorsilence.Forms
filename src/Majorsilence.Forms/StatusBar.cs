@@ -75,7 +75,7 @@ namespace Majorsilence.Forms
         public StatusBarPanelBorderStyle BorderStyle { get; set; } = StatusBarPanelBorderStyle.Sunken;
 
         /// <summary>Gets or sets the icon displayed in this panel.</summary>
-        public Majorsilence.Drawing.Icon? Icon { get; set; }
+        public Majorsilence.Forms.Drawing.Icon? Icon { get; set; }
 
         /// <summary>Gets or sets an object with additional user data about this panel.</summary>
         public object? Tag { get; set; }

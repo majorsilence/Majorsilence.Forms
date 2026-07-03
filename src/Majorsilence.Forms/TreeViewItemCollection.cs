@@ -39,7 +39,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Adds a new item to the collection with the specified text and image (WinForms compatibility overload).
         /// </summary>
-        public TreeViewItem Add (string text, Majorsilence.Drawing.Image image) { var item = new TreeViewItem (text); item.Image = image; return Add (item); }
+        public TreeViewItem Add (string text, Majorsilence.Forms.Drawing.Image image) { var item = new TreeViewItem (text); item.Image = image; return Add (item); }
 
         /// <summary>
         /// Adds a collection of TreeViewItems to the collection.

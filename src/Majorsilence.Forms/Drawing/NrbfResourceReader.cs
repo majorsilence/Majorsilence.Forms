@@ -43,13 +43,13 @@ namespace Majorsilence.Forms
                     typeName.StartsWith ("System.Drawing.Image", StringComparison.Ordinal))
                 {
                     var data = ReadByteArray (record, "Data");
-                    return data is null ? null : Majorsilence.Drawing.Image.FromBytes (data);
+                    return data is null ? null : Majorsilence.Forms.Drawing.Image.FromBytes (data);
                 }
 
                 if (typeName.StartsWith ("System.Drawing.Icon", StringComparison.Ordinal))
                 {
                     var data = ReadByteArray (record, "IconData");
-                    return data is null ? null : new Majorsilence.Drawing.Icon (new MemoryStream (data));
+                    return data is null ? null : new Majorsilence.Forms.Drawing.Icon (new MemoryStream (data));
                 }
 
                 if (typeName.StartsWith ("System.Windows.Forms.ImageListStreamer", StringComparison.Ordinal))

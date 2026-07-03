@@ -50,7 +50,7 @@ Majorsilence.Forms owns the controls and rendering; the backend only puts pixels
 delivers input. That seam is what lets the same app target Avalonia today and Uno tomorrow.
 See [Platform backends](docs/backends.md) for the details and how to add your own.
 
-`Majorsilence.Drawing` provides a Skia-backed, cross-platform replacement for the Windows-only
+`Majorsilence.Forms.Drawing` provides a Skia-backed, cross-platform replacement for the Windows-only
 `System.Drawing.Common` (GDI+) APIs, so drawing code migrates too.
 
 ## Migrating an existing app

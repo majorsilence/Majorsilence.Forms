@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Translates colors to and from HTML color notation. Cross-platform replacement for

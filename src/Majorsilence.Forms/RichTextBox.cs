@@ -92,7 +92,7 @@ namespace Majorsilence.Forms
         public System.Drawing.Color SelectionColor { get; set; } = System.Drawing.Color.Empty;
 
         /// <summary>Gets or sets the font of the currently selected text. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Font? SelectionFont { get; set; }
+        public Majorsilence.Forms.Drawing.Font? SelectionFont { get; set; }
 
         /// <summary>Gets or sets the alignment of the currently selected text. Stub in Majorsilence.Forms.</summary>
         public HorizontalAlignment SelectionAlignment { get; set; } = HorizontalAlignment.Left;

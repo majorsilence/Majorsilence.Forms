@@ -1,6 +1,6 @@
 using System;
 using System.Drawing;
-using Majorsilence.Drawing;
+using Majorsilence.Forms.Drawing;
 
 namespace Majorsilence.Forms.Printing
 {

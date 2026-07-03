@@ -76,8 +76,8 @@ namespace Majorsilence.Forms
         /// Gets or sets the image that is displayed on a <see cref='Label'/>.
         /// </summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Image? Image {
-            get => Properties.GetObject<Majorsilence.Drawing.Image> (s_propImage);
+        public Majorsilence.Forms.Drawing.Image? Image {
+            get => Properties.GetObject<Majorsilence.Forms.Drawing.Image> (s_propImage);
             set {
                 if (Image != value) {
                     Properties.SetObject (s_propImage, value);

@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Represents a Windows icon, backed by SkiaSharp pixel data. Cross-platform replacement for
@@ -49,7 +49,7 @@ namespace Majorsilence.Drawing
         /// <summary>Gets the size of the icon.</summary>
         public System.Drawing.Size Size => new System.Drawing.Size (Width, Height);
 
-        /// <summary>Gets the handle for this icon. Returns IntPtr.Zero in Majorsilence.Drawing.</summary>
+        /// <summary>Gets the handle for this icon. Returns IntPtr.Zero in Majorsilence.Forms.Drawing.</summary>
         public IntPtr Handle => IntPtr.Zero;
 
         /// <summary>Gets the backing SkiaSharp bitmap (for renderer use).</summary>

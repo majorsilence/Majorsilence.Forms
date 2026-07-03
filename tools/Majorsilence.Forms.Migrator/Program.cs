@@ -13,6 +13,7 @@ var noBackup = false;
 var showDiff = false;
 var backend = Backend.Avalonia;
 var referenceMode = ReferenceMode.Package;
+var engine = SourceEngine.Text;
 string? targetFramework = null;
 var packageVersion = "1.0.4";
 string? repoRoot = null;
@@ -41,6 +42,10 @@ for (var i = 0; i < args.Length; i++)
         case "--backend":
             if (!TryParseBackend(Next(ref i), out backend))
                 return Fail($"unknown backend (expected avalonia|uno|headless)");
+            break;
+        case "--engine":
+            if (!TryParseEngine(Next(ref i), out engine))
+                return Fail($"unknown engine (expected text|roslyn)");
             break;
         case "--references":
             referenceMode = Next(ref i).Equals("project", StringComparison.OrdinalIgnoreCase)
@@ -90,6 +95,7 @@ var options = new MigrationOptions
     ShowDiff = showDiff,
     Backend = backend,
     ReferenceMode = referenceMode,
+    Engine = engine,
     TargetFramework = targetFramework,
     PackageVersion = packageVersion,
     RepoRoot = repoRoot,
@@ -122,6 +128,16 @@ static bool TryParseBackend(string value, out Backend backend)
     }
 }
 
+static bool TryParseEngine(string value, out SourceEngine engine)
+{
+    switch (value.ToLowerInvariant())
+    {
+        case "text": engine = SourceEngine.Text; return true;
+        case "roslyn": engine = SourceEngine.Roslyn; return true;
+        default: engine = SourceEngine.Text; return false;
+    }
+}
+
 static int Fail(string message)
 {
     Console.Error.WriteLine($"error: {message}");
@@ -149,6 +165,13 @@ static void PrintUsage()
               --diff              Print a unified diff for each changed file.
               --backend <name>    Platform backend to reference: avalonia (default) | uno | headless.
               --references <mode>  How to reference Majorsilence.Forms: package (default) | project.
+              --engine <name>     Source-rewrite engine: text (default) | roslyn.
+                                  text is a fast, regex-based rewrite that tolerates non-compiling
+                                  code but can't tell apart two same-named types (e.g. a custom
+                                  Panel vs. System.Windows.Forms.Panel). roslyn uses real symbol
+                                  resolution (requires a loadable project; much slower; falls back
+                                  to text per-project on load failure, or for the whole run when the
+                                  input has no project to load).
               --tfm <tfm>         Force a target framework. Default: keep the project's version and
                                   just drop the -windows suffix (net8.0-windows -> net8.0).
               --package-version <v>  NuGet version for package references (default: 0.3.0).
@@ -166,7 +189,7 @@ static void PrintUsage()
             (Telerik UI for WinForms, DevExpress, ...), and adds Majorsilence.Forms + a backend reference
             (only to projects that are/use WinForms; non-UI projects are left alone).
           * Source files: rewrites System.Windows.Forms -> Majorsilence.Forms and
-            System.Drawing[.*] -> Majorsilence.Drawing[.*]. APIs with no equivalent are flagged
+            System.Drawing[.*] -> Majorsilence.Forms.Drawing[.*]. APIs with no equivalent are flagged
             as warnings for manual review.
 
         MAP FILE FORMAT (JSON)

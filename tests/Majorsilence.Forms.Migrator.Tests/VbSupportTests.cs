@@ -1,4 +1,3 @@
-using Majorsilence.Forms.Migrator;
 using Xunit;
 
 namespace Majorsilence.Forms.Migrator.Tests;
@@ -36,7 +35,7 @@ public class VbSupportTests
         var result = SourceConverter.Convert ("Imports System.Drawing\nPublic Class C\n  Dim b As Bitmap\nEnd Class\n", language: SourceLanguage.VisualBasic);
         var text = result.Text.Replace ("\r\n", "\n");
         Assert.DoesNotContain ("Imports System.Drawing\n", text);
-        Assert.Contains ("Imports Majorsilence.Drawing", text);
+        Assert.Contains ("Imports Majorsilence.Forms.Drawing", text);
     }
 
     [Fact]
@@ -51,6 +50,120 @@ public class VbSupportTests
     {
         var result = SourceConverter.Convert ("Dim c As New ComputerInfo()", language: SourceLanguage.VisualBasic);
         Assert.Contains (result.Warnings, w => w.Contains ("ComputerInfo"));
+    }
+
+    // ---- My.Application.Info / My.Resources / My.Computer.Name: implemented, no longer warn ----
+
+    [Theory]
+    [InlineData ("x = My.Application.Info.Title")]
+    [InlineData ("x = My.Application.Info.AssemblyName")]
+    [InlineData ("x = My.Application.Info.Version.ToString")]
+    [InlineData ("x = My.Application.Info.Copyright")]
+    [InlineData ("x = My.Application.Info.CompanyName")]
+    [InlineData ("x = My.Application.Info.Description")]
+    [InlineData ("x = My.Application.Info.ProductName")]
+    public void Does_not_warn_on_My_Application_Info (string src)
+    {
+        var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Theory]
+    [InlineData ("btn.Image = CType(My.Resources.btnSearch, Majorsilence.Forms.Drawing.Image)")]
+    [InlineData ("myWriter.Write(My.Resources.t4_2011)")]
+    [InlineData ("x = My.Resources.Resources.SomeName")]
+    public void Does_not_warn_on_My_Resources (string src)
+    {
+        var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Does_not_warn_on_My_Computer_Name ()
+    {
+        var result = SourceConverter.Convert ("If My.Computer.Name.ToUpper = \"X\" Then", language: SourceLanguage.VisualBasic);
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    // ---- Regression: every OTHER My.* member must still warn exactly as before ----
+
+    [Fact]
+    public void Still_warns_on_My_Application_Log ()
+    {
+        var result = SourceConverter.Convert ("My.Application.Log.WriteEntry(\"x\")", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Still_warns_on_My_Application_Shutdown_event ()
+    {
+        var result = SourceConverter.Convert ("AddHandler My.Application.Shutdown, AddressOf X", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Still_warns_on_bare_My_Application ()
+    {
+        var result = SourceConverter.Convert ("Dim a = My.Application", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Still_warns_on_My_Computer_Registry ()
+    {
+        var result = SourceConverter.Convert ("x = My.Computer.Registry.LocalMachine", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Still_warns_on_My_Computer_Clipboard ()
+    {
+        var result = SourceConverter.Convert ("x = My.Computer.Clipboard.GetText()", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Still_warns_on_My_Computer_Info ()
+    {
+        var result = SourceConverter.Convert ("x = My.Computer.Info.OSFullName", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Still_warns_on_bare_My_Computer ()
+    {
+        var result = SourceConverter.Convert ("Dim c = My.Computer", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Still_warns_on_My_Forms ()
+    {
+        var result = SourceConverter.Convert ("My.Forms.Form1.Show()", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Still_warns_on_My_Settings ()
+    {
+        var result = SourceConverter.Convert ("x = My.Settings.SomeSetting", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Still_warns_on_My_User ()
+    {
+        var result = SourceConverter.Convert ("x = My.User.Name", language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
+    }
+
+    [Fact]
+    public void Mixed_file_warns_only_for_the_unimplemented_member ()
+    {
+        // My.Application.Info doesn't warrant a warning, but My.Application.Log in the same file still does.
+        var src = "x = My.Application.Info.Title\nMy.Application.Log.WriteEntry(\"x\")";
+        var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
+        Assert.Contains (result.Warnings, w => w.Contains ("My.*"));
     }
 
     [Fact]
@@ -161,6 +274,18 @@ public class VbSupportTests
         Assert.Contains ("My Project", result.Xml);
         Assert.Contains ("Compile", result.Xml);
         Assert.Contains ("Remove=", result.Xml);
+    }
+
+    [Fact]
+    public void Excludes_My_Project_Resources_resx_from_default_EmbeddedResource_glob ()
+    {
+        // My Project\Resources.resx now backs a generated My.Resources.vb (see MyResourcesGenerator)
+        // that embeds its content as a string literal — the SDK's default EmbeddedResource glob must not
+        // also try to compile the same .resx into a .resources binary (which fails outright on
+        // non-string entries without System.Resources.Extensions).
+        var result = ProjectConverter.Convert (VbProj, Options (), ".", isVisualBasic: true);
+        Assert.Contains ("EmbeddedResource", result.Xml);
+        Assert.Contains ("Resources.resx", result.Xml);
     }
 
     [Fact]

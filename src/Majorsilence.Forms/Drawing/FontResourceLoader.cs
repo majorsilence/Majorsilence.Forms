@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Provides CSS font-stack strings and font directory helpers.

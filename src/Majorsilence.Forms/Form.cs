@@ -243,13 +243,13 @@ namespace Majorsilence.Forms
         /// <summary>Gets the next control in tab order.</summary>
         public Control? GetNextControl (Control? start, bool forward = true) => adapter.GetNextControl (start, forward);
 
-        private Majorsilence.Drawing.Icon? _formIcon;
+        private Majorsilence.Forms.Drawing.Icon? _formIcon;
 
         /// <summary>
-        /// Gets or sets the icon for the form. Accepts <see cref="Majorsilence.Drawing.Icon"/> for WinForms compatibility.
+        /// Gets or sets the icon for the form. Accepts <see cref="Majorsilence.Forms.Drawing.Icon"/> for WinForms compatibility.
         /// </summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Icon? Icon {
+        public Majorsilence.Forms.Drawing.Icon? Icon {
             get => _formIcon;
             set {
                 _formIcon = value;
@@ -263,7 +263,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the image shown in the form's title bar.</summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Image? Image {
+        public Majorsilence.Forms.Drawing.Image? Image {
             get => TitleBar.Image;
             set {
                 TitleBar.Image = value;

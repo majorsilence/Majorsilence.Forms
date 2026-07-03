@@ -224,16 +224,16 @@ public class ImageCollection : IDictionary<string, SKBitmap>
         return key;
     }
 
-    /// <summary>Adds a Majorsilence.Drawing.Image to the collection with an auto-generated key.</summary>
-    public void Add (Majorsilence.Drawing.Image image)
+    /// <summary>Adds a Majorsilence.Forms.Drawing.Image to the collection with an auto-generated key.</summary>
+    public void Add (Majorsilence.Forms.Drawing.Image image)
     {
         if (image is null) return;
         var bmp = image.ToSKBitmap ();
         if (bmp is not null) Add (GenerateAutoKey (), bmp);
     }
 
-    /// <summary>Adds a Majorsilence.Drawing.Image to the collection with the specified key.</summary>
-    public void Add (string key, Majorsilence.Drawing.Image image)
+    /// <summary>Adds a Majorsilence.Forms.Drawing.Image to the collection with the specified key.</summary>
+    public void Add (string key, Majorsilence.Forms.Drawing.Image image)
     {
         var bmp = image?.ToSKBitmap ();
         if (bmp is not null) Add (key, bmp);
@@ -247,24 +247,24 @@ public class ImageCollection : IDictionary<string, SKBitmap>
         Remove (key);
     }
 
-    /// <summary>Adds a Majorsilence.Drawing.Icon to the collection with an auto-generated key.</summary>
-    public void Add (Majorsilence.Drawing.Icon icon)
+    /// <summary>Adds a Majorsilence.Forms.Drawing.Icon to the collection with an auto-generated key.</summary>
+    public void Add (Majorsilence.Forms.Drawing.Icon icon)
     {
         if (icon is null) return;
         using var bmp = icon.ToBitmap ();
         Add (bmp);
     }
 
-    /// <summary>Adds a Majorsilence.Drawing.Icon to the collection with the specified key.</summary>
-    public void Add (string key, Majorsilence.Drawing.Icon icon)
+    /// <summary>Adds a Majorsilence.Forms.Drawing.Icon to the collection with the specified key.</summary>
+    public void Add (string key, Majorsilence.Forms.Drawing.Icon icon)
     {
         if (icon is null) return;
         using var bmp = icon.ToBitmap ();
-        Add (key, (Majorsilence.Drawing.Image)bmp);
+        Add (key, (Majorsilence.Forms.Drawing.Image)bmp);
     }
 
     /// <summary>Adds a range of images to the collection.</summary>
-    public void AddRange (Majorsilence.Drawing.Image[] images)
+    public void AddRange (Majorsilence.Forms.Drawing.Image[] images)
     {
         if (images is null) return;
         foreach (var img in images)

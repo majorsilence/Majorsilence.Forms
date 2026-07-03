@@ -1,4 +1,4 @@
-using Majorsilence.Drawing;
+using Majorsilence.Forms.Drawing;
 
 namespace Outlaw
 {

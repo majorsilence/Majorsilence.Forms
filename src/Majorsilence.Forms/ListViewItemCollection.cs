@@ -40,8 +40,8 @@ namespace Majorsilence.Forms
             return item;
         }
 
-        /// <summary>Adds a new ListViewItem to the collection with the specified text and Majorsilence.Drawing.Image (WinForms compatibility overload).</summary>
-        public ListViewItem Add (string text, Majorsilence.Drawing.Image image)
+        /// <summary>Adds a new ListViewItem to the collection with the specified text and Majorsilence.Forms.Drawing.Image (WinForms compatibility overload).</summary>
+        public ListViewItem Add (string text, Majorsilence.Forms.Drawing.Image image)
         {
             var item = new ListViewItem { Text = text, Image = image };
             Add (item);

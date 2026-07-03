@@ -10,7 +10,7 @@ namespace Majorsilence.Forms.Migrator;
 ///
 /// The one piece of real cleverness is the <c>System.Drawing</c> split: primitive value types
 /// (Color/Point/Size/Rectangle/…) are framework types Majorsilence.Forms keeps, so they are left alone,
-/// while GDI+ types (Bitmap/Brush/Pen/…) are redirected to <c>Majorsilence.Drawing</c>. See <see cref="NamespaceMap"/>.
+/// while GDI+ types (Bitmap/Brush/Pen/…) are redirected to <c>Majorsilence.Forms.Drawing</c>. See <see cref="NamespaceMap"/>.
 /// </summary>
 internal enum SourceLanguage
 {
@@ -126,29 +126,32 @@ internal static class SourceConverter
         }
 
         // 2. System.Drawing type references. Three buckets: keep the framework primitives as-is; redirect
-        //    GDI+ types to Majorsilence.Drawing; redirect the WinForms-compat types (Graphics, ContentAlignment,
+        //    GDI+ types to Majorsilence.Forms.Drawing; redirect the WinForms-compat types (Graphics, ContentAlignment,
         //    SystemColors, …) to Majorsilence.Forms; warn on anything with no Majorsilence equivalent at all.
         text = DrawingType.Replace(text, m =>
         {
             var type = m.Groups[1].Value;
-            if (NamespaceMap.DrawingPrimitives.Contains(type))
-                return m.Value; // framework primitive — Majorsilence.Forms uses it as-is.
-            if (NamespaceMap.MajorsilenceDrawingTypes.Contains(type))
-                return $"{NamespaceMap.DrawingTarget}.{type}";
-            if (NamespaceMap.MajorsilenceFormsTypes.Contains(type))
-                return $"Majorsilence.Forms.{type}";
-            // Don't mistake an unsupported sub-namespace (e.g. System.Drawing.Design.UITypeEditor) for a
-            // leaf type — the unsupported-namespace pass below reports it once, cleanly.
-            var qualified = $"System.Drawing.{type}";
-            if (NamespaceMap.UnsupportedNamespaces.Any(u => u == qualified || u.StartsWith(qualified + ".", StringComparison.Ordinal)))
-                return m.Value;
-            Warn($"'{qualified}' has no Majorsilence equivalent — review manually");
-            return m.Value;
+            switch (DrawingTypeClassifier.Classify(type))
+            {
+                case DrawingTypeBucket.Primitive:
+                    return m.Value; // framework primitive — Majorsilence.Forms uses it as-is.
+                case DrawingTypeBucket.MajorsilenceDrawing:
+                    return $"{NamespaceMap.DrawingTarget}.{type}";
+                case DrawingTypeBucket.MajorsilenceForms:
+                    return $"Majorsilence.Forms.{type}";
+                case DrawingTypeBucket.Unknown:
+                    // Part of an already-unsupported sub-namespace (e.g. System.Drawing.Design.UITypeEditor) —
+                    // the unsupported-namespace pass below reports it once, cleanly.
+                    return m.Value;
+                default:
+                    Warn($"'System.Drawing.{type}' has no Majorsilence equivalent — review manually");
+                    return m.Value;
+            }
         });
 
         // 3. Reconcile a bare `using System.Drawing;`. It's only still needed when the file uses a
         //    System.Drawing primitive (Color/Point/…) unqualified; otherwise drop it. GDI+ types used
-        //    unqualified now live in Majorsilence.Drawing, so add/keep that import when they're present.
+        //    unqualified now live in Majorsilence.Forms.Drawing, so add/keep that import when they're present.
         text = RewriteDrawingImports(text);
 
         // 4. Flag any namespace we deliberately refused to rewrite — but only when a reference actually
@@ -172,7 +175,7 @@ internal static class SourceConverter
             foreach (var type in NamespaceMap.UnmappedDrawingTypes)
             {
                 if (Regex.IsMatch(original, $@"(?<![\w.])\b{Regex.Escape(type)}\b"))
-                    Warn($"uses '{type}' (System.Drawing.Common) which has no Majorsilence.Drawing equivalent — review manually");
+                    Warn($"uses '{type}' (System.Drawing.Common) which has no Majorsilence.Forms.Drawing equivalent — review manually");
             }
         }
 
@@ -190,7 +193,7 @@ internal static class SourceConverter
 
         // 6. ComponentResourceManager: designer code instantiates the WinForms-flavoured
         //    System.ComponentModel.ComponentResourceManager. Majorsilence.Forms ships a cross-platform
-        //    equivalent (reads the .resx directly, returns Majorsilence.Drawing images), so redirect just
+        //    equivalent (reads the .resx directly, returns Majorsilence.Forms.Drawing images), so redirect just
         //    that one type — System.ComponentModel itself stays put (it holds many unrelated BCL types).
         text = Regex.Replace(text,
             @"(?<![\w.])System\.ComponentModel\.ComponentResourceManager\b",
@@ -231,7 +234,7 @@ internal static class SourceConverter
     /// cross-platform builds) removes that, so a form that has no explicit <c>Sub New()</c> would no
     /// longer initialise its controls. This decides, for the current file, whether to inject it.
     /// </summary>
-    private static string ApplyVbConstructor(string text, VbConstructorMode mode, Action<string> warn)
+    internal static string ApplyVbConstructor(string text, VbConstructorMode mode, Action<string> warn)
     {
         switch (mode)
         {
@@ -333,7 +336,7 @@ internal static class SourceConverter
 
     // True when every reference to <paramref name="ns"/> in the file targets a known-available type, so
     // there is nothing for a human to fix.
-    private static bool OnlyReferencesAvailableTypes(string text, string ns)
+    internal static bool OnlyReferencesAvailableTypes(string text, string ns)
     {
         if (!AvailableTypesUnderUnsupportedNamespace.TryGetValue(ns, out var available))
             return false;
@@ -344,22 +347,51 @@ internal static class SourceConverter
         return true;
     }
 
-    private static void WarnVisualBasic(string original, Action<string> warn)
+    // My.Application.Info.* now resolves against the real Majorsilence.Forms.ApplicationInfo facade (see
+    // Application.Info) — so a bare "My.Application" reference, or any OTHER My.Application.* member
+    // (Log, Shutdown/Startup, ...), still needs a human, but "My.Application.Info" (and anything hanging
+    // off it, e.g. ".Info.Title") does not. The negative lookahead only excludes the ".Info" sub-path;
+    // "My.Application.Log"/bare "My.Application" still match and warn as before.
+    private static readonly Regex MyApplicationNeedsWarning =
+        new(@"(?<![\w.])My\.Application(?!\.Info\b)\b", RegexOptions.Compiled);
+
+    // My.Computer.Name now resolves against Majorsilence.Forms.ComputerInfo — so only that one member is
+    // carved out; a bare "My.Computer" reference or any other member (Registry/Clipboard/Info/FileSystem/
+    // …) still needs a human.
+    private static readonly Regex MyComputerNeedsWarning =
+        new(@"(?<![\w.])My\.Computer(?!\.Name\b)\b", RegexOptions.Compiled);
+
+    // internal (not private): the Roslyn engine (RoslynSourceConverter) deliberately reuses this VB helper
+    // verbatim rather than reimplementing it — see MIGRATION.md's "what's NOT better with Roslyn" note.
+    internal static void WarnVisualBasic(string original, Action<string> warn)
     {
-        // The 'My' namespace (My.Settings/My.Resources/My.Application/My.Computer/…) is generated by the
-        // VB WinForms application framework, which MyType=Empty switches off for cross-platform builds.
-        // Name the specific members in play so the human gets a targeted replacement, not a generic note.
+        // The 'My' namespace (My.Settings/My.Application/My.Computer/My.Forms/…) is generated by the VB
+        // WinForms application framework, which MyType=Empty switches off for cross-platform builds. Name
+        // the specific members in play so the human gets a targeted replacement, not a generic note.
+        //
+        // Three narrow sub-paths are real, working code against Majorsilence.Forms facades and are
+        // deliberately NOT flagged here: My.Application.Info.* (see Application.Info /
+        // ApplicationInfo), My.Resources.* (see the migrator's generated My.Resources accessor /
+        // ComponentResourceManager), and My.Computer.Name (see ComputerInfo). Every other 'My.*' member —
+        // including other My.Application.*/My.Computer.* members — still warns exactly as before.
         var myHints = new List<string>();
         void Hint(string member, string advice)
         {
             if (Regex.IsMatch(original, $@"(?<![\w.])My\.{member}\b"))
                 myHints.Add(advice);
         }
-        Hint("Resources", "My.Resources.X → load from the project .resx (e.g. Majorsilence.Forms.ComponentResourceManager / a ResourceManager)");
+        void HintIf(bool condition, string advice)
+        {
+            if (condition)
+                myHints.Add(advice);
+        }
         Hint("MySettings", "My.Settings/My.MySettings → a settings class backed by a config/JSON file");
         Hint("Settings", "My.Settings/My.MySettings → a settings class backed by a config/JSON file");
-        Hint("Application", "My.Application.X → AppContext/Assembly APIs (e.g. Info.DirectoryPath → AppContext.BaseDirectory)");
-        Hint("Computer", "My.Computer.X → System.IO / RuntimeInformation equivalents");
+        HintIf(MyApplicationNeedsWarning.IsMatch(original),
+            "My.Application.X → AppContext/Assembly APIs (e.g. Info.DirectoryPath → AppContext.BaseDirectory); " +
+            "note My.Application.Info.* is now supported directly, see Application.Info");
+        HintIf(MyComputerNeedsWarning.IsMatch(original),
+            "My.Computer.X → System.IO / RuntimeInformation equivalents; note My.Computer.Name is now supported directly, see ComputerInfo");
         Hint("User", "My.User → System.Security.Principal / your own identity accessor");
         Hint("Forms", "My.Forms → hold and reuse your own Form instances");
         if (myHints.Count > 0)
@@ -424,7 +456,7 @@ internal static class SourceConverter
             return text;
 
         // The import is only needed for the primitives Majorsilence.Forms keeps in System.Drawing;
-        // GDI+ types used unqualified need the Majorsilence.Drawing companion instead.
+        // GDI+ types used unqualified need the Majorsilence.Forms.Drawing companion instead.
         var needsSystemDrawing = NamespaceMap.DrawingPrimitives.Any(p => UsedUnqualified(text, p));
         var usesGdiPlus = NamespaceMap.MajorsilenceDrawingTypes.Any(t => UsedUnqualified(text, t));
         var companionPresent = Regex.IsMatch(text,
@@ -444,7 +476,7 @@ internal static class SourceConverter
             return text;
         }
 
-        // System.Drawing is no longer needed. Replace it with the Majorsilence.Drawing import when GDI+
+        // System.Drawing is no longer needed. Replace it with the Majorsilence.Forms.Drawing import when GDI+
         // types are used unqualified, otherwise drop the line entirely.
         var replacement = usesGdiPlus && !companionPresent ? companion : null;
         return RemoveImportLine(text, match, replacement, newline);

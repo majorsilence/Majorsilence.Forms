@@ -230,27 +230,27 @@ namespace Majorsilence.Forms
             => DrawSizeGrip (graphics, backColor, new Rectangle (x, y, width, height));
 
         /// <summary>Draws a string in its disabled/grayed state. Stub in Majorsilence.Forms.</summary>
-        public static void DrawStringDisabled (Graphics graphics, string s, Majorsilence.Drawing.Font font, System.Drawing.Color color, RectangleF layoutRectangle, Majorsilence.Drawing.StringFormat? format) { }
+        public static void DrawStringDisabled (Graphics graphics, string s, Majorsilence.Forms.Drawing.Font font, System.Drawing.Color color, RectangleF layoutRectangle, Majorsilence.Forms.Drawing.StringFormat? format) { }
 
 #pragma warning disable CA1416
         /// <summary>Draws a string at the specified coordinates. Stub in Majorsilence.Forms.</summary>
-        public static void DrawString (Graphics graphics, string s, Majorsilence.Drawing.Font font, System.Drawing.Color color, int x, int y)
+        public static void DrawString (Graphics graphics, string s, Majorsilence.Forms.Drawing.Font font, System.Drawing.Color color, int x, int y)
         {
-            using var brush = new Majorsilence.Drawing.SolidBrush (color);
+            using var brush = new Majorsilence.Forms.Drawing.SolidBrush (color);
             graphics.DrawString (s, font, brush, x, y);
         }
 
         /// <summary>Draws a string within the specified rectangle. Stub in Majorsilence.Forms.</summary>
-        public static void DrawString (Graphics graphics, string s, Majorsilence.Drawing.Font font, System.Drawing.Color color, Rectangle layoutRectangle)
+        public static void DrawString (Graphics graphics, string s, Majorsilence.Forms.Drawing.Font font, System.Drawing.Color color, Rectangle layoutRectangle)
         {
-            using var brush = new Majorsilence.Drawing.SolidBrush (color);
+            using var brush = new Majorsilence.Forms.Drawing.SolidBrush (color);
             graphics.DrawString (s, font, brush, new System.Drawing.RectangleF (layoutRectangle.X, layoutRectangle.Y, layoutRectangle.Width, layoutRectangle.Height));
         }
 
         /// <summary>Draws a string within the specified RectangleF with a StringFormat. Stub in Majorsilence.Forms.</summary>
-        public static void DrawString (Graphics graphics, string s, Majorsilence.Drawing.Font font, System.Drawing.Color color, System.Drawing.RectangleF layoutRectangle, Majorsilence.Drawing.StringFormat format)
+        public static void DrawString (Graphics graphics, string s, Majorsilence.Forms.Drawing.Font font, System.Drawing.Color color, System.Drawing.RectangleF layoutRectangle, Majorsilence.Forms.Drawing.StringFormat format)
         {
-            using var brush = new Majorsilence.Drawing.SolidBrush (color);
+            using var brush = new Majorsilence.Forms.Drawing.SolidBrush (color);
             graphics.DrawString (s, font, brush, layoutRectangle);
         }
 #pragma warning restore CA1416

@@ -1,6 +1,6 @@
 using System.Drawing;
-using Majorsilence.Drawing.Drawing2D;
-using Majorsilence.Drawing.Text;
+using Majorsilence.Forms.Drawing.Drawing2D;
+using Majorsilence.Forms.Drawing.Text;
 using SkiaSharp;
 
 #pragma warning disable CA1416  // WinForms compat layer — intentionally uses Windows-only System.Drawing APIs
@@ -28,8 +28,8 @@ namespace Majorsilence.Forms
             _canvas = new SKCanvas (bitmap);
         }
 
-        /// <summary>Creates a Graphics object for drawing on the specified Majorsilence.Drawing.Image.</summary>
-        public static Graphics FromImage (Majorsilence.Drawing.Image image)
+        /// <summary>Creates a Graphics object for drawing on the specified Majorsilence.Forms.Drawing.Image.</summary>
+        public static Graphics FromImage (Majorsilence.Forms.Drawing.Image image)
         {
             // Create a transparent-backed owned bitmap; drawing goes nowhere useful cross-platform.
             var bmp = new SKBitmap (image?.Width ?? 1, image?.Height ?? 1, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -73,36 +73,36 @@ namespace Majorsilence.Forms
             return new SizeF (sz.Width, sz.Height);
         }
 
-        /// <summary>Measures the string with a Majorsilence.Drawing.Font (maps to SKTypeface at the font's size).</summary>
-        public SizeF MeasureString (string text, Majorsilence.Drawing.Font font)
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font (maps to SKTypeface at the font's size).</summary>
+        public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = SKTypeface.FromFamilyName (font.FontFamily.Name, font.Bold ? SKFontStyle.Bold : SKFontStyle.Normal);
             return MeasureString (text, face, (int)font.Size);
         }
 
-        /// <summary>Measures the string with a Majorsilence.Drawing.Font, constrained to a size.</summary>
-        public SizeF MeasureString (string text, Majorsilence.Drawing.Font font, SizeF layoutArea)
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to a size.</summary>
+        public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = SKTypeface.FromFamilyName (font.FontFamily.Name, font.Bold ? SKFontStyle.Bold : SKFontStyle.Normal);
             return MeasureString (text, face, (int)layoutArea.Width, (int)font.Size);
         }
 
-        /// <summary>Measures the string with a Majorsilence.Drawing.Font and StringFormat (format is ignored).</summary>
-        public SizeF MeasureString (string text, Majorsilence.Drawing.Font font, Majorsilence.Drawing.StringFormat? format)
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font and StringFormat (format is ignored).</summary>
+        public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
             => MeasureString (text, font);
 
-        /// <summary>Measures the string with a Majorsilence.Drawing.Font, constrained to int width (StringFormat ignored).</summary>
-        public SizeF MeasureString (string text, Majorsilence.Drawing.Font font, int width, Majorsilence.Drawing.StringFormat? format)
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to int width (StringFormat ignored).</summary>
+        public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, int width, Majorsilence.Forms.Drawing.StringFormat? format)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = SKTypeface.FromFamilyName (font.FontFamily.Name, font.Bold ? SKFontStyle.Bold : SKFontStyle.Normal);
             return MeasureString (text, face, width, (int)font.Size);
         }
 
-        /// <summary>Measures the string with a Majorsilence.Drawing.Font, constrained to SizeF (StringFormat ignored).</summary>
-        public SizeF MeasureString (string text, Majorsilence.Drawing.Font font, SizeF layoutArea, Majorsilence.Drawing.StringFormat? format)
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF (StringFormat ignored).</summary>
+        public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea, Majorsilence.Forms.Drawing.StringFormat? format)
             => MeasureString (text, font, layoutArea);
 
         // --- Transform stubs ---
@@ -125,16 +125,16 @@ namespace Majorsilence.Forms
         public bool IsVisibleClipEmpty => false;
 
         /// <summary>Gets or sets the unit of measure for page coordinates. Stub in Majorsilence.Forms — always Pixel.</summary>
-        public Majorsilence.Drawing.GraphicsUnit PageUnit { get; set; } = Majorsilence.Drawing.GraphicsUnit.Pixel;
+        public Majorsilence.Forms.Drawing.GraphicsUnit PageUnit { get; set; } = Majorsilence.Forms.Drawing.GraphicsUnit.Pixel;
 
         /// <summary>Gets or sets the scaling factor for page-to-world coordinates. Stub in Majorsilence.Forms.</summary>
         public float PageScale { get; set; } = 1f;
 
         /// <summary>Stub: saves the current graphics state.</summary>
-        public Majorsilence.Drawing.Drawing2D.GraphicsState Save () { _canvas?.Save (); return null!; }
+        public Majorsilence.Forms.Drawing.Drawing2D.GraphicsState Save () { _canvas?.Save (); return null!; }
 
         /// <summary>Stub: restores a previously saved state.</summary>
-        public void Restore (Majorsilence.Drawing.Drawing2D.GraphicsState state) => _canvas?.Restore ();
+        public void Restore (Majorsilence.Forms.Drawing.Drawing2D.GraphicsState state) => _canvas?.Restore ();
 
         /// <summary>Gets or sets the smoothing mode. Stub in Majorsilence.Forms (always anti-aliased).</summary>
         public SmoothingMode SmoothingMode { get; set; } = SmoothingMode.Default;
@@ -143,16 +143,16 @@ namespace Majorsilence.Forms
         public InterpolationMode InterpolationMode { get; set; } = InterpolationMode.Default;
 
         /// <summary>Gets or sets the text rendering hint. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Text.TextRenderingHint TextRenderingHint { get; set; } = Majorsilence.Drawing.Text.TextRenderingHint.SystemDefault;
+        public Majorsilence.Forms.Drawing.Text.TextRenderingHint TextRenderingHint { get; set; } = Majorsilence.Forms.Drawing.Text.TextRenderingHint.SystemDefault;
 
         /// <summary>Gets or sets the compositing quality. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Drawing2D.CompositingQuality CompositingQuality { get; set; } = Majorsilence.Drawing.Drawing2D.CompositingQuality.Default;
+        public Majorsilence.Forms.Drawing.Drawing2D.CompositingQuality CompositingQuality { get; set; } = Majorsilence.Forms.Drawing.Drawing2D.CompositingQuality.Default;
 
         /// <summary>Gets or sets the pixel offset mode. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Drawing2D.PixelOffsetMode PixelOffsetMode { get; set; } = Majorsilence.Drawing.Drawing2D.PixelOffsetMode.Default;
+        public Majorsilence.Forms.Drawing.Drawing2D.PixelOffsetMode PixelOffsetMode { get; set; } = Majorsilence.Forms.Drawing.Drawing2D.PixelOffsetMode.Default;
 
         /// <summary>Gets or sets the compositing mode. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Drawing2D.CompositingMode CompositingMode { get; set; } = Majorsilence.Drawing.Drawing2D.CompositingMode.SourceOver;
+        public Majorsilence.Forms.Drawing.Drawing2D.CompositingMode CompositingMode { get; set; } = Majorsilence.Forms.Drawing.Drawing2D.CompositingMode.SourceOver;
 
         /// <summary>Applies a scale transform.</summary>
         public void ScaleTransform (float sx, float sy) => _canvas?.Scale (sx, sy);
@@ -178,13 +178,13 @@ namespace Majorsilence.Forms
         public void IntersectClip (RectangleF rect) => SetClip (rect);
 
         /// <summary>Gets or sets the clipping region. Stub in Majorsilence.Forms — always null.</summary>
-        public Majorsilence.Drawing.Region? Clip { get => null; set { } }
+        public Majorsilence.Forms.Drawing.Region? Clip { get => null; set { } }
 
         /// <summary>Excludes a rectangle from the clipping region. Stub in Majorsilence.Forms.</summary>
         public void ExcludeClip (Rectangle rect) { }
 
         /// <summary>Excludes a region from the clipping region. Stub in Majorsilence.Forms.</summary>
-        public void ExcludeClip (Majorsilence.Drawing.Region region) { }
+        public void ExcludeClip (Majorsilence.Forms.Drawing.Region region) { }
 
         /// <summary>Returns whether the specified point is within the clipping region. Always returns true in Majorsilence.Forms.</summary>
         public bool IsVisible (Point point) => true;
@@ -196,16 +196,16 @@ namespace Majorsilence.Forms
         public bool IsVisible (RectangleF rect) => true;
 
         /// <summary>Applies a matrix transform to the current transform. Stub in Majorsilence.Forms.</summary>
-        public void MultiplyTransform (Majorsilence.Drawing.Drawing2D.Matrix matrix) { }
+        public void MultiplyTransform (Majorsilence.Forms.Drawing.Drawing2D.Matrix matrix) { }
 
         /// <summary>Applies a matrix transform to the current transform. Stub in Majorsilence.Forms.</summary>
-        public void MultiplyTransform (Majorsilence.Drawing.Drawing2D.Matrix matrix, Majorsilence.Drawing.Drawing2D.MatrixOrder order) { }
+        public void MultiplyTransform (Majorsilence.Forms.Drawing.Drawing2D.Matrix matrix, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder order) { }
 
         // --- Drawing operations (Skia-backed when canvas is available) ---
 
-        /// <summary>Draws a Majorsilence.Drawing.Icon at the specified location. Converts to bitmap internally.</summary>
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Icon at the specified location. Converts to bitmap internally.</summary>
 #pragma warning disable CA1416
-        public void DrawIcon (Majorsilence.Drawing.Icon icon, int x, int y)
+        public void DrawIcon (Majorsilence.Forms.Drawing.Icon icon, int x, int y)
         {
             if (icon == null || _canvas == null) return;
             using var bmp = icon.ToBitmap ();
@@ -213,8 +213,8 @@ namespace Majorsilence.Forms
             if (skBmp != null) _canvas.DrawBitmap (skBmp, new SKPoint (x, y));
         }
 
-        /// <summary>Draws a Majorsilence.Drawing.Icon stretched to fill the destination rectangle.</summary>
-        public void DrawIcon (Majorsilence.Drawing.Icon icon, Rectangle targetRect)
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Icon stretched to fill the destination rectangle.</summary>
+        public void DrawIcon (Majorsilence.Forms.Drawing.Icon icon, Rectangle targetRect)
         {
             if (icon == null || _canvas == null) return;
             using var bmp = icon.ToBitmap ();
@@ -222,8 +222,8 @@ namespace Majorsilence.Forms
             if (skBmp != null) _canvas.DrawBitmap (skBmp, new SKRect (targetRect.Left, targetRect.Top, targetRect.Right, targetRect.Bottom));
         }
 
-        /// <summary>Draws an unscaled Majorsilence.Drawing.Icon at the specified location.</summary>
-        public void DrawIconUnstretched (Majorsilence.Drawing.Icon icon, Rectangle targetRect) => DrawIcon (icon, targetRect.X, targetRect.Y);
+        /// <summary>Draws an unscaled Majorsilence.Forms.Drawing.Icon at the specified location.</summary>
+        public void DrawIconUnstretched (Majorsilence.Forms.Drawing.Icon icon, Rectangle targetRect) => DrawIcon (icon, targetRect.X, targetRect.Y);
 
         /// <summary>Returns the device context handle. Returns IntPtr.Zero in Majorsilence.Forms (stub).</summary>
         public IntPtr GetHdc () => IntPtr.Zero;
@@ -241,64 +241,64 @@ namespace Majorsilence.Forms
         public void CopyFromScreen (System.Drawing.Point upperLeftSource, System.Drawing.Point upperLeftDestination, Size blockRegionSize) { }
 
         private static SKColor ToSKColor (System.Drawing.Color c) => new SKColor (c.R, c.G, c.B, c.A);
-        private static SKColor BrushColor (Majorsilence.Drawing.Brush brush)
-            => brush is Majorsilence.Drawing.SolidBrush sb ? ToSKColor (sb.Color) : SKColors.Black;
-        private static float PenWidth (Majorsilence.Drawing.Pen pen) => pen.Width;
-        private static SKColor PenColor (Majorsilence.Drawing.Pen pen) => ToSKColor (pen.Color);
+        private static SKColor BrushColor (Majorsilence.Forms.Drawing.Brush brush)
+            => brush is Majorsilence.Forms.Drawing.SolidBrush sb ? ToSKColor (sb.Color) : SKColors.Black;
+        private static float PenWidth (Majorsilence.Forms.Drawing.Pen pen) => pen.Width;
+        private static SKColor PenColor (Majorsilence.Forms.Drawing.Pen pen) => ToSKColor (pen.Color);
 
         /// <summary>Clears the canvas with the given color.</summary>
         public void Clear (System.Drawing.Color color) => _canvas?.Clear (ToSKColor (color));
 
-        /// <summary>Fills a rectangle using a Majorsilence.Drawing.Brush.</summary>
-        public void FillRectangle (Majorsilence.Drawing.Brush brush, Rectangle rect)
+        /// <summary>Fills a rectangle using a Majorsilence.Forms.Drawing.Brush.</summary>
+        public void FillRectangle (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
             _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
-        /// <summary>Fills a rectangle using a Majorsilence.Drawing.Brush.</summary>
-        public void FillRectangle (Majorsilence.Drawing.Brush brush, RectangleF rect)
+        /// <summary>Fills a rectangle using a Majorsilence.Forms.Drawing.Brush.</summary>
+        public void FillRectangle (Majorsilence.Forms.Drawing.Brush brush, RectangleF rect)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
             _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
-        /// <summary>Fills a rectangle using a Majorsilence.Drawing.Brush.</summary>
-        public void FillRectangle (Majorsilence.Drawing.Brush brush, float x, float y, float width, float height)
+        /// <summary>Fills a rectangle using a Majorsilence.Forms.Drawing.Brush.</summary>
+        public void FillRectangle (Majorsilence.Forms.Drawing.Brush brush, float x, float y, float width, float height)
             => FillRectangle (brush, new RectangleF (x, y, width, height));
 
-        /// <summary>Fills a rectangle using a Majorsilence.Drawing.Brush.</summary>
-        public void FillRectangle (Majorsilence.Drawing.Brush brush, int x, int y, int width, int height)
+        /// <summary>Fills a rectangle using a Majorsilence.Forms.Drawing.Brush.</summary>
+        public void FillRectangle (Majorsilence.Forms.Drawing.Brush brush, int x, int y, int width, int height)
             => FillRectangle (brush, new Rectangle (x, y, width, height));
 
-        /// <summary>Draws a rectangle outline using a Majorsilence.Drawing.Pen.</summary>
-        public void DrawRectangle (Majorsilence.Drawing.Pen pen, Rectangle rect)
+        /// <summary>Draws a rectangle outline using a Majorsilence.Forms.Drawing.Pen.</summary>
+        public void DrawRectangle (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
             _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
-        /// <summary>Draws a rectangle outline using a Majorsilence.Drawing.Pen.</summary>
-        public void DrawRectangle (Majorsilence.Drawing.Pen pen, int x, int y, int width, int height)
+        /// <summary>Draws a rectangle outline using a Majorsilence.Forms.Drawing.Pen.</summary>
+        public void DrawRectangle (Majorsilence.Forms.Drawing.Pen pen, int x, int y, int width, int height)
             => DrawRectangle (pen, new Rectangle (x, y, width, height));
 
-        /// <summary>Draws a line using a Majorsilence.Drawing.Pen.</summary>
-        public void DrawLine (Majorsilence.Drawing.Pen pen, Point p1, Point p2)
+        /// <summary>Draws a line using a Majorsilence.Forms.Drawing.Pen.</summary>
+        public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, Point p1, Point p2)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
         }
 
-        /// <summary>Draws a line using a Majorsilence.Drawing.Pen.</summary>
-        public void DrawLine (Majorsilence.Drawing.Pen pen, int x1, int y1, int x2, int y2)
+        /// <summary>Draws a line using a Majorsilence.Forms.Drawing.Pen.</summary>
+        public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, int x1, int y1, int x2, int y2)
             => DrawLine (pen, new Point (x1, y1), new Point (x2, y2));
 
-        /// <summary>Draws a line using a Majorsilence.Drawing.Pen.</summary>
-        public void DrawLine (Majorsilence.Drawing.Pen pen, PointF p1, PointF p2)
+        /// <summary>Draws a line using a Majorsilence.Forms.Drawing.Pen.</summary>
+        public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, PointF p1, PointF p2)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
@@ -306,15 +306,15 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws a rectangle with float coordinates.</summary>
-        public void DrawRectangle (Majorsilence.Drawing.Pen pen, float x, float y, float width, float height)
+        public void DrawRectangle (Majorsilence.Forms.Drawing.Pen pen, float x, float y, float width, float height)
             => DrawRectangle (pen, new Rectangle ((int)x, (int)y, (int)width, (int)height));
 
         /// <summary>Draws a rectangle with a RectangleF.</summary>
-        public void DrawRectangle (Majorsilence.Drawing.Pen pen, RectangleF rect)
+        public void DrawRectangle (Majorsilence.Forms.Drawing.Pen pen, RectangleF rect)
             => DrawRectangle (pen, new Rectangle ((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height));
 
         /// <summary>Draws an arc.</summary>
-        public void DrawArc (Majorsilence.Drawing.Pen pen, Rectangle rect, float startAngle, float sweepAngle)
+        public void DrawArc (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect, float startAngle, float sweepAngle)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
@@ -324,11 +324,11 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws an arc with float coordinates.</summary>
-        public void DrawArc (Majorsilence.Drawing.Pen pen, float x, float y, float width, float height, float startAngle, float sweepAngle)
+        public void DrawArc (Majorsilence.Forms.Drawing.Pen pen, float x, float y, float width, float height, float startAngle, float sweepAngle)
             => DrawArc (pen, new Rectangle ((int)x, (int)y, (int)width, (int)height), startAngle, sweepAngle);
 
         /// <summary>Draws a pie section.</summary>
-        public void DrawPie (Majorsilence.Drawing.Pen pen, Rectangle rect, float startAngle, float sweepAngle)
+        public void DrawPie (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect, float startAngle, float sweepAngle)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
@@ -340,7 +340,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Fills a pie section.</summary>
-        public void FillPie (Majorsilence.Drawing.Brush brush, Rectangle rect, float startAngle, float sweepAngle)
+        public void FillPie (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect, float startAngle, float sweepAngle)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
@@ -352,11 +352,11 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Fills a pie section with float coordinates.</summary>
-        public void FillPie (Majorsilence.Drawing.Brush brush, float x, float y, float width, float height, float startAngle, float sweepAngle)
+        public void FillPie (Majorsilence.Forms.Drawing.Brush brush, float x, float y, float width, float height, float startAngle, float sweepAngle)
             => FillPie (brush, new Rectangle ((int)x, (int)y, (int)width, (int)height), startAngle, sweepAngle);
 
         /// <summary>Draws a cubic Bezier curve.</summary>
-        public void DrawBezier (Majorsilence.Drawing.Pen pen, PointF pt1, PointF pt2, PointF pt3, PointF pt4)
+        public void DrawBezier (Majorsilence.Forms.Drawing.Pen pen, PointF pt1, PointF pt2, PointF pt3, PointF pt4)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
@@ -367,11 +367,11 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws a cubic Bezier curve using integer Point coordinates.</summary>
-        public void DrawBezier (Majorsilence.Drawing.Pen pen, Point pt1, Point pt2, Point pt3, Point pt4)
+        public void DrawBezier (Majorsilence.Forms.Drawing.Pen pen, Point pt1, Point pt2, Point pt3, Point pt4)
             => DrawBezier (pen, new PointF (pt1.X, pt1.Y), new PointF (pt2.X, pt2.Y), new PointF (pt3.X, pt3.Y), new PointF (pt4.X, pt4.Y));
 
         /// <summary>Draws multiple cubic Bezier curves.</summary>
-        public void DrawBeziers (Majorsilence.Drawing.Pen pen, PointF[] points)
+        public void DrawBeziers (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
             if (_canvas is null || points.Length < 4) return;
             for (int i = 0; i + 3 < points.Length; i += 3)
@@ -379,7 +379,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws multiple cubic Bezier curves using integer Point coordinates.</summary>
-        public void DrawBeziers (Majorsilence.Drawing.Pen pen, Point[] points)
+        public void DrawBeziers (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
         {
             if (_canvas is null || points.Length < 4) return;
             for (int i = 0; i + 3 < points.Length; i += 3)
@@ -387,7 +387,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws a cardinal spline curve through the specified points.</summary>
-        public void DrawCurve (Majorsilence.Drawing.Pen pen, PointF[] points)
+        public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
             if (_canvas is null || points.Length < 2) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
@@ -398,7 +398,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws a cardinal spline curve using integer Point coordinates.</summary>
-        public void DrawCurve (Majorsilence.Drawing.Pen pen, Point[] points)
+        public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
         {
             if (_canvas is null || points.Length < 2) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
@@ -408,36 +408,36 @@ namespace Majorsilence.Forms
             _canvas.DrawPath (path, paint);
         }
 
-        /// <summary>Fills an ellipse using a Majorsilence.Drawing.Brush.</summary>
-        public void FillEllipse (Majorsilence.Drawing.Brush brush, Rectangle rect)
+        /// <summary>Fills an ellipse using a Majorsilence.Forms.Drawing.Brush.</summary>
+        public void FillEllipse (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
             _canvas.DrawOval (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
-        /// <summary>Fills an ellipse using a Majorsilence.Drawing.Brush.</summary>
-        public void FillEllipse (Majorsilence.Drawing.Brush brush, float x, float y, float width, float height)
+        /// <summary>Fills an ellipse using a Majorsilence.Forms.Drawing.Brush.</summary>
+        public void FillEllipse (Majorsilence.Forms.Drawing.Brush brush, float x, float y, float width, float height)
             => FillEllipse (brush, new Rectangle ((int)x, (int)y, (int)width, (int)height));
 
-        /// <summary>Draws an ellipse outline using a Majorsilence.Drawing.Pen.</summary>
-        public void DrawEllipse (Majorsilence.Drawing.Pen pen, Rectangle rect)
+        /// <summary>Draws an ellipse outline using a Majorsilence.Forms.Drawing.Pen.</summary>
+        public void DrawEllipse (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
             _canvas.DrawOval (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
-        /// <summary>Draws an ellipse outline using a Majorsilence.Drawing.Pen (RectangleF overload).</summary>
-        public void DrawEllipse (Majorsilence.Drawing.Pen pen, RectangleF rect)
+        /// <summary>Draws an ellipse outline using a Majorsilence.Forms.Drawing.Pen (RectangleF overload).</summary>
+        public void DrawEllipse (Majorsilence.Forms.Drawing.Pen pen, RectangleF rect)
             => DrawEllipse (pen, new Rectangle ((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height));
 
-        /// <summary>Fills an ellipse using a Majorsilence.Drawing.Brush (RectangleF overload).</summary>
-        public void FillEllipse (Majorsilence.Drawing.Brush brush, RectangleF rect)
+        /// <summary>Fills an ellipse using a Majorsilence.Forms.Drawing.Brush (RectangleF overload).</summary>
+        public void FillEllipse (Majorsilence.Forms.Drawing.Brush brush, RectangleF rect)
             => FillEllipse (brush, new Rectangle ((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height));
 
         /// <summary>Fills a closed polygon.</summary>
-        public void FillPolygon (Majorsilence.Drawing.Brush brush, Point[] points)
+        public void FillPolygon (Majorsilence.Forms.Drawing.Brush brush, Point[] points)
         {
             if (_canvas is null || points.Length < 2) return;
             var path = new SKPath ();
@@ -449,7 +449,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws a closed polygon outline.</summary>
-        public void DrawPolygon (Majorsilence.Drawing.Pen pen, Point[] points)
+        public void DrawPolygon (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
         {
             if (_canvas is null || points.Length < 2) return;
             var path = new SKPath ();
@@ -461,7 +461,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws a closed polygon outline using PointF coordinates.</summary>
-        public void DrawPolygon (Majorsilence.Drawing.Pen pen, PointF[] points)
+        public void DrawPolygon (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
             if (_canvas is null || points.Length < 2) return;
             var path = new SKPath ();
@@ -473,7 +473,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Fills a closed polygon using PointF coordinates.</summary>
-        public void FillPolygon (Majorsilence.Drawing.Brush brush, PointF[] points)
+        public void FillPolygon (Majorsilence.Forms.Drawing.Brush brush, PointF[] points)
         {
             if (_canvas is null || points.Length < 2) return;
             var path = new SKPath ();
@@ -485,7 +485,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws an open polyline.</summary>
-        public void DrawLines (Majorsilence.Drawing.Pen pen, Point[] points)
+        public void DrawLines (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
         {
             if (_canvas is null || points.Length < 2) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
@@ -494,7 +494,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws an open polyline using floating-point coordinates.</summary>
-        public void DrawLines (Majorsilence.Drawing.Pen pen, PointF[] points)
+        public void DrawLines (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
             if (_canvas is null || points.Length < 2) return;
             using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
@@ -503,31 +503,31 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws a series of rectangles.</summary>
-        public void DrawRectangles (Majorsilence.Drawing.Pen pen, Rectangle[] rects)
+        public void DrawRectangles (Majorsilence.Forms.Drawing.Pen pen, Rectangle[] rects)
         {
             foreach (var r in rects) DrawRectangle (pen, r);
         }
 
         /// <summary>Draws a series of rectangles using floating-point coordinates.</summary>
-        public void DrawRectangles (Majorsilence.Drawing.Pen pen, RectangleF[] rects)
+        public void DrawRectangles (Majorsilence.Forms.Drawing.Pen pen, RectangleF[] rects)
         {
             foreach (var r in rects) DrawRectangle (pen, new Rectangle ((int)r.X, (int)r.Y, (int)r.Width, (int)r.Height));
         }
 
         /// <summary>Fills a series of rectangles.</summary>
-        public void FillRectangles (Majorsilence.Drawing.Brush brush, Rectangle[] rects)
+        public void FillRectangles (Majorsilence.Forms.Drawing.Brush brush, Rectangle[] rects)
         {
             foreach (var r in rects) FillRectangle (brush, r);
         }
 
         /// <summary>Fills a series of rectangles using floating-point coordinates.</summary>
-        public void FillRectangles (Majorsilence.Drawing.Brush brush, RectangleF[] rects)
+        public void FillRectangles (Majorsilence.Forms.Drawing.Brush brush, RectangleF[] rects)
         {
             foreach (var r in rects) FillRectangle (brush, r);
         }
 
-        /// <summary>Draws a string with the given Majorsilence.Drawing.Font and Brush.</summary>
-        public void DrawString (string text, Majorsilence.Drawing.Font font, Majorsilence.Drawing.Brush brush, float x, float y)
+        /// <summary>Draws a string with the given Majorsilence.Forms.Drawing.Font and Brush.</summary>
+        public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y)
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
             var face = SKTypeface.FromFamilyName (font.FontFamily.Name, font.Bold ? SKFontStyle.Bold : SKFontStyle.Normal);
@@ -537,15 +537,15 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws a string at the given PointF.</summary>
-        public void DrawString (string text, Majorsilence.Drawing.Font font, Majorsilence.Drawing.Brush brush, PointF point)
+        public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, PointF point)
             => DrawString (text, font, brush, point.X, point.Y);
 
         /// <summary>Draws a string at the given Point.</summary>
-        public void DrawString (string text, Majorsilence.Drawing.Font font, Majorsilence.Drawing.Brush brush, Point point)
+        public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, Point point)
             => DrawString (text, font, brush, point.X, point.Y);
 
         /// <summary>Draws a string within the specified rectangle.</summary>
-        public void DrawString (string text, Majorsilence.Drawing.Font font, Majorsilence.Drawing.Brush brush, RectangleF bounds)
+        public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds)
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
             _canvas.Save ();
@@ -555,19 +555,19 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Draws a string within the specified rectangle (StringFormat is ignored).</summary>
-        public void DrawString (string text, Majorsilence.Drawing.Font font, Majorsilence.Drawing.Brush brush, RectangleF bounds, Majorsilence.Drawing.StringFormat? format)
+        public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, Majorsilence.Forms.Drawing.StringFormat? format)
             => DrawString (text, font, brush, bounds);
 
         /// <summary>Draws a string within the specified rectangle.</summary>
-        public void DrawString (string text, Majorsilence.Drawing.Font font, Majorsilence.Drawing.Brush brush, RectangleF bounds, object? format)
+        public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, object? format)
             => DrawString (text, font, brush, bounds);
 
         /// <summary>Draws a string at the given PointF (StringFormat is ignored).</summary>
-        public void DrawString (string text, Majorsilence.Drawing.Font font, Majorsilence.Drawing.Brush brush, PointF point, Majorsilence.Drawing.StringFormat? format)
+        public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, PointF point, Majorsilence.Forms.Drawing.StringFormat? format)
             => DrawString (text, font, brush, point.X, point.Y);
 
         /// <summary>Draws a string at the given float coordinates (StringFormat is ignored).</summary>
-        public void DrawString (string text, Majorsilence.Drawing.Font font, Majorsilence.Drawing.Brush brush, float x, float y, Majorsilence.Drawing.StringFormat? format)
+        public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y, Majorsilence.Forms.Drawing.StringFormat? format)
             => DrawString (text, font, brush, x, y);
 
         /// <summary>Draws an SKBitmap image at the given rectangle.</summary>
@@ -648,7 +648,7 @@ namespace Majorsilence.Forms
         public void DrawImageUnscaled (SKBitmap image, Rectangle rect) => DrawImage (image, rect);
 
         /// <summary>Draws an SKBitmap clipped to the destination rectangle from a source rectangle.</summary>
-        public void DrawImage (SKBitmap image, Rectangle destRect, Rectangle srcRect, Majorsilence.Drawing.GraphicsUnit srcUnit)
+        public void DrawImage (SKBitmap image, Rectangle destRect, Rectangle srcRect, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
         {
             if (_canvas is null || image is null) return;
             var src = new SKRect (srcRect.Left, srcRect.Top, srcRect.Right, srcRect.Bottom);
@@ -660,71 +660,71 @@ namespace Majorsilence.Forms
         public void DrawImage (SKBitmap image, float x, float y, float width, float height)
             => DrawImage (image, new Rectangle ((int)x, (int)y, (int)width, (int)height));
 
-        /// <summary>Draws a Majorsilence.Drawing.Image at the specified location.</summary>
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Image at the specified location.</summary>
 #pragma warning disable CA1416
-        public void DrawImage (Majorsilence.Drawing.Image image, int x, int y)
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, int x, int y)
         {
             using var bmp = image?.ToSKBitmap ();
             if (bmp != null) DrawImage (bmp, x, y);
         }
 
-        /// <summary>Draws a Majorsilence.Drawing.Image at the specified location and size (int overload).</summary>
-        public void DrawImage (Majorsilence.Drawing.Image image, int x, int y, int width, int height)
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Image at the specified location and size (int overload).</summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, int x, int y, int width, int height)
             => DrawImage (image, new Rectangle (x, y, width, height));
 
-        /// <summary>Draws a Majorsilence.Drawing.Image scaled to fill the destination rectangle.</summary>
-        public void DrawImage (Majorsilence.Drawing.Image image, Rectangle destRect)
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Image scaled to fill the destination rectangle.</summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect)
         {
             using var bmp = image?.ToSKBitmap ();
             if (bmp != null) DrawImage (bmp, destRect);
         }
 
-        /// <summary>Draws a Majorsilence.Drawing.Image scaled to fill the destination rectangle.</summary>
-        public void DrawImage (Majorsilence.Drawing.Image image, RectangleF destRect)
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Image scaled to fill the destination rectangle.</summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, RectangleF destRect)
             => DrawImage (image, Rectangle.Round (destRect));
 
-        /// <summary>Draws a Majorsilence.Drawing.Image at (x,y) scaled to (width,height).</summary>
-        public void DrawImage (Majorsilence.Drawing.Image image, float x, float y, float width, float height)
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Image at (x,y) scaled to (width,height).</summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, float x, float y, float width, float height)
             => DrawImage (image, new Rectangle ((int)x, (int)y, (int)width, (int)height));
 
-        /// <summary>Draws a Majorsilence.Drawing.Bitmap at the specified location.</summary>
-        public void DrawImage (Majorsilence.Drawing.Bitmap bitmap, int x, int y) => DrawImage ((Majorsilence.Drawing.Image)bitmap, x, y);
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Bitmap at the specified location.</summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Bitmap bitmap, int x, int y) => DrawImage ((Majorsilence.Forms.Drawing.Image)bitmap, x, y);
 
-        /// <summary>Draws a Majorsilence.Drawing.Bitmap scaled to fill the destination rectangle.</summary>
-        public void DrawImage (Majorsilence.Drawing.Bitmap bitmap, Rectangle destRect) => DrawImage ((Majorsilence.Drawing.Image)bitmap, destRect);
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Bitmap scaled to fill the destination rectangle.</summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Bitmap bitmap, Rectangle destRect) => DrawImage ((Majorsilence.Forms.Drawing.Image)bitmap, destRect);
 
-        /// <summary>Draws a portion of a Majorsilence.Drawing.Image to the destination rectangle.</summary>
-        public void DrawImage (Majorsilence.Drawing.Image image, Rectangle destRect, Rectangle srcRect, Majorsilence.Drawing.GraphicsUnit srcUnit)
+        /// <summary>Draws a portion of a Majorsilence.Forms.Drawing.Image to the destination rectangle.</summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, Rectangle srcRect, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
         {
             using var bmp = image?.ToSKBitmap ();
             if (bmp != null) DrawImage (bmp, destRect, srcRect, srcUnit);
         }
 
-        /// <summary>Draws a Majorsilence.Drawing.Image unscaled at a point.</summary>
-        public void DrawImageUnscaled (Majorsilence.Drawing.Image image, int x, int y) => DrawImage (image, x, y);
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Image unscaled at a point.</summary>
+        public void DrawImageUnscaled (Majorsilence.Forms.Drawing.Image image, int x, int y) => DrawImage (image, x, y);
 
-        /// <summary>Draws a Majorsilence.Drawing.Image unscaled at a point.</summary>
-        public void DrawImageUnscaled (Majorsilence.Drawing.Image image, Rectangle rect) => DrawImage (image, rect);
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Image unscaled at a point.</summary>
+        public void DrawImageUnscaled (Majorsilence.Forms.Drawing.Image image, Rectangle rect) => DrawImage (image, rect);
 #pragma warning restore CA1416
 
         /// <summary>Rotates the current transform by the specified angle in degrees.</summary>
         public void RotateTransform (float angle) => _canvas?.RotateDegrees (angle);
 
         /// <summary>Applies a rotation in degrees around the specified point.</summary>
-        public void RotateTransform (float angle, Majorsilence.Drawing.Drawing2D.MatrixOrder order)
+        public void RotateTransform (float angle, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder order)
             => _canvas?.RotateDegrees (angle);
 
         /// <summary>Gets or sets the current world transformation matrix. Stub — setting is ignored.</summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Drawing2D.Matrix Transform {
-            get => new Majorsilence.Drawing.Drawing2D.Matrix ();
+        public Majorsilence.Forms.Drawing.Drawing2D.Matrix Transform {
+            get => new Majorsilence.Forms.Drawing.Drawing2D.Matrix ();
             set { }
         }
 #pragma warning restore CA1416
 
-        /// <summary>Draws a Majorsilence.Drawing.Drawing2D.GraphicsPath outline using the specified pen.</summary>
+        /// <summary>Draws a Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath outline using the specified pen.</summary>
 #pragma warning disable CA1416
-        public void DrawPath (Majorsilence.Drawing.Pen pen, Majorsilence.Drawing.Drawing2D.GraphicsPath path)
+        public void DrawPath (Majorsilence.Forms.Drawing.Pen pen, Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath path)
         {
             if (_canvas is null || path is null) return;
 
@@ -732,7 +732,7 @@ namespace Majorsilence.Forms
                 Color = new SKColor (pen.Color.R, pen.Color.G, pen.Color.B, pen.Color.A),
                 Style = SKPaintStyle.Stroke,
                 StrokeWidth = pen.Width,
-                IsAntialias = SmoothingMode != Majorsilence.Drawing.Drawing2D.SmoothingMode.None
+                IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None
             };
 
             using var skPath = new SKPath ();
@@ -747,14 +747,14 @@ namespace Majorsilence.Forms
             _canvas.DrawPath (skPath, paint);
         }
 
-        /// <summary>Fills the interior of a Majorsilence.Drawing.Drawing2D.GraphicsPath using the specified brush.</summary>
-        public void FillPath (Majorsilence.Drawing.Brush brush, Majorsilence.Drawing.Drawing2D.GraphicsPath path)
+        /// <summary>Fills the interior of a Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath using the specified brush.</summary>
+        public void FillPath (Majorsilence.Forms.Drawing.Brush brush, Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath path)
         {
             if (_canvas is null || path is null) return;
 
             SKColor fillColor;
 
-            if (brush is Majorsilence.Drawing.SolidBrush sb)
+            if (brush is Majorsilence.Forms.Drawing.SolidBrush sb)
                 fillColor = new SKColor (sb.Color.R, sb.Color.G, sb.Color.B, sb.Color.A);
             else
                 fillColor = SKColors.Black;
@@ -762,7 +762,7 @@ namespace Majorsilence.Forms
             using var paint = new SKPaint {
                 Color = fillColor,
                 Style = SKPaintStyle.Fill,
-                IsAntialias = SmoothingMode != Majorsilence.Drawing.Drawing2D.SmoothingMode.None
+                IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None
             };
 
             using var skPath = new SKPath ();
@@ -779,9 +779,9 @@ namespace Majorsilence.Forms
         }
 #pragma warning restore CA1416
 
-        /// <summary>Sets the clipping region of this Graphics to the intersection of the current clip and a Majorsilence.Drawing.Drawing2D.GraphicsPath.</summary>
+        /// <summary>Sets the clipping region of this Graphics to the intersection of the current clip and a Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath.</summary>
 #pragma warning disable CA1416
-        public void SetClip (Majorsilence.Drawing.Drawing2D.GraphicsPath path)
+        public void SetClip (Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath path)
         {
             if (_canvas is null || path is null) return;
 
@@ -804,7 +804,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Sets the clipping region to the intersection with an existing region. Stub in Majorsilence.Forms.</summary>
 #pragma warning disable CA1416
-        public void SetClip (Majorsilence.Drawing.Region region) { }
+        public void SetClip (Majorsilence.Forms.Drawing.Region region) { }
 #pragma warning restore CA1416
 
         /// <inheritdoc/>

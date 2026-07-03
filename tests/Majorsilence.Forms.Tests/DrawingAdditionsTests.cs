@@ -1,10 +1,10 @@
-using Majorsilence.Drawing;
-using Majorsilence.Drawing.Drawing2D;
+using Majorsilence.Forms.Drawing;
+using Majorsilence.Forms.Drawing.Drawing2D;
 using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
-    // Covers the GDI+ surface added to Majorsilence.Drawing: named Brushes/Pens, ColorConverter,
+    // Covers the GDI+ surface added to Majorsilence.Forms.Drawing: named Brushes/Pens, ColorConverter,
     // SystemIcons, TextureBrush, PathGradientBrush, and BufferedGraphics.
     public class DrawingAdditionsTests
     {

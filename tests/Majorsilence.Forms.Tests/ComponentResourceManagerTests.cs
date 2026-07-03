@@ -45,7 +45,7 @@ public class ComponentResourceManagerTests
         var mgr = ComponentResourceManager.FromXml(resx);
 
         var image = mgr.GetObject("b.Image");
-        var bitmap = Assert.IsAssignableFrom<Majorsilence.Drawing.Image>(image);
+        var bitmap = Assert.IsAssignableFrom<Majorsilence.Forms.Drawing.Image>(image);
         Assert.Equal(1, bitmap.Width);
         Assert.Equal(1, bitmap.Height);
     }

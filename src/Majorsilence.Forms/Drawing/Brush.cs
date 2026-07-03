@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// Base class for brushes that fill the interior of shapes and text on a
@@ -13,7 +13,7 @@ namespace Majorsilence.Drawing
         // Builds a fill SKPaint for this brush. Caller owns disposal.
         internal abstract SKPaint CreatePaint ();
 
-        /// <summary>Releases the resources used by this brush. No-op in Majorsilence.Drawing.</summary>
+        /// <summary>Releases the resources used by this brush. No-op in Majorsilence.Forms.Drawing.</summary>
         public void Dispose () => GC.SuppressFinalize (this);
     }
 

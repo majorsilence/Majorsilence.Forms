@@ -1,7 +1,7 @@
 using System;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// A lightweight, cross-platform font description backed by SkiaSharp (SKFont). Cross-platform

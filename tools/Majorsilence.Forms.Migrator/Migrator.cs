@@ -28,6 +28,11 @@ internal sealed class Migrator
     // each form's partial files. Files absent from the map fall back to the single-file Auto heuristic.
     private Dictionary<string, VbConstructorMode> _vbConstructorPlan = new(StringComparer.OrdinalIgnoreCase);
 
+    // Built once per Run() when --engine roslyn is selected and the input has a loadable project. Null
+    // whenever the Roslyn engine isn't in play, or the whole-run fallback-to-text case applies (see
+    // ConvertSourceWithRoslyn/_roslynFallbackWarned).
+    private RoslynWorkspaceContext? _roslynContext;
+
     public Migrator(MigrationOptions options) => _options = options;
 
     public int Run()
@@ -52,53 +57,86 @@ internal sealed class Migrator
         var sourceFiles = WalkFiles("*.cs", "*.vb");
         var resxFiles = WalkFiles("*.resx");
 
-        // Decide, across each VB form's partial files (Form1.vb + Form1.Designer.vb), whether a
-        // constructor needs injecting and into which file — so we never duplicate one a sibling already
-        // has, nor write one into a designer file.
-        _vbConstructorPlan = PlanVbConstructors(sourceFiles);
-
-        Console.WriteLine($"Majorsilence.Forms migrator");
-        Console.WriteLine($"  input    : {_options.Input}");
-        Console.WriteLine($"  output   : {_options.Output ?? "(in place)"}");
-        Console.WriteLine($"  backend  : {_options.Backend}");
-        Console.WriteLine($"  refs     : {_options.ReferenceMode}");
-        Console.WriteLine($"  mode     : {(_options.DryRun ? "DRY RUN (no files written)" : "write")}");
-        Console.WriteLine();
-
-        foreach (var proj in projects)
-            ConvertProject(proj);
-
-        UpdateCentralPackageFiles();
-
-        foreach (var src in sourceFiles)
-            ConvertSource(src);
-
-        foreach (var resx in resxFiles)
-            ProcessResx(resx);
-
-        CopySolutionFile();
-
-        Console.WriteLine();
-        Console.WriteLine($"Scanned {_filesScanned} file(s); {_changes.Count} would change.");
-        if (_warnings.Count > 0)
+        if (_options.Engine == SourceEngine.Roslyn)
         {
+            if (!RoslynWorkspaceContext.HasLoadableProject(_options.Input))
+            {
+                // A bare directory or single .cs/.vb/.resx file has no .sln/.csproj/.vbproj to load —
+                // degrade gracefully for the whole run rather than hard-failing (the resolved judgment
+                // call from the design doc), but make sure the user gets a clear, visible signal rather
+                // than the run silently behaving like --engine text.
+                _warnings.Add("--engine roslyn requires a .sln/.csproj/.vbproj to load a project from; " +
+                    $"'{_options.Input}' has none — falling back to the text engine for this run");
+            }
+            else
+            {
+                _roslynContext = RoslynWorkspaceContext.TryCreate(_options.Input, out var error);
+                if (_roslynContext is null)
+                {
+                    // The *entire* workspace could not be constructed (e.g. no MSBuild locatable at all).
+                    // This is a hard error, not a fallback — silently downgrading the whole run to the text
+                    // engine here would defeat the point of an explicit, signal-carrying opt-in.
+                    Console.Error.WriteLine($"error: {error}");
+                    return 2;
+                }
+            }
+        }
+
+        try
+        {
+            // Decide, across each VB form's partial files (Form1.vb + Form1.Designer.vb), whether a
+            // constructor needs injecting and into which file — so we never duplicate one a sibling already
+            // has, nor write one into a designer file.
+            _vbConstructorPlan = PlanVbConstructors(sourceFiles);
+
+            Console.WriteLine($"Majorsilence.Forms migrator");
+            Console.WriteLine($"  input    : {_options.Input}");
+            Console.WriteLine($"  output   : {_options.Output ?? "(in place)"}");
+            Console.WriteLine($"  backend  : {_options.Backend}");
+            Console.WriteLine($"  refs     : {_options.ReferenceMode}");
+            Console.WriteLine($"  engine   : {_options.Engine}");
+            Console.WriteLine($"  mode     : {(_options.DryRun ? "DRY RUN (no files written)" : "write")}");
             Console.WriteLine();
-            Console.WriteLine($"{_warnings.Count} warning(s):");
-            foreach (var w in _warnings)
-                Console.WriteLine($"  ! {w}");
+
+            foreach (var proj in projects)
+                ConvertProject(proj);
+
+            UpdateCentralPackageFiles();
+
+            foreach (var src in sourceFiles)
+                ConvertSource(src);
+
+            foreach (var resx in resxFiles)
+                ProcessResx(resx);
+
+            CopySolutionFile();
+
+            Console.WriteLine();
+            Console.WriteLine($"Scanned {_filesScanned} file(s); {_changes.Count} would change.");
+            if (_warnings.Count > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"{_warnings.Count} warning(s):");
+                foreach (var w in _warnings)
+                    Console.WriteLine($"  ! {w}");
+            }
+
+            WriteReport();
+
+            // Strict mode turns unresolved manual-review items into a failing exit code so a CI
+            // migration gate can block until a human has dealt with them.
+            if (_options.Strict && _warnings.Count > 0)
+            {
+                Console.Error.WriteLine($"\nstrict: {_warnings.Count} warning(s) require manual review.");
+                return 3;
+            }
+
+            return 0;
         }
-
-        WriteReport();
-
-        // Strict mode turns unresolved manual-review items into a failing exit code so a CI
-        // migration gate can block until a human has dealt with them.
-        if (_options.Strict && _warnings.Count > 0)
+        finally
         {
-            Console.Error.WriteLine($"\nstrict: {_warnings.Count} warning(s) require manual review.");
-            return 3;
+            _roslynContext?.Dispose();
         }
-
-        return 0;
     }
 
     private void WriteReport()
@@ -339,7 +377,10 @@ internal sealed class Migrator
             ? SourceLanguage.VisualBasic
             : SourceLanguage.CSharp;
         var vbConstructor = _vbConstructorPlan.GetValueOrDefault(path, VbConstructorMode.Auto);
-        var result = SourceConverter.Convert(text, _customMap, language, vbConstructor);
+
+        var result = _options.Engine == SourceEngine.Roslyn
+            ? ConvertSourceWithRoslyn(path, text, _customMap, language, vbConstructor)
+            : SourceConverter.Convert(text, _customMap, language, vbConstructor);
 
         foreach (var w in result.Warnings)
             _warnings.Add($"{Rel(path)}: {w}");
@@ -351,6 +392,30 @@ internal sealed class Migrator
         Console.WriteLine($"  [src ] {Rel(path)}");
         MaybePrintDiff(Rel(path), text, result.Text);
         WriteResult(path, result.Text);
+    }
+
+    /// <summary>
+    /// Dispatches a file to <see cref="RoslynSourceConverter"/> when <see cref="_roslynContext"/> is
+    /// available, with a per-file fallback to the text engine when the file's document can't be resolved
+    /// from the loaded workspace (belongs to a project that failed to load, or was never part of any loaded
+    /// project) — the "fail closed per project, not per run" design from the plan. When
+    /// <see cref="_roslynContext"/> itself is null (the whole-run directory/single-file fallback case,
+    /// already warned about in <see cref="Run"/>), every file goes straight to the text engine.
+    /// </summary>
+    private SourceConverter.Result ConvertSourceWithRoslyn(string path, string text, CustomMap customMap,
+        SourceLanguage language, VbConstructorMode vbConstructor)
+    {
+        if (_roslynContext is null)
+            return SourceConverter.Convert(text, customMap, language, vbConstructor);
+
+        if (!_roslynContext.TryGetDocument(path, out var document, out var failureReason))
+        {
+            _warnings.Add($"--engine roslyn: {failureReason} — falling back to the text engine for this file");
+            return SourceConverter.Convert(text, customMap, language, vbConstructor);
+        }
+
+        var vbConstructorMode = language == SourceLanguage.VisualBasic ? vbConstructor : VbConstructorMode.Suppress;
+        return RoslynSourceConverter.ConvertAsync(document!, customMap, vbConstructorMode).GetAwaiter().GetResult();
     }
 
     // Matches the project converter's `<Compile Remove="My Project\*.Designer.vb" />`: a *.Designer.vb
@@ -450,7 +515,8 @@ internal sealed class Migrator
     private void ProcessResx(string path)
     {
         _filesScanned++;
-        var result = ResxScanner.Scan(File.ReadAllText(path));
+        var xml = File.ReadAllText(path);
+        var result = ResxScanner.Scan(xml);
 
         // Designer values, primitive metadata, and bytearray images all load cross-platform via
         // Majorsilence.Forms.ComponentResourceManager — mirror the .resx into the output tree so the
@@ -472,6 +538,42 @@ internal sealed class Migrator
             _warnings.Add($"{Rel(path)}: contains {result.BinaryResourceCount} BinaryFormatter/SOAP-serialized " +
                 "object(s) of an unsupported type — re-create the value in code (BinaryFormatter is gone from " +
                 "modern .NET)");
+
+        // The one .resx per VB project that backs classic My.Resources — generate the companion
+        // accessor module that keeps every 'My.Resources.X' call site compiling once the real
+        // compiler-generated My Project\Resources.Designer.vb is excluded from the build.
+        if (MyResourcesGenerator.IsMyResourcesResx(path))
+            GenerateMyResourcesAccessor(path, xml);
+    }
+
+    private void GenerateMyResourcesAccessor(string resxPath, string resxXml)
+    {
+        var resources = MyResourcesGenerator.ParseResources(resxXml);
+        var generated = MyResourcesGenerator.Generate(resources, resxXml);
+
+        var targetPath = Path.Combine(Path.GetDirectoryName(resxPath)!, "Resources.vb");
+        var existing = File.Exists(targetPath) ? File.ReadAllText(targetPath) : null;
+        if (string.Equals(existing, generated, StringComparison.Ordinal))
+            return; // idempotent: unchanged .resx regenerates byte-identical output, nothing to do.
+
+        _changes.Add(("src", Rel(targetPath)));
+        Console.WriteLine($"  [src ] {Rel(targetPath)} (generated My.Resources accessor, {resources.Count} resource(s))");
+
+        if (_options.DryRun)
+            return;
+
+        // Unlike WriteResult, there is no ".bak"-worthy original here on the first run — this file is
+        // wholly generated, not migrated in place from user content — so back it up only when overwriting
+        // a previous run's output.
+        var destination = DestinationFor(targetPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        if (_options.Output is null && !_options.NoBackup && File.Exists(targetPath))
+        {
+            var backup = targetPath + ".bak";
+            if (!File.Exists(backup))
+                File.Copy(targetPath, backup);
+        }
+        File.WriteAllText(destination, generated);
     }
 
     // Unlike source/project files, a .resx is not rewritten; copy it verbatim into the output tree.

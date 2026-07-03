@@ -169,7 +169,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the image used as the upper-left icon of the titlebar.
         /// </summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Image? Image {
+        public Majorsilence.Forms.Drawing.Image? Image {
             get => form_image.Image;
             set {
                 form_image.Image = value;

@@ -14,7 +14,7 @@ namespace Majorsilence.Forms
     {
         private static HttpClient? client;
 
-        private Majorsilence.Drawing.Image? _systemImage;
+        private Majorsilence.Forms.Drawing.Image? _systemImage;
         private SKBitmap? _skImage;
         private string? image_location;
         private PictureBoxSizeMode size_mode;
@@ -35,9 +35,9 @@ namespace Majorsilence.Forms
 
         /// <summary>
         /// Gets or sets the image the PictureBox should display.
-        /// Accepts <see cref="Majorsilence.Drawing.Image"/> for WinForms compatibility.
+        /// Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
-        public Majorsilence.Drawing.Image? Image {
+        public Majorsilence.Forms.Drawing.Image? Image {
             get => _systemImage;
             set {
                 _systemImage = value;
@@ -62,8 +62,8 @@ namespace Majorsilence.Forms
             set => LoadInternal (value);
         }
 
-        /// <summary>Sets the image from a <see cref="Majorsilence.Drawing.Bitmap"/>.</summary>
-        public void SetImage (Majorsilence.Drawing.Bitmap bitmap) => Image = bitmap;
+        /// <summary>Sets the image from a <see cref="Majorsilence.Forms.Drawing.Bitmap"/>.</summary>
+        public void SetImage (Majorsilence.Forms.Drawing.Bitmap bitmap) => Image = bitmap;
 
         /// <summary>Sets the image from a SKBitmap for Majorsilence.Forms usage.</summary>
         public void SetSKImage (SKBitmap? bitmap)
@@ -164,10 +164,10 @@ namespace Majorsilence.Forms
         public bool WaitOnLoad { get; set; } = true;
 
         /// <summary>Gets or sets the image shown when the primary image load fails. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Image? ErrorImage { get; set; }
+        public Majorsilence.Forms.Drawing.Image? ErrorImage { get; set; }
 
         /// <summary>Gets or sets the image shown while the primary image is loading. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Image? InitialImage { get; set; }
+        public Majorsilence.Forms.Drawing.Image? InitialImage { get; set; }
 
         /// <summary>Loads the image from the specified URL asynchronously. Stub delegates to Load() in Majorsilence.Forms.</summary>
         public void LoadAsync (string url) => Load (url);

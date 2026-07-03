@@ -183,14 +183,14 @@ namespace Majorsilence.Forms
         /// </summary>
         public bool HasChildren => (items?.Count ?? 0) > 0;
 
-        private Majorsilence.Drawing.Image? _image;
+        private Majorsilence.Forms.Drawing.Image? _image;
         private SKBitmap? _imageSK;
 
         /// <summary>
-        /// Gets or sets the image of the item. Accepts <see cref="Majorsilence.Drawing.Image"/> for WinForms compatibility.
+        /// Gets or sets the image of the item. Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Image? Image {
+        public Majorsilence.Forms.Drawing.Image? Image {
             get => _image;
             set {
                 _image = value;
@@ -396,7 +396,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the font for this node. Null means use the TreeView font.</summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Font? NodeFont { get; set; }
+        public Majorsilence.Forms.Drawing.Font? NodeFont { get; set; }
 #pragma warning restore CA1416
 
         /// <summary>Gets or sets the image list index for this node's image. Stub in Majorsilence.Forms.</summary>

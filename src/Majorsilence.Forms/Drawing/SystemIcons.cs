@@ -1,7 +1,7 @@
 using System.Drawing;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// The system icons. Cross-platform replacement for System.Drawing.SystemIcons — there are no OS

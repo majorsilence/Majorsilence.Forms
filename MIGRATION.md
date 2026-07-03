@@ -33,6 +33,54 @@ If you need real symbol-aware rewriting (e.g. disambiguating a genuinely name-co
 type), that's a natural candidate for an optional, heavier second pass layered on top of the fast
 textual one — not a replacement for it.
 
+### The optional Roslyn engine (`--engine roslyn`)
+
+That "natural candidate" above is no longer hypothetical — it shipped as an **opt-in** second
+engine, selected with `--engine roslyn` (`--engine text` remains the default and is unchanged byte
+for byte). It uses `MSBuildWorkspace` + real Roslyn symbol resolution
+(`SemanticModel.GetSymbolInfo`) instead of regexes, which lets it do the one thing the textual
+engine categorically cannot: tell a project-local `Panel` apart from `System.Windows.Forms.Panel`
+when both are used by bare name in the same file. It is layered *on top of* the textual engine, not
+a replacement — several passes are deliberately still textual even in `--engine roslyn` mode (see
+the scope table below), and the two engines are designed to produce byte-identical output on every
+file where there's no ambiguity for symbol resolution to add value.
+
+**Trade-offs:**
+
+| | `--engine text` (default) | `--engine roslyn` |
+|---|---|---|
+| Input requirement | Any `.sln`/`.csproj`/`.vbproj`/directory/single file | Needs a loadable `.sln`/`.csproj`/`.vbproj` — a bare directory or single file falls back to the text engine for the whole run, with a warning |
+| Tolerates non-compiling code | Yes — never needs the code to parse or build | No — a project has to actually load via MSBuild; a project that "looks fine" can still fail in-process (implicit restore differences, SDK resolver quirks, multi-targeted projects) |
+| Speed | Seconds, even for large solutions | Orders of magnitude slower — loading a full solution via MSBuild evaluation dominates the run |
+| Cross-project same-named-type disambiguation | No — relies on namespace-prefix/`using` context, which is usually unambiguous but not always | Yes — this is the feature's reason for existing |
+| Failure handling | N/A (never fails) | Fails closed **per project**: one project failing to load falls back to the text engine for just that project's files (with a warning), not the whole run. If MSBuild itself can't be located at all, the whole run hard-fails with a non-zero exit — an explicit opt-in should never silently downgrade to the default with no signal |
+
+**When to reach for it:** you've hit a real, confirmed case of the textual engine's known blind
+spot — a custom type sharing a bare name with a WinForms/GDI+ type in the same file — and you have
+a project that already loads cleanly in MSBuild. For the first pass over a large, possibly
+half-broken legacy codebase, keep using the default `--engine text`; run `--engine roslyn`
+afterwards, on the now-loadable result, if you still see suspicious rewrites in the diff.
+
+**V1 scope — what actually gets Roslyn treatment:**
+
+| Pass | `--engine roslyn` behavior |
+|---|---|
+| Namespace-prefix rewrites (`System.Windows.Forms`, Telerik, custom `--map` entries) | Reimplemented with real symbol resolution |
+| `System.Drawing` 3-way bucketing (primitive / GDI+ / WinForms-compat) | Reimplemented — **including** types used *unqualified* under a bare `using System.Drawing;`, which the textual engine's corresponding pass can only warn about, never fix (see below) |
+| `using`/`Imports` reconciliation for the `System.Drawing`/`Majorsilence.Forms.Drawing` pair | Reimplemented |
+| `System.ComponentModel.ComponentResourceManager` redirect | Reimplemented (trivial either way — no ambiguity, just consistency with the rest of the engine) |
+| Duplicate `using`/`Imports` dedup | Reimplemented, natively via Roslyn's import-line handling |
+| `ApplicationConfiguration.Initialize()` comment-out | **Not** Roslyn — runs as the same small textual post-process over this engine's re-serialized output. No ambiguity a symbol resolves: a fixed zero-argument static call is a regex either way |
+| Unsupported-namespace / unmapped-Telerik-type warnings | **Not** Roslyn — reused verbatim from the textual engine for the same reason (nothing here is a symbol-resolution question) |
+| VB constructor injection + `My.*` warnings | **Not** Roslyn — reused verbatim (`SourceConverter.ApplyVbConstructor`/`WarnVisualBasic`, widened to `internal` for this reuse) |
+| Unqualified-GDI+-type-under-bare-import warning (textual engine's corresponding pass) | **Superseded, not reused** — Roslyn mode fixes this case outright instead of flagging it, so it intentionally produces *fewer* warnings here. If you're diffing a `--engine text` report against a `--engine roslyn` report, expect this divergence; it isn't a regression |
+
+**What's NOT better with Roslyn:** the bootstrap comment-out and VB's constructor/`My.*` handling
+are exactly as good under either engine, because they were never symbol-resolution problems — a
+heavier engine buys nothing there, and reimplementing them "in Roslyn terms" would just be the same
+regex wearing a syntax tree as a costume. If your migration pain is in that territory, `--engine
+text` already handles it identically, faster.
+
 ## What it does
 
 1. **Project files** (`.csproj`/`.vbproj`): removes `UseWindowsForms`/`UseWPF`, drops the
@@ -43,9 +91,12 @@ textual one — not a replacement for it.
 2. **Source files** (`.cs`/`.vb`): rewrites namespaces via a longest-prefix-first table (see
    [Namespace mapping](#namespace-mapping) below), collapses duplicate `using`/`Imports` lines that
    result from multiple source namespaces mapping to the same target, and — for VB — injects the
-   implicit WinForms constructor lost when `MyType=Empty` no longer applies, and warns on `My.*`
-   framework usage (see [VB Application Model](#vb-application-model-myapplication-myforms)).
-3. **Resx files**: scans for image/type references that need to survive the framework swap.
+   implicit WinForms constructor lost when `MyType=Empty` no longer applies, generates a
+   `My.Resources` accessor, and warns on the remaining unimplemented `My.*` framework usage (see
+   [VB Application Model](#vb-application-model-myapplication-myforms)).
+3. **Resx files**: scans for image/type references that need to survive the framework swap, and — for
+   a VB project's `My Project\Resources.resx` — generates the `My.Resources` accessor module described
+   above.
 4. **Report**: writes a Markdown summary (see [Reading the report](#reading-the-migration-report)).
 
 ## CLI usage
@@ -64,6 +115,11 @@ OPTIONS
       --diff              Print a unified diff for each changed file.
       --backend <name>    Platform backend to reference: avalonia (default) | uno | headless.
       --references <mode>  How to reference Majorsilence.Forms: package (default) | project.
+      --engine <name>     Source-rewrite engine: text (default) | roslyn. See "The optional
+                          Roslyn engine" above — roslyn requires a loadable project, is much
+                          slower, and correctly disambiguates same-named types; falls back to
+                          text per-project on load failure, or for the whole run when the
+                          input has no project to load.
       --tfm <tfm>         Force a target framework. Default: keep the project's version and
                           just drop the -windows suffix (net8.0-windows -> net8.0).
       --package-version <v>  NuGet version for package references.
@@ -118,8 +174,8 @@ The rewriter's namespace table has one governing asymmetry:
 |---|---|---|
 | `System.Windows.Forms` (whole namespace) | `Majorsilence.Forms` | The WinForms API surface maps wholesale onto its own namespace. |
 | `System.Drawing` — **primitives** (`Color`, `Point`, `PointF`, `Size`, `SizeF`, `Rectangle`, `RectangleF`) | *unchanged* | These ship in `System.Drawing.Primitives` on every OS/platform already — Majorsilence.Forms keeps using them as-is, so a fully-qualified reference is left alone. |
-| `System.Drawing` — **GDI+ types** (`Bitmap`, `Font`, `Pen`, `Brush`, `Graphics`-adjacent types, etc.) | `Majorsilence.Drawing` | GDI+ is Windows-only in `System.Drawing.Common`; Majorsilence reimplements it cross-platform on SkiaSharp. |
-| `System.Drawing.Drawing2D` / `.Imaging` / `.Text` | `Majorsilence.Drawing.Drawing2D` / `.Imaging` / `.Text` | Same GDI+ split, sub-namespaced. |
+| `System.Drawing` — **GDI+ types** (`Bitmap`, `Font`, `Pen`, `Brush`, `Graphics`-adjacent types, etc.) | `Majorsilence.Forms.Drawing` | GDI+ is Windows-only in `System.Drawing.Common`; Majorsilence reimplements it cross-platform on SkiaSharp. |
+| `System.Drawing.Drawing2D` / `.Imaging` / `.Text` | `Majorsilence.Forms.Drawing.Drawing2D` / `.Imaging` / `.Text` | Same GDI+ split, sub-namespaced. |
 | `System.Drawing.Printing` | `Majorsilence.Forms.Printing` | Printing lives on the Forms side of the compat layer, not the drawing side. |
 | `System.Windows.Forms.VisualStyles`, `System.Drawing.Design`, `System.ComponentModel.Design` | *left unchanged* | No Majorsilence equivalent — flagged for manual review rather than rewritten into something that doesn't exist. |
 
@@ -146,20 +202,67 @@ compatibility matrix for exactly what each one does and doesn't do.
 
 ## VB Application Model (`My.Application`, `My.Forms`)
 
-**Not implemented.** The classic VB "My" application model — `My.Application` (single-instance
-handling, startup/shutdown events, splash screens), `My.Forms` (implicit form instances), `My.User`,
-`My.Computer` — is deeply tied to `Microsoft.VisualBasic` Windows-only infrastructure and thread-static
-application contexts that don't map cleanly onto a cross-platform backend model. The migrator
-**warns** on any `My.*` reference rather than attempting to rewrite it; developers currently
-re-plumb that infrastructure by hand (typically: replace `My.Forms.X` with an explicit field/DI
-instance, replace `Application.Run(New MainForm())`-style startup with Majorsilence.Forms'
-`Application.Run`, and drop single-instance/splash-screen logic in as needed for the target
-platform).
+**Mostly not implemented — three narrow, usage-driven exceptions.** The classic VB "My" application
+model — `My.Application` (single-instance handling, startup/shutdown events, splash screens),
+`My.Forms` (implicit form instances), `My.User`, `My.Computer` (registry/clipboard/OS info) — is
+deeply tied to `Microsoft.VisualBasic` Windows-only infrastructure and thread-static application
+contexts that don't map cleanly onto a cross-platform backend model. A feasibility audit against a
+real, large WinForms codebase found this surface is used exhaustively in a handful of designer/settings
+boilerplate files but, outside that boilerplate, real hand-written application code touches only three
+narrow pieces — so those three are now implemented for real, while everything else still **warns**
+rather than being silently rewritten.
 
-What the rewriter *does* still handle for VB: the implicit parameterless constructor that
-`MyType=Empty` provides for a form (removed once the file leaves the classic VB compiler pipeline)
-is re-injected automatically, using cross-file knowledge of a form's designer partial so it's never
-duplicated or written into the wrong file.
+### Implemented
+
+- **`My.Application.Info.*`** — a small `Majorsilence.Forms.ApplicationInfo` facade (exposed as
+  `Application.Info`) wrapping the assembly-metadata reflection `Application` already computes.
+  Covers `Title`, `AssemblyName`, `Version` (a real `System.Version`, not a string — confirmed against
+  code that calls `.ToString()` on it), `Copyright`, `CompanyName`, `Description`, and `ProductName`.
+  Observed real usage: **8 occurrences in 1 file** (`AboutFixed.vb`'s About-box population).
+- **`My.Resources.*`** — the migrator generates a companion `My Project\Resources.vb` module for each
+  project's `My Project\Resources.resx` (replacing the excluded, non-compiling
+  `Resources.Designer.vb`), embedding the `.resx` content and exposing one property per resource,
+  typed to match real call sites exactly: image entries (`System.Drawing.Bitmap`/`Image`/`Icon`)
+  return `Majorsilence.Forms.Drawing.Image` (works both for a direct assignment and an explicit
+  `CType(My.Resources.X, Majorsilence.Forms.Drawing.Image)`), `System.Byte[]` entries return `Byte()` (the
+  shape `BinaryWriter.Write` needs), and everything else returns `String`. Every property forwards to
+  `Majorsilence.Forms.ComponentResourceManager`. Observed real usage: **55 occurrences across 25
+  files, 26 distinct resource names** (mostly images; 8 occurrences across 5 files are byte-array
+  file exports). One known gap: resx entries stored as `System.Resources.ResXFileRef` (a resource
+  added as a linked file rather than inline data) compile fine but resolve to `null` at runtime,
+  because `ComponentResourceManager` only reads inline `.resx` data — a pre-existing limitation of
+  that type, not something this feature widens.
+- **`My.Computer.Name`** — a minimal `Majorsilence.Forms.ComputerInfo` type with a `Name` property
+  forwarding to `Environment.MachineName`. Deliberately just `.Name`: no other `My.Computer` member
+  (Registry/Clipboard/Info/FileSystem/...) had any observed usage. Observed real usage: **1
+  occurrence** (a debug-only machine-name check).
+
+The migrator's `My.*` warning is narrowed to match exactly: `My.Application.Info.*`, `My.Resources.*`,
+and `My.Computer.Name` no longer produce a manual-review warning, while every other `My.*` reference
+— including *other* `My.Application.*`/`My.Computer.*` members (`My.Application.Log`,
+`My.Application.Shutdown`/`Startup`, `My.Computer.Registry`/`Clipboard`/`Info`) plus `My.Forms`,
+`My.Settings`, `My.User` — still warns exactly as before.
+
+### Still not implemented, and why
+
+`My.Forms` (implicit per-form singletons), `My.Application`'s lifecycle events
+(`Startup`/`Shutdown`/`UnhandledException`, splash screens), `My.Settings`, and
+`My.Computer.Registry`/`.Clipboard`/`.Info` remain unimplemented: the audit found **zero** real
+hand-written usage of any of them (the only hits were inside auto-generated `My
+Project\Settings.Designer.vb` boilerplate, never invoked from actual application logic), and several
+are genuinely Windows-specific with no clean cross-platform equivalent (the registry and clipboard
+have no portable substitute; `My.Application`'s lifecycle events are tied to a message-pump timing
+model Majorsilence.Forms doesn't replicate). Developers hitting these still re-plumb by hand
+(typically: replace `My.Forms.X` with an explicit field/DI instance, replace
+`Application.Run(New MainForm())`-style startup with Majorsilence.Forms' `Application.Run`, and drop
+single-instance/splash-screen logic in as needed for the target platform). Should real usage turn up
+in the future, the same usage-driven approach applies: implement the narrow slice that's actually
+used, not the full historical API surface.
+
+What the rewriter *also* still handles for VB, independent of the above: the implicit parameterless
+constructor that `MyType=Empty` provides for a form (removed once the file leaves the classic VB
+compiler pipeline) is re-injected automatically, using cross-file knowledge of a form's designer
+partial so it's never duplicated or written into the wrong file.
 
 ## Reading the migration report
 

@@ -1,10 +1,10 @@
 using System;
 using System.Drawing;
 using System.Linq;
-using Majorsilence.Drawing.Drawing2D;
+using Majorsilence.Forms.Drawing.Drawing2D;
 using SkiaSharp;
 
-namespace Majorsilence.Drawing
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// A brush that fills with a gradient radiating from a center point out to a surrounding boundary.

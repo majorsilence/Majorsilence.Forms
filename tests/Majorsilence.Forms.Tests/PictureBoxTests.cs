@@ -9,7 +9,7 @@
 using System;
 using System.ComponentModel;
 using System.Drawing;
-using Majorsilence.Drawing;
+using Majorsilence.Forms.Drawing;
 using Xunit;
 
 namespace Majorsilence.Forms.Tests
@@ -90,7 +90,7 @@ namespace Majorsilence.Forms.Tests
             using var control = new PictureBox ();
 
             // A non-existent local path cannot be decoded; the load fails gracefully,
-            // the location is still recorded and Image (the Majorsilence.Drawing.Image
+            // the location is still recorded and Image (the Majorsilence.Forms.Drawing.Image
             // property) remains null because only the SKBitmap path is touched.
             control.ImageLocation = "no-such-file.png";
 

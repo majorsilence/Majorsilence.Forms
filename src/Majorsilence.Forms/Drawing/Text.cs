@@ -1,4 +1,4 @@
-namespace Majorsilence.Drawing.Text
+namespace Majorsilence.Forms.Drawing.Text
 {
     /// <summary>
     /// Specifies the quality of text rendering. Cross-platform replacement for

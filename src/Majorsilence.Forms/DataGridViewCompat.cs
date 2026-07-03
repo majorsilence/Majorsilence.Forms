@@ -87,7 +87,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the font used to display text. Stub in Majorsilence.Forms.</summary>
 #pragma warning disable CA1416
-        public Majorsilence.Drawing.Font? Font { get; set; }
+        public Majorsilence.Forms.Drawing.Font? Font { get; set; }
 #pragma warning restore CA1416
 
         /// <summary>Gets or sets how cell content is aligned within the cell.</summary>
@@ -242,7 +242,7 @@ namespace Majorsilence.Forms
     public class DataGridViewImageColumn : DataGridViewColumn
     {
         /// <summary>Gets or sets the image displayed in the column. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Image? Image { get; set; }
+        public Majorsilence.Forms.Drawing.Image? Image { get; set; }
 
         /// <summary>Gets or sets the description of the image. Stub in Majorsilence.Forms.</summary>
         public string Description { get; set; } = string.Empty;

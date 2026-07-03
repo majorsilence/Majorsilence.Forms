@@ -38,10 +38,10 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Gets or sets the font used to draw the page header (the print style's title, when <see cref="SchedulerPrintStyleBase.DrawPageTitleCalendar"/> is set).</summary>
-        public Majorsilence.Drawing.Font HeaderFont { get; set; } = new Majorsilence.Drawing.Font ("Arial", 10);
+        public Majorsilence.Forms.Drawing.Font HeaderFont { get; set; } = new Majorsilence.Forms.Drawing.Font ("Arial", 10);
 
         /// <summary>Gets or sets the font used to draw the page footer (page number).</summary>
-        public Majorsilence.Drawing.Font FooterFont { get; set; } = new Majorsilence.Drawing.Font ("Arial", 8);
+        public Majorsilence.Forms.Drawing.Font FooterFont { get; set; } = new Majorsilence.Forms.Drawing.Font ("Arial", 8);
 
         /// <summary>Gets or sets the watermark drawn diagonally across every page, or null for no watermark.</summary>
         public RadPrintWatermark? Watermark { get; set; }
@@ -57,7 +57,7 @@ namespace Majorsilence.Forms.Telerik
         public string Text { get; set; } = string.Empty;
 
         /// <summary>Gets or sets the watermark font.</summary>
-        public Majorsilence.Drawing.Font Font { get; set; } = new Majorsilence.Drawing.Font ("Segoe UI", 72);
+        public Majorsilence.Forms.Drawing.Font Font { get; set; } = new Majorsilence.Forms.Drawing.Font ("Segoe UI", 72);
 
         /// <summary>Gets or sets the watermark's opacity, from 0 (invisible) to 1 (opaque).</summary>
         public float Opacity { get; set; } = 0.2f;
@@ -179,15 +179,15 @@ namespace Majorsilence.Forms.Telerik
                 if (drawTitle) {
                     var title = $"{styleName}: {start:d} - {end:d}";
                     var title_rect = new RectangleF (e.MarginBounds.Left, top, e.MarginBounds.Width, HeaderHeight);
-                    g.DrawString (title, document.HeaderFont, Majorsilence.Drawing.Brushes.Black, title_rect, ContentAlignment.MiddleCenter);
+                    g.DrawString (title, document.HeaderFont, Majorsilence.Forms.Drawing.Brushes.Black, title_rect, ContentAlignment.MiddleCenter);
                     top += HeaderHeight;
                 }
 
                 while (rowIndex < rows.Count && top + RowHeight <= e.MarginBounds.Bottom) {
                     var (text, isHeader) = rows[rowIndex];
-                    var font = isHeader ? new Majorsilence.Drawing.Font (document.HeaderFont.FamilyName, document.HeaderFont.Size, bold: true) : document.HeaderFont;
+                    var font = isHeader ? new Majorsilence.Forms.Drawing.Font (document.HeaderFont.FamilyName, document.HeaderFont.Size, bold: true) : document.HeaderFont;
                     var row_rect = new RectangleF (e.MarginBounds.Left, top, e.MarginBounds.Width, RowHeight);
-                    g.DrawString (text, font, Majorsilence.Drawing.Brushes.Black, row_rect, ContentAlignment.MiddleLeft);
+                    g.DrawString (text, font, Majorsilence.Forms.Drawing.Brushes.Black, row_rect, ContentAlignment.MiddleLeft);
                     top += RowHeight;
                     rowIndex++;
                 }
@@ -196,7 +196,7 @@ namespace Majorsilence.Forms.Telerik
                     DrawWatermark (g, watermark, e.PageBounds);
 
                 var footer_rect = new RectangleF (e.MarginBounds.Left, e.MarginBounds.Bottom - RowHeight, e.MarginBounds.Width, RowHeight);
-                g.DrawString ($"Page {pageNumber}", document.FooterFont, Majorsilence.Drawing.Brushes.Gray, footer_rect, ContentAlignment.MiddleRight);
+                g.DrawString ($"Page {pageNumber}", document.FooterFont, Majorsilence.Forms.Drawing.Brushes.Gray, footer_rect, ContentAlignment.MiddleRight);
 
                 e.HasMorePages = rowIndex < rows.Count;
             };
@@ -225,7 +225,7 @@ namespace Majorsilence.Forms.Telerik
         {
             var state = g.Save ();
             try {
-                var brush = new Majorsilence.Drawing.SolidBrush (Color.FromArgb ((int)(watermark.Opacity * 255), watermark.Color));
+                var brush = new Majorsilence.Forms.Drawing.SolidBrush (Color.FromArgb ((int)(watermark.Opacity * 255), watermark.Color));
                 var center_x = pageBounds.Width / 2f;
                 var center_y = pageBounds.Height / 2f;
 

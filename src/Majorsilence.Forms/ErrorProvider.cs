@@ -74,7 +74,7 @@ namespace Majorsilence.Forms
         public Component? ContainerControl { get; set; }
 
         /// <summary>Gets or sets the icon displayed next to a control with an error. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Icon? Icon { get; set; }
+        public Majorsilence.Forms.Drawing.Icon? Icon { get; set; }
 
         /// <summary>Gets a value indicating whether the error provider currently has errors for any control.</summary>
         public bool HasErrors => _errors.Count > 0;

@@ -888,11 +888,11 @@ namespace Majorsilence.Forms
         public new object? Tag { get; set; }
 
         /// <summary>
-        /// Gets or sets the image displayed on this item. Accepts <see cref="Majorsilence.Drawing.Image"/> for WinForms compatibility.
+        /// Gets or sets the image displayed on this item. Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// The converted <see cref="SkiaSharp.SKBitmap"/> is synced to the base class so renderers can access it.
         /// </summary>
 #pragma warning disable CA1416
-        public new virtual Majorsilence.Drawing.Image? Image {
+        public new virtual Majorsilence.Forms.Drawing.Image? Image {
             get => _toolStripImage;
             set {
                 _toolStripImage = value;
@@ -901,7 +901,7 @@ namespace Majorsilence.Forms
         }
 #pragma warning restore CA1416
 
-        private Majorsilence.Drawing.Image? _toolStripImage;
+        private Majorsilence.Forms.Drawing.Image? _toolStripImage;
 
         /// <summary>Gets or sets how the image is aligned on the item.</summary>
         public ContentAlignment ImageAlign { get; set; } = ContentAlignment.MiddleLeft;
@@ -931,7 +931,7 @@ namespace Majorsilence.Forms
         public System.Drawing.Color BackColor { get; set; } = System.Drawing.Color.Empty;
 
         /// <summary>Gets or sets the font for this item. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Drawing.Font? Font { get; set; }
+        public Majorsilence.Forms.Drawing.Font? Font { get; set; }
 
         /// <summary>Gets or sets the image list key for this item. Stub in Majorsilence.Forms.</summary>
         public string ImageKey { get; set; } = string.Empty;
@@ -1000,9 +1000,9 @@ namespace Majorsilence.Forms
                 Click += onClick;
         }
 
-        /// <summary>Initializes a new instance of the ToolStripButton class with text, a Majorsilence.Drawing.Image, and click handler.</summary>
+        /// <summary>Initializes a new instance of the ToolStripButton class with text, a Majorsilence.Forms.Drawing.Image, and click handler.</summary>
 #pragma warning disable CA1416
-        public ToolStripButton (string text, Majorsilence.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
+        public ToolStripButton (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
             : this (text, image?.ToSKBitmap (), onClick) { }
 #pragma warning restore CA1416
 
@@ -1176,7 +1176,7 @@ namespace Majorsilence.Forms
         public ToolStripSplitButton (string text) { Text = text; }
 
         /// <summary>Initializes a new instance with the specified text and image.</summary>
-        public ToolStripSplitButton (string text, Majorsilence.Drawing.Image? image) { Text = text; Image = image; }
+        public ToolStripSplitButton (string text, Majorsilence.Forms.Drawing.Image? image) { Text = text; Image = image; }
 
         /// <summary>Gets or sets the default item clicked when the button portion is clicked. Stub in Majorsilence.Forms.</summary>
         public new ToolStripItem? DefaultItem { get; set; }
@@ -1212,9 +1212,9 @@ namespace Majorsilence.Forms
                 Click += onClick;
         }
 
-        /// <summary>Initializes a new instance with text, a Majorsilence.Drawing.Image, and click handler.</summary>
+        /// <summary>Initializes a new instance with text, a Majorsilence.Forms.Drawing.Image, and click handler.</summary>
 #pragma warning disable CA1416
-        public ToolStripMenuItem (string text, Majorsilence.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
+        public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
         {
             Text = text;
             Image = image;
@@ -1223,16 +1223,16 @@ namespace Majorsilence.Forms
                 Click += onClick;
         }
 
-        /// <summary>Initializes a new instance with text, a Majorsilence.Drawing.Image, click handler, and subitems.</summary>
-        public ToolStripMenuItem (string text, Majorsilence.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick, params ToolStripMenuItem[] dropDownItems)
+        /// <summary>Initializes a new instance with text, a Majorsilence.Forms.Drawing.Image, click handler, and subitems.</summary>
+        public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick, params ToolStripMenuItem[] dropDownItems)
             : this (text, image?.ToSKBitmap (), onClick)
         {
             foreach (var item in dropDownItems)
                 Items.Add (item);
         }
 
-        /// <summary>Initializes a new instance with text, a Majorsilence.Drawing.Image, and subitems.</summary>
-        public ToolStripMenuItem (string text, Majorsilence.Drawing.Image? image, params ToolStripMenuItem[] dropDownItems)
+        /// <summary>Initializes a new instance with text, a Majorsilence.Forms.Drawing.Image, and subitems.</summary>
+        public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, params ToolStripMenuItem[] dropDownItems)
             : this (text, image?.ToSKBitmap ())
         {
             foreach (var item in dropDownItems)
@@ -2348,7 +2348,7 @@ namespace Majorsilence.Forms
             Bounds = bounds;
             Index = index;
             State = state;
-            Font = Majorsilence.Forms.SystemFonts.DefaultFont ?? Majorsilence.Forms.SystemFonts.SmallCaptionFont ?? new Majorsilence.Drawing.Font ("Arial", 9);
+            Font = Majorsilence.Forms.SystemFonts.DefaultFont ?? Majorsilence.Forms.SystemFonts.SmallCaptionFont ?? new Majorsilence.Forms.Drawing.Font ("Arial", 9);
             ForeColor = Majorsilence.Forms.SystemColors.WindowText;
             BackColor = (state & DrawItemState.Selected) != 0 ? Majorsilence.Forms.SystemColors.Highlight : Majorsilence.Forms.SystemColors.Window;
         }
@@ -2367,7 +2367,7 @@ namespace Majorsilence.Forms
         public DrawItemState State { get; }
 
         /// <summary>Gets the font to use for drawing text.</summary>
-        public Majorsilence.Drawing.Font Font { get; }
+        public Majorsilence.Forms.Drawing.Font Font { get; }
 
         /// <summary>Gets the foreground color for drawing.</summary>
         public System.Drawing.Color ForeColor { get; }
@@ -2379,7 +2379,7 @@ namespace Majorsilence.Forms
         public void DrawBackground ()
         {
 #pragma warning disable CA1416
-            using var brush = new Majorsilence.Drawing.SolidBrush (BackColor);
+            using var brush = new Majorsilence.Forms.Drawing.SolidBrush (BackColor);
 #pragma warning restore CA1416
             _graphics.FillRectangle (brush, Bounds);
         }
