@@ -13,4 +13,20 @@
     <InternalsVisibleTo Include="Majorsilence.Forms.Migrator.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Backing the optional "engine roslyn" source-rewrite engine (see the CLI's engine flag). See
+         RoslynWorkspaceContext.cs / RoslynSourceConverter.cs. MSBuildLocator.RegisterDefaults() is gated
+         strictly behind that engine being selected at runtime; these packages being referenced has no
+         effect on the default "engine text" path. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" />
+    <PackageReference Include="Microsoft.Build.Locator" />
+    <!-- Required by Microsoft.Build.Locator's own build-time guard (MSBL001): the MSBuild assemblies must
+         never ship with this app or load from NuGet. MSBuildLocator.RegisterDefaults() (called only when
+         the Roslyn engine is selected) instead points MSBuild assembly resolution at a real installed
+         SDK. -->
+    <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" PrivateAssets="all" />
+  </ItemGroup>
+
 </Project>
