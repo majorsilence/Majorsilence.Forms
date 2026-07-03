@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.Telerik</PackageId>
+    <Description>Telerik UI for WinForms compat surface (RadGridView, RadPdfViewer, RadRichTextEditor, RadScheduler, and more) for Majorsilence.Forms.</Description>
+    <PackageTags>Majorsilence;Forms;Telerik;Compatibility;WinForms</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- RadGridViewTests.cs reaches into GridSummaryRow (internal, on RadGridView.cs) to assert
+         computed-aggregate values directly, the same pattern core uses for its own Tests InternalsVisibleTo. -->
+    <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+  </ItemGroup>
+</Project>

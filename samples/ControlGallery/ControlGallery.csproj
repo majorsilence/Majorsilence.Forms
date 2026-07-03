@@ -3,12 +3,18 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>$(_TargetFramework)</TargetFramework>
+    <!-- Declares Windows-version compatibility so Avalonia's Win32 native control host (used by
+         WebViewHost/RadPdfViewer/RadRichTextEditor's real webview backend) can create its child
+         window; see app.manifest for details. Only affects the Windows build (ApplicationManifest
+         is a no-op on other OSes). -->
+    <ApplicationManifest Condition="'$(OS)' == 'Windows_NT'">app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Telerik\Majorsilence.Forms.Telerik.csproj" />
   </ItemGroup>
 
   <ItemGroup>

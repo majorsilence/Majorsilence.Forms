@@ -7,6 +7,7 @@ namespace ControlGallery
 {
     public class Program
     {
+        [STAThread]
         static void Main (string[] args)
         {
             // Headless render mode: "--render-headless <path.png> [width height]" renders the whole

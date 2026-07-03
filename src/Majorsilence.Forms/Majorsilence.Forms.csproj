@@ -29,6 +29,7 @@
     <InternalsVisibleTo Include="Majorsilence.Forms.Headless" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Uno" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Telerik" />
   </ItemGroup>
 
   <ItemGroup>
