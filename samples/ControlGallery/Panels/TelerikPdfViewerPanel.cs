@@ -39,11 +39,15 @@ namespace ControlGallery.Panels
             navigator.AssociatedViewer = viewer;
             Controls.Add (viewer);
 
-            var generateButton = new Button { Text = "Generate && Load Demo PDF", Left = 10, Top = 526, Width = 220, Height = 30 };
+            // Computed from the viewer's actual bottom edge (rather than a hardcoded constant) so the
+            // buttons never overlap it if the viewer/navigator's sizes change.
+            var buttonsTop = viewer.Top + viewer.Height + 10;
+
+            var generateButton = new Button { Text = "Generate && Load Demo PDF", Left = 10, Top = buttonsTop, Width = 220, Height = 30 };
             generateButton.Click += (_, _) => GenerateAndLoad ();
             Controls.Add (generateButton);
 
-            var unloadButton = new Button { Text = "Unload Document", Left = 240, Top = 526, Width = 160, Height = 30 };
+            var unloadButton = new Button { Text = "Unload Document", Left = 240, Top = buttonsTop, Width = 160, Height = 30 };
             unloadButton.Click += (_, _) => {
                 viewer.UnloadDocument ();
                 Report ("Document unloaded");
@@ -52,7 +56,7 @@ namespace ControlGallery.Panels
 
             Controls.Add (new Label {
                 Text = $"IsInlineRenderingActive: {viewer.IsInlineRenderingActive} (CanRenderPdfInline: {RadPdfViewer.CanRenderPdfInline})",
-                Left = 420, Top = 531, Width = 370
+                Left = 420, Top = buttonsTop + 5, Width = 370
             });
         }
 

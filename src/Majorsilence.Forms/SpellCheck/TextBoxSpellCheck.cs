@@ -36,7 +36,7 @@ namespace Majorsilence.Forms.SpellCheck
 
             if (_attachments.Remove (textBox, out var existing)) {
                 textBox.TextChanged -= existing.TextChangedHandler;
-                textBox.MouseUp -= existing.ClickHandler;
+                textBox.MouseDown -= existing.ClickHandler;
 
                 if (textBox.ContextMenu != null)
                     textBox.ContextMenu.Opening -= existing.MenuOpeningHandler;
@@ -62,7 +62,13 @@ namespace Majorsilence.Forms.SpellCheck
             attachment.MenuOpeningHandler = (_, _) => BuildContextMenuItems (textBox, attachment);
 
             textBox.TextChanged += attachment.TextChangedHandler;
-            textBox.MouseUp += attachment.ClickHandler;
+
+            // Subscribed to MouseDown (not MouseUp): for a single right-click gesture, input dispatch
+            // order is MouseDown -> Click (which synchronously shows the ContextMenu and raises its
+            // Opening event, reading LastClickedCharIndex) -> MouseUp. Capturing on MouseUp would always
+            // read the position from the *previous* right-click, since MouseUp for the current click
+            // fires after the menu has already been built.
+            textBox.MouseDown += attachment.ClickHandler;
 
             // The context menu is created lazily so an existing user-assigned ContextMenu (if any) is
             // preserved and simply gains the spelling items; PopulateOpeningHandler re-subscribes if the
@@ -76,6 +82,11 @@ namespace Majorsilence.Forms.SpellCheck
         /// <summary>Gets the <see cref="SpellChecker"/> currently attached to <paramref name="textBox"/>, or null.</summary>
         public static SpellChecker? GetSpellChecker (TextBox textBox) =>
             _attachments.TryGetValue (textBox, out var attachment) ? attachment.Checker : null;
+
+        // Exposes the last right-clicked character index for regression tests proving the
+        // MouseDown-vs-MouseUp click-ordering fix (see the "off-by-one-click" bug this class fixes).
+        internal static int GetLastClickedCharIndexForTest (TextBox textBox) =>
+            _attachments.TryGetValue (textBox, out var attachment) ? attachment.LastClickedCharIndex : -1;
 
         // Returns (and lazily computes/caches) the misspelled word ranges for the TextBox's current text.
         internal static IReadOnlyList<MisspelledRange> GetMisspelledRanges (TextBox textBox)

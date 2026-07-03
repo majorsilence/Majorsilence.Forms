@@ -1207,7 +1207,13 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnParentVisibleChanged (EventArgs e)
         {
-            if (Visible)
+            // Check our own local visibility flag, not the recursive Visible property.
+            // By the time this cascades down from an ancestor whose effective visibility
+            // just changed, the recursive Visible getter already reflects the new
+            // post-change state for every descendant, which would make this guard
+            // trivially match the ancestor's new state and stop the cascade at the
+            // first descendant instead of propagating to deeper descendants.
+            if (GetState (States.Visible))
                 OnVisibleChanged (e);
         }
 

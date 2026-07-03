@@ -1,3 +1,4 @@
+using Majorsilence.Forms.Headless;
 using Majorsilence.Forms.SpellCheck;
 using Xunit;
 
@@ -5,6 +6,117 @@ namespace Majorsilence.Forms.Tests
 {
     public class SpellCheckerTests
     {
+        // --- Right-click suggestion menu (regression: MouseUp-vs-MouseDown ordering) ------------------
+
+        // Finds a control-relative x inside the TextBox whose GetSpellCheckCharIndexFromPosition falls
+        // within [start, end) - i.e. a pixel that hit-tests into the given word - by scanning left to
+        // right. Uses the same production hit-testing path the bug itself goes through, rather than
+        // duplicating Skia's text-layout math with guessed pixel offsets.
+        private static int FindXForCharRange (TextBox textBox, int start, int end)
+        {
+            for (var x = 0; x < textBox.Width; x++) {
+                var index = textBox.GetSpellCheckCharIndexFromPosition (new System.Drawing.Point (x, textBox.Height / 2));
+
+                if (index >= start && index < end)
+                    return x;
+            }
+
+            throw new InvalidOperationException ($"Could not find an x position that hit-tests inside char range [{start}, {end}).");
+        }
+
+        private static (Form form, TextBox textBox) CreateSpellCheckedForm (string text)
+        {
+            // UseSystemDecorations gives a clean client area on every platform: without it the custom
+            // FormTitleBar (drawn in-client on Windows/Linux) overlaps a control at the top and would
+            // intercept the click meant for the TextBox (see HeadlessBackendTests.TextInput_ReachesFocusedTextBox).
+            var form = new Form { UseSystemDecorations = true };
+            var textBox = new TextBox {
+                Text = text,
+                // Inset from every edge: Form.HandleMouseDown treats a MINIMUM_RESIZE_PIXELS-wide (4px)
+                // band along each window edge as a resize handle and swallows MouseDown there before it
+                // ever reaches the control tree (MouseUp/Click have no such gate) - see Form.cs
+                // GetElementAtLocation. Left/Top = 20 keeps the whole TextBox well clear of that band.
+                Left = 20,
+                Top = 20,
+                Width = 400,
+                Height = 25,
+            };
+
+            form.Controls.Add (textBox);
+            TextBoxSpellCheck.SetSpellChecker (textBox, new SpellChecker ());
+            form.Show ();
+
+            // Force a layout/paint pass so the text block is measured and hit-testing has real geometry
+            // to work with (mirrors HeadlessRenderer.CapturePng usage before reading Bounds elsewhere).
+            HeadlessRenderer.Use ();
+            HeadlessRenderer.CapturePng (form, 500, 100);
+
+            return (form, textBox);
+        }
+
+        private static void RightClickAt (Form form, TextBox textBox, int controlRelativeX)
+        {
+            var formX = textBox.Left + controlRelativeX;
+            var formY = textBox.Top + textBox.Height / 2;
+
+            // Drives the real input pipeline (WindowBase.HandlePointerPressed / HandlePointerReleased),
+            // which is what actually orders MouseDown -> Click (ContextMenu.Show -> Opening) -> MouseUp -
+            // the exact sequence the bug depends on.
+            HeadlessRenderer.Click (form, formX, formY, MouseButtons.Right);
+        }
+
+        [Fact]
+        public void RightClick_FirstEverClick_PopulatesSuggestionsForClickedWord ()
+        {
+            // "recieve" (misspelled) is the very first word; this is the FIRST right-click ever made
+            // against this TextBox, so LastClickedCharIndex starts at -1. Before the fix (subscribing on
+            // MouseUp), BuildContextMenuItems would run before MouseUp ever set the index, leaving the
+            // menu empty on this very first interaction.
+            var (form, textBox) = CreateSpellCheckedForm ("recieve the package");
+
+            var ranges = TextBoxSpellCheck.GetMisspelledRanges (textBox);
+            var recieve = Assert.Single (ranges, r => r.Word == "recieve");
+
+            var x = FindXForCharRange (textBox, recieve.Start, recieve.End);
+            RightClickAt (form, textBox, x);
+
+            // The click handler must have captured a char index inside "recieve" by the time the menu
+            // was built (proves the fix: MouseDown, not MouseUp, is what populates LastClickedCharIndex).
+            var lastClicked = TextBoxSpellCheck.GetLastClickedCharIndexForTest (textBox);
+            Assert.InRange (lastClicked, recieve.Start, recieve.End - 1);
+
+            var suggestionTexts = textBox.ContextMenu!.Items.OfType<MenuItem> ().Select (i => i.Text).ToArray ();
+            Assert.Contains ("receive", suggestionTexts);
+
+            form.Close ();
+        }
+
+        [Fact]
+        public void RightClick_SecondClickAtDifferentWord_ShowsThatWordsSuggestions_NotThePreviousWords ()
+        {
+            // Two distinct misspelled words. After right-clicking "recieve" then "wierd", the menu built
+            // for the second click must reflect "wierd" - not still show "recieve"'s suggestions (the
+            // off-by-one-click symptom).
+            var (form, textBox) = CreateSpellCheckedForm ("recieve the wierd package");
+
+            var ranges = TextBoxSpellCheck.GetMisspelledRanges (textBox);
+            var recieve = Assert.Single (ranges, r => r.Word == "recieve");
+            var wierd = Assert.Single (ranges, r => r.Word == "wierd");
+
+            RightClickAt (form, textBox, FindXForCharRange (textBox, recieve.Start, recieve.End));
+
+            var firstMenuTexts = textBox.ContextMenu!.Items.OfType<MenuItem> ().Select (i => i.Text).ToArray ();
+            Assert.Contains ("receive", firstMenuTexts);
+
+            RightClickAt (form, textBox, FindXForCharRange (textBox, wierd.Start, wierd.End));
+
+            var secondMenuTexts = textBox.ContextMenu!.Items.OfType<MenuItem> ().Select (i => i.Text).ToArray ();
+            Assert.Contains ("weird", secondMenuTexts);
+            Assert.DoesNotContain ("receive", secondMenuTexts);
+
+            form.Close ();
+        }
+
         // --- Tokenizer -----------------------------------------------------------------------------
 
         [Fact]
