@@ -450,7 +450,8 @@ internal sealed class Migrator
     private void ProcessResx(string path)
     {
         _filesScanned++;
-        var result = ResxScanner.Scan(File.ReadAllText(path));
+        var xml = File.ReadAllText(path);
+        var result = ResxScanner.Scan(xml);
 
         // Designer values, primitive metadata, and bytearray images all load cross-platform via
         // Majorsilence.Forms.ComponentResourceManager — mirror the .resx into the output tree so the
@@ -472,6 +473,42 @@ internal sealed class Migrator
             _warnings.Add($"{Rel(path)}: contains {result.BinaryResourceCount} BinaryFormatter/SOAP-serialized " +
                 "object(s) of an unsupported type — re-create the value in code (BinaryFormatter is gone from " +
                 "modern .NET)");
+
+        // The one .resx per VB project that backs classic My.Resources — generate the companion
+        // accessor module that keeps every 'My.Resources.X' call site compiling once the real
+        // compiler-generated My Project\Resources.Designer.vb is excluded from the build.
+        if (MyResourcesGenerator.IsMyResourcesResx(path))
+            GenerateMyResourcesAccessor(path, xml);
+    }
+
+    private void GenerateMyResourcesAccessor(string resxPath, string resxXml)
+    {
+        var resources = MyResourcesGenerator.ParseResources(resxXml);
+        var generated = MyResourcesGenerator.Generate(resources, resxXml);
+
+        var targetPath = Path.Combine(Path.GetDirectoryName(resxPath)!, "Resources.vb");
+        var existing = File.Exists(targetPath) ? File.ReadAllText(targetPath) : null;
+        if (string.Equals(existing, generated, StringComparison.Ordinal))
+            return; // idempotent: unchanged .resx regenerates byte-identical output, nothing to do.
+
+        _changes.Add(("src", Rel(targetPath)));
+        Console.WriteLine($"  [src ] {Rel(targetPath)} (generated My.Resources accessor, {resources.Count} resource(s))");
+
+        if (_options.DryRun)
+            return;
+
+        // Unlike WriteResult, there is no ".bak"-worthy original here on the first run — this file is
+        // wholly generated, not migrated in place from user content — so back it up only when overwriting
+        // a previous run's output.
+        var destination = DestinationFor(targetPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        if (_options.Output is null && !_options.NoBackup && File.Exists(targetPath))
+        {
+            var backup = targetPath + ".bak";
+            if (!File.Exists(backup))
+                File.Copy(targetPath, backup);
+        }
+        File.WriteAllText(destination, generated);
     }
 
     // Unlike source/project files, a .resx is not rewritten; copy it verbatim into the output tree.
