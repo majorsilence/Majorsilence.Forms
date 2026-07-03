@@ -53,6 +53,13 @@ See [Platform backends](docs/backends.md) for the details and how to add your ow
 `Majorsilence.Drawing` provides a Skia-backed, cross-platform replacement for the Windows-only
 `System.Drawing.Common` (GDI+) APIs, so drawing code migrates too.
 
+## Migrating an existing app
+
+- [`MIGRATION.md`](MIGRATION.md) — how the `majorsilence-migrate` CLI tool rewrites a WinForms
+  solution onto Majorsilence.Forms, and how to read its output.
+- [`COMPATIBILITY_MATRIX.md`](COMPATIBILITY_MATRIX.md) — what's fully implemented, what's
+  approximated, and what's deliberately out of scope, once your code compiles.
+
 ## Getting started
 
 See [Getting Started](docs/getting-started.md) to scaffold your first Majorsilence.Forms app.
