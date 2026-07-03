@@ -517,8 +517,12 @@ namespace Majorsilence.Forms
 
             Canvas.SetLeft (control, logicalBounds.X);
             Canvas.SetTop (control, logicalBounds.Y);
-            control.Width = logicalBounds.Width;
-            control.Height = logicalBounds.Height;
+            // Intermediate layout passes (e.g. a Dock=Fill sibling measured before an adjacent
+            // Dock=Top/Bottom control settles its own height) can transiently report a negative size;
+            // Avalonia's Width/Height setters throw on negative values, so clamp to zero — the next
+            // layout pass corrects it, same as the Majorsilence-drawn siblings which clip silently instead.
+            control.Width = Math.Max (0, logicalBounds.Width);
+            control.Height = Math.Max (0, logicalBounds.Height);
             control.IsVisible = visible;
 
             // Clip to the visible viewport (local to the control). Null when fully visible.
@@ -526,7 +530,7 @@ namespace Majorsilence.Forms
                 ? null
                 : new RectangleGeometry (new Rect (
                     clipBounds.X - logicalBounds.X, clipBounds.Y - logicalBounds.Y,
-                    clipBounds.Width, clipBounds.Height));
+                    Math.Max (0, clipBounds.Width), Math.Max (0, clipBounds.Height)));
         }
 
         void Backends.INativeControlHostBackend.DetachNativeControl (Majorsilence.Forms.NativeControlHost host)

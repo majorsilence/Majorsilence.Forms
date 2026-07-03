@@ -69,8 +69,22 @@ namespace Majorsilence.Forms.Telerik
         public PageViewContentOrientation ItemContentOrientation { get; set; } = PageViewContentOrientation.Horizontal;
     }
 
-    /// <summary>Telerik-compat container hosted by a strip-view item (e.g. a pinned/floating tab content host). Stub.</summary>
-    public class StripViewItemContainer : RadElement { }
+    /// <summary>
+    /// Telerik-compat container hosted by a strip-view item (e.g. a pinned/floating tab content host).
+    /// Derives from <see cref="PathAwareElement"/> (rather than the plainer <see cref="RadElement"/>) so
+    /// that when it sits inside a larger path-aware element tree — see
+    /// <c>RadRichTextEditorRibbon.cs</c>'s <see cref="RadRibbonBarElement"/>, which nests one of these at
+    /// its tab-strip position — chained <c>GetChildAt</c> calls through it keep resolving against that
+    /// tree's registered paths instead of falling back to untyped stubs.
+    /// </summary>
+    public class StripViewItemContainer : PathAwareElement
+    {
+        /// <summary>Initializes a new, freestanding instance of the <see cref="StripViewItemContainer"/> class (its own path-aware tree root).</summary>
+        public StripViewItemContainer () : base (string.Empty) { }
+
+        /// <summary>Initializes a new instance of the <see cref="StripViewItemContainer"/> class at the given root-relative dotted index path within a larger path-aware element tree.</summary>
+        internal StripViewItemContainer (string path) : base (path) { }
+    }
 
     /// <summary>
     /// Telerik-compat strip item (a single tab header). Note: this collides in name with the pre-existing

@@ -31,4 +31,10 @@
     <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Pre-expanded, deflate-compressed Hunspell/SCOWL en_US wordlist backing Majorsilence.Forms.SpellCheck.
+         See third-party-licenses.md (SCOWL / Kuenning Ispell section) for licensing. -->
+    <EmbeddedResource Include="SpellCheck/en_US.words.gz" />
+  </ItemGroup>
+
 </Project>

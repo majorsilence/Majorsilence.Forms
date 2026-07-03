@@ -98,6 +98,13 @@ namespace Majorsilence.Forms
             return document.GetCharIndexFromPosition (location.X - TextOrigin.X, location.Y - TextOrigin.Y).ClosestCodePointIndex;
         }
 
+        /// <summary>
+        /// Gets the index of the character at the specified control-relative location. Used by
+        /// <see cref="Majorsilence.Forms.SpellCheck.TextBoxSpellCheck"/> to determine which word was
+        /// right-clicked.
+        /// </summary>
+        internal int GetSpellCheckCharIndexFromPosition (Point location) => GetCharIndexFromPosition (location);
+
         // Handles key down events.
         private bool HandleKeyDown (KeyEventArgs e)
         {

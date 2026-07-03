@@ -421,8 +421,11 @@ namespace Majorsilence.Forms
 
             Canvas.SetLeft (control, logicalBounds.X);
             Canvas.SetTop (control, logicalBounds.Y);
-            control.Width = logicalBounds.Width;
-            control.Height = logicalBounds.Height;
+            // Intermediate layout passes can transiently report a negative size; Avalonia's Width/Height
+            // setters throw on negative values, so clamp to zero — the next layout pass corrects it (see
+            // the matching fix/comment in MajorsilenceFormsWindowHost.UpdateNativeControl).
+            control.Width = Math.Max (0, logicalBounds.Width);
+            control.Height = Math.Max (0, logicalBounds.Height);
             control.IsVisible = visible;
 
             // Clip to the visible viewport (local to the control). Null when fully visible.
@@ -430,7 +433,7 @@ namespace Majorsilence.Forms
                 ? null
                 : new RectangleGeometry (new Rect (
                     clipBounds.X - logicalBounds.X, clipBounds.Y - logicalBounds.Y,
-                    clipBounds.Width, clipBounds.Height));
+                    Math.Max (0, clipBounds.Width), Math.Max (0, clipBounds.Height)));
         }
 
         void INativeControlHostBackend.DetachNativeControl (NativeControlHost host)
