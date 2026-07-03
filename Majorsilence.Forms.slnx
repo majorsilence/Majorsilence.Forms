@@ -1,0 +1,35 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Samples/">
+    <Project Path="samples/ControlGallery/ControlGallery.csproj" />
+    <Project Path="samples/EmbeddingAvalonia/EmbeddingAvalonia.csproj" />
+    <Project Path="samples/EmbeddingUno/EmbeddingUno.csproj" />
+    <Project Path="samples/Explorer/Explore.csproj" />
+    <Project Path="samples/Gallery.Uno/Gallery.Uno.csproj" />
+    <Project Path="samples/Outlaw/Outlaw.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Majorsilence.Drawing.Common/Majorsilence.Drawing.Common.csproj" />
+    <Project Path="src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj" />
+    <Project Path="src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj" />
+    <Project Path="src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj" />
+    <Project Path="src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj" />
+    <Project Path="src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj" />
+    <Project Path="src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj" />
+    <Project Path="src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests/Majorsilence.Drawing.Common.Tests/Majorsilence.Drawing.Common.Tests.csproj" />
+    <Project Path="tests/Majorsilence.Forms.Migrator.Tests/Majorsilence.Forms.Migrator.Tests.csproj" />
+    <Project Path="tests/Majorsilence.Forms.Tests/Majorsilence.Forms.Tests.csproj" />
+    <Project Path="tests/Majorsilence.Forms.WindowsUIAutomation.Tests/Majorsilence.Forms.WindowsUIAutomation.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj" />
+  </Folder>
+  <Project Path="src/Majorsilence.Forms/Majorsilence.Forms.csproj" />
+</Solution>
