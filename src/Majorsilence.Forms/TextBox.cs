@@ -54,6 +54,20 @@ namespace Majorsilence.Forms
         internal int CurrentFontSize => LogicalToDeviceUnits (CurrentStyle.GetFontSize ());
 
         /// <summary>
+        /// Gets the height a single-line TextBox should be to exactly fit one line of text at the
+        /// current font, plus padding -- the same role System.Windows.Forms.TextBox.PreferredHeight
+        /// plays (used to auto-size a textbox instead of hardcoding a pixel height).
+        /// </summary>
+        public int PreferredHeight
+        {
+            get
+            {
+                var lineHeight = (int)System.Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height);
+                return lineHeight + (Padding.Top + Padding.Bottom) + 4; // 4px matches the default border/inset
+            }
+        }
+
+        /// <summary>
         /// Copies the selected text of the TextBox to the clipboard and removes it from the TextBox.
         /// </summary>
         public void Cut ()

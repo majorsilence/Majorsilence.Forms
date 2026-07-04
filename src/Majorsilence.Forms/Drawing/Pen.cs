@@ -24,7 +24,7 @@ namespace Majorsilence.Forms.Drawing
     /// Defines the color, width, and dash style used to draw lines and outline shapes on a
     /// <see cref="SkiaGraphics"/> surface. Cross-platform replacement for System.Drawing.Pen.
     /// </summary>
-    public sealed class Pen
+    public sealed class Pen : System.IDisposable
     {
         /// <summary>Initializes a new instance of the Pen class.</summary>
         public Pen (Color color, float width = 1f)
@@ -48,6 +48,16 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Gets or sets the dash style.</summary>
         public DashStyle DashStyle { get; set; } = DashStyle.Solid;
+
+        /// <summary>
+        /// Releases resources used by the Pen. Pen itself holds nothing unmanaged -- CreatePaint
+        /// hands the caller a fresh, caller-owned SKPaint each time -- so this is a no-op provided
+        /// purely for API-shape compatibility with System.Drawing.Pen (so `using (var p = new
+        /// Pen(...))`, common in ported WinForms drawing code, compiles unmodified).
+        /// </summary>
+        public void Dispose ()
+        {
+        }
 
         // Builds a stroke SKPaint for this pen. Caller owns disposal.
         internal SKPaint CreatePaint ()

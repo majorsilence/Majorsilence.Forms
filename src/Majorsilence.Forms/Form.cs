@@ -535,6 +535,18 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>Gets or sets the width of the window, in pixels. Equivalent to Size.Width.</summary>
+        public int Width {
+            get => Size.Width;
+            set => Size = new System.Drawing.Size (value, Size.Height);
+        }
+
+        /// <summary>Gets or sets the height of the window, in pixels. Equivalent to Size.Height.</summary>
+        public int Height {
+            get => Size.Height;
+            set => Size = new System.Drawing.Size (Size.Width, value);
+        }
+
         /// <summary>Gets the currently active form (the most recently focused open form).</summary>
         public static Form? ActiveForm => Application.OpenForms.LastOrDefault ();
 

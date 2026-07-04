@@ -63,6 +63,21 @@ namespace Majorsilence.Forms.Drawing
         {
         }
 
+        /// <summary>
+        /// Initializes a new LinearGradientBrush using a named direction (WinForms compat overload
+        /// for System.Drawing.Drawing2D.LinearGradientMode) instead of a raw angle.
+        /// </summary>
+        public LinearGradientBrush (RectangleF rect, Color color1, Color color2, Drawing2D.LinearGradientMode linearGradientMode)
+            : this (rect, color1, color2, linearGradientMode switch {
+                Drawing2D.LinearGradientMode.Horizontal => 0f,
+                Drawing2D.LinearGradientMode.Vertical => 90f,
+                Drawing2D.LinearGradientMode.ForwardDiagonal => 45f,
+                Drawing2D.LinearGradientMode.BackwardDiagonal => 135f,
+                _ => 0f
+            })
+        {
+        }
+
         /// <summary>Initializes a new LinearGradientBrush using two PointF values (WinForms compat overload).</summary>
         public LinearGradientBrush (System.Drawing.PointF point1, System.Drawing.PointF point2, Color color1, Color color2)
             : this (new RectangleF (point1.X, point1.Y, point2.X - point1.X, point2.Y - point1.Y), color1, color2, 0f)
