@@ -2540,7 +2540,7 @@ namespace Majorsilence.Forms
     public class DragEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance.</summary>
-        public DragEventArgs (object? data, int keyState, int x, int y, DragDropEffects allowedEffect, DragDropEffects effect)
+        public DragEventArgs (IDataObject? data, int keyState, int x, int y, DragDropEffects allowedEffect, DragDropEffects effect)
         {
             Data = data;
             KeyState = keyState;
@@ -2551,7 +2551,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the data object that contains the data associated with this event.</summary>
-        public object? Data { get; }
+        public IDataObject? Data { get; }
 
         /// <summary>Gets the current state of the keyboard modifier keys.</summary>
         public int KeyState { get; }

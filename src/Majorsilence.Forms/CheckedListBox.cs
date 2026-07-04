@@ -183,8 +183,11 @@ namespace Majorsilence.Forms
             if (idx >= 0) RemoveAt (idx);
         }
 
+        /// <summary>Inserts an item at the specified index.</summary>
+        public void Insert (int index, object item) => _inner.Insert (index, item);
+
         // IList explicit implementation
-        void System.Collections.IList.Insert (int index, object? value) { }
+        void System.Collections.IList.Insert (int index, object? value) => Insert (index, value!);
         bool System.Collections.IList.IsFixedSize => false;
         bool System.Collections.IList.IsReadOnly => false;
         bool System.Collections.ICollection.IsSynchronized => false;
