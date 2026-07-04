@@ -28,6 +28,34 @@ namespace Majorsilence.Forms
         /// </summary>
         public TabPageCollection TabPages { get; }
 
+        /// <inheritdoc/>
+        protected override ControlCollection CreateControlsInstance () => new TabControlControlCollection (this);
+
+        // In real System.Windows.Forms, TabControl.Controls and TabControl.TabPages are the same
+        // collection -- ported designer code (`this.tabControl1.Controls.Add(this.tabPage1)`) relies
+        // on that. Majorsilence.Forms keeps them separate (TabPages drives the tab strip), so a
+        // plain Controls.Add(tabPage) would add the page as an invisible child without ever
+        // registering a tab for it -- SelectedIndex = 0 then throws (no tabs exist). This collection
+        // detects a TabPage being added directly and redirects to TabPages.Insert, which itself
+        // calls back into Controls.Insert once the page is already recorded in TabPages -- the
+        // Contains check below prevents that from looping.
+        private sealed class TabControlControlCollection : ControlCollection
+        {
+            private readonly TabControl _owner;
+
+            internal TabControlControlCollection (TabControl owner) : base (owner) => _owner = owner;
+
+            public override void Insert (int index, Control item)
+            {
+                if (item is TabPage page && !_owner.TabPages.Contains (page)) {
+                    _owner.TabPages.Insert (Math.Min (index, _owner.TabPages.Count), page);
+                    return;
+                }
+
+                base.Insert (index, item);
+            }
+        }
+
         // Hides/shows the built-in tab header strip. Used when the headers are presented elsewhere
         // (e.g. RadTabbedForm draws document tabs in the title bar and uses the TabControl only as a
         // content host). The hidden strip is Dock=Top with no space, so pages fill the whole control.
