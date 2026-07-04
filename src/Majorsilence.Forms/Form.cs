@@ -735,6 +735,18 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>Gets or sets whether the form accepts data dragged onto it. Stub in
+        /// Majorsilence.Forms -- matches Control.AllowDrop/DragEnter/DragDrop, which are also
+        /// stubs (DoDragDrop always returns DragDropEffects.None, and the drag events never
+        /// fire); provided so ported code compiles against Form the same as it does Control.</summary>
+        public bool AllowDrop { get; set; }
+
+        /// <summary>Raised when a drag-and-drop operation enters the form. Stub in Majorsilence.Forms (never fires).</summary>
+        public event EventHandler<DragEventArgs>? DragEnter { add { } remove { } }
+
+        /// <summary>Raised when a drag-and-drop operation completes over the form. Stub in Majorsilence.Forms (never fires).</summary>
+        public event EventHandler<DragEventArgs>? DragDrop { add { } remove { } }
+
         /// <summary>
         /// Gets or sets the MDI parent. Set this (and call <see cref="WindowBase.Show"/>) to host this form
         /// as a child inside <paramref name="value"/>'s MDI client area instead of as a top-level window.

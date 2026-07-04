@@ -1599,6 +1599,9 @@ namespace Majorsilence.Forms
     {
         /// <summary>Gets or sets the ToolStripMenuItem for the MDI window list. Stub in Majorsilence.Forms.</summary>
         public ToolStripMenuItem? MdiWindowListItem { get; set; }
+
+        /// <summary>Gets or sets the size used to scale item images. Stub in Majorsilence.Forms.</summary>
+        public System.Drawing.Size ImageScalingSize { get; set; } = new System.Drawing.Size(16, 16);
     }
 
     /// <summary>
