@@ -95,8 +95,8 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a property value changes.</summary>
         public event EventHandler? PropertyValueChanged { add { } remove { } }
 
-        /// <summary>Gets the currently selected grid item. Stub in Majorsilence.Forms — returns null.</summary>
-        public object? SelectedGridItem => null;
+        /// <summary>Gets the currently selected grid item. Stub in Majorsilence.Forms — always returns null (PropertyGrid has no per-row selection tracking yet).</summary>
+        public GridItem? SelectedGridItem => null;
 
         /// <summary>Gets or sets whether commands pane is shown when available. Stub in Majorsilence.Forms.</summary>
         public bool CommandsVisibleIfAvailable { get; set; } = true;
@@ -238,4 +238,22 @@ namespace Majorsilence.Forms
         }
     }
 
+    /// <summary>
+    /// Represents a single row in a PropertyGrid. Stub in Majorsilence.Forms -- PropertyGrid never
+    /// actually constructs one (SelectedGridItem always returns null, since the grid has no
+    /// per-row selection tracking yet); this type exists so code that reads
+    /// `PropertyGrid.SelectedGridItem` compiles against the same shape as
+    /// System.Windows.Forms.GridItem.
+    /// </summary>
+    public sealed class GridItem
+    {
+        /// <summary>Gets the current value of the property this item represents.</summary>
+        public object? Value { get; init; }
+
+        /// <summary>Gets the PropertyDescriptor describing the property this item represents.</summary>
+        public System.ComponentModel.PropertyDescriptor? PropertyDescriptor { get; init; }
+
+        /// <summary>Selects this item in its owning PropertyGrid. No-op in Majorsilence.Forms.</summary>
+        public void Select () { }
+    }
 }
