@@ -443,7 +443,11 @@ namespace Majorsilence.Forms
         public ControlStyle DefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
-        /// Gets or sets the default cell style applied to column header cells.
+        /// Gets or sets the default cell style applied to column header cells. Stays
+        /// ControlStyle-typed (DataGridViewRenderer actually reads BackgroundColor/
+        /// ForegroundColor/Font/FontSize off this for real header painting) -- WinForms-style
+        /// code assigning a `new DataGridViewCellStyle { BackColor = ..., Font = ..., ... }` here
+        /// goes through ControlStyle's implicit conversion from DataGridViewCellStyle instead.
         /// </summary>
         public ControlStyle ColumnHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 

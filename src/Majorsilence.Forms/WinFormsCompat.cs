@@ -539,14 +539,18 @@ namespace Majorsilence.Forms
     public class TreeViewCancelEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
-        public TreeViewCancelEventArgs (TreeViewItem node, bool cancel, TreeViewAction action) : base (cancel)
+        public TreeViewCancelEventArgs (TreeNode node, bool cancel, TreeViewAction action) : base (cancel)
         {
             Node = node;
             Action = action;
         }
 
-        /// <summary>Gets the tree node that raised the event.</summary>
-        public TreeViewItem Node { get; }
+        /// <summary>
+        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeViewItem)
+        /// to match System.Windows.Forms.TreeViewCancelEventArgs.Node -- all nodes added through
+        /// the public TreeNode-based API are TreeNode instances in practice.
+        /// </summary>
+        public TreeNode Node { get; }
 
         /// <summary>Gets the action that caused the event.</summary>
         public TreeViewAction Action { get; }

@@ -75,6 +75,14 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the form causes validation to be performed on any controls that require validation when it receives focus. Matches Control.CausesValidation.</summary>
         public bool CausesValidation { get; set; } = true;
 
+        /// <summary>
+        /// Raised when the form is validating. Stub in Majorsilence.Forms -- matches Control.
+        /// Validating's shape so ported code compiles, but there is no automatic focus-change
+        /// validation pipeline to fire it yet (add/remove bodies avoid a "never used" warning
+        /// for an event this type never raises itself).
+        /// </summary>
+        public event System.ComponentModel.CancelEventHandler? Validating { add { } remove { } }
+
         /// <summary>Attempts to set focus to the form. Matches Control.Focus's shape (returns whether the focus request succeeded).</summary>
         public bool Focus ()
         {

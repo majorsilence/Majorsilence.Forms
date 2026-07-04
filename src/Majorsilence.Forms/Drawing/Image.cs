@@ -71,13 +71,33 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Saves this image to the specified stream in the specified format.</summary>
-        public void Save (Stream stream, ImageFormat format)
+        public void Save (Stream stream, ImageFormat format) => Save (stream, format, 100);
+
+        /// <summary>
+        /// Saves this image to the specified stream using the format and quality described by an
+        /// ImageCodecInfo/EncoderParameters pair -- WinForms compatibility for code that picks a
+        /// codec via ImageCodecInfo.GetImageEncoders() and sets Encoder.Quality explicitly.
+        /// </summary>
+        public void Save (Stream stream, ImageCodecInfo? codec, EncoderParameters? encoderParams)
+        {
+            var format = codec?.Format ?? ImageFormat.Png;
+            var quality = 100;
+            if (encoderParams is not null) {
+                foreach (var p in encoderParams.GetParameters ()) {
+                    if (ReferenceEquals (p.Encoder, Encoder.Quality) && p.Value is long q)
+                        quality = (int)q;
+                }
+            }
+            Save (stream, format, quality);
+        }
+
+        private void Save (Stream stream, ImageFormat format, int quality)
         {
             if (backing is null)
                 return;
 
             using var image = SKImage.FromBitmap (backing);
-            using var data = image.Encode (format.ToSKEncodedImageFormat (), 100);
+            using var data = image.Encode (format.ToSKEncodedImageFormat (), quality);
             data.SaveTo (stream);
         }
 

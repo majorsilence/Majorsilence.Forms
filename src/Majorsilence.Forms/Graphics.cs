@@ -494,6 +494,10 @@ namespace Majorsilence.Forms
         public void DrawEllipse (Majorsilence.Forms.Drawing.Pen pen, RectangleF rect)
             => DrawEllipse (pen, new Rectangle ((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height));
 
+        /// <summary>Draws an ellipse outline using a Majorsilence.Forms.Drawing.Pen.</summary>
+        public void DrawEllipse (Majorsilence.Forms.Drawing.Pen pen, float x, float y, float width, float height)
+            => DrawEllipse (pen, new Rectangle ((int)x, (int)y, (int)width, (int)height));
+
         /// <summary>Fills an ellipse using a Majorsilence.Forms.Drawing.Brush (RectangleF overload).</summary>
         public void FillEllipse (Majorsilence.Forms.Drawing.Brush brush, RectangleF rect)
             => FillEllipse (brush, new Rectangle ((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height));
@@ -761,6 +765,10 @@ namespace Majorsilence.Forms
             using var bmp = image?.ToSKBitmap ();
             if (bmp != null) DrawImage (bmp, destRect, srcRect, srcUnit);
         }
+
+        /// <summary>Draws a portion of a Majorsilence.Forms.Drawing.Image to the destination rectangle (float-rectangle overload, rounded to integer device rects).</summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, RectangleF destRect, RectangleF srcRect, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
+            => DrawImage (image, Rectangle.Round (destRect), Rectangle.Round (srcRect), srcUnit);
 
         /// <summary>Draws a Majorsilence.Forms.Drawing.Image unscaled at a point.</summary>
         public void DrawImageUnscaled (Majorsilence.Forms.Drawing.Image image, int x, int y) => DrawImage (image, x, y);

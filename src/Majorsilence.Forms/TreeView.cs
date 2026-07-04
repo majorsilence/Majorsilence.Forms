@@ -443,7 +443,9 @@ namespace Majorsilence.Forms
         /// </summary>
         public bool OnBeforeExpand (TreeViewItem node)
         {
-            var e = new TreeViewCancelEventArgs (node, false, TreeViewAction.Expand);
+            if (node is not TreeNode treeNode)
+                return true;
+            var e = new TreeViewCancelEventArgs (treeNode, false, TreeViewAction.Expand);
             BeforeExpand?.Invoke (this, e);
             return !e.Cancel;
         }

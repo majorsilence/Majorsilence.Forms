@@ -41,6 +41,7 @@ namespace Majorsilence.Forms
             return Count - 1;
         }
 
+
         /// <summary>
         /// Adds an item with an optional checked state (WinForms compat for CheckedListBox.Items.Add).
         /// </summary>

@@ -100,8 +100,23 @@ namespace Majorsilence.Forms
             scroll_x += x;
             scroll_y += y;
 
+            if (y != 0)
+                VScroll?.Invoke (this, EventArgs.Empty);
+            if (x != 0)
+                HScroll?.Invoke (this, EventArgs.Empty);
+
             Invalidate ();
         }
+
+        /// <summary>
+        /// Raised when the vertical scroll position changes, matching System.Windows.Forms.
+        /// TextBoxBase.VScroll (a real event there, distinct from Control.VScroll's unrelated
+        /// bool property -- `new` shadows that property for this type and its subclasses).
+        /// </summary>
+        public new event EventHandler? VScroll;
+
+        /// <summary>Raised when the horizontal scroll position changes. See VScroll.</summary>
+        public new event EventHandler? HScroll;
 
         // Gets the index of the character at the specified location.
         private int GetCharIndexFromPosition (Point location)
