@@ -32,7 +32,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the collection of checked items.</summary>
-        public IEnumerable<object> CheckedItems => base.Items.Where (i => i is CheckedListBoxItem cli && cli.Checked).Select (i => ((CheckedListBoxItem)i).Value ?? i);
+        public List<object> CheckedItems => base.Items.Where (i => i is CheckedListBoxItem cli && cli.Checked).Select (i => ((CheckedListBoxItem)i).Value ?? i).ToList ();
 
         /// <summary>Gets or sets whether the check box is toggled when the item is selected.</summary>
         public bool CheckOnClick { get; set; }

@@ -48,6 +48,25 @@ namespace Majorsilence.Forms.Printing
         /// <summary>Gets or sets whether this is the default printer. Stub in Majorsilence.Forms.</summary>
         public bool IsDefaultPrinter => true;
 
+        /// <summary>
+        /// Gets the paper sizes supported by the printer. Majorsilence.Forms has no real OS
+        /// print-spooler integration (see MIGRATION-NOTES.md in the Majorsilence Reporting repo),
+        /// so this can't reflect an actual printer driver's capabilities the way
+        /// System.Drawing.Printing.PrinterSettings.PaperSizes does -- instead it returns a fixed
+        /// list of common ISO/ANSI paper sizes, useful for populating a page-size picker even
+        /// without a real printer behind it.
+        /// </summary>
+        public System.Collections.Generic.List<PaperSize> PaperSizes { get; } = new()
+        {
+            new PaperSize ("Letter", 850, 1100) { Kind = PaperKind.Letter },
+            new PaperSize ("Legal", 850, 1400) { Kind = PaperKind.Legal },
+            new PaperSize ("A3", 1169, 1654) { Kind = PaperKind.A3 },
+            new PaperSize ("A4", 827, 1169) { Kind = PaperKind.A4 },
+            new PaperSize ("A5", 583, 827) { Kind = PaperKind.Custom },
+            new PaperSize ("Tabloid", 1100, 1700) { Kind = PaperKind.Custom },
+            new PaperSize ("Executive", 725, 1050) { Kind = PaperKind.Custom },
+        };
+
         /// <summary>Gets or sets whether the printer settings are valid. Stub in Majorsilence.Forms.</summary>
         public bool IsValid => true;
 

@@ -307,7 +307,7 @@ namespace Majorsilence.Forms
         public FlatStyle FlatStyle { get; set; }
 
         /// <summary>Gets the collection of items available in the combo box, for statically populated (non-DataSource-bound) columns.</summary>
-        public System.Collections.IList Items { get; } = new System.Collections.Generic.List<object> ();
+        public System.Collections.Generic.List<object> Items { get; } = new System.Collections.Generic.List<object> ();
 
         /// <summary>Gets or sets the width of the drop-down list. Stub in Majorsilence.Forms.</summary>
         public int DropDownWidth { get; set; }
