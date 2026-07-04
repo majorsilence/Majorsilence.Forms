@@ -51,6 +51,35 @@ namespace Majorsilence.Forms
                 UseSystemDecorations = true;
 
             Backend.Size = DefaultSize;
+
+            // Forward the internal adapter's own mouse events as public Form-level events --
+            // WindowBase routes all mouse input through `adapter` (a Control) via
+            // adapter.RaiseMouseDown/RaiseMouseMove, which already raise the adapter's own
+            // MouseDown/MouseMove/Leave; Form itself just didn't expose them. Needed for
+            // top-level windows that track the mouse over their own surface directly (e.g.
+            // borderless popup pickers), the same way ported WinForms code commonly does on Form.
+            adapter.MouseDown += (s, e) => MouseDown?.Invoke (this, e);
+            adapter.MouseMove += (s, e) => MouseMove?.Invoke (this, e);
+            adapter.MouseLeave += (s, e) => Leave?.Invoke (this, e);
+        }
+
+        /// <summary>Raised when a mouse button is pressed over the form's own surface.</summary>
+        public event EventHandler<MouseEventArgs>? MouseDown;
+
+        /// <summary>Raised when the mouse moves over the form's own surface.</summary>
+        public event EventHandler<MouseEventArgs>? MouseMove;
+
+        /// <summary>Raised when the mouse leaves the form's own surface.</summary>
+        public event EventHandler? Leave;
+
+        /// <summary>Gets or sets whether the form causes validation to be performed on any controls that require validation when it receives focus. Matches Control.CausesValidation.</summary>
+        public bool CausesValidation { get; set; } = true;
+
+        /// <summary>Attempts to set focus to the form. Matches Control.Focus's shape (returns whether the focus request succeeded).</summary>
+        public bool Focus ()
+        {
+            Backend.Activate ();
+            return true;
         }
 
         /// <summary>Gets or sets the button that is activated when Enter is pressed.</summary>
