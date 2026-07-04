@@ -1911,6 +1911,9 @@ namespace Majorsilence.Forms
         /// </summary>
         public bool UseVisualStyleBackColor { get; set; } = true;
 
+        /// <summary>Gets the default background color of a control. Matches System.Windows.Forms.Control.DefaultBackColor (SystemColors.Control).</summary>
+        public static System.Drawing.Color DefaultBackColor => SystemColors.Control;
+
         /// <summary>
         /// Gets or sets the background color of the control. This is a convenience wrapper over
         /// <see cref="ControlStyle.BackgroundColor"/> using <see cref="System.Drawing.Color"/>.

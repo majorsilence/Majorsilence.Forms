@@ -216,6 +216,28 @@ namespace Majorsilence.Forms
         /// <summary>Draws a menu glyph. Stub in Majorsilence.Forms.</summary>
         public static void DrawMenuGlyph (Graphics graphics, Rectangle rectangle, MenuGlyph glyph) { }
 
+        /// <summary>
+        /// Draws a grid of single-pixel dots spaced <paramref name="cellSize"/> apart within
+        /// <paramref name="area"/>, in a color that contrasts with <paramref name="backColor"/>
+        /// (matches System.Windows.Forms.ControlPaint.DrawGrid, used for design-surface alignment
+        /// grids). Unlike most other members of this class, this one is a real implementation, not
+        /// a stub -- report/form designers rely on it for visible drag-and-drop alignment dots.
+        /// </summary>
+        public static void DrawGrid (Graphics graphics, Rectangle area, System.Drawing.Size cellSize, System.Drawing.Color backColor)
+        {
+            if (cellSize.Width <= 0 || cellSize.Height <= 0)
+                return;
+
+            // Simple luminance-based contrast pick, same idea as WinForms' internal dot color.
+            int luminance = (backColor.R * 299 + backColor.G * 587 + backColor.B * 114) / 1000;
+            var dotColor = luminance > 128 ? System.Drawing.Color.Black : System.Drawing.Color.White;
+            using var dotBrush = new Majorsilence.Forms.Drawing.SolidBrush (dotColor);
+
+            for (int y = area.Top; y < area.Bottom; y += cellSize.Height)
+                for (int x = area.Left; x < area.Right; x += cellSize.Width)
+                    graphics.FillRectangle (dotBrush, x, y, 1, 1);
+        }
+
         /// <summary>Draws a radio button. Stub in Majorsilence.Forms.</summary>
         public static void DrawRadioButton (Graphics graphics, Rectangle rectangle, ButtonState state) { }
 

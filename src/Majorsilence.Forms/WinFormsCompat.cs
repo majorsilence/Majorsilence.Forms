@@ -738,10 +738,18 @@ namespace Majorsilence.Forms
         None = 0,
         /// <summary>Error icon.</summary>
         Error = 16,
+        /// <summary>Same value as Error (matches System.Windows.Forms.MessageBoxIcon.Hand).</summary>
+        Hand = 16,
+        /// <summary>Same value as Error (matches System.Windows.Forms.MessageBoxIcon.Stop).</summary>
+        Stop = 16,
         /// <summary>Warning icon.</summary>
         Warning = 48,
+        /// <summary>Same value as Warning (matches System.Windows.Forms.MessageBoxIcon.Exclamation).</summary>
+        Exclamation = 48,
         /// <summary>Information icon.</summary>
         Information = 64,
+        /// <summary>Same value as Information (matches System.Windows.Forms.MessageBoxIcon.Asterisk).</summary>
+        Asterisk = 64,
         /// <summary>Question icon.</summary>
         Question = 32
     }

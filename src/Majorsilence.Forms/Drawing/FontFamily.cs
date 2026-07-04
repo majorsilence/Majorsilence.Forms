@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Majorsilence.Forms.Drawing
 {
@@ -25,6 +26,13 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Gets a generic monospace font family.</summary>
         public static FontFamily GenericMonospace { get; } = new FontFamily ("Courier New");
+
+        /// <summary>
+        /// Gets an array of FontFamily objects representing the fonts actually installed on this
+        /// system (via SkiaSharp's font manager), matching System.Drawing.FontFamily.Families.
+        /// </summary>
+        public static FontFamily[] Families =>
+            SkiaSharp.SKFontManager.Default.FontFamilies.Select (name => new FontFamily (name)).ToArray ();
 
         /// <summary>Returns whether the specified style is available for this family. Always true in Majorsilence.Forms.Drawing.</summary>
         public bool IsStyleAvailable (FontStyle style) => true;
