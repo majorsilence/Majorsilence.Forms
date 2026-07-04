@@ -121,10 +121,18 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the background color of the selected text. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Color SelectionBackColor { get; set; } = System.Drawing.Color.Empty;
 
-        /// <summary>Gets or sets the selected text.</summary>
+        /// <summary>Gets or sets the selected text. Setting it replaces the current selection (or inserts at the caret if nothing is selected).</summary>
         public new string SelectedText {
             get => SelectionLength > 0 && SelectionStart >= 0 ? Text.Substring (SelectionStart, Math.Min (SelectionLength, Text.Length - SelectionStart)) : string.Empty;
-            set { }
+            set {
+                value ??= string.Empty;
+                int start = SelectionStart;
+                int length = Math.Max (SelectionLength, 0);
+                string current = Text;
+                Text = string.Concat (current.AsSpan (0, start), value, current.AsSpan (start + length));
+                SelectionStart = start + value.Length;
+                SelectionLength = 0;
+            }
         }
 
         /// <summary>Gets or sets the zoom factor. Stub in Majorsilence.Forms (always 1.0).</summary>

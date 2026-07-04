@@ -443,9 +443,9 @@ namespace Majorsilence.Forms
         public ControlStyle DefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
-        /// Gets the default cell style applied to column header cells.
+        /// Gets or sets the default cell style applied to column header cells.
         /// </summary>
-        public ControlStyle ColumnHeadersDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle ColumnHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets the default cell style applied to row header cells.

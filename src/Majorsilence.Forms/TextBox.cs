@@ -465,9 +465,14 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets the currently selected text.
+        /// Gets or sets the currently selected text. Setting it replaces the current selection
+        /// (or inserts at the caret if nothing is selected), matching
+        /// System.Windows.Forms.TextBoxBase.SelectedText.
         /// </summary>
-        public string SelectedText => document.SelectedText;
+        public string SelectedText {
+            get => document.SelectedText;
+            set => document.InsertText (value ?? string.Empty);
+        }
 
         /// <summary>
         /// Selects all text in the TextBox.
