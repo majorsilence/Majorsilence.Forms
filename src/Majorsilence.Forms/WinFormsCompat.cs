@@ -1006,8 +1006,20 @@ namespace Majorsilence.Forms
             : this (text, image?.ToSKBitmap (), onClick) { }
 #pragma warning restore CA1416
 
+        private bool _checked;
+
         /// <summary>Gets or sets whether the button is in the checked (pressed) state.</summary>
-        public new bool Checked { get; set; }
+        public new bool Checked {
+            get => _checked;
+            set {
+                if (_checked == value) return;
+                _checked = value;
+                CheckStateChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Raised when Checked changes.</summary>
+        public event EventHandler? CheckStateChanged;
 
         /// <summary>Gets or sets whether clicking the button toggles its checked state.</summary>
         public bool CheckOnClick { get; set; }
@@ -1041,6 +1053,12 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets a value indicating whether the link has been visited. Stub in Majorsilence.Forms.</summary>
         public bool LinkVisited { get; set; }
+
+        /// <summary>Raised when the pointer enters the label. Stub in Majorsilence.Forms (never fires).</summary>
+        public event EventHandler? MouseEnter { add { } remove { } }
+
+        /// <summary>Raised when the pointer leaves the label. Stub in Majorsilence.Forms (never fires).</summary>
+        public event EventHandler? MouseLeave { add { } remove { } }
     }
 
     /// <summary>
@@ -1087,6 +1105,30 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets a value indicating whether the text in the text box is read-only. Stub in Majorsilence.Forms.</summary>
         public bool ReadOnly { get; set; }
+
+        /// <summary>Gets whether the text box currently has input focus. Delegates to the underlying TextBox.</summary>
+        public bool Focused => TextBox.Focused;
+
+        /// <summary>Raised when the control loses focus and validation completes. Delegates to the underlying TextBox.</summary>
+        public event EventHandler? Validated { add => TextBox.Validated += value; remove => TextBox.Validated -= value; }
+
+        /// <summary>Raised when a key is pressed. Delegates to the underlying TextBox.</summary>
+        public event EventHandler<KeyEventArgs>? KeyDown { add => TextBox.KeyDown += value; remove => TextBox.KeyDown -= value; }
+
+        /// <summary>Copies the current selection to the clipboard. Delegates to the underlying TextBox.</summary>
+        public void Cut() => TextBox.Cut();
+
+        /// <summary>Copies the current selection to the clipboard. Delegates to the underlying TextBox.</summary>
+        public void Copy() => TextBox.Copy();
+
+        /// <summary>Pastes the clipboard contents. Delegates to the underlying TextBox.</summary>
+        public void Paste() => TextBox.Paste();
+
+        /// <summary>Undoes the last edit. Delegates to the underlying TextBox.</summary>
+        public void Undo() => TextBox.Undo();
+
+        /// <summary>Selects all text. Delegates to the underlying TextBox.</summary>
+        public void SelectAll() => TextBox.SelectAll();
     }
 
     /// <summary>Hosts an arbitrary Control inside a ToolStrip. Stub in Majorsilence.Forms.</summary>
@@ -1353,6 +1395,12 @@ namespace Majorsilence.Forms
             add => combo_box.SelectedIndexChanged += value;
             remove => combo_box.SelectedIndexChanged -= value;
         }
+
+        /// <summary>Raised when the control loses focus and validation completes. Delegates to the underlying ComboBox.</summary>
+        public event EventHandler? Validated { add => combo_box.Validated += value; remove => combo_box.Validated -= value; }
+
+        /// <summary>Gets or sets the width of the underlying combo box.</summary>
+        public int Width { get => combo_box.Width; set => combo_box.Width = value; }
     }
 
     /// <summary>
@@ -1556,7 +1604,11 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a shortcut (context) menu. WinForms compatibility alias for <see cref="ContextMenu"/>.
     /// </summary>
-    public class ContextMenuStrip : ContextMenu { }
+    public class ContextMenuStrip : ContextMenu
+    {
+        /// <summary>Gets or sets the size used to scale item images. Stub in Majorsilence.Forms.</summary>
+        public System.Drawing.Size ImageScalingSize { get; set; } = new System.Drawing.Size(16, 16);
+    }
 
     /// <summary>
     /// Represents a toolbar strip that can contain ToolStripButton, ToolStripLabel, and other ToolStripItem types.
@@ -1842,6 +1894,9 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the collection of items displayed in this StatusStrip.</summary>
         public ToolStripItemCollection Items { get; }
+
+        /// <summary>Gets or sets the size used to scale item images. Stub in Majorsilence.Forms.</summary>
+        public System.Drawing.Size ImageScalingSize { get; set; } = new System.Drawing.Size(16, 16);
 
         /// <inheritdoc/>
         protected override Padding DefaultPadding => new Padding (1, 0, 16, 0);

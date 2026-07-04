@@ -9,8 +9,14 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents the base class for all Controls.
     /// </summary>
-    public partial class Control : Component, ILayoutable, IArrangedElement, IDisposable
+    public partial class Control : Component, ILayoutable, IArrangedElement, IDisposable, IWin32Window
     {
+        /// <summary>Win32 HWND compatibility -- Majorsilence.Forms has no HWND, always IntPtr.Zero.
+        /// Implemented so ported WinForms code like `MessageBox.Show(this, ...)` (passing a
+        /// Control as an IWin32Window owner) keeps compiling unmodified.</summary>
+        System.IntPtr IWin32Window.Handle => System.IntPtr.Zero;
+
+
         // Control instance members
         //
         // Note: Do not add anything to this list unless absolutely necessary.
