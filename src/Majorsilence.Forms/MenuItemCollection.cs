@@ -25,6 +25,21 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Finds an item by its ToolStripItem.Name (matches System.Windows.Forms.ToolStripItemCollection's
+        /// string indexer). Returns null if no item with that name exists (MenuItem itself has no
+        /// Name property, only ToolStripItem subclasses do, so plain MenuItems never match).
+        /// </summary>
+        public MenuItem? this [string name] {
+            get {
+                foreach (var item in this) {
+                    if (item is ToolStripItem tsi && tsi.Name == name)
+                        return item;
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Adds the MenuItem to the collection.
         /// </summary>
         public T Add<T> (T item) where T : MenuItem
