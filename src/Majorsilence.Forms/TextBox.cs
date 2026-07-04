@@ -11,6 +11,25 @@ namespace Majorsilence.Forms
     {
         internal readonly TextBoxDocument document;
 
+        private System.Func<string, System.Collections.Generic.IEnumerable<TextSpanStyle>>? colorizer;
+
+        /// <summary>
+        /// Gets or sets a function that computes syntax-highlighting spans for this control's
+        /// current text (called with <see cref="Text"/>, returning non-overlapping, left-to-right
+        /// <see cref="TextSpanStyle"/> spans). When set, painting uses these spans instead of a
+        /// single uniform foreground color; gaps between spans use the normal foreground color.
+        /// Intended for code-editor-style subclasses (e.g. a Scintilla-compatible shim) rather
+        /// than typical single-style text entry.
+        /// </summary>
+        public System.Func<string, System.Collections.Generic.IEnumerable<TextSpanStyle>>? Colorizer {
+            get => colorizer;
+            set {
+                colorizer = value;
+                document.InvalidateTextBlock ();
+                Invalidate ();
+            }
+        }
+
         private bool is_highlighting;
         private int selection_anchor = -1;
         private int scroll_x;
