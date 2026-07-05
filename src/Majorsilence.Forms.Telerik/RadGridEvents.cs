@@ -66,11 +66,16 @@ namespace Majorsilence.Forms.Telerik
         public RadButtonElement CommandButton { get; } = new RadButtonElement ();
     }
 
-    /// <summary>Telerik-compat row visual element, exposed by the RowFormatting event.</summary>
-    public class GridViewRowElement : RadElement
+    /// <summary>Telerik-compat base row visual element (Telerik's GridRowElement).</summary>
+    public class GridRowElement : RadElement
     {
         /// <summary>Gets or sets the owning row info.</summary>
         public GridViewRowInfo? RowInfo { get; set; }
+    }
+
+    /// <summary>Telerik-compat row visual element, exposed by the RowFormatting event.</summary>
+    public class GridViewRowElement : GridRowElement
+    {
         /// <summary>Gets or sets whether the element draws its fill.</summary>
         public bool DrawFill { get; set; }
         // DrawBorder is inherited from RadElement.
@@ -82,6 +87,19 @@ namespace Majorsilence.Forms.Telerik
         public Majorsilence.Forms.Drawing.Font? Font { get; set; }
         /// <summary>Gets or sets the table element that owns this row (the grid's shared <see cref="GridTableElement"/>).</summary>
         public GridTableElement? TableElement { get; set; }
+    }
+
+    /// <summary>Specifies which aspect of the grid changed for a table-element update. Compat for Telerik <c>GridUINotifyAction</c>.</summary>
+    public enum GridUINotifyAction
+    {
+        /// <summary>The data changed.</summary>
+        DataChanged = 0,
+        /// <summary>The element state changed.</summary>
+        StateChanged = 1,
+        /// <summary>The layout changed.</summary>
+        LayoutChanged = 2,
+        /// <summary>Everything should be reset.</summary>
+        Reset = 3
     }
 
     /// <summary>Telerik-compat table (view) visual element shared by all rows of a <see cref="RadGridView"/>.</summary>
@@ -96,6 +114,18 @@ namespace Majorsilence.Forms.Telerik
         public int RowHeight { get; set; }
         /// <summary>Gets the owning view element (the grid's root element).</summary>
         public RadElement? ViewElement { get; set; }
+
+        /// <summary>Refreshes the table element for the given notify action. No-op — the compat grid repaints as a whole.</summary>
+        public void Update (GridUINotifyAction action) { }
+
+        /// <summary>Scrolls the grid so the given row is visible. Stub — the compat grid manages its own scrolling.</summary>
+        public void ScrollToRow (GridViewRowInfo row) { }
+
+        /// <summary>Scrolls the grid so the given row index is visible. Stub — the compat grid manages its own scrolling.</summary>
+        public void ScrollToRow (int rowIndex) { }
+
+        /// <summary>Gets the visible row elements. Stub: empty — the compat grid does not expose per-row visual elements.</summary>
+        public IEnumerable<GridRowElement> VisualRows => Array.Empty<GridRowElement> ();
     }
 
     /// <summary>Provides data for Telerik grid cell events (CellClick, CellDoubleClick, etc.).</summary>

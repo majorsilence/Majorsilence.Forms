@@ -193,11 +193,23 @@ namespace Majorsilence.Forms.Telerik
         }
         private RadGridViewSplitMode _splitMode = RadGridViewSplitMode.None;
 
-        /// <summary>Gets the current row as a Telerik <see cref="GridViewRowInfo"/>, or null (group-header rows return null).</summary>
+        /// <summary>
+        /// Gets or sets the current row as a Telerik <see cref="GridViewRowInfo"/>, or null
+        /// (group-header rows return null; assigning null clears the selection).
+        /// </summary>
         public new GridViewRowInfo? CurrentRow {
             get {
                 var row = base.CurrentRow;
                 return row is null || IsStructuralRow (row) ? null : new GridViewDataRowInfo (row);
+            }
+            set {
+                if (value is null) {
+                    ClearSelection ();
+                    return;
+                }
+
+                if (value.DataRow.Cells.Count > 0)
+                    base.CurrentCell = value.DataRow.Cells[0];
             }
         }
 
@@ -2898,6 +2910,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Creates a detached row suitable for populating and passing to <see cref="Add(GridViewRowInfo)"/>. Mirrors Telerik's Rows.NewRow.</summary>
         public GridViewRowInfo NewRow () => new GridViewDataRowInfo (new DataGridViewRow ());
+
+        /// <summary>Returns the index of the row info's underlying row among the data rows, or -1.</summary>
+        public int IndexOf (GridViewRowInfo row) => row is null ? -1 : DataRows.IndexOf (row.DataRow);
 
         /// <summary>Removes the specified row.</summary>
         public void Remove (GridViewRowInfo row) => _rows.Remove (row.DataRow);

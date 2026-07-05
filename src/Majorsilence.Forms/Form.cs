@@ -612,8 +612,17 @@ namespace Majorsilence.Forms
         /// <summary>Validates all selectable child controls. Always returns true (stub).</summary>
         public bool ValidateChildren () => true;
 
-        /// <summary>Gets or sets the binding context. No-op in Majorsilence.Forms.</summary>
-        public object? BindingContext { get; set; }
+        private BindingContext? binding_context;
+
+        /// <summary>
+        /// Gets or sets the BindingContext for the form. Mirrors WinForms Form.BindingContext:
+        /// binding managers are cached per (dataSource, dataMember) pair so all lookups on the form
+        /// share position state.
+        /// </summary>
+        public BindingContext BindingContext {
+            get => binding_context ??= new BindingContext ();
+            set => binding_context = value;
+        }
 
         /// <summary>Gets or sets the border style of the form (stub — actual decoration is controlled by UseSystemDecorations).</summary>
         public FormBorderStyle FormBorderStyle {

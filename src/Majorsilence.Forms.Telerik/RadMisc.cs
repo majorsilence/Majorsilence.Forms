@@ -125,6 +125,11 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raises <see cref="DropDownOpening"/>, builds a menu from <see cref="Items"/>, and shows it at the specified screen point.</summary>
         public void Show (Point location) => Show (location.X, location.Y);
 
+        private RadDropDownMenu? drop_down;
+
+        /// <summary>Gets the drop-down facade of this menu (Telerik's RadContextMenu.DropDown surface: Show/Hide/Visible).</summary>
+        public RadDropDownMenu DropDown => drop_down ??= new RadDropDownMenu (this);
+
         /// <summary>Raises <see cref="DropDownOpening"/>, builds a menu from <see cref="Items"/>, and shows it at the specified screen coordinates.</summary>
         public void Show (int x, int y)
         {
@@ -141,6 +146,27 @@ namespace Majorsilence.Forms.Telerik
             if (menu.Items.Count > 0)
                 menu.Show (x, y);
         }
+    }
+
+    /// <summary>
+    /// The drop-down facade of a <see cref="RadContextMenu"/> (Telerik's RadDropDownMenu as reached
+    /// through <c>RadContextMenu.DropDown</c>). Show delegates to the owning menu; the popup manages
+    /// its own dismissal, so <see cref="Visible"/> reports false and <see cref="Hide"/> is a no-op.
+    /// </summary>
+    public class RadDropDownMenu
+    {
+        private readonly RadContextMenu owner;
+
+        internal RadDropDownMenu (RadContextMenu owner) => this.owner = owner;
+
+        /// <summary>Gets whether the drop-down is currently shown. Always false — the popup dismisses itself.</summary>
+        public bool Visible => false;
+
+        /// <summary>Shows the owning context menu at the specified screen point.</summary>
+        public void Show (Point location) => owner.Show (location);
+
+        /// <summary>Hides the drop-down. No-op — the popup dismisses itself.</summary>
+        public void Hide () { }
     }
 
     /// <summary>

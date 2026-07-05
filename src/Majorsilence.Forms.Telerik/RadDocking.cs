@@ -64,8 +64,17 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets the windows in the specified state.</summary>
         public IEnumerable<DockWindowBase> GetWindows (DockState state) => _toolWindows;
-        /// <summary>Gets all dock windows.</summary>
-        public IEnumerable<DockWindowBase> DockWindows => _toolWindows;
+        /// <summary>Gets all dock windows (Telerik-shaped collection with the ToolWindows view).</summary>
+        public DockWindowCollection DockWindows => new DockWindowCollection (_toolWindows);
+
+        /// <summary>Closes the specified dock window: removes it from this dock and hides it.</summary>
+        public void CloseWindow (DockWindowBase window)
+        {
+            if (window is ToolWindow tool)
+                _toolWindows.Remove (tool);
+
+            window.Visible = false;
+        }
 
         // SelectedTabChanged is declared above with Telerik-typed SelectedTabChangedEventArgs.
     }
@@ -79,10 +88,34 @@ namespace Majorsilence.Forms.Telerik
         public DockState PreviousDockState { get; set; } = DockState.Docked;
         /// <summary>Gets or sets which dock states this window may transition to. Stub.</summary>
         public AllowedDockState AllowedDockState { get; set; } = AllowedDockState.All;
+        /// <summary>Gets or sets how the window scales with DPI. Stored for WinForms designer compat.</summary>
+        public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Dpi;
         /// <summary>Closes the window (hides it).</summary>
         public void Close () => Visible = false;
         /// <summary>Closes and disposes the window.</summary>
         public void CloseAndDispose () { Visible = false; Dispose (); }
+    }
+
+    /// <summary>
+    /// Telerik-compat dock-window collection: enumerates all windows and exposes the
+    /// <see cref="ToolWindows"/> view Telerik code filters on.
+    /// </summary>
+    public class DockWindowCollection : IEnumerable<DockWindowBase>
+    {
+        private readonly IReadOnlyList<DockWindowBase> windows;
+
+        internal DockWindowCollection (IEnumerable<DockWindowBase> windows) => this.windows = windows.ToList ();
+
+        /// <summary>Gets the number of dock windows.</summary>
+        public int Count => windows.Count;
+
+        /// <summary>Gets the tool windows among the dock windows.</summary>
+        public IEnumerable<ToolWindow> ToolWindows => windows.OfType<ToolWindow> ();
+
+        /// <inheritdoc/>
+        public IEnumerator<DockWindowBase> GetEnumerator () => windows.GetEnumerator ();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () => GetEnumerator ();
     }
 
     /// <summary>Telerik-compat tool window.</summary>

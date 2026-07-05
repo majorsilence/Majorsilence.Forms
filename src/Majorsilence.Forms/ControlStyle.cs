@@ -36,6 +36,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Gets or sets how cell content is aligned when this style is used as a grid cell style.
+        /// Stored for WinForms DataGridViewCellStyle compatibility; grid renderers currently apply
+        /// their own per-column alignment.
+        /// </summary>
+        public DataGridViewContentAlignment Alignment { get; set; } = DataGridViewContentAlignment.NotSet;
+
+        /// <summary>
         /// Gets or sets the background color.
         /// </summary>
         public SKColor? BackgroundColor { get; set; }

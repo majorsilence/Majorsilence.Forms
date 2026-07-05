@@ -313,12 +313,37 @@ namespace Majorsilence.Forms
             Majorsilence.Forms.Backends.Platform.Backend.Post (action);
         }
 
+        /// <summary>Executes the specified delegate asynchronously on the window's UI thread with the given arguments. Mirrors WinForms Control.BeginInvoke(Delegate, Object[]).</summary>
+        public void BeginInvoke (Delegate method, params object?[]? args)
+        {
+            ArgumentNullException.ThrowIfNull (method);
+            Majorsilence.Forms.Backends.Platform.Backend.Post (() => method.DynamicInvoke (args));
+        }
+
         /// <summary>Executes the specified delegate synchronously on the window's UI thread.</summary>
         public void Invoke (Action action)
         {
             ArgumentNullException.ThrowIfNull (action);
             Majorsilence.Forms.Backends.Platform.Backend.Invoke (action);
         }
+
+        /// <summary>Executes the specified delegate synchronously on the window's UI thread with the given arguments and returns its result. Mirrors WinForms Control.Invoke(Delegate, Object[]).</summary>
+        public object? Invoke (Delegate method, params object?[]? args)
+        {
+            ArgumentNullException.ThrowIfNull (method);
+            object? result = null;
+            Majorsilence.Forms.Backends.Platform.Backend.Invoke (() => result = method.DynamicInvoke (args));
+            return result;
+        }
+
+        /// <summary>
+        /// Gets an opaque nonzero token standing in for the native window handle. WinForms code
+        /// reads Handle to force handle creation before Invoke; the compat window has no HWND.
+        /// </summary>
+        public IntPtr Handle => (IntPtr)(GetHashCode () | 1);
+
+        /// <summary>Gets or sets how the window's background image is laid out. Stored for designer compat (the compat window does not draw a background image yet).</summary>
+        public ImageLayout BackgroundImageLayout { get; set; } = ImageLayout.Tile;
 
         /// <summary>Gets or sets the unscaled location of the window. Mirrors WinForms Form.Location.</summary>
         public System.Drawing.Point Location {
