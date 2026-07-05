@@ -165,7 +165,11 @@ namespace Majorsilence.Forms.Telerik
                 if (cell is not null)
                     _cellDoubleClick?.Invoke (this, BuildCellArgs (cell.ColumnIndex, cell.RowIndex));
             };
+            base.CurrentCellChanged += (_, _) => CurrentCellChanged?.Invoke (this, new CurrentCellChangedEventArgs ());
         }
+
+        /// <summary>Occurs when the current cell changes. Telerik-typed replacement of the base event.</summary>
+        public new event EventHandler<CurrentCellChangedEventArgs>? CurrentCellChanged;
 
         /// <summary>Gets the master template (Telerik configuration façade over this grid).</summary>
         public MasterGridViewTemplate MasterTemplate { get; }
@@ -3071,5 +3075,15 @@ namespace Majorsilence.Forms.Telerik
             get => _cell.Selected;
             set => _cell.Selected = value;
         }
+    }
+
+    /// <summary>Provides data for the grid's current-cell change. Mirrors Telerik's shape.</summary>
+    public class CurrentCellChangedEventArgs : EventArgs
+    {
+        /// <summary>The previously current cell, when known.</summary>
+        public GridViewCellInfo? OldCell { get; set; }
+
+        /// <summary>The newly current cell, when known.</summary>
+        public GridViewCellInfo? NewCell { get; set; }
     }
 }

@@ -160,8 +160,12 @@ namespace Majorsilence.Forms
                 enabled = value;
                 if (Backend is not null)
                     Backend.Enabled = value;
+                EnabledChanged?.Invoke (this, EventArgs.Empty);
             }
         }
+
+        /// <summary>Raised when <see cref="Enabled"/> changes. Mirrors WinForms Control.EnabledChanged (modal dialogs toggle their owner through this property).</summary>
+        public event EventHandler? EnabledChanged;
 
         /// <summary>Raised when the window is closed.</summary>
         public event EventHandler? Closed;

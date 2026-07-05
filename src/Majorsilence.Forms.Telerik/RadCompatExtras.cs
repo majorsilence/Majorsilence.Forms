@@ -225,6 +225,39 @@ namespace Majorsilence.Forms.Telerik
         public object? Strip { get; set; }
     }
 
+    /// <summary>Provides data for a dock's selected-tab change. Mirrors Telerik's shape.</summary>
+    public class SelectedTabChangedEventArgs : EventArgs
+    {
+        /// <summary>The previously selected dock window.</summary>
+        public DockWindowBase? OldWindow { get; set; }
+
+        /// <summary>The newly selected dock window.</summary>
+        public DockWindowBase? NewWindow { get; set; }
+    }
+
+    /// <summary>Provides data for the docking context-menu display. Mirrors Telerik's shape.</summary>
+    public class ContextMenuDisplayingEventArgs : EventArgs
+    {
+        /// <summary>The menu items about to be shown; handlers append their own entries.</summary>
+        public List<object> MenuItems { get; } = new ();
+
+        /// <summary>The dock window the menu applies to.</summary>
+        public DockWindowBase? DockWindow { get; set; }
+    }
+
+    /// <summary>
+    /// Compat stand-in for Telerik's docking context-menu service (obtained through
+    /// <c>RadDock.GetService(Of ContextMenuService)()</c>). The compat dock shows no built-in
+    /// context menus, so the event is declared but never raised.
+    /// </summary>
+    public class ContextMenuService
+    {
+        /// <summary>Raised before the docking context menu is shown. Never raised by the compat dock.</summary>
+#pragma warning disable CS0067
+        public event EventHandler<ContextMenuDisplayingEventArgs>? ContextMenuDisplaying;
+#pragma warning restore CS0067
+    }
+
     /// <summary>Compat stand-in for the grid group-panel field element.</summary>
     public class GroupFieldElement : RadElement
     {

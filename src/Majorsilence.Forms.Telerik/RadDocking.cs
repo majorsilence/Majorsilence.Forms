@@ -23,6 +23,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raised when a new tab strip is needed. Stub (never raised yet).</summary>
 #pragma warning disable CS0067
         public event EventHandler<DockTabStripNeededEventArgs>? DockTabStripNeeded;
+
+        /// <summary>Raised when the selected dock tab changes. Stub (the compat dock does not tab yet).</summary>
+        public event EventHandler<SelectedTabChangedEventArgs>? SelectedTabChanged;
 #pragma warning restore CS0067
 
         /// <summary>Saves the dock layout to a stream. Stub: writes an empty layout document.</summary>
@@ -64,8 +67,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets all dock windows.</summary>
         public IEnumerable<DockWindowBase> DockWindows => _toolWindows;
 
-        /// <summary>Raised when the selected tab changes. Stub.</summary>
-        public event EventHandler? SelectedTabChanged { add { } remove { } }
+        // SelectedTabChanged is declared above with Telerik-typed SelectedTabChangedEventArgs.
     }
 
     /// <summary>Base for Telerik dock windows. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
