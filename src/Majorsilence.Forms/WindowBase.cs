@@ -118,6 +118,8 @@ namespace Majorsilence.Forms
         /// </summary>
         protected override void Dispose (bool disposing)
         {
+            IsDisposed = true;
+
             if (disposing) {
                 if (this is Form f)
                     Application.OpenForms.Remove (f);
@@ -127,6 +129,32 @@ namespace Majorsilence.Forms
             }
 
             base.Dispose (disposing);
+        }
+
+        /// <summary>Gets whether the window has been disposed. Mirrors WinForms Control.IsDisposed.</summary>
+        public bool IsDisposed { get; private set; }
+
+        /// <summary>
+        /// Gets whether the caller must marshal to the UI thread to interact with this window.
+        /// Mirrors WinForms Control.InvokeRequired (see the matching member on <see cref="Control"/>).
+        /// </summary>
+        public bool InvokeRequired => !Majorsilence.Forms.Backends.Platform.Backend.CheckAccess ();
+
+        private bool enabled = true;
+
+        /// <summary>
+        /// Gets or sets whether the window accepts input. Mirrors WinForms Form.Enabled; delegates to
+        /// the platform backend (the same seam modal dialogs use to disable their owner).
+        /// </summary>
+        public bool Enabled {
+            get => enabled;
+            set {
+                if (enabled == value)
+                    return;
+                enabled = value;
+                if (Backend is not null)
+                    Backend.Enabled = value;
+            }
         }
 
         /// <summary>Raised when the window is closed.</summary>
