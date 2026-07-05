@@ -43,6 +43,12 @@ namespace Majorsilence.Forms
         /// </summary>
         public Type? ValueType { get; set; }
 
+        /// <summary>Telerik-style alias of <see cref="ValueType"/> (GridViewDataColumn.DataType).</summary>
+        public Type? DataType {
+            get => ValueType;
+            set => ValueType = value;
+        }
+
         /// <summary>
         /// Gets or sets whether this column is bound to a data source. WinForms compatibility stub.
         /// </summary>
@@ -131,6 +137,12 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether the column is visible.</summary>
         public bool Visible { get; set; } = true;
+
+        /// <summary>Telerik-style alias of <see cref="Visible"/> (GridViewColumn.IsVisible).</summary>
+        public bool IsVisible {
+            get => Visible;
+            set => Visible = value;
+        }
 
         /// <summary>Gets or sets the auto-size mode. Stub in Majorsilence.Forms.</summary>
         public DataGridViewAutoSizeColumnMode AutoSizeMode { get; set; } = DataGridViewAutoSizeColumnMode.None;

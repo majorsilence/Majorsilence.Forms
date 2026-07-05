@@ -1795,6 +1795,20 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raised when the current row actually changes (not on every selection change; see <see cref="SelectionChanged"/> for that).</summary>
         public event EventHandler<CurrentRowChangedEventArgs>? CurrentRowChanged { add => _currentRowChanged += value; remove => _currentRowChanged -= value; }
         /// <summary>Raised when the current column actually changes.</summary>
+        /// <summary>Gets or sets the column of the current cell. Mirrors Telerik's RadGridView.CurrentColumn.</summary>
+        public DataGridViewColumn? CurrentColumn {
+            get => base.CurrentCell?.ColumnIndex is int ci && ci >= 0 && ci < Columns.Count ? Columns[ci] : null;
+            set {
+                if (value is null || base.CurrentCell is null)
+                    return;
+                var ci = Columns.IndexOf (value);
+                var ri = base.CurrentCell.RowIndex;
+                if (ci >= 0 && ri >= 0 && ri < base.Rows.Count && ci < base.Rows[ri].Cells.Count)
+                    base.CurrentCell = base.Rows[ri].Cells[ci];
+            }
+        }
+
+        /// <summary>Raised when the current column changes.</summary>
         public event EventHandler<CurrentColumnChangedEventArgs>? CurrentColumnChanged { add => _currentColumnChanged += value; remove => _currentColumnChanged -= value; }
 
         // Raises CurrentRowChanged/CurrentColumnChanged when the underlying current cell's row/column index
@@ -2450,11 +2464,7 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Base Telerik-compat grid column. Adds the Telerik column member names on top of <see cref="DataGridViewColumn"/>.</summary>
     public class GridViewColumn : DataGridViewColumn
     {
-        /// <summary>Gets or sets whether the column is visible (Telerik alias for <see cref="DataGridViewColumn.Visible"/>).</summary>
-        public bool IsVisible {
-            get => Visible;
-            set => Visible = value;
-        }
+        // IsVisible now lives on DataGridViewColumn itself (Telerik alias of Visible).
         /// <summary>Gets or sets the bound field name (Telerik alias for <see cref="DataGridViewColumn.DataPropertyName"/>).</summary>
         public string FieldName {
             get => DataPropertyName;
@@ -2502,8 +2512,7 @@ namespace Majorsilence.Forms.Telerik
         }
         /// <summary>Gets or sets whether this column can be grouped. Stub.</summary>
         public bool AllowGroup { get; set; } = true;
-        /// <summary>Gets or sets the column data type. Stub.</summary>
-        public Type? DataType { get; set; }
+        // DataType now lives on DataGridViewColumn itself (Telerik alias of ValueType).
         /// <summary>Gets the conditional-formatting rules applied to this column's cells.</summary>
         public List<ConditionalFormattingObject> ConditionalFormattingObjectList { get; } = new ();
 

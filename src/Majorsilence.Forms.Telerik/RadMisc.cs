@@ -50,6 +50,12 @@ namespace Majorsilence.Forms.Telerik
         public RadMenuItem (string text) : base (text) { }
         /// <summary>Initializes a new instance with the specified text and tag (Telerik (text, data) ctor).</summary>
         public RadMenuItem (string text, object? tag) : base (text) { Tag = tag; }
+
+        /// <summary>Telerik-style alias of <see cref="MenuItem.Checked"/>.</summary>
+        public bool IsChecked {
+            get => Checked;
+            set => Checked = value;
+        }
     }
 
     /// <summary>Telerik-compat menu separator.</summary>

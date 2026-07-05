@@ -7,6 +7,42 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Compat stand-in for Telerik's RadPropertyStore (dock layout persistence).</summary>
     public class RadPropertyStore
     {
+        /// <summary>The stored items.</summary>
+        public System.Collections.Generic.List<PropertyStoreItem> Items { get; } = new ();
+
+        /// <summary>Adds an item to the store.</summary>
+        public void Add (PropertyStoreItem item) => Items.Add (item);
+    }
+
+    /// <summary>Compat stand-in for Telerik's PropertyStoreItem.</summary>
+    public class PropertyStoreItem
+    {
+        /// <summary>Initializes an item for a typed property value.</summary>
+        public PropertyStoreItem (Type type, string name, object? value)
+        {
+            Type = type;
+            Name = name;
+            Value = value;
+        }
+
+        /// <summary>Initializes an item for a typed property value with a default.</summary>
+        public PropertyStoreItem (Type type, string name, object? value, object? defaultValue)
+            : this (type, name, value)
+        {
+            DefaultValue = defaultValue;
+        }
+
+        /// <summary>The property type.</summary>
+        public Type Type { get; }
+
+        /// <summary>The property name.</summary>
+        public string Name { get; }
+
+        /// <summary>The property value.</summary>
+        public object? Value { get; set; }
+
+        /// <summary>The default value.</summary>
+        public object? DefaultValue { get; set; }
     }
 
     /// <summary>Compat stand-in for Telerik's RadGridViewElement (root visual element of a grid).</summary>
