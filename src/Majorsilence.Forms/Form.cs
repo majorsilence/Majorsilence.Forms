@@ -846,7 +846,7 @@ namespace Majorsilence.Forms
 
             PrepareAsMdiChild ();
             client.AddChild (this);
-            Visible = true;
+            visible = true;
             Application.OpenForms.Add (this);
 
             if (!shown) {

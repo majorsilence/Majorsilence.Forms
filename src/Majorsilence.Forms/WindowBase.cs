@@ -193,6 +193,7 @@ namespace Majorsilence.Forms
                 adapter.SetBounds (borderLeft, borderTop, logicalW, logicalH);
                 adapter.PerformLayout ();
                 OnClientLayoutChanged ();
+                OnSizeChanged (EventArgs.Empty);
             }
 
             var e = new PaintEventArgs (skInfo, canvas, scaling);
@@ -245,7 +246,7 @@ namespace Majorsilence.Forms
         /// <summary>Hides the window without destroying it.</summary>
         public void Hide ()
         {
-            Visible = false;
+            visible = false;
             Backend.Hide ();
 
             if (Application.ActivePopupWindow == this)
@@ -274,8 +275,45 @@ namespace Majorsilence.Forms
             Majorsilence.Forms.Backends.Platform.Backend.Invoke (action);
         }
 
-        /// <summary>Gets the unscaled location of the window.</summary>
-        public System.Drawing.Point Location => Backend.Location;
+        /// <summary>Gets or sets the unscaled location of the window. Mirrors WinForms Form.Location.</summary>
+        public System.Drawing.Point Location {
+            get => Backend.Location;
+            set {
+                if (Backend.Location == value)
+                    return;
+                Backend.Location = value;
+                OnLocationChanged (EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Gets or sets the x-coordinate of the window's left edge. Mirrors WinForms Form.Left.</summary>
+        public int Left {
+            get => Location.X;
+            set => Location = new System.Drawing.Point (value, Location.Y);
+        }
+
+        /// <summary>Gets or sets the y-coordinate of the window's top edge. Mirrors WinForms Form.Top.</summary>
+        public int Top {
+            get => Location.Y;
+            set => Location = new System.Drawing.Point (Location.X, value);
+        }
+
+        /// <summary>Raised when the window's location changes. Mirrors WinForms Form.LocationChanged.
+        /// Raised for programmatic moves; backend-driven moves raise it via OnBackendMoved.</summary>
+        public event EventHandler? LocationChanged;
+
+        /// <summary>Raises the LocationChanged event.</summary>
+        protected virtual void OnLocationChanged (EventArgs e) => LocationChanged?.Invoke (this, e);
+
+        /// <summary>Called by the backend when the OS window is moved.</summary>
+        internal void OnBackendMoved () => OnLocationChanged (EventArgs.Empty);
+
+        /// <summary>Raised when the window's client size changes. Mirrors WinForms Form.SizeChanged.
+        /// Raised from the layout pipeline whenever the client area takes a new size.</summary>
+        public event EventHandler? SizeChanged;
+
+        /// <summary>Raises the SizeChanged event.</summary>
+        protected virtual void OnSizeChanged (EventArgs e) => SizeChanged?.Invoke (this, e);
 
         /// <summary>
         /// Gets the native OS window handle (HWND on Windows), or <see cref="System.IntPtr.Zero"/> if the
@@ -485,7 +523,7 @@ namespace Majorsilence.Forms
             if (TryShowHosted ())
                 return;
 
-            Visible = true;
+            visible = true;
             OnVisibleChanged (EventArgs.Empty);
 
             SetWindowStartupLocation ();
@@ -502,7 +540,7 @@ namespace Majorsilence.Forms
 
         internal void ShowDialog (WindowBase parent)
         {
-            Visible = true;
+            visible = true;
             OnVisibleChanged (EventArgs.Empty);
 
             SetWindowStartupLocation (parent);
@@ -533,7 +571,21 @@ namespace Majorsilence.Forms
         public virtual ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
         /// <summary>Gets or sets whether the window is displayed to the user.</summary>
-        public bool Visible { get; internal set; }
+        internal bool visible;
+
+        /// <summary>Gets or sets whether the window is displayed. Setting mirrors WinForms semantics:
+        /// true shows the window, false hides it.</summary>
+        public bool Visible {
+            get => visible;
+            set {
+                if (visible == value)
+                    return;
+                if (value)
+                    Show ();
+                else
+                    Hide ();
+            }
+        }
 
         // ── WinForms layout/handle/color compatibility ───────────────────────────
         // Form sits on a separate inheritance branch from Control (Form : WindowBase, not

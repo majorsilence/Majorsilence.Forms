@@ -98,6 +98,7 @@ namespace Majorsilence.Forms
                 StartRenderTimer ();
             };
             Closed += (_, _) => { StopRenderTimer (); _owner.OnBackendClosed (); };
+            PositionChanged += (_, _) => _owner.OnBackendMoved ();
             Activated += (_, _) => _owner.OnBackendActivated ();
             Deactivated += (_, _) => _owner.OnBackendDeactivated ();
         }
