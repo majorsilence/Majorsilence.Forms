@@ -11,7 +11,7 @@ namespace Majorsilence.Forms
         public virtual Type? EditType => null;
 
         /// <summary>The value type of the cell. Mirrors WinForms DataGridViewCell.ValueType.</summary>
-        public virtual Type? ValueType { get; set; }
+        public virtual Type? ValueType => null;
 
         /// <summary>The default value for a new row's cell. Mirrors WinForms.</summary>
         public virtual object? DefaultNewRowValue => null;

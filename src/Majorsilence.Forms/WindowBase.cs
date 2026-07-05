@@ -334,6 +334,12 @@ namespace Majorsilence.Forms
         /// <summary>Raises the SizeChanged event.</summary>
         protected virtual void OnSizeChanged (EventArgs e) => SizeChanged?.Invoke (this, e);
 
+        /// <summary>Raised when the window is resized. Mirrors WinForms Form.Resize (alias of SizeChanged).</summary>
+        public event EventHandler? Resize {
+            add => SizeChanged += value;
+            remove => SizeChanged -= value;
+        }
+
         /// <summary>
         /// Gets the native OS window handle (HWND on Windows), or <see cref="System.IntPtr.Zero"/> if the
         /// backend can't provide one. Used by platform accessibility bridges to attach to the host window.

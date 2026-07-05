@@ -158,7 +158,7 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellEventArgs>? CellEndEdit;
 
         /// <summary>Raised when a cell value has changed.</summary>
-        public event EventHandler<DataGridViewCellEditEventArgs>? CellValueChanged;
+        public event EventHandler<DataGridViewCellEventArgs>? CellValueChanged;
 
         /// <summary>Raised when the <see cref="DataSource"/> changes. WinForms compatibility.</summary>
         public event EventHandler? DataSourceChanged;
@@ -511,7 +511,7 @@ namespace Majorsilence.Forms
                 }
 
                 if (committed) {
-                    var changed_args = new DataGridViewCellEditEventArgs (editing_row_index, editing_column_index);
+                    var changed_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
                     OnCellValueChanged (changed_args);
                 }
             }
@@ -1081,7 +1081,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the CellValueChanged event.
         /// </summary>
-        protected virtual void OnCellValueChanged (DataGridViewCellEditEventArgs e) => CellValueChanged?.Invoke (this, e);
+        protected virtual void OnCellValueChanged (DataGridViewCellEventArgs e) => CellValueChanged?.Invoke (this, e);
 
         /// <summary>
         /// Handles a column header click for sorting.
@@ -1320,7 +1320,7 @@ namespace Majorsilence.Forms
                         var current = cell.Value is bool b ? b
                             : string.Equals (cell.Value?.ToString (), "True", StringComparison.OrdinalIgnoreCase) || cell.Value?.ToString () == "1";
                         cell.Value = !current;
-                        OnCellValueChanged (new DataGridViewCellEditEventArgs (row, col));
+                        OnCellValueChanged (new DataGridViewCellEventArgs (col, row));
                     }
                 }
 

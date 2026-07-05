@@ -120,9 +120,100 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>The column index of the validated cell.</summary>
         public int ColumnIndex { get; set; }
 
+        /// <summary>The validated column.</summary>
+        public Majorsilence.Forms.DataGridViewColumn? Column { get; set; }
+
+        /// <summary>The validated row.</summary>
+        public GridViewRowInfo? Row { get; set; }
+
         /// <summary>The validated value.</summary>
         public object? Value { get; set; }
     }
+
+    /// <summary>Provides data for RadPropertyGrid item edit completion. Mirrors Telerik's shape.</summary>
+    public class PropertyGridItemEditedEventArgs : EventArgs
+    {
+        /// <summary>The edited item.</summary>
+        public PropertyGridItem? Item { get; set; }
+    }
+
+    /// <summary>Provides data for RadPropertyGrid editor selection. Mirrors Telerik's shape.</summary>
+    public class PropertyGridEditorRequiredEventArgs : EventArgs
+    {
+        /// <summary>The item needing an editor.</summary>
+        public PropertyGridItem? Item { get; set; }
+
+        /// <summary>The editor type to use.</summary>
+        public Type? EditorType { get; set; }
+
+        /// <summary>The editor instance to use.</summary>
+        public object? Editor { get; set; }
+    }
+
+    /// <summary>Provides data for RadPropertyGrid item value changes. Mirrors Telerik's shape.</summary>
+    public class PropertyGridItemValueChangedEventArgs : EventArgs
+    {
+        /// <summary>The item whose value changed.</summary>
+        public PropertyGridItem? Item { get; set; }
+    }
+
+    /// <summary>Compat stand-in for Telerik's text-box property editor.</summary>
+    public class PropertyGridTextBoxEditor
+    {
+    }
+
+    /// <summary>Compat stand-in for Telerik's DataGroup (grid grouping node).</summary>
+    public class DataGroup
+    {
+        /// <summary>The group key.</summary>
+        public object? Key { get; set; }
+    }
+
+    /// <summary>Provides data for RadDock tab-strip creation. Mirrors Telerik's shape.</summary>
+    public class DockTabStripNeededEventArgs : EventArgs
+    {
+        /// <summary>The strip to use (assign to supply one).</summary>
+        public object? Strip { get; set; }
+    }
+
+    /// <summary>Compat stand-in for the grid's paging panel element.</summary>
+    public class PagingPanelElement : RadElement
+    {
+    }
+
+    /// <summary>Provides data for grid filter-popup creation. Mirrors Telerik's shape.</summary>
+    public class FilterPopupRequiredEventArgs : EventArgs
+    {
+        /// <summary>The column the popup is for.</summary>
+        public Majorsilence.Forms.DataGridViewColumn? Column { get; set; }
+
+        /// <summary>The popup to show (assign to supply one).</summary>
+        public object? FilterPopup { get; set; }
+    }
+
+    /// <summary>Provides cancellable data for RadPageView page changes. Mirrors Telerik's shape.</summary>
+    public class RadPageViewCancelEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        /// <summary>The page involved.</summary>
+        public object? Page { get; set; }
+    }
+
+    /// <summary>Provides data for dock-window events. Mirrors Telerik's shape.</summary>
+    public class DockWindowEventArgs : EventArgs
+    {
+        /// <summary>The dock window involved.</summary>
+        public object? DockWindow { get; set; }
+    }
+}
+
+namespace Majorsilence.Forms.Telerik.UI
+{
+    /// <summary>Relative-qualification seam: legacy code written under Imports Telerik.WinControls
+    /// references UI.RowFormattingEventArgs / UI.GridViewCellEventArgs.</summary>
+    public class RowFormattingEventArgs : Majorsilence.Forms.Telerik.RowFormattingEventArgs { }
+
+    /// <summary>Relative-qualification seam for UI.GridViewCellEventArgs.</summary>
+    public class GridViewCellEventArgs : Majorsilence.Forms.Telerik.GridViewCellEventArgs { }
 }
 
 namespace Majorsilence.Forms.Telerik.Data

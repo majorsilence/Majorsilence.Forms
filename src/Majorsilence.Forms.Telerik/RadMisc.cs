@@ -183,14 +183,16 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Begins editing the selected item. Stub.</summary>
         public void BeginEdit () { }
 
-        /// <summary>Raised when an item is being formatted. Stub.</summary>
-        public event EventHandler? ItemFormatting { add { } remove { } }
-        /// <summary>Raised when an item has been edited. Stub.</summary>
-        public event EventHandler? Edited { add { } remove { } }
-        /// <summary>Raised when an editor is initialized. Stub.</summary>
-        public event EventHandler? EditorInitialized { add { } remove { } }
-        /// <summary>Raised when an editor is required. Stub.</summary>
-        public event EventHandler? EditorRequired { add { } remove { } }
+        /// <summary>Raised when an item is being formatted. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridItemFormattingEventArgs>? ItemFormatting { add { } remove { } }
+        /// <summary>Raised when an item has been edited. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridItemEditedEventArgs>? Edited { add { } remove { } }
+        /// <summary>Raised when an editor is initialized. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridItemEditorInitializedEventArgs>? EditorInitialized { add { } remove { } }
+        /// <summary>Raised when an editor is required. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridEditorRequiredEventArgs>? EditorRequired { add { } remove { } }
+        /// <summary>Raised when an item's value changes. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridItemValueChangedEventArgs>? ItemValueChanged { add { } remove { } }
         /// <summary>Raised on item mouse-click. Stub.</summary>
         public event EventHandler? ItemMouseClick { add { } remove { } }
         /// <summary>Raised when the context menu is opening. Stub.</summary>

@@ -248,13 +248,13 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new instance of the RadDateTimePicker class.</summary>
         public RadDateTimePicker ()
         {
-            ValueChanged += (_, _) => ValueChanging?.Invoke (this, EventArgs.Empty);
+            ValueChanged += (_, _) => ValueChanging?.Invoke (this, new ValueChangingEventArgs { NewValue = Value });
         }
 
         /// <summary>Gets the picker element (stub).</summary>
         public RadElement DateTimePickerElement { get; } = new RadElement ();
         /// <summary>Raised before the value changes. Stub (fires alongside ValueChanged).</summary>
-        public event EventHandler? ValueChanging;
+        public event EventHandler<ValueChangingEventArgs>? ValueChanging;
         /// <summary>Raised when the drop-down calendar opens. Stub.</summary>
         public event EventHandler? Opened { add { } remove { } }
     }

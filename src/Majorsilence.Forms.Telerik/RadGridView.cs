@@ -113,6 +113,14 @@ namespace Majorsilence.Forms.Telerik
                     RebuildView ();
             };
             base.CellEndEdit += (_, e) => _cellEndEdit?.Invoke (this, BuildCellArgs (e.ColumnIndex, e.RowIndex));
+            base.CellEndEdit += (_, e) => {
+                var v = BuildCellArgs (e.ColumnIndex, e.RowIndex);
+                CellValidated?.Invoke (this, new CellValidatedEventArgs {
+                    RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex,
+                    Column = e.ColumnIndex >= 0 && e.ColumnIndex < Columns.Count ? Columns[e.ColumnIndex] : null,
+                    Row = v.Row, Value = v.Value
+                });
+            };
             base.CellBeginEdit += (_, e) => {
                 _editOldValue = CellValueAt (e.RowIndex, e.ColumnIndex);
                 _cellBeginEdit?.Invoke (this, new GridViewCellCancelEventArgs { RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex, Row = RowAt (e.RowIndex) });
@@ -682,9 +690,22 @@ namespace Majorsilence.Forms.Telerik
         // ── View pipeline ──────────────────────────────────────────────────────
 
         /// <inheritdoc/>
+        /// <summary>Raised when the grid's row collection changes. Mirrors Telerik's RowsChanged.</summary>
+        public event EventHandler<GridViewCollectionChangedEventArgs>? RowsChanged;
+
+        /// <summary>Raised when a column filter popup is required. Stub (never raised yet) - assignable
+        /// handlers keep legacy filter-popup wiring compiling.</summary>
+#pragma warning disable CS0067
+        public event EventHandler<FilterPopupRequiredEventArgs>? FilterPopupRequired;
+#pragma warning restore CS0067
+
+        /// <summary>Raised after a cell edit commits, approximating Telerik's CellValidated sequence.</summary>
+        public new event EventHandler<CellValidatedEventArgs>? CellValidated;
+
         internal override void OnRowsChanged ()
         {
             base.OnRowsChanged ();
+            RowsChanged?.Invoke (this, new GridViewCollectionChangedEventArgs ());
 
             // _master is null only if a base-ctor row change races our field initializers.
             if (_applyingView || _master is null)
@@ -2010,7 +2031,7 @@ namespace Majorsilence.Forms.Telerik
             var anchor = new Point (cell.Bounds.Left, cell.Bounds.Bottom);
             RadGridDateEditor.Show (this, current, PointToScreen (anchor), picked => {
                 cell.Value = picked;
-                OnCellValueChanged (new DataGridViewCellEditEventArgs (rowIndex, colIndex));
+                OnCellValueChanged (new DataGridViewCellEventArgs (colIndex, rowIndex));
                 Invalidate ();
             });
         }
@@ -2050,7 +2071,7 @@ namespace Majorsilence.Forms.Telerik
             var anchor = new Point (cell.Bounds.Left, cell.Bounds.Bottom);
             RadGridComboEditor.Show (this, items, combo.LookupDisplay (cell.Value), PointToScreen (anchor), cell.Bounds.Width, picked => {
                 cell.Value = picked;
-                OnCellValueChanged (new DataGridViewCellEditEventArgs (rowIndex, colIndex));
+                OnCellValueChanged (new DataGridViewCellEventArgs (colIndex, rowIndex));
                 Invalidate ();
             });
         }

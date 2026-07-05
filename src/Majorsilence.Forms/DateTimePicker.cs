@@ -130,7 +130,7 @@ namespace Majorsilence.Forms
 
                 _value = value;
                 UpdateText ();
-                ValueChanged?.Invoke (this, EventArgs.Empty);
+                OnValueChanged (EventArgs.Empty);
             }
         }
 
@@ -145,6 +145,9 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the date value changes. Mirrors WinForms DateTimePicker.ValueChanged.</summary>
         public event EventHandler? ValueChanged;
+
+        /// <summary>Raises the ValueChanged event. Mirrors WinForms DateTimePicker.OnValueChanged.</summary>
+        protected virtual void OnValueChanged (EventArgs e) => ValueChanged?.Invoke (this, e);
 
         /// <summary>Gets or sets whether a checkbox is displayed to the left of the selected date. Stub in Majorsilence.Forms.</summary>
         public bool ShowCheckBox { get; set; }
