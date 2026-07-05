@@ -8,7 +8,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new instance, bridging the base selection event to the Telerik-typed one.</summary>
         public RadDropDownList ()
         {
-            base.SelectedIndexChanged += (_, _) => SelectedIndexChanged?.Invoke (this, new PositionChangedEventArgs (SelectedIndex));
+            base.SelectedIndexChanged += (_, _) => SelectedIndexChanged?.Invoke (this, new Majorsilence.Forms.Telerik.Data.PositionChangedEventArgs (SelectedIndex));
         }
 
         /// <summary>

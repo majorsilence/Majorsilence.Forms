@@ -484,8 +484,13 @@ namespace Majorsilence.Forms.Telerik
         public string Expression { get; }
     }
 
-    /// <summary>Represents the method that handles a Telerik position-changed event (e.g. drop-down SelectedIndexChanged).</summary>
-    public delegate void PositionChangedEventHandler (object? sender, PositionChangedEventArgs e);
+    /// <summary>
+    /// Represents the method that handles a Telerik position-changed event (e.g. drop-down
+    /// SelectedIndexChanged). Args are the Data-nested type to match Telerik's
+    /// <c>Telerik.WinControls.UI.Data.PositionChangedEventHandler</c> signature, which is what
+    /// migrated handlers are written against.
+    /// </summary>
+    public delegate void PositionChangedEventHandler (object? sender, Majorsilence.Forms.Telerik.Data.PositionChangedEventArgs e);
 
     /// <summary>Specifies how a grid row enters edit mode. Compat for Telerik <c>GridViewEditModes</c> / begin-edit mode.</summary>
     public enum RadGridViewBeginEditMode
