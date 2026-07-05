@@ -22,6 +22,9 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadGridView : DataGridView
     {
+        /// <summary>Gets or sets whether rows auto-size to content. Stored for Telerik compat.</summary>
+        public bool AutoSizeRows { get; set; }
+
         /// <summary>Mirrors Telerik's RadControl.ThemeEffectiveType so derived grids can override it.</summary>
         protected virtual Type ThemeEffectiveType => GetType ();
 
@@ -1492,6 +1495,20 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Saves the layout (see <see cref="SaveLayoutToString"/>) to the specified file.</summary>
         public void SaveLayout (string fileName) => File.WriteAllText (fileName, SaveLayoutToString ());
+
+        /// <summary>Saves the layout to a stream (Telerik overload used for in-memory persistence).</summary>
+        public void SaveLayout (Stream stream)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes (SaveLayoutToString ());
+            stream.Write (bytes, 0, bytes.Length);
+        }
+
+        /// <summary>Loads the layout from a stream (Telerik overload used for in-memory persistence).</summary>
+        public void LoadLayout (Stream stream)
+        {
+            using var reader = new StreamReader (stream, System.Text.Encoding.UTF8, leaveOpen: true);
+            LoadLayoutFromString (reader.ReadToEnd ());
+        }
 
         /// <summary>Loads layout XML previously produced by <see cref="SaveLayoutToString"/>.</summary>
         public void LoadLayoutFromString (string xml)

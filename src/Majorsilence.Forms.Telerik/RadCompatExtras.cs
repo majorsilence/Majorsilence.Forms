@@ -226,6 +226,33 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>The field name shown by the element.</summary>
         public string FieldName { get; set; } = string.Empty;
+
+        /// <summary>The display text of the element.</summary>
+        public string Text { get; set; } = string.Empty;
+    }
+
+    /// <summary>Compat stand-in for Telerik's RadControl base (sites type variables as RadControl).</summary>
+    public class RadControl : Majorsilence.Forms.Control
+    {
+    }
+
+    /// <summary>Compat stand-in for the drop-down calendar of a RadDateTimePicker.</summary>
+    public class RadDateTimePickerCalendar : RadElement
+    {
+        /// <summary>Whether the time picker panel is shown.</summary>
+        public bool ShowTimePicker { get; set; }
+    }
+
+    /// <summary>Compat stand-in for the grid header cell element.</summary>
+    public class GridHeaderCellElement : RadElement
+    {
+    }
+
+    /// <summary>Compat stand-in for Telerik's filter operation context.</summary>
+    public class FilterOperationContext
+    {
+        /// <summary>The field being filtered.</summary>
+        public string FieldName { get; set; } = string.Empty;
     }
 
     /// <summary>Compat stand-in for the grid's paging panel element.</summary>

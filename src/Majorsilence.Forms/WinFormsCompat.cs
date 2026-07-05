@@ -1003,6 +1003,9 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ToolStripButton : ToolStripItem
     {
+        /// <summary>Gets or sets the color treated as transparent in the button image. Stored for compat.</summary>
+        public System.Drawing.Color ImageTransparentColor { get; set; }
+
         /// <summary>Initializes a new instance of the ToolStripButton class.</summary>
         public ToolStripButton () { }
 
@@ -1636,6 +1639,12 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ToolStripStatusLabel : ToolStripItem
     {
+        /// <summary>Gets or sets the label width. Mirrors WinForms (wraps Size).</summary>
+        public int Width {
+            get => Size.Width;
+            set => Size = new Size (value, Size.Height);
+        }
+
         /// <summary>Gets or sets how the label is aligned within the strip.</summary>
         public new ToolStripItemAlignment Alignment { get; set; }
 
