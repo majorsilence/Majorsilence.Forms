@@ -927,8 +927,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets an integer that identifies the image from an ImageList. Stub in Majorsilence.Forms.</summary>
         public int ImageIndex { get; set; } = -1;
 
-        /// <summary>Gets or sets the image scaling size. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Size ImageScaling { get; set; } = new System.Drawing.Size (16, 16);
+        /// <summary>Gets or sets how the item's image is scaled. Mirrors WinForms
+        /// ToolStripItem.ImageScaling (the Size-typed knob is ImageScalingSize on the strip).</summary>
+        public ToolStripItemImageScaling ImageScaling { get; set; } = ToolStripItemImageScaling.SizeToFit;
+
+        /// <summary>Gets or sets the position of text relative to the image. Stub in Majorsilence.Forms.</summary>
+        public TextImageRelation TextImageRelation { get; set; } = TextImageRelation.ImageBeforeText;
 
         /// <summary>Gets or sets whether the item auto-sizes itself. Stub in Majorsilence.Forms.</summary>
         public bool AutoSize { get; set; } = true;
@@ -1559,6 +1563,15 @@ namespace Majorsilence.Forms
 
     /// <summary>Represents the method that handles ToolStrip.ItemClicked.</summary>
     public delegate void ToolStripItemClickedEventHandler (object? sender, ToolStripItemClickedEventArgs e);
+
+    /// <summary>Specifies whether a ToolStripItem image is scaled to fit. WinForms compatibility.</summary>
+    public enum ToolStripItemImageScaling
+    {
+        /// <summary>The image is not scaled.</summary>
+        None,
+        /// <summary>The image is scaled to the strip's image size.</summary>
+        SizeToFit,
+    }
 
     /// <summary>Represents the collection of items in a ToolStrip.</summary>
     public class ToolStripItemCollection : Collection<ToolStripItem>

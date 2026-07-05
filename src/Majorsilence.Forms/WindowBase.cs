@@ -276,6 +276,10 @@ namespace Majorsilence.Forms
         /// <summary>Marks the specified portion of the window as needing to be redrawn.</summary>
         public void Invalidate (System.Drawing.Rectangle rectangle) => Invalidate ();
 
+        /// <summary>Marks the window as needing to be redrawn. Mirrors WinForms Invalidate(bool);
+        /// children repaint with the window here regardless.</summary>
+        public void Invalidate (bool invalidateChildren) => Invalidate ();
+
         /// <summary>Executes the specified delegate asynchronously on the window's UI thread.</summary>
         public void BeginInvoke (Action action)
         {
