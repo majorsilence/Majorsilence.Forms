@@ -1564,6 +1564,43 @@ namespace Majorsilence.Forms
     /// <summary>Represents the method that handles ToolStrip.ItemClicked.</summary>
     public delegate void ToolStripItemClickedEventHandler (object? sender, ToolStripItemClickedEventArgs e);
 
+    /// <summary>
+    /// WinForms compatibility: implemented by controls hosted inside a DataGridView cell while
+    /// editing. Mirrors System.Windows.Forms.IDataGridViewEditingControl.
+    /// </summary>
+    public interface IDataGridViewEditingControl
+    {
+        /// <summary>The grid that owns the editing control.</summary>
+        DataGridView? EditingControlDataGridView { get; set; }
+
+        /// <summary>The current formatted value of the editing control.</summary>
+        object EditingControlFormattedValue { get; set; }
+
+        /// <summary>The row being edited.</summary>
+        int EditingControlRowIndex { get; set; }
+
+        /// <summary>Whether the value has changed since editing began.</summary>
+        bool EditingControlValueChanged { get; set; }
+
+        /// <summary>The cursor shown over the editing panel.</summary>
+        Cursor EditingPanelCursor { get; }
+
+        /// <summary>Whether the control should be repositioned when the value changes.</summary>
+        bool RepositionEditingControlOnValueChange { get; }
+
+        /// <summary>Applies the cell style to the editing control.</summary>
+        void ApplyCellStyleToEditingControl (DataGridViewCellStyle dataGridViewCellStyle);
+
+        /// <summary>Whether the editing control consumes the given key.</summary>
+        bool EditingControlWantsInputKey (Keys keyData, bool dataGridViewWantsInputKey);
+
+        /// <summary>Gets the formatted value of the editing control.</summary>
+        object GetEditingControlFormattedValue (DataGridViewDataErrorContexts context);
+
+        /// <summary>Prepares the control for edit (select-all etc.).</summary>
+        void PrepareEditingControlForEdit (bool selectAll);
+    }
+
     /// <summary>Specifies whether a ToolStripItem image is scaled to fit. WinForms compatibility.</summary>
     public enum ToolStripItemImageScaling
     {

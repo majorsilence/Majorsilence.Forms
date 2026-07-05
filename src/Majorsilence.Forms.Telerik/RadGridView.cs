@@ -22,6 +22,9 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadGridView : DataGridView
     {
+        /// <summary>Mirrors Telerik's RadControl.ThemeEffectiveType so derived grids can override it.</summary>
+        protected virtual Type ThemeEffectiveType => GetType ();
+
         // The full, untransformed set of data rows. base.Rows holds the *display* projection
         // (filtered + sorted + grouped, with injected group-header rows); _master is the source of truth.
         private readonly List<DataGridViewRow> _master = new ();

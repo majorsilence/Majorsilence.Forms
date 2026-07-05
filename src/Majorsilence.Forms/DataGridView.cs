@@ -143,6 +143,11 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a cell is clicked.</summary>
         public event EventHandler<DataGridViewCellEventArgs>? CellClick;
 
+        /// <summary>Raised when a cell loses input focus. Mirrors WinForms DataGridView.CellLeave.</summary>
+#pragma warning disable CS0067 // raised once cell-focus tracking lands; declared for WinForms source compat
+        public event EventHandler<DataGridViewCellEventArgs>? CellLeave;
+#pragma warning restore CS0067
+
         /// <summary>Raised when a cell's tooltip text is needed.</summary>
         public event EventHandler<DataGridViewCellToolTipTextNeededEventArgs>? CellToolTipTextNeeded;
 

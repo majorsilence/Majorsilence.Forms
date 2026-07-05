@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a TextBox control.
     /// </summary>
-    public class TextBox : ScrollControl
+    public class TextBox : TextBoxBase
     {
         internal readonly TextBoxDocument document;
 
@@ -477,7 +477,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating the start of the TextBox's selected text.
         /// </summary>
-        public int SelectionStart {
+        public override int SelectionStart {
             get => document.SelectionStart;
             set => document.SelectionStart = value;
         }
@@ -485,7 +485,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the number of characters selected.
         /// </summary>
-        public int SelectionLength {
+        public override int SelectionLength {
             get {
                 if (document.SelectionStart < 0 || document.SelectionEnd < 0)
                     return 0;

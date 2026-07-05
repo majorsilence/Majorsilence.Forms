@@ -6,7 +6,13 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a collection of TreeViewItems.
     /// </summary>
-    public class TreeViewItemCollection : Collection<TreeViewItem>
+    /// <summary>WinForms-compatible name for the tree item collection (TreeView.Nodes).</summary>
+    public class TreeNodeCollection : Collection<TreeViewItem>
+    {
+    }
+
+    /// <summary>Represents the collection of items in a TreeView.</summary>
+    public class TreeViewItemCollection : TreeNodeCollection
     {
         private readonly TreeViewItem owner;
 
