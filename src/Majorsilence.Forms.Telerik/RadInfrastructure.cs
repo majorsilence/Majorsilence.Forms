@@ -16,6 +16,9 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadElement
     {
+        /// <summary>Gets the current behavior object (stub).</summary>
+        public object? GetCurrentBehavior () => null;
+
         /// <summary>Gets or sets whether the element draws its border. Stored for Telerik compat.</summary>
         public bool DrawBorder { get; set; } = true;
 

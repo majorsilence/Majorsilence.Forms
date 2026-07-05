@@ -7,6 +7,9 @@ namespace Majorsilence.Forms
     /// </summary>
     public class DataGridViewCell
     {
+        /// <summary>The owning column (Telerik GridViewCellInfo.ColumnInfo naming).</summary>
+        public DataGridViewColumn? ColumnInfo { get; internal set; }
+
         /// <summary>The editing-control type for this cell. Mirrors WinForms DataGridViewCell.EditType.</summary>
         public virtual Type? EditType => null;
 

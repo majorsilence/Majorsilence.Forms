@@ -67,6 +67,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Base for Telerik-compat command bar items (buttons, separators, etc. hosted in a <see cref="RadCommandBar"/> strip).</summary>
     public class RadCommandBarBaseItem : RadItem
     {
+        /// <summary>Gets or sets whether the item's image is drawn. Stored for Telerik compat.</summary>
+        public bool DrawImage { get; set; } = true;
+
         /// <summary>Gets or sets the display name shown in the command bar customization UI. Stub.</summary>
         public string DisplayName { get; set; } = string.Empty;
         /// <summary>Gets or sets whether the item appears in the "more items" overflow menu. Stub.</summary>

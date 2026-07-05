@@ -22,6 +22,9 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadGridView : DataGridView
     {
+        /// <summary>Gets or sets split-mode row synchronization. Stored for Telerik compat.</summary>
+        public bool SynchronizeCurrentRowInSplitMode { get; set; }
+
         /// <summary>Gets or sets whether rows auto-size to content. Stored for Telerik compat.</summary>
         public bool AutoSizeRows { get; set; }
 
@@ -2462,6 +2465,9 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class MasterGridViewTemplate : GridViewTemplate
     {
+        /// <summary>Gets the template's data view (stub; the compat grid binds DataSource directly).</summary>
+        public object? DataView => null;
+
         /// <summary>Gets or sets whether columns can be dragged to the group panel. Stored for compat.</summary>
         public bool AllowDragToGroup { get; set; } = true;
 
@@ -2500,8 +2506,7 @@ namespace Majorsilence.Forms.Telerik
             get => Name;
             set => Name = value;
         }
-        /// <summary>Gets or sets the .NET format string applied to values. Stub.</summary>
-        public string FormatString { get; set; } = string.Empty;
+        // FormatString now lives on DataGridViewColumn itself.
         /// <summary>Gets or sets the cell text alignment (forwards to the rendered cell alignment).</summary>
         public ContentAlignment TextAlignment {
             get => DefaultCellStyleAlignment;

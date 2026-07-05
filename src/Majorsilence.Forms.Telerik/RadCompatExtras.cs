@@ -248,6 +248,11 @@ namespace Majorsilence.Forms.Telerik
     {
     }
 
+    /// <summary>Compat stand-in for the calendar table element of a date picker popup.</summary>
+    public class CalendarTableElement : RadElement
+    {
+    }
+
     /// <summary>Compat stand-in for Telerik's filter operation context.</summary>
     public class FilterOperationContext
     {
@@ -259,17 +264,17 @@ namespace Majorsilence.Forms.Telerik
     public class PagingPanelElement : RadElement
     {
         /// <summary>First-page button element (stub).</summary>
-        public RadElement FirstButton { get; } = new RadElement ();
+        public CommandBarButton FirstButton { get; } = new CommandBarButton ();
         /// <summary>Previous-page button element (stub).</summary>
-        public RadElement PreviousButton { get; } = new RadElement ();
+        public CommandBarButton PreviousButton { get; } = new CommandBarButton ();
         /// <summary>Fast-back button element (stub).</summary>
-        public RadElement FastBackButton { get; } = new RadElement ();
+        public CommandBarButton FastBackButton { get; } = new CommandBarButton ();
         /// <summary>Fast-forward button element (stub).</summary>
-        public RadElement FastForwardButton { get; } = new RadElement ();
+        public CommandBarButton FastForwardButton { get; } = new CommandBarButton ();
         /// <summary>Next-page button element (stub).</summary>
-        public RadElement NextButton { get; } = new RadElement ();
+        public CommandBarButton NextButton { get; } = new CommandBarButton ();
         /// <summary>Last-page button element (stub).</summary>
-        public RadElement LastButton { get; } = new RadElement ();
+        public CommandBarButton LastButton { get; } = new CommandBarButton ();
     }
 
     /// <summary>Provides data for grid filter-popup creation. Mirrors Telerik's shape.</summary>

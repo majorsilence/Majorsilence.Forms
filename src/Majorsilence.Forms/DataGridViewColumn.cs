@@ -49,6 +49,9 @@ namespace Majorsilence.Forms
             set => DataPropertyName = value;
         }
 
+        /// <summary>Gets or sets the value format string (Telerik GridViewColumn.FormatString).</summary>
+        public string FormatString { get; set; } = string.Empty;
+
         /// <summary>Gets or sets whether the column supports filtering. Stored for Telerik compat.</summary>
         public bool AllowFiltering { get; set; } = true;
 

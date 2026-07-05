@@ -222,6 +222,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat list data item.</summary>
     public class RadListDataItem
     {
+        /// <summary>The underlying data object this item represents.</summary>
+        public object? DataBoundItem { get; set; }
+
         /// <summary>Initializes a new, empty instance.</summary>
         public RadListDataItem () { }
         /// <summary>Initializes a new instance with the specified text.</summary>

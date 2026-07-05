@@ -5,6 +5,10 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat drop-down list. Backed by <see cref="Majorsilence.Forms.ComboBox"/>.</summary>
     public class RadDropDownList : ComboBox
     {
+        /// <summary>Gets the selected item wrapped as a Telerik list item (typed DataBoundItem access).</summary>
+        public new RadListDataItem? SelectedItem =>
+            base.SelectedItem is null ? null : new RadListDataItem { Text = base.SelectedItem.ToString () ?? string.Empty, DataBoundItem = base.SelectedItem };
+
         /// <summary>Gets or sets the drop-down style using Telerik's enum; maps onto the base ComboBox style.</summary>
         public new RadDropDownStyle DropDownStyle {
             get => base.DropDownStyle == ComboBoxStyle.DropDownList ? RadDropDownStyle.DropDownList : RadDropDownStyle.DropDown;
