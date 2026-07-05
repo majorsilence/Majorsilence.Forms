@@ -90,6 +90,53 @@ namespace Majorsilence.Forms.Telerik
         public PropertyGridItem? Item { get; set; }
     }
 
+
+    /// <summary>Provides data for element render callbacks. Mirrors Telerik's RenderElementEventArgs.</summary>
+    public class RenderElementEventArgs : EventArgs
+    {
+        /// <summary>The element being rendered.</summary>
+        public object? Element { get; set; }
+    }
+
+    /// <summary>Provides data for custom filtering. Mirrors Telerik's GridViewCustomFilteringEventArgs.</summary>
+    public class GridViewCustomFilteringEventArgs : EventArgs
+    {
+        /// <summary>The row being evaluated.</summary>
+        public object? Row { get; set; }
+
+        /// <summary>Whether the row is visible under the filter.</summary>
+        public bool Visible { get; set; } = true;
+
+        /// <summary>Whether the event was handled by the custom filter.</summary>
+        public bool Handled { get; set; }
+    }
+
+    /// <summary>Provides data for cell validation completion. Mirrors Telerik's CellValidatedEventArgs.</summary>
+    public class CellValidatedEventArgs : EventArgs
+    {
+        /// <summary>The row index of the validated cell.</summary>
+        public int RowIndex { get; set; }
+
+        /// <summary>The column index of the validated cell.</summary>
+        public int ColumnIndex { get; set; }
+
+        /// <summary>The validated value.</summary>
+        public object? Value { get; set; }
+    }
+}
+
+namespace Majorsilence.Forms.Telerik.Data
+{
+    /// <summary>
+    /// Relative-qualification seam: legacy code written under Imports Telerik.WinControls(.UI)
+    /// references Data.PositionChangedEventArgs; with Majorsilence.Forms.Telerik imported this
+    /// nested namespace satisfies the same relative name.
+    /// </summary>
+    public class PositionChangedEventArgs : Majorsilence.Forms.Telerik.PositionChangedEventArgs
+    {
+        /// <summary>Initializes the args for a position.</summary>
+        public PositionChangedEventArgs (int position) : base (position) { }
+    }
 }
 
 namespace Telerik.Collections.Generic

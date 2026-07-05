@@ -135,6 +135,15 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when the Value property changes.</summary>
+        /// <summary>Raised when the drop-down calendar opens. Mirrors WinForms DateTimePicker.DropDown.</summary>
+#pragma warning disable CS0067 // raised once the popup pipeline exposes open/close notifications
+        public event EventHandler? DropDown;
+
+        /// <summary>Raised when the drop-down calendar closes. Mirrors WinForms DateTimePicker.CloseUp.</summary>
+        public event EventHandler? CloseUp;
+#pragma warning restore CS0067
+
+        /// <summary>Raised when the date value changes. Mirrors WinForms DateTimePicker.ValueChanged.</summary>
         public event EventHandler? ValueChanged;
 
         /// <summary>Gets or sets whether a checkbox is displayed to the left of the selected date. Stub in Majorsilence.Forms.</summary>

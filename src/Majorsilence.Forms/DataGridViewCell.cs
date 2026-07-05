@@ -7,6 +7,20 @@ namespace Majorsilence.Forms
     /// </summary>
     public class DataGridViewCell
     {
+        /// <summary>The editing-control type for this cell. Mirrors WinForms DataGridViewCell.EditType.</summary>
+        public virtual Type? EditType => null;
+
+        /// <summary>The value type of the cell. Mirrors WinForms DataGridViewCell.ValueType.</summary>
+        public virtual Type? ValueType { get; set; }
+
+        /// <summary>The default value for a new row's cell. Mirrors WinForms.</summary>
+        public virtual object? DefaultNewRowValue => null;
+
+        /// <summary>Initializes the hosted editing control. Mirrors WinForms.</summary>
+        public virtual void InitializeEditingControl (int rowIndex, object? initialFormattedValue, DataGridViewCellStyle dataGridViewCellStyle)
+        {
+        }
+
         private object? value;
         private DataGridViewRow? owner;
 

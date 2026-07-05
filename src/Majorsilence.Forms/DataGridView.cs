@@ -155,7 +155,7 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellEditEventArgs>? CellBeginEdit;
 
         /// <summary>Raised when a cell ends editing.</summary>
-        public event EventHandler<DataGridViewCellEditEventArgs>? CellEndEdit;
+        public event EventHandler<DataGridViewCellEventArgs>? CellEndEdit;
 
         /// <summary>Raised when a cell value has changed.</summary>
         public event EventHandler<DataGridViewCellEditEventArgs>? CellValueChanged;
@@ -516,7 +516,7 @@ namespace Majorsilence.Forms
                 }
             }
 
-            var end_args = new DataGridViewCellEditEventArgs (editing_row_index, editing_column_index);
+            var end_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
             OnCellEndEdit (end_args);
 
             // Clean up the TextBox
@@ -1076,7 +1076,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the CellEndEdit event.
         /// </summary>
-        protected virtual void OnCellEndEdit (DataGridViewCellEditEventArgs e) => CellEndEdit?.Invoke (this, e);
+        protected virtual void OnCellEndEdit (DataGridViewCellEventArgs e) => CellEndEdit?.Invoke (this, e);
 
         /// <summary>
         /// Raises the CellValueChanged event.

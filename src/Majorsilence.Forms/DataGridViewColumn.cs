@@ -151,7 +151,7 @@ namespace Majorsilence.Forms
         public int DividerWidth { get; set; }
 
         /// <summary>Gets or sets the template used to create new cells. Stub in Majorsilence.Forms.</summary>
-        public DataGridViewCell? CellTemplate { get; set; }
+        public virtual DataGridViewCell? CellTemplate { get; set; }
 
         /// <summary>Gets or sets the display order of the column. Stub in Majorsilence.Forms.</summary>
         public int DisplayIndex {
