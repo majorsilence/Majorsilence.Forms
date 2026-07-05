@@ -1729,6 +1729,11 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ContextMenuStrip : ContextMenu
     {
+        /// <summary>Shows the menu at the given screen point. Mirrors WinForms ContextMenuStrip.Show(Point).</summary>
+        public void Show (System.Drawing.Point screenLocation)
+        {
+        }
+
         /// <summary>Gets or sets the size used to scale item images. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Size ImageScalingSize { get; set; } = new System.Drawing.Size(16, 16);
     }

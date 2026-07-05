@@ -248,6 +248,11 @@ namespace Majorsilence.Forms.Telerik
     {
     }
 
+    /// <summary>Compat stand-in for the grid data cell element.</summary>
+    public class GridDataCellElement : RadElement
+    {
+    }
+
     /// <summary>Compat stand-in for the calendar table element of a date picker popup.</summary>
     public class CalendarTableElement : RadElement
     {

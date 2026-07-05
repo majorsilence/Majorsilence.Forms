@@ -22,6 +22,30 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadGridView : DataGridView
     {
+        /// <summary>Top-level rows of the current view. Mirrors Telerik (no hierarchy here, so all rows).</summary>
+        public GridViewRowInfoCollection ChildRows => Rows;
+
+        /// <summary>The current view object (stub: the grid itself).</summary>
+        public object CurrentView => this;
+
+        /// <summary>The element tree root (stub).</summary>
+        public RadElement ElementTree { get; } = new RadElement ();
+
+        /// <summary>Whether a cell editor is active. Mirrors Telerik.</summary>
+        public bool IsInEditMode => base.CurrentCell is not null && IsCurrentCellInEditMode;
+
+        /// <summary>Defers view refreshes (stub scope; refresh happens on dispose).</summary>
+        public IDisposable DeferRefresh () => new DeferScope (this);
+
+        private sealed class DeferScope : IDisposable
+        {
+            private readonly RadGridView owner;
+            /// <summary>Creates the scope.</summary>
+            public DeferScope (RadGridView owner) { this.owner = owner; }
+            /// <summary>Refreshes on dispose.</summary>
+            public void Dispose () => owner.Invalidate ();
+        }
+
         /// <summary>Gets or sets split-mode row synchronization. Stored for Telerik compat.</summary>
         public bool SynchronizeCurrentRowInSplitMode { get; set; }
 
@@ -1507,6 +1531,15 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Loads the layout from a stream (Telerik overload used for in-memory persistence).</summary>
+        /// <summary>Loads the layout from an XmlReader (Telerik overload).</summary>
+        public void LoadLayout (System.Xml.XmlReader reader)
+        {
+            var doc = new System.Xml.XmlDocument ();
+            doc.Load (reader);
+            LoadLayoutFromString (doc.OuterXml);
+        }
+
+        /// <summary>Loads the layout from a stream (Telerik overload used for in-memory persistence).</summary>
         public void LoadLayout (Stream stream)
         {
             using var reader = new StreamReader (stream, System.Text.Encoding.UTF8, leaveOpen: true);
@@ -2465,6 +2498,9 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class MasterGridViewTemplate : GridViewTemplate
     {
+        /// <summary>Synchronization service (stub).</summary>
+        public object? SynchronizationService => null;
+
         /// <summary>Gets the template's data view (stub; the compat grid binds DataSource directly).</summary>
         public object? DataView => null;
 
@@ -2786,6 +2822,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat row info. Wraps a <see cref="DataGridViewRow"/>.</summary>
     public class GridViewRowInfo
     {
+        /// <summary>Whether this row is the grid's current row. Mirrors Telerik.</summary>
+        public bool IsCurrent { get; set; }
+
         private readonly DataGridViewRow _row;
 
         internal GridViewRowInfo (DataGridViewRow row) => _row = row;
@@ -2839,6 +2878,9 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class GridViewGroupRowInfo : GridViewRowInfo
     {
+        /// <summary>The group descriptor/content this row represents (stub).</summary>
+        public object? Group { get; set; }
+
         internal GridViewGroupRowInfo (DataGridViewRow row) : base (row) { }
 
         /// <summary>Gets the group header text (e.g. "Field: Value (Count)").</summary>
@@ -2848,6 +2890,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat cell collection over a <see cref="DataGridViewRow"/>.</summary>
     public class GridViewCellCollection
     {
+        /// <summary>The number of cells. Mirrors Telerik's collection surface.</summary>
+        public int Count => _row.Cells.Count;
+
         private readonly DataGridViewRow _row;
 
         internal GridViewCellCollection (DataGridViewRow row) => _row = row;
@@ -2899,6 +2944,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat cell info. Wraps a <see cref="DataGridViewCell"/>.</summary>
     public class GridViewCellInfo
     {
+        /// <summary>Whether the cell is selected. Stored for Telerik compat.</summary>
+        public bool IsSelected { get; set; }
+
         private readonly DataGridViewCell _cell;
 
         internal GridViewCellInfo (DataGridViewCell cell) => _cell = cell;

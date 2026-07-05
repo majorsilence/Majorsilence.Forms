@@ -86,6 +86,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat tool window.</summary>
     public class ToolWindow : DockWindowBase
     {
+        /// <summary>Document-mode buttons setting. Stored for Telerik compat.</summary>
+        public object? DocumentButtons { get; set; }
+
         /// <summary>Initializes a new instance.</summary>
         public ToolWindow () { }
         /// <summary>Initializes a new instance with the specified caption.</summary>
@@ -185,6 +188,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat document container. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class DocumentContainer : Panel
     {
+        /// <summary>Whether the container is collapsed. Stored for Telerik compat.</summary>
+        public bool Collapsed { get; set; }
+
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the size info (stub).</summary>

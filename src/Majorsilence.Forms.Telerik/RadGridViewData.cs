@@ -48,6 +48,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class FilterDescriptor
     {
+        /// <summary>Whether the descriptor came from the filter editor UI. Stored for compat.</summary>
+        public bool IsFilterEditor { get; set; }
+
+        /// <summary>Creates a copy of this descriptor.</summary>
+        public FilterDescriptor Clone () => (FilterDescriptor)MemberwiseClone ();
+
         /// <summary>Initializes a new, empty filter descriptor.</summary>
         public FilterDescriptor () { }
 
