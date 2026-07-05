@@ -167,7 +167,7 @@ namespace Majorsilence.Forms
         public event EventHandler<FormClosingEventArgs>? FormClosing;
 
         /// <summary>Raised after the form is closed.</summary>
-        public event EventHandler<FormClosedEventArgs>? FormClosed;
+        public event FormClosedEventHandler? FormClosed;
 
 
         /// <summary>Raised when the form is first shown (WinForms compatibility alias; raised together with Shown).</summary>

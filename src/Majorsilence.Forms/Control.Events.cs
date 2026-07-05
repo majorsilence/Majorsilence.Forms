@@ -163,7 +163,7 @@ public partial class Control
     /// <summary>
     /// Raised when the user presses a key.
     /// </summary>
-    public event EventHandler<KeyPressEventArgs>? KeyPress {
+    public event KeyPressEventHandler? KeyPress {
         add => Events.AddHandler (s_keyPressEvent, value);
         remove => Events.RemoveHandler (s_keyPressEvent, value);
     }

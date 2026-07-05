@@ -881,6 +881,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the size of this item (informational only).</summary>
         public virtual Size Size { get; set; }
 
+        /// <summary>Gets or sets the height of this item. Mirrors WinForms ToolStripItem.Height.</summary>
+        public int Height {
+            get => Size.Height;
+            set => Size = new Size (Size.Width, value);
+        }
+
         /// <summary>Gets or sets whether this item is visible.</summary>
         public bool Visible { get; set; } = true;
 
@@ -1528,8 +1534,44 @@ namespace Majorsilence.Forms
     /// <summary>
     /// A collection of ToolStripItem objects.
     /// </summary>
+    /// <summary>Provides data for the ToolStrip.ItemAdded/ItemRemoved events.</summary>
+    public class ToolStripItemEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance for the given item.</summary>
+        public ToolStripItemEventArgs (ToolStripItem item) { Item = item; }
+
+        /// <summary>The item the event refers to.</summary>
+        public ToolStripItem Item { get; }
+    }
+
+    /// <summary>Provides data for the ToolStrip.ItemClicked event.</summary>
+    public class ToolStripItemClickedEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance for the given item.</summary>
+        public ToolStripItemClickedEventArgs (ToolStripItem clickedItem) { ClickedItem = clickedItem; }
+
+        /// <summary>The item that was clicked.</summary>
+        public ToolStripItem ClickedItem { get; }
+    }
+
+    /// <summary>Represents the method that handles ToolStrip.ItemAdded/ItemRemoved.</summary>
+    public delegate void ToolStripItemEventHandler (object? sender, ToolStripItemEventArgs e);
+
+    /// <summary>Represents the method that handles ToolStrip.ItemClicked.</summary>
+    public delegate void ToolStripItemClickedEventHandler (object? sender, ToolStripItemClickedEventArgs e);
+
     public class ToolStripItemCollection : Collection<ToolStripItem>
     {
+        /// <summary>Invoked when an item is added (lets the owning ToolStrip raise ItemAdded).</summary>
+        internal Action<ToolStripItem>? ItemAddedCallback;
+
+        /// <inheritdoc/>
+        protected override void InsertItem (int index, ToolStripItem item)
+        {
+            base.InsertItem (index, item);
+            ItemAddedCallback?.Invoke (item);
+        }
+
         /// <summary>Adds a range of items to the collection.</summary>
         public void AddRange (IEnumerable<ToolStripItem> items)
         {
@@ -1642,8 +1684,19 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of the ToolStrip class.</summary>
         public ToolStrip ()
         {
-            _items = new ToolStripItemCollection ();
+            _items = new ToolStripItemCollection {
+                ItemAddedCallback = item => {
+                    item.Click += (_, _) => ItemClicked?.Invoke (this, new ToolStripItemClickedEventArgs (item));
+                    ItemAdded?.Invoke (this, new ToolStripItemEventArgs (item));
+                }
+            };
         }
+
+        /// <summary>Raised when an item is added to the ToolStrip.</summary>
+        public event ToolStripItemEventHandler? ItemAdded;
+
+        /// <summary>Raised when an item in the ToolStrip is clicked.</summary>
+        public event ToolStripItemClickedEventHandler? ItemClicked;
 
         /// <summary>Gets the collection of items in this ToolStrip.</summary>
         public new ToolStripItemCollection Items => _items;

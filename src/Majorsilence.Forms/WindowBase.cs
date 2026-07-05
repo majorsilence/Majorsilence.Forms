@@ -163,6 +163,21 @@ namespace Majorsilence.Forms
         /// <summary>Gets the collection of controls contained by the window.</summary>
         public Control.ControlCollection Controls => adapter.Controls;
 
+        /// <summary>WinForms compatibility. Majorsilence.Forms always renders double-buffered; the
+        /// value is stored but has no effect.</summary>
+        public bool DoubleBuffered { get; set; } = true;
+
+        /// <summary>WinForms compatibility: the window's outer margin. Stored for designer parity;
+        /// top-level windows have no layout parent to consume it.</summary>
+        public Padding Margin { get; set; } = new Padding (3);
+
+        /// <summary>Raised when the window's client area is double-clicked. Mirrors WinForms
+        /// Form.DoubleClick; forwards to the root control adapter.</summary>
+        public event EventHandler? DoubleClick {
+            add => adapter.DoubleClick += value;
+            remove => adapter.DoubleClick -= value;
+        }
+
         /// <summary>Gets the current style of this window instance.</summary>
         public virtual ControlStyle CurrentStyle => Style;
 
