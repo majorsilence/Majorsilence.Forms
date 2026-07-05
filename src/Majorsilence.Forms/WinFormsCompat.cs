@@ -1560,6 +1560,7 @@ namespace Majorsilence.Forms
     /// <summary>Represents the method that handles ToolStrip.ItemClicked.</summary>
     public delegate void ToolStripItemClickedEventHandler (object? sender, ToolStripItemClickedEventArgs e);
 
+    /// <summary>Represents the collection of items in a ToolStrip.</summary>
     public class ToolStripItemCollection : Collection<ToolStripItem>
     {
         /// <summary>Invoked when an item is added (lets the owning ToolStrip raise ItemAdded).</summary>
