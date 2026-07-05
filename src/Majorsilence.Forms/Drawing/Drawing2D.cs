@@ -243,6 +243,26 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>Returns whether the specified point lies within this path.</summary>
         public bool IsVisible (Point point) => path.Contains (point.X, point.Y);
 
+        /// <summary>
+        /// Replaces this path with the outline (stroke-to-fill) of itself as drawn with the given
+        /// pen -- turns a zero-area line/curve path into a real, hit-testable filled region (e.g.
+        /// `path.Widen(pen); path.IsVisible(pt)` to hit-test near a thin line, since IsVisible/
+        /// SKPath.Contains always returns false for a path with no area).
+        /// </summary>
+        public void Widen (Majorsilence.Forms.Drawing.Pen pen)
+        {
+            using var paint = new SKPaint {
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = pen.Width <= 0 ? 1 : pen.Width,
+                StrokeCap = SKStrokeCap.Butt,
+                StrokeJoin = SKStrokeJoin.Miter,
+            };
+            var widened = new SKPath ();
+            paint.GetFillPath (path, widened);
+            path.Dispose ();
+            path = widened;
+        }
+
         private void EnsureStart (float x, float y)
         {
             if (path.PointCount == 0)

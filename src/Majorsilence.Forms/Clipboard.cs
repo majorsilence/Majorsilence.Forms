@@ -146,6 +146,18 @@ namespace Majorsilence.Forms
         void SetData (string format, object? data);
         /// <summary>Stores the specified data using the specified type as the format.</summary>
         void SetData (Type format, object? data);
+
+        /// <summary>Gets the data in the specified DataFormat. Convenience overload -- delegates to GetData(string).</summary>
+        object? GetData (DataFormat format) => GetData (format.Name);
+        /// <summary>Gets the data in the specified DataFormat, optionally converting it. Convenience overload -- delegates to GetData(string, bool).</summary>
+        object? GetData (DataFormat format, bool autoConvert) => GetData (format.Name, autoConvert);
+        /// <summary>Returns whether data is present in the specified DataFormat. Convenience overload -- delegates to GetDataPresent(string).</summary>
+        bool GetDataPresent (DataFormat format) => GetDataPresent (format.Name);
+        /// <summary>Returns whether data is present in the specified DataFormat, optionally converting. Convenience overload -- delegates to GetDataPresent(string, bool).</summary>
+        bool GetDataPresent (DataFormat format, bool autoConvert) => GetDataPresent (format.Name, autoConvert);
+        /// <summary>Stores the specified data in the specified DataFormat. Convenience overload -- delegates to SetData(string, object).</summary>
+        void SetData (DataFormat format, object? data) => SetData (format.Name, data);
+
         /// <summary>Stores the specified data and indicates whether the data can be converted to another format.</summary>
         void SetData (string format, bool autoConvert, object? data);
     }

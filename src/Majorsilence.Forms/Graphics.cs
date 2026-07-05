@@ -305,6 +305,10 @@ namespace Majorsilence.Forms
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
         }
 
+        /// <summary>Draws a line using a Majorsilence.Forms.Drawing.Pen and float coordinates.</summary>
+        public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, float x1, float y1, float x2, float y2)
+            => DrawLine (pen, new PointF (x1, y1), new PointF (x2, y2));
+
         /// <summary>Draws a rectangle with float coordinates.</summary>
         public void DrawRectangle (Majorsilence.Forms.Drawing.Pen pen, float x, float y, float width, float height)
             => DrawRectangle (pen, new Rectangle ((int)x, (int)y, (int)width, (int)height));
@@ -408,6 +412,64 @@ namespace Majorsilence.Forms
             _canvas.DrawPath (path, paint);
         }
 
+        /// <summary>
+        /// Draws a segment of a cardinal spline through <paramref name="points"/>, starting at
+        /// <paramref name="offset"/> and spanning <paramref name="numberOfSegments"/> segments,
+        /// with the curve's tightness controlled by <paramref name="tension"/> (0 = straight
+        /// lines between points, matching System.Drawing.Graphics.DrawCurve's default of 0.5).
+        /// Unlike the plain (Pen, PointF[]) overload above (which just connects points with
+        /// straight lines), this is a real Catmull-Rom spline through the points.
+        /// </summary>
+        public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points, int offset, int numberOfSegments, float tension)
+        {
+            if (_canvas is null || points.Length < 2 || numberOfSegments < 1) return;
+
+            int last = offset + numberOfSegments;
+            if (last >= points.Length) last = points.Length - 1;
+            if (offset < 0 || offset >= last) return;
+
+            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            using var path = new SKPath ();
+            path.MoveTo (points[offset].X, points[offset].Y);
+
+            // Catmull-Rom, converted to tension-scaled tangents (matches GDI+'s interpretation
+            // of the `tension` parameter): for each segment P1->P2, use the neighboring points
+            // P0 and P3 (clamped to the array ends) to compute tangents, subdivided into a fixed
+            // number of steps per segment for a smooth curve.
+            const int stepsPerSegment = 24;
+            for (int i = offset; i < last; i++)
+            {
+                var p0 = points[System.Math.Max (i - 1, 0)];
+                var p1 = points[i];
+                var p2 = points[i + 1];
+                var p3 = points[System.Math.Min (i + 2, points.Length - 1)];
+
+                for (int s = 1; s <= stepsPerSegment; s++)
+                {
+                    float t = s / (float)stepsPerSegment;
+                    float t2 = t * t;
+                    float t3 = t2 * t;
+
+                    float m0x = tension * (p2.X - p0.X);
+                    float m0y = tension * (p2.Y - p0.Y);
+                    float m1x = tension * (p3.X - p1.X);
+                    float m1y = tension * (p3.Y - p1.Y);
+
+                    float h00 = 2 * t3 - 3 * t2 + 1;
+                    float h10 = t3 - 2 * t2 + t;
+                    float h01 = -2 * t3 + 3 * t2;
+                    float h11 = t3 - t2;
+
+                    float x = h00 * p1.X + h10 * m0x + h01 * p2.X + h11 * m1x;
+                    float y = h00 * p1.Y + h10 * m0y + h01 * p2.Y + h11 * m1y;
+
+                    path.LineTo (x, y);
+                }
+            }
+
+            _canvas.DrawPath (path, paint);
+        }
+
         /// <summary>Fills an ellipse using a Majorsilence.Forms.Drawing.Brush.</summary>
         public void FillEllipse (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect)
         {
@@ -431,6 +493,10 @@ namespace Majorsilence.Forms
         /// <summary>Draws an ellipse outline using a Majorsilence.Forms.Drawing.Pen (RectangleF overload).</summary>
         public void DrawEllipse (Majorsilence.Forms.Drawing.Pen pen, RectangleF rect)
             => DrawEllipse (pen, new Rectangle ((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height));
+
+        /// <summary>Draws an ellipse outline using a Majorsilence.Forms.Drawing.Pen.</summary>
+        public void DrawEllipse (Majorsilence.Forms.Drawing.Pen pen, float x, float y, float width, float height)
+            => DrawEllipse (pen, new Rectangle ((int)x, (int)y, (int)width, (int)height));
 
         /// <summary>Fills an ellipse using a Majorsilence.Forms.Drawing.Brush (RectangleF overload).</summary>
         public void FillEllipse (Majorsilence.Forms.Drawing.Brush brush, RectangleF rect)
@@ -699,6 +765,10 @@ namespace Majorsilence.Forms
             using var bmp = image?.ToSKBitmap ();
             if (bmp != null) DrawImage (bmp, destRect, srcRect, srcUnit);
         }
+
+        /// <summary>Draws a portion of a Majorsilence.Forms.Drawing.Image to the destination rectangle (float-rectangle overload, rounded to integer device rects).</summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, RectangleF destRect, RectangleF srcRect, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
+            => DrawImage (image, Rectangle.Round (destRect), Rectangle.Round (srcRect), srcUnit);
 
         /// <summary>Draws a Majorsilence.Forms.Drawing.Image unscaled at a point.</summary>
         public void DrawImageUnscaled (Majorsilence.Forms.Drawing.Image image, int x, int y) => DrawImage (image, x, y);

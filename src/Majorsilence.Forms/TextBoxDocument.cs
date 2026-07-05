@@ -150,7 +150,52 @@ namespace Majorsilence.Forms
                         Text.HasValue () ? textbox.CurrentStyle.GetForegroundColor () :
                                 placeholder_font_color;
 
+            if (textbox.Colorizer is { } colorizer && DisplayText.HasValue ())
+                return cached_text_block = BuildColorizedTextBlock (colorizer, max_size, color);
+
             return cached_text_block = TextMeasurer.CreateTextBlock (DisplayText, font, textbox.CurrentFontSize, max_size, alignment, color, MaxLines);
+        }
+
+        // Builds a TextBlock from multiple styled runs using the attached Colorizer, instead of
+        // TextMeasurer's single-style cache (per-instance colorizer output isn't safe to share
+        // across controls/keys the way the plain-text cache is). Spans outside [0, text.Length)
+        // or that overlap a previous span are skipped defensively -- a buggy colorizer should
+        // degrade to partially-colored text, not throw during paint.
+        private TextBlock BuildColorizedTextBlock (System.Func<string, System.Collections.Generic.IEnumerable<TextSpanStyle>> colorizer, Size max_size, SKColor defaultColor)
+        {
+            var text = DisplayText;
+            var tb = new TextBlock {
+                MaxWidth = max_size.Width,
+                MaxHeight = max_size.Height == int.MaxValue ? (int?)null : max_size.Height,
+                Alignment = alignment,
+                MaxLines = MaxLines,
+            };
+
+            var defaultStyle = new Style { FontFamily = font.FamilyName, FontSize = textbox.CurrentFontSize, TextColor = defaultColor, FontWeight = font.FontWeight };
+            var next = 0;
+
+            foreach (var span in colorizer (text)) {
+                if (span.Start < next || span.Length <= 0 || span.Start + span.Length > text.Length)
+                    continue;
+
+                if (span.Start > next)
+                    tb.AddText (text.AsSpan (next, span.Start - next), defaultStyle);
+
+                var spanStyle = new Style {
+                    FontFamily = font.FamilyName,
+                    FontSize = textbox.CurrentFontSize,
+                    TextColor = span.Color,
+                    FontWeight = span.Bold ? (int)SkiaSharp.SKFontStyleWeight.Bold : font.FontWeight,
+                    Underline = span.Underline ? UnderlineStyle.Solid : UnderlineStyle.None,
+                };
+                tb.AddText (text.AsSpan (span.Start, span.Length), spanStyle);
+                next = span.Start + span.Length;
+            }
+
+            if (next < text.Length)
+                tb.AddText (text.AsSpan (next), defaultStyle);
+
+            return tb;
         }
 
         /// <summary>

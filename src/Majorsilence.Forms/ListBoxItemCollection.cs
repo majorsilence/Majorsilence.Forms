@@ -31,6 +31,18 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Adds an item and returns its index, matching System.Windows.Forms.ListBox.
+        /// ObjectCollection.Add (the base ObservableCollection&lt;object&gt;.Add is void-returning,
+        /// which is why this hides it for the single-argument overload specifically).
+        /// </summary>
+        public new int Add (object item)
+        {
+            base.Add (item);
+            return Count - 1;
+        }
+
+
+        /// <summary>
         /// Adds an item with an optional checked state (WinForms compat for CheckedListBox.Items.Add).
         /// </summary>
         public int Add (object item, bool isChecked)

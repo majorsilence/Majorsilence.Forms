@@ -9,8 +9,14 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents the base class for all Controls.
     /// </summary>
-    public partial class Control : Component, ILayoutable, IArrangedElement, IDisposable
+    public partial class Control : Component, ILayoutable, IArrangedElement, IDisposable, IWin32Window
     {
+        /// <summary>Win32 HWND compatibility -- Majorsilence.Forms has no HWND, always IntPtr.Zero.
+        /// Implemented so ported WinForms code like `MessageBox.Show(this, ...)` (passing a
+        /// Control as an IWin32Window owner) keeps compiling unmodified.</summary>
+        System.IntPtr IWin32Window.Handle => System.IntPtr.Zero;
+
+
         // Control instance members
         //
         // Note: Do not add anything to this list unless absolutely necessary.
@@ -1904,6 +1910,9 @@ namespace Majorsilence.Forms
         /// Gets or sets a value indicating whether the control uses its visual style's background color (no-op compatibility property).
         /// </summary>
         public bool UseVisualStyleBackColor { get; set; } = true;
+
+        /// <summary>Gets the default background color of a control. Matches System.Windows.Forms.Control.DefaultBackColor (SystemColors.Control).</summary>
+        public static System.Drawing.Color DefaultBackColor => SystemColors.Control;
 
         /// <summary>
         /// Gets or sets the background color of the control. This is a convenience wrapper over

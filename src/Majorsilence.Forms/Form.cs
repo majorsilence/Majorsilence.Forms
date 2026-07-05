@@ -51,6 +51,43 @@ namespace Majorsilence.Forms
                 UseSystemDecorations = true;
 
             Backend.Size = DefaultSize;
+
+            // Forward the internal adapter's own mouse events as public Form-level events --
+            // WindowBase routes all mouse input through `adapter` (a Control) via
+            // adapter.RaiseMouseDown/RaiseMouseMove, which already raise the adapter's own
+            // MouseDown/MouseMove/Leave; Form itself just didn't expose them. Needed for
+            // top-level windows that track the mouse over their own surface directly (e.g.
+            // borderless popup pickers), the same way ported WinForms code commonly does on Form.
+            adapter.MouseDown += (s, e) => MouseDown?.Invoke (this, e);
+            adapter.MouseMove += (s, e) => MouseMove?.Invoke (this, e);
+            adapter.MouseLeave += (s, e) => Leave?.Invoke (this, e);
+        }
+
+        /// <summary>Raised when a mouse button is pressed over the form's own surface.</summary>
+        public event EventHandler<MouseEventArgs>? MouseDown;
+
+        /// <summary>Raised when the mouse moves over the form's own surface.</summary>
+        public event EventHandler<MouseEventArgs>? MouseMove;
+
+        /// <summary>Raised when the mouse leaves the form's own surface.</summary>
+        public event EventHandler? Leave;
+
+        /// <summary>Gets or sets whether the form causes validation to be performed on any controls that require validation when it receives focus. Matches Control.CausesValidation.</summary>
+        public bool CausesValidation { get; set; } = true;
+
+        /// <summary>
+        /// Raised when the form is validating. Stub in Majorsilence.Forms -- matches Control.
+        /// Validating's shape so ported code compiles, but there is no automatic focus-change
+        /// validation pipeline to fire it yet (add/remove bodies avoid a "never used" warning
+        /// for an event this type never raises itself).
+        /// </summary>
+        public event System.ComponentModel.CancelEventHandler? Validating { add { } remove { } }
+
+        /// <summary>Attempts to set focus to the form. Matches Control.Focus's shape (returns whether the focus request succeeded).</summary>
+        public bool Focus ()
+        {
+            Backend.Activate ();
+            return true;
         }
 
         /// <summary>Gets or sets the button that is activated when Enter is pressed.</summary>
@@ -535,6 +572,18 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>Gets or sets the width of the window, in pixels. Equivalent to Size.Width.</summary>
+        public int Width {
+            get => Size.Width;
+            set => Size = new System.Drawing.Size (value, Size.Height);
+        }
+
+        /// <summary>Gets or sets the height of the window, in pixels. Equivalent to Size.Height.</summary>
+        public int Height {
+            get => Size.Height;
+            set => Size = new System.Drawing.Size (Size.Width, value);
+        }
+
         /// <summary>Gets the currently active form (the most recently focused open form).</summary>
         public static Form? ActiveForm => Application.OpenForms.LastOrDefault ();
 
@@ -722,6 +771,18 @@ namespace Majorsilence.Forms
                 }
             }
         }
+
+        /// <summary>Gets or sets whether the form accepts data dragged onto it. Stub in
+        /// Majorsilence.Forms -- matches Control.AllowDrop/DragEnter/DragDrop, which are also
+        /// stubs (DoDragDrop always returns DragDropEffects.None, and the drag events never
+        /// fire); provided so ported code compiles against Form the same as it does Control.</summary>
+        public bool AllowDrop { get; set; }
+
+        /// <summary>Raised when a drag-and-drop operation enters the form. Stub in Majorsilence.Forms (never fires).</summary>
+        public event EventHandler<DragEventArgs>? DragEnter { add { } remove { } }
+
+        /// <summary>Raised when a drag-and-drop operation completes over the form. Stub in Majorsilence.Forms (never fires).</summary>
+        public event EventHandler<DragEventArgs>? DragDrop { add { } remove { } }
 
         /// <summary>
         /// Gets or sets the MDI parent. Set this (and call <see cref="WindowBase.Show"/>) to host this form

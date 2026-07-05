@@ -101,5 +101,25 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the selection foreground color. WinForms compatibility stub (stored, not rendered).</summary>
         public System.Drawing.Color SelectionForeColor { get; set; } = System.Drawing.Color.Empty;
+
+        /// <summary>
+        /// Converts a DataGridViewCellStyle to a ControlStyle, so WinForms-style designer code
+        /// (`grid.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle { BackColor = ...,
+        /// Font = ..., ... };`) can assign directly to a ControlStyle-typed property.
+        /// </summary>
+        public static implicit operator ControlStyle (DataGridViewCellStyle style)
+        {
+            var result = new ControlStyle (null, _ => { }) {
+                BackColor = style.BackColor,
+                ForeColor = style.ForeColor,
+                SelectionBackColor = style.SelectionBackColor,
+                SelectionForeColor = style.SelectionForeColor,
+            };
+            if (style.Font is { } font) {
+                result.Font = font.GetSKTypeface ();
+                result.FontSize = (int)font.SizeInPoints;
+            }
+            return result;
+        }
     }
 }

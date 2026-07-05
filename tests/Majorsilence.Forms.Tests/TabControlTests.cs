@@ -366,5 +366,53 @@ namespace Majorsilence.Forms.Tests
             page.Text = "Updated";
             Assert.Equal ("Updated", page.Text);
         }
+
+        [Fact]
+        public void Controls_Add_TabPage_RegistersAsTab ()
+        {
+            // Regression: designer-generated code from ported WinForms projects commonly does
+            // `tabControl1.Controls.Add(tabPage1)` (valid in real WinForms, where Controls and
+            // TabPages are the same collection). Majorsilence.Forms keeps them separate, so this
+            // must still register a real tab -- otherwise SelectedIndex = 0 throws on an
+            // apparently-populated TabControl (found via RdlDesign.Forms's D6 designer round-trip
+            // test, which triggers exactly this path through generated InitializeComponent code).
+            using var control = new TabControl ();
+            using var page = new TabPage ("Page 1");
+
+            control.Controls.Add (page);
+
+            Assert.Single (control.TabPages);
+            Assert.Same (page, control.TabPages[0]);
+            Assert.Equal (1, control.TabCount);
+        }
+
+        [Fact]
+        public void Controls_Add_TabPage_AllowsSelectedIndexZero ()
+        {
+            using var control = new TabControl ();
+            using var page1 = new TabPage ("Page 1");
+            using var page2 = new TabPage ("Page 2");
+
+            control.Controls.Add (page1);
+            control.Controls.Add (page2);
+            control.SelectedIndex = 0;
+
+            Assert.Equal (0, control.SelectedIndex);
+            Assert.Same (page1, control.SelectedTab);
+        }
+
+        [Fact]
+        public void TabPages_Add_StillWorks_AfterControlsOverride ()
+        {
+            // The Controls.Add(TabPage) redirect must not break the existing, already-correct
+            // TabPages.Add path (which itself calls back into Controls.Insert internally).
+            using var control = new TabControl ();
+            using var page = new TabPage ("Page 1");
+
+            control.TabPages.Add (page);
+
+            Assert.Single (control.TabPages);
+            Assert.Contains (page, control.Controls);
+        }
     }
 }

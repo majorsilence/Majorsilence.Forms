@@ -11,6 +11,25 @@ namespace Majorsilence.Forms
     {
         internal readonly TextBoxDocument document;
 
+        private System.Func<string, System.Collections.Generic.IEnumerable<TextSpanStyle>>? colorizer;
+
+        /// <summary>
+        /// Gets or sets a function that computes syntax-highlighting spans for this control's
+        /// current text (called with <see cref="Text"/>, returning non-overlapping, left-to-right
+        /// <see cref="TextSpanStyle"/> spans). When set, painting uses these spans instead of a
+        /// single uniform foreground color; gaps between spans use the normal foreground color.
+        /// Intended for code-editor-style subclasses (e.g. a Scintilla-compatible shim) rather
+        /// than typical single-style text entry.
+        /// </summary>
+        public System.Func<string, System.Collections.Generic.IEnumerable<TextSpanStyle>>? Colorizer {
+            get => colorizer;
+            set {
+                colorizer = value;
+                document.InvalidateTextBlock ();
+                Invalidate ();
+            }
+        }
+
         private bool is_highlighting;
         private int selection_anchor = -1;
         private int scroll_x;
@@ -54,6 +73,20 @@ namespace Majorsilence.Forms
         internal int CurrentFontSize => LogicalToDeviceUnits (CurrentStyle.GetFontSize ());
 
         /// <summary>
+        /// Gets the height a single-line TextBox should be to exactly fit one line of text at the
+        /// current font, plus padding -- the same role System.Windows.Forms.TextBox.PreferredHeight
+        /// plays (used to auto-size a textbox instead of hardcoding a pixel height).
+        /// </summary>
+        public int PreferredHeight
+        {
+            get
+            {
+                var lineHeight = (int)System.Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height);
+                return lineHeight + (Padding.Top + Padding.Bottom) + 4; // 4px matches the default border/inset
+            }
+        }
+
+        /// <summary>
         /// Copies the selected text of the TextBox to the clipboard and removes it from the TextBox.
         /// </summary>
         public void Cut ()
@@ -86,8 +119,23 @@ namespace Majorsilence.Forms
             scroll_x += x;
             scroll_y += y;
 
+            if (y != 0)
+                VScroll?.Invoke (this, EventArgs.Empty);
+            if (x != 0)
+                HScroll?.Invoke (this, EventArgs.Empty);
+
             Invalidate ();
         }
+
+        /// <summary>
+        /// Raised when the vertical scroll position changes, matching System.Windows.Forms.
+        /// TextBoxBase.VScroll (a real event there, distinct from Control.VScroll's unrelated
+        /// bool property -- `new` shadows that property for this type and its subclasses).
+        /// </summary>
+        public new event EventHandler? VScroll;
+
+        /// <summary>Raised when the horizontal scroll position changes. See VScroll.</summary>
+        public new event EventHandler? HScroll;
 
         // Gets the index of the character at the specified location.
         private int GetCharIndexFromPosition (Point location)
@@ -451,9 +499,14 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets the currently selected text.
+        /// Gets or sets the currently selected text. Setting it replaces the current selection
+        /// (or inserts at the caret if nothing is selected), matching
+        /// System.Windows.Forms.TextBoxBase.SelectedText.
         /// </summary>
-        public string SelectedText => document.SelectedText;
+        public string SelectedText {
+            get => document.SelectedText;
+            set => document.InsertText (value ?? string.Empty);
+        }
 
         /// <summary>
         /// Selects all text in the TextBox.

@@ -118,6 +118,14 @@ namespace Majorsilence.Forms.Drawing
             return font;
         }
 
+        // Lazily resolves and caches the underlying SkiaSharp typeface (used by ControlStyle's
+        // implicit conversion from DataGridViewCellStyle, which needs a bare SKTypeface).
+        internal SKTypeface GetSKTypeface ()
+        {
+            GetSKFont ();
+            return typeface!;
+        }
+
         /// <summary>Creates an exact copy of this font.</summary>
         public object Clone () => new Font (FamilyName, Size, Style, Unit, GdiCharSet);
 

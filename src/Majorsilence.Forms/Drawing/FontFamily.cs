@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Majorsilence.Forms.Drawing
 {
@@ -17,6 +18,13 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets the name of this font family.</summary>
         public string Name { get; }
 
+        /// <summary>
+        /// Gets the name of this font family in the specified language. Majorsilence.Forms doesn't
+        /// track per-language localized family names (no OS font-metadata query), so this always
+        /// returns the same Name regardless of the language argument.
+        /// </summary>
+        public string GetName (int language) => Name;
+
         /// <summary>Gets a generic sans-serif font family.</summary>
         public static FontFamily GenericSansSerif { get; } = new FontFamily ("Arial");
 
@@ -25,6 +33,13 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Gets a generic monospace font family.</summary>
         public static FontFamily GenericMonospace { get; } = new FontFamily ("Courier New");
+
+        /// <summary>
+        /// Gets an array of FontFamily objects representing the fonts actually installed on this
+        /// system (via SkiaSharp's font manager), matching System.Drawing.FontFamily.Families.
+        /// </summary>
+        public static FontFamily[] Families =>
+            SkiaSharp.SKFontManager.Default.FontFamilies.Select (name => new FontFamily (name)).ToArray ();
 
         /// <summary>Returns whether the specified style is available for this family. Always true in Majorsilence.Forms.Drawing.</summary>
         public bool IsStyleAvailable (FontStyle style) => true;

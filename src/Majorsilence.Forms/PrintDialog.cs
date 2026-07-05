@@ -27,6 +27,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the page-range controls are enabled.</summary>
         public bool AllowSomePages { get; set; }
 
+        /// <summary>Gets or sets whether the "Selection" print-range option is enabled. Stub in Majorsilence.Forms (this whole dialog shows no real UI).</summary>
+        public bool AllowSelection { get; set; }
+
         /// <summary>Shows the print dialog and returns OK (stub — no UI is displayed).</summary>
         public new DialogResult ShowDialog () => DialogResult.OK;
     }

@@ -32,7 +32,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the collection of checked items.</summary>
-        public IEnumerable<object> CheckedItems => base.Items.Where (i => i is CheckedListBoxItem cli && cli.Checked).Select (i => ((CheckedListBoxItem)i).Value ?? i);
+        public List<object> CheckedItems => base.Items.Where (i => i is CheckedListBoxItem cli && cli.Checked).Select (i => ((CheckedListBoxItem)i).Value ?? i).ToList ();
 
         /// <summary>Gets or sets whether the check box is toggled when the item is selected.</summary>
         public bool CheckOnClick { get; set; }
@@ -183,13 +183,27 @@ namespace Majorsilence.Forms
             if (idx >= 0) RemoveAt (idx);
         }
 
+        /// <summary>Inserts an item at the specified index.</summary>
+        public void Insert (int index, object item) => _inner.Insert (index, item);
+
+        /// <summary>
+        /// Copies the items to an array, matching System.Windows.Forms.CheckedListBox.
+        /// CheckedItemCollection.CopyTo. Was a no-op explicit ICollection.CopyTo, invisible on a
+        /// directly-typed CheckedObjectCollection reference -- same class of bug as this type's
+        /// Insert fix.
+        /// </summary>
+        public void CopyTo (System.Array array, int index)
+        {
+            for (int i = 0; i < Count; i++)
+                array.SetValue (this[i], index + i);
+        }
+
         // IList explicit implementation
-        void System.Collections.IList.Insert (int index, object? value) { }
+        void System.Collections.IList.Insert (int index, object? value) => Insert (index, value!);
         bool System.Collections.IList.IsFixedSize => false;
         bool System.Collections.IList.IsReadOnly => false;
         bool System.Collections.ICollection.IsSynchronized => false;
         object System.Collections.ICollection.SyncRoot => this;
-        void System.Collections.ICollection.CopyTo (System.Array array, int index) { }
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () => _inner.GetEnumerator ();
         int System.Collections.IList.Add (object? value) => value is null ? -1 : Add (value);
         bool System.Collections.IList.Contains (object? value) => Contains (value);
