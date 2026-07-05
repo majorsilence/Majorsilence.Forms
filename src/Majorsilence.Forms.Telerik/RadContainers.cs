@@ -240,7 +240,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Items stretch to fill the strip.</summary>
         Fill = 1,
         /// <summary>Items wrap onto multiple lines instead of scrolling.</summary>
-        MultiLine = 2,
+        Multiline = 2,
         /// <summary>Items shrink/scroll as needed to fit the available space.</summary>
         Fit = 3
     }

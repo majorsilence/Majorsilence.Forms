@@ -43,6 +43,15 @@ namespace Majorsilence.Forms
         /// </summary>
         public Type? ValueType { get; set; }
 
+        /// <summary>Telerik-style alias of DataPropertyName (GridViewDataColumn.FieldName).</summary>
+        public string FieldName {
+            get => DataPropertyName;
+            set => DataPropertyName = value;
+        }
+
+        /// <summary>Gets or sets whether the column supports filtering. Stored for Telerik compat.</summary>
+        public bool AllowFiltering { get; set; } = true;
+
         /// <summary>Telerik-style alias of <see cref="ValueType"/> (GridViewDataColumn.DataType).</summary>
         public Type? DataType {
             get => ValueType;

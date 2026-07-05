@@ -2465,11 +2465,7 @@ namespace Majorsilence.Forms.Telerik
     public class GridViewColumn : DataGridViewColumn
     {
         // IsVisible now lives on DataGridViewColumn itself (Telerik alias of Visible).
-        /// <summary>Gets or sets the bound field name (Telerik alias for <see cref="DataGridViewColumn.DataPropertyName"/>).</summary>
-        public string FieldName {
-            get => DataPropertyName;
-            set => DataPropertyName = value;
-        }
+        // FieldName now lives on DataGridViewColumn itself (Telerik alias of DataPropertyName).
         /// <summary>Gets or sets the column name used by data binding (Telerik alias for <see cref="DataGridViewColumn.Name"/>).</summary>
         public string ColumnName {
             get => Name;
@@ -2503,8 +2499,7 @@ namespace Majorsilence.Forms.Telerik
         public bool WrapText { get; set; }
         /// <summary>Gets or sets whether reordering is allowed. Stub.</summary>
         public bool AllowReorder { get; set; } = true;
-        /// <summary>Gets or sets whether filtering is allowed. Stub.</summary>
-        public bool AllowFiltering { get; set; } = true;
+        // AllowFiltering now lives on DataGridViewColumn itself.
         /// <summary>Gets or sets whether this column can be sorted (forwards to the base sortable flag).</summary>
         public bool AllowSort {
             get => Sortable;

@@ -51,6 +51,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new instance with the specified text and tag (Telerik (text, data) ctor).</summary>
         public RadMenuItem (string text, object? tag) : base (text) { Tag = tag; }
 
+        /// <summary>Gets or sets whether clicking toggles the checked state. Mirrors Telerik.</summary>
+        public bool CheckOnClick { get; set; }
+
         /// <summary>Telerik-style alias of <see cref="MenuItem.Checked"/>.</summary>
         public bool IsChecked {
             get => Checked;

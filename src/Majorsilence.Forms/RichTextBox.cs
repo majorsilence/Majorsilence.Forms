@@ -16,7 +16,7 @@ namespace Majorsilence.Forms
         public RichTextBox ()
         {
             // WinForms RichTextBox is multi-line by default (unlike the base TextBox).
-            MultiLine = true;
+            Multiline = true;
         }
 
         /// <summary>

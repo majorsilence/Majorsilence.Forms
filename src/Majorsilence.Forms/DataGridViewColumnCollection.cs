@@ -7,6 +7,16 @@ namespace Majorsilence.Forms
     /// </summary>
     public class DataGridViewColumnCollection : Collection<DataGridViewColumn>
     {
+        /// <summary>Moves a column to a new display position. Mirrors Telerik's Columns.Move.</summary>
+        public void Move (int fromIndex, int toIndex)
+        {
+            if (fromIndex == toIndex || fromIndex < 0 || fromIndex >= Count || toIndex < 0 || toIndex >= Count)
+                return;
+            var item = this[fromIndex];
+            RemoveAt (fromIndex);
+            Insert (toIndex, item);
+        }
+
         private readonly DataGridView owner;
 
         /// <summary>

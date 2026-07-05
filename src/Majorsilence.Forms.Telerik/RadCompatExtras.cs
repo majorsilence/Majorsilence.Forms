@@ -221,6 +221,13 @@ namespace Majorsilence.Forms.Telerik
         public object? Strip { get; set; }
     }
 
+    /// <summary>Compat stand-in for the grid group-panel field element.</summary>
+    public class GroupFieldElement : RadElement
+    {
+        /// <summary>The field name shown by the element.</summary>
+        public string FieldName { get; set; } = string.Empty;
+    }
+
     /// <summary>Compat stand-in for the grid's paging panel element.</summary>
     public class PagingPanelElement : RadElement
     {
