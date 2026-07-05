@@ -50,7 +50,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public DataGridViewColumn Add (string headerText)
         {
-            var column = new DataGridViewColumn (headerText);
+            var column = owner.CreateColumnInstance (headerText);
             Add (column);
             return column;
         }
@@ -60,7 +60,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public DataGridViewColumn Add (string name, string headerText)
         {
-            var column = new DataGridViewColumn (headerText) { Name = name };
+            var column = owner.CreateColumnInstance (headerText);
+            column.Name = name;
             Add (column);
             return column;
         }
@@ -70,7 +71,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public DataGridViewColumn Add (string headerText, int width)
         {
-            var column = new DataGridViewColumn (headerText) { Width = width };
+            var column = owner.CreateColumnInstance (headerText);
+            column.Width = width;
             Add (column);
             return column;
         }

@@ -105,17 +105,21 @@ namespace Majorsilence.Forms.Telerik
         public RadGridView Owner { get; }
     }
 
-    /// <summary>Compat stand-in for Telerik's PropertyGridItem.</summary>
-    public class PropertyGridItem
+    /// <summary>
+    /// Compat stand-in for Telerik's PropertyGridItem. Derives from the core
+    /// <see cref="Majorsilence.Forms.GridItem"/> so WinForms migration code can
+    /// TryCast a PropertyGrid's SelectedGridItem to PropertyGridItem.
+    /// </summary>
+    public class PropertyGridItem : Majorsilence.Forms.GridItem
     {
         /// <summary>The property name shown for the item.</summary>
         public string Name { get; set; } = string.Empty;
 
-        /// <summary>The property label shown for the item.</summary>
-        public string Label { get; set; } = string.Empty;
+        /// <summary>The property label shown for the item (settable, unlike the base's init-only Label).</summary>
+        public new string Label { get; set; } = string.Empty;
 
-        /// <summary>The item value.</summary>
-        public object? Value { get; set; }
+        /// <summary>The item value (settable, unlike the base's init-only Value).</summary>
+        public new object? Value { get; set; }
     }
 
     /// <summary>Provides data for property-grid editor initialization. Mirrors Telerik's shape.</summary>

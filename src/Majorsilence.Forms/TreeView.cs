@@ -491,10 +491,14 @@ namespace Majorsilence.Forms
 
         private void RaiseExpandCollapseEvents (TreeViewItem item, bool wasExpanded)
         {
-            if (item.Expanded && !wasExpanded)
-                AfterExpand?.Invoke (this, new TreeViewEventArgs (item, TreeViewAction.Expand));
-            else if (!item.Expanded && wasExpanded)
-                AfterCollapse?.Invoke (this, new TreeViewEventArgs (item, TreeViewAction.Collapse));
+            // TreeViewEventArgs.Node is TreeNode-typed for WinForms compat; skip for plain items.
+            if (item is not TreeNode node)
+                return;
+
+            if (node.Expanded && !wasExpanded)
+                AfterExpand?.Invoke (this, new TreeViewEventArgs (node, TreeViewAction.Expand));
+            else if (!node.Expanded && wasExpanded)
+                AfterCollapse?.Invoke (this, new TreeViewEventArgs (node, TreeViewAction.Collapse));
         }
 
         /// <inheritdoc/>
@@ -530,7 +534,10 @@ namespace Majorsilence.Forms
         protected virtual void OnItemSelected (EventArgs<TreeViewItem> e)
         {
             ItemSelected?.Invoke (this, e);
-            AfterSelect?.Invoke (this, new TreeViewEventArgs (e.Value, TreeViewAction.ByMouse));
+
+            // TreeViewEventArgs.Node is TreeNode-typed for WinForms compat; skip for plain items.
+            if (e.Value is TreeNode node)
+                AfterSelect?.Invoke (this, new TreeViewEventArgs (node, TreeViewAction.ByMouse));
         }
 
         /// <inheritdoc/>

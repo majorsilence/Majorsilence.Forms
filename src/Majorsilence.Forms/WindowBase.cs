@@ -118,6 +118,7 @@ namespace Majorsilence.Forms
         /// </summary>
         protected override void Dispose (bool disposing)
         {
+            Disposing = true;
             IsDisposed = true;
 
             if (disposing) {
@@ -129,10 +130,15 @@ namespace Majorsilence.Forms
             }
 
             base.Dispose (disposing);
+
+            Disposing = false;
         }
 
         /// <summary>Gets whether the window has been disposed. Mirrors WinForms Control.IsDisposed.</summary>
         public bool IsDisposed { get; private set; }
+
+        /// <summary>Gets whether the window is currently executing its dispose logic. Mirrors WinForms Form.Disposing.</summary>
+        public bool Disposing { get; private set; }
 
         /// <summary>
         /// Gets whether the caller must marshal to the UI thread to interact with this window.

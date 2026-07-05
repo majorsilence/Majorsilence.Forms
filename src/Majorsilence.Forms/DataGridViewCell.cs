@@ -79,6 +79,16 @@ namespace Majorsilence.Forms
         /// </summary>
         public bool Selected { get; set; }
 
+        /// <summary>Gets whether this cell is currently being edited. Mirrors WinForms DataGridViewCell.IsInEditMode.</summary>
+        public bool IsInEditMode => DataGridView?.IsCellInEditMode (RowIndex, ColumnIndex) ?? false;
+
+        /// <summary>
+        /// Gets the current value of the cell including any uncommitted edit. Mirrors WinForms
+        /// DataGridViewCell.EditedFormattedValue; falls back to <see cref="Value"/> when the cell
+        /// is not being edited.
+        /// </summary>
+        public object? EditedFormattedValue => IsInEditMode ? DataGridView?.CurrentEditValue ?? Value : Value;
+
         /// <summary>
         /// Gets or sets the style for this cell.
         /// </summary>

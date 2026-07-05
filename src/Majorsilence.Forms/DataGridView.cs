@@ -443,9 +443,11 @@ namespace Majorsilence.Forms
         public ControlStyle AlternatingRowsDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
-        /// Gets the default cell style applied to cells in the DataGridView.
+        /// Gets or sets the default cell style applied to cells in the DataGridView. Settable so
+        /// WinForms designer code assigning a DataGridViewCellStyle compiles (via ControlStyle's
+        /// implicit conversion from DataGridViewCellStyle).
         /// </summary>
-        public ControlStyle DefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle DefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets or sets the default cell style applied to column header cells. Stays
@@ -457,9 +459,10 @@ namespace Majorsilence.Forms
         public ControlStyle ColumnHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
-        /// Gets the default cell style applied to row header cells.
+        /// Gets or sets the default cell style applied to row header cells. Settable for
+        /// WinForms designer assignments (see <see cref="DefaultCellStyle"/>).
         /// </summary>
-        public ControlStyle RowHeadersDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle RowHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets the default cell style applied to all rows.
@@ -468,6 +471,21 @@ namespace Majorsilence.Forms
 
         /// <summary>Commits any pending edit for the specified context. Delegates to EndEdit in Majorsilence.Forms.</summary>
         public bool CommitEdit (DataGridViewDataErrorContexts context) => EndEdit ();
+
+        /// <summary>
+        /// Creates the column instance used when columns are created by name (string-based
+        /// <see cref="DataGridViewColumnCollection.Add(string)"/> overloads and data-bound
+        /// auto-generation). Derived grids override this so every column they own is of their
+        /// column type (e.g. the Telerik-compat grid returns its data-column type).
+        /// </summary>
+        protected internal virtual DataGridViewColumn CreateColumnInstance (string headerText) => new DataGridViewColumn (headerText);
+
+        // Whether the specified cell is the one currently being edited (used by DataGridViewCell compat members).
+        internal bool IsCellInEditMode (int rowIndex, int columnIndex)
+            => edit_textbox is not null && editing_row_index == rowIndex && editing_column_index == columnIndex;
+
+        // The uncommitted text of the active editor, if any (used by DataGridViewCell.EditedFormattedValue).
+        internal string? CurrentEditValue => edit_textbox?.Text;
 
         /// <summary>
         /// Commits the current edit and hides the edit TextBox.

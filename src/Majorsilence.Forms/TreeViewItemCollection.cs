@@ -9,6 +9,36 @@ namespace Majorsilence.Forms
     /// <summary>WinForms-compatible name for the tree item collection (TreeView.Nodes).</summary>
     public class TreeNodeCollection : Collection<TreeViewItem>
     {
+        /// <summary>
+        /// Adds a new node with the specified text. Returns a <see cref="TreeNode"/> so WinForms
+        /// migration code can assign directly to <c>TreeNode</c> variables.
+        /// </summary>
+        public TreeNode Add (string text)
+        {
+            var node = new TreeNode (text);
+            Add (node);
+            return node;
+        }
+
+        /// <summary>Adds a new node with the specified key (Name) and text. Mirrors WinForms TreeNodeCollection.Add(key, text).</summary>
+        public TreeNode Add (string key, string text)
+        {
+            var node = new TreeNode (text) { Name = key };
+            Add (node);
+            return node;
+        }
+
+        /// <summary>Returns whether the collection contains a node whose Name equals the specified key. Mirrors WinForms.</summary>
+        public bool ContainsKey (string key)
+            => this.Any (n => string.Equals (n.Name, key, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Gets the first node whose Name equals the specified key, or null. Typed
+        /// <see cref="TreeNode"/> for WinForms migration code -- nodes added through the
+        /// string-based Add overloads are always TreeNode instances.
+        /// </summary>
+        public TreeNode? this[string key]
+            => this.FirstOrDefault (n => string.Equals (n.Name, key, StringComparison.OrdinalIgnoreCase)) as TreeNode;
     }
 
     /// <summary>Represents the collection of items in a TreeView.</summary>
@@ -31,11 +61,7 @@ namespace Majorsilence.Forms
             return item;
         }
 
-        /// <summary>
-        /// Adds a new item to the collection with the specified text.
-        /// Returns a <see cref="TreeNode"/> so WinForms migration code can assign directly to <c>TreeNode</c> variables.
-        /// </summary>
-        public TreeNode Add (string text) { var n = new TreeNode (text); Add (n); return n; }
+        // Add(string) comes from the TreeNodeCollection base (returns TreeNode).
 
         /// <summary>
         /// Adds a new item to the collection with the specified text and SKBitmap image.

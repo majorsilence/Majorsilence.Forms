@@ -1,4 +1,4 @@
-﻿using Majorsilence.Forms;
+using Majorsilence.Forms;
 
 namespace ControlGallery.Panels
 {
@@ -20,7 +20,7 @@ namespace ControlGallery.Panels
             });
 
             button1.Click += async (o, e) => {
-                label.Text = (await new DialogForm ().ShowDialog (FindForm ()!)).ToString ();
+                label.Text = (await new DialogForm ().ShowDialogAsync (FindForm ()!)).ToString ();
             };
 
             // This dialog shouldn't show because the DialogResult has already been set
@@ -33,7 +33,7 @@ namespace ControlGallery.Panels
 
             button2.Click += async (o, e) => {
                 var dialog = new DialogForm { DialogResult = DialogResult.OK };
-                label.Text = (await dialog.ShowDialog (FindForm ()!)).ToString ();
+                label.Text = (await dialog.ShowDialogAsync (FindForm ()!)).ToString ();
             };
 
             var button3 = Controls.Add (new Button {
@@ -44,8 +44,8 @@ namespace ControlGallery.Panels
             });
 
             button3.Click += async (o, e) => {
-                label.Text = (await new DialogForm ().ShowDialog (FindForm ()!)).ToString ();
-                label.Text = (await new DialogForm ().ShowDialog (FindForm ()!)).ToString ();
+                label.Text = (await new DialogForm ().ShowDialogAsync (FindForm ()!)).ToString ();
+                label.Text = (await new DialogForm ().ShowDialogAsync (FindForm ()!)).ToString ();
             };
         }
     }

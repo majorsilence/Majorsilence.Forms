@@ -125,6 +125,8 @@ namespace Majorsilence.Forms.Telerik
         public bool IsCleanUpTarget { get; set; }
         /// <summary>Gets the size info for the panel (stub).</summary>
         public SplitPanelSizeInfo SizeInfo { get; } = new SplitPanelSizeInfo ();
+        /// <summary>Gets or sets whether the container is collapsed. Stored stub (designer-assigned).</summary>
+        public bool Collapsed { get; set; }
     }
 
     /// <summary>Telerik-compat split panel. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>

@@ -223,6 +223,33 @@ namespace Majorsilence.Forms.Drawing
             DrawString (text, font, brush, new PointF (x, y));
         }
 
+        /// <summary>Draws a string at the specified coordinates using the given format's alignment.</summary>
+        public void DrawString (string text, Font font, Brush brush, float x, float y, StringFormat format)
+            => DrawString (text, font, brush, new PointF (x, y));
+
+        /// <summary>Draws a string within the specified rectangle using the given format's alignment.</summary>
+        public void DrawString (string text, Font font, Brush brush, RectangleF rect, StringFormat format)
+            => DrawString (text, font, brush, rect, ToContentAlignment (format));
+
+        // Maps a StringFormat's Alignment/LineAlignment pair to the ContentAlignment the rect overload takes.
+        private static ContentAlignment ToContentAlignment (StringFormat? format)
+        {
+            var h = format?.Alignment ?? StringAlignment.Near;
+            var v = format?.LineAlignment ?? StringAlignment.Near;
+
+            return (v, h) switch {
+                (StringAlignment.Near, StringAlignment.Near) => ContentAlignment.TopLeft,
+                (StringAlignment.Near, StringAlignment.Center) => ContentAlignment.TopCenter,
+                (StringAlignment.Near, StringAlignment.Far) => ContentAlignment.TopRight,
+                (StringAlignment.Center, StringAlignment.Near) => ContentAlignment.MiddleLeft,
+                (StringAlignment.Center, StringAlignment.Center) => ContentAlignment.MiddleCenter,
+                (StringAlignment.Center, StringAlignment.Far) => ContentAlignment.MiddleRight,
+                (StringAlignment.Far, StringAlignment.Near) => ContentAlignment.BottomLeft,
+                (StringAlignment.Far, StringAlignment.Center) => ContentAlignment.BottomCenter,
+                _ => ContentAlignment.BottomRight
+            };
+        }
+
         /// <summary>Measures the size of the specified string when rendered with the given font.</summary>
         public SizeF MeasureString (string text, Font font)
         {
@@ -233,6 +260,36 @@ namespace Majorsilence.Forms.Drawing
             var measured = Majorsilence.Forms.TextMeasurer.MeasureText (text, sk_font.Typeface, (int)Math.Round (font.Size));
 
             return new SizeF (measured.Width, measured.Height);
+        }
+
+        /// <summary>
+        /// Measures the string constrained to a layout area, reporting how much of it fits.
+        /// Approximation: characters fitted and lines filled are estimated from single-line metrics
+        /// (no per-glyph line breaking), which matches how print pagination uses these values.
+        /// </summary>
+        public SizeF MeasureString (string text, Font font, SizeF layoutArea, StringFormat format, out int charactersFitted, out int linesFilled)
+        {
+            charactersFitted = 0;
+            linesFilled = 0;
+
+            if (string.IsNullOrEmpty (text))
+                return SizeF.Empty;
+
+            var line_height = font.GetHeight ();
+            var max_lines = line_height > 0 && layoutArea.Height > 0 ? Math.Max (1, (int)(layoutArea.Height / line_height)) : 1;
+
+            var single = MeasureString (text, font);
+            var lines_needed = layoutArea.Width > 0 ? Math.Max (1, (int)Math.Ceiling (single.Width / layoutArea.Width)) : 1;
+
+            if (lines_needed <= max_lines) {
+                charactersFitted = text.Length;
+                linesFilled = lines_needed;
+                return new SizeF (Math.Min (single.Width, layoutArea.Width), lines_needed * line_height);
+            }
+
+            linesFilled = max_lines;
+            charactersFitted = (int)((long)text.Length * max_lines / lines_needed);
+            return new SizeF (layoutArea.Width, max_lines * line_height);
         }
 
         /// <summary>Clears the entire surface to the specified color.</summary>

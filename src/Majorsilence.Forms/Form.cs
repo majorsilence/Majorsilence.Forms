@@ -806,6 +806,15 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether this form is hosted as the child of an MDI container.</summary>
         public bool IsMdiChild => mdi_parent != null;
 
+        /// <summary>
+        /// Gets the form this form is parented to. Mirrors WinForms Control.ParentForm as it applies
+        /// to a Form: the MDI parent when hosted as an MDI child, otherwise null (top-level window).
+        /// </summary>
+        public Form? ParentForm => mdi_parent;
+
+        /// <summary>Gets or sets the bounds the form uses when maximized. Stored but not enforced in Majorsilence.Forms.</summary>
+        public System.Drawing.Rectangle MaximizedBounds { get; set; }
+
         /// <summary>Gets the active MDI child form, or null.</summary>
         public Form? ActiveMdiChild => MdiClientControl?.ActiveChild;
 

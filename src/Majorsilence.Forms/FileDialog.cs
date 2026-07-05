@@ -100,7 +100,7 @@ namespace Majorsilence.Forms
             _filter = string.Empty;
             FilterIndex = 1;
             DefaultExt = string.Empty;
-            FileNames.Clear ();
+            filenames.Clear ();
             Title = string.Empty;
             InitialDirectory = null;
             AddExtension = true;
@@ -121,19 +121,22 @@ namespace Majorsilence.Forms
         /// Gets or sets the selected files. If there are multiple files selected, the first one is returned.
         /// </summary>
         public string? FileName {
-            get => FileNames.Count > 0 ? Path.GetFullPath (FileNames[0]) : null;
+            get => filenames.Count > 0 ? Path.GetFullPath (filenames[0]) : null;
             set {
-                FileNames.Clear ();
+                filenames.Clear ();
 
                 if (value != null)
-                    FileNames.Add (Path.GetFullPath (value));
+                    filenames.Add (Path.GetFullPath (value));
             }
         }
 
+        // Mutable backing store for the selected files; dialog implementations write here.
+        private protected readonly List<string> filenames = [];
+
         /// <summary>
-        /// Gets or sets the selected files.
+        /// Gets the selected files. Returned as an array to match System.Windows.Forms.FileDialog.FileNames.
         /// </summary>
-        public List<string> FileNames { get; } = [];
+        public string[] FileNames => filenames.ToArray ();
 
         /// <summary>Shows the dialog synchronously with the first open form as the owner. WinForms compatibility.</summary>
         public DialogResult ShowDialog ()

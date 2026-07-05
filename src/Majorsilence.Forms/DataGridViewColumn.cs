@@ -28,6 +28,15 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Initializes a new instance of the DataGridViewColumn class with the specified cell template.
+        /// WinForms compatibility.
+        /// </summary>
+        public DataGridViewColumn (DataGridViewCell cellTemplate)
+        {
+            CellTemplate = cellTemplate;
+        }
+
+        /// <summary>
         /// Gets or sets the name used to identify this column.
         /// </summary>
         public string Name { get; set; } = string.Empty;

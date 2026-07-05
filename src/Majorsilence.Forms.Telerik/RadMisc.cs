@@ -122,6 +122,9 @@ namespace Majorsilence.Forms.Telerik
                 menu.Show (control, location);
         }
 
+        /// <summary>Raises <see cref="DropDownOpening"/>, builds a menu from <see cref="Items"/>, and shows it at the specified screen point.</summary>
+        public void Show (Point location) => Show (location.X, location.Y);
+
         /// <summary>Raises <see cref="DropDownOpening"/>, builds a menu from <see cref="Items"/>, and shows it at the specified screen coordinates.</summary>
         public void Show (int x, int y)
         {

@@ -523,13 +523,18 @@ namespace Majorsilence.Forms
     public class TreeViewEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance.</summary>
-        public TreeViewEventArgs (TreeViewItem node) { Node = node; }
+        public TreeViewEventArgs (TreeNode node) { Node = node; }
 
         /// <summary>Initializes a new instance with an action.</summary>
-        public TreeViewEventArgs (TreeViewItem node, TreeViewAction action) { Node = node; Action = action; }
+        public TreeViewEventArgs (TreeNode node, TreeViewAction action) { Node = node; Action = action; }
 
-        /// <summary>Gets the tree node that raised the event.</summary>
-        public TreeViewItem Node { get; }
+        /// <summary>
+        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeViewItem)
+        /// to match System.Windows.Forms.TreeViewEventArgs.Node -- all nodes added through the
+        /// public TreeNode-based API are TreeNode instances in practice; raisers skip the event
+        /// for internally-created plain TreeViewItems.
+        /// </summary>
+        public TreeNode Node { get; }
 
         /// <summary>Gets the action that raised the event.</summary>
         public TreeViewAction Action { get; }

@@ -1,4 +1,4 @@
-﻿using Majorsilence.Forms;
+using Majorsilence.Forms;
 
 namespace ControlGallery.Panels
 {
@@ -34,7 +34,7 @@ namespace ControlGallery.Panels
             ofd.AddFilter ("Image Files", "*.png", "*.gif", "*.jpg", "*.jpeg");
             ofd.AddFilter ("Text Files", "*.txt", "*.log");
 
-            if ((await ofd.ShowDialog (FindForm ()!)) == DialogResult.OK)
+            if ((await ofd.ShowDialogAsync (FindForm ()!)) == DialogResult.OK)
                 foreach (var file in ofd.FileNames)
                     list_box.Items.Add (file);
         }
@@ -53,7 +53,7 @@ namespace ControlGallery.Panels
             sfd.AddFilter ("Image Files", "*.png", "*.gif", "*.jpg", "*.jpeg");
             sfd.AddFilter ("Text Files", "*.txt", "*.log");
 
-            if ((await sfd.ShowDialog (FindForm ()!)) == DialogResult.OK)
+            if ((await sfd.ShowDialogAsync (FindForm ()!)) == DialogResult.OK)
                 foreach (var file in sfd.FileNames)
                     list_box.Items.Add (file);
         }
@@ -67,7 +67,7 @@ namespace ControlGallery.Panels
                 Title = "Choose a directory"
             };
 
-            if ((await fbd.ShowDialog (FindForm ()!)) == DialogResult.OK && fbd.SelectedPath is not null)
+            if ((await fbd.ShowDialogAsync (FindForm ()!)) == DialogResult.OK && fbd.SelectedPath is not null)
                 list_box.Items.Add (fbd.SelectedPath);
         }
     }

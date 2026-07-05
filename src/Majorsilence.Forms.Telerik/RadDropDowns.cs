@@ -5,6 +5,18 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat drop-down list. Backed by <see cref="Majorsilence.Forms.ComboBox"/>.</summary>
     public class RadDropDownList : ComboBox
     {
+        /// <summary>Initializes a new instance, bridging the base selection event to the Telerik-typed one.</summary>
+        public RadDropDownList ()
+        {
+            base.SelectedIndexChanged += (_, _) => SelectedIndexChanged?.Invoke (this, new PositionChangedEventArgs (SelectedIndex));
+        }
+
+        /// <summary>
+        /// Occurs when the selected index changes. Telerik-typed replacement of the base event —
+        /// handlers receive <see cref="PositionChangedEventArgs"/> carrying the new index.
+        /// </summary>
+        public new event PositionChangedEventHandler? SelectedIndexChanged;
+
         /// <summary>Gets the selected item wrapped as a Telerik list item (typed DataBoundItem access).</summary>
         public new RadListDataItem? SelectedItem =>
             base.SelectedItem is null ? null : new RadListDataItem { Text = base.SelectedItem.ToString () ?? string.Empty, DataBoundItem = base.SelectedItem };

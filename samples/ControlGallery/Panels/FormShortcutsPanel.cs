@@ -1,4 +1,4 @@
-﻿using Majorsilence.Forms;
+using Majorsilence.Forms;
 
 namespace ControlGallery.Panels;
 
@@ -16,7 +16,7 @@ public class FormShortcutsPanel : BasePanel
             Top = 10,
             Width = 200,
             Height = 400,
-            MultiLine = true,
+            Multiline = true,
         });
 
         var clear_button = Controls.Add (new Button {

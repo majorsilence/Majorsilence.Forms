@@ -147,7 +147,7 @@ namespace Majorsilence.Forms.Telerik
                 var v = BuildCellArgs (e.ColumnIndex, e.RowIndex);
                 CellValidated?.Invoke (this, new CellValidatedEventArgs {
                     RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex,
-                    Column = e.ColumnIndex >= 0 && e.ColumnIndex < Columns.Count ? Columns[e.ColumnIndex] : null,
+                    Column = e.ColumnIndex >= 0 && e.ColumnIndex < base.Columns.Count ? base.Columns[e.ColumnIndex] : null,
                     Row = v.Row, Value = v.Value
                 });
             };
@@ -199,6 +199,25 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets the data rows, accessible Telerik-style (indexer/enumeration yield <see cref="GridViewRowInfo"/>). Injected group-header rows are not included.</summary>
         public new GridViewRowInfoCollection Rows => new GridViewRowInfoCollection (base.Rows);
+
+        /// <summary>
+        /// Gets the columns, accessible Telerik-style (indexer/enumeration yield
+        /// <see cref="GridViewDataColumn"/>). Every column this grid creates is a
+        /// GridViewDataColumn (see <see cref="CreateColumnInstance"/>), so the casts hold.
+        /// </summary>
+        public new GridViewColumnCollection Columns => new GridViewColumnCollection (base.Columns);
+
+        /// <summary>
+        /// Creates <see cref="GridViewDataColumn"/> instances for string-based adds and data-bound
+        /// auto-generation so every column owned by this grid carries the Telerik-compat surface.
+        /// </summary>
+        protected internal override DataGridViewColumn CreateColumnInstance (string headerText) => new GridViewDataColumn { HeaderText = headerText };
+
+        /// <summary>Gets the column-chooser object. Non-null opaque stub — legacy code null-checks it before saving/loading layouts.</summary>
+        public object ColumnChooser { get; } = new object ();
+
+        /// <summary>Auto-sizes all columns using the specified mode. The mode is advisory in the compat grid; sizing delegates to <see cref="BestFitColumns()"/>.</summary>
+        public void BestFitColumns (BestFitColumnMode mode) => BestFitColumns ();
 
         /// <summary>Gets the number of data rows (excludes injected group-header rows).</summary>
         public new int RowCount {
@@ -2434,8 +2453,8 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Associates this (previously detached) template with a grid. Subsequent member access forwards to the grid.</summary>
         internal void Attach (RadGridView grid) => _grid = grid;
 
-        /// <summary>Gets the columns of the grid. Throws if the template is not yet attached to a <see cref="RadGridView"/>.</summary>
-        public DataGridViewColumnCollection Columns => _grid?.Columns ?? throw new InvalidOperationException ("GridViewTemplate is not attached to a RadGridView");
+        /// <summary>Gets the columns of the grid (Telerik-typed, matching <see cref="RadGridView.Columns"/>). Throws if the template is not yet attached to a <see cref="RadGridView"/>.</summary>
+        public GridViewColumnCollection Columns => _grid?.Columns ?? throw new InvalidOperationException ("GridViewTemplate is not attached to a RadGridView");
         /// <summary>Gets or sets the view definition (assigning a <see cref="TableViewDefinition"/> is a no-op).</summary>
         public object? ViewDefinition { get; set; }
         /// <summary>Gets or sets whether a new-row entry is shown.</summary>
@@ -2532,9 +2551,79 @@ namespace Majorsilence.Forms.Telerik
 
     // ── Column types ──────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Telerik-compat column collection over the underlying <see cref="DataGridViewColumnCollection"/>.
+    /// The indexers and enumerator yield <see cref="GridViewDataColumn"/> — safe because
+    /// <see cref="RadGridView.CreateColumnInstance"/> makes every grid-created column a
+    /// GridViewDataColumn and designer code adds Telerik column types.
+    /// </summary>
+    public class GridViewColumnCollection : IEnumerable<GridViewDataColumn>
+    {
+        private readonly DataGridViewColumnCollection _columns;
+
+        internal GridViewColumnCollection (DataGridViewColumnCollection columns) => _columns = columns;
+
+        /// <summary>Gets the number of columns.</summary>
+        public int Count => _columns.Count;
+
+        /// <summary>Gets the column at the specified index.</summary>
+        public GridViewDataColumn this[int index] => (GridViewDataColumn)_columns[index];
+
+        /// <summary>Gets the column with the specified name (Name or header text), or null.</summary>
+        public GridViewDataColumn? this[string name] => (GridViewDataColumn?)_columns[name];
+
+        /// <summary>Returns true if a column with the given name exists.</summary>
+        public bool Contains (string name) => _columns.Contains (name);
+
+        /// <summary>Adds the specified column.</summary>
+        public void Add (DataGridViewColumn column) => _columns.Add (column);
+
+        /// <summary>Adds a column with the specified header text.</summary>
+        public GridViewDataColumn Add (string headerText) => (GridViewDataColumn)_columns.Add (headerText);
+
+        /// <summary>Adds a column with the specified internal name and header text.</summary>
+        public GridViewDataColumn Add (string name, string headerText) => (GridViewDataColumn)_columns.Add (name, headerText);
+
+        /// <summary>Adds a range of columns.</summary>
+        public void AddRange (params DataGridViewColumn[] columns) => _columns.AddRange (columns);
+
+        /// <summary>Removes the specified column.</summary>
+        public void Remove (DataGridViewColumn column) => _columns.Remove (column);
+
+        /// <summary>Removes the column at the specified index.</summary>
+        public void RemoveAt (int index) => _columns.RemoveAt (index);
+
+        /// <summary>Removes all columns.</summary>
+        public void Clear () => _columns.Clear ();
+
+        /// <summary>Returns the index of the specified column, or -1.</summary>
+        public int IndexOf (DataGridViewColumn column) => _columns.IndexOf (column);
+
+        /// <summary>Moves a column to a new display position. Mirrors Telerik's Columns.Move.</summary>
+        public void Move (int fromIndex, int toIndex) => _columns.Move (fromIndex, toIndex);
+
+        /// <inheritdoc/>
+        public IEnumerator<GridViewDataColumn> GetEnumerator ()
+        {
+            foreach (var column in _columns)
+                yield return (GridViewDataColumn)column;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator () => GetEnumerator ();
+    }
+
     /// <summary>Base Telerik-compat grid column. Adds the Telerik column member names on top of <see cref="DataGridViewColumn"/>.</summary>
     public class GridViewColumn : DataGridViewColumn
     {
+        /// <summary>Gets or sets the sort order shown for this column, using Telerik's <see cref="RadSortOrder"/> (forwards to the base WinForms-typed SortOrder; the enum values align).</summary>
+        public new RadSortOrder SortOrder {
+            get => (RadSortOrder)(int)base.SortOrder;
+            set => base.SortOrder = (SortOrder)(int)value;
+        }
+
+        /// <summary>Gets or sets whether this column is the grid's current column. Stored stub — the compat grid does not track a current column per se.</summary>
+        public bool IsCurrent { get; set; }
+
         // IsVisible now lives on DataGridViewColumn itself (Telerik alias of Visible).
         // FieldName now lives on DataGridViewColumn itself (Telerik alias of DataPropertyName).
         /// <summary>Gets or sets the column name used by data binding (Telerik alias for <see cref="DataGridViewColumn.Name"/>).</summary>
@@ -2800,6 +2889,12 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Adds the specified row.</summary>
         public void Add (DataGridViewRow row) => _rows.Add (row);
 
+        /// <summary>Adds the specified row info's underlying row (pairs with <see cref="NewRow"/>).</summary>
+        public void Add (GridViewRowInfo row) => _rows.Add (row.DataRow);
+
+        /// <summary>Creates a detached row suitable for populating and passing to <see cref="Add(GridViewRowInfo)"/>. Mirrors Telerik's Rows.NewRow.</summary>
+        public GridViewRowInfo NewRow () => new GridViewDataRowInfo (new DataGridViewRow ());
+
         /// <summary>Removes the specified row.</summary>
         public void Remove (GridViewRowInfo row) => _rows.Remove (row.DataRow);
 
@@ -2862,6 +2957,12 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Deletes this row from the grid.</summary>
         public void Delete () => _row.DataGridView?.Rows.Remove (_row);
+
+        /// <summary>
+        /// Implicitly wraps a <see cref="DataGridViewRow"/> as a row info. Lets WinForms migration
+        /// code assign grid rows to Telerik-typed GridViewRowInfo variables directly.
+        /// </summary>
+        public static implicit operator GridViewRowInfo (DataGridViewRow row) => new GridViewDataRowInfo (row);
     }
 
     /// <summary>

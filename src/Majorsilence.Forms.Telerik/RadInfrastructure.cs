@@ -42,6 +42,12 @@ namespace Majorsilence.Forms.Telerik
         public System.Collections.Generic.List<RadElement> Children { get; } = new ();
         /// <summary>Returns the child element at the specified index, or a new stub element.</summary>
         public virtual RadElement GetChildAt (int index) => new RadElement ();
+        /// <summary>Returns the element at the given control coordinates, or null. Stub — the compat element tree has no hit testing.</summary>
+        public RadElement? GetElementAtPoint (Point point) => null;
+        /// <summary>Suspends element updates while values change. No-op stub (Telerik grid element BeginEdit).</summary>
+        public void BeginEdit () { }
+        /// <summary>Resumes element updates after changes. No-op stub (Telerik grid element EndEdit).</summary>
+        public void EndEdit () { }
         /// <summary>Resets a property to its default value. No-op stub.</summary>
         public void ResetValue (object? property = null) { }
         /// <summary>Resets a property to its default value using the specified reset scope. No-op stub.</summary>
@@ -266,7 +272,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>A block of indicators travels across the bar.</summary>
         DataCloud = 1,
         /// <summary>Indicators rotate.</summary>
-        Rotate = 2
+        Rotate = 2,
+        /// <summary>Dots orbit in a spinner arrangement.</summary>
+        DotsSpinner = 3
     }
 
 }

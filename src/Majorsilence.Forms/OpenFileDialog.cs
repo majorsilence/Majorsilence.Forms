@@ -45,12 +45,12 @@ namespace Majorsilence.Forms
 
             var files = await owner.Backend.ShowOpenFileDialog (request);
 
-            FileNames.Clear ();
+            filenames.Clear ();
 
             if (files.Length > 0)
-                FileNames.AddRange (files);
+                filenames.AddRange (files);
 
-            return FileNames.Count > 0 ? DialogResult.OK : DialogResult.Cancel;
+            return filenames.Count > 0 ? DialogResult.OK : DialogResult.Cancel;
         }
     }
 }
