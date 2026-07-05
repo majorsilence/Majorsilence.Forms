@@ -38,6 +38,15 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>The property name.</summary>
         public string Name { get; }
 
+        /// <summary>Telerik alias of <see cref="Name"/>.</summary>
+        public string PropertyName => Name;
+
+        /// <summary>The display label shown for the property.</summary>
+        public string Label { get; set; } = string.Empty;
+
+        /// <summary>The attributes applied to the property (Telerik uses these for category/editor hints).</summary>
+        public System.Collections.Generic.List<object> Attributes { get; } = new ();
+
         /// <summary>The property value.</summary>
         public object? Value { get; set; }
 

@@ -163,6 +163,15 @@ namespace Majorsilence.Forms
         /// <summary>Gets the collection of controls contained by the window.</summary>
         public Control.ControlCollection Controls => adapter.Controls;
 
+        /// <summary>Gets or sets the cursor shown over the window. Mirrors WinForms Form.Cursor.</summary>
+        public Cursor? Cursor {
+            get => current_cursor;
+            set {
+                current_cursor = value;
+                Backend?.SetCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+            }
+        }
+
         /// <summary>WinForms compatibility. Majorsilence.Forms always renders double-buffered; the
         /// value is stored but has no effect.</summary>
         public bool DoubleBuffered { get; set; } = true;
