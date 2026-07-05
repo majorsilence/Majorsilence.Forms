@@ -460,9 +460,7 @@ namespace Majorsilence.Forms
                 return DialogResult.OK;
             }
 
-            var result = RunModal (ShowDialog (parent));
-            FormClosed?.Invoke (this, new FormClosedEventArgs ());
-            return result;
+            return ShowDialog (parent);
         }
 
         /// <summary>Shows the form as a modal dialog with the specified owner window. Stub — ignores owner parameter.</summary>
@@ -529,8 +527,17 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>Displays the window modally with the given owner and blocks until closed.
+        /// Mirrors WinForms Form.ShowDialog(owner); the modal loop keeps the UI pumped.</summary>
+        public DialogResult ShowDialog (Form parent)
+        {
+            var result = RunModal (ShowDialogAsync (parent));
+            FormClosed?.Invoke (this, new FormClosedEventArgs ());
+            return result;
+        }
+
         /// <summary>Displays the window to the user modally, preventing interaction with other windows until closed.</summary>
-        public Task<DialogResult> ShowDialog (Form parent)
+        public Task<DialogResult> ShowDialogAsync (Form parent)
         {
             dialog_task = new TaskCompletionSource<DialogResult> ();
 

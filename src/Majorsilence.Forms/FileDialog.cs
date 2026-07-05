@@ -146,9 +146,12 @@ namespace Majorsilence.Forms
         public DialogResult ShowDialog (IWin32Window owner) => ShowDialog ();
 
         /// <summary>Shows the dialog asynchronously with the specified owner form.</summary>
-        public abstract Task<DialogResult> ShowDialog (Form owner);
+        public abstract Task<DialogResult> ShowDialogAsync (Form owner);
+
+        /// <summary>Shows the dialog modally with the given owner and blocks until closed.</summary>
+        public DialogResult ShowDialog (Form owner) => AsyncHelper.RunSync (() => ShowDialogAsync (owner));
 
         /// <summary>Shows the dialog synchronously with the specified form owner.</summary>
-        public DialogResult ShowDialogSync (Form owner) => AsyncHelper.RunSync (() => ShowDialog (owner));
+        public DialogResult ShowDialogSync (Form owner) => AsyncHelper.RunSync (() => ShowDialogAsync (owner));
     }
 }

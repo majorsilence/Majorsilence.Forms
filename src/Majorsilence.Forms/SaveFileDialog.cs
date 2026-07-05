@@ -20,7 +20,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        public override async Task<DialogResult> ShowDialog (Form owner)
+        public override async Task<DialogResult> ShowDialogAsync (Form owner)
         {
             var request = new SaveFileRequest {
                 DefaultExtension = DefaultExtension ?? DefaultExt,

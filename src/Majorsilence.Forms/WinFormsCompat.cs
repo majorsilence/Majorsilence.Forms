@@ -782,7 +782,7 @@ namespace Majorsilence.Forms
             var form = new MessageBoxForm (caption, text, buttons);
 
             if (parent != null)
-                return Form.RunModal (form.ShowDialog (parent));
+                return form.ShowDialog (parent);
 
             form.Show ();
             return DialogResult.OK;
@@ -804,7 +804,7 @@ namespace Majorsilence.Forms
         public static DialogResult Show (Form owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
             var form = new MessageBoxForm (caption, text, buttons);
-            return Form.RunModal (form.ShowDialog (owner));
+            return form.ShowDialog (owner);
         }
 
         /// <summary>Shows a message box with IWin32Window owner, text, caption, buttons, and icon.</summary>
@@ -812,7 +812,7 @@ namespace Majorsilence.Forms
         {
             var form = owner as Form ?? Application.OpenForms.FirstOrDefault ();
             var msgForm = new MessageBoxForm (caption, text, buttons);
-            return form is not null ? Form.RunModal (msgForm.ShowDialog (form)) : msgForm.ShowDialog ();
+            return form is not null ? msgForm.ShowDialog (form) : msgForm.ShowDialog ();
         }
 
         /// <summary>Shows a message box with IWin32Window owner.</summary>
