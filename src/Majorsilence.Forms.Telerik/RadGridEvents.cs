@@ -30,8 +30,7 @@ namespace Majorsilence.Forms.Telerik
         public object? Value { get; set; }
         /// <summary>Gets or sets whether the element draws its fill.</summary>
         public bool DrawFill { get; set; }
-        /// <summary>Gets or sets whether the element draws a border.</summary>
-        public bool DrawBorder { get; set; }
+        // DrawBorder is inherited from RadElement.
         /// <summary>Gets or sets the number of gradient colors.</summary>
         public int NumberOfColors { get; set; } = 1;
         /// <summary>Gets or sets the gradient style. Stub.</summary>
@@ -74,8 +73,7 @@ namespace Majorsilence.Forms.Telerik
         public GridViewRowInfo? RowInfo { get; set; }
         /// <summary>Gets or sets whether the element draws its fill.</summary>
         public bool DrawFill { get; set; }
-        /// <summary>Gets or sets whether the element draws a border.</summary>
-        public bool DrawBorder { get; set; }
+        // DrawBorder is inherited from RadElement.
         /// <summary>Gets or sets the number of gradient colors.</summary>
         public int NumberOfColors { get; set; } = 1;
         /// <summary>Gets or sets the gradient style. Stub.</summary>
@@ -89,6 +87,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat table (view) visual element shared by all rows of a <see cref="RadGridView"/>.</summary>
     public class GridTableElement : RadElement
     {
+        /// <summary>Gets or sets the header row height. Stored for Telerik compat.</summary>
+        public int TableHeaderHeight { get; set; } = 28;
+
         /// <summary>Gets or sets the color used for alternating row striping. Stub.</summary>
         public Color AlternatingRowColor { get; set; } = Color.Empty;
         /// <summary>Gets or sets the row height. Stub.</summary>

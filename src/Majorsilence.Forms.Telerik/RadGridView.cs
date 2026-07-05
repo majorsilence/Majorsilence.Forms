@@ -2445,6 +2445,18 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class MasterGridViewTemplate : GridViewTemplate
     {
+        /// <summary>Gets or sets whether columns can be dragged to the group panel. Stored for compat.</summary>
+        public bool AllowDragToGroup { get; set; } = true;
+
+        /// <summary>Gets or sets paging-before-grouping. Stored for Telerik compat.</summary>
+        public bool PagingBeforeGrouping { get; set; }
+
+        /// <summary>Gets or sets virtual-mode data-operation strictness. Stored for Telerik compat.</summary>
+        public bool ThrowExceptionOnDataOperationInVirtualMode { get; set; }
+
+        /// <summary>Gets or sets whether header cells show filter/menu buttons. Stored for compat.</summary>
+        public bool ShowHeaderCellButtons { get; set; }
+
         /// <summary>Initializes a new, detached instance. Attach it to a grid via the grid's designer-generated template assignment.</summary>
         public MasterGridViewTemplate () : base () { }
 

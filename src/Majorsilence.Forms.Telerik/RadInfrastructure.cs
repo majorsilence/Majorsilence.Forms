@@ -16,6 +16,9 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadElement
     {
+        /// <summary>Gets or sets whether the element draws its border. Stored for Telerik compat.</summary>
+        public bool DrawBorder { get; set; } = true;
+
         /// <summary>Gets or sets whether the element is enabled.</summary>
         public bool Enabled { get; set; } = true;
         /// <summary>Gets or sets the element visibility.</summary>

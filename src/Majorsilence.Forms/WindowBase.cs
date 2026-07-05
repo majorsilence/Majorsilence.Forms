@@ -163,6 +163,13 @@ namespace Majorsilence.Forms
         /// <summary>Gets the collection of controls contained by the window.</summary>
         public Control.ControlCollection Controls => adapter.Controls;
 
+        /// <summary>Gets or sets the window's default font. Mirrors WinForms Form.Font; forwarded to
+        /// the root control adapter so child controls inherit it.</summary>
+        public Majorsilence.Forms.Drawing.Font? Font {
+            get => adapter?.Font;
+            set { if (adapter is not null && value is not null) adapter.Font = value; }
+        }
+
         /// <summary>Gets or sets the cursor shown over the window. Mirrors WinForms Form.Cursor.</summary>
         public Cursor? Cursor {
             get => current_cursor;

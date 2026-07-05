@@ -67,7 +67,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the selected font.
         /// </summary>
-        public Font Font {
+        public new Font Font {
             get => selected_font ??= BuildFont ();
             set {
                 if (value is null)

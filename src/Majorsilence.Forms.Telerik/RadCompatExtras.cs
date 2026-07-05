@@ -231,6 +231,18 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Compat stand-in for the grid's paging panel element.</summary>
     public class PagingPanelElement : RadElement
     {
+        /// <summary>First-page button element (stub).</summary>
+        public RadElement FirstButton { get; } = new RadElement ();
+        /// <summary>Previous-page button element (stub).</summary>
+        public RadElement PreviousButton { get; } = new RadElement ();
+        /// <summary>Fast-back button element (stub).</summary>
+        public RadElement FastBackButton { get; } = new RadElement ();
+        /// <summary>Fast-forward button element (stub).</summary>
+        public RadElement FastForwardButton { get; } = new RadElement ();
+        /// <summary>Next-page button element (stub).</summary>
+        public RadElement NextButton { get; } = new RadElement ();
+        /// <summary>Last-page button element (stub).</summary>
+        public RadElement LastButton { get; } = new RadElement ();
     }
 
     /// <summary>Provides data for grid filter-popup creation. Mirrors Telerik's shape.</summary>
@@ -255,6 +267,25 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>The dock window involved.</summary>
         public object? DockWindow { get; set; }
+    }
+}
+
+namespace Majorsilence.Forms.Telerik.Primitives
+{
+    /// <summary>Relative-qualification seam for Telerik's Primitives.FillPrimitive.</summary>
+    public class FillPrimitive : Majorsilence.Forms.Telerik.RadElement
+    {
+        // BackColor is inherited from RadElement.
+
+        /// <summary>The gradient style (stored for compat).</summary>
+        public object? GradientStyle { get; set; }
+    }
+
+    /// <summary>Relative-qualification seam for Telerik's Primitives.BorderPrimitive.</summary>
+    public class BorderPrimitive : Majorsilence.Forms.Telerik.RadElement
+    {
+        /// <summary>The border color.</summary>
+        public new System.Drawing.Color ForeColor { get; set; }
     }
 }
 

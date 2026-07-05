@@ -8,6 +8,33 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadDock : Panel
     {
+        /// <summary>Gets or sets the split orientation. Stored for Telerik compat.</summary>
+        public Orientation Orientation { get; set; } = Orientation.Horizontal;
+
+        /// <summary>Gets or sets the splitter width. Stored for Telerik compat.</summary>
+        public int SplitterWidth { get; set; } = 4;
+
+        /// <summary>Gets the root element (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
+
+        /// <summary>Gets or sets whether auto-cleanup removes this dock's windows. Stored for compat.</summary>
+        public bool IsCleanUpTarget { get; set; }
+
+        /// <summary>Raised when a new tab strip is needed. Stub (never raised yet).</summary>
+#pragma warning disable CS0067
+        public event EventHandler<DockTabStripNeededEventArgs>? DockTabStripNeeded;
+#pragma warning restore CS0067
+
+        /// <summary>Saves the dock layout to a stream. Stub: writes an empty layout document.</summary>
+        public void SaveToXml (System.IO.Stream stream)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes ("<DockLayout />");
+            stream.Write (bytes, 0, bytes.Length);
+        }
+
+        /// <summary>Loads the dock layout from a stream. Stub: layout restore is not supported yet.</summary>
+        public void LoadFromXml (System.IO.Stream stream) { }
+
         private readonly List<ToolWindow> _toolWindows = new ();
 
         /// <summary>Gets or sets the active dock window.</summary>
@@ -121,6 +148,12 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat tool tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class ToolTabStrip : Panel
     {
+        /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
+        public int SelectedIndex { get; set; }
+
+        /// <summary>Gets or sets whether the caption is visible. Stored for Telerik compat.</summary>
+        public bool CaptionVisible { get; set; } = true;
+
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the size info (stub).</summary>
@@ -134,6 +167,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat document tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class DocumentTabStrip : Panel
     {
+        /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
+        public int SelectedIndex { get; set; }
+
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the size info (stub).</summary>
