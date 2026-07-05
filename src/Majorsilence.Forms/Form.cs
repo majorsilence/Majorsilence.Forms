@@ -947,6 +947,9 @@ namespace Majorsilence.Forms
         /// <summary>Activates the form and gives it focus. No-op stub in Majorsilence.Forms.</summary>
         public void Activate () { }
 
+        /// <summary>Activates the form. Mirrors WinForms Control.Select as it applies to a Form.</summary>
+        public void Select () => BringToFront ();
+
         /// <summary>Centers the form in its parent or on screen.</summary>
         public void CenterToScreen ()
         {

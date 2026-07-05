@@ -345,6 +345,15 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets how the window's background image is laid out. Stored for designer compat (the compat window does not draw a background image yet).</summary>
         public ImageLayout BackgroundImageLayout { get; set; } = ImageLayout.Tile;
 
+        /// <summary>Gets or sets user data associated with the window. Mirrors WinForms Control.Tag.</summary>
+        public object? Tag { get; set; }
+
+        /// <summary>
+        /// Gets or sets the context menu shown when the window itself is right-clicked. Stored for
+        /// designer compat; the compat window does not surface it yet (controls' own menus work).
+        /// </summary>
+        public ContextMenuStrip? ContextMenuStrip { get; set; }
+
         /// <summary>Gets or sets the unscaled location of the window. Mirrors WinForms Form.Location.</summary>
         public System.Drawing.Point Location {
             get => Backend.Location;

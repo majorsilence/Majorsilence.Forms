@@ -232,6 +232,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the column-chooser object. Non-null opaque stub — legacy code null-checks it before saving/loading layouts.</summary>
         public object ColumnChooser { get; } = new object ();
 
+        /// <summary>Gets or sets whether the grid auto-scrolls. Stored stub — the compat grid manages its own scrollbars.</summary>
+        public bool AutoScroll { get; set; } = true;
+
         /// <summary>Auto-sizes all columns using the specified mode. The mode is advisory in the compat grid; sizing delegates to <see cref="BestFitColumns()"/>.</summary>
         public void BestFitColumns (BestFitColumnMode mode) => BestFitColumns ();
 
@@ -2605,6 +2608,15 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Removes the specified column.</summary>
         public void Remove (DataGridViewColumn column) => _columns.Remove (column);
+
+        /// <summary>Removes the column with the specified name (Name or header text), if present. Mirrors Telerik's Columns.Remove(string).</summary>
+        public void Remove (string name)
+        {
+            var column = _columns[name];
+
+            if (column is not null)
+                _columns.Remove (column);
+        }
 
         /// <summary>Removes the column at the specified index.</summary>
         public void RemoveAt (int index) => _columns.RemoveAt (index);
