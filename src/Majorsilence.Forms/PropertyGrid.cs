@@ -253,7 +253,26 @@ namespace Majorsilence.Forms
         /// <summary>Gets the PropertyDescriptor describing the property this item represents.</summary>
         public System.ComponentModel.PropertyDescriptor? PropertyDescriptor { get; init; }
 
+        /// <summary>Gets the label (property name) of this item.</summary>
+        public string Label { get; init; } = string.Empty;
+
+        /// <summary>Gets the parent item in the grid's item tree, or null if this is a root item.</summary>
+        public GridItem? Parent { get; init; }
+
+        /// <summary>Gets the child items of this item.</summary>
+        public GridItemCollection GridItems { get; init; } = new ();
+
+        /// <summary>Gets or sets whether this item is expanded in the grid. Stub in Majorsilence.Forms (PropertyGrid never constructs a GridItem tree, so this has nothing to render).</summary>
+        public bool Expanded { get; set; }
+
         /// <summary>Selects this item in its owning PropertyGrid. No-op in Majorsilence.Forms.</summary>
         public void Select () { }
+    }
+
+    /// <summary>
+    /// A collection of GridItem objects, matching System.Windows.Forms.GridItemCollection's shape.
+    /// </summary>
+    public sealed class GridItemCollection : System.Collections.Generic.List<GridItem>
+    {
     }
 }

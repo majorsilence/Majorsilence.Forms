@@ -18,6 +18,13 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets the name of this font family.</summary>
         public string Name { get; }
 
+        /// <summary>
+        /// Gets the name of this font family in the specified language. Majorsilence.Forms doesn't
+        /// track per-language localized family names (no OS font-metadata query), so this always
+        /// returns the same Name regardless of the language argument.
+        /// </summary>
+        public string GetName (int language) => Name;
+
         /// <summary>Gets a generic sans-serif font family.</summary>
         public static FontFamily GenericSansSerif { get; } = new FontFamily ("Arial");
 

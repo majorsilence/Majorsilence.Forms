@@ -1413,6 +1413,12 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the width of the underlying combo box.</summary>
         public int Width { get => combo_box.Width; set => combo_box.Width = value; }
+
+        /// <summary>Gets or sets the width of the drop-down portion of the underlying combo box.</summary>
+        public int DropDownWidth { get => combo_box.DropDownWidth; set => combo_box.DropDownWidth = value; }
+
+        /// <summary>Raised when the text of the underlying combo box changes. Delegates to the underlying ComboBox.</summary>
+        public event EventHandler? TextChanged { add => combo_box.TextChanged += value; remove => combo_box.TextChanged -= value; }
     }
 
     /// <summary>
