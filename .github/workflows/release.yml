@@ -5,10 +5,13 @@ name: Release Packages
 # Actions tab, and on PRs / main pushes that touch packable code as a smoke test.
 #
 # - Tag push (v1.2.3)        -> packs + publishes binaries, uploads artifacts,
-#                               creates a GitHub Release, optionally pushes to NuGet.
-# - workflow_dispatch        -> same, with an overridable version and a "push to
-#                               nuget.org" toggle (off by default).
+#                               creates a DRAFT GitHub Release.
+# - workflow_dispatch        -> same, with an overridable version.
 # - pull_request / main push -> packs + publishes only, to verify nothing is broken.
+#
+# Publishing to nuget.org is a SEPARATE workflow (publish-nuget.yml), triggered only when
+# a human clicks "Publish release" on the draft this workflow creates -- see that file for
+# the Trusted Publishing (OIDC) setup. This workflow never has nuget.org credentials.
 
 on:
   push:
@@ -32,11 +35,6 @@ on:
         description: 'Package version (e.g. 0.3.1). Leave blank to use the version in the csproj files.'
         required: false
         default: ''
-      push_to_nuget:
-        description: 'Push the packed .nupkg files to nuget.org'
-        type: boolean
-        required: false
-        default: false
 
 permissions:
   contents: write   # needed to create the GitHub Release on tag builds
@@ -209,13 +207,13 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
-  # On a tag build, collect everything into a GitHub Release and (optionally)
-  # push the packages to nuget.org.
+  # On a tag build (or manual dispatch with a version), collect everything into a
+  # draft GitHub Release. Nothing here touches nuget.org -- see publish-nuget.yml.
   # ---------------------------------------------------------------------------
   release:
     needs: [version, pack, migrator]
     runs-on: ubuntu-latest
-    if: needs.version.outputs.is_release == 'true' || github.event.inputs.push_to_nuget == 'true'
+    if: needs.version.outputs.is_release == 'true'
     steps:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -236,26 +234,14 @@ jobs:
             -exec cp {} release/ \;
           ls -lh release
 
-      - name: Push to nuget.org
-        if: needs.version.outputs.is_release == 'true' || github.event.inputs.push_to_nuget == 'true'
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "${NUGET_API_KEY:-}" ]; then
-            echo "NUGET_API_KEY secret is not set; skipping push to nuget.org."
-            exit 0
-          fi
-          dotnet nuget push "release/*.nupkg" \
-            --api-key "$NUGET_API_KEY" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
-
-      - name: Create GitHub Release
+      # Publishing to nuget.org happens separately, in publish-nuget.yml, triggered by
+      # `release: published` -- i.e. only after a human clicks "Publish release" on the
+      # draft below. Nothing in this workflow can push a package to nuget.org.
+      - name: Create GitHub Release (draft)
         if: needs.version.outputs.is_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
           name: Majorsilence.Forms ${{ needs.version.outputs.version }}
           generate_release_notes: true
+          draft: true
           files: release/*
