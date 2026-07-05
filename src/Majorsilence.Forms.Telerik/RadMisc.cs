@@ -165,6 +165,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Shows the owning context menu at the specified screen point.</summary>
         public void Show (Point location) => owner.Show (location);
 
+        /// <summary>Shows the owning context menu relative to the specified control.</summary>
+        public void Show (Control control, Point location) => owner.Show (control, location);
+
         /// <summary>Hides the drop-down. No-op — the popup dismisses itself.</summary>
         public void Hide () { }
     }
