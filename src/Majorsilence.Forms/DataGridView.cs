@@ -466,9 +466,10 @@ namespace Majorsilence.Forms
         public ControlStyle RowHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
-        /// Gets the default cell style applied to all rows.
+        /// Gets or sets the default cell style applied to all rows. Settable for WinForms
+        /// designer assignments (see <see cref="DefaultCellStyle"/>).
         /// </summary>
-        public ControlStyle RowsDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle RowsDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>Commits any pending edit for the specified context. Delegates to EndEdit in Majorsilence.Forms.</summary>
         public bool CommitEdit (DataGridViewDataErrorContexts context) => EndEdit ();

@@ -99,6 +99,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadContextMenu
     {
+        /// <summary>Initializes a new instance.</summary>
+        public RadContextMenu () { }
+
+        /// <summary>Initializes a new instance owned by the specified container (WinForms designer overload; the container is not used).</summary>
+        public RadContextMenu (System.ComponentModel.IContainer container) { }
+
         /// <summary>Gets the menu items. Populate with <see cref="RadMenuItem"/>s (or other <see cref="Majorsilence.Forms.MenuItem"/>s).</summary>
         public List<object> Items { get; } = new ();
 
@@ -167,6 +173,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Shows the owning context menu relative to the specified control.</summary>
         public void Show (Control control, Point location) => owner.Show (control, location);
+
+        /// <summary>Shows the owning context menu at the given offset from the specified control.</summary>
+        public void Show (Control control, int x, int y) => owner.Show (control, new Point (x, y));
 
         /// <summary>Hides the drop-down. No-op — the popup dismisses itself.</summary>
         public void Hide () { }

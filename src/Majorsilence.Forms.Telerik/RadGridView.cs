@@ -291,6 +291,8 @@ namespace Majorsilence.Forms.Telerik
         public bool AllowColumnChooser { get => MasterTemplate.AllowColumnChooser; set => MasterTemplate.AllowColumnChooser = value; }
         /// <summary>Gets or sets whether multiple rows can be selected.</summary>
         public new bool MultiSelect { get => MasterTemplate.MultiSelect; set { MasterTemplate.MultiSelect = value; base.MultiSelect = value; } }
+        /// <summary>Gets or sets the auto-size columns mode. Forwards to MasterGridViewTemplate's own AutoSizeColumnsMode.</summary>
+        public new GridViewAutoSizeColumnsMode AutoSizeColumnsMode { get => MasterTemplate.AutoSizeColumnsMode; set => MasterTemplate.AutoSizeColumnsMode = value; }
 
         /// <summary>Gets or sets whether the in-grid column filtering UI (funnel popups) is enabled.</summary>
         public bool EnableFiltering {

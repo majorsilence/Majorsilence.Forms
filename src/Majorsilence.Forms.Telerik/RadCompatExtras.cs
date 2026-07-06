@@ -600,7 +600,7 @@ namespace Majorsilence.Forms.Telerik
     public class RadPageViewCancelEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>The page involved.</summary>
-        public object? Page { get; set; }
+        public RadPageViewPage? Page { get; set; }
     }
 
     /// <summary>Provides data for dock-window events. Mirrors Telerik's shape.</summary>

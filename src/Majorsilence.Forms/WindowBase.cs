@@ -717,5 +717,17 @@ namespace Majorsilence.Forms
                 Invalidate ();
             }
         }
+
+        /// <summary>
+        /// Gets or sets the foreground (text) color of the window. Convenience wrapper over
+        /// <see cref="ControlStyle.ForegroundColor"/>, mirroring <see cref="Control.ForeColor"/>.
+        /// </summary>
+        public System.Drawing.Color ForeColor {
+            get => Style.ForegroundColor?.ToDrawingColor () ?? Style.GetForegroundColor ().ToDrawingColor ();
+            set {
+                Style.ForegroundColor = value.ToSKColor ();
+                Invalidate ();
+            }
+        }
     }
 }
