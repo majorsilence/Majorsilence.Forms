@@ -309,6 +309,9 @@ namespace Majorsilence.Forms
         /// <summary>Forces the window to repaint. Mirrors WinForms Control.Refresh.</summary>
         public void Refresh () => Invalidate ();
 
+        /// <summary>Validates the last invalidated control. Always true — the compat window has no implicit validation pipeline. Mirrors WinForms ContainerControl.Validate.</summary>
+        public bool Validate () => true;
+
         /// <summary>Executes the specified delegate asynchronously on the window's UI thread.</summary>
         public void BeginInvoke (Action action)
         {

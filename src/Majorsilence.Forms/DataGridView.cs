@@ -488,6 +488,14 @@ namespace Majorsilence.Forms
         // The uncommitted text of the active editor, if any (used by DataGridViewCell.EditedFormattedValue).
         internal string? CurrentEditValue => edit_textbox?.Text;
 
+        /// <summary>Gets whether the current cell has uncommitted changes. Mirrors WinForms.</summary>
+        public bool IsCurrentCellDirty => edit_textbox is not null;
+
+        /// <summary>Raised when the current cell's dirty state changes. Declared for WinForms compat; the compat grid commits on end-edit and does not raise it.</summary>
+#pragma warning disable CS0067
+        public event EventHandler? CurrentCellDirtyStateChanged;
+#pragma warning restore CS0067
+
         /// <summary>
         /// Commits the current edit and hides the edit TextBox.
         /// </summary>

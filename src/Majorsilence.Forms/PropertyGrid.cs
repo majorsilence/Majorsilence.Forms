@@ -260,6 +260,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the item's name. WinForms/Telerik compatibility.</summary>
         public string Name { get; set; } = string.Empty;
 
+        /// <summary>Gets or sets user data associated with the item. WinForms/Telerik compatibility.</summary>
+        public object? Tag { get; set; }
+
         /// <summary>Gets the parent item in the grid's item tree, or null if this is a root item.</summary>
         public GridItem? Parent { get; init; }
 

@@ -398,6 +398,12 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new summary item.</summary>
         public GridViewSummaryItem () { }
 
+        /// <summary>Initializes a summary item with Telerik's parameter order (name, format string, aggregate).</summary>
+        public GridViewSummaryItem (string name, string formatString, GridAggregateFunction aggregate)
+            : this (name, aggregate, formatString)
+        {
+        }
+
         /// <summary>Initializes a summary item for a column, aggregate, and optional format string.</summary>
         public GridViewSummaryItem (string name, GridAggregateFunction aggregate, string formatString = "")
         {
@@ -434,6 +440,37 @@ namespace Majorsilence.Forms.Telerik
             foreach (var item in items)
                 Add (item);
         }
+    }
+
+    /// <summary>Grid event kinds used by Telerik's event-dispatch customization. Enum stub for designer EnumBinder sources.</summary>
+    public enum GridEventType
+    {
+        /// <summary>Both kinds of events.</summary>
+        Both = 0,
+        /// <summary>Mouse events.</summary>
+        Mouse = 1,
+        /// <summary>Keyboard events.</summary>
+        Keyboard = 2
+    }
+
+    /// <summary>Event listener priorities used by Telerik's event-dispatch customization. Enum stub.</summary>
+    public enum EventListenerPriority
+    {
+        /// <summary>Normal priority.</summary>
+        Normal = 0,
+        /// <summary>High priority.</summary>
+        High = 1,
+        /// <summary>Low priority.</summary>
+        Low = 2
+    }
+
+    /// <summary>Grid event process modes used by Telerik's event-dispatch customization. Enum stub.</summary>
+    public enum GridEventProcessMode
+    {
+        /// <summary>Synchronous processing.</summary>
+        Synchronous = 0,
+        /// <summary>Deferred processing.</summary>
+        Deferred = 1
     }
 
     /// <summary>Specifies the sort order of a grid column. Compat for Telerik <c>RadSortOrder</c>.</summary>

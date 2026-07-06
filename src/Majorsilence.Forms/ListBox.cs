@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
@@ -531,7 +531,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets all currently selected items.
         /// </summary>
-        public IEnumerable<object> SelectedItems => Items.SelectedItems;
+        public IList<object> SelectedItems => Items.SelectedItems.ToList ();
 
         /// <summary>
         /// Gets or set the selection mode of the ListBox.

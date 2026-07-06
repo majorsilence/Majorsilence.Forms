@@ -45,8 +45,8 @@ namespace Majorsilence.Forms.Telerik
         public int RowIndex { get; set; }
         /// <summary>Gets or sets the column index of the cell.</summary>
         public int ColumnIndex { get; set; } = -1;
-        /// <summary>Gets or sets the owning column info.</summary>
-        public DataGridViewColumn? ColumnInfo { get; set; }
+        /// <summary>Gets or sets the owning column info (Telerik-typed).</summary>
+        public GridViewDataColumn? ColumnInfo { get; set; }
         /// <summary>Gets or sets the owning row info.</summary>
         public GridViewRowInfo? RowInfo { get; set; }
         /// <summary>Gets the cell style.</summary>

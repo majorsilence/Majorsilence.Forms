@@ -160,8 +160,8 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>The declared type of the property.</summary>
         public Type? PropertyType { get; set; }
 
-        /// <summary>User data associated with the item.</summary>
-        public object? Tag { get; set; }
+        /// <summary>User data associated with the item (settable hide of the base member for source compat).</summary>
+        public new object? Tag { get; set; }
 
         /// <summary>The validation error message shown for the item (empty when valid).</summary>
         public string ErrorMessage { get; set; } = string.Empty;
@@ -451,6 +451,15 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>The group key.</summary>
         public object? Key { get; set; }
+
+        /// <summary>The rows in this group. Empty stub — the compat grid does not expose group row lists.</summary>
+        public System.Collections.Generic.List<GridViewRowInfo> Items { get; } = new ();
+
+        /// <summary>Gets the number of rows in the group.</summary>
+        public int ItemCount => Items.Count;
+
+        /// <summary>Gets the row at the specified index within the group.</summary>
+        public GridViewRowInfo this[int index] => Items[index];
     }
 
     /// <summary>Provides data for RadDock tab-strip creation. Mirrors Telerik's shape.</summary>

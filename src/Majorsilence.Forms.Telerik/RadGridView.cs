@@ -249,6 +249,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets how cells enter edit mode. Stored stub — the compat grid edits on double-click/F2.</summary>
         public RadGridViewBeginEditMode BeginEditMode { get; set; } = RadGridViewBeginEditMode.BeginEditOnDoubleClick;
 
+        /// <summary>Gets the active in-place editor, or null. Stub — the compat grid's editor is an internal TextBox.</summary>
+        public object? ActiveEditor => null;
+
         /// <summary>Auto-sizes all columns using the specified mode. The mode is advisory in the compat grid; sizing delegates to <see cref="BestFitColumns()"/>.</summary>
         public void BestFitColumns (BestFitColumnMode mode) => BestFitColumns ();
 
@@ -2261,7 +2264,7 @@ namespace Majorsilence.Forms.Telerik
                 element.Text = displayText;
                 element.RowIndex = rowIndex;
                 element.ColumnIndex = columnIndex;
-                element.ColumnInfo = column;
+                element.ColumnInfo = column as GridViewDataColumn;
                 element.RowInfo = new GridViewDataRowInfo (row);
 
                 var args = new GridViewCellFormattingEventArgs {
@@ -3014,6 +3017,9 @@ namespace Majorsilence.Forms.Telerik
             set => _row.Tag = value;
         }
 
+        /// <summary>Gets the parent row (the group-header row when grouped), or null. Stub — the compat grid does not track row parents.</summary>
+        public GridViewRowInfo? Parent => null;
+
         /// <summary>Deletes this row from the grid.</summary>
         public void Delete () => _row.DataGridView?.Rows.Remove (_row);
 
@@ -3045,6 +3051,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets the group header text (e.g. "Field: Value (Count)").</summary>
         public string HeaderText => DataRow.Tag is GridGroupRow g ? g.HeaderText : string.Empty;
+
+        /// <summary>Gets the data rows under this group header. Empty stub — the compat grid does not track group children.</summary>
+        public System.Collections.Generic.List<GridViewRowInfo> ChildRows { get; } = new ();
     }
 
     /// <summary>Telerik-compat cell collection over a <see cref="DataGridViewRow"/>.</summary>
