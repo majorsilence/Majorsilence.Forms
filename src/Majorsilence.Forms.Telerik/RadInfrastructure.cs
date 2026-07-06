@@ -129,8 +129,7 @@ namespace Majorsilence.Forms.Telerik
         public string Text { get; set; } = string.Empty;
         /// <summary>Gets or sets the name of the item.</summary>
         public string Name { get; set; } = string.Empty;
-        /// <summary>Gets or sets an object with additional user data about the item.</summary>
-        public object? Tag { get; set; }
+        // Tag is inherited from RadElement.
         /// <summary>Gets or sets the tooltip text shown for this item.</summary>
         public string ToolTipText { get; set; } = string.Empty;
 
