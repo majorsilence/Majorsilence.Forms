@@ -208,6 +208,11 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
         public int SelectedIndex { get; set; }
 
+        /// <summary>Raised when the selected tab changes. Never raised by the compat strip (it does not tab yet).</summary>
+#pragma warning disable CS0067
+        public event EventHandler? SelectedIndexChanged;
+#pragma warning restore CS0067
+
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the size info (stub).</summary>
