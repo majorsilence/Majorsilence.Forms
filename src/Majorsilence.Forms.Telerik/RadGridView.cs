@@ -183,9 +183,8 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Occurs when a row is validating before commit. Never raised by the compat grid (edits commit unconditionally).</summary>
         public event EventHandler<RowValidatingEventArgs>? RowValidating;
-
-        /// <summary>Occurs after the grid finishes sorting. Never raised by the compat grid (sorting is not yet implemented).</summary>
-        public event EventHandler? Sorted;
+        // Sorted is inherited from the base DataGridView (WinForms parity; plain DataGridView-typed
+        // designer fields like RadGridViewAmounts also need it).
 #pragma warning restore CS0067
 
         /// <summary>Gets the master template (Telerik configuration façade over this grid).</summary>

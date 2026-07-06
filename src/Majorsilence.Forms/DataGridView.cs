@@ -494,6 +494,9 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the current cell's dirty state changes. Declared for WinForms compat; the compat grid commits on end-edit and does not raise it.</summary>
 #pragma warning disable CS0067
         public event EventHandler? CurrentCellDirtyStateChanged;
+
+        /// <summary>Raised after the grid finishes sorting. Declared for WinForms compat; the compat grid has no sort pipeline yet.</summary>
+        public event EventHandler? Sorted;
 #pragma warning restore CS0067
 
         /// <summary>
