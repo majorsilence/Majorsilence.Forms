@@ -20,7 +20,38 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
     <PackageReference Include="Topten.RichTextKit" />
     <PackageReference Include="System.Formats.Nrbf" />
+    <PackageReference Include="System.Resources.Extensions" />
   </ItemGroup>
+
+  <!-- Majorsilence.Forms.WinFormsEnumShims' compiled output gets embedded as a resource (below), not
+       referenced normally: a plain <ProjectReference> ships it as its own separate deps.json/runtime
+       entry, keyed by *project* name; but the whole point of that assembly is being loadable at
+       runtime under its own distinct AssemblyName ("System.Windows.Forms", deliberately; see that
+       project's own comments and RegisterWinFormsEnumResolver below), and deps.json generation for
+       ProjectReferences doesn't respect that override, so a normal reference makes the file recorded
+       in deps.json fall out of sync with the actual assembly identity (hit this directly: worked at
+       the individual-project level, then failed with FileNotFoundException as soon as a consuming
+       app's own deps.json-driven host tried to load it). Embedding the bytes and loading them via
+       Assembly.Load(byte[]) at runtime (see RegisterWinFormsEnumResolver) sidesteps deps.json
+       entirely; there is nothing there to fall out of sync with. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Forms.WinFormsEnumShims\Majorsilence.Forms.WinFormsEnumShims.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Target Name="EmbedWinFormsEnumShims" BeforeTargets="AssignTargetPaths">
+    <MSBuild Projects="..\Majorsilence.Forms.WinFormsEnumShims\Majorsilence.Forms.WinFormsEnumShims.csproj"
+             Targets="Build"
+             Properties="TargetFramework=$(TargetFramework);Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_WinFormsEnumShimsBuildOutput" />
+    </MSBuild>
+    <ItemGroup>
+      <EmbeddedResource Include="@(_WinFormsEnumShimsBuildOutput)" Condition="'%(Extension)' == '.dll'">
+        <LogicalName>Majorsilence.Forms.WinFormsEnumShims.dll</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <!-- Backend assemblies live separately and reach into the core's internal window/render/input
