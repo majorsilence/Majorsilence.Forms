@@ -171,6 +171,17 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Occurs when the current cell changes. Telerik-typed replacement of the base event.</summary>
         public new event EventHandler<CurrentCellChangedEventArgs>? CurrentCellChanged;
 
+#pragma warning disable CS0067 // Grouping-internals events: declared for source compat; the compat grid does not raise them.
+        /// <summary>Occurs when a group summary value is evaluated. Never raised by the compat grid.</summary>
+        public event EventHandler<GroupSummaryEvaluationEventArgs>? GroupSummaryEvaluate;
+
+        /// <summary>Occurs when a group is expanding or collapsing. Never raised by the compat grid.</summary>
+        public event EventHandler<GroupExpandingEventArgs>? GroupExpanding;
+
+        /// <summary>Occurs when a cell visual element is created. Never raised by the compat grid (it has no element tree).</summary>
+        public event EventHandler<GridViewCreateCellEventArgs>? CreateCell;
+#pragma warning restore CS0067
+
         /// <summary>Gets the master template (Telerik configuration façade over this grid).</summary>
         public MasterGridViewTemplate MasterTemplate { get; }
 

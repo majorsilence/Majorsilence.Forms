@@ -827,6 +827,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the base size used for autoscaling. Legacy WinForms designer property; stored no-op.</summary>
         public System.Drawing.Size AutoScaleBaseSize { get; set; }
 
+        /// <summary>
+        /// Gets the Win32 creation parameters. WinForms compatibility for the classic
+        /// remove-close-button override pattern; the compat window ignores the values.
+        /// </summary>
+        protected virtual CreateParams CreateParams => new CreateParams ();
+
         /// <summary>Gets the active MDI child form, or null.</summary>
         public Form? ActiveMdiChild => MdiClientControl?.ActiveChild;
 

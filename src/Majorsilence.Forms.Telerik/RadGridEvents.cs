@@ -89,6 +89,32 @@ namespace Majorsilence.Forms.Telerik
         public GridTableElement? TableElement { get; set; }
     }
 
+    /// <summary>Provides data for group-summary evaluation. Mirrors Telerik's shape.</summary>
+    public class GroupSummaryEvaluationEventArgs : EventArgs
+    {
+        /// <summary>The summary item being evaluated.</summary>
+        public GridViewSummaryItem SummaryItem { get; set; } = new GridViewSummaryItem ();
+
+        /// <summary>The group being summarized, or null for the grand total.</summary>
+        public DataGroup? Group { get; set; }
+
+        /// <summary>The computed summary value.</summary>
+        public object? Value { get; set; }
+
+        /// <summary>The display format string for the summary cell.</summary>
+        public string FormatString { get; set; } = string.Empty;
+    }
+
+    /// <summary>Provides data for group expand/collapse. Mirrors Telerik's shape.</summary>
+    public class GroupExpandingEventArgs : EventArgs
+    {
+        /// <summary>The group being expanded or collapsed.</summary>
+        public DataGroup? DataGroup { get; set; }
+
+        /// <summary>Set true to cancel the expand/collapse.</summary>
+        public bool Cancel { get; set; }
+    }
+
     /// <summary>Specifies which aspect of the grid changed for a table-element update. Compat for Telerik <c>GridUINotifyAction</c>.</summary>
     public enum GridUINotifyAction
     {
