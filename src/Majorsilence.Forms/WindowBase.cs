@@ -306,6 +306,9 @@ namespace Majorsilence.Forms
         /// children repaint with the window here regardless.</summary>
         public void Invalidate (bool invalidateChildren) => Invalidate ();
 
+        /// <summary>Forces the window to repaint. Mirrors WinForms Control.Refresh.</summary>
+        public void Refresh () => Invalidate ();
+
         /// <summary>Executes the specified delegate asynchronously on the window's UI thread.</summary>
         public void BeginInvoke (Action action)
         {

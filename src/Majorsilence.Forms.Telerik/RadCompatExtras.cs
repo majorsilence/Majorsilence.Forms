@@ -12,6 +12,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Adds an item to the store.</summary>
         public void Add (PropertyStoreItem item) => Items.Add (item);
+
+        /// <summary>Returns the stored items as an array. Mirrors Telerik.</summary>
+        public PropertyStoreItem[] ToArray () => Items.ToArray ();
     }
 
     /// <summary>Compat stand-in for Telerik's PropertyStoreItem.</summary>
@@ -23,6 +26,21 @@ namespace Majorsilence.Forms.Telerik
             Type = type;
             Name = name;
             Value = value;
+        }
+
+        /// <summary>Initializes an item with a description and category (Telerik designer shape).</summary>
+        public PropertyStoreItem (Type type, string name, object? value, string description, string category)
+            : this (type, name, value)
+        {
+            Description = description;
+            Category = category;
+        }
+
+        /// <summary>Initializes an item with a description, category, and read-only flag (Telerik designer shape).</summary>
+        public PropertyStoreItem (Type type, string name, object? value, string description, string category, bool isReadOnly)
+            : this (type, name, value, description, category)
+        {
+            ReadOnly = isReadOnly;
         }
 
         /// <summary>Initializes an item for a typed property value with a default.</summary>
@@ -52,6 +70,18 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>The default value.</summary>
         public object? DefaultValue { get; set; }
+
+        /// <summary>The property description (tooltip/help text).</summary>
+        public string Description { get; set; } = string.Empty;
+
+        /// <summary>The category the property is grouped under.</summary>
+        public string Category { get; set; } = string.Empty;
+
+        /// <summary>Whether the property is read-only.</summary>
+        public bool ReadOnly { get; set; }
+
+        /// <summary>Telerik alias of <see cref="Type"/>.</summary>
+        public Type PropertyType => Type;
     }
 
     /// <summary>Compat stand-in for Telerik's RadGridViewElement (root visual element of a grid).</summary>
@@ -113,13 +143,44 @@ namespace Majorsilence.Forms.Telerik
     public class PropertyGridItem : Majorsilence.Forms.GridItem
     {
         /// <summary>The property name shown for the item.</summary>
-        public string Name { get; set; } = string.Empty;
+        public new string Name { get; set; } = string.Empty;
 
         /// <summary>The property label shown for the item (settable, unlike the base's init-only Label).</summary>
         public new string Label { get; set; } = string.Empty;
 
         /// <summary>The item value (settable, unlike the base's init-only Value).</summary>
         public new object? Value { get; set; }
+
+        /// <summary>The value the item had before editing began.</summary>
+        public object? OriginalValue { get; set; }
+
+        /// <summary>The value formatted for display.</summary>
+        public object? FormattedValue { get; set; }
+
+        /// <summary>The declared type of the property.</summary>
+        public Type? PropertyType { get; set; }
+
+        /// <summary>User data associated with the item.</summary>
+        public object? Tag { get; set; }
+
+        /// <summary>The validation error message shown for the item (empty when valid).</summary>
+        public string ErrorMessage { get; set; } = string.Empty;
+
+        /// <summary>The image key shown next to the item.</summary>
+        public string ImageKey { get; set; } = string.Empty;
+
+        /// <summary>The custom attributes attached to the property.</summary>
+        public List<Attribute> Attributes { get; } = new ();
+    }
+
+    /// <summary>Compat stand-in for Telerik's PropertyGridGroupItem (a category header row).</summary>
+    public class PropertyGridGroupItem
+    {
+        /// <summary>The group (category) name.</summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>The group label.</summary>
+        public string Label { get; set; } = string.Empty;
     }
 
     /// <summary>Compat stand-in for the property-grid item visual element.</summary>
@@ -127,13 +188,30 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets or sets the item shown by the element.</summary>
         public PropertyGridItem? Data { get; set; }
+
+        /// <summary>Gets the label text element.</summary>
+        public LightVisualElement TextElement { get; } = new LightVisualElement ();
+
+        /// <summary>Gets the value text element.</summary>
+        public LightVisualElement ValueElement { get; } = new LightVisualElement ();
     }
 
     /// <summary>Compat stand-in for the property-grid group visual element.</summary>
-    public class PropertyGridGroupElement : RadElement { }
+    public class PropertyGridGroupElement : RadElement
+    {
+        /// <summary>Gets or sets the group item shown by the element.</summary>
+        public object? Data { get; set; }
+
+        /// <summary>Gets the label text element.</summary>
+        public LightVisualElement TextElement { get; } = new LightVisualElement ();
+    }
 
     /// <summary>Compat stand-in for the property-grid expander visual element.</summary>
-    public class PropertyGridExpanderElement : RadElement { }
+    public class PropertyGridExpanderElement : RadElement
+    {
+        /// <summary>Gets the element bounds in control coordinates (empty stub).</summary>
+        public System.Drawing.Rectangle ControlBoundingRectangle => System.Drawing.Rectangle.Empty;
+    }
 
     /// <summary>Compat stand-in for the property-grid spin (numeric) editor.</summary>
     public class PropertyGridSpinEditor
@@ -173,6 +251,9 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>The item being formatted.</summary>
         public PropertyGridItem? Item { get; set; }
+
+        /// <summary>The visual element being formatted.</summary>
+        public PropertyGridItemElement VisualElement { get; set; } = new PropertyGridItemElement ();
     }
 
 
@@ -242,9 +323,113 @@ namespace Majorsilence.Forms.Telerik
         public PropertyGridItem? Item { get; set; }
     }
 
+    /// <summary>Compat stand-in for Telerik's RadTextBoxItem (the text portion of editor elements).</summary>
+    public class RadTextBoxItem : RadElement
+    {
+        /// <summary>Gets or sets the text.</summary>
+        public string Text { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the text alignment.</summary>
+        public ContentAlignment Alignment { get; set; } = ContentAlignment.MiddleLeft;
+    }
+
+    /// <summary>Compat stand-in for a text-box editor's visual element.</summary>
+    public class BaseTextBoxEditorElement : RadElement
+    {
+        /// <summary>Gets the hosted text-box item.</summary>
+        public RadTextBoxItem TextBoxItem { get; } = new RadTextBoxItem ();
+    }
+
+    /// <summary>Compat stand-in for a spin editor's visual element.</summary>
+    public class BaseSpinEditorElement : BaseTextBoxEditorElement { }
+
+    /// <summary>Compat stand-in for a drop-down-list editor's visual element.</summary>
+    public class BaseDropDownListEditorElement : RadElement
+    {
+        /// <summary>Gets or sets the bound list source.</summary>
+        public object? DataSource { get; set; }
+
+        /// <summary>Gets or sets the member shown for each item.</summary>
+        public string DisplayMember { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the member used as each item's value.</summary>
+        public string ValueMember { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the selected value.</summary>
+        public object? SelectedValue { get; set; }
+
+        /// <summary>Gets or sets the selected index.</summary>
+        public int SelectedIndex { get; set; } = -1;
+
+        /// <summary>Gets or sets the editor text.</summary>
+        public string Text { get; set; } = string.Empty;
+    }
+
+    /// <summary>Compat stand-in for a date-time editor's visual element.</summary>
+    public class BaseDateTimeEditorElement : RadElement
+    {
+        /// <summary>Gets or sets the display format string.</summary>
+        public string CustomFormat { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the date format mode.</summary>
+        public object? Format { get; set; }
+
+        /// <summary>Gets or sets the editor value.</summary>
+        public object? Value { get; set; }
+    }
+
+    /// <summary>Compat stand-in for a browse (file/folder) editor's visual element.</summary>
+    public class RadBrowseEditorElement : RadElement
+    {
+        /// <summary>Gets or sets which browse dialog the editor opens.</summary>
+        public BrowseEditorDialogType DialogType { get; set; } = BrowseEditorDialogType.OpenFileDialog;
+
+        /// <summary>Gets or sets the editor value (the chosen path).</summary>
+        public object? Value { get; set; }
+    }
+
+    /// <summary>Specifies the dialog a browse editor opens. Compat for Telerik.</summary>
+    public enum BrowseEditorDialogType
+    {
+        /// <summary>An open-file dialog.</summary>
+        OpenFileDialog = 0,
+        /// <summary>A folder-browser dialog.</summary>
+        FolderBrowseDialog = 1
+    }
+
+    /// <summary>Compat stand-in for a checkbox item element inside the property grid.</summary>
+    public class PropertyGridCheckBoxItemElement : RadElement
+    {
+        /// <summary>Gets or sets the checked value.</summary>
+        public object? Value { get; set; }
+    }
+
     /// <summary>Compat stand-in for Telerik's text-box property editor.</summary>
     public class PropertyGridTextBoxEditor
     {
+        /// <summary>Gets the editor's visual element.</summary>
+        public RadElement EditorElement { get; } = new BaseTextBoxEditorElement ();
+    }
+
+    /// <summary>Compat stand-in for Telerik's drop-down-list property editor.</summary>
+    public class PropertyGridDropDownListEditor
+    {
+        /// <summary>Gets the editor's visual element.</summary>
+        public RadElement EditorElement { get; } = new BaseDropDownListEditorElement ();
+    }
+
+    /// <summary>Compat stand-in for Telerik's date-time property editor.</summary>
+    public class PropertyGridDateTimeEditor
+    {
+        /// <summary>Gets the editor's visual element.</summary>
+        public RadElement EditorElement { get; } = new BaseDateTimeEditorElement ();
+    }
+
+    /// <summary>Compat stand-in for Telerik's browse (file) property editor.</summary>
+    public class PropertyGridBrowseEditor
+    {
+        /// <summary>Gets the editor's visual element.</summary>
+        public RadElement EditorElement { get; } = new RadBrowseEditorElement ();
     }
 
     /// <summary>Compat stand-in for Telerik's DataGroup (grid grouping node).</summary>

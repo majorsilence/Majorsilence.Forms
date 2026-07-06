@@ -211,6 +211,12 @@ namespace Majorsilence.Forms.Telerik
         // SelectedObject, PropertySort, ToolbarVisible, SelectedGridItem and the rendering of the
         // inspected object's properties are inherited from Majorsilence.Forms.PropertyGrid.
 
+        /// <summary>Gets the element tree root (stub; hit testing returns null).</summary>
+        public RadElement ElementTree { get; } = new RadElement ();
+
+        /// <summary>Gets or sets the selected item. Settable shadow of the core read-only property (Telerik allows assigning it).</summary>
+        public new Majorsilence.Forms.GridItem? SelectedGridItem { get; set; }
+
         /// <summary>Gets the property items. Stub list (Telerik exposes individual property items).</summary>
         public List<object> Items { get; } = new ();
         /// <summary>Gets the property groups. Stub list.</summary>

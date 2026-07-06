@@ -1,4 +1,4 @@
-﻿using Majorsilence.Forms.Renderers;
+using Majorsilence.Forms.Renderers;
 
 namespace Majorsilence.Forms
 {
@@ -184,6 +184,16 @@ namespace Majorsilence.Forms
 
         /// <summary>Selects the specified tab page.</summary>
         public void SelectTab (TabPage tabPage) => SelectedTabPage = tabPage;
+
+        /// <summary>Selects the tab page with the specified Name. Mirrors WinForms TabControl.SelectTab(string).</summary>
+        public void SelectTab (string tabPageName)
+        {
+            foreach (var page in TabPages)
+                if (string.Equals (page.Name, tabPageName, StringComparison.OrdinalIgnoreCase)) {
+                    SelectedTabPage = page;
+                    return;
+                }
+        }
 
         /// <summary>Removes all tab pages from the TabControl.</summary>
         public void RemoveAll () => TabPages.Clear ();

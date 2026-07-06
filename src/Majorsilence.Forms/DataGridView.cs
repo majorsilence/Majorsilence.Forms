@@ -438,9 +438,10 @@ namespace Majorsilence.Forms
         public bool StandardTab { get; set; }
 
         /// <summary>
-        /// Gets the default cell style applied to alternating rows.
+        /// Gets or sets the default cell style applied to alternating rows. Settable for WinForms
+        /// designer assignments (see <see cref="DefaultCellStyle"/>).
         /// </summary>
-        public ControlStyle AlternatingRowsDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle AlternatingRowsDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets or sets the default cell style applied to cells in the DataGridView. Settable so
