@@ -205,7 +205,6 @@ namespace Majorsilence.Forms.Telerik
         public static RadContextMenu? GetRadContextMenu (Control control) => _menus.TryGetValue (control, out var entry) ? entry.Menu : null;
     }
 
-    /// <summary>Telerik-compat property grid. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
     /// <summary>Keyed collection of property-grid items (indexable by Name).</summary>
     public class PropertyGridItemCollection : List<PropertyGridItem>
     {
@@ -222,6 +221,7 @@ namespace Majorsilence.Forms.Telerik
             => Find (g => string.Equals (g.Name, name, StringComparison.OrdinalIgnoreCase)) ?? new PropertyGridGroupItem { Name = name };
     }
 
+    /// <summary>Telerik-compat property grid. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
     public class RadPropertyGrid : PropertyGrid
     {
         // SelectedObject, PropertySort, ToolbarVisible, SelectedGridItem and the rendering of the
