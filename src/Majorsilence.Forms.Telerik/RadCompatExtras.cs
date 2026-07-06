@@ -122,6 +122,42 @@ namespace Majorsilence.Forms.Telerik
         public new object? Value { get; set; }
     }
 
+    /// <summary>Compat stand-in for the property-grid item visual element.</summary>
+    public class PropertyGridItemElement : RadElement
+    {
+        /// <summary>Gets or sets the item shown by the element.</summary>
+        public PropertyGridItem? Data { get; set; }
+    }
+
+    /// <summary>Compat stand-in for the property-grid group visual element.</summary>
+    public class PropertyGridGroupElement : RadElement { }
+
+    /// <summary>Compat stand-in for the property-grid expander visual element.</summary>
+    public class PropertyGridExpanderElement : RadElement { }
+
+    /// <summary>Compat stand-in for the property-grid spin (numeric) editor.</summary>
+    public class PropertyGridSpinEditor
+    {
+        /// <summary>Gets the editor's visual element.</summary>
+        public RadElement EditorElement { get; } = new RadElement ();
+
+        /// <summary>Gets or sets the editor's current value.</summary>
+        public object? Value { get; set; }
+    }
+
+    /// <summary>Provides data for property-grid value validation. Mirrors Telerik's shape.</summary>
+    public class PropertyValidatingEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        /// <summary>The proposed new value.</summary>
+        public object? NewValue { get; set; }
+
+        /// <summary>The previous value.</summary>
+        public object? OldValue { get; set; }
+
+        /// <summary>The item being validated.</summary>
+        public PropertyGridItem? Item { get; set; }
+    }
+
     /// <summary>Provides data for property-grid editor initialization. Mirrors Telerik's shape.</summary>
     public class PropertyGridItemEditorInitializedEventArgs : EventArgs
     {

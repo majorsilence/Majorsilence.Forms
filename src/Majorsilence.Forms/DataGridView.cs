@@ -110,7 +110,7 @@ namespace Majorsilence.Forms
                 : string.Empty;
 
             // Raise CellBeginEdit event
-            var begin_args = new DataGridViewCellEditEventArgs (rowIndex, columnIndex);
+            var begin_args = new DataGridViewCellCancelEventArgs (columnIndex, rowIndex);
             OnCellBeginEdit (begin_args);
 
             if (begin_args.Cancel)
@@ -151,8 +151,8 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a cell's tooltip text is needed.</summary>
         public event EventHandler<DataGridViewCellToolTipTextNeededEventArgs>? CellToolTipTextNeeded;
 
-        /// <summary>Raised when a cell begins editing.</summary>
-        public event EventHandler<DataGridViewCellEditEventArgs>? CellBeginEdit;
+        /// <summary>Raised when a cell begins editing. Args typed DataGridViewCellCancelEventArgs to match System.Windows.Forms.</summary>
+        public event EventHandler<DataGridViewCellCancelEventArgs>? CellBeginEdit;
 
         /// <summary>Raised when a cell ends editing.</summary>
         public event EventHandler<DataGridViewCellEventArgs>? CellEndEdit;
@@ -1089,7 +1089,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the CellBeginEdit event.
         /// </summary>
-        protected virtual void OnCellBeginEdit (DataGridViewCellEditEventArgs e) => CellBeginEdit?.Invoke (this, e);
+        protected virtual void OnCellBeginEdit (DataGridViewCellCancelEventArgs e) => CellBeginEdit?.Invoke (this, e);
 
         /// <summary>
         /// Raises the CellEndEdit event.
@@ -2057,7 +2057,29 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>
-    /// Provides data for cell editing events.
+    /// Provides data for a cancelable cell event. Mirrors System.Windows.Forms
+    /// DataGridViewCellCancelEventArgs (the args of CellBeginEdit/RowValidating).
+    /// </summary>
+    public class DataGridViewCellCancelEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        /// <summary>Initializes a new instance for the specified cell.</summary>
+        public DataGridViewCellCancelEventArgs (int columnIndex, int rowIndex)
+        {
+            ColumnIndex = columnIndex;
+            RowIndex = rowIndex;
+        }
+
+        /// <summary>Gets the column index of the cell.</summary>
+        public int ColumnIndex { get; }
+
+        /// <summary>Gets the row index of the cell.</summary>
+        public int RowIndex { get; }
+    }
+
+    /// <summary>
+    /// Provides data for cell editing events. Superseded by
+    /// <see cref="DataGridViewCellCancelEventArgs"/> for CellBeginEdit (WinForms parity); kept for
+    /// source compatibility.
     /// </summary>
     public class DataGridViewCellEditEventArgs : EventArgs
     {

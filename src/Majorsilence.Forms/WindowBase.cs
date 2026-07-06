@@ -348,6 +348,11 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets user data associated with the window. Mirrors WinForms Control.Tag.</summary>
         public object? Tag { get; set; }
 
+        /// <summary>Raised when the window surface is painted. Declared for WinForms source compat; the compat window paints through its root adapter and does not raise this yet.</summary>
+#pragma warning disable CS0067
+        public event EventHandler<PaintEventArgs>? Paint;
+#pragma warning restore CS0067
+
         /// <summary>
         /// Gets or sets the context menu shown when the window itself is right-clicked. Stored for
         /// designer compat; the compat window does not surface it yet (controls' own menus work).
