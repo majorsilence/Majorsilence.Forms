@@ -2516,6 +2516,8 @@ namespace Majorsilence.Forms.Telerik
         public bool AutoExpandGroups { get; set; } = true;
         /// <summary>Gets or sets whether multiple rows can be selected.</summary>
         public bool MultiSelect { get; set; }
+        /// <summary>Gets or sets whether the user can drag-reorder rows. Stub.</summary>
+        public bool AllowRowReorder { get; set; }
         private bool _readOnly;
         /// <summary>Gets or sets whether the grid is read-only.</summary>
         public bool ReadOnly { get => _readOnly; set { _readOnly = value; _grid?.ApplyEditability (); } }

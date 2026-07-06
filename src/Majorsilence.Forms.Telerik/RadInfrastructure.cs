@@ -40,6 +40,8 @@ namespace Majorsilence.Forms.Telerik
         public Majorsilence.Forms.Padding Padding { get; set; }
         /// <summary>Gets or sets user data associated with the element.</summary>
         public object? Tag { get; set; }
+        /// <summary>Gets or sets the element's designer name.</summary>
+        public string Name { get; set; } = string.Empty;
         /// <summary>Gets or sets whether the element accepts drag-drop. Stored stub.</summary>
         public bool AllowDrop { get; set; }
         /// <summary>Gets the child elements of this element.</summary>
@@ -127,9 +129,7 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets or sets the displayed text.</summary>
         public string Text { get; set; } = string.Empty;
-        /// <summary>Gets or sets the name of the item.</summary>
-        public string Name { get; set; } = string.Empty;
-        // Tag is inherited from RadElement.
+        // Name and Tag are inherited from RadElement.
         /// <summary>Gets or sets the tooltip text shown for this item.</summary>
         public string ToolTipText { get; set; } = string.Empty;
 
@@ -287,7 +287,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Indicators rotate.</summary>
         Rotate = 2,
         /// <summary>Dots orbit in a spinner arrangement.</summary>
-        DotsSpinner = 3
+        DotsSpinner = 3,
+        /// <summary>Indicators arranged in a segmented ring.</summary>
+        SegmentedRing = 4
     }
 
 }

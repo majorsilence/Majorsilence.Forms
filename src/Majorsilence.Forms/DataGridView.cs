@@ -1840,6 +1840,15 @@ namespace Majorsilence.Forms
         /// <summary>Adjusts the height of all rows using the specified sizing mode. Stub in Majorsilence.Forms.</summary>
         public void AutoResizeRow (int rowIndex) => Invalidate ();
 
+        /// <summary>Adjusts the height of the specified row using the given sizing mode. Stub in Majorsilence.Forms.</summary>
+        public void AutoResizeRow (int rowIndex, DataGridViewAutoSizeRowMode autoSizeRowMode) => Invalidate ();
+
+        /// <summary>Gets or sets the visual style of the grid's border.</summary>
+        public BorderStyle BorderStyle { get; set; } = BorderStyle.Fixed3D;
+
+        /// <summary>Gets the columns currently selected (via column-header click). Stub: always empty -- the compat grid does not track column selection.</summary>
+        public DataGridViewColumnCollection SelectedColumns => new DataGridViewColumnCollection (this);
+
         /// <summary>Selects all cells, rows, or columns, depending on selection mode.</summary>
         public void SelectAll ()
         {
@@ -1956,8 +1965,20 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets the number of columns in the grid.</summary>
-        public int ColumnCount => Columns.Count;
+        /// <summary>
+        /// Gets or sets the number of columns. Setting it before binding declares an unbound grid's
+        /// columns (WinForms pattern): grows by appending plain columns, or shrinks by removing from
+        /// the end.
+        /// </summary>
+        public int ColumnCount {
+            get => Columns.Count;
+            set {
+                while (Columns.Count < value)
+                    Columns.Add (string.Empty);
+                while (Columns.Count > value)
+                    Columns.RemoveAt (Columns.Count - 1);
+            }
+        }
 
         /// <summary>Gets or sets which scroll bars are displayed. Stub in Majorsilence.Forms.</summary>
         public ScrollBars ScrollBars { get; set; } = ScrollBars.Both;

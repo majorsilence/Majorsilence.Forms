@@ -175,8 +175,8 @@ namespace Majorsilence.Forms.Telerik
         public int WaitingSpeed { get; set; } = 100;
         /// <summary>Gets or sets the animation step. Stub.</summary>
         public int WaitingStep { get; set; } = 1;
-        /// <summary>Gets or sets the number of waiting indicators. Stub.</summary>
-        public int WaitingIndicators { get; set; } = 5;
+        /// <summary>Gets the waiting indicator elements (designer-populated; count is informational only). Stub.</summary>
+        public List<VisualElement> WaitingIndicators { get; } = new ();
         /// <summary>Gets or sets the size of each indicator. Stub.</summary>
         public Size WaitingIndicatorSize { get; set; }
 
@@ -202,13 +202,23 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets the content element hosting the waiting indicators.</summary>
         public WaitingBarContentElement ContentElement { get; } = new WaitingBarContentElement ();
+        /// <summary>Gets or sets the animation speed, in ms. Stub — mirrors the value on the owning RadWaitingBar.</summary>
+        public int WaitingSpeed { get; set; } = 100;
     }
 
     /// <summary>Telerik-compat waiting-bar content element (hosts the indicator/separator elements). Designer-only stub.</summary>
-    public class WaitingBarContentElement : VisualElement { }
+    public class WaitingBarContentElement : VisualElement
+    {
+        /// <summary>Gets or sets the waiting animation style. Stub — mirrors the value on the owning RadWaitingBar.</summary>
+        public WaitingBarStyles WaitingStyle { get; set; } = WaitingBarStyles.Dash;
+    }
 
     /// <summary>Telerik-compat waiting-bar separator element. Designer-only stub.</summary>
-    public class WaitingBarSeparatorElement : VisualElement { }
+    public class WaitingBarSeparatorElement : VisualElement
+    {
+        /// <summary>Gets or sets whether a dash separator is drawn. Stub.</summary>
+        public bool Dash { get; set; }
+    }
 
     /// <summary>Telerik-compat "dots" waiting-bar indicator element. Designer-only stub.</summary>
     public class DotsSpinnerWaitingBarIndicatorElement : VisualElement { }

@@ -50,6 +50,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat page-view strip element (the tab header strip). Stub.</summary>
     public class RadPageViewStripElement : RadElement
     {
+        /// <summary>Gets the strip items. Empty stub -- the compat page view has no per-item element tree.</summary>
+        public List<RadPageViewItem> Items { get; } = new ();
         /// <summary>Gets or sets which strip buttons are shown. Stub.</summary>
         public StripViewButtons StripButtons { get; set; } = StripViewButtons.None;
         /// <summary>Gets or sets whether each item shows a close button. Stub.</summary>
@@ -114,6 +116,13 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets the affected page.</summary>
         public RadPageViewPage? Page { get; }
+    }
+
+    /// <summary>Compat stand-in for Telerik's RadPageViewItem (a strip-header item representing a page).</summary>
+    public class RadPageViewItem : RadItem
+    {
+        /// <summary>Gets or sets the page this item represents.</summary>
+        public RadPageViewPage? Page { get; set; }
     }
 
     /// <summary>Telerik-compat split container. Backed by <see cref="Majorsilence.Forms.SplitContainer"/>.</summary>

@@ -542,8 +542,13 @@ namespace Majorsilence.Forms.Telerik
         public bool ShowTimePicker { get; set; }
     }
 
-    /// <summary>Compat stand-in for the grid header cell element.</summary>
-    public class GridHeaderCellElement : RadElement
+    /// <summary>
+    /// Compat stand-in for the grid header cell element. Derives from
+    /// <see cref="Majorsilence.Forms.Telerik.GridViewCellElement"/> (Telerik parity) so formatting
+    /// handlers that narrow a cell-formatting event's CellElement with
+    /// <c>TypeOf e.CellElement Is GridHeaderCellElement</c> compile.
+    /// </summary>
+    public class GridHeaderCellElement : GridViewCellElement
     {
     }
 

@@ -165,8 +165,8 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
-        /// <summary>Gets or sets the tab name/key.</summary>
-        public string Name {
+        /// <summary>Gets or sets the tab name/key (hides RadElement.Name to forward to the backing TabPage).</summary>
+        public new string Name {
             get => TabPage.Name;
             set => TabPage.Name = value;
         }
