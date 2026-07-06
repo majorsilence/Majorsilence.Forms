@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Majorsilence.Forms;
 
 namespace ControlGallery.Panels
@@ -42,8 +42,8 @@ namespace ControlGallery.Panels
             });
 
             button4.Click += async (o, e) => {
-                await new MessageBoxForm ("This is a very very very very very very very very very very very very very very long title", new StackTrace ().ToString ()).ShowDialog (FindForm ()!);
-                await new MessageBoxForm ("Short Title", "Short Message").ShowDialog (FindForm ()!);
+                await new MessageBoxForm ("This is a very very very very very very very very very very very very very very long title", new StackTrace ().ToString ()).ShowDialogAsync (FindForm ()!);
+                await new MessageBoxForm ("Short Title", "Short Message").ShowDialogAsync (FindForm ()!);
             };
         }
     }

@@ -7,6 +7,23 @@ namespace Majorsilence.Forms
     /// </summary>
     public class DataGridViewCell
     {
+        /// <summary>The owning column (Telerik GridViewCellInfo.ColumnInfo naming).</summary>
+        public DataGridViewColumn? ColumnInfo { get; internal set; }
+
+        /// <summary>The editing-control type for this cell. Mirrors WinForms DataGridViewCell.EditType.</summary>
+        public virtual Type? EditType => null;
+
+        /// <summary>The value type of the cell. Mirrors WinForms DataGridViewCell.ValueType.</summary>
+        public virtual Type? ValueType => null;
+
+        /// <summary>The default value for a new row's cell. Mirrors WinForms.</summary>
+        public virtual object? DefaultNewRowValue => null;
+
+        /// <summary>Initializes the hosted editing control. Mirrors WinForms.</summary>
+        public virtual void InitializeEditingControl (int rowIndex, object? initialFormattedValue, DataGridViewCellStyle dataGridViewCellStyle)
+        {
+        }
+
         private object? value;
         private DataGridViewRow? owner;
 
@@ -61,6 +78,16 @@ namespace Majorsilence.Forms
         /// Gets or sets whether this cell is selected.
         /// </summary>
         public bool Selected { get; set; }
+
+        /// <summary>Gets whether this cell is currently being edited. Mirrors WinForms DataGridViewCell.IsInEditMode.</summary>
+        public bool IsInEditMode => DataGridView?.IsCellInEditMode (RowIndex, ColumnIndex) ?? false;
+
+        /// <summary>
+        /// Gets the current value of the cell including any uncommitted edit. Mirrors WinForms
+        /// DataGridViewCell.EditedFormattedValue; falls back to <see cref="Value"/> when the cell
+        /// is not being edited.
+        /// </summary>
+        public object? EditedFormattedValue => IsInEditMode ? DataGridView?.CurrentEditValue ?? Value : Value;
 
         /// <summary>
         /// Gets or sets the style for this cell.

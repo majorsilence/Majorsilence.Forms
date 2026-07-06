@@ -20,7 +20,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        public override async Task<DialogResult> ShowDialog (Form owner)
+        public override async Task<DialogResult> ShowDialogAsync (Form owner)
         {
             var request = new SaveFileRequest {
                 DefaultExtension = DefaultExtension ?? DefaultExt,
@@ -32,12 +32,12 @@ namespace Majorsilence.Forms
 
             var file = await owner.Backend.ShowSaveFileDialog (request);
 
-            FileNames.Clear ();
+            filenames.Clear ();
 
             if (file is not null)
-                FileNames.Add (file);
+                filenames.Add (file);
 
-            return FileNames.Count > 0 ? DialogResult.OK : DialogResult.Cancel;
+            return filenames.Count > 0 ? DialogResult.OK : DialogResult.Cancel;
         }
     }
 }

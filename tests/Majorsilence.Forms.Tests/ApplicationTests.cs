@@ -22,7 +22,7 @@ public class ApplicationTests
 
         // Showing a dialog Form adds it to open forms
         var f2 = new Form ();
-        f2.ShowDialog (f);
+        _ = f2.ShowDialogAsync (f);
 
         Assert.Equal (2, Application.OpenForms.Count);
         Assert.Equal (f2, Application.OpenForms[1]);

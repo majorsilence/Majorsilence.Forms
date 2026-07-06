@@ -802,6 +802,10 @@ namespace Majorsilence.Forms
         /// </summary>
         public void Invalidate () => Invalidate (Bounds);
 
+        /// <summary>Marks the control as needing to be redrawn. Mirrors WinForms
+        /// Invalidate(bool invalidateChildren); children repaint with the control here regardless.</summary>
+        public void Invalidate (bool invalidateChildren) => Invalidate (Bounds);
+
         /// <summary>
         /// Marks the specified portion of the control as needing to be redrawn.
         /// </summary>
@@ -1071,7 +1075,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the KeyPress event.
         /// </summary>
-        protected virtual void OnKeyPress (KeyPressEventArgs e) => (Events[s_keyPressEvent] as EventHandler<KeyPressEventArgs>)?.Invoke (this, e);
+        protected virtual void OnKeyPress (KeyPressEventArgs e) => (Events[s_keyPressEvent] as KeyPressEventHandler)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the KeyUp event.

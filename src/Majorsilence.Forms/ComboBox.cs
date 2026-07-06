@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using Majorsilence.Forms.Renderers;
@@ -8,7 +8,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ComboBox control.
     /// </summary>
-    public class ComboBox : Control
+    public partial class ComboBox : Control
     {
         private PopupWindow? popup;
         private readonly ListBox popup_listbox;

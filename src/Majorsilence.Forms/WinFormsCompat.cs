@@ -523,13 +523,18 @@ namespace Majorsilence.Forms
     public class TreeViewEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance.</summary>
-        public TreeViewEventArgs (TreeViewItem node) { Node = node; }
+        public TreeViewEventArgs (TreeNode node) { Node = node; }
 
         /// <summary>Initializes a new instance with an action.</summary>
-        public TreeViewEventArgs (TreeViewItem node, TreeViewAction action) { Node = node; Action = action; }
+        public TreeViewEventArgs (TreeNode node, TreeViewAction action) { Node = node; Action = action; }
 
-        /// <summary>Gets the tree node that raised the event.</summary>
-        public TreeViewItem Node { get; }
+        /// <summary>
+        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeViewItem)
+        /// to match System.Windows.Forms.TreeViewEventArgs.Node -- all nodes added through the
+        /// public TreeNode-based API are TreeNode instances in practice; raisers skip the event
+        /// for internally-created plain TreeViewItems.
+        /// </summary>
+        public TreeNode Node { get; }
 
         /// <summary>Gets the action that raised the event.</summary>
         public TreeViewAction Action { get; }
@@ -782,7 +787,7 @@ namespace Majorsilence.Forms
             var form = new MessageBoxForm (caption, text, buttons);
 
             if (parent != null)
-                return Form.RunModal (form.ShowDialog (parent));
+                return form.ShowDialog (parent);
 
             form.Show ();
             return DialogResult.OK;
@@ -804,7 +809,7 @@ namespace Majorsilence.Forms
         public static DialogResult Show (Form owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
             var form = new MessageBoxForm (caption, text, buttons);
-            return Form.RunModal (form.ShowDialog (owner));
+            return form.ShowDialog (owner);
         }
 
         /// <summary>Shows a message box with IWin32Window owner, text, caption, buttons, and icon.</summary>
@@ -812,7 +817,7 @@ namespace Majorsilence.Forms
         {
             var form = owner as Form ?? Application.OpenForms.FirstOrDefault ();
             var msgForm = new MessageBoxForm (caption, text, buttons);
-            return form is not null ? Form.RunModal (msgForm.ShowDialog (form)) : msgForm.ShowDialog ();
+            return form is not null ? msgForm.ShowDialog (form) : msgForm.ShowDialog ();
         }
 
         /// <summary>Shows a message box with IWin32Window owner.</summary>
@@ -881,6 +886,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the size of this item (informational only).</summary>
         public virtual Size Size { get; set; }
 
+        /// <summary>Gets or sets the height of this item. Mirrors WinForms ToolStripItem.Height.</summary>
+        public int Height {
+            get => Size.Height;
+            set => Size = new Size (Size.Width, value);
+        }
+
         /// <summary>Gets or sets whether this item is visible.</summary>
         public bool Visible { get; set; } = true;
 
@@ -921,8 +932,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets an integer that identifies the image from an ImageList. Stub in Majorsilence.Forms.</summary>
         public int ImageIndex { get; set; } = -1;
 
-        /// <summary>Gets or sets the image scaling size. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Size ImageScaling { get; set; } = new System.Drawing.Size (16, 16);
+        /// <summary>Gets or sets how the item's image is scaled. Mirrors WinForms
+        /// ToolStripItem.ImageScaling (the Size-typed knob is ImageScalingSize on the strip).</summary>
+        public ToolStripItemImageScaling ImageScaling { get; set; } = ToolStripItemImageScaling.SizeToFit;
+
+        /// <summary>Gets or sets the position of text relative to the image. Stub in Majorsilence.Forms.</summary>
+        public TextImageRelation TextImageRelation { get; set; } = TextImageRelation.ImageBeforeText;
 
         /// <summary>Gets or sets whether the item auto-sizes itself. Stub in Majorsilence.Forms.</summary>
         public bool AutoSize { get; set; } = true;
@@ -993,6 +1008,9 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ToolStripButton : ToolStripItem
     {
+        /// <summary>Gets or sets the color treated as transparent in the button image. Stored for compat.</summary>
+        public System.Drawing.Color ImageTransparentColor { get; set; }
+
         /// <summary>Initializes a new instance of the ToolStripButton class.</summary>
         public ToolStripButton () { }
 
@@ -1528,8 +1546,91 @@ namespace Majorsilence.Forms
     /// <summary>
     /// A collection of ToolStripItem objects.
     /// </summary>
+    /// <summary>Provides data for the ToolStrip.ItemAdded/ItemRemoved events.</summary>
+    public class ToolStripItemEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance for the given item.</summary>
+        public ToolStripItemEventArgs (ToolStripItem item) { Item = item; }
+
+        /// <summary>The item the event refers to.</summary>
+        public ToolStripItem Item { get; }
+    }
+
+    /// <summary>Provides data for the ToolStrip.ItemClicked event.</summary>
+    public class ToolStripItemClickedEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance for the given item.</summary>
+        public ToolStripItemClickedEventArgs (ToolStripItem clickedItem) { ClickedItem = clickedItem; }
+
+        /// <summary>The item that was clicked.</summary>
+        public ToolStripItem ClickedItem { get; }
+    }
+
+    /// <summary>Represents the method that handles ToolStrip.ItemAdded/ItemRemoved.</summary>
+    public delegate void ToolStripItemEventHandler (object? sender, ToolStripItemEventArgs e);
+
+    /// <summary>Represents the method that handles ToolStrip.ItemClicked.</summary>
+    public delegate void ToolStripItemClickedEventHandler (object? sender, ToolStripItemClickedEventArgs e);
+
+    /// <summary>
+    /// WinForms compatibility: implemented by controls hosted inside a DataGridView cell while
+    /// editing. Mirrors System.Windows.Forms.IDataGridViewEditingControl.
+    /// </summary>
+    public interface IDataGridViewEditingControl
+    {
+        /// <summary>The grid that owns the editing control.</summary>
+        DataGridView? EditingControlDataGridView { get; set; }
+
+        /// <summary>The current formatted value of the editing control.</summary>
+        object EditingControlFormattedValue { get; set; }
+
+        /// <summary>The row being edited.</summary>
+        int EditingControlRowIndex { get; set; }
+
+        /// <summary>Whether the value has changed since editing began.</summary>
+        bool EditingControlValueChanged { get; set; }
+
+        /// <summary>The cursor shown over the editing panel.</summary>
+        Cursor EditingPanelCursor { get; }
+
+        /// <summary>Whether the control should be repositioned when the value changes.</summary>
+        bool RepositionEditingControlOnValueChange { get; }
+
+        /// <summary>Applies the cell style to the editing control.</summary>
+        void ApplyCellStyleToEditingControl (DataGridViewCellStyle dataGridViewCellStyle);
+
+        /// <summary>Whether the editing control consumes the given key.</summary>
+        bool EditingControlWantsInputKey (Keys keyData, bool dataGridViewWantsInputKey);
+
+        /// <summary>Gets the formatted value of the editing control.</summary>
+        object GetEditingControlFormattedValue (DataGridViewDataErrorContexts context);
+
+        /// <summary>Prepares the control for edit (select-all etc.).</summary>
+        void PrepareEditingControlForEdit (bool selectAll);
+    }
+
+    /// <summary>Specifies whether a ToolStripItem image is scaled to fit. WinForms compatibility.</summary>
+    public enum ToolStripItemImageScaling
+    {
+        /// <summary>The image is not scaled.</summary>
+        None,
+        /// <summary>The image is scaled to the strip's image size.</summary>
+        SizeToFit,
+    }
+
+    /// <summary>Represents the collection of items in a ToolStrip.</summary>
     public class ToolStripItemCollection : Collection<ToolStripItem>
     {
+        /// <summary>Invoked when an item is added (lets the owning ToolStrip raise ItemAdded).</summary>
+        internal Action<ToolStripItem>? ItemAddedCallback;
+
+        /// <inheritdoc/>
+        protected override void InsertItem (int index, ToolStripItem item)
+        {
+            base.InsertItem (index, item);
+            ItemAddedCallback?.Invoke (item);
+        }
+
         /// <summary>Adds a range of items to the collection.</summary>
         public void AddRange (IEnumerable<ToolStripItem> items)
         {
@@ -1543,6 +1644,12 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ToolStripStatusLabel : ToolStripItem
     {
+        /// <summary>Gets or sets the label width. Mirrors WinForms (wraps Size).</summary>
+        public int Width {
+            get => Size.Width;
+            set => Size = new Size (value, Size.Height);
+        }
+
         /// <summary>Gets or sets how the label is aligned within the strip.</summary>
         public new ToolStripItemAlignment Alignment { get; set; }
 
@@ -1627,6 +1734,17 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ContextMenuStrip : ContextMenu
     {
+        /// <summary>Initializes a new instance.</summary>
+        public ContextMenuStrip () { }
+
+        /// <summary>Initializes a new instance owned by the specified container (WinForms designer overload; the container is not used).</summary>
+        public ContextMenuStrip (System.ComponentModel.IContainer container) { }
+
+        /// <summary>Shows the menu at the given screen point. Mirrors WinForms ContextMenuStrip.Show(Point).</summary>
+        public void Show (System.Drawing.Point screenLocation)
+        {
+        }
+
         /// <summary>Gets or sets the size used to scale item images. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Size ImageScalingSize { get; set; } = new System.Drawing.Size(16, 16);
     }
@@ -1642,8 +1760,19 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of the ToolStrip class.</summary>
         public ToolStrip ()
         {
-            _items = new ToolStripItemCollection ();
+            _items = new ToolStripItemCollection {
+                ItemAddedCallback = item => {
+                    item.Click += (_, _) => ItemClicked?.Invoke (this, new ToolStripItemClickedEventArgs (item));
+                    ItemAdded?.Invoke (this, new ToolStripItemEventArgs (item));
+                }
+            };
         }
+
+        /// <summary>Raised when an item is added to the ToolStrip.</summary>
+        public event ToolStripItemEventHandler? ItemAdded;
+
+        /// <summary>Raised when an item in the ToolStrip is clicked.</summary>
+        public event ToolStripItemClickedEventHandler? ItemClicked;
 
         /// <summary>Gets the collection of items in this ToolStrip.</summary>
         public new ToolStripItemCollection Items => _items;

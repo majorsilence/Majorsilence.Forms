@@ -16,6 +16,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadElement
     {
+        /// <summary>Gets the current behavior object (stub).</summary>
+        public object? GetCurrentBehavior () => null;
+
+        /// <summary>Gets or sets whether the element draws its border. Stored for Telerik compat.</summary>
+        public bool DrawBorder { get; set; } = true;
+
         /// <summary>Gets or sets whether the element is enabled.</summary>
         public bool Enabled { get; set; } = true;
         /// <summary>Gets or sets the element visibility.</summary>
@@ -32,10 +38,20 @@ namespace Majorsilence.Forms.Telerik
         public Color ForeColor { get; set; } = Color.Empty;
         /// <summary>Gets or sets the element's padding. Stub — stored but not applied to layout.</summary>
         public Majorsilence.Forms.Padding Padding { get; set; }
+        /// <summary>Gets or sets user data associated with the element.</summary>
+        public object? Tag { get; set; }
+        /// <summary>Gets or sets whether the element accepts drag-drop. Stored stub.</summary>
+        public bool AllowDrop { get; set; }
         /// <summary>Gets the child elements of this element.</summary>
         public System.Collections.Generic.List<RadElement> Children { get; } = new ();
         /// <summary>Returns the child element at the specified index, or a new stub element.</summary>
         public virtual RadElement GetChildAt (int index) => new RadElement ();
+        /// <summary>Returns the element at the given control coordinates, or null. Stub — the compat element tree has no hit testing.</summary>
+        public RadElement? GetElementAtPoint (Point point) => null;
+        /// <summary>Suspends element updates while values change. No-op stub (Telerik grid element BeginEdit).</summary>
+        public void BeginEdit () { }
+        /// <summary>Resumes element updates after changes. No-op stub (Telerik grid element EndEdit).</summary>
+        public void EndEdit () { }
         /// <summary>Resets a property to its default value. No-op stub.</summary>
         public void ResetValue (object? property = null) { }
         /// <summary>Resets a property to its default value using the specified reset scope. No-op stub.</summary>
@@ -88,7 +104,17 @@ namespace Majorsilence.Forms.Telerik
     /// <c>LightVisualElement.FontProperty</c> etc. regardless of the concrete element type. Same shape
     /// as <see cref="VisualElement"/> (the property tokens are inherited).
     /// </summary>
-    public class LightVisualElement : VisualElement { }
+    public class LightVisualElement : VisualElement
+    {
+        /// <summary>Gets or sets the gradient style used to fill the element. Stored stub.</summary>
+        public GradientStyles GradientStyle { get; set; } = GradientStyles.Solid;
+
+        /// <summary>Gets or sets the displayed text.</summary>
+        public string Text { get; set; } = string.Empty;
+
+        /// <summary>Gets the element bounds in control coordinates (forwards to ControlBounds).</summary>
+        public System.Drawing.Rectangle ControlBoundingRectangle => ControlBounds;
+    }
 
     /// <summary>Compat for Telerik's <c>RootRadElement</c> (the top-level element of a control's element tree).</summary>
     public class RootRadElement : RadElement { }
@@ -103,8 +129,7 @@ namespace Majorsilence.Forms.Telerik
         public string Text { get; set; } = string.Empty;
         /// <summary>Gets or sets the name of the item.</summary>
         public string Name { get; set; } = string.Empty;
-        /// <summary>Gets or sets an object with additional user data about the item.</summary>
-        public object? Tag { get; set; }
+        // Tag is inherited from RadElement.
         /// <summary>Gets or sets the tooltip text shown for this item.</summary>
         public string ToolTipText { get; set; } = string.Empty;
 
@@ -260,7 +285,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>A block of indicators travels across the bar.</summary>
         DataCloud = 1,
         /// <summary>Indicators rotate.</summary>
-        Rotate = 2
+        Rotate = 2,
+        /// <summary>Dots orbit in a spinner arrangement.</summary>
+        DotsSpinner = 3
     }
 
 }

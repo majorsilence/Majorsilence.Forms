@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 
 namespace Majorsilence.Forms
 {
@@ -7,6 +7,15 @@ namespace Majorsilence.Forms
     /// </summary>
     public class TabPageCollection : Collection<TabPage>
     {
+        /// <summary>Removes the tab page with the specified Name, if present. Mirrors WinForms.</summary>
+        public void RemoveByKey (string key)
+        {
+            var page = this.FirstOrDefault (p => string.Equals (p.Name, key, StringComparison.OrdinalIgnoreCase));
+
+            if (page is not null)
+                Remove (page);
+        }
+
         private readonly TabControl owner;
         private readonly TabStrip tab_strip;
 

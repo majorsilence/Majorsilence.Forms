@@ -28,11 +28,16 @@ namespace Majorsilence.Forms
                 if (value.HasValue) {
                     this.value = value.Value;
                     Text = value.Value.ToString ("HH:mm");
+                    ValueChanged?.Invoke (this, EventArgs.Empty);
                 }
             }
         }
 
         /// <summary>Gets or sets the minimum allowed value.</summary>
+        /// <summary>Raised when the time value changes. Mirrors WinForms DateTimePicker.ValueChanged.</summary>
+        public event EventHandler? ValueChanged;
+
+        /// <summary>Gets or sets the minimum selectable time.</summary>
         public DateTime MinValue { get; set; } = DateTime.MinValue;
 
         /// <summary>Gets or sets the maximum allowed value.</summary>

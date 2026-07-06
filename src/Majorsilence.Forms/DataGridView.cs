@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Reflection;
@@ -110,7 +110,7 @@ namespace Majorsilence.Forms
                 : string.Empty;
 
             // Raise CellBeginEdit event
-            var begin_args = new DataGridViewCellEditEventArgs (rowIndex, columnIndex);
+            var begin_args = new DataGridViewCellCancelEventArgs (columnIndex, rowIndex);
             OnCellBeginEdit (begin_args);
 
             if (begin_args.Cancel)
@@ -143,17 +143,22 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a cell is clicked.</summary>
         public event EventHandler<DataGridViewCellEventArgs>? CellClick;
 
+        /// <summary>Raised when a cell loses input focus. Mirrors WinForms DataGridView.CellLeave.</summary>
+#pragma warning disable CS0067 // raised once cell-focus tracking lands; declared for WinForms source compat
+        public event EventHandler<DataGridViewCellEventArgs>? CellLeave;
+#pragma warning restore CS0067
+
         /// <summary>Raised when a cell's tooltip text is needed.</summary>
         public event EventHandler<DataGridViewCellToolTipTextNeededEventArgs>? CellToolTipTextNeeded;
 
-        /// <summary>Raised when a cell begins editing.</summary>
-        public event EventHandler<DataGridViewCellEditEventArgs>? CellBeginEdit;
+        /// <summary>Raised when a cell begins editing. Args typed DataGridViewCellCancelEventArgs to match System.Windows.Forms.</summary>
+        public event EventHandler<DataGridViewCellCancelEventArgs>? CellBeginEdit;
 
         /// <summary>Raised when a cell ends editing.</summary>
-        public event EventHandler<DataGridViewCellEditEventArgs>? CellEndEdit;
+        public event EventHandler<DataGridViewCellEventArgs>? CellEndEdit;
 
         /// <summary>Raised when a cell value has changed.</summary>
-        public event EventHandler<DataGridViewCellEditEventArgs>? CellValueChanged;
+        public event EventHandler<DataGridViewCellEventArgs>? CellValueChanged;
 
         /// <summary>Raised when the <see cref="DataSource"/> changes. WinForms compatibility.</summary>
         public event EventHandler? DataSourceChanged;
@@ -433,14 +438,17 @@ namespace Majorsilence.Forms
         public bool StandardTab { get; set; }
 
         /// <summary>
-        /// Gets the default cell style applied to alternating rows.
+        /// Gets or sets the default cell style applied to alternating rows. Settable for WinForms
+        /// designer assignments (see <see cref="DefaultCellStyle"/>).
         /// </summary>
-        public ControlStyle AlternatingRowsDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle AlternatingRowsDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
-        /// Gets the default cell style applied to cells in the DataGridView.
+        /// Gets or sets the default cell style applied to cells in the DataGridView. Settable so
+        /// WinForms designer code assigning a DataGridViewCellStyle compiles (via ControlStyle's
+        /// implicit conversion from DataGridViewCellStyle).
         /// </summary>
-        public ControlStyle DefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle DefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets or sets the default cell style applied to column header cells. Stays
@@ -452,9 +460,10 @@ namespace Majorsilence.Forms
         public ControlStyle ColumnHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
-        /// Gets the default cell style applied to row header cells.
+        /// Gets or sets the default cell style applied to row header cells. Settable for
+        /// WinForms designer assignments (see <see cref="DefaultCellStyle"/>).
         /// </summary>
-        public ControlStyle RowHeadersDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle RowHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets the default cell style applied to all rows.
@@ -463,6 +472,29 @@ namespace Majorsilence.Forms
 
         /// <summary>Commits any pending edit for the specified context. Delegates to EndEdit in Majorsilence.Forms.</summary>
         public bool CommitEdit (DataGridViewDataErrorContexts context) => EndEdit ();
+
+        /// <summary>
+        /// Creates the column instance used when columns are created by name (string-based
+        /// <see cref="DataGridViewColumnCollection.Add(string)"/> overloads and data-bound
+        /// auto-generation). Derived grids override this so every column they own is of their
+        /// column type (e.g. the Telerik-compat grid returns its data-column type).
+        /// </summary>
+        protected internal virtual DataGridViewColumn CreateColumnInstance (string headerText) => new DataGridViewColumn (headerText);
+
+        // Whether the specified cell is the one currently being edited (used by DataGridViewCell compat members).
+        internal bool IsCellInEditMode (int rowIndex, int columnIndex)
+            => edit_textbox is not null && editing_row_index == rowIndex && editing_column_index == columnIndex;
+
+        // The uncommitted text of the active editor, if any (used by DataGridViewCell.EditedFormattedValue).
+        internal string? CurrentEditValue => edit_textbox?.Text;
+
+        /// <summary>Gets whether the current cell has uncommitted changes. Mirrors WinForms.</summary>
+        public bool IsCurrentCellDirty => edit_textbox is not null;
+
+        /// <summary>Raised when the current cell's dirty state changes. Declared for WinForms compat; the compat grid commits on end-edit and does not raise it.</summary>
+#pragma warning disable CS0067
+        public event EventHandler? CurrentCellDirtyStateChanged;
+#pragma warning restore CS0067
 
         /// <summary>
         /// Commits the current edit and hides the edit TextBox.
@@ -506,12 +538,12 @@ namespace Majorsilence.Forms
                 }
 
                 if (committed) {
-                    var changed_args = new DataGridViewCellEditEventArgs (editing_row_index, editing_column_index);
+                    var changed_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
                     OnCellValueChanged (changed_args);
                 }
             }
 
-            var end_args = new DataGridViewCellEditEventArgs (editing_row_index, editing_column_index);
+            var end_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
             OnCellEndEdit (end_args);
 
             // Clean up the TextBox
@@ -1066,17 +1098,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the CellBeginEdit event.
         /// </summary>
-        protected virtual void OnCellBeginEdit (DataGridViewCellEditEventArgs e) => CellBeginEdit?.Invoke (this, e);
+        protected virtual void OnCellBeginEdit (DataGridViewCellCancelEventArgs e) => CellBeginEdit?.Invoke (this, e);
 
         /// <summary>
         /// Raises the CellEndEdit event.
         /// </summary>
-        protected virtual void OnCellEndEdit (DataGridViewCellEditEventArgs e) => CellEndEdit?.Invoke (this, e);
+        protected virtual void OnCellEndEdit (DataGridViewCellEventArgs e) => CellEndEdit?.Invoke (this, e);
 
         /// <summary>
         /// Raises the CellValueChanged event.
         /// </summary>
-        protected virtual void OnCellValueChanged (DataGridViewCellEditEventArgs e) => CellValueChanged?.Invoke (this, e);
+        protected virtual void OnCellValueChanged (DataGridViewCellEventArgs e) => CellValueChanged?.Invoke (this, e);
 
         /// <summary>
         /// Handles a column header click for sorting.
@@ -1315,7 +1347,7 @@ namespace Majorsilence.Forms
                         var current = cell.Value is bool b ? b
                             : string.Equals (cell.Value?.ToString (), "True", StringComparison.OrdinalIgnoreCase) || cell.Value?.ToString () == "1";
                         cell.Value = !current;
-                        OnCellValueChanged (new DataGridViewCellEditEventArgs (row, col));
+                        OnCellValueChanged (new DataGridViewCellEventArgs (col, row));
                     }
                 }
 
@@ -2034,7 +2066,29 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>
-    /// Provides data for cell editing events.
+    /// Provides data for a cancelable cell event. Mirrors System.Windows.Forms
+    /// DataGridViewCellCancelEventArgs (the args of CellBeginEdit/RowValidating).
+    /// </summary>
+    public class DataGridViewCellCancelEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        /// <summary>Initializes a new instance for the specified cell.</summary>
+        public DataGridViewCellCancelEventArgs (int columnIndex, int rowIndex)
+        {
+            ColumnIndex = columnIndex;
+            RowIndex = rowIndex;
+        }
+
+        /// <summary>Gets the column index of the cell.</summary>
+        public int ColumnIndex { get; }
+
+        /// <summary>Gets the row index of the cell.</summary>
+        public int RowIndex { get; }
+    }
+
+    /// <summary>
+    /// Provides data for cell editing events. Superseded by
+    /// <see cref="DataGridViewCellCancelEventArgs"/> for CellBeginEdit (WinForms parity); kept for
+    /// source compatibility.
     /// </summary>
     public class DataGridViewCellEditEventArgs : EventArgs
     {

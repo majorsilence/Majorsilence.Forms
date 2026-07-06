@@ -222,6 +222,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat list data item.</summary>
     public class RadListDataItem
     {
+        /// <summary>The underlying data object this item represents.</summary>
+        public object? DataBoundItem { get; set; }
+
         /// <summary>Initializes a new, empty instance.</summary>
         public RadListDataItem () { }
         /// <summary>Initializes a new instance with the specified text.</summary>
@@ -248,13 +251,13 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new instance of the RadDateTimePicker class.</summary>
         public RadDateTimePicker ()
         {
-            ValueChanged += (_, _) => ValueChanging?.Invoke (this, EventArgs.Empty);
+            ValueChanged += (_, _) => ValueChanging?.Invoke (this, new ValueChangingEventArgs { NewValue = Value });
         }
 
         /// <summary>Gets the picker element (stub).</summary>
         public RadElement DateTimePickerElement { get; } = new RadElement ();
         /// <summary>Raised before the value changes. Stub (fires alongside ValueChanged).</summary>
-        public event EventHandler? ValueChanging;
+        public event EventHandler<ValueChangingEventArgs>? ValueChanging;
         /// <summary>Raised when the drop-down calendar opens. Stub.</summary>
         public event EventHandler? Opened { add { } remove { } }
     }

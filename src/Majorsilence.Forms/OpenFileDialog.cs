@@ -34,7 +34,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        public override async Task<DialogResult> ShowDialog (Form owner)
+        public override async Task<DialogResult> ShowDialogAsync (Form owner)
         {
             var request = new OpenFileRequest {
                 AllowMultiple = AllowMultiple,
@@ -45,12 +45,12 @@ namespace Majorsilence.Forms
 
             var files = await owner.Backend.ShowOpenFileDialog (request);
 
-            FileNames.Clear ();
+            filenames.Clear ();
 
             if (files.Length > 0)
-                FileNames.AddRange (files);
+                filenames.AddRange (files);
 
-            return FileNames.Count > 0 ? DialogResult.OK : DialogResult.Cancel;
+            return filenames.Count > 0 ? DialogResult.OK : DialogResult.Cancel;
         }
     }
 }

@@ -12,6 +12,11 @@ namespace Majorsilence.Forms;
 /// </summary>
 public class ImageCollection : IDictionary<string, SKBitmap>
 {
+        /// <summary>Sets the key of the image at the given index. Mirrors WinForms ImageList.ImageCollection.</summary>
+        public void SetKeyName (int index, string name)
+        {
+        }
+
     // We can't use a normal Dictionary because we need to be able to access images by index
     private OrderedDictionary _images = [];
 

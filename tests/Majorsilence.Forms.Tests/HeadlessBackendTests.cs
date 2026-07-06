@@ -182,7 +182,7 @@ public class HeadlessBackendTests
         parent.Show ();
 
         var dialog = new Form ();
-        var task = dialog.ShowDialog (parent);
+        var task = dialog.ShowDialogAsync (parent);
         Assert.False (task.IsCompleted);
 
         dialog.DialogResult = DialogResult.OK;   // triggers Close → completes the dialog task

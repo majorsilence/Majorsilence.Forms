@@ -5,6 +5,28 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat drop-down list. Backed by <see cref="Majorsilence.Forms.ComboBox"/>.</summary>
     public class RadDropDownList : ComboBox
     {
+        /// <summary>Initializes a new instance, bridging the base selection event to the Telerik-typed one.</summary>
+        public RadDropDownList ()
+        {
+            base.SelectedIndexChanged += (_, _) => SelectedIndexChanged?.Invoke (this, new Majorsilence.Forms.Telerik.Data.PositionChangedEventArgs (SelectedIndex));
+        }
+
+        /// <summary>
+        /// Occurs when the selected index changes. Telerik-typed replacement of the base event —
+        /// handlers receive <see cref="PositionChangedEventArgs"/> carrying the new index.
+        /// </summary>
+        public new event PositionChangedEventHandler? SelectedIndexChanged;
+
+        /// <summary>Gets the selected item wrapped as a Telerik list item (typed DataBoundItem access).</summary>
+        public new RadListDataItem? SelectedItem =>
+            base.SelectedItem is null ? null : new RadListDataItem { Text = base.SelectedItem.ToString () ?? string.Empty, DataBoundItem = base.SelectedItem };
+
+        /// <summary>Gets or sets the drop-down style using Telerik's enum; maps onto the base ComboBox style.</summary>
+        public new RadDropDownStyle DropDownStyle {
+            get => base.DropDownStyle == ComboBoxStyle.DropDownList ? RadDropDownStyle.DropDownList : RadDropDownStyle.DropDown;
+            set => base.DropDownStyle = value == RadDropDownStyle.DropDownList ? ComboBoxStyle.DropDownList : ComboBoxStyle.DropDown;
+        }
+
         /// <summary>Gets or sets whether the drop-down animates. No-op stub.</summary>
         public bool DropDownAnimationEnabled { get; set; } = true;
         /// <summary>Gets or sets the text shown when nothing is selected. Stub.</summary>

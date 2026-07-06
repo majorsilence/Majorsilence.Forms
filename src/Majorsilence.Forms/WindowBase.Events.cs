@@ -19,7 +19,7 @@ public abstract partial class WindowBase
     /// <summary>
     /// Raised when the user presses a key.
     /// </summary>
-    public event EventHandler<KeyPressEventArgs>? KeyPress {
+    public event KeyPressEventHandler? KeyPress {
         add => Events.AddHandler (s_keyPressEvent, value);
         remove => Events.RemoveHandler (s_keyPressEvent, value);
     }
@@ -40,7 +40,7 @@ public abstract partial class WindowBase
     /// <summary>
     /// Raises the KeyPress event.
     /// </summary>
-    protected virtual void OnKeyPress (KeyPressEventArgs e) => (Events[s_keyPressEvent] as EventHandler<KeyPressEventArgs>)?.Invoke (this, e);
+    protected virtual void OnKeyPress (KeyPressEventArgs e) => (Events[s_keyPressEvent] as KeyPressEventHandler)?.Invoke (this, e);
 
     /// <summary>
     /// Raises the KeyUp event.

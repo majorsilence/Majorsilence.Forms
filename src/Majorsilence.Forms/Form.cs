@@ -167,7 +167,7 @@ namespace Majorsilence.Forms
         public event EventHandler<FormClosingEventArgs>? FormClosing;
 
         /// <summary>Raised after the form is closed.</summary>
-        public event EventHandler<FormClosedEventArgs>? FormClosed;
+        public event FormClosedEventHandler? FormClosed;
 
 
         /// <summary>Raised when the form is first shown (WinForms compatibility alias; raised together with Shown).</summary>
@@ -460,9 +460,7 @@ namespace Majorsilence.Forms
                 return DialogResult.OK;
             }
 
-            var result = RunModal (ShowDialog (parent));
-            FormClosed?.Invoke (this, new FormClosedEventArgs ());
-            return result;
+            return ShowDialog (parent);
         }
 
         /// <summary>Shows the form as a modal dialog with the specified owner window. Stub — ignores owner parameter.</summary>
@@ -529,8 +527,17 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>Displays the window modally with the given owner and blocks until closed.
+        /// Mirrors WinForms Form.ShowDialog(owner); the modal loop keeps the UI pumped.</summary>
+        public DialogResult ShowDialog (Form parent)
+        {
+            var result = RunModal (ShowDialogAsync (parent));
+            FormClosed?.Invoke (this, new FormClosedEventArgs ());
+            return result;
+        }
+
         /// <summary>Displays the window to the user modally, preventing interaction with other windows until closed.</summary>
-        public Task<DialogResult> ShowDialog (Form parent)
+        public Task<DialogResult> ShowDialogAsync (Form parent)
         {
             dialog_task = new TaskCompletionSource<DialogResult> ();
 
@@ -605,8 +612,17 @@ namespace Majorsilence.Forms
         /// <summary>Validates all selectable child controls. Always returns true (stub).</summary>
         public bool ValidateChildren () => true;
 
-        /// <summary>Gets or sets the binding context. No-op in Majorsilence.Forms.</summary>
-        public object? BindingContext { get; set; }
+        private BindingContext? binding_context;
+
+        /// <summary>
+        /// Gets or sets the BindingContext for the form. Mirrors WinForms Form.BindingContext:
+        /// binding managers are cached per (dataSource, dataMember) pair so all lookups on the form
+        /// share position state.
+        /// </summary>
+        public BindingContext BindingContext {
+            get => binding_context ??= new BindingContext ();
+            set => binding_context = value;
+        }
 
         /// <summary>Gets or sets the border style of the form (stub — actual decoration is controlled by UseSystemDecorations).</summary>
         public FormBorderStyle FormBorderStyle {
@@ -799,6 +815,24 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether this form is hosted as the child of an MDI container.</summary>
         public bool IsMdiChild => mdi_parent != null;
 
+        /// <summary>
+        /// Gets the form this form is parented to. Mirrors WinForms Control.ParentForm as it applies
+        /// to a Form: the MDI parent when hosted as an MDI child, otherwise null (top-level window).
+        /// </summary>
+        public Form? ParentForm => mdi_parent;
+
+        /// <summary>Gets or sets the bounds the form uses when maximized. Stored but not enforced in Majorsilence.Forms.</summary>
+        public System.Drawing.Rectangle MaximizedBounds { get; set; }
+
+        /// <summary>Gets or sets the base size used for autoscaling. Legacy WinForms designer property; stored no-op.</summary>
+        public System.Drawing.Size AutoScaleBaseSize { get; set; }
+
+        /// <summary>
+        /// Gets the Win32 creation parameters. WinForms compatibility for the classic
+        /// remove-close-button override pattern; the compat window ignores the values.
+        /// </summary>
+        protected virtual CreateParams CreateParams => new CreateParams ();
+
         /// <summary>Gets the active MDI child form, or null.</summary>
         public Form? ActiveMdiChild => MdiClientControl?.ActiveChild;
 
@@ -846,7 +880,7 @@ namespace Majorsilence.Forms
 
             PrepareAsMdiChild ();
             client.AddChild (this);
-            Visible = true;
+            visible = true;
             Application.OpenForms.Add (this);
 
             if (!shown) {
@@ -921,6 +955,9 @@ namespace Majorsilence.Forms
 
         /// <summary>Activates the form and gives it focus. No-op stub in Majorsilence.Forms.</summary>
         public void Activate () { }
+
+        /// <summary>Activates the form. Mirrors WinForms Control.Select as it applies to a Form.</summary>
+        public void Select () => BringToFront ();
 
         /// <summary>Centers the form in its parent or on screen.</summary>
         public void CenterToScreen ()

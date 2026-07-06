@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a TextBox control.
     /// </summary>
-    public class TextBox : ScrollControl
+    public class TextBox : TextBoxBase
     {
         internal readonly TextBoxDocument document;
 
@@ -224,8 +224,10 @@ namespace Majorsilence.Forms
 
         /// <summary>
         /// Gets or sets a value indicating if the TextBox supports multiple lines of text.
+        /// Only the WinForms spelling exists: VB is case-insensitive, so a MultiLine/Multiline
+        /// pair makes the member unusable from VB.
         /// </summary>
-        public bool MultiLine {
+        public bool Multiline {
             get => document.IsMultiline;
             set {
                 if (document.IsMultiline != value) {
@@ -236,15 +238,6 @@ namespace Majorsilence.Forms
                     document.IsMultiline = value;
                 }
             }
-        }
-
-        /// <summary>
-        /// Gets or sets a value indicating if the TextBox supports multiple lines of text.
-        /// WinForms-compatible spelling alias for <see cref="MultiLine"/>.
-        /// </summary>
-        public bool Multiline {
-            get => MultiLine;
-            set => MultiLine = value;
         }
 
         /// <inheritdoc/>
@@ -277,7 +270,7 @@ namespace Majorsilence.Forms
             base.OnKeyPress (e);
 
             // Enter = 13
-            if (e.KeyChar == 13 && MultiLine) {
+            if (e.KeyChar == 13 && Multiline) {
                 if (document.InsertText ("\n"))
                     ScrollToCaret ();
             }
@@ -477,7 +470,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating the start of the TextBox's selected text.
         /// </summary>
-        public int SelectionStart {
+        public override int SelectionStart {
             get => document.SelectionStart;
             set => document.SelectionStart = value;
         }
@@ -485,7 +478,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the number of characters selected.
         /// </summary>
-        public int SelectionLength {
+        public override int SelectionLength {
             get {
                 if (document.SelectionStart < 0 || document.SelectionEnd < 0)
                     return 0;

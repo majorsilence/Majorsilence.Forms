@@ -18,19 +18,7 @@ namespace Majorsilence.Forms
             SetControlBehavior (ControlBehaviors.Selectable, true);
         }
 
-        /// <summary>
-        /// Gets or sets how the UserControl behaves when its AutoSize property is enabled.
-        /// </summary>
-        public AutoSizeMode AutoSizeMode {
-            get => GetAutoSizeMode ();
-            set {
-                if (!Enum.IsDefined (value))
-                    throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (AutoSizeMode));
-
-                if (GetAutoSizeMode () != value)
-                    SetAutoSizeMode (value);
-            }
-        }
+        // AutoSizeMode is inherited from Panel (same Get/SetAutoSizeMode mechanism).
 
         /// <summary>Gets or sets how the control should scale when its parent changes DPI.</summary>
         public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Font;

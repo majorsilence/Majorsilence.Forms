@@ -7,6 +7,16 @@ namespace Majorsilence.Forms
     /// </summary>
     public class DataGridViewColumnCollection : Collection<DataGridViewColumn>
     {
+        /// <summary>Moves a column to a new display position. Mirrors Telerik's Columns.Move.</summary>
+        public void Move (int fromIndex, int toIndex)
+        {
+            if (fromIndex == toIndex || fromIndex < 0 || fromIndex >= Count || toIndex < 0 || toIndex >= Count)
+                return;
+            var item = this[fromIndex];
+            RemoveAt (fromIndex);
+            Insert (toIndex, item);
+        }
+
         private readonly DataGridView owner;
 
         /// <summary>
@@ -40,7 +50,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public DataGridViewColumn Add (string headerText)
         {
-            var column = new DataGridViewColumn (headerText);
+            var column = owner.CreateColumnInstance (headerText);
             Add (column);
             return column;
         }
@@ -50,7 +60,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public DataGridViewColumn Add (string name, string headerText)
         {
-            var column = new DataGridViewColumn (headerText) { Name = name };
+            var column = owner.CreateColumnInstance (headerText);
+            column.Name = name;
             Add (column);
             return column;
         }
@@ -60,7 +71,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public DataGridViewColumn Add (string headerText, int width)
         {
-            var column = new DataGridViewColumn (headerText) { Width = width };
+            var column = owner.CreateColumnInstance (headerText);
+            column.Width = width;
             Add (column);
             return column;
         }

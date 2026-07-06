@@ -352,7 +352,7 @@ namespace Majorsilence.Forms.Tests
         public void SetToolTip_NullControl_ThrowsArgumentNullException ()
         {
             using var toolTip = new ToolTip ();
-            Assert.Throws<ArgumentNullException> (() => toolTip.SetToolTip (null!, "caption"));
+            Assert.Throws<ArgumentNullException> (() => toolTip.SetToolTip ((Control)null!, "caption"));
         }
 
         [Fact]

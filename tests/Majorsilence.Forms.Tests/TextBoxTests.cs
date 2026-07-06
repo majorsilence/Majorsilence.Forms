@@ -103,11 +103,11 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new TextBox ();
 
-            control.MultiLine = true;
+            control.Multiline = true;
             Assert.True (control.Multiline);
 
             control.Multiline = false;
-            Assert.False (control.MultiLine);
+            Assert.False (control.Multiline);
         }
 
         [Fact]

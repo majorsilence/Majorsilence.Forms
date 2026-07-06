@@ -50,6 +50,15 @@ namespace Majorsilence.Forms.Telerik
         public RadMenuItem (string text) : base (text) { }
         /// <summary>Initializes a new instance with the specified text and tag (Telerik (text, data) ctor).</summary>
         public RadMenuItem (string text, object? tag) : base (text) { Tag = tag; }
+
+        /// <summary>Gets or sets whether clicking toggles the checked state. Mirrors Telerik.</summary>
+        public bool CheckOnClick { get; set; }
+
+        /// <summary>Telerik-style alias of <see cref="MenuItem.Checked"/>.</summary>
+        public bool IsChecked {
+            get => Checked;
+            set => Checked = value;
+        }
     }
 
     /// <summary>Telerik-compat menu separator.</summary>
@@ -58,6 +67,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Base for Telerik-compat command bar items (buttons, separators, etc. hosted in a <see cref="RadCommandBar"/> strip).</summary>
     public class RadCommandBarBaseItem : RadItem
     {
+        /// <summary>Gets or sets whether the item's image is drawn. Stored for Telerik compat.</summary>
+        public bool DrawImage { get; set; } = true;
+
         /// <summary>Gets or sets the display name shown in the command bar customization UI. Stub.</summary>
         public string DisplayName { get; set; } = string.Empty;
         /// <summary>Gets or sets whether the item appears in the "more items" overflow menu. Stub.</summary>
@@ -110,6 +122,14 @@ namespace Majorsilence.Forms.Telerik
                 menu.Show (control, location);
         }
 
+        /// <summary>Raises <see cref="DropDownOpening"/>, builds a menu from <see cref="Items"/>, and shows it at the specified screen point.</summary>
+        public void Show (Point location) => Show (location.X, location.Y);
+
+        private RadDropDownMenu? drop_down;
+
+        /// <summary>Gets the drop-down facade of this menu (Telerik's RadContextMenu.DropDown surface: Show/Hide/Visible).</summary>
+        public RadDropDownMenu DropDown => drop_down ??= new RadDropDownMenu (this);
+
         /// <summary>Raises <see cref="DropDownOpening"/>, builds a menu from <see cref="Items"/>, and shows it at the specified screen coordinates.</summary>
         public void Show (int x, int y)
         {
@@ -126,6 +146,30 @@ namespace Majorsilence.Forms.Telerik
             if (menu.Items.Count > 0)
                 menu.Show (x, y);
         }
+    }
+
+    /// <summary>
+    /// The drop-down facade of a <see cref="RadContextMenu"/> (Telerik's RadDropDownMenu as reached
+    /// through <c>RadContextMenu.DropDown</c>). Show delegates to the owning menu; the popup manages
+    /// its own dismissal, so <see cref="Visible"/> reports false and <see cref="Hide"/> is a no-op.
+    /// </summary>
+    public class RadDropDownMenu
+    {
+        private readonly RadContextMenu owner;
+
+        internal RadDropDownMenu (RadContextMenu owner) => this.owner = owner;
+
+        /// <summary>Gets whether the drop-down is currently shown. Always false — the popup dismisses itself.</summary>
+        public bool Visible => false;
+
+        /// <summary>Shows the owning context menu at the specified screen point.</summary>
+        public void Show (Point location) => owner.Show (location);
+
+        /// <summary>Shows the owning context menu relative to the specified control.</summary>
+        public void Show (Control control, Point location) => owner.Show (control, location);
+
+        /// <summary>Hides the drop-down. No-op — the popup dismisses itself.</summary>
+        public void Hide () { }
     }
 
     /// <summary>
@@ -161,16 +205,38 @@ namespace Majorsilence.Forms.Telerik
         public static RadContextMenu? GetRadContextMenu (Control control) => _menus.TryGetValue (control, out var entry) ? entry.Menu : null;
     }
 
+    /// <summary>Keyed collection of property-grid items (indexable by Name).</summary>
+    public class PropertyGridItemCollection : List<PropertyGridItem>
+    {
+        /// <summary>Gets the item with the specified property name, or null.</summary>
+        public PropertyGridItem? this[string name]
+            => Find (i => string.Equals (i.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Keyed collection of property-grid group items (indexable by group name).</summary>
+    public class PropertyGridGroupItemCollection : List<PropertyGridGroupItem>
+    {
+        /// <summary>Gets the group with the specified name; a detached group when absent (so chained calls are safe).</summary>
+        public PropertyGridGroupItem this[string name]
+            => Find (g => string.Equals (g.Name, name, StringComparison.OrdinalIgnoreCase)) ?? new PropertyGridGroupItem { Name = name };
+    }
+
     /// <summary>Telerik-compat property grid. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
     public class RadPropertyGrid : PropertyGrid
     {
         // SelectedObject, PropertySort, ToolbarVisible, SelectedGridItem and the rendering of the
         // inspected object's properties are inherited from Majorsilence.Forms.PropertyGrid.
 
-        /// <summary>Gets the property items. Stub list (Telerik exposes individual property items).</summary>
-        public List<object> Items { get; } = new ();
-        /// <summary>Gets the property groups. Stub list.</summary>
-        public List<object> Groups { get; } = new ();
+        /// <summary>Gets the element tree root (stub; hit testing returns null).</summary>
+        public RadElement ElementTree { get; } = new RadElement ();
+
+        /// <summary>Gets or sets the selected item. Settable shadow of the core read-only property (Telerik allows assigning it).</summary>
+        public new Majorsilence.Forms.GridItem? SelectedGridItem { get; set; }
+
+        /// <summary>Gets the property items, indexable by property name.</summary>
+        public PropertyGridItemCollection Items { get; } = new ();
+        /// <summary>Gets the property groups, indexable by group name.</summary>
+        public PropertyGridGroupItemCollection Groups { get; } = new ();
         /// <summary>Gets or sets the sort order. Stub.</summary>
         public object? SortOrder { get; set; }
         /// <summary>Gets or sets whether sorting is enabled. Stub.</summary>
@@ -183,14 +249,16 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Begins editing the selected item. Stub.</summary>
         public void BeginEdit () { }
 
-        /// <summary>Raised when an item is being formatted. Stub.</summary>
-        public event EventHandler? ItemFormatting { add { } remove { } }
-        /// <summary>Raised when an item has been edited. Stub.</summary>
-        public event EventHandler? Edited { add { } remove { } }
-        /// <summary>Raised when an editor is initialized. Stub.</summary>
-        public event EventHandler? EditorInitialized { add { } remove { } }
-        /// <summary>Raised when an editor is required. Stub.</summary>
-        public event EventHandler? EditorRequired { add { } remove { } }
+        /// <summary>Raised when an item is being formatted. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridItemFormattingEventArgs>? ItemFormatting { add { } remove { } }
+        /// <summary>Raised when an item has been edited. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridItemEditedEventArgs>? Edited { add { } remove { } }
+        /// <summary>Raised when an editor is initialized. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridItemEditorInitializedEventArgs>? EditorInitialized { add { } remove { } }
+        /// <summary>Raised when an editor is required. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridEditorRequiredEventArgs>? EditorRequired { add { } remove { } }
+        /// <summary>Raised when an item's value changes. Stub (never raised yet).</summary>
+        public event EventHandler<PropertyGridItemValueChangedEventArgs>? ItemValueChanged { add { } remove { } }
         /// <summary>Raised on item mouse-click. Stub.</summary>
         public event EventHandler? ItemMouseClick { add { } remove { } }
         /// <summary>Raised when the context menu is opening. Stub.</summary>

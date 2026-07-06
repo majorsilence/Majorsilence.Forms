@@ -182,7 +182,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void grid_CellEndEdit(object? sender, DataGridViewCellEditEventArgs e)
+        private void grid_CellEndEdit(object? sender, DataGridViewCellEventArgs e)
         {
             // Clear the row error in case the user presses ESC.
             _grid.Rows[e.RowIndex].ErrorText = String.Empty;

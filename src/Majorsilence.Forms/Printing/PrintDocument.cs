@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Printing
     /// onto a Skia-backed <see cref="SkiaGraphics"/>, and the document is produced as a PDF (which is
     /// portable across Windows, macOS, and Linux).
     /// </summary>
-    public class PrintDocument
+    public class PrintDocument : IDisposable
     {
         // Safety cap so a handler that never clears HasMorePages cannot loop forever.
         private const int MaxPages = 10000;
@@ -51,6 +51,16 @@ namespace Majorsilence.Forms.Printing
 
         /// <summary>Raises the EndPrint event.</summary>
         protected virtual void OnEndPrint (EventArgs e) => EndPrint?.Invoke (this, e);
+
+        /// <summary>Releases resources used by the document. WinForms compatibility — the document holds no unmanaged state between prints.</summary>
+        public void Dispose ()
+        {
+            Dispose (true);
+            GC.SuppressFinalize (this);
+        }
+
+        /// <summary>Releases resources used by the document.</summary>
+        protected virtual void Dispose (bool disposing) { }
 
         /// <summary>
         /// Renders the document to a PDF file. Returns the path that was written.

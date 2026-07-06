@@ -84,6 +84,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the foreground color of the ToolTip.</summary>
         public Color ForeColor { get; set; } = Color.Black;
 
+        /// <summary>Associates tooltip text with a window (WinForms allows any control, including forms). Stored no-op — window-level tips are not shown yet.</summary>
+        public void SetToolTip (WindowBase window, string caption) { }
+
         /// <summary>
         /// Associates ToolTip text with the specified control.
         /// </summary>

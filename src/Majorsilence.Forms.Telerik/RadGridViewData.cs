@@ -48,6 +48,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class FilterDescriptor
     {
+        /// <summary>Whether the descriptor came from the filter editor UI. Stored for compat.</summary>
+        public bool IsFilterEditor { get; set; }
+
+        /// <summary>Creates a copy of this descriptor.</summary>
+        public FilterDescriptor Clone () => (FilterDescriptor)MemberwiseClone ();
+
         /// <summary>Initializes a new, empty filter descriptor.</summary>
         public FilterDescriptor () { }
 
@@ -182,10 +188,14 @@ namespace Majorsilence.Forms.Telerik
     public class GroupDescriptor
     {
         /// <summary>Initializes a new group descriptor.</summary>
-        public GroupDescriptor () { }
+        public GroupDescriptor ()
+        {
+            GroupNames = new GroupNameCollection (this);
+        }
 
         /// <summary>Initializes a group descriptor for a column and direction.</summary>
         public GroupDescriptor (string propertyName, ListSortDirection direction = ListSortDirection.Ascending)
+            : this ()
         {
             PropertyName = propertyName;
             Direction = direction;
@@ -196,6 +206,39 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets the order groups are arranged in.</summary>
         public ListSortDirection Direction { get; set; } = ListSortDirection.Ascending;
+
+        /// <summary>
+        /// Gets the field names this descriptor groups by. Adding the first name also sets
+        /// <see cref="PropertyName"/>/<see cref="Direction"/> so the grid's single-field grouping
+        /// engine honors it; additional names are stored for Telerik source compatibility.
+        /// </summary>
+        public GroupNameCollection GroupNames { get; }
+
+        /// <summary>The collection type of <see cref="GroupDescriptor.GroupNames"/>.</summary>
+        public class GroupNameCollection
+        {
+            private readonly GroupDescriptor _owner;
+            private readonly List<string> _names = new ();
+
+            internal GroupNameCollection (GroupDescriptor owner) => _owner = owner;
+
+            /// <summary>Gets the number of group names.</summary>
+            public int Count => _names.Count;
+
+            /// <summary>Returns whether the specified field name is present.</summary>
+            public bool Contains (string name) => _names.Any (n => string.Equals (n, name, StringComparison.OrdinalIgnoreCase));
+
+            /// <summary>Adds a field name with the specified direction.</summary>
+            public void Add (string name, ListSortDirection direction)
+            {
+                _names.Add (name);
+
+                if (_names.Count == 1) {
+                    _owner.PropertyName = name;
+                    _owner.Direction = direction;
+                }
+            }
+        }
     }
 
     /// <summary>Telerik-compat pinned-column position. Mirrors <c>PinnedColumnPosition</c>.</summary>
@@ -355,6 +398,12 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new summary item.</summary>
         public GridViewSummaryItem () { }
 
+        /// <summary>Initializes a summary item with Telerik's parameter order (name, format string, aggregate).</summary>
+        public GridViewSummaryItem (string name, string formatString, GridAggregateFunction aggregate)
+            : this (name, aggregate, formatString)
+        {
+        }
+
         /// <summary>Initializes a summary item for a column, aggregate, and optional format string.</summary>
         public GridViewSummaryItem (string name, GridAggregateFunction aggregate, string formatString = "")
         {
@@ -393,6 +442,37 @@ namespace Majorsilence.Forms.Telerik
         }
     }
 
+    /// <summary>Grid event kinds used by Telerik's event-dispatch customization. Enum stub for designer EnumBinder sources.</summary>
+    public enum GridEventType
+    {
+        /// <summary>Both kinds of events.</summary>
+        Both = 0,
+        /// <summary>Mouse events.</summary>
+        Mouse = 1,
+        /// <summary>Keyboard events.</summary>
+        Keyboard = 2
+    }
+
+    /// <summary>Event listener priorities used by Telerik's event-dispatch customization. Enum stub.</summary>
+    public enum EventListenerPriority
+    {
+        /// <summary>Normal priority.</summary>
+        Normal = 0,
+        /// <summary>High priority.</summary>
+        High = 1,
+        /// <summary>Low priority.</summary>
+        Low = 2
+    }
+
+    /// <summary>Grid event process modes used by Telerik's event-dispatch customization. Enum stub.</summary>
+    public enum GridEventProcessMode
+    {
+        /// <summary>Synchronous processing.</summary>
+        Synchronous = 0,
+        /// <summary>Deferred processing.</summary>
+        Deferred = 1
+    }
+
     /// <summary>Specifies the sort order of a grid column. Compat for Telerik <c>RadSortOrder</c>.</summary>
     public enum RadSortOrder
     {
@@ -403,6 +483,51 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Descending order.</summary>
         Descending = 2
     }
+
+    /// <summary>Specifies how columns are auto-sized by BestFitColumns. Compat for Telerik <c>BestFitColumnMode</c>.</summary>
+    public enum BestFitColumnMode
+    {
+        /// <summary>No best-fit is applied.</summary>
+        None = 0,
+        /// <summary>Size to header cells only.</summary>
+        HeaderCells = 1,
+        /// <summary>Size to displayed data cells.</summary>
+        DisplayedCells = 2,
+        /// <summary>Size to all cells including the header.</summary>
+        AllCells = 4
+    }
+
+    /// <summary>
+    /// Telerik-compat group-by expression descriptor. The expression string (e.g.
+    /// <c>"Field as Alias format \"{0}: {1}\" Group By Field"</c>) is stored verbatim; the
+    /// trailing <c>Group By</c> field drives the compat grid's single-field grouping.
+    /// </summary>
+    public class GridGroupByExpression : GroupDescriptor
+    {
+        /// <summary>Initializes the descriptor from a Telerik group-by expression string.</summary>
+        public GridGroupByExpression (string expression)
+        {
+            Expression = expression;
+
+            // "<field> as <alias> ... Group By <field>" -- take the field after the last "group by".
+            var idx = expression.LastIndexOf ("group by", StringComparison.OrdinalIgnoreCase);
+            var field = idx >= 0 ? expression[(idx + "group by".Length)..].Trim () : expression.Split (' ')[0];
+
+            if (field.Length > 0)
+                PropertyName = field;
+        }
+
+        /// <summary>Gets the original expression string.</summary>
+        public string Expression { get; }
+    }
+
+    /// <summary>
+    /// Represents the method that handles a Telerik position-changed event (e.g. drop-down
+    /// SelectedIndexChanged). Args are the Data-nested type to match Telerik's
+    /// <c>Telerik.WinControls.UI.Data.PositionChangedEventHandler</c> signature, which is what
+    /// migrated handlers are written against.
+    /// </summary>
+    public delegate void PositionChangedEventHandler (object? sender, Majorsilence.Forms.Telerik.Data.PositionChangedEventArgs e);
 
     /// <summary>Specifies how a grid row enters edit mode. Compat for Telerik <c>GridViewEditModes</c> / begin-edit mode.</summary>
     public enum RadGridViewBeginEditMode

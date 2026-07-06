@@ -21,7 +21,7 @@ namespace Majorsilence.Forms
 
             label = Controls.Add (new TextBox {
                 Dock = DockStyle.Fill,
-                MultiLine = true,
+                Multiline = true,
                 ReadOnly = true,
                 Padding = new Padding (10)
             });

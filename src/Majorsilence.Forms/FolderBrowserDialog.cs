@@ -35,15 +35,18 @@ namespace Majorsilence.Forms
         public Environment.SpecialFolder RootFolder { get; set; } = Environment.SpecialFolder.Desktop;
 
         /// <summary>Shows the dialog synchronously (blocking call).</summary>
-        public DialogResult ShowDialog () => AsyncHelper.RunSync (() => ShowDialog (Application.OpenForms.LastOrDefault ()!));
+        public DialogResult ShowDialog () => AsyncHelper.RunSync (() => ShowDialogAsync (Application.OpenForms.LastOrDefault ()!));
 
         /// <summary>Shows the dialog with an IWin32Window owner. Synchronous wrapper.</summary>
         public DialogResult ShowDialog (IWin32Window owner) => ShowDialog ();
 
+        /// <summary>Shows the dialog synchronously with the specified owner, matching System.Windows.Forms semantics.</summary>
+        public DialogResult ShowDialog (Form owner) => AsyncHelper.RunSync (() => ShowDialogAsync (owner));
+
         /// <summary>
-        /// Shows the dialog to the user.
+        /// Shows the dialog to the user without blocking the caller.
         /// </summary>
-        public async Task<DialogResult> ShowDialog (Form owner)
+        public async Task<DialogResult> ShowDialogAsync (Form owner)
         {
             var request = new FolderDialogRequest {
                 InitialDirectory = GetInitialDirectory (),

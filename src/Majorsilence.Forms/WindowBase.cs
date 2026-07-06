@@ -118,6 +118,9 @@ namespace Majorsilence.Forms
         /// </summary>
         protected override void Dispose (bool disposing)
         {
+            Disposing = true;
+            IsDisposed = true;
+
             if (disposing) {
                 if (this is Form f)
                     Application.OpenForms.Remove (f);
@@ -127,13 +130,79 @@ namespace Majorsilence.Forms
             }
 
             base.Dispose (disposing);
+
+            Disposing = false;
         }
+
+        /// <summary>Gets whether the window has been disposed. Mirrors WinForms Control.IsDisposed.</summary>
+        public bool IsDisposed { get; private set; }
+
+        /// <summary>Gets whether the window is currently executing its dispose logic. Mirrors WinForms Form.Disposing.</summary>
+        public bool Disposing { get; private set; }
+
+        /// <summary>
+        /// Gets whether the caller must marshal to the UI thread to interact with this window.
+        /// Mirrors WinForms Control.InvokeRequired (see the matching member on <see cref="Control"/>).
+        /// </summary>
+        public bool InvokeRequired => !Majorsilence.Forms.Backends.Platform.Backend.CheckAccess ();
+
+        private bool enabled = true;
+
+        /// <summary>
+        /// Gets or sets whether the window accepts input. Mirrors WinForms Form.Enabled; delegates to
+        /// the platform backend (the same seam modal dialogs use to disable their owner).
+        /// </summary>
+        public bool Enabled {
+            get => enabled;
+            set {
+                if (enabled == value)
+                    return;
+                enabled = value;
+                if (Backend is not null)
+                    Backend.Enabled = value;
+                EnabledChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Raised when <see cref="Enabled"/> changes. Mirrors WinForms Control.EnabledChanged (modal dialogs toggle their owner through this property).</summary>
+        public event EventHandler? EnabledChanged;
 
         /// <summary>Raised when the window is closed.</summary>
         public event EventHandler? Closed;
 
         /// <summary>Gets the collection of controls contained by the window.</summary>
         public Control.ControlCollection Controls => adapter.Controls;
+
+        /// <summary>Gets or sets the window's default font. Mirrors WinForms Form.Font; forwarded to
+        /// the root control adapter so child controls inherit it.</summary>
+        public Majorsilence.Forms.Drawing.Font? Font {
+            get => adapter?.Font;
+            set { if (adapter is not null && value is not null) adapter.Font = value; }
+        }
+
+        /// <summary>Gets or sets the cursor shown over the window. Mirrors WinForms Form.Cursor.</summary>
+        public Cursor? Cursor {
+            get => current_cursor;
+            set {
+                current_cursor = value;
+                Backend?.SetCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+            }
+        }
+
+        /// <summary>WinForms compatibility. Majorsilence.Forms always renders double-buffered; the
+        /// value is stored but has no effect.</summary>
+        public bool DoubleBuffered { get; set; } = true;
+
+        /// <summary>WinForms compatibility: the window's outer margin. Stored for designer parity;
+        /// top-level windows have no layout parent to consume it.</summary>
+        public Padding Margin { get; set; } = new Padding (3);
+
+        /// <summary>Raised when the window's client area is double-clicked. Mirrors WinForms
+        /// Form.DoubleClick; forwards to the root control adapter.</summary>
+        public event EventHandler? DoubleClick {
+            add => adapter.DoubleClick += value;
+            remove => adapter.DoubleClick -= value;
+        }
 
         /// <summary>Gets the current style of this window instance.</summary>
         public virtual ControlStyle CurrentStyle => Style;
@@ -165,6 +234,7 @@ namespace Majorsilence.Forms
                 adapter.SetBounds (borderLeft, borderTop, logicalW, logicalH);
                 adapter.PerformLayout ();
                 OnClientLayoutChanged ();
+                OnSizeChanged (EventArgs.Empty);
             }
 
             var e = new PaintEventArgs (skInfo, canvas, scaling);
@@ -217,7 +287,7 @@ namespace Majorsilence.Forms
         /// <summary>Hides the window without destroying it.</summary>
         public void Hide ()
         {
-            Visible = false;
+            visible = false;
             Backend.Hide ();
 
             if (Application.ActivePopupWindow == this)
@@ -232,11 +302,28 @@ namespace Majorsilence.Forms
         /// <summary>Marks the specified portion of the window as needing to be redrawn.</summary>
         public void Invalidate (System.Drawing.Rectangle rectangle) => Invalidate ();
 
+        /// <summary>Marks the window as needing to be redrawn. Mirrors WinForms Invalidate(bool);
+        /// children repaint with the window here regardless.</summary>
+        public void Invalidate (bool invalidateChildren) => Invalidate ();
+
+        /// <summary>Forces the window to repaint. Mirrors WinForms Control.Refresh.</summary>
+        public void Refresh () => Invalidate ();
+
+        /// <summary>Validates the last invalidated control. Always true — the compat window has no implicit validation pipeline. Mirrors WinForms ContainerControl.Validate.</summary>
+        public bool Validate () => true;
+
         /// <summary>Executes the specified delegate asynchronously on the window's UI thread.</summary>
         public void BeginInvoke (Action action)
         {
             ArgumentNullException.ThrowIfNull (action);
             Majorsilence.Forms.Backends.Platform.Backend.Post (action);
+        }
+
+        /// <summary>Executes the specified delegate asynchronously on the window's UI thread with the given arguments. Mirrors WinForms Control.BeginInvoke(Delegate, Object[]).</summary>
+        public void BeginInvoke (Delegate method, params object?[]? args)
+        {
+            ArgumentNullException.ThrowIfNull (method);
+            Majorsilence.Forms.Backends.Platform.Backend.Post (() => method.DynamicInvoke (args));
         }
 
         /// <summary>Executes the specified delegate synchronously on the window's UI thread.</summary>
@@ -246,8 +333,83 @@ namespace Majorsilence.Forms
             Majorsilence.Forms.Backends.Platform.Backend.Invoke (action);
         }
 
-        /// <summary>Gets the unscaled location of the window.</summary>
-        public System.Drawing.Point Location => Backend.Location;
+        /// <summary>Executes the specified delegate synchronously on the window's UI thread with the given arguments and returns its result. Mirrors WinForms Control.Invoke(Delegate, Object[]).</summary>
+        public object? Invoke (Delegate method, params object?[]? args)
+        {
+            ArgumentNullException.ThrowIfNull (method);
+            object? result = null;
+            Majorsilence.Forms.Backends.Platform.Backend.Invoke (() => result = method.DynamicInvoke (args));
+            return result;
+        }
+
+        /// <summary>
+        /// Gets an opaque nonzero token standing in for the native window handle. WinForms code
+        /// reads Handle to force handle creation before Invoke; the compat window has no HWND.
+        /// </summary>
+        public IntPtr Handle => (IntPtr)(GetHashCode () | 1);
+
+        /// <summary>Gets or sets how the window's background image is laid out. Stored for designer compat (the compat window does not draw a background image yet).</summary>
+        public ImageLayout BackgroundImageLayout { get; set; } = ImageLayout.Tile;
+
+        /// <summary>Gets or sets user data associated with the window. Mirrors WinForms Control.Tag.</summary>
+        public object? Tag { get; set; }
+
+        /// <summary>Raised when the window surface is painted. Declared for WinForms source compat; the compat window paints through its root adapter and does not raise this yet.</summary>
+#pragma warning disable CS0067
+        public event EventHandler<PaintEventArgs>? Paint;
+#pragma warning restore CS0067
+
+        /// <summary>
+        /// Gets or sets the context menu shown when the window itself is right-clicked. Stored for
+        /// designer compat; the compat window does not surface it yet (controls' own menus work).
+        /// </summary>
+        public ContextMenuStrip? ContextMenuStrip { get; set; }
+
+        /// <summary>Gets or sets the unscaled location of the window. Mirrors WinForms Form.Location.</summary>
+        public System.Drawing.Point Location {
+            get => Backend.Location;
+            set {
+                if (Backend.Location == value)
+                    return;
+                Backend.Location = value;
+                OnLocationChanged (EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Gets or sets the x-coordinate of the window's left edge. Mirrors WinForms Form.Left.</summary>
+        public int Left {
+            get => Location.X;
+            set => Location = new System.Drawing.Point (value, Location.Y);
+        }
+
+        /// <summary>Gets or sets the y-coordinate of the window's top edge. Mirrors WinForms Form.Top.</summary>
+        public int Top {
+            get => Location.Y;
+            set => Location = new System.Drawing.Point (Location.X, value);
+        }
+
+        /// <summary>Raised when the window's location changes. Mirrors WinForms Form.LocationChanged.
+        /// Raised for programmatic moves; backend-driven moves raise it via OnBackendMoved.</summary>
+        public event EventHandler? LocationChanged;
+
+        /// <summary>Raises the LocationChanged event.</summary>
+        protected virtual void OnLocationChanged (EventArgs e) => LocationChanged?.Invoke (this, e);
+
+        /// <summary>Called by the backend when the OS window is moved.</summary>
+        internal void OnBackendMoved () => OnLocationChanged (EventArgs.Empty);
+
+        /// <summary>Raised when the window's client size changes. Mirrors WinForms Form.SizeChanged.
+        /// Raised from the layout pipeline whenever the client area takes a new size.</summary>
+        public event EventHandler? SizeChanged;
+
+        /// <summary>Raises the SizeChanged event.</summary>
+        protected virtual void OnSizeChanged (EventArgs e) => SizeChanged?.Invoke (this, e);
+
+        /// <summary>Raised when the window is resized. Mirrors WinForms Form.Resize (alias of SizeChanged).</summary>
+        public event EventHandler? Resize {
+            add => SizeChanged += value;
+            remove => SizeChanged -= value;
+        }
 
         /// <summary>
         /// Gets the native OS window handle (HWND on Windows), or <see cref="System.IntPtr.Zero"/> if the
@@ -457,7 +619,7 @@ namespace Majorsilence.Forms
             if (TryShowHosted ())
                 return;
 
-            Visible = true;
+            visible = true;
             OnVisibleChanged (EventArgs.Empty);
 
             SetWindowStartupLocation ();
@@ -474,7 +636,7 @@ namespace Majorsilence.Forms
 
         internal void ShowDialog (WindowBase parent)
         {
-            Visible = true;
+            visible = true;
             OnVisibleChanged (EventArgs.Empty);
 
             SetWindowStartupLocation (parent);
@@ -505,7 +667,21 @@ namespace Majorsilence.Forms
         public virtual ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
         /// <summary>Gets or sets whether the window is displayed to the user.</summary>
-        public bool Visible { get; internal set; }
+        internal bool visible;
+
+        /// <summary>Gets or sets whether the window is displayed. Setting mirrors WinForms semantics:
+        /// true shows the window, false hides it.</summary>
+        public bool Visible {
+            get => visible;
+            set {
+                if (visible == value)
+                    return;
+                if (value)
+                    Show ();
+                else
+                    Hide ();
+            }
+        }
 
         // ── WinForms layout/handle/color compatibility ───────────────────────────
         // Form sits on a separate inheritance branch from Control (Form : WindowBase, not

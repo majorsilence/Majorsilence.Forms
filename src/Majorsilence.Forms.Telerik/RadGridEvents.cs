@@ -30,8 +30,7 @@ namespace Majorsilence.Forms.Telerik
         public object? Value { get; set; }
         /// <summary>Gets or sets whether the element draws its fill.</summary>
         public bool DrawFill { get; set; }
-        /// <summary>Gets or sets whether the element draws a border.</summary>
-        public bool DrawBorder { get; set; }
+        // DrawBorder is inherited from RadElement.
         /// <summary>Gets or sets the number of gradient colors.</summary>
         public int NumberOfColors { get; set; } = 1;
         /// <summary>Gets or sets the gradient style. Stub.</summary>
@@ -46,8 +45,8 @@ namespace Majorsilence.Forms.Telerik
         public int RowIndex { get; set; }
         /// <summary>Gets or sets the column index of the cell.</summary>
         public int ColumnIndex { get; set; } = -1;
-        /// <summary>Gets or sets the owning column info.</summary>
-        public DataGridViewColumn? ColumnInfo { get; set; }
+        /// <summary>Gets or sets the owning column info (Telerik-typed).</summary>
+        public GridViewDataColumn? ColumnInfo { get; set; }
         /// <summary>Gets or sets the owning row info.</summary>
         public GridViewRowInfo? RowInfo { get; set; }
         /// <summary>Gets the cell style.</summary>
@@ -67,15 +66,19 @@ namespace Majorsilence.Forms.Telerik
         public RadButtonElement CommandButton { get; } = new RadButtonElement ();
     }
 
-    /// <summary>Telerik-compat row visual element, exposed by the RowFormatting event.</summary>
-    public class GridViewRowElement : RadElement
+    /// <summary>Telerik-compat base row visual element (Telerik's GridRowElement).</summary>
+    public class GridRowElement : RadElement
     {
         /// <summary>Gets or sets the owning row info.</summary>
         public GridViewRowInfo? RowInfo { get; set; }
+    }
+
+    /// <summary>Telerik-compat row visual element, exposed by the RowFormatting event.</summary>
+    public class GridViewRowElement : GridRowElement
+    {
         /// <summary>Gets or sets whether the element draws its fill.</summary>
         public bool DrawFill { get; set; }
-        /// <summary>Gets or sets whether the element draws a border.</summary>
-        public bool DrawBorder { get; set; }
+        // DrawBorder is inherited from RadElement.
         /// <summary>Gets or sets the number of gradient colors.</summary>
         public int NumberOfColors { get; set; } = 1;
         /// <summary>Gets or sets the gradient style. Stub.</summary>
@@ -86,15 +89,69 @@ namespace Majorsilence.Forms.Telerik
         public GridTableElement? TableElement { get; set; }
     }
 
+    /// <summary>Provides data for group-summary evaluation. Mirrors Telerik's shape.</summary>
+    public class GroupSummaryEvaluationEventArgs : EventArgs
+    {
+        /// <summary>The summary item being evaluated.</summary>
+        public GridViewSummaryItem SummaryItem { get; set; } = new GridViewSummaryItem ();
+
+        /// <summary>The group being summarized, or null for the grand total.</summary>
+        public DataGroup? Group { get; set; }
+
+        /// <summary>The computed summary value.</summary>
+        public object? Value { get; set; }
+
+        /// <summary>The display format string for the summary cell.</summary>
+        public string FormatString { get; set; } = string.Empty;
+    }
+
+    /// <summary>Provides data for group expand/collapse. Mirrors Telerik's shape.</summary>
+    public class GroupExpandingEventArgs : EventArgs
+    {
+        /// <summary>The group being expanded or collapsed.</summary>
+        public DataGroup? DataGroup { get; set; }
+
+        /// <summary>Set true to cancel the expand/collapse.</summary>
+        public bool Cancel { get; set; }
+    }
+
+    /// <summary>Specifies which aspect of the grid changed for a table-element update. Compat for Telerik <c>GridUINotifyAction</c>.</summary>
+    public enum GridUINotifyAction
+    {
+        /// <summary>The data changed.</summary>
+        DataChanged = 0,
+        /// <summary>The element state changed.</summary>
+        StateChanged = 1,
+        /// <summary>The layout changed.</summary>
+        LayoutChanged = 2,
+        /// <summary>Everything should be reset.</summary>
+        Reset = 3
+    }
+
     /// <summary>Telerik-compat table (view) visual element shared by all rows of a <see cref="RadGridView"/>.</summary>
     public class GridTableElement : RadElement
     {
+        /// <summary>Gets or sets the header row height. Stored for Telerik compat.</summary>
+        public int TableHeaderHeight { get; set; } = 28;
+
         /// <summary>Gets or sets the color used for alternating row striping. Stub.</summary>
         public Color AlternatingRowColor { get; set; } = Color.Empty;
         /// <summary>Gets or sets the row height. Stub.</summary>
         public int RowHeight { get; set; }
         /// <summary>Gets the owning view element (the grid's root element).</summary>
         public RadElement? ViewElement { get; set; }
+
+        /// <summary>Refreshes the table element for the given notify action. No-op — the compat grid repaints as a whole.</summary>
+        public void Update (GridUINotifyAction action) { }
+
+        /// <summary>Scrolls the grid so the given row is visible. Stub — the compat grid manages its own scrolling.</summary>
+        public void ScrollToRow (GridViewRowInfo row) { }
+
+        /// <summary>Scrolls the grid so the given row index is visible. Stub — the compat grid manages its own scrolling.</summary>
+        public void ScrollToRow (int rowIndex) { }
+
+        /// <summary>Gets the visible row elements. Stub: empty — the compat grid does not expose per-row visual elements.</summary>
+        public IEnumerable<GridRowElement> VisualRows => Array.Empty<GridRowElement> ();
     }
 
     /// <summary>Provides data for Telerik grid cell events (CellClick, CellDoubleClick, etc.).</summary>
@@ -204,7 +261,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Provides data for the Telerik grid CellValidating event.</summary>
-    public class GridViewCellValidatingEventArgs : EventArgs
+    public class CellValidatingEventArgs : EventArgs
     {
         /// <summary>Gets or sets the row index.</summary>
         public int RowIndex { get; set; } = -1;

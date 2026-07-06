@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
@@ -193,6 +193,24 @@ namespace Majorsilence.Forms
         public string ValueMember {
             get => _valueMember;
             set => _valueMember = value ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Returns the display text for the specified item, honoring <see cref="DisplayMember"/>.
+        /// Mirrors WinForms ListControl.GetItemText.
+        /// </summary>
+        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
+        public string GetItemText (object? item)
+        {
+            if (item is null)
+                return string.Empty;
+
+            if (!string.IsNullOrEmpty (_displayMember)) {
+                var prop = item.GetType ().GetProperty (_displayMember);
+                return prop?.GetValue (item)?.ToString () ?? item.ToString () ?? string.Empty;
+            }
+
+            return item.ToString () ?? string.Empty;
         }
 
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
@@ -513,7 +531,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets all currently selected items.
         /// </summary>
-        public IEnumerable<object> SelectedItems => Items.SelectedItems;
+        public IList<object> SelectedItems => Items.SelectedItems.ToList ();
 
         /// <summary>
         /// Gets or set the selection mode of the ListBox.

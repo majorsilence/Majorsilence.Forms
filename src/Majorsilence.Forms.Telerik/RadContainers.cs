@@ -125,6 +125,8 @@ namespace Majorsilence.Forms.Telerik
         public bool IsCleanUpTarget { get; set; }
         /// <summary>Gets the size info for the panel (stub).</summary>
         public SplitPanelSizeInfo SizeInfo { get; } = new SplitPanelSizeInfo ();
+        /// <summary>Gets or sets whether the container is collapsed. Stored stub (designer-assigned).</summary>
+        public bool Collapsed { get; set; }
     }
 
     /// <summary>Telerik-compat split panel. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
@@ -240,7 +242,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Items stretch to fill the strip.</summary>
         Fill = 1,
         /// <summary>Items wrap onto multiple lines instead of scrolling.</summary>
-        MultiLine = 2,
+        Multiline = 2,
         /// <summary>Items shrink/scroll as needed to fit the available space.</summary>
         Fit = 3
     }

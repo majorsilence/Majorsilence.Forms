@@ -8,6 +8,36 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadDock : Panel
     {
+        /// <summary>Gets or sets the split orientation. Stored for Telerik compat.</summary>
+        public Orientation Orientation { get; set; } = Orientation.Horizontal;
+
+        /// <summary>Gets or sets the splitter width. Stored for Telerik compat.</summary>
+        public int SplitterWidth { get; set; } = 4;
+
+        /// <summary>Gets the root element (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
+
+        /// <summary>Gets or sets whether auto-cleanup removes this dock's windows. Stored for compat.</summary>
+        public bool IsCleanUpTarget { get; set; }
+
+        /// <summary>Raised when a new tab strip is needed. Stub (never raised yet).</summary>
+#pragma warning disable CS0067
+        public event EventHandler<DockTabStripNeededEventArgs>? DockTabStripNeeded;
+
+        /// <summary>Raised when the selected dock tab changes. Stub (the compat dock does not tab yet).</summary>
+        public event EventHandler<SelectedTabChangedEventArgs>? SelectedTabChanged;
+#pragma warning restore CS0067
+
+        /// <summary>Saves the dock layout to a stream. Stub: writes an empty layout document.</summary>
+        public void SaveToXml (System.IO.Stream stream)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes ("<DockLayout />");
+            stream.Write (bytes, 0, bytes.Length);
+        }
+
+        /// <summary>Loads the dock layout from a stream. Stub: layout restore is not supported yet.</summary>
+        public void LoadFromXml (System.IO.Stream stream) { }
+
         private readonly List<ToolWindow> _toolWindows = new ();
 
         /// <summary>Gets or sets the active dock window.</summary>
@@ -34,11 +64,19 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets the windows in the specified state.</summary>
         public IEnumerable<DockWindowBase> GetWindows (DockState state) => _toolWindows;
-        /// <summary>Gets all dock windows.</summary>
-        public IEnumerable<DockWindowBase> DockWindows => _toolWindows;
+        /// <summary>Gets all dock windows (Telerik-shaped collection with the ToolWindows view).</summary>
+        public DockWindowCollection DockWindows => new DockWindowCollection (_toolWindows);
 
-        /// <summary>Raised when the selected tab changes. Stub.</summary>
-        public event EventHandler? SelectedTabChanged { add { } remove { } }
+        /// <summary>Closes the specified dock window: removes it from this dock and hides it.</summary>
+        public void CloseWindow (DockWindowBase window)
+        {
+            if (window is ToolWindow tool)
+                _toolWindows.Remove (tool);
+
+            window.Visible = false;
+        }
+
+        // SelectedTabChanged is declared above with Telerik-typed SelectedTabChangedEventArgs.
     }
 
     /// <summary>Base for Telerik dock windows. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
@@ -50,15 +88,44 @@ namespace Majorsilence.Forms.Telerik
         public DockState PreviousDockState { get; set; } = DockState.Docked;
         /// <summary>Gets or sets which dock states this window may transition to. Stub.</summary>
         public AllowedDockState AllowedDockState { get; set; } = AllowedDockState.All;
+        /// <summary>Gets or sets how the window scales with DPI. Stored for WinForms designer compat.</summary>
+        public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Dpi;
+        /// <summary>Gets or sets which caption buttons are shown. Defaults to all.</summary>
+        public ToolStripCaptionButtons ToolCaptionButtons { get; set; } = ToolStripCaptionButtons.All;
         /// <summary>Closes the window (hides it).</summary>
         public void Close () => Visible = false;
         /// <summary>Closes and disposes the window.</summary>
         public void CloseAndDispose () { Visible = false; Dispose (); }
     }
 
+    /// <summary>
+    /// Telerik-compat dock-window collection: enumerates all windows and exposes the
+    /// <see cref="ToolWindows"/> view Telerik code filters on.
+    /// </summary>
+    public class DockWindowCollection : IEnumerable<DockWindowBase>
+    {
+        private readonly IReadOnlyList<DockWindowBase> windows;
+
+        internal DockWindowCollection (IEnumerable<DockWindowBase> windows) => this.windows = windows.ToList ();
+
+        /// <summary>Gets the number of dock windows.</summary>
+        public int Count => windows.Count;
+
+        /// <summary>Gets the tool windows among the dock windows.</summary>
+        public IEnumerable<ToolWindow> ToolWindows => windows.OfType<ToolWindow> ();
+
+        /// <inheritdoc/>
+        public IEnumerator<DockWindowBase> GetEnumerator () => windows.GetEnumerator ();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () => GetEnumerator ();
+    }
+
     /// <summary>Telerik-compat tool window.</summary>
     public class ToolWindow : DockWindowBase
     {
+        /// <summary>Document-mode buttons setting. Stored for Telerik compat.</summary>
+        public object? DocumentButtons { get; set; }
+
         /// <summary>Initializes a new instance.</summary>
         public ToolWindow () { }
         /// <summary>Initializes a new instance with the specified caption.</summary>
@@ -66,8 +133,7 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets the caption.</summary>
         public string Caption { get; set; } = string.Empty;
-        /// <summary>Gets or sets which caption buttons are shown. Defaults to all.</summary>
-        public ToolStripCaptionButtons ToolCaptionButtons { get; set; } = ToolStripCaptionButtons.All;
+        // ToolCaptionButtons is inherited from DockWindowBase.
         /// <summary>Gets or sets the auto-hide size. Stub.</summary>
         public Size AutoHideSize { get; set; }
         /// <summary>Gets or sets the default floating size. Stub.</summary>
@@ -121,6 +187,12 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat tool tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class ToolTabStrip : Panel
     {
+        /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
+        public int SelectedIndex { get; set; }
+
+        /// <summary>Gets or sets whether the caption is visible. Stored for Telerik compat.</summary>
+        public bool CaptionVisible { get; set; } = true;
+
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the size info (stub).</summary>
@@ -134,12 +206,24 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat document tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class DocumentTabStrip : Panel
     {
+        /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
+        public int SelectedIndex { get; set; }
+
+        /// <summary>Raised when the selected tab changes. Never raised by the compat strip (it does not tab yet).</summary>
+#pragma warning disable CS0067
+        public event EventHandler? SelectedIndexChanged;
+#pragma warning restore CS0067
+
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the size info (stub).</summary>
         public SplitPanelSizeInfo SizeInfo { get; } = new SplitPanelSizeInfo ();
         /// <summary>Gets or sets the selected tab. Stub.</summary>
         public object? SelectedTab { get; set; }
+
+        /// <summary>Selects the tab hosting the specified dock window. Stub - the compat strip stores it as the selected tab.</summary>
+        public void SelectTab (DockWindowBase window) => SelectedTab = window;
+
         /// <summary>Gets or sets which document buttons show. Defaults to all.</summary>
         public DocumentStripButtons DocumentButtons { get; set; } = DocumentStripButtons.All;
         /// <summary>Returns the strip element tree child at the given index (stub).</summary>
@@ -149,6 +233,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat document container. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class DocumentContainer : Panel
     {
+        /// <summary>Whether the container is collapsed. Stored for Telerik compat.</summary>
+        public bool Collapsed { get; set; }
+
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the size info (stub).</summary>

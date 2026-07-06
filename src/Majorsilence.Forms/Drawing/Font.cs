@@ -98,6 +98,9 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets the line spacing, in the current unit, of this font for the given DPI.</summary>
         public float GetHeight (float dpi) => GetHeight ();
 
+        /// <summary>Gets the line spacing, in pixels, of this font when drawn to the specified graphics surface. WinForms compatibility.</summary>
+        public float GetHeight (SkiaGraphics graphics) => GetHeight ();
+
         // Lazily resolves and caches the SkiaSharp font.
         internal SKFont GetSKFont ()
         {

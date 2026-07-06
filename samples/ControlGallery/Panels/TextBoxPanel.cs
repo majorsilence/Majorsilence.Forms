@@ -1,4 +1,4 @@
-﻿using Majorsilence.Forms;
+using Majorsilence.Forms;
 using SkiaSharp;
 
 namespace ControlGallery.Panels
@@ -12,7 +12,7 @@ namespace ControlGallery.Panels
             Controls.Add (new TextBox { Left = 10, Top = 90, Width = 150, Text = "Read Only", ReadOnly = true });
             Controls.Add (new TextBox { Left = 10, Top = 130, Width = 300, Height = 56, Text = "Not\nMultiline" }).Style.Border.Radius = 3;
 
-            var multi = Controls.Add (new TextBox { Left = 10, Top = 200, Width = 300, Height = 100, Text = "The quick brown fox\njumped over the lazy\ndogs.", MultiLine = true });
+            var multi = Controls.Add (new TextBox { Left = 10, Top = 200, Width = 300, Height = 100, Text = "The quick brown fox\njumped over the lazy\ndogs.", Multiline = true });
             multi.Style.FontSize = 16;
 
             Controls.Add (new TextBox { Left = 10, Top = 315, Width = 150, Text = "Disabled", Enabled = false });

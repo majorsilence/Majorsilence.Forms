@@ -1,11 +1,11 @@
-﻿using System.Drawing;
+using System.Drawing;
 
 namespace Majorsilence.Forms
 {
     /// <summary>
     /// Represents a column in a DataGridView control.
     /// </summary>
-    public class DataGridViewColumn
+    public class DataGridViewColumn : IDisposable
     {
         private string header_text = string.Empty;
         private int width = 100;
@@ -28,6 +28,25 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Initializes a new instance of the DataGridViewColumn class with the specified cell template.
+        /// WinForms compatibility.
+        /// </summary>
+        public DataGridViewColumn (DataGridViewCell cellTemplate)
+        {
+            CellTemplate = cellTemplate;
+        }
+
+        /// <summary>Releases resources used by the column. WinForms parity (DataGridViewBand is IDisposable); the compat column holds no unmanaged state.</summary>
+        public void Dispose ()
+        {
+            Dispose (true);
+            GC.SuppressFinalize (this);
+        }
+
+        /// <summary>Releases resources used by the column.</summary>
+        protected virtual void Dispose (bool disposing) { }
+
+        /// <summary>
         /// Gets or sets the name used to identify this column.
         /// </summary>
         public string Name { get; set; } = string.Empty;
@@ -42,6 +61,24 @@ namespace Majorsilence.Forms
         /// used to drive default formatting; null when unbound/unknown.
         /// </summary>
         public Type? ValueType { get; set; }
+
+        /// <summary>Telerik-style alias of DataPropertyName (GridViewDataColumn.FieldName).</summary>
+        public string FieldName {
+            get => DataPropertyName;
+            set => DataPropertyName = value;
+        }
+
+        /// <summary>Gets or sets the value format string (Telerik GridViewColumn.FormatString).</summary>
+        public string FormatString { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets whether the column supports filtering. Stored for Telerik compat.</summary>
+        public bool AllowFiltering { get; set; } = true;
+
+        /// <summary>Telerik-style alias of <see cref="ValueType"/> (GridViewDataColumn.DataType).</summary>
+        public Type? DataType {
+            get => ValueType;
+            set => ValueType = value;
+        }
 
         /// <summary>
         /// Gets or sets whether this column is bound to a data source. WinForms compatibility stub.
@@ -132,6 +169,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the column is visible.</summary>
         public bool Visible { get; set; } = true;
 
+        /// <summary>Telerik-style alias of <see cref="Visible"/> (GridViewColumn.IsVisible).</summary>
+        public bool IsVisible {
+            get => Visible;
+            set => Visible = value;
+        }
+
         /// <summary>Gets or sets the auto-size mode. Stub in Majorsilence.Forms.</summary>
         public DataGridViewAutoSizeColumnMode AutoSizeMode { get; set; } = DataGridViewAutoSizeColumnMode.None;
 
@@ -151,7 +194,7 @@ namespace Majorsilence.Forms
         public int DividerWidth { get; set; }
 
         /// <summary>Gets or sets the template used to create new cells. Stub in Majorsilence.Forms.</summary>
-        public DataGridViewCell? CellTemplate { get; set; }
+        public virtual DataGridViewCell? CellTemplate { get; set; }
 
         /// <summary>Gets or sets the display order of the column. Stub in Majorsilence.Forms.</summary>
         public int DisplayIndex {

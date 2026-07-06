@@ -341,8 +341,17 @@ namespace Majorsilence.Forms
         /// <summary>Gets the data bindings for this control. Stub in Majorsilence.Forms — bindings are not evaluated.</summary>
         public ControlBindingsCollection DataBindings => _dataBindings ??= new ControlBindingsCollection (this);
 
-        /// <summary>Gets or sets the binding context for this control. Stub in Majorsilence.Forms.</summary>
-        public object? BindingContext { get; set; }
+        private BindingContext? binding_context;
+
+        /// <summary>
+        /// Gets or sets the BindingContext for the control. Mirrors WinForms Control.BindingContext:
+        /// inherited from the parent chain when not set locally, so controls on one form share
+        /// binding-manager position state.
+        /// </summary>
+        public virtual BindingContext BindingContext {
+            get => binding_context ?? Parent?.BindingContext ?? (binding_context = new BindingContext ());
+            set => binding_context = value;
+        }
 
         /// <summary>Gets the Form that the control is on, if any.</summary>
         public Form? ParentForm => FindForm ();

@@ -243,9 +243,10 @@ namespace Majorsilence.Forms
     /// actually constructs one (SelectedGridItem always returns null, since the grid has no
     /// per-row selection tracking yet); this type exists so code that reads
     /// `PropertyGrid.SelectedGridItem` compiles against the same shape as
-    /// System.Windows.Forms.GridItem.
+    /// System.Windows.Forms.GridItem. Unsealed so the Telerik-compat PropertyGridItem can derive
+    /// from it (call sites TryCast SelectedGridItem to PropertyGridItem).
     /// </summary>
-    public sealed class GridItem
+    public class GridItem
     {
         /// <summary>Gets the current value of the property this item represents.</summary>
         public object? Value { get; init; }
@@ -255,6 +256,12 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the label (property name) of this item.</summary>
         public string Label { get; init; } = string.Empty;
+
+        /// <summary>Gets or sets the item's name. WinForms/Telerik compatibility.</summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets user data associated with the item. WinForms/Telerik compatibility.</summary>
+        public object? Tag { get; set; }
 
         /// <summary>Gets the parent item in the grid's item tree, or null if this is a root item.</summary>
         public GridItem? Parent { get; init; }

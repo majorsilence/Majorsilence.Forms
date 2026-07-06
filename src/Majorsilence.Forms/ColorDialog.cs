@@ -19,7 +19,7 @@ namespace Majorsilence.Forms
         private const int Columns = 8;
         private const int Swatch = 26;
         private const int Gap = 4;
-        private const int Margin = 12;
+        private const int Inset = 12;
 
         // WinForms default for an uninitialized custom-color slot.
         private const int DefaultCustomColor = 0x00FFFFFF;
@@ -46,8 +46,8 @@ namespace Majorsilence.Forms
                 var row = i / Columns;
 
                 var swatch = Controls.Add (new Panel {
-                    Left = Margin + col * (Swatch + Gap),
-                    Top = Margin + row * (Swatch + Gap),
+                    Left = Inset + col * (Swatch + Gap),
+                    Top = Inset + row * (Swatch + Gap),
                     Width = Swatch,
                     Height = Swatch
                 });
@@ -61,12 +61,12 @@ namespace Majorsilence.Forms
                 };
             }
 
-            var buttons_top = Margin + grid_height + 12;
+            var buttons_top = Inset + grid_height + 12;
 
             var ok = Controls.Add (new Button {
                 Text = "OK",
                 Width = 80,
-                Left = Margin + grid_width - 168,
+                Left = Inset + grid_width - 168,
                 Top = buttons_top
             });
             ok.Click += (o, e) => DialogResult = DialogResult.OK;
@@ -74,12 +74,12 @@ namespace Majorsilence.Forms
             var cancel = Controls.Add (new Button {
                 Text = "Cancel",
                 Width = 80,
-                Left = Margin + grid_width - 80,
+                Left = Inset + grid_width - 80,
                 Top = buttons_top
             });
             cancel.Click += (o, e) => DialogResult = DialogResult.Cancel;
 
-            Size = new Size (Margin * 2 + grid_width + 16, buttons_top + 40 + 40);
+            Size = new Size (Inset * 2 + grid_width + 16, buttons_top + 40 + 40);
         }
 
         /// <summary>Gets or sets the color selected by the user. Setting <see cref="Color.Empty"/> resets to black.</summary>

@@ -16,6 +16,17 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Adds a range of items to the collection. Mirrors WinForms ListView.ListViewItemCollection.AddRange.
+        /// </summary>
+        public void AddRange (params ListViewItem[] items)
+        {
+            ArgumentNullException.ThrowIfNull (items);
+
+            foreach (var item in items)
+                Add (item);
+        }
+
+        /// <summary>
         /// Adds a new ListViewItem to the collection with the specified text.
         /// </summary>
         public ListViewItem Add (string text)

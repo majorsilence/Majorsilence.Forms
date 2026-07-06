@@ -49,6 +49,12 @@ namespace Majorsilence.Forms.Printing
         public bool IsDefaultPrinter => true;
 
         /// <summary>
+        /// Gets the paper sources (trays) supported by the printer. Stub: a single automatic-feed
+        /// source (Majorsilence.Forms has no OS print-spooler integration).
+        /// </summary>
+        public List<PaperSource> PaperSources { get; } = new () { new PaperSource () };
+
+        /// <summary>
         /// Gets the paper sizes supported by the printer. Majorsilence.Forms has no real OS
         /// print-spooler integration (see MIGRATION-NOTES.md in the Majorsilence Reporting repo),
         /// so this can't reflect an actual printer driver's capabilities the way
