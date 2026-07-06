@@ -38,6 +38,10 @@ namespace Majorsilence.Forms.Telerik
         public Color ForeColor { get; set; } = Color.Empty;
         /// <summary>Gets or sets the element's padding. Stub — stored but not applied to layout.</summary>
         public Majorsilence.Forms.Padding Padding { get; set; }
+        /// <summary>Gets or sets user data associated with the element.</summary>
+        public object? Tag { get; set; }
+        /// <summary>Gets or sets whether the element accepts drag-drop. Stored stub.</summary>
+        public bool AllowDrop { get; set; }
         /// <summary>Gets the child elements of this element.</summary>
         public System.Collections.Generic.List<RadElement> Children { get; } = new ();
         /// <summary>Returns the child element at the specified index, or a new stub element.</summary>
@@ -104,6 +108,12 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets or sets the gradient style used to fill the element. Stored stub.</summary>
         public GradientStyles GradientStyle { get; set; } = GradientStyles.Solid;
+
+        /// <summary>Gets or sets the displayed text.</summary>
+        public string Text { get; set; } = string.Empty;
+
+        /// <summary>Gets the element bounds in control coordinates (forwards to ControlBounds).</summary>
+        public System.Drawing.Rectangle ControlBoundingRectangle => ControlBounds;
     }
 
     /// <summary>Compat for Telerik's <c>RootRadElement</c> (the top-level element of a control's element tree).</summary>

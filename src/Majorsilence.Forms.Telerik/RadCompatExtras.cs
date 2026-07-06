@@ -173,14 +173,14 @@ namespace Majorsilence.Forms.Telerik
         public List<Attribute> Attributes { get; } = new ();
     }
 
-    /// <summary>Compat stand-in for Telerik's PropertyGridGroupItem (a category header row).</summary>
-    public class PropertyGridGroupItem
+    /// <summary>Compat stand-in for Telerik's PropertyGridGroupItem (a category header row). Derives from PropertyGridItem so grid-item casts succeed.</summary>
+    public class PropertyGridGroupItem : PropertyGridItem
     {
-        /// <summary>The group (category) name.</summary>
-        public string Name { get; set; } = string.Empty;
+        /// <summary>Expands the group. No-op stub.</summary>
+        public void Expand () { }
 
-        /// <summary>The group label.</summary>
-        public string Label { get; set; } = string.Empty;
+        /// <summary>Collapses the group. No-op stub.</summary>
+        public void Collapse () { }
     }
 
     /// <summary>Compat stand-in for the property-grid item visual element.</summary>
@@ -363,6 +363,14 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets the editor text.</summary>
         public string Text { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the drop-down style.</summary>
+        public RadDropDownStyle DropDownStyle { get; set; } = RadDropDownStyle.DropDownList;
+
+        /// <summary>Raised when the selected value changes. Never raised by the stub editor.</summary>
+#pragma warning disable CS0067
+        public event EventHandler? SelectedValueChanged;
+#pragma warning restore CS0067
     }
 
     /// <summary>Compat stand-in for a date-time editor's visual element.</summary>
@@ -398,7 +406,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Compat stand-in for a checkbox item element inside the property grid.</summary>
-    public class PropertyGridCheckBoxItemElement : RadElement
+    public class PropertyGridCheckBoxItemElement : PropertyGridItemElement
     {
         /// <summary>Gets or sets the checked value.</summary>
         public object? Value { get; set; }
@@ -416,6 +424,12 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets the editor's visual element.</summary>
         public RadElement EditorElement { get; } = new BaseDropDownListEditorElement ();
+
+        /// <summary>Gets or sets the drop-down style (forwards to the element).</summary>
+        public RadDropDownStyle DropDownStyle {
+            get => ((BaseDropDownListEditorElement)EditorElement).DropDownStyle;
+            set => ((BaseDropDownListEditorElement)EditorElement).DropDownStyle = value;
+        }
     }
 
     /// <summary>Compat stand-in for Telerik's date-time property editor.</summary>

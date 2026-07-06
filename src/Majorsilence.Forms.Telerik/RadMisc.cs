@@ -206,6 +206,22 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat property grid. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
+    /// <summary>Keyed collection of property-grid items (indexable by Name).</summary>
+    public class PropertyGridItemCollection : List<PropertyGridItem>
+    {
+        /// <summary>Gets the item with the specified property name, or null.</summary>
+        public PropertyGridItem? this[string name]
+            => Find (i => string.Equals (i.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Keyed collection of property-grid group items (indexable by group name).</summary>
+    public class PropertyGridGroupItemCollection : List<PropertyGridGroupItem>
+    {
+        /// <summary>Gets the group with the specified name; a detached group when absent (so chained calls are safe).</summary>
+        public PropertyGridGroupItem this[string name]
+            => Find (g => string.Equals (g.Name, name, StringComparison.OrdinalIgnoreCase)) ?? new PropertyGridGroupItem { Name = name };
+    }
+
     public class RadPropertyGrid : PropertyGrid
     {
         // SelectedObject, PropertySort, ToolbarVisible, SelectedGridItem and the rendering of the
@@ -217,10 +233,10 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the selected item. Settable shadow of the core read-only property (Telerik allows assigning it).</summary>
         public new Majorsilence.Forms.GridItem? SelectedGridItem { get; set; }
 
-        /// <summary>Gets the property items. Stub list (Telerik exposes individual property items).</summary>
-        public List<object> Items { get; } = new ();
-        /// <summary>Gets the property groups. Stub list.</summary>
-        public List<object> Groups { get; } = new ();
+        /// <summary>Gets the property items, indexable by property name.</summary>
+        public PropertyGridItemCollection Items { get; } = new ();
+        /// <summary>Gets the property groups, indexable by group name.</summary>
+        public PropertyGridGroupItemCollection Groups { get; } = new ();
         /// <summary>Gets or sets the sort order. Stub.</summary>
         public object? SortOrder { get; set; }
         /// <summary>Gets or sets whether sorting is enabled. Stub.</summary>
