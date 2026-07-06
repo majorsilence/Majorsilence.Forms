@@ -44,6 +44,10 @@ namespace Majorsilence.Forms.Telerik
         public string Name { get; set; } = string.Empty;
         /// <summary>Gets or sets whether the element accepts drag-drop. Stored stub.</summary>
         public bool AllowDrop { get; set; }
+        /// <summary>Gets or sets whether the element stretches to fill available horizontal space. Stub.</summary>
+        public bool StretchHorizontally { get; set; }
+        /// <summary>Gets or sets whether the element stretches to fill available vertical space. Stub.</summary>
+        public bool StretchVertically { get; set; }
         /// <summary>Gets the child elements of this element.</summary>
         public System.Collections.Generic.List<RadElement> Children { get; } = new ();
         /// <summary>Returns the child element at the specified index, or a new stub element.</summary>

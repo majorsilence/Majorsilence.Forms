@@ -732,5 +732,8 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the default background color of a window. Matches <see cref="Control.DefaultBackColor"/>.</summary>
         public static System.Drawing.Color DefaultBackColor => SystemColors.Control;
+
+        /// <summary>Gets or sets whether the window automatically sizes itself to fit its content. Stub.</summary>
+        public bool AutoSize { get; set; }
     }
 }

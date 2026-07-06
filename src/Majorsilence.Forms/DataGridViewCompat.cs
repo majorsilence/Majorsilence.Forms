@@ -234,7 +234,11 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a text box column in a DataGridView.
     /// </summary>
-    public class DataGridViewTextBoxColumn : DataGridViewColumn { }
+    public class DataGridViewTextBoxColumn : DataGridViewColumn
+    {
+        /// <summary>Gets or sets the maximum number of characters allowed in the column's cells. Stub.</summary>
+        public int MaxInputLength { get; set; } = 32767;
+    }
 
     /// <summary>
     /// Represents an image column in a DataGridView. Stub in Majorsilence.Forms (images are not rendered).
