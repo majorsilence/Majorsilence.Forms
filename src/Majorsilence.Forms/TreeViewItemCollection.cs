@@ -39,6 +39,37 @@ namespace Majorsilence.Forms
         /// </summary>
         public TreeNode? this[string key]
             => this.FirstOrDefault (n => string.Equals (n.Name, key, StringComparison.OrdinalIgnoreCase)) as TreeNode;
+
+        /// <summary>Removes the first node whose Name equals the specified key, if present. Mirrors WinForms.</summary>
+        public void RemoveByKey (string key)
+        {
+            var node = this[key];
+
+            if (node is not null)
+                Remove (node);
+        }
+
+        /// <summary>
+        /// Finds nodes whose Name equals the specified key, optionally searching all descendants.
+        /// Mirrors WinForms TreeNodeCollection.Find.
+        /// </summary>
+        public TreeNode[] Find (string key, bool searchAllChildren)
+        {
+            var matches = new List<TreeNode> ();
+            Collect (this, key, searchAllChildren, matches);
+            return matches.ToArray ();
+        }
+
+        private static void Collect (IEnumerable<TreeViewItem> items, string key, bool recurse, List<TreeNode> matches)
+        {
+            foreach (var item in items) {
+                if (item is TreeNode node && string.Equals (node.Name, key, StringComparison.OrdinalIgnoreCase))
+                    matches.Add (node);
+
+                if (recurse)
+                    Collect (item.Items, key, true, matches);
+            }
+        }
     }
 
     /// <summary>Represents the collection of items in a TreeView.</summary>

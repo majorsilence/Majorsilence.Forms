@@ -1734,6 +1734,12 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ContextMenuStrip : ContextMenu
     {
+        /// <summary>Initializes a new instance.</summary>
+        public ContextMenuStrip () { }
+
+        /// <summary>Initializes a new instance owned by the specified container (WinForms designer overload; the container is not used).</summary>
+        public ContextMenuStrip (System.ComponentModel.IContainer container) { }
+
         /// <summary>Shows the menu at the given screen point. Mirrors WinForms ContextMenuStrip.Show(Point).</summary>
         public void Show (System.Drawing.Point screenLocation)
         {

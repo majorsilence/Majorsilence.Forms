@@ -195,6 +195,24 @@ namespace Majorsilence.Forms
             set => _valueMember = value ?? string.Empty;
         }
 
+        /// <summary>
+        /// Returns the display text for the specified item, honoring <see cref="DisplayMember"/>.
+        /// Mirrors WinForms ListControl.GetItemText.
+        /// </summary>
+        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
+        public string GetItemText (object? item)
+        {
+            if (item is null)
+                return string.Empty;
+
+            if (!string.IsNullOrEmpty (_displayMember)) {
+                var prop = item.GetType ().GetProperty (_displayMember);
+                return prop?.GetValue (item)?.ToString () ?? item.ToString () ?? string.Empty;
+            }
+
+            return item.ToString () ?? string.Empty;
+        }
+
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
         private void RefreshDataSource ()
         {

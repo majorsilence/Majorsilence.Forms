@@ -246,6 +246,17 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>
+    /// Compat stand-in for Telerik's RadCheckBoxEditor (the in-place editor of checkbox grid
+    /// cells). Legacy handlers TryCast the event sender to this; the compat grid uses its own
+    /// editing controls, so the cast yields null and such handlers no-op.
+    /// </summary>
+    public class RadCheckBoxEditor
+    {
+        /// <summary>Gets or sets the editor's current value.</summary>
+        public object? Value { get; set; }
+    }
+
+    /// <summary>
     /// Compat stand-in for Telerik's docking context-menu service (obtained through
     /// <c>RadDock.GetService(Of ContextMenuService)()</c>). The compat dock shows no built-in
     /// context menus, so the event is declared but never raised.

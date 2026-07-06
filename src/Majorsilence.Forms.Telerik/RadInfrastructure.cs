@@ -100,7 +100,11 @@ namespace Majorsilence.Forms.Telerik
     /// <c>LightVisualElement.FontProperty</c> etc. regardless of the concrete element type. Same shape
     /// as <see cref="VisualElement"/> (the property tokens are inherited).
     /// </summary>
-    public class LightVisualElement : VisualElement { }
+    public class LightVisualElement : VisualElement
+    {
+        /// <summary>Gets or sets the gradient style used to fill the element. Stored stub.</summary>
+        public GradientStyles GradientStyle { get; set; } = GradientStyles.Solid;
+    }
 
     /// <summary>Compat for Telerik's <c>RootRadElement</c> (the top-level element of a control's element tree).</summary>
     public class RootRadElement : RadElement { }

@@ -235,6 +235,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether the grid auto-scrolls. Stored stub — the compat grid manages its own scrollbars.</summary>
         public bool AutoScroll { get; set; } = true;
 
+        /// <summary>Gets or sets how cells enter edit mode. Stored stub — the compat grid edits on double-click/F2.</summary>
+        public RadGridViewBeginEditMode BeginEditMode { get; set; } = RadGridViewBeginEditMode.BeginEditOnDoubleClick;
+
         /// <summary>Auto-sizes all columns using the specified mode. The mode is advisory in the compat grid; sizing delegates to <see cref="BestFitColumns()"/>.</summary>
         public void BestFitColumns (BestFitColumnMode mode) => BestFitColumns ();
 
@@ -2627,6 +2630,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Returns the index of the specified column, or -1.</summary>
         public int IndexOf (DataGridViewColumn column) => _columns.IndexOf (column);
 
+        /// <summary>Inserts the specified column at the given display position.</summary>
+        public void Insert (int index, DataGridViewColumn column) => _columns.Insert (index, column);
+
         /// <summary>Moves a column to a new display position. Mirrors Telerik's Columns.Move.</summary>
         public void Move (int fromIndex, int toIndex) => _columns.Move (fromIndex, toIndex);
 
@@ -2879,6 +2885,8 @@ namespace Majorsilence.Forms.Telerik
         public bool UseDefaultText { get; set; }
         /// <summary>Gets or sets the default button text shown when <see cref="UseDefaultText"/> is set (or the bound value is empty).</summary>
         public string DefaultText { get; set; } = string.Empty;
+        /// <summary>Gets or sets whether overlong button text is trimmed with an ellipsis. Stored stub.</summary>
+        public bool AutoEllipsis { get; set; }
     }
 
     // ── Row / cell wrappers ────────────────────────────────────────────────────
@@ -2980,6 +2988,11 @@ namespace Majorsilence.Forms.Telerik
         }
         /// <summary>Gets whether this is the new-row placeholder.</summary>
         public bool IsNewRow => _row.IsNewRow;
+        /// <summary>Gets or sets whether the row is visible (forwards to the underlying row).</summary>
+        public bool IsVisible {
+            get => _row.Visible;
+            set => _row.Visible = value;
+        }
         /// <summary>Gets or sets the row tag.</summary>
         public object? Tag {
             get => _row.Tag;
