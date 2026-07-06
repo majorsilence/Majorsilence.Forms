@@ -250,7 +250,7 @@ namespace Majorsilence.Forms.Telerik
         public RadGridViewBeginEditMode BeginEditMode { get; set; } = RadGridViewBeginEditMode.BeginEditOnDoubleClick;
 
         /// <summary>Gets the active in-place editor, or null. Stub — the compat grid's editor is an internal TextBox.</summary>
-        public object? ActiveEditor => null;
+        public IInputEditor? ActiveEditor => null;
 
         /// <summary>Auto-sizes all columns using the specified mode. The mode is advisory in the compat grid; sizing delegates to <see cref="BestFitColumns()"/>.</summary>
         public void BestFitColumns (BestFitColumnMode mode) => BestFitColumns ();
