@@ -160,6 +160,8 @@ namespace Majorsilence.Forms.Telerik
         public ImageScaling ImageScaling { get; set; } = ImageScaling.None;
         /// <summary>Gets or sets whether the button border is drawn. Stub.</summary>
         public bool ShowBorder { get; set; } = true;
+        /// <summary>Gets or sets whether the button paints its own disabled appearance rather than the theme's default. Stub.</summary>
+        public bool UseDefaultDisabledPaint { get; set; } = true;
         /// <summary>Gets the fill element used for gradient/back-color resets (e.g. <c>CommandButton.ButtonFillElement</c>). Stub.</summary>
         public LightVisualElement ButtonFillElement { get; } = new LightVisualElement ();
     }

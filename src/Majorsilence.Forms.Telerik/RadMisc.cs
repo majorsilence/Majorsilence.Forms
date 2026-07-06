@@ -292,3 +292,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat layout group. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class LayoutControlGroup : Panel { }
 }
+
+namespace Majorsilence.Forms.Telerik.Themes
+{
+    /// <summary>Telerik-compat visual theme component. No-op stub -- the compat controls have no theme engine.</summary>
+    public class Office2007BlackTheme : System.ComponentModel.Component { }
+}

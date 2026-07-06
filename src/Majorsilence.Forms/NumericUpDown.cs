@@ -109,6 +109,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the up/down buttons are aligned to the left. Stub in Majorsilence.Forms.</summary>
         public LeftRightAlignment UpDownAlign { get; set; } = LeftRightAlignment.Right;
 
+        /// <summary>Selects a range of text in the editable numeric text. No-op stub in Majorsilence.Forms.</summary>
+        public void Select (int start, int length) { }
+
         /// <summary>Raised when the value changes.</summary>
         public event EventHandler? ValueChanged;
 

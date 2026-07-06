@@ -311,7 +311,7 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>
     /// Telerik-compat conditional-formatting rule. Added to a column's
     /// <c>ConditionalFormattingObjectList</c>; when its condition matches a cell, the configured colors
-    /// are applied to the cell (or the whole row when <see cref="ApplyToRow"/> is set).
+    /// are applied to the cell (or the whole row when <see cref="ApplyOnSelectedRows"/> is set).
     /// </summary>
     public class ConditionalFormattingObject
     {
@@ -322,48 +322,53 @@ namespace Majorsilence.Forms.Telerik
         public ConditionalFormattingObject (string name, ConditionTypes condition, string value1, string value2 = "", bool applyToRow = false)
         {
             Name = name;
-            Condition = condition;
-            Value1 = value1;
-            Value2 = value2;
-            ApplyToRow = applyToRow;
+            ConditionType = condition;
+            TValue1 = value1;
+            TValue2 = value2;
+            ApplyOnSelectedRows = applyToRow;
         }
 
         /// <summary>Gets or sets the rule name.</summary>
         public string Name { get; set; } = string.Empty;
+        /// <summary>Gets or sets whether the rule is evaluated. Stored for Telerik compat.</summary>
+        public bool Enabled { get; set; } = true;
         /// <summary>Gets or sets the comparison condition.</summary>
-        public ConditionTypes Condition { get; set; }
+        public ConditionTypes ConditionType { get; set; }
         /// <summary>Gets or sets the first comparison value.</summary>
-        public string Value1 { get; set; } = string.Empty;
+        public string TValue1 { get; set; } = string.Empty;
         /// <summary>Gets or sets the second comparison value (used by <see cref="ConditionTypes.Between"/>).</summary>
-        public string Value2 { get; set; } = string.Empty;
+        public string TValue2 { get; set; } = string.Empty;
         /// <summary>Gets or sets whether the formatting applies to the whole row rather than just the cell.</summary>
-        public bool ApplyToRow { get; set; }
+        public bool ApplyOnSelectedRows { get; set; }
 
         /// <summary>Gets or sets the cell background color when the rule matches.</summary>
         public System.Drawing.Color CellBackColor { get; set; } = System.Drawing.Color.Empty;
         /// <summary>Gets or sets the cell text color when the rule matches.</summary>
         public System.Drawing.Color CellForeColor { get; set; } = System.Drawing.Color.Empty;
-        /// <summary>Gets or sets the row background color when the rule matches (with <see cref="ApplyToRow"/>).</summary>
+        /// <summary>Gets or sets the row background color when the rule matches (with <see cref="ApplyOnSelectedRows"/>).</summary>
         public System.Drawing.Color RowBackColor { get; set; } = System.Drawing.Color.Empty;
-        /// <summary>Gets or sets the row text color when the rule matches (with <see cref="ApplyToRow"/>).</summary>
+        /// <summary>Gets or sets the row text color when the rule matches (with <see cref="ApplyOnSelectedRows"/>).</summary>
         public System.Drawing.Color RowForeColor { get; set; } = System.Drawing.Color.Empty;
 
         /// <summary>Returns whether the supplied cell display text satisfies this rule.</summary>
         public bool Matches (string cellText)
         {
+            if (!Enabled)
+                return false;
+
             cellText ??= string.Empty;
 
-            return Condition switch {
-                ConditionTypes.Equal => FilterDescriptor.Compare (cellText, Value1) == 0,
-                ConditionTypes.NotEqual => FilterDescriptor.Compare (cellText, Value1) != 0,
-                ConditionTypes.Greater => FilterDescriptor.Compare (cellText, Value1) > 0,
-                ConditionTypes.Less => FilterDescriptor.Compare (cellText, Value1) < 0,
-                ConditionTypes.GreaterOrEqual => FilterDescriptor.Compare (cellText, Value1) >= 0,
-                ConditionTypes.LessOrEqual => FilterDescriptor.Compare (cellText, Value1) <= 0,
-                ConditionTypes.Contains => cellText.Contains (Value1, StringComparison.CurrentCultureIgnoreCase),
-                ConditionTypes.StartsWith => cellText.StartsWith (Value1, StringComparison.CurrentCultureIgnoreCase),
-                ConditionTypes.EndsWith => cellText.EndsWith (Value1, StringComparison.CurrentCultureIgnoreCase),
-                ConditionTypes.Between => FilterDescriptor.Compare (cellText, Value1) >= 0 && FilterDescriptor.Compare (cellText, Value2) <= 0,
+            return ConditionType switch {
+                ConditionTypes.Equal => FilterDescriptor.Compare (cellText, TValue1) == 0,
+                ConditionTypes.NotEqual => FilterDescriptor.Compare (cellText, TValue1) != 0,
+                ConditionTypes.Greater => FilterDescriptor.Compare (cellText, TValue1) > 0,
+                ConditionTypes.Less => FilterDescriptor.Compare (cellText, TValue1) < 0,
+                ConditionTypes.GreaterOrEqual => FilterDescriptor.Compare (cellText, TValue1) >= 0,
+                ConditionTypes.LessOrEqual => FilterDescriptor.Compare (cellText, TValue1) <= 0,
+                ConditionTypes.Contains => cellText.Contains (TValue1, StringComparison.CurrentCultureIgnoreCase),
+                ConditionTypes.StartsWith => cellText.StartsWith (TValue1, StringComparison.CurrentCultureIgnoreCase),
+                ConditionTypes.EndsWith => cellText.EndsWith (TValue1, StringComparison.CurrentCultureIgnoreCase),
+                ConditionTypes.Between => FilterDescriptor.Compare (cellText, TValue1) >= 0 && FilterDescriptor.Compare (cellText, TValue2) <= 0,
                 _ => false
             };
         }

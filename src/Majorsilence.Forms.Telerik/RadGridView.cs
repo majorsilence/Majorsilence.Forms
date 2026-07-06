@@ -2306,7 +2306,7 @@ namespace Majorsilence.Forms.Telerik
                 return;
 
             foreach (var rule in gvc.ConditionalFormattingObjectList) {
-                if (rule.ApplyToRow || !rule.Matches (displayText))
+                if (rule.ApplyOnSelectedRows || !rule.Matches (displayText))
                     continue;
                 if (rule.CellBackColor != Color.Empty)
                     cell.Style.BackgroundColor = ToSK (rule.CellBackColor);
@@ -2325,7 +2325,7 @@ namespace Majorsilence.Forms.Telerik
                 var text = GetCellDisplay (row, i);
 
                 foreach (var rule in gvc.ConditionalFormattingObjectList) {
-                    if (!rule.ApplyToRow || !rule.Matches (text))
+                    if (!rule.ApplyOnSelectedRows || !rule.Matches (text))
                         continue;
 
                     var back = rule.RowBackColor != Color.Empty ? rule.RowBackColor : rule.CellBackColor;
@@ -2568,6 +2568,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Synchronization service (stub).</summary>
         public object? SynchronizationService => null;
 
+        /// <summary>Gets the summary rows shown at each group header. Stub list -- the compat grid does not render group summary rows.</summary>
+        public List<GridViewSummaryRowItem> SummaryRowGroupHeaders { get; } = new ();
+
         /// <summary>Gets the template's data view (stub; the compat grid binds DataSource directly).</summary>
         public object? DataView => null;
 
@@ -2683,6 +2686,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets whether this column is the grid's current column. Stored stub — the compat grid does not track a current column per se.</summary>
         public bool IsCurrent { get; set; }
+
+        /// <summary>Gets or sets the maximum width the column can be resized to. Stored stub — not enforced by the compat grid's resizing.</summary>
+        public int MaxWidth { get; set; }
 
         // IsVisible now lives on DataGridViewColumn itself (Telerik alias of Visible).
         // FieldName now lives on DataGridViewColumn itself (Telerik alias of DataPropertyName).
