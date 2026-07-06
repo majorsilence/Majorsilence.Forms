@@ -33,7 +33,7 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Raised before a page is removed. Stub.</summary>
-        public event EventHandler? PageRemoving { add { } remove { } }
+        public event EventHandler<RadPageViewCancelEventArgs>? PageRemoving { add { } remove { } }
         /// <summary>Raised when a page is collapsed. Stub.</summary>
         public event EventHandler? PageCollapsed { add { } remove { } }
     }
