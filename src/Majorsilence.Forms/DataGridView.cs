@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Reflection;
@@ -224,7 +224,7 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellEventArgs>? CellMouseLeave { add { } remove { } }
 
         /// <summary>Raised when a cell is validating its content.</summary>
-        public event EventHandler<DataGridViewCellValidatingEventArgs>? CellValidating { add { } remove { } }
+        public event EventHandler<DataCellValidatingEventArgs>? CellValidating { add { } remove { } }
 
         /// <summary>Raised after a cell has been validated.</summary>
         public event EventHandler<DataGridViewCellEventArgs>? CellValidated { add { } remove { } }

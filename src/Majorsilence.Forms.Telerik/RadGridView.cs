@@ -1867,7 +1867,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raised before a cell enters edit mode.</summary>
         public new event EventHandler<GridViewCellCancelEventArgs>? CellBeginEdit { add => _cellBeginEdit += value; remove => _cellBeginEdit -= value; }
 
-        private EventHandler<GridViewCellValidatingEventArgs>? _cellValidating;
+        private EventHandler<CellValidatingEventArgs>? _cellValidating;
         private EventHandler<ValueChangingEventArgs>? _valueChanging;
         // The value captured when editing began, used to revert a rejected (CellValidating/ValueChanging-cancelled) edit.
         private object? _editOldValue;
@@ -1875,7 +1875,7 @@ namespace Majorsilence.Forms.Telerik
         /// Raised after a cell value changes. Set <c>e.Cancel</c> to reject the new value (it reverts to the
         /// prior value); set the row's <c>ErrorText</c> in the handler to show an error indicator.
         /// </summary>
-        public new event EventHandler<GridViewCellValidatingEventArgs>? CellValidating { add => _cellValidating += value; remove => _cellValidating -= value; }
+        public new event EventHandler<CellValidatingEventArgs>? CellValidating { add => _cellValidating += value; remove => _cellValidating -= value; }
         /// <summary>
         /// Raised when a cell value is about to change, before <see cref="CellValidating"/>. Set <c>e.Cancel</c>
         /// to reject the new value (it reverts to the prior value).
@@ -2385,7 +2385,7 @@ namespace Majorsilence.Forms.Telerik
             if (IsStructuralRow (row) || columnIndex < 0 || columnIndex >= row.Cells.Count)
                 return false;
 
-            var args = new GridViewCellValidatingEventArgs {
+            var args = new CellValidatingEventArgs {
                 RowIndex = rowIndex,
                 ColumnIndex = columnIndex,
                 Value = row.Cells[columnIndex].Value,

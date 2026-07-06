@@ -235,7 +235,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Provides data for the Telerik grid CellValidating event.</summary>
-    public class GridViewCellValidatingEventArgs : EventArgs
+    public class CellValidatingEventArgs : EventArgs
     {
         /// <summary>Gets or sets the row index.</summary>
         public int RowIndex { get; set; } = -1;
