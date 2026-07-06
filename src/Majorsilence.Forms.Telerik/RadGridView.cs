@@ -2700,6 +2700,10 @@ namespace Majorsilence.Forms.Telerik
         }
         /// <summary>Gets or sets whether this column can be grouped. Stub.</summary>
         public bool AllowGroup { get; set; } = true;
+        /// <summary>Gets or sets whether this column can be hidden by the user. Stub.</summary>
+        public bool AllowHide { get; set; } = true;
+        /// <summary>Gets or sets whether the filter expression editor is available for this column. Stub.</summary>
+        public bool EnableExpressionEditor { get; set; } = true;
         // DataType now lives on DataGridViewColumn itself (Telerik alias of ValueType).
         /// <summary>Gets the conditional-formatting rules applied to this column's cells.</summary>
         public List<ConditionalFormattingObject> ConditionalFormattingObjectList { get; } = new ();

@@ -90,6 +90,8 @@ namespace Majorsilence.Forms.Telerik
         public AllowedDockState AllowedDockState { get; set; } = AllowedDockState.All;
         /// <summary>Gets or sets how the window scales with DPI. Stored for WinForms designer compat.</summary>
         public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Dpi;
+        /// <summary>Gets or sets which caption buttons are shown. Defaults to all.</summary>
+        public ToolStripCaptionButtons ToolCaptionButtons { get; set; } = ToolStripCaptionButtons.All;
         /// <summary>Closes the window (hides it).</summary>
         public void Close () => Visible = false;
         /// <summary>Closes and disposes the window.</summary>
@@ -131,8 +133,7 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets the caption.</summary>
         public string Caption { get; set; } = string.Empty;
-        /// <summary>Gets or sets which caption buttons are shown. Defaults to all.</summary>
-        public ToolStripCaptionButtons ToolCaptionButtons { get; set; } = ToolStripCaptionButtons.All;
+        // ToolCaptionButtons is inherited from DockWindowBase.
         /// <summary>Gets or sets the auto-hide size. Stub.</summary>
         public Size AutoHideSize { get; set; }
         /// <summary>Gets or sets the default floating size. Stub.</summary>
@@ -219,6 +220,10 @@ namespace Majorsilence.Forms.Telerik
         public SplitPanelSizeInfo SizeInfo { get; } = new SplitPanelSizeInfo ();
         /// <summary>Gets or sets the selected tab. Stub.</summary>
         public object? SelectedTab { get; set; }
+
+        /// <summary>Selects the tab hosting the specified dock window. Stub - the compat strip stores it as the selected tab.</summary>
+        public void SelectTab (DockWindowBase window) => SelectedTab = window;
+
         /// <summary>Gets or sets which document buttons show. Defaults to all.</summary>
         public DocumentStripButtons DocumentButtons { get; set; } = DocumentStripButtons.All;
         /// <summary>Returns the strip element tree child at the given index (stub).</summary>

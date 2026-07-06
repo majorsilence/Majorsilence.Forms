@@ -1,11 +1,11 @@
-﻿using System.Drawing;
+using System.Drawing;
 
 namespace Majorsilence.Forms
 {
     /// <summary>
     /// Represents a column in a DataGridView control.
     /// </summary>
-    public class DataGridViewColumn
+    public class DataGridViewColumn : IDisposable
     {
         private string header_text = string.Empty;
         private int width = 100;
@@ -35,6 +35,16 @@ namespace Majorsilence.Forms
         {
             CellTemplate = cellTemplate;
         }
+
+        /// <summary>Releases resources used by the column. WinForms parity (DataGridViewBand is IDisposable); the compat column holds no unmanaged state.</summary>
+        public void Dispose ()
+        {
+            Dispose (true);
+            GC.SuppressFinalize (this);
+        }
+
+        /// <summary>Releases resources used by the column.</summary>
+        protected virtual void Dispose (bool disposing) { }
 
         /// <summary>
         /// Gets or sets the name used to identify this column.
