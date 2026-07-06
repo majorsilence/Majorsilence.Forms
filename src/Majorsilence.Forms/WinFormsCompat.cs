@@ -125,6 +125,9 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the data source value is parsed. Stub in Majorsilence.Forms.</summary>
         public event ConvertEventHandler? Parse { add { } remove { } }
+
+        /// <summary>Pushes the current control value to the data source. No-op stub in Majorsilence.Forms.</summary>
+        public void WriteValue () { }
     }
 
     /// <summary>Provides data for Binding.Format and Binding.Parse events.</summary>
@@ -224,6 +227,10 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the control that owns this collection.</summary>
         public Control Control => _control;
+
+        /// <summary>Gets the binding for the specified control property name, or null.</summary>
+        public Binding? this[string propertyName]
+            => this.FirstOrDefault (b => string.Equals (b.PropertyName, propertyName, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>Gets or sets the default data source update mode.</summary>
         public DataSourceUpdateMode DefaultDataSourceUpdateMode { get; set; }

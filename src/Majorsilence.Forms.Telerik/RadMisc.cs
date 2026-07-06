@@ -255,6 +255,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
 
+        /// <summary>Gets or sets whether the grid disallows editing values. Stub.</summary>
+        public bool ReadOnly { get; set; }
+
         /// <summary>Begins editing the selected item. Stub.</summary>
         public void BeginEdit () { }
 

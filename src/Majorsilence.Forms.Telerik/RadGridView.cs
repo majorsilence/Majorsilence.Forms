@@ -183,6 +183,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Occurs when a row is validating before commit. Never raised by the compat grid (edits commit unconditionally).</summary>
         public event EventHandler<RowValidatingEventArgs>? RowValidating;
+
+        /// <summary>Occurs when a new row needs its default cell values. Never raised by the compat grid.</summary>
+        public new event EventHandler<GridViewRowEventArgs>? DefaultValuesNeeded;
         // Sorted is inherited from the base DataGridView (WinForms parity; plain DataGridView-typed
         // designer fields like RadGridViewAmounts also need it).
 #pragma warning restore CS0067
@@ -2914,6 +2917,14 @@ namespace Majorsilence.Forms.Telerik
         public string DefaultText { get; set; } = string.Empty;
         /// <summary>Gets or sets whether overlong button text is trimmed with an ellipsis. Stored stub.</summary>
         public bool AutoEllipsis { get; set; }
+        /// <summary>Gets or sets the image shown on the command button. Stub.</summary>
+        public Majorsilence.Forms.Drawing.Image? Image { get; set; }
+        /// <summary>Gets or sets the alignment of the image on the command button. Stub.</summary>
+        public ContentAlignment ImageAlignment { get; set; }
+        /// <summary>Gets or sets how the image is drawn on the command button. Stub.</summary>
+        public ImageLayout ImageLayout { get; set; }
+        /// <summary>Gets or sets the relative position of text and image on the command button. Stub.</summary>
+        public TextImageRelation TextImageRelation { get; set; }
     }
 
     // ── Row / cell wrappers ────────────────────────────────────────────────────
@@ -2957,6 +2968,14 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Creates a detached row suitable for populating and passing to <see cref="Add(GridViewRowInfo)"/>. Mirrors Telerik's Rows.NewRow.</summary>
         public GridViewRowInfo NewRow () => new GridViewDataRowInfo (new DataGridViewRow ());
+
+        /// <summary>Creates a new row, adds it to the grid, and returns it. Mirrors Telerik's Rows.AddNew.</summary>
+        public GridViewRowInfo AddNew ()
+        {
+            var row = new DataGridViewRow ();
+            _rows.Add (row);
+            return new GridViewDataRowInfo (row);
+        }
 
         /// <summary>Returns the index of the row info's underlying row among the data rows, or -1.</summary>
         public int IndexOf (GridViewRowInfo row) => row is null ? -1 : DataRows.IndexOf (row.DataRow);

@@ -35,7 +35,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raised before a page is removed. Stub.</summary>
         public event EventHandler<RadPageViewCancelEventArgs>? PageRemoving { add { } remove { } }
         /// <summary>Raised when a page is collapsed. Stub.</summary>
-        public event EventHandler? PageCollapsed { add { } remove { } }
+        public event EventHandler<RadPageViewEventArgs>? PageCollapsed { add { } remove { } }
     }
 
     /// <summary>Telerik-compat page-view page. Backed by <see cref="Majorsilence.Forms.TabPage"/>.</summary>

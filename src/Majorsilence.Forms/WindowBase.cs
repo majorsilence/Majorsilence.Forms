@@ -729,5 +729,8 @@ namespace Majorsilence.Forms
                 Invalidate ();
             }
         }
+
+        /// <summary>Gets the default background color of a window. Matches <see cref="Control.DefaultBackColor"/>.</summary>
+        public static System.Drawing.Color DefaultBackColor => SystemColors.Control;
     }
 }

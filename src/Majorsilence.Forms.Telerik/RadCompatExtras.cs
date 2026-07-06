@@ -160,6 +160,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>The declared type of the property.</summary>
         public Type? PropertyType { get; set; }
 
+        /// <summary>The category the property is grouped under.</summary>
+        public string? Category { get; set; }
+
         /// <summary>User data associated with the item (settable hide of the base member for source compat).</summary>
         public new object? Tag { get; set; }
 
