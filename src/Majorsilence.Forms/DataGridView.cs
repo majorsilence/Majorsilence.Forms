@@ -224,7 +224,7 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellEventArgs>? CellMouseLeave { add { } remove { } }
 
         /// <summary>Raised when a cell is validating its content.</summary>
-        public event EventHandler<DataCellValidatingEventArgs>? CellValidating { add { } remove { } }
+        public event EventHandler<DataGridViewCellValidatingEventArgs>? CellValidating { add { } remove { } }
 
         /// <summary>Raised after a cell has been validated.</summary>
         public event EventHandler<DataGridViewCellEventArgs>? CellValidated { add { } remove { } }

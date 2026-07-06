@@ -132,7 +132,7 @@ namespace Majorsilence.Forms
         }
 
         private void grid_CellValidating(object? sender,
-        DataCellValidatingEventArgs e)
+        DataGridViewCellValidatingEventArgs e)
         {
             int output;
 

@@ -603,10 +603,10 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the DataGridView.CellValidating event.</summary>
-    public class DataCellValidatingEventArgs : DataGridViewCellEventArgs
+    public class DataGridViewCellValidatingEventArgs : DataGridViewCellEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
-        public DataCellValidatingEventArgs (int columnIndex, int rowIndex, object? formattedValue)
+        public DataGridViewCellValidatingEventArgs (int columnIndex, int rowIndex, object? formattedValue)
             : base (columnIndex, rowIndex) { FormattedValue = formattedValue; }
 
         /// <summary>Gets the formatted cell value being validated.</summary>
@@ -730,7 +730,7 @@ namespace Majorsilence.Forms
     public delegate void DataGridViewDataErrorEventHandler (object sender, DataGridViewDataErrorEventArgs e);
 
     /// <summary>Represents the method that handles DataGridView cell-validating events.</summary>
-    public delegate void DataGridViewCellValidatingEventHandler (object sender, DataCellValidatingEventArgs e);
+    public delegate void DataGridViewCellValidatingEventHandler (object sender, DataGridViewCellValidatingEventArgs e);
 
     /// <summary>Represents the method that handles DataGridView cell-value-changed events.</summary>
     public delegate void DataGridViewCellValueChangedEventHandler (object sender, DataGridViewCellEventArgs e);
