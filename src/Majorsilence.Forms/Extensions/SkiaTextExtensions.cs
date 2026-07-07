@@ -25,7 +25,17 @@ namespace Majorsilence.Forms
             if (string.IsNullOrWhiteSpace (text))
                 return;
 
-            var tb = TextMeasurer.CreateTextBlock (text, font, fontSize, bounds.Size, TextMeasurer.GetTextAlign (alignment), color, maxLines, ellipsis);
+            // Layout height is deliberately unconstrained (bounds.Height is not passed through): a
+            // control shorter than one line's natural height (a common WinForms designer default --
+            // an 8.25pt-font Label is typically 13px tall, a couple pixels short of that font's own
+            // line height) must still draw its text, matching real WinForms/GDI+ (which draws and
+            // lets it overflow slightly rather than refusing to draw at all). RichTextKit's TextBlock
+            // treats MaxHeight as a hard layout budget: if even the first line doesn't fit, it lays
+            // out zero lines rather than the first line and would-be overflow, so passing the
+            // control's real (short) height here silently produced completely invisible text. The
+            // canvas.Clip(bounds) call below still constrains what's actually visible to bounds, so
+            // nothing paints outside the control regardless.
+            var tb = TextMeasurer.CreateTextBlock (text, font, fontSize, new Size (bounds.Width, int.MaxValue), TextMeasurer.GetTextAlign (alignment), color, maxLines, ellipsis);
             var location = bounds.Location;
             var vertical = TextMeasurer.GetVerticalAlign (alignment);
 
@@ -66,7 +76,10 @@ namespace Majorsilence.Forms
             if (string.IsNullOrEmpty (display))
                 return;
 
-            var tb = TextMeasurer.CreateTextBlock (display, font, fontSize, bounds.Size, TextMeasurer.GetTextAlign (alignment), color, maxLines, ellipsis, mnemonicIndex);
+            // See the matching comment in DrawText above: height is deliberately unconstrained so a
+            // control shorter than one line's natural text height still draws (clipped by
+            // canvas.Clip(bounds) below, not by refusing to lay out any text at all).
+            var tb = TextMeasurer.CreateTextBlock (display, font, fontSize, new Size (bounds.Width, int.MaxValue), TextMeasurer.GetTextAlign (alignment), color, maxLines, ellipsis, mnemonicIndex);
             var location = bounds.Location;
             var vertical = TextMeasurer.GetVerticalAlign (alignment);
 
