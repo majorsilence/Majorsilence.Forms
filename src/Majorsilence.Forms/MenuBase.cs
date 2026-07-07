@@ -50,7 +50,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Get the MenuItem at the specified location.
         /// </summary>
-        public MenuItem? GetItemAtLocation (Point location) => Items.FirstOrDefault (item => item.Bounds.Contains (location));
+        public MenuItem? GetItemAtLocation (Point location) => Items.FirstOrDefault (item => item.Visible && item.Bounds.Contains (location));
 
         /// <summary>
         /// Get the top level Menu control, if any.

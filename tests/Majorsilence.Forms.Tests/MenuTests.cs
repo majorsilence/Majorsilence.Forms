@@ -117,6 +117,32 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void MenuItem_Visible_DefaultsTrue ()
+        {
+            var item = new MenuItem ("Item");
+
+            Assert.True (item.Visible);
+        }
+
+        [Theory]
+        [InlineData (true)]
+        [InlineData (false)]
+        public void MenuItem_Visible_Set_GetReturnsExpected (bool value)
+        {
+            var item = new MenuItem { Visible = value };
+
+            Assert.Equal (value, item.Visible);
+
+            // Set same.
+            item.Visible = value;
+            Assert.Equal (value, item.Visible);
+
+            // Toggle back.
+            item.Visible = !value;
+            Assert.Equal (!value, item.Visible);
+        }
+
+        [Fact]
         public void MenuItem_Click_AddRemoveHandler_DoesNotThrow ()
         {
             var item = new MenuItem ("Item");
@@ -270,6 +296,22 @@ namespace Majorsilence.Forms.Tests
             Assert.Same (file, menu.Items[0]);
             Assert.Same (edit, menu.Items[1]);
             Assert.Same (view, menu.Items[2]);
+        }
+
+        [Fact]
+        public void Menu_GetItemAtLocation_SkipsInvisibleItems ()
+        {
+            using var menu = new Menu ();
+            var file = menu.Items.Add ("File");
+            var hidden = menu.Items.Add ("Hidden");
+            hidden.Visible = false;
+
+            // SetBounds is the public, non-rendering way to give an item a hit-testable area.
+            file.SetBounds (0, 0, 50, 28);
+            hidden.SetBounds (50, 0, 50, 28);
+
+            Assert.Same (file, menu.GetItemAtLocation (new Point (10, 10)));
+            Assert.Null (menu.GetItemAtLocation (new Point (60, 10)));
         }
 
         [Fact]

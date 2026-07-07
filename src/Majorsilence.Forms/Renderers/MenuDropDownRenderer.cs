@@ -10,13 +10,17 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (MenuDropDown control, PaintEventArgs e)
         {
-            foreach (var item in control.Items)
+            foreach (var item in control.Items) {
+                if (!item.Visible)
+                    continue;
+
                 if (item is MenuSeparatorItem msi)
                     RenderMenuSeparatorItem (control, msi, e);
                 else if (item is ToolStripSeparator tss)
                     RenderMenuSeparatorItem (control, tss, e);
                 else
                     RenderItem (control, item, e);
+            }
         }
 
         /// <summary>

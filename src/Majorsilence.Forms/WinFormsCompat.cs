@@ -899,9 +899,6 @@ namespace Majorsilence.Forms
             set => Size = new Size (Size.Width, value);
         }
 
-        /// <summary>Gets or sets whether this item is visible.</summary>
-        public bool Visible { get; set; } = true;
-
         /// <summary>Gets or sets the tooltip text shown for this item.</summary>
         public string ToolTipText { get; set; } = string.Empty;
 

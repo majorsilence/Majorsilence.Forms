@@ -27,7 +27,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void LayoutItems ()
         {
-            StackLayoutEngine.HorizontalExpand.Layout (ClientRectangle, Items.Cast<ILayoutable> ());
+            StackLayoutEngine.HorizontalExpand.Layout (ClientRectangle, Items.Where (i => i.Visible).Cast<ILayoutable> ());
         }
 
         /// <inheritdoc/>
