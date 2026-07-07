@@ -334,7 +334,7 @@ namespace Majorsilence.Forms.Tests
             control.Items.AddRange ("a", "b", "c");
             control.SetSelected (0, true);
             control.SetSelected (2, true);
-            Assert.Equal (2, control.SelectedIndices.Count ());
+            Assert.Equal (2, control.SelectedIndices.Count);
 
             control.ClearSelected ();
 
