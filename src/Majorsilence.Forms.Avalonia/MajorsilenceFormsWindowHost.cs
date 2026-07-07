@@ -587,6 +587,20 @@ namespace Majorsilence.Forms
         {
             Topmost = true;
 
+            // Never take activation: this is how native menus/combo dropdowns behave everywhere.
+            // If the popup window activates, its parent window Deactivates as a side effect -- and
+            // the parent's deactivation handler dismisses open popups (correct when the user
+            // switches to another app, fatal when it's the popup itself that stole the focus).
+            // PopupWindow.Show's SuppressPopupDismiss flag tried to paper over exactly that, but the
+            // WM delivers the focus-change whenever it likes (often long after Show returns), so no
+            // flag timing can be reliable -- found via menus in a real migrated app
+            // (ReportDesigner.Forms) opening and instantly closing again on a real desktop, while
+            // behaving fine on a WM-less bare X server where no focus transfer ever happened.
+            // Mouse input does not require activation, so clicking dropdown items still works; the
+            // parent keeps focus for keyboard handling, matching WinForms menu behavior.
+            ShowActivated = false;
+            Focusable = false;
+
             // On macOS, a borderless window with ExtendClientAreaToDecorationsHint = true (inherited
             // from the base host) is rendered with a translucent "vibrancy" backdrop. For a menu or
             // combo-box popup that shows up as a grey, blurry square instead of the menu. The base

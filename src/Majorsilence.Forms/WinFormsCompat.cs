@@ -1628,10 +1628,39 @@ namespace Majorsilence.Forms
         /// <summary>Invoked when an item is added (lets the owning ToolStrip raise ItemAdded).</summary>
         internal Action<ToolStripItem>? ItemAddedCallback;
 
+        /// <summary>Invoked when an item is removed (lets the owning ToolStrip unmirror it).</summary>
+        internal Action<ToolStripItem>? ItemRemovedCallback;
+
         /// <inheritdoc/>
         protected override void InsertItem (int index, ToolStripItem item)
         {
             base.InsertItem (index, item);
+            ItemAddedCallback?.Invoke (item);
+        }
+
+        /// <inheritdoc/>
+        protected override void RemoveItem (int index)
+        {
+            var item = this[index];
+            base.RemoveItem (index);
+            ItemRemovedCallback?.Invoke (item);
+        }
+
+        /// <inheritdoc/>
+        protected override void ClearItems ()
+        {
+            var removed = this.ToArray ();
+            base.ClearItems ();
+            foreach (var item in removed)
+                ItemRemovedCallback?.Invoke (item);
+        }
+
+        /// <inheritdoc/>
+        protected override void SetItem (int index, ToolStripItem item)
+        {
+            var old = this[index];
+            base.SetItem (index, item);
+            ItemRemovedCallback?.Invoke (old);
             ItemAddedCallback?.Invoke (item);
         }
 
@@ -1764,11 +1793,21 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of the ToolStrip class.</summary>
         public ToolStrip ()
         {
+            // The facade collection must forward into the base MenuBase root collection: that base
+            // collection is the ONLY one LayoutItems, ToolBarRenderer, and MenuBase's mouse
+            // hit-testing consume. Items held solely in the facade exist but never lay out, never
+            // paint, and can never be clicked -- found via a real migrated app
+            // (ReportDesigner.Forms) whose two designer ToolStrips (21 and 19 buttons) rendered as
+            // completely empty bars.
+            var base_items = base.Items;
+
             _items = new ToolStripItemCollection {
                 ItemAddedCallback = item => {
+                    base_items.Add (item);
                     item.Click += (_, _) => ItemClicked?.Invoke (this, new ToolStripItemClickedEventArgs (item));
                     ItemAdded?.Invoke (this, new ToolStripItemEventArgs (item));
-                }
+                },
+                ItemRemovedCallback = item => base_items.Remove (item),
             };
         }
 
