@@ -270,5 +270,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the tag object. Stub in Majorsilence.Forms.</summary>
         public object? Tag { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether the menu item is visible. Hidden items are skipped during layout,
+        /// hit-testing, and rendering by <see cref="Menu"/>/<see cref="MenuDropDown"/> (WinForms compat).
+        /// </summary>
+        public bool Visible { get; set; } = true;
     }
 }

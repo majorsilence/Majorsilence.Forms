@@ -667,7 +667,13 @@ namespace Majorsilence.Forms
         public bool GetSelected (int index) => Items.SelectedIndexes.Contains (index);
 
         /// <summary>Returns the collection of indices of all currently selected items.</summary>
-        public IEnumerable<int> SelectedIndices => new System.Collections.ObjectModel.ReadOnlyCollection<int> (Items.SelectedIndexes);
+        public SelectedIndexCollection SelectedIndices => new (Items.SelectedIndexes);
+
+        /// <summary>Read-only collection of a ListBox's selected item indices. Mirrors WinForms ListBox.SelectedIndexCollection.</summary>
+        public class SelectedIndexCollection : System.Collections.ObjectModel.ReadOnlyCollection<int>
+        {
+            internal SelectedIndexCollection (IList<int> indexes) : base (indexes) { }
+        }
 
         /// <summary>Finds the first item that exactly matches the specified string, starting at the given index. This search is case-insensitive and wraps around.</summary>
         public int FindStringExact (string s, int startIndex = -1)

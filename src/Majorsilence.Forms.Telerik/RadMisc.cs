@@ -99,6 +99,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadContextMenu
     {
+        /// <summary>Initializes a new instance.</summary>
+        public RadContextMenu () { }
+
+        /// <summary>Initializes a new instance owned by the specified container (WinForms designer overload; the container is not used).</summary>
+        public RadContextMenu (System.ComponentModel.IContainer container) { }
+
         /// <summary>Gets the menu items. Populate with <see cref="RadMenuItem"/>s (or other <see cref="Majorsilence.Forms.MenuItem"/>s).</summary>
         public List<object> Items { get; } = new ();
 
@@ -167,6 +173,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Shows the owning context menu relative to the specified control.</summary>
         public void Show (Control control, Point location) => owner.Show (control, location);
+
+        /// <summary>Shows the owning context menu at the given offset from the specified control.</summary>
+        public void Show (Control control, int x, int y) => owner.Show (control, new Point (x, y));
 
         /// <summary>Hides the drop-down. No-op — the popup dismisses itself.</summary>
         public void Hide () { }
@@ -246,6 +255,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
 
+        /// <summary>Gets or sets whether the grid disallows editing values. Stub.</summary>
+        public bool ReadOnly { get; set; }
+
         /// <summary>Begins editing the selected item. Stub.</summary>
         public void BeginEdit () { }
 
@@ -279,4 +291,10 @@ namespace Majorsilence.Forms.Telerik
 
     /// <summary>Telerik-compat layout group. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class LayoutControlGroup : Panel { }
+}
+
+namespace Majorsilence.Forms.Telerik.Themes
+{
+    /// <summary>Telerik-compat visual theme component. No-op stub -- the compat controls have no theme engine.</summary>
+    public class Office2007BlackTheme : System.ComponentModel.Component { }
 }

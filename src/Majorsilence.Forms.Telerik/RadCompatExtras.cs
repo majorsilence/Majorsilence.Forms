@@ -160,6 +160,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>The declared type of the property.</summary>
         public Type? PropertyType { get; set; }
 
+        /// <summary>The category the property is grouped under.</summary>
+        public string? Category { get; set; }
+
         /// <summary>User data associated with the item (settable hide of the base member for source compat).</summary>
         public new object? Tag { get; set; }
 
@@ -542,8 +545,13 @@ namespace Majorsilence.Forms.Telerik
         public bool ShowTimePicker { get; set; }
     }
 
-    /// <summary>Compat stand-in for the grid header cell element.</summary>
-    public class GridHeaderCellElement : RadElement
+    /// <summary>
+    /// Compat stand-in for the grid header cell element. Derives from
+    /// <see cref="Majorsilence.Forms.Telerik.GridViewCellElement"/> (Telerik parity) so formatting
+    /// handlers that narrow a cell-formatting event's CellElement with
+    /// <c>TypeOf e.CellElement Is GridHeaderCellElement</c> compile.
+    /// </summary>
+    public class GridHeaderCellElement : GridViewCellElement
     {
     }
 
@@ -595,7 +603,7 @@ namespace Majorsilence.Forms.Telerik
     public class RadPageViewCancelEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>The page involved.</summary>
-        public object? Page { get; set; }
+        public RadPageViewPage? Page { get; set; }
     }
 
     /// <summary>Provides data for dock-window events. Mirrors Telerik's shape.</summary>

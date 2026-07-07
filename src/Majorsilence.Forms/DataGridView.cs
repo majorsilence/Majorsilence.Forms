@@ -466,9 +466,10 @@ namespace Majorsilence.Forms
         public ControlStyle RowHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
-        /// Gets the default cell style applied to all rows.
+        /// Gets or sets the default cell style applied to all rows. Settable for WinForms
+        /// designer assignments (see <see cref="DefaultCellStyle"/>).
         /// </summary>
-        public ControlStyle RowsDefaultCellStyle { get; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle RowsDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>Commits any pending edit for the specified context. Delegates to EndEdit in Majorsilence.Forms.</summary>
         public bool CommitEdit (DataGridViewDataErrorContexts context) => EndEdit ();
@@ -494,6 +495,9 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the current cell's dirty state changes. Declared for WinForms compat; the compat grid commits on end-edit and does not raise it.</summary>
 #pragma warning disable CS0067
         public event EventHandler? CurrentCellDirtyStateChanged;
+
+        /// <summary>Raised after the grid finishes sorting. Declared for WinForms compat; the compat grid has no sort pipeline yet.</summary>
+        public event EventHandler? Sorted;
 #pragma warning restore CS0067
 
         /// <summary>
@@ -1837,6 +1841,15 @@ namespace Majorsilence.Forms
         /// <summary>Adjusts the height of all rows using the specified sizing mode. Stub in Majorsilence.Forms.</summary>
         public void AutoResizeRow (int rowIndex) => Invalidate ();
 
+        /// <summary>Adjusts the height of the specified row using the given sizing mode. Stub in Majorsilence.Forms.</summary>
+        public void AutoResizeRow (int rowIndex, DataGridViewAutoSizeRowMode autoSizeRowMode) => Invalidate ();
+
+        /// <summary>Gets or sets the visual style of the grid's border.</summary>
+        public BorderStyle BorderStyle { get; set; } = BorderStyle.Fixed3D;
+
+        /// <summary>Gets the columns currently selected (via column-header click). Stub: always empty -- the compat grid does not track column selection.</summary>
+        public DataGridViewColumnCollection SelectedColumns => new DataGridViewColumnCollection (this);
+
         /// <summary>Selects all cells, rows, or columns, depending on selection mode.</summary>
         public void SelectAll ()
         {
@@ -1953,8 +1966,20 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets the number of columns in the grid.</summary>
-        public int ColumnCount => Columns.Count;
+        /// <summary>
+        /// Gets or sets the number of columns. Setting it before binding declares an unbound grid's
+        /// columns (WinForms pattern): grows by appending plain columns, or shrinks by removing from
+        /// the end.
+        /// </summary>
+        public int ColumnCount {
+            get => Columns.Count;
+            set {
+                while (Columns.Count < value)
+                    Columns.Add (string.Empty);
+                while (Columns.Count > value)
+                    Columns.RemoveAt (Columns.Count - 1);
+            }
+        }
 
         /// <summary>Gets or sets which scroll bars are displayed. Stub in Majorsilence.Forms.</summary>
         public ScrollBars ScrollBars { get; set; } = ScrollBars.Both;

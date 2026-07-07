@@ -234,7 +234,11 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a text box column in a DataGridView.
     /// </summary>
-    public class DataGridViewTextBoxColumn : DataGridViewColumn { }
+    public class DataGridViewTextBoxColumn : DataGridViewColumn
+    {
+        /// <summary>Gets or sets the maximum number of characters allowed in the column's cells. Stub.</summary>
+        public int MaxInputLength { get; set; } = 32767;
+    }
 
     /// <summary>
     /// Represents an image column in a DataGridView. Stub in Majorsilence.Forms (images are not rendered).
@@ -506,6 +510,17 @@ namespace Majorsilence.Forms
         public DataGridViewRow Row { get; }
     }
 
+    /// <summary>Specifies how a row is auto-sized. Mirrors WinForms DataGridViewAutoSizeRowMode.</summary>
+    public enum DataGridViewAutoSizeRowMode
+    {
+        /// <summary>Size to the header cell only.</summary>
+        RowHeader = 0,
+        /// <summary>Size to the displayed data cells.</summary>
+        AllCellsExceptHeader = 1,
+        /// <summary>Size to all cells including the header.</summary>
+        AllCells = 2
+    }
+
     /// <summary>Provides data for the DataGridView.DataError event.</summary>
     public class DataGridViewDataErrorEventArgs : DataGridViewCellEventArgs
     {
@@ -516,6 +531,9 @@ namespace Majorsilence.Forms
             Exception = exception;
             Context = context;
         }
+
+        /// <summary>Gets or sets whether the exception should be suppressed (no further DataError notification for this operation).</summary>
+        public bool Cancel { get; set; }
 
         /// <summary>Gets the exception that caused the error.</summary>
         public Exception Exception { get; }
@@ -804,6 +822,15 @@ namespace Majorsilence.Forms
     {
         /// <summary>Initializes a new instance.</summary>
         public DataGridViewCellPaintingEventArgs (int columnIndex, int rowIndex) : base (columnIndex, rowIndex) { }
+
+        /// <summary>Gets the graphics surface to paint on. Declared for source compat; CellPainting is a stub event and is never actually raised.</summary>
+        public Majorsilence.Forms.Drawing.SkiaGraphics? Graphics { get; set; }
+
+        /// <summary>Paints the cell's default content (value/text) within the given bounds. No-op stub -- CellPainting is never raised.</summary>
+        public void PaintContent (Rectangle cellBounds) { }
+
+        /// <summary>Paints the cell's background within the given bounds. No-op stub -- CellPainting is never raised.</summary>
+        public void PaintBackground (Rectangle cellBounds, bool cellsPaintSelectionBackground) { }
 
         /// <summary>Gets or sets whether the painting should be handled by the caller.</summary>
         public bool Handled { get; set; }

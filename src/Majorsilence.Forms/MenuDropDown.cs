@@ -69,17 +69,19 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void LayoutItems ()
         {
-            if (Items.Count == 0)
+            var visible_items = Items.Where (i => i.Visible).ToList ();
+
+            if (visible_items.Count == 0)
                 return;
 
-            var sizes = Items.Select (i => i.GetPreferredSize (Size.Empty));
+            var sizes = visible_items.Select (i => i.GetPreferredSize (Size.Empty));
 
             width = sizes.Select (s => s.Width).Max ();
             height = sizes.Select (s => s.Height).Sum () + 2;
 
             var client_rect = new Rectangle (1, 1, width - 2, height - 2);
 
-            StackLayoutEngine.VerticalExpand.Layout (client_rect, Items.Cast<ILayoutable> ());
+            StackLayoutEngine.VerticalExpand.Layout (client_rect, visible_items.Cast<ILayoutable> ());
         }
 
         /// <inheritdoc/>

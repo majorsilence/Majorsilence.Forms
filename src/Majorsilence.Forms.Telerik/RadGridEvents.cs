@@ -115,6 +115,20 @@ namespace Majorsilence.Forms.Telerik
         public bool Cancel { get; set; }
     }
 
+    /// <summary>Provides data for row validation before commit. Mirrors Telerik's shape.</summary>
+    public class RowValidatingEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        /// <summary>The row being validated.</summary>
+        public GridViewRowInfo? Row { get; set; }
+    }
+
+    /// <summary>Provides data for row-scoped grid events (e.g. DefaultValuesNeeded). Mirrors Telerik's shape.</summary>
+    public class GridViewRowEventArgs : System.EventArgs
+    {
+        /// <summary>The row involved.</summary>
+        public GridViewRowInfo? Row { get; set; }
+    }
+
     /// <summary>Specifies which aspect of the grid changed for a table-element update. Compat for Telerik <c>GridUINotifyAction</c>.</summary>
     public enum GridUINotifyAction
     {

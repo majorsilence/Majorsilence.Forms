@@ -125,6 +125,9 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the data source value is parsed. Stub in Majorsilence.Forms.</summary>
         public event ConvertEventHandler? Parse { add { } remove { } }
+
+        /// <summary>Pushes the current control value to the data source. No-op stub in Majorsilence.Forms.</summary>
+        public void WriteValue () { }
     }
 
     /// <summary>Provides data for Binding.Format and Binding.Parse events.</summary>
@@ -224,6 +227,10 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the control that owns this collection.</summary>
         public Control Control => _control;
+
+        /// <summary>Gets the binding for the specified control property name, or null.</summary>
+        public Binding? this[string propertyName]
+            => this.FirstOrDefault (b => string.Equals (b.PropertyName, propertyName, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>Gets or sets the default data source update mode.</summary>
         public DataSourceUpdateMode DefaultDataSourceUpdateMode { get; set; }
@@ -891,9 +898,6 @@ namespace Majorsilence.Forms
             get => Size.Height;
             set => Size = new Size (Size.Width, value);
         }
-
-        /// <summary>Gets or sets whether this item is visible.</summary>
-        public bool Visible { get; set; } = true;
 
         /// <summary>Gets or sets the tooltip text shown for this item.</summary>
         public string ToolTipText { get; set; } = string.Empty;
@@ -3096,27 +3100,76 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ApplicationContext : IDisposable
     {
+        private Form? _mainForm;
+        private bool _disposed;
+
         /// <summary>Initializes a new instance of the ApplicationContext class.</summary>
         public ApplicationContext () { }
 
         /// <summary>Initializes a new instance of the ApplicationContext class with the specified Form as the main form.</summary>
         public ApplicationContext (Form mainForm) { MainForm = mainForm; }
 
-        /// <summary>Gets or sets the Form to use as context for this thread.</summary>
-        public Form? MainForm { get; set; }
+        /// <summary>
+        /// Gets or sets the Form to use as context for this thread. Setting it wires the previous
+        /// form's <see cref="WindowBase.Closed"/> off and the new form's on, so closing MainForm raises
+        /// <see cref="OnMainFormClosed"/> the same way real WinForms reacts to MainForm's HandleDestroyed.
+        /// </summary>
+        public Form? MainForm {
+            get => _mainForm;
+            set {
+                if (_mainForm is not null)
+                    _mainForm.Closed -= OnMainFormClosed;
+                _mainForm = value;
+                if (_mainForm is not null)
+                    _mainForm.Closed += OnMainFormClosed;
+            }
+        }
 
         /// <summary>Occurs when the message loop of the thread should exit.</summary>
         public event EventHandler? ThreadExit;
 
-        /// <summary>Terminates the message loop of the thread.</summary>
-        public void ExitThread ()
-        {
-            ThreadExit?.Invoke (this, EventArgs.Empty);
-            Application.Exit ();
-        }
+        /// <summary>Terminates the message loop of the thread by invoking <see cref="ExitThreadCore"/>.</summary>
+        public void ExitThread () => ExitThreadCore ();
+
+        /// <summary>
+        /// Raises the <see cref="ThreadExit"/> event. <see cref="Application.Run(ApplicationContext)"/>
+        /// listens for this to end the message loop and dispose the context — override to redefine what
+        /// ends the thread's message loop (matches real WinForms' ApplicationContext.ExitThreadCore).
+        /// </summary>
+        protected virtual void ExitThreadCore () => ThreadExit?.Invoke (this, EventArgs.Empty);
+
+        /// <summary>
+        /// Called when <see cref="MainForm"/> closes. Default implementation calls
+        /// <see cref="ExitThreadCore"/>, ending the thread's message loop — override to keep the loop
+        /// alive after MainForm closes (e.g. a headless context with no visible MainForm).
+        /// </summary>
+        protected virtual void OnMainFormClosed (object? sender, EventArgs e) => ExitThreadCore ();
 
         /// <inheritdoc/>
-        public void Dispose () { GC.SuppressFinalize (this); }
+        public void Dispose ()
+        {
+            Dispose (true);
+            GC.SuppressFinalize (this);
+        }
+
+        /// <summary>
+        /// Releases the resources used by the ApplicationContext. The default implementation disposes
+        /// <see cref="MainForm"/> (if any and not already disposed). Override to release additional
+        /// resources — call the base implementation, and always call <c>MyBase.Dispose(disposing)</c> /
+        /// <c>base.Dispose(disposing)</c> from the override.
+        /// </summary>
+        protected virtual void Dispose (bool disposing)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+
+            if (disposing && _mainForm is not null) {
+                if (!_mainForm.IsDisposed)
+                    _mainForm.Dispose ();
+                _mainForm = null;
+            }
+        }
     }
 
 }

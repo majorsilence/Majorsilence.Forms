@@ -180,6 +180,14 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Occurs when a cell visual element is created. Never raised by the compat grid (it has no element tree).</summary>
         public event EventHandler<GridViewCreateCellEventArgs>? CreateCell;
+
+        /// <summary>Occurs when a row is validating before commit. Never raised by the compat grid (edits commit unconditionally).</summary>
+        public event EventHandler<RowValidatingEventArgs>? RowValidating;
+
+        /// <summary>Occurs when a new row needs its default cell values. Never raised by the compat grid.</summary>
+        public new event EventHandler<GridViewRowEventArgs>? DefaultValuesNeeded;
+        // Sorted is inherited from the base DataGridView (WinForms parity; plain DataGridView-typed
+        // designer fields like RadGridViewAmounts also need it).
 #pragma warning restore CS0067
 
         /// <summary>Gets the master template (Telerik configuration façade over this grid).</summary>
@@ -286,6 +294,8 @@ namespace Majorsilence.Forms.Telerik
         public bool AllowColumnChooser { get => MasterTemplate.AllowColumnChooser; set => MasterTemplate.AllowColumnChooser = value; }
         /// <summary>Gets or sets whether multiple rows can be selected.</summary>
         public new bool MultiSelect { get => MasterTemplate.MultiSelect; set { MasterTemplate.MultiSelect = value; base.MultiSelect = value; } }
+        /// <summary>Gets or sets the auto-size columns mode. Forwards to MasterGridViewTemplate's own AutoSizeColumnsMode.</summary>
+        public new GridViewAutoSizeColumnsMode AutoSizeColumnsMode { get => MasterTemplate.AutoSizeColumnsMode; set => MasterTemplate.AutoSizeColumnsMode = value; }
 
         /// <summary>Gets or sets whether the in-grid column filtering UI (funnel popups) is enabled.</summary>
         public bool EnableFiltering {
@@ -2296,7 +2306,7 @@ namespace Majorsilence.Forms.Telerik
                 return;
 
             foreach (var rule in gvc.ConditionalFormattingObjectList) {
-                if (rule.ApplyToRow || !rule.Matches (displayText))
+                if (rule.ApplyOnSelectedRows || !rule.Matches (displayText))
                     continue;
                 if (rule.CellBackColor != Color.Empty)
                     cell.Style.BackgroundColor = ToSK (rule.CellBackColor);
@@ -2315,7 +2325,7 @@ namespace Majorsilence.Forms.Telerik
                 var text = GetCellDisplay (row, i);
 
                 foreach (var rule in gvc.ConditionalFormattingObjectList) {
-                    if (!rule.ApplyToRow || !rule.Matches (text))
+                    if (!rule.ApplyOnSelectedRows || !rule.Matches (text))
                         continue;
 
                     var back = rule.RowBackColor != Color.Empty ? rule.RowBackColor : rule.CellBackColor;
@@ -2511,6 +2521,8 @@ namespace Majorsilence.Forms.Telerik
         public bool AutoExpandGroups { get; set; } = true;
         /// <summary>Gets or sets whether multiple rows can be selected.</summary>
         public bool MultiSelect { get; set; }
+        /// <summary>Gets or sets whether the user can drag-reorder rows. Stub.</summary>
+        public bool AllowRowReorder { get; set; }
         private bool _readOnly;
         /// <summary>Gets or sets whether the grid is read-only.</summary>
         public bool ReadOnly { get => _readOnly; set { _readOnly = value; _grid?.ApplyEditability (); } }
@@ -2555,6 +2567,9 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Synchronization service (stub).</summary>
         public object? SynchronizationService => null;
+
+        /// <summary>Gets the summary rows shown at each group header. Stub list -- the compat grid does not render group summary rows.</summary>
+        public List<GridViewSummaryRowItem> SummaryRowGroupHeaders { get; } = new ();
 
         /// <summary>Gets the template's data view (stub; the compat grid binds DataSource directly).</summary>
         public object? DataView => null;
@@ -2671,6 +2686,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets whether this column is the grid's current column. Stored stub — the compat grid does not track a current column per se.</summary>
         public bool IsCurrent { get; set; }
+
+        /// <summary>Gets or sets the maximum width the column can be resized to. Stored stub — not enforced by the compat grid's resizing.</summary>
+        public int MaxWidth { get; set; }
 
         // IsVisible now lives on DataGridViewColumn itself (Telerik alias of Visible).
         // FieldName now lives on DataGridViewColumn itself (Telerik alias of DataPropertyName).
@@ -2905,6 +2923,14 @@ namespace Majorsilence.Forms.Telerik
         public string DefaultText { get; set; } = string.Empty;
         /// <summary>Gets or sets whether overlong button text is trimmed with an ellipsis. Stored stub.</summary>
         public bool AutoEllipsis { get; set; }
+        /// <summary>Gets or sets the image shown on the command button. Stub.</summary>
+        public Majorsilence.Forms.Drawing.Image? Image { get; set; }
+        /// <summary>Gets or sets the alignment of the image on the command button. Stub.</summary>
+        public ContentAlignment ImageAlignment { get; set; }
+        /// <summary>Gets or sets how the image is drawn on the command button. Stub.</summary>
+        public ImageLayout ImageLayout { get; set; }
+        /// <summary>Gets or sets the relative position of text and image on the command button. Stub.</summary>
+        public TextImageRelation TextImageRelation { get; set; }
     }
 
     // ── Row / cell wrappers ────────────────────────────────────────────────────
@@ -2948,6 +2974,14 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Creates a detached row suitable for populating and passing to <see cref="Add(GridViewRowInfo)"/>. Mirrors Telerik's Rows.NewRow.</summary>
         public GridViewRowInfo NewRow () => new GridViewDataRowInfo (new DataGridViewRow ());
+
+        /// <summary>Creates a new row, adds it to the grid, and returns it. Mirrors Telerik's Rows.AddNew.</summary>
+        public GridViewRowInfo AddNew ()
+        {
+            var row = new DataGridViewRow ();
+            _rows.Add (row);
+            return new GridViewDataRowInfo (row);
+        }
 
         /// <summary>Returns the index of the row info's underlying row among the data rows, or -1.</summary>
         public int IndexOf (GridViewRowInfo row) => row is null ? -1 : DataRows.IndexOf (row.DataRow);

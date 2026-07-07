@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 
 namespace Majorsilence.Forms
 {
@@ -44,6 +44,25 @@ namespace Majorsilence.Forms
         /// Returns true if a column with the given name exists.
         /// </summary>
         public bool Contains (string name) => this[name] is not null;
+
+        /// <summary>Removes the column with the specified name, if present. Mirrors WinForms.</summary>
+        public void Remove (string name)
+        {
+            var column = this[name];
+
+            if (column is not null)
+                Remove (column);
+        }
+
+        /// <summary>Returns the first column matching the given element states (visibility etc.). Mirrors Telerik's Columns.GetFirstColumn.</summary>
+        public DataGridViewColumn? GetFirstColumn (DataGridViewElementStates states)
+        {
+            foreach (var col in this)
+                if (states != DataGridViewElementStates.Visible || col.Visible)
+                    return col;
+
+            return null;
+        }
 
         /// <summary>
         /// Adds a column with the specified header text to the collection.
