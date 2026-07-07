@@ -1,4 +1,5 @@
 using System.Drawing;
+using Majorsilence.Forms.Headless;
 using Xunit;
 
 namespace Majorsilence.Forms.Tests
@@ -31,6 +32,34 @@ namespace Majorsilence.Forms.Tests
             f.IsMdiContainer = false;
             Assert.False (f.IsMdiContainer);
             Assert.Null (f.MdiClientControl);
+        }
+
+        [Fact]
+        public void IsMdiContainer_client_yields_to_already_docked_siblings ()
+        {
+            // Regression: found via a real WinForms-migrated designer app (ReportDesigner.Forms)
+            // rendering as a totally blank window. Its InitializeComponent adds a MenuStrip/
+            // ToolStrip/StatusStrip/content Panel (all Dock=Top/Bottom) *before* the Load handler
+            // sets IsMdiContainer = true -- exactly the pattern here. Dock layout processes
+            // children front-to-back by z-order (index 0 first) and Controls.Add appends at the
+            // back, so left un-fixed the MDI client's Dock=Fill got computed against the whole
+            // display rectangle before those already-added siblings claimed their own slice,
+            // visually covering them entirely. IsMdiContainer's setter must BringToFront the MDI
+            // client so it dock-processes last and only gets the leftover space.
+            using var f = new Form ();
+            f.ClientSize = new Size (1000, 600);
+            var menu = new MenuStrip ();
+            var status = new StatusStrip ();
+            f.Controls.Add (menu);
+            f.Controls.Add (status);
+
+            f.Show ();
+            f.IsMdiContainer = true;
+            HeadlessRenderer.CapturePng (f, 1000, 600);
+
+            var client = f.MdiClientControl!;
+            Assert.Equal (menu.Bounds.Bottom, client.Top);
+            Assert.Equal (f.ClientSize.Height - status.Height, client.Bottom);
         }
 
         [Fact]

@@ -765,6 +765,14 @@ namespace Majorsilence.Forms
                 if (value) {
                     MdiClientControl = new MdiClient { Owner = this };
                     Controls.Add (MdiClientControl);
+                    // Dock layout processes z-order front-to-back (index 0 first; see
+                    // DockAndAnchorLayout.LayoutDockedControls), and Controls.Add appends at the
+                    // back. Left there, the MDI client's Dock=Fill gets computed against the whole
+                    // display rectangle before any sibling menu/toolbar/status strip -- typically
+                    // already present from InitializeComponent -- has claimed its own slice, so it
+                    // visually covers them entirely. BringToFront moves it to the front (index 0),
+                    // making it dock-process last and correctly receive only the leftover space.
+                    MdiClientControl.BringToFront ();
                 } else if (MdiClientControl != null) {
                     Controls.Remove (MdiClientControl);
                     MdiClientControl = null;
