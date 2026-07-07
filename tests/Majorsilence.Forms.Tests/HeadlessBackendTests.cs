@@ -81,6 +81,36 @@ public class HeadlessBackendTests
     }
 
     [Fact]
+    public void PopupWindow_Show_SuppressesParentDeactivationQueuedAfterShowReturns ()
+    {
+        // Regression: found via a real WinForms-migrated app (ReportDesigner.Forms) whose menus
+        // opened and then immediately closed again -- every dropdown menu (a MenuDropDown, backed
+        // by a PopupWindow) goes through PopupWindow.Show(int,int).
+        //
+        // Showing a popup steals activation from its parent, whose own deactivation handler would
+        // otherwise dismiss the very popup just opened -- Show() sets
+        // Application.SuppressPopupDismiss for the duration to prevent exactly that. The bug: on a
+        // real backend (Avalonia), the parent's deactivation event is often not delivered
+        // synchronously inside Show() -- it is queued and only dispatched on a later UI-thread
+        // tick. Resetting the suppress flag synchronously, right after Show() returns, cleared it
+        // before that queued deactivation had a chance to arrive, so it went through unsuppressed
+        // and closed the popup.
+        //
+        // The Headless backend's own Post(...) (what BeginInvoke uses) enqueues rather than running
+        // inline, so calling OnBackendDeactivated() here -- before anything drains that queue --
+        // reproduces exactly this "deactivation arrives after Show() returns" ordering.
+        using var parent = new Form ();
+        parent.Show ();
+
+        var popup = new PopupWindow (parent);
+        popup.Show (10, 10);
+
+        parent.OnBackendDeactivated ();
+
+        Assert.True (popup.Visible, "the popup was dismissed by its own parent's deactivation, which Show() should have suppressed");
+    }
+
+    [Fact]
     public void InjectedClick_RaisesButtonClick ()
     {
         var form = new Form ();
