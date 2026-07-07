@@ -99,7 +99,26 @@ namespace Majorsilence.Forms
         internal int SelectedIndex {
             get => selected_index;
             set {
-                if (value < -1 || value >= Count)
+                if (value < -1)
+                    throw new ArgumentOutOfRangeException (nameof (value), "Index out of range");
+
+                // WinForms compatibility: designer-generated InitializeComponent code
+                // unconditionally emits `tabControl1.SelectedIndex = 0;` for every TabControl,
+                // including ones whose tabs are added dynamically at runtime rather than
+                // statically in InitializeComponent -- at that point Count is 0, and any
+                // non-negative index (0 included) is technically "out of range". Real
+                // System.Windows.Forms tolerates this (the native tab control silently has
+                // nothing to select yet); treat an empty collection as "nothing to select" here
+                // too rather than throwing, so ported code doesn't need to special-case or strip
+                // this ubiquitous line. The first tab added later still gets auto-selected (see
+                // InsertItem below). Negative values below -1 still throw above, unconditionally --
+                // that's not a "no tabs yet" situation, it's a genuinely invalid argument.
+                if (Count == 0) {
+                    selected_index = -1;
+                    return;
+                }
+
+                if (value >= Count)
                     throw new ArgumentOutOfRangeException (nameof (value), "Index out of range");
 
                 if (selected_index != value) {

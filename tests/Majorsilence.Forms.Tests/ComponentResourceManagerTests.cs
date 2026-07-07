@@ -93,11 +93,58 @@ public class ComponentResourceManagerTests
         Assert.Null(mgr.GetObject("anything"));
     }
 
+    [Fact]
+    public void Reads_standard_SDK_compiled_resources_binary ()
+    {
+        // Regression: every migrated .Forms project's `resources.ApplyResources(...)` calls were
+        // silently no-ops, because a normal `<EmbeddedResource Include="Foo.resx">` project item
+        // compiles to a "<Namespace>.Foo.resources" binary manifest resource, not a raw XML ".resx"
+        // one -- and the (Type) constructor only ever looked for the latter. Found via a real
+        // ReportDesigner.Forms startup rendering as a completely blank window (no menu/toolbar/
+        // panels), because none of their Size/Location/Dock/Text ever got applied.
+        // Fixtures/CompiledResourceFixture.resx is compiled exactly like a real ported designer
+        // .resx (GenerateResourceUsePreserializedResources=true, same as every .Forms csproj).
+        var mgr = new ComponentResourceManager(typeof(Fixtures.CompiledResourceFixture));
+
+        Assert.Equal("Fixture Form", mgr.GetString("$this.Text"));
+        Assert.Equal(new System.Drawing.Size(75, 23), mgr.GetObject("button1.Size"));
+        Assert.Equal(new System.Drawing.Point(10, 12), mgr.GetObject("button1.Location"));
+        Assert.Equal(0, mgr.GetObject("button1.TabIndex"));
+        Assert.Equal(false, mgr.GetObject("button1.Visible"));
+
+        // button1.Dock is typed as System.Windows.Forms.DockStyle in the resx -- an assembly this
+        // framework deliberately never references. RegisterWinFormsEnumResolver bridges it to a
+        // same-valued stand-in type (Majorsilence.Forms.WinFormsEnumShims) rather than skipping it,
+        // so the raw value comes back as *a* DockStyle.Fill, just not Majorsilence.Forms' own one --
+        // ApplyResources (below) is what bridges it the rest of the way to the real property type.
+        var dock = mgr.GetObject("button1.Dock");
+        Assert.NotNull(dock);
+        Assert.Equal("Fill", dock!.ToString());
+        Assert.Equal(5, (int)dock);
+    }
+
+    [Fact]
+    public void ApplyResources_from_compiled_resources_binary_sets_matching_properties ()
+    {
+        var mgr = new ComponentResourceManager(typeof(Fixtures.CompiledResourceFixture));
+        var target = new FakeControl();
+
+        mgr.ApplyResources(target, "button1");
+
+        Assert.Equal(0, target.TabIndex);
+        Assert.False(target.Visible);
+        // Regression: button1.Dock resolves via the shim as System.Windows.Forms.DockStyle.Fill,
+        // a different CLR type than Majorsilence.Forms.DockStyle -- ApplyResources must still bridge
+        // it across by underlying value (see TryConvert), not reject it as a type mismatch.
+        Assert.Equal(Majorsilence.Forms.DockStyle.Fill, target.Dock);
+    }
+
     private sealed class FakeControl
     {
         public string Text { get; set; } = "";
         public int TabIndex { get; set; }
         public bool Visible { get; set; } = true;
+        public Majorsilence.Forms.DockStyle Dock { get; set; } = Majorsilence.Forms.DockStyle.None;
     }
 
     private static string Resx(string body) => $"""

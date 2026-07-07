@@ -4,6 +4,10 @@
     <TargetFramework>$(_TargetFramework)</TargetFramework>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);xUnit2013</NoWarn>
+    <!-- Matches every migrated .Forms project: compiles CompiledResourceFixture.resx the same way
+         a real ported WinForms designer .resx is compiled, so ComponentResourceManagerTests can
+         exercise ComponentResourceManager against the actual binary format it has to read. -->
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,6 +17,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="System.Resources.Extensions" />
   </ItemGroup>
 
   <ItemGroup>

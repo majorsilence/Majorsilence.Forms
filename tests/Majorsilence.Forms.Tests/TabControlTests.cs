@@ -209,14 +209,49 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void SelectedIndex_SetGreaterThanOrEqualToCount_ThrowsArgumentOutOfRangeException ()
         {
-            // Majorsilence.Forms has no deferred-handle model: it validates the index eagerly against the
-            // current tab count and throws, where WinForms (handle not yet created) would store it.
+            // Majorsilence.Forms has no deferred-handle model: it validates the index eagerly
+            // against the current tab count and throws, where WinForms (handle not yet created)
+            // would store it -- but only once there's at least one tab. See
+            // SelectedIndex_SetOnEmptyCollection_IsToleratedNoOp for the empty-collection case,
+            // which WinForms (and now Majorsilence.Forms) tolerates instead of throwing.
+            using var control = new TabControl ();
+            control.TabPages.Add (new TabPage ("One"));
+
+            Assert.Throws<ArgumentOutOfRangeException> (() => control.SelectedIndex = 1);
+        }
+
+        [Fact]
+        public void SelectedIndex_SetOnEmptyCollection_IsToleratedNoOp ()
+        {
+            // Regression: designer-generated InitializeComponent code unconditionally emits
+            // `tabControl1.SelectedIndex = 0;` for every TabControl, including ones whose tabs are
+            // added dynamically at runtime (Count == 0 at this point). Real WinForms tolerates
+            // this; found via a real startup crash in a migrated WinForms app (ReportDesigner.Forms)
+            // whose InitializeComponent hit exactly this pattern.
             using var control = new TabControl ();
 
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.SelectedIndex = 0);
+            control.SelectedIndex = 0;
 
-            control.TabPages.Add (new TabPage ("One"));
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.SelectedIndex = 1);
+            Assert.Equal (-1, control.SelectedIndex);
+            Assert.Null (control.SelectedTab);
+
+            // The first tab added afterward still gets auto-selected.
+            using var page = new TabPage ("One");
+            control.TabPages.Add (page);
+
+            Assert.Equal (0, control.SelectedIndex);
+            Assert.Same (page, control.SelectedTab);
+        }
+
+        [Fact]
+        public void SelectedIndex_SetBelowMinusOneOnEmptyCollection_StillThrowsArgumentOutOfRangeException ()
+        {
+            // The empty-collection tolerance above is specifically for "no tabs yet" (any
+            // non-negative index), not a blanket bypass of all validation -- a genuinely invalid
+            // argument like -2 must still throw regardless of tab count.
+            using var control = new TabControl ();
+
+            Assert.Throws<ArgumentOutOfRangeException> (() => control.SelectedIndex = -2);
         }
 
         [Fact]

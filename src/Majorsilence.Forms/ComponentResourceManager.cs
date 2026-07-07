@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Loader;
 using System.Xml.Linq;
 
 namespace Majorsilence.Forms
@@ -30,18 +32,36 @@ namespace Majorsilence.Forms
         // name -> raw resx entry (we parse lazily on first access so an unused entry never costs work).
         private readonly Dictionary<string, ResxEntry> _entries = new (StringComparer.Ordinal);
 
+        // name -> already-materialized value, read from a compiled .resources binary (see
+        // LoadCompiledResources). This is the real data source for every normal SDK-built project:
+        // `<EmbeddedResource Include="Foo.resx">` compiles to a `<Namespace>.Foo.resources` manifest
+        // resource, not a raw XML `.resx` -- the _entries path above only ever fires for the unusual
+        // case of a hand-embedded raw .resx file (FromFile/FromStream/FromXml, or one copied loose to
+        // the output directory).
+        private readonly Dictionary<string, object?> _binaryEntries = new (StringComparer.Ordinal);
+
+        static ComponentResourceManager ()
+        {
+            RegisterWinFormsEnumResolver ();
+        }
+
         /// <summary>Creates an empty resource manager (no backing <c>.resx</c>).</summary>
         public ComponentResourceManager () { }
 
         /// <summary>
-        /// Locates the <c>.resx</c> associated with <paramref name="resourceSource"/> — first an embedded
-        /// raw <c>&lt;FullName&gt;.resx</c> in the type's assembly, then a <c>.resx</c> on disk beside the
-        /// assembly or under the app base directory. If none is found the manager is simply empty, so
-        /// designer code still runs (controls keep their coded defaults).
+        /// Locates the resources associated with <paramref name="resourceSource"/> — first the
+        /// standard SDK-compiled <c>&lt;Namespace&gt;.&lt;Name&gt;.resources</c> binary embedded by
+        /// any normal <c>&lt;EmbeddedResource Include="Foo.resx"&gt;</c> project item (see
+        /// <see cref="LoadCompiledResources"/>), then falls back to a raw <c>&lt;FullName&gt;.resx</c>
+        /// XML resource or a loose <c>.resx</c> file beside the assembly. If neither is found the
+        /// manager is simply empty, so designer code still runs (controls keep their coded defaults).
         /// </summary>
         public ComponentResourceManager (Type resourceSource)
         {
             ArgumentNullException.ThrowIfNull (resourceSource);
+
+            LoadCompiledResources (resourceSource);
+
             var xml = LocateResx (resourceSource);
             if (xml is not null)
                 Load (xml);
@@ -74,7 +94,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Returns the resource named <paramref name="name"/> as a string, or null if absent.</summary>
         public string? GetString (string name)
-            => _entries.TryGetValue (name, out var e) ? e.RawValue : null;
+        {
+            if (_binaryEntries.TryGetValue (name, out var bv))
+                return bv as string;
+            return _entries.TryGetValue (name, out var e) ? e.RawValue : null;
+        }
 
         /// <summary>
         /// Returns the resource named <paramref name="name"/>: a string, a framework primitive
@@ -82,7 +106,11 @@ namespace Majorsilence.Forms
         /// <see cref="Majorsilence.Forms.Drawing"/> image/icon. Returns null for absent or unreadable entries.
         /// </summary>
         public object? GetObject (string name)
-            => _entries.TryGetValue (name, out var e) ? Materialize (e) : null;
+        {
+            if (_binaryEntries.TryGetValue (name, out var bv))
+                return bv;
+            return _entries.TryGetValue (name, out var e) ? Materialize (e) : null;
+        }
 
         /// <summary>
         /// Applies every resx entry named <c>"<paramref name="objectName"/>.&lt;Property&gt;"</c> to the
@@ -97,11 +125,8 @@ namespace Majorsilence.Forms
             var prefix = objectName + ".";
             var type = value.GetType ();
 
-            foreach (var (name, entry) in _entries)
+            foreach (var (name, raw) in EnumerateWithPrefix (prefix))
             {
-                if (!name.StartsWith (prefix, StringComparison.Ordinal))
-                    continue;
-
                 var propertyName = name[prefix.Length..];
                 // Skip designer bookkeeping keys that aren't simple settable properties.
                 if (propertyName.Contains ('.'))
@@ -112,12 +137,137 @@ namespace Majorsilence.Forms
                 if (property is null || !property.CanWrite)
                     continue;
 
-                if (TryConvert (Materialize (entry), property.PropertyType, out var converted))
+                if (TryConvert (raw, property.PropertyType, out var converted))
                 {
                     try { property.SetValue (value, converted); }
                     catch { /* a property that rejects the value is non-fatal — keep applying the rest. */ }
                 }
             }
+        }
+
+        // Yields (name, materialized value) for every entry starting with prefix, across both the
+        // compiled-.resources and raw-XML-.resx data sources. _binaryEntries wins on a name that
+        // (unusually) exists in both, since it holds real deserialized objects rather than strings
+        // still needing type-directed parsing.
+        private IEnumerable<(string Name, object? Value)> EnumerateWithPrefix (string prefix)
+        {
+            foreach (var (name, v) in _binaryEntries)
+                if (name.StartsWith (prefix, StringComparison.Ordinal))
+                    yield return (name, v);
+
+            foreach (var (name, entry) in _entries)
+                if (name.StartsWith (prefix, StringComparison.Ordinal) && !_binaryEntries.ContainsKey (name))
+                    yield return (name, Materialize (entry));
+        }
+
+        // ── compiled .resources binary parsing ───────────────────────────────────────────────
+
+        // Finds and reads the standard SDK-compiled "<Namespace>.<Name>.resources" manifest resource
+        // for resourceSource's assembly -- the actual embedded format for any ordinary
+        // `<EmbeddedResource Include="Foo.resx">` project item. Every entry that fails to
+        // deserialize is skipped individually rather than aborting the whole resource set: WinForms-
+        // only enum types (DockStyle, AnchorStyles, ImeMode, Keys/ShortcutKeys -- anything the
+        // original resx recorded against "System.Windows.Forms, ...", which that assembly
+        // deliberately doesn't reference) and GDI+-backed Font/Image/Icon entries (System.Drawing.
+        // Common's native layer isn't available/functional cross-platform) are the only entries
+        // expected to fail this way; everything else -- the Size/Location/Text/Dock/etc. that
+        // actually drive layout -- reads fine.
+        private void LoadCompiledResources (Type resourceSource)
+        {
+            var assembly = resourceSource.Assembly;
+            var resourceName = assembly.GetManifestResourceNames ()
+                .FirstOrDefault (n => n.EndsWith ("." + resourceSource.FullName + ".resources", StringComparison.Ordinal)
+                                   || n.EndsWith (resourceSource.FullName + ".resources", StringComparison.Ordinal)
+                                   || n.EndsWith ("." + resourceSource.Name + ".resources", StringComparison.Ordinal));
+            if (resourceName is null)
+                return;
+
+            using var stream = assembly.GetManifestResourceStream (resourceName);
+            if (stream is null)
+                return;
+
+            System.Resources.Extensions.DeserializingResourceReader reader;
+            try { reader = new System.Resources.Extensions.DeserializingResourceReader (stream); }
+            catch { return; }   // not the preserialized format this reader expects -- leave empty.
+
+            using (reader)
+            {
+                var enumerator = reader.GetEnumerator ();
+                while (true)
+                {
+                    bool moved;
+                    try { moved = enumerator.MoveNext (); }
+                    catch { break; }   // can't recover mid-stream; keep whatever was already read.
+                    if (!moved)
+                        break;
+
+                    try
+                    {
+                        var name = (string) enumerator.Key;
+                        _binaryEntries[name] = enumerator.Value;
+                    }
+                    catch { /* this entry's type couldn't be resolved/deserialized -- skip it, keep going. */ }
+                }
+            }
+        }
+
+        // Migrated WinForms .resx files record Dock/Anchor property values against the *original*
+        // System.Windows.Forms.DockStyle/AnchorStyles types (that's what Visual Studio wrote when the
+        // form was last saved on Windows) -- and that assembly deliberately isn't available in a
+        // cross-platform Majorsilence.Forms app. Left alone, DeserializingResourceReader's
+        // Type.GetType(...) call for those entries throws (see LoadCompiledResources' per-entry
+        // catch), so every docked/anchored control's layout silently reverts to the coded default
+        // (DockStyle.None) -- the real cause of a "renders as a totally blank window" bug once found
+        // in the wild (ReportDesigner.Forms: RdlDesigner's InitializeComponent has no inline `.Dock =`
+        // anywhere, since the migrated designer code relied entirely on resx-driven Dock).
+        //
+        // AssemblyLoadContext.Resolving fires only after normal probing for "System.Windows.Forms"
+        // has already failed, so this never intercepts a *real* System.Windows.Forms.dll if one
+        // happens to be present (e.g. WindowsFormsInterop's Windows-only bridge) -- it only fills the
+        // gap where that assembly plain doesn't exist. Majorsilence.Forms.WinFormsEnumShims (a small,
+        // fully cross-platform satellite project, embedded into this assembly at build time -- see
+        // the EmbedWinFormsEnumShims target in Majorsilence.Forms.csproj) declares DockStyle/
+        // AnchorStyles under that same namespace with the same numeric values as the real thing,
+        // purely so Type.GetType's by-name lookup inside the returned assembly succeeds; TryConvert
+        // then bridges the resulting (wrong-type-but-right-value) enum across to the control's real
+        // Majorsilence.Forms.DockStyle/AnchorStyles property by underlying integer, not type identity.
+        [UnconditionalSuppressMessage ("Trimming", "IL2026",
+            Justification = "The loaded assembly is Majorsilence.Forms.WinFormsEnumShims, embedded above: a couple of plain enum types with no members or reflection-driven behavior of their own for a trimmer to remove.")]
+        private static void RegisterWinFormsEnumResolver ()
+        {
+            // Load the shim from bytes embedded in *this* assembly, not a normal referenced/copied
+            // file: a plain ProjectReference would need its own AssemblyName ("System.Windows.Forms",
+            // deliberately -- see that project) reflected correctly in every consumer's deps.json,
+            // which the SDK's deps.json generation for ProjectReferences doesn't actually do (it
+            // keys the runtime-file entry by project name instead), so the file .NET expects at that
+            // deps.json-recorded name doesn't exist -- FileNotFoundException the first time a
+            // deps.json-driven host (e.g. `dotnet test`/apphost) tries to load it, even though the
+            // physically-copied .dll sits right there in the output folder. Loading the bytes
+            // directly bypasses deps.json entirely; there is nothing there to fall out of sync with.
+            //
+            // Resolved and cached *before* registering the handler, and captured once rather than
+            // re-loading on every call: this shim is itself named "System.Windows.Forms" (again, see
+            // that project), so if the handler re-triggered the same load from inside its own body on
+            // every invocation, that would recurse into this same handler forever (a real stack
+            // overflow hit during testing). Loading it here first, unconditionally, means any
+            // recursive Resolving dispatch happens before the handler below is even registered.
+            byte[]? shimBytes;
+            using (var stream = typeof (ComponentResourceManager).Assembly
+                       .GetManifestResourceStream ("Majorsilence.Forms.WinFormsEnumShims.dll"))
+            {
+                if (stream is null)
+                    return;   // build didn't embed it (e.g. a consumer building this project oddly) -- degrade quietly.
+                using var buffer = new MemoryStream ();
+                stream.CopyTo (buffer);
+                shimBytes = buffer.ToArray ();
+            }
+
+            Assembly shimAssembly;
+            try { shimAssembly = Assembly.Load (shimBytes); }
+            catch { return; }
+
+            AssemblyLoadContext.Default.Resolving += (_, name) =>
+                name.Name == "System.Windows.Forms" ? shimAssembly : null;
         }
 
         // ── resx parsing ──────────────────────────────────────────────────────────────────────
@@ -297,6 +447,15 @@ namespace Majorsilence.Forms
                 if (underlying.IsEnum && value is string s)
                 {
                     result = Enum.Parse (underlying, s, ignoreCase: true);
+                    return true;
+                }
+                // A resolved-but-wrong-type enum value (see RegisterWinFormsEnumResolver): the
+                // control's real property is e.g. Majorsilence.Forms.DockStyle, but value is a
+                // System.Windows.Forms.DockStyle instance from the shim assembly. Bridge by
+                // underlying integer -- the two enums are deliberately kept value-compatible.
+                if (underlying.IsEnum && value is Enum && value.GetType () != underlying)
+                {
+                    result = Enum.ToObject (underlying, System.Convert.ToInt64 (value, CultureInfo.InvariantCulture));
                     return true;
                 }
                 if (value is string str && underlying != typeof (string))

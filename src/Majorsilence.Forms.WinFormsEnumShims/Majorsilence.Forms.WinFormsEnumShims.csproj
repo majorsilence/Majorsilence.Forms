@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A tiny, fully cross-platform assembly whose only job is giving ComponentResourceManager
+       something to resolve "System.Windows.Forms.DockStyle"/"AnchorStyles" (etc.) into, when a
+       migrated WinForms .resx's compiled .resources binary records a property's value against
+       those original, Windows-only types. See ComponentResourceManager's WinFormsEnumResolver
+       for how these get wired in; this project only defines the stand-in enum values
+       themselves, deliberately matching System.Windows.Forms' real, longstanding public values. -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsTrimmable>true</IsTrimmable>
+    <!-- Deliberate: AssemblyLoadContext.Resolving (see ComponentResourceManager) validates a
+         supplied assembly's SIMPLE NAME against what was requested, but not its version/public key
+         token, so this assembly must be literally named "System.Windows.Forms" for the resolver
+         to be accepted as a stand-in. It only ever gets consulted as an absolute last resort, after
+         every normal probing path (including the real Microsoft.WindowsDesktop.App shared framework
+         assembly, when present) has already failed to find one, so this can never shadow or race
+         against a genuine System.Windows.Forms.dll. The NuGet package identity below stays
+         Majorsilence.Forms.WinFormsEnumShims; only the compiled assembly's own name is unusual. -->
+    <AssemblyName>System.Windows.Forms</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.WinFormsEnumShims</PackageId>
+    <Description>Internal support package for Majorsilence.Forms: stand-in enum types used to read WinForms-typed .resx entries (Dock, Anchor) cross-platform. Not meant to be referenced directly.</Description>
+    <PackageTags>Majorsilence;Forms;Winforms;Migration;Internal</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+</Project>

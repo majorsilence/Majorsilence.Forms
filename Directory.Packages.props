@@ -21,6 +21,12 @@
     <!-- Safe reader for the legacy BinaryFormatter wire format (NRBF) — used to recover images from
          WinForms .resx binary.base64 resources without running BinaryFormatter. -->
     <PackageVersion Include="System.Formats.Nrbf" Version="9.0.0" />
+    <!-- Reads the standard SDK-compiled .resources binary format that ported WinForms projects
+         embed (ComponentResourceManager.ApplyResources' real data source; see that class). The
+         plain BCL System.Resources.ResourceReader can't read it when the project sets
+         GenerateResourceUsePreserializedResources=true (which every migrated .Forms project does,
+         to avoid BinaryFormatter); only this package's DeserializingResourceReader can. -->
+    <PackageVersion Include="System.Resources.Extensions" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.201" />
     <!-- Optional Roslyn source-rewrite engine for the migrator (majorsilence-migrate's "engine roslyn"
