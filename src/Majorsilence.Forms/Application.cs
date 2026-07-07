@@ -130,13 +130,32 @@ namespace Majorsilence.Forms
             Run ((WindowBase)mainForm);
         }
 
-        /// <summary>Begins running a standard application message loop on the current thread using an ApplicationContext.</summary>
+        /// <summary>
+        /// Begins running a standard application message loop on the current thread using an
+        /// ApplicationContext. Matches real WinForms: the loop ends when <paramref name="context"/>
+        /// raises <see cref="ApplicationContext.ThreadExit"/> (by default when MainForm closes, or any
+        /// time <see cref="ApplicationContext.ExitThread"/> is called explicitly — e.g. a headless
+        /// context with no MainForm driving its own shutdown), and the context is disposed once the
+        /// loop exits.
+        /// </summary>
         public static void Run (ApplicationContext context)
         {
-            if (context.MainForm != null)
-                Run (context.MainForm);
-            else
-                Run ((WindowBase)(context.MainForm ?? new Form ()));
+            EventHandler onThreadExit = (s, e) => Exit ();
+            context.ThreadExit += onThreadExit;
+            try {
+                if (context.MainForm != null) {
+                    context.MainForm.Show ();
+                    Run ((WindowBase)context.MainForm);
+                } else {
+                    // No MainForm to show/track: run a loop with nothing to auto-close it. The context
+                    // is expected to end the loop itself via ExitThread()/ExitThreadCore() (e.g. an IPC
+                    // host reacting to its own shutdown signal).
+                    RunCore ();
+                }
+            } finally {
+                context.ThreadExit -= onThreadExit;
+                context.Dispose ();
+            }
         }
 
         /// <summary>
@@ -145,11 +164,17 @@ namespace Majorsilence.Forms
         /// <param name="closable">The window to track.</param>
         public static void Run (WindowBase closable)
         {
+            closable.Closed += (s, e) => Exit ();
+            RunCore ();
+        }
+
+        /// <summary>Runs the platform backend's message loop until <see cref="Exit"/> is called.</summary>
+        private static void RunCore ()
+        {
             if (_mainLoopCancellationTokenSource != null)
                 throw new InvalidOperationException ("Run should only be called once");
 
             Platform.Backend.Initialize ();
-            closable.Closed += (s, e) => Exit ();
 
             _mainLoopCancellationTokenSource = new CancellationTokenSource ();
 
