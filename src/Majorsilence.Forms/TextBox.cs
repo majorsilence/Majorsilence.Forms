@@ -607,6 +607,11 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Raised by TextBoxDocument whenever the text content actually changes (typing, paste, delete, or a
+        // programmatic Text set). Bridges to Control.OnTextChanged so the WinForms TextChanged event fires --
+        // the overridden Text setter above writes straight to the document and never runs the base setter.
+        internal void OnDocumentTextChanged () => OnTextChanged (EventArgs.Empty);
+
         // Where the text starts, taking scrolling into account
         internal Point TextOrigin => new Point (PaddedClientRectangle.Location.X - scroll_x, PaddedClientRectangle.Location.Y - scroll_y);
 

@@ -227,8 +227,20 @@ namespace Majorsilence.Forms
             return true;
         }
 
+        // Tracks the text last reported to the owner so a content change raises TextChanged exactly once,
+        // regardless of which mutation site produced it. Every text mutation funnels through Invalidate();
+        // caret/selection/scroll invalidates leave `text` unchanged and so raise nothing.
+        private string _lastNotifiedText = string.Empty;
+
         public void Invalidate ()
         {
+            if (text != _lastNotifiedText) {
+                _lastNotifiedText = text;
+                // Raise the WinForms TextChanged event on the owning control (matches WinForms, which fires
+                // TextChanged on every content change -- each keystroke and each programmatic Text set).
+                textbox.OnDocumentTextChanged ();
+            }
+
             textbox.Invalidate ();
         }
 
