@@ -204,6 +204,13 @@ namespace Majorsilence.Forms.Telerik
         public WaitingBarContentElement ContentElement { get; } = new WaitingBarContentElement ();
         /// <summary>Gets or sets the animation speed, in ms. Stub — mirrors the value on the owning RadWaitingBar.</summary>
         public int WaitingSpeed { get; set; } = 100;
+
+        /// <summary>
+        /// Designer code walks the real Telerik element tree with chained <c>GetChildAt</c> calls and
+        /// CTypes each level (<c>CType(bar.GetChildAt(0).GetChildAt(0), WaitingBarContentElement)</c>),
+        /// so index 0 must be the typed <see cref="ContentElement"/>, not the base's untyped stub.
+        /// </summary>
+        public override RadElement GetChildAt (int index) => index == 0 ? ContentElement : base.GetChildAt (index);
     }
 
     /// <summary>Telerik-compat waiting-bar content element (hosts the indicator/separator elements). Designer-only stub.</summary>
@@ -211,6 +218,13 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets or sets the waiting animation style. Stub — mirrors the value on the owning RadWaitingBar.</summary>
         public WaitingBarStyles WaitingStyle { get; set; } = WaitingBarStyles.Dash;
+
+        /// <summary>Gets the separator element (also returned by <c>GetChildAt(0)</c>, matching real
+        /// Telerik's tree shape that designer code CTypes against).</summary>
+        public WaitingBarSeparatorElement SeparatorElement { get; } = new WaitingBarSeparatorElement ();
+
+        /// <inheritdoc cref="RadWaitingBarElement.GetChildAt"/>
+        public override RadElement GetChildAt (int index) => index == 0 ? SeparatorElement : base.GetChildAt (index);
     }
 
     /// <summary>Telerik-compat waiting-bar separator element. Designer-only stub.</summary>
