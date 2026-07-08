@@ -819,7 +819,7 @@ namespace Majorsilence.Forms
 
             FindWindow ()?.Invalidate (rectangle);
 
-            OnInvalidated (new EventArgs<Rectangle> (rectangle));
+            OnInvalidated (new InvalidateEventArgs (rectangle));
         }
 
         /// <summary>
@@ -1060,7 +1060,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the Invalidated event.
         /// </summary>
-        protected virtual void OnInvalidated (EventArgs<Rectangle> e) => (Events[s_invalidatedEvent] as EventHandler<EventArgs<Rectangle>>)?.Invoke (this, e);
+        protected virtual void OnInvalidated (InvalidateEventArgs e) => (Events[s_invalidatedEvent] as EventHandler<InvalidateEventArgs>)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the LostFocus event.

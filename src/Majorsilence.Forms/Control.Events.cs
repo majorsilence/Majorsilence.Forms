@@ -131,7 +131,7 @@ public partial class Control
     /// <summary>
     /// Raised when the Control is invalidated.
     /// </summary>
-    public event EventHandler<EventArgs<Rectangle>>? Invalidated {
+    public event EventHandler<InvalidateEventArgs>? Invalidated {
         add => Events.AddHandler (s_invalidatedEvent, value);
         remove => Events.RemoveHandler (s_invalidatedEvent, value);
     }

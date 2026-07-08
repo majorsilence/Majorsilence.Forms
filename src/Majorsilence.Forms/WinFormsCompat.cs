@@ -2937,6 +2937,16 @@ namespace Majorsilence.Forms
         public Control? Control { get; }
     }
 
+    /// <summary>Provides data for the <see cref="Control.Invalidated"/> event (WinForms compatibility).</summary>
+    public class InvalidateEventArgs : EventArgs
+    {
+        /// <summary>Initializes a new instance for the given invalidated rectangle.</summary>
+        public InvalidateEventArgs (System.Drawing.Rectangle invalidRect) { InvalidRect = invalidRect; }
+
+        /// <summary>Gets the rectangle of the control that was invalidated.</summary>
+        public System.Drawing.Rectangle InvalidRect { get; }
+    }
+
     /// <summary>Provides data for binding completion events.</summary>
     public class BindingCompleteEventArgs : System.ComponentModel.CancelEventArgs
     {
