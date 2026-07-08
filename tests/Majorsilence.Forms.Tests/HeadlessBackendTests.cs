@@ -81,6 +81,50 @@ public class HeadlessBackendTests
     }
 
     [Fact]
+    public void SettingFont_ToLargerSize_RendersLargerText ()
+    {
+        // Regression: the WinForms-compat Control.Font setter only stored the value in its backing
+        // field and never touched the render style (Style.Font/FontSize) that CurrentStyle.GetFont/
+        // GetFontSize actually feed the renderer -- so `ctrl.Font = new Font(family, biggerSize, ...)`
+        // (e.g. libUtilities ctlZoomer zooming a grid) had no visible effect. Same text, same bounds,
+        // bigger font must lay down more ink.
+        // Count glyph pixels in the label region. UseSystemDecorations gives a clean client area so
+        // the in-client FormTitleBar doesn't overlap the label (see TextInput_ReachesFocusedTextBox).
+        // The label's own fill is sampled from its bottom-right corner (which the left-aligned text
+        // never reaches); any pixel differing from that fill is glyph ink, so a bigger font -- which
+        // paints more/taller glyphs -- yields more ink.
+        static int InkPixels (float fontSize)
+        {
+            var form = new Form { UseSystemDecorations = true };
+            var label = new Label {
+                Text = "Zoom",
+                AutoSize = false,
+                Left = 4, Top = 4, Width = 300, Height = 80,
+                Font = new Font ("Arial", fontSize, FontStyle.Regular)
+            };
+            form.Controls.Add (label);
+
+            var png = HeadlessRenderer.CapturePng (form, 320, 100);
+            using var bmp = SKBitmap.Decode (png);
+
+            var fill = bmp.GetPixel (label.Left + label.Width - 3, label.Top + label.Height - 3);
+            var ink = 0;
+            for (var y = label.Top; y < label.Top + label.Height; y++)
+                for (var x = label.Left; x < label.Left + label.Width; x++)
+                    if (bmp.GetPixel (x, y) != fill)
+                        ink++;
+            return ink;
+        }
+
+        var small = InkPixels (8f);
+        var large = InkPixels (40f);
+
+        Assert.True (large > small * 2,
+            $"A 40pt font should render substantially more ink than an 8pt font (small={small}, large={large}); " +
+            "the Font setter is not reaching the render style.");
+    }
+
+    [Fact]
     public void PopupWindow_SurvivesParentDeactivationWhenPopupActivatesAfter ()
     {
         // Regression: found via a real WinForms-migrated app (ReportDesigner.Forms) whose menus

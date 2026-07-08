@@ -1942,10 +1942,34 @@ namespace Majorsilence.Forms
             }
         }
 
+        private Majorsilence.Forms.Drawing.Font? _font;
+
         /// <summary>
         /// Gets or sets the font (WinForms compatibility property; use Theme or Style for full control).
+        /// Never returns null: like WinForms it falls back to the parent's font, then the default UI font,
+        /// so code such as <c>ctrl.Font.Size</c> can't NullReference on a control whose font was never set.
         /// </summary>
-        public Majorsilence.Forms.Drawing.Font? Font { get; set; }
+        public Majorsilence.Forms.Drawing.Font Font {
+            get => _font ?? Parent?.Font ?? Majorsilence.Forms.SystemFonts.DefaultFont;
+            set {
+                _font = value;
+
+                // The renderer reads the typeface/size from CurrentStyle (GetFont/GetFontSize),
+                // not from _font, so a bare backing-field store would have no visible effect.
+                // Bridge the WinForms font onto the render style the same way the
+                // DataGridViewCellStyle -> ControlStyle conversion does. A null assignment clears
+                // the override so the style falls back through its parent chain to the theme.
+                if (value is null) {
+                    Style.Font = null;
+                    Style.FontSize = null;
+                } else {
+                    Style.Font = value.GetSKTypeface ();
+                    Style.FontSize = (int) value.SizeInPoints;
+                }
+
+                Invalidate ();
+            }
+        }
 
         /// <summary>
         /// Gets or sets user defined data.
