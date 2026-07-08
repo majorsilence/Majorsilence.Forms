@@ -67,6 +67,23 @@ namespace Majorsilence.Forms
                 Load (xml);
         }
 
+        /// <summary>
+        /// Creates a resource manager for the compiled <c>&lt;baseName&gt;.resources</c> embedded in
+        /// <paramref name="assembly"/> — the shape VB's <c>My.Resources</c> designer code constructs
+        /// (<c>New ResourceManager("&lt;RootNamespace&gt;.Resources", GetType(...).Assembly)</c>). Retargeted
+        /// projects alias <c>System.Resources.ResourceManager</c> to this on the Majorsilence.Forms flavor so
+        /// <c>My.Resources.SomeImage</c> comes back as a <see cref="Majorsilence.Forms.Drawing"/> type
+        /// (normalized in <see cref="LoadCompiledResources(Assembly, string)"/>) instead of a live
+        /// System.Drawing.Bitmap that the generated <c>CType(obj, Bitmap)</c> then fails to cast.
+        /// </summary>
+        public ComponentResourceManager (string baseName, Assembly assembly)
+        {
+            ArgumentNullException.ThrowIfNull (baseName);
+            ArgumentNullException.ThrowIfNull (assembly);
+
+            LoadCompiledResources (assembly, baseName);
+        }
+
         /// <summary>Builds a resource manager from a <c>.resx</c> file on disk.</summary>
         public static ComponentResourceManager FromFile (string path)
         {
@@ -111,6 +128,16 @@ namespace Majorsilence.Forms
                 return bv;
             return _entries.TryGetValue (name, out var e) ? Materialize (e) : null;
         }
+
+        /// <summary>
+        /// Culture-aware overload matching <c>System.Resources.ResourceManager.GetObject(name, culture)</c>
+        /// (the signature VB's My.Resources designer code calls). The compat manager is culture-agnostic
+        /// (invariant/neutral resources only), so <paramref name="culture"/> is ignored.
+        /// </summary>
+        public object? GetObject (string name, System.Globalization.CultureInfo? culture) => GetObject (name);
+
+        /// <summary>Culture-aware overload matching <c>ResourceManager.GetString(name, culture)</c>. Culture is ignored.</summary>
+        public string? GetString (string name, System.Globalization.CultureInfo? culture) => GetString (name);
 
         /// <summary>
         /// Applies every resx entry named <c>"<paramref name="objectName"/>.&lt;Property&gt;"</c> to the
@@ -173,12 +200,16 @@ namespace Majorsilence.Forms
         // expected to fail this way; everything else -- the Size/Location/Text/Dock/etc. that
         // actually drive layout -- reads fine.
         private void LoadCompiledResources (Type resourceSource)
+            => LoadCompiledResources (resourceSource.Assembly, resourceSource.FullName!, resourceSource.Name);
+
+        // baseName is the resx's namespace-qualified name ("<RootNamespace>.<Name>", e.g.
+        // "libUtilities.Resources") -- the compiled manifest resource is "<baseName>.resources".
+        private void LoadCompiledResources (Assembly assembly, string baseName, string? shortName = null)
         {
-            var assembly = resourceSource.Assembly;
             var resourceName = assembly.GetManifestResourceNames ()
-                .FirstOrDefault (n => n.EndsWith ("." + resourceSource.FullName + ".resources", StringComparison.Ordinal)
-                                   || n.EndsWith (resourceSource.FullName + ".resources", StringComparison.Ordinal)
-                                   || n.EndsWith ("." + resourceSource.Name + ".resources", StringComparison.Ordinal));
+                .FirstOrDefault (n => n.EndsWith ("." + baseName + ".resources", StringComparison.Ordinal)
+                                   || n.EndsWith (baseName + ".resources", StringComparison.Ordinal)
+                                   || (shortName is not null && n.EndsWith ("." + shortName + ".resources", StringComparison.Ordinal)));
             if (resourceName is null)
                 return;
 

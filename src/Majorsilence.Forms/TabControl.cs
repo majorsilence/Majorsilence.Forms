@@ -217,7 +217,13 @@ namespace Majorsilence.Forms
             if (new_selected != null)
                 new_selected.Visible = true;
 
-            OnSelectedIndexChanged (EventArgs.Empty);
+            // Match WinForms: SelectedIndexChanged is not raised while tabs are being added during
+            // InitializeComponent (before the control's handle is created). Firing it then runs the form's
+            // SelectedIndexChanged handler mid-construction -- before the fields it touches are initialized --
+            // which NullReferences (hit opening frmMaintainProperty, whose tab handler calls ShowTransLookup).
+            // The visibility swap above still happens so the correct page shows; only the event waits.
+            if (Created)
+                OnSelectedIndexChanged (EventArgs.Empty);
         }
     }
 }

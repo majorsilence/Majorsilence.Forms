@@ -63,10 +63,20 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether the main document container is visible.</summary>
         public bool MainDocumentContainerVisible { get; set; } = true;
 
-        /// <summary>Returns a docking service. Stub returns null.</summary>
-        public new object? GetService (Type serviceType) => null;
-        /// <summary>Returns a docking service. Stub returns default.</summary>
-        public T? GetService<T> () where T : class => null;
+        // Telerik docking services the compat dock can hand back. Cached per dock so repeated
+        // GetService(Of ContextMenuService)() calls (and the AddHandler on the returned service that
+        // real docking code does) see the same instance rather than a NullReference.
+        private ContextMenuService? _contextMenuService;
+
+        /// <summary>Returns a docking service, or null if unsupported.</summary>
+        public new object? GetService (Type serviceType)
+            => serviceType == typeof (ContextMenuService) ? (_contextMenuService ??= new ContextMenuService ()) : null;
+
+        /// <summary>
+        /// Returns a docking service. <see cref="ContextMenuService"/> is supported (its event is never
+        /// raised by the compat dock, but code subscribes to it); other service types return null.
+        /// </summary>
+        public T? GetService<T> () where T : class => GetService (typeof (T)) as T;
 
         /// <summary>Docks the specified window. Hosts it as a child panel.</summary>
         public void DockWindow (DockWindowBase window, DockPosition position = DockPosition.Fill)
