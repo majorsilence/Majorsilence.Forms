@@ -81,33 +81,46 @@ public class HeadlessBackendTests
     }
 
     [Fact]
-    public void PopupWindow_Show_SuppressesParentDeactivationQueuedAfterShowReturns ()
+    public void PopupWindow_SurvivesParentDeactivationWhenPopupActivatesAfter ()
     {
         // Regression: found via a real WinForms-migrated app (ReportDesigner.Forms) whose menus
-        // opened and then immediately closed again -- every dropdown menu (a MenuDropDown, backed
-        // by a PopupWindow) goes through PopupWindow.Show(int,int).
+        // opened then immediately closed again -- every dropdown (a MenuDropDown backed by a
+        // PopupWindow) goes through PopupWindow.Show(int,int).
         //
-        // Showing a popup steals activation from its parent, whose own deactivation handler would
-        // otherwise dismiss the very popup just opened -- Show() sets
-        // Application.SuppressPopupDismiss for the duration to prevent exactly that. The bug: on a
-        // real backend (Avalonia), the parent's deactivation event is often not delivered
-        // synchronously inside Show() -- it is queued and only dispatched on a later UI-thread
-        // tick. Resetting the suppress flag synchronously, right after Show() returns, cleared it
-        // before that queued deactivation had a chance to arrive, so it went through unsuppressed
-        // and closed the popup.
-        //
-        // The Headless backend's own Post(...) (what BeginInvoke uses) enqueues rather than running
-        // inline, so calling OnBackendDeactivated() here -- before anything drains that queue --
-        // reproduces exactly this "deactivation arrives after Show() returns" ordering.
+        // Showing a popup steals activation from its parent, whose deactivation would otherwise
+        // dismiss the very popup just opened. The dismiss is now POSTED (not synchronous) and any
+        // subsequent activation of one of our own windows cancels it -- opening a popup always
+        // produces a matching activation (the popup itself). This models that real ordering:
+        // parent deactivates, popup activates, then the queue drains -> popup survives.
         using var parent = new Form ();
         parent.Show ();
 
         var popup = new PopupWindow (parent);
         popup.Show (10, 10);
 
-        parent.OnBackendDeactivated ();
+        parent.OnBackendDeactivated ();   // parent lost focus because the popup opened
+        popup.OnBackendActivated ();      // the popup gained it -- cancels the pending close
+        Backends.Platform.Backend.DoEvents ();   // drain the posted close
 
-        Assert.True (popup.Visible, "the popup was dismissed by its own parent's deactivation, which Show() should have suppressed");
+        Assert.True (popup.Visible, "the popup was dismissed by its parent's deactivation even though the popup then activated");
+    }
+
+    [Fact]
+    public void PopupWindow_DismissesWhenFocusLeavesForGood ()
+    {
+        // The other half: if the popup deactivates and nothing of ours re-activates (user switched
+        // to another app / clicked a different window), the posted close must proceed.
+        using var parent = new Form ();
+        parent.Show ();
+
+        var popup = new PopupWindow (parent);
+        popup.Show (10, 10);
+        popup.OnBackendActivated ();      // popup is up and focused
+
+        popup.OnBackendDeactivated ();    // focus left the popup, nothing of ours took it
+        Backends.Platform.Backend.DoEvents ();   // drain the posted close
+
+        Assert.False (popup.Visible, "the popup should dismiss when focus leaves it for good");
     }
 
     [Fact]
@@ -180,14 +193,16 @@ public class HeadlessBackendTests
 
         Assert.True (menu.Visible);   // popup is shown, not dismissed by its own show
 
-        // A parent deactivation caused by the popup opening (suppressed) must not dismiss it.
-        Application.SuppressPopupDismiss = true;
+        // A parent deactivation caused by the popup opening must not dismiss it: the posted close is
+        // cancelled by the popup's own activation.
         form.OnBackendDeactivated ();
+        menu.FindWindow ()!.OnBackendActivated ();
+        Backends.Platform.Backend.DoEvents ();
         Assert.True (menu.Visible);
 
-        // A genuine deactivation (user clicks away) dismisses it.
-        Application.SuppressPopupDismiss = false;
-        form.OnBackendDeactivated ();
+        // A genuine deactivation (user clicks away, nothing of ours re-activates) dismisses it.
+        menu.FindWindow ()!.OnBackendDeactivated ();
+        Backends.Platform.Backend.DoEvents ();
         Assert.False (menu.Visible);
 
         form.Close ();

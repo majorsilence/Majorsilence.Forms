@@ -21,7 +21,11 @@ namespace Majorsilence.Forms
             StartPosition = FormStartPosition.Manual;
 
             parent_form = parentForm;
-            parent_form.Deactivated += (o, e) => Hide ();
+            // NOTE: deliberately NOT dismissing on the parent's Deactivated. Opening this popup
+            // deactivates the parent as a side effect, so that fires immediately and would close the
+            // popup we just opened. Dismissal is handled generically by the posted, activation-
+            // cancellable close in WindowBase.OnBackendDeactivated (see
+            // Application.ScheduleClosePopupsOnDeactivate), driven by THIS popup's own deactivation.
         }
 
         /// <inheritdoc/>
@@ -41,27 +45,12 @@ namespace Majorsilence.Forms
 
             Application.ActivePopupWindow = this;
 
-            // Showing the popup deactivates the parent window, whose deactivation handler would
-            // otherwise immediately dismiss this popup. Suppress that for the duration of the show.
-            //
-            // The reset below is deliberately posted to run on a later UI-thread dispatch rather
-            // than happening synchronously right after Show() returns: on at least the Avalonia
-            // backend, Show() returning does not mean the parent's own deactivation event (fired as
-            // a side effect of this popup stealing activation) has been dispatched yet -- that event
-            // is often queued and only delivered on a later iteration of the backend's own event
-            // loop. Resetting the flag synchronously here left a window where the flag had already
-            // gone back to false by the time that deactivation event actually arrived, so
-            // WindowBase.OnBackendDeactivated's guard no longer suppressed it and
-            // Application.ClosePopups() immediately closed the popup that had just been opened --
-            // a real "menu opens then instantly closes" bug found in a real WinForms-migrated app
-            // (ReportDesigner.Forms). Posting the reset lets any already-queued deactivation from
-            // this same Show() call be dispatched (and correctly suppressed) first.
-            Application.SuppressPopupDismiss = true;
-            try {
-                Show ();
-            } finally {
-                BeginInvoke (() => Application.SuppressPopupDismiss = false);
-            }
+            // Showing the popup deactivates the parent window; that deactivation must NOT dismiss the
+            // popup we are opening. This is handled generically now: WindowBase.OnBackendDeactivated
+            // POSTS the close and the popup's own activation cancels it
+            // (Application.ScheduleClosePopupsOnDeactivate / NotifyWindowActivated), which also works
+            // for nested submenus. No show-time timing flag is needed here anymore.
+            Show ();
         }
 
         /// <summary>Show the PopupWindow at the specified screen coordinates.</summary>

@@ -60,17 +60,21 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Called by the backend when the window is activated.</summary>
-        internal void OnBackendActivated () => Activated?.Invoke (this, EventArgs.Empty);
+        internal void OnBackendActivated ()
+        {
+            // Cancels any pending deactivate-driven popup close: opening a popup deactivates the
+            // parent and then activates the popup, and that activation must not dismiss the popup.
+            Application.NotifyWindowActivated ();
+            Activated?.Invoke (this, EventArgs.Empty);
+        }
 
         /// <summary>Called by the backend when the window is deactivated.</summary>
         internal void OnBackendDeactivated ()
         {
-            // Showing a popup deactivates its parent window; that must NOT dismiss the popup we are
-            // opening. The flag is set only for the duration of PopupWindow.Show.
-            if (Application.SuppressPopupDismiss)
-                return;
-
-            Application.ClosePopups ();
+            // Don't dismiss synchronously: showing a popup deactivates its parent (and a submenu
+            // deactivates its parent popup). Schedule the close and let a following activation of one
+            // of our own windows cancel it (see Application.ScheduleClosePopupsOnDeactivate).
+            Application.ScheduleClosePopupsOnDeactivate ();
             Deactivated?.Invoke (this, EventArgs.Empty);
         }
 
