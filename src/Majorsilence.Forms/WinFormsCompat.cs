@@ -1872,37 +1872,72 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>
-    /// Stub container for dockable toolbars. In Majorsilence.Forms, toolbars are not dockable;
-    /// ToolStripContainer is provided for compilation compatibility only.
+    /// Cross-platform stand-in for dockable toolbars: a Top/Bottom/Left/Right/Content five-panel
+    /// border layout, matching real WinForms' ToolStripContainer shape (menus/toolbars docked to an
+    /// edge panel, arbitrary content filling the middle).
     /// </summary>
     public class ToolStripContainer : Panel
     {
+        // The edge panels AutoSize so an empty one collapses to zero in its docked dimension
+        // (GetPreferredSize of a childless panel is 0x0) and a populated one grows to fit its
+        // toolbars -- matching real WinForms ToolStripPanel, where undocked edges take no space.
+        // Without this, each empty edge panel claimed its full Panel default size (200x100),
+        // squeezing the content and even forcing a negative height on the opposite edge.
+
         /// <summary>Gets the top ToolStripPanel.</summary>
-        public Panel TopToolStripPanel { get; } = new Panel { Dock = DockStyle.Top };
+        public Panel TopToolStripPanel { get; } = new Panel { Dock = DockStyle.Top, AutoSize = true };
 
         /// <summary>Gets the bottom ToolStripPanel.</summary>
-        public Panel BottomToolStripPanel { get; } = new Panel { Dock = DockStyle.Bottom };
+        public Panel BottomToolStripPanel { get; } = new Panel { Dock = DockStyle.Bottom, AutoSize = true };
 
         /// <summary>Gets the left ToolStripPanel.</summary>
-        public Panel LeftToolStripPanel { get; } = new Panel { Dock = DockStyle.Left };
+        public Panel LeftToolStripPanel { get; } = new Panel { Dock = DockStyle.Left, AutoSize = true };
 
         /// <summary>Gets the right ToolStripPanel.</summary>
-        public Panel RightToolStripPanel { get; } = new Panel { Dock = DockStyle.Right };
+        public Panel RightToolStripPanel { get; } = new Panel { Dock = DockStyle.Right, AutoSize = true };
 
         /// <summary>Gets the content panel in the center.</summary>
         public Panel ContentPanel { get; } = new Panel { Dock = DockStyle.Fill };
 
+        /// <summary>Initializes a new instance of the ToolStripContainer class.</summary>
+        public ToolStripContainer ()
+        {
+            // Docking is processed in reverse Z-order (the layout engine walks Controls back-to-
+            // front), so the LAST control added claims its edge first, against the full remaining
+            // area; Fill must therefore be added FIRST so the edge panels added after it carve their
+            // space out of it, leaving Fill with whatever's left in the middle -- the standard
+            // border-layout construction order. Without this, the sub-panels were never parented at
+            // all (found via a real migrated app's toolbar/menu area rendering completely blank).
+            Controls.Add (ContentPanel);
+            Controls.Add (TopToolStripPanel);
+            Controls.Add (BottomToolStripPanel);
+            Controls.Add (LeftToolStripPanel);
+            Controls.Add (RightToolStripPanel);
+        }
+
         /// <summary>Gets or sets whether the top panel is visible.</summary>
-        public bool TopToolStripPanelVisible { get; set; } = true;
+        public bool TopToolStripPanelVisible {
+            get => TopToolStripPanel.Visible;
+            set => TopToolStripPanel.Visible = value;
+        }
 
         /// <summary>Gets or sets whether the bottom panel is visible.</summary>
-        public bool BottomToolStripPanelVisible { get; set; } = true;
+        public bool BottomToolStripPanelVisible {
+            get => BottomToolStripPanel.Visible;
+            set => BottomToolStripPanel.Visible = value;
+        }
 
         /// <summary>Gets or sets whether the left panel is visible.</summary>
-        public bool LeftToolStripPanelVisible { get; set; } = true;
+        public bool LeftToolStripPanelVisible {
+            get => LeftToolStripPanel.Visible;
+            set => LeftToolStripPanel.Visible = value;
+        }
 
         /// <summary>Gets or sets whether the right panel is visible.</summary>
-        public bool RightToolStripPanelVisible { get; set; } = true;
+        public bool RightToolStripPanelVisible {
+            get => RightToolStripPanel.Visible;
+            set => RightToolStripPanel.Visible = value;
+        }
     }
 
     /// <summary>Provides navigation UI for a BindingSource. Stub in Majorsilence.Forms.</summary>
