@@ -136,8 +136,7 @@ namespace Majorsilence.Forms
                 var host = MdiHost;
                 Application.OpenForms.Remove (this);
                 host.Client.RemoveChild (host);   // clears MdiHost
-                OnBackendClosed ();               // raises Closed
-                FormClosed?.Invoke (this, new FormClosedEventArgs ());
+                OnBackendClosed ();               // raises Closed + FormClosed (once)
                 return;
             }
 
@@ -168,6 +167,19 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised after the form is closed.</summary>
         public event FormClosedEventHandler? FormClosed;
+
+        private bool _formClosedFired;
+
+        // Raises FormClosed exactly once, regardless of how many close callbacks reach it (programmatic
+        // Close, close button, MDI removal can each drive OnBackendClosed). Called from OnBackendClosed.
+        internal void RaiseFormClosed ()
+        {
+            if (_formClosedFired)
+                return;
+
+            _formClosedFired = true;
+            FormClosed?.Invoke (this, new FormClosedEventArgs ());
+        }
 
 
         /// <summary>Raised when the form is first shown (WinForms compatibility alias; raised together with Shown).</summary>
@@ -546,7 +558,7 @@ namespace Majorsilence.Forms
         public DialogResult ShowDialog (Form parent)
         {
             var result = RunModal (ShowDialogAsync (parent));
-            FormClosed?.Invoke (this, new FormClosedEventArgs ());
+            // FormClosed is raised once from OnBackendClosed during the dialog's close, before this returns.
             return result;
         }
 
