@@ -42,6 +42,18 @@ namespace Majorsilence.Forms.Tests
             isi.EndInit ();
         }
 
+        [Theory]
+        // Non-Control Telerik types the designer also init-brackets, so the Control-only sweep above
+        // misses them: a grid's MasterTemplate is a (Master)GridViewTemplate, and designer code emits
+        // ((ISupportInitialize)dgv.MasterTemplate).BeginInit() (found opening frmMaintainCustomer).
+        [InlineData (typeof (Majorsilence.Forms.Telerik.GridViewTemplate))]
+        [InlineData (typeof (Majorsilence.Forms.Telerik.MasterGridViewTemplate))]
+        public void Non_control_Telerik_designer_type_implements_ISupportInitialize (System.Type type)
+        {
+            Assert.True (typeof (ISupportInitialize).IsAssignableFrom (type),
+                $"{type.Name} must implement ISupportInitialize (designer code casts to it unconditionally).");
+        }
+
         [Fact]
         public void RadWaitingBar_element_tree_walks_typed ()
         {

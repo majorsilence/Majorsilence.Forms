@@ -2476,8 +2476,15 @@ namespace Majorsilence.Forms.Telerik
     /// requires this base to also support a detached instance — see the protected constructor and
     /// <see cref="Attach"/>.
     /// </summary>
-    public class GridViewTemplate
+    public class GridViewTemplate : ISupportInitializeCompat
     {
+        // Designer code brackets a grid's MasterTemplate with
+        // ((ISupportInitialize)dgv.MasterTemplate).BeginInit()/EndInit() (real Telerik's
+        // GridViewTemplate implements ISupportInitialize) -- ISupportInitializeCompat supplies the
+        // no-op members so that unconditional cast succeeds instead of throwing InvalidCastException
+        // (found opening frmMaintainCustomer, whose grids' MasterTemplate is init-bracketed).
+        // MasterGridViewTemplate inherits this.
+
         // Not readonly: detached instances (see the protected ctor) attach to a grid later via Attach().
         private RadGridView? _grid;
 

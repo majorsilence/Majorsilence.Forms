@@ -17,6 +17,9 @@ namespace Majorsilence.Forms.Tests
         [InlineData (typeof (PictureBox))]
         [InlineData (typeof (SplitContainer))]
         [InlineData (typeof (DataGridView))]
+        // ErrorProvider is a Component (not a Control) but WinForms still implements ISupportInitialize
+        // on it, and designer code init-brackets it -- found opening frmMaintainCustomer.
+        [InlineData (typeof (ErrorProvider))]
         public void Designer_bracketed_control_supports_initialize (System.Type type)
         {
             Assert.True (typeof (ISupportInitialize).IsAssignableFrom (type),
