@@ -2,7 +2,6 @@ using System.Drawing;
 using Majorsilence.Forms.Drawing;
 using SkiaSharp;
 using Xunit;
-using Font = Majorsilence.Forms.Drawing.Font;
 using Pen = Majorsilence.Forms.Drawing.Pen;
 using SolidBrush = Majorsilence.Forms.Drawing.SolidBrush;
 

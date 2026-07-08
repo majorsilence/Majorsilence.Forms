@@ -204,7 +204,7 @@ namespace Majorsilence.Forms
                     try
                     {
                         var name = (string) enumerator.Key;
-                        _binaryEntries[name] = enumerator.Value;
+                        _binaryEntries[name] = NormalizeDeserialized (enumerator.Value);
                     }
                     catch { /* this entry's type couldn't be resolved/deserialized -- skip it, keep going. */ }
                 }
@@ -268,6 +268,69 @@ namespace Majorsilence.Forms
 
             AssemblyLoadContext.Default.Resolving += (_, name) =>
                 name.Name == "System.Windows.Forms" ? shimAssembly : null;
+        }
+
+        // On Windows, System.Drawing.Common is functional, so DeserializingResourceReader hands back
+        // LIVE System.Drawing.Icon/Bitmap/Font objects for graphics entries -- but designer code (and
+        // every migrated property) is typed against Majorsilence.Forms.Drawing, so an unconditional
+        // `(Icon) resources.GetObject ("$this.Icon")` cast throws InvalidCastException (found via a
+        // real migrated login form's window icon). Convert them here, via reflection: this assembly
+        // deliberately does not reference System.Drawing.Common, and off-Windows those entries fail
+        // deserialization long before reaching this point (see the per-entry catch above).
+        [UnconditionalSuppressMessage ("Trimming", "IL2075",
+            Justification = "Reflection targets are System.Drawing.Common members (Icon.Save/Bitmap.Save/Font.Name...), reached only when that assembly materialized the value at runtime -- if a trimmer removed them, deserialization above could not have produced the object in the first place; every miss degrades to null (coded default).")]
+        [UnconditionalSuppressMessage ("Trimming", "IL2026",
+            Justification = "Assembly.GetType(\"System.Drawing.Imaging.ImageFormat\") resolves against the assembly that just produced a live System.Drawing.Bitmap; same reasoning as IL2075 above -- absence degrades to null.")]
+        internal static object? NormalizeDeserialized (object? value)
+        {
+            if (value is null)
+                return null;
+
+            var type = value.GetType ();
+            try
+            {
+                switch (type.FullName)
+                {
+                    case "System.Drawing.Icon":
+                    {
+                        // Icon.Save(Stream) writes the original .ico bytes back out.
+                        using var ms = new MemoryStream ();
+                        type.GetMethod ("Save", new[] { typeof (Stream) })?.Invoke (value, new object[] { ms });
+                        if (ms.Length == 0)
+                            return null;
+                        ms.Position = 0;
+                        return new Majorsilence.Forms.Drawing.Icon (ms);
+                    }
+                    case "System.Drawing.Bitmap":
+                    {
+                        // Bitmap.Save(Stream, ImageFormat) with PNG preserves alpha.
+                        var imageFormatType = type.Assembly.GetType ("System.Drawing.Imaging.ImageFormat");
+                        var png = imageFormatType?.GetProperty ("Png")?.GetValue (null);
+                        var save = imageFormatType is null ? null : type.GetMethod ("Save", new[] { typeof (Stream), imageFormatType });
+                        if (png is null || save is null)
+                            return null;
+                        using var ms = new MemoryStream ();
+                        save.Invoke (value, new[] { (object) ms, png });
+                        return Majorsilence.Forms.Drawing.Image.FromBytes (ms.ToArray ());
+                    }
+                    case "System.Drawing.Font":
+                    {
+                        var family = (string) type.GetProperty ("Name")!.GetValue (value)!;
+                        var size = (float) type.GetProperty ("Size")!.GetValue (value)!;
+                        // FontStyle flag values match System.Drawing's by design; bridge by integer.
+                        var style = System.Convert.ToInt32 (type.GetProperty ("Style")!.GetValue (value)!, CultureInfo.InvariantCulture);
+                        return new Majorsilence.Forms.Drawing.Font (family, size, (Majorsilence.Forms.Drawing.FontStyle) style);
+                    }
+                }
+            }
+            catch
+            {
+                // An unusable graphics payload: treat as absent so the coded default wins -- returning
+                // the raw System.Drawing object would just recreate the InvalidCastException downstream.
+                return null;
+            }
+
+            return value;
         }
 
         // ── resx parsing ──────────────────────────────────────────────────────────────────────

@@ -18,6 +18,9 @@
     </PackageReference>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="System.Resources.Extensions" />
+    <!-- Windows-guarded tests construct real System.Drawing objects to exercise
+         ComponentResourceManager.NormalizeDeserialized (the Windows-only live-object path). -->
+    <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
 
   <ItemGroup>

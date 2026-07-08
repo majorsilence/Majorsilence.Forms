@@ -11,7 +11,6 @@ using System.Drawing;
 using System.Globalization;
 using Majorsilence.Forms;
 using Xunit;
-using Font = Majorsilence.Forms.Drawing.Font;
 
 namespace Majorsilence.Forms.Tests
 {
