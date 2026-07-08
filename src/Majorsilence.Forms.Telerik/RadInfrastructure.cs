@@ -103,6 +103,8 @@ namespace Majorsilence.Forms.Telerik
         public static readonly RadProperty DrawFillProperty = new RadProperty ("DrawFill");
         /// <summary>Property token for the element's gradient style. Compat for <c>...GradientStyleProperty</c>.</summary>
         public static readonly RadProperty GradientStyleProperty = new RadProperty ("GradientStyle");
+        /// <summary>Property token for the number of gradient colors. Compat for <c>LightVisualElement.NumberOfColorsProperty</c>.</summary>
+        public static readonly RadProperty NumberOfColorsProperty = new RadProperty ("NumberOfColors");
     }
 
     /// <summary>

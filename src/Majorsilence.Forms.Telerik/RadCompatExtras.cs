@@ -463,6 +463,15 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets the row at the specified index within the group.</summary>
         public GridViewRowInfo this[int index] => Items[index];
+
+        /// <summary>Telerik compat: whether the group is expanded. Stored (compat grid does not collapse groups).</summary>
+        public bool IsExpanded { get; set; } = true;
+
+        /// <summary>Telerik compat: expands the group. Stub.</summary>
+        public void Expand () => IsExpanded = true;
+
+        /// <summary>Telerik compat: collapses the group. Stub.</summary>
+        public void Collapse () => IsExpanded = false;
     }
 
     /// <summary>Provides data for RadDock tab-strip creation. Mirrors Telerik's shape.</summary>
