@@ -999,12 +999,12 @@ namespace Majorsilence.Forms
         /// <summary>
         ///  Raises the <see cref='ControlAdded'/> event.
         /// </summary>
-        protected virtual void OnControlAdded (EventArgs<Control> e) => (Events[s_controlAddedEvent] as EventHandler<EventArgs<Control>>)?.Invoke (this, e);
+        protected virtual void OnControlAdded (ControlEventArgs e) => (Events[s_controlAddedEvent] as EventHandler<ControlEventArgs>)?.Invoke (this, e);
 
         /// <summary>
         ///  Raises the <see cref='ControlRemoved'/> event.
         /// </summary>
-        protected virtual void OnControlRemoved (EventArgs<Control> e) => (Events[s_controlRemovedEvent] as EventHandler<EventArgs<Control>>)?.Invoke (this, e);
+        protected virtual void OnControlRemoved (ControlEventArgs e) => (Events[s_controlRemovedEvent] as EventHandler<ControlEventArgs>)?.Invoke (this, e);
 
         /// <summary>
         ///  Called when the control is first created.
