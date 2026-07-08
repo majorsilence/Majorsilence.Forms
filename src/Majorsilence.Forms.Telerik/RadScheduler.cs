@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Telerik
     /// covered by <see cref="Print(bool, RadPrintDocument)"/>/<see cref="PrintPreview(RadPrintDocument)"/>
     /// (see <c>RadSchedulerPrinting.cs</c>).
     /// </summary>
-    public class RadScheduler : ScrollableControl
+    public class RadScheduler : ScrollableControl, ISupportInitializeCompat
     {
         private readonly SchedulerAgendaList _agenda;
         private SchedulerBindingDataSource? _dataSource;
@@ -238,7 +238,7 @@ namespace Majorsilence.Forms.Telerik
     /// month calendar. Wires <see cref="AssociatedScheduler"/>'s <see cref="RadScheduler.ActiveView"/> to
     /// the button clicks; the calendar picker itself is not rendered (out of scope — see <c>BACKLOG.md</c>).
     /// </summary>
-    public class RadSchedulerNavigator : Control
+    public class RadSchedulerNavigator : Control, ISupportInitializeCompat
     {
         private RadScheduler? _associatedScheduler;
 

@@ -6,7 +6,7 @@ namespace Majorsilence.Forms.Telerik
     /// Telerik-compat docking manager. Backed by <see cref="Majorsilence.Forms.Panel"/>. Docking is not
     /// implemented; windows are tracked and hosted as child panels so layout/code compiles and runs.
     /// </summary>
-    public class RadDock : Panel
+    public class RadDock : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the split orientation. Stored for Telerik compat.</summary>
         public Orientation Orientation { get; set; } = Orientation.Horizontal;
@@ -153,7 +153,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat tool window.</summary>
-    public class ToolWindow : DockWindowBase
+    public class ToolWindow : DockWindowBase, ISupportInitializeCompat
     {
         /// <summary>Document-mode buttons setting. Stored for Telerik compat.</summary>
         public object? DocumentButtons { get; set; }
@@ -174,7 +174,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat document window.</summary>
-    public class DocumentWindow : DockWindowBase
+    public class DocumentWindow : DockWindowBase, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance.</summary>
         public DocumentWindow () { }
@@ -214,7 +214,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat tool tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class ToolTabStrip : Panel
+    public class ToolTabStrip : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
         public int SelectedIndex { get; set; }
@@ -239,7 +239,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat document tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class DocumentTabStrip : Panel
+    public class DocumentTabStrip : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
         public int SelectedIndex { get; set; }
@@ -275,7 +275,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat document container. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class DocumentContainer : Panel
+    public class DocumentContainer : Panel, ISupportInitializeCompat
     {
         /// <summary>Whether the container is collapsed. Stored for Telerik compat.</summary>
         public bool Collapsed { get; set; }

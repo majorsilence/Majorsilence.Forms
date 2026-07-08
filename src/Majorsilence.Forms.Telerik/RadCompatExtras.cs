@@ -534,7 +534,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Compat stand-in for Telerik's RadControl base (sites type variables as RadControl).</summary>
-    public class RadControl : Majorsilence.Forms.Control
+    public class RadControl : Majorsilence.Forms.Control, ISupportInitializeCompat
     {
     }
 

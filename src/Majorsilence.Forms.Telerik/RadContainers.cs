@@ -3,7 +3,7 @@ using System.Drawing;
 namespace Majorsilence.Forms.Telerik
 {
     /// <summary>Telerik-compat tabbed page view. Backed by <see cref="Majorsilence.Forms.TabControl"/>.</summary>
-    public class RadPageView : TabControl
+    public class RadPageView : TabControl, ISupportInitializeCompat
     {
         /// <summary>Gets the collection of pages (alias for <see cref="TabControl.TabPages"/>).</summary>
         public TabPageCollection Pages => TabPages;
@@ -39,7 +39,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat page-view page. Backed by <see cref="Majorsilence.Forms.TabPage"/>.</summary>
-    public class RadPageViewPage : TabPage
+    public class RadPageViewPage : TabPage, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the tab item size. Stub.</summary>
         public SizeF ItemSize { get; set; }
@@ -139,7 +139,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat split panel. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class SplitPanel : Panel
+    public class SplitPanel : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets the root element of the panel (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
@@ -260,7 +260,7 @@ namespace Majorsilence.Forms.Telerik
     /// Telerik-compat collapsible panel. Backed by <see cref="Majorsilence.Forms.Panel"/>; hosts a single
     /// child <see cref="PanelContainer"/> whose visibility is toggled by <see cref="IsExpanded"/>.
     /// </summary>
-    public class RadCollapsiblePanel : Panel
+    public class RadCollapsiblePanel : Panel, ISupportInitializeCompat
     {
         private bool _isExpanded = true;
 
@@ -316,7 +316,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat scrollable panel. Backed by <see cref="Majorsilence.Forms.Panel"/>; hosts a single filling <see cref="RadScrollablePanelContainer"/>.</summary>
-    public class RadScrollablePanel : Panel
+    public class RadScrollablePanel : Panel, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance of the RadScrollablePanel class.</summary>
         public RadScrollablePanel ()
@@ -330,5 +330,5 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat container hosted by a <see cref="RadScrollablePanel"/>. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class RadScrollablePanelContainer : Panel { }
+    public class RadScrollablePanelContainer : Panel, ISupportInitializeCompat { }
 }

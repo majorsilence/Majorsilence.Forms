@@ -3,7 +3,7 @@ using System.Drawing;
 namespace Majorsilence.Forms.Telerik
 {
     /// <summary>Telerik-compat drop-down list. Backed by <see cref="Majorsilence.Forms.ComboBox"/>.</summary>
-    public class RadDropDownList : ComboBox
+    public class RadDropDownList : ComboBox, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance, bridging the base selection event to the Telerik-typed one.</summary>
         public RadDropDownList ()
@@ -41,7 +41,7 @@ namespace Majorsilence.Forms.Telerik
     /// Telerik-compat multi-select checked drop-down list. Backed by <see cref="Majorsilence.Forms.ComboBox"/>;
     /// the checked-item surface is provided on top.
     /// </summary>
-    public class RadCheckedDropDownList : ComboBox
+    public class RadCheckedDropDownList : ComboBox, ISupportInitializeCompat
     {
         private readonly List<RadCheckedListDataItem> _checkedItems = new ();
 
@@ -136,7 +136,7 @@ namespace Majorsilence.Forms.Telerik
     /// Telerik-compat drop-down button: a push button that shows a menu of <see cref="RadMenuItem"/>s below
     /// itself when clicked. Backed by <see cref="Majorsilence.Forms.Button"/>.
     /// </summary>
-    public class RadDropDownButton : Button
+    public class RadDropDownButton : Button, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance of the RadDropDownButton class.</summary>
         public RadDropDownButton () => Click += (_, _) => ShowDropDown ();
