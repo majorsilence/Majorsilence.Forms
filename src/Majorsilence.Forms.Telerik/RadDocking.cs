@@ -6,7 +6,7 @@ namespace Majorsilence.Forms.Telerik
     /// Telerik-compat docking manager. Backed by <see cref="Majorsilence.Forms.Panel"/>. Docking is not
     /// implemented; windows are tracked and hosted as child panels so layout/code compiles and runs.
     /// </summary>
-    public class RadDock : Panel, ISupportInitializeCompat
+    public partial class RadDock : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the split orientation. Stored for Telerik compat.</summary>
         public Orientation Orientation { get; set; } = Orientation.Horizontal;
@@ -249,7 +249,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat tool tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class ToolTabStrip : Panel, ISupportInitializeCompat
+    public partial class ToolTabStrip : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
         public int SelectedIndex { get; set; }
@@ -277,7 +277,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat document tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class DocumentTabStrip : Panel, ISupportInitializeCompat
+    public partial class DocumentTabStrip : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
         public int SelectedIndex { get; set; }
@@ -313,7 +313,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat document container. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class DocumentContainer : Panel, ISupportInitializeCompat
+    public partial class DocumentContainer : Panel, ISupportInitializeCompat
     {
         /// <summary>Whether the container is collapsed. Stored for Telerik compat.</summary>
         public bool Collapsed { get; set; }
