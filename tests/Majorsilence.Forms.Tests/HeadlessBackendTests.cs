@@ -52,6 +52,65 @@ public class HeadlessBackendTests
     }
 
     [Fact]
+    public void Label_WithDesignerTypicalShortHeight_StillRendersText ()
+    {
+        // Regression: found via a real migrated WinForms designer app (ReportDesigner.Forms)
+        // whose labels all rendered as nothing but blank space. 13px is the height the WinForms
+        // designer emits for an AutoSize label at the default (8.25pt) font -- a couple pixels
+        // short of that font's own line height. SkiaTextExtensions.DrawText used to pass the
+        // control's own (short) height straight through as RichTextKit's TextBlock.MaxHeight, a
+        // hard layout budget: since not even one line fit inside 13px, RichTextKit laid out zero
+        // lines instead of the first line plus overflow (which is what real WinForms/GDI+ does,
+        // relying on the paint clip to hide anything past the control's edge, not the text layout
+        // engine to refuse drawing). Fixed by passing an unconstrained height into text layout and
+        // letting canvas.Clip(bounds) do the only actual vertical clipping, as before.
+        var form = new Form ();
+        var label = new Label { Text = "Fore Color:", AutoSize = false, Left = 4, Top = 4, Width = 100, Height = 13 };
+        form.Controls.Add (label);
+
+        var png = HeadlessRenderer.CapturePng (form, 200, 60);
+
+        using var bmp = SKBitmap.Decode (png);
+        var background = bmp.GetPixel (150, 40);   // far from the label -- the form's own background
+        var textPixelFound = false;
+        for (var y = label.Top; y < label.Top + label.Height && !textPixelFound; y++)
+            for (var x = label.Left; x < label.Left + label.Width; x++)
+                if (bmp.GetPixel (x, y) != background) { textPixelFound = true; break; }
+
+        Assert.True (textPixelFound, "Label text did not render within its own (short) bounds.");
+    }
+
+    [Fact]
+    public void PopupWindow_Show_SuppressesParentDeactivationQueuedAfterShowReturns ()
+    {
+        // Regression: found via a real WinForms-migrated app (ReportDesigner.Forms) whose menus
+        // opened and then immediately closed again -- every dropdown menu (a MenuDropDown, backed
+        // by a PopupWindow) goes through PopupWindow.Show(int,int).
+        //
+        // Showing a popup steals activation from its parent, whose own deactivation handler would
+        // otherwise dismiss the very popup just opened -- Show() sets
+        // Application.SuppressPopupDismiss for the duration to prevent exactly that. The bug: on a
+        // real backend (Avalonia), the parent's deactivation event is often not delivered
+        // synchronously inside Show() -- it is queued and only dispatched on a later UI-thread
+        // tick. Resetting the suppress flag synchronously, right after Show() returns, cleared it
+        // before that queued deactivation had a chance to arrive, so it went through unsuppressed
+        // and closed the popup.
+        //
+        // The Headless backend's own Post(...) (what BeginInvoke uses) enqueues rather than running
+        // inline, so calling OnBackendDeactivated() here -- before anything drains that queue --
+        // reproduces exactly this "deactivation arrives after Show() returns" ordering.
+        using var parent = new Form ();
+        parent.Show ();
+
+        var popup = new PopupWindow (parent);
+        popup.Show (10, 10);
+
+        parent.OnBackendDeactivated ();
+
+        Assert.True (popup.Visible, "the popup was dismissed by its own parent's deactivation, which Show() should have suppressed");
+    }
+
+    [Fact]
     public void InjectedClick_RaisesButtonClick ()
     {
         var form = new Form ();

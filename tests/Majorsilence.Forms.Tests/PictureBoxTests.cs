@@ -185,5 +185,19 @@ namespace Majorsilence.Forms.Tests
             control.BorderStyle = value;
             Assert.Equal (value, control.BorderStyle);
         }
+
+        [Fact]
+        public void ImplementsISupportInitialize ()
+        {
+            // WinForms designer-generated InitializeComponent code always brackets a PictureBox's
+            // property assignments with ((ISupportInitialize)(this.pictureBox1)).BeginInit()/
+            // EndInit() -- found via a real migrated designer app (ReportDesigner.Forms) crashing
+            // with InvalidCastException on that cast for every dialog containing a PictureBox.
+            using var control = new PictureBox ();
+            var isi = Assert.IsAssignableFrom<ISupportInitialize> (control);
+
+            isi.BeginInit ();
+            isi.EndInit ();
+        }
     }
 }

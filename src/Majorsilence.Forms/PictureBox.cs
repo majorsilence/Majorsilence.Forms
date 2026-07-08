@@ -10,7 +10,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a PictureBox control.
     /// </summary>
-    public class PictureBox : Control
+    public class PictureBox : Control, ISupportInitialize
     {
         private static HttpClient? client;
 
@@ -32,6 +32,13 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (100, 50);
+
+        // WinForms designer-generated InitializeComponent code always brackets a PictureBox's
+        // property assignments with ((ISupportInitialize)(this.pictureBox1)).BeginInit()/EndInit()
+        // -- explicit no-op implementations (matching NumericUpDown/DataGridView's own) so that
+        // cast succeeds instead of throwing InvalidCastException.
+        void ISupportInitialize.BeginInit () { }
+        void ISupportInitialize.EndInit () { }
 
         /// <summary>
         /// Gets or sets the image the PictureBox should display.

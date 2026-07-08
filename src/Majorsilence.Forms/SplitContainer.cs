@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a SplitContainer control.
     /// </summary>
-    public class SplitContainer : Control
+    public class SplitContainer : Control, System.ComponentModel.ISupportInitialize
     {
         private readonly Splitter splitter;
         private Orientation orientation;
@@ -30,6 +30,16 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (150, 100);
+
+        // WinForms designer-generated InitializeComponent code always brackets a SplitContainer's
+        // property assignments with ((ISupportInitialize)(this.splitContainer1)).BeginInit()/
+        // EndInit() -- explicit no-op implementations (matching NumericUpDown/DataGridView's own)
+        // so that cast succeeds instead of throwing InvalidCastException. Found via a real migrated
+        // designer app (ReportDesigner.Forms) crashing on every dialog containing a SplitContainer
+        // (DialogDatabase, DataSetsCtl, DialogExprEditor, RdlUserControl, SQLCtl -- File > New alone
+        // hits DialogDatabase).
+        void System.ComponentModel.ISupportInitialize.BeginInit () { }
+        void System.ComponentModel.ISupportInitialize.EndInit () { }
 
         // Calculates the size of Panel1.
         private int GetMaximumPanel1Size ()
