@@ -327,6 +327,12 @@ namespace Majorsilence.Forms.Tests
             control.TabPages.Add (new TabPage ("One"));
             control.TabPages.Add (new TabPage ("Two"));
 
+            // WinForms parity: TabControl raises SelectedIndexChanged from the handle notification, so it
+            // does not fire before the control's handle is created (e.g. while tabs are added during
+            // InitializeComponent -- firing then ran a form's handler mid-construction and NullReferenced).
+            // Create the handle so subsequent programmatic selection changes raise the event, as on a shown form.
+            control.CreateControl ();
+
             var callCount = 0;
             EventHandler handler = (sender, e) => {
                 Assert.Same (control, sender);

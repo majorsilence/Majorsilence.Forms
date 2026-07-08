@@ -627,6 +627,7 @@ namespace Majorsilence.Forms
             OnVisibleChanged (EventArgs.Empty);
 
             SetWindowStartupLocation ();
+            EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
 
             if (this is Form f)
@@ -645,6 +646,7 @@ namespace Majorsilence.Forms
 
             SetWindowStartupLocation (parent);
             parent.Backend.Enabled = false;
+            EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
 
             if (this is Form f)
@@ -655,6 +657,11 @@ namespace Majorsilence.Forms
                 OnShown (EventArgs.Empty);
             }
         }
+
+        // Raises the one-time Load event before the window is first displayed. WinForms fires Load during
+        // the show sequence, before the form is painted/shown -- not coupled to Shown (which fires after
+        // first display). Overridden by Form; a no-op for non-Form windows.
+        internal virtual void EnsureLoaded () { }
 
         /// <summary>Raised when the window is shown.</summary>
         public event EventHandler? Shown;

@@ -212,10 +212,24 @@ namespace Majorsilence.Forms
             remove => base.Shown -= value;
         }
 
+        private bool _loadFired;
+
+        // WinForms raises Load once, during the show sequence, BEFORE the form is displayed -- distinct
+        // from Shown (which fires after first display). EnsureLoaded is called from WindowBase.Show/
+        // ShowDialog (and the MDI-hosted path) just before the backend shows the window.
+        internal override void EnsureLoaded ()
+        {
+            if (_loadFired)
+                return;
+
+            _loadFired = true;
+            OnLoad (EventArgs.Empty);
+        }
+
         /// <inheritdoc/>
         protected override void OnShown (EventArgs e)
         {
-            Load?.Invoke (this, e);
+            // Load is raised earlier (EnsureLoaded, before the window is shown); Shown fires after display.
             base.OnShown (e);
         }
 
@@ -890,6 +904,8 @@ namespace Majorsilence.Forms
             client.AddChild (this);
             visible = true;
             Application.OpenForms.Add (this);
+
+            EnsureLoaded ();            // Load before the child is shown, matching WinForms.
 
             if (!shown) {
                 shown = true;
