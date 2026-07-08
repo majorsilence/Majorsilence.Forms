@@ -571,7 +571,7 @@ internal sealed class VisualBasicNamespaceRewriter : Microsoft.CodeAnalysis.Visu
     {
         // VB's MsgBox/InputBox (Microsoft.VisualBasic.Interaction) late-bind into System.Windows.Forms and
         // throw PlatformNotSupportedException off Windows. Rewrite the call target to the cross-platform
-        // Majorsilence.Forms.Interaction stand-in (keeps the MsgBoxStyle/MsgBoxResult signature, so caller
+        // Majorsilence.Forms.VbInteraction stand-in (keeps the MsgBoxStyle/MsgBoxResult signature, so caller
         // comparison sites are untouched). Matches however the call is written -- bare `MsgBox(...)`,
         // `Interaction.MsgBox(...)`, or fully qualified -- by resolving the invoked method's symbol.
         if (node.Expression is not null && TryResolveVbInteraction(node, out var replacement))
@@ -600,7 +600,7 @@ internal sealed class VisualBasicNamespaceRewriter : Microsoft.CodeAnalysis.Visu
         if (symbol.ContainingType?.ToDisplayString() != "Microsoft.VisualBasic.Interaction")
             return false;
 
-        replacement = VBSyntaxFactory.ParseName("Majorsilence.Forms.Interaction." + symbol.Name)
+        replacement = VBSyntaxFactory.ParseName("Majorsilence.Forms.VbInteraction." + symbol.Name)
             .WithTriviaFrom(node.Expression!);
         return true;
     }

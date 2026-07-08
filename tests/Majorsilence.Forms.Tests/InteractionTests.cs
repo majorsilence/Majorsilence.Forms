@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
-    // Majorsilence.Forms.Interaction.MsgBox maps VB's MsgBoxStyle onto MessageBoxButtons/MessageBoxIcon and
+    // Majorsilence.Forms.VbInteraction.MsgBox maps VB's MsgBoxStyle onto MessageBoxButtons/MessageBoxIcon and
     // DialogResult back onto MsgBoxResult by a straight numeric cast. That is only correct because the
     // enum values line up exactly -- pin that assumption so a future enum edit can't silently break MsgBox.
     public class InteractionTests
@@ -42,11 +42,11 @@ namespace Majorsilence.Forms.Tests
         {
             // Signature/shape guard: the migrator rewrites bare MsgBox(...)/InputBox(...) to these, so they
             // must exist with VB-compatible signatures (MsgBoxStyle in / MsgBoxResult out; string InputBox).
-            var msgBox = typeof (Interaction).GetMethod (nameof (Interaction.MsgBox));
+            var msgBox = typeof (VbInteraction).GetMethod (nameof (VbInteraction.MsgBox));
             Assert.NotNull (msgBox);
             Assert.Equal (typeof (MsgBoxResult), msgBox!.ReturnType);
 
-            var inputBox = typeof (Interaction).GetMethod (nameof (Interaction.InputBox));
+            var inputBox = typeof (VbInteraction).GetMethod (nameof (VbInteraction.InputBox));
             Assert.NotNull (inputBox);
             Assert.Equal (typeof (string), inputBox!.ReturnType);
         }

@@ -9,8 +9,12 @@ namespace Majorsilence.Forms
     /// late-bind into <c>System.Windows.Forms</c> and throw <see cref="PlatformNotSupportedException"/>
     /// ("Method requires System.Windows.Forms") off Windows, so migrated code that keeps calling
     /// <c>MsgBox(...)</c>/<c>InputBox(...)</c> breaks at runtime. The migrator rewrites those bare calls to
-    /// <c>Majorsilence.Forms.Interaction.MsgBox(...)</c>/<c>.InputBox(...)</c>, which render with
+    /// <c>Majorsilence.Forms.VbInteraction.MsgBox(...)</c>/<c>.InputBox(...)</c>, which render with
     /// Majorsilence.Forms instead.
+    ///
+    /// Named <c>VbInteraction</c> (not <c>Interaction</c>) deliberately: a type named <c>Interaction</c> in
+    /// the broadly-imported <c>Majorsilence.Forms</c> namespace collides with
+    /// <c>Microsoft.VisualBasic.Interaction</c> wherever code uses the bare name.
     ///
     /// The signatures keep VB's <see cref="MsgBoxStyle"/>/<see cref="MsgBoxResult"/> (both live in the
     /// cross-platform Microsoft.VisualBasic.Core assembly — only the FUNCTION is Windows-bound), so
@@ -19,7 +23,7 @@ namespace Majorsilence.Forms
     /// <see cref="MessageBoxIcon"/> (icon bits) and <see cref="DialogResult"/> (== MsgBoxResult), so the
     /// mapping is a straight numeric cast.
     /// </summary>
-    public static class Interaction
+    public static class VbInteraction
     {
         /// <summary>
         /// Displays a message in a dialog box and returns which button the user pressed.
