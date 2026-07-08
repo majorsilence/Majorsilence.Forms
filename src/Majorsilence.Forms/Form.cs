@@ -151,6 +151,11 @@ namespace Majorsilence.Forms
                 dialog_parent.Backend.Enabled = true;
                 dialog_parent.Backend.Activate ();
                 dialog_parent = null;
+
+                // Only pop if we're actually the innermost modal (should always be true for
+                // correctly-nested show/close pairs; defensive against any misuse).
+                if (Application.ModalStack.Count > 0 && Application.ModalStack.Peek () == this)
+                    Application.ModalStack.Pop ();
             }
 
             if (dialog_task is not null) {
@@ -450,10 +455,12 @@ namespace Majorsilence.Forms
                 e.Cancel = true;
         }
 
-        /// <summary>Displays the window modally using the first open form as the parent.</summary>
+        /// <summary>Displays the window modally using the innermost open modal dialog (if any is
+        /// currently shown), otherwise the first open form, as the parent.</summary>
         public DialogResult ShowDialog ()
         {
-            var parent = Application.OpenForms.FirstOrDefault (f => f != this);
+            var parent = (Application.ActiveModalForm != this ? Application.ActiveModalForm : null)
+                ?? Application.OpenForms.FirstOrDefault (f => f != this);
 
             if (parent == null) {
                 Show ();
@@ -547,6 +554,7 @@ namespace Majorsilence.Forms
             }
 
             dialog_parent = parent;
+            Application.ModalStack.Push (this);
 
             // Call the base window-show-modally helper, NOT this Form.ShowDialog(Form) overload.
             base.ShowDialog (parent);

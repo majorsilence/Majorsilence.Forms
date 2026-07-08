@@ -118,6 +118,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets the main form of the application (the first form passed to Run).</summary>
         public static Form? MainForm => OpenForms.Count > 0 ? OpenForms[0] : null;
 
+        // Tracks nested Form.ShowDialog calls: pushed in Form.ShowDialogAsync, popped in Form.Close.
+        // Lets code that needs "whatever window the user is actually looking at right now" (a
+        // MessageBox or FileDialog shown with no explicit owner) find the innermost open modal
+        // instead of defaulting to Application.OpenForms.FirstOrDefault(), which is always the very
+        // first window the app ever opened (typically the main form) -- wrong whenever the call
+        // happens from inside an already-modal dialog. Found via a real migrated app
+        // (ReportDesigner.Forms): a MessageBox raised from inside a modal "New Report from Database"
+        // dialog was parenting itself to the main designer window sitting behind that dialog, so it
+        // rendered off where the user was actually looking -- indistinguishable from a silent hang.
+        internal static readonly Stack<Form> ModalStack = new ();
+
+        /// <summary>Gets the innermost currently-shown modal dialog, or null if none is open.</summary>
+        internal static Form? ActiveModalForm => ModalStack.Count > 0 ? ModalStack.Peek () : null;
+
         /// <summary>
         /// Begins running a standard application message loop on the current thread, and makes the specified form visible.
         /// </summary>

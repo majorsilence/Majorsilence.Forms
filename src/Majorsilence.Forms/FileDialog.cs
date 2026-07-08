@@ -138,15 +138,22 @@ namespace Majorsilence.Forms
         /// </summary>
         public string[] FileNames => filenames.ToArray ();
 
-        /// <summary>Shows the dialog synchronously with the first open form as the owner. WinForms compatibility.</summary>
+        /// <summary>Shows the dialog synchronously, preferring the innermost currently-shown modal
+        /// dialog as the owner (falling back to the first open form). WinForms compatibility.</summary>
         public DialogResult ShowDialog ()
         {
-            var owner = Application.OpenForms.FirstOrDefault ();
+            var owner = Application.ActiveModalForm ?? Application.OpenForms.FirstOrDefault ();
             return owner is not null ? ShowDialogSync (owner) : DialogResult.Cancel;
         }
 
-        /// <summary>Shows the dialog synchronously. WinForms compatibility (calls ShowDialogSync).</summary>
-        public DialogResult ShowDialog (IWin32Window owner) => ShowDialog ();
+        /// <summary>Shows the dialog synchronously with the specified owner. WinForms compatibility
+        /// (calls ShowDialogSync). Previously discarded the owner parameter entirely and fell back
+        /// to ShowDialog()'s own first-open-form default, even when a specific owner was passed.</summary>
+        public DialogResult ShowDialog (IWin32Window owner)
+        {
+            var form = owner as Form ?? Application.ActiveModalForm ?? Application.OpenForms.FirstOrDefault ();
+            return form is not null ? ShowDialogSync (form) : DialogResult.Cancel;
+        }
 
         /// <summary>Shows the dialog asynchronously with the specified owner form.</summary>
         public abstract Task<DialogResult> ShowDialogAsync (Form owner);

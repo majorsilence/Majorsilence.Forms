@@ -790,7 +790,13 @@ namespace Majorsilence.Forms
         /// <summary>Shows a message box with the specified text, caption, buttons, and icon.</summary>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
-            var parent = Application.OpenForms.FirstOrDefault ();
+            // Prefer the innermost currently-shown modal dialog over the first-ever-opened form:
+            // a message box raised from code running inside an already-modal dialog (e.g. a
+            // validation error) must appear relative to *that* dialog, not to the (currently
+            // input-blocked, likely out of view behind it) main window. Found via a real migrated
+            // app (ReportDesigner.Forms): an error box shown from within a modal wizard rendered
+            // behind that wizard instead of on top of it, indistinguishable from a silent hang.
+            var parent = Application.ActiveModalForm ?? Application.OpenForms.FirstOrDefault ();
             var form = new MessageBoxForm (caption, text, buttons);
 
             if (parent != null)
@@ -822,7 +828,9 @@ namespace Majorsilence.Forms
         /// <summary>Shows a message box with IWin32Window owner, text, caption, buttons, and icon.</summary>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
-            var form = owner as Form ?? Application.OpenForms.FirstOrDefault ();
+            // See the no-owner overload above for why ActiveModalForm is preferred over
+            // Application.OpenForms.FirstOrDefault() when owner itself doesn't resolve to a Form.
+            var form = owner as Form ?? Application.ActiveModalForm ?? Application.OpenForms.FirstOrDefault ();
             var msgForm = new MessageBoxForm (caption, text, buttons);
             return form is not null ? msgForm.ShowDialog (form) : msgForm.ShowDialog ();
         }
