@@ -113,10 +113,31 @@ namespace Majorsilence.Forms.Backends
         private static IClipboard? Clipboard
             => (Application.OpenForms.FirstOrDefault ()?.Backend as MajorsilenceFormsWindowHost)?.Clipboard;
 
+        // Clipboard access must happen on the UI thread. These are called synchronously (WinForms'
+        // Clipboard API is synchronous), so the CALLER is frequently already on the UI thread --
+        // e.g. a TextBox handling Ctrl+C. In that case we must NOT marshal via
+        // Dispatcher.UIThread.InvokeAsync(...).GetResult(): InvokeAsync queues the work and
+        // GetResult() blocks the UI thread waiting for it, so the queued work can never run -- a
+        // hard deadlock (found: Ctrl+C froze the whole app). Only marshal when called off the UI
+        // thread; when already on it, touch the clipboard directly.
+
         /// <inheritdoc/>
         public string GetClipboardText ()
         {
             try {
+                if (Dispatcher.UIThread.CheckAccess ()) {
+                    var cb = Clipboard;
+                    if (cb is null)
+                        return string.Empty;
+                    var task = cb.TryGetTextAsync ();
+                    // The OS clipboard read is synchronous under Avalonia's async surface, so the task
+                    // is normally already complete. Pump a bounded number of dispatcher passes for the
+                    // rare case it isn't, then give up with empty rather than hanging.
+                    for (var i = 0; i < 100 && !task.IsCompleted; i++)
+                        Dispatcher.UIThread.RunJobs (DispatcherPriority.Input);
+                    return task.Status == TaskStatus.RanToCompletion ? (task.Result ?? string.Empty) : string.Empty;
+                }
+
                 return Dispatcher.UIThread.InvokeAsync (async () => {
                     var cb = Clipboard;
                     return cb is null ? string.Empty : await cb.TryGetTextAsync ().ConfigureAwait (false) ?? string.Empty;
@@ -130,6 +151,13 @@ namespace Majorsilence.Forms.Backends
         public void SetClipboardText (string text)
         {
             try {
+                if (Dispatcher.UIThread.CheckAccess ()) {
+                    // Already on the UI thread: start the set without blocking (blocking would deadlock).
+                    // Setting the clipboard is a fire-and-forget side effect; it completes promptly.
+                    _ = Clipboard?.SetTextAsync (text);
+                    return;
+                }
+
                 Dispatcher.UIThread.InvokeAsync (async () => {
                     var cb = Clipboard;
                     if (cb is not null)
@@ -142,6 +170,11 @@ namespace Majorsilence.Forms.Backends
         public void ClearClipboard ()
         {
             try {
+                if (Dispatcher.UIThread.CheckAccess ()) {
+                    _ = Clipboard?.ClearAsync ();
+                    return;
+                }
+
                 Dispatcher.UIThread.InvokeAsync (async () => {
                     var cb = Clipboard;
                     if (cb is not null)

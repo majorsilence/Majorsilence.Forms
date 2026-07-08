@@ -66,7 +66,10 @@ namespace Majorsilence.Forms
                 return;
 
             var text = document.SelectedText;
-            AsyncHelper.RunSync (() => Majorsilence.Forms.Clipboard.SetTextAsync (text));
+            // Synchronous, on the current (UI) thread. Do NOT offload to a pool thread and block --
+            // the clipboard backend marshals to the UI thread, so blocking it here deadlocks
+            // (found: Ctrl+C froze the app). Clipboard.SetText is UI-thread-safe (see the backend).
+            Majorsilence.Forms.Clipboard.SetText (text);
         }
 
         // The scaled height of the current font.
@@ -95,7 +98,7 @@ namespace Majorsilence.Forms
                 return;
 
             var text = document.SelectedText;
-            AsyncHelper.RunSync (() => Majorsilence.Forms.Clipboard.SetTextAsync (text));
+            Majorsilence.Forms.Clipboard.SetText (text);   // sync + UI-thread-safe; see Copy()
 
             document.DeleteSelection ();
         }
@@ -396,7 +399,7 @@ namespace Majorsilence.Forms
             if (document.ReadOnly)
                 return;
 
-            var text = AsyncHelper.RunSync (() => Majorsilence.Forms.Clipboard.GetTextAsync ());
+            var text = Majorsilence.Forms.Clipboard.GetText ();   // sync + UI-thread-safe; see Copy()
 
             if (!string.IsNullOrEmpty (text) && document.InsertText (text))
                 ScrollToCaret ();
