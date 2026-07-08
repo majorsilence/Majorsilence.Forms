@@ -23,6 +23,19 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether the auto-hide tool tabs are visible. Stored for Telerik compat.</summary>
         public bool ToolTabsVisible { get; set; } = true;
 
+        /// <summary>Gets or sets the alignment of the auto-hide tool tab strips. Stored for Telerik compat.</summary>
+        public TabStripAlignment ToolTabsAlignment { get; set; } = TabStripAlignment.Bottom;
+
+        /// <summary>Floats the specified dock window. Compat: records the Floating state (no separate window is shown).</summary>
+        public void FloatWindow (DockWindowBase window)
+        {
+            if (window is not null)
+                window.DockState = DockState.Floating;
+        }
+
+        /// <summary>Removes the specified dock window from this dock (compat alias for CloseWindow).</summary>
+        public void RemoveWindow (DockWindowBase window) => CloseWindow (window);
+
         /// <summary>Raised when a new tab strip is needed. Stub (never raised yet).</summary>
 #pragma warning disable CS0067
         public event EventHandler<DockTabStripNeededEventArgs>? DockTabStripNeeded;
@@ -183,6 +196,18 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>
+    /// Telerik-compat concrete dock window (Telerik.WinControls.UI.Docking.DockWindow) — used where code
+    /// declares a plain DockWindow rather than a Tool/Document window. Backed by <see cref="Panel"/>.
+    /// </summary>
+    public class DockWindow : DockWindowBase, ISupportInitializeCompat
+    {
+        /// <summary>Initializes a new instance.</summary>
+        public DockWindow () { }
+        /// <summary>Initializes a new instance with the specified caption.</summary>
+        public DockWindow (string caption) { Text = caption; }
+    }
+
+    /// <summary>
     /// Telerik-compat auto-hide group: a set of dock windows sharing the same auto-hide tab strip.
     /// </summary>
     public class AutoHideGroup
@@ -224,6 +249,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets whether the tab strip itself is visible. Stored for Telerik compat.</summary>
         public bool TabStripVisible { get; set; } = true;
+
+        /// <summary>Gets or sets the alignment of this tab strip. Stored for Telerik compat.</summary>
+        public TabStripAlignment TabStripAlignment { get; set; } = TabStripAlignment.Top;
 
         /// <summary>Gets or sets the dock window whose tab is active. Stub.</summary>
         public DockWindowBase? ActiveWindow { get; set; }

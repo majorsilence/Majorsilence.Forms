@@ -162,6 +162,9 @@ namespace Majorsilence.Forms.Telerik
         public SizeF AbsoluteSize { get; set; }
         /// <summary>Gets or sets the splitter correction.</summary>
         public SizeF SplitterCorrection { get; set; }
+
+        /// <summary>Gets or sets the auto-size scale (proportional split size). Stored for Telerik compat.</summary>
+        public SizeF AutoSizeScale { get; set; } = new SizeF (1f, 1f);
     }
 
     /// <summary>Specifies how a split panel is sized. Compat for Telerik SplitPanelSizeMode.</summary>
