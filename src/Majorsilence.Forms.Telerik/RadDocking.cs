@@ -6,7 +6,7 @@ namespace Majorsilence.Forms.Telerik
     /// Telerik-compat docking manager. Backed by <see cref="Majorsilence.Forms.Panel"/>. Docking is not
     /// implemented; windows are tracked and hosted as child panels so layout/code compiles and runs.
     /// </summary>
-    public class RadDock : Panel
+    public partial class RadDock : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the split orientation. Stored for Telerik compat.</summary>
         public Orientation Orientation { get; set; } = Orientation.Horizontal;
@@ -22,6 +22,19 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets whether the auto-hide tool tabs are visible. Stored for Telerik compat.</summary>
         public bool ToolTabsVisible { get; set; } = true;
+
+        /// <summary>Gets or sets the alignment of the auto-hide tool tab strips. Stored for Telerik compat.</summary>
+        public TabStripAlignment ToolTabsAlignment { get; set; } = TabStripAlignment.Bottom;
+
+        /// <summary>Floats the specified dock window. Compat: records the Floating state (no separate window is shown).</summary>
+        public void FloatWindow (DockWindowBase window)
+        {
+            if (window is not null)
+                window.DockState = DockState.Floating;
+        }
+
+        /// <summary>Removes the specified dock window from this dock (compat alias for CloseWindow).</summary>
+        public void RemoveWindow (DockWindowBase window) => CloseWindow (window);
 
         /// <summary>Raised when a new tab strip is needed. Stub (never raised yet).</summary>
 #pragma warning disable CS0067
@@ -50,10 +63,20 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether the main document container is visible.</summary>
         public bool MainDocumentContainerVisible { get; set; } = true;
 
-        /// <summary>Returns a docking service. Stub returns null.</summary>
-        public new object? GetService (Type serviceType) => null;
-        /// <summary>Returns a docking service. Stub returns default.</summary>
-        public T? GetService<T> () where T : class => null;
+        // Telerik docking services the compat dock can hand back. Cached per dock so repeated
+        // GetService(Of ContextMenuService)() calls (and the AddHandler on the returned service that
+        // real docking code does) see the same instance rather than a NullReference.
+        private ContextMenuService? _contextMenuService;
+
+        /// <summary>Returns a docking service, or null if unsupported.</summary>
+        public new object? GetService (Type serviceType)
+            => serviceType == typeof (ContextMenuService) ? (_contextMenuService ??= new ContextMenuService ()) : null;
+
+        /// <summary>
+        /// Returns a docking service. <see cref="ContextMenuService"/> is supported (its event is never
+        /// raised by the compat dock, but code subscribes to it); other service types return null.
+        /// </summary>
+        public T? GetService<T> () where T : class => GetService (typeof (T)) as T;
 
         /// <summary>Docks the specified window. Hosts it as a child panel.</summary>
         public void DockWindow (DockWindowBase window, DockPosition position = DockPosition.Fill)
@@ -153,7 +176,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat tool window.</summary>
-    public class ToolWindow : DockWindowBase
+    public class ToolWindow : DockWindowBase, ISupportInitializeCompat
     {
         /// <summary>Document-mode buttons setting. Stored for Telerik compat.</summary>
         public object? DocumentButtons { get; set; }
@@ -174,12 +197,24 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat document window.</summary>
-    public class DocumentWindow : DockWindowBase
+    public class DocumentWindow : DockWindowBase, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance.</summary>
         public DocumentWindow () { }
         /// <summary>Initializes a new instance with the specified caption.</summary>
         public DocumentWindow (string caption) { Text = caption; }
+    }
+
+    /// <summary>
+    /// Telerik-compat concrete dock window (Telerik.WinControls.UI.Docking.DockWindow) — used where code
+    /// declares a plain DockWindow rather than a Tool/Document window. Backed by <see cref="Panel"/>.
+    /// </summary>
+    public class DockWindow : DockWindowBase, ISupportInitializeCompat
+    {
+        /// <summary>Initializes a new instance.</summary>
+        public DockWindow () { }
+        /// <summary>Initializes a new instance with the specified caption.</summary>
+        public DockWindow (string caption) { Text = caption; }
     }
 
     /// <summary>
@@ -214,7 +249,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat tool tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class ToolTabStrip : Panel
+    public partial class ToolTabStrip : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
         public int SelectedIndex { get; set; }
@@ -224,6 +259,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets whether the tab strip itself is visible. Stored for Telerik compat.</summary>
         public bool TabStripVisible { get; set; } = true;
+
+        /// <summary>Gets or sets the alignment of this tab strip. Stored for Telerik compat.</summary>
+        public TabStripAlignment TabStripAlignment { get; set; } = TabStripAlignment.Top;
 
         /// <summary>Gets or sets the dock window whose tab is active. Stub.</summary>
         public DockWindowBase? ActiveWindow { get; set; }
@@ -239,7 +277,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat document tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class DocumentTabStrip : Panel
+    public partial class DocumentTabStrip : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the selected tab index. Stored for Telerik compat.</summary>
         public int SelectedIndex { get; set; }
@@ -275,7 +313,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat document container. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class DocumentContainer : Panel
+    public partial class DocumentContainer : Panel, ISupportInitializeCompat
     {
         /// <summary>Whether the container is collapsed. Stored for Telerik compat.</summary>
         public bool Collapsed { get; set; }

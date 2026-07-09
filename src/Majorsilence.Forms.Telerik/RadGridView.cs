@@ -20,7 +20,7 @@ namespace Majorsilence.Forms.Telerik
     /// into the group panel, expand/collapse groups), <b>drag-to-reorder</b> columns, and
     /// <see cref="SaveLayout(string)"/>/<see cref="LoadLayout(string)"/> persistence to Telerik-shaped XML.
     /// </summary>
-    public class RadGridView : DataGridView
+    public partial class RadGridView : DataGridView
     {
         /// <summary>Top-level rows of the current view. Mirrors Telerik (no hierarchy here, so all rows).</summary>
         public GridViewRowInfoCollection ChildRows => Rows;
@@ -2476,8 +2476,15 @@ namespace Majorsilence.Forms.Telerik
     /// requires this base to also support a detached instance — see the protected constructor and
     /// <see cref="Attach"/>.
     /// </summary>
-    public class GridViewTemplate
+    public partial class GridViewTemplate : ISupportInitializeCompat
     {
+        // Designer code brackets a grid's MasterTemplate with
+        // ((ISupportInitialize)dgv.MasterTemplate).BeginInit()/EndInit() (real Telerik's
+        // GridViewTemplate implements ISupportInitialize) -- ISupportInitializeCompat supplies the
+        // no-op members so that unconditional cast succeeds instead of throwing InvalidCastException
+        // (found opening frmMaintainCustomer, whose grids' MasterTemplate is init-bracketed).
+        // MasterGridViewTemplate inherits this.
+
         // Not readonly: detached instances (see the protected ctor) attach to a grid later via Attach().
         private RadGridView? _grid;
 
@@ -2563,7 +2570,7 @@ namespace Majorsilence.Forms.Telerik
     /// it is attached to a <see cref="RadGridView"/> — hence the public parameterless constructor
     /// alongside the internal attached one used by <see cref="RadGridView"/> itself.
     /// </summary>
-    public class MasterGridViewTemplate : GridViewTemplate
+    public partial class MasterGridViewTemplate : GridViewTemplate
     {
         /// <summary>Synchronization service (stub).</summary>
         public object? SynchronizationService => null;
@@ -2758,6 +2765,8 @@ namespace Majorsilence.Forms.Telerik
         public GridViewTextBoxColumn (string fieldName) { FieldName = fieldName; Name = fieldName; }
         /// <summary>Gets or sets the maximum input length. Stub.</summary>
         public int MaxInputLength { get; set; }
+        /// <summary>Gets or sets the maximum text length (Telerik compat alias of MaxInputLength). Stub.</summary>
+        public int MaxLength { get => MaxInputLength; set => MaxInputLength = value; }
     }
 
     /// <summary>Telerik-compat combo-box column.</summary>
@@ -3011,6 +3020,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Whether this row is the grid's current row. Mirrors Telerik.</summary>
         public bool IsCurrent { get; set; }
 
+        /// <summary>Telerik compat: whether the row is pinned to the top/bottom. Stored (compat grid does not pin).</summary>
+        public bool IsPinned { get; set; }
+
         private readonly DataGridViewRow _row;
 
         internal GridViewRowInfo (DataGridViewRow row) => _row = row;
@@ -3173,6 +3185,10 @@ namespace Majorsilence.Forms.Telerik
             get => _cell.Selected;
             set => _cell.Selected = value;
         }
+        /// <summary>Telerik compat: whether this is the grid's current cell.</summary>
+        public bool IsCurrent { get; set; }
+        /// <summary>Telerik compat: ends edit mode on the cell. Stub (compat cells are not in edit mode).</summary>
+        public bool EndEdit () => true;
     }
 
     /// <summary>Provides data for the grid's current-cell change. Mirrors Telerik's shape.</summary>

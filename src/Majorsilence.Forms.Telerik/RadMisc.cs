@@ -3,7 +3,7 @@ using System.Drawing;
 namespace Majorsilence.Forms.Telerik
 {
     /// <summary>Telerik-compat status strip. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
-    public class RadStatusStrip : Control
+    public class RadStatusStrip : Control, ISupportInitializeCompat
     {
         /// <summary>Gets the items hosted in the status strip.</summary>
         public List<object> Items { get; } = new ();
@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat command bar. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
-    public class RadCommandBar : Control
+    public class RadCommandBar : Control, ISupportInitializeCompat
     {
         /// <summary>Gets the command-bar rows.</summary>
         public List<CommandBarRowElement> Rows { get; } = new ();
@@ -39,7 +39,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat menu. Backed by <see cref="Majorsilence.Forms.Menu"/>.</summary>
-    public class RadMenu : Menu { }
+    public class RadMenu : Menu, ISupportInitializeCompat { }
 
     /// <summary>Telerik-compat menu item. Backed by <see cref="Majorsilence.Forms.MenuItem"/>.</summary>
     public class RadMenuItem : MenuItem
@@ -231,7 +231,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat property grid. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
-    public class RadPropertyGrid : PropertyGrid
+    public class RadPropertyGrid : PropertyGrid, ISupportInitializeCompat
     {
         // SelectedObject, PropertySort, ToolbarVisible, SelectedGridItem and the rendering of the
         // inspected object's properties are inherited from Majorsilence.Forms.PropertyGrid.
@@ -278,7 +278,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat layout control. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class RadLayoutControl : Panel
+    public class RadLayoutControl : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets the layout items.</summary>
         public List<LayoutControlItem> Items { get; } = new ();
@@ -287,10 +287,10 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat layout item. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class LayoutControlItem : Panel { }
+    public class LayoutControlItem : Panel, ISupportInitializeCompat { }
 
     /// <summary>Telerik-compat layout group. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class LayoutControlGroup : Panel { }
+    public class LayoutControlGroup : Panel, ISupportInitializeCompat { }
 }
 
 namespace Majorsilence.Forms.Telerik.Themes

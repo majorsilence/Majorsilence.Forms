@@ -158,6 +158,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Refreshes the table element for the given notify action. No-op — the compat grid repaints as a whole.</summary>
         public void Update (GridUINotifyAction action) { }
 
+        /// <summary>Telerik compat: rebuilds/refreshes the view. No-op — the compat grid repaints as a whole.</summary>
+        public void UpdateView () { }
+
         /// <summary>Scrolls the grid so the given row is visible. Stub — the compat grid manages its own scrolling.</summary>
         public void ScrollToRow (GridViewRowInfo row) { }
 
@@ -306,6 +309,8 @@ namespace Majorsilence.Forms.Telerik
         public bool Cancel { get; set; }
         /// <summary>Gets or sets the affected row.</summary>
         public GridViewRowInfo? Row { get; set; }
+        /// <summary>Gets or sets the affected column.</summary>
+        public GridViewColumn? Column { get; set; }
     }
 
     /// <summary>Provides data for the Telerik grid CreateCell event.</summary>

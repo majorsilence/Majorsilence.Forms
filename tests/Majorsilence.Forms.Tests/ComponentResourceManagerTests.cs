@@ -147,6 +147,63 @@ public class ComponentResourceManagerTests
         public Majorsilence.Forms.DockStyle Dock { get; set; } = Majorsilence.Forms.DockStyle.None;
     }
 
+    // On Windows, System.Drawing.Common is live, so DeserializingResourceReader materializes REAL
+    // System.Drawing.Icon/Bitmap/Font objects from a compiled .resources -- but migrated designer
+    // code casts GetObject results to Majorsilence.Forms.Drawing types (found via a real login form's
+    // `Me.Icon = CType(resources.GetObject("$this.Icon"), Icon)` throwing InvalidCastException).
+    // NormalizeDeserialized must convert them. These construct System.Drawing objects directly,
+    // hence the IsWindows guards: off-Windows those ctors throw, and the reader path never produces
+    // live System.Drawing objects there anyway (the per-entry catch skips them).
+    [Fact]
+    public void NormalizeDeserialized_converts_System_Drawing_Icon ()
+    {
+        if (!System.OperatingSystem.IsWindowsVersionAtLeast(6, 1)) return;
+
+        using var bmp = new System.Drawing.Bitmap(4, 4);
+        using var icon = System.Drawing.Icon.FromHandle(bmp.GetHicon());
+
+        var normalized = ComponentResourceManager.NormalizeDeserialized(icon);
+
+        Assert.IsType<Majorsilence.Forms.Drawing.Icon>(normalized);
+    }
+
+    [Fact]
+    public void NormalizeDeserialized_converts_System_Drawing_Bitmap ()
+    {
+        if (!System.OperatingSystem.IsWindowsVersionAtLeast(6, 1)) return;
+
+        using var bmp = new System.Drawing.Bitmap(3, 5);
+
+        var normalized = ComponentResourceManager.NormalizeDeserialized(bmp);
+
+        var image = Assert.IsAssignableFrom<Majorsilence.Forms.Drawing.Image>(normalized);
+        Assert.Equal(3, image.Width);
+        Assert.Equal(5, image.Height);
+    }
+
+    [Fact]
+    public void NormalizeDeserialized_converts_System_Drawing_Font ()
+    {
+        if (!System.OperatingSystem.IsWindowsVersionAtLeast(6, 1)) return;
+
+        using var font = new System.Drawing.Font("Arial", 11.5f, System.Drawing.FontStyle.Bold);
+
+        var normalized = ComponentResourceManager.NormalizeDeserialized(font);
+
+        var converted = Assert.IsType<Majorsilence.Forms.Drawing.Font>(normalized);
+        Assert.Equal("Arial", converted.Name);
+        Assert.Equal(11.5f, converted.Size);
+        Assert.Equal(Majorsilence.Forms.Drawing.FontStyle.Bold, converted.Style);
+    }
+
+    [Fact]
+    public void NormalizeDeserialized_passes_other_values_through ()
+    {
+        Assert.Equal("hello", ComponentResourceManager.NormalizeDeserialized("hello"));
+        Assert.Equal(new Size(7, 9), ComponentResourceManager.NormalizeDeserialized(new Size(7, 9)));
+        Assert.Null(ComponentResourceManager.NormalizeDeserialized(null));
+    }
+
     private static string Resx(string body) => $"""
         <?xml version="1.0" encoding="utf-8"?>
         <root>

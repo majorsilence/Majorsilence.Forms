@@ -23,12 +23,35 @@ namespace Majorsilence.Forms
         /// </summary>
         internal static PopupWindow? ActivePopupWindow { get; set; }
 
+        // Generation counter for the "delayed close cancelled by re-activation" dismissal below.
+        // Bumped whenever any of our own windows activates; a scheduled close only fires if no
+        // activation happened between scheduling and running.
+        private static int _activationGeneration;
+
         /// <summary>
-        /// Set while a popup is being shown, to suppress the popup-dismiss that would otherwise be
-        /// triggered when showing the popup deactivates its parent window (which would immediately
-        /// close the popup we are opening). See <see cref="WindowBase.OnBackendDeactivated"/>.
+        /// A window deactivated. Menus/popups must close when focus leaves our app, but NOT when the
+        /// deactivation is merely the side effect of one of our own popups (or a nested submenu)
+        /// stealing focus as it opens. We cannot know synchronously which window is gaining focus, so
+        /// post the close and cancel it if any of our own windows activates first: opening a popup
+        /// always produces a matching activation (the popup itself), which cancels the close;
+        /// switching to another application produces no such activation, so the close proceeds.
+        /// Replaces an earlier timing flag that reset on a fixed dispatcher tick and raced against
+        /// late-delivered deactivation events (menus opening then instantly closing).
         /// </summary>
-        internal static bool SuppressPopupDismiss { get; set; }
+        internal static void ScheduleClosePopupsOnDeactivate ()
+        {
+            if (ActiveMenu == null && ActivePopupWindow == null)
+                return;
+
+            var generation = _activationGeneration;
+            Backends.Platform.Backend.Post (() => {
+                if (_activationGeneration == generation)
+                    ClosePopups ();
+            });
+        }
+
+        /// <summary>One of our windows activated — cancels any pending deactivate-driven popup close.</summary>
+        internal static void NotifyWindowActivated () => _activationGeneration++;
 
         /// <summary>
         /// Hides any open popups.

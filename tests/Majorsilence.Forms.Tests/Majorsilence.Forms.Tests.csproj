@@ -3,7 +3,9 @@
   <PropertyGroup>
     <TargetFramework>$(_TargetFramework)</TargetFramework>
     <IsPackable>false</IsPackable>
-    <NoWarn>$(NoWarn);xUnit2013</NoWarn>
+    <!-- CA1304: these tests intentionally exercise the culture-agnostic GetObject/GetString(string)
+         designer path (the compat manager reads binary resources the same way regardless of locale). -->
+    <NoWarn>$(NoWarn);xUnit2013;CA1304</NoWarn>
     <!-- Matches every migrated .Forms project: compiles CompiledResourceFixture.resx the same way
          a real ported WinForms designer .resx is compiled, so ComponentResourceManagerTests can
          exercise ComponentResourceManager against the actual binary format it has to read. -->
@@ -18,6 +20,9 @@
     </PackageReference>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="System.Resources.Extensions" />
+    <!-- Windows-guarded tests construct real System.Drawing objects to exercise
+         ComponentResourceManager.NormalizeDeserialized (the Windows-only live-object path). -->
+    <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
 
   <ItemGroup>

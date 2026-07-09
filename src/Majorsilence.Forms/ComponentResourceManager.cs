@@ -24,7 +24,7 @@ namespace Majorsilence.Forms
     /// images, so a migrated form initialises its controls on Windows, macOS and Linux alike.
     ///
     /// Resources stored as <c>BinaryFormatter</c>/SOAP blobs (<c>binary.base64</c> / <c>soap.base64</c>)
-    /// cannot be read on modern .NET; <see cref="GetObject"/> returns <see langword="null"/> for those
+    /// cannot be read on modern .NET; <see cref="GetObject(string)"/> returns <see langword="null"/> for those
     /// (the migrator flags them for manual re-export).
     /// </summary>
     public class ComponentResourceManager
@@ -52,7 +52,7 @@ namespace Majorsilence.Forms
         /// Locates the resources associated with <paramref name="resourceSource"/> — first the
         /// standard SDK-compiled <c>&lt;Namespace&gt;.&lt;Name&gt;.resources</c> binary embedded by
         /// any normal <c>&lt;EmbeddedResource Include="Foo.resx"&gt;</c> project item (see
-        /// <see cref="LoadCompiledResources"/>), then falls back to a raw <c>&lt;FullName&gt;.resx</c>
+        /// <see cref="LoadCompiledResources(System.Type)"/>), then falls back to a raw <c>&lt;FullName&gt;.resx</c>
         /// XML resource or a loose <c>.resx</c> file beside the assembly. If neither is found the
         /// manager is simply empty, so designer code still runs (controls keep their coded defaults).
         /// </summary>
@@ -65,6 +65,23 @@ namespace Majorsilence.Forms
             var xml = LocateResx (resourceSource);
             if (xml is not null)
                 Load (xml);
+        }
+
+        /// <summary>
+        /// Creates a resource manager for the compiled <c>&lt;baseName&gt;.resources</c> embedded in
+        /// <paramref name="assembly"/> — the shape VB's <c>My.Resources</c> designer code constructs
+        /// (<c>New ResourceManager("&lt;RootNamespace&gt;.Resources", GetType(...).Assembly)</c>). Retargeted
+        /// projects alias <c>System.Resources.ResourceManager</c> to this on the Majorsilence.Forms flavor so
+        /// <c>My.Resources.SomeImage</c> comes back as a <see cref="Majorsilence.Forms.Drawing"/> type
+        /// (normalized in <see cref="LoadCompiledResources(System.Reflection.Assembly, string, string?)"/>) instead of a live
+        /// System.Drawing.Bitmap that the generated <c>CType(obj, Bitmap)</c> then fails to cast.
+        /// </summary>
+        public ComponentResourceManager (string baseName, Assembly assembly)
+        {
+            ArgumentNullException.ThrowIfNull (baseName);
+            ArgumentNullException.ThrowIfNull (assembly);
+
+            LoadCompiledResources (assembly, baseName);
         }
 
         /// <summary>Builds a resource manager from a <c>.resx</c> file on disk.</summary>
@@ -111,6 +128,20 @@ namespace Majorsilence.Forms
                 return bv;
             return _entries.TryGetValue (name, out var e) ? Materialize (e) : null;
         }
+
+        /// <summary>
+        /// Culture-aware overload matching <c>System.Resources.ResourceManager.GetObject(name, culture)</c>
+        /// (the signature VB's My.Resources designer code calls). The compat manager is culture-agnostic
+        /// (invariant/neutral resources only), so <paramref name="culture"/> is ignored.
+        /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage ("Globalization", "CA1304:Specify CultureInfo",
+            Justification = "This compat manager is culture-agnostic (invariant/neutral resources only); the culture-aware overload intentionally ignores culture and forwards to the single-arg accessor.")]
+        public object? GetObject (string name, System.Globalization.CultureInfo? culture) => GetObject (name);
+
+        /// <summary>Culture-aware overload matching <c>ResourceManager.GetString(name, culture)</c>. Culture is ignored.</summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage ("Globalization", "CA1304:Specify CultureInfo",
+            Justification = "This compat manager is culture-agnostic (invariant/neutral resources only); the culture-aware overload intentionally ignores culture and forwards to the single-arg accessor.")]
+        public string? GetString (string name, System.Globalization.CultureInfo? culture) => GetString (name);
 
         /// <summary>
         /// Applies every resx entry named <c>"<paramref name="objectName"/>.&lt;Property&gt;"</c> to the
@@ -173,12 +204,16 @@ namespace Majorsilence.Forms
         // expected to fail this way; everything else -- the Size/Location/Text/Dock/etc. that
         // actually drive layout -- reads fine.
         private void LoadCompiledResources (Type resourceSource)
+            => LoadCompiledResources (resourceSource.Assembly, resourceSource.FullName!, resourceSource.Name);
+
+        // baseName is the resx's namespace-qualified name ("<RootNamespace>.<Name>", e.g.
+        // "libUtilities.Resources") -- the compiled manifest resource is "<baseName>.resources".
+        private void LoadCompiledResources (Assembly assembly, string baseName, string? shortName = null)
         {
-            var assembly = resourceSource.Assembly;
             var resourceName = assembly.GetManifestResourceNames ()
-                .FirstOrDefault (n => n.EndsWith ("." + resourceSource.FullName + ".resources", StringComparison.Ordinal)
-                                   || n.EndsWith (resourceSource.FullName + ".resources", StringComparison.Ordinal)
-                                   || n.EndsWith ("." + resourceSource.Name + ".resources", StringComparison.Ordinal));
+                .FirstOrDefault (n => n.EndsWith ("." + baseName + ".resources", StringComparison.Ordinal)
+                                   || n.EndsWith (baseName + ".resources", StringComparison.Ordinal)
+                                   || (shortName is not null && n.EndsWith ("." + shortName + ".resources", StringComparison.Ordinal)));
             if (resourceName is null)
                 return;
 
@@ -204,7 +239,7 @@ namespace Majorsilence.Forms
                     try
                     {
                         var name = (string) enumerator.Key;
-                        _binaryEntries[name] = enumerator.Value;
+                        _binaryEntries[name] = NormalizeDeserialized (enumerator.Value);
                     }
                     catch { /* this entry's type couldn't be resolved/deserialized -- skip it, keep going. */ }
                 }
@@ -268,6 +303,69 @@ namespace Majorsilence.Forms
 
             AssemblyLoadContext.Default.Resolving += (_, name) =>
                 name.Name == "System.Windows.Forms" ? shimAssembly : null;
+        }
+
+        // On Windows, System.Drawing.Common is functional, so DeserializingResourceReader hands back
+        // LIVE System.Drawing.Icon/Bitmap/Font objects for graphics entries -- but designer code (and
+        // every migrated property) is typed against Majorsilence.Forms.Drawing, so an unconditional
+        // `(Icon) resources.GetObject ("$this.Icon")` cast throws InvalidCastException (found via a
+        // real migrated login form's window icon). Convert them here, via reflection: this assembly
+        // deliberately does not reference System.Drawing.Common, and off-Windows those entries fail
+        // deserialization long before reaching this point (see the per-entry catch above).
+        [UnconditionalSuppressMessage ("Trimming", "IL2075",
+            Justification = "Reflection targets are System.Drawing.Common members (Icon.Save/Bitmap.Save/Font.Name...), reached only when that assembly materialized the value at runtime -- if a trimmer removed them, deserialization above could not have produced the object in the first place; every miss degrades to null (coded default).")]
+        [UnconditionalSuppressMessage ("Trimming", "IL2026",
+            Justification = "Assembly.GetType(\"System.Drawing.Imaging.ImageFormat\") resolves against the assembly that just produced a live System.Drawing.Bitmap; same reasoning as IL2075 above -- absence degrades to null.")]
+        internal static object? NormalizeDeserialized (object? value)
+        {
+            if (value is null)
+                return null;
+
+            var type = value.GetType ();
+            try
+            {
+                switch (type.FullName)
+                {
+                    case "System.Drawing.Icon":
+                    {
+                        // Icon.Save(Stream) writes the original .ico bytes back out.
+                        using var ms = new MemoryStream ();
+                        type.GetMethod ("Save", new[] { typeof (Stream) })?.Invoke (value, new object[] { ms });
+                        if (ms.Length == 0)
+                            return null;
+                        ms.Position = 0;
+                        return new Majorsilence.Forms.Drawing.Icon (ms);
+                    }
+                    case "System.Drawing.Bitmap":
+                    {
+                        // Bitmap.Save(Stream, ImageFormat) with PNG preserves alpha.
+                        var imageFormatType = type.Assembly.GetType ("System.Drawing.Imaging.ImageFormat");
+                        var png = imageFormatType?.GetProperty ("Png")?.GetValue (null);
+                        var save = imageFormatType is null ? null : type.GetMethod ("Save", new[] { typeof (Stream), imageFormatType });
+                        if (png is null || save is null)
+                            return null;
+                        using var ms = new MemoryStream ();
+                        save.Invoke (value, new[] { (object) ms, png });
+                        return Majorsilence.Forms.Drawing.Image.FromBytes (ms.ToArray ());
+                    }
+                    case "System.Drawing.Font":
+                    {
+                        var family = (string) type.GetProperty ("Name")!.GetValue (value)!;
+                        var size = (float) type.GetProperty ("Size")!.GetValue (value)!;
+                        // FontStyle flag values match System.Drawing's by design; bridge by integer.
+                        var style = System.Convert.ToInt32 (type.GetProperty ("Style")!.GetValue (value)!, CultureInfo.InvariantCulture);
+                        return new Majorsilence.Forms.Drawing.Font (family, size, (Majorsilence.Forms.Drawing.FontStyle) style);
+                    }
+                }
+            }
+            catch
+            {
+                // An unusable graphics payload: treat as absent so the coded default wins -- returning
+                // the raw System.Drawing object would just recreate the InvalidCastException downstream.
+                return null;
+            }
+
+            return value;
         }
 
         // ── resx parsing ──────────────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Telerik
     /// gated by <see cref="WebViewSupport.AllowSystemViewerFallback"/>, and a one-line placeholder is
     /// painted in the control's place.
     /// </summary>
-    public class RadPdfViewer : Control
+    public class RadPdfViewer : Control, ISupportInitializeCompat
     {
         // Dedicated temp folder so a startup sweep can clean up files older than a couple of days without
         // touching unrelated %TEMP% contents (WebView2 can hold a loaded PDF file open, so best-effort
@@ -176,7 +176,7 @@ namespace Majorsilence.Forms.Telerik
     /// control's <see cref="Control.Height"/> (the common WinForms pattern — dock the navigator on top,
     /// then position/size the viewer below it) continues to produce sane bounds.
     /// </summary>
-    public class RadPdfViewerNavigator : Control
+    public class RadPdfViewerNavigator : Control, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance of the <see cref="RadPdfViewerNavigator"/> class.</summary>
         public RadPdfViewerNavigator ()

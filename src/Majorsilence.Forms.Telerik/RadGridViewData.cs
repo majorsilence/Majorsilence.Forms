@@ -207,6 +207,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the order groups are arranged in.</summary>
         public ListSortDirection Direction { get; set; } = ListSortDirection.Ascending;
 
+        /// <summary>Telerik compat: the grouping expression. Stored (compat grouping uses PropertyName/GroupNames).</summary>
+        public string Expression { get; set; } = string.Empty;
+
         /// <summary>
         /// Gets the field names this descriptor groups by. Adding the first name also sets
         /// <see cref="PropertyName"/>/<see cref="Direction"/> so the grid's single-field grouping
@@ -423,6 +426,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the aggregate function.</summary>
         public GridAggregateFunction Aggregate { get; set; } = GridAggregateFunction.Sum;
 
+        /// <summary>Telerik compat: an explicit aggregate expression (e.g. "SUM(Amount)"). Stored (compat uses Aggregate/Name).</summary>
+        public string AggregateExpression { get; set; } = string.Empty;
+
         /// <summary>
         /// Gets or sets the format applied to the aggregate. Supports a composite form ("Total: {0:C0}")
         /// or a bare numeric/standard format ("C0"); empty uses the raw value.
@@ -522,8 +528,10 @@ namespace Majorsilence.Forms.Telerik
                 PropertyName = field;
         }
 
-        /// <summary>Gets the original expression string.</summary>
-        public string Expression { get; }
+        /// <summary>Gets the original expression string. (Intentionally hides the settable
+        /// GroupDescriptor.Expression compat member -- for a parsed group-by expression this value
+        /// is immutable and set from the constructor.)</summary>
+        public new string Expression { get; }
     }
 
     /// <summary>

@@ -20,7 +20,7 @@ namespace Majorsilence.Forms.Telerik
     /// — see <see cref="PathAwareElement"/>'s remarks for how.
     /// </para>
     /// </summary>
-    public class RichTextEditorRibbonBar : Control
+    public class RichTextEditorRibbonBar : Control, ISupportInitializeCompat
     {
         private readonly RadRibbonBarElement _rootElement = new ();
 
@@ -160,7 +160,7 @@ namespace Majorsilence.Forms.Telerik
     /// time, to warm up the JIT — no properties or events of it are exercised, so this is an empty stub
     /// backed by <see cref="Majorsilence.Forms.Control"/>.
     /// </summary>
-    public class RadRibbonBar : Control
+    public class RadRibbonBar : Control, ISupportInitializeCompat
     {
         /// <summary>Gets the ribbon's tabs. Stub list.</summary>
         public List<RibbonTab> Tabs { get; } = new ();

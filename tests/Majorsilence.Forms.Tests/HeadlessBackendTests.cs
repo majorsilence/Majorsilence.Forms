@@ -81,33 +81,90 @@ public class HeadlessBackendTests
     }
 
     [Fact]
-    public void PopupWindow_Show_SuppressesParentDeactivationQueuedAfterShowReturns ()
+    public void SettingFont_ToLargerSize_RendersLargerText ()
+    {
+        // Regression: the WinForms-compat Control.Font setter only stored the value in its backing
+        // field and never touched the render style (Style.Font/FontSize) that CurrentStyle.GetFont/
+        // GetFontSize actually feed the renderer -- so `ctrl.Font = new Font(family, biggerSize, ...)`
+        // (e.g. libUtilities ctlZoomer zooming a grid) had no visible effect. Same text, same bounds,
+        // bigger font must lay down more ink.
+        // Count glyph pixels in the label region. UseSystemDecorations gives a clean client area so
+        // the in-client FormTitleBar doesn't overlap the label (see TextInput_ReachesFocusedTextBox).
+        // The label's own fill is sampled from its bottom-right corner (which the left-aligned text
+        // never reaches); any pixel differing from that fill is glyph ink, so a bigger font -- which
+        // paints more/taller glyphs -- yields more ink.
+        static int InkPixels (float fontSize)
+        {
+            var form = new Form { UseSystemDecorations = true };
+            var label = new Label {
+                Text = "Zoom",
+                AutoSize = false,
+                Left = 4, Top = 4, Width = 300, Height = 80,
+                Font = new Font ("Arial", fontSize, FontStyle.Regular)
+            };
+            form.Controls.Add (label);
+
+            var png = HeadlessRenderer.CapturePng (form, 320, 100);
+            using var bmp = SKBitmap.Decode (png);
+
+            var fill = bmp.GetPixel (label.Left + label.Width - 3, label.Top + label.Height - 3);
+            var ink = 0;
+            for (var y = label.Top; y < label.Top + label.Height; y++)
+                for (var x = label.Left; x < label.Left + label.Width; x++)
+                    if (bmp.GetPixel (x, y) != fill)
+                        ink++;
+            return ink;
+        }
+
+        var small = InkPixels (8f);
+        var large = InkPixels (40f);
+
+        Assert.True (large > small * 2,
+            $"A 40pt font should render substantially more ink than an 8pt font (small={small}, large={large}); " +
+            "the Font setter is not reaching the render style.");
+    }
+
+    [Fact]
+    public void PopupWindow_SurvivesParentDeactivationWhenPopupActivatesAfter ()
     {
         // Regression: found via a real WinForms-migrated app (ReportDesigner.Forms) whose menus
-        // opened and then immediately closed again -- every dropdown menu (a MenuDropDown, backed
-        // by a PopupWindow) goes through PopupWindow.Show(int,int).
+        // opened then immediately closed again -- every dropdown (a MenuDropDown backed by a
+        // PopupWindow) goes through PopupWindow.Show(int,int).
         //
-        // Showing a popup steals activation from its parent, whose own deactivation handler would
-        // otherwise dismiss the very popup just opened -- Show() sets
-        // Application.SuppressPopupDismiss for the duration to prevent exactly that. The bug: on a
-        // real backend (Avalonia), the parent's deactivation event is often not delivered
-        // synchronously inside Show() -- it is queued and only dispatched on a later UI-thread
-        // tick. Resetting the suppress flag synchronously, right after Show() returns, cleared it
-        // before that queued deactivation had a chance to arrive, so it went through unsuppressed
-        // and closed the popup.
-        //
-        // The Headless backend's own Post(...) (what BeginInvoke uses) enqueues rather than running
-        // inline, so calling OnBackendDeactivated() here -- before anything drains that queue --
-        // reproduces exactly this "deactivation arrives after Show() returns" ordering.
+        // Showing a popup steals activation from its parent, whose deactivation would otherwise
+        // dismiss the very popup just opened. The dismiss is now POSTED (not synchronous) and any
+        // subsequent activation of one of our own windows cancels it -- opening a popup always
+        // produces a matching activation (the popup itself). This models that real ordering:
+        // parent deactivates, popup activates, then the queue drains -> popup survives.
         using var parent = new Form ();
         parent.Show ();
 
         var popup = new PopupWindow (parent);
         popup.Show (10, 10);
 
-        parent.OnBackendDeactivated ();
+        parent.OnBackendDeactivated ();   // parent lost focus because the popup opened
+        popup.OnBackendActivated ();      // the popup gained it -- cancels the pending close
+        Backends.Platform.Backend.DoEvents ();   // drain the posted close
 
-        Assert.True (popup.Visible, "the popup was dismissed by its own parent's deactivation, which Show() should have suppressed");
+        Assert.True (popup.Visible, "the popup was dismissed by its parent's deactivation even though the popup then activated");
+    }
+
+    [Fact]
+    public void PopupWindow_DismissesWhenFocusLeavesForGood ()
+    {
+        // The other half: if the popup deactivates and nothing of ours re-activates (user switched
+        // to another app / clicked a different window), the posted close must proceed.
+        using var parent = new Form ();
+        parent.Show ();
+
+        var popup = new PopupWindow (parent);
+        popup.Show (10, 10);
+        popup.OnBackendActivated ();      // popup is up and focused
+
+        popup.OnBackendDeactivated ();    // focus left the popup, nothing of ours took it
+        Backends.Platform.Backend.DoEvents ();   // drain the posted close
+
+        Assert.False (popup.Visible, "the popup should dismiss when focus leaves it for good");
     }
 
     [Fact]
@@ -180,14 +237,16 @@ public class HeadlessBackendTests
 
         Assert.True (menu.Visible);   // popup is shown, not dismissed by its own show
 
-        // A parent deactivation caused by the popup opening (suppressed) must not dismiss it.
-        Application.SuppressPopupDismiss = true;
+        // A parent deactivation caused by the popup opening must not dismiss it: the posted close is
+        // cancelled by the popup's own activation.
         form.OnBackendDeactivated ();
+        menu.FindWindow ()!.OnBackendActivated ();
+        Backends.Platform.Backend.DoEvents ();
         Assert.True (menu.Visible);
 
-        // A genuine deactivation (user clicks away) dismisses it.
-        Application.SuppressPopupDismiss = false;
-        form.OnBackendDeactivated ();
+        // A genuine deactivation (user clicks away, nothing of ours re-activates) dismisses it.
+        menu.FindWindow ()!.OnBackendDeactivated ();
+        Backends.Platform.Backend.DoEvents ();
         Assert.False (menu.Visible);
 
         form.Close ();

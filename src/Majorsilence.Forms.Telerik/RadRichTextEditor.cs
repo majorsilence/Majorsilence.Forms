@@ -112,7 +112,7 @@ namespace Majorsilence.Forms.Telerik
     /// lossless, since <see cref="Document"/> round-trips through the text box's <c>Text</c>.
     /// </para>
     /// </summary>
-    public class RadRichTextEditor : Control
+    public class RadRichTextEditor : Control, ISupportInitializeCompat
     {
         private const string ReadyMessage = "ready";
         private const string ContentMessageType = "content";

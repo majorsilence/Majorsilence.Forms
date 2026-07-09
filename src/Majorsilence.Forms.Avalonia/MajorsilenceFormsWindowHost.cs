@@ -587,19 +587,21 @@ namespace Majorsilence.Forms
         {
             Topmost = true;
 
-            // Never take activation: this is how native menus/combo dropdowns behave everywhere.
-            // If the popup window activates, its parent window Deactivates as a side effect -- and
-            // the parent's deactivation handler dismisses open popups (correct when the user
-            // switches to another app, fatal when it's the popup itself that stole the focus).
-            // PopupWindow.Show's SuppressPopupDismiss flag tried to paper over exactly that, but the
-            // WM delivers the focus-change whenever it likes (often long after Show returns), so no
-            // flag timing can be reliable -- found via menus in a real migrated app
-            // (ReportDesigner.Forms) opening and instantly closing again on a real desktop, while
-            // behaving fine on a WM-less bare X server where no focus transfer ever happened.
-            // Mouse input does not require activation, so clicking dropdown items still works; the
-            // parent keeps focus for keyboard handling, matching WinForms menu behavior.
-            ShowActivated = false;
-            Focusable = false;
+            // The popup MUST activate. A non-activating (ShowActivated=false/Focusable=false) window
+            // on Windows becomes WS_EX_NOACTIVATE, and clicking it yields WM_MOUSEACTIVATE handled as
+            // "eat the click" -- the pointer press/release then fall through to the window beneath, so
+            // dropdown items can never be clicked (found via a real migrated app, TownSuite frmMainAR:
+            // menus opened but selecting an item did nothing; the release landed on the main form, not
+            // the popup). Activation is required to receive pointer input.
+            //
+            // Activating a popup deactivates its parent, whose deactivation would otherwise instantly
+            // dismiss the just-opened popup (an earlier attempt disabled activation to avoid this, but
+            // that broke item clicks as above; a show-time timing flag was also tried and raced against
+            // late focus-change delivery). That is now handled generically: the deactivate-driven close
+            // is POSTED and cancelled by the popup's own activation, which also covers nested submenus
+            // -- see Application.ScheduleClosePopupsOnDeactivate / NotifyWindowActivated.
+            ShowActivated = true;
+            Focusable = true;
 
             // On macOS, a borderless window with ExtendClientAreaToDecorationsHint = true (inherited
             // from the base host) is rendered with a translucent "vibrancy" backdrop. For a menu or

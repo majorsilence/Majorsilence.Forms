@@ -74,7 +74,7 @@ public partial class Control
     /// <summary>
     ///  Raised when a new control is added.
     /// </summary>
-    public event EventHandler<EventArgs<Control>>? ControlAdded {
+    public event EventHandler<ControlEventArgs>? ControlAdded {
         add => Events.AddHandler (s_controlAddedEvent, value);
         remove => Events.RemoveHandler (s_controlAddedEvent, value);
     }
@@ -82,7 +82,7 @@ public partial class Control
     /// <summary>
     ///  Raised when a control is removed.
     /// </summary>
-    public event EventHandler<EventArgs<Control>>? ControlRemoved {
+    public event EventHandler<ControlEventArgs>? ControlRemoved {
         add => Events.AddHandler (s_controlRemovedEvent, value);
         remove => Events.RemoveHandler (s_controlRemovedEvent, value);
     }
@@ -131,7 +131,7 @@ public partial class Control
     /// <summary>
     /// Raised when the Control is invalidated.
     /// </summary>
-    public event EventHandler<EventArgs<Rectangle>>? Invalidated {
+    public event EventHandler<InvalidateEventArgs>? Invalidated {
         add => Events.AddHandler (s_invalidatedEvent, value);
         remove => Events.RemoveHandler (s_invalidatedEvent, value);
     }

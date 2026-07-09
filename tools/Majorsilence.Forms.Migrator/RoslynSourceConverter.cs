@@ -567,6 +567,44 @@ internal sealed class VisualBasicNamespaceRewriter : Microsoft.CodeAnalysis.Visu
         base.VisitMemberAccessExpression(node);
     }
 
+    public override void VisitInvocationExpression(VBSyntax.InvocationExpressionSyntax node)
+    {
+        // VB's MsgBox/InputBox (Microsoft.VisualBasic.Interaction) late-bind into System.Windows.Forms and
+        // throw PlatformNotSupportedException off Windows. Rewrite the call target to the cross-platform
+        // Majorsilence.Forms.VbInteraction stand-in (keeps the MsgBoxStyle/MsgBoxResult signature, so caller
+        // comparison sites are untouched). Matches however the call is written -- bare `MsgBox(...)`,
+        // `Interaction.MsgBox(...)`, or fully qualified -- by resolving the invoked method's symbol.
+        if (node.Expression is not null && TryResolveVbInteraction(node, out var replacement))
+        {
+            _rewrites.Add((node.Expression, replacement!));
+            // Still visit the arguments for other rewrites, but not the (now-replaced) call target.
+            if (node.ArgumentList is not null)
+                Visit(node.ArgumentList);
+            return;
+        }
+
+        base.VisitInvocationExpression(node);
+    }
+
+    private bool TryResolveVbInteraction(VBSyntax.InvocationExpressionSyntax node, out SyntaxNode? replacement)
+    {
+        replacement = null;
+
+        var symbol = _model.GetSymbolInfo(node).Symbol as IMethodSymbol
+                     ?? _model.GetSymbolInfo(node.Expression!).Symbol as IMethodSymbol;
+        if (symbol is null)
+            return false;
+
+        if (symbol.Name is not ("MsgBox" or "InputBox"))
+            return false;
+        if (symbol.ContainingType?.ToDisplayString() != "Microsoft.VisualBasic.Interaction")
+            return false;
+
+        replacement = VBSyntaxFactory.ParseName("Majorsilence.Forms.VbInteraction." + symbol.Name)
+            .WithTriviaFrom(node.Expression!);
+        return true;
+    }
+
     private bool TryResolveNamespace(VBSyntax.ExpressionSyntax node, out string mapped)
     {
         mapped = "";

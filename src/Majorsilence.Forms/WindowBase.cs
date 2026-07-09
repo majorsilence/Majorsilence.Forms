@@ -45,11 +45,29 @@ namespace Majorsilence.Forms
 
         // ── Lifecycle callbacks (the platform backend invokes these; no platform types involved) ──
         /// <summary>Called by the backend after the window is closed.</summary>
-        internal void OnBackendClosed () => Closed?.Invoke (this, EventArgs.Empty);
+        internal void OnBackendClosed ()
+        {
+            Closed?.Invoke (this, EventArgs.Empty);
+
+            // WinForms raises FormClosed after the form has closed, for every close path -- programmatic
+            // Close(), the window's close button, MDI child removal -- not just dialogs. Fire it once here
+            // (FormClosing already fired before the close via OnClosing/OnBackendClosing) so ordinary forms
+            // get FormClosed too, in FormClosing-then-FormClosed order.
+            (this as Form)?.RaiseFormClosed ();
+        }
+
+        // Set while a programmatic Close() is running so the backend's own closing callback doesn't
+        // re-raise Closing/FormClosing: WinForms raises FormClosing exactly once per close.
+        private bool _closingHandled;
 
         /// <summary>Called by the backend when the window is about to close. Returns true to cancel.</summary>
         internal bool OnBackendClosing ()
         {
+            // A programmatic Close() already ran the closing sequence (and would have returned early if it
+            // was cancelled), so don't fire it again when Backend.Close() calls back into here.
+            if (_closingHandled)
+                return false;
+
             if (this is Form f) {
                 var args = new System.ComponentModel.CancelEventArgs ();
                 f.OnClosing (args);
@@ -60,17 +78,21 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Called by the backend when the window is activated.</summary>
-        internal void OnBackendActivated () => Activated?.Invoke (this, EventArgs.Empty);
+        internal void OnBackendActivated ()
+        {
+            // Cancels any pending deactivate-driven popup close: opening a popup deactivates the
+            // parent and then activates the popup, and that activation must not dismiss the popup.
+            Application.NotifyWindowActivated ();
+            Activated?.Invoke (this, EventArgs.Empty);
+        }
 
         /// <summary>Called by the backend when the window is deactivated.</summary>
         internal void OnBackendDeactivated ()
         {
-            // Showing a popup deactivates its parent window; that must NOT dismiss the popup we are
-            // opening. The flag is set only for the duration of PopupWindow.Show.
-            if (Application.SuppressPopupDismiss)
-                return;
-
-            Application.ClosePopups ();
+            // Don't dismiss synchronously: showing a popup deactivates its parent (and a submenu
+            // deactivates its parent popup). Schedule the close and let a following activation of one
+            // of our own windows cancel it (see Application.ScheduleClosePopupsOnDeactivate).
+            Application.ScheduleClosePopupsOnDeactivate ();
             Deactivated?.Invoke (this, EventArgs.Empty);
         }
 
@@ -106,7 +128,14 @@ namespace Majorsilence.Forms
                 Application.OpenForms.Remove (f);
             }
 
-            Backend.Close ();
+            // Closing already ran above; suppress the backend's re-entrant OnBackendClosing so
+            // FormClosing isn't raised a second time (WinForms raises it once per close).
+            _closingHandled = true;
+            try {
+                Backend.Close ();
+            } finally {
+                _closingHandled = false;
+            }
         }
 
         /// <summary>
@@ -623,6 +652,7 @@ namespace Majorsilence.Forms
             OnVisibleChanged (EventArgs.Empty);
 
             SetWindowStartupLocation ();
+            EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
 
             if (this is Form f)
@@ -641,6 +671,7 @@ namespace Majorsilence.Forms
 
             SetWindowStartupLocation (parent);
             parent.Backend.Enabled = false;
+            EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
 
             if (this is Form f)
@@ -651,6 +682,11 @@ namespace Majorsilence.Forms
                 OnShown (EventArgs.Empty);
             }
         }
+
+        // Raises the one-time Load event before the window is first displayed. WinForms fires Load during
+        // the show sequence, before the form is painted/shown -- not coupled to Shown (which fires after
+        // first display). Overridden by Form; a no-op for non-Form windows.
+        internal virtual void EnsureLoaded () { }
 
         /// <summary>Raised when the window is shown.</summary>
         public event EventHandler? Shown;

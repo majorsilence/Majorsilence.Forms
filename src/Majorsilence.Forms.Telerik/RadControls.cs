@@ -3,7 +3,7 @@ using System.Drawing;
 namespace Majorsilence.Forms.Telerik
 {
     /// <summary>Telerik-compat button. Backed by <see cref="Majorsilence.Forms.Button"/>.</summary>
-    public class RadButton : Button
+    public class RadButton : Button, ISupportInitializeCompat
     {
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat label. Backed by <see cref="Majorsilence.Forms.Label"/>.</summary>
-    public class RadLabel : Label
+    public class RadLabel : Label, ISupportInitializeCompat
     {
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
@@ -21,10 +21,10 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat link label. Backed by <see cref="Majorsilence.Forms.LinkLabel"/>.</summary>
-    public class RadLinkLabel : LinkLabel { }
+    public class RadLinkLabel : LinkLabel, ISupportInitializeCompat { }
 
     /// <summary>Telerik-compat text box. Backed by <see cref="Majorsilence.Forms.TextBox"/>.</summary>
-    public class RadTextBox : TextBox
+    public class RadTextBox : TextBox, ISupportInitializeCompat
     {
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
@@ -33,14 +33,14 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat text box control. Backed by <see cref="Majorsilence.Forms.TextBox"/>.</summary>
-    public class RadTextBoxControl : TextBox
+    public class RadTextBoxControl : TextBox, ISupportInitializeCompat
     {
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
     }
 
     /// <summary>Telerik-compat check box. Backed by <see cref="Majorsilence.Forms.CheckBox"/>.</summary>
-    public class RadCheckBox : CheckBox
+    public class RadCheckBox : CheckBox, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance of the RadCheckBox class.</summary>
         public RadCheckBox ()
@@ -73,7 +73,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat radio button. Backed by <see cref="Majorsilence.Forms.RadioButton"/>.</summary>
-    public class RadRadioButton : RadioButton
+    public class RadRadioButton : RadioButton, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance of the RadRadioButton class.</summary>
         public RadRadioButton ()
@@ -92,7 +92,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat on/off switch. Backed by <see cref="Majorsilence.Forms.CheckBox"/>.</summary>
-    public class RadToggleSwitch : CheckBox
+    public class RadToggleSwitch : CheckBox, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance of the RadToggleSwitch class.</summary>
         public RadToggleSwitch ()
@@ -122,7 +122,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat group box. Backed by <see cref="Majorsilence.Forms.GroupBox"/>.</summary>
-    public class RadGroupBox : GroupBox
+    public class RadGroupBox : GroupBox, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the header text (Telerik alias for <see cref="Control.Text"/>).</summary>
         public string HeaderText {
@@ -135,7 +135,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat panel. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class RadPanel : Panel
+    public class RadPanel : Panel, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the header text. Stub.</summary>
         public new string Text { get; set; } = string.Empty;
@@ -159,7 +159,7 @@ namespace Majorsilence.Forms.Telerik
     public class RadRibbonForm : RadForm { }
 
     /// <summary>Telerik-compat indeterminate progress / waiting indicator. Backed by <see cref="Majorsilence.Forms.ProgressBar"/>.</summary>
-    public class RadWaitingBar : ProgressBar
+    public class RadWaitingBar : ProgressBar, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance of the RadWaitingBar class.</summary>
         public RadWaitingBar ()
@@ -204,6 +204,13 @@ namespace Majorsilence.Forms.Telerik
         public WaitingBarContentElement ContentElement { get; } = new WaitingBarContentElement ();
         /// <summary>Gets or sets the animation speed, in ms. Stub — mirrors the value on the owning RadWaitingBar.</summary>
         public int WaitingSpeed { get; set; } = 100;
+
+        /// <summary>
+        /// Designer code walks the real Telerik element tree with chained <c>GetChildAt</c> calls and
+        /// CTypes each level (<c>CType(bar.GetChildAt(0).GetChildAt(0), WaitingBarContentElement)</c>),
+        /// so index 0 must be the typed <see cref="ContentElement"/>, not the base's untyped stub.
+        /// </summary>
+        public override RadElement GetChildAt (int index) => index == 0 ? ContentElement : base.GetChildAt (index);
     }
 
     /// <summary>Telerik-compat waiting-bar content element (hosts the indicator/separator elements). Designer-only stub.</summary>
@@ -211,6 +218,13 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets or sets the waiting animation style. Stub — mirrors the value on the owning RadWaitingBar.</summary>
         public WaitingBarStyles WaitingStyle { get; set; } = WaitingBarStyles.Dash;
+
+        /// <summary>Gets the separator element (also returned by <c>GetChildAt(0)</c>, matching real
+        /// Telerik's tree shape that designer code CTypes against).</summary>
+        public WaitingBarSeparatorElement SeparatorElement { get; } = new WaitingBarSeparatorElement ();
+
+        /// <inheritdoc cref="RadWaitingBarElement.GetChildAt"/>
+        public override RadElement GetChildAt (int index) => index == 0 ? SeparatorElement : base.GetChildAt (index);
     }
 
     /// <summary>Telerik-compat waiting-bar separator element. Designer-only stub.</summary>
@@ -227,7 +241,7 @@ namespace Majorsilence.Forms.Telerik
     public class SegmentedRingWaitingBarIndicatorElement : VisualElement { }
 
     /// <summary>Telerik-compat list control. Backed by <see cref="Majorsilence.Forms.ListBox"/>.</summary>
-    public class RadListControl : ListBox { }
+    public class RadListControl : ListBox, ISupportInitializeCompat { }
 
     /// <summary>Telerik-compat list data item.</summary>
     public class RadListDataItem
@@ -256,7 +270,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat date/time picker. Backed by <see cref="Majorsilence.Forms.DateTimePicker"/>.</summary>
-    public class RadDateTimePicker : DateTimePicker
+    public class RadDateTimePicker : DateTimePicker, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance of the RadDateTimePicker class.</summary>
         public RadDateTimePicker ()
@@ -287,7 +301,7 @@ namespace Majorsilence.Forms.Telerik
     /// type layers the Telerik-specific data-binding members, node type (<see cref="RadTreeNode"/>), and
     /// formatting/check events on top.
     /// </summary>
-    public class RadTreeView : Majorsilence.Forms.TreeView
+    public class RadTreeView : Majorsilence.Forms.TreeView, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the theme name. No-op stub.</summary>
         public string ThemeName { get; set; } = string.Empty;
@@ -446,7 +460,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat calendar. Backed by <see cref="Majorsilence.Forms.MonthCalendar"/>.</summary>
-    public class RadCalendar : MonthCalendar
+    public class RadCalendar : MonthCalendar, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the theme name. No-op stub.</summary>
         public string ThemeName { get; set; } = string.Empty;
@@ -455,7 +469,7 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat time picker. Backed by <see cref="Majorsilence.Forms.TimePicker"/>.</summary>
-    public class RadTimePicker : TimePicker
+    public class RadTimePicker : TimePicker, ISupportInitializeCompat
     {
         /// <summary>Gets or sets the theme name. No-op stub.</summary>
         public string ThemeName { get; set; } = string.Empty;

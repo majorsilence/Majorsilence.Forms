@@ -361,7 +361,7 @@ public partial class Control
             // Not putting in the finally block, as it would eat the original
             // exception thrown from AssignParent if the following throws an exception.
             LayoutTransaction.DoLayout (Owner, item, PropertyNames.Parent);
-            Owner.OnControlAdded (new EventArgs<Control> (item));
+            Owner.OnControlAdded (new ControlEventArgs (item));
 
             return;
         }
@@ -440,7 +440,7 @@ public partial class Control
                 item.AssignParent (null);
 
                 LayoutTransaction.DoLayout (Owner, item, PropertyNames.Parent);
-                Owner.OnControlRemoved (new EventArgs<Control> (item));
+                Owner.OnControlRemoved (new ControlEventArgs (item));
 
                 // ContainerControl needs to see it needs to find a new ActiveControl. TODO
                 //if (Owner.GetContainerControl () is ContainerControl cc)

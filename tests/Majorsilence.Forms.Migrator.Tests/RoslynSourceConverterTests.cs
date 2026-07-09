@@ -308,6 +308,44 @@ public class RoslynSourceConverterTests : IDisposable
     }
 
     [Fact]
+    public void Rewrites_VB_MsgBox_call_to_fork_Interaction ()
+    {
+        // VB's MsgBox (Microsoft.VisualBasic.Interaction) throws PlatformNotSupportedException off Windows;
+        // rewrite to the cross-platform Majorsilence.Forms.Interaction stand-in. MsgBoxStyle/MsgBoxResult
+        // are Microsoft.VisualBasic enums valid on both flavors, so they must stay untouched.
+        var src = "Public Class C\n    Sub M()\n        MsgBox(\"hi\", MsgBoxStyle.Information, \"t\")\n    End Sub\nEnd Class\n";
+        var result = ConvertVb (src);
+        Assert.Contains ("Majorsilence.Forms.VbInteraction.MsgBox(\"hi\", MsgBoxStyle.Information, \"t\")", result.Text);
+    }
+
+    [Fact]
+    public void Rewrites_VB_MsgBox_preserves_result_comparison ()
+    {
+        // The reason the rewrite keeps VB's signature: `If MsgBox(...) = MsgBoxResult.Yes` must still compile.
+        var src = "Public Class C\n    Sub M()\n        If MsgBox(\"q?\", MsgBoxStyle.YesNo) = MsgBoxResult.Yes Then\n        End If\n    End Sub\nEnd Class\n";
+        var result = ConvertVb (src);
+        Assert.Contains ("Majorsilence.Forms.VbInteraction.MsgBox(\"q?\", MsgBoxStyle.YesNo) = MsgBoxResult.Yes", result.Text);
+    }
+
+    [Fact]
+    public void Rewrites_VB_InputBox_call_to_fork_Interaction ()
+    {
+        var src = "Public Class C\n    Sub M()\n        Dim s = InputBox(\"name\", \"title\", \"default\")\n    End Sub\nEnd Class\n";
+        var result = ConvertVb (src);
+        Assert.Contains ("Majorsilence.Forms.VbInteraction.InputBox(\"name\", \"title\", \"default\")", result.Text);
+    }
+
+    [Fact]
+    public void Does_not_rewrite_user_defined_MsgBox ()
+    {
+        // Only Microsoft.VisualBasic.Interaction.MsgBox is rewritten; a project-local MsgBox must be left
+        // alone (symbol-resolution guard, not a textual match).
+        var src = "Public Class C\n    Function MsgBox(x As String) As Integer\n        Return 0\n    End Function\n    Sub M()\n        Dim r = MsgBox(\"hi\")\n    End Sub\nEnd Class\n";
+        var result = ConvertVb (src);
+        Assert.DoesNotContain ("Majorsilence.Forms.VbInteraction.MsgBox", result.Text);
+    }
+
+    [Fact]
     public void Injects_VB_constructor_via_reused_textual_pass ()
     {
         // Pass 7's VB pieces are deliberately reused unchanged (SourceConverter.ApplyVbConstructor, widened

@@ -37,8 +37,16 @@ namespace Majorsilence.Forms
     /// };
     /// </code>
     /// </example>
-    public class TrackBar : Control
+    public class TrackBar : Control, System.ComponentModel.ISupportInitialize
     {
+        // WinForms designer-generated InitializeComponent code brackets a TrackBar's property
+        // assignments with ((ISupportInitialize)(this.trackBar1)).BeginInit()/EndInit() -- the same
+        // convention as NumericUpDown/PictureBox/SplitContainer/DataGridView. Explicit no-op
+        // implementations so that (unconditional) cast succeeds instead of throwing
+        // InvalidCastException (found opening a real migrated form, frmMaintainCustomer).
+        void System.ComponentModel.ISupportInitialize.BeginInit () { }
+        void System.ComponentModel.ISupportInitialize.EndInit () { }
+
         private const int DEFAULT_MINIMUM = 0;
         private const int DEFAULT_MAXIMUM = 10;
         private const int DEFAULT_VALUE = 0;
