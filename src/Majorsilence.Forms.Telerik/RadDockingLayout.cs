@@ -106,6 +106,28 @@ namespace Majorsilence.Forms.Telerik
 
     public partial class RadDock
     {
+        /// <summary>
+        /// Enumerates every <see cref="DocumentWindow"/> hosted anywhere in this dock's control tree.
+        /// Document windows are parented into the document tab strips declaratively (not tracked in the
+        /// tool-window list), so anything reporting the open documents -- e.g. DocumentManager
+        /// .DocumentArray, which Telerik code queries to tell whether the dock has content -- must walk
+        /// the tree rather than the tool-window list.
+        /// </summary>
+        internal IEnumerable<DocumentWindow> AllDocumentWindows ()
+        {
+            var stack = new Stack<Control> ();
+            foreach (Control c in Controls)
+                stack.Push (c);
+
+            while (stack.Count > 0) {
+                var c = stack.Pop ();
+                if (c is DocumentWindow dw)
+                    yield return dw;
+                foreach (Control child in c.Controls)
+                    stack.Push (child);
+            }
+        }
+
         /// <inheritdoc/>
         protected override void OnLayout (LayoutEventArgs e)
         {
@@ -119,6 +141,26 @@ namespace Majorsilence.Forms.Telerik
                 if (MainDocumentContainerVisible)
                     main.Bounds = ClientRectangle;
             }
+        }
+
+        private bool _initialFillDone;
+
+        /// <inheritdoc/>
+        protected override void OnPaint (PaintEventArgs e)
+        {
+            // The designer builds the dock inside SuspendLayout()/ResumeLayout(false) -- which never
+            // performs the deferred layout -- and the dock keeps its designer size once shown, so its
+            // size never changes and OnLayout (which fills the main document container, and from there
+            // cascades the whole content chain) would otherwise never run. The form-show path does not
+            // drive OnCreateControl/OnVisibleChanged for these hosted controls either, but paint is a
+            // guaranteed callback on a realised, correctly-sized dock -- so force the fill once here.
+            // Subsequent resizes go through OnLayout as usual.
+            if (!_initialFillDone) {
+                _initialFillDone = true;
+                PerformLayout ();
+            }
+
+            base.OnPaint (e);
         }
     }
 

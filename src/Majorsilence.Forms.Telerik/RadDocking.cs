@@ -120,7 +120,7 @@ namespace Majorsilence.Forms.Telerik
         internal RadDockDocumentManager (RadDock owner) => this.owner = owner;
 
         /// <summary>Gets the open document windows, in dock order.</summary>
-        public IReadOnlyList<DocumentWindow> DocumentArray => owner.DockWindows.DocumentWindows.ToList ();
+        public IReadOnlyList<DocumentWindow> DocumentArray => owner.AllDocumentWindows ().ToList ();
     }
 
     /// <summary>Base for Telerik dock windows. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
