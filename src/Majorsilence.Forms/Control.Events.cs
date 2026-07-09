@@ -321,14 +321,14 @@ public partial class Control
     }
 
     /// <summary>
-    /// Raised when the control is being validated (WinForms compat; fires on LostFocus). Stub.
+    /// Raised when the control is being validated (WinForms compat; fires on LostFocus).
     /// </summary>
-    public event EventHandler<System.ComponentModel.CancelEventArgs>? Validating { add { } remove { } }
+    public event EventHandler<System.ComponentModel.CancelEventArgs>? Validating;
 
     /// <summary>
-    /// Raised after the control has been validated (WinForms compat; fires on LostFocus). Stub.
+    /// Raised after the control has been validated (WinForms compat; fires on LostFocus when not cancelled).
     /// </summary>
-    public event EventHandler? Validated { add { } remove { } }
+    public event EventHandler? Validated;
 
     /// <summary>Raised when a drag-and-drop operation enters the control. Stub in Majorsilence.Forms.</summary>
     public event EventHandler<DragEventArgs>? DragEnter { add { } remove { } }
@@ -351,8 +351,8 @@ public partial class Control
     /// <summary>Raised when the control is painted. WinForms compat — hooks into OnPaint.</summary>
     public event EventHandler<PaintEventArgs>? Paint;
 
-    /// <summary>Raised when the control is moved. Alias for LocationChanged. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? Move { add { } remove { } }
+    /// <summary>Raised when the control is moved (fires with LocationChanged).</summary>
+    public event EventHandler? Move;
 
     /// <summary>Raised when the BackColor property changes. Stub in Majorsilence.Forms.</summary>
     public event EventHandler? BackColorChanged { add { } remove { } }

@@ -475,7 +475,16 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the SelectedIndexChanged event.
         /// </summary>
-        protected virtual void OnSelectedIndexChanged (EventArgs e) => SelectedIndexChanged?.Invoke (this, e);
+        protected virtual void OnSelectedIndexChanged (EventArgs e)
+        {
+            SelectedIndexChanged?.Invoke (this, e);
+            // WinForms ListControl raises SelectedValueChanged whenever the selection changes;
+            // SelectedValue is derived from SelectedIndex, so it changes at the same moment.
+            OnSelectedValueChanged (e);
+        }
+
+        /// <summary>Raises the SelectedValueChanged event.</summary>
+        protected virtual void OnSelectedValueChanged (EventArgs e) => SelectedValueChanged?.Invoke (this, e);
 
         /// <summary>
         /// Gets the scaled height each item occupies.
@@ -518,7 +527,7 @@ namespace Majorsilence.Forms
         public event EventHandler? SelectedIndexChanged;
 
         /// <summary>Raised when the SelectedValue property changes.</summary>
-        public event EventHandler? SelectedValueChanged { add { } remove { } }
+        public event EventHandler? SelectedValueChanged;
 
         /// <summary>
         /// Gets or sets the currently selected item, if any.  If there are multiple selected items, the first selected item will be returned.

@@ -92,6 +92,22 @@ namespace Majorsilence.Forms.Telerik
             return null;
         }
 
+        // Fires the activation notifications for a tab switch: Leave on the window being deselected,
+        // Enter on the newly-selected one, and SelectedTabChanged on the owning RadDock. This is how
+        // WinForms/Telerik tab selection surfaces to app code -- e.g. a form that loads a tab's grid
+        // data in the document window's Enter handler, or in the dock's SelectedTabChanged handler.
+        internal static void RaiseTabActivation (Control strip, DockWindowBase? previous, DockWindowBase current)
+        {
+            previous?.RaiseLeave ();
+            current.RaiseEnter ();
+
+            var ancestor = strip.Parent;
+            while (ancestor is not null and not RadDock)
+                ancestor = ancestor.Parent;
+
+            (ancestor as RadDock)?.NotifySelectedTabChanged (previous, current);
+        }
+
         // Fills the container's primary content child (a tab strip / nested container) to the client area.
         internal static void FillPrimary (Control container)
         {
@@ -106,6 +122,18 @@ namespace Majorsilence.Forms.Telerik
 
     public partial class RadDock
     {
+        /// <summary>
+        /// Sets <see cref="ActiveWindow"/> to the newly-selected dock window and raises
+        /// <see cref="SelectedTabChanged"/>. Called by the tab strips when the user switches tabs, so
+        /// Telerik code that reacts to a document/tool tab becoming active runs (the compat dock
+        /// otherwise never raised this event).
+        /// </summary>
+        internal void NotifySelectedTabChanged (DockWindowBase? previous, DockWindowBase current)
+        {
+            ActiveWindow = current;
+            SelectedTabChanged?.Invoke (this, new SelectedTabChangedEventArgs { OldWindow = previous, NewWindow = current });
+        }
+
         /// <summary>
         /// Enumerates every <see cref="DocumentWindow"/> hosted anywhere in this dock's control tree.
         /// Document windows are parented into the document tab strips declaratively (not tracked in the
@@ -200,8 +228,10 @@ namespace Majorsilence.Forms.Telerik
             base.OnMouseDown (e);
             var hit = DockStrip.HitTest (_headerRects, e.Location);
             if (hit is not null && hit != _selectedWindow) {
+                var previous = _selectedWindow;
                 _selectedWindow = hit;
                 DockStrip.LayoutTabs (this, _selectedWindow);
+                DockStrip.RaiseTabActivation (this, previous, hit);
                 Invalidate ();
             }
         }
@@ -233,8 +263,10 @@ namespace Majorsilence.Forms.Telerik
             base.OnMouseDown (e);
             var hit = DockStrip.HitTest (_headerRects, e.Location);
             if (hit is not null && hit != _selectedWindow) {
+                var previous = _selectedWindow;
                 _selectedWindow = hit;
                 DockStrip.LayoutTabs (this, _selectedWindow);
+                DockStrip.RaiseTabActivation (this, previous, hit);
                 Invalidate ();
             }
         }

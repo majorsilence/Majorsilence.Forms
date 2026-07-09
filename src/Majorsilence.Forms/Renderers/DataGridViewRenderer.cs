@@ -236,6 +236,9 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw row bottom border
             e.Canvas.DrawLine (bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1, Theme.BorderLowColor);
+
+            // Post-paint hook (WinForms RowPostPaint), after the row's cells and border are drawn.
+            control.RaiseRowPostPaint (rowIndex);
         }
 
         // Draws a single data cell at its frozen-aware device position.

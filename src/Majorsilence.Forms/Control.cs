@@ -1063,9 +1063,31 @@ namespace Majorsilence.Forms
         protected virtual void OnInvalidated (InvalidateEventArgs e) => (Events[s_invalidatedEvent] as EventHandler<InvalidateEventArgs>)?.Invoke (this, e);
 
         /// <summary>
-        /// Raises the LostFocus event.
+        /// Raises the LostFocus event, then runs the WinForms validation cycle (Validating/Validated)
+        /// as focus leaves the control.
         /// </summary>
-        protected virtual void OnLostFocus (EventArgs e) => (Events[s_lostFocusEvent] as EventHandler)?.Invoke (this, e);
+        protected virtual void OnLostFocus (EventArgs e)
+        {
+            (Events[s_lostFocusEvent] as EventHandler)?.Invoke (this, e);
+
+            var validatingArgs = new System.ComponentModel.CancelEventArgs ();
+            OnValidating (validatingArgs);
+            if (!validatingArgs.Cancel)
+                OnValidated (EventArgs.Empty);
+        }
+
+        /// <summary>Raises the Validating event (WinForms validation cycle; fires on focus loss).</summary>
+        protected virtual void OnValidating (System.ComponentModel.CancelEventArgs e) => Validating?.Invoke (this, e);
+
+        /// <summary>Raises the Validated event (fires on focus loss when validation is not cancelled).</summary>
+        protected virtual void OnValidated (EventArgs e) => Validated?.Invoke (this, e);
+
+        // Raises Enter/GotFocus (or Leave/LostFocus) as an activation notification, without moving real
+        // input focus. Used by the docking compat: selecting a document/tool tab must "enter" that window
+        // so WinForms/Telerik code that loads a tab's data on the window's Enter event runs (e.g. a
+        // customer form that fetches its Receivables grid when the Receivables document window is entered).
+        internal void RaiseEnter () => OnGotFocus (EventArgs.Empty);
+        internal void RaiseLeave () => OnLostFocus (EventArgs.Empty);
 
         /// <summary>
         /// Raises the KeyDown event.
@@ -1085,7 +1107,14 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the LocationChanged event.
         /// </summary>
-        protected virtual void OnLocationChanged (EventArgs e) => (Events[s_locationChangedEvent] as EventHandler)?.Invoke (this, e);
+        protected virtual void OnLocationChanged (EventArgs e)
+        {
+            (Events[s_locationChangedEvent] as EventHandler)?.Invoke (this, e);
+            OnMove (e);
+        }
+
+        /// <summary>Raises the Move event (WinForms fires Move together with LocationChanged).</summary>
+        protected virtual void OnMove (EventArgs e) => Move?.Invoke (this, e);
 
         /// <summary>
         /// Raises the MarginChanged event.
