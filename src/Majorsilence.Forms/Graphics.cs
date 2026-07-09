@@ -241,8 +241,21 @@ namespace Majorsilence.Forms
         public void CopyFromScreen (System.Drawing.Point upperLeftSource, System.Drawing.Point upperLeftDestination, Size blockRegionSize) { }
 
         private static SKColor ToSKColor (System.Drawing.Color c) => new SKColor (c.R, c.G, c.B, c.A);
-        private static SKColor BrushColor (Majorsilence.Forms.Drawing.Brush brush)
-            => brush is Majorsilence.Forms.Drawing.SolidBrush sb ? ToSKColor (sb.Color) : SKColors.Black;
+
+        /// <summary>
+        /// Builds a fill <see cref="SKPaint"/> from a brush, honouring its actual type: a solid colour,
+        /// or a gradient/hatch/texture shader. Previously every non-solid brush was collapsed to opaque
+        /// black, which turned e.g. a soft <c>PathGradientBrush</c> glow into a solid black box. Anti-
+        /// aliasing follows the current <see cref="SmoothingMode"/> so solid fills keep their prior look.
+        /// Caller owns disposal.
+        /// </summary>
+        private SKPaint CreateFillPaint (Majorsilence.Forms.Drawing.Brush brush)
+        {
+            var paint = brush.CreatePaint ();
+            paint.IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None;
+            return paint;
+        }
+
         private static float PenWidth (Majorsilence.Forms.Drawing.Pen pen) => pen.Width;
         private static SKColor PenColor (Majorsilence.Forms.Drawing.Pen pen) => ToSKColor (pen.Color);
 
@@ -253,7 +266,7 @@ namespace Majorsilence.Forms
         public void FillRectangle (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
+            using var paint = CreateFillPaint (brush);
             _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -261,7 +274,7 @@ namespace Majorsilence.Forms
         public void FillRectangle (Majorsilence.Forms.Drawing.Brush brush, RectangleF rect)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
+            using var paint = CreateFillPaint (brush);
             _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -347,7 +360,7 @@ namespace Majorsilence.Forms
         public void FillPie (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect, float startAngle, float sweepAngle)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
+            using var paint = CreateFillPaint (brush);
             using var path = new SKPath ();
             path.MoveTo (rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f);
             path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
@@ -474,7 +487,7 @@ namespace Majorsilence.Forms
         public void FillEllipse (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
+            using var paint = CreateFillPaint (brush);
             _canvas.DrawOval (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -510,7 +523,7 @@ namespace Majorsilence.Forms
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
             path.Close ();
-            using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
+            using var paint = CreateFillPaint (brush);
             _canvas.DrawPath (path, paint);
         }
 
@@ -546,7 +559,7 @@ namespace Majorsilence.Forms
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
             path.Close ();
-            using var paint = new SKPaint { Color = BrushColor (brush), Style = SKPaintStyle.Fill };
+            using var paint = CreateFillPaint (brush);
             _canvas.DrawPath (path, paint);
         }
 
@@ -598,7 +611,7 @@ namespace Majorsilence.Forms
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
             var face = SKTypeface.FromFamilyName (font.FontFamily.Name, font.Bold ? SKFontStyle.Bold : SKFontStyle.Normal);
             using var skFont = new SKFont (face, font.Size);
-            using var paint = new SKPaint { Color = BrushColor (brush) };
+            using var paint = brush.CreatePaint ();
             _canvas.DrawText (text, x, y + font.Size, SKTextAlign.Left, skFont, paint);
         }
 
@@ -822,18 +835,7 @@ namespace Majorsilence.Forms
         {
             if (_canvas is null || path is null) return;
 
-            SKColor fillColor;
-
-            if (brush is Majorsilence.Forms.Drawing.SolidBrush sb)
-                fillColor = new SKColor (sb.Color.R, sb.Color.G, sb.Color.B, sb.Color.A);
-            else
-                fillColor = SKColors.Black;
-
-            using var paint = new SKPaint {
-                Color = fillColor,
-                Style = SKPaintStyle.Fill,
-                IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None
-            };
+            using var paint = CreateFillPaint (brush);
 
             using var skPath = new SKPath ();
 
