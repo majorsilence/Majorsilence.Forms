@@ -28,7 +28,8 @@ namespace Majorsilence.Forms.Renderers
                 e.Canvas.FillRectangle (text_x - 2, bounds.Y, text_width + 4, title_height, control.Style.BackgroundColor ?? Theme.BackgroundColor);
 
                 var text_bounds = new Rectangle (text_x, bounds.Y, text_width, title_height);
-                e.Canvas.DrawText (control.Text, Theme.UIFont, font_size, text_bounds, Theme.ForegroundColor, ContentAlignment.MiddleLeft, maxLines: 1);
+                // A GroupBox caption interprets the '&' mnemonic prefix.
+                e.Canvas.DrawMnemonicText (control.Text, Theme.UIFont, font_size, text_bounds, Theme.ForegroundColor, ContentAlignment.MiddleLeft, maxLines: 1);
             }
         }
     }

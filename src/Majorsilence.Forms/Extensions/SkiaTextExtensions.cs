@@ -62,6 +62,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Draws a string of text, interpreting WinForms mnemonic prefixes, resolving the font and
+        /// colour from the control (matching the control-based <see cref="DrawText(SKCanvas, string, Rectangle, Control, ContentAlignment, int, int, SKColor?, int?, bool)"/> overload).
+        /// </summary>
+        public static void DrawMnemonicText (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, int? maxLines = null, bool ellipsis = false)
+            => canvas.DrawMnemonicText (text, control.CurrentStyle.GetFont (), control.LogicalToDeviceUnits (control.CurrentStyle.GetFontSize ()), bounds, control.Enabled ? control.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor, alignment, maxLines, ellipsis);
+
+        /// <summary>
         /// Draws a string of text, interpreting WinForms mnemonic prefixes: an ampersand marks the
         /// following character as the access key (drawn underlined), and a doubled ampersand is a
         /// literal ampersand.

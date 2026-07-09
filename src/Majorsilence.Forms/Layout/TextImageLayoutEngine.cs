@@ -265,6 +265,10 @@ internal static class TextImageLayoutEngine
         if (control.Text is null)
             return SKSize.Empty;
 
-        return TextMeasurer.MeasureText (control.Text, control.Style.GetFont (), control.LogicalToDeviceUnits (control.Style.GetFontSize ()));
+        // Mnemonic-bearing controls (Button/CheckBox/RadioButton, and Label unless UseMnemonic is off)
+        // draw the display text with the '&' prefix removed, so it must not inflate the measured size.
+        var text = control is Label { UseMnemonic: false } ? control.Text : Mnemonics.Strip (control.Text);
+
+        return TextMeasurer.MeasureText (text, control.Style.GetFont (), control.LogicalToDeviceUnits (control.Style.GetFontSize ()));
     }
 }
