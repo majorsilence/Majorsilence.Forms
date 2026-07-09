@@ -528,8 +528,10 @@ namespace Majorsilence.Forms.Telerik
                 PropertyName = field;
         }
 
-        /// <summary>Gets the original expression string.</summary>
-        public string Expression { get; }
+        /// <summary>Gets the original expression string. (Intentionally hides the settable
+        /// GroupDescriptor.Expression compat member -- for a parsed group-by expression this value
+        /// is immutable and set from the constructor.)</summary>
+        public new string Expression { get; }
     }
 
     /// <summary>

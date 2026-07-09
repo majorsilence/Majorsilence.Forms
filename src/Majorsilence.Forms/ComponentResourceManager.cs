@@ -24,7 +24,7 @@ namespace Majorsilence.Forms
     /// images, so a migrated form initialises its controls on Windows, macOS and Linux alike.
     ///
     /// Resources stored as <c>BinaryFormatter</c>/SOAP blobs (<c>binary.base64</c> / <c>soap.base64</c>)
-    /// cannot be read on modern .NET; <see cref="GetObject"/> returns <see langword="null"/> for those
+    /// cannot be read on modern .NET; <see cref="GetObject(string)"/> returns <see langword="null"/> for those
     /// (the migrator flags them for manual re-export).
     /// </summary>
     public class ComponentResourceManager
@@ -52,7 +52,7 @@ namespace Majorsilence.Forms
         /// Locates the resources associated with <paramref name="resourceSource"/> — first the
         /// standard SDK-compiled <c>&lt;Namespace&gt;.&lt;Name&gt;.resources</c> binary embedded by
         /// any normal <c>&lt;EmbeddedResource Include="Foo.resx"&gt;</c> project item (see
-        /// <see cref="LoadCompiledResources"/>), then falls back to a raw <c>&lt;FullName&gt;.resx</c>
+        /// <see cref="LoadCompiledResources(System.Type)"/>), then falls back to a raw <c>&lt;FullName&gt;.resx</c>
         /// XML resource or a loose <c>.resx</c> file beside the assembly. If neither is found the
         /// manager is simply empty, so designer code still runs (controls keep their coded defaults).
         /// </summary>
@@ -73,7 +73,7 @@ namespace Majorsilence.Forms
         /// (<c>New ResourceManager("&lt;RootNamespace&gt;.Resources", GetType(...).Assembly)</c>). Retargeted
         /// projects alias <c>System.Resources.ResourceManager</c> to this on the Majorsilence.Forms flavor so
         /// <c>My.Resources.SomeImage</c> comes back as a <see cref="Majorsilence.Forms.Drawing"/> type
-        /// (normalized in <see cref="LoadCompiledResources(Assembly, string)"/>) instead of a live
+        /// (normalized in <see cref="LoadCompiledResources(System.Reflection.Assembly, string, string?)"/>) instead of a live
         /// System.Drawing.Bitmap that the generated <c>CType(obj, Bitmap)</c> then fails to cast.
         /// </summary>
         public ComponentResourceManager (string baseName, Assembly assembly)
@@ -134,9 +134,13 @@ namespace Majorsilence.Forms
         /// (the signature VB's My.Resources designer code calls). The compat manager is culture-agnostic
         /// (invariant/neutral resources only), so <paramref name="culture"/> is ignored.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage ("Globalization", "CA1304:Specify CultureInfo",
+            Justification = "This compat manager is culture-agnostic (invariant/neutral resources only); the culture-aware overload intentionally ignores culture and forwards to the single-arg accessor.")]
         public object? GetObject (string name, System.Globalization.CultureInfo? culture) => GetObject (name);
 
         /// <summary>Culture-aware overload matching <c>ResourceManager.GetString(name, culture)</c>. Culture is ignored.</summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage ("Globalization", "CA1304:Specify CultureInfo",
+            Justification = "This compat manager is culture-agnostic (invariant/neutral resources only); the culture-aware overload intentionally ignores culture and forwards to the single-arg accessor.")]
         public string? GetString (string name, System.Globalization.CultureInfo? culture) => GetString (name);
 
         /// <summary>

@@ -25,8 +25,9 @@ namespace Majorsilence.Forms.Telerik
         public bool AllowColumnResize { get; set; } = true;
         /// <summary>Telerik compat: the column-chooser sort order. Stored.</summary>
         public ListSortDirection ColumnChooserSortOrder { get; set; } = ListSortDirection.Ascending;
-        /// <summary>Telerik compat: the row/cell selection mode. Stored.</summary>
-        public GridViewSelectionMode SelectionMode { get; set; } = GridViewSelectionMode.FullRowSelect;
+        /// <summary>Telerik compat: the row/cell selection mode. Stored. (Intentionally hides the base
+        /// DataGridView.SelectionMode -- RadGridView exposes Telerik's GridViewSelectionMode instead.)</summary>
+        public new GridViewSelectionMode SelectionMode { get; set; } = GridViewSelectionMode.FullRowSelect;
 
         /// <summary>Telerik compat: the vertical auto-hide scrollbar state (forwards to the master template).</summary>
         public ScrollState VerticalScrollState {

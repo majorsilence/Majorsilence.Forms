@@ -1949,6 +1949,9 @@ namespace Majorsilence.Forms
         /// Never returns null: like WinForms it falls back to the parent's font, then the default UI font,
         /// so code such as <c>ctrl.Font.Size</c> can't NullReference on a control whose font was never set.
         /// </summary>
+        // [AllowNull]: the getter never returns null (falls back parent -> default UI font), but the setter
+        // accepts null to reset the font to inherited/theme -- matching WinForms' [AllowNull] Control.Font.
+        [System.Diagnostics.CodeAnalysis.AllowNull]
         public Majorsilence.Forms.Drawing.Font Font {
             get => _font ?? Parent?.Font ?? Majorsilence.Forms.SystemFonts.DefaultFont;
             set {
