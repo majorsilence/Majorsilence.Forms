@@ -1152,28 +1152,47 @@ namespace Majorsilence.Forms
         {
             Rows.Clear ();
 
-            if (data_source is null || data_source.Count == 0)
+            if (data_source is null)
                 return;
 
-            // Special-case ADO.NET data binding (DataView / DataTable.DefaultView): generate
-            // columns and rows from the DataColumns rather than the DataRowView's CLR properties.
-            if (data_source is System.Data.DataView data_view) {
+            // Preferred bound-list path. DataView, DataTable.DefaultView and BindingSource all implement
+            // ITypedList, which exposes the bound *schema* as property descriptors -- the DataColumns of
+            // a view, or the columns of a BindingSource's resolved list (including a DataSet + DataMember).
+            // Generate columns from those descriptors even when the source has zero rows, matching
+            // WinForms, whose column collection reflects the bound schema regardless of row count. This
+            // is what makes grid.Columns["Foo"] resolvable before any row loads.
+            //
+            // Name/DataPropertyName are set to the member name (not just HeaderText): the Columns[name]
+            // indexer matches Name OR HeaderText, and app code routinely reassigns HeaderText
+            // (grid.Columns["Start"].HeaderText = "Reminder Date") then looks the column up again by its
+            // original field name -- without Name set, that second lookup returns null and the caller NREs.
+            if (data_source is System.ComponentModel.ITypedList typed_list) {
+                var descriptors = typed_list.GetItemProperties (null);
+
                 if (AutoGenerateColumns) {
                     Columns.Clear ();
 
-                    foreach (System.Data.DataColumn column in data_view.Table!.Columns)
-                        Columns.Add (column.ColumnName, EstimateColumnWidth (column.ColumnName));
+                    foreach (System.ComponentModel.PropertyDescriptor descriptor in descriptors) {
+                        var generated = Columns.Add (descriptor.Name, EstimateColumnWidth (descriptor.Name));
+                        generated.Name = descriptor.Name;
+                        generated.DataPropertyName = descriptor.Name;
+                    }
                 }
 
-                foreach (System.Data.DataRowView row_view in data_view) {
-                    var cells = new string[data_view.Table!.Columns.Count];
+                foreach (var item in data_source) {
+                    if (item is null)
+                        continue;
 
-                    for (var i = 0; i < cells.Length; i++)
-                        cells[i] = row_view[i]?.ToString () ?? string.Empty;
+                    var cells = new string[descriptors.Count];
+                    for (var i = 0; i < descriptors.Count; i++)
+                        cells[i] = descriptors[i].GetValue (item)?.ToString () ?? string.Empty;
 
-                    Rows.Add (cells);
+                    var row = Rows.Add (cells);
+                    row.DataBoundItem = item;
                 }
 
+                SetInitialCurrentCell ();
+                _dataBindingComplete?.Invoke (this, EventArgs.Empty);
                 return;
             }
 
@@ -1189,8 +1208,13 @@ namespace Majorsilence.Forms
                     .Where (p => p.CanRead)
                     .ToArray ();
 
-                foreach (var prop in properties)
-                    Columns.Add (prop.Name, EstimateColumnWidth (prop.Name));
+                foreach (var prop in properties) {
+                    var generated = Columns.Add (prop.Name, EstimateColumnWidth (prop.Name));
+                    // See the DataView branch above: set Name/DataPropertyName to the member name so
+                    // Columns[name] lookups keep working after app code reassigns HeaderText.
+                    generated.Name = prop.Name;
+                    generated.DataPropertyName = prop.Name;
+                }
 
                 foreach (var item in data_source) {
                     if (item is null)
@@ -1225,7 +1249,22 @@ namespace Majorsilence.Forms
                 }
             }
 
+            SetInitialCurrentCell ();
             _dataBindingComplete?.Invoke (this, EventArgs.Empty);
+        }
+
+        // WinForms/Telerik make the first cell current as soon as a data source with rows is bound, so
+        // grid.CurrentRow / grid.CurrentCell are non-null immediately -- app code very commonly reads
+        // CurrentRow.Cells["..."] right after binding. Only seed a selection when none exists; never
+        // override a selection the user or app already set. Fields are set directly (rather than through
+        // the SelectedRowIndex property) to avoid raising selection/layout events mid-bind.
+        private void SetInitialCurrentCell ()
+        {
+            if (selected_row_index < 0 && Rows.Count > 0)
+                selected_row_index = 0;
+
+            if (selected_column_index < 0 && Columns.Count > 0)
+                selected_column_index = 0;
         }
 
         // Gets the element type from an IList.
