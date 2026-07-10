@@ -186,9 +186,27 @@ namespace Majorsilence.Forms.Telerik
             if (!_initialFillDone) {
                 _initialFillDone = true;
                 PerformLayout ();
+
+                // The fill must CASCADE explicitly: assigning a child container the same bounds it
+                // already has (the common case when the form shows at its designer size) raises no
+                // resize, so the child's own OnLayout -- where tab strips normalize their selected
+                // window and hide the rest -- would never run and every document window would stay
+                // visible, stacked at its serialized designer position with no header row painted.
+                foreach (var child in DockDescendants (this))
+                    child.PerformLayout ();
             }
 
             base.OnPaint (e);
+        }
+
+        private static IEnumerable<Control> DockDescendants (Control root)
+        {
+            foreach (Control c in root.Controls) {
+                if (c is DocumentContainer or DocumentTabStrip or ToolTabStrip or SplitPanel)
+                    yield return c;
+                foreach (var nested in DockDescendants (c))
+                    yield return nested;
+            }
         }
     }
 

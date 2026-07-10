@@ -126,6 +126,18 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Base for Telerik dock windows. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public abstract class DockWindowBase : Panel
     {
+        /// <summary>
+        /// Default style for dock windows. Telerik dock windows paint their own THEMED background
+        /// (documents/tools show the theme surface color regardless of the form's BackColor), so the
+        /// compat window sets one explicitly rather than inheriting the WinForms-ambient background
+        /// from its parent -- otherwise a form-level BackColor would bleed through every document.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyle = new ControlStyle (Majorsilence.Forms.Control.DefaultStyle,
+            (style) => style.BackgroundColor = Theme.BackgroundColor);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>Gets or sets the dock state.</summary>
         public DockState DockState { get; set; } = DockState.Docked;
         /// <summary>Gets the previous dock state.</summary>
