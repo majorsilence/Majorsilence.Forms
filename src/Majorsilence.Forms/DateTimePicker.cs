@@ -41,6 +41,26 @@ namespace Majorsilence.Forms
             UpdateText ();
         }
 
+        /// <summary>
+        /// Paints the WinForms-style drop-down button on the right edge, over any text that would
+        /// otherwise underlap it. WinForms apps rely on this geometry: a common pattern sizes the
+        /// picker down to ~16px so ONLY the button shows (a calendar button beside a separate text
+        /// box); without it the compat picker painted its full formatted text into that sliver,
+        /// producing clipped garbage.
+        /// </summary>
+        protected override void OnPaint (PaintEventArgs e)
+        {
+            base.OnPaint (e);
+
+            var buttonWidth = System.Math.Min (LogicalToDeviceUnits (16), ScaledSize.Width);
+            var rect = new Rectangle (ScaledSize.Width - buttonWidth, 0, buttonWidth, ScaledSize.Height);
+
+            e.Canvas.FillRectangle (rect.X, rect.Y, rect.Width, rect.Height, Theme.ControlMidColor);
+            e.Canvas.DrawText ("▾", Theme.UIFont, LogicalToDeviceUnits (Theme.FontSize), rect,
+                Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor,
+                ContentAlignment.MiddleCenter, maxLines: 1);
+        }
+
         /// <summary>Gets the minimum date/time value supported by the control.</summary>
         public static DateTime MinimumDateTime => MinDateTime;
 
