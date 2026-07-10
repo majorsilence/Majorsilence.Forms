@@ -1218,12 +1218,38 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            e.Canvas.DrawBackground (ScaledBounds, CurrentStyle);
+            e.Canvas.DrawBackground (ScaledBounds, CurrentStyle, GetEffectiveBackgroundColor ());
 
             if (BackgroundImage is not null)
                 PaintBackgroundImage (e);
 
             e.Canvas.DrawBorder (ScaledBounds, CurrentStyle);
+        }
+
+        /// <summary>
+        /// Resolves the control's effective background the way WinForms' ambient BackColor does: an
+        /// explicit color anywhere in the control's own style chain wins; otherwise the color comes
+        /// from the parent control (a Label on a dark panel paints dark), ending at the hosting
+        /// window's background (WinForms ambience terminates at Form.BackColor) and only then the
+        /// theme default.
+        /// </summary>
+        internal SKColor GetEffectiveBackgroundColor ()
+        {
+            var chain = CurrentStyle.TryGetBackgroundColor ();
+            if (chain is not null)
+                return chain.Value;
+
+            if (Parent is not null)
+                return Parent.GetEffectiveBackgroundColor ();
+
+            // Ambience terminates at the hosting window (WinForms: Form.BackColor) -- but a fully
+            // transparent window background is an embedding artifact (HostedSurface composites over
+            // its host), not an ambient color; fall through to the theme for it.
+            var window = FindWindow ()?.CurrentStyle.GetBackgroundColor ();
+            if (window is { Alpha: > 0 })
+                return window.Value;
+
+            return Theme.BackgroundColor;
         }
 
         /// <summary>
@@ -1952,7 +1978,9 @@ namespace Majorsilence.Forms
         /// <see cref="ControlStyle.BackgroundColor"/> using <see cref="System.Drawing.Color"/>.
         /// </summary>
         public System.Drawing.Color BackColor {
-            get => Style.BackgroundColor?.ToDrawingColor () ?? Style.GetBackgroundColor ().ToDrawingColor ();
+            // Ambient like WinForms: with no explicit color anywhere in the style chain, the value
+            // reflects the parent control's effective background.
+            get => GetEffectiveBackgroundColor ().ToDrawingColor ();
             set {
                 Style.BackgroundColor = value.ToSKColor ();
                 Invalidate ();

@@ -73,6 +73,18 @@ namespace Majorsilence.Forms
         public SKColor GetBackgroundColor () => BackgroundColor ?? _parent?.GetBackgroundColor () ?? Theme.ControlMidColor;
 
         /// <summary>
+        /// Gets the background color defined anywhere in this style chain (instance style up through
+        /// the type's default styles), or null when the chain never sets one. The root
+        /// <see cref="Control.DefaultStyle"/> is excluded: its theme color is the definition of
+        /// "nothing set", so a null result lets the control resolve its WinForms-style ambient
+        /// background from its parent control instead.
+        /// </summary>
+        internal SKColor? TryGetBackgroundColor ()
+            => ReferenceEquals (this, Control.DefaultStyle)
+                ? null
+                : BackgroundColor ?? _parent?.TryGetBackgroundColor ();
+
+        /// <summary>
         /// Gets the computed font.
         /// </summary>
         public SKTypeface GetFont () => Font ?? _parent?.GetFont () ?? Theme.UIFont;

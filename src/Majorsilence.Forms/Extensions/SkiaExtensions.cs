@@ -27,16 +27,24 @@ namespace Majorsilence.Forms
         /// Draws a control's background.
         /// </summary>
         public static void DrawBackground (this SKCanvas canvas, Rectangle bounds, ControlStyle style)
+            => canvas.DrawBackground (bounds, style, style.GetBackgroundColor ());
+
+        /// <summary>
+        /// Draws a control's background with an explicitly resolved color (e.g. the WinForms-style
+        /// ambient background inherited from the parent control); border geometry still comes from
+        /// the style.
+        /// </summary>
+        public static void DrawBackground (this SKCanvas canvas, Rectangle bounds, ControlStyle style, SKColor backgroundColor)
         {
             var radius = style.Border.GetRadius ();
 
             if (radius > 0) {
                 canvas.Clear (SKColors.Transparent);
-                canvas.FillRoundedRectangle (0, 0, bounds.Width - style.Border.GetWidth (), bounds.Height - style.Border.GetWidth (), style.GetBackgroundColor (), radius, radius, style.Border.GetWidth ());
+                canvas.FillRoundedRectangle (0, 0, bounds.Width - style.Border.GetWidth (), bounds.Height - style.Border.GetWidth (), backgroundColor, radius, radius, style.Border.GetWidth ());
                 return;
             }
 
-            canvas.Clear (style.GetBackgroundColor ());
+            canvas.Clear (backgroundColor);
         }
 
         /// <summary>
