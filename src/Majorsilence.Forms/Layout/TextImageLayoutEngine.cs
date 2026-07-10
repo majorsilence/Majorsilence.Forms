@@ -269,6 +269,6 @@ internal static class TextImageLayoutEngine
         // draw the display text with the '&' prefix removed, so it must not inflate the measured size.
         var text = control is Label { UseMnemonic: false } ? control.Text : Mnemonics.Strip (control.Text);
 
-        return TextMeasurer.MeasureText (text, control.Style.GetFont (), control.LogicalToDeviceUnits (control.Style.GetFontSize ()));
+        return TextMeasurer.MeasureText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()));
     }
 }

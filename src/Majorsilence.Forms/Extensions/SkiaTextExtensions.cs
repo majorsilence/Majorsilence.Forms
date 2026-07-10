@@ -41,7 +41,7 @@ namespace Majorsilence.Forms
         /// Draws a string of text.
         /// </summary>
         public static void DrawText (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, int selectionStart = -1, int selectionEnd = -1, SKColor? selectionColor = null, int? maxLines = null, bool ellipsis = false)
-            => canvas.DrawText (text, control.CurrentStyle.GetFont (), control.LogicalToDeviceUnits (control.CurrentStyle.GetFontSize ()), bounds, control.Enabled ? control.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor, alignment, selectionStart, selectionEnd, selectionColor, maxLines, ellipsis);
+            => canvas.DrawText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor, alignment, selectionStart, selectionEnd, selectionColor, maxLines, ellipsis);
 
         /// <summary>
         /// Draws a string of text.
@@ -89,7 +89,7 @@ namespace Majorsilence.Forms
         /// colour from the control (matching the control-based <see cref="DrawText(SKCanvas, string, Rectangle, Control, ContentAlignment, int, int, SKColor?, int?, bool)"/> overload).
         /// </summary>
         public static void DrawMnemonicText (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, int? maxLines = null, bool ellipsis = false)
-            => canvas.DrawMnemonicText (text, control.CurrentStyle.GetFont (), control.LogicalToDeviceUnits (control.CurrentStyle.GetFontSize ()), bounds, control.Enabled ? control.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor, alignment, maxLines, ellipsis);
+            => canvas.DrawMnemonicText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor, alignment, maxLines, ellipsis);
 
         /// <summary>
         /// Draws a string of text, interpreting WinForms mnemonic prefixes: an ampersand marks the
@@ -145,6 +145,6 @@ namespace Majorsilence.Forms
         /// Draws a single line of text.
         /// </summary>
         public static void DrawTextLine (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, bool ellipsis = false)
-            => canvas.DrawText (text, control.CurrentStyle.GetFont (), control.LogicalToDeviceUnits (control.CurrentStyle.GetFontSize ()), bounds, control.Enabled ? control.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor, alignment, maxLines: 1, ellipsis: ellipsis);
+            => canvas.DrawText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor, alignment, maxLines: 1, ellipsis: ellipsis);
     }
 }

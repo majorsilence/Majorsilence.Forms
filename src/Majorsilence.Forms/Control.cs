@@ -1253,6 +1253,21 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Resolves the font used to draw/measure this control's text the way WinForms' ambient Font
+        /// does: an explicit font anywhere in the control's own style chain wins; otherwise it comes
+        /// from the parent chain (a Form's designer font reaches every child that never set one),
+        /// falling back to the theme font at the top. Keeping DRAWING on the same ambient resolution
+        /// as the <see cref="Font"/> getter is what makes designer-fixed control widths (sized for the
+        /// form's 8.25pt font in GDI) hold instead of clipping at the larger theme font.
+        /// </summary>
+        internal SKTypeface GetEffectiveFont ()
+            => CurrentStyle.TryGetFont () ?? Parent?.GetEffectiveFont () ?? Theme.UIFont;
+
+        /// <summary>Companion to <see cref="GetEffectiveFont"/> for the font size (logical units).</summary>
+        internal int GetEffectiveFontSize ()
+            => CurrentStyle.TryGetFontSize () ?? Parent?.GetEffectiveFontSize () ?? Theme.FontSize;
+
+        /// <summary>
         /// Called when the Parent property is changed.
         /// </summary>
         protected virtual void OnParentChanged (EventArgs e) => (Events[s_parentEvent] as EventHandler)?.Invoke (this, e);

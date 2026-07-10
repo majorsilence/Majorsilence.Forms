@@ -8,6 +8,9 @@ namespace Majorsilence.Forms
     {
         private string _mask = string.Empty;
 
+        /// <summary>Gets or sets the type used to validate the committed text (WinForms compat; stored, no validation is performed).</summary>
+        public System.Type? ValidatingType { get; set; }
+
         /// <summary>Gets or sets the input mask string. Not enforced in Majorsilence.Forms.</summary>
         public string Mask {
             get => _mask;
