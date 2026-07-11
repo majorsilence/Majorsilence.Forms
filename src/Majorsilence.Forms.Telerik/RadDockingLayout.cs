@@ -259,8 +259,17 @@ namespace Majorsilence.Forms.Telerik
                        ?? Controls.OfType<DocumentContainer> ().FirstOrDefault ();
             if (main is not null) {
                 main.Visible = MainDocumentContainerVisible;
-                if (MainDocumentContainerVisible)
+                if (MainDocumentContainerVisible) {
                     main.Bounds = ClientRectangle;
+
+                    // This compat dock has no SplitPanel engine: sibling tool strips keep their
+                    // designer bounds while the main container fills the WHOLE dock, so they always
+                    // overlap it. The container must therefore be frontmost (z-index 0) or a sibling
+                    // strip serialized before it -- e.g. a top-docked tool strip row -- paints over
+                    // the document tab band.
+                    if (Controls.GetChildIndex (main, throwException: false) > 0)
+                        Controls.SetChildIndex (main, 0);
+                }
             }
         }
 
