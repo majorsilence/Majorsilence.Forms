@@ -151,12 +151,14 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the size mode of the tabs. Stub in Majorsilence.Forms.</summary>
         public TabSizeMode SizeMode { get; set; } = TabSizeMode.Normal;
 
-        /// <summary>Gets the number of tab rows. Always returns 1 in Majorsilence.Forms.</summary>
-        public int RowCount => 1;
+        /// <summary>Gets the number of tab rows (tabs wrap into additional rows when they overflow).</summary>
+        public int RowCount => tab_strip.RowCount;
 
         /// <summary>Gets the bounding rectangle of a tab at the specified index.</summary>
         public System.Drawing.Rectangle GetTabRect (int index) =>
-            new System.Drawing.Rectangle (index * 100, 0, 100, 25);
+            index >= 0 && index < tab_strip.Tabs.Count
+                ? tab_strip.Tabs[index].Bounds
+                : new System.Drawing.Rectangle (index * 100, 0, 100, 25);
 
         /// <summary>Raised when a tab is drawn (owner-draw mode). Stub in Majorsilence.Forms.</summary>
         public event EventHandler<DrawItemEventArgs>? DrawItem { add { } remove { } }

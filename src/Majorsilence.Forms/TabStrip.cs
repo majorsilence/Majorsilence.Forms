@@ -53,10 +53,38 @@ namespace Majorsilence.Forms
         // Returns the tab at the specified location.
         private TabStripItem? GetTabAtLocation (Point location) => Tabs.FirstOrDefault (tp => tp.Bounds.Contains (location));
 
-        // Layout the tabs.
+        /// <summary>Gets the number of tab rows currently displayed (tabs wrap when they overflow).</summary>
+        public int RowCount { get; private set; } = 1;
+
+        // Lays the tabs out left-to-right at their preferred widths, WRAPPING to a new row when a
+        // tab would cross the strip's right edge (multiline tab behavior) so every tab stays
+        // visible and clickable. The strip grows to hold all rows; since it docks at the top of
+        // its TabControl, the pages automatically move below the whole band.
         private void LayoutTabs ()
         {
-            StackLayoutEngine.HorizontalExpand.Layout (ClientRectangle, Tabs.Cast<ILayoutable> ());
+            var avail = Math.Max (60, ClientRectangle.Width);
+            var rowHeight = LogicalToDeviceUnits (DefaultSize.Height);
+
+            var x = 0;
+            var row = 0;
+            foreach (var tab in Tabs) {
+                var width = Math.Min (Math.Max (1, tab.GetPreferredSize (Size.Empty).Width), avail);
+
+                if (x > 0 && x + width > avail) {
+                    x = 0;
+                    row++;
+                }
+
+                tab.SetBounds (x, row * rowHeight, width, rowHeight);
+                x += width;
+            }
+
+            RowCount = row + 1;
+
+            // Grow (or shrink) the strip to fit every row; no-op while the row count is stable.
+            var desired = RowCount * DefaultSize.Height;
+            if (Height != desired)
+                Height = desired;
         }
 
         /// <inheritdoc/>
