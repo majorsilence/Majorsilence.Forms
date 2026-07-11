@@ -28,7 +28,38 @@ namespace Majorsilence.Forms.Telerik
             return selected is not null && ws.Contains (selected) ? selected : ws[0];
         }
 
-        // Header row on top when >1 window; the selected window fills the remaining client area, the rest hide.
+        // Flows the tab headers into rows within the strip's width, in LOGICAL units: a header that
+        // would cross the right edge wraps to the next row -- WinForms multiline tab behavior --
+        // so every tab stays reachable no matter how many the strip holds. Headers are measured
+        // with the strip's effective font (the same resolution painting uses).
+        internal static List<(DockWindowBase win, Rectangle rect)> FlowHeaders (Control strip, List<DockWindowBase> ws, out int rowCount)
+        {
+            var result = new List<(DockWindowBase, Rectangle)> ();
+            var font = strip.GetEffectiveFont ();
+            var fontSize = strip.GetEffectiveFontSize ();
+            var avail = Math.Max (60, strip.ClientRectangle.Width);
+
+            var x = 0;
+            var row = 0;
+            foreach (var w in ws) {
+                var textWidth = (int) Math.Ceiling (TextMeasurer.MeasureText (Caption (w), font, fontSize).Width);
+                var width = Math.Min (Math.Max (60, textWidth + 20), avail);
+
+                if (x > 0 && x + width > avail) {
+                    x = 0;
+                    row++;
+                }
+
+                result.Add ((w, new Rectangle (x, row * HeaderHeight, width, HeaderHeight)));
+                x += width;
+            }
+
+            rowCount = row + 1;
+            return result;
+        }
+
+        // Header rows on top when >1 window; the selected window fills the remaining client area,
+        // the rest hide. The header band grows by whole rows when the tabs wrap.
         internal static void LayoutTabs (Control strip, DockWindowBase? selected)
         {
             var ws = Windows (strip);
@@ -37,7 +68,11 @@ namespace Majorsilence.Forms.Telerik
 
             selected ??= ws[0];
             var client = strip.ClientRectangle;
-            var header = ws.Count > 1 ? HeaderHeight : 0;
+            var header = 0;
+            if (ws.Count > 1) {
+                FlowHeaders (strip, ws, out var rows);
+                header = rows * HeaderHeight;
+            }
             var content = new Rectangle (client.Left, client.Top + header, client.Width, Math.Max (0, client.Height - header));
 
             foreach (var w in ws) {
@@ -55,28 +90,22 @@ namespace Majorsilence.Forms.Telerik
              : w is ToolWindow tw && !string.IsNullOrEmpty (tw.Caption) ? tw.Caption
              : w.Name ?? string.Empty;
 
-        // Per-strip header paint/hit state, including the scroll offset used when the tab headers
-        // are wider than the strip (real dock tab strips scroll their headers behind arrow buttons
-        // rather than letting them run off the edge).
+        // Per-strip header hit state. Rects are stored in DEVICE units so hit-testing agrees with
+        // mouse coordinates on scaled displays.
         internal sealed class HeaderState
         {
             public readonly List<(DockWindowBase win, Rectangle rect)> Rects = new ();
-            public int ScrollOffset;
-            public bool HasOverflow;
-            public Rectangle LeftArrow;
-            public Rectangle RightArrow;
+            public int RowCount = 1;
         }
 
-        private const int ArrowWidth = 18;
-        private const int ScrollStep = 90;
-
-        // Draws the tab headers and records their hit rectangles. No headers for a single-tab strip.
-        // When the headers overflow the strip width, the row scrolls: headers shift left by the
-        // state's ScrollOffset and clip before a pair of right-pinned arrow buttons.
+        // Draws the wrapped tab header rows and records their hit rectangles. No headers for a
+        // single-tab strip. Layout flows in logical units; painting and the recorded hit rects are
+        // scaled to device units (the paint canvas is the control's device-pixel back buffer, so
+        // logical-unit drawing renders undersized text and boxes on scaled displays).
         internal static void PaintHeaders (Control strip, PaintEventArgs e, DockWindowBase? selected, HeaderState state)
         {
             state.Rects.Clear ();
-            state.HasOverflow = false;
+            state.RowCount = 1;
             var ws = Windows (strip);
             if (ws.Count <= 1)
                 return;
@@ -85,96 +114,29 @@ namespace Majorsilence.Forms.Telerik
             using var selFill = new SKPaint { Color = new SKColor (0xFF, 0xFF, 0xFF) };
             using var border = new SKPaint { Color = new SKColor (0xB0, 0xB0, 0xB0), IsStroke = true };
 
-            // Measure every header with the strip's effective font (the same resolution the text
-            // draw below uses) instead of estimating from character counts.
+            var flowed = FlowHeaders (strip, ws, out var rows);
+            state.RowCount = rows;
+
             var font = strip.GetEffectiveFont ();
-            var fontSize = strip.LogicalToDeviceUnits (strip.GetEffectiveFontSize ());
-            var widths = new int[ws.Count];
-            var total = 0;
-            for (var i = 0; i < ws.Count; i++) {
-                var textWidth = (int) Math.Ceiling (TextMeasurer.MeasureText (Caption (ws[i]), font, fontSize).Width);
-                widths[i] = Math.Max (60, textWidth + 20);
-                total += widths[i];
-            }
+            var deviceFontSize = strip.LogicalToDeviceUnits (strip.GetEffectiveFontSize ());
+            var pad = strip.LogicalToDeviceUnits (8);
 
-            var avail = strip.ClientRectangle.Width;
-            state.HasOverflow = total > avail;
-            var visibleWidth = avail;
-
-            if (state.HasOverflow) {
-                visibleWidth = Math.Max (0, avail - 2 * ArrowWidth);
-                state.ScrollOffset = Math.Max (0, Math.Min (state.ScrollOffset, total - visibleWidth));
-            } else {
-                state.ScrollOffset = 0;
-            }
-
-            e.Canvas.Save ();
-            e.Canvas.Clip (new Rectangle (0, 0, visibleWidth, HeaderHeight));
-
-            var x = -state.ScrollOffset;
-            for (var i = 0; i < ws.Count; i++) {
-                var w = ws[i];
-                var r = new Rectangle (x, 0, widths[i], HeaderHeight);
-                x += widths[i];
-
-                // Off-screen headers are neither painted nor clickable.
-                if (r.Right <= 0 || r.Left >= visibleWidth)
-                    continue;
+            foreach (var (w, logical) in flowed) {
+                var r = new Rectangle (
+                    strip.LogicalToDeviceUnits (logical.Left),
+                    strip.LogicalToDeviceUnits (logical.Top),
+                    strip.LogicalToDeviceUnits (logical.Width),
+                    strip.LogicalToDeviceUnits (logical.Height));
 
                 e.Canvas.DrawRect (r.Left, r.Top, r.Width, r.Height, w == selected ? selFill : unselFill);
                 e.Canvas.DrawRect (r.Left + 0.5f, r.Top + 0.5f, r.Width - 1, r.Height - 1, border);
-                e.Canvas.DrawText (Caption (w), new Rectangle (r.Left + 8, r.Top, r.Width - 12, r.Height),
-                    strip, ContentAlignment.MiddleLeft, maxLines: 1);
+                e.Canvas.DrawText (Caption (w), font, deviceFontSize,
+                    new Rectangle (r.Left + pad, r.Top, r.Width - pad - 4, r.Height),
+                    strip.Enabled ? strip.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor,
+                    ContentAlignment.MiddleLeft, maxLines: 1);
 
                 state.Rects.Add ((w, r));
             }
-
-            e.Canvas.Restore ();
-
-            if (state.HasOverflow) {
-                state.LeftArrow = new Rectangle (avail - 2 * ArrowWidth, 0, ArrowWidth, HeaderHeight);
-                state.RightArrow = new Rectangle (avail - ArrowWidth, 0, ArrowWidth, HeaderHeight);
-
-                var canLeft = state.ScrollOffset > 0;
-                var canRight = state.ScrollOffset < total - visibleWidth;
-
-                PaintArrow (e, strip, state.LeftArrow, "◂", canLeft, unselFill, border);
-                PaintArrow (e, strip, state.RightArrow, "▸", canRight, unselFill, border);
-            } else {
-                state.LeftArrow = Rectangle.Empty;
-                state.RightArrow = Rectangle.Empty;
-            }
-        }
-
-        private static void PaintArrow (PaintEventArgs e, Control strip, Rectangle r, string glyph, bool enabled,
-            SKPaint fill, SKPaint border)
-        {
-            e.Canvas.DrawRect (r.Left, r.Top, r.Width, r.Height, fill);
-            e.Canvas.DrawRect (r.Left + 0.5f, r.Top + 0.5f, r.Width - 1, r.Height - 1, border);
-            e.Canvas.DrawText (glyph, strip.GetEffectiveFont (), strip.LogicalToDeviceUnits (strip.GetEffectiveFontSize ()),
-                r, enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor, ContentAlignment.MiddleCenter);
-        }
-
-        // Adjusts the scroll offset when an arrow is clicked. Returns true when the click was
-        // consumed (so it must not fall through to header hit-testing).
-        internal static bool HandleArrowClick (Control strip, HeaderState state, Point p)
-        {
-            if (!state.HasOverflow)
-                return false;
-
-            if (state.LeftArrow.Contains (p)) {
-                state.ScrollOffset = Math.Max (0, state.ScrollOffset - ScrollStep);
-                strip.Invalidate ();
-                return true;
-            }
-
-            if (state.RightArrow.Contains (p)) {
-                state.ScrollOffset += ScrollStep; // clamped against the measured total on next paint
-                strip.Invalidate ();
-                return true;
-            }
-
-            return false;
         }
 
         internal static DockWindowBase? HitTest (HeaderState state, Point p)
@@ -347,9 +309,6 @@ namespace Majorsilence.Forms.Telerik
         {
             base.OnMouseDown (e);
 
-            if (DockStrip.HandleArrowClick (this, _headers, e.Location))
-                return;
-
             var hit = DockStrip.HitTest (_headers, e.Location);
             if (hit is not null && hit != _selectedWindow) {
                 var previous = _selectedWindow;
@@ -385,9 +344,6 @@ namespace Majorsilence.Forms.Telerik
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
-
-            if (DockStrip.HandleArrowClick (this, _headers, e.Location))
-                return;
 
             var hit = DockStrip.HitTest (_headers, e.Location);
             if (hit is not null && hit != _selectedWindow) {
