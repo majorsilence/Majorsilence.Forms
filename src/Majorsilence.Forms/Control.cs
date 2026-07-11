@@ -1180,7 +1180,8 @@ namespace Majorsilence.Forms
         /// <param name="e">A PaintEventArgs that contains the event data.</param>
         protected virtual void OnPaint (PaintEventArgs e)
         {
-            foreach (var control in Controls.GetAllControls ()) {
+            // Bottom-to-top: WinForms z-order puts index 0 on TOP, so it must be drawn last.
+            foreach (var control in Controls.GetControlsPaintOrder ()) {
                 if (!control.Visible || control.Width <= 0 || control.Height <= 0)
                     continue;
 
@@ -1261,11 +1262,11 @@ namespace Majorsilence.Forms
         /// form's 8.25pt font in GDI) hold instead of clipping at the larger theme font.
         /// </summary>
         internal SKTypeface GetEffectiveFont ()
-            => CurrentStyle.TryGetFont () ?? Parent?.GetEffectiveFont () ?? Theme.UIFont;
+            => CurrentStyle.TryGetFont () ?? Parent?.GetEffectiveFont () ?? Majorsilence.Forms.SystemFonts.DefaultTypeface;
 
         /// <summary>Companion to <see cref="GetEffectiveFont"/> for the font size (logical units).</summary>
         internal int GetEffectiveFontSize ()
-            => CurrentStyle.TryGetFontSize () ?? Parent?.GetEffectiveFontSize () ?? Theme.FontSize;
+            => CurrentStyle.TryGetFontSize () ?? Parent?.GetEffectiveFontSize () ?? (int) Majorsilence.Forms.SystemFonts.DefaultFontSize;
 
         /// <summary>
         /// Called when the Parent property is changed.
