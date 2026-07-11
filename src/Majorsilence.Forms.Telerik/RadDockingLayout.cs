@@ -190,6 +190,25 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>
+        /// Activates the given dock window: selects its tab in the owning strip -- raising the
+        /// standard Leave/Enter/SelectedTabChanged activation events, exactly as a user click on
+        /// the tab header does -- and makes it the dock's <see cref="ActiveWindow"/>. Matches the
+        /// real docking API surface, where programmatic activation is the documented way to bring
+        /// a document or tool window to the front.
+        /// </summary>
+        public void ActivateWindow (DockWindowBase window)
+        {
+            switch (window?.Parent) {
+                case DocumentTabStrip dts:
+                    dts.SelectWindowInternal (window);
+                    break;
+                case ToolTabStrip tts:
+                    tts.SelectWindowInternal (window);
+                    break;
+            }
+        }
+
+        /// <summary>
         /// Enumerates every <see cref="DocumentWindow"/> hosted anywhere in this dock's control tree.
         /// Document windows are parented into the document tab strips declaratively (not tracked in the
         /// tool-window list), so anything reporting the open documents -- e.g. DocumentManager
@@ -304,19 +323,28 @@ namespace Majorsilence.Forms.Telerik
             DockStrip.PaintHeaders (this, e, _selectedWindow, _headers);
         }
 
+        // Selects the given window's tab, raising the standard activation events -- the shared
+        // implementation behind both a header click and programmatic RadDock.ActivateWindow.
+        internal void SelectWindowInternal (DockWindowBase win)
+        {
+            if (win == _selectedWindow || !Controls.Contains (win))
+                return;
+
+            var previous = _selectedWindow;
+            _selectedWindow = win;
+            DockStrip.LayoutTabs (this, _selectedWindow);
+            DockStrip.RaiseTabActivation (this, previous, win);
+            Invalidate ();
+        }
+
         /// <inheritdoc/>
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
 
             var hit = DockStrip.HitTest (_headers, e.Location);
-            if (hit is not null && hit != _selectedWindow) {
-                var previous = _selectedWindow;
-                _selectedWindow = hit;
-                DockStrip.LayoutTabs (this, _selectedWindow);
-                DockStrip.RaiseTabActivation (this, previous, hit);
-                Invalidate ();
-            }
+            if (hit is not null)
+                SelectWindowInternal (hit);
         }
     }
 
@@ -340,19 +368,28 @@ namespace Majorsilence.Forms.Telerik
             DockStrip.PaintHeaders (this, e, _selectedWindow, _headers);
         }
 
+        // Selects the given window's tab, raising the standard activation events -- the shared
+        // implementation behind both a header click and programmatic RadDock.ActivateWindow.
+        internal void SelectWindowInternal (DockWindowBase win)
+        {
+            if (win == _selectedWindow || !Controls.Contains (win))
+                return;
+
+            var previous = _selectedWindow;
+            _selectedWindow = win;
+            DockStrip.LayoutTabs (this, _selectedWindow);
+            DockStrip.RaiseTabActivation (this, previous, win);
+            Invalidate ();
+        }
+
         /// <inheritdoc/>
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
 
             var hit = DockStrip.HitTest (_headers, e.Location);
-            if (hit is not null && hit != _selectedWindow) {
-                var previous = _selectedWindow;
-                _selectedWindow = hit;
-                DockStrip.LayoutTabs (this, _selectedWindow);
-                DockStrip.RaiseTabActivation (this, previous, hit);
-                Invalidate ();
-            }
+            if (hit is not null)
+                SelectWindowInternal (hit);
         }
     }
 }

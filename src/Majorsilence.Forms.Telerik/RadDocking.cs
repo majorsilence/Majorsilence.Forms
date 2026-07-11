@@ -306,8 +306,13 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the selected tab. Stub.</summary>
         public object? SelectedTab { get; set; }
 
-        /// <summary>Selects the tab hosting the specified dock window. Stub - the compat strip stores it as the selected tab.</summary>
-        public void SelectTab (DockWindowBase window) => SelectedTab = window;
+        /// <summary>Selects the tab hosting the specified dock window, raising the standard
+        /// activation events (same path as clicking the tab header).</summary>
+        public void SelectTab (DockWindowBase window)
+        {
+            SelectedTab = window;
+            SelectWindowInternal (window);
+        }
 
         /// <summary>Gets or sets the dock window whose tab is active. Alias of SelectedTab for Telerik-shape compat.</summary>
         public DockWindowBase? ActiveWindow {
