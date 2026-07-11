@@ -38,11 +38,12 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void DefaultPadding_IsAccountedForTitleBar ()
         {
-            // GroupBox reserves extra top padding for its title; the other sides use the
-            // standard 3px padding.
+            // WinForms parity: Padding defaults to 3 on every side; the caption band is reserved
+            // by DisplayRectangle (font height + Padding.Top), not by inflated top padding.
             using var control = new GroupBox ();
 
-            Assert.Equal (new Padding (3, 16, 3, 3), control.Padding);
+            Assert.Equal (new Padding (3), control.Padding);
+            Assert.True (control.DisplayRectangle.Y >= control.CaptionHeight + control.Padding.Top);
         }
 
         [Theory]

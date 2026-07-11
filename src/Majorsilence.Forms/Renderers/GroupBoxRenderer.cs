@@ -11,8 +11,14 @@ namespace Majorsilence.Forms.Renderers
         protected override void Render (GroupBox control, PaintEventArgs e)
         {
             var bounds = control.ClientRectangle;
-            var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
-            var title_height = font_size + 4;
+
+            // Caption font/color resolve like any control text: the ambient effective font, not
+            // the theme chrome font. The title band matches the caption inset DisplayRectangle
+            // reserves, so docked children start below the caption and the border midline splits
+            // the caption text like real WinForms.
+            var font = control.GetEffectiveFont ();
+            var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
+            var title_height = control.LogicalToDeviceUnits (control.CaptionHeight);
             var border_top = title_height / 2;
 
             // Border rect starts below the midpoint of the title text
@@ -20,16 +26,18 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.DrawRectangle (border, Theme.BorderLowColor);
 
             if (!string.IsNullOrEmpty (control.Text)) {
-                var text_size = TextMeasurer.MeasureText (control.Text, Theme.UIFont, font_size);
+                var text_size = TextMeasurer.MeasureText (control.Text, font, font_size);
                 var text_width = (int)text_size.Width + 6;
                 var text_x = bounds.X + 10;
 
                 // Clear border behind title
-                e.Canvas.FillRectangle (text_x - 2, bounds.Y, text_width + 4, title_height, control.Style.BackgroundColor ?? Theme.BackgroundColor);
+                e.Canvas.FillRectangle (text_x - 2, bounds.Y, text_width + 4, title_height, control.GetEffectiveBackgroundColor ());
 
                 var text_bounds = new Rectangle (text_x, bounds.Y, text_width, title_height);
                 // A GroupBox caption interprets the '&' mnemonic prefix.
-                e.Canvas.DrawMnemonicText (control.Text, Theme.UIFont, font_size, text_bounds, Theme.ForegroundColor, ContentAlignment.MiddleLeft, maxLines: 1);
+                e.Canvas.DrawMnemonicText (control.Text, font, font_size, text_bounds,
+                    control.Enabled ? control.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor,
+                    ContentAlignment.MiddleLeft, maxLines: 1);
             }
         }
     }
