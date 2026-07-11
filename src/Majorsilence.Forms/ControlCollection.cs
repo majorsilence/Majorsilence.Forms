@@ -214,31 +214,37 @@ public partial class Control
             return false;
         }
 
-        // Returns the topmost child (last in z-order) that has mouse capture, without allocating.
-        // Matches the semantics of GetAllControls().LastOrDefault(c => c.Capture).
+        // WinForms z-order: within each list, INDEX 0 IS TOPMOST (BringToFront moves a control to
+        // index 0, SendToBack to the end, and dock layout processes Count-1 .. 0 so index 0 docks
+        // last -- see DockAndAnchorLayout.LayoutDockedControls). Implicit controls (title bar,
+        // scrollbars, other chrome overlays) sit above all explicit children. Hit-testing therefore
+        // searches implicit 0..n then explicit 0..n; painting runs the exact reverse (see
+        // GetControlsPaintOrder) so the pixels always match the input routing.
+
+        // Returns the topmost child (lowest z-index) that has mouse capture, without allocating.
         internal Control? FindCapturedChild ()
         {
-            for (var i = implicit_control_list.Count - 1; i >= 0; i--)
+            for (var i = 0; i < implicit_control_list.Count; i++)
                 if (implicit_control_list[i].Capture) return implicit_control_list[i];
 
-            for (var i = control_list.Count - 1; i >= 0; i--)
+            for (var i = 0; i < control_list.Count; i++)
                 if (control_list[i].Capture) return control_list[i];
 
             return null;
         }
 
         // Returns the topmost visible child that can receive mouse events at the given point,
-        // without allocating. Matches GetAllControls().LastOrDefault(c => c.Visible && receives && contains).
-        // Searches from the end of each list (highest z-order first) for early return.
+        // without allocating. Searches topmost-first (implicit chrome, then explicit index 0 up)
+        // for early return.
         internal Control? FindVisibleChildAt (Point location)
         {
-            for (var i = implicit_control_list.Count - 1; i >= 0; i--) {
+            for (var i = 0; i < implicit_control_list.Count; i++) {
                 var c = implicit_control_list[i];
                 if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.ScaledBounds.Contains (location))
                     return c;
             }
 
-            for (var i = control_list.Count - 1; i >= 0; i--) {
+            for (var i = 0; i < control_list.Count; i++) {
                 var c = control_list[i];
                 if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.ScaledBounds.Contains (location))
                     return c;
@@ -253,6 +259,21 @@ public partial class Control
                 return control_list.Concat (implicit_control_list);
 
             return control_list;
+        }
+
+        // Children in bottom-to-top paint order: explicit children from the highest index (back of
+        // the z-order) down to index 0, then implicit chrome the same way, so implicit controls
+        // paint above every explicit child and index 0 paints above its later siblings -- the
+        // WinForms convention (a designer's InitializeComponent adds the intended-topmost control
+        // first). Painting ascending collection order instead put later-added siblings on top,
+        // visually inverting every overlap.
+        internal IEnumerable<Control> GetControlsPaintOrder ()
+        {
+            for (var i = control_list.Count - 1; i >= 0; i--)
+                yield return control_list[i];
+
+            for (var i = implicit_control_list.Count - 1; i >= 0; i--)
+                yield return implicit_control_list[i];
         }
 
         /// <summary>
