@@ -238,19 +238,41 @@ namespace Majorsilence.Forms.Telerik
             // Fill the main document container to the dock's client area (the content chain hangs off it).
             var main = (Control?) MainDocumentContainer
                        ?? Controls.OfType<DocumentContainer> ().FirstOrDefault ();
-            if (main is not null) {
-                main.Visible = MainDocumentContainerVisible;
-                if (MainDocumentContainerVisible) {
-                    main.Bounds = ClientRectangle;
 
-                    // This compat dock has no SplitPanel engine: sibling tool strips keep their
-                    // designer bounds while the main container fills the WHOLE dock, so they always
-                    // overlap it. The container must therefore be frontmost (z-index 0) or a sibling
-                    // strip serialized before it -- e.g. a top-docked tool strip row -- paints over
-                    // the document tab band.
-                    if (Controls.GetChildIndex (main, throwException: false) > 0)
-                        Controls.SetChildIndex (main, 0);
+            if (main is null)
+                return;
+
+            // Some designer serializations put the actual content in TOOL strips parented directly
+            // to the dock and leave the main document container EMPTY (the split engine this compat
+            // lacks would have divided the space between them). An empty container has nothing to
+            // show -- filling it frontmost would cover the real content with a blank panel -- so
+            // hide it and promote the first visible content-bearing strip to fill the dock instead.
+            if (main.Controls.Count == 0) {
+                main.Visible = false;
+
+                var strip = Controls.OfType<Control> ()
+                    .FirstOrDefault (c => !ReferenceEquals (c, main) && c.Visible
+                        && c is DocumentTabStrip or ToolTabStrip or DocumentContainer or SplitPanel);
+                if (strip is not null) {
+                    strip.Bounds = ClientRectangle;
+                    if (Controls.GetChildIndex (strip, throwException: false) > 0)
+                        Controls.SetChildIndex (strip, 0);
                 }
+
+                return;
+            }
+
+            main.Visible = MainDocumentContainerVisible;
+            if (MainDocumentContainerVisible) {
+                main.Bounds = ClientRectangle;
+
+                // This compat dock has no SplitPanel engine: sibling tool strips keep their
+                // designer bounds while the main container fills the WHOLE dock, so they always
+                // overlap it. The container must therefore be frontmost (z-index 0) or a sibling
+                // strip serialized before it -- e.g. a top-docked tool strip row -- paints over
+                // the document tab band.
+                if (Controls.GetChildIndex (main, throwException: false) > 0)
+                    Controls.SetChildIndex (main, 0);
             }
         }
 

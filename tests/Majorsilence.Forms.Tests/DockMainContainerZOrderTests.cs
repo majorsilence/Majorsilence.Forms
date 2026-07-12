@@ -39,5 +39,32 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (0, dock.Controls.GetChildIndex (container));
             Assert.True (dock.Controls.GetChildIndex (toolStrip) > 0);
         }
+
+        [Fact]
+        public void Empty_main_container_yields_the_dock_to_the_content_strip ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { Size = new System.Drawing.Size (400, 300) };
+
+            var dock = new RadDock { Left = 0, Top = 0, Width = 380, Height = 260 };
+            // Content lives in a tool strip parented directly to the dock; the main container is EMPTY.
+            var toolStrip = new ToolTabStrip { Left = 0, Top = 0, Width = 200, Height = 100 };
+            toolStrip.Controls.Add (new ToolWindow { Name = "toolA", Text = "Tool A" });
+            toolStrip.Controls.Add (new ToolWindow { Name = "toolB", Text = "Tool B" });
+            var emptyContainer = new DocumentContainer ();
+
+            dock.Controls.Add (toolStrip);
+            dock.Controls.Add (emptyContainer);
+            dock.MainDocumentContainer = emptyContainer;
+            form.Controls.Add (dock);
+
+            form.Show ();
+            HeadlessRenderer.CapturePng (form);
+
+            Assert.False (emptyContainer.Visible, "an empty main container must hide");
+            Assert.Equal (dock.ClientRectangle, toolStrip.Bounds);
+            Assert.Equal (0, dock.Controls.GetChildIndex (toolStrip));
+        }
     }
 }
