@@ -152,11 +152,22 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        protected override void OnLayout (LayoutEventArgs e)
+        {
+            base.OnLayout (e);
+
+            // Settle the wrap (including the strip's own height) during the LAYOUT phase so the
+            // first painted frame is already correct; growing the strip mid-paint leaves wrapped
+            // rows clipped outside the current back buffer until the next frame.
+            LayoutTabs ();
+        }
+
+        /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
 
-            // TODO: This should only be done when tabs are added or removed, or the TabStrip is resized.
+            // Kept for paths that paint without a preceding layout pass (cheap and idempotent).
             LayoutTabs ();
 
             RenderManager.Render (this, e);
