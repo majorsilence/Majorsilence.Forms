@@ -76,21 +76,25 @@ namespace Majorsilence.Forms.Renderers
 
         private void DrawThumb (TrackBar control, PaintEventArgs e, Rectangle thumb_bounds)
         {
-            var fill_color = !control.Enabled ? Theme.ControlMidHighColor
+            // The thumb must read clearly against light container backgrounds in BOTH states --
+            // a disabled track bar still shows a solid flat thumb (matching the classic look),
+            // not a near-invisible outline.
+            var fill_color = !control.Enabled ? Theme.ControlMidColor
                 : control.ThumbPressed ? Theme.AccentColor2
                 : control.ThumbHovered ? Theme.AccentColor
                 : Theme.ControlMidHighColor;
 
             var border_color = !control.Enabled ? Theme.ForegroundDisabledColor
                 : control.ThumbPressed ? Theme.AccentColor2
-                : Theme.BorderLowColor;
+                : Theme.BorderHighColor;
 
             var draw_bounds = thumb_bounds;
             draw_bounds.Width -= 1;
             draw_bounds.Height -= 1;
 
-            e.Canvas.FillRectangle (draw_bounds, fill_color);
-            e.Canvas.DrawRectangle (draw_bounds, border_color);
+            var radius = e.LogicalToDeviceUnits (2);
+            e.Canvas.FillRoundedRectangle (draw_bounds.X, draw_bounds.Y, draw_bounds.Width, draw_bounds.Height, fill_color, radius, radius);
+            e.Canvas.DrawRoundedRectangle (draw_bounds.X, draw_bounds.Y, draw_bounds.Width, draw_bounds.Height, border_color, radius, radius);
         }
 
         private void DrawTicks (TrackBar control, PaintEventArgs e, Rectangle track_bounds)
@@ -120,8 +124,10 @@ namespace Majorsilence.Forms.Renderers
 
         private void DrawTrack (TrackBar control, PaintEventArgs e, Rectangle track_bounds)
         {
-            var track_color = control.Enabled ? Theme.ControlMidHighColor : Theme.ControlMidColor;
-            var border_color = control.Enabled ? Theme.BorderLowColor : Theme.ForegroundDisabledColor;
+            // A sunken groove that stays visible on light container backgrounds: darker fill with a
+            // clear border in both states (the classic disabled track bar still shows its groove).
+            var track_color = control.Enabled ? Theme.ControlLowColor : Theme.ControlMidColor;
+            var border_color = control.Enabled ? Theme.BorderHighColor : Theme.BorderLowColor;
 
             e.Canvas.FillRectangle (track_bounds, track_color);
             e.Canvas.DrawRectangle (track_bounds, border_color);
