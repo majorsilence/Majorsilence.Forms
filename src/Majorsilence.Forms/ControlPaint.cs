@@ -154,8 +154,9 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void DrawRadioButton (PaintEventArgs e, Point origin, CheckState state, bool disabled = false)
         {
-            var outer_radius = e.LogicalToDeviceUnits (8);
-            var inner_radius = e.LogicalToDeviceUnits (5);
+            // Sized for the 13px GDI-parity glyph box (see RadioButtonRenderer.GlyphSize).
+            var outer_radius = e.LogicalToDeviceUnits (6);
+            var inner_radius = e.LogicalToDeviceUnits (3);
             var border_color = disabled ? Theme.ForegroundDisabledColor :
                                state == CheckState.Checked ? Theme.AccentColor2 :
                                Theme.BorderLowColor;

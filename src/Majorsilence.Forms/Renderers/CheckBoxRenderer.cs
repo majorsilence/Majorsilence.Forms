@@ -8,8 +8,10 @@ namespace Majorsilence.Forms.Renderers
     /// </summary>
     public class CheckBoxRenderer : Renderer<CheckBox>, IRenderGlyph, IRenderTextAndImage
     {
+        // GDI parity: the classic checkbox glyph is 13px (see RadioButtonRenderer); designer
+        // AutoSize widths are frozen from those metrics.
         /// <inheritdoc/>
-        public int GlyphSize { get; } = 15;
+        public int GlyphSize { get; } = 13;
 
         /// <inheritdoc/>
         public int GlyphTextPadding { get; } = 5;
