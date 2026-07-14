@@ -3,10 +3,13 @@ using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
-    public class TabStripWrapProbeTests
+    // End-to-end wrap regression through a real offscreen render: overflowing tabs wrap, the strip
+    // grows to hold every row (settling within the first frames), and the selected page moves
+    // below the whole band.
+    public class TabStripWrapRenderTests
     {
         [Fact]
-        public void Dump_wrapped_tabcontrol_png ()
+        public void Wrapped_tab_strip_settles_through_a_real_render ()
         {
             HeadlessRenderer.Use ();
 
@@ -18,8 +21,7 @@ namespace Majorsilence.Forms.Tests
 
             form.Show ();
             HeadlessRenderer.CapturePng (form);
-            var png = HeadlessRenderer.CapturePng (form); // second cycle: height growth settles
-            System.IO.File.WriteAllBytes (@"A:\source\repos\MfHarness\shots\probe_tabwrap.png", png);
+            HeadlessRenderer.CapturePng (form); // second cycle: height growth settles
 
             var stripField = typeof (TabControl).GetField ("tab_strip",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
