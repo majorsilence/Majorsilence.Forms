@@ -296,6 +296,9 @@ public class HeadlessBackendTests
     public async System.Threading.Tasks.Task ShowDialog_CompletesWithoutRecursion ()
     {
         // Regression: Form.ShowDialog(Form) must call the base window helper, not recurse into itself.
+        // Delta-based count: other tests leak open forms, so absolute counts are order-dependent.
+        var baseline = Application.OpenForms.Count;
+
         var parent = new Form ();
         parent.Show ();
 
@@ -309,6 +312,6 @@ public class HeadlessBackendTests
         Assert.Equal (DialogResult.OK, await task);
 
         parent.Close ();
-        Assert.Equal (0, Application.OpenForms.Count);
+        Assert.Equal (baseline, Application.OpenForms.Count);
     }
 }

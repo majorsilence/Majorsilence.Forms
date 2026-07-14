@@ -16,8 +16,9 @@ namespace Majorsilence.Forms
         // Guards against re-entrancy: clamping a child's bounds in OnLayout re-triggers the client's layout.
         private bool laying_out;
 
-        // Child order mirrors paint/hit order: the LAST control is topmost. Newly activated children are
-        // moved to the end. This list is in activation order (front = last) for window-list/Next purposes.
+        // WinForms z-order: in the Controls collection INDEX 0 is topmost; activation moves a frame
+        // there. This separate list tracks ACTIVATION order (most recent = last) for
+        // window-list/Next purposes and is independent of the Controls indices.
         private readonly List<MdiChildWindow> frames = new ();
 
         /// <summary>Initializes a new instance of the <see cref="MdiClient"/> class.</summary>
@@ -69,7 +70,7 @@ namespace Majorsilence.Forms
 
             if (wasActive) {
                 active = null;
-                // Activate the next-topmost remaining child (last in z-order).
+                // Activate the most recently activated remaining child.
                 var next = frames.LastOrDefault ();
                 if (next is not null)
                     Activate (next.ChildForm);
@@ -91,8 +92,8 @@ namespace Majorsilence.Forms
 
             active = frame;
 
-            // Make it topmost: last in the Controls list is painted last / hit first.
-            Controls.SetChildIndex (frame, Controls.GetAllControls (false).Count () - 1);
+            // Make it topmost: index 0 in the Controls list is painted last / hit first.
+            Controls.SetChildIndex (frame, 0);
 
             // Track activation order in our list too (front = last).
             frames.Remove (frame);

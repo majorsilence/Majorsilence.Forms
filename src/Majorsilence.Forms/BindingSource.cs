@@ -6,12 +6,15 @@ namespace Majorsilence.Forms
 {
     /// <summary>
     /// WinForms compatibility: wraps a data list for binding to DataGridView and other controls.
-    /// Implements IList so it can be assigned directly to DataGridView.DataSource.
+    /// Implements IList so it can be assigned directly to DataGridView.DataSource, and ITypedList so
+    /// bound controls can read the schema (column set) of the resolved list -- including the case where
+    /// the source is a DataSet and DataMember names one of its tables.
     /// </summary>
-    public class BindingSource : Component, IList
+    public class BindingSource : Component, IList, ITypedList
     {
         private IList _list = new List<object?> ();
         private object? _dataSource;
+        private string _dataMember = string.Empty;
 
         /// <summary>Initializes a new instance of BindingSource.</summary>
         public BindingSource () { }
@@ -22,17 +25,67 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of BindingSource with a data source and data member.</summary>
         public BindingSource (object dataSource, string dataMember) { DataSource = dataSource; DataMember = dataMember; }
 
-        /// <summary>Gets or sets the data member path (no-op stub).</summary>
-        public string DataMember { get; set; } = string.Empty;
+        /// <summary>Gets or sets the data member (e.g. a table name within a DataSet source).</summary>
+        public string DataMember {
+            get => _dataMember;
+            set { _dataMember = value ?? string.Empty; ResolveList (); }
+        }
 
         /// <summary>Gets or sets the underlying data source.</summary>
         public object? DataSource {
             get => _dataSource;
-            set {
-                _dataSource = value;
-                _list = value as IList ?? new List<object?> ();
-                Position = _list.Count > 0 ? 0 : -1;
-            }
+            set { _dataSource = value; ResolveList (); }
+        }
+
+        // Resolves DataSource (+ DataMember) to the concrete IList that backs this BindingSource:
+        // a DataSet resolves through DataMember to that table's DefaultView; a DataTable to its
+        // DefaultView; an IListSource via GetList (); an IList is used directly.
+        private void ResolveList ()
+        {
+            object? src = _dataSource;
+
+            if (src is System.Data.DataSet ds)
+                src = !string.IsNullOrEmpty (_dataMember) && ds.Tables.Contains (_dataMember)
+                    ? ds.Tables[_dataMember]!.DefaultView
+                    : null;
+            else if (src is System.Data.DataTable table)
+                src = table.DefaultView;
+
+            _list = src switch {
+                IList list => list,
+                System.ComponentModel.IListSource listSource => listSource.GetList (),
+                _ => new List<object?> ()
+            };
+
+            Position = _list.Count > 0 ? 0 : -1;
+        }
+
+        // ITypedList — expose the schema of the resolved list so bound controls can build columns even
+        // when the list has no rows. Delegates to the list's own ITypedList (DataView) when available,
+        // otherwise reflects the element type's properties.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "Data binding requires runtime reflection over user-provided types.")]
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072", Justification = "Data binding requires runtime reflection over user-provided types.")]
+        PropertyDescriptorCollection ITypedList.GetItemProperties (PropertyDescriptor[]? listAccessors)
+        {
+            if (_list is ITypedList typed)
+                return typed.GetItemProperties (listAccessors);
+
+            var elementType = ListElementType ();
+            return elementType is null
+                ? new PropertyDescriptorCollection (System.Array.Empty<PropertyDescriptor> ())
+                : TypeDescriptor.GetProperties (elementType);
+        }
+
+        string ITypedList.GetListName (PropertyDescriptor[]? listAccessors) => _dataMember;
+
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
+        private System.Type? ListElementType ()
+        {
+            foreach (var iface in _list.GetType ().GetInterfaces ())
+                if (iface.IsGenericType && iface.GetGenericTypeDefinition () == typeof (IList<>))
+                    return iface.GetGenericArguments ()[0];
+
+            return _list.Count > 0 ? _list[0]?.GetType () : null;
         }
 
         /// <summary>Gets or sets the zero-based index of the current item.</summary>

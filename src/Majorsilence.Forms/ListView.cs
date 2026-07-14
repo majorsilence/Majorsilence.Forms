@@ -109,6 +109,9 @@ namespace Majorsilence.Forms
                     value.Selected = true;
 
                 Invalidate ();
+
+                // The guard above ensures this only fires on an actual selection change (WinForms).
+                OnSelectedIndexChanged (EventArgs.Empty);
             }
         }
 
@@ -186,7 +189,10 @@ namespace Majorsilence.Forms
         public event EventHandler? ItemSelectionChanged { add { } remove { } }
 
         /// <summary>Raised when the selected indices change.</summary>
-        public event EventHandler? SelectedIndexChanged { add { } remove { } }
+        public event EventHandler? SelectedIndexChanged;
+
+        /// <summary>Raises the SelectedIndexChanged event.</summary>
+        protected virtual void OnSelectedIndexChanged (EventArgs e) => SelectedIndexChanged?.Invoke (this, e);
 
         /// <summary>Raised when an item is activated (double-clicked or Enter pressed).</summary>
         public event EventHandler? ItemActivate { add { } remove { } }

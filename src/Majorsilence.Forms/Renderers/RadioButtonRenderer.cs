@@ -8,11 +8,14 @@ namespace Majorsilence.Forms.Renderers
     /// </summary>
     public class RadioButtonRenderer : Renderer<RadioButton>, IRenderGlyph, IRenderTextAndImage
     {
+        // GDI parity: the classic radio glyph is 13px with a ~5px gap before the text. Designer
+        // AutoSize widths are frozen from those metrics, so a larger glyph box eats into the text
+        // area and clips the last characters of designer-sized radio buttons.
         /// <inheritdoc/>
-        public int GlyphSize { get; } = 24;
+        public int GlyphSize { get; } = 13;
 
         /// <inheritdoc/>
-        public int GlyphTextPadding { get; }
+        public int GlyphTextPadding { get; } = 5;
 
         /// <inheritdoc/>
         public int ImageTextMargin { get; } = 4;
@@ -32,9 +35,9 @@ namespace Majorsilence.Forms.Renderers
             if (control.Selected && control.ShowFocusCues)
                 e.Canvas.DrawFocusRectangle (layout.Focus, 0);
 
-            // Draw the text
+            // Draw the text (a RadioButton always interprets the '&' mnemonic prefix).
             if (control.Text.HasValue ())
-                e.Canvas.DrawText (control.Text, layout.TextBounds, control, control.TextAlign, maxLines: 1, ellipsis: control.AutoEllipsis);
+                e.Canvas.DrawMnemonicText (control.Text, layout.TextBounds, control, control.TextAlign, maxLines: 1, ellipsis: control.AutoEllipsis);
         }
     }
 }

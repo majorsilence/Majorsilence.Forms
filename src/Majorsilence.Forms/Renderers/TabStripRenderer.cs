@@ -27,9 +27,14 @@ namespace Majorsilence.Forms.Renderers
             if (control.Selected && control.ShowFocusCues && control.Tabs.FocusedIndex == control.Tabs.IndexOf (item))
                 e.Canvas.DrawFocusRectangle (item.Bounds, e.LogicalToDeviceUnits (1));
 
-            var font_color = !item.Enabled ? Theme.ForegroundDisabledColor : Theme.ForegroundColor;
-            var font = item.Enabled && (item.Selected || item.Hovered) ? Theme.UIFontBold : Theme.UIFont;
-            var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
+            // Draw with the strip's ambient effective font -- the same resolution
+            // TabStripItem.GetPreferredSize measures with, so text always fits its tab. Selection
+            // emphasis comes from the accent underline below rather than a bold variant.
+            var font_color = !item.Enabled || !control.Enabled
+                ? Theme.ForegroundDisabledColor
+                : control.CurrentStyle.GetForegroundColor ();
+            var font = control.GetEffectiveFont ();
+            var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
 
             e.Canvas.DrawText (item.Text, font, font_size, item.Bounds, font_color, ContentAlignment.MiddleCenter);
 

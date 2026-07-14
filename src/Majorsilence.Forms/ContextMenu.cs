@@ -21,13 +21,22 @@ namespace Majorsilence.Forms
         public event EventHandler<System.ComponentModel.CancelEventArgs>? Opening;
 
         /// <summary>Raised after the context menu has been displayed.</summary>
-        public event EventHandler? Opened { add { } remove { } }
+        public event EventHandler? Opened;
 
         /// <summary>Raised after the context menu has been closed.</summary>
-        public event EventHandler<ToolStripDropDownClosedEventArgs>? Closed { add { } remove { } }
+        public event EventHandler<ToolStripDropDownClosedEventArgs>? Closed;
 
         /// <summary>Raised when the context menu is closing.</summary>
-        public event EventHandler<ToolStripDropDownClosingEventArgs>? Closing { add { } remove { } }
+        public event EventHandler<ToolStripDropDownClosingEventArgs>? Closing;
+
+        /// <summary>Raises the Opened event.</summary>
+        protected virtual void OnOpened (EventArgs e) => Opened?.Invoke (this, e);
+
+        /// <summary>Raises the Closing event.</summary>
+        protected virtual void OnClosing (ToolStripDropDownClosingEventArgs e) => Closing?.Invoke (this, e);
+
+        /// <summary>Raises the Closed event.</summary>
+        protected virtual void OnClosed (ToolStripDropDownClosedEventArgs e) => Closed?.Invoke (this, e);
 
         /// <summary>Gets or sets the control that triggered this context menu.</summary>
         public Control? SourceControl { get; private set; }
@@ -44,8 +53,20 @@ namespace Majorsilence.Forms
             var cancelArgs = new System.ComponentModel.CancelEventArgs ();
             Opening?.Invoke (this, cancelArgs);
 
-            if (!cancelArgs.Cancel)
+            if (!cancelArgs.Cancel) {
                 base.Show (parent, location);
+                OnOpened (EventArgs.Empty);
+            }
+        }
+
+        /// <inheritdoc/>
+        internal override void Deactivate ()
+        {
+            // Fires Closing before the menu hides and Closed after -- matching WinForms ordering. This is
+            // the single guaranteed teardown path (focus loss / outside click / ClosePopups).
+            OnClosing (new ToolStripDropDownClosingEventArgs (ToolStripDropDownCloseReason.AppFocusChange));
+            base.Deactivate ();
+            OnClosed (new ToolStripDropDownClosedEventArgs (ToolStripDropDownCloseReason.AppFocusChange));
         }
 
         /// <summary>Displays the context menu at the specified control-relative coordinates.</summary>

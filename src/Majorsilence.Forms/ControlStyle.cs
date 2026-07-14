@@ -73,6 +73,31 @@ namespace Majorsilence.Forms
         public SKColor GetBackgroundColor () => BackgroundColor ?? _parent?.GetBackgroundColor () ?? Theme.ControlMidColor;
 
         /// <summary>
+        /// Gets the background color defined anywhere in this style chain (instance style up through
+        /// the type's default styles), or null when the chain never sets one. The root
+        /// <see cref="Control.DefaultStyle"/> is excluded: its theme color is the definition of
+        /// "nothing set", so a null result lets the control resolve its WinForms-style ambient
+        /// background from its parent control instead.
+        /// </summary>
+        internal SKColor? TryGetBackgroundColor ()
+            => ReferenceEquals (this, Control.DefaultStyle)
+                ? null
+                : BackgroundColor ?? _parent?.TryGetBackgroundColor ();
+
+        /// <summary>
+        /// Gets the font defined anywhere in this style chain, or null when the chain never sets one
+        /// (the root <see cref="Control.DefaultStyle"/> is excluded, as in
+        /// <see cref="TryGetBackgroundColor"/>) so the control can resolve its WinForms-style ambient
+        /// font from its parent control instead.
+        /// </summary>
+        internal SKTypeface? TryGetFont ()
+            => ReferenceEquals (this, Control.DefaultStyle) ? null : Font ?? _parent?.TryGetFont ();
+
+        /// <summary>Companion to <see cref="TryGetFont"/> for the font size.</summary>
+        internal int? TryGetFontSize ()
+            => ReferenceEquals (this, Control.DefaultStyle) ? null : FontSize ?? _parent?.TryGetFontSize ();
+
+        /// <summary>
         /// Gets the computed font.
         /// </summary>
         public SKTypeface GetFont () => Font ?? _parent?.GetFont () ?? Theme.UIFont;

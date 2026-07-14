@@ -313,9 +313,10 @@ namespace Majorsilence.Forms
         /// <summary>Initiates scrolling the display of the control by the specified number of pixels.</summary>
         public void ScrollControlIntoView (Control? activeControl) { }
 
-        /// <summary>Returns the child control at the specified client coordinates, or null.</summary>
+        /// <summary>Returns the child control at the specified client coordinates, or null.
+        /// WinForms z-order: index 0 is topmost, so the first match wins.</summary>
         public Control? GetChildAtPoint (System.Drawing.Point pt)
-            => Controls.GetAllControls ().LastOrDefault (c => c.Visible && c.Bounds.Contains (pt));
+            => Controls.GetAllControls ().FirstOrDefault (c => c.Visible && c.Bounds.Contains (pt));
 
         /// <summary>Gets the current mouse cursor position in screen coordinates (alias for Cursor.Position).</summary>
         public static System.Drawing.Point MousePosition => Cursor.Position;

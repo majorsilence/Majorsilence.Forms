@@ -73,7 +73,7 @@ namespace Majorsilence.Forms
         }
 
         // The scaled height of the current font.
-        internal int CurrentFontSize => LogicalToDeviceUnits (CurrentStyle.GetFontSize ());
+        internal int CurrentFontSize => LogicalToDeviceUnits (GetEffectiveFontSize ());
 
         /// <summary>
         /// Gets the height a single-line TextBox should be to exactly fit one line of text at the

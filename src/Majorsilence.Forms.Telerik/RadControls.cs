@@ -308,6 +308,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
 
+        /// <summary>Telerik compat: extra vertical spacing between nodes. Stored (the compat tree uses its own item height).</summary>
+        public int SpacingBetweenNodes { get; set; }
+
         /// <summary>Gets or sets the data source used for hierarchical (self-referencing) data binding. Stub (binding is not performed; add <see cref="RadTreeNode"/>s to <see cref="Nodes"/> directly).</summary>
         public object? DataSource { get; set; }
         /// <summary>Gets or sets the member supplying each node's display text, when data-bound. Stub.</summary>

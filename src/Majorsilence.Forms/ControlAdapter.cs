@@ -39,7 +39,9 @@ namespace Majorsilence.Forms
             var form_x = (int)(form_border.Left.GetWidth () * scaling);
             var form_y = (int)(form_border.Top.GetWidth ()  * scaling);
 
-            foreach (var control in Controls.GetAllControls ()) {
+            // Bottom-to-top: WinForms z-order puts index 0 on TOP, so it must be drawn last
+            // (matches Control.OnPaint).
+            foreach (var control in Controls.GetControlsPaintOrder ()) {
                 if (!control.Visible || control.Width <= 0 || control.Height <= 0)
                     continue;
 

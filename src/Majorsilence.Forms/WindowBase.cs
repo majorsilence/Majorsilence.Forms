@@ -326,7 +326,19 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Marks the entire window as needing to be redrawn.</summary>
-        public virtual void Invalidate () => Backend.Invalidate ();
+        public virtual void Invalidate ()
+        {
+            // The backend schedules the repaint via Avalonia's InvalidateVisual, which must run on the
+            // UI thread. WinForms code frequently invalidates from an async continuation that -- absent a
+            // UI SynchronizationContext -- resumes on a thread-pool thread (e.g. a grid rebound after
+            // awaiting its data). Calling the backend directly from there would no-op, leaving freshly
+            // loaded content unpainted until the next input event. Marshal to the UI thread when needed;
+            // Post is fire-and-forget, so this never blocks (and cannot deadlock sync-over-async code).
+            if (Majorsilence.Forms.Backends.Platform.Backend.CheckAccess ())
+                Backend.Invalidate ();
+            else
+                Majorsilence.Forms.Backends.Platform.Backend.Post (Backend.Invalidate);
+        }
 
         /// <summary>Marks the specified portion of the window as needing to be redrawn.</summary>
         public void Invalidate (System.Drawing.Rectangle rectangle) => Invalidate ();

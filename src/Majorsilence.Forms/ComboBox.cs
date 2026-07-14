@@ -65,8 +65,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public event EventHandler? DropDownOpened;
 
-        /// <summary>Raised when the selected item changes and the drop-down closes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? SelectionChangeCommitted { add { } remove { } }
+        /// <summary>Raised when the user commits a selection from the drop-down (not on programmatic changes).</summary>
+        public event EventHandler? SelectionChangeCommitted;
 
         /// <summary>
         /// Gets or sets the appearance and behavior of the combo box.
@@ -155,12 +155,20 @@ namespace Majorsilence.Forms
         private void ListBox_SelectedIndexChanged (object? sender, EventArgs e)
         {
             if (popup_listbox.SelectedIndex > -1) {
+                // The drop-down is only open when the user is actively picking (mouse/keyboard); a
+                // programmatic SelectedIndex/SelectedItem/Text change runs with it closed. Capture that
+                // before closing so SelectionChangeCommitted fires only for user commits (WinForms).
+                var userDriven = DroppedDown;
+
                 if (!suppress_popup_close)
                     DroppedDown = false;
 
                 Invalidate ();
 
                 OnSelectedIndexChanged (e);
+
+                if (userDriven)
+                    OnSelectionChangeCommitted (e);
             }
         }
 
@@ -230,7 +238,18 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the SelectedIndexChanged event.
         /// </summary>
-        protected virtual void OnSelectedIndexChanged (EventArgs e) => SelectedIndexChanged?.Invoke (this, e);
+        protected virtual void OnSelectedIndexChanged (EventArgs e)
+        {
+            SelectedIndexChanged?.Invoke (this, e);
+            // SelectedValue is derived from SelectedIndex, so it changes whenever the index does.
+            OnSelectedValueChanged (e);
+        }
+
+        /// <summary>Raises the SelectedValueChanged event.</summary>
+        protected virtual void OnSelectedValueChanged (EventArgs e) => SelectedValueChanged?.Invoke (this, e);
+
+        /// <summary>Raises the SelectionChangeCommitted event.</summary>
+        protected virtual void OnSelectionChangeCommitted (EventArgs e) => SelectionChangeCommitted?.Invoke (this, e);
 
         /// <summary>
         /// Gets or sets the index of the currently selected item.  Returns -1 if no item is selected.
@@ -254,7 +273,7 @@ namespace Majorsilence.Forms
         public event EventHandler? SelectedIndexChanged;
 
         /// <summary>Raised when the SelectedValue property changes.</summary>
-        public event EventHandler? SelectedValueChanged { add { } remove { } }
+        public event EventHandler? SelectedValueChanged;
 
         /// <summary>Gets or sets the width of the drop-down list. 0 means match control width.</summary>
         public int DropDownWidth { get; set; }

@@ -219,7 +219,7 @@ namespace Majorsilence.Forms
         public event EventHandler<TreeNodeMouseClickEventArgs>? NodeMouseClick;
 
         /// <summary>WinForms compatibility: raised when the user double-clicks a node with the mouse.</summary>
-        public event EventHandler<TreeNodeMouseClickEventArgs>? NodeMouseDoubleClick { add { } remove { } }
+        public event EventHandler<TreeNodeMouseClickEventArgs>? NodeMouseDoubleClick;
 
         /// <summary>WinForms compatibility: raised when the mouse enters a node.</summary>
         public event EventHandler<TreeNodeMouseHoverEventArgs>? NodeMouseHover { add { } remove { } }
@@ -513,6 +513,10 @@ namespace Majorsilence.Forms
 
             if (item is null)
                 return;
+
+            // Fire for every double-clicked node, independent of the expand/collapse glyph branch below
+            // (mirrors the NodeMouseClick raise in OnClick).
+            NodeMouseDoubleClick?.Invoke (this, new TreeNodeMouseClickEventArgs (item, e.Button, e.Clicks, e.X, e.Y));
 
             var element = item.GetElementAtLocation (e.Location);
 

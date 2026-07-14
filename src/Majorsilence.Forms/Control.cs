@@ -1063,9 +1063,31 @@ namespace Majorsilence.Forms
         protected virtual void OnInvalidated (InvalidateEventArgs e) => (Events[s_invalidatedEvent] as EventHandler<InvalidateEventArgs>)?.Invoke (this, e);
 
         /// <summary>
-        /// Raises the LostFocus event.
+        /// Raises the LostFocus event, then runs the WinForms validation cycle (Validating/Validated)
+        /// as focus leaves the control.
         /// </summary>
-        protected virtual void OnLostFocus (EventArgs e) => (Events[s_lostFocusEvent] as EventHandler)?.Invoke (this, e);
+        protected virtual void OnLostFocus (EventArgs e)
+        {
+            (Events[s_lostFocusEvent] as EventHandler)?.Invoke (this, e);
+
+            var validatingArgs = new System.ComponentModel.CancelEventArgs ();
+            OnValidating (validatingArgs);
+            if (!validatingArgs.Cancel)
+                OnValidated (EventArgs.Empty);
+        }
+
+        /// <summary>Raises the Validating event (WinForms validation cycle; fires on focus loss).</summary>
+        protected virtual void OnValidating (System.ComponentModel.CancelEventArgs e) => Validating?.Invoke (this, e);
+
+        /// <summary>Raises the Validated event (fires on focus loss when validation is not cancelled).</summary>
+        protected virtual void OnValidated (EventArgs e) => Validated?.Invoke (this, e);
+
+        // Raises Enter/GotFocus (or Leave/LostFocus) as an activation notification, without moving real
+        // input focus. Used by the docking compat: selecting a document/tool tab must "enter" that window
+        // so WinForms/Telerik code that loads a tab's data on the window's Enter event runs (e.g. a
+        // customer form that fetches its Receivables grid when the Receivables document window is entered).
+        internal void RaiseEnter () => OnGotFocus (EventArgs.Empty);
+        internal void RaiseLeave () => OnLostFocus (EventArgs.Empty);
 
         /// <summary>
         /// Raises the KeyDown event.
@@ -1085,7 +1107,14 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the LocationChanged event.
         /// </summary>
-        protected virtual void OnLocationChanged (EventArgs e) => (Events[s_locationChangedEvent] as EventHandler)?.Invoke (this, e);
+        protected virtual void OnLocationChanged (EventArgs e)
+        {
+            (Events[s_locationChangedEvent] as EventHandler)?.Invoke (this, e);
+            OnMove (e);
+        }
+
+        /// <summary>Raises the Move event (WinForms fires Move together with LocationChanged).</summary>
+        protected virtual void OnMove (EventArgs e) => Move?.Invoke (this, e);
 
         /// <summary>
         /// Raises the MarginChanged event.
@@ -1151,7 +1180,8 @@ namespace Majorsilence.Forms
         /// <param name="e">A PaintEventArgs that contains the event data.</param>
         protected virtual void OnPaint (PaintEventArgs e)
         {
-            foreach (var control in Controls.GetAllControls ()) {
+            // Bottom-to-top: WinForms z-order puts index 0 on TOP, so it must be drawn last.
+            foreach (var control in Controls.GetControlsPaintOrder ()) {
                 if (!control.Visible || control.Width <= 0 || control.Height <= 0)
                     continue;
 
@@ -1189,13 +1219,54 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            e.Canvas.DrawBackground (ScaledBounds, CurrentStyle);
+            e.Canvas.DrawBackground (ScaledBounds, CurrentStyle, GetEffectiveBackgroundColor ());
 
             if (BackgroundImage is not null)
                 PaintBackgroundImage (e);
 
             e.Canvas.DrawBorder (ScaledBounds, CurrentStyle);
         }
+
+        /// <summary>
+        /// Resolves the control's effective background the way WinForms' ambient BackColor does: an
+        /// explicit color anywhere in the control's own style chain wins; otherwise the color comes
+        /// from the parent control (a Label on a dark panel paints dark), ending at the hosting
+        /// window's background (WinForms ambience terminates at Form.BackColor) and only then the
+        /// theme default.
+        /// </summary>
+        internal SKColor GetEffectiveBackgroundColor ()
+        {
+            var chain = CurrentStyle.TryGetBackgroundColor ();
+            if (chain is not null)
+                return chain.Value;
+
+            if (Parent is not null)
+                return Parent.GetEffectiveBackgroundColor ();
+
+            // Ambience terminates at the hosting window (WinForms: Form.BackColor) -- but a fully
+            // transparent window background is an embedding artifact (HostedSurface composites over
+            // its host), not an ambient color; fall through to the theme for it.
+            var window = FindWindow ()?.CurrentStyle.GetBackgroundColor ();
+            if (window is { Alpha: > 0 })
+                return window.Value;
+
+            return Theme.BackgroundColor;
+        }
+
+        /// <summary>
+        /// Resolves the font used to draw/measure this control's text the way WinForms' ambient Font
+        /// does: an explicit font anywhere in the control's own style chain wins; otherwise it comes
+        /// from the parent chain (a Form's designer font reaches every child that never set one),
+        /// falling back to the theme font at the top. Keeping DRAWING on the same ambient resolution
+        /// as the <see cref="Font"/> getter is what makes designer-fixed control widths (sized for the
+        /// form's 8.25pt font in GDI) hold instead of clipping at the larger theme font.
+        /// </summary>
+        internal SKTypeface GetEffectiveFont ()
+            => CurrentStyle.TryGetFont () ?? Parent?.GetEffectiveFont () ?? Majorsilence.Forms.SystemFonts.DefaultTypeface;
+
+        /// <summary>Companion to <see cref="GetEffectiveFont"/> for the font size (logical units).</summary>
+        internal int GetEffectiveFontSize ()
+            => CurrentStyle.TryGetFontSize () ?? Parent?.GetEffectiveFontSize () ?? (int) Majorsilence.Forms.SystemFonts.DefaultFontSize;
 
         /// <summary>
         /// Called when the Parent property is changed.
@@ -1923,7 +1994,9 @@ namespace Majorsilence.Forms
         /// <see cref="ControlStyle.BackgroundColor"/> using <see cref="System.Drawing.Color"/>.
         /// </summary>
         public System.Drawing.Color BackColor {
-            get => Style.BackgroundColor?.ToDrawingColor () ?? Style.GetBackgroundColor ().ToDrawingColor ();
+            // Ambient like WinForms: with no explicit color anywhere in the style chain, the value
+            // reflects the parent control's effective background.
+            get => GetEffectiveBackgroundColor ().ToDrawingColor ();
             set {
                 Style.BackgroundColor = value.ToSKColor ();
                 Invalidate ();

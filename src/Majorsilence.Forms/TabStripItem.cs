@@ -41,9 +41,13 @@ namespace Majorsilence.Forms
         /// </summary>
         public Size GetPreferredSize (Size proposedSize)
         {
+            // Measure with the strip's ambient effective font (the same resolution the renderer
+            // uses), not the theme chrome font -- a strip with a designer-set font must size its
+            // tabs to that font.
             var padding = Parent?.LogicalToDeviceUnits (Padding.Horizontal) ?? Padding.Horizontal;
-            var font_size = Parent?.LogicalToDeviceUnits (Theme.FontSize) ?? Theme.FontSize;
-            var text_size = (int)Math.Round (TextMeasurer.MeasureText (Text, Theme.UIFont, font_size).Width);
+            var font = Parent?.GetEffectiveFont () ?? Theme.UIFont;
+            var font_size = Parent is { } strip ? strip.LogicalToDeviceUnits (strip.GetEffectiveFontSize ()) : Theme.FontSize;
+            var text_size = (int)Math.Round (TextMeasurer.MeasureText (Text, font, font_size).Width);
 
             return new Size (text_size + padding, Bounds.Height);
         }

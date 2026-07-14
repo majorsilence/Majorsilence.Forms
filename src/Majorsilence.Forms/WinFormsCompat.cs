@@ -1186,17 +1186,17 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the hosted control's content changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? ContentChanged { add { } remove { } }
 
-        /// <summary>Raised when the hosted control receives focus. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? GotFocus { add { } remove { } }
+        /// <summary>Raised when the hosted control receives focus. Forwards to the hosted control.</summary>
+        public event EventHandler? GotFocus { add => Control.GotFocus += value; remove => Control.GotFocus -= value; }
 
-        /// <summary>Raised when the hosted control loses focus. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? LostFocus { add { } remove { } }
+        /// <summary>Raised when the hosted control loses focus. Forwards to the hosted control.</summary>
+        public event EventHandler? LostFocus { add => Control.LostFocus += value; remove => Control.LostFocus -= value; }
 
-        /// <summary>Raised when a key is pressed while focus is on the hosted control. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<KeyEventArgs>? KeyDown { add { } remove { } }
+        /// <summary>Raised when a key is pressed while focus is on the hosted control. Forwards to the hosted control.</summary>
+        public event EventHandler<KeyEventArgs>? KeyDown { add => Control.KeyDown += value; remove => Control.KeyDown -= value; }
 
-        /// <summary>Raised when a key is released while focus is on the hosted control. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<KeyEventArgs>? KeyUp { add { } remove { } }
+        /// <summary>Raised when a key is released while focus is on the hosted control. Forwards to the hosted control.</summary>
+        public event EventHandler<KeyEventArgs>? KeyUp { add => Control.KeyUp += value; remove => Control.KeyUp -= value; }
     }
 
     /// <summary>Represents a ToolStrip-hosted drop-down control. Stub in Majorsilence.Forms.</summary>
@@ -1260,11 +1260,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets the width of the drop-down button portion. Stub in Majorsilence.Forms.</summary>
         public int DropDownButtonWidth { get; set; } = 11;
 
-        /// <summary>Raised when the button portion of the item is clicked. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? ButtonClick { add { } remove { } }
+        /// <summary>Raised when the button portion of the item is clicked.</summary>
+        public event EventHandler? ButtonClick;
 
         /// <summary>Raised when the button portion of the item is double-clicked. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? ButtonDoubleClick { add { } remove { } }
+
+        /// <inheritdoc/>
+        protected internal override void OnClick (MouseEventArgs e)
+        {
+            base.OnClick (e);
+            // The compat split button has no separate drop-down arrow hit region, so a click is treated
+            // as a button-portion click (the common case app handlers care about).
+            ButtonClick?.Invoke (this, EventArgs.Empty);
+        }
     }
 
     /// <summary>
@@ -1319,8 +1328,18 @@ namespace Majorsilence.Forms
         /// <summary>Gets the collection of sub-items for this menu item.</summary>
         public MenuItemCollection DropDownItems => Items;
 
-        /// <summary>Gets or sets whether the item appears with a check mark.</summary>
-        public new bool Checked { get; set; }
+        private bool _checked;
+
+        /// <summary>Gets or sets whether the item appears with a check mark. Raises CheckedChanged on change.</summary>
+        public new bool Checked {
+            get => _checked;
+            set {
+                if (_checked == value)
+                    return;
+                _checked = value;
+                CheckedChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets or sets whether clicking the item toggles its checked state.</summary>
         public bool CheckOnClick { get; set; }
@@ -1352,8 +1371,8 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the drop-down has been closed. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? DropDownClosed { add { } remove { } }
 
-        /// <summary>Raised when the Checked property changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? CheckedChanged { add { } remove { } }
+        /// <summary>Raised when the Checked property changes.</summary>
+        public event EventHandler? CheckedChanged;
 
         /// <summary>Gets or sets how this item behaves when toolstrips are merged. Stub in Majorsilence.Forms.</summary>
         public MergeAction MergeAction { get; set; } = MergeAction.Append;

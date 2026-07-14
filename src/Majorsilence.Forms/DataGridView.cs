@@ -133,6 +133,9 @@ namespace Majorsilence.Forms
 
             Controls.Add (edit_textbox);
 
+            // Let handlers customise/inspect the editing control before it is shown (WinForms).
+            OnEditingControlShowing (new DataGridViewEditingControlShowingEventArgs (edit_textbox, new DataGridViewCellStyle ()));
+
             edit_textbox.Select ();
             edit_textbox.SelectAll ();
         }
@@ -200,10 +203,10 @@ namespace Majorsilence.Forms
         public event EventHandler? RowDirtyStateNeeded { add => _rowDirtyStateNeeded += value; remove => _rowDirtyStateNeeded -= value; }
 
         /// <summary>Raised when a cell is double-clicked.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellDoubleClick { add { } remove { } }
+        public event EventHandler<DataGridViewCellEventArgs>? CellDoubleClick;
 
         /// <summary>Raised on a mouse click in a cell.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseClick { add { } remove { } }
+        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseClick;
 
         /// <summary>Raised on a mouse double-click in a cell.</summary>
         public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseDoubleClick { add { } remove { } }
@@ -218,22 +221,22 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseMove { add { } remove { } }
 
         /// <summary>Raised when the mouse enters a cell.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellMouseEnter { add { } remove { } }
+        public event EventHandler<DataGridViewCellEventArgs>? CellMouseEnter;
 
         /// <summary>Raised when the mouse leaves a cell.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellMouseLeave { add { } remove { } }
+        public event EventHandler<DataGridViewCellEventArgs>? CellMouseLeave;
 
         /// <summary>Raised when a cell is validating its content.</summary>
-        public event EventHandler<DataGridViewCellValidatingEventArgs>? CellValidating { add { } remove { } }
+        public event EventHandler<DataGridViewCellValidatingEventArgs>? CellValidating;
 
         /// <summary>Raised after a cell has been validated.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellValidated { add { } remove { } }
+        public event EventHandler<DataGridViewCellEventArgs>? CellValidated;
 
         /// <summary>Raised before a row's header is painted.</summary>
         public event EventHandler<DataGridViewRowPrePaintEventArgs>? RowPrePaint { add { } remove { } }
 
         /// <summary>Raised after a row has been painted.</summary>
-        public event EventHandler<DataGridViewRowPostPaintEventArgs>? RowPostPaint { add { } remove { } }
+        public event EventHandler<DataGridViewRowPostPaintEventArgs>? RowPostPaint;
 
         /// <summary>Raised to supply default values for new rows.</summary>
         public event EventHandler<DataGridViewRowEventArgs>? DefaultValuesNeeded { add { } remove { } }
@@ -254,7 +257,7 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewRowEventArgs>? RowLeave { add { } remove { } }
 
         /// <summary>Raised when a cell's content is clicked.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellContentClick { add { } remove { } }
+        public event EventHandler<DataGridViewCellEventArgs>? CellContentClick;
 
         /// <summary>Raised when a cell's content is double-clicked.</summary>
         public event EventHandler<DataGridViewCellEventArgs>? CellContentDoubleClick { add { } remove { } }
@@ -272,10 +275,10 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellStateChangedEventArgs>? CellStateChanged { add { } remove { } }
 
         /// <summary>Raised when a cell enters editing mode and the editing control is about to be shown. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<DataGridViewEditingControlShowingEventArgs>? EditingControlShowing { add { } remove { } }
+        public event EventHandler<DataGridViewEditingControlShowingEventArgs>? EditingControlShowing;
 
         /// <summary>Raised when a column header cell is clicked.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? ColumnHeaderMouseClick { add { } remove { } }
+        public event EventHandler<DataGridViewCellMouseEventArgs>? ColumnHeaderMouseClick;
 
         /// <summary>Raised when a column header cell is double-clicked.</summary>
         public event EventHandler<DataGridViewCellMouseEventArgs>? ColumnHeaderMouseDoubleClick { add { } remove { } }
@@ -510,6 +513,13 @@ namespace Majorsilence.Forms
                 return false;
 
             var new_value = edit_textbox.Text;
+
+            // WinForms validation cycle: a handler can cancel the commit, keeping the cell in edit mode.
+            var validatingArgs = new DataGridViewCellValidatingEventArgs (editing_column_index, editing_row_index, new_value);
+            OnCellValidating (validatingArgs);
+            if (validatingArgs.Cancel)
+                return false;
+
             var row = Rows[editing_row_index];
 
             // Ensure enough cells exist
@@ -546,6 +556,8 @@ namespace Majorsilence.Forms
                     OnCellValueChanged (changed_args);
                 }
             }
+
+            OnCellValidated (new DataGridViewCellEventArgs (editing_column_index, editing_row_index));
 
             var end_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
             OnCellEndEdit (end_args);
@@ -1152,28 +1164,52 @@ namespace Majorsilence.Forms
         {
             Rows.Clear ();
 
-            if (data_source is null || data_source.Count == 0)
+            if (data_source is null)
                 return;
 
-            // Special-case ADO.NET data binding (DataView / DataTable.DefaultView): generate
-            // columns and rows from the DataColumns rather than the DataRowView's CLR properties.
-            if (data_source is System.Data.DataView data_view) {
+            // Preferred bound-list path. DataView, DataTable.DefaultView and BindingSource all implement
+            // ITypedList, which exposes the bound *schema* as property descriptors -- the DataColumns of
+            // a view, or the columns of a BindingSource's resolved list (including a DataSet + DataMember).
+            // Generate columns from those descriptors even when the source has zero rows, matching
+            // WinForms, whose column collection reflects the bound schema regardless of row count. This
+            // is what makes grid.Columns["Foo"] resolvable before any row loads.
+            //
+            // Name/DataPropertyName are set to the member name (not just HeaderText): the Columns[name]
+            // indexer matches Name OR HeaderText, and app code routinely reassigns HeaderText
+            // (grid.Columns["Start"].HeaderText = "Reminder Date") then looks the column up again by its
+            // original field name -- without Name set, that second lookup returns null and the caller NREs.
+            if (data_source is System.ComponentModel.ITypedList typed_list) {
+                var descriptors = typed_list.GetItemProperties (null);
+
                 if (AutoGenerateColumns) {
                     Columns.Clear ();
 
-                    foreach (System.Data.DataColumn column in data_view.Table!.Columns)
-                        Columns.Add (column.ColumnName, EstimateColumnWidth (column.ColumnName));
+                    foreach (System.ComponentModel.PropertyDescriptor descriptor in descriptors) {
+                        var generated = Columns.Add (descriptor.Name, EstimateColumnWidth (descriptor.Name));
+                        generated.Name = descriptor.Name;
+                        generated.DataPropertyName = descriptor.Name;
+                    }
                 }
 
-                foreach (System.Data.DataRowView row_view in data_view) {
-                    var cells = new string[data_view.Table!.Columns.Count];
+                var typedRows = new System.Collections.Generic.List<DataGridViewRow> ();
+                foreach (var item in data_source) {
+                    if (item is null)
+                        continue;
 
-                    for (var i = 0; i < cells.Length; i++)
-                        cells[i] = row_view[i]?.ToString () ?? string.Empty;
-
-                    Rows.Add (cells);
+                    var row = new DataGridViewRow ();
+                    for (var i = 0; i < descriptors.Count; i++)
+                        row.Cells.Add (descriptors[i].GetValue (item)?.ToString () ?? string.Empty);
+                    row.DataBoundItem = item;
+                    typedRows.Add (row);
                 }
 
+                // Populate in one shot: each individual Rows.Add fires OnRowsChanged, and derived grids
+                // (RadGridView) rebuild their whole view on every change, so adding N rows one at a time
+                // is O(N^2) -- slow to display for large result sets. ReplaceAll notifies once.
+                Rows.ReplaceAll (typedRows);
+
+                SetInitialCurrentCell ();
+                _dataBindingComplete?.Invoke (this, EventArgs.Empty);
                 return;
             }
 
@@ -1189,43 +1225,68 @@ namespace Majorsilence.Forms
                     .Where (p => p.CanRead)
                     .ToArray ();
 
-                foreach (var prop in properties)
-                    Columns.Add (prop.Name, EstimateColumnWidth (prop.Name));
+                foreach (var prop in properties) {
+                    var generated = Columns.Add (prop.Name, EstimateColumnWidth (prop.Name));
+                    // See the DataView branch above: set Name/DataPropertyName to the member name so
+                    // Columns[name] lookups keep working after app code reassigns HeaderText.
+                    generated.Name = prop.Name;
+                    generated.DataPropertyName = prop.Name;
+                }
 
+                var propertyRows = new System.Collections.Generic.List<DataGridViewRow> ();
                 foreach (var item in data_source) {
                     if (item is null)
                         continue;
 
-                    var values = new string[properties.Length];
-
+                    var row = new DataGridViewRow ();
                     for (var i = 0; i < properties.Length; i++)
-                        values[i] = properties[i].GetValue (item)?.ToString () ?? string.Empty;
-
-                    Rows.Add (values);
+                        row.Cells.Add (properties[i].GetValue (item)?.ToString () ?? string.Empty);
+                    row.DataBoundItem = item;
+                    propertyRows.Add (row);
                 }
+
+                // One notification instead of one per row (see ReplaceAll note in the ITypedList branch).
+                Rows.ReplaceAll (propertyRows);
             } else {
                 // Columns were manually defined — populate rows via DataPropertyName (or HeaderText fallback)
+                var manualRows = new System.Collections.Generic.List<DataGridViewRow> ();
                 foreach (var item in data_source) {
                     if (item is null)
                         continue;
 
-                    var values = new string[Columns.Count];
-
+                    var row = new DataGridViewRow ();
                     for (var i = 0; i < Columns.Count; i++) {
                         var col = Columns[i];
                         var prop_name = string.IsNullOrEmpty (col.DataPropertyName) ? col.HeaderText : col.DataPropertyName;
                         var prop = string.IsNullOrEmpty (prop_name)
                             ? null
                             : item.GetType ().GetProperty (prop_name, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
-                        values[i] = prop?.GetValue (item)?.ToString () ?? string.Empty;
+                        row.Cells.Add (prop?.GetValue (item)?.ToString () ?? string.Empty);
                     }
 
-                    var row = Rows.Add (values);
                     row.DataBoundItem = item;
+                    manualRows.Add (row);
                 }
+
+                Rows.ReplaceAll (manualRows);
             }
 
+            SetInitialCurrentCell ();
             _dataBindingComplete?.Invoke (this, EventArgs.Empty);
+        }
+
+        // WinForms/Telerik make the first cell current as soon as a data source with rows is bound, so
+        // grid.CurrentRow / grid.CurrentCell are non-null immediately -- app code very commonly reads
+        // CurrentRow.Cells["..."] right after binding. Only seed a selection when none exists; never
+        // override a selection the user or app already set. Fields are set directly (rather than through
+        // the SelectedRowIndex property) to avoid raising selection/layout events mid-bind.
+        private void SetInitialCurrentCell ()
+        {
+            if (selected_row_index < 0 && Rows.Count > 0)
+                selected_row_index = 0;
+
+            if (selected_column_index < 0 && Columns.Count > 0)
+                selected_column_index = 0;
         }
 
         // Gets the element type from an IList.
@@ -1254,6 +1315,50 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        // Tracks the cell the pointer is currently over, so CellMouseEnter/CellMouseLeave fire once per
+        // cell transition. Kept separate from HoveredRowIndex (row highlight) to detect transitions.
+        private int hovered_column_index = -1;
+        private int hovered_cell_row = -1;
+
+        // Fires CellMouseLeave for the previously hovered cell and CellMouseEnter for the new one, once
+        // per cell transition. Pass (-1, -1) to signal the pointer left the grid.
+        private void UpdateHoveredCell (int row, int col)
+        {
+            if (row == hovered_cell_row && col == hovered_column_index)
+                return;
+
+            if (hovered_cell_row >= 0 && hovered_column_index >= 0)
+                OnCellMouseLeave (new DataGridViewCellEventArgs (hovered_column_index, hovered_cell_row));
+
+            hovered_cell_row = row;
+            hovered_column_index = col;
+
+            if (row >= 0 && col >= 0)
+                OnCellMouseEnter (new DataGridViewCellEventArgs (col, row));
+        }
+
+        /// <summary>Raises the CellDoubleClick event.</summary>
+        protected virtual void OnCellDoubleClick (DataGridViewCellEventArgs e) => CellDoubleClick?.Invoke (this, e);
+        /// <summary>Raises the CellMouseClick event.</summary>
+        protected virtual void OnCellMouseClick (DataGridViewCellMouseEventArgs e) => CellMouseClick?.Invoke (this, e);
+        /// <summary>Raises the CellContentClick event.</summary>
+        protected virtual void OnCellContentClick (DataGridViewCellEventArgs e) => CellContentClick?.Invoke (this, e);
+        /// <summary>Raises the ColumnHeaderMouseClick event.</summary>
+        protected virtual void OnColumnHeaderMouseClick (DataGridViewCellMouseEventArgs e) => ColumnHeaderMouseClick?.Invoke (this, e);
+        /// <summary>Raises the CellMouseEnter event.</summary>
+        protected virtual void OnCellMouseEnter (DataGridViewCellEventArgs e) => CellMouseEnter?.Invoke (this, e);
+        /// <summary>Raises the CellMouseLeave event.</summary>
+        protected virtual void OnCellMouseLeave (DataGridViewCellEventArgs e) => CellMouseLeave?.Invoke (this, e);
+        /// <summary>Raises the CellValidating event.</summary>
+        protected virtual void OnCellValidating (DataGridViewCellValidatingEventArgs e) => CellValidating?.Invoke (this, e);
+        /// <summary>Raises the CellValidated event.</summary>
+        protected virtual void OnCellValidated (DataGridViewCellEventArgs e) => CellValidated?.Invoke (this, e);
+        /// <summary>Raises the EditingControlShowing event.</summary>
+        protected virtual void OnEditingControlShowing (DataGridViewEditingControlShowingEventArgs e) => EditingControlShowing?.Invoke (this, e);
+        /// <summary>Raises the RowPostPaint event. Called by the renderer after a data row is drawn.</summary>
+        protected internal virtual void RaiseRowPostPaint (int rowIndex) => RowPostPaint?.Invoke (this, new DataGridViewRowPostPaintEventArgs (rowIndex));
+
+        /// <inheritdoc/>
         protected override void OnDoubleClick (MouseEventArgs e)
         {
             base.OnDoubleClick (e);
@@ -1264,8 +1369,10 @@ namespace Majorsilence.Forms
             var row = GetRowAtLocation (e.Location);
             var col = GetColumnAtLocation (e.Location);
 
-            if (row >= 0 && col >= 0)
+            if (row >= 0 && col >= 0) {
+                OnCellDoubleClick (new DataGridViewCellEventArgs (col, row));
                 BeginEdit (row, col);
+            }
         }
 
         /// <inheritdoc/>
@@ -1318,8 +1425,14 @@ namespace Majorsilence.Forms
                 if (header_rect.Contains (e.Location)) {
                     var col = GetColumnAtLocation (e.Location);
 
-                    if (col >= 0 && Columns[col].Sortable)
-                        OnColumnHeaderClick (col);
+                    if (col >= 0) {
+                        // Fires for every header click (WinForms uses rowIndex -1 for header cells),
+                        // not just sortable columns.
+                        OnColumnHeaderMouseClick (new DataGridViewCellMouseEventArgs (col, -1, e.Location.X - GetColumnDeviceLeft (col), e.Location.Y - client.Top, e));
+
+                        if (Columns[col].Sortable)
+                            OnColumnHeaderClick (col);
+                    }
 
                     return;
                 }
@@ -1355,7 +1468,14 @@ namespace Majorsilence.Forms
                     }
                 }
 
-                CellClick?.Invoke (this, new DataGridViewCellEventArgs (col, row));
+                var cellArgs = new DataGridViewCellEventArgs (col, row);
+                CellClick?.Invoke (this, cellArgs);
+
+                if (col >= 0) {
+                    OnCellMouseClick (new DataGridViewCellMouseEventArgs (col, row, e.Location.X - GetColumnDeviceLeft (col), e.Location.Y, e));
+                    // Raised after the check-box toggle above so the committed value is current.
+                    OnCellContentClick (cellArgs);
+                }
             }
         }
 
@@ -1364,6 +1484,7 @@ namespace Majorsilence.Forms
         {
             base.OnMouseLeave (e);
             HoveredRowIndex = -1;
+            UpdateHoveredCell (-1, -1);
 
             if (!is_resizing_column && !is_resizing_row)
                 SetCursorDirect (Cursors.Arrow);
@@ -1423,6 +1544,8 @@ namespace Majorsilence.Forms
             // Update hovered row
             var row = GetRowAtLocation (e.Location);
             HoveredRowIndex = row;
+
+            UpdateHoveredCell (row, row >= 0 ? GetColumnAtLocation (e.Location) : -1);
 
             // Fire CellToolTipTextNeeded if handlers are attached
             if (CellToolTipTextNeeded != null && row >= 0) {
