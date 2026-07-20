@@ -1683,9 +1683,13 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaisePaint (PaintEventArgs e)
         {
+            // Clear the dirty flag BEFORE painting (not after): a paint handler that calls
+            // Invalidate() on itself synchronously (e.g. an async double-buffering handler whose
+            // await completes synchronously) must have that request survive. Clearing afterward
+            // would silently clobber it, since it was already dirty when this pass started.
+            SetState (States.IsDirty, false);
             OnPaint (e);
             Paint?.Invoke (this, e);
-            SetState (States.IsDirty, false);
         }
 
         /// <summary>
