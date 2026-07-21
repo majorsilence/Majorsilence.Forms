@@ -15,25 +15,26 @@ namespace Majorsilence.Forms
     {
         private readonly Control? _control;
         private readonly SKCanvas? _canvas;
-        private readonly SKBitmap? _ownedBitmap;
+        private readonly bool _ownsCanvas;
         private bool _disposed;
 
         internal Graphics (Control? control = null) { _control = control; }
 
         internal Graphics (SKCanvas canvas, Control? control = null) { _canvas = canvas; _control = control; }
 
-        private Graphics (SKBitmap bitmap)
+        private Graphics (SKCanvas canvas, bool ownsCanvas)
         {
-            _ownedBitmap = bitmap;
-            _canvas = new SKCanvas (bitmap);
+            _canvas = canvas;
+            _ownsCanvas = ownsCanvas;
         }
 
-        /// <summary>Creates a Graphics object for drawing on the specified Majorsilence.Forms.Drawing.Image.</summary>
+        /// <summary>Creates a Graphics object for drawing on the specified Majorsilence.Forms.Drawing.Image.
+        /// Drawing goes directly into the image's backing bitmap, matching System.Drawing semantics.</summary>
         public static Graphics FromImage (Majorsilence.Forms.Drawing.Image image)
         {
-            // Create a transparent-backed owned bitmap; drawing goes nowhere useful cross-platform.
-            var bmp = new SKBitmap (image?.Width ?? 1, image?.Height ?? 1, SKColorType.Bgra8888, SKAlphaType.Premul);
-            return new Graphics (bmp);
+            ArgumentNullException.ThrowIfNull (image);
+            var backing = image.GetSKBitmap () ?? throw new ArgumentException ("Image has no backing bitmap.", nameof (image));
+            return new Graphics (new SKCanvas (backing), ownsCanvas: true);
         }
 
         /// <summary>Creates a Graphics object for the specified window handle. Returns a no-op instance in Majorsilence.Forms.</summary>
@@ -884,7 +885,8 @@ namespace Majorsilence.Forms
         {
             if (!_disposed) {
                 _disposed = true;
-                _ownedBitmap?.Dispose ();
+                if (_ownsCanvas)
+                    _canvas?.Dispose ();
             }
         }
     }
