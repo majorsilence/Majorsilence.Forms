@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Majorsilence",
+  "classifications": [ "Desktop", "Cross-platform", "WinForms" ],
+  "identity": "Majorsilence.Forms.ProjectTemplate",
+  "name": "Majorsilence.Forms Application",
+  "shortName": "majorsilenceforms",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "sourceName": "MajorsilenceFormsApp",
+  "preferNameDirectory": true,
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "net10.0",
+          "description": "Target net10.0"
+        },
+        {
+          "choice": "net8.0",
+          "description": "Target net8.0"
+        }
+      ],
+      "defaultValue": "net10.0",
+      "replaces": "net10.0"
+    }
+  }
+}

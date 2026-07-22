@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- A template package ships only content — no compiled assembly. -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IsPackable>true</IsPackable>
+    <!-- NU5128: "no lib/ref assets" is expected and correct for a template-only package. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <!-- Nothing here is meant to be compiled as part of this outer packing project — the .cs files
+         under content/ belong to the *generated* app, not to this project. Without this, the SDK's
+         implicit **/*.cs glob would pull them into this project's own compile and fail (they
+         reference Majorsilence.Forms, which this packing project doesn't and shouldn't reference). -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>MajorsilenceForms.Templates</PackageId>
+    <PackageType>Template</PackageType>
+    <Title>Majorsilence.Forms Project Templates</Title>
+    <Description>dotnet new templates for scaffolding a Majorsilence.Forms application (WinForms-style, cross-platform via SkiaSharp).</Description>
+    <PackageTags>Majorsilence;Forms;dotnet-new;templates;Winforms;Cross;Platform</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="content\**\*" Exclude="content\**\bin\**;content\**\obj\**">
+      <PackagePath>content\</PackagePath>
+    </Content>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

@@ -51,6 +51,7 @@ env:
     src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
     src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
     src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
+    tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -81,7 +82,7 @@ jobs:
           echo "Resolved version: '${VERSION:-(from csproj)}'"
 
   # ---------------------------------------------------------------------------
-  # Pack the four NuGet packages. Platform-agnostic, so a single runner is enough.
+  # Pack the NuGet packages. Platform-agnostic, so a single runner is enough.
   # ---------------------------------------------------------------------------
   pack:
     needs: version
