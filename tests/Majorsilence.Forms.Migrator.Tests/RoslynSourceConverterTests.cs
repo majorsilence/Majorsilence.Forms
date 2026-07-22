@@ -41,6 +41,9 @@ public class RoslynSourceConverterTests : IDisposable
             <UseWindowsForms>true</UseWindowsForms>
             <Nullable>enable</Nullable>
             <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+            <!-- Reference-assembly-only build: the SDK still refuses without this on a non-Windows host
+                 (NETSDK1100), even though the WindowsDesktop reference pack itself is cross-platform. -->
+            <EnableWindowsTargeting>true</EnableWindowsTargeting>
           </PropertyGroup>
         </Project>
         """;
@@ -54,6 +57,28 @@ public class RoslynSourceConverterTests : IDisposable
     }
 
     /// <summary>
+    /// Restores the project so <see cref="RoslynWorkspaceContext.TryCreate"/>'s design-time
+    /// <c>MSBuildWorkspace.OpenProjectAsync</c> can resolve its <c>UseWindowsForms</c>
+    /// <c>FrameworkReference</c> into real <c>System.Windows.Forms.dll</c> metadata. On Windows that
+    /// reference pack ships locally with the SDK and resolves without restoring first; off Windows it
+    /// only exists as a NuGet package, so an unrestored fixture project here would silently lose every
+    /// WinForms symbol and make every rewrite below a no-op.
+    /// </summary>
+    private static void Restore (string projPath)
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo ("dotnet", $"restore \"{projPath}\"") {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        using var process = System.Diagnostics.Process.Start (psi)!;
+        var stdout = process.StandardOutput.ReadToEnd ();
+        var stderr = process.StandardError.ReadToEnd ();
+        process.WaitForExit ();
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException ($"dotnet restore failed for {projPath}:\n{stdout}\n{stderr}");
+    }
+
+    /// <summary>
     /// Builds a single-project fixture (<c>App.csproj</c> + the given source under <paramref name="fileName"/>),
     /// loads it through <see cref="RoslynWorkspaceContext"/>, converts that one file via
     /// <see cref="RoslynSourceConverter"/>, and returns the result — the Roslyn-engine equivalent of calling
@@ -64,6 +89,7 @@ public class RoslynSourceConverterTests : IDisposable
     {
         var projPath = Write ("App.csproj", WinFormsCsproj);
         var sourcePath = Write (fileName, source);
+        Restore (projPath);
 
         var context = RoslynWorkspaceContext.TryCreate (projPath, out var error);
         Assert.Null (error);
@@ -267,6 +293,7 @@ public class RoslynSourceConverterTests : IDisposable
             <UseWindowsForms>true</UseWindowsForms>
             <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
             <MyType>Empty</MyType>
+            <EnableWindowsTargeting>true</EnableWindowsTargeting>
           </PropertyGroup>
         </Project>
         """;
@@ -276,6 +303,7 @@ public class RoslynSourceConverterTests : IDisposable
     {
         var projPath = Write ("App.vbproj", WinFormsVbproj);
         var sourcePath = Write (fileName, source);
+        Restore (projPath);
 
         var context = RoslynWorkspaceContext.TryCreate (projPath, out var error);
         Assert.Null (error);
@@ -396,12 +424,14 @@ public class RoslynSourceConverterTests : IDisposable
                 <UseWindowsForms>true</UseWindowsForms>
                 <Nullable>enable</Nullable>
                 <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+                <EnableWindowsTargeting>true</EnableWindowsTargeting>
               </PropertyGroup>
               <ItemGroup>
                 <ProjectReference Include="..\ClassLib\ClassLib.csproj" />
               </ItemGroup>
             </Project>
             """);
+        Restore (uiAppProj);
         var form1Path = Path.Combine (uiAppDir, "Form1.cs");
         File.WriteAllText (form1Path,
             "using System.Windows.Forms;\n" +

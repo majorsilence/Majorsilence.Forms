@@ -68,7 +68,7 @@ namespace Majorsilence.Forms.Tests
             // Faithful to WinForms-designer serialization: children are added to their parents FIRST,
             // properties assigned afterwards, everything under SuspendLayout/BeginInit, the dock is
             // parented to the form LAST, and layout resumes with performLayout:=false.
-            var form = new Form ();
+            using var form = new Form ();
             var dock = new RadDock ();
             var container = new DocumentContainer ();
             var strip = new DocumentTabStrip ();
