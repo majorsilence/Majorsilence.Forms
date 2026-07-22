@@ -49,9 +49,13 @@ internal static class MyResourcesGenerator
     /// </summary>
     public static bool IsMyResourcesResx(string path)
     {
-        if (!Path.GetFileName(path).Equals("Resources.resx", StringComparison.OrdinalIgnoreCase))
+        // Paths here may be Windows-style ("\"-separated) regardless of the host OS this migrator runs
+        // on (e.g. a project evaluated from a Windows-authored .vbproj). Path.GetFileName/GetDirectoryName
+        // only split on '\' when actually running on Windows, so normalize first.
+        var normalized = path.Replace('\\', '/');
+        if (!Path.GetFileName(normalized).Equals("Resources.resx", StringComparison.OrdinalIgnoreCase))
             return false;
-        var dir = Path.GetFileName(Path.GetDirectoryName(path));
+        var dir = Path.GetFileName(Path.GetDirectoryName(normalized));
         return string.Equals(dir, "My Project", StringComparison.OrdinalIgnoreCase);
     }
 

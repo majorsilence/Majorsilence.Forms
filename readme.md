@@ -6,7 +6,8 @@ Majorsilence.Forms is a WinForms-style UI framework that lets you move legacy *a
 WinForms applications onto a modern, cross-platform stack. You keep the programming model you
 already know — `Form`s, controls, event handlers, even the `*.Designer.cs` files — and gain
 Windows, macOS, and Linux out of the box, with mobile and web within reach through
-[Uno Platform](https://platform.uno).
+[Uno Platform](https://platform.uno) or through [Avalonia](https://avaloniaui.net)'s own
+Android, iOS, and Browser (WASM) targets.
 
 > ⚠️ **Early stage.** The API is stabilizing and not every WinForms corner is covered yet.
 > Great for new cross-platform LOB apps and for migrating real apps today — just pin your version.
@@ -23,8 +24,9 @@ churn — then runs everywhere on top of best-in-class hosts:
 - **Reuse, don't rewrite.** The same control model and event-driven code you wrote in WinForms.
   No XAML, no forced MVVM rewrite, no relearning the framework.
 - **Cross-platform by construction.** Everything is drawn with [SkiaSharp](https://github.com/mono/SkiaSharp)
-  and runs on a swappable host backend — [Avalonia](https://avaloniaui.net) by default,
-  [Uno Platform](https://platform.uno) for the broadest reach (desktop, mobile, WebAssembly).
+  and runs on a swappable host backend — [Avalonia](https://avaloniaui.net) by default for desktop,
+  with its own Android/iOS/Browser targets as one path to mobile and web, and
+  [Uno Platform](https://platform.uno) as another, for the broadest reach (desktop, mobile, WebAssembly).
 - **Bring your skills, your team, your code.** WinForms muscle memory transfers directly, so the
   ramp-up cost for an existing .NET shop is close to zero.
 - **Modern under the hood.** GPU-accelerated Skia rendering, HiDPI, current .NET — a clean
@@ -41,7 +43,7 @@ instead of starting over, this framework is for you.
        Majorsilence.Forms  (controls + WinForms-compatible API, drawn with SkiaSharp)
             │
    Swappable host backend
-   ├─ Avalonia   → Windows · macOS · Linux            (default)
+   ├─ Avalonia   → Windows · macOS · Linux  (default)  · also Android · iOS · Browser
    ├─ Uno         → desktop · iOS · Android · WebAssembly
    └─ Headless    → offscreen rendering for tests / CI
 ```

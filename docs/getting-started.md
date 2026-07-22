@@ -28,7 +28,7 @@ Ensure the following properties are set:
 ```
 <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
 </PropertyGroup>
 ```
@@ -36,7 +36,7 @@ Ensure the following properties are set:
 Add a NuGet reference to `Majorsilence.Forms`:
 ```
 <ItemGroup>
-    <PackageReference Include="Majorsilence.Forms" Version="0.2.0" />
+    <PackageReference Include="Majorsilence.Forms" Version="26.0.23" />
 </ItemGroup>
 ```
 
