@@ -415,6 +415,11 @@ namespace Majorsilence.Forms.Drawing
         {
             return System.Drawing.Color.FromArgb(p.A, p.R, p.G, p.B);
         }
+
+        public static implicit operator Color(System.Drawing.Color p)
+        {
+            return new Color(p.R, p.G, p.B, p.A);
+        }
 #endif
     }
 }
