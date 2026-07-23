@@ -536,6 +536,17 @@ internal sealed partial class DefaultLayout : LayoutEngine
             SetAnchorInfo (element, anchorInfo);
         }
 
+        // InitLayoutCore calls here not just for a genuine change to this element's own bounds, but
+        // also as a blanket re-init of every child of a container whose layout was just resumed (e.g.
+        // ScrollableControl recalculating its scrollbars on every OnLayout pass) -- even children whose
+        // own bounds haven't moved at all. Recomputing in that case re-snapshots this element's
+        // "distance from its parent's edges" against the parent's CURRENT (possibly already-grown)
+        // DisplayRectangle, permanently freezing an Anchored element at whatever size it happened to be
+        // the moment such a redundant re-init last ran. Skip the no-op case: if this element's own
+        // Bounds haven't changed since the last real capture, there is nothing new to learn here.
+        if (anchorInfo.HasCapturedElementBounds && anchorInfo.CapturedElementBounds == element.Bounds)
+            return;
+
         //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, "Update anchor info");
         Debug.Indent ();
         //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, element.Container is null ? "No parent" : "Parent");
@@ -607,6 +618,9 @@ internal sealed partial class DefaultLayout : LayoutEngine
                 anchorInfo.Bottom -= (parentHeight / 2);
                 anchorInfo.Top -= (parentHeight / 2);
             }
+
+            anchorInfo.CapturedElementBounds = element.Bounds;
+            anchorInfo.HasCapturedElementBounds = true;
 
             //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, "anchor info (l,t,r,b): (" + anchorInfo.Left + ", " + anchorInfo.Top + ", " + anchorInfo.Right + ", " + anchorInfo.Bottom + ")");
         }
@@ -848,5 +862,11 @@ internal sealed partial class DefaultLayout : LayoutEngine
         public int Top;
         public int Right;
         public int Bottom;
+
+        // The element's own Bounds at the moment this snapshot was captured. Lets UpdateAnchorInfo
+        // recognize a redundant re-init (element hasn't actually moved/resized itself) and skip
+        // recomputing -- see the comment at its call site for why that distinction matters.
+        public Rectangle CapturedElementBounds;
+        public bool HasCapturedElementBounds;
     }
 }

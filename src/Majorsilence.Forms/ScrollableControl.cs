@@ -313,8 +313,17 @@ namespace Majorsilence.Forms
 
             SuspendLayout ();
 
-            foreach (var c in Controls)
-                c.Location = new Point (c.Left - xOffset, c.Top - yOffset);
+            // Reposition via IArrangedElement.SetBounds with BoundsSpecified.None (as the layout engine
+            // itself does when applying computed Dock/Anchor bounds), not the public Location setter.
+            // The public setter passes BoundsSpecified.Location through to InitLayoutCore, which
+            // re-snapshots any Anchored child's cached "distance from parent edges" -- using bounds that
+            // haven't caught up to the parent's current size yet -- permanently freezing that child at
+            // whatever size it happened to be the moment a scroll adjustment last ran. A scroll offset
+            // is bookkeeping, not a semantic bounds change, so it must not disturb that snapshot.
+            foreach (var c in Controls) {
+                var newBounds = new Rectangle (c.Left - xOffset, c.Top - yOffset, c.Width, c.Height);
+                ((Layout.IArrangedElement) c).SetBounds (newBounds, BoundsSpecified.None);
+            }
 
             scroll_position.Offset (xOffset, yOffset);
 
