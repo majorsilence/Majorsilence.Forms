@@ -25,6 +25,8 @@ namespace Majorsilence.Forms
 
         static Theme ()
         {
+            CachingFontMapper.Install ();
+
             SetBuiltInTheme (BuiltInTheme.Default);
 
             values[nameof (UIFont)] = SKTypeface.FromFamilyName (_uiFontFamily, SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
