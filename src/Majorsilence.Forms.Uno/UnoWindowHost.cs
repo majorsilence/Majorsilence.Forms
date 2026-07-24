@@ -50,9 +50,35 @@ namespace Majorsilence.Forms.Uno
             Majorsilence.Forms.Theme.WarmupFonts ();
         }
 
+        // Xlib's default error handler calls exit() on ANY unhandled X protocol error — fatal for the
+        // whole process over what is very often a harmless, transient race (e.g. querying a window
+        // that another part of the app — Uno's own internals included, not just code here — just
+        // destroyed, like a short-lived wait/splash form closing during startup). Observed in practice:
+        // Uno's X11 Skia head issues an XQueryTree that raced a closing window and took the entire app
+        // down with it, unrelated to anything in Majorsilence.Forms.Uno. Xlib's error handler is
+        // process-global (not per-Display), so installing a non-fatal one here, once, up front,
+        // protects every X11 call in the process for its whole lifetime, not just calls made from
+        // here. This is strictly a robustness improvement: Majorsilence.Forms.Uno never depended on
+        // the process dying on an X error, and no error handled this way was otherwise going to be
+        // acted upon (the default handler's only alternative action is exit()).
+        private static bool _x11ErrorHandlerInstalled;
+
+        private static void EnsureX11ErrorHandlerInstalled ()
+        {
+            if (_x11ErrorHandlerInstalled || !OperatingSystem.IsLinux ())
+                return;
+            _x11ErrorHandlerInstalled = true;
+            try {
+                _ = XSetErrorHandler (s_ignoreXErrorsPtr);
+            } catch {
+                // Best-effort — if libX11 isn't even loadable this can't matter either way.
+            }
+        }
+
         public UnoWindowHost (WindowBase owner, bool isPopup, IUnoHostSurface? parentHost)
         {
             EnsureFontsWarmedUp ();
+            EnsureX11ErrorHandlerInstalled ();
             _owner = owner;
             _isPopup = isPopup;
             _parentHost = parentHost;
@@ -152,11 +178,130 @@ namespace Majorsilence.Forms.Uno
             ApplyDecorations ();
             _window!.Activate ();
             TryFocus ();
+            FixX11InputHint ();
             // Activation/focus and the native host can settle a tick later; retry on the dispatcher too.
             // Re-declare caption regions then as well — the AppWindow id and scaling are reliably available.
             _canvas.DispatcherQueue?.TryEnqueue (() => { TryFocus (); WireMacOSKeyboard (); ApplyCaptionRegions (); });
             WireMacOSKeyboard ();
         }
+
+        // On the X11 Skia head, Uno.WinUI.Runtime.Skia.X11 creates the window without a WM_HINTS
+        // property carrying the ICCCM InputHint flag. Per ICCCM 4.1.7, a window that declares
+        // neither WM_HINTS.input nor WM_TAKE_FOCUS is a "No Input" client — the window manager
+        // (confirmed on GNOME/mutter) then never transfers keyboard/pointer focus to it on click, so
+        // every click on the window is silently swallowed and the app looks completely frozen (it
+        // still responds fine to programmatic activation, e.g. via a _NET_ACTIVE_WINDOW client
+        // message or the taskbar — just not to a normal click). Setting WM_HINTS ourselves via Xlib
+        // fixes click-to-focus; verified live against a running window with this exact property
+        // change before writing the interop below.
+        //
+        // WinRT.Interop.WindowNative.GetWindowHandle(_window) does NOT return the real X11 Window
+        // XID on this head (verified: passing it to XSetWMHints raised X_ChangeProperty BadWindow),
+        // and the actual XID lives on Uno's internal X11Window struct with no supported way to reach
+        // it (reflection into the current Uno.UI.Runtime.Skia.X11 internals is brittle across
+        // versions and several dependent types wouldn't even load outside the full Uno host).
+        // Instead, find our own top-level window the same way any X11 client-side tool would: walk
+        // the root window's children and match by title, which we already set on this exact _window
+        // and can read back — no dependency on Uno internals at all.
+        private void FixX11InputHint ()
+        {
+            if (!OperatingSystem.IsLinux () || _window is null)
+                return;
+            var title = _window.Title;
+            if (string.IsNullOrEmpty (title))
+                return;
+
+            // A BadWindow race here is expected and harmless (see EnsureX11ErrorHandlerInstalled):
+            // XQueryTree returns a snapshot of the root's children, and some of them (this app's own
+            // splash/wait form included) can be destroyed before we get to XFetchName on them.
+            try {
+                var display = XOpenDisplay (IntPtr.Zero);
+                if (display == IntPtr.Zero)
+                    return;
+                try {
+                    var root = XRootWindow (display, XDefaultScreen (display));
+                    if (!TryFindTopLevelWindowByTitle (display, root, title, out var xid))
+                        return;
+
+                    var hints = new XWMHints { flags = checked ((IntPtr) InputHint), input = 1 };
+                    _ = XSetWMHints (display, xid, ref hints);
+                    _ = XFlush (display);
+                } finally {
+                    _ = XCloseDisplay (display);
+                }
+            } catch {
+                // Best-effort: if this fails (e.g. libX11 unavailable, or a future Uno release fixes
+                // the missing hint upstream), the window just keeps needing the taskbar/Alt+Tab to
+                // gain focus instead of a direct click.
+            }
+        }
+
+        // Kept as static fields, not a local/lambda: a delegate passed to native code must stay
+        // reachable for as long as native code might invoke it, or the GC can collect it out from
+        // under the callback and crash the process on the next X error. The function pointer is
+        // computed once and handled as an opaque IntPtr from here on — converting a delegate to a
+        // native pointer to pass as an argument is the well-supported direction; the reverse
+        // (treating whatever XSetErrorHandler previously returned as an invokable delegate) is not
+        // something this needs, since the handler installed here is meant to stay for good.
+        private static readonly XErrorHandler s_ignoreXErrors = (_, _) => 0;
+        private static readonly IntPtr s_ignoreXErrorsPtr =
+            System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate (s_ignoreXErrors);
+
+        [System.Runtime.InteropServices.UnmanagedFunctionPointer (System.Runtime.InteropServices.CallingConvention.Cdecl)]
+        private delegate int XErrorHandler (IntPtr display, IntPtr errorEvent);
+
+        private static bool TryFindTopLevelWindowByTitle (IntPtr display, IntPtr root, string title, out IntPtr match)
+        {
+            match = IntPtr.Zero;
+            if (XQueryTree (display, root, out _, out _, out var childrenPtr, out var count) == 0 || childrenPtr == IntPtr.Zero)
+                return false;
+
+            try {
+                for (var i = 0; i < count; i++) {
+                    var child = System.Runtime.InteropServices.Marshal.ReadIntPtr (childrenPtr, i * IntPtr.Size);
+                    if (XFetchName (display, child, out var namePtr) == 0 || namePtr == IntPtr.Zero)
+                        continue;
+                    try {
+                        var name = System.Runtime.InteropServices.Marshal.PtrToStringAnsi (namePtr);
+                        if (name == title) {
+                            match = child;
+                            return true;
+                        }
+                    } finally {
+                        _ = XFree (namePtr);
+                    }
+                }
+            } finally {
+                _ = XFree (childrenPtr);
+            }
+            return false;
+        }
+
+        [System.Runtime.InteropServices.StructLayout (System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct XWMHints
+        {
+            public IntPtr flags;
+            public int input;
+            public int initial_state;
+            public IntPtr icon_pixmap;
+            public IntPtr icon_window;
+            public int icon_x, icon_y;
+            public IntPtr icon_mask;
+            public IntPtr window_group;
+        }
+
+        private const long InputHint = 1L;
+
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern IntPtr XOpenDisplay (IntPtr display);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XCloseDisplay (IntPtr display);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XSetWMHints (IntPtr display, IntPtr w, ref XWMHints hints);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XFlush (IntPtr display);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XDefaultScreen (IntPtr display);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern IntPtr XRootWindow (IntPtr display, int screenNumber);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XQueryTree (IntPtr display, IntPtr w, out IntPtr rootReturn, out IntPtr parentReturn, out IntPtr childrenReturn, out uint childrenCountReturn);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XFetchName (IntPtr display, IntPtr w, out IntPtr windowNameReturn);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XFree (IntPtr data);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern IntPtr XSetErrorHandler (IntPtr handler);
 
         // On the macOS Skia head the canvas never receives routed XAML key events (focus is correct, but the
         // managed input pipeline doesn't surface KeyDown to an SKXamlCanvas). The native MacOSWindowHost does
@@ -432,7 +577,101 @@ namespace Majorsilence.Forms.Uno
         public bool CanResize { get => _canResize; set { _canResize = value; ApplyDecorations (); } }
         public bool ShowInTaskbar { get; set; } = true;
         public double Opacity { get; set; } = 1.0;
-        public FormWindowState WindowState { get; set; } = FormWindowState.Normal;
+
+        // Was a plain auto-property with no side effect at all: setting WindowState = Maximized (e.g.
+        // clicking Majorsilence.Forms' own custom-drawn maximize button) stored the value and did
+        // nothing else. Tried forwarding to the AppWindow's OverlappedPresenter next (Maximize/
+        // Minimize/Restore/State), matching what the Avalonia backend does with its own native
+        // Window.WindowState — but on this X11 Skia head OverlappedPresenter.Maximize() is a no-op:
+        // State reads back as Restored immediately after calling it, even well after the window is
+        // shown and activated. Whatever visual "maximize" a caller might have observed before this
+        // fix must have come from something else assigning Size/Location directly, which — being a
+        // real bounds change flush against the screen edges rather than an OS-recognized maximized
+        // state — leaves no margin for the OS's own edge-resize handling to grab, matching the
+        // "maximized but can't resize" symptom.
+        //
+        // So: track state ourselves and drive maximize/restore purely through Size/Location against
+        // the display's work area, the same way MdiChildWindow.Maximize/Restore already do for MDI
+        // children (RestoreBounds captured before maximizing, reapplied on restore) — not through the
+        // presenter at all. Still tell the presenter about Minimize/Restore best-effort, since that
+        // one wasn't observed broken and Windows/macOS heads may genuinely need it.
+        private FormWindowState _windowState = FormWindowState.Normal;
+        private Rectangle? _restoreBounds;
+
+        public FormWindowState WindowState {
+            get => _windowState;
+            set {
+                if (PopupMode || _window is null)
+                    return;
+                // Deliberately NOT gated on "_windowState == value already" for the Maximized case: an
+                // early call (e.g. RdlDesigner requesting Maximized from its own constructor, before
+                // Show()/Activate() have run) can find no work area yet and be a no-op on the bounds
+                // below, but it still recorded _windowState = Maximized on the way out. A second,
+                // later call requesting the same state (e.g. right after Show()) must not be treated
+                // as "no-op, already there" and skipped — it's the one actually capable of succeeding.
+                if (value == FormWindowState.Normal && _windowState == value)
+                    return;
+
+                if (value == FormWindowState.Maximized) {
+                    if (_windowState != FormWindowState.Maximized || _restoreBounds is null)
+                        _restoreBounds = new Rectangle (Location, _size);
+                    if (GetWorkAreaBounds () is { } workArea) {
+                        TryMove (workArea.Location);
+                        TryResize (workArea.Size);
+                    }
+                } else if (value == FormWindowState.Normal && _restoreBounds is { } bounds) {
+                    TryMove (bounds.Location);
+                    TryResize (bounds.Size);
+                    _restoreBounds = null;
+                    // Our maximize above never asked the WM to actually maximize (see the comment on
+                    // this property) — it only pushed bounds to fill the work area — but on GNOME/
+                    // mutter the WM can still end up tracking the window as _NET_WM_STATE_MAXIMIZED_*
+                    // (e.g. because those bounds happen to exactly fill the work area, or from an
+                    // edge-snap gesture). A window flagged maximized in the WM's own state is one
+                    // mutter refuses to interactively RESIZE via _NET_WM_MOVERESIZE (it still allows
+                    // MOVE, which is its "drag the title bar to unmaximize" escape hatch) — so leaving
+                    // that flag set here silently breaks drag-to-resize after any maximize/restore
+                    // cycle. Clear it explicitly so the WM's state matches ours.
+                    ClearWmMaximizedState ();
+                }
+
+                try {
+                    if (Presenter is { } p) {
+                        switch (value) {
+                            case FormWindowState.Minimized: p.Minimize (); break;
+                            case FormWindowState.Normal: p.Restore (); break;
+                        }
+                    }
+                } catch {
+                    // Best-effort; the bounds-based transition above is what actually matters here.
+                }
+
+                _windowState = value;
+            }
+        }
+
+        // The active display's usable area (excludes taskbars/docks/panels), in the same units
+        // TryMove/TryResize already expect (see their own comments: Location is used as-is, Size is
+        // logical and TryResize itself multiplies by Scaling). Uses Majorsilence.Forms' own
+        // backend-neutral Screen API (UnoPlatformBackend.GetScreens()) rather than
+        // Microsoft.UI.Windowing.DisplayArea.GetFromWindowId, which throws NotImplementedException on
+        // this Uno version's X11 Skia head (verified at runtime) — Screen.WorkingArea comes back in
+        // physical pixels from the same source, so only its Size half needs dividing down here.
+        private Rectangle? GetWorkAreaBounds ()
+        {
+            try {
+                var screen = Majorsilence.Forms.Screen.PrimaryScreen;
+                if (screen is null)
+                    return null;
+                var wa = screen.WorkingArea;
+                var s = Scaling;
+                if (s <= 0) s = 1.0;
+                return new Rectangle (wa.X, wa.Y, (int) (wa.Width / s), (int) (wa.Height / s));
+            } catch {
+                return null;
+            }
+        }
+
         public bool Enabled { get; set; } = true;
 
         // ── Coordinate conversion ──
@@ -452,12 +691,169 @@ namespace Majorsilence.Forms.Uno
         }
 
         // ── Drag (custom chrome) ──
-        // WinUI/Uno has no "begin drag from code" API, so the interactive entry points are no-ops.
-        // Window move/resize is instead OS-driven: edge-resize comes from the borderless
-        // OverlappedPresenter's retained resize margins (see ApplyDecorations), and title-bar drag +
-        // Snap Layouts come from the declarative caption regions (see SetCaptionRegions). See docs/backends.md.
-        public void BeginMoveDrag () { }
-        public void BeginResizeDrag (WindowEdge edge) { }
+        // WinUI/Uno has no "begin drag from code" API, so these were no-ops, relying on the
+        // borderless OverlappedPresenter's retained resize margins to make edge-resize work passively
+        // (see ApplyDecorations) and on declarative caption regions for title-bar drag (see
+        // SetCaptionRegions). Neither actually functions on this Uno version's X11 Skia head: caption
+        // regions are documented Windows-desktop-only (a no-op, caught, on X11 — see
+        // ApplyCaptionRegions), and OverlappedPresenter has already been found unreliable here for
+        // basic state transitions (see WindowState/GetWorkAreaBounds). With both mechanisms
+        // ineffective, Majorsilence.Forms' own border hit-testing (Form.cs) calls these two methods
+        // and nothing happened — the window could never be moved or resized by dragging.
+        //
+        // Implement both directly via the standard EWMH _NET_WM_MOVERESIZE client message instead:
+        // the same protocol GTK/Qt/Chromium use for interactive move/resize on borderless windows.
+        // The window manager takes over the pointer grab itself once it receives this, so it works
+        // regardless of what OverlappedPresenter does or doesn't support.
+        public void BeginMoveDrag () => BeginWmMoveResize (8 /* _NET_WM_MOVERESIZE_MOVE */);
+
+        public void BeginResizeDrag (WindowEdge edge) => BeginWmMoveResize (edge switch {
+            WindowEdge.NorthWest => 0,
+            WindowEdge.North => 1,
+            WindowEdge.NorthEast => 2,
+            WindowEdge.East => 3,
+            WindowEdge.SouthEast => 4,
+            WindowEdge.South => 5,
+            WindowEdge.SouthWest => 6,
+            WindowEdge.West => 7,
+            _ => 8,
+        });
+
+        private void BeginWmMoveResize (int direction)
+        {
+            if (!OperatingSystem.IsLinux () || _window is null)
+                return;
+            var title = _window.Title;
+            if (string.IsNullOrEmpty (title))
+                return;
+
+            // The press that led here already gave the canvas its own WinUI-level pointer capture
+            // (see WireInput's PointerPressed); the WM is about to grab the pointer itself for the
+            // interactive move/resize, and a lingering client-side capture would fight it.
+            try { _canvas.ReleasePointerCaptures (); } catch { }
+
+            try {
+                var display = XOpenDisplay (IntPtr.Zero);
+                if (display == IntPtr.Zero)
+                    return;
+                try {
+                    var root = XRootWindow (display, XDefaultScreen (display));
+                    if (!TryFindTopLevelWindowByTitle (display, root, title, out var xid))
+                        return;
+
+                    // See ClearWmMaximizedState: a window the WM still tracks as
+                    // _NET_WM_STATE_MAXIMIZED_* refuses interactive resize even though the
+                    // _NET_WM_MOVERESIZE message itself is delivered successfully. Clear it
+                    // unconditionally before every drag (move or resize) so a stray maximized flag —
+                    // however it got set — never silently blocks the resize that follows.
+                    SendClearMaximizedState (display, root, xid);
+
+                    var qp = XQueryPointer (display, root, out _, out _, out var rootX, out var rootY, out _, out _, out _);
+                    if (qp == 0)
+                        return;
+
+                    var messageType = XInternAtom (display, "_NET_WM_MOVERESIZE", false);
+                    var ev = new XClientMessageEvent {
+                        type = 33, // ClientMessage
+                        window = xid,
+                        message_type = messageType,
+                        format = 32,
+                        l0 = rootX,
+                        l1 = rootY,
+                        l2 = direction,
+                        l3 = 1, // button 1 (left)
+                        l4 = 1, // source indication: normal application
+                    };
+
+                    const long SubstructureRedirectMask = 1 << 20;
+                    const long SubstructureNotifyMask = 1 << 19;
+                    _ = XSendEvent (display, root, 0, checked ((IntPtr) (SubstructureRedirectMask | SubstructureNotifyMask)), ref ev);
+                    _ = XFlush (display);
+                } finally {
+                    _ = XCloseDisplay (display);
+                }
+            } catch {
+                // Best-effort: worst case the window just doesn't move/resize for this one drag.
+            }
+        }
+
+        [System.Runtime.InteropServices.StructLayout (System.Runtime.InteropServices.LayoutKind.Explicit, Size = 192)]
+        private struct XClientMessageEvent
+        {
+            [System.Runtime.InteropServices.FieldOffset (0)] public int type;
+            [System.Runtime.InteropServices.FieldOffset (8)] public IntPtr serial;
+            [System.Runtime.InteropServices.FieldOffset (16)] public int send_event;
+            [System.Runtime.InteropServices.FieldOffset (24)] public IntPtr display;
+            [System.Runtime.InteropServices.FieldOffset (32)] public IntPtr window;
+            [System.Runtime.InteropServices.FieldOffset (40)] public IntPtr message_type;
+            [System.Runtime.InteropServices.FieldOffset (48)] public int format;
+            [System.Runtime.InteropServices.FieldOffset (56)] public long l0;
+            [System.Runtime.InteropServices.FieldOffset (64)] public long l1;
+            [System.Runtime.InteropServices.FieldOffset (72)] public long l2;
+            [System.Runtime.InteropServices.FieldOffset (80)] public long l3;
+            [System.Runtime.InteropServices.FieldOffset (88)] public long l4;
+        }
+
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XQueryPointer (IntPtr display, IntPtr w, out IntPtr rootReturn, out IntPtr childReturn, out int rootXReturn, out int rootYReturn, out int winXReturn, out int winYReturn, out uint maskReturn);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6", BestFitMapping = false, ThrowOnUnmappableChar = true)] private static extern IntPtr XInternAtom (IntPtr display, [System.Runtime.InteropServices.MarshalAs (System.Runtime.InteropServices.UnmanagedType.LPStr)] string atomName, bool onlyIfExists);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XSendEvent (IntPtr display, IntPtr w, int propagate, IntPtr eventMask, ref XClientMessageEvent eventSend);
+
+        // Opens its own display / re-finds the window by title — used from WindowState's restore path,
+        // which doesn't already have a display handle open (unlike BeginWmMoveResize, which calls
+        // SendClearMaximizedState directly with the display/root/xid it already has). See the callers'
+        // comments for why this needs to happen at all.
+        private void ClearWmMaximizedState ()
+        {
+            if (!OperatingSystem.IsLinux () || _window is null)
+                return;
+            var title = _window.Title;
+            if (string.IsNullOrEmpty (title))
+                return;
+            try {
+                var display = XOpenDisplay (IntPtr.Zero);
+                if (display == IntPtr.Zero)
+                    return;
+                try {
+                    var root = XRootWindow (display, XDefaultScreen (display));
+                    if (TryFindTopLevelWindowByTitle (display, root, title, out var xid))
+                        SendClearMaximizedState (display, root, xid);
+                } finally {
+                    _ = XCloseDisplay (display);
+                }
+            } catch {
+                // Best-effort — worst case the WM keeps thinking the window is maximized and a later
+                // resize drag silently no-ops, same as before this fix existed.
+            }
+        }
+
+        // Sends an EWMH _NET_WM_STATE client message asking the WM to drop both maximize axes. Needed
+        // because our maximize/restore (see WindowState) drives bounds directly rather than asking the
+        // WM to maximize, but the WM can still end up tracking _NET_WM_STATE_MAXIMIZED_* on its own
+        // (e.g. our bounds happen to fill the work area, or a prior edge-snap gesture) — and a window
+        // in that state refuses interactive RESIZE via _NET_WM_MOVERESIZE on mutter, even though the
+        // move direction and the message delivery itself both succeed regardless of this flag.
+        private static void SendClearMaximizedState (IntPtr display, IntPtr root, IntPtr xid)
+        {
+            var stateAtom = XInternAtom (display, "_NET_WM_STATE", false);
+            var horzAtom = XInternAtom (display, "_NET_WM_STATE_MAXIMIZED_HORZ", false);
+            var vertAtom = XInternAtom (display, "_NET_WM_STATE_MAXIMIZED_VERT", false);
+
+            var ev = new XClientMessageEvent {
+                type = 33, // ClientMessage
+                window = xid,
+                message_type = stateAtom,
+                format = 32,
+                l0 = 0, // _NET_WM_STATE_REMOVE
+                l1 = (long) horzAtom,
+                l2 = (long) vertAtom,
+                l3 = 1, // source indication: normal application
+            };
+
+            const long SubstructureRedirectMask = 1 << 20;
+            const long SubstructureNotifyMask = 1 << 19;
+            _ = XSendEvent (display, root, 0, checked ((IntPtr) (SubstructureRedirectMask | SubstructureNotifyMask)), ref ev);
+            _ = XFlush (display);
+        }
 
         // The Form's draggable title-bar region(s) in logical, window-relative pixels (see SetCaptionRegions).
         private System.Collections.Generic.IReadOnlyList<Rectangle> _captionRects = System.Array.Empty<Rectangle> ();
