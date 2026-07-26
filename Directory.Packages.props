@@ -4,11 +4,11 @@
     <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Avalonia" Version="12.0.5" />
-    <PackageVersion Include="Avalonia.Desktop" Version="12.0.5" />
-    <PackageVersion Include="Avalonia.Skia" Version="12.0.5" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.5" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.0.5" />
+    <PackageVersion Include="Avalonia" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.0" />
     <!-- Official Avalonia webview control (native engines: WebView2/WKWebView/WebKitGTK-WPE — no Chromium
          bundle). Referenced only by Majorsilence.Forms.Avalonia; core/Headless/Uno take no dependency. -->
     <PackageVersion Include="Avalonia.Controls.WebView" Version="12.0.1" />
