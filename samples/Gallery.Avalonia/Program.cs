@@ -1,9 +1,10 @@
 using System;
 using System.IO;
+using ControlGallery;
 using Majorsilence.Forms;
 using Majorsilence.Forms.Headless;
 
-namespace ControlGallery
+namespace Gallery.Avalonia
 {
     public class Program
     {

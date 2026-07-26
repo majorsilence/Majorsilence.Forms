@@ -9,6 +9,7 @@
     <Project Path="samples/EmbeddingAvalonia/EmbeddingAvalonia.csproj" />
     <Project Path="samples/EmbeddingUno/EmbeddingUno.csproj" />
     <Project Path="samples/Explorer/Explore.csproj" />
+    <Project Path="samples/Gallery.Avalonia/Gallery.Avalonia.csproj" />
     <Project Path="samples/Gallery.Uno/Gallery.Uno.csproj" />
     <Project Path="samples/Outlaw/Outlaw.csproj" />
   </Folder>
