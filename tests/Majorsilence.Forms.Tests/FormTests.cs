@@ -330,6 +330,68 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (value, control.KeyPreview);
         }
 
+        [Fact]
+        public void KeyEvents_WithoutKeyPreview_RouteToFocusedControl_NotForm ()
+        {
+            // WinForms parity: without KeyPreview, keys go straight to the focused control and
+            // the form's own key events never fire — a form-level handler marking everything
+            // Handled must not swallow the focused control's keyboard input.
+            using var form = new Form ();
+            var listbox = new ListBox ();
+            listbox.Items.Add ("a");
+            listbox.Items.Add ("b");
+            listbox.Items.Add ("c");
+            listbox.SelectedIndex = 0;
+            form.Controls.Add (listbox);
+            listbox.Select ();
+
+            var form_saw_key = false;
+            form.KeyDown += (_, e) => { form_saw_key = true; e.Handled = true; };
+            form.KeyUp += (_, e) => { form_saw_key = true; e.Handled = true; };
+
+            form.HandleKeyDown (Keys.Down);
+            form.HandleKeyUp (Keys.Down);
+
+            Assert.False (form_saw_key);
+            Assert.Equal (1, listbox.SelectedIndex);
+        }
+
+        [Fact]
+        public void KeyEvents_WithKeyPreview_FormSeesKeyFirstAndCanSuppress ()
+        {
+            using var form = new Form { KeyPreview = true };
+            var listbox = new ListBox ();
+            listbox.Items.Add ("a");
+            listbox.Items.Add ("b");
+            listbox.Items.Add ("c");
+            listbox.SelectedIndex = 0;
+            form.Controls.Add (listbox);
+            listbox.Select ();
+
+            var form_saw_key = false;
+            form.KeyDown += (_, e) => { form_saw_key = true; e.Handled = true; };
+            form.KeyUp += (_, e) => { form_saw_key = true; e.Handled = true; };
+
+            form.HandleKeyDown (Keys.Down);
+            form.HandleKeyUp (Keys.Down);
+
+            Assert.True (form_saw_key);
+            Assert.Equal (0, listbox.SelectedIndex);
+        }
+
+        [Fact]
+        public void KeyEvents_WithoutKeyPreview_NoFocusedControl_FormSeesKey ()
+        {
+            using var form = new Form ();
+
+            var form_saw_key = false;
+            form.KeyUp += (_, e) => form_saw_key = true;
+
+            form.HandleKeyUp (Keys.Down);
+
+            Assert.True (form_saw_key);
+        }
+
         [Theory]
         [InlineData (true)]
         [InlineData (false)]
