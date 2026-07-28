@@ -224,15 +224,6 @@ namespace Majorsilence.Forms.Uno
         private IntPtr _x11FocusDisplay;
         private IntPtr _x11ActiveWindowAtom;
 
-        // Opt-in trace for diagnosing keyboard/focus reports: set MF_UNO_INPUT_TRACE=1 in the
-        // environment before launching. Silent (and free) otherwise.
-        private static readonly bool s_inputTrace = Environment.GetEnvironmentVariable ("MF_UNO_INPUT_TRACE") is not null;
-        private static void Trace (string message)
-        {
-            if (s_inputTrace)
-                Console.WriteLine ($"[MF_UNO_INPUT_TRACE] {message}");
-        }
-
         private void FixX11InputHint ()
         {
             if (!OperatingSystem.IsLinux () || _window is null)
@@ -241,13 +232,10 @@ namespace Majorsilence.Forms.Uno
             try {
                 if (_x11FocusDisplay == IntPtr.Zero) {
                     var display = XOpenDisplay (IntPtr.Zero);
-                    if (display == IntPtr.Zero) {
-                        Trace ("FixX11InputHint: XOpenDisplay failed");
+                    if (display == IntPtr.Zero)
                         return;
-                    }
                     _x11ActiveWindowAtom = XInternAtom (display, "_NET_ACTIVE_WINDOW", false);
                     _x11FocusDisplay = display;
-                    Trace ($"FixX11InputHint: opened display, _NET_ACTIVE_WINDOW atom={_x11ActiveWindowAtom}");
                 } else {
                     // This connection never calls XSelectInput on anything, so it shouldn't accumulate
                     // a real event backlog — but it's long-lived (kept open for the window's whole
@@ -258,19 +246,15 @@ namespace Majorsilence.Forms.Uno
                 }
 
                 var title = _window.Title;
-                if (string.IsNullOrEmpty (title)) {
-                    Trace ("FixX11InputHint: _window.Title is empty, skipping");
+                if (string.IsNullOrEmpty (title))
                     return;
-                }
 
                 // A BadWindow race here is expected and harmless (see EnsureX11ErrorHandlerInstalled):
                 // XQueryTree returns a snapshot of the root's children, and some of them (this app's
                 // own splash/wait form included) can be destroyed before we get to XFetchName on them.
                 var root = XRootWindow (_x11FocusDisplay, XDefaultScreen (_x11FocusDisplay));
-                if (!TryFindTopLevelWindowByTitle (_x11FocusDisplay, root, title, out var xid)) {
-                    Trace ($"FixX11InputHint: could not find a top-level window titled '{title}'");
+                if (!TryFindTopLevelWindowByTitle (_x11FocusDisplay, root, title, out var xid))
                     return;
-                }
 
                 var hints = new XWMHints { flags = checked ((IntPtr) InputHint), input = 1 };
                 _ = XSetWMHints (_x11FocusDisplay, xid, ref hints);
@@ -286,14 +270,12 @@ namespace Majorsilence.Forms.Uno
                 const long SubstructureNotifyMask = 1 << 19;
                 _ = XSendEvent (_x11FocusDisplay, root, 0, checked ((IntPtr) (SubstructureRedirectMask | SubstructureNotifyMask)), ref clientMessage);
                 const int RevertToParent = 2;
-                var focusResult = XSetInputFocus (_x11FocusDisplay, xid, RevertToParent, IntPtr.Zero);
+                _ = XSetInputFocus (_x11FocusDisplay, xid, RevertToParent, IntPtr.Zero);
                 _ = XFlush (_x11FocusDisplay);
-                Trace ($"FixX11InputHint: xid={xid} XSetInputFocus returned {focusResult} (1=Success)");
-            } catch (Exception ex) {
+            } catch {
                 // Best-effort: if this fails (e.g. libX11 unavailable, or a future Uno release fixes
                 // the missing hint upstream), the window just keeps needing the taskbar/Alt+Tab to
                 // gain focus instead of a direct click.
-                Trace ($"FixX11InputHint threw: {ex}");
             }
         }
 
@@ -450,7 +432,6 @@ namespace Majorsilence.Forms.Uno
         // which avoids ever double-handling a keypress there.
         private bool _unoNativeKeyPipelineConfirmedWorking;
         private IntPtr _x11KeyListenerDisplay;
-        private IntPtr _x11KeyListenerXid;
         private long _x11FallbackArmAtTicks;
         private Microsoft.UI.Xaml.DispatcherTimer? _x11KeyFallbackTimer;
 
@@ -467,7 +448,6 @@ namespace Majorsilence.Forms.Uno
             _x11KeyFallbackTimer = new Microsoft.UI.Xaml.DispatcherTimer { Interval = TimeSpan.FromMilliseconds (25) };
             _x11KeyFallbackTimer.Tick += (_, _) => {
                 if (_unoNativeKeyPipelineConfirmedWorking) {
-                    Trace ("X11 keyboard fallback: native pipeline confirmed working, stopping fallback poll permanently");
                     _x11KeyFallbackTimer!.Stop ();
                     _x11KeyFallbackTimer = null;
                     if (_x11KeyListenerDisplay != IntPtr.Zero) {
@@ -501,9 +481,7 @@ namespace Majorsilence.Forms.Uno
                     const long KeyPressMask = 1 << 0;
                     const long KeyReleaseMask = 1 << 1;
                     _ = XSelectInput (display, xid, KeyPressMask | KeyReleaseMask);
-                    _x11KeyListenerXid = xid;
                     _x11KeyListenerDisplay = display;
-                    Trace ($"X11 keyboard fallback: listening on xid={xid}");
                 }
 
                 while (XPending (_x11KeyListenerDisplay) > 0) {
@@ -520,7 +498,6 @@ namespace Majorsilence.Forms.Uno
                         var virtualKey = X11KeyTransformVirtualKeyFromKeySym (keysym);
                         var keys = virtualKey is { } vk ? UnoKeyInterop.ToKeys (vk) : Keys.None;
 
-                        Trace ($"X11 keyboard fallback: {(pressed ? "KeyPress" : "KeyRelease")} keysym=0x{keysym:x} -> keys={keys} armed={armed}");
                         if (!armed || keys == Keys.None)
                             continue;
 
@@ -538,8 +515,8 @@ namespace Majorsilence.Forms.Uno
                         System.Runtime.InteropServices.Marshal.FreeHGlobal (textBuffer);
                     }
                 }
-            } catch (Exception ex) {
-                Trace ($"X11 keyboard fallback threw: {ex}");
+            } catch {
+                // Best-effort — see FixX11InputHint's own catch for the same reasoning.
             }
         }
 
@@ -691,9 +668,7 @@ namespace Majorsilence.Forms.Uno
         // exactly as robust as Avalonia's about keyboard focus following every click.
         private void TryFocus ()
         {
-            bool focusResult = false;
-            try { focusResult = _canvas.Focus (FocusState.Programmatic); } catch { }
-            Trace ($"TryFocus: _canvas.Focus() returned {focusResult}, FocusState={_canvas.FocusState}");
+            try { _canvas.Focus (FocusState.Programmatic); } catch { }
             FixX11InputHint ();
         }
 
@@ -1332,7 +1307,6 @@ namespace Majorsilence.Forms.Uno
             // form). Capture on press / release on up so the managed Control.Capture path actually holds the
             // pointer for the whole gesture and the terminating mouse-up is always delivered here.
             _canvas.PointerPressed += (_, e) => {
-                Trace ($"PointerPressed device={e.Pointer.PointerDeviceType}");
                 TryFocus ();
                 _pointerCaptured = _canvas.CapturePointer (e.Pointer);
                 DispatchPointer (e, _owner.HandlePointerPressed);
@@ -1375,20 +1349,16 @@ namespace Majorsilence.Forms.Uno
             // and takes over reading raw X11 key events directly when it doesn't.
             _canvas.AddHandler (UIElement.KeyDownEvent,
                 new Microsoft.UI.Xaml.Input.KeyEventHandler ((_, e) => {
-                    Trace ($"canvas KeyDown key={e.Key} preHandled={e.Handled} FocusState={_canvas.FocusState}");
                     _unoNativeKeyPipelineConfirmedWorking = true;
                     if (!e.Handled && _owner.HandleKeyDown (UnoKeyInterop.ToKeys (e.Key))) e.Handled = true;
                     // CharacterReceived (below) never fires on this head, so typed text is carried off
                     // the KeyDown itself — see UnoKeyInterop.TryGetTypedCharacter.
                     if (!e.Handled && UnoKeyInterop.TryGetTypedCharacter (e, out var ch) && _owner.HandleTextInput (ch.ToString ())) e.Handled = true;
-                    Trace ($"canvas KeyDown key={e.Key} postHandled={e.Handled}");
                 }), handledEventsToo: true);
             _canvas.AddHandler (UIElement.KeyUpEvent,
                 new Microsoft.UI.Xaml.Input.KeyEventHandler ((_, e) => {
-                    Trace ($"canvas KeyUp key={e.Key} preHandled={e.Handled}");
                     _unoNativeKeyPipelineConfirmedWorking = true;
                     if (!e.Handled && _owner.HandleKeyUp (UnoKeyInterop.ToKeys (e.Key))) e.Handled = true;
-                    Trace ($"canvas KeyUp key={e.Key} postHandled={e.Handled}");
                 }), handledEventsToo: true);
             // Kept in case a future Uno.WinUI.Runtime.Skia release implements CharacterReceivedEvent —
             // the KeyDown path above already covers text input either way, so this stays inert today.
