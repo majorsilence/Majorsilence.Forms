@@ -11,6 +11,7 @@
     <Project Path="samples/Explorer/Explore.csproj" />
     <Project Path="samples/Gallery.Avalonia/Gallery.Avalonia.csproj" />
     <Project Path="samples/Gallery.Uno/Gallery.Uno.csproj" />
+    <Project Path="samples/Gallery.Wasm/Gallery.Wasm.csproj" />
     <Project Path="samples/Outlaw/Outlaw.csproj" />
   </Folder>
   <Folder Name="/src/">

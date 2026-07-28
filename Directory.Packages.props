@@ -12,6 +12,9 @@
     <!-- Official Avalonia webview control (native engines: WebView2/WKWebView/WebKitGTK-WPE — no Chromium
          bundle). Referenced only by Majorsilence.Forms.Avalonia; core/Headless/Uno take no dependency. -->
     <PackageVersion Include="Avalonia.Controls.WebView" Version="12.0.1" />
+    <!-- Avalonia's WebAssembly/browser platform. Only referenced by Majorsilence.Forms.Avalonia's
+         net10.0-browser TFM row (desktop TFMs use Avalonia.Desktop instead) and by samples/Gallery.Wasm. -->
+    <PackageVersion Include="Avalonia.Browser" Version="12.1.0" />
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
     <!-- Force SkiaSharp.HarfBuzz + HarfBuzzSharp up to match SkiaSharp 3.119.4. RichTextKit 0.4.167
