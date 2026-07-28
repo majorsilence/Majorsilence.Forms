@@ -104,8 +104,10 @@ namespace Majorsilence.Forms.Uno
             _canvas.PaintSurface += OnPaintSurface;
             // On the Windows/X11 heads the canvas only receives keyboard events while it holds focus; grab it
             // once it's in the visual tree (and on Show / pointer press). On macOS routed key events never
-            // reach the canvas, so also hook the native host's KeyDown (see WireMacOSKeyboard).
-            _canvas.Loaded += (_, _) => { TryFocus (); WireMacOSKeyboard (); };
+            // reach the canvas, so also hook the native host's KeyDown (see WireMacOSKeyboard). On at least
+            // one real Linux/X11 environment the routed events never fire either — WireX11KeyboardFallback
+            // detects that and takes over if so (see its own comment).
+            _canvas.Loaded += (_, _) => { TryFocus (); WireMacOSKeyboard (); WireX11KeyboardFallback (); };
 
             WireInput ();
             _root.Children.Add (_canvas);
@@ -177,12 +179,12 @@ namespace Majorsilence.Forms.Uno
 
             ApplyDecorations ();
             _window!.Activate ();
-            TryFocus ();
-            FixX11InputHint ();
+            TryFocus ();   // also re-asserts real X11 WM focus (FixX11InputHint) — see TryFocus's comment.
             // Activation/focus and the native host can settle a tick later; retry on the dispatcher too.
             // Re-declare caption regions then as well — the AppWindow id and scaling are reliably available.
-            _canvas.DispatcherQueue?.TryEnqueue (() => { TryFocus (); WireMacOSKeyboard (); ApplyCaptionRegions (); });
+            _canvas.DispatcherQueue?.TryEnqueue (() => { TryFocus (); WireMacOSKeyboard (); WireX11KeyboardFallback (); ApplyCaptionRegions (); });
             WireMacOSKeyboard ();
+            WireX11KeyboardFallback ();
         }
 
         // On the X11 Skia head, Uno.WinUI.Runtime.Skia.X11 creates the window without a WM_HINTS
@@ -203,37 +205,114 @@ namespace Majorsilence.Forms.Uno
         // Instead, find our own top-level window the same way any X11 client-side tool would: walk
         // the root window's children and match by title, which we already set on this exact _window
         // and can read back — no dependency on Uno internals at all.
+        //
+        // This runs on every TryFocus() call (see its comment), not just once at Show(). Two things
+        // are cached across calls, and one deliberately is not:
+        //  - The Display* connection IS cached/reused: XOpenDisplay's connection handshake is the
+        //    expensive part, and redoing it on every single click was enough added latency to make
+        //    the whole window feel unresponsive to both mouse and keyboard (measured).
+        //  - The _NET_ACTIVE_WINDOW atom IS cached: interned atoms never change for a given
+        //    connection.
+        //  - The window's XID is deliberately NOT cached — it's re-resolved by title on every call.
+        //    A cached XID can go stale (the WM/compositor can reparent or recreate the underlying
+        //    X11 window across state changes) and EnsureX11ErrorHandlerInstalled's handler swallows
+        //    the resulting BadWindow silently, so a stale cached XID doesn't throw or log anything —
+        //    it just quietly stops doing anything, which is what "worked for a bit, then keyboard
+        //    input stopped" looks like from the outside. Re-resolving is cheap once the connection is
+        //    already open (one XQueryTree round trip plus XFetchName per candidate, all on a local
+        //    socket), so this stays self-healing without reintroducing the earlier per-click latency.
+        private IntPtr _x11FocusDisplay;
+        private IntPtr _x11ActiveWindowAtom;
+
+        // Opt-in trace for diagnosing keyboard/focus reports: set MF_UNO_INPUT_TRACE=1 in the
+        // environment before launching. Silent (and free) otherwise.
+        private static readonly bool s_inputTrace = Environment.GetEnvironmentVariable ("MF_UNO_INPUT_TRACE") is not null;
+        private static void Trace (string message)
+        {
+            if (s_inputTrace)
+                Console.WriteLine ($"[MF_UNO_INPUT_TRACE] {message}");
+        }
+
         private void FixX11InputHint ()
         {
             if (!OperatingSystem.IsLinux () || _window is null)
                 return;
-            var title = _window.Title;
-            if (string.IsNullOrEmpty (title))
-                return;
 
-            // A BadWindow race here is expected and harmless (see EnsureX11ErrorHandlerInstalled):
-            // XQueryTree returns a snapshot of the root's children, and some of them (this app's own
-            // splash/wait form included) can be destroyed before we get to XFetchName on them.
             try {
-                var display = XOpenDisplay (IntPtr.Zero);
-                if (display == IntPtr.Zero)
-                    return;
-                try {
-                    var root = XRootWindow (display, XDefaultScreen (display));
-                    if (!TryFindTopLevelWindowByTitle (display, root, title, out var xid))
+                if (_x11FocusDisplay == IntPtr.Zero) {
+                    var display = XOpenDisplay (IntPtr.Zero);
+                    if (display == IntPtr.Zero) {
+                        Trace ("FixX11InputHint: XOpenDisplay failed");
                         return;
-
-                    var hints = new XWMHints { flags = checked ((IntPtr) InputHint), input = 1 };
-                    _ = XSetWMHints (display, xid, ref hints);
-                    _ = XFlush (display);
-                } finally {
-                    _ = XCloseDisplay (display);
+                    }
+                    _x11ActiveWindowAtom = XInternAtom (display, "_NET_ACTIVE_WINDOW", false);
+                    _x11FocusDisplay = display;
+                    Trace ($"FixX11InputHint: opened display, _NET_ACTIVE_WINDOW atom={_x11ActiveWindowAtom}");
+                } else {
+                    // This connection never calls XSelectInput on anything, so it shouldn't accumulate
+                    // a real event backlog — but it's long-lived (kept open for the window's whole
+                    // lifetime) and this housekeeping is nearly free, so discard anything queued up
+                    // rather than assume that's true. An unread backlog on a long-lived connection is
+                    // a classic way for later requests on it to start behaving oddly.
+                    _ = XSync (_x11FocusDisplay, discard: true);
                 }
-            } catch {
+
+                var title = _window.Title;
+                if (string.IsNullOrEmpty (title)) {
+                    Trace ("FixX11InputHint: _window.Title is empty, skipping");
+                    return;
+                }
+
+                // A BadWindow race here is expected and harmless (see EnsureX11ErrorHandlerInstalled):
+                // XQueryTree returns a snapshot of the root's children, and some of them (this app's
+                // own splash/wait form included) can be destroyed before we get to XFetchName on them.
+                var root = XRootWindow (_x11FocusDisplay, XDefaultScreen (_x11FocusDisplay));
+                if (!TryFindTopLevelWindowByTitle (_x11FocusDisplay, root, title, out var xid)) {
+                    Trace ($"FixX11InputHint: could not find a top-level window titled '{title}'");
+                    return;
+                }
+
+                var hints = new XWMHints { flags = checked ((IntPtr) InputHint), input = 1 };
+                _ = XSetWMHints (_x11FocusDisplay, xid, ref hints);
+
+                var clientMessage = new XClientMessageEvent {
+                    type = 33, // ClientMessage
+                    window = xid,
+                    message_type = _x11ActiveWindowAtom,
+                    format = 32,
+                    l0 = 1, // source indication: normal application
+                };
+                const long SubstructureRedirectMask = 1 << 20;
+                const long SubstructureNotifyMask = 1 << 19;
+                _ = XSendEvent (_x11FocusDisplay, root, 0, checked ((IntPtr) (SubstructureRedirectMask | SubstructureNotifyMask)), ref clientMessage);
+                const int RevertToParent = 2;
+                var focusResult = XSetInputFocus (_x11FocusDisplay, xid, RevertToParent, IntPtr.Zero);
+                _ = XFlush (_x11FocusDisplay);
+                Trace ($"FixX11InputHint: xid={xid} XSetInputFocus returned {focusResult} (1=Success)");
+            } catch (Exception ex) {
                 // Best-effort: if this fails (e.g. libX11 unavailable, or a future Uno release fixes
                 // the missing hint upstream), the window just keeps needing the taskbar/Alt+Tab to
                 // gain focus instead of a direct click.
+                Trace ($"FixX11InputHint threw: {ex}");
             }
+        }
+
+        private void CloseX11KeyboardFallback ()
+        {
+            _x11KeyFallbackTimer?.Stop ();
+            _x11KeyFallbackTimer = null;
+            if (_x11KeyListenerDisplay == IntPtr.Zero)
+                return;
+            try { _ = XCloseDisplay (_x11KeyListenerDisplay); } catch { }
+            _x11KeyListenerDisplay = IntPtr.Zero;
+        }
+
+        private void CloseX11FocusDisplay ()
+        {
+            if (_x11FocusDisplay == IntPtr.Zero)
+                return;
+            try { _ = XCloseDisplay (_x11FocusDisplay); } catch { }
+            _x11FocusDisplay = IntPtr.Zero;
         }
 
         // Kept as static fields, not a local/lambda: a delegate passed to native code must stay
@@ -302,6 +381,8 @@ namespace Majorsilence.Forms.Uno
         [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XFetchName (IntPtr display, IntPtr w, out IntPtr windowNameReturn);
         [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XFree (IntPtr data);
         [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern IntPtr XSetErrorHandler (IntPtr handler);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XSetInputFocus (IntPtr display, IntPtr focus, int revertTo, IntPtr time);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XSync (IntPtr display, bool discard);
 
         // On the macOS Skia head the canvas never receives routed XAML key events (focus is correct, but the
         // managed input pipeline doesn't surface KeyDown to an SKXamlCanvas). The native MacOSWindowHost does
@@ -345,6 +426,149 @@ namespace Majorsilence.Forms.Uno
             } catch {
                 // Reflection into the internal host is best-effort; the routed handlers remain as a fallback.
             }
+        }
+
+        // ── X11 keyboard fallback ───────────────────────────────────────────────────────────────────
+        // Confirmed on GNOME/mutter (Wayland session, XWayland X11 backend): real X11 keyboard focus is
+        // genuinely granted to this window (_NET_WM_STATE_FOCUSED set) and real X11 KeyPress/KeyRelease
+        // events independently confirmed to reach it, yet the routed KeyDownEvent/KeyUpEvent handlers
+        // above never fire for them — an Uno.WinUI.Runtime.Skia.X11 bug/incompatibility below where this
+        // class hooks in, not anything fixable by asking harder for focus (already tried, several times).
+        //
+        // Reads raw X11 KeyPress/KeyRelease events directly, via our own dedicated connection and
+        // XLookupString (the same call Uno's own X11KeyboardInputSource uses internally, so this
+        // resolves keysyms/text the same way — respecting the real X11 keymap, not a hand-rolled ASCII
+        // table), translated to a Majorsilence.Forms Keys the same way OnMacKeyDown/OnMacKeyUp above
+        // already do for the analogous macOS gap: straight to _owner.HandleKeyDown/HandleKeyUp/
+        // HandleTextInput, bypassing WinUI's routed-event system (and this class's own
+        // KeyDownEvent/KeyUpEvent handlers) entirely, so it can never re-trigger them.
+        //
+        // Only takes over if the native routed handlers above never fire within a grace window — polling
+        // continues indefinitely (so a delayed first real keypress still gets picked up), but this stays
+        // fully inert wherever the native pipeline already works (confirmed working: Avalonia, macOS via
+        // the hook above, and this class's own routed handlers on whichever heads they're not broken on),
+        // which avoids ever double-handling a keypress there.
+        private bool _unoNativeKeyPipelineConfirmedWorking;
+        private IntPtr _x11KeyListenerDisplay;
+        private IntPtr _x11KeyListenerXid;
+        private long _x11FallbackArmAtTicks;
+        private Microsoft.UI.Xaml.DispatcherTimer? _x11KeyFallbackTimer;
+
+        private void WireX11KeyboardFallback ()
+        {
+            if (!OperatingSystem.IsLinux () || _window is null || _x11KeyFallbackTimer is not null)
+                return;
+
+            // Give the native routed handlers a couple of seconds to prove themselves (from any keyboard
+            // activity at all, not necessarily from the user's own typing) before this is willing to act
+            // on anything it reads — see the class-level comment above for why that matters.
+            _x11FallbackArmAtTicks = Environment.TickCount64 + 2000;
+
+            _x11KeyFallbackTimer = new Microsoft.UI.Xaml.DispatcherTimer { Interval = TimeSpan.FromMilliseconds (25) };
+            _x11KeyFallbackTimer.Tick += (_, _) => {
+                if (_unoNativeKeyPipelineConfirmedWorking) {
+                    Trace ("X11 keyboard fallback: native pipeline confirmed working, stopping fallback poll permanently");
+                    _x11KeyFallbackTimer!.Stop ();
+                    _x11KeyFallbackTimer = null;
+                    if (_x11KeyListenerDisplay != IntPtr.Zero) {
+                        try { _ = XCloseDisplay (_x11KeyListenerDisplay); } catch { }
+                        _x11KeyListenerDisplay = IntPtr.Zero;
+                    }
+                    return;
+                }
+                PumpX11KeyboardFallback ();
+            };
+            _x11KeyFallbackTimer.Start ();
+        }
+
+        private void PumpX11KeyboardFallback ()
+        {
+            try {
+                if (_x11KeyListenerDisplay == IntPtr.Zero) {
+                    var display = XOpenDisplay (IntPtr.Zero);
+                    if (display == IntPtr.Zero)
+                        return;
+                    var title = _window!.Title;
+                    if (string.IsNullOrEmpty (title)) {
+                        _ = XCloseDisplay (display);
+                        return;
+                    }
+                    var root = XRootWindow (display, XDefaultScreen (display));
+                    if (!TryFindTopLevelWindowByTitle (display, root, title, out var xid)) {
+                        _ = XCloseDisplay (display);
+                        return;   // window not mapped yet; retry on a later tick
+                    }
+                    const long KeyPressMask = 1 << 0;
+                    const long KeyReleaseMask = 1 << 1;
+                    _ = XSelectInput (display, xid, KeyPressMask | KeyReleaseMask);
+                    _x11KeyListenerXid = xid;
+                    _x11KeyListenerDisplay = display;
+                    Trace ($"X11 keyboard fallback: listening on xid={xid}");
+                }
+
+                while (XPending (_x11KeyListenerDisplay) > 0) {
+                    _ = XNextEvent (_x11KeyListenerDisplay, out var xkey);
+                    var pressed = xkey.type == 2;   // KeyPress=2, KeyRelease=3
+                    if (xkey.type != 2 && xkey.type != 3)
+                        continue;
+
+                    var armed = Environment.TickCount64 >= _x11FallbackArmAtTicks;
+
+                    var textBuffer = System.Runtime.InteropServices.Marshal.AllocHGlobal (8);
+                    try {
+                        var byteCount = XLookupString (ref xkey, textBuffer, 8, out var keysym, IntPtr.Zero);
+                        var virtualKey = X11KeyTransformVirtualKeyFromKeySym (keysym);
+                        var keys = virtualKey is { } vk ? UnoKeyInterop.ToKeys (vk) : Keys.None;
+
+                        Trace ($"X11 keyboard fallback: {(pressed ? "KeyPress" : "KeyRelease")} keysym=0x{keysym:x} -> keys={keys} armed={armed}");
+                        if (!armed || keys == Keys.None)
+                            continue;
+
+                        if (pressed) {
+                            _owner.HandleKeyDown (keys);
+                            if (byteCount > 0) {
+                                var text = System.Runtime.InteropServices.Marshal.PtrToStringAnsi (textBuffer, byteCount);
+                                if (!string.IsNullOrEmpty (text) && !char.IsControl (text[0]))
+                                    _owner.HandleTextInput (text);
+                            }
+                        } else {
+                            _owner.HandleKeyUp (keys);
+                        }
+                    } finally {
+                        System.Runtime.InteropServices.Marshal.FreeHGlobal (textBuffer);
+                    }
+                }
+            } catch (Exception ex) {
+                Trace ($"X11 keyboard fallback threw: {ex}");
+            }
+        }
+
+        // X11KeyTransform (public) lives in Uno.WinUI.Runtime.Skia.X11, which Majorsilence.Forms.Uno
+        // deliberately doesn't reference at compile time (it would tie this platform-neutral backend
+        // library to one specific Skia runtime target) — reached via reflection instead, the same way
+        // WireMacOSKeyboard above reaches into the macOS-only internal host. Reuses Uno's own keysym
+        // table rather than hand-rolling a second one that could drift from it.
+        private static System.Reflection.MethodInfo? s_x11KeyTransformMethod;
+        private static bool s_x11KeyTransformResolved;
+
+        private static Windows.System.VirtualKey? X11KeyTransformVirtualKeyFromKeySym (IntPtr keysym)
+        {
+            if (!s_x11KeyTransformResolved) {
+                s_x11KeyTransformResolved = true;
+                try {
+                    // The type's C# namespace ("Uno.WinUI.Runtime.Skia.X11") and its containing assembly's
+                    // name ("Uno.UI.Runtime.Skia.X11", matching the DLL filename) differ — easy to get
+                    // wrong (confirmed live: using "Uno.WinUI..." for the assembly half silently fails to
+                    // resolve the type, so every keysym translated to Keys.None). Same split naming
+                    // WireMacOSKeyboard's own reflection above already accounts for (Uno.UI.Runtime.Skia.MacOS).
+                    var type = Type.GetType ("Uno.WinUI.Runtime.Skia.X11.X11KeyTransform, Uno.UI.Runtime.Skia.X11");
+                    s_x11KeyTransformMethod = type?.GetMethod ("VirtualKeyFromKeySym", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                } catch { /* leave null; fallback simply won't translate keys on this head */ }
+            }
+            if (s_x11KeyTransformMethod is null)
+                return null;
+            try { return (Windows.System.VirtualKey?) s_x11KeyTransformMethod.Invoke (null, new object[] { keysym }); }
+            catch { return null; }
         }
 
         // ── macOS true window geometry ──────────────────────────────────────────────────────────────────
@@ -456,9 +680,21 @@ namespace Majorsilence.Forms.Uno
         }
 
         // Give the drawing canvas keyboard focus so KeyDown/KeyUp/character events route to it (Windows/X11).
+        // Parity with the Avalonia host: there, every focus request (Focus()/a pointer press) reliably
+        // transfers real OS-level keyboard focus, because Avalonia's own X11 window is created with a
+        // proper WM_HINTS/WM_TAKE_FOCUS from the start, so the WM always honours it. Uno's X11 window
+        // is not (see FixX11InputHint), so a single one-shot fix at Show() time isn't enough — once the
+        // user clicks away to another application and back, or the WM's own focus-follows-click state
+        // otherwise drifts, WinUI's *logical* focus (_canvas.Focus()) can succeed while the *real* X11
+        // window manager focus silently doesn't follow, leaving keyboard input dead until an explicit
+        // Alt+Tab. Re-assert the X11-level fix on every focus attempt, not just once, so this host is
+        // exactly as robust as Avalonia's about keyboard focus following every click.
         private void TryFocus ()
         {
-            try { _canvas.Focus (FocusState.Programmatic); } catch { }
+            bool focusResult = false;
+            try { focusResult = _canvas.Focus (FocusState.Programmatic); } catch { }
+            Trace ($"TryFocus: _canvas.Focus() returned {focusResult}, FocusState={_canvas.FocusState}");
+            FixX11InputHint ();
         }
 
         private void ShowPopup ()
@@ -524,7 +760,7 @@ namespace Majorsilence.Forms.Uno
                     _owner.OnBackendActivated ();
             };
 
-            _window!.Closed += (_, _) => _owner.OnBackendClosed ();
+            _window!.Closed += (_, _) => { CloseX11FocusDisplay (); CloseX11KeyboardFallback (); _owner.OnBackendClosed (); };
         }
 
         // ── Appearance / behaviour ──
@@ -798,6 +1034,34 @@ namespace Majorsilence.Forms.Uno
         [System.Runtime.InteropServices.DllImport ("libX11.so.6", BestFitMapping = false, ThrowOnUnmappableChar = true)] private static extern IntPtr XInternAtom (IntPtr display, [System.Runtime.InteropServices.MarshalAs (System.Runtime.InteropServices.UnmanagedType.LPStr)] string atomName, bool onlyIfExists);
         [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XSendEvent (IntPtr display, IntPtr w, int propagate, IntPtr eventMask, ref XClientMessageEvent eventSend);
 
+        // Same verified field layout/offsets as XClientMessageEvent above (both are members of the same
+        // 192-byte native XEvent union; the type/serial/send_event/display/window prefix is identical —
+        // only what follows differs per event type).
+        [System.Runtime.InteropServices.StructLayout (System.Runtime.InteropServices.LayoutKind.Explicit, Size = 192)]
+        private struct XKeyEvent
+        {
+            [System.Runtime.InteropServices.FieldOffset (0)] public int type;
+            [System.Runtime.InteropServices.FieldOffset (8)] public IntPtr serial;
+            [System.Runtime.InteropServices.FieldOffset (16)] public int send_event;
+            [System.Runtime.InteropServices.FieldOffset (24)] public IntPtr display;
+            [System.Runtime.InteropServices.FieldOffset (32)] public IntPtr window;
+            [System.Runtime.InteropServices.FieldOffset (40)] public IntPtr root;
+            [System.Runtime.InteropServices.FieldOffset (48)] public IntPtr subwindow;
+            [System.Runtime.InteropServices.FieldOffset (56)] public IntPtr time;
+            [System.Runtime.InteropServices.FieldOffset (64)] public int x;
+            [System.Runtime.InteropServices.FieldOffset (68)] public int y;
+            [System.Runtime.InteropServices.FieldOffset (72)] public int x_root;
+            [System.Runtime.InteropServices.FieldOffset (76)] public int y_root;
+            [System.Runtime.InteropServices.FieldOffset (80)] public uint state;
+            [System.Runtime.InteropServices.FieldOffset (84)] public uint keycode;
+            [System.Runtime.InteropServices.FieldOffset (88)] public int same_screen;
+        }
+
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XSelectInput (IntPtr display, IntPtr w, long eventMask);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XPending (IntPtr display);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XNextEvent (IntPtr display, out XKeyEvent eventReturn);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XLookupString (ref XKeyEvent eventStruct, IntPtr bufferReturn, int bytesBuffer, out IntPtr keysymReturn, IntPtr statusInOut);
+
         // Opens its own display / re-finds the window by title — used from WindowState's restore path,
         // which doesn't already have a display handle open (unlike BeginWmMoveResize, which calls
         // SendClearMaximizedState directly with the display/root/xid it already has). See the callers'
@@ -1068,6 +1332,7 @@ namespace Majorsilence.Forms.Uno
             // form). Capture on press / release on up so the managed Control.Capture path actually holds the
             // pointer for the whole gesture and the terminating mouse-up is always delivered here.
             _canvas.PointerPressed += (_, e) => {
+                Trace ($"PointerPressed device={e.Pointer.PointerDeviceType}");
                 TryFocus ();
                 _pointerCaptured = _canvas.CapturePointer (e.Pointer);
                 DispatchPointer (e, _owner.HandlePointerPressed);
@@ -1096,12 +1361,32 @@ namespace Majorsilence.Forms.Uno
 
             // Routed key events — the standard path on the Windows/X11 Skia heads. (On the macOS head these
             // never fire for the canvas; WireMacOSKeyboard hooks the native host's KeyDown there instead.)
+            // Confirmed broken on at least one real environment (GNOME/mutter, Wayland session, XWayland
+            // X11 backend): the WM genuinely grants this window real keyboard focus (_NET_WM_STATE_FOCUSED
+            // set, verified) and real X11 KeyPress/KeyRelease events are independently confirmed to reach
+            // this window, yet these routed handlers never fire — a bug/incompatibility inside
+            // Uno.WinUI.Runtime.Skia.X11's own event bridge, not anything fixable from here. WireX11KeyboardFallback
+            // below detects that (this handler firing is the "native pipeline works" signal it watches for)
+            // and takes over reading raw X11 key events directly when it doesn't.
             _canvas.AddHandler (UIElement.KeyDownEvent,
                 new Microsoft.UI.Xaml.Input.KeyEventHandler ((_, e) => {
+                    Trace ($"canvas KeyDown key={e.Key} preHandled={e.Handled} FocusState={_canvas.FocusState}");
+                    _unoNativeKeyPipelineConfirmedWorking = true;
                     if (!e.Handled && _owner.HandleKeyDown (UnoKeyInterop.ToKeys (e.Key))) e.Handled = true;
+                    // CharacterReceived (below) never fires on this head, so typed text is carried off
+                    // the KeyDown itself — see UnoKeyInterop.TryGetTypedCharacter.
+                    if (!e.Handled && UnoKeyInterop.TryGetTypedCharacter (e, out var ch) && _owner.HandleTextInput (ch.ToString ())) e.Handled = true;
+                    Trace ($"canvas KeyDown key={e.Key} postHandled={e.Handled}");
                 }), handledEventsToo: true);
             _canvas.AddHandler (UIElement.KeyUpEvent,
-                new Microsoft.UI.Xaml.Input.KeyEventHandler ((_, e) => { if (!e.Handled && _owner.HandleKeyUp (UnoKeyInterop.ToKeys (e.Key))) e.Handled = true; }), handledEventsToo: true);
+                new Microsoft.UI.Xaml.Input.KeyEventHandler ((_, e) => {
+                    Trace ($"canvas KeyUp key={e.Key} preHandled={e.Handled}");
+                    _unoNativeKeyPipelineConfirmedWorking = true;
+                    if (!e.Handled && _owner.HandleKeyUp (UnoKeyInterop.ToKeys (e.Key))) e.Handled = true;
+                    Trace ($"canvas KeyUp key={e.Key} postHandled={e.Handled}");
+                }), handledEventsToo: true);
+            // Kept in case a future Uno.WinUI.Runtime.Skia release implements CharacterReceivedEvent —
+            // the KeyDown path above already covers text input either way, so this stays inert today.
             _canvas.CharacterReceived += (_, e) => { if (_owner.HandleTextInput (e.Character.ToString ())) e.Handled = true; };
 
             // The canonical context-menu trigger: covers right-click, macOS two-finger/Ctrl secondary
