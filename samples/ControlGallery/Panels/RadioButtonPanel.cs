@@ -16,11 +16,15 @@ namespace ControlGallery.Panels
             Controls.Add (new RadioButton { Text = "AutoCheck Off", Left = 10, Top = 115, Width = 150, AutoCheck = false });
             Controls.Add (new RadioButton { Text = "Text that is too long to fit", Left = 10, Top = 150, Width = 150, AutoEllipsis = true });
 
-            var panel = Controls.Add (new Panel { Left = 10, Top = 185, Width = 200, Height = 100 });
+            var panel = Controls.Add (new Panel { Left = 10, Top = 185, Width = 200, Height = 240 });
             panel.Style.Border.Width = 1;
 
             var light = panel.Controls.Add (new RadioButton { Text = "Light", Left = 10, Top = 10, Checked = true });
             var dark = panel.Controls.Add (new RadioButton { Text = "Dark", Left = 10, Top = 45 });
+            var classic = panel.Controls.Add (new RadioButton { Text = "Classic", Left = 10, Top = 80 });
+            var aero = panel.Controls.Add (new RadioButton { Text = "Aero", Left = 10, Top = 115 });
+            var pos = panel.Controls.Add (new RadioButton { Text = "Point of Sale", Left = 10, Top = 150 });
+            var hotdog = panel.Controls.Add (new RadioButton { Text = "Hot Dog", Left = 10, Top = 185 });
 
             light.CheckedChanged += (s, e) => {
                 if (light.Checked)
@@ -30,6 +34,26 @@ namespace ControlGallery.Panels
             dark.CheckedChanged += (s, e) => {
                 if (dark.Checked)
                     Theme.SetBuiltInTheme (BuiltInTheme.Dark);
+            };
+
+            classic.CheckedChanged += (s, e) => {
+                if (classic.Checked)
+                    Theme.SetBuiltInTheme (BuiltInTheme.Classic);
+            };
+
+            aero.CheckedChanged += (s, e) => {
+                if (aero.Checked)
+                    Theme.SetBuiltInTheme (BuiltInTheme.Aero);
+            };
+
+            pos.CheckedChanged += (s, e) => {
+                if (pos.Checked)
+                    Theme.SetBuiltInTheme (BuiltInTheme.PointOfSale);
+            };
+
+            hotdog.CheckedChanged += (s, e) => {
+                if (hotdog.Checked)
+                    Theme.SetBuiltInTheme (BuiltInTheme.HotDog);
             };
 
             AddConfigurableRadioButton ();
