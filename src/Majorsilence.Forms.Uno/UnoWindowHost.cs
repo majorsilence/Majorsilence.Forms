@@ -1348,6 +1348,11 @@ namespace Majorsilence.Forms.Uno
             };
             _canvas.PointerMoved += (_, e) => DispatchPointer (e, _owner.HandlePointerMoved);
             _canvas.PointerExited += (_, e) => DispatchPointer (e, _owner.HandlePointerExited);
+            // Mouse wheel AND trackpad two-finger scroll both arrive as PointerWheelChanged in WinUI —
+            // there's no separate touch-scroll event to also wire up. This was never hooked up on the
+            // main window host at all (only MajorsilenceFormsPresenter, the embedding host, had it),
+            // so ScrollBars/ScrollableControl never saw any wheel or two-finger-scroll input here.
+            _canvas.PointerWheelChanged += (_, e) => DispatchWheel (e);
 
             // If the OS yanks the capture mid-drag (focus change, system gesture) PointerReleased may never
             // arrive. Synthesize a release at the last position so the in-progress drag (tab reorder /
@@ -1428,6 +1433,42 @@ namespace Majorsilence.Forms.Uno
             var button = UnoKeyInterop.ToButton (point.Properties);
             action (button, x, y, Keys.None);
             return button;
+        }
+
+        private void DispatchWheel (PointerRoutedEventArgs e)
+        {
+            var scaling = Scaling;
+            var point = e.GetCurrentPoint (_canvas);
+            var x = (int) (point.Position.X * scaling);
+            var y = (int) (point.Position.Y * scaling);
+            // WinUI reports one scalar delta per event plus IsHorizontalMouseWheel to say which axis it's
+            // on (unlike Avalonia's Vector Delta, which carries both axes on every event) — a trackpad's
+            // horizontal two-finger swipe arrives as a separate IsHorizontalMouseWheel=true event, not as
+            // an X component alongside a vertical one.
+            var notches = NotchesFromWheelDelta (point.Properties.MouseWheelDelta);
+            var delta = point.Properties.IsHorizontalMouseWheel
+                ? new Point (notches, 0)
+                : new Point (0, notches);
+            _owner.HandlePointerWheel (MouseButtons.None, x, y, delta, Keys.None);
+        }
+
+        // WinUI's PointerPointProperties.MouseWheelDelta follows the Win32 WHEEL_DELTA convention: ±120
+        // per full wheel "notch". Majorsilence.Forms' own ScrollBar/ScrollableControl wheel handling
+        // multiplies the delta directly by SmallChange (see ScrollBar.OnMouseWheel) expecting a small
+        // "how many notches" count, the same shape Avalonia's own (pre-normalized) PointerWheelEventArgs
+        // .Delta already provides there — passing WHEEL_DELTA-scaled values straight through un-divided
+        // turned a single wheel/trackpad tick into a 120x-too-large jump (confirmed live: one scroll flew
+        // from top to bottom). A trackpad's continuous two-finger scroll reports many small per-event
+        // deltas rather than one full ±120 per gesture, so round instead of truncating (a truncating /120
+        // would silently drop every one of those as zero), and fall back to ±1 for any nonzero delta that
+        // still rounds to 0 so gentle scrolling doesn't just do nothing.
+        private static int NotchesFromWheelDelta (int rawDelta)
+        {
+            const int WheelDeltaPerNotch = 120;
+            if (rawDelta == 0)
+                return 0;
+            var notches = (int) Math.Round (rawDelta / (double) WheelDeltaPerNotch, MidpointRounding.AwayFromZero);
+            return notches != 0 ? notches : Math.Sign (rawDelta);
         }
 
         // SKXamlCanvas with a settable cursor (UIElement.ProtectedCursor is protected).
