@@ -76,7 +76,7 @@ namespace ControlGallery
             tree.ItemSelected += Tree_ItemSelected;
             Controls.Add (tree);
 
-            Text = "Control Gallery";
+            Text = $"Control Gallery - {Majorsilence.Forms.Backends.Platform.Backend.Name}";
             Image = ImageLoader.Get ("button.png");
         }
 
