@@ -76,14 +76,28 @@ reduced fidelity versus not compiling.
 Two systemic patterns showed up across almost every control, worth stating once instead of
 per-row:
 
-- **Protected extensibility hooks are thin.** The `On*Changed`/`On*` overridable methods WinForms
-  uses for subclassing (`OnFontChanged`, `OnHandleCreated`, `OnDragEnter`/`OnDragDrop`/`OnGiveFeedback`,
-  `OnPreviewKeyDown`, `OnPrint`, ...), the `Reset*` methods designer serialization relies on
-  (`ResetBackColor`, `ResetCursor`, `ResetImeMode`, ...), and the RTL/scaling helper methods
-  (`RtlTranslateAlignment`, `ScaleControl`, ...) are mostly absent from `Control` and therefore from
-  every control derived from it. Calling code (setting properties, handling public events) is
-  unaffected; a custom control that overrides one of these protected members to hook framework
-  behavior won't compile.
+- **Protected extensibility hooks are thin above the `Control` base.** *Updated 2026-07-29 — the
+  `Control`-level set named in the original finding now exists and fires.* `Control` now has the
+  ambient-appearance notifications (`OnBackColorChanged`/`OnForeColorChanged`/`OnFontChanged` plus
+  their `OnParent*Changed` cascades, `OnRightToLeftChanged`, `OnCausesValidationChanged`,
+  `OnImeModeChanged`, `OnContextMenuStripChanged`), the handle-lifetime pair
+  (`OnHandleCreated`/`OnHandleDestroyed`), the focus pair (`OnEnter`/`OnLeave`, no longer aliases of
+  `GotFocus`/`LostFocus`), the mouse/key hooks (`OnMouseClick`/`OnMouseDoubleClick`/`OnMouseHover`/
+  `OnMouseCaptureChanged`/`OnPreviewKeyDown`), the drag set
+  (`OnDragEnter`/`OnDragOver`/`OnDragDrop`/`OnDragLeave`/`OnGiveFeedback`/`OnQueryContinueDrag`),
+  `OnPrint`, the `Reset*` methods designer serialization relies on
+  (`ResetBackColor`/`ResetForeColor`/`ResetCursor`/`ResetImeMode`/`ResetRightToLeft`, joining the
+  existing `ResetText`/`ResetFont`), and the RTL/scaling helpers (`RtlTranslateAlignment` and its
+  `RtlTranslateHorizontal`/`RtlTranslateLeftRight`/`RtlTranslateContent` overloads, `ScaleControl`,
+  `ScaleBitmapLogicalToDevice`). These are wired, not declared: the corresponding events are real
+  `Events`-backed properties (previously ~20 of them were `add { } remove { }` no-ops) and the
+  `BackColor`/`ForeColor`/`Font`/`RightToLeft`/`CausesValidation`/`ImeMode` setters raise them on a
+  real value change. **Still thin:** hooks with no framework trigger yet — the drag set has no OS
+  drag source (`DoDragDrop` still returns `None`), so a derived control must raise those itself; and
+  `ChangeUICues`, `HelpRequested`, `QueryAccessibilityHelp`, `Scroll`, `DpiChangedBeforeParent`/
+  `DpiChangedAfterParent`, `BindingContextChanged` and `SystemColorsChanged` remain no-op stub
+  events with no `On*` hook. Derived-type-specific hooks (`OnDrawItem`, `OnSelectedIndexChanged`,
+  `OnCellPainting`, ...) are unchanged by this and are still mostly absent — see the per-row notes.
 - **A few "family" controls don't share upstream's common base class**, so members upstream gets
   for free through inheritance have to exist per-type here, and sometimes don't yet:
   `Majorsilence.Forms.Form` derives from an internal `WindowBase` (not `Control`), so plain
@@ -102,7 +116,8 @@ deep/rare corners); **Partial** names the specific commonly-used members that ar
 
 | Control / type | Status | Notes |
 |---|---|---|
-| `Button`, `CheckBox`, `RadioButton`, `Label`, `LinkLabel`, `PictureBox`, `Panel`, `GroupBox`, `TabControl`/`TabPage`, `FlowLayoutPanel`, `TableLayoutPanel`, `TrackBar`, `ProgressBar`, `ScrollBar`/`HScrollBar`/`VScrollBar`, `Splitter`, `UserControl` | Implemented | Only the systemic gaps above; no missing members specific to these types. |
+| `Control` (base) | Implemented | Inherited by every control below. The protected extensibility surface named in the first systemic pattern above is present and firing as of 2026-07-29; the residue is the stub events listed there that still have no `On*` hook. |
+| `Button`, `CheckBox`, `RadioButton`, `Label`, `LinkLabel`, `PictureBox`, `Panel`, `GroupBox`, `TabControl`/`TabPage`, `FlowLayoutPanel`, `TableLayoutPanel`, `TrackBar`, `ProgressBar`, `ScrollBar`/`HScrollBar`/`VScrollBar`, `Splitter`, `UserControl` | Implemented | Only the systemic gaps above; no missing members specific to these types. They pick up the whole `Control` protected surface by inheritance. |
 | `TextBox` | Implemented | Full surface for get/set/select/undo usage. |
 | `RichTextBox` | Partial | No `Undo`/`Redo`/`CanUndo`/`CanRedo`/`RedoActionName`, no `SelectedRtf`, no `CanPaste`, no `AutoWordSelection`. |
 | `MaskedTextBox` | Partial | No `InsertKeyMode`/`IsOverwriteMode`, no `GetCharIndexFromPosition`/`GetPositionFromCharIndex` family, no `ValidateText`. |

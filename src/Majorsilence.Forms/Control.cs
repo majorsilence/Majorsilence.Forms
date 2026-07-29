@@ -169,7 +169,12 @@ namespace Majorsilence.Forms
         public bool Capture {
             get => is_captured || Controls.AnyCaptured ();
             set {
+                var changed = is_captured != value;
+
                 is_captured = value;
+
+                if (changed)
+                    OnMouseCaptureChanged (EventArgs.Empty);
 
                 if (Parent != null)
                     Parent.Capture = value;
@@ -286,6 +291,10 @@ namespace Majorsilence.Forms
                 return;
 
             SetState (States.Created, true);
+
+            // Majorsilence.Forms has no HWND, but this is the equivalent moment: the control has
+            // just gone live, which is what WinForms code hooking HandleCreated is waiting for.
+            OnHandleCreated (EventArgs.Empty);
 
             // Create an array copy in case the collection changes
             foreach (var child in Controls.GetAllControls ().ToArray ())
@@ -988,13 +997,20 @@ namespace Majorsilence.Forms
             }
 
             (Events[s_clickEvent] as EventHandler)?.Invoke (this, e);
-            (Events[s_mouseClickEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+            OnMouseClick (e);
         }
 
         /// <summary>
         ///  Raises the <see cref='ContextMenuChanged'/> event.
         /// </summary>
-        protected virtual void OnContextMenuChanged (EventArgs e) => (Events[s_contextMenuChangedEvent] as EventHandler)?.Invoke (this, e);
+        protected virtual void OnContextMenuChanged (EventArgs e)
+        {
+            (Events[s_contextMenuChangedEvent] as EventHandler)?.Invoke (this, e);
+
+            // ContextMenuStrip is an alias of ContextMenu here, so its changed notification is the
+            // same notification.
+            OnContextMenuStripChanged (e);
+        }
 
         /// <summary>
         ///  Raises the <see cref='ControlAdded'/> event.
@@ -1033,7 +1049,7 @@ namespace Majorsilence.Forms
         protected virtual void OnDoubleClick (MouseEventArgs e)
         {
             (Events[s_doubleClickEvent] as EventHandler)?.Invoke (this, e);
-            (Events[s_mouseDoubleClickEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+            OnMouseDoubleClick (e);
         }
 
         /// <summary>
@@ -1053,9 +1069,14 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Raises the GotFocus event.
+        /// Raises the Enter event, then the GotFocus event (WinForms order).
         /// </summary>
-        protected virtual void OnGotFocus (EventArgs e) => (Events[s_gotFocusEvent] as EventHandler)?.Invoke (this, e);
+        protected virtual void OnGotFocus (EventArgs e)
+        {
+            OnEnter (e);
+
+            (Events[s_gotFocusEvent] as EventHandler)?.Invoke (this, e);
+        }
 
         /// <summary>
         /// Raises the Invalidated event.
@@ -1063,11 +1084,13 @@ namespace Majorsilence.Forms
         protected virtual void OnInvalidated (InvalidateEventArgs e) => (Events[s_invalidatedEvent] as EventHandler<InvalidateEventArgs>)?.Invoke (this, e);
 
         /// <summary>
-        /// Raises the LostFocus event, then runs the WinForms validation cycle (Validating/Validated)
-        /// as focus leaves the control.
+        /// Raises the Leave event and then the LostFocus event, then runs the WinForms validation
+        /// cycle (Validating/Validated) as focus leaves the control.
         /// </summary>
         protected virtual void OnLostFocus (EventArgs e)
         {
+            OnLeave (e);
+
             (Events[s_lostFocusEvent] as EventHandler)?.Invoke (this, e);
 
             var validatingArgs = new System.ComponentModel.CancelEventArgs ();
@@ -1139,6 +1162,9 @@ namespace Majorsilence.Forms
             }
 
             (Events[s_mouseEnterEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+
+            // Majorsilence.Forms has no hover timer, so hover fires once per entry.
+            OnMouseHover (EventArgs.Empty);
         }
 
         /// <summary>
@@ -1508,8 +1534,10 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            if (Enabled)
+            if (Enabled) {
+                OnPreviewKeyDown (new PreviewKeyDownEventArgs (e.KeyData));
                 OnKeyDown (e);
+            }
         }
 
         /// <summary>
@@ -2002,8 +2030,15 @@ namespace Majorsilence.Forms
             // reflects the parent control's effective background.
             get => GetEffectiveBackgroundColor ().ToDrawingColor ();
             set {
-                Style.BackgroundColor = value.ToSKColor ();
-                Invalidate ();
+                var color = value.ToSKColor ();
+
+                // Only a real change notifies -- assigning the same color again must not fire
+                // BackColorChanged (nor re-cascade it to every child).
+                if (Style.BackgroundColor == color)
+                    return;
+
+                Style.BackgroundColor = color;
+                OnBackColorChanged (EventArgs.Empty);
             }
         }
 
@@ -2014,8 +2049,13 @@ namespace Majorsilence.Forms
         public System.Drawing.Color ForeColor {
             get => Style.ForegroundColor?.ToDrawingColor () ?? Style.GetForegroundColor ().ToDrawingColor ();
             set {
-                Style.ForegroundColor = value.ToSKColor ();
-                Invalidate ();
+                var color = value.ToSKColor ();
+
+                if (Style.ForegroundColor == color)
+                    return;
+
+                Style.ForegroundColor = color;
+                OnForeColorChanged (EventArgs.Empty);
             }
         }
 
@@ -2032,6 +2072,13 @@ namespace Majorsilence.Forms
         public Majorsilence.Forms.Drawing.Font Font {
             get => _font ?? Parent?.Font ?? Majorsilence.Forms.SystemFonts.DefaultFont;
             set {
+                // Only a real change notifies. Note this compares the explicitly-set font, not the
+                // resolved one: clearing an override (value null) on a control that never had one
+                // is a no-op, but clearing a real override is a change even if the inherited font
+                // happens to look the same.
+                if (_font is null ? value is null : _font.Equals (value))
+                    return;
+
                 _font = value;
 
                 // The renderer reads the typeface/size from CurrentStyle (GetFont/GetFontSize),
@@ -2047,7 +2094,7 @@ namespace Majorsilence.Forms
                     Style.FontSize = (int) value.SizeInPoints;
                 }
 
-                Invalidate ();
+                OnFontChanged (EventArgs.Empty);
             }
         }
 
@@ -2129,6 +2176,11 @@ namespace Majorsilence.Forms
         protected override void Dispose (bool disposing)
         {
             if (!disposedValue) {
+                // Only on an explicit Dispose -- never from the finalizer, where running user
+                // handlers is not safe. Mirrors WinForms' handle teardown notification.
+                if (disposing && GetState (States.Created))
+                    OnHandleDestroyed (EventArgs.Empty);
+
                 FreeBackBuffer ();
 
                 foreach (var c in Controls.GetAllControls (true))
