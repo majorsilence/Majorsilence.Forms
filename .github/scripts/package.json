@@ -1,0 +1,9 @@
+{
+  "name": "majorsilence-forms-ci-scripts",
+  "private": true,
+  "description": "CI-only tooling (not shipped, not part of any .NET project/solution) -- currently just the Gallery.Wasm headless-browser boot smoke test.",
+  "type": "module",
+  "dependencies": {
+    "playwright": "1.62.0"
+  }
+}

@@ -47,3 +47,73 @@ jobs:
       - name: Test
         if: runner.os == 'Windows'
         run: dotnet test --configuration Release --no-build
+
+  # Wasm publish + boot smoke test gate.
+  #
+  # samples/Gallery.Wasm is part of Majorsilence.Forms.slnx, so the `build` job above
+  # already compiles it with `dotnet build` on all 3 OSes -- but that's not sufficient.
+  # A Microsoft.NET.Sdk.WebAssembly project can `build` fine and still fail to `publish` a
+  # working wasm bundle: `dotnet publish` is what actually runs the wasm-tools pipeline
+  # (emcc/wasm-opt native linking, IL trimming, brotli/gzip compression of the _framework
+  # assets) that `build` skips entirely. This job runs that publish, then goes one step
+  # further and boots the published bundle in a real (headless) browser, since a
+  # successful publish still doesn't prove the resulting app actually runs.
+  #
+  # This gets its own job rather than living in the `build` matrix above because it only
+  # needs to run once: the published wasm+wwwroot output is OS-agnostic (same JS/wasm
+  # files regardless of which OS ran `dotnet publish`), so repeating it across all 3 OSes
+  # the way the native build needs to would just be slower CI for no extra coverage.
+  # ubuntu-latest is used since it's the cheapest runner and headless Chromium (used for
+  # the smoke test below) is most at home there.
+  wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # Not preinstalled on GitHub-hosted runners -- required for `dotnet publish` below
+      # to be able to run the wasm-tools IL-linking/packaging pipeline at all.
+      - name: Install wasm-tools workload
+        run: dotnet workload install wasm-tools
+
+      # The real gate: this is the first point in CI that exercises wasm-tools, since
+      # `dotnet build` (in the `build` job above) never touches it.
+      - name: Publish Gallery.Wasm
+        run: dotnet publish samples/Gallery.Wasm/Gallery.Wasm.csproj --configuration Release
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # .github/scripts is CI-only tooling: a standalone package.json (Playwright), not
+      # referenced by Majorsilence.Forms.slnx or any shipping project.
+      - name: Install smoke-test dependencies
+        working-directory: .github/scripts
+        run: npm ci
+
+      - name: Install headless Chromium
+        working-directory: .github/scripts
+        run: npx playwright install --with-deps chromium
+
+      # Serves the published wwwroot with Python's stdlib http.server (lowest-friction
+      # static file host available on the runner -- no extra package needed) and loads it
+      # in headless Chromium via wasm-smoke-test.mjs, which waits for the <canvas>
+      # element Avalonia.Browser renders into and fails on any unexpected console/page
+      # error during boot. This is a smoke check, not a full E2E suite: one page load,
+      # one known element, no JS errors.
+      - name: Wasm boot smoke test (headless Chromium)
+        working-directory: samples/Gallery.Wasm/bin/Release/net10.0-browser/publish/wwwroot
+        run: |
+          python3 -m http.server 8834 &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID" EXIT
+          curl --retry 10 --retry-delay 1 --retry-connrefused -sf http://127.0.0.1:8834/index.html -o /dev/null
+          node "$GITHUB_WORKSPACE/.github/scripts/wasm-smoke-test.mjs" http://127.0.0.1:8834/index.html
