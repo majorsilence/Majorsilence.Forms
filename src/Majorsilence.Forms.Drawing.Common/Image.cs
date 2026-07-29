@@ -118,7 +118,7 @@ namespace Majorsilence.Forms.Drawing
         public object Clone () => new Bitmap (backing?.Copy ());
 
         /// <summary>Releases the resources used by this image.</summary>
-        public void Dispose ()
+        public virtual void Dispose ()
         {
             backing?.Dispose ();
             backing = null;
@@ -217,6 +217,99 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Returns a GDI icon handle. Returns IntPtr.Zero in Majorsilence.Forms.Drawing.</summary>
         public IntPtr GetHicon () => IntPtr.Zero;
+
+        // Outstanding LockBits buffer, if any. GDI+ allows only one lock at a time per bitmap.
+        private BitmapData? locked;
+
+        /// <summary>
+        /// Locks a rectangular region of this bitmap into a contiguous pixel buffer for bulk access,
+        /// the cross-platform equivalent of <c>System.Drawing.Bitmap.LockBits</c>. Read or write the
+        /// buffer through <see cref="BitmapData.Scan0"/>/<see cref="BitmapData.Stride"/>, then call
+        /// <see cref="UnlockBits"/> to release it (and, unless the lock was
+        /// <see cref="ImageLockMode.ReadOnly"/>, write the pixels back into the bitmap).
+        /// </summary>
+        /// <param name="rect">The region of this bitmap to lock.</param>
+        /// <param name="flags">Whether the buffer will be read, written, or both.</param>
+        /// <param name="format">
+        /// The layout to present the pixels in. <see cref="PixelFormat.Format32bppArgb"/>,
+        /// <see cref="PixelFormat.Format32bppPArgb"/>, <see cref="PixelFormat.Format32bppRgb"/> and
+        /// <see cref="PixelFormat.Format24bppRgb"/> are laid out directly; anything narrower widens
+        /// to <see cref="PixelFormat.Format32bppArgb"/> (the backing store is always 32bpp), and the
+        /// returned <see cref="BitmapData.PixelFormat"/> reports what was actually produced.
+        /// </param>
+        public BitmapData LockBits (System.Drawing.Rectangle rect, ImageLockMode flags, PixelFormat format)
+        {
+            ObjectDisposedException.ThrowIf (backing is null, this);
+            if (locked is not null)
+                throw new InvalidOperationException ("The bitmap region is already locked. Call UnlockBits first.");
+
+            var region = System.Drawing.Rectangle.Intersect (rect, new System.Drawing.Rectangle (0, 0, Width, Height));
+            if (region.Width <= 0 || region.Height <= 0)
+                throw new ArgumentException ("The lock rectangle does not intersect the bitmap.", nameof (rect));
+
+            var actual = BitmapDataMarshal.Normalize (format);
+            var stride = BitmapDataMarshal.StrideFor (region.Width, actual);
+            var scan0 = BitmapDataMarshal.CopyOut (backing, region, actual, stride, out var byteCount);
+
+            locked = new BitmapData {
+                Scan0 = scan0,
+                Stride = stride,
+                Width = region.Width,
+                Height = region.Height,
+                PixelFormat = actual,
+                LockedRegion = region,
+                LockMode = flags,
+                BufferLength = byteCount,
+                Owner = this,
+            };
+            return locked;
+        }
+
+        /// <summary>Locks the whole bitmap. Convenience overload matching System.Drawing.</summary>
+        public BitmapData LockBits (System.Drawing.Rectangle rect, ImageLockMode flags)
+            => LockBits (rect, flags, PixelFormat.Format32bppArgb);
+
+        /// <summary>
+        /// Releases a buffer previously returned by <see cref="LockBits(System.Drawing.Rectangle, ImageLockMode, PixelFormat)"/>,
+        /// copying it back into the bitmap unless the lock was <see cref="ImageLockMode.ReadOnly"/>.
+        /// </summary>
+        public void UnlockBits (BitmapData bitmapData)
+        {
+            ArgumentNullException.ThrowIfNull (bitmapData);
+            if (!ReferenceEquals (bitmapData, locked))
+                throw new ArgumentException ("The BitmapData was not produced by a LockBits call on this bitmap.", nameof (bitmapData));
+
+            try {
+                if (backing is not null && bitmapData.LockMode != ImageLockMode.ReadOnly && bitmapData.Scan0 != IntPtr.Zero) {
+                    BitmapDataMarshal.CopyIn (backing, bitmapData.Scan0, bitmapData.BufferLength,
+                        bitmapData.LockedRegion, bitmapData.PixelFormat, bitmapData.Stride);
+                }
+            } finally {
+                ReleaseLock ();
+            }
+        }
+
+        private void ReleaseLock ()
+        {
+            if (locked is null)
+                return;
+            if (locked.Scan0 != IntPtr.Zero)
+                System.Runtime.InteropServices.Marshal.FreeHGlobal (locked.Scan0);
+            locked.Scan0 = IntPtr.Zero;
+            locked.Owner = null;
+            locked = null;
+        }
+
+        /// <summary>
+        /// Releases the resources used by this bitmap, including any pixel buffer still held by an
+        /// unbalanced <see cref="LockBits(System.Drawing.Rectangle, ImageLockMode, PixelFormat)"/>
+        /// (those pixels are discarded, not written back).
+        /// </summary>
+        public override void Dispose ()
+        {
+            ReleaseLock ();
+            base.Dispose ();
+        }
     }
 
     // Skia helpers for image operations that need a fresh bitmap.

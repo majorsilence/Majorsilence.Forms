@@ -269,6 +269,40 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
                 path.MoveTo (x, y);
         }
 
+        /// <summary>
+        /// Appends a run of GDI+-shaped point/type data (as produced by
+        /// <see cref="GraphicsPathIterator"/>) to this path. Curve points always arrive in groups of
+        /// three, matching the cubic Bézier representation the iterator normalizes to.
+        /// </summary>
+        internal void AppendPointTypeData (PointF[] pts, byte[] pointTypes, int startIndex, int endIndex)
+        {
+            if (pts is null || pointTypes is null)
+                return;
+
+            var i = startIndex;
+            while (i <= endIndex && i < pts.Length && i < pointTypes.Length) {
+                var type = (PathPointType)(pointTypes[i] & (byte)PathPointType.PathTypeMask);
+                switch (type) {
+                    case PathPointType.Start:
+                        path.MoveTo (pts[i].X, pts[i].Y);
+                        break;
+                    case PathPointType.Bezier when i + 2 <= endIndex:
+                        EnsureStart (pts[i].X, pts[i].Y);
+                        path.CubicTo (pts[i].X, pts[i].Y, pts[i + 1].X, pts[i + 1].Y, pts[i + 2].X, pts[i + 2].Y);
+                        i += 2;
+                        break;
+                    default:
+                        EnsureStart (pts[i].X, pts[i].Y);
+                        path.LineTo (pts[i].X, pts[i].Y);
+                        break;
+                }
+
+                if ((pointTypes[i] & (byte)PathPointType.CloseSubpath) != 0)
+                    path.Close ();
+                i++;
+            }
+        }
+
         /// <inheritdoc/>
         public void Dispose ()
         {

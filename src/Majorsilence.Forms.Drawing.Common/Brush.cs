@@ -109,17 +109,81 @@ namespace Majorsilence.Forms.Drawing
         /// </summary>
         public bool GammaCorrection { get; set; }
 
+        private Color[]? blendColors;
+        private float[]? blendPositions;
+
         /// <summary>
-        /// Gets or sets the colors of a multi-stop gradient. When set (with at least two entries) these
-        /// replace the two-color gradient. Pairs with <see cref="InterpolationPositions"/>.
+        /// Gets or sets the multi-stop color ramp of this gradient. When set (with at least two
+        /// colors) it replaces the two endpoint colors. Setting it clears any <see cref="Blend"/>.
         /// </summary>
-        public Color[]? InterpolationColors { get; set; }
+        public Drawing2D.ColorBlend? InterpolationColors {
+            get => blendColors is null
+                ? null
+                : new Drawing2D.ColorBlend {
+                    Colors = (Color[])blendColors.Clone (),
+                    Positions = blendPositions is null ? EvenPositions (blendColors.Length) : (float[])blendPositions.Clone ()
+                };
+            set {
+                blendColors = value?.Colors is { Length: > 0 } c ? (Color[])c.Clone () : null;
+                blendPositions = value?.Positions is { Length: > 0 } p ? (float[])p.Clone () : null;
+                blend = null;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the positions (0..1) of the <see cref="InterpolationColors"/> stops. When null,
-        /// the stops are spaced evenly.
+        /// the stops are spaced evenly. Majorsilence.Forms.Drawing convenience over
+        /// <see cref="Drawing2D.ColorBlend.Positions"/> -- both read and write the same storage.
         /// </summary>
-        public float[]? InterpolationPositions { get; set; }
+        public float[]? InterpolationPositions {
+            get => blendPositions;
+            set => blendPositions = value;
+        }
+
+        private Drawing2D.Blend? blend;
+
+        /// <summary>
+        /// Gets or sets the falloff (blend factors) between the two endpoint colors. Setting it
+        /// replaces any <see cref="InterpolationColors"/> ramp; the factors are expanded into color
+        /// stops so both features share one gradient path.
+        /// </summary>
+        public Drawing2D.Blend? Blend {
+            get => blend;
+            set {
+                blend = value;
+                var expanded = Drawing2D.GradientBlendShapes.Expand (value, color1, color2);
+                blendColors = expanded?.Colors;
+                blendPositions = expanded?.Positions;
+            }
+        }
+
+        /// <summary>
+        /// Applies a triangular blend shape: the gradient runs from the starting color at both ends to
+        /// the ending color at <paramref name="focus"/>, with a linear ramp on each side.
+        /// </summary>
+        /// <param name="focus">Where (0..1) the ending color peaks.</param>
+        /// <param name="scale">How much (0..1) of the ending color is reached at the focus.</param>
+        public void SetBlendTriangularShape (float focus, float scale = 1f)
+            => Blend = Drawing2D.GradientBlendShapes.Triangular (focus, scale);
+
+        /// <summary>
+        /// Applies a sigma-bell blend shape: as <see cref="SetBlendTriangularShape"/>, but with a
+        /// Gaussian-shaped falloff on each side of the focus instead of a straight ramp.
+        /// </summary>
+        /// <param name="focus">Where (0..1) the ending color peaks.</param>
+        /// <param name="scale">How much (0..1) of the ending color is reached at the focus.</param>
+        public void SetSigmaBellShape (float focus, float scale = 1f)
+            => Blend = Drawing2D.GradientBlendShapes.SigmaBell (focus, scale);
+
+        private static float[] EvenPositions (int count)
+        {
+            if (count <= 1)
+                return count == 1 ? new[] { 0f } : Array.Empty<float> ();
+            var result = new float[count];
+            for (var i = 0; i < count; i++)
+                result[i] = i / (float)(count - 1);
+            return result;
+        }
 
         internal override SKPaint CreatePaint ()
         {
@@ -133,10 +197,10 @@ namespace Majorsilence.Forms.Drawing
             // A multi-stop blend, when supplied, supersedes the two endpoint colors.
             SKColor[] colors;
             float[]? stops;
-            if (InterpolationColors is { Length: >= 2 } blend)
+            if (blendColors is { Length: >= 2 } ramp)
             {
-                colors = Array.ConvertAll (blend, c => new SKColor (c.R, c.G, c.B, c.A));
-                stops = InterpolationPositions is { } pos && pos.Length == blend.Length ? pos : null;
+                colors = Array.ConvertAll (ramp, c => new SKColor (c.R, c.G, c.B, c.A));
+                stops = blendPositions is { } pos && pos.Length == ramp.Length ? pos : null;
             }
             else
             {

@@ -11,6 +11,8 @@ namespace Majorsilence.Forms.Drawing
     {
         private SKTypeface? typeface;
         private SKFont? font;
+        // False when `typeface` came from PrivateFontCollection (which owns and disposes it).
+        private bool ownsTypeface = true;
 
         /// <summary>Initializes a new instance of the Font class.</summary>
         public Font (string familyName, float size, bool bold = false, bool italic = false)
@@ -114,7 +116,18 @@ namespace Majorsilence.Forms.Drawing
                 SKFontStyleWidth.Normal,
                 Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright);
 
-            typeface = SKTypeface.FromFamilyName (FamilyName, style) ?? SKTypeface.Default;
+            // A family registered through PrivateFontCollection wins over the system font manager:
+            // the whole point of loading a font file at runtime is to use it by name without
+            // installing it. The registry owns those typefaces, so we must not dispose them.
+            var privateFace = Text.PrivateFontRegistry.Resolve (FamilyName, style);
+            if (privateFace is not null) {
+                typeface = privateFace;
+                ownsTypeface = false;
+            } else {
+                typeface = SKTypeface.FromFamilyName (FamilyName, style) ?? SKTypeface.Default;
+                ownsTypeface = true;
+            }
+
             font = new SKFont (typeface, Size) {
                 Edging = SKFontEdging.SubpixelAntialias,
                 Subpixel = true
@@ -141,7 +154,8 @@ namespace Majorsilence.Forms.Drawing
         public void Dispose ()
         {
             font?.Dispose ();
-            typeface?.Dispose ();
+            if (ownsTypeface)
+                typeface?.Dispose ();
             font = null;
             typeface = null;
         }

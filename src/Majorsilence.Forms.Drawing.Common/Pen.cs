@@ -64,6 +64,24 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets or sets the limit of the thickness of a join on a mitered corner.</summary>
         public float MiterLimit { get; set; } = 10f;
 
+        /// <summary>
+        /// Gets or sets the alignment of this pen relative to the line it strokes. Stored and
+        /// round-tripped; SkiaSharp strokes are always centered on the path, so drawing does not (yet)
+        /// change with this value -- an inset/outset stroke would require offsetting the geometry
+        /// itself, which is not expressible through <c>SKPaint</c>.
+        /// </summary>
+        public Drawing2D.PenAlignment Alignment { get; set; } = Drawing2D.PenAlignment.Center;
+
+        /// <summary>
+        /// Gets or sets the custom cap used at the start of lines drawn with this pen. Its
+        /// <see cref="Drawing2D.CustomLineCap.BaseCap"/> drives the Skia stroke cap -- see
+        /// <see cref="Drawing2D.CustomLineCap"/> for why the custom outline itself cannot be stroked.
+        /// </summary>
+        public Drawing2D.CustomLineCap? CustomStartCap { get; set; }
+
+        /// <summary>Gets or sets the custom cap used at the end of lines drawn with this pen.</summary>
+        public Drawing2D.CustomLineCap? CustomEndCap { get; set; }
+
         /// <summary>Gets or sets the distance from the start of a line to the beginning of a dash pattern.</summary>
         public float DashOffset { get; set; }
 
@@ -92,6 +110,9 @@ namespace Majorsilence.Forms.Drawing
             EndCap = EndCap,
             MiterLimit = MiterLimit,
             DashOffset = DashOffset,
+            Alignment = Alignment,
+            CustomStartCap = CustomStartCap,
+            CustomEndCap = CustomEndCap,
             dashPattern = dashPattern?.ToArray (),
         };
 
@@ -119,9 +140,12 @@ namespace Majorsilence.Forms.Drawing
                     Drawing2D.LineJoin.Bevel => SKStrokeJoin.Bevel,
                     _ => SKStrokeJoin.Miter
                 },
-                StrokeCap = StartCap switch {
+                // A custom cap's declared base shape stands in for the custom outline, which Skia
+                // cannot stroke; otherwise the plain StartCap applies.
+                StrokeCap = (CustomStartCap?.BaseCap ?? StartCap) switch {
                     Drawing2D.LineCap.Square => SKStrokeCap.Square,
                     Drawing2D.LineCap.Round => SKStrokeCap.Round,
+                    Drawing2D.LineCap.Triangle => SKStrokeCap.Square,
                     _ => SKStrokeCap.Butt
                 }
             };

@@ -93,10 +93,17 @@ public class LinearGradientBrushTests
             new PointF(0f, 0f), new PointF(100f, 0f),
             Color.Red, Color.Blue);
 
-        var colors = new[] { Color.Red, Color.Green, Color.Blue };
-        brush.InterpolationColors = colors;
+        // InterpolationColors is a GDI+ ColorBlend (was a bare Color[] before the Blend/ColorBlend
+        // types existed); the positions ride along on the same object.
+        brush.InterpolationColors = new ColorBlend
+        {
+            Colors = new[] { Color.Red, Color.Green, Color.Blue },
+            Positions = new[] { 0f, 0.5f, 1f },
+        };
 
-        Assert.Equal(3, brush.InterpolationColors!.Length);
+        Assert.Equal(3, brush.InterpolationColors!.Colors.Length);
+        Assert.Equal(Color.Green, brush.InterpolationColors.Colors[1]);
+        Assert.Equal(new[] { 0f, 0.5f, 1f }, brush.InterpolationColors.Positions);
     }
 
     [Fact]
