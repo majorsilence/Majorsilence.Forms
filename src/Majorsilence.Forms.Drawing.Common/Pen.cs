@@ -1,192 +1,147 @@
-using Majorsilence.Forms.Drawing.Drawing2D;
+using System.Drawing;
+using System.Linq;
 using SkiaSharp;
-
 
 namespace Majorsilence.Forms.Drawing
 {
-    public class Pen : IDisposable
+    /// <summary>
+    /// Specifies the dash style used when stroking lines and shapes.
+    /// </summary>
+    public enum DashStyle
     {
-        private SKPaint _paint = null!;
-        private Color _color;
-        private float _width;
-        private float[]? _dashPattern;
+        /// <summary>A solid line.</summary>
+        Solid,
+        /// <summary>A line of dashes.</summary>
+        Dash,
+        /// <summary>A line of dots.</summary>
+        Dot,
+        /// <summary>A line of alternating dashes and dots.</summary>
+        DashDot,
+        /// <summary>A line of alternating dashes and double dots.</summary>
+        DashDotDot,
+        /// <summary>A user-defined dash pattern, supplied via <see cref="Pen.DashPattern"/>.</summary>
+        Custom
+    }
 
-        public Pen(Color color) : this(color, 1f)
+    /// <summary>
+    /// Defines the color, width, and dash style used to draw lines and outline shapes on a
+    /// drawing surface. Cross-platform replacement for System.Drawing.Pen.
+    /// </summary>
+    public sealed class Pen : System.IDisposable
+    {
+        /// <summary>Initializes a new instance of the Pen class.</summary>
+        public Pen (Color color, float width = 1f)
         {
+            Color = color;
+            Width = width;
         }
 
-        public Pen(Color color, float width)
+        /// <summary>Initializes a new Pen from a Brush (uses the brush's first color). Stub in Majorsilence.Forms.</summary>
+        public Pen (Brush brush, float width = 1f)
         {
-            _color = color;
-            _width = width;
-            _paint = new SKPaint
-            {
-                Color = color.ToSkColor(),
-                StrokeWidth = width,
-                Style = SKPaintStyle.Stroke
-            };
+            Color = brush is SolidBrush sb ? sb.Color : Color.Black;
+            Width = width;
         }
 
-        public Pen(Brush brush) : this(brush, 1f)
-        {
-        }
+        /// <summary>Gets or sets the pen color.</summary>
+        public Color Color { get; set; }
 
-        public Pen(Brush brush, float width)
-        {
-            _width = width;
-            if (brush is SolidBrush solid)
-            {
-                _color = solid.Color;
-                _paint = new SKPaint
-                {
-                    Color = solid.Color.ToSkColor(),
-                    StrokeWidth = width,
-                    Style = SKPaintStyle.Stroke
-                };
-            }
-            else
-            {
-                // Use the brush's paint as a stroke paint
-                var basePaint = brush.ToSkPaint();
-                _color = Color.Black;
-                _paint = new SKPaint
-                {
-                    Color = basePaint.Color,
-                    StrokeWidth = width,
-                    Style = SKPaintStyle.Stroke,
-                    Shader = basePaint.Shader
-                };
-            }
-        }
+        /// <summary>Gets or sets the stroke width.</summary>
+        public float Width { get; set; }
 
-        public Color Color
-        {
-            get => _color;
-            set
-            {
-                _color = value;
-                _paint.Color = value.ToSkColor();
-                _paint.Shader = null; // clear any shader when explicit color is set
-            }
-        }
+        /// <summary>Gets or sets the dash style.</summary>
+        public DashStyle DashStyle { get; set; } = DashStyle.Solid;
 
-        public float Width
-        {
-            get => _width;
-            set
-            {
-                _width = value;
-                _paint.StrokeWidth = value;
-            }
-        }
+        /// <summary>Gets or sets the join style for the ends of two consecutive line segments.</summary>
+        public Drawing2D.LineJoin LineJoin { get; set; } = Drawing2D.LineJoin.Miter;
 
-        public LineJoin LineJoin { get; set; }
-        public LineCap LineCap { get; set; }
-        public LineCap StartCap { get; set; }
-        public LineCap EndCap { get; set; }
-        public Brush? Brush { get; set; }
-        public DashStyle DashStyle { get; set; }
+        /// <summary>Gets or sets the cap style used at the start of lines drawn with this pen.</summary>
+        public Drawing2D.LineCap StartCap { get; set; } = Drawing2D.LineCap.Flat;
 
-        // Custom dash pattern (lengths of dashes and gaps in stroke-width units)
+        /// <summary>Gets or sets the cap style used at the end of lines drawn with this pen.</summary>
+        public Drawing2D.LineCap EndCap { get; set; } = Drawing2D.LineCap.Flat;
+
+        /// <summary>Gets or sets the limit of the thickness of a join on a mitered corner.</summary>
+        public float MiterLimit { get; set; } = 10f;
+
+        /// <summary>Gets or sets the distance from the start of a line to the beginning of a dash pattern.</summary>
+        public float DashOffset { get; set; }
+
+        /// <summary>
+        /// Gets or sets a user-defined dash pattern, in units of the pen width. Setting a non-null
+        /// value switches <see cref="DashStyle"/> to <see cref="DashStyle.Custom"/>; setting null
+        /// resets it to <see cref="DashStyle.Solid"/>, matching System.Drawing.Pen.
+        /// </summary>
         public float[]? DashPattern
         {
-            get => _dashPattern;
+            get => dashPattern;
             set
             {
-                _dashPattern = value;
-                DashStyle = value != null ? DashStyle.Custom : DashStyle.Solid;
+                dashPattern = value;
+                DashStyle = value is not null ? DashStyle.Custom : DashStyle.Solid;
             }
         }
 
-        public float DashOffset { get; set; }
-        public float MiterLimit
+        private float[]? dashPattern;
+
+        /// <summary>Creates an independent copy of this pen.</summary>
+        public Pen Clone () => new Pen (Color, Width) {
+            DashStyle = DashStyle,
+            LineJoin = LineJoin,
+            StartCap = StartCap,
+            EndCap = EndCap,
+            MiterLimit = MiterLimit,
+            DashOffset = DashOffset,
+            dashPattern = dashPattern?.ToArray (),
+        };
+
+        /// <summary>
+        /// Releases resources used by the Pen. Pen itself holds nothing unmanaged -- CreatePaint
+        /// hands the caller a fresh, caller-owned SKPaint each time -- so this is a no-op provided
+        /// purely for API-shape compatibility with System.Drawing.Pen (so `using (var p = new
+        /// Pen(...))`, common in ported WinForms drawing code, compiles unmodified).
+        /// </summary>
+        public void Dispose ()
         {
-            get => _paint.StrokeMiter;
-            set => _paint.StrokeMiter = value;
         }
 
-        public void Dispose()
+        // Builds a stroke SKPaint for this pen. Caller owns disposal.
+        internal SKPaint CreatePaint ()
         {
-            _paint?.Dispose();
-            GC.SuppressFinalize(this);
-        }
-
-        public SKPaint ToSkPaint()
-        {
-            _paint.StrokeJoin = LineJoin switch
-            {
-                LineJoin.Miter => SKStrokeJoin.Miter,
-                LineJoin.Round => SKStrokeJoin.Round,
-                LineJoin.Bevel => SKStrokeJoin.Bevel,
-                LineJoin.MiterClipped => SKStrokeJoin.Miter,
-                _ => _paint.StrokeJoin
+            var paint = new SKPaint {
+                Color = new SKColor (Color.R, Color.G, Color.B, Color.A),
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = Width <= 0 ? 1 : Width,
+                IsAntialias = true,
+                StrokeMiter = MiterLimit,
+                StrokeJoin = LineJoin switch {
+                    Drawing2D.LineJoin.Round => SKStrokeJoin.Round,
+                    Drawing2D.LineJoin.Bevel => SKStrokeJoin.Bevel,
+                    _ => SKStrokeJoin.Miter
+                },
+                StrokeCap = StartCap switch {
+                    Drawing2D.LineCap.Square => SKStrokeCap.Square,
+                    Drawing2D.LineCap.Round => SKStrokeCap.Round,
+                    _ => SKStrokeCap.Butt
+                }
             };
 
-            var cap = LineCap != LineCap.Flat ? LineCap : StartCap;
-            _paint.StrokeCap = cap switch
-            {
-                LineCap.Square => SKStrokeCap.Square,
-                LineCap.Round => SKStrokeCap.Round,
-                _ => SKStrokeCap.Butt
+            var w = paint.StrokeWidth;
+            var effect = DashStyle switch {
+                DashStyle.Dash => SKPathEffect.CreateDash (new[] { 3 * w, 3 * w }, DashOffset),
+                DashStyle.Dot => SKPathEffect.CreateDash (new[] { 1 * w, 2 * w }, DashOffset),
+                DashStyle.DashDot => SKPathEffect.CreateDash (new[] { 3 * w, 2 * w, 1 * w, 2 * w }, DashOffset),
+                DashStyle.DashDotDot => SKPathEffect.CreateDash (new[] { 3 * w, 2 * w, 1 * w, 2 * w, 1 * w, 2 * w }, DashOffset),
+                // System.Drawing dash patterns are expressed in units of the pen width.
+                DashStyle.Custom when dashPattern is { Length: >= 2 }
+                    => SKPathEffect.CreateDash (dashPattern.Select (v => v * w).ToArray (), DashOffset),
+                _ => null
             };
 
-            ApplyDashStyle();
+            if (effect is not null)
+                paint.PathEffect = effect;
 
-            return _paint;
-        }
-
-        private void ApplyDashStyle()
-        {
-            switch (DashStyle)
-            {
-                case DashStyle.Solid:
-                    _paint.PathEffect = null;
-                    break;
-
-                case DashStyle.Dash:
-                    _paint.PathEffect = SKPathEffect.CreateDash(
-                        new[] { 4f * _width, 2f * _width }, DashOffset);
-                    break;
-
-                case DashStyle.Dot:
-                    _paint.PathEffect = SKPathEffect.CreateDash(
-                        new[] { _width, 2f * _width }, DashOffset);
-                    break;
-
-                case DashStyle.DashDot:
-                    _paint.PathEffect = SKPathEffect.CreateDash(
-                        new[] { 4f * _width, 2f * _width, _width, 2f * _width }, DashOffset);
-                    break;
-
-                case DashStyle.DashDotDot:
-                    _paint.PathEffect = SKPathEffect.CreateDash(
-                        new[] { 4f * _width, 2f * _width, _width, 2f * _width, _width, 2f * _width }, DashOffset);
-                    break;
-
-                case DashStyle.Custom:
-                    if (_dashPattern != null && _dashPattern.Length >= 2)
-                    {
-                        // System.Drawing dash patterns are in units of pen width
-                        var scaledPattern = _dashPattern.Select(v => v * _width).ToArray();
-                        _paint.PathEffect = SKPathEffect.CreateDash(scaledPattern, DashOffset);
-                    }
-                    break;
-            }
-        }
-
-        public Pen Clone()
-        {
-            var clone = new Pen(_color, _width)
-            {
-                LineJoin = LineJoin,
-                LineCap = LineCap,
-                StartCap = StartCap,
-                EndCap = EndCap,
-                DashStyle = DashStyle,
-                DashOffset = DashOffset,
-                _dashPattern = _dashPattern?.ToArray()
-            };
-            return clone;
+            return paint;
         }
     }
 }

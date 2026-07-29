@@ -1,3 +1,7 @@
+// Stays in Majorsilence.Forms rather than moving to Majorsilence.Forms.Drawing.Common with the rest of
+// the GDI+ layer: SkiaGraphics binds to Majorsilence.Forms.ContentAlignment and to TextMeasurer, and
+// TextMeasurer in turn takes Control. Moving this file would require moving those too, which would make
+// Majorsilence.Forms.Drawing.Common depend on Majorsilence.Forms -- a circular project reference.
 using System;
 using System.Drawing;
 using SkiaSharp;
@@ -314,5 +318,25 @@ namespace Majorsilence.Forms.Drawing
     {
         public static SKRect ToSKRect (this RectangleF rect)
             => new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom);
+    }
+
+    /// <summary>
+    /// WinForms-compatibility overloads for <see cref="Font"/> that take a drawing surface.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Font"/> itself lives in Majorsilence.Forms.Drawing.Common, which cannot reference
+    /// <see cref="SkiaGraphics"/> (it stays in Majorsilence.Forms because of its ContentAlignment and
+    /// TextMeasurer dependencies). Exposing the overload as an extension keeps <c>font.GetHeight (g)</c>
+    /// source-compatible for migrated WinForms code without creating a circular project reference.
+    /// </remarks>
+    public static class FontGraphicsExtensions
+    {
+        /// <summary>Gets the line spacing, in pixels, of this font when drawn to the specified graphics surface.</summary>
+        /// <remarks>The surface does not affect the result; the parameter exists for GDI+ source compatibility.</remarks>
+        public static float GetHeight (this Font font, SkiaGraphics graphics)
+        {
+            ArgumentNullException.ThrowIfNull (font);
+            return font.GetHeight ();
+        }
     }
 }

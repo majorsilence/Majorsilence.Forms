@@ -1,5 +1,12 @@
 using Majorsilence.Forms.Drawing;
 using Majorsilence.Forms.Drawing.Drawing2D;
+// Majorsilence.Forms.Drawing deliberately does not reimplement the geometry value types; the real
+// cross-platform BCL ones are used. Aliased rather than `using System.Drawing;` because that would
+// make Brush/Pen/Font/Image/Region/StringFormat/... ambiguous with Majorsilence.Forms.Drawing.
+using Point = System.Drawing.Point;
+using PointF = System.Drawing.PointF;
+using Rectangle = System.Drawing.Rectangle;
+using RectangleF = System.Drawing.RectangleF;
 
 namespace Majorsilence.Forms.Drawing.Common.Tests;
 

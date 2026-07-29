@@ -5,12 +5,14 @@ namespace Majorsilence.Forms.Drawing.Common.Tests;
 public class StringFormatTests
 {
     [Fact]
-    public void DefaultConstructor_HasNearAlignmentAndNoTrimming()
+    public void DefaultConstructor_HasNearAlignmentAndCharacterTrimming()
     {
         using var sf = new StringFormat();
         Assert.Equal(StringAlignment.Near, sf.Alignment);
         Assert.Equal(StringAlignment.Near, sf.LineAlignment);
-        Assert.Equal(StringTrimming.None,  sf.Trimming);
+        // System.Drawing.StringFormat's default Trimming is Character, not None; GenericTypographic
+        // is the variant that turns trimming off (asserted separately below).
+        Assert.Equal(StringTrimming.Character, sf.Trimming);
     }
 
     [Fact]

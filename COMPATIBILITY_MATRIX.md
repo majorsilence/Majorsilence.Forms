@@ -8,7 +8,8 @@ how source gets here in the first place, see [`MIGRATION.md`](MIGRATION.md).
 
 | Package | Contents | Depends on |
 |---|---|---|
-| `Majorsilence.Forms` | Core: controls, layout, events, `Majorsilence.Forms.Drawing` (GDI+ replacement), printing, spellcheck engine, the native-webview seam (`IWebViewFactory`) | SkiaSharp, Topten.RichTextKit |
+| `Majorsilence.Forms` | Core: controls, layout, events, printing, spellcheck engine, the native-webview seam (`IWebViewFactory`) | `Majorsilence.Forms.Drawing.Common`, SkiaSharp, Topten.RichTextKit |
+| `Majorsilence.Forms.Drawing.Common` | The `Majorsilence.Forms.Drawing` GDI+ replacement (`Bitmap`, `Font`, `Pen`, `Brush`, `Icon`, `Region`, `StringFormat`, `Drawing2D`, `Imaging`, ...) plus the bundled fallback font set. Usable standalone, without any of the WinForms control layer | SkiaSharp |
 | `Majorsilence.Forms.Avalonia` | Default backend — Windows/macOS/Linux desktop, real `WebView2`/`WKWebView`/`WebKitGTK` support via `Avalonia.Controls.WebView` | `Majorsilence.Forms` + Avalonia |
 | `Majorsilence.Forms.Uno` | Uno Platform (Skia) backend — desktop, iOS, Android, WebAssembly | `Majorsilence.Forms` + Uno.WinUI |
 | `Majorsilence.Forms.Headless` | Offscreen SkiaSharp backend — CI, automated tests, pixel-diff verification. No native webview support (`IWebViewFactory` is absent, not just unsupported) | `Majorsilence.Forms` |
@@ -61,10 +62,32 @@ WinForms API (WinForms never had built-in spellcheck) — it exists to back
 ## `System.Drawing` / GDI+
 
 See [`MIGRATION.md`'s namespace table](MIGRATION.md#namespace-mapping) for the exact rewrite rules.
-Summary: primitive value types (`Color`, `Point`, `Size`, `Rectangle`, ...) are the real
-cross-platform BCL types and need no reimplementation. GDI+ (`Bitmap`, `Font`, `Pen`, `Brush`,
-`Graphics`, imaging/text-layout namespaces) is reimplemented cross-platform in `Majorsilence.Forms.Drawing`
+Summary: primitive value types (`Color`, `Point`, `PointF`, `Size`, `SizeF`, `Rectangle`,
+`RectangleF`) are the real cross-platform BCL types from `System.Drawing.Primitives` and are
+deliberately **not** reimplemented — reimplementing them would make every bare `Point`/`Rectangle`/
+`Color` ambiguous in the (very common) files that have both `System.Drawing` and
+`Majorsilence.Forms.Drawing` in scope. GDI+ proper (`Bitmap`, `Font`, `Pen`, `Brush`, imaging and
+text-layout namespaces) is reimplemented cross-platform in the `Majorsilence.Forms.Drawing` namespace
 on top of SkiaSharp, replacing the Windows-only `System.Drawing.Common`.
+
+That namespace lives in a single project, [`src/Majorsilence.Forms.Drawing.Common`](src/Majorsilence.Forms.Drawing.Common),
+which `Majorsilence.Forms` references and which also ships as its own package for consumers that want
+the drawing layer without the control layer. Four files remain under `src/Majorsilence.Forms/Drawing/`
+because they depend on the Forms layer and would otherwise form a circular project reference:
+`Graphics.cs` (declares a partial of `Control`, and calls `Theme`/`TextMeasurer`), `SkiaGraphics.cs`
+(`ContentAlignment`, `TextMeasurer`), `BufferedGraphics.cs` (typed throughout on that `Graphics`), and
+`NrbfResourceReader.cs` (materialises `ImageListStreamer`). Each carries a header comment saying so.
+The drawing project grants `InternalsVisibleTo` to `Majorsilence.Forms` so those four can keep using
+the SkiaSharp interop seam (`CreatePaint`, `GetSKBitmap`, `ToSKPath`, ...) without that seam becoming
+public API.
+
+Two font-related root files also stay, for a different reason. `SystemFonts.cs` builds its fonts from
+`Theme`, so it hits the same cycle. `CachingFontMapper.cs` has no cycle and *could* move, but installs
+a process-wide default for Topten.RichTextKit — the text **layout** engine — and every RichTextKit
+consumer (`TextMeasurer`, `TextBoxDocument`, `TextBox`, `TextBoxRenderer`, `SkiaTextExtensions`,
+`Theme`) lives in `Majorsilence.Forms`. The drawing project contains no RichTextKit code; its text path
+is SkiaSharp `SKFont`-based. Moving that one internal class would force a Topten.RichTextKit dependency
+onto the standalone drawing package for something none of its consumers can reach.
 
 **Printing** (`Majorsilence.Forms.Printing.PrintDocument`) renders pages through the same SkiaSharp
 pipeline as on-screen controls and outputs a real PDF (`SKDocument.CreatePdf`) rather than spooling

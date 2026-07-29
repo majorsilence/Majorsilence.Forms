@@ -107,7 +107,11 @@ namespace Majorsilence.Forms.Drawing
             }
         }
 
-        private static void ExtractAll(string dir)
+        /// <summary>
+        /// Extracts every bundled .ttf resource into <paramref name="dir"/>, skipping files that are
+        /// already present. Use <see cref="GetFontDirectory"/> unless you need a specific location.
+        /// </summary>
+        public static void ExtractAll(string dir)
         {
             var assembly = typeof(FontResourceLoader).Assembly;
             foreach (var name in assembly.GetManifestResourceNames())

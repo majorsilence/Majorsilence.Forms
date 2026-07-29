@@ -1,5 +1,11 @@
 using Majorsilence.Forms.Drawing;
 using Majorsilence.Forms.Drawing.Drawing2D;
+// See GraphicsPathTests for why these are aliased instead of `using System.Drawing;`.
+using Color = System.Drawing.Color;
+using Point = System.Drawing.Point;
+using PointF = System.Drawing.PointF;
+using Rectangle = System.Drawing.Rectangle;
+using RectangleF = System.Drawing.RectangleF;
 
 namespace Majorsilence.Forms.Drawing.Common.Tests;
 

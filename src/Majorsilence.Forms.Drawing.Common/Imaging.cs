@@ -230,6 +230,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         private readonly BinaryWriter _w;
         private bool _disposed;
         private long _pendingIfdOffsetPos;
+        private int _pageIndex;
 
         /// <summary>Initializes a new TiffWriter that writes to the specified stream.</summary>
         public TiffWriter (Stream stream)
@@ -251,6 +252,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         public void WritePage (SKBitmap bitmap, bool color, float dpiX, float dpiY)
         {
             ArgumentNullException.ThrowIfNull (bitmap);
+            ObjectDisposedException.ThrowIf (_disposed, this);
 
             int width = bitmap.Width;
             int height = bitmap.Height;
@@ -342,6 +344,10 @@ namespace Majorsilence.Forms.Drawing.Imaging
                 (282, 5, 1, (uint)xResOffset),           // XResolution
                 (283, 5, 1, (uint)yResOffset),           // YResolution
                 (296, 3, 1, 2u),                         // ResolutionUnit: inch
+                // PageNumber: two SHORTs packed into the value field (little-endian, low word first):
+                // this page's zero-based index, and 0 for "total page count unknown" -- the count is
+                // not knowable while streaming pages out.
+                (297, 3, 2, (uint)_pageIndex),           // PageNumber
             };
 
             _w.Write ((ushort)entries.Length);
@@ -356,6 +362,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
             // save position of "next IFD" pointer so the next page can patch it
             _pendingIfdOffsetPos = stream.Position;
             _w.Write ((uint)0); // next IFD = none (patched by next WritePage if any)
+            _pageIndex++;
         }
 
         /// <summary>Flushes and finalizes the TIFF stream.</summary>

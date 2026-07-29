@@ -1,106 +1,149 @@
+using System;
 using SkiaSharp;
-
 
 namespace Majorsilence.Forms.Drawing
 {
-    public class Font : IDisposable
+    /// <summary>
+    /// A lightweight, cross-platform font description backed by SkiaSharp (SKFont). Cross-platform
+    /// replacement for <c>System.Drawing.Font</c> (which is Windows-only).
+    /// </summary>
+    public sealed class Font : IDisposable, ICloneable
     {
-        private static readonly Dictionary<(string, SKFontStyle), SKTypeface> TypefaceCache = new();
-        private SKTypeface? _typeface;
-        private SKFont _skFont = null!;
+        private SKTypeface? typeface;
+        private SKFont? font;
 
-        public string FontFamily { get; }
-        public float Size { get; }
-        public FontStyle Style { get; }
-        public GraphicsUnit Unit { get; }
-
-        public string Name => FontFamily;
-        public bool Bold => (Style & FontStyle.Bold) != 0;
-        public bool Italic => (Style & FontStyle.Italic) != 0;
-        public bool Underline => (Style & FontStyle.Underline) != 0;
-        public bool Strikeout => (Style & FontStyle.Strikeout) != 0;
-
-        public float Height
+        /// <summary>Initializes a new instance of the Font class.</summary>
+        public Font (string familyName, float size, bool bold = false, bool italic = false)
         {
-            get
-            {
-                var m = _skFont.Metrics;
-                return (float)Math.Ceiling((m.Descent - m.Ascent) * (96f / 72f));
-            }
+            FamilyName = string.IsNullOrWhiteSpace (familyName) ? "Arial" : familyName;
+            Size = size <= 0 ? 1 : size;
+            Style = (bold ? FontStyle.Bold : 0) | (italic ? FontStyle.Italic : 0);
+            Unit = GraphicsUnit.Point;
         }
 
-        public Font(string fontFamily, float size)
-            : this(fontFamily, size, FontStyle.Regular, GraphicsUnit.Point)
+        /// <summary>Initializes a new instance of the Font class with the specified style.</summary>
+        public Font (string familyName, float size, FontStyle style, GraphicsUnit unit = GraphicsUnit.Point)
         {
-        }
-
-        public Font(string fontFamily, float size, FontStyle style)
-            : this(fontFamily, size, style, GraphicsUnit.Point)
-        {
-        }
-
-        public Font(string fontFamily, float size, FontStyle style, GraphicsUnit unit)
-        {
-            FontFamily = fontFamily;
-            Size = size;
+            FamilyName = string.IsNullOrWhiteSpace (familyName) ? "Arial" : familyName;
+            Size = size <= 0 ? 1 : size;
             Style = style;
             Unit = unit;
-
-            var typefaceStyle = GetSkFontStyle(style);
-
-            var cacheKey = (fontFamily, typefaceStyle);
-            if (!TypefaceCache.TryGetValue(cacheKey, out SKTypeface? cached))
-            {
-                cached = FontSubstitution.Resolve(fontFamily, typefaceStyle);
-                TypefaceCache[cacheKey] = cached;
-            }
-            _typeface = cached;
-
-            _skFont = new SKFont(_typeface, size);
         }
 
-        public Font(Drawing.FontFamily fontFamily, float size, FontStyle style)
-            : this(fontFamily.Name, size, style)
+        /// <summary>Initializes a new instance of the Font class with the specified style and GDI charset.</summary>
+        public Font (string familyName, float size, FontStyle style, GraphicsUnit unit, byte gdiCharSet)
+            : this (familyName, size, style, unit)
+        {
+            GdiCharSet = gdiCharSet;
+        }
+
+        /// <summary>Initializes a new instance of the Font class from a font family.</summary>
+        public Font (FontFamily family, float size, FontStyle style = FontStyle.Regular, GraphicsUnit unit = GraphicsUnit.Point)
+            : this (family?.Name ?? "Arial", size, style, unit)
         {
         }
 
-        public Font(Drawing.FontFamily fontFamily, float size)
-            : this(fontFamily.Name, size)
+        /// <summary>Initializes a new instance of the Font class based on an existing font and a new style.</summary>
+        public Font (Font prototype, FontStyle newStyle)
+            : this (prototype?.FamilyName ?? "Arial", prototype?.Size ?? 9f, newStyle, prototype?.Unit ?? GraphicsUnit.Point)
         {
         }
 
-        private static SKFontStyle GetSkFontStyle(FontStyle style)
+        /// <summary>Gets the font family name.</summary>
+        public string FamilyName { get; }
+
+        /// <summary>Gets the font family name.</summary>
+        public string Name => FamilyName;
+
+        /// <summary>Gets the font family.</summary>
+        public FontFamily FontFamily => new FontFamily (FamilyName);
+
+        /// <summary>Gets the em size of the font in the unit specified by <see cref="Unit"/>.</summary>
+        public float Size { get; }
+
+        /// <summary>Gets the em size of the font, in points.</summary>
+        public float SizeInPoints => Unit == GraphicsUnit.Point ? Size : Size * 72f / 96f;
+
+        /// <summary>Gets the unit of measure for this font.</summary>
+        public GraphicsUnit Unit { get; }
+
+        /// <summary>Gets the style information for this font.</summary>
+        public FontStyle Style { get; }
+
+        /// <summary>Gets the GDI character set used by this font.</summary>
+        public byte GdiCharSet { get; } = 1;
+
+        /// <summary>Gets whether this font is bold.</summary>
+        public bool Bold => (Style & FontStyle.Bold) == FontStyle.Bold;
+
+        /// <summary>Gets whether this font is italic.</summary>
+        public bool Italic => (Style & FontStyle.Italic) == FontStyle.Italic;
+
+        /// <summary>Gets whether this font is underlined.</summary>
+        public bool Underline => (Style & FontStyle.Underline) == FontStyle.Underline;
+
+        /// <summary>Gets whether this font has a strikeout line.</summary>
+        public bool Strikeout => (Style & FontStyle.Strikeout) == FontStyle.Strikeout;
+
+        /// <summary>Gets the line spacing, in pixels, of this font.</summary>
+        public int Height => (int)Math.Ceiling (GetHeight ());
+
+        /// <summary>Gets the line spacing, in pixels, of this font.</summary>
+        public float GetHeight ()
         {
-            bool bold = (style & FontStyle.Bold) != 0;
-            bool italic = (style & FontStyle.Italic) != 0;
-            if (bold && italic) return SKFontStyle.BoldItalic;
-            if (bold) return SKFontStyle.Bold;
-            if (italic) return SKFontStyle.Italic;
-            return SKFontStyle.Normal;
+            var metrics = GetSKFont ().Metrics;
+            return metrics.Descent - metrics.Ascent + metrics.Leading;
         }
 
-        public double GetHeight(Graphics g)
-        {
-            ArgumentNullException.ThrowIfNull(g);
+        /// <summary>Gets the line spacing, in the current unit, of this font for the given DPI.</summary>
+        public float GetHeight (float dpi) => GetHeight ();
 
-            var m = _skFont.Metrics;
-            return Math.Ceiling((m.Descent - m.Ascent) * (g.DpiX / 72f));
+        // The WinForms-compatible GetHeight(SkiaGraphics) overload lives in Majorsilence.Forms as an
+        // extension method (FontGraphicsExtensions in Drawing/SkiaGraphics.cs): SkiaGraphics depends on
+        // ContentAlignment/TextMeasurer and therefore stays in the Forms assembly, which this one cannot
+        // reference. The overload ignored its argument anyway, so an extension is behaviourally identical.
+
+        // Lazily resolves and caches the SkiaSharp font.
+        internal SKFont GetSKFont ()
+        {
+            if (font is not null)
+                return font;
+
+            var style = new SKFontStyle (
+                Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
+                SKFontStyleWidth.Normal,
+                Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright);
+
+            typeface = SKTypeface.FromFamilyName (FamilyName, style) ?? SKTypeface.Default;
+            font = new SKFont (typeface, Size) {
+                Edging = SKFontEdging.SubpixelAntialias,
+                Subpixel = true
+            };
+
+            return font;
         }
 
-        public double GetHeight()
+        // Lazily resolves and caches the underlying SkiaSharp typeface (used by ControlStyle's
+        // implicit conversion from DataGridViewCellStyle, which needs a bare SKTypeface).
+        internal SKTypeface GetSKTypeface ()
         {
-            var m = _skFont.Metrics;
-            return Math.Ceiling((m.Descent - m.Ascent) * (96f / 72f));
+            GetSKFont ();
+            return typeface!;
         }
 
-        public SKFont ToSkFont() => _skFont;
+        /// <summary>Creates an exact copy of this font.</summary>
+        public object Clone () => new Font (FamilyName, Size, Style, Unit, GdiCharSet);
 
-        public void Dispose()
+        /// <inheritdoc/>
+        public override string ToString () => $"[Font: Name={Name}, Size={Size}, Style={Style}, Unit={Unit}]";
+
+        /// <inheritdoc/>
+        public void Dispose ()
         {
-            _skFont.Dispose();
-            GC.SuppressFinalize(this);
+            font?.Dispose ();
+            typeface?.Dispose ();
+            font = null;
+            typeface = null;
         }
-
-        public override string ToString() => $"{FontFamily} {Size}pt {Style}";
     }
 }

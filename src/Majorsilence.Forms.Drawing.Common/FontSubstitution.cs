@@ -29,6 +29,19 @@ namespace Majorsilence.Forms.Drawing
             ["MS Sans Serif"]        = ["Liberation Sans", "DejaVu Sans", "Noto Sans"],
             ["Wingdings"]            = ["DejaVu Sans", "Liberation Sans", "Noto Sans"],
             ["Symbol"]               = ["DejaVu Sans", "Liberation Sans", "Noto Sans"],
+
+            // Merged in from the Majorsilence.Forms-side substitution table during the drawing
+            // consolidation: CJK and a few legacy Windows families this table was missing.
+            ["Arial Narrow"]         = ["Liberation Sans Narrow", "FreeSans", "DejaVu Sans Condensed"],
+            ["Times"]                = ["Liberation Serif", "FreeSerif", "DejaVu Serif"],
+            ["Courier"]              = ["Liberation Mono", "FreeMono", "DejaVu Sans Mono"],
+            ["Marlett"]              = ["DejaVu Sans", "Liberation Sans", "Noto Sans"],
+            ["Arial Unicode MS"]     = ["Noto Sans", "DejaVu Sans", "Liberation Sans"],
+            ["MS Gothic"]            = ["Noto Sans CJK JP", "VL Gothic", "Noto Sans"],
+            ["MS Mincho"]            = ["Noto Serif CJK JP", "IPAMincho", "Noto Serif"],
+            ["SimSun"]               = ["Noto Serif CJK SC", "WenQuanYi Bitmap Song", "Noto Serif"],
+            ["SimHei"]               = ["Noto Sans CJK SC", "WenQuanYi Zen Hei", "Noto Sans"],
+            ["Microsoft YaHei"]      = ["Noto Sans CJK SC", "WenQuanYi Micro Hei", "Noto Sans"],
         };
 
         // Fonts loaded from embedded resources, keyed by (FamilyName, SKFontStyle).

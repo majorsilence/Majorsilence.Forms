@@ -1,3 +1,11 @@
+// Stays in Majorsilence.Forms rather than moving to Majorsilence.Forms.Drawing.Common with the rest of
+// the font/drawing types. Unlike the four files under Drawing/, nothing here forms a circular reference
+// -- this could move. It shouldn't: it installs a process-wide default for Topten.RichTextKit, the text
+// *layout* engine, and every RichTextKit consumer (TextMeasurer, TextBoxDocument, TextBox,
+// TextBoxRenderer, SkiaTextExtensions, Theme) lives in this assembly. Majorsilence.Forms.Drawing.Common
+// contains no RichTextKit code at all -- its text path is SkiaSharp SKFont-based -- so moving this one
+// internal class, whose sole caller is Theme's static constructor below, would force a Topten.RichTextKit
+// package dependency onto the standalone drawing package for something none of its consumers can use.
 using System.Collections.Concurrent;
 using SkiaSharp;
 using Topten.RichTextKit;

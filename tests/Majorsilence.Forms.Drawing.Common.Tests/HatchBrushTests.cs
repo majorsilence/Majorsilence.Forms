@@ -1,5 +1,7 @@
 using Majorsilence.Forms.Drawing;
 using Majorsilence.Forms.Drawing.Drawing2D;
+// See GraphicsPathTests for why this is aliased instead of `using System.Drawing;`.
+using Color = System.Drawing.Color;
 
 namespace Majorsilence.Forms.Drawing.Common.Tests;
 
@@ -76,8 +78,8 @@ public class HatchBrushTests
     [Fact]
     public void Constructor_SemiTransparentColors_DoesNotThrow()
     {
-        var fore = new Color(255, 0, 0, 128);
-        var back = new Color(0, 0, 255, 64);
+        var fore = Color.FromArgb(128, 255, 0, 0);
+        var back = Color.FromArgb(64, 0, 0, 255);
         using var brush = new HatchBrush(HatchStyle.DiagonalCross, fore, back);
         Assert.Equal(fore, brush.ForegroundColor);
         Assert.Equal(back, brush.BackgroundColor);
