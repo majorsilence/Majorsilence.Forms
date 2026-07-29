@@ -54,5 +54,16 @@
     <PackageVersion Include="SkiaSharp.Views.Uno.WinUI" Version="3.119.4" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <!-- samples/PointOfSale: first EF Core / ASP.NET Core backend sample in the repo. -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
+    <!-- EF Core Sqlite transitively pins SQLitePCLRaw.lib.e_sqlite3 2.1.11, which has a known
+         high-severity advisory (GHSA-2m69-gcr7-jv3q). Bump the whole SQLitePCLRaw family to the
+         patched 3.0.5 line explicitly since CentralPackageTransitivePinningEnabled is false here. -->
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.5" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.0.5" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 </Project>

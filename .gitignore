@@ -99,6 +99,10 @@ ipch/
 *.VC.db
 *.VC.VC.opendb
 
+# samples/PointOfSale: runtime SQLite database (created/migrated/seeded on first API run)
+samples/PointOfSale/PointOfSale.Api/pos.db
+samples/PointOfSale/PointOfSale.Api/pos.db-*
+
 # Visual Studio profiler
 *.psess
 *.vsp
