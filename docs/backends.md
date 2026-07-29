@@ -83,7 +83,7 @@ It needs no display, so it powers the unit tests (`tests/Majorsilence.Forms.Test
 `[ModuleInitializer]`) and can render the ControlGallery headlessly:
 
 ```
-dotnet run --project samples/ControlGallery -- --render-headless out.png 1100 750 --select-row 0
+dotnet run --project samples/Gallery.Avalonia -- --render-headless out.png 1100 750 --select-row 0
 ```
 
 ## The Uno backend

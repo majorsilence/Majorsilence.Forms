@@ -1,0 +1,36 @@
+/* HTML styles for the splash screen */
+.avalonia-splash {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    background: white;
+    font-family: sans-serif;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    .avalonia-splash {
+        background: #1b2a4e;
+    }
+
+    .avalonia-splash h2 {
+        color: white;
+    }
+}
+
+.avalonia-splash h2 {
+    font-weight: 400;
+    font-size: 1.5rem;
+}
+
+/* AvaloniaView adds this class once the first frame is ready (see Avalonia.Browser's
+   AvaloniaView.RequestAnimationFrame splash-close callback); without it the splash's opaque
+   full-viewport background never goes away and permanently covers the rendered canvas. */
+.avalonia-splash.splash-close {
+    transition: opacity 200ms, display 200ms;
+    display: none;
+    opacity: 0;
+}

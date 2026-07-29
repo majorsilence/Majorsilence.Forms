@@ -191,6 +191,34 @@ namespace Majorsilence.Forms
             RunCore ();
         }
 
+        /// <summary>
+        /// Starts the application on a backend with asynchronous, host-driven startup (currently only
+        /// the Avalonia browser/WebAssembly backend). Unlike <see cref="Run(Form)"/> this does not block:
+        /// once the backend finishes its async bootstrap and the form returned by
+        /// <paramref name="createMainForm"/> is shown, control returns to the caller and the host's own
+        /// event loop (the browser tab's JS event loop, for Avalonia-in-WASM) drives the UI from then on —
+        /// there is no <see cref="RunCore"/>/main-loop call to make, and none should be made.
+        /// </summary>
+        /// <param name="createMainForm">
+        /// Creates the form to make visible. A factory rather than a ready-made <see cref="Form"/>
+        /// because constructing any <see cref="WindowBase"/> touches the platform backend — on the
+        /// browser backend that only succeeds once async bootstrap has completed, so the form must not
+        /// be constructed until after that await below.
+        /// </param>
+        /// <param name="hostElementId">
+        /// The id of the host page element to attach the UI to (e.g. a browser div id). Ignored by
+        /// backends that don't implement <see cref="IAsyncPlatformBackend"/>.
+        /// </param>
+        public static async Task RunBrowserAsync (Func<Form> createMainForm, string hostElementId = "out")
+        {
+            if (Platform.Backend is IAsyncPlatformBackend asyncBackend)
+                await asyncBackend.InitializeAsync (hostElementId).ConfigureAwait (true);
+            else
+                Platform.Backend.Initialize ();
+
+            createMainForm ().Show ();
+        }
+
         /// <summary>Runs the platform backend's message loop until <see cref="Exit"/> is called.</summary>
         private static void RunCore ()
         {

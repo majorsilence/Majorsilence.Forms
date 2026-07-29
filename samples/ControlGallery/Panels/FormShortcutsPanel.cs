@@ -26,14 +26,14 @@ public class FormShortcutsPanel : BasePanel
         });
 
         clear_button.Click += (o, e) => textbox.Text = string.Empty;
-
-        form.KeyDown += HandleKeyDown;
-        form.KeyUp += HandleKeyUp;
-        form.KeyPress += HandleKeyPress;
     }
 
     public override void LoadPanel ()
     {
+        // KeyPreview lets the form see keys while a child control has focus. Only subscribe
+        // while this panel is visible, otherwise these handlers (which mark every key as
+        // Handled) would swallow keyboard input for the whole gallery.
+        form.KeyPreview = true;
         form.KeyDown += HandleKeyDown;
         form.KeyUp += HandleKeyUp;
         form.KeyPress += HandleKeyPress;
@@ -41,6 +41,7 @@ public class FormShortcutsPanel : BasePanel
 
     public override void UnloadPanel ()
     {
+        form.KeyPreview = false;
         form.KeyDown -= HandleKeyDown;
         form.KeyUp -= HandleKeyUp;
         form.KeyPress -= HandleKeyPress;

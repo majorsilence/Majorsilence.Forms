@@ -11,10 +11,14 @@ namespace Majorsilence.Forms.Backends
     /// bootstrap and the message loop are delegated to Avalonia's <see cref="Dispatcher"/>.
     /// </summary>
     public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory
+#if BROWSER
+        , IAsyncPlatformBackend
+#endif
     {
         /// <inheritdoc/>
         public string Name => "Avalonia";
 
+#if !BROWSER
         /// <inheritdoc/>
         public void Initialize ()
         {
@@ -28,6 +32,35 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public void RunMainLoop (CancellationToken token) => Dispatcher.UIThread.MainLoop (token);
+#else
+        /// <inheritdoc/>
+        public void Initialize ()
+        {
+            // WindowBase's constructor calls this unconditionally (every Form/PopupWindow, not just the
+            // first one). Once InitializeAsync has run, subsequent windows just no-op here, matching the
+            // desktop path's idempotency — only the very first call (before RunBrowserAsync has awaited
+            // InitializeAsync) is actually an error, since bootstrap can't complete synchronously.
+            if (!AvaloniaBootstrap.IsInitialized)
+                throw new PlatformNotSupportedException (
+                    "The Avalonia browser backend starts asynchronously; call Majorsilence.Forms.Application.RunBrowserAsync instead of Application.Run.");
+        }
+
+        /// <inheritdoc/>
+        public async Task InitializeAsync (string hostElementId)
+        {
+            await AvaloniaBootstrap.EnsureInitializedBrowserAsync (hostElementId).ConfigureAwait (true);
+            AvaloniaSynchronizationContext.InstallIfNeeded ();
+            Majorsilence.Forms.Theme.WarmupFonts ();
+        }
+
+        /// <inheritdoc/>
+        public void RunMainLoop (CancellationToken token)
+            // StartBrowserAppAsync already attached Avalonia's dispatcher to the browser's own JS event
+            // loop (requestAnimationFrame / setTimeout callbacks); there is no separate loop to pump, and
+            // blocking here would freeze the single-threaded WASM runtime instead of driving it.
+            => throw new PlatformNotSupportedException (
+                "The Avalonia browser backend has no blocking main loop; Application.RunBrowserAsync never calls this.");
+#endif
 
         /// <inheritdoc/>
         public void Stop () { /* Loop exit is driven by the cancellation token passed to RunMainLoop. */ }
@@ -56,14 +89,29 @@ namespace Majorsilence.Forms.Backends
         /// <inheritdoc/>
         public void DoEvents () => Dispatcher.UIThread.RunJobs ();
 
+#if !BROWSER
         /// <inheritdoc/>
         public IWindowBackend CreateWindow (WindowBase owner, bool isPopup)
             => isPopup ? new MajorsilenceFormsPopupWindowHost (owner) : new MajorsilenceFormsWindowHost (owner);
+#else
+        /// <inheritdoc/>
+        public IWindowBackend CreateWindow (WindowBase owner, bool isPopup)
+            => new MajorsilenceFormsBrowserHost (owner, isPopup);
+#endif
 
         /// <inheritdoc/>
         public IPlatformTimer CreateTimer () => new AvaloniaTimer ();
 
         // ── WebView (Avalonia.Controls.WebView — WebView2/WKWebView/WebKitGTK-WPE native engines) ──
+        // No browser equivalent ships (AvaloniaWebViewHandle.cs is excluded from the browser TFM row),
+        // so both members below just report "unsupported" under BROWSER.
+#if BROWSER
+        /// <inheritdoc/>
+        public bool IsSupported => false;
+
+        /// <inheritdoc/>
+        public IWebViewHandle? CreateWebView () => null;
+#else
         private static bool? _webViewSupported;
 
         /// <inheritdoc/>
@@ -107,6 +155,7 @@ namespace Majorsilence.Forms.Backends
                 return null;
             }
         }
+#endif
 
         // ── Clipboard ──
         // Avalonia exposes the clipboard per-TopLevel; use the first open window's clipboard.

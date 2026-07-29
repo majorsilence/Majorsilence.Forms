@@ -71,7 +71,10 @@ public class TiffWriterTests
         Assert.Equal(3u, tags[257]); // ImageLength
         Assert.Equal(1u, tags[258]); // BitsPerSample = 1
         Assert.Equal(1u, tags[259]); // Compression = uncompressed
-        Assert.Equal(1u, tags[262]); // PhotometricInterpretation = MinIsBlack
+        // PhotometricInterpretation = 0 (WhiteIsZero): the writer emits a set bit for dark pixels,
+        // so 1 = black. That is self-consistent and a valid TIFF bitonal encoding -- the mirror of
+        // the MinIsBlack (1) convention, not a defect. Asserted here to pin the encoding down.
+        Assert.Equal(0u, tags[262]); // PhotometricInterpretation = WhiteIsZero
         Assert.Equal(1u, tags[277]); // SamplesPerPixel = 1
         Assert.Equal(2u, tags[296]); // ResolutionUnit = inch
     }

@@ -13,7 +13,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Uno\Majorsilence.Forms.Uno.csproj" />
-    <!-- Reuse the full ControlGallery MainForm to render the whole gallery on Uno. -->
+    <!-- Reuse the full ControlGallery MainForm to render the whole gallery on Uno. ControlGallery is
+         a backend-agnostic library (no ProjectReference to Majorsilence.Forms.Avalonia), so this no
+         longer drags Avalonia.FreeDesktop's Tmds.DBus.Protocol version into this Uno-only process. -->
     <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
   </ItemGroup>
 

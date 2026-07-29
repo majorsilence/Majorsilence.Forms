@@ -507,6 +507,11 @@ namespace Majorsilence.Forms
             adapter.RaiseMouseLeave (ev);
         }
 
+        // WinForms parity: without KeyPreview a form's own key events fire only when no child
+        // control has focus; keys otherwise go straight to the focused control. With KeyPreview
+        // the form sees (and may handle) the key before the focused control does.
+        private bool FormSeesKeyFirst => this is not Form form || form.KeyPreview || adapter.SelectedControl is null;
+
         /// <summary>Routes a key-down. Returns true if handled (the backend should suppress further native processing).</summary>
         internal bool HandleKeyDown (Keys keys)
         {
@@ -532,21 +537,14 @@ namespace Majorsilence.Forms
                         return true;
                     }
                 }
-
-                // KeyPreview: let the form see the key first
-                if (form.KeyPreview) {
-                    OnKeyDown (kd_e);
-                    if (kd_e.Handled)
-                        return true;
-                    adapter.RaiseKeyDown (kd_e);
-                    return kd_e.Handled;
-                }
             }
 
-            OnKeyDown (kd_e);
+            if (FormSeesKeyFirst) {
+                OnKeyDown (kd_e);
 
-            if (kd_e.Handled)
-                return true;
+                if (kd_e.Handled)
+                    return true;
+            }
 
             adapter.RaiseKeyDown (kd_e);
             return kd_e.Handled;
@@ -557,10 +555,12 @@ namespace Majorsilence.Forms
         {
             var ku_e = new KeyEventArgs (keys);
 
-            OnKeyUp (ku_e);
+            if (FormSeesKeyFirst) {
+                OnKeyUp (ku_e);
 
-            if (ku_e.Handled)
-                return true;
+                if (ku_e.Handled)
+                    return true;
+            }
 
             adapter.RaiseKeyUp (ku_e);
             return ku_e.Handled;
@@ -574,10 +574,12 @@ namespace Majorsilence.Forms
 
             var kp_e = new KeyPressEventArgs (text, Keys.None);
 
-            OnKeyPress (kp_e);
+            if (FormSeesKeyFirst) {
+                OnKeyPress (kp_e);
 
-            if (kp_e.Handled)
-                return true;
+                if (kp_e.Handled)
+                    return true;
+            }
 
             adapter.RaiseKeyPress (kp_e);
             return kp_e.Handled;

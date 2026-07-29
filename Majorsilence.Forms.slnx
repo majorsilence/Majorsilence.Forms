@@ -9,8 +9,14 @@
     <Project Path="samples/EmbeddingAvalonia/EmbeddingAvalonia.csproj" />
     <Project Path="samples/EmbeddingUno/EmbeddingUno.csproj" />
     <Project Path="samples/Explorer/Explore.csproj" />
+    <Project Path="samples/Gallery.Avalonia/Gallery.Avalonia.csproj" />
     <Project Path="samples/Gallery.Uno/Gallery.Uno.csproj" />
+    <Project Path="samples/Gallery.Wasm/Gallery.Wasm.csproj" />
     <Project Path="samples/Outlaw/Outlaw.csproj" />
+    <Project Path="samples/PointOfSale/PointOfSale.Api/PointOfSale.Api.csproj" />
+    <Project Path="samples/PointOfSale/PointOfSale.Client/PointOfSale.Client.csproj" />
+    <Project Path="samples/PointOfSale/PointOfSale.Contracts/PointOfSale.Contracts.csproj" />
+    <Project Path="samples/PointOfSale/PointOfSale.Data/PointOfSale.Data.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj" />
@@ -28,6 +34,7 @@
     <Project Path="tests/Majorsilence.Forms.Migrator.Tests/Majorsilence.Forms.Migrator.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Tests/Majorsilence.Forms.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.WindowsUIAutomation.Tests/Majorsilence.Forms.WindowsUIAutomation.Tests.csproj" />
+    <Project Path="tests/PointOfSale.Data.Tests/PointOfSale.Data.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj" />

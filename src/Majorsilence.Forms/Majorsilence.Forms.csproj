@@ -23,6 +23,15 @@
     <PackageReference Include="System.Resources.Extensions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- All GDI+/SkiaSharp drawing primitives (Brush, Pen, Font, Image, Icon, Region, StringFormat,
+         Drawing2D, Imaging, ...) live in this separate, separately-packaged assembly. The few drawing
+         types still under src/Majorsilence.Forms/Drawing/ stay because they reach back into the Forms
+         layer (Control / Theme / TextMeasurer / ImageListStreamer) and cannot move without creating a
+         circular project reference; see the header comment on each of those files. -->
+    <ProjectReference Include="..\Majorsilence.Forms.Drawing.Common\Majorsilence.Forms.Drawing.Common.csproj" />
+  </ItemGroup>
+
   <!-- Majorsilence.Forms.WinFormsEnumShims' compiled output gets embedded as a resource (below), not
        referenced normally: a plain <ProjectReference> ships it as its own separate deps.json/runtime
        entry, keyed by *project* name; but the whole point of that assembly is being loadable at

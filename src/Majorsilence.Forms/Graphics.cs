@@ -131,11 +131,66 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the scaling factor for page-to-world coordinates. Stub in Majorsilence.Forms.</summary>
         public float PageScale { get; set; } = 1f;
 
-        /// <summary>Stub: saves the current graphics state.</summary>
-        public Majorsilence.Forms.Drawing.Drawing2D.GraphicsState Save () { _canvas?.Save (); return null!; }
+        /// <summary>
+        /// Saves the current graphics state (transform and clip) and returns a token that
+        /// <see cref="Restore"/> can rewind to.
+        /// </summary>
+        public Majorsilence.Forms.Drawing.Drawing2D.GraphicsState Save ()
+            => new Majorsilence.Forms.Drawing.Drawing2D.GraphicsState (_canvas?.Save () ?? 0);
 
-        /// <summary>Stub: restores a previously saved state.</summary>
-        public void Restore (Majorsilence.Forms.Drawing.Drawing2D.GraphicsState state) => _canvas?.Restore ();
+        /// <summary>Restores the graphics state to a token previously returned by <see cref="Save"/>.</summary>
+        public void Restore (Majorsilence.Forms.Drawing.Drawing2D.GraphicsState state)
+        {
+            if (_canvas is null)
+                return;
+            if (state is null)
+                _canvas.Restore ();
+            else
+                _canvas.RestoreToCount (state.Count);
+        }
+
+        /// <summary>
+        /// Opens a new graphics container: saves the current transform and clip so that
+        /// <see cref="EndContainer"/> restores them exactly. Containers share the underlying canvas
+        /// state stack with <see cref="Save"/>/<see cref="Restore"/>, so the two nest freely.
+        /// </summary>
+        public Majorsilence.Forms.Drawing.Drawing2D.GraphicsContainer BeginContainer ()
+            => new Majorsilence.Forms.Drawing.Drawing2D.GraphicsContainer (_canvas?.Save () ?? 0);
+
+        /// <summary>
+        /// Opens a new graphics container that also maps <paramref name="srcrect"/> onto
+        /// <paramref name="dstrect"/> — drawing inside the container uses <paramref name="srcrect"/>'s
+        /// coordinate space and lands in <paramref name="dstrect"/>, clipped to it.
+        /// </summary>
+        public Majorsilence.Forms.Drawing.Drawing2D.GraphicsContainer BeginContainer (
+            RectangleF dstrect, RectangleF srcrect, Majorsilence.Forms.Drawing.GraphicsUnit unit)
+        {
+            var container = BeginContainer ();
+            if (_canvas is null || srcrect.Width == 0 || srcrect.Height == 0)
+                return container;
+
+            _canvas.ClipRect (new SKRect (dstrect.Left, dstrect.Top, dstrect.Right, dstrect.Bottom));
+            _canvas.Translate (dstrect.Left, dstrect.Top);
+            _canvas.Scale (dstrect.Width / srcrect.Width, dstrect.Height / srcrect.Height);
+            _canvas.Translate (-srcrect.Left, -srcrect.Top);
+            return container;
+        }
+
+        /// <inheritdoc cref="BeginContainer(RectangleF, RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public Majorsilence.Forms.Drawing.Drawing2D.GraphicsContainer BeginContainer (
+            Rectangle dstrect, Rectangle srcrect, Majorsilence.Forms.Drawing.GraphicsUnit unit)
+            => BeginContainer ((RectangleF)dstrect, (RectangleF)srcrect, unit);
+
+        /// <summary>Closes a container opened by <see cref="BeginContainer()"/>, restoring the saved state.</summary>
+        public void EndContainer (Majorsilence.Forms.Drawing.Drawing2D.GraphicsContainer container)
+        {
+            if (_canvas is null)
+                return;
+            if (container is null)
+                _canvas.Restore ();
+            else
+                _canvas.RestoreToCount (container.Count);
+        }
 
         /// <summary>Gets or sets the smoothing mode. Stub in Majorsilence.Forms (always anti-aliased).</summary>
         public SmoothingMode SmoothingMode { get; set; } = SmoothingMode.Default;
@@ -789,6 +844,57 @@ namespace Majorsilence.Forms
 
         /// <summary>Draws a Majorsilence.Forms.Drawing.Image unscaled at a point.</summary>
         public void DrawImageUnscaled (Majorsilence.Forms.Drawing.Image image, Rectangle rect) => DrawImage (image, rect);
+
+        /// <summary>
+        /// Draws a portion of an image into <paramref name="destRect"/>, applying the color
+        /// adjustments described by <paramref name="imageAttrs"/> (color matrix, gamma, transparent
+        /// color key, remap table). This is the GDI+ image color-remapping path: the matrix and gamma
+        /// become an <c>SKColorFilter</c> on the draw paint, and the lookup-style adjustments are
+        /// baked into a temporary copy of the source pixels first.
+        /// </summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect,
+            float srcX, float srcY, float srcWidth, float srcHeight,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
+            Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttrs)
+        {
+            if (_canvas is null || image is null)
+                return;
+
+            using var bmp = image.ToSKBitmap ();
+            if (bmp is null)
+                return;
+
+            using var adjusted = imageAttrs?.ApplyPixelAdjustments (bmp);
+            var source = adjusted ?? bmp;
+
+            using var colorFilter = imageAttrs?.ToSKColorFilter ();
+            using var paint = colorFilter is null ? null : new SKPaint { ColorFilter = colorFilter, IsAntialias = true };
+
+            var src = new SKRect (srcX, srcY, srcX + srcWidth, srcY + srcHeight);
+            var dst = new SKRect (destRect.Left, destRect.Top, destRect.Right, destRect.Bottom);
+            _canvas.DrawBitmap (source, src, dst, paint);
+        }
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, float, float, float, float, Majorsilence.Forms.Drawing.GraphicsUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect,
+            int srcX, int srcY, int srcWidth, int srcHeight,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
+            Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttrs)
+            => DrawImage (image, destRect, (float)srcX, srcY, srcWidth, srcHeight, srcUnit, imageAttrs);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, float, float, float, float, Majorsilence.Forms.Drawing.GraphicsUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, Rectangle srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
+            Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttrs)
+            => DrawImage (image, destRect, (float)srcRect.X, srcRect.Y, srcRect.Width, srcRect.Height, srcUnit, imageAttrs);
+
+        /// <summary>
+        /// Draws the whole image into <paramref name="destRect"/> with the given color adjustments.
+        /// </summary>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect,
+            Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttrs)
+            => DrawImage (image, destRect, 0f, 0f, image?.Width ?? 0, image?.Height ?? 0,
+                Majorsilence.Forms.Drawing.GraphicsUnit.Pixel, imageAttrs);
 #pragma warning restore CA1416
 
         /// <summary>Rotates the current transform by the specified angle in degrees.</summary>

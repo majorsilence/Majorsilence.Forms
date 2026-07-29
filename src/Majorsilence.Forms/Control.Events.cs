@@ -11,17 +11,32 @@ public partial class Control
     // This pattern is ugly, but it saves allocations
     // https://docs.microsoft.com/en-us/dotnet/standard/events/how-to-handle-multiple-events-using-event-properties
     private static readonly object s_autoSizeChangedEvent = new object ();
+    private static readonly object s_backColorChangedEvent = new object ();
+    private static readonly object s_causesValidationChangedEvent = new object ();
     private static readonly object s_clickEvent = new object ();
     private static readonly object s_mouseClickEvent = new object ();
     private static readonly object s_mouseDoubleClickEvent = new object ();
     private static readonly object s_contextMenuChangedEvent = new object ();
+    private static readonly object s_contextMenuStripChangedEvent = new object ();
     private static readonly object s_controlAddedEvent = new object ();
     private static readonly object s_controlRemovedEvent = new object ();
     private static readonly object s_cursorChangedEvent = new object ();
     private static readonly object s_dockChangedEvent = new object ();
     private static readonly object s_doubleClickEvent = new object ();
+    private static readonly object s_dragDropEvent = new object ();
+    private static readonly object s_dragEnterEvent = new object ();
+    private static readonly object s_dragLeaveEvent = new object ();
+    private static readonly object s_dragOverEvent = new object ();
     private static readonly object s_enabledChangedEvent = new object ();
+    private static readonly object s_enterEvent = new object ();
+    private static readonly object s_fontChangedEvent = new object ();
+    private static readonly object s_foreColorChangedEvent = new object ();
+    private static readonly object s_giveFeedbackEvent = new object ();
     private static readonly object s_gotFocusEvent = new object ();
+    private static readonly object s_handleCreatedEvent = new object ();
+    private static readonly object s_handleDestroyedEvent = new object ();
+    private static readonly object s_imeModeChangedEvent = new object ();
+    private static readonly object s_leaveEvent = new object ();
     private static readonly object s_lostFocusEvent = new object ();
     private static readonly object s_invalidatedEvent = new object ();
     private static readonly object s_keyDownEvent = new object ();
@@ -30,15 +45,20 @@ public partial class Control
     private static readonly object s_layoutEvent = new object ();
     private static readonly object s_locationChangedEvent = new object ();
     private static readonly object s_marginChangedEvent = new object ();
+    private static readonly object s_mouseCaptureChangedEvent = new object ();
     private static readonly object s_mouseDownEvent = new object ();
     private static readonly object s_mouseEnterEvent = new object ();
+    private static readonly object s_mouseHoverEvent = new object ();
     private static readonly object s_mouseLeaveEvent = new object ();
     private static readonly object s_mouseMoveEvent = new object ();
     private static readonly object s_mouseUpEvent = new object ();
     private static readonly object s_mouseWheelEvent = new object ();
     private static readonly object s_paddingChangedEvent = new object ();
     private static readonly object s_parentEvent = new object ();
+    private static readonly object s_previewKeyDownEvent = new object ();
+    private static readonly object s_queryContinueDragEvent = new object ();
     private static readonly object s_resizeEvent = new object ();
+    private static readonly object s_rightToLeftChangedEvent = new object ();
     private static readonly object s_sizeChangedEvent = new object ();
     private static readonly object s_tabIndexChangedEvent = new object ();
     private static readonly object s_tabStopChangedEvent = new object ();
@@ -145,11 +165,13 @@ public partial class Control
     }
 
     /// <summary>
-    /// Raised when input focus leaves the control (WinForms compatibility alias for <see cref="LostFocus"/>).
+    /// Raised when input focus leaves the control. Has its own event key (it is not an alias of
+    /// <see cref="LostFocus"/>); <see cref="OnLostFocus"/> raises it just before LostFocus, matching
+    /// the WinForms ordering of Leave -> Validating -> Validated -> LostFocus.
     /// </summary>
     public event EventHandler? Leave {
-        add => Events.AddHandler (s_lostFocusEvent, value);
-        remove => Events.RemoveHandler (s_lostFocusEvent, value);
+        add => Events.AddHandler (s_leaveEvent, value);
+        remove => Events.RemoveHandler (s_leaveEvent, value);
     }
 
     /// <summary>
@@ -313,11 +335,46 @@ public partial class Control
     }
 
     /// <summary>
-    /// Raised when the control receives input focus (WinForms compatibility; maps to GotFocus).
+    /// Raised when the control receives input focus. Has its own event key (it is not an alias of
+    /// <see cref="GotFocus"/>); <see cref="OnGotFocus"/> raises it first, matching the WinForms
+    /// ordering of Enter -> GotFocus.
     /// </summary>
     public event EventHandler? Enter {
-        add => Events.AddHandler (s_gotFocusEvent, value);
-        remove => Events.RemoveHandler (s_gotFocusEvent, value);
+        add => Events.AddHandler (s_enterEvent, value);
+        remove => Events.RemoveHandler (s_enterEvent, value);
+    }
+
+    /// <summary>
+    /// Raised when the <see cref="CausesValidation"/> property changes.
+    /// </summary>
+    public event EventHandler? CausesValidationChanged {
+        add => Events.AddHandler (s_causesValidationChangedEvent, value);
+        remove => Events.RemoveHandler (s_causesValidationChangedEvent, value);
+    }
+
+    /// <summary>
+    /// Raised when the <see cref="ContextMenuStrip"/> property changes. Because ContextMenuStrip is
+    /// an alias of <see cref="ContextMenu"/> here, this fires alongside <see cref="ContextMenuChanged"/>.
+    /// </summary>
+    public event EventHandler? ContextMenuStripChanged {
+        add => Events.AddHandler (s_contextMenuStripChangedEvent, value);
+        remove => Events.RemoveHandler (s_contextMenuStripChangedEvent, value);
+    }
+
+    /// <summary>
+    /// Raised when the <see cref="ImeMode"/> property changes.
+    /// </summary>
+    public event EventHandler? ImeModeChanged {
+        add => Events.AddHandler (s_imeModeChangedEvent, value);
+        remove => Events.RemoveHandler (s_imeModeChangedEvent, value);
+    }
+
+    /// <summary>
+    /// Raised when the <see cref="RightToLeft"/> property changes.
+    /// </summary>
+    public event EventHandler? RightToLeftChanged {
+        add => Events.AddHandler (s_rightToLeftChangedEvent, value);
+        remove => Events.RemoveHandler (s_rightToLeftChangedEvent, value);
     }
 
     /// <summary>
@@ -330,23 +387,46 @@ public partial class Control
     /// </summary>
     public event EventHandler? Validated;
 
-    /// <summary>Raised when a drag-and-drop operation enters the control. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler<DragEventArgs>? DragEnter { add { } remove { } }
+    // Drag-and-drop: Majorsilence.Forms has no OS drag source yet (DoDragDrop returns None), so
+    // nothing in the framework raises these. They are real, Events-backed events with real
+    // OnDragEnter/OnDragOver/... hooks, so a derived control can raise and override them and a
+    // future backend can drive them without another API change.
 
-    /// <summary>Raised when the user drags an object over the control. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler<DragEventArgs>? DragOver { add { } remove { } }
+    /// <summary>Raised when a drag-and-drop operation enters the control.</summary>
+    public event EventHandler<DragEventArgs>? DragEnter {
+        add => Events.AddHandler (s_dragEnterEvent, value);
+        remove => Events.RemoveHandler (s_dragEnterEvent, value);
+    }
 
-    /// <summary>Raised when a drag-and-drop operation leaves the control. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? DragLeave { add { } remove { } }
+    /// <summary>Raised when the user drags an object over the control.</summary>
+    public event EventHandler<DragEventArgs>? DragOver {
+        add => Events.AddHandler (s_dragOverEvent, value);
+        remove => Events.RemoveHandler (s_dragOverEvent, value);
+    }
 
-    /// <summary>Raised when a drag-and-drop operation is completed. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler<DragEventArgs>? DragDrop { add { } remove { } }
+    /// <summary>Raised when a drag-and-drop operation leaves the control.</summary>
+    public event EventHandler? DragLeave {
+        add => Events.AddHandler (s_dragLeaveEvent, value);
+        remove => Events.RemoveHandler (s_dragLeaveEvent, value);
+    }
 
-    /// <summary>Raised during a drag-and-drop to provide cursor feedback. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler<GiveFeedbackEventArgs>? GiveFeedback { add { } remove { } }
+    /// <summary>Raised when a drag-and-drop operation is completed.</summary>
+    public event EventHandler<DragEventArgs>? DragDrop {
+        add => Events.AddHandler (s_dragDropEvent, value);
+        remove => Events.RemoveHandler (s_dragDropEvent, value);
+    }
 
-    /// <summary>Raised to determine whether a drag-and-drop should continue. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler<QueryContinueDragEventArgs>? QueryContinueDrag { add { } remove { } }
+    /// <summary>Raised during a drag-and-drop to provide cursor feedback.</summary>
+    public event EventHandler<GiveFeedbackEventArgs>? GiveFeedback {
+        add => Events.AddHandler (s_giveFeedbackEvent, value);
+        remove => Events.RemoveHandler (s_giveFeedbackEvent, value);
+    }
+
+    /// <summary>Raised to determine whether a drag-and-drop should continue.</summary>
+    public event EventHandler<QueryContinueDragEventArgs>? QueryContinueDrag {
+        add => Events.AddHandler (s_queryContinueDragEvent, value);
+        remove => Events.RemoveHandler (s_queryContinueDragEvent, value);
+    }
 
     /// <summary>Raised when the control is painted. WinForms compat — hooks into OnPaint.</summary>
     public event EventHandler<PaintEventArgs>? Paint;
@@ -354,29 +434,56 @@ public partial class Control
     /// <summary>Raised when the control is moved (fires with LocationChanged).</summary>
     public event EventHandler? Move;
 
-    /// <summary>Raised when the BackColor property changes. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? BackColorChanged { add { } remove { } }
+    /// <summary>Raised when the BackColor property changes. Also cascades to children that inherit
+    /// their background ambiently (see <see cref="OnParentBackColorChanged"/>).</summary>
+    public event EventHandler? BackColorChanged {
+        add => Events.AddHandler (s_backColorChangedEvent, value);
+        remove => Events.RemoveHandler (s_backColorChangedEvent, value);
+    }
 
-    /// <summary>Raised when the ForeColor property changes. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? ForeColorChanged { add { } remove { } }
+    /// <summary>Raised when the ForeColor property changes.</summary>
+    public event EventHandler? ForeColorChanged {
+        add => Events.AddHandler (s_foreColorChangedEvent, value);
+        remove => Events.RemoveHandler (s_foreColorChangedEvent, value);
+    }
 
-    /// <summary>Raised when the Font property changes. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? FontChanged { add { } remove { } }
+    /// <summary>Raised when the Font property changes.</summary>
+    public event EventHandler? FontChanged {
+        add => Events.AddHandler (s_fontChangedEvent, value);
+        remove => Events.RemoveHandler (s_fontChangedEvent, value);
+    }
 
-    /// <summary>Raised when the control's handle is created. Stub in Majorsilence.Forms (always created).</summary>
-    public event EventHandler? HandleCreated { add { } remove { } }
+    /// <summary>Raised when the control's handle is created. Majorsilence.Forms has no HWND; this
+    /// fires from <see cref="CreateControl"/>, the point at which the control becomes live.</summary>
+    public event EventHandler? HandleCreated {
+        add => Events.AddHandler (s_handleCreatedEvent, value);
+        remove => Events.RemoveHandler (s_handleCreatedEvent, value);
+    }
 
-    /// <summary>Raised when the control's handle is destroyed. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? HandleDestroyed { add { } remove { } }
+    /// <summary>Raised when the control's handle is destroyed (fires when the control is disposed).</summary>
+    public event EventHandler? HandleDestroyed {
+        add => Events.AddHandler (s_handleDestroyedEvent, value);
+        remove => Events.RemoveHandler (s_handleDestroyedEvent, value);
+    }
 
-    /// <summary>Raised when the mouse is captured or released. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? MouseCaptureChanged { add { } remove { } }
+    /// <summary>Raised when the mouse is captured or released (see <see cref="Capture"/>).</summary>
+    public event EventHandler? MouseCaptureChanged {
+        add => Events.AddHandler (s_mouseCaptureChangedEvent, value);
+        remove => Events.RemoveHandler (s_mouseCaptureChangedEvent, value);
+    }
 
-    /// <summary>Raised when the mouse pointer hovers over the control. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? MouseHover { add { } remove { } }
+    /// <summary>Raised when the mouse pointer hovers over the control. Majorsilence.Forms has no
+    /// hover timer, so this fires once per mouse entry, right after <see cref="MouseEnter"/>.</summary>
+    public event EventHandler? MouseHover {
+        add => Events.AddHandler (s_mouseHoverEvent, value);
+        remove => Events.RemoveHandler (s_mouseHoverEvent, value);
+    }
 
-    /// <summary>Raised before a key event to allow the key to be previewed. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler<PreviewKeyDownEventArgs>? PreviewKeyDown { add { } remove { } }
+    /// <summary>Raised before <see cref="KeyDown"/> so a key can be previewed.</summary>
+    public event EventHandler<PreviewKeyDownEventArgs>? PreviewKeyDown {
+        add => Events.AddHandler (s_previewKeyDownEvent, value);
+        remove => Events.RemoveHandler (s_previewKeyDownEvent, value);
+    }
 
     /// <summary>Raised when the control is added to a container control. Stub in Majorsilence.Forms.</summary>
     public event EventHandler? ChangeUICues { add { } remove { } }

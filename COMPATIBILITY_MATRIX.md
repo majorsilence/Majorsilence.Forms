@@ -8,7 +8,8 @@ how source gets here in the first place, see [`MIGRATION.md`](MIGRATION.md).
 
 | Package | Contents | Depends on |
 |---|---|---|
-| `Majorsilence.Forms` | Core: controls, layout, events, `Majorsilence.Forms.Drawing` (GDI+ replacement), printing, spellcheck engine, the native-webview seam (`IWebViewFactory`) | SkiaSharp, Topten.RichTextKit |
+| `Majorsilence.Forms` | Core: controls, layout, events, printing, spellcheck engine, the native-webview seam (`IWebViewFactory`) | `Majorsilence.Forms.Drawing.Common`, SkiaSharp, Topten.RichTextKit |
+| `Majorsilence.Forms.Drawing.Common` | The `Majorsilence.Forms.Drawing` GDI+ replacement (`Bitmap`, `Font`, `Pen`, `Brush`, `Icon`, `Region`, `StringFormat`, `Drawing2D`, `Imaging`, ...) plus the bundled fallback font set. Usable standalone, without any of the WinForms control layer | SkiaSharp |
 | `Majorsilence.Forms.Avalonia` | Default backend — Windows/macOS/Linux desktop, real `WebView2`/`WKWebView`/`WebKitGTK` support via `Avalonia.Controls.WebView` | `Majorsilence.Forms` + Avalonia |
 | `Majorsilence.Forms.Uno` | Uno Platform (Skia) backend — desktop, iOS, Android, WebAssembly | `Majorsilence.Forms` + Uno.WinUI |
 | `Majorsilence.Forms.Headless` | Offscreen SkiaSharp backend — CI, automated tests, pixel-diff verification. No native webview support (`IWebViewFactory` is absent, not just unsupported) | `Majorsilence.Forms` |
@@ -58,18 +59,182 @@ resource, with wavy-underline rendering and a right-click suggestions/add-to-dic
 WinForms API (WinForms never had built-in spellcheck) — it exists to back
 [`RadSpellChecker`](#telerik-ui-for-winforms-compat-layer) below.
 
+## Public API surface audit (2026-07-29)
+
+The section above describes what works. This section is a generated-and-reviewed audit of what's
+*there to call in the first place* — comparing `Majorsilence.Forms`'s actual public/protected
+member surface against upstream `dotnet/winforms`'s own `PublicAPI.Shipped.txt` (the file the
+WinForms team uses to track its shipped API), as of 2026-07-29. Methodology: `System.Windows.Forms.Foo`
+and `Majorsilence.Forms.Foo` are treated as "the same type" per the
+[namespace mapping](MIGRATION.md#namespace-mapping); members were compared by name (not exact
+overload signatures) across each type's full effective surface (own + inherited), via reflection
+over a Release build of `Majorsilence.Forms.dll`. Per the [stub policy](#stub-policy) above, a
+member that exists but no-ops is **not** a finding here — the only thing worth flagging is a member
+that doesn't exist at all, because that's the difference between migrated code compiling with
+reduced fidelity versus not compiling.
+
+Two systemic patterns showed up across almost every control, worth stating once instead of
+per-row:
+
+- **Protected extensibility hooks are thin above the `Control` base.** *Updated 2026-07-29 — the
+  `Control`-level set named in the original finding now exists and fires.* `Control` now has the
+  ambient-appearance notifications (`OnBackColorChanged`/`OnForeColorChanged`/`OnFontChanged` plus
+  their `OnParent*Changed` cascades, `OnRightToLeftChanged`, `OnCausesValidationChanged`,
+  `OnImeModeChanged`, `OnContextMenuStripChanged`), the handle-lifetime pair
+  (`OnHandleCreated`/`OnHandleDestroyed`), the focus pair (`OnEnter`/`OnLeave`, no longer aliases of
+  `GotFocus`/`LostFocus`), the mouse/key hooks (`OnMouseClick`/`OnMouseDoubleClick`/`OnMouseHover`/
+  `OnMouseCaptureChanged`/`OnPreviewKeyDown`), the drag set
+  (`OnDragEnter`/`OnDragOver`/`OnDragDrop`/`OnDragLeave`/`OnGiveFeedback`/`OnQueryContinueDrag`),
+  `OnPrint`, the `Reset*` methods designer serialization relies on
+  (`ResetBackColor`/`ResetForeColor`/`ResetCursor`/`ResetImeMode`/`ResetRightToLeft`, joining the
+  existing `ResetText`/`ResetFont`), and the RTL/scaling helpers (`RtlTranslateAlignment` and its
+  `RtlTranslateHorizontal`/`RtlTranslateLeftRight`/`RtlTranslateContent` overloads, `ScaleControl`,
+  `ScaleBitmapLogicalToDevice`). These are wired, not declared: the corresponding events are real
+  `Events`-backed properties (previously ~20 of them were `add { } remove { }` no-ops) and the
+  `BackColor`/`ForeColor`/`Font`/`RightToLeft`/`CausesValidation`/`ImeMode` setters raise them on a
+  real value change. **Still thin:** hooks with no framework trigger yet — the drag set has no OS
+  drag source (`DoDragDrop` still returns `None`), so a derived control must raise those itself; and
+  `ChangeUICues`, `HelpRequested`, `QueryAccessibilityHelp`, `Scroll`, `DpiChangedBeforeParent`/
+  `DpiChangedAfterParent`, `BindingContextChanged` and `SystemColorsChanged` remain no-op stub
+  events with no `On*` hook. Derived-type-specific hooks (`OnDrawItem`, `OnSelectedIndexChanged`,
+  `OnCellPainting`, ...) are unchanged by this and are still mostly absent — see the per-row notes.
+- **A few "family" controls don't share upstream's common base class**, so members upstream gets
+  for free through inheritance have to exist per-type here, and sometimes don't yet:
+  `Majorsilence.Forms.Form` derives from an internal `WindowBase` (not `Control`), so plain
+  `Control` members like `Anchor`, `Dock`, `TabIndex`, `Padding`/`Margin`, `Parent`, and
+  `MouseEnter`/`MouseLeave` don't exist on a `Form` here even though they do upstream (`Form` is
+  Control-derived there). `MenuStrip`/`ContextMenuStrip`/`StatusStrip` are built on the legacy
+  `Menu`/`ContextMenu`/`Control` classes rather than on `ToolStrip` (upstream, all three *are*
+  `ToolStrip` subclasses) — so `Renderer`, `RenderMode`, `LayoutStyle`, `GripStyle`, `Stretch`,
+  `CanOverflow`, and similar `ToolStrip`-level members (present, as stub properties, on the real
+  `Majorsilence.Forms.ToolStrip`) aren't reachable from those three at all.
+
+Status below is scored from a migrating developer's point of view: **Implemented** means the
+mainstream, commonly-used surface is there (gaps are limited to the two patterns above, or to
+deep/rare corners); **Partial** names the specific commonly-used members that are missing;
+**Missing** means the type doesn't exist under that name at all.
+
+| Control / type | Status | Notes |
+|---|---|---|
+| `Control` (base) | Implemented | Inherited by every control below. The protected extensibility surface named in the first systemic pattern above is present and firing as of 2026-07-29; the residue is the stub events listed there that still have no `On*` hook. |
+| `Button`, `CheckBox`, `RadioButton`, `Label`, `LinkLabel`, `PictureBox`, `Panel`, `GroupBox`, `TabControl`/`TabPage`, `FlowLayoutPanel`, `TableLayoutPanel`, `TrackBar`, `ProgressBar`, `ScrollBar`/`HScrollBar`/`VScrollBar`, `Splitter`, `UserControl` | Implemented | Only the systemic gaps above; no missing members specific to these types. They pick up the whole `Control` protected surface by inheritance. |
+| `TextBox` | Implemented | Full surface for get/set/select/undo usage. |
+| `RichTextBox` | Partial | No `Undo`/`Redo`/`CanUndo`/`CanRedo`/`RedoActionName`, no `SelectedRtf`, no `CanPaste`, no `AutoWordSelection`. |
+| `MaskedTextBox` | Partial | No `InsertKeyMode`/`IsOverwriteMode`, no `GetCharIndexFromPosition`/`GetPositionFromCharIndex` family, no `ValidateText`. |
+| `ComboBox`, `ListBox`, `CheckedListBox` | Partial | Data-binding format hooks missing (`Format`/`FormatString`/`FormatInfo` and their `*Changed` events), no `DataSourceChanged`/`DisplayMemberChanged`/`ValueMemberChanged`, no `Sort()` (`ListBox`)/`PreferredHeight`. `DataSource`/`DisplayMember`/`ValueMember` themselves *do* exist. |
+| `ListView` | Partial | No owner-draw (`OwnerDraw`, `DrawItem`/`DrawSubItem`/`DrawColumnHeader`), no virtual mode retrieval (`OnRetrieveVirtualItem`/`OnSearchForVirtualItem`/`OnCacheVirtualItems` — `VirtualMode` itself is a plain property), no groups' `TaskLink`/`CollapsedState`, no `InsertionMark`. |
+| `TreeView` | Partial | No `Sorted`, no `ImageKey`/`SelectedImageKey` (index-based `ImageIndex` works), no `HitTest`, no `ShowNodeToolTips`. |
+| `DataGridView` | Partial | Largest gap in the audit (~300 missing members). `VirtualMode`/`CellValueNeeded`/`CellValuePushed` exist; missing: `RowValidating`/`RowValidated`, `CellFormatting`/`CellParsing`, custom-paint hooks (`CellPainting`, `RowPrePaint`/`RowPostPaint`), advanced border styles (`AdvancedCellBorderStyle` and friends), `GetClipboardContent`, per-column/row granular `*Changed` events. |
+| `DataGrid` (legacy) | Partial | Similar shape of gaps to `DataGridView`; present for basic bound-grid usage. |
+| `DataGridViewColumn`/`Row`/`Cell` and the typed column family (`*ComboBoxColumn`, `*CheckBoxColumn`, etc.) | Partial | Core get/set works; no `Clone()`, no custom-paint (`Paint`/`PaintCells`/`PaintHeader` on `Row`; `Paint`/`PaintBorder`/`PaintErrorIcon` on `Cell`), no `InheritedStyle`/`InheritedState`. |
+| `DateTimePicker`, `MonthCalendar` | Partial | `MonthCalendar` has no bolded-date API (`AddBoldedDate`/`AddAnnuallyBoldedDate`/etc.) and no `HitTest`; `DateTimePicker` has no `DropDownAlign` or the `CalendarTrailingForeColor`-style theming properties. |
+| `NumericUpDown`, `DomainUpDown` | Partial | No `BeginInit`/`EndInit` (`ISupportInitialize`), no `BorderStyle`, no `ParseEditText`/`UpdateEditText` overrides. |
+| `SplitContainer` | Partial | Not `ContainerControl`-derived here, so no `ActiveControl`, `AutoValidate`, `BeginInit`/`EndInit`, `ValidateChildren`. |
+| `Form` | Partial | See the `WindowBase` note above — missing the plain-`Control` surface (`Anchor`, `Dock`, `TabIndex`, `Padding`, `Parent`, mouse-enter/leave events, `Region`, `RightToLeft`) in addition to Form-specific gaps (`AutoScroll*`, `FormCornerPreference`, MDI merge members `Menu`/`MergedMenu`/`MenuStart`/`MenuComplete`). Core lifecycle (`Load`, `Shown`, `Closing`, `ShowDialog`, `Show`) is solid. |
+| `ToolStrip` | Partial | Real base class with stub properties for most `ToolStrip`-level members (`Renderer`, `LayoutStyle`, `GripStyle`, ...); missing `Items`-level layout events (`LayoutCompleted`) and `GetItemAt`/`GetNextItem`. |
+| `MenuStrip`, `ContextMenuStrip`, `StatusStrip` | Partial | Not `ToolStrip`-derived (see above) — none of `ToolStrip`'s member surface (stubbed or otherwise) is reachable from these three. Basic menu/status functionality via `Menu`/`Control` works. |
+| `ToolStripMenuItem`, `ToolStripButton`, `ToolStripLabel`, `ToolStripComboBox`, `ToolStripTextBox`, `ToolStripSeparator`, `ToolStripDropDownButton`, `ToolStripSplitButton`, `ToolStripStatusLabel`, `ToolStripProgressBar`, `ToolStripDropDown` | Partial | Core `ToolStripItem` surface (`Text`, `Image`, `Click`, `Enabled`, `Visible`) present; missing accessibility (`AccessibilityObject`), drag/drop (`DoDragDrop`, `DragEnter`/`DragDrop`), and layout internals (`ContentRectangle`, `DefaultMargin`/`DefaultPadding`, `Placement`). |
+| `ToolStripContainer` | Implemented | Only the systemic gaps above. |
+| `MenuItem`, `ContextMenu`, `MainMenu` (legacy) | Partial | Basic construction/click/items work; MDI menu-merging (`MergeMenu`, `MdiListItem`, `FindMergePosition`) and Win32 handle interop (`Handle`, `CreateMenuHandle`) are absent — reasonable, since there's no Win32 menu handle to merge. |
+| `BindingSource` | Partial | No sort/filter surface (`ApplySort`/`RemoveSort`/`IsSorted`/`SortDescriptions`, `SupportsSorting`/`SupportsFiltering`/`SupportsSearching`), no `AddingNew`/`DataError`/`CurrentItemChanged` events, no `List`/`CurrencyManager` accessors. |
+| `BindingNavigator` | Partial | Standard toolbar items (`MoveFirstItem`, `AddNewItem`, etc.) work; inherits `ToolStrip`'s gaps above plus its own `AddStandardItems`/`BeginInit`/`EndInit`. |
+| `PropertyGrid` | Partial | Grid/property display and `SelectedObject` work; no category/commands-pane theming (`CommandsBackColor`, `CategorySplitterColor`, ...), no `PropertyTabs`, no `ToolStripRenderer`. |
+| `WebBrowser` | Partial | Navigation (`Navigate`, `Url`, `DocumentTitle`, nav events) works; no DOM object model at all — `Document`/`DocumentStream`/`ObjectForScripting` and the whole `HtmlDocument`/`HtmlElement`/`HtmlWindow` family don't exist, because there's no MSHTML-equivalent behind it (it's backed by a real browser webview, not COM automation). |
+| `NotifyIcon`, `ErrorProvider`, `ToolTip`, `Timer`, `ImageList`, `SplitButton` | Implemented | `SplitButton` isn't an upstream WinForms type (only `ToolStripSplitButton` is) — likely meant that. Minor gaps only (e.g. `ToolTip.OwnerDraw`/`Popup`). |
+| `MessageBox` | Implemented | |
+| `OpenFileDialog`, `SaveFileDialog`, `FolderBrowserDialog`, `ColorDialog`, `FontDialog`, `PrintDialog`, `PrintPreviewDialog` | Partial | Result/selection properties and `ShowDialog()` work. Missing: Windows-shell-only extras (`CustomPlaces`, `ShowPinnedPlaces`, `AutoUpgradeEnabled`), `FolderBrowserDialog.Multiselect`/`SelectedPaths` (.NET 5+ addition), `PrintDialog.AllowCurrentPage`/`PrintToFile`. `Instance`/`HookProc`/`RunDialog`/`OwnerWndProc` (Win32 dialog-hook plumbing) are absent everywhere — expected, there's no native dialog to hook. |
+| `Application`, `ApplicationContext`, `Screen`, `Cursor`, `Clipboard` | Partial | Everyday members (`Run`, `Exit`, `DoEvents`, `PrimaryScreen`, `Current`, `GetData`/`SetText`) present. `Clipboard` has no audio/file-drop-list support; `SystemInformation` (a big static grab-bag of Win32 metrics — caret blink time, menu fade, DPI-scaled scrollbar sizes, etc.) implements only a fraction, the rest having no meaningful cross-platform value. |
+| `ListViewItem`, `ListViewGroup`, `TreeNode` | Partial | Core properties present; no `Clone()`, no `Serialize`/`Deserialize` (used for drag-drop persistence), `TreeNode` has no `ExpandAll`/`IsVisible`/`NextVisibleNode`/`PrevVisibleNode`. |
+| `ButtonBase`, `ListControl`, `UpDownBase`, `WebBrowserBase`, `DataGridViewBand`/`DataGridViewElement`, `ToolStripDropDownItem`/`ToolStripDropDownMenu` | Architectural, not a gap | These upstream abstract/intermediate base classes aren't separately modeled — their members are folded directly into the concrete controls above (e.g. `Button` implements what upstream splits across `Button`+`ButtonBase`). Only matters if your code declares a variable of the base type for polymorphism across, e.g., `Button`/`CheckBox`/`RadioButton`. |
+
+**Rarely used, not separately audited in depth** (each gets a one-line disposition rather than a
+row): `AxHost`/ActiveX control hosting, `ComponentEditorForm` and other design-time-only forms, the
+whole `System.Windows.Forms.Design`/`PropertyGridInternal` surface, `Message`/`NativeWindow`
+low-level Win32 message plumbing (present in narrow form, not a full message-loop replacement),
+`DataObject`/`DataFormats`/OLE drag-drop custom formats (basic drag-drop works; custom OLE format
+registration doesn't), `StatusBarPanel`/`ToolBarButton` (the pre-.NET-2.0 `StatusBar`/`ToolBar`
+legacy controls exist and work at a basic level), IME-specific classes beyond the `ImeMode`
+property itself, and `HelpProvider`/`PowerStatus` (present, thin). None of these came up as
+commonly-referenced in the priority-control review above.
+
+**Audit scope**: ~110 types were checked in depth (the ones named in this section plus their
+immediate supporting types); 2 came back with no missing members at all (`MessageBox`, `Timer`),
+roughly a dozen more are "Implemented" above with only the two systemic gaps, and the remainder are
+"Partial" with the specific missing members named. No type on this list was found completely absent
+under its own name — the "Missing" cases above are all upstream-only intermediate base classes,
+not surface a migrating app calls directly.
+
 ## `System.Drawing` / GDI+
 
 See [`MIGRATION.md`'s namespace table](MIGRATION.md#namespace-mapping) for the exact rewrite rules.
-Summary: primitive value types (`Color`, `Point`, `Size`, `Rectangle`, ...) are the real
-cross-platform BCL types and need no reimplementation. GDI+ (`Bitmap`, `Font`, `Pen`, `Brush`,
-`Graphics`, imaging/text-layout namespaces) is reimplemented cross-platform in `Majorsilence.Forms.Drawing`
+Summary: primitive value types (`Color`, `Point`, `PointF`, `Size`, `SizeF`, `Rectangle`,
+`RectangleF`) are the real cross-platform BCL types from `System.Drawing.Primitives` and are
+deliberately **not** reimplemented — reimplementing them would make every bare `Point`/`Rectangle`/
+`Color` ambiguous in the (very common) files that have both `System.Drawing` and
+`Majorsilence.Forms.Drawing` in scope. GDI+ proper (`Bitmap`, `Font`, `Pen`, `Brush`, imaging and
+text-layout namespaces) is reimplemented cross-platform in the `Majorsilence.Forms.Drawing` namespace
 on top of SkiaSharp, replacing the Windows-only `System.Drawing.Common`.
+
+That namespace lives in a single project, [`src/Majorsilence.Forms.Drawing.Common`](src/Majorsilence.Forms.Drawing.Common),
+which `Majorsilence.Forms` references and which also ships as its own package for consumers that want
+the drawing layer without the control layer. Four files remain under `src/Majorsilence.Forms/Drawing/`
+because they depend on the Forms layer and would otherwise form a circular project reference:
+`Graphics.cs` (declares a partial of `Control`, and calls `Theme`/`TextMeasurer`), `SkiaGraphics.cs`
+(`ContentAlignment`, `TextMeasurer`), `BufferedGraphics.cs` (typed throughout on that `Graphics`), and
+`NrbfResourceReader.cs` (materialises `ImageListStreamer`). Each carries a header comment saying so.
+The drawing project grants `InternalsVisibleTo` to `Majorsilence.Forms` so those four can keep using
+the SkiaSharp interop seam (`CreatePaint`, `GetSKBitmap`, `ToSKPath`, `ImageAttributes.ToSKColorFilter`,
+...) without that seam becoming public API.
+
+Two font-related root files also stay, for a different reason. `SystemFonts.cs` builds its fonts from
+`Theme`, so it hits the same cycle. `CachingFontMapper.cs` has no cycle and *could* move, but installs
+a process-wide default for Topten.RichTextKit — the text **layout** engine — and every RichTextKit
+consumer (`TextMeasurer`, `TextBoxDocument`, `TextBox`, `TextBoxRenderer`, `SkiaTextExtensions`,
+`Theme`) lives in `Majorsilence.Forms`. The drawing project contains no RichTextKit code; its text path
+is SkiaSharp `SKFont`-based. Moving that one internal class would force a Topten.RichTextKit dependency
+onto the standalone drawing package for something none of its consumers can reach.
 
 **Printing** (`Majorsilence.Forms.Printing.PrintDocument`) renders pages through the same SkiaSharp
 pipeline as on-screen controls and outputs a real PDF (`SKDocument.CreatePdf`) rather than spooling
 to an OS print driver — `PrintPreviewDialog` opens that PDF in the system's default viewer. This is
 a platform-agnostic substitute for driver-level printing, not a gap to be filled per-OS.
+
+### GDI+ surface audit (2026-07-29)
+
+Same audit pass as [above](#public-api-surface-audit-2026-07-29), applied to upstream's
+`src/System.Drawing.Common/src/System/Drawing` tree (no `PublicAPI.Shipped.txt` exists for this
+assembly — it's tracked via `ApiCompatExcludeAttributes.txt`/`CompatibilitySuppressions.xml`
+instead — so this pass is type-level source-listing comparison, not member-level reflection).
+
+This audit was run against a since-fixed split: at the time, the shipping GDI+ implementation lived
+inline in `src/Majorsilence.Forms/Drawing/` while the separately-packaged
+`Majorsilence.Forms.Drawing.Common` project sat unreferenced and less complete. The two have since
+been consolidated (see [above](#system-drawing--gdi)) — the table below still reflects the
+consolidated, more-complete surface (the merge kept whichever of the two implementations was ahead
+per member, so the findings below hold, with one exception noted in its row: multi-stop gradient
+blend support was folded in during that consolidation and is no longer purely missing).
+
+**Update:** most of the gaps this audit found have since been closed — `ImageAttributes`/`ColorMatrix`,
+`BitmapData`/`LockBits`, the font collections, `Blend`/`ColorBlend`, `GraphicsPathIterator` and
+`GraphicsContainer` are all implemented against SkiaSharp; `CustomLineCap` and `PenAlignment` are
+partial for reasons stated in their row; `SystemBrushes`/`SystemPens` turned out to already exist and
+were completed and cached. The table below reflects the current state, with each row saying exactly
+what is and is not backed by real rendering.
+
+| Type / area | Status | Notes |
+|---|---|---|
+| `Bitmap`, `Image`, `Icon`, `ImageAnimator`, `Graphics` (core drawing), `Pen`/`Pens`, `Brush` family (`SolidBrush`, `HatchBrush`, `LinearGradientBrush`, `PathGradientBrush`, `TextureBrush`, `Brushes`), `Region`, `Font`/`FontFamily`/`FontStyle`, `StringFormat` family, `Matrix`, `GraphicsPath`, `BufferedGraphics`/`Context`/`Manager`, `RotateFlipType`, `GraphicsUnit`, `Drawing2D` core enums (`SmoothingMode`, `CompositingMode`/`Quality`, `InterpolationMode`, `PixelOffsetMode`, `LineCap`/`LineJoin`, `DashStyle`, `WrapMode`) | Implemented | The mainstream drawing/imaging/text-layout path a migrated `OnPaint` override uses. |
+| `ImageAttributes`, `ColorMatrix`, `ColorMap`, `ColorMatrixFlag`/`ColorAdjustType` | Implemented | Real color-transform path for `Graphics.DrawImage`. `SetColorMatrix` and `SetGamma` become an `SKColorFilter` on the draw paint (composed when both are set); `SetColorKey` and `SetRemapTable` are per-pixel lookups, so they are baked into a temporary copy of the source bitmap before drawing. `ColorMatrix` is the GDI+ 5x5 row-vector layout (`Matrix00`..`Matrix44` plus indexer) transposed into Skia's 4x5 row-major array — Skia 3.x normalizes the whole matrix *including* the translation column to 0..1, the same convention GDI+ uses, so no 0..255 rescaling happens (asserted by `ImageAttributesTests`). `Graphics.DrawImage(Image, Rectangle, float, float, float, float, GraphicsUnit, ImageAttributes)` and its `int`/`srcRect`/whole-image siblings live on `Graphics` in `Majorsilence.Forms` (see [above](#system-drawing--gdi) for why) and call the `internal` `ImageAttributes.ToSKColorFilter()` seam. Not applied: the separate gray matrix from `SetColorMatrices` and the per-`ColorAdjustType` category split (both stored and round-tripped); `SetWrapMode` is stored — the draw path always clamps. |
+| `GraphicsPathIterator`, `GraphicsContainer` (`BeginContainer`/`EndContainer`), `PathPointType` | Implemented | `GraphicsPathIterator` walks the real `SKPath` (raw iterator) into GDI+ point/type arrays — `Count`, `SubpathCount`, `NextSubpath`, `NextPathType`, `NextMarker`, `HasCurve`, `Enumerate`, `CopyData`, `Rewind`, and the `GraphicsPath`-filling overloads all work. Skia's quads/conics (what ovals, arcs and round-rects actually store) are elevated to cubics, so callers only ever see `Start`/`Bezier` types in groups of three, exactly as GDI+ reports. `NextMarker` returns the whole path once: `GraphicsPath` has no marker API, and that is what GDI+ itself returns for a marker-free path. `BeginContainer`/`EndContainer` reuse the same `SKCanvas` save-count stack as `Graphics.Save`/`Restore` (both of which became real rather than no-ops in the same pass), so the two nest freely; the `dstrect`/`srcrect` overload really does clip and map the coordinate space. |
+| `CustomLineCap`, `AdjustableArrowCap`, `PenAlignment` (`Pen.Alignment`, `Pen.CustomStartCap`/`CustomEndCap`) | Partial | The types are real and every property round-trips; `AdjustableArrowCap` builds a genuine triangular `GraphicsPath` outline (reachable via `FillPath`) that resizes with `Width`/`Height`. What does *not* happen is Skia stroking the custom outline at each line end — `SKPaint` only offers butt/round/square caps — so a pen with a custom cap strokes using that cap's declared `BaseCap` instead of being ignored outright. `Pen.Alignment` is likewise stored but not applied: an inset/outset stroke needs the geometry offset, which `SKPaint` cannot express. |
+| `Blend`/`ColorBlend` (`SetBlendTriangularShape`/`SetSigmaBellShape`) | Implemented | The real GDI+ data types exist (`Blend.Factors`/`.Positions`, `ColorBlend.Colors`/`.Positions`) and both shape presets are implemented against the documented algorithms — triangular is the piecewise-linear ramp peaking at `focus`, sigma-bell is a cumulative-normal (erf-based) falloff sampled at 256 points. Both feed the existing multi-stop plumbing rather than a second path: setting `Blend` expands the factors into color stops, and setting `InterpolationColors` clears `Blend`. Available on `LinearGradientBrush` and `PathGradientBrush`. **Breaking change:** `LinearGradientBrush.InterpolationColors` is now a `ColorBlend` (it was a bare `Color[]`) to match upstream — the `Color[]`/`float[]` pair is still reachable through `ColorBlend.Colors`/`.Positions` and the `InterpolationPositions` convenience property, which shares the same storage. |
+| `BitmapData` (`Bitmap.LockBits`/`UnlockBits`), `ImageLockMode` | Implemented | Real bulk pixel-buffer access. `LockBits` hands back a freshly-allocated buffer in the requested layout with a GDI+-correct 4-byte-aligned `Stride`, and `UnlockBits` copies it back unless the lock was `ReadOnly`. This copies rather than pointing straight into the `SKBitmap`, deliberately: the Skia backing store is premultiplied 32bpp, while `Format32bppArgb` is defined as straight alpha, so handing out the raw pointer would quietly hand out the wrong pixels. `Format32bppArgb`, `Format32bppPArgb`, `Format32bppRgb` and `Format24bppRgb` are laid out directly; narrower formats widen to `Format32bppArgb` and `BitmapData.PixelFormat` reports what was actually produced. Sub-rectangle locks, double-lock detection and lock cleanup on `Dispose` all behave as GDI+ does. |
+| `PropertyItem` (`Image.PropertyItems`) | Missing | No EXIF/image-metadata read path. |
+| `FontCollection`, `PrivateFontCollection`, `InstalledFontCollection` | Implemented | `PrivateFontCollection.AddFontFile`/`AddMemoryFont` (both the `IntPtr`/length GDI+ shape and a `byte[]` convenience overload) load real typefaces via `SKTypeface.FromFile`/`FromData`, following the same `SKData`-retention pattern `FontSubstitution` already uses for the embedded fallback fonts. Loaded families register process-wide, so `new Font(collection.Families[0].Name, size)` genuinely renders with the loaded font without it being installed; disposing the collection unregisters them again. `InstalledFontCollection` is backed by SkiaSharp's own `SKFontManager` enumeration, which *is* cross-platform (DirectWrite / CoreText / fontconfig) — no faking needed, and it returns exactly what `FontFamily.Families` returns. |
+| `SystemBrushes`, `SystemPens` | Implemented | These already existed in `Majorsilence.Forms/SystemColors.cs` when the audit was taken (the row was a false positive from the type-level source-listing method — they live next to `SystemColors`, not in a file of their own), but they covered only ~half of `SystemColors` and allocated a new object per property read. Both now expose one property per `SystemColors` entry plus `FromSystemColor(Color)`, and each returns a cached instance, matching System.Drawing's process-wide singletons. |
+| `FrameDimension` | Missing | No multi-frame image API (animated GIF frame / multi-page TIFF page selection). |
+| `Metafile`/`MetafileHeader`/`EmfType`/`EmfPlusFlags`/`EmfPlusRecordType`/`MetaHeader`/`WmfPlaceableFileHeader`, `IDeviceContext`, `Gdiplus.cs`-level GDI/HDC interop, `StockIconId`/`StockIconOptions` | Deliberately out of scope | EMF/WMF metafile recording-and-playback and raw Win32 HDC interop are Windows-GDI concepts with no cross-platform meaning on a SkiaSharp backend — same category of non-goal as the [VB Application Model](MIGRATION.md#vb-application-model-myapplication-myforms) elsewhere in this doc, not a gap to be filled. Design-time-only converters (`FontConverter`, `IconConverter`, `ImageConverter`, `ToolboxBitmapAttribute`) are likewise out of scope, consistent with `System.Windows.Forms.Design` above. |
+| `Printing` (`PageSettings`, `PrinterSettings`, `PaperSize`/`PaperSource`/`PrinterResolution`, `Margins`, `PrintRange`, `Duplex`, `QueryPageSettingsEventArgs`, `PrintDocument`, `PreviewPrintController`) | Implemented | Lives in `Majorsilence.Forms.Printing` (see above), not `.Drawing`. Missing: `PrinterUnit`/`PrinterUnitConvert`, `TriState`, `PrintAction`, `PrintEventArgs`/`PrintEventHandler`, `PreviewPageInfo` — minor, rarely referenced directly by app code. |
 
 ## Telerik UI for WinForms compat layer
 

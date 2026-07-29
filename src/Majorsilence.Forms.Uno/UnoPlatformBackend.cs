@@ -143,15 +143,42 @@ namespace Majorsilence.Forms.Uno
         /// <inheritdoc/>
         public ScreenInfo[] GetScreens ()
         {
-            // A single logical desktop; refined per-display info can come from Microsoft.UI.Windowing.
+            // A single logical desktop; refined per-display/multi-monitor info could come from
+            // Microsoft.UI.Windowing.DisplayArea, but that API throws NotImplementedException on this
+            // Uno version's X11 Skia head (verified at runtime), so query the real X11 screen size
+            // directly instead of returning a hardcoded placeholder. Falls back to a fixed guess only
+            // if libX11 genuinely isn't available (non-Linux heads, or Xlib missing).
+            var size = OperatingSystem.IsLinux () ? TryGetX11ScreenSize () : null;
+            var bounds = new System.Drawing.Rectangle (0, 0, size?.Width ?? 1920, size?.Height ?? 1080);
             return new[] {
-                new ScreenInfo (
-                    "Uno",
-                    new System.Drawing.Rectangle (0, 0, 1920, 1080),
-                    new System.Drawing.Rectangle (0, 0, 1920, 1080),
-                    isPrimary: true)
+                new ScreenInfo ("Uno", bounds, bounds, isPrimary: true)
             };
         }
+
+        private static (int Width, int Height)? TryGetX11ScreenSize ()
+        {
+            try {
+                var display = XOpenDisplay (IntPtr.Zero);
+                if (display == IntPtr.Zero)
+                    return null;
+                try {
+                    var screen = XDefaultScreen (display);
+                    var width = XDisplayWidth (display, screen);
+                    var height = XDisplayHeight (display, screen);
+                    return width > 0 && height > 0 ? (width, height) : null;
+                } finally {
+                    _ = XCloseDisplay (display);
+                }
+            } catch {
+                return null;
+            }
+        }
+
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern IntPtr XOpenDisplay (IntPtr display);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XCloseDisplay (IntPtr display);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XDefaultScreen (IntPtr display);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XDisplayWidth (IntPtr display, int screenNumber);
+        [System.Runtime.InteropServices.DllImport ("libX11.so.6")] private static extern int XDisplayHeight (IntPtr display, int screenNumber);
 
         /// <inheritdoc/>
         public void RunModalLoop (System.Threading.Tasks.Task completed)

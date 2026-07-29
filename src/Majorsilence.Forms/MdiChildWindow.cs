@@ -57,6 +57,17 @@ namespace Majorsilence.Forms
 
         // ── Painting ─────────────────────────────────────────────────────────────
 
+        // A size change alone doesn't mark this control dirty (Control.OnResize's invalidate is a
+        // no-op here), so without this, resizing the frame reallocates its back buffer to the new
+        // size in the paint walk but never repaints into it: OnPaint (and the RenderFrame call inside
+        // it that lays out the hosted Form's content) simply gets skipped. That leaves the hosted
+        // Form's own children (e.g. Dock/Anchor-based controls) laid out for the old size.
+        protected override void OnResize (EventArgs e)
+        {
+            base.OnResize (e);
+            Invalidate ();
+        }
+
         protected override void OnPaint (PaintEventArgs e)
         {
             var scaling = e.Scaling;

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-browser</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
+    <!-- Reuse the full ControlGallery MainForm/panels to render the whole gallery on Avalonia-in-browser. -->
+    <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The gallery loads PNGs via File I/O from an "Images" folder relative to the working dir
+         (ImageLoader.cs). There is no real filesystem in the browser, so preload the same images into
+         the WASM runtime's in-memory filesystem — this keeps ImageLoader (and ControlGallery generally)
+         backend-agnostic instead of special-casing it for the browser. -->
+    <WasmFilesToIncludeInFileSystem Include="..\ControlGallery\Images\**\*.png" TargetPath="Images/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

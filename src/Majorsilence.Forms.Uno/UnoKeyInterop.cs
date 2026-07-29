@@ -7,6 +7,36 @@ namespace Majorsilence.Forms.Uno
     /// <summary>Translates Uno/WinUI input types into the neutral Majorsilence.Forms enums.</summary>
     internal static class UnoKeyInterop
     {
+        // Microsoft.UI.Xaml.UIElement.CharacterReceivedEvent throws NotImplementedException on the Skia
+        // desktop targets (verified: Uno.WinUI.Runtime.Skia.X11 6.5.237, ilspycmd against the resolved
+        // Uno.UI.dll shows the property getter is a straight `throw`) -- so the "carries typed text"
+        // event Majorsilence.Forms used to key text input off never fires there, and no character ever
+        // reaches HandleTextInput. Read the typed character straight off the KeyDown event instead:
+        // KeyRoutedEventArgs carries it as the internal UnicodeKey (populated from the real X11
+        // XLookupString by X11KeyboardInputSource.ProcessKeyboardEvent, with a MapToChar() fallback for
+        // A-Z/0-9/Space/Backspace when that's unavailable) -- there is no public equivalent, so this
+        // reads it via reflection, matching WireMacOSKeyboard's existing use of reflection into Uno
+        // internals elsewhere in this backend.
+        private static readonly System.Reflection.PropertyInfo? s_unicodeKeyProperty =
+            typeof (Microsoft.UI.Xaml.Input.KeyRoutedEventArgs).GetProperty (
+                "UnicodeKey", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        /// <summary>
+        /// Best-effort extraction of the printable character (if any) a KeyDown carried, since
+        /// CharacterReceived does not fire on the Skia desktop heads. Returns false for control
+        /// characters (Backspace, Delete, arrows, Enter, ...), which the KeyDown/KeyUp path already
+        /// handles on its own.
+        /// </summary>
+        public static bool TryGetTypedCharacter (Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e, out char ch)
+        {
+            ch = default;
+            if (s_unicodeKeyProperty?.GetValue (e) is not char c || char.IsControl (c))
+                return false;
+
+            ch = c;
+            return true;
+        }
+
         public static MouseButtons ToButton (PointerPointProperties props)
         {
             // On a button press/release, the pressed-flags reflect the state AFTER the transition

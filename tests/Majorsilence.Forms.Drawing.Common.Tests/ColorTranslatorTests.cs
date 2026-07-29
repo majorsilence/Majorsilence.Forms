@@ -54,11 +54,14 @@ public class ColorTranslatorTests
         Assert.Equal(255, color.A);
     }
 
-    // 8-char hex: #RRGGBBAA — migrated from Reporting test (original used Majorsilence.Forms.Drawing.Color)
+    // 8-char hex is #AARRGGBB (alpha first), matching System.Drawing.ColorTranslator -- the type this
+    // class replaces -- and round-tripping with ToHtml, which emits #AARRGGBB for non-opaque colors.
+    // The original Reporting test asserted the CSS #RRGGBBAA order against its own Color type; that
+    // convention was dropped along with that type when the drawing projects were consolidated.
     [Theory]
-    [InlineData("#80FF0000", 128, 255,   0,   0)]
-    [InlineData("#7F123456", 127,  18,  52,  86)]
-    public void FromHtml_EightCharHex_ParsesAsRrGgBbAa(string html, int r, int g, int b, int a)
+    [InlineData("#80FF0000", 255,   0,   0, 128)]
+    [InlineData("#7F123456",  18,  52,  86, 127)]
+    public void FromHtml_EightCharHex_ParsesAsAaRrGgBb(string html, int r, int g, int b, int a)
     {
         var color = ColorTranslator.FromHtml(html);
         Assert.Equal(r, color.R);

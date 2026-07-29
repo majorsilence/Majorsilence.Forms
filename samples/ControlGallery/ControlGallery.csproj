@@ -1,19 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <!-- Backend-agnostic library: the shared MainForm/panels, consumed by the Gallery.Avalonia and
+         Gallery.Uno app heads. It has no OutputType (defaults to Library) and no backend
+         ProjectReference — each head brings its own backend and picks its own default (Uno for
+         Gallery.Uno, Avalonia for Gallery.Avalonia) instead of ControlGallery dragging one in for
+         every consumer. -->
     <TargetFramework>$(_TargetFramework)</TargetFramework>
-    <!-- Declares Windows-version compatibility so Avalonia's Win32 native control host (used by
-         WebViewHost/RadPdfViewer/RadRichTextEditor's real webview backend) can create its child
-         window; see app.manifest for details. Only affects the Windows build (ApplicationManifest
-         is a no-op on other OSes). -->
-    <ApplicationManifest Condition="'$(OS)' == 'Windows_NT'">app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
-    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
-    <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Telerik\Majorsilence.Forms.Telerik.csproj" />
   </ItemGroup>
 

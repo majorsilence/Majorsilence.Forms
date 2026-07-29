@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Drawing;
 
 #pragma warning disable CA1416  // Windows-only System.Drawing types used intentionally in compat layer
@@ -110,95 +111,168 @@ namespace Majorsilence.Forms
         public static Color MenuBar => Color.FromArgb (240, 240, 240);
     }
 
-    /// <summary>Provides pre-created Pen objects for system colors. Stub in Majorsilence.Forms — creates new pens each call.</summary>
+    /// <summary>
+    /// WinForms compatibility: a <see cref="Pen"/> of width 1 for every <see cref="SystemColors"/>
+    /// entry. Each property returns the same cached instance for a given color, matching
+    /// System.Drawing.SystemPens (whose pens are process-wide singletons and must not be disposed).
+    /// </summary>
     public static class SystemPens
     {
-        /// <summary>Gets a pen for the ButtonFace color.</summary>
-        public static Pen ButtonFace => new Pen (SystemColors.ButtonFace);
-        /// <summary>Gets a pen for the ButtonHighlight color.</summary>
-        public static Pen ButtonHighlight => new Pen (SystemColors.ButtonHighlight);
-        /// <summary>Gets a pen for the ButtonShadow color.</summary>
-        public static Pen ButtonShadow => new Pen (SystemColors.ButtonShadow);
-        /// <summary>Gets a pen for the Control color.</summary>
-        public static Pen Control => new Pen (SystemColors.Control);
-        /// <summary>Gets a pen for the ControlDark color.</summary>
-        public static Pen ControlDark => new Pen (SystemColors.ControlDark);
-        /// <summary>Gets a pen for the ControlDarkDark color.</summary>
-        public static Pen ControlDarkDark => new Pen (SystemColors.ControlDarkDark);
-        /// <summary>Gets a pen for the ControlLight color.</summary>
-        public static Pen ControlLight => new Pen (SystemColors.ControlLight);
-        /// <summary>Gets a pen for the ControlLightLight color.</summary>
-        public static Pen ControlLightLight => new Pen (SystemColors.ControlLightLight);
-        /// <summary>Gets a pen for the ControlText color.</summary>
-        public static Pen ControlText => new Pen (SystemColors.ControlText);
-        /// <summary>Gets a pen for the GrayText color.</summary>
-        public static Pen GrayText => new Pen (SystemColors.GrayText);
-        /// <summary>Gets a pen for the Highlight color.</summary>
-        public static Pen Highlight => new Pen (SystemColors.Highlight);
-        /// <summary>Gets a pen for the HighlightText color.</summary>
-        public static Pen HighlightText => new Pen (SystemColors.HighlightText);
-        /// <summary>Gets a pen for the Window color.</summary>
-        public static Pen Window => new Pen (SystemColors.Window);
-        /// <summary>Gets a pen for the WindowText color.</summary>
-        public static Pen WindowText => new Pen (SystemColors.WindowText);
-        /// <summary>Gets a pen for the ActiveBorder color.</summary>
-        public static Pen ActiveBorder => new Pen (SystemColors.ActiveBorder);
-        /// <summary>Gets a pen for the InactiveBorder color.</summary>
-        public static Pen InactiveBorder => new Pen (SystemColors.InactiveBorder);
+        private static readonly ConcurrentDictionary<Color, Pen> cache = new ();
+
+        private static Pen Get (Color color) => cache.GetOrAdd (color, static c => new Pen (c));
+
+        /// <summary>Gets a cached pen for an arbitrary system color.</summary>
+        public static Pen FromSystemColor (Color c) => Get (c);
+
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ButtonFace"/> color.</summary>
+        public static Pen ButtonFace => Get (SystemColors.ButtonFace);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ButtonHighlight"/> color.</summary>
+        public static Pen ButtonHighlight => Get (SystemColors.ButtonHighlight);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ButtonShadow"/> color.</summary>
+        public static Pen ButtonShadow => Get (SystemColors.ButtonShadow);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.Window"/> color.</summary>
+        public static Pen Window => Get (SystemColors.Window);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.WindowText"/> color.</summary>
+        public static Pen WindowText => Get (SystemColors.WindowText);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.Control"/> color.</summary>
+        public static Pen Control => Get (SystemColors.Control);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ControlText"/> color.</summary>
+        public static Pen ControlText => Get (SystemColors.ControlText);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ControlDark"/> color.</summary>
+        public static Pen ControlDark => Get (SystemColors.ControlDark);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ControlDarkDark"/> color.</summary>
+        public static Pen ControlDarkDark => Get (SystemColors.ControlDarkDark);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ControlLight"/> color.</summary>
+        public static Pen ControlLight => Get (SystemColors.ControlLight);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ControlLightLight"/> color.</summary>
+        public static Pen ControlLightLight => Get (SystemColors.ControlLightLight);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.Highlight"/> color.</summary>
+        public static Pen Highlight => Get (SystemColors.Highlight);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.HighlightText"/> color.</summary>
+        public static Pen HighlightText => Get (SystemColors.HighlightText);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.Menu"/> color.</summary>
+        public static Pen Menu => Get (SystemColors.Menu);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.MenuText"/> color.</summary>
+        public static Pen MenuText => Get (SystemColors.MenuText);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ActiveCaption"/> color.</summary>
+        public static Pen ActiveCaption => Get (SystemColors.ActiveCaption);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ActiveCaptionText"/> color.</summary>
+        public static Pen ActiveCaptionText => Get (SystemColors.ActiveCaptionText);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.InactiveCaption"/> color.</summary>
+        public static Pen InactiveCaption => Get (SystemColors.InactiveCaption);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.InactiveCaptionText"/> color.</summary>
+        public static Pen InactiveCaptionText => Get (SystemColors.InactiveCaptionText);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ActiveBorder"/> color.</summary>
+        public static Pen ActiveBorder => Get (SystemColors.ActiveBorder);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.InactiveBorder"/> color.</summary>
+        public static Pen InactiveBorder => Get (SystemColors.InactiveBorder);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.Desktop"/> color.</summary>
+        public static Pen Desktop => Get (SystemColors.Desktop);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.Info"/> color.</summary>
+        public static Pen Info => Get (SystemColors.Info);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.InfoText"/> color.</summary>
+        public static Pen InfoText => Get (SystemColors.InfoText);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.GrayText"/> color.</summary>
+        public static Pen GrayText => Get (SystemColors.GrayText);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.AppWorkspace"/> color.</summary>
+        public static Pen AppWorkspace => Get (SystemColors.AppWorkspace);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ScrollBar"/> color.</summary>
+        public static Pen ScrollBar => Get (SystemColors.ScrollBar);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.HotTrack"/> color.</summary>
+        public static Pen HotTrack => Get (SystemColors.HotTrack);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.MenuHighlight"/> color.</summary>
+        public static Pen MenuHighlight => Get (SystemColors.MenuHighlight);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.AlternateRow"/> color.</summary>
+        public static Pen AlternateRow => Get (SystemColors.AlternateRow);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.WindowFrame"/> color.</summary>
+        public static Pen WindowFrame => Get (SystemColors.WindowFrame);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.ButtonText"/> color.</summary>
+        public static Pen ButtonText => Get (SystemColors.ButtonText);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.MenuBar"/> color.</summary>
+        public static Pen MenuBar => Get (SystemColors.MenuBar);
     }
 
-    /// <summary>Provides pre-created SolidBrush objects for system colors. Stub in Majorsilence.Forms — creates new brushes each call.</summary>
+    /// <summary>
+    /// WinForms compatibility: a <see cref="SolidBrush"/> for every <see cref="SystemColors"/> entry.
+    /// Each property returns the same cached instance for a given color, matching
+    /// System.Drawing.SystemBrushes (whose brushes are process-wide singletons and must not be
+    /// disposed).
+    /// </summary>
     public static class SystemBrushes
     {
-        /// <summary>Gets a brush for the ButtonFace color.</summary>
-        public static SolidBrush ButtonFace => new SolidBrush (SystemColors.ButtonFace);
-        /// <summary>Gets a brush for the Control color.</summary>
-        public static SolidBrush Control => new SolidBrush (SystemColors.Control);
-        /// <summary>Gets a brush for the ControlDark color.</summary>
-        public static SolidBrush ControlDark => new SolidBrush (SystemColors.ControlDark);
-        /// <summary>Gets a brush for the ControlDarkDark color.</summary>
-        public static SolidBrush ControlDarkDark => new SolidBrush (SystemColors.ControlDarkDark);
-        /// <summary>Gets a brush for the ControlLight color.</summary>
-        public static SolidBrush ControlLight => new SolidBrush (SystemColors.ControlLight);
-        /// <summary>Gets a brush for the ControlLightLight color.</summary>
-        public static SolidBrush ControlLightLight => new SolidBrush (SystemColors.ControlLightLight);
-        /// <summary>Gets a brush for the ControlText color.</summary>
-        public static SolidBrush ControlText => new SolidBrush (SystemColors.ControlText);
-        /// <summary>Gets a brush for the GrayText color.</summary>
-        public static SolidBrush GrayText => new SolidBrush (SystemColors.GrayText);
-        /// <summary>Gets a brush for the Highlight color.</summary>
-        public static SolidBrush Highlight => new SolidBrush (SystemColors.Highlight);
-        /// <summary>Gets a brush for the HighlightText color.</summary>
-        public static SolidBrush HighlightText => new SolidBrush (SystemColors.HighlightText);
-        /// <summary>Gets a brush for the Window color.</summary>
-        public static SolidBrush Window => new SolidBrush (SystemColors.Window);
-        /// <summary>Gets a brush for the WindowText color.</summary>
-        public static SolidBrush WindowText => new SolidBrush (SystemColors.WindowText);
-        /// <summary>Gets a brush for the Info (tooltip) background.</summary>
-        public static SolidBrush Info => new SolidBrush (SystemColors.Info);
-        /// <summary>Gets a brush for the InfoText color.</summary>
-        public static SolidBrush InfoText => new SolidBrush (SystemColors.InfoText);
-        /// <summary>Gets a brush for the Menu background.</summary>
-        public static SolidBrush Menu => new SolidBrush (SystemColors.Menu);
-        /// <summary>Gets a brush for the MenuText color.</summary>
-        public static SolidBrush MenuText => new SolidBrush (SystemColors.MenuText);
-        /// <summary>Gets a brush for the ActiveCaption color.</summary>
-        public static SolidBrush ActiveCaption => new SolidBrush (SystemColors.ActiveCaption);
-        /// <summary>Gets a brush for the InactiveCaption color.</summary>
-        public static SolidBrush InactiveCaption => new SolidBrush (SystemColors.InactiveCaption);
-        /// <summary>Gets a brush for the InactiveCaptionText color.</summary>
-        public static SolidBrush InactiveCaptionText => new SolidBrush (SystemColors.InactiveCaptionText);
-        /// <summary>Gets a brush for the WindowFrame color.</summary>
-        public static SolidBrush WindowFrame => new SolidBrush (SystemColors.WindowFrame);
-        /// <summary>Gets a brush for the ButtonText color.</summary>
-        public static SolidBrush ButtonText => new SolidBrush (SystemColors.ButtonText);
-        /// <summary>Gets a brush for the Desktop color.</summary>
-        public static SolidBrush Desktop => new SolidBrush (SystemColors.Desktop);
-        /// <summary>Gets a brush for the HotTrack color.</summary>
-        public static SolidBrush HotTrack => new SolidBrush (SystemColors.HotTrack);
-        /// <summary>Gets a brush for the MenuHighlight color.</summary>
-        public static SolidBrush MenuHighlight => new SolidBrush (SystemColors.MenuHighlight);
-        /// <summary>Gets a brush for the ScrollBar color.</summary>
-        public static SolidBrush ScrollBar => new SolidBrush (SystemColors.ScrollBar);
+        private static readonly ConcurrentDictionary<Color, SolidBrush> cache = new ();
+
+        private static SolidBrush Get (Color color) => cache.GetOrAdd (color, static c => new SolidBrush (c));
+
+        /// <summary>Gets a cached brush for an arbitrary system color.</summary>
+        public static SolidBrush FromSystemColor (Color c) => Get (c);
+
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ButtonFace"/> color.</summary>
+        public static SolidBrush ButtonFace => Get (SystemColors.ButtonFace);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ButtonHighlight"/> color.</summary>
+        public static SolidBrush ButtonHighlight => Get (SystemColors.ButtonHighlight);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ButtonShadow"/> color.</summary>
+        public static SolidBrush ButtonShadow => Get (SystemColors.ButtonShadow);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.Window"/> color.</summary>
+        public static SolidBrush Window => Get (SystemColors.Window);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.WindowText"/> color.</summary>
+        public static SolidBrush WindowText => Get (SystemColors.WindowText);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.Control"/> color.</summary>
+        public static SolidBrush Control => Get (SystemColors.Control);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ControlText"/> color.</summary>
+        public static SolidBrush ControlText => Get (SystemColors.ControlText);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ControlDark"/> color.</summary>
+        public static SolidBrush ControlDark => Get (SystemColors.ControlDark);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ControlDarkDark"/> color.</summary>
+        public static SolidBrush ControlDarkDark => Get (SystemColors.ControlDarkDark);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ControlLight"/> color.</summary>
+        public static SolidBrush ControlLight => Get (SystemColors.ControlLight);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ControlLightLight"/> color.</summary>
+        public static SolidBrush ControlLightLight => Get (SystemColors.ControlLightLight);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.Highlight"/> color.</summary>
+        public static SolidBrush Highlight => Get (SystemColors.Highlight);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.HighlightText"/> color.</summary>
+        public static SolidBrush HighlightText => Get (SystemColors.HighlightText);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.Menu"/> color.</summary>
+        public static SolidBrush Menu => Get (SystemColors.Menu);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.MenuText"/> color.</summary>
+        public static SolidBrush MenuText => Get (SystemColors.MenuText);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ActiveCaption"/> color.</summary>
+        public static SolidBrush ActiveCaption => Get (SystemColors.ActiveCaption);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ActiveCaptionText"/> color.</summary>
+        public static SolidBrush ActiveCaptionText => Get (SystemColors.ActiveCaptionText);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.InactiveCaption"/> color.</summary>
+        public static SolidBrush InactiveCaption => Get (SystemColors.InactiveCaption);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.InactiveCaptionText"/> color.</summary>
+        public static SolidBrush InactiveCaptionText => Get (SystemColors.InactiveCaptionText);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ActiveBorder"/> color.</summary>
+        public static SolidBrush ActiveBorder => Get (SystemColors.ActiveBorder);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.InactiveBorder"/> color.</summary>
+        public static SolidBrush InactiveBorder => Get (SystemColors.InactiveBorder);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.Desktop"/> color.</summary>
+        public static SolidBrush Desktop => Get (SystemColors.Desktop);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.Info"/> color.</summary>
+        public static SolidBrush Info => Get (SystemColors.Info);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.InfoText"/> color.</summary>
+        public static SolidBrush InfoText => Get (SystemColors.InfoText);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.GrayText"/> color.</summary>
+        public static SolidBrush GrayText => Get (SystemColors.GrayText);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.AppWorkspace"/> color.</summary>
+        public static SolidBrush AppWorkspace => Get (SystemColors.AppWorkspace);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ScrollBar"/> color.</summary>
+        public static SolidBrush ScrollBar => Get (SystemColors.ScrollBar);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.HotTrack"/> color.</summary>
+        public static SolidBrush HotTrack => Get (SystemColors.HotTrack);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.MenuHighlight"/> color.</summary>
+        public static SolidBrush MenuHighlight => Get (SystemColors.MenuHighlight);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.AlternateRow"/> color.</summary>
+        public static SolidBrush AlternateRow => Get (SystemColors.AlternateRow);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.WindowFrame"/> color.</summary>
+        public static SolidBrush WindowFrame => Get (SystemColors.WindowFrame);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.ButtonText"/> color.</summary>
+        public static SolidBrush ButtonText => Get (SystemColors.ButtonText);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.MenuBar"/> color.</summary>
+        public static SolidBrush MenuBar => Get (SystemColors.MenuBar);
     }
 }

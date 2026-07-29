@@ -75,16 +75,17 @@ A form looks exactly like you'd expect:
 
 Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) folder:
 
-- [`ControlGallery`](samples/ControlGallery) — every built-in control, live.
+- [`ControlGallery`](samples/ControlGallery) — every built-in control, live. A backend-agnostic library (shared `MainForm`/panels) run by the `Gallery.Avalonia` and `Gallery.Uno` heads below.
+- [`Gallery.Avalonia`](samples/Gallery.Avalonia) — the control gallery running on the **Avalonia** backend.
 - [`Gallery.Uno`](samples/Gallery.Uno) — the control gallery running on the **Uno** backend.
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
 
-Run the gallery on the default (Avalonia) backend:
+Run the gallery on the Avalonia backend:
 
 ```bash
-dotnet run --project samples/ControlGallery
+dotnet run --project samples/Gallery.Avalonia
 ```
 
 Or on the Uno backend:

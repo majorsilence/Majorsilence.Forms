@@ -1,3 +1,8 @@
+// Stays in Majorsilence.Forms rather than moving to Majorsilence.Forms.Drawing.Common with the rest of
+// the GDI+ layer: it materialises ImageListStreamer, a control-side type declared in ImageList.cs. It is
+// resource-deserialisation glue rather than a drawing primitive, so the Forms assembly is its natural
+// home anyway; it reaches into the moved drawing types (Image, Icon, ImageListStreamDecoder) through the
+// InternalsVisibleTo grant declared in Majorsilence.Forms.Drawing.Common.csproj.
 using System;
 using System.Data.SqlTypes;
 using System.Formats.Nrbf;

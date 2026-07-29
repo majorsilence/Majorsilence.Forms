@@ -1,5 +1,7 @@
 using Majorsilence.Forms.Drawing;
 using Majorsilence.Forms.Drawing.Drawing2D;
+// See GraphicsPathTests for why these are aliased instead of `using System.Drawing;`.
+using PointF = System.Drawing.PointF;
 
 namespace Majorsilence.Forms.Drawing.Common.Tests;
 
@@ -111,12 +113,12 @@ public class MatrixTests
     }
 
     [Fact]
-    public void MatrixOrder_Append_ConcatensesAsM_Times_N()
+    public void MatrixOrder_Append_AppliesTheNewOperationLast()
     {
-        // Append uses SKMatrix.Concat(_matrix, s) = _matrix * s.
-        // In column-vector convention, _matrix * s applied to a point P gives _matrix(s(P)):
-        //   (0,0) → Scale(2,2) → (0,0) → Translate(10,5) → (10,5)
-        //   (1,0) → Scale(2,2) → (2,0) → Translate(10,5) → (12,5)
+        // GDI+ semantics (row-vector convention, P' = P x M): MatrixOrder.Append post-multiplies, so
+        // the newly appended operation is applied to the point LAST:
+        //   (0,0) → Translate(10,5) → (10,5) → Scale(2,2) → (20,10)
+        //   (1,0) → Translate(10,5) → (11,5) → Scale(2,2) → (22,10)
         using var m = new Matrix();
         m.Translate(10f, 5f);
         m.Scale(2f, 2f, MatrixOrder.Append);
@@ -124,8 +126,8 @@ public class MatrixTests
         var pts = new[] { new PointF(0f, 0f), new PointF(1f, 0f) };
         m.TransformPoints(pts);
 
-        AssertPointsEqual(new PointF(10f, 5f), pts[0]);
-        AssertPointsEqual(new PointF(12f, 5f), pts[1]);
+        AssertPointsEqual(new PointF(20f, 10f), pts[0]);
+        AssertPointsEqual(new PointF(22f, 10f), pts[1]);
     }
 
     [Fact]

@@ -18,5 +18,29 @@ public enum BuiltInTheme
     /// <summary>
     /// Uses the "Dark" built-in theme.
     /// </summary>
-    Dark
+    Dark,
+
+    /// <summary>
+    /// Uses the "Classic" built-in theme, resembling the flat 3D look of
+    /// classic Windows (95/98/2000/XP Classic).
+    /// </summary>
+    Classic,
+
+    /// <summary>
+    /// Uses the "Aero" built-in theme, resembling the glossy glass look
+    /// of Windows 7 Aero.
+    /// </summary>
+    Aero,
+
+    /// <summary>
+    /// Uses the "Point of Sale" built-in theme, a high-contrast dark navy
+    /// and amber look suited for touchscreen retail terminals.
+    /// </summary>
+    PointOfSale,
+
+    /// <summary>
+    /// Uses the "Hot Dog" built-in theme, a playful bun/mustard/ketchup
+    /// color scheme.
+    /// </summary>
+    HotDog
 }

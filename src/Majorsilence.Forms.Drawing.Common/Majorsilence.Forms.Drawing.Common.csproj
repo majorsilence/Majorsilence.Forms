@@ -5,7 +5,8 @@
     <IsPackable>true</IsPackable>
     <IsAotCompatible>true</IsAotCompatible>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <PackageDescription>Cross-platform SkiaSharp-based drawing primitives (Graphics, Brush, Pen, Font, Image, etc.) and WinForms-compatible imaging types. Originally developed as part of Majorsilence.Reporting.</PackageDescription>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageDescription>Cross-platform SkiaSharp-based drawing primitives (Brush, Pen, Font, FontFamily, Image, Bitmap, Icon, Region, StringFormat, GraphicsPath, Matrix, Imaging codecs, etc.) implementing the GDI+ / System.Drawing surface that Majorsilence.Forms consumes. Value types (Color, Point, PointF, Size, SizeF, Rectangle, RectangleF) are deliberately NOT reimplemented -- the real cross-platform BCL System.Drawing.Primitives types are used instead. Originally developed as part of Majorsilence.Reporting.</PackageDescription>
     <Authors>Majorsilence</Authors>
     <PackageTags>skiasharp;drawing;graphics;cross-platform;winforms-compat</PackageTags>
   </PropertyGroup>
@@ -17,6 +18,18 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Fonts/*.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Forms layer drives these types through their SkiaSharp interop seam (CreatePaint,
+         GetSKBitmap, GetSKFont, ToSKPath, ToSKMatrix, GetSKRegion, ...). Those members are
+         deliberately `internal`: making them public would leak SkiaSharp types (SKPaint, SKBitmap,
+         SKPath, ...) into this package's public API, which is exactly the coupling the GDI+ facade
+         exists to hide. Granting the consuming assemblies access keeps the published surface clean.
+         Same pattern Majorsilence.Forms.csproj already uses for its own backends. -->
+    <InternalsVisibleTo Include="Majorsilence.Forms" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Drawing.Common.Tests" />
   </ItemGroup>
 
 </Project>

@@ -258,8 +258,32 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether the caller must use Invoke to call the control (always false on UI thread).</summary>
         public bool InvokeRequired => !Platform.Backend.CheckAccess ();
 
-        /// <summary>Gets or sets the right-to-left layout mode. Stub in Majorsilence.Forms.</summary>
-        public RightToLeft RightToLeft { get; set; } = RightToLeft.No;
+        private RightToLeft right_to_left = RightToLeft.Inherit;
+
+        /// <summary>
+        /// Gets or sets the reading order of the control. Like WinForms, the stored value defaults to
+        /// <see cref="RightToLeft.Inherit"/> and the getter resolves it through the parent chain, so a
+        /// control with no ancestor setting one still reads <see cref="RightToLeft.No"/>. Majorsilence.Forms
+        /// does not mirror rendering yet; the value drives the <c>RtlTranslate*</c> helpers.
+        /// </summary>
+        public virtual RightToLeft RightToLeft {
+            get => right_to_left != RightToLeft.Inherit
+                ? right_to_left
+                : Parent?.RightToLeft ?? RightToLeft.No;
+            set {
+                if (right_to_left == value)
+                    return;
+
+                // Compare what the property actually reports, not the stored value: switching a
+                // child from an explicit Yes to Inherit under a Yes parent changes nothing observable.
+                var old_resolved = RightToLeft;
+
+                right_to_left = value;
+
+                if (old_resolved != RightToLeft)
+                    OnRightToLeftChanged (EventArgs.Empty);
+            }
+        }
 
         /// <summary>
         /// Suspends drawing until <see cref="EndUpdate"/> is called.
@@ -295,11 +319,35 @@ namespace Majorsilence.Forms
         /// <summary>Causes all validation in the control hierarchy to occur. Always returns true in Majorsilence.Forms.</summary>
         public bool Validate (bool checkAutoValidate) => true;
 
-        /// <summary>Gets or sets whether user input in the control causes validation to occur. Stub in Majorsilence.Forms.</summary>
-        public bool CausesValidation { get; set; } = true;
+        /// <summary>Gets or sets whether user input in the control causes validation to occur.</summary>
+        public bool CausesValidation {
+            get => GetState (States.CausesValidation);
+            set {
+                if (GetState (States.CausesValidation) == value)
+                    return;
 
-        /// <summary>Gets or sets the Input Method Editor (IME) mode. Stub in Majorsilence.Forms.</summary>
-        public ImeMode ImeMode { get; set; } = ImeMode.NoControl;
+                SetState (States.CausesValidation, value);
+                OnCausesValidationChanged (EventArgs.Empty);
+            }
+        }
+
+        private ImeMode ime_mode = ImeMode.NoControl;
+
+        /// <summary>Gets or sets the Input Method Editor (IME) mode. Stored and notified; Majorsilence.Forms
+        /// does not drive a platform IME from it.</summary>
+        public ImeMode ImeMode {
+            get => ime_mode;
+            set {
+                if (ime_mode == value)
+                    return;
+
+                ime_mode = value;
+                OnImeModeChanged (EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Gets the default IME mode for this control type, used by <see cref="ResetImeMode"/>.</summary>
+        protected virtual ImeMode DefaultImeMode => ImeMode.NoControl;
 
         /// <summary>Begins a drag-and-drop operation. Stub in Majorsilence.Forms — always returns None.</summary>
         public DragDropEffects DoDragDrop (object data, DragDropEffects allowedEffects) => DragDropEffects.None;
@@ -307,8 +355,8 @@ namespace Majorsilence.Forms
         /// <summary>Forces the control and its children to repaint.</summary>
         public void Update () => Invalidate ();
 
-        /// <summary>Scales the control by the specified horizontal and vertical scaling factors. Stub in Majorsilence.Forms.</summary>
-        public void Scale (float dx, float dy) { }
+        /// <summary>Scales the control and its children by the specified horizontal and vertical scaling factors.</summary>
+        public void Scale (float dx, float dy) => ScaleCore (dx, dy);
 
         /// <summary>Initiates scrolling the display of the control by the specified number of pixels.</summary>
         public void ScrollControlIntoView (Control? activeControl) { }

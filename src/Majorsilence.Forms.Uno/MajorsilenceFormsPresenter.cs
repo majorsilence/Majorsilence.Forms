@@ -147,6 +147,11 @@ namespace Majorsilence.Forms.Uno
             _canvas.AddHandler (UIElement.KeyDownEvent,
                 new Microsoft.UI.Xaml.Input.KeyEventHandler ((_, e) => {
                     if (!e.Handled && _host.HandleKeyDown (UnoKeyInterop.ToKeys (e.Key))) e.Handled = true;
+                    // CharacterReceived (below) never fires on the Skia desktop heads, so typed text is
+                    // carried off the KeyDown itself — see UnoKeyInterop.TryGetTypedCharacter. Same
+                    // macOS suppression as the CharacterReceived subscription below (WireMacOSKeyboard
+                    // already synthesizes text from the native hook there).
+                    if (!_macKeyboardWired && !e.Handled && UnoKeyInterop.TryGetTypedCharacter (e, out var ch) && _host.HandleTextInput (ch.ToString ())) e.Handled = true;
                 }),
                 handledEventsToo: true);
             _canvas.AddHandler (UIElement.KeyUpEvent,
@@ -154,7 +159,9 @@ namespace Majorsilence.Forms.Uno
                 handledEventsToo: true);
             // On non-macOS heads, XAML CharacterReceived carries typed text. On the macOS head it does not
             // reach a nested SKXamlCanvas, so we synthesize text from the native KeyDown hook instead (see
-            // OnMacKeyDown); suppress this path there to avoid double insertion.
+            // OnMacKeyDown); suppress this path there to avoid double insertion. Kept in case a future
+            // Uno.WinUI.Runtime.Skia release implements CharacterReceivedEvent — the KeyDown path above
+            // already covers text input either way, so this stays inert today.
             _canvas.CharacterReceived += (_, e) => {
                 if (!_macKeyboardWired && _host.HandleTextInput (e.Character.ToString ())) e.Handled = true;
             };
@@ -199,7 +206,27 @@ namespace Majorsilence.Forms.Uno
             var point = e.GetCurrentPoint (_canvas);
             var x = (int) (point.Position.X * scaling);
             var y = (int) (point.Position.Y * scaling);
-            _host.HandlePointerWheel (MouseButtons.None, x, y, new Point (0, point.Properties.MouseWheelDelta), Keys.None);
+            // WinUI reports one scalar delta per event plus IsHorizontalMouseWheel to say which axis it's
+            // on (unlike Avalonia's Vector Delta, which carries both axes on every event) — a trackpad's
+            // horizontal two-finger swipe arrives as a separate IsHorizontalMouseWheel=true event, not as
+            // an X component alongside a vertical one. Previously always treated as vertical.
+            var notches = NotchesFromWheelDelta (point.Properties.MouseWheelDelta);
+            var delta = point.Properties.IsHorizontalMouseWheel
+                ? new Point (notches, 0)
+                : new Point (0, notches);
+            _host.HandlePointerWheel (MouseButtons.None, x, y, delta, Keys.None);
+        }
+
+        // See the identical helper (and its full rationale) in UnoWindowHost.DispatchWheel: WinUI's
+        // MouseWheelDelta uses the Win32 ±120-per-notch convention, but Majorsilence.Forms' own
+        // ScrollBar/ScrollableControl expect a small "how many notches" count.
+        private static int NotchesFromWheelDelta (int rawDelta)
+        {
+            const int WheelDeltaPerNotch = 120;
+            if (rawDelta == 0)
+                return 0;
+            var notches = (int) Math.Round (rawDelta / (double) WheelDeltaPerNotch, MidpointRounding.AwayFromZero);
+            return notches != 0 ? notches : Math.Sign (rawDelta);
         }
 
         private void TryFocus ()

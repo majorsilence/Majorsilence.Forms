@@ -1,3 +1,7 @@
+// Stays in Majorsilence.Forms rather than moving to Majorsilence.Forms.Drawing.Common with the rest of
+// the GDI+ layer: every member here is typed on Majorsilence.Forms.Graphics, which is itself pinned to
+// this assembly (Graphics.cs declares a partial of Control and calls Theme/TextMeasurer). Moving this
+// file would make Majorsilence.Forms.Drawing.Common depend on Majorsilence.Forms -- a circular reference.
 using System;
 using System.Drawing;
 
