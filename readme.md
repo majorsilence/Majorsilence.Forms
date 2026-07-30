@@ -96,6 +96,27 @@ dotnet run --project samples/Gallery.Uno
 
 For build and run details, see [Samples](docs/samples.md).
 
+## Contributing
+
+Contributions are welcome — fork the repo, push to a branch, and open a pull request against
+`main`. AI-assisted changes are welcome too: whether you wrote the code by hand or with an AI
+coding assistant, the bar is the same — it builds, the test suite passes, and it fits the existing
+style and conventions. Note the diff was AI-assisted if a reviewer asking would be useful context,
+but it isn't a separate approval track.
+
+Before opening a PR:
+
+- `dotnet build --configuration Release` and `dotnet test` should both be clean — this is what CI
+  checks (see [`.github/workflows/dotnet.yml`](.github/workflows/dotnet.yml)).
+- New behavior should come with tests that prove it actually works, not just that a member exists
+  or compiles.
+- If you're closing a compatibility gap, check [`COMPATIBILITY_MATRIX.md`](COMPATIBILITY_MATRIX.md)
+  first — it documents the stub policy (unimplemented members should no-op with a sensible default,
+  never throw) and tracks what's real vs. approximated vs. deliberately out of scope, and should be
+  updated alongside the code it describes.
+
+For bugs and feature requests, open an issue on GitHub.
+
 ## License
 
 See [license.md](license.md).
