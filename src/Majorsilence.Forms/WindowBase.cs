@@ -468,6 +468,10 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
+            // A press can be the first pointer event a window sees (click-through onto an inactive
+            // window), so it counts as an entry too.
+            TrackPointerInside ();
+
             if (Resizeable && HandleMouseDown (x, y))
                 return;
 
@@ -488,6 +492,10 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
         {
+            // Raise MouseEnter before the resize-border shortcut below returns: the window chrome is
+            // part of the window, so entering over a border edge is still an entry.
+            TrackPointerInside ();
+
             if (Resizeable && HandleMouseMove (x, y))
                 return;
 
@@ -497,6 +505,8 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerWheel (MouseButtons buttons, int x, int y, System.Drawing.Point delta, Keys keys)
         {
+            TrackPointerInside ();
+
             var ev = new MouseEventArgs (buttons, 0, x, y, delta, keyData: keys);
             adapter.RaiseMouseWheel (ev);
         }
@@ -505,6 +515,10 @@ namespace Majorsilence.Forms
         {
             var ev = new MouseEventArgs (buttons, 0, x, y, System.Drawing.Point.Empty, keyData: keys);
             adapter.RaiseMouseLeave (ev);
+
+            // After the children have been told, raise the window's own MouseLeave (WinForms leaves the
+            // innermost control first and unwinds outwards).
+            TrackPointerOutside ();
         }
 
         // WinForms parity: without KeyPreview a form's own key events fire only when no child
@@ -785,5 +799,143 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether the window automatically sizes itself to fit its content. Stub.</summary>
         public bool AutoSize { get; set; }
+
+        // ── Control-parity surface ───────────────────────────────────────────────
+        // Form sits on a separate inheritance branch from Control (see the layout/handle/color
+        // shims above), so plain Control members have to exist here to be reachable from a Form.
+        // Members that have a meaningful equivalent forward to the root ControlAdapter -- which IS
+        // a Control (a ScrollableControl) and already hosts the window's children -- so they behave
+        // rather than merely compile. The rest are stored properties per the documented stub policy:
+        // Anchor/Dock/TabIndex describe how a control is placed inside a *parent*, and a top-level
+        // window has none, so they do nothing meaningful even in real WinForms.
+
+        /// <summary>
+        /// Gets or sets the edges of the container the window is anchored to. Stored for designer and
+        /// source parity; a top-level window has no layout parent to anchor against.
+        /// </summary>
+        public AnchorStyles Anchor { get; set; } = AnchorStyles.Top | AnchorStyles.Left;
+
+        /// <summary>
+        /// Gets or sets which container edge the window is docked to. Stored for designer and source
+        /// parity; a top-level window has no layout parent to dock into.
+        /// </summary>
+        public DockStyle Dock { get; set; } = DockStyle.None;
+
+        /// <summary>
+        /// Gets or sets the tab order of the window within its container. Stored for designer and
+        /// source parity; a top-level window is not part of a parent's tab order (use the child
+        /// controls' own <see cref="Control.TabIndex"/> for tabbing inside the window).
+        /// </summary>
+        public int TabIndex { get; set; }
+
+        /// <summary>
+        /// Gets or sets the padding inside the window's client area. Forwarded to the root control
+        /// adapter, whose <see cref="Control.DisplayRectangle"/> it deflates — so, as in WinForms,
+        /// docked and anchored child controls really are inset by it.
+        /// </summary>
+        public Padding Padding {
+            get => adapter is null ? Padding.Empty : adapter.Padding;
+            set { if (adapter is not null) adapter.Padding = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the window region. Stored for source parity, matching
+        /// <see cref="Control.Region"/> (also stored) — Majorsilence.Forms does not clip a window to
+        /// a non-rectangular region yet.
+        /// </summary>
+        public Majorsilence.Forms.Drawing.Region? Region { get; set; }
+
+        /// <summary>
+        /// Gets or sets the reading order of the window. Forwarded to the root control adapter, which
+        /// is the parent of every child control, so children left on
+        /// <see cref="Majorsilence.Forms.RightToLeft.Inherit"/> resolve through this the same way they
+        /// resolve through a parent Control in WinForms.
+        /// </summary>
+        public RightToLeft RightToLeft {
+            get => adapter is null ? RightToLeft.No : adapter.RightToLeft;
+            set { if (adapter is not null) adapter.RightToLeft = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets whether the window shows scrollbars when its children don't fit. Forwarded to
+        /// the root control adapter (a <see cref="ScrollableControl"/>), so this really scrolls.
+        /// </summary>
+        public bool AutoScroll {
+            get => adapter is not null && adapter.AutoScroll;
+            set { if (adapter is not null) adapter.AutoScroll = value; }
+        }
+
+        /// <summary>Gets or sets the auto-scroll margin. Forwarded to the root control adapter.</summary>
+        public System.Drawing.Size AutoScrollMargin {
+            get => adapter is null ? System.Drawing.Size.Empty : adapter.AutoScrollMargin;
+            set { if (adapter is not null) adapter.AutoScrollMargin = value; }
+        }
+
+        /// <summary>Gets or sets the minimum size of the auto-scroll area. Forwarded to the root control adapter.</summary>
+        public System.Drawing.Size AutoScrollMinSize {
+            get => adapter is null ? System.Drawing.Size.Empty : adapter.AutoScrollMinSize;
+            set { if (adapter is not null) adapter.AutoScrollMinSize = value; }
+        }
+
+        /// <summary>Gets or sets the current scroll position. Forwarded to the root control adapter.</summary>
+        public System.Drawing.Point AutoScrollPosition {
+            get => adapter is null ? System.Drawing.Point.Empty : adapter.AutoScrollPosition;
+            set { if (adapter is not null) adapter.AutoScrollPosition = value; }
+        }
+
+        /// <summary>Sets the auto-scroll margin. Mirrors WinForms ScrollableControl.SetAutoScrollMargin.</summary>
+        public void SetAutoScrollMargin (int x, int y) => AutoScrollMargin = new System.Drawing.Size (x, y);
+
+        // ── Window-level mouse enter/leave ───────────────────────────────────────
+        // Real, not a stub: every backend already reports pointer exit into HandlePointerExited, and
+        // any pointer press/move/wheel arriving means the pointer is over this window. There is no
+        // matching "pointer entered" backend callback, so entry is inferred from the first pointer
+        // event that arrives while the pointer is recorded as outside -- the same edge-triggered
+        // state machine Control uses for its children (see Control.RaiseMouseMove).
+
+        private bool mouse_inside;
+
+        /// <summary>
+        /// Raised when the mouse pointer enters the window. Mirrors WinForms Control.MouseEnter as it
+        /// applies to a top-level window: it tracks the pointer entering the window's whole surface
+        /// (chrome included), so it fires once per entry and not again when the pointer crosses
+        /// between the window's child controls.
+        /// </summary>
+        public event EventHandler? MouseEnter;
+
+        /// <summary>
+        /// Raised when the mouse pointer leaves the window. Mirrors WinForms Control.MouseLeave as it
+        /// applies to a top-level window (see <see cref="MouseEnter"/> for the tracking scope).
+        /// </summary>
+        public event EventHandler? MouseLeave;
+
+        /// <summary>Gets whether the mouse pointer is currently over the window.</summary>
+        internal bool IsMouseOver => mouse_inside;
+
+        /// <summary>Raises the <see cref="MouseEnter"/> event.</summary>
+        protected virtual void OnMouseEnter (EventArgs e) => MouseEnter?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="MouseLeave"/> event.</summary>
+        protected virtual void OnMouseLeave (EventArgs e) => MouseLeave?.Invoke (this, e);
+
+        // Records the pointer as being over the window, raising MouseEnter on the outside→inside edge.
+        private void TrackPointerInside ()
+        {
+            if (mouse_inside)
+                return;
+
+            mouse_inside = true;
+            OnMouseEnter (EventArgs.Empty);
+        }
+
+        // Records the pointer as having left the window, raising MouseLeave on the inside→outside edge.
+        private void TrackPointerOutside ()
+        {
+            if (!mouse_inside)
+                return;
+
+            mouse_inside = false;
+            OnMouseLeave (EventArgs.Empty);
+        }
     }
 }

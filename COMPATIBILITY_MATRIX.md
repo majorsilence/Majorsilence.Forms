@@ -100,10 +100,15 @@ per-row:
   `OnCellPainting`, ...) are unchanged by this and are still mostly absent — see the per-row notes.
 - **A few "family" controls don't share upstream's common base class**, so members upstream gets
   for free through inheritance have to exist per-type here, and sometimes don't yet:
-  `Majorsilence.Forms.Form` derives from an internal `WindowBase` (not `Control`), so plain
-  `Control` members like `Anchor`, `Dock`, `TabIndex`, `Padding`/`Margin`, `Parent`, and
-  `MouseEnter`/`MouseLeave` don't exist on a `Form` here even though they do upstream (`Form` is
-  Control-derived there). `MenuStrip`/`ContextMenuStrip`/`StatusStrip` are built on the legacy
+  `Majorsilence.Forms.Form` derives from an internal `WindowBase` (not `Control`), so every plain
+  `Control` member has to be declared on `WindowBase`/`Form` by hand rather than inherited.
+  *Updated 2026-07-29 — the specific members named in the original finding now exist:* `Anchor`,
+  `Dock`, `TabIndex`, `Padding`/`Margin`, `Parent` and `MouseEnter`/`MouseLeave` are all reachable
+  from a `Form` (see the `Form` row for which of them behave and which are stored stubs). The
+  base-class gap itself is unchanged: a `Form` still isn't a `Control`, so it can't go into a
+  `Control.ControlCollection` or be found by a `Control`-typed walk of a tree, and any *other*
+  `Control` member not listed in the `Form` row still has to be added one at a time.
+  `MenuStrip`/`ContextMenuStrip`/`StatusStrip` are built on the legacy
   `Menu`/`ContextMenu`/`Control` classes rather than on `ToolStrip` (upstream, all three *are*
   `ToolStrip` subclasses) — so `Renderer`, `RenderMode`, `LayoutStyle`, `GripStyle`, `Stretch`,
   `CanOverflow`, and similar `ToolStrip`-level members (present, as stub properties, on the real
@@ -130,7 +135,7 @@ deep/rare corners); **Partial** names the specific commonly-used members that ar
 | `DateTimePicker`, `MonthCalendar` | Partial | `MonthCalendar` has no bolded-date API (`AddBoldedDate`/`AddAnnuallyBoldedDate`/etc.) and no `HitTest`; `DateTimePicker` has no `DropDownAlign` or the `CalendarTrailingForeColor`-style theming properties. |
 | `NumericUpDown`, `DomainUpDown` | Partial | No `BeginInit`/`EndInit` (`ISupportInitialize`), no `BorderStyle`, no `ParseEditText`/`UpdateEditText` overrides. |
 | `SplitContainer` | Partial | Not `ContainerControl`-derived here, so no `ActiveControl`, `AutoValidate`, `BeginInit`/`EndInit`, `ValidateChildren`. |
-| `Form` | Partial | See the `WindowBase` note above — missing the plain-`Control` surface (`Anchor`, `Dock`, `TabIndex`, `Padding`, `Parent`, mouse-enter/leave events, `Region`, `RightToLeft`) in addition to Form-specific gaps (`AutoScroll*`, `FormCornerPreference`, MDI merge members `Menu`/`MergedMenu`/`MenuStart`/`MenuComplete`). Core lifecycle (`Load`, `Shown`, `Closing`, `ShowDialog`, `Show`) is solid. |
+| `Form` | Partial | The plain-`Control` surface named in the `WindowBase` note above is present as of 2026-07-29, and mostly with real behavior rather than as stubs: **`Padding`** and **`RightToLeft`** forward to the root `ControlAdapter` (which *is* a `Control`), so padding genuinely insets docked/anchored children and children left on `RightToLeft.Inherit` resolve through the form the same way they resolve through a parent `Control`; **`AutoScroll`/`AutoScrollMargin`/`AutoScrollMinSize`/`AutoScrollPosition`/`SetAutoScrollMargin`** forward to that same root (a `ScrollableControl`), so they really scroll; **`MouseEnter`/`MouseLeave`** are really raised — every backend already reports pointer exit, and entry is inferred from the first pointer event to arrive, so they track the window's whole surface (chrome included) and fire once per entry rather than once per child; **`Parent`** reports the container's `MdiClient` while the form is hosted as an MDI child (matching upstream, where an MDI child's `Parent` is the `MdiClient`) and is a stored value otherwise, since a native top-level window can't be re-parented into a control tree. Stored stubs by design: `Anchor`, `Dock`, `TabIndex` (they describe placement inside a layout parent, which a top-level window doesn't have even in real WinForms), plus `Region` (matching `Control.Region`, also stored) and `FormCornerPreference` (no backend exposes window-corner or region clipping). Still missing: the MDI menu-merge members (`Menu`/`MergedMenu`/`MenuStart`/`MenuComplete`) — there is no Win32 menu handle to merge, same reasoning as the legacy-menu row below. Core lifecycle (`Load`, `Shown`, `Closing`, `ShowDialog`, `Show`) is solid. |
 | `ToolStrip` | Partial | Real base class with stub properties for most `ToolStrip`-level members (`Renderer`, `LayoutStyle`, `GripStyle`, ...); missing `Items`-level layout events (`LayoutCompleted`) and `GetItemAt`/`GetNextItem`. |
 | `MenuStrip`, `ContextMenuStrip`, `StatusStrip` | Partial | Not `ToolStrip`-derived (see above) — none of `ToolStrip`'s member surface (stubbed or otherwise) is reachable from these three. Basic menu/status functionality via `Menu`/`Control` works. |
 | `ToolStripMenuItem`, `ToolStripButton`, `ToolStripLabel`, `ToolStripComboBox`, `ToolStripTextBox`, `ToolStripSeparator`, `ToolStripDropDownButton`, `ToolStripSplitButton`, `ToolStripStatusLabel`, `ToolStripProgressBar`, `ToolStripDropDown` | Partial | Core `ToolStripItem` surface (`Text`, `Image`, `Click`, `Enabled`, `Visible`) present; missing accessibility (`AccessibilityObject`), drag/drop (`DoDragDrop`, `DragEnter`/`DragDrop`), and layout internals (`ContentRectangle`, `DefaultMargin`/`DefaultPadding`, `Placement`). |

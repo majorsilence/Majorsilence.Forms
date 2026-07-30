@@ -855,6 +855,35 @@ namespace Majorsilence.Forms
         /// </summary>
         public Form? ParentForm => mdi_parent;
 
+        private Control? parent;
+
+        /// <summary>
+        /// Gets or sets the control this form is hosted in. Mirrors WinForms Control.Parent as it
+        /// applies to a Form: while hosted as an MDI child the parent is the container's
+        /// <see cref="MdiClient"/> (exactly as in WinForms, where an MDI child's Parent is the
+        /// MdiClient control), and a top-level window reports null. Setting it stores the value —
+        /// Majorsilence.Forms cannot re-parent a window that owns a native top-level window into a
+        /// control tree; assign <see cref="MdiParent"/> to host a form inside another one.
+        /// </summary>
+        public Control? Parent {
+            get => MdiHost?.Client ?? parent;
+            set => parent = value;
+        }
+
+        /// <summary>
+        /// Gets or sets the preferred rounding of the window's corners. Stored for source parity with
+        /// the WinForms property; corner rounding is decided by the platform backend (or the OS, under
+        /// <see cref="UseSystemDecorations"/>) and this value is not applied to it.
+        /// </summary>
+        public FormCornerPreference FormCornerPreference {
+            get => form_corner_preference;
+            set {
+                SourceGenerated.EnumValidator.Validate (value);
+                form_corner_preference = value;
+            }
+        }
+        private FormCornerPreference form_corner_preference = FormCornerPreference.Default;
+
         /// <summary>Gets or sets the bounds the form uses when maximized. Stored but not enforced in Majorsilence.Forms.</summary>
         public System.Drawing.Rectangle MaximizedBounds { get; set; }
 
