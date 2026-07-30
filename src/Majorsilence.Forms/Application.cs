@@ -23,58 +23,37 @@ namespace Majorsilence.Forms
         /// </summary>
         internal static PopupWindow? ActivePopupWindow { get; set; }
 
-        // Generation counter for the "delayed close cancelled by re-activation" dismissal below.
-        // Bumped whenever any of our own windows activates; a scheduled close only fires if no
-        // activation happened between scheduling and running.
-        private static int _activationGeneration;
-
         /// <summary>
         /// A window deactivated. Menus/popups must close when focus leaves our app, but NOT when the
         /// deactivation is merely the side effect of one of our own popups (or a nested submenu)
-        /// stealing focus as it opens. We cannot know synchronously which window is gaining focus, so
-        /// post the close and cancel it if any of our own windows activates first: opening a popup
-        /// always produces a matching activation (the popup itself), which cancels the close;
-        /// switching to another application produces no such activation, so the close proceeds.
+        /// stealing focus as it opens. We cannot know synchronously which window is gaining focus.
         ///
-        /// The activation that cancels this is <see cref="NotifyWindowActivated"/>, called proactively
-        /// from <see cref="WindowBase.Show"/>/<c>ShowDialog</c> the moment we ask the backend to show a
-        /// window of our own — not reactively from the backend's own Activated event. On at least the
-        /// Avalonia backend, a brand-new window's real OS/compositor-confirmed activation is reliably
-        /// slower than this method's own posted check (deactivating the old window is effectively
-        /// synchronous; activating a window that didn't exist a moment ago is not), so waiting for that
-        /// confirmation lost this race every time, not intermittently — see git history for the bug this
-        /// fixed. Replaces an earlier timing flag that reset on a fixed dispatcher tick, which had the
-        /// same failure mode for a different reason (menus opening then instantly closing).
+        /// This used to be decided with an activation-generation counter: schedule a close, cancel it
+        /// if any of our own windows activated between scheduling and running. That assumed the
+        /// parent's Deactivated always arrives before the popup's own Activated -- empirically false:
+        /// logging real clicks (Linux, Avalonia, Mutter/XWayland) showed the popup's Activated
+        /// consistently arriving BEFORE its parent's Deactivated, sometimes by 20-30ms. Since nothing
+        /// else activates afterward, the counter never moved between scheduling and running, and the
+        /// close always won -- the drop down flashed open and closed on every click, not intermittently.
+        ///
+        /// Fixed by checking current state instead of a before/after delta: <see cref="WindowBase.IsActive"/>
+        /// on <see cref="ActivePopupWindow"/> reflects reality at the moment we ask, however the
+        /// activate/deactivate pair for this transition happened to interleave. A synchronous check
+        /// covers the (observed, common) case where the popup is already active; the posted fallback
+        /// re-checks the same thing one tick later, for the reverse ordering.
         /// </summary>
         internal static void ScheduleClosePopupsOnDeactivate ()
         {
-            MenuDiag.Log ($"ScheduleClosePopupsOnDeactivate: ActiveMenu={ActiveMenu} ActivePopupWindow={ActivePopupWindow} generation={_activationGeneration}");
-
-            if (ActiveMenu == null && ActivePopupWindow == null) {
-                MenuDiag.Log ("  -> early return, nothing open");
+            if (ActiveMenu == null && ActivePopupWindow == null)
                 return;
-            }
 
-            var generation = _activationGeneration;
-            MenuDiag.Log ($"  -> posting check with captured generation={generation}");
+            if (ActivePopupWindow?.IsActive == true)
+                return;
+
             Backends.Platform.Backend.Post (() => {
-                MenuDiag.Log ($"posted check running: captured={generation} current={_activationGeneration} -> {(_activationGeneration == generation ? "WILL CLOSE" : "cancelled, generation moved")}");
-                if (_activationGeneration == generation)
+                if (ActivePopupWindow?.IsActive != true)
                     ClosePopups ();
             });
-        }
-
-        /// <summary>
-        /// One of our windows activated — cancels any pending deactivate-driven popup close. Called
-        /// proactively by <see cref="WindowBase.Show"/>/<c>ShowDialog</c> as soon as we ask to show one of
-        /// our own windows (we don't need to wait for the backend's own, potentially much later,
-        /// Activated notification to know that) — see <see cref="ScheduleClosePopupsOnDeactivate"/>.
-        /// Calling it again when the backend's real Activated event does eventually arrive is harmless.
-        /// </summary>
-        internal static void NotifyWindowActivated ()
-        {
-            _activationGeneration++;
-            MenuDiag.Log ($"NotifyWindowActivated: generation now {_activationGeneration}");
         }
 
         /// <summary>
@@ -82,8 +61,6 @@ namespace Majorsilence.Forms
         /// </summary>
         internal static void ClosePopups (bool closeMenus = true, bool closePopups = true)
         {
-            MenuDiag.Log ($"ClosePopups(closeMenus={closeMenus}, closePopups={closePopups}): ActiveMenu={ActiveMenu} ActivePopupWindow={ActivePopupWindow}");
-
             if (closeMenus)
                 ActiveMenu?.Deactivate ();
 

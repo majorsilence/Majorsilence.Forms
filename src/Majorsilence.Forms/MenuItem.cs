@@ -116,9 +116,6 @@ namespace Majorsilence.Forms
         /// </summary>
         public void HideDropDown ()
         {
-            if (IsDropDownOpened)
-                MenuDiag.Log ($"MenuItem({Text}).HideDropDown() -- was open, closing now");
-
             selected = false;
             dropdown?.Hide ();
             IsDropDownOpened = false;
@@ -235,8 +232,6 @@ namespace Majorsilence.Forms
         /// </summary>
         public void ShowDropDown ()
         {
-            MenuDiag.Log ($"MenuItem({Text}).ShowDropDown() HasItems={HasItems} OwnerControl={OwnerControl?.GetType ().Name}");
-
             if (HasItems && OwnerControl != null) {
                 dropdown = dropdown ??= new MenuDropDown (this);
 
@@ -252,7 +247,6 @@ namespace Majorsilence.Forms
 
                 dropdown.Show (OwnerControl, dropdown_location);
                 IsDropDownOpened = true;
-                MenuDiag.Log ($"MenuItem({Text}).ShowDropDown() -> shown at {dropdown_location}");
             }
         }
 

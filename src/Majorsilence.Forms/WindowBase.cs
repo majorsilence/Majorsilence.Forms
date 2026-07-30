@@ -77,21 +77,30 @@ namespace Majorsilence.Forms
             return false;
         }
 
+        /// <summary>
+        /// Gets whether the backend currently considers this window active. Tracked directly (rather
+        /// than inferred from event ordering) because a brand-new popup's real Activated notification
+        /// was empirically observed arriving BEFORE its parent's Deactivated on at least one real
+        /// desktop (Linux/Mutter/XWayland) -- the opposite of what a naive "deactivate now, activate
+        /// later" assumption expects. See <see cref="Application.ScheduleClosePopupsOnDeactivate"/>,
+        /// which reads this directly instead of comparing an activation counter against a snapshot.
+        /// </summary>
+        internal bool IsActive { get; private set; }
+
         /// <summary>Called by the backend when the window is activated.</summary>
         internal void OnBackendActivated ()
         {
-            // Cancels any pending deactivate-driven popup close: opening a popup deactivates the
-            // parent and then activates the popup, and that activation must not dismiss the popup.
-            Application.NotifyWindowActivated ();
+            IsActive = true;
             Activated?.Invoke (this, EventArgs.Empty);
         }
 
         /// <summary>Called by the backend when the window is deactivated.</summary>
         internal void OnBackendDeactivated ()
         {
+            IsActive = false;
+
             // Don't dismiss synchronously: showing a popup deactivates its parent (and a submenu
-            // deactivates its parent popup). Schedule the close and let a following activation of one
-            // of our own windows cancel it (see Application.ScheduleClosePopupsOnDeactivate).
+            // deactivates its parent popup). See Application.ScheduleClosePopupsOnDeactivate.
             Application.ScheduleClosePopupsOnDeactivate ();
             Deactivated?.Invoke (this, EventArgs.Empty);
         }
@@ -682,7 +691,12 @@ namespace Majorsilence.Forms
             SetWindowStartupLocation ();
             EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
-            Application.NotifyWindowActivated ();
+
+            // Assume active the moment we ask the backend to show one of our own windows, rather than
+            // waiting for its real Activated event (which, empirically, can arrive either before or
+            // after this call returns depending on the platform) -- see IsActive's doc comment. The
+            // real event still fires and reconfirms this when it eventually arrives.
+            IsActive = true;
 
             if (this is Form f)
                 Application.OpenForms.Add (f);
@@ -702,7 +716,12 @@ namespace Majorsilence.Forms
             parent.Backend.Enabled = false;
             EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
-            Application.NotifyWindowActivated ();
+
+            // Assume active the moment we ask the backend to show one of our own windows, rather than
+            // waiting for its real Activated event (which, empirically, can arrive either before or
+            // after this call returns depending on the platform) -- see IsActive's doc comment. The
+            // real event still fires and reconfirms this when it eventually arrives.
+            IsActive = true;
 
             if (this is Form f)
                 Application.OpenForms.Add (f);

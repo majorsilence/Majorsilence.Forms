@@ -29,7 +29,6 @@ namespace Majorsilence.Forms
         // Shows the Menu.
         private void Activate ()
         {
-            MenuDiag.Log ($"{GetType ().Name}.Activate() IsTopLevelMenu={IsTopLevelMenu}");
             IsActivated = true;
 
             if (IsTopLevelMenu)
@@ -39,7 +38,6 @@ namespace Majorsilence.Forms
         // Hides the Menu.
         internal virtual void Deactivate ()
         {
-            MenuDiag.Log ($"{GetType ().Name}.Deactivate() IsTopLevelMenu={IsTopLevelMenu}\n{Environment.StackTrace}");
             IsActivated = false;
             SelectedItem = null;
 
@@ -102,11 +100,9 @@ namespace Majorsilence.Forms
             base.OnClick (e);
 
             var clicked_item = GetItemAtLocation (e.Location);
-            MenuDiag.Log ($"{GetType ().Name}.OnClick loc={e.Location} clicked_item={clicked_item?.Text} IsActivated={IsActivated} SelectedItem={SelectedItem?.Text}");
 
             // Clicking the currently dropped down item releases the menu
             if (IsActivated && IsReleaseOnClick && clicked_item == SelectedItem) {
-                MenuDiag.Log ("  -> release-on-click branch: Deactivate()");
                 Deactivate ();
                 return;
             }

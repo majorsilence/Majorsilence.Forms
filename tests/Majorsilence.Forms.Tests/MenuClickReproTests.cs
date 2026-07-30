@@ -4,31 +4,34 @@ using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
-    // Regression coverage for a real, 100%-reproducible-on-Avalonia bug: clicking a MenuStrip's
-    // top-level item opened its drop down and then immediately closed it again. Root cause: showing a
-    // brand-new popup window deactivates the parent (near-instant), but a brand-new window's real
-    // OS/compositor-confirmed Activated notification is reliably slower than a single posted dispatcher
-    // tick -- so Application.ScheduleClosePopupsOnDeactivate's "did one of our windows activate before
-    // my posted check runs" race always lost, deterministically, not intermittently. That determinism
-    // (not flakiness) is what points at a structural ordering mismatch rather than a coincidental race:
-    // "notify the old window it lost focus" is synchronous; "confirm the new window really has focus"
-    // requires a real compositor/OS round-trip. Fixed by WindowBase.Show/ShowDialog calling
-    // Application.NotifyWindowActivated proactively -- the moment we ask the backend to show one of our
-    // own windows -- instead of waiting for that window's own (potentially much later) Activated event
-    // to confirm it after the fact.
+    // Regression coverage for a real, reported bug: clicking a MenuStrip's top-level item flashed its
+    // drop down open and then immediately closed it again.
+    //
+    // Root cause, confirmed with real diagnostic logging against a real Avalonia window on a real
+    // desktop (Linux, Mutter/XWayland) while the reporter clicked it: the mechanism deciding whether to
+    // close a popup on the parent window's Deactivated event (Application.ScheduleClosePopupsOnDeactivate)
+    // used to compare an activation-generation counter's value before and after scheduling a delayed
+    // close, on the theory that "the parent deactivates near-instantly; the new popup's own Activated
+    // arrives afterward and cancels the close." The logged sequence showed the OPPOSITE, consistently:
+    // the popup's own Activated fired ~20-30ms BEFORE its parent's Deactivated arrived. Since nothing
+    // activated AFTER the schedule captured its snapshot, the counter-comparison always saw "unchanged"
+    // and closed the popup -- explaining why it was reported as happening on every click rather than
+    // intermittently. (An earlier attempted fix along the same before/after-counter lines -- calling the
+    // activation proactively from WindowBase.Show instead of waiting for the real event -- didn't help,
+    // for the same underlying reason: it also ran before the schedule captured its snapshot in this
+    // ordering, so there was still nothing left to change afterward.)
+    //
+    // Fixed by checking CURRENT state instead of a before/after delta: WindowBase.IsActive reflects
+    // whether the backend currently considers a window active, checked directly on
+    // Application.ActivePopupWindow at decision time -- both synchronously (covers the observed ordering,
+    // where the popup is already active by the time the parent's Deactivated arrives) and via a
+    // one-tick-later posted recheck (covers the reverse ordering, giving a delayed real Activated event
+    // a chance to arrive first). Order-independent by construction, since it never compares "before" to
+    // "after" -- only "is it active right now."
     //
     // Existing MenuStrip/ToolStrip coverage (e.g. StripHierarchyTests.MenuStripItem_WithChildren_
     // StillOpensItsSubmenu) calls ShowDropDown() directly, so it never exercises the mouse-down/click/
-    // mouse-up pipeline this bug lives in at all. The Headless backend's own Show() implementation
-    // ALSO happens to fire OnBackendActivated synchronously (HeadlessWindowHost.Show() calls it
-    // directly) -- unlike a real backend, where that confirmation is asynchronous. That means Headless
-    // cannot actually distinguish "the fix's proactive call ran" from "Headless's own synchronous
-    // activation would have covered it anyway": both tests below pass with or without the
-    // WindowBase.Show/ShowDialog fix present, verified by temporarily reverting it locally. They still
-    // pin the correct *observable* behavior (a real click opens and keeps a MenuStrip's drop down open;
-    // showing a new window while a popup/menu is open must not close it), which is worth keeping, but
-    // neither is a substitute for verifying the fix against a real backend where Activated genuinely is
-    // asynchronous -- which is exactly the gap that let this bug ship in the first place.
+    // mouse-up pipeline this bug lives in, or the deactivate-driven close path, at all.
     public class MenuClickReproTests
     {
         [Fact]
@@ -59,7 +62,7 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void ShowingANewWindow_WhileAPopupIsOpen_DoesNotCloseThePopup ()
+        public void PopupAlreadyActive_WhenParentDeactivates_IsNotClosed ()
         {
             HeadlessRenderer.Use ();
 
@@ -69,15 +72,36 @@ namespace Majorsilence.Forms.Tests
             using var popup = new PopupWindow (form);
             Application.ActivePopupWindow = popup;
 
-            // The parent deactivating as a side effect of the popup taking focus -- this alone always
-            // used to schedule a close (Application.ScheduleClosePopupsOnDeactivate).
+            // The popup's own Activated already arrived (this is the ordering observed on real
+            // Avalonia/Linux) -- before the parent's Deactivated does.
+            popup.OnBackendActivated ();
             form.OnBackendDeactivated ();
-
-            popup.Show (10, 10);
 
             Majorsilence.Forms.Backends.Platform.Backend.DoEvents ();
 
             Assert.Same (popup, Application.ActivePopupWindow);
+
+            form.Close ();
+        }
+
+        [Fact]
+        public void PopupNeverActivates_WhenParentDeactivates_IsClosed ()
+        {
+            HeadlessRenderer.Use ();
+
+            var form = new Form ();
+            form.Show ();
+
+            using var popup = new PopupWindow (form);
+            Application.ActivePopupWindow = popup;
+
+            // The popup never activates at all -- simulates focus genuinely moving to a different
+            // application while a popup happened to be open. This must still close it.
+            form.OnBackendDeactivated ();
+
+            Majorsilence.Forms.Backends.Platform.Backend.DoEvents ();
+
+            Assert.Null (Application.ActivePopupWindow);
 
             form.Close ();
         }
