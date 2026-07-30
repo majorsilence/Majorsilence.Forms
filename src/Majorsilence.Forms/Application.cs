@@ -48,11 +48,17 @@ namespace Majorsilence.Forms
         /// </summary>
         internal static void ScheduleClosePopupsOnDeactivate ()
         {
-            if (ActiveMenu == null && ActivePopupWindow == null)
+            MenuDiag.Log ($"ScheduleClosePopupsOnDeactivate: ActiveMenu={ActiveMenu} ActivePopupWindow={ActivePopupWindow} generation={_activationGeneration}");
+
+            if (ActiveMenu == null && ActivePopupWindow == null) {
+                MenuDiag.Log ("  -> early return, nothing open");
                 return;
+            }
 
             var generation = _activationGeneration;
+            MenuDiag.Log ($"  -> posting check with captured generation={generation}");
             Backends.Platform.Backend.Post (() => {
+                MenuDiag.Log ($"posted check running: captured={generation} current={_activationGeneration} -> {(_activationGeneration == generation ? "WILL CLOSE" : "cancelled, generation moved")}");
                 if (_activationGeneration == generation)
                     ClosePopups ();
             });
@@ -65,13 +71,19 @@ namespace Majorsilence.Forms
         /// Activated notification to know that) — see <see cref="ScheduleClosePopupsOnDeactivate"/>.
         /// Calling it again when the backend's real Activated event does eventually arrive is harmless.
         /// </summary>
-        internal static void NotifyWindowActivated () => _activationGeneration++;
+        internal static void NotifyWindowActivated ()
+        {
+            _activationGeneration++;
+            MenuDiag.Log ($"NotifyWindowActivated: generation now {_activationGeneration}");
+        }
 
         /// <summary>
         /// Hides any open popups.
         /// </summary>
         internal static void ClosePopups (bool closeMenus = true, bool closePopups = true)
         {
+            MenuDiag.Log ($"ClosePopups(closeMenus={closeMenus}, closePopups={closePopups}): ActiveMenu={ActiveMenu} ActivePopupWindow={ActivePopupWindow}");
+
             if (closeMenus)
                 ActiveMenu?.Deactivate ();
 
