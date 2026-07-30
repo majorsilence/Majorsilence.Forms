@@ -145,6 +145,113 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Gets the style actually used to display this cell -- the WinForms style cascade, applied from
+        /// lowest to highest precedence: the grid's <see cref="DataGridView.DefaultCellStyle"/>, the
+        /// owning column's <see cref="DataGridViewColumn.DefaultCellStyle"/>, the grid's
+        /// <see cref="DataGridView.RowsDefaultCellStyle"/>, its
+        /// <see cref="DataGridView.AlternatingRowsDefaultCellStyle"/> (odd rows only), the owning row's
+        /// <see cref="DataGridViewRow.DefaultCellStyle"/> and finally this cell's own
+        /// <see cref="Style"/>. Computed fresh on each call.
+        /// </summary>
+        public DataGridViewCellStyle InheritedStyle {
+            get {
+                var grid = DataGridView;
+                var result = new DataGridViewCellStyle ();
+
+                if (grid is not null)
+                    result.ApplyStyle (grid.DefaultCellStyle.ToDataGridViewCellStyle ());
+
+                if (OwningColumn is { } column)
+                    result.ApplyStyle (column.DefaultCellStyle);
+
+                if (grid is not null) {
+                    result.ApplyStyle (grid.RowsDefaultCellStyle.ToDataGridViewCellStyle ());
+
+                    // Alternating-row default style only participates on odd rows, as in WinForms.
+                    if (RowIndex % 2 == 1)
+                        result.ApplyStyle (grid.AlternatingRowsDefaultCellStyle.ToDataGridViewCellStyle ());
+                }
+
+                if (owner is not null)
+                    result.ApplyStyle (owner.DefaultCellStyle);
+
+                result.ApplyStyle (Style.ToDataGridViewCellStyle ());
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Gets the state of this cell, combining its own state with the state inherited from its row
+        /// and column (WinForms DataGridViewCell.InheritedState).
+        /// </summary>
+        public DataGridViewElementStates InheritedState {
+            get {
+                var state = DataGridViewElementStates.None;
+                var row = owner;
+                var column = OwningColumn;
+
+                if (Visible && (row?.Visible ?? true) && (column?.Visible ?? true))
+                    state |= DataGridViewElementStates.Visible;
+
+                if (ReadOnly || (row?.ReadOnly ?? false) || (column?.ReadOnly ?? false) || (DataGridView?.ReadOnly ?? false))
+                    state |= DataGridViewElementStates.ReadOnly;
+
+                if (Selected || (row?.Selected ?? false))
+                    state |= DataGridViewElementStates.Selected;
+
+                if (row?.Frozen ?? false)
+                    state |= DataGridViewElementStates.Frozen;
+
+                if (column?.Frozen ?? false)
+                    state |= DataGridViewElementStates.Frozen;
+
+                if (!Bounds.IsEmpty)
+                    state |= DataGridViewElementStates.Displayed;
+
+                if ((row?.Resizable ?? DataGridViewTriState.NotSet) != DataGridViewTriState.False
+                    && (DataGridView?.AllowUserToResizeRows ?? true))
+                    state |= DataGridViewElementStates.Resizable;
+
+                return state;
+            }
+        }
+
+        /// <summary>
+        /// Creates an exact copy of this cell (WinForms DataGridViewCell.Clone). The clone is of the same
+        /// runtime type and is unowned -- add it to a row's cell collection to attach it.
+        /// </summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072",
+            Justification = "Cell types are concrete public types with public parameterless constructors; cloning mirrors WinForms.")]
+        public virtual object Clone ()
+        {
+            var clone = (DataGridViewCell)Activator.CreateInstance (GetType ())!;
+            CopyStateTo (clone);
+            return clone;
+        }
+
+        /// <summary>
+        /// Copies this cell's own (non-ownership) state onto <paramref name="target"/>. Derived cell types
+        /// override to carry their extra members across a <see cref="Clone"/>.
+        /// </summary>
+        protected virtual void CopyStateTo (DataGridViewCell target)
+        {
+            ArgumentNullException.ThrowIfNull (target);
+
+            target.value = value;
+            target.Tag = Tag;
+            target.ReadOnly = ReadOnly;
+            target.Selected = Selected;
+            target.ToolTipText = ToolTipText;
+            target.ErrorText = ErrorText;
+            target.Visible = Visible;
+            target.Style.BackgroundColor = Style.BackgroundColor;
+            target.Style.ForegroundColor = Style.ForegroundColor;
+            target.Style.Font = Style.Font;
+            target.Style.FontSize = Style.FontSize;
+            target.Style.Alignment = Style.Alignment;
+        }
+
+        /// <summary>
         /// Sets the owning row.
         /// </summary>
         internal void SetOwner (DataGridViewRow? row) => owner = row;

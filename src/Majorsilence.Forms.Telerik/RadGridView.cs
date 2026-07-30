@@ -181,14 +181,39 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Occurs when a cell visual element is created. Never raised by the compat grid (it has no element tree).</summary>
         public event EventHandler<GridViewCreateCellEventArgs>? CreateCell;
 
-        /// <summary>Occurs when a row is validating before commit. Never raised by the compat grid (edits commit unconditionally).</summary>
-        public event EventHandler<RowValidatingEventArgs>? RowValidating;
-
         /// <summary>Occurs when a new row needs its default cell values. Never raised by the compat grid.</summary>
         public new event EventHandler<GridViewRowEventArgs>? DefaultValuesNeeded;
         // Sorted is inherited from the base DataGridView (WinForms parity; plain DataGridView-typed
         // designer fields like RadGridViewAmounts also need it).
 #pragma warning restore CS0067
+
+        /// <summary>
+        /// Occurs when a row is validating before commit (Telerik-typed replacement of the base
+        /// DataGridView.RowValidating). Raised by the base grid's row-commit cycle -- setting
+        /// <c>Cancel</c> keeps the row current, exactly as in Telerik.
+        /// </summary>
+        public new event EventHandler<RowValidatingEventArgs>? RowValidating;
+
+        /// <inheritdoc/>
+        protected override void OnRowValidating (DataGridViewCellCancelEventArgs e)
+        {
+            ArgumentNullException.ThrowIfNull (e);
+
+            // WinForms-typed subscribers first (they may cancel), then the Telerik-typed event.
+            base.OnRowValidating (e);
+
+            if (e.Cancel || RowValidating is null)
+                return;
+
+            var row = e.RowIndex >= 0 && e.RowIndex < base.Rows.Count ? base.Rows[e.RowIndex] : null;
+
+            if (row is null || IsStructuralRow (row))
+                return;
+
+            var args = new RowValidatingEventArgs { Row = new GridViewDataRowInfo (row) };
+            RowValidating (this, args);
+            e.Cancel = args.Cancel;
+        }
 
         /// <summary>Gets the master template (Telerik configuration façade over this grid).</summary>
         public MasterGridViewTemplate MasterTemplate { get; }

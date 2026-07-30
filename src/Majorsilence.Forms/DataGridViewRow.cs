@@ -109,6 +109,85 @@ namespace Majorsilence.Forms
         public string ErrorText { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets the style used for this row: the grid's <see cref="DataGridView.DefaultCellStyle"/>, then
+        /// its <see cref="DataGridView.RowsDefaultCellStyle"/>, then (on odd rows) its
+        /// <see cref="DataGridView.AlternatingRowsDefaultCellStyle"/>, then this row's
+        /// <see cref="DefaultCellStyle"/> -- later layers win. Mirrors WinForms
+        /// DataGridViewRow.InheritedStyle.
+        /// </summary>
+        public DataGridViewCellStyle InheritedStyle {
+            get {
+                var result = new DataGridViewCellStyle ();
+
+                if (owner is not null) {
+                    result.ApplyStyle (owner.DefaultCellStyle.ToDataGridViewCellStyle ());
+                    result.ApplyStyle (owner.RowsDefaultCellStyle.ToDataGridViewCellStyle ());
+
+                    if (Index % 2 == 1)
+                        result.ApplyStyle (owner.AlternatingRowsDefaultCellStyle.ToDataGridViewCellStyle ());
+                }
+
+                result.ApplyStyle (DefaultCellStyle);
+                return result;
+            }
+        }
+
+        /// <summary>Gets the state of this row (WinForms DataGridViewRow.State / InheritedState).</summary>
+        public DataGridViewElementStates State {
+            get {
+                var state = DataGridViewElementStates.None;
+
+                if (Visible)
+                    state |= DataGridViewElementStates.Visible;
+                if (ReadOnly || (owner?.ReadOnly ?? false))
+                    state |= DataGridViewElementStates.ReadOnly;
+                if (Selected)
+                    state |= DataGridViewElementStates.Selected;
+                if (Frozen)
+                    state |= DataGridViewElementStates.Frozen;
+                if (!Bounds.IsEmpty)
+                    state |= DataGridViewElementStates.Displayed;
+                if (Resizable != DataGridViewTriState.False && (owner?.AllowUserToResizeRows ?? true))
+                    state |= DataGridViewElementStates.Resizable;
+                if (Resizable != DataGridViewTriState.NotSet)
+                    state |= DataGridViewElementStates.ResizableSet;
+
+                return state;
+            }
+        }
+
+        /// <summary>Gets the state of this row, including state inherited from the grid. Mirrors WinForms.</summary>
+        public DataGridViewElementStates InheritedState => State;
+
+        /// <summary>
+        /// Creates an exact copy of this row, including clones of its cells (WinForms
+        /// DataGridViewRow.Clone). The clone is unowned -- add it to a grid's row collection to attach it.
+        /// </summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072",
+            Justification = "Row types are concrete public types with public parameterless constructors; cloning mirrors WinForms.")]
+        public virtual object Clone ()
+        {
+            var clone = (DataGridViewRow)Activator.CreateInstance (GetType ())!;
+
+            clone.height = height;
+            clone.MinimumHeight = MinimumHeight;
+            clone.Tag = Tag;
+            clone.Visible = Visible;
+            clone.Frozen = Frozen;
+            clone.Selected = Selected;
+            clone.ErrorText = ErrorText;
+            clone.Resizable = Resizable;
+            clone.DataBoundItem = DataBoundItem;
+            clone.DefaultCellStyle = DefaultCellStyle.Clone ();
+            clone.read_only = read_only;
+
+            foreach (var cell in Cells)
+                clone.Cells.Add ((DataGridViewCell)cell.Clone ());
+
+            return clone;
+        }
+
+        /// <summary>
         /// Sets the owning DataGridView.
         /// </summary>
         internal void SetOwner (DataGridView? dataGridView) => owner = dataGridView;

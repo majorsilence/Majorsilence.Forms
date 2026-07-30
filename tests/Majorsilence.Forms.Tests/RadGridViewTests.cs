@@ -740,6 +740,32 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void RowValidating_IsRaisedByTheRowCommitCycle_AndCanCancel ()
+        {
+            using var grid = Populated ();
+            var dgv = (DataGridView)grid;
+            dgv.SelectedRowIndex = 0;
+
+            var seen = new List<string?> ();
+            var cancel = false;
+
+            grid.RowValidating += (o, e) => {
+                seen.Add (e.Row?.Cells["Name"].Value?.ToString ());
+                e.Cancel = cancel;
+            };
+
+            dgv.SelectedRowIndex = 1;
+            Assert.Equal (["Alice"], seen);
+            Assert.Equal (1, dgv.SelectedRowIndex);
+
+            // A cancelling handler keeps the row current, as in Telerik.
+            cancel = true;
+            dgv.SelectedRowIndex = 2;
+            Assert.Equal (["Alice", "Bob"], seen);
+            Assert.Equal (1, dgv.SelectedRowIndex);
+        }
+
+        [Fact]
         public void Renders_WithGroupPanel_Filter_And_Groups_WithoutThrowing ()
         {
             using var grid = Populated ();

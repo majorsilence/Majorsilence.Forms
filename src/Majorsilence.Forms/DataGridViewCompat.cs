@@ -238,6 +238,15 @@ namespace Majorsilence.Forms
     {
         /// <summary>Gets or sets the maximum number of characters allowed in the column's cells. Stub.</summary>
         public int MaxInputLength { get; set; } = 32767;
+
+        /// <inheritdoc/>
+        protected override void CopyStateTo (DataGridViewColumn target)
+        {
+            base.CopyStateTo (target);
+
+            if (target is DataGridViewTextBoxColumn column)
+                column.MaxInputLength = MaxInputLength;
+        }
     }
 
     /// <summary>
@@ -250,6 +259,17 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the description of the image. Stub in Majorsilence.Forms.</summary>
         public string Description { get; set; } = string.Empty;
+
+        /// <inheritdoc/>
+        protected override void CopyStateTo (DataGridViewColumn target)
+        {
+            base.CopyStateTo (target);
+
+            if (target is DataGridViewImageColumn column) {
+                column.Image = Image;
+                column.Description = Description;
+            }
+        }
     }
 
     /// <summary>
@@ -274,6 +294,21 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether the column header text is used as link text. Stub in Majorsilence.Forms.</summary>
         public bool UseColumnTextForLinkValue { get; set; }
+
+        /// <inheritdoc/>
+        protected override void CopyStateTo (DataGridViewColumn target)
+        {
+            base.CopyStateTo (target);
+
+            if (target is DataGridViewLinkColumn column) {
+                column.Text = Text;
+                column.ActiveLinkColor = ActiveLinkColor;
+                column.LinkColor = LinkColor;
+                column.VisitedLinkColor = VisitedLinkColor;
+                column.TrackVisitedState = TrackVisitedState;
+                column.UseColumnTextForLinkValue = UseColumnTextForLinkValue;
+            }
+        }
     }
 
     /// <summary>
@@ -291,6 +326,17 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether the column HeaderText is used as button text.</summary>
         public bool UseColumnTextForButtonValue { get; set; }
+
+        /// <inheritdoc/>
+        protected override void CopyStateTo (DataGridViewColumn target)
+        {
+            base.CopyStateTo (target);
+
+            if (target is DataGridViewButtonColumn column) {
+                column.Text = Text;
+                column.UseColumnTextForButtonValue = UseColumnTextForButtonValue;
+            }
+        }
     }
 
     /// <summary>
@@ -315,6 +361,21 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the width of the drop-down list. Stub in Majorsilence.Forms.</summary>
         public int DropDownWidth { get; set; }
+
+        /// <inheritdoc/>
+        protected override void CopyStateTo (DataGridViewColumn target)
+        {
+            base.CopyStateTo (target);
+
+            if (target is DataGridViewComboBoxColumn column) {
+                column.DataSource = DataSource;
+                column.DisplayMember = DisplayMember;
+                column.ValueMember = ValueMember;
+                column.FlatStyle = FlatStyle;
+                column.DropDownWidth = DropDownWidth;
+                column.Items.AddRange (Items);
+            }
+        }
     }
 
     /// <summary>
@@ -634,27 +695,93 @@ namespace Majorsilence.Forms
         public bool Cancel { get; set; }
     }
 
-    /// <summary>Provides data for the DataGridView.RowPrePaint event. Stub in Majorsilence.Forms.</summary>
-    public class DataGridViewRowPrePaintEventArgs : EventArgs
+    /// <summary>
+    /// Base for the row paint event args. Carries the paint surface and row geometry, and exposes the
+    /// grid's own row painting (cells / row header) so a handler can compose its custom drawing with the
+    /// default rendering. The <c>Paint*</c> methods call back into the renderer that raised the event.
+    /// </summary>
+    public abstract class DataGridViewRowPaintBaseEventArgs : EventArgs
     {
-        /// <summary>Initializes a new instance.</summary>
-        public DataGridViewRowPrePaintEventArgs (int rowIndex) { RowIndex = rowIndex; }
+        internal Action<Rectangle, DataGridViewPaintParts>? PaintCellsCallback;
+        internal Action<bool>? PaintHeaderCallback;
+
+        /// <summary>Initializes a new instance for the specified row.</summary>
+        protected DataGridViewRowPaintBaseEventArgs (int rowIndex) { RowIndex = rowIndex; }
 
         /// <summary>Gets the row index.</summary>
         public int RowIndex { get; }
+
+        /// <summary>Gets the surface the row is being painted on, or null when the event was raised outside a paint pass.</summary>
+        public Majorsilence.Forms.Drawing.SkiaGraphics? Graphics { get; internal set; }
+
+        /// <summary>Gets the area of the grid that needs repainting, in device pixels.</summary>
+        public Rectangle ClipBounds { get; set; }
+
+        /// <summary>Gets the bounds of the row being painted, in device pixels.</summary>
+        public Rectangle RowBounds { get; internal set; }
+
+        /// <summary>Gets the state of the row being painted.</summary>
+        public DataGridViewElementStates State { get; internal set; }
+
+        /// <summary>Gets the error text for the row.</summary>
+        public string ErrorText { get; internal set; } = string.Empty;
+
+        /// <summary>Gets the style applied to the row after the grid/row style cascade.</summary>
+        public DataGridViewCellStyle? InheritedRowStyle { get; internal set; }
+
+        /// <summary>Gets whether this row is the first one currently displayed.</summary>
+        public bool IsFirstDisplayedRow { get; internal set; }
+
+        /// <summary>Gets whether this row is the last visible row of the grid.</summary>
+        public bool IsLastVisibleRow { get; internal set; }
+
+        /// <summary>Paints the row's cells (the grid's default cell rendering) for the given parts.</summary>
+        public void PaintCells (Rectangle clipBounds, DataGridViewPaintParts paintParts)
+            => PaintCellsCallback?.Invoke (clipBounds, paintParts);
+
+        /// <summary>Paints only the background of the row's cells.</summary>
+        public void PaintCellsBackground (Rectangle clipBounds, bool cellsPaintSelectionBackground)
+            => PaintCells (clipBounds, cellsPaintSelectionBackground
+                ? DataGridViewPaintParts.Background | DataGridViewPaintParts.SelectionBackground | DataGridViewPaintParts.Border
+                : DataGridViewPaintParts.Background | DataGridViewPaintParts.Border);
+
+        /// <summary>Paints only the content (text/glyphs) of the row's cells.</summary>
+        public void PaintCellsContent (Rectangle clipBounds)
+            => PaintCells (clipBounds, DataGridViewPaintParts.ContentForeground | DataGridViewPaintParts.ContentBackground);
+
+        /// <summary>Paints the row's header cell.</summary>
+        public void PaintHeader (bool paintSelectionBackground) => PaintHeaderCallback?.Invoke (paintSelectionBackground);
+
+        /// <summary>Paints the row's header cell for the given parts.</summary>
+        public void PaintHeader (DataGridViewPaintParts paintParts)
+            => PaintHeader (paintParts.HasFlag (DataGridViewPaintParts.SelectionBackground));
+    }
+
+    /// <summary>
+    /// Provides data for the DataGridView.RowPrePaint event, raised by the renderer before a row's
+    /// background, header and cells are drawn. Set <see cref="Handled"/> to suppress the grid's own
+    /// painting of the row.
+    /// </summary>
+    public class DataGridViewRowPrePaintEventArgs : DataGridViewRowPaintBaseEventArgs
+    {
+        /// <summary>Initializes a new instance.</summary>
+        public DataGridViewRowPrePaintEventArgs (int rowIndex) : base (rowIndex) { }
 
         /// <summary>Gets or sets whether the default painting is skipped.</summary>
         public bool Handled { get; set; }
+
+        /// <summary>Gets or sets the parts of the row the grid should paint. Honored by the renderer when <see cref="Handled"/> is false.</summary>
+        public DataGridViewPaintParts PaintParts { get; set; } = DataGridViewPaintParts.All;
     }
 
-    /// <summary>Provides data for the DataGridView.RowPostPaint event. Stub in Majorsilence.Forms.</summary>
-    public class DataGridViewRowPostPaintEventArgs : EventArgs
+    /// <summary>
+    /// Provides data for the DataGridView.RowPostPaint event, raised by the renderer after a row has
+    /// been drawn.
+    /// </summary>
+    public class DataGridViewRowPostPaintEventArgs : DataGridViewRowPaintBaseEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
-        public DataGridViewRowPostPaintEventArgs (int rowIndex) { RowIndex = rowIndex; }
-
-        /// <summary>Gets the row index.</summary>
-        public int RowIndex { get; }
+        public DataGridViewRowPostPaintEventArgs (int rowIndex) : base (rowIndex) { }
     }
 
     /// <summary>Provides data for the DataGridView.ColumnAdded and ColumnRemoved events.</summary>
@@ -823,14 +950,26 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance.</summary>
         public DataGridViewCellPaintingEventArgs (int columnIndex, int rowIndex) : base (columnIndex, rowIndex) { }
 
-        /// <summary>Gets the graphics surface to paint on. Declared for source compat; CellPainting is a stub event and is never actually raised.</summary>
+        /// <summary>Gets the graphics surface to paint on. Set by the renderer when the event is raised during a paint pass.</summary>
         public Majorsilence.Forms.Drawing.SkiaGraphics? Graphics { get; set; }
 
-        /// <summary>Paints the cell's default content (value/text) within the given bounds. No-op stub -- CellPainting is never raised.</summary>
-        public void PaintContent (Rectangle cellBounds) { }
+        // Installed by the renderer that raises CellPainting so the Paint* methods below run the grid's
+        // real default cell painting for the requested parts.
+        internal Action<Rectangle, DataGridViewPaintParts>? PaintCallback;
 
-        /// <summary>Paints the cell's background within the given bounds. No-op stub -- CellPainting is never raised.</summary>
-        public void PaintBackground (Rectangle cellBounds, bool cellsPaintSelectionBackground) { }
+        /// <summary>Paints the cell's default content (value/text/glyph) within the given bounds.</summary>
+        public void PaintContent (Rectangle cellBounds)
+            => PaintCallback?.Invoke (cellBounds, DataGridViewPaintParts.ContentForeground | DataGridViewPaintParts.ContentBackground);
+
+        /// <summary>Paints the cell's background (and border) within the given bounds.</summary>
+        public void PaintBackground (Rectangle cellBounds, bool cellsPaintSelectionBackground)
+            => PaintCallback?.Invoke (cellBounds, cellsPaintSelectionBackground
+                ? DataGridViewPaintParts.Background | DataGridViewPaintParts.SelectionBackground | DataGridViewPaintParts.Border
+                : DataGridViewPaintParts.Background | DataGridViewPaintParts.Border);
+
+        /// <summary>Paints the requested parts of the cell using the grid's default rendering.</summary>
+        public void Paint (Rectangle clipBounds, DataGridViewPaintParts paintParts)
+            => PaintCallback?.Invoke (CellBounds.IsEmpty ? clipBounds : CellBounds, paintParts);
 
         /// <summary>Gets or sets whether the painting should be handled by the caller.</summary>
         public bool Handled { get; set; }
@@ -1004,6 +1143,15 @@ namespace Majorsilence.Forms
     {
         /// <summary>Gets or sets whether three-state toggling is supported.</summary>
         public bool ThreeState { get; set; }
+
+        /// <inheritdoc/>
+        protected override void CopyStateTo (DataGridViewCell target)
+        {
+            base.CopyStateTo (target);
+
+            if (target is DataGridViewCheckBoxCell cell)
+                cell.ThreeState = ThreeState;
+        }
     }
 
     /// <summary>Represents a combo-box cell in a DataGridView. Stub in Majorsilence.Forms.</summary>
@@ -1023,6 +1171,20 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the value member for the combo-box items.</summary>
         public string ValueMember { get; set; } = string.Empty;
+
+        /// <inheritdoc/>
+        protected override void CopyStateTo (DataGridViewCell target)
+        {
+            base.CopyStateTo (target);
+
+            if (target is DataGridViewComboBoxCell cell) {
+                cell.DisplayStyle = DisplayStyle;
+                cell.DataSource = DataSource;
+                cell.DisplayMember = DisplayMember;
+                cell.ValueMember = ValueMember;
+                cell.Items.AddRange (Items);
+            }
+        }
     }
 
     /// <summary>Represents an image cell in a DataGridView. Stub in Majorsilence.Forms.</summary>
@@ -1030,6 +1192,15 @@ namespace Majorsilence.Forms
     {
         /// <summary>Gets or sets the image layout for this cell.</summary>
         public DataGridViewImageCellLayout ImageLayout { get; set; } = DataGridViewImageCellLayout.Normal;
+
+        /// <inheritdoc/>
+        protected override void CopyStateTo (DataGridViewCell target)
+        {
+            base.CopyStateTo (target);
+
+            if (target is DataGridViewImageCell cell)
+                cell.ImageLayout = ImageLayout;
+        }
     }
 
     /// <summary>Specifies how an image is displayed in a DataGridViewImageCell.</summary>
@@ -1043,6 +1214,95 @@ namespace Majorsilence.Forms
         Stretch,
         /// <summary>The image is zoomed to fill the cell preserving aspect ratio.</summary>
         Zoom
+    }
+
+    /// <summary>Specifies the border style of a single edge of a DataGridView cell.</summary>
+    public enum DataGridViewAdvancedCellBorderStyle
+    {
+        /// <summary>The border is not set; the grid decides.</summary>
+        NotSet = 0,
+        /// <summary>No border is drawn on this edge.</summary>
+        None = 1,
+        /// <summary>A single-line border.</summary>
+        Single = 2,
+        /// <summary>A sunken (inset) border.</summary>
+        Inset = 3,
+        /// <summary>A doubled sunken border.</summary>
+        InsetDouble = 4,
+        /// <summary>A raised (outset) border.</summary>
+        Outset = 5,
+        /// <summary>A doubled raised border.</summary>
+        OutsetDouble = 6,
+        /// <summary>A partial raised border.</summary>
+        OutsetPartial = 7
+    }
+
+    /// <summary>
+    /// Describes the border style of each edge of a DataGridView cell. Set on
+    /// <see cref="DataGridView.AdvancedCellBorderStyle"/> (or the header equivalents) to control which
+    /// cell edges the renderer draws; the renderer reads all four edges every paint.
+    /// </summary>
+    public sealed class DataGridViewAdvancedBorderStyle : ICloneable
+    {
+        private DataGridViewAdvancedCellBorderStyle left = DataGridViewAdvancedCellBorderStyle.NotSet;
+        private DataGridViewAdvancedCellBorderStyle right = DataGridViewAdvancedCellBorderStyle.NotSet;
+        private DataGridViewAdvancedCellBorderStyle top = DataGridViewAdvancedCellBorderStyle.NotSet;
+        private DataGridViewAdvancedCellBorderStyle bottom = DataGridViewAdvancedCellBorderStyle.NotSet;
+
+        /// <summary>Initializes a new instance with every edge <see cref="DataGridViewAdvancedCellBorderStyle.NotSet"/>.</summary>
+        public DataGridViewAdvancedBorderStyle () { }
+
+        /// <summary>Raised when any edge changes. Used by the grid to repaint.</summary>
+        internal event EventHandler? Changed;
+
+        /// <summary>Gets or sets the style of the left edge.</summary>
+        public DataGridViewAdvancedCellBorderStyle Left {
+            get => left;
+            set { if (left != value) { left = value; Changed?.Invoke (this, EventArgs.Empty); } }
+        }
+
+        /// <summary>Gets or sets the style of the right edge.</summary>
+        public DataGridViewAdvancedCellBorderStyle Right {
+            get => right;
+            set { if (right != value) { right = value; Changed?.Invoke (this, EventArgs.Empty); } }
+        }
+
+        /// <summary>Gets or sets the style of the top edge.</summary>
+        public DataGridViewAdvancedCellBorderStyle Top {
+            get => top;
+            set { if (top != value) { top = value; Changed?.Invoke (this, EventArgs.Empty); } }
+        }
+
+        /// <summary>Gets or sets the style of the bottom edge.</summary>
+        public DataGridViewAdvancedCellBorderStyle Bottom {
+            get => bottom;
+            set { if (bottom != value) { bottom = value; Changed?.Invoke (this, EventArgs.Empty); } }
+        }
+
+        /// <summary>Sets every edge to the same style.</summary>
+        public void All (DataGridViewAdvancedCellBorderStyle style)
+        {
+            left = right = top = bottom = style;
+            Changed?.Invoke (this, EventArgs.Empty);
+        }
+
+        /// <summary>Returns a copy of this border style.</summary>
+        public DataGridViewAdvancedBorderStyle Clone ()
+            => new DataGridViewAdvancedBorderStyle { left = left, right = right, top = top, bottom = bottom };
+
+        object ICloneable.Clone () => Clone ();
+
+        /// <inheritdoc/>
+        public override bool Equals (object? obj)
+            => obj is DataGridViewAdvancedBorderStyle other
+                && other.left == left && other.right == right && other.top == top && other.bottom == bottom;
+
+        /// <inheritdoc/>
+        public override int GetHashCode () => HashCode.Combine (left, right, top, bottom);
+
+        /// <inheritdoc/>
+        public override string ToString ()
+            => $"DataGridViewAdvancedBorderStyle {{ All={(left == right && right == top && top == bottom ? left.ToString () : "NotSet")}, Left={left}, Right={right}, Top={top}, Bottom={bottom} }}";
     }
 
     /// <summary>Specifies the display style for a DataGridViewComboBoxCell.</summary>

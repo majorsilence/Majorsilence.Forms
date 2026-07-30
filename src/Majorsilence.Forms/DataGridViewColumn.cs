@@ -230,6 +230,97 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Gets the style used for this column's cells: the grid's
+        /// <see cref="DataGridView.DefaultCellStyle"/> overlaid with this column's
+        /// <see cref="DefaultCellStyle"/>. Mirrors WinForms DataGridViewColumn.InheritedStyle.
+        /// </summary>
+        public DataGridViewCellStyle InheritedStyle {
+            get {
+                var result = new DataGridViewCellStyle ();
+
+                if (owner is not null)
+                    result.ApplyStyle (owner.DefaultCellStyle.ToDataGridViewCellStyle ());
+
+                result.ApplyStyle (DefaultCellStyle);
+                return result;
+            }
+        }
+
+        /// <summary>Gets the state of this column (WinForms DataGridViewColumn.State / InheritedState).</summary>
+        public DataGridViewElementStates State {
+            get {
+                var state = DataGridViewElementStates.None;
+
+                if (Visible)
+                    state |= DataGridViewElementStates.Visible;
+                if (ReadOnly || (owner?.ReadOnly ?? false))
+                    state |= DataGridViewElementStates.ReadOnly;
+                if (Frozen)
+                    state |= DataGridViewElementStates.Frozen;
+                if (!HeaderBounds.IsEmpty)
+                    state |= DataGridViewElementStates.Displayed;
+                if (Resizable != DataGridViewTriState.False && (owner?.AllowUserToResizeColumns ?? true))
+                    state |= DataGridViewElementStates.Resizable;
+                if (Resizable != DataGridViewTriState.NotSet)
+                    state |= DataGridViewElementStates.ResizableSet;
+
+                return state;
+            }
+        }
+
+        /// <summary>Gets the state of this column, including state inherited from the grid. Mirrors WinForms.</summary>
+        public DataGridViewElementStates InheritedState => State;
+
+        /// <summary>
+        /// Creates an exact copy of this column (WinForms DataGridViewColumn.Clone). The clone is of the
+        /// same runtime type and is unowned -- add it to a grid's column collection to attach it.
+        /// </summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072",
+            Justification = "Column types are concrete public types with public parameterless constructors; cloning mirrors WinForms.")]
+        public virtual object Clone ()
+        {
+            var clone = (DataGridViewColumn)Activator.CreateInstance (GetType ())!;
+            CopyStateTo (clone);
+            return clone;
+        }
+
+        /// <summary>
+        /// Copies this column's own (non-ownership) state onto <paramref name="target"/>. Derived column
+        /// types override to carry their extra members across a <see cref="Clone"/>.
+        /// </summary>
+        protected virtual void CopyStateTo (DataGridViewColumn target)
+        {
+            ArgumentNullException.ThrowIfNull (target);
+
+            target.header_text = header_text;
+            target.width = width;
+            target.Name = Name;
+            target.DataPropertyName = DataPropertyName;
+            target.ValueType = ValueType;
+            target.FormatString = FormatString;
+            target.AllowFiltering = AllowFiltering;
+            target.IsDataBound = IsDataBound;
+            target.ReadOnly = ReadOnly;
+            target.ToolTipText = ToolTipText;
+            target.DefaultCellStyle = DefaultCellStyle.Clone ();
+            target.Resizable = Resizable;
+            target.SortMode = SortMode;
+            target.MinimumWidth = MinimumWidth;
+            target.Sortable = Sortable;
+            target.SortOrder = SortOrder;
+            target.Tag = Tag;
+            target.Visible = Visible;
+            target.AutoSizeMode = AutoSizeMode;
+            target.FillWeight = FillWeight;
+            target.Frozen = Frozen;
+            target.PinnedRight = PinnedRight;
+            target.DividerWidth = DividerWidth;
+            target.CellTemplate = CellTemplate;
+            target.DefaultCellStyleAlignment = DefaultCellStyleAlignment;
+            target.HeaderAlignment = HeaderAlignment;
+        }
+
+        /// <summary>
         /// Sets the owning DataGridView.
         /// </summary>
         internal void SetOwner (DataGridView? dataGridView) => owner = dataGridView;

@@ -356,6 +356,9 @@ namespace Majorsilence.Forms
         /// <summary>OEM text format.</summary>
         public static DataFormat OemText { get; } = new DataFormat ("OEMText", 7);
 
+        /// <summary>Comma-separated-value format (what a grid puts on the clipboard alongside plain text).</summary>
+        public static DataFormat CommaSeparatedValue { get; } = new DataFormat ("Csv", 0xC005);
+
         /// <summary>Returns the format with the specified name.</summary>
         public static DataFormat GetFormat (string format) => new DataFormat (format, 0);
     }

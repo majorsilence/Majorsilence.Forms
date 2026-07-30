@@ -135,6 +135,21 @@ namespace Majorsilence.Forms
         public System.Drawing.Color SelectionForeColor { get; set; } = System.Drawing.Color.Empty;
 
         /// <summary>
+        /// Projects this style onto a <see cref="DataGridViewCellStyle"/>, used when the grid builds a
+        /// cell's inherited style (the WinForms style cascade is expressed in DataGridViewCellStyle
+        /// terms, while the grid stores its own default styles as ControlStyle). Only the members the
+        /// two types share are copied; the Skia typeface is not converted back to a
+        /// <see cref="Majorsilence.Forms.Drawing.Font"/>.
+        /// </summary>
+        internal DataGridViewCellStyle ToDataGridViewCellStyle () => new DataGridViewCellStyle {
+            BackColor = BackColor,
+            ForeColor = ForeColor,
+            SelectionBackColor = SelectionBackColor,
+            SelectionForeColor = SelectionForeColor,
+            Alignment = Alignment
+        };
+
+        /// <summary>
         /// Converts a DataGridViewCellStyle to a ControlStyle, so WinForms-style designer code
         /// (`grid.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle { BackColor = ...,
         /// Font = ..., ... };`) can assign directly to a ControlStyle-typed property.
