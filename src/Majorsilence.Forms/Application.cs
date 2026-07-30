@@ -35,8 +35,16 @@ namespace Majorsilence.Forms
         /// post the close and cancel it if any of our own windows activates first: opening a popup
         /// always produces a matching activation (the popup itself), which cancels the close;
         /// switching to another application produces no such activation, so the close proceeds.
-        /// Replaces an earlier timing flag that reset on a fixed dispatcher tick and raced against
-        /// late-delivered deactivation events (menus opening then instantly closing).
+        ///
+        /// The activation that cancels this is <see cref="NotifyWindowActivated"/>, called proactively
+        /// from <see cref="WindowBase.Show"/>/<c>ShowDialog</c> the moment we ask the backend to show a
+        /// window of our own — not reactively from the backend's own Activated event. On at least the
+        /// Avalonia backend, a brand-new window's real OS/compositor-confirmed activation is reliably
+        /// slower than this method's own posted check (deactivating the old window is effectively
+        /// synchronous; activating a window that didn't exist a moment ago is not), so waiting for that
+        /// confirmation lost this race every time, not intermittently — see git history for the bug this
+        /// fixed. Replaces an earlier timing flag that reset on a fixed dispatcher tick, which had the
+        /// same failure mode for a different reason (menus opening then instantly closing).
         /// </summary>
         internal static void ScheduleClosePopupsOnDeactivate ()
         {
@@ -50,7 +58,13 @@ namespace Majorsilence.Forms
             });
         }
 
-        /// <summary>One of our windows activated — cancels any pending deactivate-driven popup close.</summary>
+        /// <summary>
+        /// One of our windows activated — cancels any pending deactivate-driven popup close. Called
+        /// proactively by <see cref="WindowBase.Show"/>/<c>ShowDialog</c> as soon as we ask to show one of
+        /// our own windows (we don't need to wait for the backend's own, potentially much later,
+        /// Activated notification to know that) — see <see cref="ScheduleClosePopupsOnDeactivate"/>.
+        /// Calling it again when the backend's real Activated event does eventually arrive is harmless.
+        /// </summary>
         internal static void NotifyWindowActivated () => _activationGeneration++;
 
         /// <summary>

@@ -682,6 +682,7 @@ namespace Majorsilence.Forms
             SetWindowStartupLocation ();
             EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
+            Application.NotifyWindowActivated ();
 
             if (this is Form f)
                 Application.OpenForms.Add (f);
@@ -701,6 +702,7 @@ namespace Majorsilence.Forms
             parent.Backend.Enabled = false;
             EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
+            Application.NotifyWindowActivated ();
 
             if (this is Form f)
                 Application.OpenForms.Add (f);
