@@ -1199,17 +1199,14 @@ namespace Majorsilence.Forms
         public event EventHandler<KeyEventArgs>? KeyUp { add => Control.KeyUp += value; remove => Control.KeyUp -= value; }
     }
 
-    /// <summary>Represents a ToolStrip-hosted drop-down control. Stub in Majorsilence.Forms.</summary>
+    /// <summary>Represents a ToolStrip-hosted drop-down control.</summary>
     public class ToolStripDropDown : ContextMenu
     {
         /// <summary>Gets the items in this drop-down.</summary>
         public new MenuItemCollection Items => base.Items;
 
-        /// <summary>Shows the drop-down at the specified screen location.</summary>
-        public void Show (System.Drawing.Point screenLocation) { }
-
-        /// <summary>Shows the drop-down at the specified location relative to a control.</summary>
-        public new void Show (Control control, System.Drawing.Point location) => base.Show (control, location);
+        // NOTE: Show (Point) and Show (Control, Point) are inherited from ContextMenu. Show (Point) used
+        // to be redeclared here with an empty body, which shadowed the real one; both are now real.
     }
 
     /// <summary>
@@ -1770,19 +1767,22 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>
-    /// Represents a menu bar docked at the top of a form. Alias for Menu.
+    /// Represents a menu bar docked at the top of a form. Derives from <see cref="ToolStrip"/> via
+    /// <see cref="Menu"/>, matching WinForms' MenuStrip : ToolStrip, so ToolStrip members (Renderer,
+    /// RenderMode, LayoutStyle, GripStyle, Stretch, CanOverflow, ImageScalingSize, ...) are all reachable
+    /// here. The top-docked bar layout and rendering come from <see cref="Menu"/>.
     /// </summary>
     public class MenuStrip : Menu
     {
         /// <summary>Gets or sets the ToolStripMenuItem for the MDI window list. Stub in Majorsilence.Forms.</summary>
         public ToolStripMenuItem? MdiWindowListItem { get; set; }
-
-        /// <summary>Gets or sets the size used to scale item images. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Size ImageScalingSize { get; set; } = new System.Drawing.Size(16, 16);
     }
 
     /// <summary>
-    /// Represents a shortcut (context) menu. WinForms compatibility alias for <see cref="ContextMenu"/>.
+    /// Represents a shortcut (context) menu. Derives from <see cref="ToolStrip"/> via
+    /// <see cref="ContextMenu"/>/<see cref="MenuDropDown"/>, matching WinForms' ContextMenuStrip :
+    /// ToolStripDropDownMenu : ToolStripDropDown : ToolStrip, so ToolStrip members are reachable here.
+    /// The Opening/Opened/Closing/Closed popup lifecycle comes from <see cref="ContextMenu"/>.
     /// </summary>
     public class ContextMenuStrip : ContextMenu
     {
@@ -1792,19 +1792,24 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance owned by the specified container (WinForms designer overload; the container is not used).</summary>
         public ContextMenuStrip (System.ComponentModel.IContainer container) { }
 
-        /// <summary>Shows the menu at the given screen point. Mirrors WinForms ContextMenuStrip.Show(Point).</summary>
-        public void Show (System.Drawing.Point screenLocation)
-        {
-        }
-
-        /// <summary>Gets or sets the size used to scale item images. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Size ImageScalingSize { get; set; } = new System.Drawing.Size(16, 16);
+        // NOTE: Show (Point) is deliberately NOT redeclared here. It used to be overridden with an empty
+        // body, which shadowed the working inherited overloads and made the most idiomatic WinForms call
+        // shape -- contextMenuStrip.Show (screenPoint) -- silently do nothing. ContextMenu.Show (Point)
+        // is now real and this type simply inherits it.
     }
 
     /// <summary>
     /// Represents a toolbar strip that can contain ToolStripButton, ToolStripLabel, and other ToolStripItem types.
     /// Maps to Majorsilence.Forms' ToolBar (MenuBase) with a ToolStripItemCollection facade.
     /// </summary>
+    /// <remarks>
+    /// This is the base of the whole strip family, matching real WinForms: <see cref="MenuStrip"/>,
+    /// <see cref="ContextMenuStrip"/> and <see cref="StatusStrip"/> are all ToolStrip-derived, so
+    /// ToolStrip-level members (Renderer, RenderMode, LayoutStyle, GripStyle, Stretch, CanOverflow, ...)
+    /// are reachable from every one of them. <see cref="Menu"/> and <see cref="MenuDropDown"/> sit
+    /// between ToolStrip and those compat types and re-expose <c>Items</c> as a
+    /// <see cref="MenuItemCollection"/>, because that is the collection their renderers consume.
+    /// </remarks>
     public class ToolStrip : ToolBar
     {
         private readonly ToolStripItemCollection _items;
@@ -1812,15 +1817,30 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of the ToolStrip class.</summary>
         public ToolStrip ()
         {
-            // The facade collection must forward into the base MenuBase root collection: that base
-            // collection is the ONLY one LayoutItems, ToolBarRenderer, and MenuBase's mouse
-            // hit-testing consume. Items held solely in the facade exist but never lay out, never
-            // paint, and can never be clicked -- found via a real migrated app
-            // (ReportDesigner.Forms) whose two designer ToolStrips (21 and 19 buttons) rendered as
-            // completely empty bars.
+            _items = CreateItemsFacade ();
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the ToolStrip class with the provided root MenuItem. Exists so
+        /// <see cref="MenuDropDown"/> (which derives from ToolStrip) can still be built around an
+        /// existing item's sub-item collection.
+        /// </summary>
+        protected ToolStrip (MenuItem root) : base (root)
+        {
+            _items = CreateItemsFacade ();
+        }
+
+        // The facade collection must forward into the base MenuBase root collection: that base
+        // collection is the ONLY one LayoutItems, ToolBarRenderer, and MenuBase's mouse
+        // hit-testing consume. Items held solely in the facade exist but never lay out, never
+        // paint, and can never be clicked -- found via a real migrated app
+        // (ReportDesigner.Forms) whose two designer ToolStrips (21 and 19 buttons) rendered as
+        // completely empty bars.
+        private ToolStripItemCollection CreateItemsFacade ()
+        {
             var base_items = base.Items;
 
-            _items = new ToolStripItemCollection {
+            return new ToolStripItemCollection {
                 ItemAddedCallback = item => {
                     base_items.Add (item);
                     item.Click += (_, _) => ItemClicked?.Invoke (this, new ToolStripItemClickedEventArgs (item));
@@ -2127,23 +2147,21 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>
-    /// Represents a status bar with items docked at the bottom of a form.
+    /// Represents a status bar with items docked at the bottom of a form. Derives from
+    /// <see cref="ToolStrip"/>, matching WinForms' StatusStrip : ToolStrip, so ToolStrip members
+    /// (Renderer, RenderMode, LayoutStyle, GripStyle, Stretch, CanOverflow, ImageScalingSize, ...) are
+    /// reachable here. Its items are still painted by its own <see cref="Renderers.StatusStripRenderer"/>,
+    /// which RenderManager keys off the concrete StatusStrip type.
     /// </summary>
-    public class StatusStrip : Control
+    public class StatusStrip : ToolStrip
     {
         /// <summary>Initializes a new instance of the StatusStrip class.</summary>
         public StatusStrip ()
         {
+            // Overrides the Top dock ToolBar sets for bars -- a status strip lives at the bottom.
             Dock = DockStyle.Bottom;
-            Items = new ToolStripItemCollection ();
             SetControlBehavior (ControlBehaviors.InvalidateOnTextChanged);
         }
-
-        /// <summary>Gets the collection of items displayed in this StatusStrip.</summary>
-        public ToolStripItemCollection Items { get; }
-
-        /// <summary>Gets or sets the size used to scale item images. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Size ImageScalingSize { get; set; } = new System.Drawing.Size(16, 16);
 
         /// <inheritdoc/>
         protected override Padding DefaultPadding => new Padding (1, 0, 16, 0);
@@ -2159,11 +2177,48 @@ namespace Majorsilence.Forms
             });
 
         /// <inheritdoc/>
-        protected override void OnPaint (PaintEventArgs e)
+        /// <remarks>
+        /// A status strip is not a menu bar: it must not become Application.ActiveMenu on click, which is
+        /// what <see cref="ToolBar"/> (an ancestor via ToolStrip) opts every bar into.
+        /// </remarks>
+        protected override bool IsTopLevelMenu => false;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Status items keep their own width and sit left-to-right; they are NOT expanded to fill the bar
+        /// the way <see cref="ToolBar"/>'s buttons are. Hidden items take no space at all. These are the
+        /// bounds <see cref="Renderers.StatusStripRenderer"/> paints into, so what you see is also what
+        /// MenuBase hit-tests -- while this type derived straight from Control nothing laid items out and
+        /// they could never be clicked.
+        /// </remarks>
+        protected override void LayoutItems ()
         {
-            base.OnPaint (e);
-            Renderers.RenderManager.Render (this, e);
+            var rect = PaddedClientRectangle;
+            var x = rect.X;
+
+            foreach (var item in Items) {
+                if (!item.Visible) {
+                    item.SetBounds (0, 0, 0, 0);
+                    continue;
+                }
+
+                var width = item is ToolStripItem tsi && tsi.Size.Width > 0 ? tsi.Size.Width : DefaultItemWidth;
+
+                item.SetBounds (x, rect.Y, width, rect.Height);
+
+                x += width + ItemSpacing;
+            }
         }
+
+        /// <summary>Width used for an item that hasn't been given an explicit Size.</summary>
+        internal const int DefaultItemWidth = 120;
+
+        /// <summary>Gap left between adjacent status items.</summary>
+        internal const int ItemSpacing = 4;
+
+        // NOTE: no OnPaint override -- MenuBase.OnPaint already lays the items out and dispatches to
+        // RenderManager, which resolves StatusStripRenderer from the concrete type. Overriding it here
+        // (as this type did while it derived straight from Control) would render the items twice.
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);

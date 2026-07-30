@@ -29,6 +29,16 @@ namespace Majorsilence.Forms
             Dock = DockStyle.Top;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the ToolBar class with the provided root MenuItem. Exists so
+        /// derived strips further down the chain (ToolStrip -> MenuDropDown) can still reach
+        /// <see cref="MenuBase(MenuItem)"/>, which is what backs every item's sub-menu drop down.
+        /// </summary>
+        protected ToolBar (MenuItem root) : base (root)
+        {
+            Dock = DockStyle.Top;
+        }
+
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (600, 34);
 

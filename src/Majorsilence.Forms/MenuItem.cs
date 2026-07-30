@@ -78,14 +78,16 @@ namespace Majorsilence.Forms
 
             var renderer = RenderManager.GetRenderer<Renderer> (owner);
 
+            // Ordered most-derived first: Menu and MenuDropDown both derive from ToolStrip (and so from
+            // ToolBar), so the ToolBar arm has to come last or it would swallow them.
             if (owner is Menu menu && renderer is MenuRenderer menu_renderer)
                 return menu_renderer.GetPreferredItemSize (menu, this, proposedSize);
 
-            if (owner is ToolBar tb && renderer is ToolBarRenderer tb_renderer)
-                return tb_renderer.GetPreferredItemSize (tb, this, proposedSize);
-
             if (owner is MenuDropDown mdd && renderer is MenuDropDownRenderer mdd_renderer)
                 return mdd_renderer.GetPreferredItemSize (mdd, this, proposedSize);
+
+            if (owner is ToolBar tb && renderer is ToolBarRenderer tb_renderer)
+                return tb_renderer.GetPreferredItemSize (tb, this, proposedSize);
 
             if (owner is Ribbon rb && renderer is RibbonRenderer rb_renderer)
                 return rb_renderer.GetPreferredItemSize (rb, this, proposedSize);
@@ -235,10 +237,13 @@ namespace Majorsilence.Forms
 
                 var dropdown_location = Point.Empty;
 
-                if (OwnerControl is Menu || OwnerControl is ToolBar)
-                    dropdown_location = OwnerControl.PointToScreen (new Point (Bounds.Left + 1, Bounds.Bottom));
-                else if (OwnerControl is MenuDropDown)
+                // A submenu opens to the SIDE of its parent drop down, everything else opens BELOW its
+                // host bar. MenuDropDown must be tested first: it now derives from ToolStrip (and so
+                // from ToolBar), so the bar arm would otherwise claim it and drop submenus downwards.
+                if (OwnerControl is MenuDropDown)
                     dropdown_location = OwnerControl.PointToScreen (new Point (Bounds.Right - 1, Bounds.Top));
+                else if (OwnerControl is Menu || OwnerControl is ToolBar)
+                    dropdown_location = OwnerControl.PointToScreen (new Point (Bounds.Left + 1, Bounds.Bottom));
 
                 dropdown.Show (OwnerControl, dropdown_location);
                 IsDropDownOpened = true;
