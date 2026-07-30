@@ -76,7 +76,17 @@ internal static class NamespaceMap
     /// <summary>
     /// Top-level GDI+ types that Majorsilence.Forms.Drawing reimplements. A fully-qualified
     /// <c>System.Drawing.&lt;name&gt;</c> reference to one of these is rewritten to
-    /// <c>Majorsilence.Forms.Drawing.&lt;name&gt;</c>. Kept in sync with <c>src/Majorsilence.Forms/Drawing/*.cs</c>.
+    /// <c>Majorsilence.Forms.Drawing.&lt;name&gt;</c>, and — for the unqualified-under-a-bare-<c>using
+    /// System.Drawing;</c> heuristic in <c>SourceConverter.RewriteDrawingImports</c> — its presence adds the
+    /// <c>Majorsilence.Forms.Drawing</c> companion import. That heuristic is deliberately approximate for the
+    /// handful of these that actually live one level down, in <c>Majorsilence.Forms.Drawing.Imaging</c>
+    /// (<c>ImageAttributes</c>, <c>ColorMatrix</c>, <c>ColorMap</c>, <c>Encoder</c>, <c>EncoderParameter</c>,
+    /// <c>EncoderParameters</c>, <c>BitmapData</c>) or <c>.Drawing2D</c>/<c>.Text</c> (already true of
+    /// <c>HotkeyPrefix</c> before this comment was updated) — real source that uses one of those unqualified
+    /// under only a bare <c>System.Drawing</c> import (no matching sub-namespace import at all) wouldn't have
+    /// compiled pre-migration either, so the imprecision is harmless in practice. Kept in sync with
+    /// <c>src/Majorsilence.Forms.Drawing.Common/*.cs</c> (the consolidated drawing project — see
+    /// <c>COMPATIBILITY_MATRIX.md</c>'s "System.Drawing / GDI+" section).
     /// </summary>
     public static readonly HashSet<string> MajorsilenceDrawingTypes = new(StringComparer.Ordinal)
     {
@@ -89,6 +99,9 @@ internal static class NamespaceMap
         "StringAlignment", "StringFormat", "StringFormatFlags", "StringTrimming", "TextureBrush",
         "TextRenderingHint", "WrapMode", "SystemIcons", "ImageAnimator", "ColorConverter",
         "BufferedGraphics", "BufferedGraphicsContext", "BufferedGraphicsManager",
+        // Added once these gained real implementations (see COMPATIBILITY_MATRIX.md's GDI+ surface audit):
+        "CharacterRange", "ImageAttributes", "ColorMatrix", "ColorMap",
+        "Encoder", "EncoderParameter", "EncoderParameters", "BitmapData",
     };
 
     /// <summary>
@@ -145,11 +158,18 @@ internal static class NamespaceMap
     /// under a <c>using System.Drawing;</c>, the textual rewrite can't see it, so we name-match it to warn —
     /// they would otherwise be silent compile breaks. The names are distinctive enough (nobody calls a local
     /// <c>TextureBrush</c>) that false positives are unlikely.
+    ///
+    /// EMF/WMF metafile recording-and-playback (<c>Metafile</c>/<c>MetafileHeader</c>) is genuinely out of
+    /// scope — a Windows-GDI concept with no cross-platform meaning on the SkiaSharp backend, same category
+    /// as the VB Application Model non-goal elsewhere in this repo, not a gap to be filled. Everything else
+    /// that used to be listed here (<c>ImageAttributes</c>, <c>ColorMatrix</c>, <c>ColorMap</c>, <c>Encoder</c>,
+    /// <c>EncoderParameter</c>, <c>EncoderParameters</c>, <c>CharacterRange</c>) gained a real implementation
+    /// and moved to <see cref="MajorsilenceDrawingTypes"/> — see that field's doc comment for why the move is
+    /// still an approximation for the ones living in a sub-namespace.
     /// </summary>
     public static readonly HashSet<string> UnmappedDrawingTypes = new(StringComparer.Ordinal)
     {
-        "Metafile", "MetafileHeader", "ImageAttributes", "ColorMatrix", "ColorMap",
-        "Encoder", "EncoderParameter", "EncoderParameters", "CharacterRange",
+        "Metafile", "MetafileHeader",
     };
 
     /// <summary>The namespace the GDI+ replacements live in; added alongside a kept <c>System.Drawing</c> import.</summary>
