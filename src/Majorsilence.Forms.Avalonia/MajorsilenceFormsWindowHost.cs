@@ -596,10 +596,13 @@ namespace Majorsilence.Forms
             //
             // Activating a popup deactivates its parent, whose deactivation would otherwise instantly
             // dismiss the just-opened popup (an earlier attempt disabled activation to avoid this, but
-            // that broke item clicks as above; a show-time timing flag was also tried and raced against
-            // late focus-change delivery). That is now handled generically: the deactivate-driven close
-            // is POSTED and cancelled by the popup's own activation, which also covers nested submenus
-            // -- see Application.ScheduleClosePopupsOnDeactivate / NotifyWindowActivated.
+            // that broke item clicks as above). That is now handled generically by checking whether the
+            // popup's own WindowBase.IsActive is (or becomes) true rather than inferring it from
+            // activate/deactivate event ORDER -- real clicks showed this popup's Activated arriving
+            // BEFORE its parent's Deactivated on Linux/Mutter/XWayland, the opposite of what an
+            // order-based "activation cancels a pending close" scheme assumes, which made an earlier
+            // fix along those lines fail 100% of the time rather than intermittently. See
+            // Application.ScheduleClosePopupsOnDeactivate and WindowBase.IsActive.
             ShowActivated = true;
             Focusable = true;
 

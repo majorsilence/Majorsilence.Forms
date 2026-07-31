@@ -172,16 +172,37 @@ public class SourceConverterTests
     [Fact]
     public void Warns_on_unqualified_unmapped_GDI_type_under_drawing_import ()
     {
-        var result = SourceConverter.Convert ("using System.Drawing;\nImageAttributes a;");
-        Assert.Contains (result.Warnings, w => w.Contains ("ImageAttributes"));
+        // Metafile has no Majorsilence equivalent (EMF/WMF playback is a Windows-GDI-only concept) —
+        // unlike ImageAttributes/ColorMatrix/Encoder/CharacterRange/etc., which used to be listed here too
+        // until they gained real implementations (see the two tests below and MajorsilenceDrawingTypes).
+        var result = SourceConverter.Convert ("using System.Drawing;\nMetafile m;");
+        Assert.Contains (result.Warnings, w => w.Contains ("Metafile"));
     }
 
     [Fact]
     public void Does_not_warn_on_unmapped_type_without_drawing_import ()
     {
-        // No `using System.Drawing;` — `ImageAttributes` is almost certainly an unrelated identifier.
-        var result = SourceConverter.Convert ("var ImageAttributes = 1;");
-        Assert.DoesNotContain (result.Warnings, w => w.Contains ("ImageAttributes"));
+        // No `using System.Drawing;` — `Metafile` is almost certainly an unrelated identifier.
+        var result = SourceConverter.Convert ("var Metafile = 1;");
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("Metafile"));
+    }
+
+    [Theory]
+    [InlineData ("ImageAttributes")]
+    [InlineData ("ColorMatrix")]
+    [InlineData ("ColorMap")]
+    [InlineData ("Encoder")]
+    [InlineData ("EncoderParameter")]
+    [InlineData ("EncoderParameters")]
+    [InlineData ("CharacterRange")]
+    [InlineData ("BitmapData")]
+    public void Does_not_warn_on_GDI_type_that_gained_a_real_implementation (string type)
+    {
+        // These used to be in UnmappedDrawingTypes ("no Majorsilence equivalent") before the GDI+ surface
+        // audit gap-filling work gave each a real implementation — see MajorsilenceDrawingTypes.
+        var result = SourceConverter.Convert ($"using System.Drawing;\n{type} x;");
+        Assert.DoesNotContain (result.Warnings, w => w.Contains (type));
+        Assert.Contains ("using Majorsilence.Forms.Drawing;", result.Text);
     }
 
     [Fact]

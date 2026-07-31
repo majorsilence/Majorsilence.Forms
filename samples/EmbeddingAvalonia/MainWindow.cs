@@ -36,8 +36,21 @@ public sealed class MainWindow : Window
             Application.Current!.RequestedThemeVariant =
                 Application.Current.ActualThemeVariant == ThemeVariant.Dark ? ThemeVariant.Light : ThemeVariant.Dark;
         };
+        // AvaloniaHostInterop.ToAvaloniaWindow(): a Majorsilence.Forms Form's backend window is a real
+        // Avalonia.Controls.Window under the hood, created eagerly in the Form's own constructor. This
+        // hands that window straight back so the host can use it exactly like any other Avalonia
+        // window -- here, Owner + ShowDialog() for a real native-modal relationship that Form's own
+        // ShowDialog() doesn't attempt (it only disables the parent's input, it doesn't ask the OS for
+        // a modal/owned window).
+        var dialogButton = new Button { Content = "Open as Avalonia dialog" };
+        dialogButton.Click += async (_, _) => {
+            var form = BuildDialogForm ();
+            var window = CF.AvaloniaHostInterop.ToAvaloniaWindow (form);
+            await window.ShowDialog (this);   // ShowDialog sets Owner internally.
+        };
         nativeRow.Children.Add (nativeBox);
         nativeRow.Children.Add (themeButton);
+        nativeRow.Children.Add (dialogButton);
 
         var divider = new Border {
             Height = 1,
@@ -51,10 +64,11 @@ public sealed class MainWindow : Window
             Margin = new Thickness (12, 4)
         };
 
-        var presenter = new CF.MajorsilenceFormsPresenter {
-            Content = BuildMajorsilenceScene (),
-            Margin = new Thickness (12, 4, 12, 12)
-        };
+        // AvaloniaHostInterop.ToAvaloniaControl(): equivalent to
+        // `new CF.MajorsilenceFormsPresenter { Content = BuildMajorsilenceScene () }`, just via the
+        // public extension method.
+        var presenter = CF.AvaloniaHostInterop.ToAvaloniaControl (BuildMajorsilenceScene ());
+        presenter.Margin = new Thickness (12, 4, 12, 12);
 
         var grid = new Grid {
             RowDefinitions = new RowDefinitions ("Auto,Auto,Auto,Auto,*")
@@ -71,6 +85,32 @@ public sealed class MainWindow : Window
         grid.Children.Add (presenter);
 
         Content = grid;
+    }
+
+    // A small Majorsilence.Forms Form shown as a real Avalonia dialog via ToAvaloniaWindow() (see the
+    // "Open as Avalonia dialog" button above) rather than through Form.Show()/ShowDialog().
+    private static CF.Form BuildDialogForm ()
+    {
+        var form = new CF.Form {
+            Text = "Majorsilence.Forms dialog",
+            ClientSize = new System.Drawing.Size (320, 140)
+        };
+
+        var label = new CF.Label {
+            Text = "This Form is hosted by a real Avalonia dialog Window.",
+            Left = 12, Top = 12, Width = 280, Height = 40
+        };
+
+        var closeButton = new CF.Button {
+            Text = "Close",
+            Left = 12, Top = 60, Width = 100, Height = 32
+        };
+        closeButton.Click += (_, _) => form.Close ();
+
+        form.Controls.Add (label);
+        form.Controls.Add (closeButton);
+
+        return form;
     }
 
     // Builds a small Majorsilence.Forms control tree exercising render + input + popups.

@@ -79,6 +79,23 @@ namespace Majorsilence.Forms
 
             Controls.AddImplicitControl (vscrollbar);
             Controls.AddImplicitControl (hscrollbar);
+
+            // Seed the per-edge border styles from the coarse CellBorderStyle default (Single), then
+            // repaint whenever an edge is hand-edited (which, as in WinForms, makes the coarse property
+            // report Custom).
+            ApplyCellBorderStyle (cell_border_style);
+            advanced_column_headers_border_style.All (DataGridViewAdvancedCellBorderStyle.Single);
+            advanced_row_headers_border_style.All (DataGridViewAdvancedCellBorderStyle.Single);
+
+            advanced_cell_border_style.Changed += (o, e) => {
+                if (!applying_cell_border_style)
+                    cell_border_style = DataGridViewCellBorderStyle.Custom;
+
+                Invalidate ();
+            };
+
+            advanced_column_headers_border_style.Changed += (o, e) => Invalidate ();
+            advanced_row_headers_border_style.Changed += (o, e) => Invalidate ();
         }
 
         /// <summary>
@@ -232,11 +249,27 @@ namespace Majorsilence.Forms
         /// <summary>Raised after a cell has been validated.</summary>
         public event EventHandler<DataGridViewCellEventArgs>? CellValidated;
 
-        /// <summary>Raised before a row's header is painted.</summary>
-        public event EventHandler<DataGridViewRowPrePaintEventArgs>? RowPrePaint { add { } remove { } }
+        private EventHandler<DataGridViewRowPrePaintEventArgs>? _rowPrePaint;
+        /// <summary>
+        /// Raised by the renderer before a row's background, header and cells are drawn. A handler can
+        /// draw its own row content and set <see cref="DataGridViewRowPrePaintEventArgs.Handled"/> to
+        /// suppress the grid's default painting for that row.
+        /// </summary>
+        public event EventHandler<DataGridViewRowPrePaintEventArgs>? RowPrePaint { add => _rowPrePaint += value; remove => _rowPrePaint -= value; }
 
-        /// <summary>Raised after a row has been painted.</summary>
+        /// <summary>Raised by the renderer after a row has been painted.</summary>
         public event EventHandler<DataGridViewRowPostPaintEventArgs>? RowPostPaint;
+
+        private EventHandler<DataGridViewCellCancelEventArgs>? _rowValidating;
+        /// <summary>
+        /// Raised when the current row is about to be left (row commit). A handler can set
+        /// <see cref="System.ComponentModel.CancelEventArgs.Cancel"/> to keep the current row current.
+        /// </summary>
+        public event EventHandler<DataGridViewCellCancelEventArgs>? RowValidating { add => _rowValidating += value; remove => _rowValidating -= value; }
+
+        private EventHandler<DataGridViewCellEventArgs>? _rowValidated;
+        /// <summary>Raised after a row has been validated (i.e. <see cref="RowValidating"/> was not cancelled).</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? RowValidated { add => _rowValidated += value; remove => _rowValidated -= value; }
 
         /// <summary>Raised to supply default values for new rows.</summary>
         public event EventHandler<DataGridViewRowEventArgs>? DefaultValuesNeeded { add { } remove { } }
@@ -250,11 +283,13 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the user clicks a row header.</summary>
         public event EventHandler<DataGridViewCellMouseEventArgs>? RowHeaderMouseClick { add { } remove { } }
 
-        /// <summary>Raised when a new row is added.</summary>
-        public event EventHandler<DataGridViewRowEventArgs>? RowEnter { add { } remove { } }
+        private EventHandler<DataGridViewCellEventArgs>? _rowEnter;
+        /// <summary>Raised when a row becomes the current row.</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? RowEnter { add => _rowEnter += value; remove => _rowEnter -= value; }
 
-        /// <summary>Raised when leaving a row.</summary>
-        public event EventHandler<DataGridViewRowEventArgs>? RowLeave { add { } remove { } }
+        private EventHandler<DataGridViewCellEventArgs>? _rowLeave;
+        /// <summary>Raised when a row stops being the current row.</summary>
+        public event EventHandler<DataGridViewCellEventArgs>? RowLeave { add => _rowLeave += value; remove => _rowLeave -= value; }
 
         /// <summary>Raised when a cell's content is clicked.</summary>
         public event EventHandler<DataGridViewCellEventArgs>? CellContentClick;
@@ -262,11 +297,22 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a cell's content is double-clicked.</summary>
         public event EventHandler<DataGridViewCellEventArgs>? CellContentDoubleClick { add { } remove { } }
 
-        /// <summary>Raised when a cell is being painted.</summary>
-        public event EventHandler<DataGridViewCellPaintingEventArgs>? CellPainting { add { } remove { } }
+        private EventHandler<DataGridViewCellPaintingEventArgs>? _cellPainting;
+        /// <summary>
+        /// Raised by the renderer for each data cell before it is drawn. A handler can paint the cell
+        /// itself (optionally calling <see cref="DataGridViewCellPaintingEventArgs.PaintBackground"/> /
+        /// <see cref="DataGridViewCellPaintingEventArgs.PaintContent"/> for the parts it does not draw)
+        /// and set <see cref="DataGridViewCellPaintingEventArgs.Handled"/> to suppress default painting.
+        /// </summary>
+        public event EventHandler<DataGridViewCellPaintingEventArgs>? CellPainting { add => _cellPainting += value; remove => _cellPainting -= value; }
 
-        /// <summary>Raised when a cell value is being parsed.</summary>
-        public event EventHandler<DataGridViewCellParsingEventArgs>? CellParsing { add { } remove { } }
+        private EventHandler<DataGridViewCellParsingEventArgs>? _cellParsing;
+        /// <summary>
+        /// Raised when an edit is committed, before the edited text is stored. A handler can convert the
+        /// text to a typed value and set <see cref="DataGridViewCellParsingEventArgs.ParsingApplied"/>
+        /// to have the grid store that value verbatim.
+        /// </summary>
+        public event EventHandler<DataGridViewCellParsingEventArgs>? CellParsing { add => _cellParsing += value; remove => _cellParsing -= value; }
 
         /// <summary>Raised when the state of a row changes.</summary>
         public event EventHandler<DataGridViewRowStateChangedEventArgs>? RowStateChanged { add { } remove { } }
@@ -400,8 +446,75 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the data member within the data source. Stub in Majorsilence.Forms.</summary>
         public string DataMember { get; set; } = string.Empty;
 
-        /// <summary>Gets or sets the cell border style. Stub in Majorsilence.Forms.</summary>
-        public DataGridViewCellBorderStyle CellBorderStyle { get; set; } = DataGridViewCellBorderStyle.Single;
+        /// <summary>
+        /// Gets or sets the border style applied to the grid's data cells. Setting it rewrites
+        /// <see cref="AdvancedCellBorderStyle"/> (as WinForms does) and the renderer draws whatever edges
+        /// that describes, so <see cref="DataGridViewCellBorderStyle.None"/> really does remove the grid
+        /// lines and the *Horizontal/*Vertical variants really do drop one axis.
+        /// </summary>
+        public DataGridViewCellBorderStyle CellBorderStyle {
+            get => cell_border_style;
+            set {
+                if (cell_border_style == value)
+                    return;
+
+                cell_border_style = value;
+
+                if (value != DataGridViewCellBorderStyle.Custom)
+                    ApplyCellBorderStyle (value);
+
+                Invalidate ();
+            }
+        }
+
+        private DataGridViewCellBorderStyle cell_border_style = DataGridViewCellBorderStyle.Single;
+        private readonly DataGridViewAdvancedBorderStyle advanced_cell_border_style = new DataGridViewAdvancedBorderStyle ();
+        private readonly DataGridViewAdvancedBorderStyle advanced_column_headers_border_style = new DataGridViewAdvancedBorderStyle ();
+        private readonly DataGridViewAdvancedBorderStyle advanced_row_headers_border_style = new DataGridViewAdvancedBorderStyle ();
+
+        /// <summary>
+        /// Gets the per-edge border style used for data cells. Assign to its <c>Left</c>/<c>Right</c>/
+        /// <c>Top</c>/<c>Bottom</c> members (or call <see cref="DataGridViewAdvancedBorderStyle.All"/>) to
+        /// control exactly which cell edges the renderer draws. Changing an edge switches
+        /// <see cref="CellBorderStyle"/> to <see cref="DataGridViewCellBorderStyle.Custom"/>, matching
+        /// WinForms.
+        /// </summary>
+        public DataGridViewAdvancedBorderStyle AdvancedCellBorderStyle => advanced_cell_border_style;
+
+        /// <summary>Gets the per-edge border style used for column header cells.</summary>
+        public DataGridViewAdvancedBorderStyle AdvancedColumnHeadersBorderStyle => advanced_column_headers_border_style;
+
+        /// <summary>Gets the per-edge border style used for row header cells.</summary>
+        public DataGridViewAdvancedBorderStyle AdvancedRowHeadersBorderStyle => advanced_row_headers_border_style;
+
+        // Maps the coarse WinForms CellBorderStyle onto the four edges of AdvancedCellBorderStyle.
+        private void ApplyCellBorderStyle (DataGridViewCellBorderStyle style)
+        {
+            var (horizontal, vertical) = style switch {
+                DataGridViewCellBorderStyle.None => (DataGridViewAdvancedCellBorderStyle.None, DataGridViewAdvancedCellBorderStyle.None),
+                DataGridViewCellBorderStyle.Single => (DataGridViewAdvancedCellBorderStyle.Single, DataGridViewAdvancedCellBorderStyle.Single),
+                DataGridViewCellBorderStyle.Sunken => (DataGridViewAdvancedCellBorderStyle.Inset, DataGridViewAdvancedCellBorderStyle.Inset),
+                DataGridViewCellBorderStyle.Raised => (DataGridViewAdvancedCellBorderStyle.Outset, DataGridViewAdvancedCellBorderStyle.Outset),
+                DataGridViewCellBorderStyle.SingleHorizontal => (DataGridViewAdvancedCellBorderStyle.Single, DataGridViewAdvancedCellBorderStyle.None),
+                DataGridViewCellBorderStyle.SunkenHorizontal => (DataGridViewAdvancedCellBorderStyle.Inset, DataGridViewAdvancedCellBorderStyle.None),
+                DataGridViewCellBorderStyle.RaisedHorizontal => (DataGridViewAdvancedCellBorderStyle.Outset, DataGridViewAdvancedCellBorderStyle.None),
+                DataGridViewCellBorderStyle.SingleVertical => (DataGridViewAdvancedCellBorderStyle.None, DataGridViewAdvancedCellBorderStyle.Single),
+                DataGridViewCellBorderStyle.SunkenVertical => (DataGridViewAdvancedCellBorderStyle.None, DataGridViewAdvancedCellBorderStyle.Inset),
+                DataGridViewCellBorderStyle.RaisedVertical => (DataGridViewAdvancedCellBorderStyle.None, DataGridViewAdvancedCellBorderStyle.Outset),
+                _ => (DataGridViewAdvancedCellBorderStyle.Single, DataGridViewAdvancedCellBorderStyle.Single)
+            };
+
+            // Set the fields through the properties but suppress the Custom switch-over: this is the
+            // grid applying CellBorderStyle, not the user hand-editing an edge.
+            applying_cell_border_style = true;
+            advanced_cell_border_style.Top = horizontal;
+            advanced_cell_border_style.Bottom = horizontal;
+            advanced_cell_border_style.Left = vertical;
+            advanced_cell_border_style.Right = vertical;
+            applying_cell_border_style = false;
+        }
+
+        private bool applying_cell_border_style;
 
         /// <summary>Gets or sets whether users can add new rows. Stub in Majorsilence.Forms.</summary>
         public bool AllowUserToAddRows { get; set; } = true;
@@ -526,10 +639,28 @@ namespace Majorsilence.Forms
             while (row.Cells.Count <= editing_column_index)
                 row.Cells.Add (string.Empty);
 
-            var old_value = row.Cells[editing_column_index].Value?.ToString () ?? string.Empty;
+            var editing_cell = row.Cells[editing_column_index];
+            var old_value = editing_cell.Value?.ToString () ?? string.Empty;
 
-            if (old_value != new_value) {
-                row.Cells[editing_column_index].Value = new_value;
+            // WinForms CellParsing: a handler converts the edited text into a typed value before the
+            // grid stores it. Without a handler the edited text is stored as-is, as before.
+            object? parsed_value = new_value;
+
+            if (_cellParsing is not null) {
+                var desired_type = (editing_column_index < Columns.Count ? Columns[editing_column_index].ValueType : null)
+                    ?? editing_cell.ValueType
+                    ?? typeof (string);
+
+                var parsing_args = new DataGridViewCellParsingEventArgs (editing_column_index, editing_row_index,
+                    new_value, desired_type, editing_cell.InheritedStyle);
+                OnCellParsing (parsing_args);
+
+                if (parsing_args.ParsingApplied)
+                    parsed_value = parsing_args.Value;
+            }
+
+            if (old_value != (parsed_value?.ToString () ?? string.Empty) || !Equals (editing_cell.Value, parsed_value)) {
+                editing_cell.Value = parsed_value;
                 var committed = true;
 
                 // Update the data source if bound
@@ -540,11 +671,15 @@ namespace Majorsilence.Forms
                         var prop = item.GetType ().GetProperty (Columns[editing_column_index].HeaderText, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
                         if (prop?.CanWrite == true) {
                             try {
-                                var converted = Convert.ChangeType (new_value, prop.PropertyType);
+                                // A CellParsing handler may already have produced a value of the bound
+                                // property's type; only fall back to Convert for anything else.
+                                var converted = parsed_value is not null && prop.PropertyType.IsInstanceOfType (parsed_value)
+                                    ? parsed_value
+                                    : Convert.ChangeType (parsed_value, prop.PropertyType);
                                 prop.SetValue (item, converted);
                             } catch {
                                 // Conversion failed - revert cell value
-                                row.Cells[editing_column_index].Value = (object)old_value;
+                                editing_cell.Value = (object)old_value;
                                 committed = false;
                             }
                         }
@@ -1356,7 +1491,112 @@ namespace Majorsilence.Forms
         /// <summary>Raises the EditingControlShowing event.</summary>
         protected virtual void OnEditingControlShowing (DataGridViewEditingControlShowingEventArgs e) => EditingControlShowing?.Invoke (this, e);
         /// <summary>Raises the RowPostPaint event. Called by the renderer after a data row is drawn.</summary>
-        protected internal virtual void RaiseRowPostPaint (int rowIndex) => RowPostPaint?.Invoke (this, new DataGridViewRowPostPaintEventArgs (rowIndex));
+        protected internal virtual void RaiseRowPostPaint (int rowIndex) => RaiseRowPostPaint (new DataGridViewRowPostPaintEventArgs (rowIndex));
+
+        /// <summary>Raises the RowPostPaint event with fully populated paint args (renderer path).</summary>
+        protected internal virtual void RaiseRowPostPaint (DataGridViewRowPostPaintEventArgs e) => RowPostPaint?.Invoke (this, e);
+
+        /// <summary>Raises the RowPrePaint event. Called by the renderer before a data row is drawn.</summary>
+        protected virtual void OnRowPrePaint (DataGridViewRowPrePaintEventArgs e) => _rowPrePaint?.Invoke (this, e);
+
+        /// <summary>
+        /// Raises RowPrePaint from the renderer. Returns true when a handler set
+        /// <see cref="DataGridViewRowPrePaintEventArgs.Handled"/>, meaning the renderer must skip its own
+        /// painting of the row. No allocation happens when nothing is subscribed.
+        /// </summary>
+        protected internal virtual bool RaiseRowPrePaint (DataGridViewRowPrePaintEventArgs e)
+        {
+            if (_rowPrePaint is null)
+                return false;
+
+            OnRowPrePaint (e);
+            return e.Handled;
+        }
+
+        /// <summary>Gets whether anything is subscribed to <see cref="RowPrePaint"/> (lets the renderer skip building args).</summary>
+        internal bool HasRowPrePaintHandlers => _rowPrePaint is not null;
+
+        /// <summary>Gets whether anything is subscribed to <see cref="RowPostPaint"/>.</summary>
+        internal bool HasRowPostPaintHandlers => RowPostPaint is not null;
+
+        /// <summary>Gets whether anything is subscribed to <see cref="CellPainting"/>.</summary>
+        internal bool HasCellPaintingHandlers => _cellPainting is not null;
+
+        /// <summary>Raises the CellPainting event.</summary>
+        protected virtual void OnCellPainting (DataGridViewCellPaintingEventArgs e) => _cellPainting?.Invoke (this, e);
+
+        /// <summary>
+        /// Raises CellPainting from the renderer. Returns true when a handler set
+        /// <see cref="DataGridViewCellPaintingEventArgs.Handled"/>, meaning the renderer must skip its
+        /// own painting of that cell.
+        /// </summary>
+        protected internal virtual bool RaiseCellPainting (DataGridViewCellPaintingEventArgs e)
+        {
+            if (_cellPainting is null)
+                return false;
+
+            OnCellPainting (e);
+            return e.Handled;
+        }
+
+        /// <summary>Raises the CellFormatting event.</summary>
+        protected virtual void OnCellFormatting (DataGridViewCellFormattingEventArgs e) => _cellFormatting?.Invoke (this, e);
+
+        /// <summary>Raises the CellParsing event.</summary>
+        protected virtual void OnCellParsing (DataGridViewCellParsingEventArgs e) => _cellParsing?.Invoke (this, e);
+
+        /// <summary>Raises the RowValidating event.</summary>
+        protected virtual void OnRowValidating (DataGridViewCellCancelEventArgs e) => _rowValidating?.Invoke (this, e);
+
+        /// <summary>Raises the RowValidated event.</summary>
+        protected virtual void OnRowValidated (DataGridViewCellEventArgs e) => _rowValidated?.Invoke (this, e);
+
+        /// <summary>Raises the RowEnter event.</summary>
+        protected virtual void OnRowEnter (DataGridViewCellEventArgs e) => _rowEnter?.Invoke (this, e);
+
+        /// <summary>Raises the RowLeave event.</summary>
+        protected virtual void OnRowLeave (DataGridViewCellEventArgs e) => _rowLeave?.Invoke (this, e);
+
+        /// <summary>
+        /// Runs the WinForms row-commit cycle for the row that is about to stop being current: commits a
+        /// pending edit, then raises RowValidating and (unless cancelled) RowValidated followed by
+        /// RowLeave. Returns false when a handler cancelled, in which case the caller must keep the row
+        /// current. Mirrors <see cref="Control"/>'s Validating/Validated cycle, at row granularity.
+        /// </summary>
+        protected virtual bool ValidateRow (int rowIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= Rows.Count)
+                return true;
+
+            // WinForms commits the cell edit before validating the row it belongs to.
+            if (edit_textbox is not null && editing_row_index == rowIndex && !EndEdit ())
+                return false;
+
+            var args = new DataGridViewCellCancelEventArgs (selected_column_index, rowIndex);
+            OnRowValidating (args);
+
+            if (args.Cancel)
+                return false;
+
+            OnRowValidated (new DataGridViewCellEventArgs (selected_column_index, rowIndex));
+            OnRowLeave (new DataGridViewCellEventArgs (selected_column_index, rowIndex));
+            return true;
+        }
+
+        /// <summary>
+        /// Runs the row-commit cycle for the current row (WinForms <c>EndEdit</c> + row validation), as
+        /// happens when the grid loses focus. Returns false when a handler cancelled.
+        /// </summary>
+        public bool ValidateCurrentRow () => ValidateRow (selected_row_index);
+
+        /// <inheritdoc/>
+        protected override void OnLostFocus (EventArgs e)
+        {
+            // WinForms validates the current row as the grid loses focus, before the control-level
+            // Validating/Validated cycle the base class runs.
+            ValidateRow (selected_row_index);
+            base.OnLostFocus (e);
+        }
 
         /// <inheritdoc/>
         protected override void OnDoubleClick (MouseEventArgs e)
@@ -1826,6 +2066,11 @@ namespace Majorsilence.Forms
             get => selected_row_index;
             set {
                 if (selected_row_index != value) {
+                    // WinForms row-commit cycle: leaving a row commits its edit and runs
+                    // RowValidating/RowValidated/RowLeave. A cancelling handler keeps the row current.
+                    if (!ValidateRow (selected_row_index))
+                        return;
+
                     // Deselect old row
                     if (selected_row_index >= 0 && selected_row_index < Rows.Count)
                         Rows[selected_row_index].Selected = false;
@@ -1835,6 +2080,9 @@ namespace Majorsilence.Forms
                     // Select new row
                     if (selected_row_index >= 0 && selected_row_index < Rows.Count)
                         Rows[selected_row_index].Selected = true;
+
+                    if (selected_row_index >= 0 && selected_row_index < Rows.Count)
+                        OnRowEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
 
                     OnSelectionChanged (EventArgs.Empty);
                     Invalidate ();
@@ -1858,6 +2106,78 @@ namespace Majorsilence.Forms
         /// cell-level formatting (e.g. data-driven colors). Default no-op.
         /// </summary>
         protected internal virtual void RaiseCellFormatting (DataGridViewRow row, int rowIndex, int columnIndex) { }
+
+        /// <summary>
+        /// The renderer's single formatting entry point for a cell: runs the subclass formatting hook
+        /// (<see cref="RaiseCellFormatting"/>), then raises the WinForms <see cref="CellFormatting"/>
+        /// event, then applies the resolved cell style's format string. Returns the display text the
+        /// renderer should draw, or null to fall back to the cell's own value. Any style the handler
+        /// changed is returned through <paramref name="handlerStyle"/> and applies to this paint only --
+        /// nothing is written back onto the cell, so a conditional format never goes stale.
+        /// </summary>
+        internal string? ApplyCellFormatting (DataGridViewRow row, int rowIndex, int columnIndex, out DataGridViewCellStyle? handlerStyle)
+        {
+            handlerStyle = null;
+
+            RaiseCellFormatting (row, rowIndex, columnIndex);
+
+            if (columnIndex < 0 || columnIndex >= row.Cells.Count)
+                return null;
+
+            var cell = row.Cells[columnIndex];
+            var column = columnIndex < Columns.Count ? Columns[columnIndex] : null;
+
+            // A subclass formatting pass (e.g. RadGridView's CellFormatting) may already have produced
+            // the display text; the renderer picks that up from the cell when we return null.
+            var subclassText = cell.FormattedTextOverride;
+
+            if (_cellFormatting is null)
+                return subclassText is null ? FormatCellValue (cell.Value, cell.InheritedStyle, column) : null;
+
+            var args = new DataGridViewCellFormattingEventArgs (columnIndex, rowIndex, cell.Value, typeof (string), cell.InheritedStyle);
+            OnCellFormatting (args);
+            handlerStyle = args.CellStyle;
+
+            // WinForms: FormattingApplied means the handler already produced the display value, so the
+            // grid must not format it again.
+            if (args.FormattingApplied)
+                return args.Value?.ToString () ?? string.Empty;
+
+            var formatted = FormatCellValue (args.Value, args.CellStyle, column);
+
+            if (formatted is not null)
+                return formatted;
+
+            // The handler replaced the value but left the default formatting to the grid.
+            if (!Equals (args.Value, cell.Value))
+                return args.Value?.ToString () ?? string.Empty;
+
+            return null;
+        }
+
+        /// <summary>
+        /// Applies a resolved cell style's format string (falling back to the column's
+        /// <see cref="DataGridViewColumn.FormatString"/>) to a raw value. Returns null when there is
+        /// nothing to format, so callers can fall back to <c>value.ToString ()</c>.
+        /// </summary>
+        private static string? FormatCellValue (object? value, DataGridViewCellStyle? style, DataGridViewColumn? column)
+        {
+            if (value is null || value is DBNull)
+                return style?.NullValue?.ToString ();
+
+            var format = style is not null && style.Format.Length > 0 ? style.Format : column?.FormatString;
+
+            if (string.IsNullOrEmpty (format))
+                return null;
+
+            var provider = style?.FormatProvider ?? System.Globalization.CultureInfo.CurrentCulture;
+
+            // Telerik-style "{0:C2}" composite formats and plain ".NET" format specifiers both occur.
+            if (format.Contains ('{'))
+                return string.Format (provider, format, value);
+
+            return value is IFormattable formattable ? formattable.ToString (format, provider) : null;
+        }
 
         /// <summary>
         /// Raised when the selection changes.
@@ -1933,6 +2253,99 @@ namespace Majorsilence.Forms
 
         /// <summary>Invalidates a specific cell, forcing it to repaint.</summary>
         public void InvalidateCell (int columnIndex, int rowIndex) => Invalidate ();
+
+        /// <summary>
+        /// Builds a data object holding the currently selected cells, honoring
+        /// <see cref="ClipboardCopyMode"/> (returns null when copying is disabled or nothing is selected).
+        /// The object carries tab-delimited text (Text/UnicodeText), CSV and an HTML table, so
+        /// <c>Clipboard.SetDataObject (grid.GetClipboardContent ())</c> pastes into a text editor or a
+        /// spreadsheet the same way WinForms does.
+        /// </summary>
+        public virtual DataObject? GetClipboardContent ()
+        {
+            if (ClipboardCopyMode == DataGridViewClipboardCopyMode.Disable)
+                return null;
+
+            // Selected cells, grouped into the rows/columns they occupy so the copy keeps its shape.
+            var rows = new List<int> ();
+            var columns = new SortedSet<int> ();
+
+            for (var r = 0; r < Rows.Count; r++) {
+                var row = Rows[r];
+                var any = false;
+
+                for (var c = 0; c < row.Cells.Count; c++) {
+                    if (!row.Cells[c].Selected && !(row.Selected && SelectionMode == DataGridViewSelectionMode.FullRowSelect))
+                        continue;
+
+                    if (c < Columns.Count && !Columns[c].Visible)
+                        continue;
+
+                    columns.Add (c);
+                    any = true;
+                }
+
+                if (any)
+                    rows.Add (r);
+            }
+
+            if (rows.Count == 0 || columns.Count == 0)
+                return null;
+
+            var includeHeaders = ClipboardCopyMode is DataGridViewClipboardCopyMode.EnableAlwaysIncludeHeaderText
+                || (ClipboardCopyMode == DataGridViewClipboardCopyMode.EnableWithAutoHeaderText && ColumnHeadersVisible);
+
+            var text = new System.Text.StringBuilder ();
+            var csv = new System.Text.StringBuilder ();
+            var html = new System.Text.StringBuilder ("<table>");
+
+            if (includeHeaders) {
+                var headers = columns.Select (c => c < Columns.Count ? Columns[c].HeaderText : string.Empty).ToList ();
+                AppendClipboardRow (text, csv, html, headers, isHeader: true);
+            }
+
+            foreach (var r in rows) {
+                var row = Rows[r];
+                var values = columns
+                    .Select (c => c < row.Cells.Count ? (row.Cells[c].FormattedValue?.ToString () ?? string.Empty) : string.Empty)
+                    .ToList ();
+                AppendClipboardRow (text, csv, html, values, isHeader: false);
+            }
+
+            html.Append ("</table>");
+
+            var data = new DataObject ();
+            var plain = text.ToString ();
+            data.SetData (DataFormats.Text.Name, plain);
+            data.SetData (DataFormats.UnicodeText.Name, plain);
+            data.SetData (DataFormats.CommaSeparatedValue.Name, csv.ToString ());
+            data.SetData (DataFormats.Html.Name, html.ToString ());
+            return data;
+        }
+
+        // Appends one clipboard row in each of the three formats the grid publishes.
+        private static void AppendClipboardRow (System.Text.StringBuilder text, System.Text.StringBuilder csv,
+            System.Text.StringBuilder html, IReadOnlyList<string> values, bool isHeader)
+        {
+            text.AppendLine (string.Join ("\t", values));
+            csv.AppendLine (string.Join (",", values.Select (QuoteCsv)));
+
+            var tag = isHeader ? "TH" : "TD";
+            html.Append ("<TR>");
+
+            foreach (var value in values)
+                html.Append ('<').Append (tag).Append ('>')
+                    .Append (System.Net.WebUtility.HtmlEncode (value))
+                    .Append ("</").Append (tag).Append ('>');
+
+            html.Append ("</TR>");
+        }
+
+        // CSV quoting: only when needed, doubling embedded quotes (RFC 4180).
+        private static string QuoteCsv (string value)
+            => value.IndexOfAny ([',', '"', '\n', '\r']) >= 0
+                ? '"' + value.Replace ("\"", "\"\"") + '"'
+                : value;
 
         /// <summary>Gets a row that serves as a template for new rows. Stub in Majorsilence.Forms.</summary>
         public DataGridViewRow RowTemplate { get; } = new DataGridViewRow ();

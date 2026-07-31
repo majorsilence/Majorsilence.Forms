@@ -34,6 +34,10 @@ namespace Majorsilence.Forms.Uno
         private readonly Window? _window;
         private readonly Popup? _popup;
 
+        // Exposes the wrapped native window to UnoHostInterop.ToUnoWindow, for host apps that want to
+        // show/use it directly as a native WinUI window rather than through Form.Show(). Null for popups.
+        internal Window? NativeWindow => _window;
+
         private Size _size = new (800, 600);
         private Point _location;
         private bool _systemDecorations;

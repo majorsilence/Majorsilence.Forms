@@ -10,34 +10,32 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (StatusStrip control, PaintEventArgs e)
         {
-            var x = control.PaddedClientRectangle.X;
-            var y = control.PaddedClientRectangle.Y;
-            var height = control.PaddedClientRectangle.Height;
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize - 1);
 
+            // Positions come from StatusStrip.LayoutItems (run by MenuBase.OnPaint just before this), so
+            // the painted item and the region MenuBase hit-tests for clicks are the same rectangle.
             foreach (var item in control.Items) {
                 if (!item.Visible)
                     continue;
 
-                var item_width = item.Size.Width > 0 ? item.Size.Width : 120;
+                var item_bounds = item.Bounds;
 
                 if (item is ToolStripProgressBar pb) {
                     var range = pb.Maximum - pb.Minimum;
 
                     if (range > 0) {
-                        var fill_width = (int)((float)(pb.Value - pb.Minimum) / range * item_width);
-                        e.Canvas.FillRectangle (x, y, fill_width, height, Theme.AccentColor2);
+                        var fill_width = (int)((float)(pb.Value - pb.Minimum) / range * item_bounds.Width);
+                        e.Canvas.FillRectangle (item_bounds.X, item_bounds.Y, fill_width, item_bounds.Height, Theme.AccentColor2);
                     }
 
-                    e.Canvas.DrawRectangle (x, y, item_width, height, Theme.BorderLowColor);
+                    e.Canvas.DrawRectangle (item_bounds.X, item_bounds.Y, item_bounds.Width, item_bounds.Height, Theme.BorderLowColor);
                 } else if (!string.IsNullOrEmpty (item.Text)) {
-                    var bounds = new Rectangle (x + 4, y, item_width, height);
-                    e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, bounds, Theme.ForegroundColor, ContentAlignment.MiddleLeft, maxLines: 1);
+                    var text_bounds = new Rectangle (item_bounds.X + 4, item_bounds.Y, item_bounds.Width, item_bounds.Height);
+                    e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_bounds, Theme.ForegroundColor, ContentAlignment.MiddleLeft, maxLines: 1);
                 }
 
-                x += item_width + 4;
-
-                if (x >= control.ClientRectangle.Right)
+                // Stop once we've run off the right-hand edge of the bar.
+                if (item_bounds.Right + StatusStrip.ItemSpacing >= control.ClientRectangle.Right)
                     break;
             }
         }

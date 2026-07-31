@@ -1574,12 +1574,12 @@ namespace Majorsilence.Forms
             if (child != null)
                 child.RaiseMouseDown (TranslateMouseEvents (e, child));
             else {
-                // If we're clicking on a Control that isn't the active menu, 
+                // If we're clicking on a Control that isn't the active menu,
                 // we need to close the active menu (if any)
                 if ((this as MenuBase)?.GetTopLevelMenu () != Application.ActiveMenu || Application.ActiveMenu is null)
                     Application.ClosePopups (true, false);
 
-                // If we're clicking on a Control that isn't a child of the active PopupWindow, 
+                // If we're clicking on a Control that isn't a child of the active PopupWindow,
                 // we need to close the active popup (if any)
                 if (FindWindow () != Application.ActivePopupWindow)
                     Application.ClosePopups (false, true);

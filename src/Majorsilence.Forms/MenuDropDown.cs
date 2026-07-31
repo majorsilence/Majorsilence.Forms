@@ -5,7 +5,13 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a MenuDropDown control.
     /// </summary>
-    public class MenuDropDown : MenuBase
+    /// <remarks>
+    /// Derives from <see cref="ToolStrip"/> so that <see cref="ContextMenu"/> and
+    /// <see cref="ContextMenuStrip"/> expose the ToolStrip member surface real WinForms gives them
+    /// (ContextMenuStrip : ToolStripDropDownMenu : ToolStripDropDown : ToolStrip upstream). The popup
+    /// show/hide mechanism and the vertical drop-down layout below are unchanged.
+    /// </remarks>
+    public class MenuDropDown : ToolStrip
     {
         private WindowBase? parent_form;
         private PopupWindow? popup;
@@ -28,6 +34,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public MenuDropDown (MenuItem root) : base (root)
         {
+            // NOTE: base (root) reaches MenuBase (MenuItem) through ToolStrip/ToolBar's protected
+            // root-forwarding constructors -- this is the ctor MenuItem.ShowDropDown uses for submenus.
             Dock = DockStyle.Fill;
 
             foreach (var item in Items)
@@ -41,6 +49,29 @@ namespace Majorsilence.Forms
 
             Hide ();
         }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Restores Control's zero default: <see cref="ToolBar"/> (now an ancestor via ToolStrip)
+        /// defaults to a 600x34 docked bar, which a drop-down is not. The popup's real size comes from
+        /// <see cref="LayoutItems"/>.
+        /// </remarks>
+        protected override Size DefaultSize => Size.Empty;
+
+        /// <summary>
+        /// Gets the collection of menu items in this drop down. Re-exposed past
+        /// <see cref="ToolStrip"/>'s ToolStripItemCollection facade: MenuDropDownRenderer, LayoutItems
+        /// and MenuBase's hit-testing all consume this collection.
+        /// </summary>
+        public new MenuItemCollection Items => RootItems;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// A plain drop down is never the top level menu -- it hangs off one. This restores MenuBase's
+        /// default, which <see cref="ToolBar"/> (now an ancestor via ToolStrip) flips to true;
+        /// <see cref="ContextMenu"/> deliberately sets it back to true because it IS the root.
+        /// </remarks>
+        protected override bool IsTopLevelMenu => false;
 
         /// <inheritdoc/>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,

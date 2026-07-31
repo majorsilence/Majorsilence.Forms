@@ -75,9 +75,11 @@ A form looks exactly like you'd expect:
 
 Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) folder:
 
-- [`ControlGallery`](samples/ControlGallery) — every built-in control, live. A backend-agnostic library (shared `MainForm`/panels) run by the `Gallery.Avalonia` and `Gallery.Uno` heads below.
+- [`ControlGallery`](samples/ControlGallery) — every built-in control, live. A backend-agnostic library (shared `MainForm`/panels) run by the `Gallery.Avalonia`, `Gallery.Uno`, `Gallery.Wasm` and `Gallery.Android` heads below.
 - [`Gallery.Avalonia`](samples/Gallery.Avalonia) — the control gallery running on the **Avalonia** backend.
 - [`Gallery.Uno`](samples/Gallery.Uno) — the control gallery running on the **Uno** backend.
+- [`Gallery.Wasm`](samples/Gallery.Wasm) — the control gallery running on **Avalonia in the browser** (WebAssembly).
+- [`Gallery.Android`](samples/Gallery.Android) — the control gallery running on **Avalonia on Android**. Requires the `android` workload (`dotnet workload install android`); not part of the default solution build, see that project's own comment for why. ⚠️ Work in progress: builds and boots, but Android/mobile support is early and not yet as exercised as the desktop/browser backends.
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
@@ -95,6 +97,27 @@ dotnet run --project samples/Gallery.Uno
 ```
 
 For build and run details, see [Samples](docs/samples.md).
+
+## Contributing
+
+Contributions are welcome — fork the repo, push to a branch, and open a pull request against
+`main`. AI-assisted changes are welcome too: whether you wrote the code by hand or with an AI
+coding assistant, the bar is the same — it builds, the test suite passes, and it fits the existing
+style and conventions. Note the diff was AI-assisted if a reviewer asking would be useful context,
+but it isn't a separate approval track.
+
+Before opening a PR:
+
+- `dotnet build --configuration Release` and `dotnet test` should both be clean — this is what CI
+  checks (see [`.github/workflows/dotnet.yml`](.github/workflows/dotnet.yml)).
+- New behavior should come with tests that prove it actually works, not just that a member exists
+  or compiles.
+- If you're closing a compatibility gap, check [`COMPATIBILITY_MATRIX.md`](COMPATIBILITY_MATRIX.md)
+  first — it documents the stub policy (unimplemented members should no-op with a sensible default,
+  never throw) and tracks what's real vs. approximated vs. deliberately out of scope, and should be
+  updated alongside the code it describes.
+
+For bugs and feature requests, open an issue on GitHub.
 
 ## License
 

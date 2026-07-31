@@ -174,6 +174,32 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderRow (DataGridView control, DataGridViewRow row, int rowIndex, Rectangle bounds, PaintEventArgs e)
         {
+            var paint_parts = DataGridViewPaintParts.All;
+
+            // RowPrePaint (WinForms): raised before anything of the row is drawn. A handler can draw the
+            // row itself -- optionally composing with the grid's own painting through e.PaintCells /
+            // e.PaintHeader -- and set Handled to suppress the default rendering below.
+            if (control.HasRowPrePaintHandlers) {
+                var pre = new DataGridViewRowPrePaintEventArgs (rowIndex) {
+                    Graphics = new Majorsilence.Forms.Drawing.SkiaGraphics (e.Canvas),
+                    ClipBounds = e.ClipRectangle,
+                    RowBounds = bounds,
+                    State = row.State,
+                    ErrorText = row.ErrorText,
+                    InheritedRowStyle = row.InheritedStyle,
+                    IsFirstDisplayedRow = rowIndex == control.FirstDisplayedScrollingRowIndex,
+                    IsLastVisibleRow = rowIndex == control.Rows.Count - 1
+                };
+
+                pre.PaintCellsCallback = (clip, parts) => RenderRowCells (control, row, rowIndex, bounds, e, parts);
+                pre.PaintHeaderCallback = _ => RenderRowHeaderBand (control, row, rowIndex, bounds, e);
+
+                if (control.RaiseRowPrePaint (pre))
+                    return;
+
+                paint_parts = pre.PaintParts;
+            }
+
             // Determine background color from cell styles
             SKColor? bg = null;
 
@@ -181,6 +207,10 @@ namespace Majorsilence.Forms.Renderers
                 bg = Theme.ControlHighlightLowColor;
             else if (control.HoveredRowIndex == rowIndex)
                 bg = Theme.ControlMidColor;
+            else if (!row.DefaultCellStyle.BackColor.IsEmpty)
+                // A row-level DefaultCellStyle back color outranks the alternating-row stripe (WinForms
+                // style precedence), so per-row highlighting set on the row itself actually shows.
+                bg = ToSK (row.DefaultCellStyle.BackColor);
             else if (rowIndex % 2 == 1 && control.AlternatingRowColorsEnabled && control.AlternatingRowsDefaultCellStyle.BackgroundColor.HasValue)
                 bg = control.AlternatingRowsDefaultCellStyle.BackgroundColor.Value;
             else if (rowIndex % 2 == 1 && control.AlternatingRowColorsEnabled)
@@ -188,21 +218,59 @@ namespace Majorsilence.Forms.Renderers
             else if (control.DefaultCellStyle.BackgroundColor.HasValue)
                 bg = control.DefaultCellStyle.BackgroundColor.Value;
 
-            if (bg.HasValue)
+            if (bg.HasValue && paint_parts.HasFlag (DataGridViewPaintParts.Background))
                 e.Canvas.FillRectangle (bounds, bg.Value);
 
             // Let subclasses apply row-level formatting (clears + sets per-cell styles for this frame).
             control.RaiseRowFormatting (row, rowIndex);
 
             // Draw row header
-            if (control.RowHeadersVisible) {
-                var rh_width = control.ScaledRowHeadersWidth;
-                var rh_rect = new Rectangle (bounds.Left, bounds.Top, rh_width, bounds.Height);
-                RenderRowHeader (control, row, rowIndex, rh_rect, e);
-            }
+            RenderRowHeaderBand (control, row, rowIndex, bounds, e);
 
-            // Draw cells. Scrollable columns are clipped to the middle band; pinned columns (left + right)
-            // are drawn last (on top) so they stay put and never reveal scrolled content.
+            RenderRowCells (control, row, rowIndex, bounds, e, paint_parts);
+
+            // Draw row bottom border -- the horizontal grid line. Suppressed when the grid's advanced
+            // border style says the cells have no bottom edge (CellBorderStyle.None / *Vertical).
+            if (paint_parts.HasFlag (DataGridViewPaintParts.Border)
+                && control.AdvancedCellBorderStyle.Bottom != DataGridViewAdvancedCellBorderStyle.None)
+                e.Canvas.DrawLine (bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1, BorderColor (control.AdvancedCellBorderStyle.Bottom));
+
+            // Post-paint hook (WinForms RowPostPaint), after the row's cells and border are drawn.
+            if (control.HasRowPostPaintHandlers) {
+                var post = new DataGridViewRowPostPaintEventArgs (rowIndex) {
+                    Graphics = new Majorsilence.Forms.Drawing.SkiaGraphics (e.Canvas),
+                    ClipBounds = e.ClipRectangle,
+                    RowBounds = bounds,
+                    State = row.State,
+                    ErrorText = row.ErrorText,
+                    InheritedRowStyle = row.InheritedStyle,
+                    IsFirstDisplayedRow = rowIndex == control.FirstDisplayedScrollingRowIndex,
+                    IsLastVisibleRow = rowIndex == control.Rows.Count - 1
+                };
+
+                post.PaintCellsCallback = (clip, parts) => RenderRowCells (control, row, rowIndex, bounds, e, parts);
+                post.PaintHeaderCallback = _ => RenderRowHeaderBand (control, row, rowIndex, bounds, e);
+
+                control.RaiseRowPostPaint (post);
+            }
+        }
+
+        // Draws the row's header cell band, when row headers are visible.
+        private void RenderRowHeaderBand (DataGridView control, DataGridViewRow row, int rowIndex, Rectangle bounds, PaintEventArgs e)
+        {
+            if (!control.RowHeadersVisible)
+                return;
+
+            var rh_rect = new Rectangle (bounds.Left, bounds.Top, control.ScaledRowHeadersWidth, bounds.Height);
+            RenderRowHeader (control, row, rowIndex, rh_rect, e);
+        }
+
+        /// <summary>
+        /// Draws the row's data cells. Scrollable columns are clipped to the middle band; pinned columns
+        /// (left + right) are drawn last (on top) so they stay put and never reveal scrolled content.
+        /// </summary>
+        private void RenderRowCells (DataGridView control, DataGridViewRow row, int rowIndex, Rectangle bounds, PaintEventArgs e, DataGridViewPaintParts paintParts)
+        {
             var left0 = bounds.Left + (control.RowHeadersVisible ? control.ScaledRowHeadersWidth : 0);
             var left_width = control.FrozenColumnsWidth;
             var right_width = control.RightPinnedColumnsWidth;
@@ -213,7 +281,7 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.Clip (new Rectangle (left_end, bounds.Top, Math.Max (0, right_start - left_end), bounds.Height));
             for (var i = 0; i < control.Columns.Count; i++)
                 if (control.Columns[i].Visible && !control.Columns[i].Frozen && !control.Columns[i].PinnedRight)
-                    RenderRowCell (control, row, rowIndex, i, bounds, e);
+                    RenderRowCell (control, row, rowIndex, i, bounds, e, paintParts);
             e.Canvas.Restore ();
 
             if (left_width > 0) {
@@ -221,7 +289,7 @@ namespace Majorsilence.Forms.Renderers
                 e.Canvas.Clip (new Rectangle (left0, bounds.Top, left_width, bounds.Height));
                 for (var i = 0; i < control.Columns.Count; i++)
                     if (control.Columns[i].Visible && control.Columns[i].Frozen)
-                        RenderRowCell (control, row, rowIndex, i, bounds, e);
+                        RenderRowCell (control, row, rowIndex, i, bounds, e, paintParts);
                 e.Canvas.Restore ();
             }
 
@@ -230,19 +298,13 @@ namespace Majorsilence.Forms.Renderers
                 e.Canvas.Clip (new Rectangle (right_start, bounds.Top, right_width, bounds.Height));
                 for (var i = 0; i < control.Columns.Count; i++)
                     if (control.Columns[i].Visible && control.Columns[i].PinnedRight)
-                        RenderRowCell (control, row, rowIndex, i, bounds, e);
+                        RenderRowCell (control, row, rowIndex, i, bounds, e, paintParts);
                 e.Canvas.Restore ();
             }
-
-            // Draw row bottom border
-            e.Canvas.DrawLine (bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1, Theme.BorderLowColor);
-
-            // Post-paint hook (WinForms RowPostPaint), after the row's cells and border are drawn.
-            control.RaiseRowPostPaint (rowIndex);
         }
 
         // Draws a single data cell at its frozen-aware device position.
-        private void RenderRowCell (DataGridView control, DataGridViewRow row, int rowIndex, int columnIndex, Rectangle bounds, PaintEventArgs e)
+        private void RenderRowCell (DataGridView control, DataGridViewRow row, int rowIndex, int columnIndex, Rectangle bounds, PaintEventArgs e, DataGridViewPaintParts paintParts)
         {
             var column = control.Columns[columnIndex];
             var col_width = control.LogicalToDeviceUnits (column.Width);
@@ -251,14 +313,72 @@ namespace Majorsilence.Forms.Renderers
             if (columnIndex < row.Cells.Count)
                 row.Cells[columnIndex].Bounds = cell_rect;
 
-            // Let subclasses apply cell-level formatting (colors + a display-text override) before
-            // the value and style are read for drawing.
-            control.RaiseCellFormatting (row, rowIndex, columnIndex);
+            // Formatting pass: the subclass hook plus the WinForms CellFormatting event, resolving the
+            // display text and any style the handler applied for this frame only.
+            var formatted = control.ApplyCellFormatting (row, rowIndex, columnIndex, out var handler_style);
 
             var the_cell = columnIndex < row.Cells.Count ? row.Cells[columnIndex] : null;
-            var cell_value = the_cell?.FormattedTextOverride ?? the_cell?.Value?.ToString () ?? string.Empty;
-            var cell_style = the_cell?.Style;
-            RenderCell (control, column, cell_value, rowIndex, columnIndex, cell_rect, cell_style, e);
+            var cell_value = formatted ?? the_cell?.FormattedTextOverride ?? the_cell?.Value?.ToString () ?? string.Empty;
+            var cell_style = MergeFormattingStyle (the_cell?.Style, handler_style);
+
+            // CellPainting (WinForms): a handler can draw the cell itself, call back into the grid's
+            // default painting for the parts it does not draw, and set Handled to suppress the rest.
+            if (control.HasCellPaintingHandlers) {
+                var args = new DataGridViewCellPaintingEventArgs (columnIndex, rowIndex) {
+                    Graphics = new Majorsilence.Forms.Drawing.SkiaGraphics (e.Canvas),
+                    ClipBounds = e.ClipRectangle,
+                    CellBounds = cell_rect,
+                    Value = the_cell?.Value,
+                    FormattedValue = cell_value,
+                    ErrorText = the_cell?.ErrorText ?? string.Empty,
+                    CellStyle = the_cell?.InheritedStyle,
+                    PaintParts = paintParts
+                };
+
+                args.PaintCallback = (rect, parts) => RenderCell (control, column, cell_value, rowIndex, columnIndex, rect, cell_style, e, parts);
+
+                if (control.RaiseCellPainting (args))
+                    return;
+
+                paintParts = args.PaintParts;
+                cell_value = args.FormattedValue?.ToString () ?? cell_value;
+            }
+
+            // Route through the 8-argument overload for the everyday all-parts case so existing renderer
+            // subclasses that override it keep being called.
+            if (paintParts == DataGridViewPaintParts.All)
+                RenderCell (control, column, cell_value, rowIndex, columnIndex, cell_rect, cell_style, e);
+            else
+                RenderCell (control, column, cell_value, rowIndex, columnIndex, cell_rect, cell_style, e, paintParts);
+        }
+
+        // Overlays the colors/font a CellFormatting handler set (System.Drawing-typed) onto the cell's own
+        // style, for this paint only -- the cell object itself is never mutated.
+        private static ControlStyle? MergeFormattingStyle (ControlStyle? cellStyle, DataGridViewCellStyle? handlerStyle)
+        {
+            if (handlerStyle is null
+                || (handlerStyle.BackColor.IsEmpty && handlerStyle.ForeColor.IsEmpty && handlerStyle.Font is null))
+                return cellStyle;
+
+            var merged = new ControlStyle (cellStyle!) {
+                BackgroundColor = cellStyle?.BackgroundColor,
+                ForegroundColor = cellStyle?.ForegroundColor,
+                Font = cellStyle?.Font,
+                FontSize = cellStyle?.FontSize
+            };
+
+            if (!handlerStyle.BackColor.IsEmpty)
+                merged.BackColor = handlerStyle.BackColor;
+
+            if (!handlerStyle.ForeColor.IsEmpty)
+                merged.ForeColor = handlerStyle.ForeColor;
+
+            if (handlerStyle.Font is { } font) {
+                merged.Font = font.GetSKTypeface ();
+                merged.FontSize = (int)font.SizeInPoints;
+            }
+
+            return merged;
         }
 
         /// <summary>
@@ -293,19 +413,35 @@ namespace Majorsilence.Forms.Renderers
         /// Renders a single cell.
         /// </summary>
         protected virtual void RenderCell (DataGridView control, DataGridViewColumn column, string value, int rowIndex, int columnIndex, Rectangle bounds, ControlStyle? cellStyle, PaintEventArgs e)
+            => RenderCell (control, column, value, rowIndex, columnIndex, bounds, cellStyle, e, DataGridViewPaintParts.All);
+
+        /// <summary>
+        /// Renders the requested parts of a single cell. Called with less than
+        /// <see cref="DataGridViewPaintParts.All"/> when a <see cref="DataGridView.CellPainting"/> or
+        /// <see cref="DataGridView.RowPrePaint"/> handler asked the grid to draw only some parts.
+        /// </summary>
+        protected virtual void RenderCell (DataGridView control, DataGridViewColumn column, string value, int rowIndex, int columnIndex, Rectangle bounds, ControlStyle? cellStyle, PaintEventArgs e, DataGridViewPaintParts paintParts)
         {
             // Draw per-cell background if set
             var cell_bg = cellStyle?.BackgroundColor;
 
-            if (cell_bg.HasValue && control.SelectedRowIndex != rowIndex && control.HoveredRowIndex != rowIndex)
+            if (cell_bg.HasValue && paintParts.HasFlag (DataGridViewPaintParts.Background)
+                && control.SelectedRowIndex != rowIndex && control.HoveredRowIndex != rowIndex)
                 e.Canvas.FillRectangle (bounds, cell_bg.Value);
 
-            // Draw cell right border
-            e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, Theme.BorderLowColor);
+            // Draw the cell's borders as described by the grid's advanced (per-edge) border style.
+            if (paintParts.HasFlag (DataGridViewPaintParts.Border))
+                RenderCellBorders (control.AdvancedCellBorderStyle, bounds, e);
 
             // Draw cell selection for cell mode
-            if (control.SelectionMode != DataGridViewSelectionMode.FullRowSelect && control.SelectedRowIndex == rowIndex && control.SelectedColumnIndex == columnIndex)
+            if (paintParts.HasFlag (DataGridViewPaintParts.SelectionBackground)
+                && control.SelectionMode != DataGridViewSelectionMode.FullRowSelect
+                && control.SelectedRowIndex == rowIndex && control.SelectedColumnIndex == columnIndex)
                 e.Canvas.DrawRectangle (bounds, Theme.AccentColor, 2);
+
+            if (!paintParts.HasFlag (DataGridViewPaintParts.ContentForeground)
+                && !paintParts.HasFlag (DataGridViewPaintParts.ContentBackground))
+                return;
 
             var text_bounds = bounds;
             text_bounds.Inflate (-4, 0);
@@ -332,6 +468,38 @@ namespace Majorsilence.Forms.Renderers
                 e.Canvas.DrawText (value, font, scaled_font, text_bounds, fg, column.DefaultCellStyleAlignment, maxLines: CellTextMaxLines (column));
             }
         }
+
+        /// <summary>
+        /// Draws a cell's edges from a <see cref="DataGridViewAdvancedBorderStyle"/>. The right and bottom
+        /// edges are the grid lines and are drawn unless their edge is
+        /// <see cref="DataGridViewAdvancedCellBorderStyle.None"/> (the bottom edge is drawn once per row,
+        /// by <see cref="RenderRow"/>); the left and top edges are only drawn when explicitly set, so a
+        /// default grid does not double up lines between neighbouring cells.
+        /// </summary>
+        protected virtual void RenderCellBorders (DataGridViewAdvancedBorderStyle borderStyle, Rectangle bounds, PaintEventArgs e)
+        {
+            ArgumentNullException.ThrowIfNull (borderStyle);
+
+            if (borderStyle.Right != DataGridViewAdvancedCellBorderStyle.None)
+                e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, BorderColor (borderStyle.Right));
+
+            if (borderStyle.Left is not DataGridViewAdvancedCellBorderStyle.None and not DataGridViewAdvancedCellBorderStyle.NotSet)
+                e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Left, bounds.Bottom, BorderColor (borderStyle.Left));
+
+            if (borderStyle.Top is not DataGridViewAdvancedCellBorderStyle.None and not DataGridViewAdvancedCellBorderStyle.NotSet)
+                e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Right, bounds.Top, BorderColor (borderStyle.Top));
+        }
+
+        // System.Drawing color (the DataGridViewCellStyle surface) to the Skia color the canvas wants.
+        private static SKColor ToSK (System.Drawing.Color color) => new SKColor (color.R, color.G, color.B, color.A);
+
+        // Theme color for an edge style: sunken/raised edges read darker/lighter than a plain single line.
+        private static SKColor BorderColor (DataGridViewAdvancedCellBorderStyle style) => style switch {
+            DataGridViewAdvancedCellBorderStyle.Inset or DataGridViewAdvancedCellBorderStyle.InsetDouble => Theme.BorderMidColor,
+            DataGridViewAdvancedCellBorderStyle.Outset or DataGridViewAdvancedCellBorderStyle.OutsetDouble
+                or DataGridViewAdvancedCellBorderStyle.OutsetPartial => Theme.BorderHighColor,
+            _ => Theme.BorderLowColor
+        };
 
         /// <summary>
         /// The maximum number of text lines a cell renders. Default 1 (single line). Subclasses override

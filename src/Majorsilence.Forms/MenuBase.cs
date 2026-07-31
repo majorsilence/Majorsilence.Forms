@@ -83,6 +83,12 @@ namespace Majorsilence.Forms
         /// </summary>
         public virtual MenuItemCollection Items => root_item.Items;
 
+        // The real, single item collection -- the one LayoutItems, the renderers and MenuBase's mouse
+        // hit-testing all consume. ToolStrip hides Items with a ToolStripItemCollection facade (see
+        // ToolStrip's constructor), so Menu/MenuDropDown re-expose this to keep `menu.Items` and
+        // `contextMenu.Items` typed as MenuItemCollection the way they always were.
+        internal MenuItemCollection RootItems => root_item.Items;
+
         /// <summary>
         /// Lays out the child menu items.
         /// </summary>

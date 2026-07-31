@@ -89,23 +89,23 @@ namespace Majorsilence.Forms.Backends
         /// <inheritdoc/>
         public void DoEvents () => Dispatcher.UIThread.RunJobs ();
 
-#if !BROWSER
+#if !SINGLEVIEW
         /// <inheritdoc/>
         public IWindowBackend CreateWindow (WindowBase owner, bool isPopup)
             => isPopup ? new MajorsilenceFormsPopupWindowHost (owner) : new MajorsilenceFormsWindowHost (owner);
 #else
         /// <inheritdoc/>
         public IWindowBackend CreateWindow (WindowBase owner, bool isPopup)
-            => new MajorsilenceFormsBrowserHost (owner, isPopup);
+            => new MajorsilenceFormsSingleViewHost (owner, isPopup);
 #endif
 
         /// <inheritdoc/>
         public IPlatformTimer CreateTimer () => new AvaloniaTimer ();
 
         // ── WebView (Avalonia.Controls.WebView — WebView2/WKWebView/WebKitGTK-WPE native engines) ──
-        // No browser equivalent ships (AvaloniaWebViewHandle.cs is excluded from the browser TFM row),
-        // so both members below just report "unsupported" under BROWSER.
-#if BROWSER
+        // No equivalent ships for either single-view platform (AvaloniaWebViewHandle.cs is excluded from
+        // both TFM rows), so both members below just report "unsupported" under SINGLEVIEW.
+#if SINGLEVIEW
         /// <inheritdoc/>
         public bool IsSupported => false;
 

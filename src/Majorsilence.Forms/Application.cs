@@ -23,35 +23,38 @@ namespace Majorsilence.Forms
         /// </summary>
         internal static PopupWindow? ActivePopupWindow { get; set; }
 
-        // Generation counter for the "delayed close cancelled by re-activation" dismissal below.
-        // Bumped whenever any of our own windows activates; a scheduled close only fires if no
-        // activation happened between scheduling and running.
-        private static int _activationGeneration;
-
         /// <summary>
         /// A window deactivated. Menus/popups must close when focus leaves our app, but NOT when the
         /// deactivation is merely the side effect of one of our own popups (or a nested submenu)
-        /// stealing focus as it opens. We cannot know synchronously which window is gaining focus, so
-        /// post the close and cancel it if any of our own windows activates first: opening a popup
-        /// always produces a matching activation (the popup itself), which cancels the close;
-        /// switching to another application produces no such activation, so the close proceeds.
-        /// Replaces an earlier timing flag that reset on a fixed dispatcher tick and raced against
-        /// late-delivered deactivation events (menus opening then instantly closing).
+        /// stealing focus as it opens. We cannot know synchronously which window is gaining focus.
+        ///
+        /// This used to be decided with an activation-generation counter: schedule a close, cancel it
+        /// if any of our own windows activated between scheduling and running. That assumed the
+        /// parent's Deactivated always arrives before the popup's own Activated -- empirically false:
+        /// logging real clicks (Linux, Avalonia, Mutter/XWayland) showed the popup's Activated
+        /// consistently arriving BEFORE its parent's Deactivated, sometimes by 20-30ms. Since nothing
+        /// else activates afterward, the counter never moved between scheduling and running, and the
+        /// close always won -- the drop down flashed open and closed on every click, not intermittently.
+        ///
+        /// Fixed by checking current state instead of a before/after delta: <see cref="WindowBase.IsActive"/>
+        /// on <see cref="ActivePopupWindow"/> reflects reality at the moment we ask, however the
+        /// activate/deactivate pair for this transition happened to interleave. A synchronous check
+        /// covers the (observed, common) case where the popup is already active; the posted fallback
+        /// re-checks the same thing one tick later, for the reverse ordering.
         /// </summary>
         internal static void ScheduleClosePopupsOnDeactivate ()
         {
             if (ActiveMenu == null && ActivePopupWindow == null)
                 return;
 
-            var generation = _activationGeneration;
+            if (ActivePopupWindow?.IsActive == true)
+                return;
+
             Backends.Platform.Backend.Post (() => {
-                if (_activationGeneration == generation)
+                if (ActivePopupWindow?.IsActive != true)
                     ClosePopups ();
             });
         }
-
-        /// <summary>One of our windows activated — cancels any pending deactivate-driven popup close.</summary>
-        internal static void NotifyWindowActivated () => _activationGeneration++;
 
         /// <summary>
         /// Hides any open popups.
@@ -216,6 +219,27 @@ namespace Majorsilence.Forms
             else
                 Platform.Backend.Initialize ();
 
+            createMainForm ().Show ();
+        }
+
+        /// <summary>
+        /// Starts the application on a backend with synchronous, host-driven startup where the host (not
+        /// this method) already owns and pumps the platform's main loop — currently the Avalonia Android
+        /// backend, whose <c>AvaloniaMainActivity</c> bootstraps Avalonia and starts pumping its dispatcher
+        /// via the Activity's own Looper before this is ever called. Like <see cref="RunBrowserAsync"/>
+        /// this does not block: once the backend initializes and the form returned by
+        /// <paramref name="createMainForm"/> is shown, control returns to the caller (typically
+        /// <c>MainActivity.OnCreate</c>) and the host's own event loop drives the UI from then on — there
+        /// is no <see cref="RunCore"/>/main-loop call to make, and none should be made.
+        /// </summary>
+        /// <param name="createMainForm">
+        /// Creates the form to make visible. A factory rather than a ready-made <see cref="Form"/> for the
+        /// same reason as <see cref="RunBrowserAsync"/>: constructing any <see cref="WindowBase"/> touches
+        /// the platform backend, so callers should not construct one before the backend is initialized.
+        /// </param>
+        public static void RunAndroid (Func<Form> createMainForm)
+        {
+            Platform.Backend.Initialize ();
             createMainForm ().Show ();
         }
 

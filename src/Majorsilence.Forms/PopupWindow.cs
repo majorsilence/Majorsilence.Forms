@@ -46,10 +46,11 @@ namespace Majorsilence.Forms
             Application.ActivePopupWindow = this;
 
             // Showing the popup deactivates the parent window; that deactivation must NOT dismiss the
-            // popup we are opening. This is handled generically now: WindowBase.OnBackendDeactivated
-            // POSTS the close and the popup's own activation cancels it
-            // (Application.ScheduleClosePopupsOnDeactivate / NotifyWindowActivated), which also works
-            // for nested submenus. No show-time timing flag is needed here anymore.
+            // popup we are opening. WindowBase.Show sets IsActive = true proactively before returning,
+            // and Application.ScheduleClosePopupsOnDeactivate checks that flag directly rather than
+            // inferring it from activate/deactivate ordering (which was found not to be reliable -- see
+            // that method's doc comment). Works the same way for nested submenus, since each is shown
+            // through this same path.
             Show ();
         }
 
