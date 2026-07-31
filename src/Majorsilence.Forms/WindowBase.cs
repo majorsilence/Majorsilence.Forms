@@ -685,37 +685,34 @@ namespace Majorsilence.Forms
             if (TryShowHosted ())
                 return;
 
-            visible = true;
-            OnVisibleChanged (EventArgs.Empty);
-
             SetWindowStartupLocation ();
-            EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
-
-            // Assume active the moment we ask the backend to show one of our own windows, rather than
-            // waiting for its real Activated event (which, empirically, can arrive either before or
-            // after this call returns depending on the platform) -- see IsActive's doc comment. The
-            // real event still fires and reconfirms this when it eventually arrives.
-            IsActive = true;
-
-            if (this is Form f)
-                Application.OpenForms.Add (f);
-
-            if (!shown) {
-                shown = true;
-                OnShown (EventArgs.Empty);
-            }
+            EnsureShownBookkeeping ();
         }
 
         internal void ShowDialog (WindowBase parent)
         {
-            visible = true;
-            OnVisibleChanged (EventArgs.Empty);
-
             SetWindowStartupLocation (parent);
             parent.Backend.Enabled = false;
-            EnsureLoaded ();            // WinForms raises Load before the window is displayed.
             Backend.Show ();
+            EnsureShownBookkeeping ();
+        }
+
+        // Runs the WinForms-compat "window just became visible" bookkeeping exactly once: Load/Shown
+        // events, Application.OpenForms membership, and the initial IsActive assumption. Called by
+        // Show()/ShowDialog() above, and also by a host app's own native window becoming visible when
+        // a Form is handed out via AvaloniaHostInterop.ToAvaloniaWindow/UnoHostInterop.ToUnoWindow
+        // instead of being shown through Form.Show() -- so behaviour is identical regardless of which
+        // side actually triggered the native show. Guarded by `visible` so calling it more than once
+        // (e.g. a host window's Opened/Activated firing repeatedly) is harmless.
+        internal void EnsureShownBookkeeping ()
+        {
+            if (visible)
+                return;
+
+            visible = true;
+            OnVisibleChanged (EventArgs.Empty);
+            EnsureLoaded ();            // WinForms raises Load around the window's first display.
 
             // Assume active the moment we ask the backend to show one of our own windows, rather than
             // waiting for its real Activated event (which, empirically, can arrive either before or

@@ -64,6 +64,19 @@ public sealed class EmbeddingApp : Application
                 root.RequestedTheme = ElementTheme.Dark;
         };
         nativeRow.Children.Add (themeButton);
+
+        // UnoHostInterop.ToUnoWindow(): a Majorsilence.Forms Form's backend window is a real
+        // Microsoft.UI.Xaml.Window under the hood, created eagerly in the Form's own constructor. This
+        // hands that window straight back so the host can use it exactly like any other Uno window.
+        // Unlike the Avalonia backend, Uno has no native owner/modal-dialog relationship here (see
+        // UnoHostInterop's doc comment), so this just activates a second top-level window rather than
+        // showing a modal one -- use Form.ShowDialog(parent) for modal behaviour under Uno.
+        var dialogButton = new MuxButton { Content = "Open as Uno window" };
+        dialogButton.Click += (_, _) => {
+            var form = BuildDialogForm ();
+            form.ToUnoWindow ().Activate ();
+        };
+        nativeRow.Children.Add (dialogButton);
         Grid.SetRow (nativeRow, 0);
         root.Children.Add (nativeRow);
 
@@ -76,10 +89,11 @@ public sealed class EmbeddingApp : Application
         root.Children.Add (subheading);
 
         // ── Embedded Majorsilence.Forms ──
-        var presenter = new MajorsilenceFormsPresenter {
-            Content = BuildMajorsilenceScene (),
-            Margin = new Thickness (12, 0, 12, 12)
-        };
+        // UnoHostInterop.ToUnoControl(): equivalent to
+        // `new MajorsilenceFormsPresenter { Content = BuildMajorsilenceScene () }`, just via the public
+        // extension method.
+        var presenter = (FrameworkElement) BuildMajorsilenceScene ().ToUnoControl ();
+        presenter.Margin = new Thickness (12, 0, 12, 12);
         Grid.SetRow (presenter, 2);
         root.Children.Add (presenter);
 
@@ -87,6 +101,32 @@ public sealed class EmbeddingApp : Application
         _window.Activate ();
 
         System.Console.WriteLine ($"[uno-embed] window shown; backend={CF.Backends.Platform.Backend.Name}");
+    }
+
+    // A small Majorsilence.Forms Form activated as a real Uno window via ToUnoWindow() (see the "Open
+    // as Uno window" button above) rather than through Form.Show()/ShowDialog().
+    private static CF.Form BuildDialogForm ()
+    {
+        var form = new CF.Form {
+            Text = "Majorsilence.Forms window",
+            ClientSize = new System.Drawing.Size (320, 140)
+        };
+
+        var label = new CF.Label {
+            Text = "This Form is hosted by a real Uno Window.",
+            Left = 12, Top = 12, Width = 280, Height = 40
+        };
+
+        var closeButton = new CF.Button {
+            Text = "Close",
+            Left = 12, Top = 60, Width = 100, Height = 32
+        };
+        closeButton.Click += (_, _) => form.Close ();
+
+        form.Controls.Add (label);
+        form.Controls.Add (closeButton);
+
+        return form;
     }
 
     private static CF.Panel BuildMajorsilenceScene ()

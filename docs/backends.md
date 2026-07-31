@@ -68,6 +68,51 @@ first window is created:
 Majorsilence.Forms.Backends.Platform.Backend = new Majorsilence.Forms.Headless.HeadlessPlatformBackend ();
 ```
 
+## Embedding in a host app
+
+Everything above assumes Majorsilence.Forms owns the top-level window and the backend is just the
+rendering host underneath (`Form.Show()` → `Platform.Backend.CreateWindow()`). The Avalonia and Uno
+backends also support the *reverse* direction: an existing Avalonia or Uno app that wants to use MF
+objects as if they were its own native objects, additively and without changing anything about the
+usual `Form.Show()` flow.
+
+**MF Control → host control**, via `MajorsilenceFormsPresenter` (a real `Avalonia.Controls.Canvas` /
+WinUI `Grid`) and its convenience extension methods:
+
+```csharp
+// Avalonia (namespace Majorsilence.Forms)
+Avalonia.Controls.Control hostControl = myMfControl.ToAvaloniaControl ();
+
+// Uno (namespace Majorsilence.Forms.Uno)
+Microsoft.UI.Xaml.FrameworkElement hostControl = myMfControl.ToUnoControl ();
+```
+
+Drop the result into any native visual tree. This is exactly what `samples/EmbeddingAvalonia` and
+`samples/EmbeddingUno` do.
+
+**MF Form → host window.** A `Form`'s backend window is created eagerly in the Form's own constructor
+(before `Show()` is ever called), and on both backends that object already *is* (Avalonia) or *wraps*
+(Uno) a real native window. `ToAvaloniaWindow()`/`ToUnoWindow()` hand that window back directly:
+
+```csharp
+Avalonia.Controls.Window window = myForm.ToAvaloniaWindow ();   // Majorsilence.Forms.AvaloniaHostInterop
+Microsoft.UI.Xaml.Window  window = myForm.ToUnoWindow ();       // Majorsilence.Forms.Uno.UnoHostInterop
+```
+
+The host owns showing it from here on — assign it as the app's main window, set `Owner`, call
+`Show()`/`ShowDialog(owner)`, etc. Majorsilence's own `Load`/`Shown`/`Application.OpenForms`
+bookkeeping still runs correctly the first time the window actually becomes visible, regardless of
+which side triggered that.
+
+**Owner/modal-dialog relationships differ by backend.** A real `Avalonia.Controls.Window` supports
+native `.Owner` and `.ShowDialog(owner)`, so `ToAvaloniaWindow()` gives a host app a genuine OS-level
+modal relationship (see the "Open as Avalonia dialog" button in `samples/EmbeddingAvalonia`). Uno has
+no such concept in this backend today — `UnoWindowHost`'s own `ShowDialog` implementation already just
+shows the window and ignores any owner — so `ToUnoWindow()` only gives back an independent top-level
+window (see `samples/EmbeddingUno`'s "Open as Uno window" button). `Form.ShowDialog(parent)` (MF's own
+modal loop, which doesn't depend on native window ownership) is the way to get modal behavior under
+Uno regardless of hosting style.
+
 ## The Headless backend (reference)
 
 `Majorsilence.Forms.Headless` is the simplest possible backend and a good template:
