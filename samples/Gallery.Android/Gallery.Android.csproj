@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Android head for the control gallery, hosted by Avalonia. NOT added to Majorsilence.Forms.slnx: a
+       net10.0-android TFM requires the `android` workload's reference assemblies just to *compile*
+       (unlike wasm-tools, which is only needed to `publish`), so keeping it out of the solution keeps
+       CI's default `dotnet build` (and every contributor's) working without that workload installed. See
+       .github/workflows/dotnet.yml for the dedicated job that builds this with the workload present, and
+       samples/WinFormsInterop for the same pattern applied to a different platform-specific sample.
+       Build/run on a device or emulator: `dotnet build -t:Run` from this directory. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ApplicationId>com.majorsilence.gallery</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <!-- EnableAndroidTarget opts this reference into Majorsilence.Forms.Avalonia's otherwise-excluded
+         net10.0-android TFM row; see the TargetFrameworks comment on that csproj for why it's opt-in. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj">
+      <AdditionalProperties>EnableAndroidTarget=true</AdditionalProperties>
+    </ProjectReference>
+    <!-- Reuse the full ControlGallery MainForm/panels to render the whole gallery on Avalonia-on-Android. -->
+    <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ImageLoader.cs (backend-agnostic, plain File.Open under a relative "Images" folder) has no
+         concept of APK assets, so these are bundled as Android assets and extracted to app-private
+         storage at startup instead; see GalleryApplication.ExtractImageAssets in App.cs. -->
+    <AndroidAsset Include="..\ControlGallery\Images\**\*.png" Link="Images\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

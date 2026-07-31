@@ -117,3 +117,33 @@ jobs:
           trap "kill $SERVER_PID" EXIT
           curl --retry 10 --retry-delay 1 --retry-connrefused -sf http://127.0.0.1:8834/index.html -o /dev/null
           node "$GITHUB_WORKSPACE/.github/scripts/wasm-smoke-test.mjs" http://127.0.0.1:8834/index.html
+
+  # Android compile gate.
+  #
+  # samples/Gallery.Android and Majorsilence.Forms.Avalonia's net10.0-android TFM row are both deliberately
+  # kept out of Majorsilence.Forms.slnx / out of that row's default TargetFrameworks (see the comments on
+  # those two csproj files) specifically so the `build` job above -- which has no `android` workload
+  # installed -- never touches net10.0-android. Unlike wasm-tools, the android workload's reference
+  # assemblies are required just to *compile* against net10.0-android, not only to publish, so this job
+  # (unlike the wasm one) has to install the workload before even a plain `dotnet build` will succeed.
+  # No device/emulator here, so this only proves the APK builds, not that it boots.
+  android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install android workload
+        run: dotnet workload install android
+
+      # EnableAndroidTarget=true opts Majorsilence.Forms.Avalonia's net10.0-android TFM row back in for
+      # this build only -- see the TargetFrameworks comment on that csproj.
+      - name: Build Gallery.Android
+        run: dotnet build samples/Gallery.Android/Gallery.Android.csproj -p:EnableAndroidTarget=true --configuration Release

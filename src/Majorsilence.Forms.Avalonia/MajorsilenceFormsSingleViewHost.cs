@@ -1,4 +1,4 @@
-#if BROWSER
+#if SINGLEVIEW
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -26,30 +26,31 @@ using AvTextInputEventArgs = Avalonia.Input.TextInputEventArgs;
 namespace Majorsilence.Forms
 {
     /// <summary>
-    /// The browser/WebAssembly counterpart to <see cref="MajorsilenceFormsWindowHost"/>. Avalonia's
-    /// browser platform has no OS window manager (<c>BrowserWindowingPlatform.CreateWindow</c> always
-    /// throws — see Avalonia's own WindowingPlatform.cs), only a single embeddable view per page
-    /// (<c>ISingleViewApplicationLifetime.MainView</c>). So instead of an Avalonia <c>Window</c>, every
-    /// Majorsilence.Forms window (the main form, any further top-level forms, and popups like ComboBox
-    /// dropdowns/menus) is a <see cref="Canvas"/>:
+    /// The single-view counterpart to <see cref="MajorsilenceFormsWindowHost"/>, shared by every Avalonia
+    /// platform with no real OS window manager -- currently browser/WebAssembly and Android. Both only
+    /// offer a single embeddable view per app (<c>ISingleViewApplicationLifetime.MainView</c>) — Avalonia's
+    /// browser platform's <c>BrowserWindowingPlatform.CreateWindow</c> always throws (see Avalonia's own
+    /// WindowingPlatform.cs), and Android has no concept of a second freestanding OS window either — so
+    /// instead of an Avalonia <c>Window</c>, every Majorsilence.Forms window (the main form, any further
+    /// top-level forms, and popups like ComboBox dropdowns/menus) is a <see cref="Canvas"/>:
     ///   - The first non-popup window becomes <see cref="MainHost"/> and registers itself as MainView,
-    ///     filling the browser viewport via ordinary Avalonia layout (no explicit Width/Height, so the
-    ///     default Stretch alignment fills whatever the single-view TopLevel gives it).
+    ///     filling the viewport via ordinary Avalonia layout (no explicit Width/Height, so the default
+    ///     Stretch alignment fills whatever the single-view TopLevel gives it).
     ///   - Everything else (popups, and any additional top-level forms) is added as an absolutely
     ///     positioned child of <see cref="MainHost"/>'s own Canvas, using the same coordinate space as
-    ///     "screen" coordinates -- there is only one "screen" (the page), so PointToScreen/PointToClient
-    ///     and Location need no special-casing between the root and its overlay children.
+    ///     "screen" coordinates -- there is only one "screen" (the page/activity), so PointToScreen/
+    ///     PointToClient and Location need no special-casing between the root and its overlay children.
     ///
     /// Known gap: outside-click popup dismissal that relies on real OS window deactivation
     /// (Application.ScheduleClosePopupsOnDeactivate) does not fire here, since a Canvas has no such
     /// concept. Dismissal via clicking elsewhere *inside* the app still works (Control.RaiseMouseDown
     /// closes popups whenever a click lands outside the active popup's own control tree, independent of
-    /// window activation) -- only losing focus to something outside the browser tab entirely is unhandled.
+    /// window activation) -- only losing focus to something outside the app entirely is unhandled.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_framebuffer is disposed in IWindowBackend.Close/DetachedFromVisualTree; there is no owning Window to dispose through here.")]
-    internal sealed class MajorsilenceFormsBrowserHost : Canvas, IWindowBackend, INativeControlHostBackend
+    internal sealed class MajorsilenceFormsSingleViewHost : Canvas, IWindowBackend, INativeControlHostBackend
     {
-        internal static MajorsilenceFormsBrowserHost? MainHost { get; private set; }
+        internal static MajorsilenceFormsSingleViewHost? MainHost { get; private set; }
 
         private readonly WindowBase _owner;
         private readonly bool _isRoot;
@@ -64,7 +65,7 @@ namespace Majorsilence.Forms
         private readonly Dictionary<NativeControlHost, AvControl> _overlays = new ();
         private readonly Image _surface;
 
-        internal MajorsilenceFormsBrowserHost (WindowBase owner, bool isPopup)
+        internal MajorsilenceFormsSingleViewHost (WindowBase owner, bool isPopup)
         {
             _owner = owner;
             _isRoot = !isPopup && MainHost is null;

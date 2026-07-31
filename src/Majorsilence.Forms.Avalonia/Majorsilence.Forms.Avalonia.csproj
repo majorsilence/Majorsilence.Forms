@@ -5,7 +5,35 @@
          flavor of the backend, selected automatically when a browser-wasm head project (samples/Gallery.Wasm)
          references this project. Desktop consumers keep resolving net8.0/net10.0 as before. -->
     <TargetFrameworks>net8.0;net10.0;net10.0-browser</TargetFrameworks>
+    <!-- net10.0-android is likewise an extra row, but opt-in rather than unconditional like the browser
+         row above: unlike wasm-tools (only needed for `dotnet publish`), the `android` workload's
+         reference assemblies (Activity/Bundle/etc.) are required just to *compile* against net10.0-android,
+         so unconditionally listing it would break `dotnet build` for every contributor and CI leg that
+         hasn't installed that workload. samples/Gallery.Android opts in by passing
+         EnableAndroidTarget=true as a global property on its ProjectReference to this project (see that
+         csproj); CI only sets it in the dedicated android job that installs the workload first (see
+         .github/workflows/dotnet.yml). -->
+    <TargetFrameworks Condition="'$(EnableAndroidTarget)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Every project file here lives in "namespace Majorsilence.Forms { }" and refers to the Avalonia
+         package's types unqualified (bare "Avalonia.Whatever"). The default RootNamespace (derived from
+         the assembly/project name) is "Majorsilence.Forms.Avalonia", which is fine normally, but the Android SDK
+         auto-generates a Resource designer class as "namespace Majorsilence.Forms.Avalonia { class
+         Resource ... }" for the net10.0-android row, which makes that a *real* sibling namespace. C#'s
+         enclosing-namespace lookup then finds it ahead of the "using Avalonia;" import for any bare
+         "Avalonia.X" reference inside "namespace Majorsilence.Forms { }", shadowing the actual package and
+         breaking the build with "'X' does not exist in the namespace 'Majorsilence.Forms.Avalonia'"
+         errors. Overriding RootNamespace to something that doesn't end in ".Avalonia" avoids the collision
+         entirely (harmless elsewhere, since every file here already declares its own explicit namespace). -->
+    <RootNamespace>Majorsilence.Forms.AvaloniaBackend</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Both single-view platforms (no real OS window manager: one embeddable view per app/tab, not
+       per-Form) share this constant so MajorsilenceFormsSingleViewHost and the relevant
+       AvaloniaPlatformBackend members compile in for either without duplicating BROWSER-only code paths
+       under a second, parallel ANDROID branch. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-browser' OR '$(TargetFramework)' == 'net10.0-android'">
+    <DefineConstants>$(DefineConstants);SINGLEVIEW</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -25,17 +53,26 @@
   </ItemGroup>
 
   <!-- Desktop (Windows/macOS/Linux): native windowing + the real native-engine webview control. Neither
-       builds for browser-wasm (no OS window manager, no WebView2/WKWebView/WebKitGTK in a browser tab). -->
-  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-browser'">
+       builds for browser-wasm or Android (no OS window manager, no WebView2/WKWebView/WebKitGTK there). -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-browser' AND '$(TargetFramework)' != 'net10.0-android'">
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Controls.WebView" />
   </ItemGroup>
 
-  <!-- Browser (WebAssembly): Avalonia's browser platform replaces Avalonia.Desktop; there is no
-       WebView-equivalent package, so AvaloniaWebViewHandle.cs (which needs Avalonia.Controls.WebView)
-       is excluded below and AvaloniaPlatformBackend's WebView members report unsupported instead. -->
+  <!-- Browser (WebAssembly): Avalonia's browser platform replaces Avalonia.Desktop. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-browser'">
     <PackageReference Include="Avalonia.Browser" />
+  </ItemGroup>
+
+  <!-- Android: Avalonia's Android platform replaces Avalonia.Desktop. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
+    <PackageReference Include="Avalonia.Android" />
+  </ItemGroup>
+
+  <!-- Neither single-view platform has a WebView-equivalent package wired up here, so
+       AvaloniaWebViewHandle.cs (which needs Avalonia.Controls.WebView) is excluded and
+       AvaloniaPlatformBackend's WebView members report unsupported instead. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-browser' OR '$(TargetFramework)' == 'net10.0-android'">
     <Compile Remove="AvaloniaWebViewHandle.cs" />
   </ItemGroup>
 

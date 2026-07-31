@@ -17,7 +17,28 @@ internal static class AvaloniaBootstrap
     /// <summary>Whether platform bootstrap has completed (on either the desktop or browser path).</summary>
     internal static bool IsInitialized => _initialized;
 
-#if !BROWSER
+#if ANDROID
+    // Android has no synchronous bootstrap of its own to run here: UsePlatformDetect() (the desktop path
+    // just below) needs Avalonia.Desktop, which isn't referenced on this TFM, and there's no windowless
+    // AppBuilder.Setup equivalent for Android besides the one AvaloniaMainActivity already performs.
+    // AvaloniaMainActivity<TApp> (Avalonia.Android) always runs AppBuilder.Configure<TApp>().UseAndroid()
+    // ....SetupWithLifetime(this) itself before this can ever be reached -- Application.RunAndroid, the
+    // only caller, is only ever invoked from MainActivity.OnCreate after base.OnCreate() -- so
+    // Avalonia.Application.Current is guaranteed already set here; there is nothing left to bootstrap.
+    internal static void EnsureInitialized ()
+    {
+        if (_initialized)
+            return;
+
+        lock (_lock) {
+            if (Avalonia.Application.Current is null)
+                throw new InvalidOperationException (
+                    "The Avalonia Android backend must be bootstrapped by AvaloniaMainActivity (Avalonia.Android) before any Majorsilence.Forms window is created.");
+
+            _initialized = true;
+        }
+    }
+#elif !BROWSER
     internal static void EnsureInitialized ()
     {
         if (_initialized)

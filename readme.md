@@ -75,9 +75,11 @@ A form looks exactly like you'd expect:
 
 Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) folder:
 
-- [`ControlGallery`](samples/ControlGallery) — every built-in control, live. A backend-agnostic library (shared `MainForm`/panels) run by the `Gallery.Avalonia` and `Gallery.Uno` heads below.
+- [`ControlGallery`](samples/ControlGallery) — every built-in control, live. A backend-agnostic library (shared `MainForm`/panels) run by the `Gallery.Avalonia`, `Gallery.Uno`, `Gallery.Wasm` and `Gallery.Android` heads below.
 - [`Gallery.Avalonia`](samples/Gallery.Avalonia) — the control gallery running on the **Avalonia** backend.
 - [`Gallery.Uno`](samples/Gallery.Uno) — the control gallery running on the **Uno** backend.
+- [`Gallery.Wasm`](samples/Gallery.Wasm) — the control gallery running on **Avalonia in the browser** (WebAssembly).
+- [`Gallery.Android`](samples/Gallery.Android) — the control gallery running on **Avalonia on Android**. Requires the `android` workload (`dotnet workload install android`); not part of the default solution build, see that project's own comment for why. ⚠️ Work in progress: builds and boots, but Android/mobile support is early and not yet as exercised as the desktop/browser backends.
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
