@@ -82,7 +82,11 @@ jobs:
           echo "Resolved version: '${VERSION:-(from csproj)}'"
 
   # ---------------------------------------------------------------------------
-  # Pack the NuGet packages. Platform-agnostic, so a single runner is enough.
+  # Pack the NuGet packages. Platform-agnostic, so a single runner is enough --
+  # it just needs the `android` workload installed, since Majorsilence.Forms.Avalonia
+  # is packed with EnableAndroidTarget=true below to include a net10.0-android asset
+  # (that TFM's reference assemblies are required just to compile, same reason CI's
+  # separate `android` job in dotnet.yml needs the workload).
   # ---------------------------------------------------------------------------
   pack:
     needs: version
@@ -98,6 +102,9 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
+
+      - name: Install android workload
+        run: dotnet workload install android
 
       - name: Build version arg
         id: args
@@ -115,10 +122,18 @@ jobs:
           set -euo pipefail
           for proj in $PACKABLE_PROJECTS; do
             echo "::group::pack $proj"
+            # Majorsilence.Forms.Avalonia's net10.0-android TFM row is opt-in (see that csproj's
+            # TargetFrameworks comment) so a plain `dotnet build`/`dotnet pack` elsewhere never needs
+            # the android workload; the released package still needs to include it, so it's the one
+            # project here packed with EnableAndroidTarget=true.
+            extra_args=""
+            if [[ "$proj" == *Majorsilence.Forms.Avalonia.csproj ]]; then
+              extra_args="-p:EnableAndroidTarget=true"
+            fi
             dotnet pack "$proj" \
               --configuration Release \
               --output "${{ github.workspace }}/nupkg" \
-              ${{ steps.args.outputs.version_arg }}
+              ${{ steps.args.outputs.version_arg }} $extra_args
             echo "::endgroup::"
           done
 
