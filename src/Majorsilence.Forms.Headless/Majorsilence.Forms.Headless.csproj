@@ -10,7 +10,12 @@
     <Description>Headless SkiaSharp platform backend for Majorsilence.Forms — offscreen rendering for tests and a reference second backend.</Description>
     <PackageTags>Majorsilence;Forms;Headless;Skia;Backend;Testing</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />

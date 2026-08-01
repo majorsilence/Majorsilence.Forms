@@ -1,12 +1,18 @@
 # MajorsilenceForms.Templates
 
-`dotnet new` templates for scaffolding a [Majorsilence.Forms](../../readme.md) application.
+`dotnet new` templates for scaffolding a
+[Majorsilence.Forms](https://github.com/majorsilence/Majorsilence.Forms) application — a WinForms-style,
+cross-platform UI framework for .NET (Windows, macOS, Linux) that keeps `Form`s, controls, event
+handlers, and `*.Designer.cs` files.
 
 ```
-dotnet new --install MajorsilenceForms.Templates
+dotnet new install MajorsilenceForms.Templates
 dotnet new majorsilenceforms
 dotnet run
 ```
+
+That scaffolds a runnable app — a `WinExe` project referencing `Majorsilence.Forms` +
+`Majorsilence.Forms.Avalonia`, with a `MainForm` showing a single label — and opens a window.
 
 `dotnet new majorsilenceforms -n MyApp` (optionally with `-o <dir>`) scaffolds into a named
 project/namespace instead of using the current directory.
@@ -40,3 +46,11 @@ dotnet build /tmp/msf-template-smoke-test
 This package itself follows the repo's own `Directory.Build.props` version (so its version tracks
 Majorsilence.Forms releases), but that's independent from the pinned dependency versions inside
 the template content, which must be bumped by hand.
+
+## Links
+
+- [Repository](https://github.com/majorsilence/Majorsilence.Forms)
+- [Getting started](https://github.com/majorsilence/Majorsilence.Forms/blob/main/docs/getting-started.md)
+- [Samples](https://github.com/majorsilence/Majorsilence.Forms/tree/main/samples)
+
+Licensed under the MIT License.

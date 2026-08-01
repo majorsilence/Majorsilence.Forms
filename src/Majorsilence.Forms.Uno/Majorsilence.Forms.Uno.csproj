@@ -12,7 +12,12 @@
     <Description>Uno Platform (Skia) platform backend for Majorsilence.Forms.</Description>
     <PackageTags>Majorsilence;Forms;Uno;Skia;Backend;Cross;Platform</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />

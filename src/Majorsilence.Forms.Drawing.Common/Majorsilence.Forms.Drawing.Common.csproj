@@ -9,7 +9,12 @@
     <PackageDescription>Cross-platform SkiaSharp-based drawing primitives (Brush, Pen, Font, FontFamily, Image, Bitmap, Icon, Region, StringFormat, GraphicsPath, Matrix, Imaging codecs, etc.) implementing the GDI+ / System.Drawing surface that Majorsilence.Forms consumes. Value types (Color, Point, PointF, Size, SizeF, Rectangle, RectangleF) are deliberately NOT reimplemented -- the real cross-platform BCL System.Drawing.Primitives types are used instead. Originally developed as part of Majorsilence.Reporting.</PackageDescription>
     <Authors>Majorsilence</Authors>
     <PackageTags>skiasharp;drawing;graphics;cross-platform;winforms-compat</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="SkiaSharp" />
