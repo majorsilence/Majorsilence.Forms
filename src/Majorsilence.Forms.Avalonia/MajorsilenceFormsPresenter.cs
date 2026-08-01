@@ -76,6 +76,8 @@ namespace Majorsilence.Forms
             Platform.Backend.Initialize ();
 
             _host = new HostedSurface (this);
+
+            AvaloniaGestureWiring.Attach (this, _host, () => Scale);
         }
 
         /// <summary>

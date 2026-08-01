@@ -98,4 +98,16 @@ internal sealed class MigrationOptions
 
     /// <summary>Additional namespace/type mapping files (JSON) layered on top of the built-in rules.</summary>
     public IReadOnlyList<string> MapFiles { get; init; } = [];
+
+    /// <summary>
+    /// Wrap the top-of-file <c>using System.Windows.Forms;</c> / <c>Imports System.Windows.Forms</c> import
+    /// (and the <c>Majorsilence.Forms.Drawing</c> companion import, when one would be added) in an
+    /// <c>#if MAJORSILENCE_FORMS</c> conditional instead of rewriting it unconditionally, and add a
+    /// <c>DefineConstants</c> propagation for that symbol to converted project files (see
+    /// <see cref="ProjectConverter"/>). Lets a project keep building against real WinForms — e.g. on Windows,
+    /// via a repo-root <c>Directory.Build.props</c> that doesn't (yet) set <c>MAJORSILENCE_FORMS</c> — while
+    /// the rest of the migration is applied incrementally. See <see cref="ConditionalImports"/> for the exact
+    /// scope: only the plain import line itself is made conditional, not every rewritten reference in a file.
+    /// </summary>
+    public bool DualBuild { get; init; }
 }

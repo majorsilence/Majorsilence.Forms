@@ -84,8 +84,10 @@ public class RoslynSourceConverterTests : IDisposable
     /// <see cref="RoslynSourceConverter"/>, and returns the result — the Roslyn-engine equivalent of calling
     /// <c>SourceConverter.Convert(text)</c> directly.
     /// </summary>
-    private SourceConverter.Result Convert (string source, string fileName = "Form1.cs", CustomMap? customMap = null,
-        VbConstructorMode vbConstructor = VbConstructorMode.Auto)
+    // internal (not private): DualBuildTests reuses this exact on-disk-fixture/MSBuildWorkspace plumbing for
+    // its one Roslyn-engine dual-build case, rather than duplicating it.
+    internal SourceConverter.Result Convert (string source, string fileName = "Form1.cs", CustomMap? customMap = null,
+        VbConstructorMode vbConstructor = VbConstructorMode.Auto, bool dualBuild = false)
     {
         var projPath = Write ("App.csproj", WinFormsCsproj);
         var sourcePath = Write (fileName, source);
@@ -98,7 +100,7 @@ public class RoslynSourceConverterTests : IDisposable
         {
             var found = context!.TryGetDocument (sourcePath, out var document, out var failureReason);
             Assert.True (found, failureReason);
-            return RoslynSourceConverter.ConvertAsync (document!, customMap, vbConstructor).GetAwaiter ().GetResult ();
+            return RoslynSourceConverter.ConvertAsync (document!, customMap, vbConstructor, dualBuild).GetAwaiter ().GetResult ();
         }
         finally
         {

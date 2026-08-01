@@ -87,7 +87,8 @@ text` already handles it identically, faster.
    `-windows` TFM suffix (`net8.0-windows` → `net8.0`, including in imported `.props`/`.targets`),
    drops the Windows-desktop framework reference, removes WinForms-only NuGet packages (Telerik UI
    for WinForms, DevExpress, ...), and adds a `Majorsilence.Forms` + backend reference — only to
-   projects that are/use WinForms; class libraries with no UI are left untouched.
+   projects that are/use WinForms; class libraries with no UI are left untouched. (`--dual-build`
+   changes this — see [Incremental migration](#incremental-migration-building-against-both---dual-build).)
 2. **Source files** (`.cs`/`.vb`): rewrites namespaces via a longest-prefix-first table (see
    [Namespace mapping](#namespace-mapping) below), collapses duplicate `using`/`Imports` lines that
    result from multiple source namespaces mapping to the same target, and — for VB — injects the
@@ -126,6 +127,8 @@ OPTIONS
       --repo-root <dir>   Repo root for resolving --references project paths (default: cwd).
       --map <file>        JSON file of extra namespace mappings (repeatable — e.g. a
                           third-party control vendor not already built in).
+      --dual-build        Keep the project buildable against real WinForms too — see
+                          "Incremental migration" below.
       --strict            Exit non-zero if any manual-review warning is produced (CI gate).
       --report <file>     Path for the Markdown report (default: migration-report.md by output).
       --no-report         Do not write the migration report.
@@ -147,6 +150,54 @@ git add -A && git commit -m "Migrate to Majorsilence.Forms"
 Running in-place on a git-tracked branch (with `--no-backup`, since git is your backup) makes the
 migration **idempotent and diffable**: run it, inspect exactly what changed file-by-file, re-run it
 safely if you pull in more legacy code later.
+
+### Incremental migration: building against both (`--dual-build`)
+
+By default, `majorsilence-migrate` commits a project to Majorsilence.Forms outright: `UseWindowsForms`,
+the `-windows` TFM suffix, and WinForms-only packages are all removed, and every
+`using System.Windows.Forms;` becomes `using Majorsilence.Forms;` unconditionally. `--dual-build`
+instead lets a project (a C# one — see the VB note below) build against **either** stack, switched by
+one MSBuild property, so a Windows developer can start migrating and keep building against real
+WinForms until they're satisfied with the result:
+
+* **Project files are left otherwise untouched** — `UseWindowsForms`, the `-windows` TFM, and any
+  WinForms-only NuGet packages all stay, so the `#else` branch below still compiles. Majorsilence.Forms
+  + a backend reference are still added alongside them, and a
+  `<DefineConstants Condition="'$(MAJORSILENCE_FORMS)' == 'true'">$(DefineConstants);MAJORSILENCE_FORMS</DefineConstants>`
+  is added to propagate the switch.
+* **Source files**: only the top-of-file `using System.Windows.Forms;` (and, when it would be added,
+  the `Majorsilence.Forms.Drawing` companion import) becomes conditional:
+  ```csharp
+  #if MAJORSILENCE_FORMS
+  using Majorsilence.Forms;
+  #else
+  using System.Windows.Forms;
+  #endif
+  ```
+  This is deliberately narrow: any *fully-qualified* reference elsewhere in a file's body (e.g.
+  `System.Windows.Forms.MessageBox.Show(...)`) is still rewritten unconditionally, exactly as without
+  `--dual-build` — that statement only compiles once `MAJORSILENCE_FORMS` is defined. Most WinForms
+  source relies on unqualified type names via the top-of-file import, which is what this targets.
+
+To flip a build over, add to a repo-root `Directory.Build.props`:
+
+```xml
+<Project>
+  <PropertyGroup>
+    <MAJORSILENCE_FORMS>true</MAJORSILENCE_FORMS>
+  </PropertyGroup>
+</Project>
+```
+
+Leave it unset (or `false`) and every converted project keeps building exactly as it did before —
+against real `System.Windows.Forms`/`System.Drawing`. Set it to `true` once you're satisfied with the
+Majorsilence.Forms side, then finish the migration by running the tool again without `--dual-build` (or
+manually dropping the `#else` branches and the now-unneeded WinForms plumbing).
+
+Not offered for VB: `MyType=Empty` switches off the whole VB "My" application framework (implicit
+constructor, `My.*`, ...), which can't be toggled by a preprocessor symbol the same way a plain import
+can. A VB project/file passed `--dual-build` is converted the normal, fully-committed way instead, with
+a warning explaining why.
 
 ### Extending it for a third-party control vendor
 

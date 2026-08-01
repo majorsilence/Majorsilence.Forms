@@ -9,7 +9,7 @@ Windows, macOS, and Linux out of the box, with mobile and web within reach throu
 [Uno Platform](https://platform.uno) or through [Avalonia](https://avaloniaui.net)'s own
 Android, iOS, and Browser (WASM) targets.
 
-> ⚠️ **Early stage.** The API is stabilizing and not every WinForms corner is covered yet.
+> ⚠️ **Beta stage.** The API is stabilizing and not every WinForms corner is covered yet.
 > Great for new cross-platform LOB apps and for migrating real apps today — just pin your version.
 
 ## Why Majorsilence.Forms?
@@ -75,11 +75,12 @@ A form looks exactly like you'd expect:
 
 Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) folder:
 
-- [`ControlGallery`](samples/ControlGallery) — every built-in control, live. A backend-agnostic library (shared `MainForm`/panels) run by the `Gallery.Avalonia`, `Gallery.Uno`, `Gallery.Wasm` and `Gallery.Android` heads below.
+- [`ControlGallery`](samples/ControlGallery) — every built-in control, live. A backend-agnostic library (shared `MainForm`/panels) run by the `Gallery.Avalonia`, `Gallery.Uno`, `Gallery.Wasm`, `Gallery.Android` and `Gallery.iOS` heads below.
 - [`Gallery.Avalonia`](samples/Gallery.Avalonia) — the control gallery running on the **Avalonia** backend.
 - [`Gallery.Uno`](samples/Gallery.Uno) — the control gallery running on the **Uno** backend.
 - [`Gallery.Wasm`](samples/Gallery.Wasm) — the control gallery running on **Avalonia in the browser** (WebAssembly).
 - [`Gallery.Android`](samples/Gallery.Android) — the control gallery running on **Avalonia on Android**. Requires the `android` workload (`dotnet workload install android`); not part of the default solution build, see that project's own comment for why. ⚠️ Work in progress: builds and boots, but Android/mobile support is early and not yet as exercised as the desktop/browser backends.
+- [`Gallery.iOS`](samples/Gallery.iOS) — the control gallery running on **Avalonia on iOS**. Requires a Mac with the `ios` workload (`dotnet workload install ios`) — that workload doesn't install on Linux/Windows at all, so this can only be built and verified on macOS or in the `ios` CI job. ⚠️ Unverified: written from Avalonia.iOS's decompiled API and standard .NET-for-iOS conventions, but has not yet been compiled anywhere — expect a first-build shakeout.
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
@@ -122,3 +123,13 @@ For bugs and feature requests, open an issue on GitHub.
 ## License
 
 See [license.md](license.md).
+
+## 🏗 Project Origin & Evolution
+This project is an AI-enhanced fork of Modern Forms (Original Repository: [https://github.com/modern-forms/Modern.Forms](https://github.com/modern-forms/Modern.Forms)) re-architected to bridge the gap between legacy WinForms and modern cross-platform frameworks. 
+
+1. Base Foundation: Built upon the core architecture of Modern Forms, inheriting its initial cross-platform intent.  Full file-level attribution and original licensing terms are preserved within the source code and the LICENSE file.
+2. AI-Driven Transformation: The codebase has been extensively refactored and expanded using Artificial Intelligence to achieve the following:
+  - WinForms Compatibility: Filled critical API gaps to ensure near-parity with the standard Windows Forms ecosystem, allowing easier migration of legacy applications.
+  - Multi-Platform Expansion: Implemented native support for WebAssembly (WASM), Android, and iOS, extending reach beyond desktop environments.
+  - Host Rebasement: Successfully rebased the underlying OS hosts on Avalonia and Uno Platform, leveraging their robust rendering engines and platform interop layers for superior performance and stability.
+3. Human Verification: All AI-generated adaptations, particularly the complex host rebasing and platform-specific implementations, have been manually reviewed, tested, and integrated to ensure architectural integrity.

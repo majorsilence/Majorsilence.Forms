@@ -60,6 +60,7 @@ namespace Majorsilence.Forms.Uno
             WireInput ();
 
             _host = new HostedSurface (this);
+            UnoGestureWiring.Attach (_canvas, _host, () => Scaling);
         }
 
         /// <summary>

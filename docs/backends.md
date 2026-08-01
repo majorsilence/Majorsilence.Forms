@@ -193,6 +193,50 @@ title-bar drag works on the **Win32 desktop head**. On the macOS head `Form` use
 no-ops (caught) — edge-resize may still work via the presenter, but title-bar drag is unavailable;
 use `UseSystemDecorations` there if you need OS window dragging.
 
+## Gesture support
+
+`Control` has five new, purely-additive events for touch/pen input: `LongPress`, `Pinch` (pinch-to-
+zoom and two-finger rotate together — see `PinchGestureEventArgs.Scale`/`Angle`/`AngleDelta`),
+`Swipe`, and `ScrollGesture` (continuous drag-to-pan, still firing with a decaying delta during the
+platform's own momentum/inertia phase after the contact lifts — this is the whole flick/momentum-
+scrolling implementation, no deceleration physics written here). None of them fire for the mouse.
+`ScrollableControl` already applies `ScrollGesture` to `AutoScrollPosition` automatically (content
+follows the finger), so existing `Panel`/`ListBox`/`TreeView`/etc. subclasses gained touch panning
+with no app code changes; `LongPress`'s default handler opens `ContextMenu` if one is set, mirroring
+the existing right-click behavior in `Control.OnClick`.
+
+Both the **Avalonia** and **Uno** backends implement this, via a per-backend `*GestureWiring` helper
+attaching the platform's own gesture facilities to each host control (`MajorsilenceFormsWindowHost`,
+`MajorsilenceFormsSingleViewHost` — the class Avalonia's Android/browser targets use — and
+`MajorsilenceFormsPresenter`, on both backends) — so it works the same way whether Majorsilence.Forms
+owns the top-level window or is embedded via `ToAvaloniaControl()`/`ToAvaloniaWindow()`/
+`ToUnoControl()`/`ToUnoWindow()`. The two backends' underlying gesture models are meaningfully
+different, though, confirmed by decompiling the actual installed packages rather than assumed:
+
+- **Avalonia** (`AvaloniaGestureWiring`) attaches separate, dedicated recognizer classes
+  (`PinchGestureRecognizer`/`SwipeGestureRecognizer`/`ScrollGestureRecognizer`) plus the built-in
+  `Holding` event. Every one of those recognizers is self-gated to touch/pen pointers by Avalonia
+  itself, so this is attached unconditionally with no effect on mouse-driven desktop interactions.
+- **Uno** (`UnoGestureWiring`) uses WinUI's unified manipulation model instead — one
+  `UIElement.ManipulationMode` flags enum and one `ManipulationDelta`/`ManipulationCompleted` event
+  stream covering pan, pinch-zoom, and rotate together, split in `UnoGestureWiring` itself into
+  `Pinch` vs. `ScrollGesture` calls based on whether a given frame's incremental scale/rotation is
+  non-trivial. Two real differences from Avalonia here, not just an implementation detail:
+  - WinUI's manipulation engine is **not** self-gated to non-mouse pointers (unlike Avalonia's
+    recognizers) — `UnoGestureWiring` filters `PointerDeviceType.Mouse` out itself in every
+    manipulation handler to keep ordinary desktop mouse-drag interactions unaffected. `Holding`
+    (long-press) doesn't need this: subscribing to it only ever enables the recognizer's non-mouse
+    "Hold" setting, never the separate "HoldWithMouse" one, so it's safe by construction.
+  - WinUI has no native swipe gesture (only the unrelated, heavyweight `SwipeControl` reveal-action
+    control) — `Swipe` is synthesized from `ManipulationCompleted`'s velocity against a chosen
+    threshold (`UnoGestureWiring.MinSwipeVelocity`), a heuristic rather than a platform capability.
+
+Like the rest of the backend seam, this is wired through new methods directly on the concrete
+`WindowBase` class (`HandleLongPress`/`HandlePinch`/`HandleSwipe`/`HandleScrollGesture`), not through
+`IWindowBackend`/`IPlatformBackend` — a backend that doesn't call them just never raises gesture
+events, with nothing to implement and no effect on its own behavior (the same pattern as the
+optional `IWebViewFactory` capability above).
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two

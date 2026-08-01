@@ -101,6 +101,8 @@ namespace Majorsilence.Forms
             PositionChanged += (_, _) => _owner.OnBackendMoved ();
             Activated += (_, _) => _owner.OnBackendActivated ();
             Deactivated += (_, _) => _owner.OnBackendDeactivated ();
+
+            AvaloniaGestureWiring.Attach (this, _owner, () => RenderScaling);
         }
 
         private void OnWindowClosing (object? sender, WindowClosingEventArgs e)

@@ -17,13 +17,15 @@ internal static class AvaloniaBootstrap
     /// <summary>Whether platform bootstrap has completed (on either the desktop or browser path).</summary>
     internal static bool IsInitialized => _initialized;
 
-#if ANDROID
-    // Android has no synchronous bootstrap of its own to run here: UsePlatformDetect() (the desktop path
-    // just below) needs Avalonia.Desktop, which isn't referenced on this TFM, and there's no windowless
-    // AppBuilder.Setup equivalent for Android besides the one AvaloniaMainActivity already performs.
-    // AvaloniaMainActivity<TApp> (Avalonia.Android) always runs AppBuilder.Configure<TApp>().UseAndroid()
-    // ....SetupWithLifetime(this) itself before this can ever be reached -- Application.RunAndroid, the
-    // only caller, is only ever invoked from MainActivity.OnCreate after base.OnCreate() -- so
+#if ANDROID || IOS
+    // Neither Android nor iOS has a synchronous bootstrap of its own to run here: UsePlatformDetect()
+    // (the desktop path just below) needs Avalonia.Desktop, which isn't referenced on either TFM, and
+    // there's no windowless AppBuilder.Setup equivalent for either besides the one the platform's own
+    // host entry point already performs. AvaloniaMainActivity<TApp> (Avalonia.Android) and
+    // AvaloniaAppDelegate<TApp> (Avalonia.iOS) both always run
+    // AppBuilder.Configure<TApp>().UseAndroid()/.UseiOS()....SetupWithLifetime(...) themselves before
+    // this can ever be reached -- Application.RunAndroid/RunIOS, the only callers, are only ever
+    // invoked from MainActivity.OnCreate / AppDelegate.FinishedLaunching after those already ran -- so
     // Avalonia.Application.Current is guaranteed already set here; there is nothing left to bootstrap.
     internal static void EnsureInitialized ()
     {
@@ -33,7 +35,7 @@ internal static class AvaloniaBootstrap
         lock (_lock) {
             if (Avalonia.Application.Current is null)
                 throw new InvalidOperationException (
-                    "The Avalonia Android backend must be bootstrapped by AvaloniaMainActivity (Avalonia.Android) before any Majorsilence.Forms window is created.");
+                    "The Avalonia Android/iOS backend must be bootstrapped by the platform's own host entry point (AvaloniaMainActivity on Android, AvaloniaAppDelegate on iOS) before any Majorsilence.Forms window is created.");
 
             _initialized = true;
         }

@@ -98,6 +98,8 @@ namespace Majorsilence.Forms
                 if (Avalonia.Application.Current?.ApplicationLifetime is ISingleViewApplicationLifetime lifetime)
                     lifetime.MainView = this;
             }
+
+            AvaloniaGestureWiring.Attach (this, _owner, () => Scale);
         }
 
         /// <inheritdoc/>

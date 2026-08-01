@@ -14,6 +14,13 @@
          csproj); CI only sets it in the dedicated android job that installs the workload first (see
          .github/workflows/dotnet.yml). -->
     <TargetFrameworks Condition="'$(EnableAndroidTarget)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
+    <!-- net10.0-ios is opt-in for the same reason net10.0-android is: the ios workload's reference
+         assemblies are required just to *compile*. Unlike the android workload, the ios workload is
+         only installable on macOS (there is no Linux/Windows path at all, since Apple's toolchain is a
+         hard requirement), so this row can only ever be built there. samples/Gallery.iOS opts in via
+         EnableIOSTarget=true on its ProjectReference; CI's dedicated ios job (macos-latest) sets it
+         after installing the workload, see .github/workflows/dotnet.yml. -->
+    <TargetFrameworks Condition="'$(EnableIOSTarget)' == 'true'">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Every project file here lives in "namespace Majorsilence.Forms { }" and refers to the Avalonia
          package's types unqualified (bare "Avalonia.Whatever"). The default RootNamespace (derived from
@@ -28,11 +35,18 @@
     <RootNamespace>Majorsilence.Forms.AvaloniaBackend</RootNamespace>
   </PropertyGroup>
 
-  <!-- Both single-view platforms (no real OS window manager: one embeddable view per app/tab, not
-       per-Form) share this constant so MajorsilenceFormsSingleViewHost and the relevant
-       AvaloniaPlatformBackend members compile in for either without duplicating BROWSER-only code paths
-       under a second, parallel ANDROID branch. -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-browser' OR '$(TargetFramework)' == 'net10.0-android'">
+  <!-- All three single-view platforms (no real OS window manager: one embeddable view per app/tab/
+       screen, not per-Form) share this property so the many conditions below don't have to keep
+       repeating a three-way TargetFramework comparison, and so a fourth single-view platform later
+       only needs to change this one spot. -->
+  <PropertyGroup>
+    <IsSingleView Condition="'$(TargetFramework)' == 'net10.0-browser' OR '$(TargetFramework)' == 'net10.0-android' OR '$(TargetFramework)' == 'net10.0-ios'">true</IsSingleView>
+  </PropertyGroup>
+
+  <!-- MajorsilenceFormsSingleViewHost and the relevant AvaloniaPlatformBackend members compile in for
+       any single-view platform without duplicating BROWSER-only code paths under a second, parallel
+       ANDROID/IOS branch. -->
+  <PropertyGroup Condition="'$(IsSingleView)' == 'true'">
     <DefineConstants>$(DefineConstants);SINGLEVIEW</DefineConstants>
   </PropertyGroup>
 
@@ -52,9 +66,10 @@
     <PackageReference Include="Avalonia.Skia" />
   </ItemGroup>
 
-  <!-- Desktop (Windows/macOS/Linux): native windowing + the real native-engine webview control. Neither
-       builds for browser-wasm or Android (no OS window manager, no WebView2/WKWebView/WebKitGTK there). -->
-  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-browser' AND '$(TargetFramework)' != 'net10.0-android'">
+  <!-- Desktop (Windows/macOS/Linux): native windowing + the real native-engine webview control. None
+       of the single-view platforms build this (no OS window manager, no WebView2/WKWebView/WebKitGTK
+       there). -->
+  <ItemGroup Condition="'$(IsSingleView)' != 'true'">
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Controls.WebView" />
   </ItemGroup>
@@ -69,10 +84,15 @@
     <PackageReference Include="Avalonia.Android" />
   </ItemGroup>
 
-  <!-- Neither single-view platform has a WebView-equivalent package wired up here, so
+  <!-- iOS: Avalonia's iOS platform replaces Avalonia.Desktop. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-ios'">
+    <PackageReference Include="Avalonia.iOS" />
+  </ItemGroup>
+
+  <!-- No single-view platform has a WebView-equivalent package wired up here, so
        AvaloniaWebViewHandle.cs (which needs Avalonia.Controls.WebView) is excluded and
        AvaloniaPlatformBackend's WebView members report unsupported instead. -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-browser' OR '$(TargetFramework)' == 'net10.0-android'">
+  <ItemGroup Condition="'$(IsSingleView)' == 'true'">
     <Compile Remove="AvaloniaWebViewHandle.cs" />
   </ItemGroup>
 

@@ -18,6 +18,11 @@
     <!-- Avalonia's Android platform. Only referenced by Majorsilence.Forms.Avalonia's opt-in
          net10.0-android TFM row (see EnableAndroidTarget in that csproj) and by samples/Gallery.Android. -->
     <PackageVersion Include="Avalonia.Android" Version="12.1.0" />
+    <!-- Avalonia's iOS platform. Only referenced by Majorsilence.Forms.Avalonia's opt-in
+         net10.0-ios TFM row (see EnableIOSTarget in that csproj) and by samples/Gallery.iOS. Unlike
+         the android workload, the ios workload only installs (and this can only build) on macOS,
+         verified in CI's dedicated ios job (macos-latest), not on the main build job's runners. -->
+    <PackageVersion Include="Avalonia.iOS" Version="12.1.0" />
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
     <!-- Force SkiaSharp.HarfBuzz + HarfBuzzSharp up to match SkiaSharp 3.119.4. RichTextKit 0.4.167
@@ -35,6 +40,10 @@
     <PackageVersion Include="System.Resources.Extensions" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.201" />
+    <!-- samples/ControlGallery's CommunityToolkit.Mvvm panel: source-generated ObservableObject/
+         RelayCommand. Majorsilence.Forms.Control.DataBindings is a stub (see WinFormsCompat.cs), so the
+         panel wires the ViewModel's PropertyChanged/ICommand manually rather than declaratively. -->
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <!-- Optional Roslyn source-rewrite engine for the migrator (majorsilence-migrate's "engine roslyn"
          flag). Kept at matching versions across the three Microsoft.CodeAnalysis.* packages, per
          Roslyn's own versioning convention. -->

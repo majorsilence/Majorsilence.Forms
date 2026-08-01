@@ -191,4 +191,12 @@ internal static class AvaloniaKeyInterop
             _                                              => MouseButtons.None
         };
     }
+
+    internal static SwipeDirection ToSwipeDirection (Avalonia.Input.SwipeDirection direction) => direction switch {
+        Avalonia.Input.SwipeDirection.Left  => SwipeDirection.Left,
+        Avalonia.Input.SwipeDirection.Right => SwipeDirection.Right,
+        Avalonia.Input.SwipeDirection.Up    => SwipeDirection.Up,
+        Avalonia.Input.SwipeDirection.Down  => SwipeDirection.Down,
+        _                                    => SwipeDirection.Left
+    };
 }

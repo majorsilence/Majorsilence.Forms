@@ -21,6 +21,7 @@ var strict = false;
 var noReport = false;
 string? reportPath = null;
 var mapFiles = new List<string>();
+var dualBuild = false;
 
 for (var i = 0; i < args.Length; i++)
 {
@@ -73,6 +74,9 @@ for (var i = 0; i < args.Length; i++)
         case "--map":
             mapFiles.Add(Next(ref i));
             break;
+        case "--dual-build":
+            dualBuild = true;
+            break;
         default:
             if (arg.StartsWith('-'))
                 return Fail($"unknown option: {arg}");
@@ -103,6 +107,7 @@ var options = new MigrationOptions
     NoReport = noReport,
     ReportPath = reportPath is null ? null : Path.GetFullPath(reportPath),
     MapFiles = mapFiles.Select(Path.GetFullPath).ToArray(),
+    DualBuild = dualBuild,
 };
 
 return new Migrator(options).Run();
@@ -177,6 +182,16 @@ static void PrintUsage()
               --package-version <v>  NuGet version for package references (default: 0.3.0).
               --repo-root <dir>   Repo root for resolving --references project paths (default: cwd).
               --map <file>        JSON file of extra namespace mappings (repeatable, e.g. Telerik).
+              --dual-build        Wrap the top-of-file System.Windows.Forms/System.Drawing imports in an
+                                  #if MAJORSILENCE_FORMS conditional (falling back to real WinForms/
+                                  System.Drawing in the #else branch) instead of rewriting them
+                                  unconditionally, and add a DefineConstants propagation for that symbol
+                                  to converted project files. Set <MAJORSILENCE_FORMS>true</MAJORSILENCE_FORMS>
+                                  in a Directory.Build.props to opt a build into Majorsilence.Forms; leave
+                                  it unset (or false) to keep building against real WinForms in the
+                                  meantime — e.g. on Windows, while the rest of the migration is reviewed
+                                  incrementally. Only the import line itself is conditional; other
+                                  rewritten references in the file body are unconditional either way.
               --strict            Exit non-zero if any manual-review warning is produced (CI gate).
               --report <file>     Path for the Markdown report (default: migration-report.md by output).
               --no-report         Do not write the migration report.

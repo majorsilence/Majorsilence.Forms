@@ -243,6 +243,30 @@ namespace Majorsilence.Forms
             createMainForm ().Show ();
         }
 
+        /// <summary>
+        /// Starts the application on a backend with synchronous, host-driven startup where the host (not
+        /// this method) already owns and pumps the platform's main loop — currently the Avalonia iOS
+        /// backend, whose <c>AvaloniaAppDelegate</c> bootstraps Avalonia and starts pumping its dispatcher
+        /// via the OS's own run loop before this is ever called. Identical to <see cref="RunAndroid"/>
+        /// (both are host-driven, synchronous-bootstrap platforms) — kept as its own named entry point
+        /// for symmetry with <see cref="RunAndroid"/>/<see cref="RunBrowserAsync"/> rather than reusing
+        /// the Android name for a different platform. Like the others, this does not block: once the
+        /// backend initializes and the form returned by <paramref name="createMainForm"/> is shown,
+        /// control returns to the caller (typically <c>AppDelegate.FinishedLaunching</c>) and the host's
+        /// own event loop drives the UI from then on — there is no <see cref="RunCore"/>/main-loop call
+        /// to make, and none should be made.
+        /// </summary>
+        /// <param name="createMainForm">
+        /// Creates the form to make visible. A factory rather than a ready-made <see cref="Form"/> for the
+        /// same reason as <see cref="RunAndroid"/>: constructing any <see cref="WindowBase"/> touches
+        /// the platform backend, so callers should not construct one before the backend is initialized.
+        /// </param>
+        public static void RunIOS (Func<Form> createMainForm)
+        {
+            Platform.Backend.Initialize ();
+            createMainForm ().Show ();
+        }
+
         /// <summary>Runs the platform backend's message loop until <see cref="Exit"/> is called.</summary>
         private static void RunCore ()
         {

@@ -48,8 +48,13 @@ namespace Majorsilence.Forms.Migrator;
 /// </summary>
 internal static class RoslynSourceConverter
 {
+    /// <param name="dualBuild">
+    /// See <see cref="SourceConverter.Convert"/>'s parameter of the same name — identical behavior, applied
+    /// here as a textual post-process over this engine's already-rewritten output (see
+    /// <see cref="ReconcileDrawingImports"/> and the dual-build step at the end of this method).
+    /// </param>
     public static async Task<SourceConverter.Result> ConvertAsync(Document document, CustomMap? customMap,
-        VbConstructorMode vbConstructor)
+        VbConstructorMode vbConstructor, bool dualBuild = false)
     {
         var originalText = (await document.GetTextAsync().ConfigureAwait(false)).ToString();
         var warnings = new List<string>();
@@ -62,6 +67,14 @@ internal static class RoslynSourceConverter
 
         var isVb = document.Project.Language == LanguageNames.VisualBasic;
         var map = customMap ?? CustomMap.Empty;
+
+        // See SourceConverter.Convert's identical note: --dual-build isn't offered for VB (MyType=Empty
+        // can't be toggled by a preprocessor symbol), so VB documents always get the normal, fully-rewritten
+        // conversion regardless of the option.
+        var effectiveDualBuild = dualBuild && !isVb;
+        if (dualBuild && isVb)
+            Warn("--dual-build is not supported for Visual Basic yet (MyType=Empty and the VB application " +
+                "framework can't be toggled via a preprocessor symbol) — converted normally, same as without --dual-build");
 
         var editor = await DocumentEditor.CreateAsync(document).ConfigureAwait(false);
         var semanticModel = await document.GetSemanticModelAsync().ConfigureAwait(false);
@@ -90,7 +103,7 @@ internal static class RoslynSourceConverter
         // engine, but operating on this engine's already-rewritten text (see the class doc's pass-scope
         // list: "import reconciliation" is reimplemented, not reused, but shares the textual helper's
         // string-based line surgery since importing/removing a line is not itself a symbol question).
-        rewrittenText = ReconcileDrawingImports(rewrittenText, isVb);
+        rewrittenText = ReconcileDrawingImports(rewrittenText, isVb, effectiveDualBuild);
 
         // Deliberately-reused textual passes (see class doc): Pass 0 as a post-process over this engine's
         // output, then the unsupported-namespace / unmapped-Telerik warnings and (for VB) constructor
@@ -107,6 +120,14 @@ internal static class RoslynSourceConverter
         }
 
         rewrittenText = DeduplicateImportLines(rewrittenText);
+
+        // Dual-build: same rule as SourceConverter.Convert's own final step — the symbol-resolution pass
+        // above has already turned the file's bare `using System.Windows.Forms;` / `Imports
+        // System.Windows.Forms` line into `using Majorsilence.Forms;` (VisitUsingDirective rewrites only
+        // that node's Name, which serializes to exactly this bare form), so it's identifiable here the same
+        // way. See ConditionalImports.
+        if (effectiveDualBuild)
+            rewrittenText = ConditionalImports.WrapBareImport(rewrittenText, "Majorsilence.Forms", "System.Windows.Forms");
 
         return new SourceConverter.Result(rewrittenText, !string.Equals(rewrittenText, originalText, StringComparison.Ordinal), warnings);
     }
@@ -189,7 +210,7 @@ internal static class RoslynSourceConverter
     private static readonly Regex BareDrawingImportLine =
         new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+System\.Drawing[ \t]*;?[ \t]*$", RegexOptions.Compiled);
 
-    private static string ReconcileDrawingImports(string text, bool isVb)
+    private static string ReconcileDrawingImports(string text, bool isVb, bool dualBuild = false)
     {
         var match = BareDrawingImportLine.Match(text);
         if (!match.Success)
@@ -202,9 +223,26 @@ internal static class RoslynSourceConverter
 
         var indent = match.Groups["indent"].Value;
         var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var kw = isVb ? "Imports" : "using";
         var companion = isVb
             ? $"{indent}Imports {NamespaceMap.DrawingTarget}"
             : $"{indent}using {NamespaceMap.DrawingTarget};";
+
+        if (dualBuild)
+        {
+            // See SourceConverter.RewriteDrawingImports' identical dual-build branch: System.Drawing stays
+            // unconditionally whenever anything under it is used unqualified (GDI+ types still live there in
+            // WinForms-mode too); only the Majorsilence.Forms.Drawing companion becomes conditional.
+            if (needsSystemDrawing || usesGdiPlus)
+            {
+                if (usesGdiPlus && !companionPresent)
+                    return text[..match.Index] + match.Value + newline
+                        + ConditionalImports.BuildDrawingCompanionBlock(indent, kw, newline)
+                        + text[(match.Index + match.Length)..];
+                return text;
+            }
+            return RemoveImportLine(text, match, null, newline);
+        }
 
         if (needsSystemDrawing)
         {

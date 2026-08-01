@@ -1001,6 +1001,19 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Raises the LongPress event. Mirrors <see cref="OnClick"/>'s right-click branch: opens
+        /// <see cref="ContextMenu"/> if one is set, so a migrated app that already wires up
+        /// <see cref="ContextMenuStrip"/> gets a touch long-press-to-open-menu for free.
+        /// </summary>
+        protected virtual void OnLongPress (LongPressEventArgs e)
+        {
+            (Events[s_longPressEvent] as EventHandler<LongPressEventArgs>)?.Invoke (this, e);
+
+            if (ContextMenu != null)
+                ContextMenu.Show (this, PointToScreen (e.Location));
+        }
+
+        /// <summary>
         ///  Raises the <see cref='ContextMenuChanged'/> event.
         /// </summary>
         protected virtual void OnContextMenuChanged (EventArgs e)
@@ -1194,6 +1207,22 @@ namespace Majorsilence.Forms
         /// Raises the MouseWheel event.
         /// </summary>
         protected virtual void OnMouseWheel (MouseEventArgs e) => (Events[s_mouseWheelEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+
+        /// <summary>
+        /// Raises the Pinch event.
+        /// </summary>
+        protected virtual void OnPinch (PinchGestureEventArgs e) => (Events[s_pinchEvent] as EventHandler<PinchGestureEventArgs>)?.Invoke (this, e);
+
+        /// <summary>
+        /// Raises the ScrollGesture event. <see cref="ScrollableControl"/> overrides this to pan
+        /// <see cref="ScrollableControl.AutoScrollPosition"/>.
+        /// </summary>
+        protected virtual void OnScrollGesture (ScrollGestureEventArgs e) => (Events[s_scrollGestureEvent] as EventHandler<ScrollGestureEventArgs>)?.Invoke (this, e);
+
+        /// <summary>
+        /// Raises the Swipe event.
+        /// </summary>
+        protected virtual void OnSwipe (SwipeGestureEventArgs e) => (Events[s_swipeEvent] as EventHandler<SwipeGestureEventArgs>)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the PaddingChanged event.
@@ -1707,6 +1736,103 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Finds the correct control and calls its OnLongPress method.
+        /// </summary>
+        internal void RaiseLongPress (LongPressEventArgs e)
+        {
+            var captured = Controls.FindCapturedChild ();
+
+            if (captured != null) {
+                captured.RaiseLongPress (TranslateLongPressEvent (e, captured));
+                return;
+            }
+
+            var child = Controls.FindVisibleChildAt (e.Location);
+
+            if (child != null)
+                child.RaiseLongPress (TranslateLongPressEvent (e, child));
+            else if (Enabled)
+                OnLongPress (e);
+        }
+
+        /// <summary>
+        /// Finds the correct control and calls its OnPinch method.
+        /// </summary>
+        internal void RaisePinch (PinchGestureEventArgs e)
+        {
+            var captured = Controls.FindCapturedChild ();
+
+            if (captured != null) {
+                captured.RaisePinch (TranslatePinchEvent (e, captured));
+                return;
+            }
+
+            var child = Controls.FindVisibleChildAt (e.Location);
+
+            if (child != null)
+                child.RaisePinch (TranslatePinchEvent (e, child));
+            else if (Enabled)
+                OnPinch (e);
+        }
+
+        /// <summary>
+        /// Finds the correct control and calls its OnSwipe method.
+        /// </summary>
+        internal void RaiseSwipe (SwipeGestureEventArgs e)
+        {
+            var captured = Controls.FindCapturedChild ();
+
+            if (captured != null) {
+                captured.RaiseSwipe (TranslateSwipeEvent (e, captured));
+                return;
+            }
+
+            var child = Controls.FindVisibleChildAt (e.Location);
+
+            if (child != null)
+                child.RaiseSwipe (TranslateSwipeEvent (e, child));
+            else if (Enabled)
+                OnSwipe (e);
+        }
+
+        /// <summary>
+        /// Finds the correct control and calls its OnScrollGesture method. Unlike the other Raise*
+        /// gesture methods, once hit-testing bottoms out at a leaf control, this walks that control's
+        /// own ancestor chain (starting with itself) for the nearest <see cref="ScrollableControl"/>
+        /// and raises there instead — so dragging over e.g. a Label inside a scrollable Panel pans
+        /// the Panel, matching how touch-scrolling a list works regardless of which child is under
+        /// the finger. A leaf with no scrollable ancestor still raises on itself, for the raw event.
+        /// </summary>
+        internal void RaiseScrollGesture (ScrollGestureEventArgs e)
+        {
+            var captured = Controls.FindCapturedChild ();
+
+            if (captured != null) {
+                captured.RaiseScrollGesture (TranslateScrollGestureEvent (e, captured));
+                return;
+            }
+
+            var child = Controls.FindVisibleChildAt (e.Location);
+
+            if (child != null) {
+                child.RaiseScrollGesture (TranslateScrollGestureEvent (e, child));
+                return;
+            }
+
+            if (!Enabled)
+                return;
+
+            for (var target = this; target != null; target = target.Parent) {
+                if (target is ScrollableControl) {
+                    target.OnScrollGesture (e);
+                    return;
+                }
+            }
+
+            OnScrollGesture (e);
+        }
+
+        /// <summary>
         /// Calls the OnPaint method.
         /// </summary>
         internal void RaisePaint (PaintEventArgs e)
@@ -2145,6 +2271,30 @@ namespace Majorsilence.Forms
 
             return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.ScaledLeft, e.Location.Y - control.ScaledTop, e.Delta, e.Location.X, e.Location.Y, e.Modifiers);
         }
+
+        /// <summary>
+        /// Changes long-press events to control coordinates.
+        /// </summary>
+        private static LongPressEventArgs TranslateLongPressEvent (LongPressEventArgs e, Control control)
+            => new LongPressEventArgs (e.X - control.ScaledLeft, e.Y - control.ScaledTop);
+
+        /// <summary>
+        /// Changes pinch events to control coordinates.
+        /// </summary>
+        private static PinchGestureEventArgs TranslatePinchEvent (PinchGestureEventArgs e, Control control)
+            => new PinchGestureEventArgs (e.X - control.ScaledLeft, e.Y - control.ScaledTop, e.Scale, e.Angle, e.AngleDelta);
+
+        /// <summary>
+        /// Changes swipe events to control coordinates.
+        /// </summary>
+        private static SwipeGestureEventArgs TranslateSwipeEvent (SwipeGestureEventArgs e, Control control)
+            => new SwipeGestureEventArgs (e.X - control.ScaledLeft, e.Y - control.ScaledTop, e.VelocityX, e.VelocityY, e.Direction);
+
+        /// <summary>
+        /// Changes scroll-gesture events to control coordinates.
+        /// </summary>
+        private static ScrollGestureEventArgs TranslateScrollGestureEvent (ScrollGestureEventArgs e, Control control)
+            => new ScrollGestureEventArgs (e.X - control.ScaledLeft, e.Y - control.ScaledTop, e.Delta);
 
         /// <summary>
         /// Gets or sets whether the control is displayed to the user.

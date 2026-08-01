@@ -24,6 +24,7 @@ namespace ControlGallery
             tree.Items.Add ("Button", ImageLoader.Get ("button.png"));
             tree.Items.Add ("CheckBox", ImageLoader.Get ("button.png"));
             tree.Items.Add ("ComboBox", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("CommunityToolkit.Mvvm", ImageLoader.Get ("button.png"));
             tree.Items.Add ("DataGridView", ImageLoader.Get ("button.png"));
             tree.Items.Add ("Dialogs", ImageLoader.Get ("button.png"));
             tree.Items.Add ("FileDialogs", ImageLoader.Get ("button.png"));
@@ -168,7 +169,7 @@ namespace ControlGallery
         private static string[] GetPreWarmNames () =>
             new[]
             {
-                "Button", "CheckBox", "ComboBox", "DataGridView", "Dialogs", "FileDialogs",
+                "Button", "CheckBox", "ComboBox", "CommunityToolkit.Mvvm", "DataGridView", "Dialogs", "FileDialogs",
                 "FlowLayoutPanel", "GroupBox", "ImageList", "Label", "LinkLabel",
                 "ListBox", "ListView", "Menu", "MenuStrip", "MessageBox",
                 "NavigationPane", "NumericUpDown", "Panel", "PictureBox", "ProgressBar",
@@ -193,6 +194,8 @@ namespace ControlGallery
                     return new CheckBoxPanel ();
                 case "ComboBox":
                     return new ComboBoxPanel ();
+                case "CommunityToolkit.Mvvm":
+                    return new CommunityToolkitMvvmPanel ();
                 case "DataGridView":
                     return new DataGridViewPanel ();
                 case "Dialogs":

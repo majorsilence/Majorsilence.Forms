@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- iOS head for the control gallery, hosted by Avalonia. NOT added to Majorsilence.Forms.slnx: a
+       net10.0-ios TFM requires the `ios` workload's reference assemblies just to *compile*, and unlike
+       the android workload, the ios workload is only installable on macOS at all (Apple's toolchain is
+       a hard requirement, not just a nice-to-have for publishing). Keeping it out of the solution keeps
+       CI's default `dotnet build` (and every contributor's, on any OS) working without that workload
+       installed. See .github/workflows/dotnet.yml for the dedicated job (macos-latest) that builds this
+       with the workload present, and samples/Gallery.Android for the same pattern applied to Android.
+
+       IMPORTANT: unlike every other sample in this repo, none of this project's source files (this
+       csproj, AppDelegate.cs, Info.plist) have been compiled or run, since there is no macOS/Xcode
+       host available to do that with. Everything here is written from Avalonia.iOS's actual decompiled API
+       (Avalonia.iOS.AvaloniaAppDelegate<TApp>, IOSApplicationExtensions.UseiOS, SingleViewLifetime) and
+       from standard .NET-for-iOS project conventions, but treat it as a first draft to be fixed up once
+       it's actually built on a Mac or in CI, not as verified working code.
+
+       Build/run on a simulator or device (from a Mac, with the ios workload installed):
+       `dotnet build -t:Run` from this directory. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ApplicationId>com.majorsilence.gallery</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <!-- Matches Avalonia.iOS's own minimum (its AvaloniaAppDelegate/AvaloniaSceneDelegate code is
+         gated behind [SupportedOSPlatform("ios13.0")] in several places). -->
+    <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <!-- EnableIOSTarget opts this reference into Majorsilence.Forms.Avalonia's otherwise-excluded
+         net10.0-ios TFM row; see the TargetFrameworks comment on that csproj for why it's opt-in. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj">
+      <AdditionalProperties>EnableIOSTarget=true</AdditionalProperties>
+    </ProjectReference>
+    <!-- Reuse the full ControlGallery MainForm/panels to render the whole gallery on Avalonia-on-iOS. -->
+    <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.iOS" />
+  </ItemGroup>
+
+  <!-- .NET for iOS runs ILLink ("Optimizing assemblies for size") during a plain Release `dotnet build`,
+       which desktop/Android skip, so this is the only project in the repo that sees trim analysis at all.
+       Avalonia.DesignerSupport (design time only, pulled in transitively by Avalonia, no role at app
+       runtime) isn't annotated as trim safe and so produces IL2104.
+
+       IL2104 is a *warning*, but this repo's Directory.Build.props turns on TreatWarningsAsErrors for
+       Release, and Microsoft.NET.ILLink.targets defaults ILLinkTreatWarningsAsErrors to that same value,
+       which is what promoted it to an error and failed the build with NETSDK1144.
+
+       Opt just the trimmer out of that policy. The repo's warnings as errors rule still applies in full to
+       this project's own C# code; IL2104 stays visible in the build log, it simply isn't fatal. Preferred
+       over NoWarn on the one code, since any other package assembly producing trim warnings under a
+       different IL2xxx code would otherwise fail CI the same way. Note the SDK itself defaults
+       SuppressTrimAnalysisWarnings to true for UseWpf/UseWindowsForms projects, i.e. it already treats
+       trim analysis as non actionable noise for desktop UI frameworks, which is exactly this case.
+       See https://aka.ms/il2104. -->
+  <PropertyGroup>
+    <ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ImageLoader.cs (backend-agnostic, plain File.Open under a relative "Images" folder) just needs
+         the process's current directory to be the folder containing "Images" at runtime. Unlike
+         Android's APK assets, BundleResource items land directly on the filesystem inside the app
+         bundle's Resources, so (unlike Gallery.Android) no runtime extraction step is needed, just
+         pointing the cwd there; see AppDelegate.cs. -->
+    <BundleResource Include="..\ControlGallery\Images\**\*.png" LogicalName="Images\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
