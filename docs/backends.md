@@ -193,6 +193,35 @@ title-bar drag works on the **Win32 desktop head**. On the macOS head `Form` use
 no-ops (caught) — edge-resize may still work via the presenter, but title-bar drag is unavailable;
 use `UseSystemDecorations` there if you need OS window dragging.
 
+## Gesture support (Avalonia backend)
+
+`Control` has five new, purely-additive events for touch/pen input: `LongPress`, `Pinch` (pinch-to-
+zoom and two-finger rotate together — see `PinchGestureEventArgs.Scale`/`Angle`/`AngleDelta`),
+`Swipe`, and `ScrollGesture` (continuous drag-to-pan, still firing with a decaying delta during the
+platform's own momentum/inertia phase after the contact lifts — this is the whole flick/momentum-
+scrolling implementation, no deceleration physics written here). None of them fire for the mouse.
+`ScrollableControl` already applies `ScrollGesture` to `AutoScrollPosition` automatically (content
+follows the finger), so existing `Panel`/`ListBox`/`TreeView`/etc. subclasses gained touch panning
+with no app code changes; `LongPress`'s default handler opens `ContextMenu` if one is set, mirroring
+the existing right-click behavior in `Control.OnClick`.
+
+Today this is backed only by the **Avalonia** backend, via `AvaloniaGestureWiring` attaching
+Avalonia's own built-in `PinchGestureRecognizer`/`SwipeGestureRecognizer`/`ScrollGestureRecognizer`
+and `Holding` event to each host control (`MajorsilenceFormsWindowHost`,
+`MajorsilenceFormsSingleViewHost` — the class Android and browser use, and `MajorsilenceFormsPresenter`)
+— so it works the same way whether Majorsilence.Forms owns the top-level window or is embedded via
+`ToAvaloniaControl()`/`ToAvaloniaWindow()`. Every one of those recognizers is self-gated to
+touch/pen pointers by Avalonia itself, so this is attached unconditionally on every Avalonia target
+(desktop, Android, browser) with no effect on mouse-driven desktop interactions. The Uno backend
+does not implement this yet (WinUI has a differently-shaped gesture API); `Form.ShowDialog(parent)`
+remains the cross-backend way to get modal behavior regardless.
+
+Like the rest of the backend seam, this is wired through new methods directly on the concrete
+`WindowBase` class (`HandleLongPress`/`HandlePinch`/`HandleSwipe`/`HandleScrollGesture`), not through
+`IWindowBackend`/`IPlatformBackend` — a backend that doesn't call them just never raises gesture
+events, with nothing to implement and no effect on its own behavior (the same pattern as the
+optional `IWebViewFactory` capability above).
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two

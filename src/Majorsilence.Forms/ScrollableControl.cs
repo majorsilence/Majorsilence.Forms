@@ -110,6 +110,30 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        /// Pans <see cref="AutoScrollPosition"/> by the gesture's delta, content-follows-finger (a
+        /// downward/rightward drag reveals content that was above/to the left). Because the backend's
+        /// gesture recognizer keeps delivering this event with a decaying delta during its own
+        /// inertia/friction phase after the contact lifts, repeatedly applying it here is the whole
+        /// momentum/flick-scrolling implementation -- no deceleration physics needed here.
+        /// </summary>
+        protected override void OnScrollGesture (ScrollGestureEventArgs e)
+        {
+            base.OnScrollGesture (e);
+
+            if (!auto_scroll)
+                return;
+
+            // AutoScrollPosition's getter returns WinForms-style negative offsets; its setter takes
+            // the (unsigned) magnitude and clamps to the scrollbar range itself -- but only after an
+            // internal Math.Abs(), which would silently flip a magnitude that went negative back to
+            // positive instead of clamping to zero. Clamp to zero here first to avoid that.
+            var current = AutoScrollPosition;
+            var x = Math.Max (0, -current.X - e.Delta.X);
+            var y = Math.Max (0, -current.Y - e.Delta.Y);
+            AutoScrollPosition = new Point (x, y);
+        }
+
         // Calculates and sets the current canvas size.
         private void CalculateCanvasSize ()
         {

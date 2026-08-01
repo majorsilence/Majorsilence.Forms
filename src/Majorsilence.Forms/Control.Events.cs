@@ -37,6 +37,7 @@ public partial class Control
     private static readonly object s_handleDestroyedEvent = new object ();
     private static readonly object s_imeModeChangedEvent = new object ();
     private static readonly object s_leaveEvent = new object ();
+    private static readonly object s_longPressEvent = new object ();
     private static readonly object s_lostFocusEvent = new object ();
     private static readonly object s_invalidatedEvent = new object ();
     private static readonly object s_keyDownEvent = new object ();
@@ -53,6 +54,9 @@ public partial class Control
     private static readonly object s_mouseMoveEvent = new object ();
     private static readonly object s_mouseUpEvent = new object ();
     private static readonly object s_mouseWheelEvent = new object ();
+    private static readonly object s_pinchEvent = new object ();
+    private static readonly object s_scrollGestureEvent = new object ();
+    private static readonly object s_swipeEvent = new object ();
     private static readonly object s_paddingChangedEvent = new object ();
     private static readonly object s_parentEvent = new object ();
     private static readonly object s_previewKeyDownEvent = new object ();
@@ -175,6 +179,16 @@ public partial class Control
     }
 
     /// <summary>
+    /// Raised when a touch or pen contact is held in place for the platform's press-and-hold
+    /// duration. Does not fire for the mouse. The default handler (see <see cref="Control.OnLongPress"/>)
+    /// opens <see cref="ContextMenu"/> if one is set, mirroring the existing right-click behavior.
+    /// </summary>
+    public event EventHandler<LongPressEventArgs>? LongPress {
+        add => Events.AddHandler (s_longPressEvent, value);
+        remove => Events.RemoveHandler (s_longPressEvent, value);
+    }
+
+    /// <summary>
     /// Raised when the user presses down a key.
     /// </summary>
     public event EventHandler<KeyEventArgs>? KeyDown {
@@ -268,6 +282,36 @@ public partial class Control
     public event EventHandler<MouseEventArgs>? MouseWheel {
         add => Events.AddHandler (s_mouseWheelEvent, value);
         remove => Events.RemoveHandler (s_mouseWheelEvent, value);
+    }
+
+    /// <summary>
+    /// Raised while two touch or pen contacts move relative to each other (pinch-to-zoom and
+    /// two-finger rotate). Does not fire for the mouse.
+    /// </summary>
+    public event EventHandler<PinchGestureEventArgs>? Pinch {
+        add => Events.AddHandler (s_pinchEvent, value);
+        remove => Events.RemoveHandler (s_pinchEvent, value);
+    }
+
+    /// <summary>
+    /// Raised repeatedly while a touch or pen drag pans content, and again (with a decaying delta)
+    /// during the momentum/flick phase after the contact lifts. Does not fire for the mouse.
+    /// <see cref="ScrollableControl"/> already applies this to <see cref="ScrollableControl.AutoScrollPosition"/>;
+    /// subscribe here only for custom pan behavior.
+    /// </summary>
+    public event EventHandler<ScrollGestureEventArgs>? ScrollGesture {
+        add => Events.AddHandler (s_scrollGestureEvent, value);
+        remove => Events.RemoveHandler (s_scrollGestureEvent, value);
+    }
+
+    /// <summary>
+    /// Raised for a quick, discrete single-direction touch or pen drag (e.g. carousel/paging
+    /// navigation). Does not fire for the mouse. For continuous drag-to-pan with inertia, see
+    /// <see cref="ScrollGesture"/> instead.
+    /// </summary>
+    public event EventHandler<SwipeGestureEventArgs>? Swipe {
+        add => Events.AddHandler (s_swipeEvent, value);
+        remove => Events.RemoveHandler (s_swipeEvent, value);
     }
 
     /// <summary>

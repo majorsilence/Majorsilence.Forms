@@ -530,6 +530,23 @@ namespace Majorsilence.Forms
             TrackPointerOutside ();
         }
 
+        // ── Neutral gesture handlers (backend-specific; called only by backends that detect these,
+        // e.g. the Avalonia backend's attached GestureRecognizers -- see AvaloniaGestureWiring. Not
+        // part of IWindowBackend/IPlatformBackend, so a backend that doesn't call these simply never
+        // raises gesture events, with no interface to implement and no effect on its own behavior) ──
+
+        internal void HandleLongPress (int x, int y)
+            => adapter.RaiseLongPress (new LongPressEventArgs (x, y));
+
+        internal void HandlePinch (int x, int y, double scale, double angle, double angleDelta)
+            => adapter.RaisePinch (new PinchGestureEventArgs (x, y, scale, angle, angleDelta));
+
+        internal void HandleSwipe (int x, int y, double velocityX, double velocityY, SwipeDirection direction)
+            => adapter.RaiseSwipe (new SwipeGestureEventArgs (x, y, velocityX, velocityY, direction));
+
+        internal void HandleScrollGesture (int x, int y, int deltaX, int deltaY)
+            => adapter.RaiseScrollGesture (new ScrollGestureEventArgs (x, y, new System.Drawing.Point (deltaX, deltaY)));
+
         // WinForms parity: without KeyPreview a form's own key events fire only when no child
         // control has focus; keys otherwise go straight to the focused control. With KeyPreview
         // the form sees (and may handle) the key before the focused control does.
