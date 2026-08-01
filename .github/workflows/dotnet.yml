@@ -147,3 +147,35 @@ jobs:
       # this build only -- see the TargetFrameworks comment on that csproj.
       - name: Build Gallery.Android
         run: dotnet build samples/Gallery.Android/Gallery.Android.csproj -p:EnableAndroidTarget=true --configuration Release
+
+  # iOS compile gate.
+  #
+  # samples/Gallery.iOS and Majorsilence.Forms.Avalonia's net10.0-ios TFM row are both deliberately kept
+  # out of Majorsilence.Forms.slnx / out of that row's default TargetFrameworks, same as the Android row
+  # above and for the same compile-time-reference-assembly reason -- except here there is no cross-OS
+  # path at all: the `ios` workload only installs on macOS (Apple's toolchain, not just a nice-to-have,
+  # is a hard requirement), unlike `android`, which installs and builds on any OS. This is therefore the
+  # only job in this workflow that has to run on macos-latest instead of ubuntu-latest. No
+  # simulator/device here, so this only proves the app builds, not that it boots -- and unlike every
+  # other platform-specific job in this repo, this one has never actually run yet as of the change that
+  # added it, so treat a first failure here as expected teething, not a regression.
+  ios:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install ios workload
+        run: dotnet workload install ios
+
+      # EnableIOSTarget=true opts Majorsilence.Forms.Avalonia's net10.0-ios TFM row back in for this
+      # build only -- see the TargetFrameworks comment on that csproj.
+      - name: Build Gallery.iOS
+        run: dotnet build samples/Gallery.iOS/Gallery.iOS.csproj -p:EnableIOSTarget=true --configuration Release

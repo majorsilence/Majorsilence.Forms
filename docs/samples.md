@@ -81,3 +81,22 @@ Not part of the default solution build (`Majorsilence.Forms.slnx`), so a plain `
 test` at the repo root never needs that workload — see the comment at the top of
 `samples/Gallery.Android/Gallery.Android.csproj` for why, and `samples/WinFormsInterop` for the same
 pattern applied to a different platform-specific sample.
+
+### Gallery.iOS (iOS-only, unverified)
+
+> ⚠️ Unlike every other sample in this repo, this one has never actually been compiled: the `ios`
+> workload only installs on macOS at all (there is no Linux/Windows path, unlike `android`), and no
+> Mac was available to build it with. It's written from Avalonia.iOS's decompiled API and standard
+> .NET-for-iOS conventions, not from a working build — expect a first-build shakeout on real hardware
+> or in CI's `ios` job before treating it as working.
+
+Runs the same `ControlGallery` `MainForm` on the Avalonia backend's iOS target, hosted by a single
+`UIViewController`. Requires a Mac with the `ios` workload:
+
+```bash
+dotnet workload install ios
+dotnet build samples/Gallery.iOS -p:EnableIOSTarget=true -t:Run
+```
+
+Not part of the default solution build (`Majorsilence.Forms.slnx`), for the same reason as
+`Gallery.Android` — see the comment at the top of `samples/Gallery.iOS/Gallery.iOS.csproj`.
