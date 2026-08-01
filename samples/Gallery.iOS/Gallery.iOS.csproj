@@ -43,6 +43,17 @@
     <PackageReference Include="Avalonia.iOS" />
   </ItemGroup>
 
+  <!-- Avalonia.DesignerSupport (a design-time-only assembly, pulled in transitively through Avalonia
+       itself -- used by the XAML previewer, with no role at app runtime) isn't annotated as trim-safe.
+       .NET for iOS runs the same "optimize for size" trimming step during a plain Release `dotnet build`
+       (not just publish) that desktop/Android skip, and escalates its trim warning to a build error
+       (IL2104 -> NETSDK1144, seen in the first real `ios` CI run). Root the assembly -- excluded from
+       trimming entirely, kept fully intact -- rather than try to make a design-time-only dependency
+       trim-clean. See https://aka.ms/il2104. -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="Avalonia.DesignerSupport" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- ImageLoader.cs (backend-agnostic, plain File.Open under a relative "Images" folder) just needs
          the process's current directory to be the folder containing "Images" at runtime. Unlike
