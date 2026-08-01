@@ -41,8 +41,32 @@ namespace Majorsilence.Forms.Drawing
         public static FontFamily[] Families =>
             SkiaSharp.SKFontManager.Default.FontFamilies.Select (name => new FontFamily (name)).ToArray ();
 
-        /// <summary>Returns whether the specified style is available for this family. Always true in Majorsilence.Forms.Drawing.</summary>
-        public bool IsStyleAvailable (FontStyle style) => true;
+        /// <summary>
+        /// Returns whether the specified style is available for this family, by resolving the family at
+        /// that style and checking whether the typeface actually came back with it. A family with no
+        /// real bold (or italic) face resolves to its regular face, which is reported as unavailable
+        /// rather than as a synthesized match.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="FontStyle.Underline"/> and <see cref="FontStyle.Strikeout"/> are drawn decorations
+        /// rather than typeface styles, so they are always available and do not affect the result --
+        /// the same way GDI+ treats them.
+        /// </remarks>
+        public bool IsStyleAvailable (FontStyle style)
+        {
+            var wantBold = (style & FontStyle.Bold) != 0;
+            var wantItalic = (style & FontStyle.Italic) != 0;
+
+            var requested = new SkiaSharp.SKFontStyle (
+                wantBold ? SkiaSharp.SKFontStyleWeight.Bold : SkiaSharp.SKFontStyleWeight.Normal,
+                SkiaSharp.SKFontStyleWidth.Normal,
+                wantItalic ? SkiaSharp.SKFontStyleSlant.Italic : SkiaSharp.SKFontStyleSlant.Upright);
+
+            // Deliberately not disposed: FontSubstitution keeps the embedded typefaces in a static
+            // cache and hands the shared instance back, so disposing here would break later lookups.
+            var typeface = FontSubstitution.Resolve (Name, requested);
+            return typeface.IsBold == wantBold && typeface.IsItalic == wantItalic;
+        }
 
         /// <inheritdoc/>
         public override string ToString () => $"[FontFamily: Name={Name}]";

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Majorsilence.Forms.GdiDiff</RootNamespace>
+    <AssemblyName>gdi-diff</AssemblyName>
+    <!-- Developer tool, not a shipped package. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Reflection-only comparison target. GeneratePathProperty exposes $(PkgSystem_Drawing_Common) so
+         the reference assembly can be located without hardcoding a NuGet cache path; it is never
+         loaded for execution (MetadataLoadContext), so its Windows-only runtime behavior is irrelevant
+         and it is deliberately not a runtime dependency of this tool. -->
+    <PackageReference Include="System.Drawing.Common" GeneratePathProperty="true" ExcludeAssets="all" />
+    <PackageReference Include="System.Reflection.MetadataLoadContext" />
+  </ItemGroup>
+
+  <!-- Bake the resolved package path in at build time so the tool needs no arguments to find the
+       assembly it diffs against. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>SystemDrawingCommonPackageRoot</_Parameter1>
+      <_Parameter2>$(PkgSystem_Drawing_Common)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

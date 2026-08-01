@@ -106,6 +106,135 @@ namespace Majorsilence.Forms
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea, Majorsilence.Forms.Drawing.StringFormat? format)
             => MeasureString (text, font, layoutArea);
 
+        /// <summary>
+        /// Returns one <see cref="Majorsilence.Forms.Drawing.Region"/> per character range previously
+        /// supplied to <see cref="Majorsilence.Forms.Drawing.StringFormat.SetMeasurableCharacterRanges"/>,
+        /// describing where that range lands when <paramref name="text"/> is laid out inside
+        /// <paramref name="layoutRect"/>.
+        /// </summary>
+        /// <remarks>
+        /// A range that wraps across lines produces a region containing one rectangle per line, the same
+        /// as GDI+. Wrapping is greedy word wrap against <c>layoutRect.Width</c>; a width of zero (or a
+        /// <see cref="Majorsilence.Forms.Drawing.StringFormat"/> with no ranges set) means no wrapping.
+        /// Text is positioned from the left edge of <paramref name="layoutRect"/> — horizontal
+        /// <c>StringFormat.Alignment</c> is not applied to the measurement.
+        /// </remarks>
+        public Majorsilence.Forms.Drawing.Region[] MeasureCharacterRanges (
+            string text,
+            Majorsilence.Forms.Drawing.Font font,
+            RectangleF layoutRect,
+            Majorsilence.Forms.Drawing.StringFormat? stringFormat)
+        {
+            var ranges = stringFormat?.MeasurableCharacterRanges;
+            if (ranges is null || ranges.Length == 0)
+                return [];
+
+            var result = new Majorsilence.Forms.Drawing.Region[ranges.Length];
+            if (string.IsNullOrEmpty (text) || font is null) {
+                for (var i = 0; i < ranges.Length; i++)
+                    result[i] = EmptyRegion ();
+                return result;
+            }
+
+            var skFont = font.GetSKFont ();
+            var metrics = skFont.Metrics;
+            var lineHeight = metrics.Descent - metrics.Ascent;
+            var lines = LayoutLines (text, skFont, layoutRect.Width);
+
+            for (var i = 0; i < ranges.Length; i++) {
+                var region = EmptyRegion ();
+                var rangeStart = ranges[i].First;
+                var rangeEnd = rangeStart + ranges[i].Length;
+
+                foreach (var (start, length, index) in lines) {
+                    // Clip this range against the slice of text that landed on this line.
+                    var segStart = Math.Max (rangeStart, start);
+                    var segEnd = Math.Min (rangeEnd, start + length);
+                    if (segEnd <= segStart)
+                        continue;
+
+                    var x = layoutRect.X + skFont.MeasureText (text.AsSpan (start, segStart - start));
+                    var width = skFont.MeasureText (text.AsSpan (segStart, segEnd - segStart));
+                    region.Union (new RectangleF (x, layoutRect.Y + index * lineHeight, width, lineHeight));
+                }
+
+                result[i] = region;
+            }
+
+            return result;
+        }
+
+        private static Majorsilence.Forms.Drawing.Region EmptyRegion ()
+        {
+            var region = new Majorsilence.Forms.Drawing.Region ();
+            region.MakeEmpty ();
+            return region;
+        }
+
+        /// <summary>
+        /// Splits <paramref name="text"/> into laid-out lines, honoring explicit newlines and greedy
+        /// word wrapping at <paramref name="maxWidth"/>. Each entry keeps its start index into the
+        /// original string so character ranges can be mapped back onto it.
+        /// </summary>
+        private static List<(int Start, int Length, int Index)> LayoutLines (string text, SKFont font, float maxWidth)
+        {
+            var lines = new List<(int, int, int)> ();
+            var lineIndex = 0;
+
+            for (var paragraphStart = 0; paragraphStart <= text.Length;) {
+                var newline = text.IndexOf ('\n', paragraphStart);
+                var paragraphEnd = newline < 0 ? text.Length : newline;
+                // A trailing \r belongs to the break, not to the measured text.
+                var contentEnd = paragraphEnd > paragraphStart && text[paragraphEnd - 1] == '\r' ? paragraphEnd - 1 : paragraphEnd;
+
+                if (maxWidth <= 0) {
+                    lines.Add ((paragraphStart, contentEnd - paragraphStart, lineIndex++));
+                } else {
+                    var cursor = paragraphStart;
+                    while (cursor <= contentEnd) {
+                        var take = FitRun (text, cursor, contentEnd, font, maxWidth);
+                        lines.Add ((cursor, take, lineIndex++));
+                        cursor += take;
+                        if (take == 0)
+                            break;      // nothing fits at all — avoid spinning forever
+                        // Consume the space the wrap happened on, so it isn't re-measured next line.
+                        while (cursor < contentEnd && text[cursor] == ' ')
+                            cursor++;
+                    }
+                }
+
+                if (newline < 0)
+                    break;
+                paragraphStart = paragraphEnd + 1;
+            }
+
+            return lines;
+        }
+
+        /// <summary>
+        /// Returns how many characters starting at <paramref name="start"/> fit within
+        /// <paramref name="maxWidth"/>, breaking on the last space that fits. Falls back to a hard
+        /// character break when a single word is itself wider than the line.
+        /// </summary>
+        private static int FitRun (string text, int start, int end, SKFont font, float maxWidth)
+        {
+            if (start >= end)
+                return 0;
+
+            var lastBreak = -1;
+            for (var i = start; i < end; i++) {
+                var width = font.MeasureText (text.AsSpan (start, i - start + 1));
+                if (width > maxWidth) {
+                    if (lastBreak >= 0)
+                        return lastBreak - start;        // break at the last space that fit
+                    return Math.Max (1, i - start);      // single over-long word: hard break
+                }
+                if (text[i] == ' ')
+                    lastBreak = i;
+            }
+            return end - start;
+        }
+
         // --- Transform stubs ---
 
         /// <summary>Gets the dots-per-inch (always 96 in Majorsilence.Forms).</summary>

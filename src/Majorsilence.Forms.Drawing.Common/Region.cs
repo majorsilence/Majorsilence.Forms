@@ -11,13 +11,19 @@ namespace Majorsilence.Forms.Drawing
     /// </summary>
     public sealed class Region : IDisposable
     {
+        // How far an "infinite" region extends in each direction. SKRegion is integer scanline-based and
+        // has no infinite representation, so GDI+'s infinite region is modelled as a very large finite
+        // rectangle -- large enough to swallow any real coordinate, small enough that unioning two of
+        // them cannot overflow int.
+        private const int InfiniteExtent = 1 << 28;
+
         private SKRegion region;
 
         /// <summary>Initializes a new infinite region.</summary>
         public Region ()
         {
             region = new SKRegion ();
-            region.SetRect (new SKRectI (-(1 << 28), -(1 << 28), 1 << 28, 1 << 28));
+            region.SetRect (new SKRectI (-InfiniteExtent, -InfiniteExtent, InfiniteExtent, InfiniteExtent));
         }
 
         /// <summary>Initializes a new region from the specified rectangle.</summary>
@@ -45,7 +51,7 @@ namespace Majorsilence.Forms.Drawing
         public void MakeEmpty () => region.SetRect (SKRectI.Empty);
 
         /// <summary>Makes this region infinite.</summary>
-        public void MakeInfinite () => region.SetRect (new SKRectI (-(1 << 28), -(1 << 28), 1 << 28, 1 << 28));
+        public void MakeInfinite () => region.SetRect (new SKRectI (-InfiniteExtent, -InfiniteExtent, InfiniteExtent, InfiniteExtent));
 
         /// <summary>Returns whether this region is empty on the given surface.</summary>
         public bool IsEmpty (object? graphics = null) => region.IsEmpty;
@@ -68,16 +74,122 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Updates this region to the union of itself and the specified rectangle.</summary>
         public void Union (RectangleF rect) => Combine (rect, SKRegionOperation.Union);
 
+        /// <summary>Updates this region to the union of itself and the specified rectangle.</summary>
+        public void Union (Rectangle rect) => Combine (rect, SKRegionOperation.Union);
+
+        /// <summary>Updates this region to the union of itself and the specified region.</summary>
+        public void Union (Region region) => Combine (region, SKRegionOperation.Union);
+
+        /// <summary>Updates this region to the union of itself and the interior of the specified path.</summary>
+        public void Union (GraphicsPath path) => Combine (path, SKRegionOperation.Union);
+
         /// <summary>Updates this region to the intersection of itself and the specified rectangle.</summary>
         public void Intersect (RectangleF rect) => Combine (rect, SKRegionOperation.Intersect);
 
+        /// <summary>Updates this region to the intersection of itself and the specified rectangle.</summary>
+        public void Intersect (Rectangle rect) => Combine (rect, SKRegionOperation.Intersect);
+
+        /// <summary>Updates this region to the intersection of itself and the specified region.</summary>
+        public void Intersect (Region region) => Combine (region, SKRegionOperation.Intersect);
+
+        /// <summary>Updates this region to the intersection of itself and the interior of the specified path.</summary>
+        public void Intersect (GraphicsPath path) => Combine (path, SKRegionOperation.Intersect);
+
         /// <summary>Updates this region to exclude the specified rectangle.</summary>
         public void Exclude (RectangleF rect) => Combine (rect, SKRegionOperation.Difference);
+
+        /// <summary>Updates this region to exclude the specified rectangle.</summary>
+        public void Exclude (Rectangle rect) => Combine (rect, SKRegionOperation.Difference);
+
+        /// <summary>Updates this region to exclude the specified region.</summary>
+        public void Exclude (Region region) => Combine (region, SKRegionOperation.Difference);
+
+        /// <summary>Updates this region to exclude the interior of the specified path.</summary>
+        public void Exclude (GraphicsPath path) => Combine (path, SKRegionOperation.Difference);
+
+        /// <summary>Updates this region to the union minus the intersection with the specified rectangle.</summary>
+        public void Xor (RectangleF rect) => Combine (rect, SKRegionOperation.XOR);
+
+        /// <summary>Updates this region to the union minus the intersection with the specified rectangle.</summary>
+        public void Xor (Rectangle rect) => Combine (rect, SKRegionOperation.XOR);
+
+        /// <summary>Updates this region to the union minus the intersection with the specified region.</summary>
+        public void Xor (Region region) => Combine (region, SKRegionOperation.XOR);
+
+        /// <summary>Updates this region to the union minus the intersection with the specified path's interior.</summary>
+        public void Xor (GraphicsPath path) => Combine (path, SKRegionOperation.XOR);
+
+        /// <summary>Updates this region to the portion of the specified rectangle NOT in this region.</summary>
+        public void Complement (RectangleF rect) => Combine (rect, SKRegionOperation.ReverseDifference);
+
+        /// <summary>Updates this region to the portion of the specified rectangle NOT in this region.</summary>
+        public void Complement (Rectangle rect) => Combine (rect, SKRegionOperation.ReverseDifference);
+
+        /// <summary>Updates this region to the portion of the specified region NOT in this region.</summary>
+        public void Complement (Region region) => Combine (region, SKRegionOperation.ReverseDifference);
+
+        /// <summary>Updates this region to the portion of the specified path's interior NOT in this region.</summary>
+        public void Complement (GraphicsPath path) => Combine (path, SKRegionOperation.ReverseDifference);
+
+        /// <summary>Offsets this region by the specified amounts.</summary>
+        public void Translate (int dx, int dy) => region.Translate (dx, dy);
+
+        /// <summary>
+        /// Offsets this region by the specified amounts. <see cref="SKRegion"/> is integer-based (it
+        /// stores scanlines, not geometry), so fractional offsets are rounded, matching how the
+        /// rectangle-based constructors already round.
+        /// </summary>
+        public void Translate (float dx, float dy) => region.Translate ((int)Math.Round (dx), (int)Math.Round (dy));
+
+        /// <summary>
+        /// Transforms this region by the specified matrix. Applied by round-tripping through the
+        /// region's boundary path, since a region stores scanlines rather than geometry and so cannot
+        /// be transformed in place.
+        /// </summary>
+        public void Transform (Matrix matrix)
+        {
+            ArgumentNullException.ThrowIfNull (matrix);
+
+            using var path = region.GetBoundaryPath ();
+            using var transformed = new SKPath (path);
+            transformed.Transform (matrix.ToSKMatrix ());
+            region.SetPath (transformed);
+        }
+
+        /// <summary>
+        /// Returns whether this region covers an infinite area -- i.e. it is still the region a
+        /// parameterless <see cref="Region"/> (or <see cref="MakeInfinite"/>) produces.
+        /// </summary>
+        public bool IsInfinite (object? graphics = null)
+        {
+            var b = region.Bounds;
+            return b.Left <= -InfiniteExtent && b.Top <= -InfiniteExtent
+                && b.Right >= InfiniteExtent && b.Bottom >= InfiniteExtent;
+        }
 
         private void Combine (RectangleF rect, SKRegionOperation op)
         {
             var r = Rectangle.Round (rect);
             region.Op (new SKRectI (r.Left, r.Top, r.Right, r.Bottom), op);
+        }
+
+        private void Combine (Region other, SKRegionOperation op)
+        {
+            ArgumentNullException.ThrowIfNull (other);
+            region.Op (other.region, op);
+        }
+
+        private void Combine (GraphicsPath path, SKRegionOperation op)
+        {
+            ArgumentNullException.ThrowIfNull (path);
+            // SKRegion.Op(SKPath, ...) rasterizes the path against the region's own bounds, which for a
+            // freshly-constructed (infinite) region is the whole coordinate space -- so go through an
+            // explicit region built from the path instead, which is well-defined in every case.
+            using var other = new SKRegion ();
+            using var clip = new SKRegion ();
+            clip.SetRect (new SKRectI (-InfiniteExtent, -InfiniteExtent, InfiniteExtent, InfiniteExtent));
+            other.SetPath (path.ToSKPath (), clip);
+            region.Op (other, op);
         }
 
         /// <summary>Gets the bounds of this region.</summary>

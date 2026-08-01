@@ -48,6 +48,17 @@ jobs:
         if: runner.os == 'Windows'
         run: dotnet test --configuration Release --no-build
 
+      # GDI+ API gap gate. Compares the Majorsilence.Forms.Drawing surface against upstream
+      # System.Drawing.Common (reflection-only, so it runs anywhere) and fails if the gap set grew
+      # since the committed baseline. The point is that the previous hand-written audit in
+      # COMPATIBILITY_MATRIX.md went stale within a release; this one cannot. Closing gaps never
+      # fails the build -- it just prints them and asks for the baseline to be regenerated.
+      # Linux only: the result is platform-independent, so running it three times adds nothing.
+      # See docs/gdi-gap-plan.md.
+      - name: GDI+ API gap check
+        if: runner.os == 'Linux'
+        run: dotnet run --project tools/Majorsilence.Forms.GdiDiff --configuration Release --no-build -- --check
+
   # Wasm publish + boot smoke test gate.
   #
   # samples/Gallery.Wasm is part of Majorsilence.Forms.slnx, so the `build` job above

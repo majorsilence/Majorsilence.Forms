@@ -591,4 +591,24 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>Gradient runs from upper-right to lower-left.</summary>
         BackwardDiagonal = 3
     }
+
+    /// <summary>
+    /// Specifies how two regions are combined. Matches System.Drawing.Drawing2D.CombineMode, including
+    /// its numeric values -- designer-serialized code persists these as raw integers.
+    /// </summary>
+    public enum CombineMode
+    {
+        /// <summary>The existing region is replaced by the new region.</summary>
+        Replace = 0,
+        /// <summary>The two regions are combined by taking their intersection.</summary>
+        Intersect = 1,
+        /// <summary>The two regions are combined by taking their union.</summary>
+        Union = 2,
+        /// <summary>The two regions are combined by taking only the areas in one but not both.</summary>
+        Xor = 3,
+        /// <summary>The area of the new region is removed from the existing region.</summary>
+        Exclude = 4,
+        /// <summary>The area of the existing region is removed from the new region.</summary>
+        Complement = 5
+    }
 }
