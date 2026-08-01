@@ -43,16 +43,25 @@
     <PackageReference Include="Avalonia.iOS" />
   </ItemGroup>
 
-  <!-- Avalonia.DesignerSupport (a design-time-only assembly, pulled in transitively through Avalonia
-       itself, used by the XAML previewer, with no role at app runtime) isn't annotated as trim-safe.
-       .NET for iOS runs the same "optimize for size" trimming step during a plain Release `dotnet build`
-       (not just publish) that desktop/Android skip, and escalates its trim warning to a build error
-       (IL2104, becomes NETSDK1144, seen in the first real `ios` CI run). Root the assembly, excluding it
-       from trimming entirely and keeping it fully intact, rather than try to make a design-time-only
-       dependency trim-clean. See https://aka.ms/il2104. -->
-  <ItemGroup>
-    <TrimmerRootAssembly Include="Avalonia.DesignerSupport" />
-  </ItemGroup>
+  <!-- .NET for iOS runs ILLink ("Optimizing assemblies for size") during a plain Release `dotnet build`,
+       which desktop/Android skip, so this is the only project in the repo that sees trim analysis at all.
+       Avalonia.DesignerSupport (design time only, pulled in transitively by Avalonia, no role at app
+       runtime) isn't annotated as trim safe and so produces IL2104.
+
+       IL2104 is a *warning*, but this repo's Directory.Build.props turns on TreatWarningsAsErrors for
+       Release, and Microsoft.NET.ILLink.targets defaults ILLinkTreatWarningsAsErrors to that same value,
+       which is what promoted it to an error and failed the build with NETSDK1144.
+
+       Opt just the trimmer out of that policy. The repo's warnings as errors rule still applies in full to
+       this project's own C# code; IL2104 stays visible in the build log, it simply isn't fatal. Preferred
+       over NoWarn on the one code, since any other package assembly producing trim warnings under a
+       different IL2xxx code would otherwise fail CI the same way. Note the SDK itself defaults
+       SuppressTrimAnalysisWarnings to true for UseWpf/UseWindowsForms projects, i.e. it already treats
+       trim analysis as non actionable noise for desktop UI frameworks, which is exactly this case.
+       See https://aka.ms/il2104. -->
+  <PropertyGroup>
+    <ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
+  </PropertyGroup>
 
   <ItemGroup>
     <!-- ImageLoader.cs (backend-agnostic, plain File.Open under a relative "Images" folder) just needs
