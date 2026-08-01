@@ -86,8 +86,14 @@ internal static class SourceConverter
         return rules;
     }
 
+    /// <param name="dualBuild">
+    /// When true, the top-of-file <c>using System.Windows.Forms;</c> / <c>Imports System.Windows.Forms</c>
+    /// import (and, when added, the <c>Majorsilence.Forms.Drawing</c> companion import) is wrapped in an
+    /// <c>#if MAJORSILENCE_FORMS</c> conditional instead of being rewritten unconditionally — see
+    /// <see cref="ConditionalImports"/>. Everything else about the rewrite is unchanged.
+    /// </param>
     public static Result Convert(string text, CustomMap? customMap = null, SourceLanguage language = SourceLanguage.CSharp,
-        VbConstructorMode vbConstructor = VbConstructorMode.Auto)
+        VbConstructorMode vbConstructor = VbConstructorMode.Auto, bool dualBuild = false)
     {
         var warnings = new List<string>();
         var seenWarnings = new HashSet<string>(StringComparer.Ordinal);
@@ -98,6 +104,16 @@ internal static class SourceConverter
             if (seenWarnings.Add(message))
                 warnings.Add(message);
         }
+
+        // --dual-build isn't offered for VB: ApplyVbConstructor's explicit-constructor injection (below,
+        // Pass 7) exists precisely because MyType=Empty removes VB's implicit WinForms constructor — and
+        // ProjectConverter's dual-build path deliberately never sets MyType=Empty for a VB project (see its
+        // comment), so injecting that constructor here would just duplicate the one the still-active VB
+        // application framework already supplies. Fall back to the normal, fully-rewritten conversion.
+        var effectiveDualBuild = dualBuild && language == SourceLanguage.CSharp;
+        if (dualBuild && language == SourceLanguage.VisualBasic)
+            Warn("--dual-build is not supported for Visual Basic yet (MyType=Empty and the VB application " +
+                "framework can't be toggled via a preprocessor symbol) — converted normally, same as without --dual-build");
 
         // 0. The .NET 6+ generated bootstrap `ApplicationConfiguration.Initialize()` has no Majorsilence
         //    equivalent — and would not compile — so comment it out. Its job (EnableVisualStyles /
@@ -152,7 +168,7 @@ internal static class SourceConverter
         // 3. Reconcile a bare `using System.Drawing;`. It's only still needed when the file uses a
         //    System.Drawing primitive (Color/Point/…) unqualified; otherwise drop it. GDI+ types used
         //    unqualified now live in Majorsilence.Forms.Drawing, so add/keep that import when they're present.
-        text = RewriteDrawingImports(text);
+        text = RewriteDrawingImports(text, effectiveDualBuild);
 
         // 4. Flag any namespace we deliberately refused to rewrite — but only when a reference actually
         //    resolves to something cross-platform-unavailable. Some types under these namespaces ship in
@@ -213,6 +229,13 @@ internal static class SourceConverter
         //    Majorsilence.Forms.Telerik — leaving redundant `using`/`Imports` lines (CS0105). Drop the
         //    later exact duplicates, keeping the first.
         text = DeduplicateImports(text);
+
+        // 9. Dual-build: Pass 1 has already turned the file's bare `using System.Windows.Forms;` /
+        //    `Imports System.Windows.Forms` line into `using Majorsilence.Forms;` — the only namespace
+        //    prefix rule that maps to that exact bare left-hand side — so it's identifiable and safe to wrap
+        //    here, after every other pass has finished touching the text. See ConditionalImports.
+        if (effectiveDualBuild)
+            text = ConditionalImports.WrapBareImport(text, "Majorsilence.Forms", "System.Windows.Forms");
 
         return new Result(text, !string.Equals(text, original, StringComparison.Ordinal), warnings);
     }
@@ -449,7 +472,7 @@ internal static class SourceConverter
     private static readonly Regex BareDrawingImport =
         new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+System\.Drawing[ \t]*;?[ \t]*$", RegexOptions.Compiled);
 
-    private static string RewriteDrawingImports(string text)
+    private static string RewriteDrawingImports(string text, bool dualBuild = false)
     {
         var match = BareDrawingImport.Match(text);
         if (!match.Success)
@@ -464,9 +487,27 @@ internal static class SourceConverter
 
         var indent = match.Groups["indent"].Value;
         var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-        var companion = match.Groups["kw"].Value == "Imports"
+        var kw = match.Groups["kw"].Value;
+        var companion = kw == "Imports"
             ? $"{indent}Imports {NamespaceMap.DrawingTarget}"
             : $"{indent}using {NamespaceMap.DrawingTarget};";
+
+        if (dualBuild)
+        {
+            // System.Drawing stays unconditionally whenever anything under it is used unqualified: in
+            // WinForms-mode the GDI+ types (Bitmap/Brush/Pen/…) still live directly in System.Drawing too, so
+            // the bare import alone already covers both primitives and GDI+ types there. Only the
+            // Majorsilence.Forms.Drawing companion — needed in Majorsilence-mode only — becomes conditional.
+            if (needsSystemDrawing || usesGdiPlus)
+            {
+                if (usesGdiPlus && !companionPresent)
+                    return text[..match.Index] + match.Value + newline
+                        + ConditionalImports.BuildDrawingCompanionBlock(indent, kw, newline)
+                        + text[(match.Index + match.Length)..];
+                return text;
+            }
+            return RemoveImportLine(text, match, null, newline);
+        }
 
         if (needsSystemDrawing)
         {

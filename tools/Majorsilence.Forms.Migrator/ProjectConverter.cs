@@ -57,61 +57,81 @@ internal static class ProjectConverter
 
         var changed = false;
 
-        // Strip the Windows-desktop opt-ins. UseWindowsForms/UseWPF pull in the Windows-only desktop
-        // framework, which defeats the whole point of moving to a cross-platform stack.
-        foreach (var prop in new[] { "UseWindowsForms", "UseWPF", "EnableWindowsTargeting" })
-        {
-            foreach (var el in root.Descendants().Where(e => e.Name.LocalName == prop).ToList())
-            {
-                el.Remove();
-                changed = true;
-            }
-        }
+        // --dual-build keeps the project exactly as buildable-against-real-WinForms as it was: the point is
+        // that only the source-level using/Imports get an #if MAJORSILENCE_FORMS toggle (see SourceConverter/
+        // RoslynSourceConverter), while the project itself still has UseWindowsForms, its -windows TFM, and
+        // its original WinForms-only packages available so that side of the #else branch actually compiles.
+        // Not offered for VB: ApplyVisualBasicFixups' MyType=Empty switch turns off the VB WinForms
+        // application framework outright (constructor, My.*, …), which can't be toggled by a preprocessor
+        // symbol the same way a plain import can — VB projects fall back to the normal, non-dual-build
+        // conversion below regardless of the option, with a warning explaining why.
+        var dualBuild = options.DualBuild && !isVisualBasic;
+        if (options.DualBuild && isVisualBasic)
+            warnings.Add("--dual-build is not supported for Visual Basic projects yet (MyType=Empty and the " +
+                "VB application framework can't be toggled via a preprocessor symbol) — converted normally, " +
+                "same as without --dual-build");
 
-        // Retarget the framework. WinForms projects pin a -windows TFM (e.g. net8.0-windows).
-        if (options.TargetFramework is { } forcedTfm)
+        if (!dualBuild)
         {
-            // Explicit --tfm: force the exact framework and collapse a plural list to it.
-            foreach (var name in new[] { "TargetFramework", "TargetFrameworks" })
+            // Strip the Windows-desktop opt-ins. UseWindowsForms/UseWPF pull in the Windows-only desktop
+            // framework, which defeats the whole point of moving to a cross-platform stack.
+            foreach (var prop in new[] { "UseWindowsForms", "UseWPF", "EnableWindowsTargeting" })
             {
-                foreach (var el in root.Descendants().Where(e => e.Name.LocalName == name).ToList())
+                foreach (var el in root.Descendants().Where(e => e.Name.LocalName == prop).ToList())
                 {
-                    if (!string.Equals(el.Value, forcedTfm, StringComparison.Ordinal))
-                    {
-                        el.Value = forcedTfm;
-                        changed = true;
-                    }
-                    // Always normalize to the singular element name.
-                    if (name == "TargetFrameworks")
-                        el.Name = el.Name.Namespace + "TargetFramework";
+                    el.Remove();
+                    changed = true;
                 }
             }
-        }
-        else
-        {
-            // Default: keep the project's .NET version, just drop the Windows desktop platform suffix
-            // (net8.0-windows -> net8.0). A plural <TargetFrameworks> stays plural.
-            if (TargetFrameworkRewriter.StripWindowsTargetFrameworks(root))
+
+            // Retarget the framework. WinForms projects pin a -windows TFM (e.g. net8.0-windows).
+            if (options.TargetFramework is { } forcedTfm)
+            {
+                // Explicit --tfm: force the exact framework and collapse a plural list to it.
+                foreach (var name in new[] { "TargetFramework", "TargetFrameworks" })
+                {
+                    foreach (var el in root.Descendants().Where(e => e.Name.LocalName == name).ToList())
+                    {
+                        if (!string.Equals(el.Value, forcedTfm, StringComparison.Ordinal))
+                        {
+                            el.Value = forcedTfm;
+                            changed = true;
+                        }
+                        // Always normalize to the singular element name.
+                        if (name == "TargetFrameworks")
+                            el.Name = el.Name.Namespace + "TargetFramework";
+                    }
+                }
+            }
+            else
+            {
+                // Default: keep the project's .NET version, just drop the Windows desktop platform suffix
+                // (net8.0-windows -> net8.0). A plural <TargetFrameworks> stays plural.
+                if (TargetFrameworkRewriter.StripWindowsTargetFrameworks(root))
+                    changed = true;
+            }
+
+            // Drop a WinForms FrameworkReference / Windows-desktop SDK reference if present.
+            foreach (var fr in root.Descendants()
+                         .Where(e => e.Name.LocalName == "FrameworkReference")
+                         .Where(e => (e.Attribute("Include")?.Value ?? "").Contains("WindowsDesktop", StringComparison.OrdinalIgnoreCase))
+                         .ToList())
+            {
+                fr.Remove();
                 changed = true;
-        }
+            }
 
-        // Drop a WinForms FrameworkReference / Windows-desktop SDK reference if present.
-        foreach (var fr in root.Descendants()
-                     .Where(e => e.Name.LocalName == "FrameworkReference")
-                     .Where(e => (e.Attribute("Include")?.Value ?? "").Contains("WindowsDesktop", StringComparison.OrdinalIgnoreCase))
-                     .ToList())
-        {
-            fr.Remove();
-            changed = true;
+            // Drop WinForms-only NuGet packages (Telerik UI for WinForms, DevExpress, …). Their vendor UI
+            // suites map onto the Majorsilence.Forms.* compat layers (wired up via source rewrites / --map),
+            // and the rest are Windows-desktop-only, so the original packages don't belong here.
+            RemoveWinFormsPackages(root, removePackagePatterns ?? WinFormsPackages.DefaultPatterns, ref changed);
         }
-
-        // Drop WinForms-only NuGet packages (Telerik UI for WinForms, DevExpress, …). Their vendor UI
-        // suites map onto the Majorsilence.Forms.* compat layers (wired up via source rewrites / --map),
-        // and the rest are Windows-desktop-only, so the original packages don't belong here.
-        RemoveWinFormsPackages(root, removePackagePatterns ?? WinFormsPackages.DefaultPatterns, ref changed);
 
         if (addMajorsilenceReferences)
             AddReferences(root, options, projectDirectory, centralPackageManagement, ref changed, warnings, addedPackages);
+
+        if (dualBuild)
+            AddDualBuildConstant(root, ref changed);
 
         if (isVisualBasic)
             ApplyVisualBasicFixups(root, ref changed, warnings);
@@ -215,6 +235,28 @@ internal static class ProjectConverter
     {
         parent.Add(child);
         return child;
+    }
+
+    // Propagates the MAJORSILENCE_FORMS MSBuild property (typically set in a repo-root
+    // Directory.Build.props once a developer is ready to build against Majorsilence.Forms) into
+    // DefineConstants, so the #if MAJORSILENCE_FORMS blocks SourceConverter/RoslynSourceConverter write
+    // into --dual-build source files actually take effect. Left unset (the property's default state), the
+    // condition is false and every wrapped import falls through to its #else branch — real WinForms.
+    private static void AddDualBuildConstant(XElement root, ref bool changed)
+    {
+        var ns = root.Name.Namespace;
+        var already = root.Descendants().Any(e =>
+            e.Name.LocalName == "DefineConstants"
+            && (e.Value?.Contains(ConditionalImports.ConditionSymbol, StringComparison.Ordinal) ?? false));
+        if (already)
+            return;
+
+        var group = root.Elements(ns + "PropertyGroup").FirstOrDefault()
+            ?? AddTo(root, new XElement(ns + "PropertyGroup"));
+        group.Add(new XElement(ns + "DefineConstants",
+            new XAttribute("Condition", $"'$({ConditionalImports.ConditionSymbol})' == 'true'"),
+            $"$(DefineConstants);{ConditionalImports.ConditionSymbol}"));
+        changed = true;
     }
 
     private static void AddReferences(XElement root, MigrationOptions options, string projectDirectory,

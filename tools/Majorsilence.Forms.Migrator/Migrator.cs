@@ -380,7 +380,7 @@ internal sealed class Migrator
 
         var result = _options.Engine == SourceEngine.Roslyn
             ? ConvertSourceWithRoslyn(path, text, _customMap, language, vbConstructor)
-            : SourceConverter.Convert(text, _customMap, language, vbConstructor);
+            : SourceConverter.Convert(text, _customMap, language, vbConstructor, _options.DualBuild);
 
         foreach (var w in result.Warnings)
             _warnings.Add($"{Rel(path)}: {w}");
@@ -406,16 +406,16 @@ internal sealed class Migrator
         SourceLanguage language, VbConstructorMode vbConstructor)
     {
         if (_roslynContext is null)
-            return SourceConverter.Convert(text, customMap, language, vbConstructor);
+            return SourceConverter.Convert(text, customMap, language, vbConstructor, _options.DualBuild);
 
         if (!_roslynContext.TryGetDocument(path, out var document, out var failureReason))
         {
             _warnings.Add($"--engine roslyn: {failureReason} — falling back to the text engine for this file");
-            return SourceConverter.Convert(text, customMap, language, vbConstructor);
+            return SourceConverter.Convert(text, customMap, language, vbConstructor, _options.DualBuild);
         }
 
         var vbConstructorMode = language == SourceLanguage.VisualBasic ? vbConstructor : VbConstructorMode.Suppress;
-        return RoslynSourceConverter.ConvertAsync(document!, customMap, vbConstructorMode).GetAwaiter().GetResult();
+        return RoslynSourceConverter.ConvertAsync(document!, customMap, vbConstructorMode, _options.DualBuild).GetAwaiter().GetResult();
     }
 
     // Matches the project converter's `<Compile Remove="My Project\*.Designer.vb" />`: a *.Designer.vb
