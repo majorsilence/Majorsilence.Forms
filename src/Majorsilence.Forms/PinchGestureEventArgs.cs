@@ -47,7 +47,10 @@ namespace Majorsilence.Forms
         public double Scale { get; }
 
         /// <summary>
-        ///  Gets the current angle, in degrees, of the line between the two contacts.
+        ///  Gets the rotation, in degrees, accumulated since the two contacts first touched down.
+        ///  The zero-reference is backend-defined (e.g. the absolute angle of the line between the
+        ///  two contacts on some backends, vs. rotation-since-gesture-start on others) -- prefer
+        ///  <see cref="AngleDelta"/> for incremental rotation, which is consistent across backends.
         /// </summary>
         public double Angle { get; }
 

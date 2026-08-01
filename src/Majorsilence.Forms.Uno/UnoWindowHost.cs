@@ -114,6 +114,7 @@ namespace Majorsilence.Forms.Uno
             _canvas.Loaded += (_, _) => { TryFocus (); WireMacOSKeyboard (); WireX11KeyboardFallback (); };
 
             WireInput ();
+            UnoGestureWiring.Attach (_canvas, _owner, () => Scaling);
             _root.Children.Add (_canvas);
         }
 

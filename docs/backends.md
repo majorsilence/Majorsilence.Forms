@@ -193,7 +193,7 @@ title-bar drag works on the **Win32 desktop head**. On the macOS head `Form` use
 no-ops (caught) — edge-resize may still work via the presenter, but title-bar drag is unavailable;
 use `UseSystemDecorations` there if you need OS window dragging.
 
-## Gesture support (Avalonia backend)
+## Gesture support
 
 `Control` has five new, purely-additive events for touch/pen input: `LongPress`, `Pinch` (pinch-to-
 zoom and two-finger rotate together — see `PinchGestureEventArgs.Scale`/`Angle`/`AngleDelta`),
@@ -205,16 +205,31 @@ follows the finger), so existing `Panel`/`ListBox`/`TreeView`/etc. subclasses ga
 with no app code changes; `LongPress`'s default handler opens `ContextMenu` if one is set, mirroring
 the existing right-click behavior in `Control.OnClick`.
 
-Today this is backed only by the **Avalonia** backend, via `AvaloniaGestureWiring` attaching
-Avalonia's own built-in `PinchGestureRecognizer`/`SwipeGestureRecognizer`/`ScrollGestureRecognizer`
-and `Holding` event to each host control (`MajorsilenceFormsWindowHost`,
-`MajorsilenceFormsSingleViewHost` — the class Android and browser use, and `MajorsilenceFormsPresenter`)
-— so it works the same way whether Majorsilence.Forms owns the top-level window or is embedded via
-`ToAvaloniaControl()`/`ToAvaloniaWindow()`. Every one of those recognizers is self-gated to
-touch/pen pointers by Avalonia itself, so this is attached unconditionally on every Avalonia target
-(desktop, Android, browser) with no effect on mouse-driven desktop interactions. The Uno backend
-does not implement this yet (WinUI has a differently-shaped gesture API); `Form.ShowDialog(parent)`
-remains the cross-backend way to get modal behavior regardless.
+Both the **Avalonia** and **Uno** backends implement this, via a per-backend `*GestureWiring` helper
+attaching the platform's own gesture facilities to each host control (`MajorsilenceFormsWindowHost`,
+`MajorsilenceFormsSingleViewHost` — the class Avalonia's Android/browser targets use — and
+`MajorsilenceFormsPresenter`, on both backends) — so it works the same way whether Majorsilence.Forms
+owns the top-level window or is embedded via `ToAvaloniaControl()`/`ToAvaloniaWindow()`/
+`ToUnoControl()`/`ToUnoWindow()`. The two backends' underlying gesture models are meaningfully
+different, though, confirmed by decompiling the actual installed packages rather than assumed:
+
+- **Avalonia** (`AvaloniaGestureWiring`) attaches separate, dedicated recognizer classes
+  (`PinchGestureRecognizer`/`SwipeGestureRecognizer`/`ScrollGestureRecognizer`) plus the built-in
+  `Holding` event. Every one of those recognizers is self-gated to touch/pen pointers by Avalonia
+  itself, so this is attached unconditionally with no effect on mouse-driven desktop interactions.
+- **Uno** (`UnoGestureWiring`) uses WinUI's unified manipulation model instead — one
+  `UIElement.ManipulationMode` flags enum and one `ManipulationDelta`/`ManipulationCompleted` event
+  stream covering pan, pinch-zoom, and rotate together, split in `UnoGestureWiring` itself into
+  `Pinch` vs. `ScrollGesture` calls based on whether a given frame's incremental scale/rotation is
+  non-trivial. Two real differences from Avalonia here, not just an implementation detail:
+  - WinUI's manipulation engine is **not** self-gated to non-mouse pointers (unlike Avalonia's
+    recognizers) — `UnoGestureWiring` filters `PointerDeviceType.Mouse` out itself in every
+    manipulation handler to keep ordinary desktop mouse-drag interactions unaffected. `Holding`
+    (long-press) doesn't need this: subscribing to it only ever enables the recognizer's non-mouse
+    "Hold" setting, never the separate "HoldWithMouse" one, so it's safe by construction.
+  - WinUI has no native swipe gesture (only the unrelated, heavyweight `SwipeControl` reveal-action
+    control) — `Swipe` is synthesized from `ManipulationCompleted`'s velocity against a chosen
+    threshold (`UnoGestureWiring.MinSwipeVelocity`), a heuristic rather than a platform capability.
 
 Like the rest of the backend seam, this is wired through new methods directly on the concrete
 `WindowBase` class (`HandleLongPress`/`HandlePinch`/`HandleSwipe`/`HandleScrollGesture`), not through
