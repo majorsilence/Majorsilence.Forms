@@ -3,7 +3,6 @@ using Avalonia.iOS;
 using Avalonia.Controls.ApplicationLifetimes;
 using ControlGallery;
 using Foundation;
-using UIKit;
 
 using MSForms = Majorsilence.Forms;
 
@@ -11,15 +10,17 @@ namespace Gallery.iOS
 {
     // The iOS UIApplicationDelegate that owns Avalonia's bootstrap: Avalonia.iOS's own
     // AvaloniaAppDelegate<TApp>.FinishedLaunching runs AppBuilder.Configure<TApp>().UseiOS(this)
-    // ....SetupWithLifetime(...) for us -- this override only needs to point the gallery's image loading
-    // at the app bundle's Resources before that happens.
+    // ....SetupWithLifetime(...) for us. FinishedLaunching itself is NOT virtual/overridable in this
+    // Avalonia.iOS version (confirmed the hard way: CS0506 in CI) -- CreateAppBuilder/CustomizeAppBuilder
+    // are the real, documented extension points, and CustomizeAppBuilder runs early enough (before
+    // SetupWithLifetime) to point the gallery's image loading at the app bundle's Resources first.
     [Register ("AppDelegate")]
     public class GalleryAppDelegate : AvaloniaAppDelegate<GalleryAvaloniaApp>
     {
-        public override bool FinishedLaunching (UIApplication application, NSDictionary? launchOptions)
+        protected override AppBuilder CustomizeAppBuilder (AppBuilder builder)
         {
             PointImageLoaderAtBundleResources ();
-            return base.FinishedLaunching (application, launchOptions);
+            return base.CustomizeAppBuilder (builder);
         }
 
         // ImageLoader.cs (backend-agnostic, plain File.Open under a relative "Images" folder) has no
