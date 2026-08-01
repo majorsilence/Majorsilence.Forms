@@ -40,6 +40,10 @@
     <PackageVersion Include="System.Resources.Extensions" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.201" />
+    <!-- samples/ControlGallery's CommunityToolkit.Mvvm panel: source-generated ObservableObject/
+         RelayCommand. Majorsilence.Forms.Control.DataBindings is a stub (see WinFormsCompat.cs), so the
+         panel wires the ViewModel's PropertyChanged/ICommand manually rather than declaratively. -->
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <!-- Optional Roslyn source-rewrite engine for the migrator (majorsilence-migrate's "engine roslyn"
          flag). Kept at matching versions across the three Microsoft.CodeAnalysis.* packages, per
          Roslyn's own versioning convention. -->
