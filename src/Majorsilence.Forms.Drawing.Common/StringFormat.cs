@@ -100,10 +100,13 @@ namespace Majorsilence.Forms.Drawing
     [Flags]
     public enum StringFormatFlags
     {
-        /// <summary>Text is laid out vertically.</summary>
-        DirectionVertical = 1,
+        // These two were transposed relative to GDI+ (DirectionVertical was 1 and DirectionRightToLeft
+        // was 2). Corrected in Phase 2 of docs/gdi-gap-plan.md: the values are persisted as raw integers
+        // by designer/.resx code, so a swap silently turns right-to-left text into vertical text.
         /// <summary>Text is laid out right-to-left.</summary>
-        DirectionRightToLeft = 2,
+        DirectionRightToLeft = 1,
+        /// <summary>Text is laid out vertically.</summary>
+        DirectionVertical = 2,
         /// <summary>Parts of characters are allowed to overhang the layout rectangle.</summary>
         FitBlackBox = 4,
         /// <summary>Control characters are displayed.</summary>
@@ -115,7 +118,11 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Clipping of text is disabled.</summary>
         LineLimit = 8192,
         /// <summary>Text extending outside the layout rectangle is not clipped.</summary>
-        NoClip = 16384
+        NoClip = 16384,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>Measure trailing spaces.</summary>
+        MeasureTrailingSpaces = 0x800,
     }
 
     /// <summary>Specifies how to process the hotkey prefix in text. Matches System.Drawing.Text.HotkeyPrefix.</summary>

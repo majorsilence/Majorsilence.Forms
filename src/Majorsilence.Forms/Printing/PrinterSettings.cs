@@ -10,7 +10,11 @@ namespace Majorsilence.Forms.Printing
         /// <summary>The selected pages are printed.</summary>
         Selection,
         /// <summary>The pages between FromPage and ToPage are printed.</summary>
-        SomePages
+        SomePages,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>Current page.</summary>
+        CurrentPage = 4194304,
     }
 
     /// <summary>

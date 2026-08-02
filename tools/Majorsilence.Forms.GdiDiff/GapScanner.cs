@@ -87,10 +87,43 @@ internal static class GapScanner
 
             foreach (var name in upstreamMembers.Except(ourMembers, StringComparer.Ordinal))
                 gaps.Add($"MEMBER {upstreamType.FullName}.{name}");
+
+            if (upstreamType.IsEnum && ourType.IsEnum)
+                gaps.AddRange(EnumValueMismatches(upstreamType, ourType));
         }
 
         gaps.Sort(StringComparer.Ordinal);
         return [.. gaps];
+    }
+
+    /// <summary>
+    /// Reports enum members that exist on both sides but carry a different number.
+    ///
+    /// This is a strictly nastier failure than a missing member and is invisible to a presence-only
+    /// diff: the code compiles, runs, and silently means something else. Designer-generated code and
+    /// <c>.resx</c> resources persist these as raw integers, so a wrong number corrupts data on
+    /// round-trip rather than failing loudly. Added after this check found 14 real mismatches on its
+    /// first run, including <c>StringFormatFlags.DirectionRightToLeft</c> and <c>DirectionVertical</c>
+    /// being transposed.
+    /// </summary>
+    private static IEnumerable<string> EnumValueMismatches(Type upstreamType, Type ourType)
+    {
+        var ourValues = EnumValues(ourType);
+        foreach (var (name, upstreamValue) in EnumValues(upstreamType))
+            if (ourValues.TryGetValue(name, out var ourValue) && ourValue != upstreamValue)
+                yield return $"VALUE  {upstreamType.FullName}.{name} ours={ourValue} upstream={upstreamValue}";
+    }
+
+    private static Dictionary<string, long> EnumValues(Type enumType)
+    {
+        var values = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var field in enumType.GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            var raw = field.GetRawConstantValue();
+            if (raw is not null)
+                values[field.Name] = Convert.ToInt64(raw, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return values;
     }
 
     private static Type? Resolve(Dictionary<string, Type> ourTypes, string ns, string name)

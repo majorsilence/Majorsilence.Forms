@@ -109,7 +109,25 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>180-degree rotation followed by a horizontal flip.</summary>
         Rotate180FlipX = 6,
         /// <summary>270-degree rotation followed by a horizontal flip.</summary>
-        Rotate270FlipX = 7
+        Rotate270FlipX = 7,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>Rotate none flip y.</summary>
+        RotateNoneFlipY = 6,
+        /// <summary>Rotate 90 flip y.</summary>
+        Rotate90FlipY = 7,
+        /// <summary>Rotate 180 flip y.</summary>
+        Rotate180FlipY = 4,
+        /// <summary>Rotate 270 flip y.</summary>
+        Rotate270FlipY = 5,
+        /// <summary>Rotate none flip xy.</summary>
+        RotateNoneFlipXY = 2,
+        /// <summary>Rotate 90 flip xy.</summary>
+        Rotate90FlipXY = 3,
+        /// <summary>Rotate 180 flip xy.</summary>
+        Rotate180FlipXY = 0,
+        /// <summary>Rotate 270 flip xy.</summary>
+        Rotate270FlipXY = 1,
     }
 
     /// <summary>Specifies the unit of measure for drawing operations. Matches System.Drawing.GraphicsUnit.</summary>

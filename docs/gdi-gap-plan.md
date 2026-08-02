@@ -96,10 +96,38 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 |---|---|
 | 0 — repeatable audit | **Done.** `tools/Majorsilence.Forms.GdiDiff` + committed `baseline.txt` + a CI gate in `dotnet.yml`. |
 | 1 — Class C hollows | **Done.** 36 tests; `COMPATIBILITY_MATRIX.md` corrected. |
-| 2 — data-only enums | In progress. |
+| 2 — data-only enums | **Done.** 176 gaps closed, plus a new class of bug found and fixed (below). |
 | 3–6 | Not started. |
 
-Baseline went from **431 → 416** entries (51 → 50 missing types, 380 → 366 missing members).
+Baseline went **431 → 416 → 240** entries.
+
+### Phase 2 found a fourth class of gap: wrong numbers
+
+Filling the enums surfaced something neither the type-level audit nor the member-level diff could see:
+**members that exist on both sides with different numeric values.** The presence-only diff is blind to
+it, and it is worse than a missing member — the code compiles, runs, and silently means something else,
+because designer-generated code and `.resx` resources persist these as raw integers.
+
+The first run of the value check found **14 real mismatches**, all pre-existing:
+
+| Enum | Was | Should be |
+|---|---|---|
+| `StringFormatFlags.DirectionRightToLeft` / `.DirectionVertical` | 2 / 1 — **transposed** | 1 / 2 |
+| `PaperKind.Legal` / `.A3` / `.A4` | 2 / 4 / 3 | 5 / 8 / 9 |
+| `PaperSourceKind.Manual` / `.Envelope` / `.AutomaticFeed` / `.Custom` | 3 / 4 / 0 / 5 | 4 / 5 / 7 / 257 |
+| `PrinterResolutionKind.High`…`.Custom` | 0…4 | −4…0 |
+
+The transposed `StringFormatFlags` pair is the most consequential: both are honored at layout time, so
+right-to-left text was being laid out vertically. The rest came from enums declared with *implicit*
+values (`0, 1, 2, …`) that happened not to match GDI+ — which also collided once the full upstream
+`PaperKind` set was added (`A4` and `Tabloid` both landed on 3).
+
+All 14 are fixed, and the check is now part of `tools/Majorsilence.Forms.GdiDiff` as a `VALUE` gap line,
+so CI fails if one ever reappears. `EnumValueFidelityTests` and `PrintingEnumValueTests` additionally
+name the specific values that were wrong, so a regression identifies itself.
+
+**Lesson for the remaining phases:** when completing a data-only type, give every member an explicit
+value taken from upstream. Implicit numbering is how all four of these bugs happened.
 
 **Phase 1 landed:** `Graphics.MeasureCharacterRanges` (with real greedy word wrap and one rectangle per
 wrapped line, making `SetMeasurableCharacterRanges` non-dead); the full `Region` algebra

@@ -90,6 +90,9 @@ internal static class Program
         $"# Compared against System.Drawing.Common (reflection-only) using the {configuration} build.",
         "# TYPE   <upstream full name>          = no equivalent type exists at all.",
         "# MEMBER <upstream type>.<member>      = the type exists but this member does not.",
+        "# VALUE  <upstream type>.<member> ...  = the enum member exists but has a different number.",
+        "#        A VALUE line is a bug, not a gap: designer/.resx code persists these as raw integers,",
+        "#        so a wrong number corrupts data on round-trip instead of failing to compile.",
         "# Entries here are gaps, not goals — see docs/gdi-gap-plan.md for what is deliberately out of scope.",
         "",
     ];

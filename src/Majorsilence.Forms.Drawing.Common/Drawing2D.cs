@@ -471,7 +471,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>No antialiasing.</summary>
         None = 3,
         /// <summary>Antialiasing.</summary>
-        AntiAlias = 4
+        AntiAlias = 4,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>Invalid.</summary>
+        Invalid = -1,
     }
 
     /// <summary>Specifies how pixels are offset during rendering. Matches System.Drawing.Drawing2D.PixelOffsetMode.</summary>
@@ -486,7 +490,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>No pixel offset.</summary>
         None = 3,
         /// <summary>Pixels are offset by -0.5 units for high speed antialiasing.</summary>
-        Half = 4
+        Half = 4,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>Invalid.</summary>
+        Invalid = -1,
     }
 
     /// <summary>Specifies how images are scaled. Matches System.Drawing.Drawing2D.InterpolationMode.</summary>
@@ -548,7 +556,23 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>A round cap.</summary>
         Round = 2,
         /// <summary>A triangular cap.</summary>
-        Triangle = 3
+        Triangle = 3,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>No anchor.</summary>
+        NoAnchor = 16,
+        /// <summary>Square anchor.</summary>
+        SquareAnchor = 17,
+        /// <summary>Round anchor.</summary>
+        RoundAnchor = 18,
+        /// <summary>Diamond anchor.</summary>
+        DiamondAnchor = 19,
+        /// <summary>Arrow anchor.</summary>
+        ArrowAnchor = 20,
+        /// <summary>Custom.</summary>
+        Custom = 255,
+        /// <summary>Anchor mask.</summary>
+        AnchorMask = 240,
     }
 
     /// <summary>Specifies how lines are joined. Matches System.Drawing.Drawing2D.LineJoin.</summary>

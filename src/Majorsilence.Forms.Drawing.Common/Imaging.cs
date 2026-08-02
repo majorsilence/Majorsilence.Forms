@@ -92,7 +92,39 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <summary>32 bits per pixel, premultiplied ARGB.</summary>
         Format32bppPArgb = 925707,
         /// <summary>8 bits per pixel, indexed.</summary>
-        Format8bppIndexed = 198659
+        Format8bppIndexed = 198659,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>Indexed.</summary>
+        Indexed = 65536,
+        /// <summary>Gdi.</summary>
+        Gdi = 131072,
+        /// <summary>Alpha.</summary>
+        Alpha = 262144,
+        /// <summary>P alpha.</summary>
+        PAlpha = 524288,
+        /// <summary>Extended.</summary>
+        Extended = 1048576,
+        /// <summary>Canonical.</summary>
+        Canonical = 2097152,
+        /// <summary>Dont care.</summary>
+        DontCare = 0,
+        /// <summary>Format 1 bpp indexed.</summary>
+        Format1bppIndexed = 196865,
+        /// <summary>Format 4 bpp indexed.</summary>
+        Format4bppIndexed = 197634,
+        /// <summary>Format 16 bpp gray scale.</summary>
+        Format16bppGrayScale = 1052676,
+        /// <summary>Format 16 bpp argb 1555.</summary>
+        Format16bppArgb1555 = 397319,
+        /// <summary>Format 48 bpp rgb.</summary>
+        Format48bppRgb = 1060876,
+        /// <summary>Format 64 bpp argb.</summary>
+        Format64bppArgb = 3424269,
+        /// <summary>Format 64 bpp p argb.</summary>
+        Format64bppPArgb = 1851406,
+        /// <summary>Max.</summary>
+        Max = 15,
     }
 
     /// <summary>Specifies the access mode used when locking bitmap bits. Stub in Majorsilence.Forms.Drawing.</summary>

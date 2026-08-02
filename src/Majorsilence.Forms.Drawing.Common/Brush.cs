@@ -438,6 +438,14 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Solid diamond pattern.</summary>
         SolidDiamond = 52,
         /// <summary>Solid fill (100%).</summary>
-        Solid = 100
+        Solid = 100,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>Large grid.</summary>
+        LargeGrid = 4,
+        /// <summary>Min.</summary>
+        Min = 0,
+        /// <summary>Max.</summary>
+        Max = 4,
     }
 }
