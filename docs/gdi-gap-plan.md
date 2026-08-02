@@ -95,8 +95,9 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 | Phase | Status |
 |---|---|
 | 0 — repeatable audit | **Done.** `tools/Majorsilence.Forms.GdiDiff` + committed `baseline.txt` + a CI gate in `dotnet.yml`. |
-| 1 — Class C hollows | **Mostly done** — see below. |
-| 2–6 | Not started. |
+| 1 — Class C hollows | **Done.** 36 tests; `COMPATIBILITY_MATRIX.md` corrected. |
+| 2 — data-only enums | In progress. |
+| 3–6 | Not started. |
 
 Baseline went from **431 → 416** entries (51 → 50 missing types, 380 → 366 missing members).
 
@@ -104,16 +105,13 @@ Baseline went from **431 → 416** entries (51 → 50 missing types, 380 → 366
 wrapped line, making `SetMeasurableCharacterRanges` non-dead); the full `Region` algebra
 (`Union`/`Intersect`/`Exclude`/`Xor`/`Complement` × `RectangleF`/`Rectangle`/`Region`/`GraphicsPath`,
 plus `Translate`/`Transform`/`IsInfinite`) and the `CombineMode` enum; a real `TextureBrush`
-(`Image`, the transform family, `Clone`).
+(`Image`, the transform family, `Clone`); a real `FontFamily.IsStyleAvailable`.
 
-**Phase 1 remaining:**
-
-1. Tests for `TextureBrush` transforms and `Graphics.MeasureCharacterRanges` — `RegionAlgebraTests`
-   (16 tests) covers the region work only. The `MeasureCharacterRanges` wrap logic in particular is
-   untested and is the most intricate code added.
-2. Correct the `COMPATIBILITY_MATRIX.md` GDI+ table: it lists `TextureBrush` and `ImageAnimator` under
-   "Implemented". `TextureBrush` now genuinely is; `ImageAnimator` still only renders one frame and
-   should be moved out of that row until Phase 4 adds `FrameDimension`.
+Covered by `RegionAlgebraTests` (16), `TextureBrushTests` (10, including pixel-level proof that the
+texture transform is actually *applied* rather than merely stored) and `MeasureCharacterRangesTests`
+(10). `COMPATIBILITY_MATRIX.md` now carries a corrected `ImageAnimator` row, a
+`MeasureCharacterRanges` row, and a pointer from its type-level audit section to the automated
+member-level one.
 
 **Two corrections to the Class C table above, found while implementing:** `ImageAnimator.CanAnimate`
 and `FontFamily.GetName(int)` are *honestly self-documented in source* as no-ops — the overstatement
