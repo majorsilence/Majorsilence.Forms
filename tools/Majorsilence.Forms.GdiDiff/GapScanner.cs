@@ -156,8 +156,16 @@ internal static class GapScanner
             if (ours.Name != name || ours.Parameters.Length < wanted.Length || ours.Required > wanted.Length)
                 return false;
             for (var i = 0; i < wanted.Length; i++)
+            {
+                // An `object` parameter binds an argument of any reference type, so it satisfies the
+                // upstream shape even though the type names differ. This is not a loophole: it is how
+                // Region and GraphicsPath accept a Graphics they are not allowed to reference (that type
+                // lives in Majorsilence.Forms, which depends on this assembly, not the reverse).
+                if (string.Equals(ours.Parameters[i], "Object", StringComparison.Ordinal))
+                    continue;
                 if (!string.Equals(ours.Parameters[i], wanted[i], StringComparison.Ordinal))
                     return false;
+            }
             return true;
         }
 

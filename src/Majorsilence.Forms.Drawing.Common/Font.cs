@@ -98,6 +98,16 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Gets the line spacing, in the current unit, of this font for the given DPI.</summary>
+        /// <summary>Gets the line spacing of this font on the specified surface.</summary>
+        /// <remarks>
+        /// The parameter is typed <c>object?</c> because GDI+ takes a <c>Graphics</c> here, and that type
+        /// lives in Majorsilence.Forms, which depends on this assembly rather than the reverse. An
+        /// <c>object?</c> parameter still binds a Graphics argument at the call site. It is unused: this
+        /// layer is 96 DPI throughout, which is what the parameterless overload assumes.
+        /// </remarks>
+        public float GetHeight (object? graphics) => GetHeight ();
+
+        /// <summary>Gets the line spacing of this font at the specified DPI.</summary>
         public float GetHeight (float dpi) => GetHeight ();
 
         // The WinForms-compatible GetHeight(SkiaGraphics) overload lives in Majorsilence.Forms as an

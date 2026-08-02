@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using Majorsilence.Forms.Drawing.Drawing2D;
 using SkiaSharp;
@@ -69,6 +70,77 @@ namespace Majorsilence.Forms.Drawing
             using var test = new SKRegion ();
             test.SetRect (new SKRectI (r.Left, r.Top, r.Right, r.Bottom));
             return region.Intersects (test);
+        }
+
+        /// <summary>Returns whether any part of the specified rectangle is contained in this region.</summary>
+        public bool IsVisible (Rectangle rect) => IsVisible ((RectangleF)rect);
+
+        /// <summary>Returns whether the specified point is contained in this region.</summary>
+        public bool IsVisible (float x, float y) => region.Contains ((int)x, (int)y);
+
+        /// <summary>Returns whether the specified point is contained in this region.</summary>
+        public bool IsVisible (int x, int y) => region.Contains (x, y);
+
+        /// <summary>Returns whether any part of the specified rectangle is contained in this region.</summary>
+        public bool IsVisible (float x, float y, float width, float height)
+            => IsVisible (new RectangleF (x, y, width, height));
+
+        /// <summary>Returns whether any part of the specified rectangle is contained in this region.</summary>
+        public bool IsVisible (int x, int y, int width, int height)
+            => IsVisible (new RectangleF (x, y, width, height));
+
+        // GDI+ takes a Graphics on these to supply the device resolution. Graphics lives in
+        // Majorsilence.Forms, which depends on this assembly rather than the reverse, so it cannot be
+        // named here -- but an object? parameter still binds a Graphics argument at the call site, which
+        // is what migrated code needs. The argument is unused: regions are in device pixels throughout.
+
+        /// <inheritdoc cref="IsVisible(PointF)"/>
+        public bool IsVisible (PointF point, object? graphics) => IsVisible (point);
+
+        /// <inheritdoc cref="IsVisible(Point)"/>
+        public bool IsVisible (Point point, object? graphics) => IsVisible (point);
+
+        /// <inheritdoc cref="IsVisible(RectangleF)"/>
+        public bool IsVisible (RectangleF rect, object? graphics) => IsVisible (rect);
+
+        /// <inheritdoc cref="IsVisible(Rectangle)"/>
+        public bool IsVisible (Rectangle rect, object? graphics) => IsVisible (rect);
+
+        /// <inheritdoc cref="IsVisible(float, float)"/>
+        public bool IsVisible (float x, float y, object? graphics) => IsVisible (x, y);
+
+        /// <inheritdoc cref="IsVisible(int, int)"/>
+        public bool IsVisible (int x, int y, object? graphics) => IsVisible (x, y);
+
+        /// <inheritdoc cref="IsVisible(float, float, float, float)"/>
+        public bool IsVisible (float x, float y, float width, float height, object? graphics)
+            => IsVisible (x, y, width, height);
+
+        /// <inheritdoc cref="IsVisible(int, int, int, int)"/>
+        public bool IsVisible (int x, int y, int width, int height, object? graphics)
+            => IsVisible (x, y, width, height);
+
+        /// <summary>
+        /// Returns the rectangles that together make up this region — its scanline decomposition.
+        /// </summary>
+        /// <param name="matrix">Applied to each rectangle before it is returned, if supplied.</param>
+        public RectangleF[] GetRegionScans (Drawing2D.Matrix? matrix)
+        {
+            var scans = new List<RectangleF> ();
+            using (var iterator = region.CreateRectIterator ()) {
+                while (iterator.Next (out var rect))
+                    scans.Add (new RectangleF (rect.Left, rect.Top, rect.Width, rect.Height));
+            }
+
+            if (matrix is not null) {
+                var sk = matrix.ToSKMatrix ();
+                for (var i = 0; i < scans.Count; i++) {
+                    var mapped = sk.MapRect (new SKRect (scans[i].Left, scans[i].Top, scans[i].Right, scans[i].Bottom));
+                    scans[i] = new RectangleF (mapped.Left, mapped.Top, mapped.Width, mapped.Height);
+                }
+            }
+
+            return [.. scans];
         }
 
         /// <summary>Updates this region to the union of itself and the specified rectangle.</summary>

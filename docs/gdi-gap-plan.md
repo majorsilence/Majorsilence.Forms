@@ -101,13 +101,52 @@ each shape, which today it does not (`Region.IsEmpty` has it; `Region.IsVisible`
 `CopyFromScreen` and `FromHdc` in that list are Win32 screen/device-context interop and stay out of
 scope.
 
-### Phase 7 — overload completion
+## Plan to close everything remaining (2026-08-02)
 
-Mechanical and low-risk, but high value for whether real migrated code compiles at all. Suggested
-order: the integer/`float` convenience overloads first (largest group, zero design questions), then
-the `object?`-graphics overloads, then the `DrawImage` family. Each is a delegation to an existing
-implementation, so the tests that matter are compile-level rather than behavioral — a handful of
-call-shape assertions per type is enough.
+Of the 215 baseline entries, **51 are already-documented non-goals** (metafile/EMF/WMF, Win32 handle
+interop, design-time converters, `RegionData`, `CopyPixelOperation`, `CopyFromScreen`). They stay.
+That leaves **164 to close**, in three phases, ordered by how much each affects whether real migrated
+code compiles and behaves:
+
+### Phase 7 — overload completion (107 `SIG`) — *highest impact*
+
+Mechanical and low-risk, but this is the group that decides whether a migrated project builds at all:
+the integer overloads are exactly what `*.Designer.cs` emits.
+
+1. **Integer/`float` convenience overloads (~56).** `GraphicsPath.AddLine(int,…)`,
+   `AddEllipse(int,…)`, `Graphics.DrawPie(…int…)`, `Region.IsVisible(float,float)`, … Pure
+   delegation to the existing `float`/`PointF` implementation.
+2. **`object?`-graphics overloads (22).** `Region.IsVisible(PointF, Graphics)` and friends. As
+   explained above, an `object?` parameter binds a `Graphics` argument at the call site, so this is
+   additive and needs no type moves.
+3. **`Graphics.DrawImage` family (21)** plus `SetClip`/`DrawCurve`/`MeasureString` shapes.
+4. **Stragglers (~8):** `GraphicsPath.Widen`, `GetBounds(Matrix, Pen)`, `Bitmap.Clone(Rectangle, PixelFormat)`,
+   `Bitmap.LockBits(…, BitmapData)`, `Matrix.TransformVectors(Point[])`,
+   `Image.Save(string, ImageCodecInfo, EncoderParameters)`, `Font.GetHeight(Graphics)`.
+
+Tests are call-shape assertions — that each overload exists and delegates to the same result — rather
+than re-testing behavior already covered.
+
+### Phase 8 — small real gaps (~16 `MEMBER`) — *cheap and genuine*
+
+- `SystemColors`/`SystemBrushes`/`SystemPens.GradientActiveCaption`/`GradientInactiveCaption` (6).
+- `SystemFonts.GetFontByName` (1).
+- `ColorTranslator.ToWin32`/`FromWin32`/`ToOle`/`FromOle` (4) — these are plain BGR integer
+  conversions and are perfectly meaningful cross-platform, despite the Win32/OLE names.
+- `Font.OriginalFontName`/`SystemFontName`/`IsSystemFont`/`GdiVerticalFont` (4).
+- `Region.GetRegionScans` (1) — the scanline rectangles, which `SKRegion` can enumerate.
+
+### Phase 6 — printing surface (7 `TYPE` + 41 `MEMBER`) — *lowest priority, done last*
+
+Unchanged from the original plan: printing already renders through `SKDocument.CreatePdf`, so this is
+API-shape completion for code that references the types directly. `PrintController` and its two
+subclasses, `PreviewPageInfo`, the print event args/handlers, `PrinterUnitConvert`,
+`InvalidPrinterException`, `PageSettings.PrintableArea`/`HardMargin*`, and the `PrinterSettings`
+collection types.
+
+**Definition of done is unchanged** (see the section at the end): real computed values in tests, the
+`NamespaceMap` updated for new types, `COMPATIBILITY_MATRIX.md` corrected, and the baseline
+regenerated so the gap set provably shrank.
 
 ## Out of scope — do not implement
 

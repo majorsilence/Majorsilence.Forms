@@ -390,6 +390,55 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
                 path.LineTo (points[i].X, points[i].Y);
         }
 
+        // Integer overloads. These are not redundant sugar: designer-generated code emits integer
+        // literals, so their absence is a compile error in exactly the files a migration cannot edit
+        // by hand. Each delegates to the float implementation.
+
+        /// <inheritdoc cref="AddLine(float, float, float, float)"/>
+        public void AddLine (int x1, int y1, int x2, int y2) => AddLine ((float)x1, y1, x2, y2);
+
+        /// <inheritdoc cref="AddEllipse(float, float, float, float)"/>
+        public void AddEllipse (int x, int y, int width, int height) => AddEllipse ((float)x, y, width, height);
+
+        /// <inheritdoc cref="AddArc(float, float, float, float, float, float)"/>
+        public void AddArc (int x, int y, int width, int height, float startAngle, float sweepAngle)
+            => AddArc ((float)x, y, width, height, startAngle, sweepAngle);
+
+        /// <inheritdoc cref="AddBezier(float, float, float, float, float, float, float, float)"/>
+        public void AddBezier (int x1, int y1, int cx1, int cy1, int cx2, int cy2, int x2, int y2)
+            => AddBezier ((float)x1, y1, cx1, cy1, cx2, cy2, x2, y2);
+
+        /// <inheritdoc cref="AddBezier(PointF, PointF, PointF, PointF)"/>
+        public void AddBezier (Point pt1, Point pt2, Point pt3, Point pt4)
+            => AddBezier (new PointF (pt1.X, pt1.Y), new PointF (pt2.X, pt2.Y), new PointF (pt3.X, pt3.Y), new PointF (pt4.X, pt4.Y));
+
+        /// <inheritdoc cref="AddBeziers(PointF[])"/>
+        public void AddBeziers (Point[] points)
+            => AddBeziers (points is null ? [] : Array.ConvertAll (points, p => new PointF (p.X, p.Y)));
+
+        /// <inheritdoc cref="AddRectangles(RectangleF[])"/>
+        public void AddRectangles (Rectangle[] rects)
+            => AddRectangles (rects is null ? [] : Array.ConvertAll (rects, r => new RectangleF (r.X, r.Y, r.Width, r.Height)));
+
+        /// <summary>
+        /// Appends part of a cardinal spline: <paramref name="numberOfSegments"/> segments starting at
+        /// <paramref name="offset"/> in <paramref name="points"/>.
+        /// </summary>
+        public void AddCurve (PointF[] points, int offset, int numberOfSegments, float tension)
+        {
+            if (points is null || numberOfSegments <= 0 || offset < 0 || offset >= points.Length)
+                return;
+            // A run of N segments spans N+1 points.
+            var take = Math.Min (numberOfSegments + 1, points.Length - offset);
+            if (take < 2)
+                return;
+            AddCurve (points[offset..(offset + take)], tension);
+        }
+
+        /// <inheritdoc cref="AddCurve(PointF[], int, int, float)"/>
+        public void AddCurve (Point[] points, int offset, int numberOfSegments, float tension)
+            => AddCurve (points is null ? [] : Array.ConvertAll (points, p => new PointF (p.X, p.Y)), offset, numberOfSegments, tension);
+
         /// <summary>Appends a rectangle to this path.</summary>
         public void AddRectangle (RectangleF rect) => path.AddRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
 
@@ -558,6 +607,71 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
 
         /// <summary>Returns whether the specified point lies within this path.</summary>
         public bool IsVisible (Point point) => path.Contains (point.X, point.Y);
+
+        /// <summary>Returns whether the specified point lies within this path.</summary>
+        public bool IsVisible (int x, int y) => path.Contains (x, y);
+
+        // The `object? graphics` overloads below exist because GDI+ takes a Graphics here to supply the
+        // device resolution. Graphics lives in Majorsilence.Forms, which depends on this assembly rather
+        // than the other way round, so it cannot be named here -- but an object? parameter still binds a
+        // Graphics argument at the call site, which is what migrated code needs. The argument is unused:
+        // hit-testing is in path units, which are device pixels throughout this layer.
+
+        /// <inheritdoc cref="IsVisible(PointF)"/>
+        public bool IsVisible (PointF point, object? graphics) => IsVisible (point);
+
+        /// <inheritdoc cref="IsVisible(Point)"/>
+        public bool IsVisible (Point point, object? graphics) => IsVisible (point);
+
+        /// <inheritdoc cref="IsVisible(float, float)"/>
+        public bool IsVisible (float x, float y, object? graphics) => IsVisible (x, y);
+
+        /// <inheritdoc cref="IsVisible(int, int)"/>
+        public bool IsVisible (int x, int y, object? graphics) => IsVisible (x, y);
+
+        /// <inheritdoc cref="IsOutlineVisible(PointF, Pen)"/>
+        public bool IsOutlineVisible (PointF point, Pen pen, object? graphics) => IsOutlineVisible (point, pen);
+
+        /// <inheritdoc cref="IsOutlineVisible(Point, Pen)"/>
+        public bool IsOutlineVisible (Point point, Pen pen, object? graphics) => IsOutlineVisible (point, pen);
+
+        /// <inheritdoc cref="IsOutlineVisible(float, float, Pen)"/>
+        public bool IsOutlineVisible (float x, float y, Pen pen, object? graphics) => IsOutlineVisible (x, y, pen);
+
+        /// <inheritdoc cref="IsOutlineVisible(int, int, Pen)"/>
+        public bool IsOutlineVisible (int x, int y, Pen pen, object? graphics) => IsOutlineVisible (x, y, pen);
+
+        /// <summary>Gets the bounding rectangle of this path as it would be drawn with the given pen.</summary>
+        public RectangleF GetBounds (Matrix? matrix, Pen? pen)
+        {
+            if (pen is null)
+                return matrix is null ? GetBounds () : GetBounds (matrix);
+
+            // The stroke extends half the pen width beyond the geometry on each side.
+            var bounds = matrix is null ? GetBounds () : GetBounds (matrix);
+            var outset = Math.Max (0f, pen.Width) / 2f;
+            return RectangleF.Inflate (bounds, outset, outset);
+        }
+
+        /// <summary>Replaces this path with its outline as drawn with the given pen, transformed first.</summary>
+        public void Widen (Pen pen, Matrix? matrix)
+        {
+            if (matrix is not null)
+                Transform (matrix);
+            Widen (pen);
+        }
+
+        /// <inheritdoc cref="Widen(Pen, Matrix)"/>
+        /// <param name="pen">The pen whose width defines the outline.</param>
+        /// <param name="matrix">Applied before widening, if supplied.</param>
+        /// <param name="flatness">
+        /// The curve-flattening tolerance applied after widening, matching System.Drawing.
+        /// </param>
+        public void Widen (Pen pen, Matrix? matrix, float flatness)
+        {
+            Widen (pen, matrix);
+            Flatten (null, flatness);
+        }
 
         /// <summary>
         /// Replaces this path with the outline (stroke-to-fill) of itself as drawn with the given
@@ -770,6 +884,16 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         }
 
         /// <summary>Applies only the rotation/scale of this matrix to vectors (translation is ignored).</summary>
+        public void TransformVectors (Point[] points)
+        {
+            if (points is null) return;
+            var asFloat = Array.ConvertAll (points, p => new PointF (p.X, p.Y));
+            TransformVectors (asFloat);
+            for (var i = 0; i < points.Length; i++)
+                points[i] = new Point ((int)Math.Round (asFloat[i].X), (int)Math.Round (asFloat[i].Y));
+        }
+
+        /// <inheritdoc cref="TransformVectors(Point[])"/>
         public void TransformVectors (PointF[] points)
         {
             if (points is null) return;

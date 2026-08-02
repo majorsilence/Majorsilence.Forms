@@ -226,6 +226,14 @@ namespace Majorsilence.Forms.Drawing
         public void Save (string filename) => Save (filename, ImageFormat.FromFileName (filename));
 
         /// <summary>Saves this image to the specified file in the specified format.</summary>
+        /// <summary>Saves this image to a file using the specified codec and encoder parameters.</summary>
+        public void Save (string filename, ImageCodecInfo? codec, EncoderParameters? encoderParams)
+        {
+            using var stream = File.Create (filename);
+            Save (stream, codec, encoderParams);
+        }
+
+        /// <summary>Saves this image to a file in the specified format.</summary>
         public void Save (string filename, ImageFormat format)
         {
             using var stream = File.Create (filename);
@@ -264,6 +272,12 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Returns a thumbnail of this image at the requested size.</summary>
+        /// <inheritdoc cref="GetThumbnailImage(int, int, Func{bool}, IntPtr)"/>
+        /// <remarks>The abort callback is accepted for API compatibility; scaling here is not interruptible.</remarks>
+        public Image GetThumbnailImage (int thumbWidth, int thumbHeight, GetThumbnailImageAbort? callback, IntPtr callbackData)
+            => GetThumbnailImage (thumbWidth, thumbHeight, callback is null ? (Func<bool>?)null : () => callback (), callbackData);
+
+        /// <summary>Returns a thumbnail of this image.</summary>
         public Image GetThumbnailImage (int thumbWidth, int thumbHeight, Func<bool>? callback = null, IntPtr callbackData = default)
             => new Bitmap (this, thumbWidth, thumbHeight);
 
@@ -374,6 +388,31 @@ namespace Majorsilence.Forms.Drawing
             backing = bitmap ?? new SKBitmap (1, 1);
         }
 
+        /// <summary>Creates a copy of the section of this bitmap defined by the rectangle.</summary>
+        /// <remarks>
+        /// <paramref name="format"/> is accepted for API compatibility; every surface here is 32bpp, so
+        /// the copy keeps that format regardless (see <see cref="Image.PixelFormat"/>).
+        /// </remarks>
+        public Bitmap Clone (System.Drawing.Rectangle rect, PixelFormat format)
+        {
+            if (backing is null || rect.Width <= 0 || rect.Height <= 0)
+                return new Bitmap (Math.Max (1, rect.Width), Math.Max (1, rect.Height));
+
+            var cropped = new SKBitmap (rect.Width, rect.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            // ExtractSubset writes into the destination without copying pixel storage, so take an
+            // explicit copy: the caller owns a bitmap independent of this one.
+            using var subset = new SKBitmap ();
+            if (backing.ExtractSubset (subset, new SKRectI (rect.Left, rect.Top, rect.Right, rect.Bottom))) {
+                using var canvas = new SKCanvas (cropped);
+                canvas.DrawBitmap (subset, 0, 0);
+            }
+            return new Bitmap (cropped);
+        }
+
+        /// <inheritdoc cref="Clone(System.Drawing.Rectangle, PixelFormat)"/>
+        public Bitmap Clone (System.Drawing.RectangleF rect, PixelFormat format)
+            => Clone (System.Drawing.Rectangle.Round (rect), format);
+
         /// <summary>Gets the color of the specified pixel.</summary>
         public System.Drawing.Color GetPixel (int x, int y)
         {
@@ -423,6 +462,7 @@ namespace Majorsilence.Forms.Drawing
         /// to <see cref="PixelFormat.Format32bppArgb"/> (the backing store is always 32bpp), and the
         /// returned <see cref="BitmapData.PixelFormat"/> reports what was actually produced.
         /// </param>
+        /// <inheritdoc cref="LockBits(System.Drawing.Rectangle, ImageLockMode)"/>
         public BitmapData LockBits (System.Drawing.Rectangle rect, ImageLockMode flags, PixelFormat format)
         {
             ObjectDisposedException.ThrowIf (backing is null, this);
@@ -455,6 +495,28 @@ namespace Majorsilence.Forms.Drawing
         public BitmapData LockBits (System.Drawing.Rectangle rect, ImageLockMode flags)
             => LockBits (rect, flags, PixelFormat.Format32bppArgb);
 
+        /// <summary>
+        /// Locks the bitmap into memory, writing the layout into the supplied <see cref="BitmapData"/>
+        /// rather than allocating a new one. GDI+ uses this shape to let the caller own the instance.
+        /// </summary>
+        /// <param name="rect">The portion of the bitmap to lock.</param>
+        /// <param name="flags">Whether the locked pixels are read, written, or both.</param>
+        /// <param name="format">The pixel layout to present the locked data in.</param>
+        /// <param name="bitmapData">The instance to populate; returned as-is when non-null.</param>
+        public BitmapData LockBits (System.Drawing.Rectangle rect, ImageLockMode flags, PixelFormat format, BitmapData bitmapData)
+        {
+            var locked = LockBits (rect, flags, format);
+            if (bitmapData is null)
+                return locked;
+
+            bitmapData.Width = locked.Width;
+            bitmapData.Height = locked.Height;
+            bitmapData.Stride = locked.Stride;
+            bitmapData.PixelFormat = locked.PixelFormat;
+            bitmapData.Scan0 = locked.Scan0;
+            bitmapData.Reserved = locked.Reserved;
+            return bitmapData;
+        }
         /// <summary>
         /// Releases a buffer previously returned by <see cref="LockBits(System.Drawing.Rectangle, ImageLockMode, PixelFormat)"/>,
         /// copying it back into the bitmap unless the lock was <see cref="ImageLockMode.ReadOnly"/>.
