@@ -16,16 +16,22 @@ namespace Majorsilence.Forms
         private readonly Control? _control;
         private readonly SKCanvas? _canvas;
         private readonly bool _ownsCanvas;
+
+        // The image FromImage was created over, if any. An SKCanvas does NOT keep its backing SKBitmap
+        // alive, so without this a caller who does not hold the image themselves gets the bitmap
+        // collected out from under native code -- which aborts the process rather than throwing.
+        private readonly Majorsilence.Forms.Drawing.Image? _sourceImage;
         private bool _disposed;
 
         internal Graphics (Control? control = null) { _control = control; }
 
         internal Graphics (SKCanvas canvas, Control? control = null) { _canvas = canvas; _control = control; }
 
-        private Graphics (SKCanvas canvas, bool ownsCanvas)
+        private Graphics (SKCanvas canvas, bool ownsCanvas, Majorsilence.Forms.Drawing.Image? sourceImage = null)
         {
             _canvas = canvas;
             _ownsCanvas = ownsCanvas;
+            _sourceImage = sourceImage;
         }
 
         /// <summary>Creates a Graphics object for drawing on the specified Majorsilence.Forms.Drawing.Image.
@@ -34,7 +40,7 @@ namespace Majorsilence.Forms
         {
             ArgumentNullException.ThrowIfNull (image);
             var backing = image.GetSKBitmap () ?? throw new ArgumentException ("Image has no backing bitmap.", nameof (image));
-            return new Graphics (new SKCanvas (backing), ownsCanvas: true);
+            return new Graphics (new SKCanvas (backing), ownsCanvas: true, sourceImage: image);
         }
 
         /// <summary>Creates a Graphics object for the specified window handle. Returns a no-op instance in Majorsilence.Forms.</summary>

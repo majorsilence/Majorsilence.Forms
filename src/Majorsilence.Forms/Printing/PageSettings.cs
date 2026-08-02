@@ -81,6 +81,53 @@ namespace Majorsilence.Forms.Printing
         /// <summary>Gets the bounding rectangle for the page (in hundredths of an inch).</summary>
         public System.Drawing.Rectangle Bounds =>
             new System.Drawing.Rectangle (0, 0, EffectiveWidthHundredths, EffectiveHeightHundredths);
+
+        private PrinterSettings? printerSettings;
+
+        /// <summary>Gets or sets the printer settings these page settings belong to.</summary>
+        /// <remarks>
+        /// Created on first access rather than in a field initializer. Eager construction is a stack
+        /// overflow: PrinterSettings builds a DefaultPageSettings, which would build a PrinterSettings,
+        /// and so on. PrinterSettings wires its own DefaultPageSettings back to itself, so the common
+        /// path never allocates a second instance anyway.
+        /// </remarks>
+        public PrinterSettings PrinterSettings {
+            get => printerSettings ??= new PrinterSettings ();
+            set => printerSettings = value;
+        }
+
+        /// <summary>
+        /// Gets the width of the unprintable margin at the left edge, in hundredths of an inch.
+        /// </summary>
+        /// <remarks>
+        /// Zero: output goes to a PDF, which has no hardware margin. Real drivers report a physical
+        /// limit here, so the value is exposed rather than omitted, and zero is the honest answer for
+        /// this pipeline rather than an invented figure.
+        /// </remarks>
+        public float HardMarginX => 0f;
+
+        /// <inheritdoc cref="HardMarginX"/>
+        public float HardMarginY => 0f;
+
+        /// <summary>
+        /// Gets the printable area of the page, in hundredths of an inch. Equal to <see cref="Bounds"/>
+        /// here, since there is no hardware margin to subtract.
+        /// </summary>
+        public System.Drawing.RectangleF PrintableArea =>
+            new (0, 0, EffectiveWidthHundredths, EffectiveHeightHundredths);
+
+        /// <summary>Creates an independent copy of these page settings.</summary>
+        public PageSettings Clone () => new () {
+            PaperWidth = PaperWidth,
+            PaperHeight = PaperHeight,
+            Landscape = Landscape,
+            Margins = Margins?.Clone () ?? new Margins (),
+            Dpi = Dpi,
+            PaperSource = new PaperSource { SourceName = PaperSource.SourceName, Kind = PaperSource.Kind },
+            PrinterResolution = new PrinterResolution { X = PrinterResolution.X, Y = PrinterResolution.Y, Kind = PrinterResolution.Kind },
+            Color = Color,
+            PrinterSettings = PrinterSettings,
+        };
     }
 
     /// <summary>Specifies the paper size for a page.</summary>
@@ -101,8 +148,17 @@ namespace Majorsilence.Forms.Printing
         /// <summary>Gets or sets the height in hundredths of an inch.</summary>
         public int Height { get; set; } = 1100;
 
-        /// <summary>Gets or sets the paper kind. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the paper kind.</summary>
         public PaperKind Kind { get; set; } = PaperKind.Custom;
+
+        /// <summary>
+        /// Gets or sets the paper kind as its raw integer value, which is what a printer driver reports.
+        /// Reads and writes the same storage as <see cref="Kind"/>.
+        /// </summary>
+        public int RawKind {
+            get => (int)Kind;
+            set => Kind = (PaperKind)value;
+        }
     }
 
     /// <summary>Specifies the paper source tray.</summary>
@@ -111,8 +167,17 @@ namespace Majorsilence.Forms.Printing
         /// <summary>Gets or sets the name of the paper source. Stub in Majorsilence.Forms.</summary>
         public string SourceName { get; set; } = "Auto";
 
-        /// <summary>Gets or sets the paper source kind. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the paper source kind.</summary>
         public PaperSourceKind Kind { get; set; } = PaperSourceKind.AutomaticFeed;
+
+        /// <summary>
+        /// Gets or sets the source kind as its raw integer value. Reads and writes the same storage as
+        /// <see cref="Kind"/>.
+        /// </summary>
+        public int RawKind {
+            get => (int)Kind;
+            set => Kind = (PaperSourceKind)value;
+        }
     }
 
     /// <summary>Specifies the printer resolution.</summary>

@@ -180,8 +180,26 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 | 3 — transform & clone families | **Done.** All 39 members; 23 tests. |
 | 4 — imaging, metadata, frames | **Done.** 57 gaps closed; 23 tests. |
 | 5 — `GraphicsPath` & `Graphics` | **Done.** 36 gaps closed; 32 tests. |
-| 6 — printing | Not started. |
-| 7 — overload completion | Not started — found by the 2026-08-02 rescan, below. |
+| 6 — printing | **Done.** Controllers, preview capture, unit conversion, settings shapes. |
+| 7 — overload completion | **Done.** 103 shapes; 13 tests. |
+| 8 — small real gaps | **Done.** System colors/brushes/pens, ColorTranslator, Font metadata. |
+
+**All in-scope work is complete.** The baseline is down to **54 entries, every one of them a
+documented non-goal**: metafile recording and playback, Win32 handle interop (`H*`/`hdevmode`/
+`hdevnames`), design-time type converters, `RegionData`, `CopyPixelOperation` and screen capture.
+Closing any of them would mean implementing a Windows-GDI concept that has no cross-platform meaning,
+which is the same category as the VB Application Model non-goal elsewhere in this repo.
+
+Two real bugs surfaced while finishing, both fixed:
+
+- **`Graphics.FromImage` did not keep its image alive.** An `SKCanvas` does not root its backing
+  `SKBitmap`, so any caller who did not separately hold the image could have the bitmap collected out
+  from under native code — a process abort, not an exception. Every existing caller happened to hold
+  it; the first one that didn't was `PrinterSettings.CreateMeasurementGraphics`.
+- **`PageSettings` ↔ `PrinterSettings` initialization cycle.** Giving `PageSettings` a
+  `PrinterSettings` property, as GDI+ has, made construction infinitely recursive, because
+  `PrinterSettings` builds a `DefaultPageSettings`. `new PageSettings()` stack-overflowed. Now the
+  property is lazy and `PrinterSettings` wires the back-reference itself.
 
 Baseline went **431 → 416 → 240 → 201 → 144 → 108** entries. Everything still listed for
 `Graphics` is out of scope (metafile enumeration and HDC interop).
