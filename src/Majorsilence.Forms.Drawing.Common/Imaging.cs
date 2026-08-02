@@ -11,11 +11,18 @@ namespace Majorsilence.Forms.Drawing.Imaging
     /// </summary>
     public sealed class ImageFormat
     {
-        internal ImageFormat (string name, SKEncodedImageFormat skFormat)
+        internal ImageFormat (string name, SKEncodedImageFormat skFormat, string guid)
         {
             Name = name;
             SKFormat = skFormat;
+            Guid = new Guid (guid);
         }
+
+        /// <summary>
+        /// Gets the GUID identifying this format. These are GDI+'s own format GUIDs, so a value read
+        /// from designer-serialized or persisted data still compares equal.
+        /// </summary>
+        public Guid Guid { get; }
 
         /// <summary>Gets the name of this image format.</summary>
         public string Name { get; }
@@ -23,34 +30,48 @@ namespace Majorsilence.Forms.Drawing.Imaging
         internal SKEncodedImageFormat SKFormat { get; }
 
         /// <summary>Gets the bitmap (BMP) image format.</summary>
-        public static ImageFormat Bmp { get; } = new ImageFormat ("Bmp", SKEncodedImageFormat.Bmp);
+        public static ImageFormat Bmp { get; } = new ImageFormat ("Bmp", SKEncodedImageFormat.Bmp, "b96b3cab-0728-11d3-9d7b-0000f81ef32e");
 
         /// <summary>Gets the PNG image format.</summary>
-        public static ImageFormat Png { get; } = new ImageFormat ("Png", SKEncodedImageFormat.Png);
+        public static ImageFormat Png { get; } = new ImageFormat ("Png", SKEncodedImageFormat.Png, "b96b3caf-0728-11d3-9d7b-0000f81ef32e");
 
         /// <summary>Gets the JPEG image format.</summary>
-        public static ImageFormat Jpeg { get; } = new ImageFormat ("Jpeg", SKEncodedImageFormat.Jpeg);
+        public static ImageFormat Jpeg { get; } = new ImageFormat ("Jpeg", SKEncodedImageFormat.Jpeg, "b96b3cae-0728-11d3-9d7b-0000f81ef32e");
 
         /// <summary>Gets the GIF image format.</summary>
-        public static ImageFormat Gif { get; } = new ImageFormat ("Gif", SKEncodedImageFormat.Gif);
+        public static ImageFormat Gif { get; } = new ImageFormat ("Gif", SKEncodedImageFormat.Gif, "b96b3cb0-0728-11d3-9d7b-0000f81ef32e");
 
         /// <summary>Gets the W3C PNG image format (alias of <see cref="Png"/>).</summary>
-        public static ImageFormat MemoryBmp { get; } = new ImageFormat ("MemoryBmp", SKEncodedImageFormat.Bmp);
+        public static ImageFormat MemoryBmp { get; } = new ImageFormat ("MemoryBmp", SKEncodedImageFormat.Bmp, "b96b3caa-0728-11d3-9d7b-0000f81ef32e");
 
         /// <summary>Gets the Windows icon image format (encoded as PNG).</summary>
-        public static ImageFormat Icon { get; } = new ImageFormat ("Icon", SKEncodedImageFormat.Ico);
+        public static ImageFormat Icon { get; } = new ImageFormat ("Icon", SKEncodedImageFormat.Ico, "b96b3cb5-0728-11d3-9d7b-0000f81ef32e");
 
         /// <summary>Gets the TIFF image format.</summary>
-        public static ImageFormat Tiff { get; } = new ImageFormat ("Tiff", SKEncodedImageFormat.Png);
+        public static ImageFormat Tiff { get; } = new ImageFormat ("Tiff", SKEncodedImageFormat.Png, "b96b3cb1-0728-11d3-9d7b-0000f81ef32e");
 
         /// <summary>Gets the WMF image format (encoded as PNG).</summary>
-        public static ImageFormat Wmf { get; } = new ImageFormat ("Wmf", SKEncodedImageFormat.Png);
+        public static ImageFormat Wmf { get; } = new ImageFormat ("Wmf", SKEncodedImageFormat.Png, "b96b3cad-0728-11d3-9d7b-0000f81ef32e");
 
         /// <summary>Gets the EMF image format (encoded as PNG).</summary>
-        public static ImageFormat Emf { get; } = new ImageFormat ("Emf", SKEncodedImageFormat.Png);
+        public static ImageFormat Emf { get; } = new ImageFormat ("Emf", SKEncodedImageFormat.Png, "b96b3cac-0728-11d3-9d7b-0000f81ef32e");
 
         /// <summary>Gets the EXIF image format (encoded as JPEG).</summary>
-        public static ImageFormat Exif { get; } = new ImageFormat ("Exif", SKEncodedImageFormat.Jpeg);
+        public static ImageFormat Exif { get; } = new ImageFormat ("Exif", SKEncodedImageFormat.Jpeg, "b96b3cb2-0728-11d3-9d7b-0000f81ef32e");
+
+        /// <summary>
+        /// Gets the WebP image format, which SkiaSharp encodes and decodes natively.
+        /// </summary>
+        /// <remarks>
+        /// GDI+ predates WebP and has no GUID for it, so the value here is this project's own stable
+        /// identifier rather than a Microsoft one. It will not match a GUID obtained from
+        /// System.Drawing, because System.Drawing has none to match.
+        /// </remarks>
+        public static ImageFormat Webp { get; } = new ImageFormat ("Webp", SKEncodedImageFormat.Webp, "1b7cfaf4-713f-473c-bbcd-6137425faeaf");
+
+        /// <summary>Gets the HEIF image format. Decode support depends on the platform's Skia build.</summary>
+        /// <remarks>As with <see cref="Webp"/>, the GUID is this project's own; GDI+ defines none.</remarks>
+        public static ImageFormat Heif { get; } = new ImageFormat ("Heif", SKEncodedImageFormat.Heif, "9d1b3a2c-6f47-4e64-9c2a-0c7f5b3a8d21");
 
         internal SKEncodedImageFormat ToSKEncodedImageFormat () => SKFormat;
 
@@ -147,15 +168,58 @@ namespace Majorsilence.Forms.Drawing.Imaging
     public sealed class Encoder
     {
         /// <summary>Encoder parameter for image quality (0–100).</summary>
-        public static readonly Encoder Quality = new Encoder ("Quality");
+        public static readonly Encoder Quality = new Encoder ("Quality", "1d5be4b5-fa4a-452d-9cdd-5db35105e7eb");
 
         /// <summary>Encoder parameter for compression type.</summary>
-        public static readonly Encoder Compression = new Encoder ("Compression");
+        public static readonly Encoder Compression = new Encoder ("Compression", "e09d739d-ccd4-44ee-8eba-3fbf8be4fc58");
+
+        /// <summary>Encoder parameter for color depth, in bits per pixel.</summary>
+        public static readonly Encoder ColorDepth = new Encoder ("ColorDepth", "66087055-ad66-4c7c-9a18-38a2310b8337");
+
+        /// <summary>Encoder parameter for the scan method (interlaced or progressive).</summary>
+        public static readonly Encoder ScanMethod = new Encoder ("ScanMethod", "3a4e2661-3109-4e56-8536-42c156e7dcfa");
+
+        /// <summary>Encoder parameter for the version of the format to write.</summary>
+        public static readonly Encoder Version = new Encoder ("Version", "24d18c76-814a-41a4-bf53-1c219cccf797");
+
+        /// <summary>Encoder parameter for the rendering method.</summary>
+        public static readonly Encoder RenderMethod = new Encoder ("RenderMethod", "6d42c53a-229a-4825-8bb7-5c99e2b9a8b8");
+
+        /// <summary>Encoder parameter for a geometric transformation applied while encoding.</summary>
+        public static readonly Encoder Transformation = new Encoder ("Transformation", "8d0eb2d1-a58e-4ea8-aa14-108074b7b6f9");
+
+        /// <summary>Encoder parameter for the JPEG luminance quantization table.</summary>
+        public static readonly Encoder LuminanceTable = new Encoder ("LuminanceTable", "edb33bce-0266-4a77-b904-27216099e717");
+
+        /// <summary>Encoder parameter for the JPEG chrominance quantization table.</summary>
+        public static readonly Encoder ChrominanceTable = new Encoder ("ChrominanceTable", "f2e455dc-09b3-4316-8260-676ada32481c");
+
+        /// <summary>Encoder parameter controlling multi-frame save behavior.</summary>
+        public static readonly Encoder SaveFlag = new Encoder ("SaveFlag", "292266fc-ac40-47bf-8cfc-a85b89a655de");
+
+        /// <summary>Encoder parameter for the color space to encode in.</summary>
+        public static readonly Encoder ColorSpace = new Encoder ("ColorSpace", "ae7a62a0-ee2c-49d8-9d07-1ba8a927596e");
+
+        /// <summary>Encoder parameter selecting CMYK output.</summary>
+        public static readonly Encoder SaveAsCmyk = new Encoder ("SaveAsCmyk", "a219bbc9-0a9d-4005-a3ee-3a421b8bb06c");
+
+        /// <summary>Encoder parameter identifying the image items to encode.</summary>
+        public static readonly Encoder ImageItems = new Encoder ("ImageItems", "63875e13-1f1d-45ab-9195-a29b6066a650");
 
         /// <summary>Gets the name of this encoder parameter.</summary>
         public string ParameterName { get; }
 
-        private Encoder (string name) => ParameterName = name;
+        /// <summary>
+        /// Gets the GUID identifying this encoder parameter. These are the GDI+ category GUIDs, so a
+        /// parameter built here is recognizable to code that compares against System.Drawing's values.
+        /// </summary>
+        public Guid Guid { get; }
+
+        private Encoder (string name, string guid)
+        {
+            ParameterName = name;
+            Guid = new Guid (guid);
+        }
     }
 
     /// <summary>
@@ -180,6 +244,22 @@ namespace Majorsilence.Forms.Drawing.Imaging
 
         /// <summary>Initializes a new EncoderParameter with a long integer value.</summary>
         public EncoderParameter (Encoder encoder, long value) : this (encoder, (object)value) { }
+
+        /// <summary>Gets the data type of <see cref="Value"/>.</summary>
+        public EncoderParameterValueType Type => ValueType;
+
+        /// <summary>Gets the data type of <see cref="Value"/>, inferred from the value itself.</summary>
+        public EncoderParameterValueType ValueType => Value switch {
+            byte => EncoderParameterValueType.ValueTypeByte,
+            short or ushort => EncoderParameterValueType.ValueTypeShort,
+            int or uint or long or ulong => EncoderParameterValueType.ValueTypeLong,
+            string => EncoderParameterValueType.ValueTypeAscii,
+            byte[] => EncoderParameterValueType.ValueTypeByte,
+            _ => EncoderParameterValueType.ValueTypeUndefined,
+        };
+
+        /// <summary>Gets the number of values held by this parameter.</summary>
+        public int NumberOfValues => Value is Array array ? array.Length : 1;
 
         /// <inheritdoc/>
         public void Dispose () { }
@@ -240,17 +320,80 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <summary>Gets or sets the human-readable format description.</summary>
         public string FormatDescription { get; set; } = string.Empty;
 
-        /// <summary>Returns a list of available image encoders.</summary>
-        public static ImageCodecInfo[] GetImageEncoders () => new ImageCodecInfo[] {
-            new ImageCodecInfo { Clsid = new Guid ("557cf400-1a04-11d3-9a73-0000f81ef32e"), MimeType = "image/bmp",  Format = ImageFormat.Bmp,  FormatDescription = "BMP"  },
-            new ImageCodecInfo { Clsid = new Guid ("557cf401-1a04-11d3-9a73-0000f81ef32e"), MimeType = "image/jpeg", Format = ImageFormat.Jpeg, FormatDescription = "JPEG" },
-            new ImageCodecInfo { Clsid = new Guid ("557cf402-1a04-11d3-9a73-0000f81ef32e"), MimeType = "image/gif",  Format = ImageFormat.Gif,  FormatDescription = "GIF"  },
-            new ImageCodecInfo { Clsid = new Guid ("557cf403-1a04-11d3-9a73-0000f81ef32e"), MimeType = "image/tiff", Format = ImageFormat.Tiff, FormatDescription = "TIFF" },
-            new ImageCodecInfo { Clsid = new Guid ("557cf406-1a04-11d3-9a73-0000f81ef32e"), MimeType = "image/png",  Format = ImageFormat.Png,  FormatDescription = "PNG"  },
-        };
+        /// <summary>Gets or sets the descriptive name of this codec.</summary>
+        public string CodecName { get; set; } = string.Empty;
 
-        /// <summary>Returns a list of available image decoders.</summary>
-        public static ImageCodecInfo[] GetImageDecoders () => GetImageEncoders ();
+        /// <summary>Gets or sets the semicolon-separated file extensions this codec handles.</summary>
+        public string FilenameExtension { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the GUID of the image format this codec handles.</summary>
+        public Guid FormatID { get; set; }
+
+        /// <summary>Gets or sets the codec's capability flags.</summary>
+        public ImageCodecFlags Flags { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the DLL implementing this codec. Always empty: these codecs are
+        /// SkiaSharp, not separate GDI+ codec DLLs.
+        /// </summary>
+        public string DllName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the codec version.</summary>
+        public int Version { get; set; } = 1;
+
+        /// <summary>Gets or sets the byte patterns that identify this format.</summary>
+        public byte[][]? SignaturePatterns { get; set; }
+
+        /// <summary>Gets or sets the masks applied to <see cref="SignaturePatterns"/> when matching.</summary>
+        public byte[][]? SignatureMasks { get; set; }
+
+        private static ImageCodecInfo Describe (string clsid, string mime, ImageFormat format, string name,
+            string extensions, ImageCodecFlags flags, byte[][]? patterns, byte[][]? masks) =>
+            new () {
+                Clsid = new Guid (clsid),
+                MimeType = mime,
+                Format = format,
+                FormatID = format.Guid,
+                FormatDescription = name,
+                CodecName = $"Built-in SkiaSharp {name} Codec",
+                FilenameExtension = extensions,
+                Flags = flags,
+                SignaturePatterns = patterns,
+                SignatureMasks = masks,
+            };
+
+        // Skia both reads and writes these.
+        private const ImageCodecFlags ReadWrite =
+            ImageCodecFlags.Encoder | ImageCodecFlags.Decoder | ImageCodecFlags.SupportBitmap | ImageCodecFlags.Builtin;
+
+        /// <summary>Returns the available image encoders.</summary>
+        public static ImageCodecInfo[] GetImageEncoders () => [
+            Describe ("557cf400-1a04-11d3-9a73-0000f81ef32e", "image/bmp", ImageFormat.Bmp, "BMP", "*.BMP;*.DIB;*.RLE",
+                ReadWrite, [[0x42, 0x4D]], [[0xFF, 0xFF]]),
+            Describe ("557cf401-1a04-11d3-9a73-0000f81ef32e", "image/jpeg", ImageFormat.Jpeg, "JPEG", "*.JPG;*.JPEG;*.JPE;*.JFIF",
+                ReadWrite, [[0xFF, 0xD8]], [[0xFF, 0xFF]]),
+            Describe ("557cf402-1a04-11d3-9a73-0000f81ef32e", "image/gif", ImageFormat.Gif, "GIF", "*.GIF",
+                ReadWrite, [[0x47, 0x49, 0x46]], [[0xFF, 0xFF, 0xFF]]),
+            Describe ("557cf406-1a04-11d3-9a73-0000f81ef32e", "image/png", ImageFormat.Png, "PNG", "*.PNG",
+                ReadWrite, [[0x89, 0x50, 0x4E, 0x47]], [[0xFF, 0xFF, 0xFF, 0xFF]]),
+            Describe ("1b7cfaf4-713f-473c-bbcd-6137425faeaf", "image/webp", ImageFormat.Webp, "WebP", "*.WEBP",
+                ReadWrite, [[0x52, 0x49, 0x46, 0x46]], [[0xFF, 0xFF, 0xFF, 0xFF]]),
+            // TIFF is written by the multi-page writer in this file rather than by Skia, which decodes
+            // but does not encode it.
+            Describe ("557cf403-1a04-11d3-9a73-0000f81ef32e", "image/tiff", ImageFormat.Tiff, "TIFF", "*.TIF;*.TIFF",
+                ReadWrite, [[0x49, 0x49], [0x4D, 0x4D]], [[0xFF, 0xFF], [0xFF, 0xFF]]),
+        ];
+
+        /// <summary>
+        /// Returns the available image decoders. A superset of the encoders: Skia decodes several
+        /// formats it will not write, so this is deliberately not the same list.
+        /// </summary>
+        public static ImageCodecInfo[] GetImageDecoders () => [
+            .. GetImageEncoders (),
+            Describe ("c2b0d0d1-9a3a-4d1b-9b3a-6f0a2f4a1f5e", "image/x-icon", ImageFormat.Icon, "ICO", "*.ICO",
+                ImageCodecFlags.Decoder | ImageCodecFlags.SupportBitmap | ImageCodecFlags.Builtin,
+                [[0x00, 0x00, 0x01, 0x00]], [[0xFF, 0xFF, 0xFF, 0xFF]]),
+        ];
     }
 
     /// <summary>

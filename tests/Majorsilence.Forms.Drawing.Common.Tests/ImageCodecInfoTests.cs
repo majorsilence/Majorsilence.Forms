@@ -4,11 +4,19 @@ namespace Majorsilence.Forms.Drawing.Common.Tests;
 
 public class ImageCodecInfoTests
 {
+    // Was "ReturnsFiveEntries". A hardcoded count breaks every time a format is added (WebP, in Phase 4
+    // of docs/gdi-gap-plan.md) without saying anything the per-format tests below don't already cover.
+    // What actually matters is that the set is complete and each codec appears once.
     [Fact]
-    public void GetImageEncoders_ReturnsFiveEntries()
+    public void GetImageEncoders_ReturnsEachExpectedFormatExactlyOnce()
     {
         var encoders = ImageCodecInfo.GetImageEncoders();
-        Assert.Equal(5, encoders.Length);
+        var mimeTypes = encoders.Select(e => e.MimeType).ToArray();
+
+        Assert.Equal(mimeTypes.Length, mimeTypes.Distinct().Count());
+        Assert.All(
+            new[] { "image/bmp", "image/jpeg", "image/gif", "image/png", "image/tiff" },
+            expected => Assert.Single(encoders, e => e.MimeType == expected));
     }
 
     [Fact]

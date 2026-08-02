@@ -98,9 +98,33 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 | 1 — Class C hollows | **Done.** 36 tests; `COMPATIBILITY_MATRIX.md` corrected. |
 | 2 — data-only enums | **Done.** 176 gaps closed, plus a new class of bug found and fixed (below). |
 | 3 — transform & clone families | **Done.** All 39 members; 23 tests. |
-| 4–6 | Not started. |
+| 4 — imaging, metadata, frames | **Done.** 57 gaps closed; 23 tests. |
+| 5–6 | Not started. |
 
-Baseline went **431 → 416 → 240 → 201** entries.
+Baseline went **431 → 416 → 240 → 201 → 144** entries.
+
+**Phase 4 landed:** `FrameDimension`, `PropertyItem` and `ColorPalette`; `Image.GetFrameCount`/
+`SelectActiveFrame`/`FrameDimensionsList`, the property-item set, `Palette`, `GetBounds`, `Flags`,
+`Tag`, and the static `PixelFormat` predicates; real `ImageCodecInfo` metadata; the full `Encoder`
+GUID set and `EncoderParameter.Type`/`ValueType`/`NumberOfValues`; `ImageFormat.Guid` plus `Webp` and
+`Heif`; and the `ImageAttributes` remainder.
+
+Two things became genuinely real rather than surface:
+
+- **Animated GIFs actually animate.** `SelectActiveFrame` decodes through `SKCodec`, so
+  `ImageAnimator` is no longer the documented no-op it had been since before this plan — it tracks
+  per-image frame state and advances it. That closes the last Phase 1 Class C item, which was
+  deferred here precisely because it needed frame decoding to exist first.
+- **EXIF is read for real.** SkiaSharp exposes only the orientation tag, so `ExifReader` walks the
+  JPEG APP1/TIFF IFD structure directly to populate `PropertyItems`. Deliberately narrow: primary IFD
+  plus the EXIF sub-IFD, which is where the tags applications actually ask for live.
+
+Encoded source bytes are retained only when they will still be needed — a multi-frame image, or one
+carrying metadata — so an ordinary single-frame PNG does not pay to hold its source twice.
+
+Still stored-but-not-applied, documented in place: `ColorPalette` (Skia has no indexed bitmap type, so
+assigning a palette does not re-quantize), `ImageAttributes.SetThreshold`/`SetOutputChannel`/
+`SetBrushRemapTable`, and `Image.SaveAdd` (the Skia encoders write one image per file).
 
 **Phase 3 landed:** the six-member transform surface on `LinearGradientBrush`, `PathGradientBrush` and
 `Pen` (`TextureBrush` already had it from Phase 1), sharing one internal `BrushTransform` helper;
