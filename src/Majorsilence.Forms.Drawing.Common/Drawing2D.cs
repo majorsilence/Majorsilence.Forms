@@ -335,6 +335,12 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>Gets the matrix elements.</summary>
         public float[] Elements => new[] { matrix.ScaleX, matrix.SkewY, matrix.SkewX, matrix.ScaleY, matrix.TransX, matrix.TransY };
 
+        /// <summary>Gets the x translation component (element dx).</summary>
+        public float OffsetX => matrix.TransX;
+
+        /// <summary>Gets the y translation component (element dy).</summary>
+        public float OffsetY => matrix.TransY;
+
         /// <summary>Gets whether this is the identity matrix.</summary>
         public bool IsIdentity => matrix.IsIdentity;
 
@@ -398,6 +404,42 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
                 var mapped = matrix.MapPoint (new SKPoint (points[i].X, points[i].Y));
                 points[i] = new PointF (mapped.X, mapped.Y);
             }
+        }
+
+        /// <summary>
+        /// Applies the rotate/scale/shear part of this matrix to an array of vectors in place,
+        /// <b>ignoring translation</b> -- the difference between transforming a position and
+        /// transforming a direction or offset.
+        /// </summary>
+        public void VectorTransformPoints (PointF[] points)
+        {
+            if (points is null) return;
+            for (int i = 0; i < points.Length; i++)
+            {
+                // MapVector is exactly this: the linear part without TransX/TransY.
+                var mapped = matrix.MapVector (points[i].X, points[i].Y);
+                points[i] = new PointF (mapped.X, mapped.Y);
+            }
+        }
+
+        /// <inheritdoc cref="VectorTransformPoints(PointF[])"/>
+        public void VectorTransformPoints (Point[] points)
+        {
+            if (points is null) return;
+            for (int i = 0; i < points.Length; i++)
+            {
+                var mapped = matrix.MapVector (points[i].X, points[i].Y);
+                points[i] = new Point ((int)System.Math.Round (mapped.X), (int)System.Math.Round (mapped.Y));
+            }
+        }
+
+        /// <summary>Applies a shear (skew) to this matrix.</summary>
+        public void Shear (float shearX, float shearY, MatrixOrder order = MatrixOrder.Prepend)
+        {
+            var skew = SKMatrix.CreateSkew (shearX, shearY);
+            matrix = order == MatrixOrder.Append
+                ? SKMatrix.Concat (skew, matrix)
+                : SKMatrix.Concat (matrix, skew);
         }
 
         /// <summary>Transforms an array of Point values in place using this matrix.</summary>

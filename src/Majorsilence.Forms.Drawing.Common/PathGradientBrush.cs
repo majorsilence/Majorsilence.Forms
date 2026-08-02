@@ -13,7 +13,8 @@ namespace Majorsilence.Forms.Drawing
     /// </summary>
     public sealed class PathGradientBrush : Brush
     {
-        private readonly RectangleF bounds;
+        // Not readonly: Clone copies it across without re-deriving it from a path.
+        private RectangleF bounds;
 
         /// <summary>Initializes a new PathGradientBrush for the polygon defined by the points.</summary>
         public PathGradientBrush (PointF[] points)
@@ -41,6 +42,76 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Gets or sets the center point of the gradient.</summary>
         public PointF CenterPoint { get; set; }
+
+        /// <summary>Gets the bounding rectangle of the path this gradient was built from.</summary>
+        public RectangleF Rectangle => bounds;
+
+        /// <summary>
+        /// Gets or sets how this gradient tiles outside its bounds. Applied for real: it selects the
+        /// Skia shader tile mode.
+        /// </summary>
+        public WrapMode WrapMode { get; set; } = WrapMode.Clamp;
+
+        /// <summary>
+        /// Gets or sets the focus point where the center color reaches its fullest intensity, as a
+        /// fraction (0..1) of the distance from the center to the boundary.
+        /// </summary>
+        /// <remarks>
+        /// Stored and round-tripped, but not applied. GDI+ uses it to inset a second, scaled boundary
+        /// inside which the gradient is a flat center color; a Skia radial gradient has a single center
+        /// and radius and cannot express that inner focus region, so shaping it would mean synthesizing
+        /// the ramp by hand. <see cref="InterpolationColors"/> is the portable way to get the same
+        /// effect -- place the center color at a non-zero position.
+        /// </remarks>
+        public PointF FocusScales { get; set; }
+
+        private readonly BrushTransform transform = new ();
+
+        /// <summary>
+        /// Gets or sets a copy of the transform applied to this gradient. Assigning null resets it to
+        /// the identity.
+        /// </summary>
+        public Matrix Transform {
+            get => transform.Get ();
+            set => transform.Set (value);
+        }
+
+        /// <summary>Resets the gradient transform to the identity.</summary>
+        public void ResetTransform () => transform.Reset ();
+
+        /// <summary>Multiplies the gradient transform by <paramref name="matrix"/>.</summary>
+        public void MultiplyTransform (Matrix matrix, MatrixOrder order = MatrixOrder.Prepend)
+            => transform.Multiply (matrix, order);
+
+        /// <summary>Translates the gradient transform by the specified offsets.</summary>
+        public void TranslateTransform (float dx, float dy, MatrixOrder order = MatrixOrder.Prepend)
+            => transform.Translate (dx, dy, order);
+
+        /// <summary>Scales the gradient transform by the specified factors.</summary>
+        public void ScaleTransform (float sx, float sy, MatrixOrder order = MatrixOrder.Prepend)
+            => transform.Scale (sx, sy, order);
+
+        /// <summary>Rotates the gradient transform by the specified angle, in degrees.</summary>
+        public void RotateTransform (float angle, MatrixOrder order = MatrixOrder.Prepend)
+            => transform.Rotate (angle, order);
+
+        /// <inheritdoc/>
+        public override PathGradientBrush Clone ()
+        {
+            var clone = new PathGradientBrush (new GraphicsPath ()) {
+                CenterColor = CenterColor,
+                SurroundColors = (Color[])SurroundColors.Clone (),
+                CenterPoint = CenterPoint,
+                WrapMode = WrapMode,
+                FocusScales = FocusScales,
+                bounds = bounds,
+                blendColors = blendColors?.ToArray (),
+                blendPositions = blendPositions?.ToArray (),
+                blend = blend,
+            };
+            clone.transform.Set (transform.Get ());
+            return clone;
+        }
 
         private static readonly float[] colorPos = new[] { 0f, 1f };
 
@@ -113,7 +184,8 @@ namespace Majorsilence.Forms.Drawing
                 radius,
                 colors,
                 stops,
-                SKShaderTileMode.Clamp);
+                WrapMode.ToSKTileMode (),
+                transform.ToSKMatrix ());
 
             return new SKPaint { Shader = shader, Style = SKPaintStyle.Fill, IsAntialias = true };
         }

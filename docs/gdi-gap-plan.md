@@ -97,9 +97,27 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 | 0 — repeatable audit | **Done.** `tools/Majorsilence.Forms.GdiDiff` + committed `baseline.txt` + a CI gate in `dotnet.yml`. |
 | 1 — Class C hollows | **Done.** 36 tests; `COMPATIBILITY_MATRIX.md` corrected. |
 | 2 — data-only enums | **Done.** 176 gaps closed, plus a new class of bug found and fixed (below). |
-| 3–6 | Not started. |
+| 3 — transform & clone families | **Done.** All 39 members; 23 tests. |
+| 4–6 | Not started. |
 
-Baseline went **431 → 416 → 240** entries.
+Baseline went **431 → 416 → 240 → 201** entries.
+
+**Phase 3 landed:** the six-member transform surface on `LinearGradientBrush`, `PathGradientBrush` and
+`Pen` (`TextureBrush` already had it from Phase 1), sharing one internal `BrushTransform` helper;
+`Clone` across the whole brush family, declared on the `Brush` base as GDI+ does it and overridden with
+covariant returns; `LinearGradientBrush.LinearColors`/`Rectangle`/`WrapMode`;
+`PathGradientBrush.Rectangle`/`WrapMode`/`FocusScales`; `Pen.Brush`/`PenType`/`DashCap`/`SetLineCap`/
+`CompoundArray`; `Matrix.OffsetX`/`OffsetY`/`Shear`/`VectorTransformPoints`; `Margins.Clone`.
+
+Three of these are real new *behavior*, not just surface: gradient brushes now honor their transform
+and `WrapMode` through the Skia shader, and `Pen.Brush` means a gradient- or texture-stroked outline
+renders as that brush instead of collapsing to a flat color.
+
+Four are honestly stored-but-not-applied, each documented in place with why:
+`Pen.Transform` (no per-pen matrix in `SKPaint`), `Pen.CompoundArray` and `Pen.Alignment` (Skia strokes
+one centered ribbon), `Pen.DashCap` (one stroke cap applies to the whole path), and
+`PathGradientBrush.FocusScales` (a Skia radial gradient has no inner focus region —
+`InterpolationColors` is the portable substitute).
 
 ### Phase 2 found a fourth class of gap: wrong numbers
 

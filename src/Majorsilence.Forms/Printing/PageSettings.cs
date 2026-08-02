@@ -28,6 +28,9 @@ namespace Majorsilence.Forms.Printing
 
         /// <summary>Gets or sets the bottom margin, in hundredths of an inch.</summary>
         public int Bottom { get; set; } = 100;
+
+        /// <summary>Creates an independent copy of these margins.</summary>
+        public Margins Clone () => new (Left, Right, Top, Bottom);
     }
 
     /// <summary>

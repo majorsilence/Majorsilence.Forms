@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Drawing
     public sealed class TextureBrush : Brush
     {
         private readonly SKBitmap? bitmap;
-        private Matrix transform = new ();
+        private readonly BrushTransform transform = new ();
 
         /// <summary>Initializes a new TextureBrush using the specified image.</summary>
         public TextureBrush (Image image) : this (image, WrapMode.Tile) { }
@@ -35,12 +35,12 @@ namespace Majorsilence.Forms.Drawing
         /// Assigning null resets it to the identity, matching <see cref="ResetTransform"/>.
         /// </summary>
         public Matrix Transform {
-            get => transform.Clone ();
-            set => transform = value?.Clone () ?? new Matrix ();
+            get => transform.Get ();
+            set => transform.Set (value);
         }
 
         /// <summary>Resets the texture transform to the identity.</summary>
-        public void ResetTransform () => transform = new Matrix ();
+        public void ResetTransform () => transform.Reset ();
 
         /// <summary>Multiplies the texture transform by <paramref name="matrix"/>.</summary>
         public void MultiplyTransform (Matrix matrix, MatrixOrder order = MatrixOrder.Prepend)
@@ -59,10 +59,10 @@ namespace Majorsilence.Forms.Drawing
             => transform.Rotate (angle, order);
 
         /// <summary>Creates an exact copy of this brush, including its texture transform.</summary>
-        public TextureBrush Clone ()
+        public override TextureBrush Clone ()
         {
             var clone = new TextureBrush (Image!, WrapMode);
-            clone.transform = transform.Clone ();
+            clone.transform.Set (transform.Get ());
             return clone;
         }
 
@@ -71,11 +71,7 @@ namespace Majorsilence.Forms.Drawing
             if (bitmap is null)
                 return new SKPaint { Color = SKColors.Transparent, Style = SKPaintStyle.Fill };
 
-            var tile = WrapMode switch {
-                WrapMode.Clamp => SKShaderTileMode.Clamp,
-                WrapMode.TileFlipX or WrapMode.TileFlipY or WrapMode.TileFlipXY => SKShaderTileMode.Mirror,
-                _ => SKShaderTileMode.Repeat,
-            };
+            var tile = WrapMode.ToSKTileMode ();
 
             // The texture transform is a *local* matrix on the shader: it moves the texture within the
             // filled shape, rather than transforming the shape itself.
