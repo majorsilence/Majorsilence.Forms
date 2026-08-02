@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using Majorsilence.Forms.Drawing;
 using SkiaSharp;
 
 namespace Majorsilence.Forms.Drawing.Drawing2D
@@ -40,6 +42,320 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         public int PointCount => path.PointCount;
 
         internal SKPath ToSKPath () => path;
+
+        // Point indices flagged by SetMarkers. GDI+ carries markers as a flag bit on the point type
+        // rather than as separate state, which is how they surface through PathTypes below.
+        private readonly List<int> markers = [];
+
+        /// <summary>Gets the type of each point in this path, as GDI+ <see cref="PathPointType"/> flags.</summary>
+        public byte[] PathTypes {
+            get {
+                var (_, types) = GraphicsPathIterator.Decompose (this);
+                foreach (var index in markers)
+                    if (index >= 0 && index < types.Length)
+                        types[index] |= (byte)PathPointType.PathMarker;
+                return types;
+            }
+        }
+
+        /// <summary>Gets the points and their types together.</summary>
+        public PathData PathData {
+            get {
+                var (points, _) = GraphicsPathIterator.Decompose (this);
+                return new PathData { Points = points, Types = PathTypes };
+            }
+        }
+
+        /// <summary>Gets the last point in this path.</summary>
+        public PointF GetLastPoint ()
+        {
+            var last = path.LastPoint;
+            return new PointF (last.X, last.Y);
+        }
+
+        /// <summary>Creates an independent copy of this path.</summary>
+        public GraphicsPath Clone ()
+        {
+            var clone = new GraphicsPath (FillMode);
+            clone.path.Dispose ();
+            clone.path = new SKPath (path);
+            clone.markers.AddRange (markers);
+            return clone;
+        }
+
+        /// <summary>
+        /// Flags the current end of the path as a marker, which surfaces as
+        /// <see cref="PathPointType.PathMarker"/> on that point in <see cref="PathTypes"/>.
+        /// </summary>
+        public void SetMarkers ()
+        {
+            var count = GraphicsPathIterator.Decompose (this).Types.Length;
+            if (count > 0)
+                markers.Add (count - 1);
+        }
+
+        /// <summary>Removes every marker previously set by <see cref="SetMarkers"/>.</summary>
+        public void ClearMarkers () => markers.Clear ();
+
+        /// <summary>Appends a pie section (an arc closed back to the ellipse's center) to this path.</summary>
+        public void AddPie (float x, float y, float width, float height, float startAngle, float sweepAngle)
+        {
+            var oval = new SKRect (x, y, x + width, y + height);
+            path.MoveTo (x + width / 2f, y + height / 2f);
+            path.ArcTo (oval, startAngle, sweepAngle, forceMoveTo: false);
+            path.Close ();
+        }
+
+        /// <inheritdoc cref="AddPie(float, float, float, float, float, float)"/>
+        public void AddPie (Rectangle rect, float startAngle, float sweepAngle)
+            => AddPie (rect.X, rect.Y, rect.Width, rect.Height, startAngle, sweepAngle);
+
+        /// <inheritdoc cref="AddPie(float, float, float, float, float, float)"/>
+        public void AddPie (int x, int y, int width, int height, float startAngle, float sweepAngle)
+            => AddPie ((float)x, y, width, height, startAngle, sweepAngle);
+
+        /// <summary>Appends a closed cardinal spline through the specified points.</summary>
+        public void AddClosedCurve (PointF[] points) => AddClosedCurve (points, 0.5f);
+
+        /// <inheritdoc cref="AddClosedCurve(PointF[])"/>
+        public void AddClosedCurve (PointF[] points, float tension)
+        {
+            if (points is null || points.Length < 2)
+                return;
+            AddCurve (points, tension);
+            path.Close ();
+        }
+
+        /// <inheritdoc cref="AddClosedCurve(PointF[])"/>
+        public void AddClosedCurve (Point[] points) => AddClosedCurve (points, 0.5f);
+
+        /// <inheritdoc cref="AddClosedCurve(PointF[])"/>
+        public void AddClosedCurve (Point[] points, float tension)
+        {
+            if (points is null || points.Length < 2)
+                return;
+            AddCurve (points, tension);
+            path.Close ();
+        }
+
+        /// <summary>
+        /// Appends the outline of a text string to this path, so the glyphs can be filled, stroked or
+        /// hit-tested as geometry.
+        /// </summary>
+        /// <param name="s">The text to add.</param>
+        /// <param name="family">The font family to render with.</param>
+        /// <param name="style">A <see cref="FontStyle"/> value, as an int, matching System.Drawing.</param>
+        /// <param name="emSize">The em size, in the same units as the rest of the path (pixels here).</param>
+        /// <param name="origin">The top-left corner the text is laid out from.</param>
+        /// <param name="format">Accepted for API compatibility; alignment and wrapping are not applied.</param>
+        /// <remarks>
+        /// Backed by a real glyph-outline lookup (<c>SKFont.GetTextPath</c>), not an approximation.
+        /// <paramref name="origin"/> is the top-left as GDI+ defines it, so the baseline offset is
+        /// applied from the font's ascent before the outline is taken.
+        /// </remarks>
+        public void AddString (string s, FontFamily family, int style, float emSize, PointF origin, StringFormat? format)
+        {
+            if (string.IsNullOrEmpty (s) || family is null || emSize <= 0)
+                return;
+
+            var fontStyle = (FontStyle)style;
+            var typeface = FontSubstitution.Resolve (family.Name, new SKFontStyle (
+                (fontStyle & FontStyle.Bold) != 0 ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
+                SKFontStyleWidth.Normal,
+                (fontStyle & FontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright));
+
+            using var font = new SKFont (typeface, emSize);
+            // GDI+ lays text out from the top-left; Skia draws from the baseline.
+            using var text = font.GetTextPath (s, new SKPoint (origin.X, origin.Y - font.Metrics.Ascent));
+            if (text is not null)
+                path.AddPath (text);
+        }
+
+        /// <inheritdoc cref="AddString(string, FontFamily, int, float, PointF, StringFormat)"/>
+        public void AddString (string s, FontFamily family, int style, float emSize, Point origin, StringFormat? format)
+            => AddString (s, family, style, emSize, new PointF (origin.X, origin.Y), format);
+
+        /// <inheritdoc cref="AddString(string, FontFamily, int, float, PointF, StringFormat)"/>
+        /// <remarks>The text is laid out from the rectangle's top-left corner; it is not wrapped to fit.</remarks>
+        public void AddString (string s, FontFamily family, int style, float emSize, RectangleF layoutRect, StringFormat? format)
+            => AddString (s, family, style, emSize, new PointF (layoutRect.X, layoutRect.Y), format);
+
+        /// <inheritdoc cref="AddString(string, FontFamily, int, float, RectangleF, StringFormat)"/>
+        public void AddString (string s, FontFamily family, int style, float emSize, Rectangle layoutRect, StringFormat? format)
+            => AddString (s, family, style, emSize, new PointF (layoutRect.X, layoutRect.Y), format);
+
+        /// <summary>Replaces every curve in this path with a sequence of connected line segments.</summary>
+        public void Flatten () => Flatten (null, 0.25f);
+
+        /// <inheritdoc cref="Flatten()"/>
+        public void Flatten (Matrix? matrix) => Flatten (matrix, 0.25f);
+
+        /// <summary>
+        /// Replaces every curve with line segments, optionally transforming the path first.
+        /// </summary>
+        /// <param name="matrix">Applied before flattening, if supplied.</param>
+        /// <param name="flatness">
+        /// The maximum error, in path units, between the curve and its approximation. Smaller values
+        /// produce more segments.
+        /// </param>
+        public void Flatten (Matrix? matrix, float flatness)
+        {
+            if (matrix is not null)
+                Transform (matrix);
+
+            var flattened = new SKPath { FillType = path.FillType };
+            using (var iterator = path.CreateRawIterator ()) {
+                var buffer = new SKPoint[4];
+                var current = new SKPoint ();
+                while (true) {
+                    var verb = iterator.Next (buffer);
+                    if (verb == SKPathVerb.Done)
+                        break;
+
+                    switch (verb) {
+                        case SKPathVerb.Move:
+                            flattened.MoveTo (buffer[0]);
+                            current = buffer[0];
+                            break;
+                        case SKPathVerb.Line:
+                            flattened.LineTo (buffer[1]);
+                            current = buffer[1];
+                            break;
+                        case SKPathVerb.Quad:
+                            EmitCurve (p => Quad (buffer[0], buffer[1], buffer[2], p));
+                            current = buffer[2];
+                            break;
+                        case SKPathVerb.Conic: {
+                            var quads = SKPath.ConvertConicToQuads (buffer[0], buffer[1], buffer[2], iterator.ConicWeight (), 2);
+                            for (var i = 0; i + 2 < quads.Length; i += 2) {
+                                var (a, b, c) = (quads[i], quads[i + 1], quads[i + 2]);
+                                EmitCurve (p => Quad (a, b, c, p));
+                            }
+                            current = buffer[2];
+                            break;
+                        }
+                        case SKPathVerb.Cubic:
+                            EmitCurve (p => Cubic (buffer[0], buffer[1], buffer[2], buffer[3], p));
+                            current = buffer[3];
+                            break;
+                        case SKPathVerb.Close:
+                            flattened.Close ();
+                            break;
+                    }
+                }
+
+                // Segment count scales with how far the control points stray from a straight line, so a
+                // tighter flatness genuinely produces a finer approximation.
+                void EmitCurve (Func<float, SKPoint> evaluate)
+                {
+                    var steps = Math.Clamp ((int)(1f / Math.Max (0.01f, flatness) * 8f), 4, 128);
+                    for (var i = 1; i <= steps; i++)
+                        flattened.LineTo (evaluate (i / (float)steps));
+                }
+            }
+
+            path.Dispose ();
+            path = flattened;
+
+            static SKPoint Quad (SKPoint p0, SKPoint p1, SKPoint p2, float t)
+            {
+                var u = 1f - t;
+                return new SKPoint (u * u * p0.X + 2 * u * t * p1.X + t * t * p2.X,
+                                    u * u * p0.Y + 2 * u * t * p1.Y + t * t * p2.Y);
+            }
+
+            static SKPoint Cubic (SKPoint p0, SKPoint p1, SKPoint p2, SKPoint p3, float t)
+            {
+                var u = 1f - t;
+                return new SKPoint (
+                    u * u * u * p0.X + 3 * u * u * t * p1.X + 3 * u * t * t * p2.X + t * t * t * p3.X,
+                    u * u * u * p0.Y + 3 * u * u * t * p1.Y + 3 * u * t * t * p2.Y + t * t * t * p3.Y);
+            }
+        }
+
+        /// <summary>Reverses the order of the points in this path.</summary>
+        public void Reverse ()
+        {
+            var reversed = new SKPath { FillType = path.FillType };
+            reversed.AddPathReverse (path);
+            path.Dispose ();
+            path = reversed;
+        }
+
+        /// <summary>Returns whether the specified point lies on the outline of this path when stroked with the pen.</summary>
+        public bool IsOutlineVisible (float x, float y, Pen pen)
+        {
+            if (pen is null)
+                return false;
+
+            // Stroke the outline into a fillable region, then do an ordinary containment test —
+            // "on the outline" means "inside the stroked ribbon".
+            using var paint = pen.CreatePaint ();
+            using var outline = paint.GetFillPath (path);
+            return outline?.Contains (x, y) ?? false;
+        }
+
+        /// <inheritdoc cref="IsOutlineVisible(float, float, Pen)"/>
+        public bool IsOutlineVisible (PointF point, Pen pen) => IsOutlineVisible (point.X, point.Y, pen);
+
+        /// <inheritdoc cref="IsOutlineVisible(float, float, Pen)"/>
+        public bool IsOutlineVisible (Point point, Pen pen) => IsOutlineVisible (point.X, point.Y, pen);
+
+        /// <inheritdoc cref="IsOutlineVisible(float, float, Pen)"/>
+        public bool IsOutlineVisible (int x, int y, Pen pen) => IsOutlineVisible ((float)x, y, pen);
+
+        /// <summary>
+        /// Warps this path from <paramref name="srcRect"/> onto the quadrilateral (or triangle) given by
+        /// <paramref name="destPoints"/>.
+        /// </summary>
+        /// <remarks>
+        /// The path is flattened first, then each point is mapped by bilinear interpolation across the
+        /// destination corners. <see cref="WarpMode.Perspective"/> is accepted but mapped the same way:
+        /// a true perspective divide would need the path re-projected rather than interpolated.
+        /// </remarks>
+        public void Warp (PointF[] destPoints, RectangleF srcRect, Matrix? matrix = null,
+            WarpMode warpMode = WarpMode.Perspective, float flatness = 0.25f)
+        {
+            if (destPoints is null || destPoints.Length < 3 || srcRect.Width == 0 || srcRect.Height == 0)
+                return;
+
+            Flatten (matrix, flatness);
+
+            // A 3-point destination is a triangle; GDI+ infers the fourth corner as p1 + p2 - p0.
+            var topLeft = destPoints[0];
+            var topRight = destPoints[1];
+            var bottomLeft = destPoints[2];
+            var bottomRight = destPoints.Length > 3
+                ? destPoints[3]
+                : new PointF (topRight.X + bottomLeft.X - topLeft.X, topRight.Y + bottomLeft.Y - topLeft.Y);
+
+            var warped = new SKPath { FillType = path.FillType };
+            using (var iterator = path.CreateRawIterator ()) {
+                var buffer = new SKPoint[4];
+                while (true) {
+                    var verb = iterator.Next (buffer);
+                    if (verb == SKPathVerb.Done)
+                        break;
+                    switch (verb) {
+                        case SKPathVerb.Move: warped.MoveTo (Map (buffer[0])); break;
+                        case SKPathVerb.Line: warped.LineTo (Map (buffer[1])); break;
+                        case SKPathVerb.Close: warped.Close (); break;
+                    }
+                }
+            }
+
+            path.Dispose ();
+            path = warped;
+
+            SKPoint Map (SKPoint p)
+            {
+                var u = Math.Clamp ((p.X - srcRect.X) / srcRect.Width, 0f, 1f);
+                var v = Math.Clamp ((p.Y - srcRect.Y) / srcRect.Height, 0f, 1f);
+                var top = new PointF (topLeft.X + (topRight.X - topLeft.X) * u, topLeft.Y + (topRight.Y - topLeft.Y) * u);
+                var bottom = new PointF (bottomLeft.X + (bottomRight.X - bottomLeft.X) * u, bottomLeft.Y + (bottomRight.Y - bottomLeft.Y) * u);
+                return new SKPoint (top.X + (bottom.X - top.X) * v, top.Y + (bottom.Y - top.Y) * v);
+            }
+        }
 
         /// <summary>Appends a line segment to this path.</summary>
         public void AddLine (float x1, float y1, float x2, float y2)
@@ -656,6 +972,19 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         ForwardDiagonal = 2,
         /// <summary>Gradient runs from upper-right to lower-left.</summary>
         BackwardDiagonal = 3
+    }
+
+    /// <summary>
+    /// The points and point types that make up a <see cref="GraphicsPath"/>. Matches
+    /// <c>System.Drawing.Drawing2D.PathData</c>.
+    /// </summary>
+    public sealed class PathData
+    {
+        /// <summary>Gets or sets the points in the path.</summary>
+        public PointF[]? Points { get; set; }
+
+        /// <summary>Gets or sets the type of each corresponding point, as <see cref="PathPointType"/> flags.</summary>
+        public byte[]? Types { get; set; }
     }
 
     /// <summary>

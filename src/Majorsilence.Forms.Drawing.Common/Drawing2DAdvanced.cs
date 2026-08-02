@@ -247,7 +247,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>Initializes a new iterator over the specified path.</summary>
         public GraphicsPathIterator (GraphicsPath? path)
         {
-            (points, types) = Flatten (path);
+            (points, types) = Decompose (path);
 
             for (var i = 0; i < types.Length; i++) {
                 if ((types[i] & (byte)PathPointType.PathTypeMask) == (byte)PathPointType.Start) {
@@ -405,7 +405,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         public void Dispose () => GC.SuppressFinalize (this);
 
         // Walks the SKPath once, producing GDI+-shaped point/type arrays.
-        private static (PointF[] Points, byte[] Types) Flatten (GraphicsPath? path)
+        //
+        // internal, and named Decompose rather than Flatten: GraphicsPath.Flatten is a different
+        // operation (it replaces curves with line segments), and GraphicsPath.PathTypes/PathData need
+        // exactly this decomposition rather than a second copy of it.
+        internal static (PointF[] Points, byte[] Types) Decompose (GraphicsPath? path)
         {
             var sk = path?.ToSKPath ();
             if (sk is null || sk.PointCount == 0)

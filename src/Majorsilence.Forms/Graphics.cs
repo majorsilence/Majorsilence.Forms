@@ -356,6 +356,145 @@ namespace Majorsilence.Forms
         /// <summary>Resets the clipping region.</summary>
         public void ResetClip () { }
 
+        /// <summary>Gets whether the current clipping region is empty.</summary>
+        public bool IsClipEmpty => _canvas?.LocalClipBounds.IsEmpty ?? false;
+
+        /// <summary>Translates the clipping region by the specified amounts.</summary>
+        public void TranslateClip (float dx, float dy) => _canvas?.Translate (dx, dy);
+
+        /// <inheritdoc cref="TranslateClip(float, float)"/>
+        public void TranslateClip (int dx, int dy) => TranslateClip ((float)dx, dy);
+
+        /// <summary>Gets or sets the rendering origin, used to align dithering and hatch brushes.</summary>
+        /// <remarks>
+        /// Stored and round-tripped. Skia positions shaders by their own local matrix rather than by a
+        /// device-wide origin, so hatch alignment does not follow this value.
+        /// </remarks>
+        public Point RenderingOrigin { get; set; }
+
+        /// <summary>Gets or sets the gamma-correction value used when rendering text (0..12).</summary>
+        /// <remarks>Stored and round-tripped; Skia's text rendering exposes no equivalent knob.</remarks>
+        public int TextContrast { get; set; } = 4;
+
+        /// <summary>
+        /// Forces pending drawing to execute. A no-op: this canvas is not a batched device context, so
+        /// there is never queued work to flush.
+        /// </summary>
+        public void Flush () { }
+
+        /// <inheritdoc cref="Flush()"/>
+        public void Flush (Majorsilence.Forms.Drawing.Drawing2D.FlushIntention intention) { }
+
+        /// <summary>
+        /// Returns the nearest color representable on this surface. Every surface here is 32bpp, so the
+        /// color comes back unchanged rather than quantized to a palette.
+        /// </summary>
+        public Color GetNearestColor (Color color) => color;
+
+        /// <summary>Transforms an array of points between two coordinate spaces.</summary>
+        /// <remarks>
+        /// World and page space coincide here (no page transform or page unit is applied to the canvas),
+        /// so this applies the canvas's current transform going to device space and its inverse coming
+        /// back, and is the identity between world and page.
+        /// </remarks>
+        public void TransformPoints (Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace destSpace,
+            Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace srcSpace, PointF[] pts)
+        {
+            if (pts is null || _canvas is null || destSpace == srcSpace)
+                return;
+
+            var deviceIsDestination = destSpace == Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace.Device;
+            var deviceIsSource = srcSpace == Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace.Device;
+            if (!deviceIsDestination && !deviceIsSource)
+                return;     // world <-> page is the identity here
+
+            var matrix = _canvas.TotalMatrix;
+            if (deviceIsSource && !matrix.TryInvert (out matrix))
+                return;
+
+            for (var i = 0; i < pts.Length; i++) {
+                var mapped = matrix.MapPoint (new SKPoint (pts[i].X, pts[i].Y));
+                pts[i] = new PointF (mapped.X, mapped.Y);
+            }
+        }
+
+        /// <inheritdoc cref="TransformPoints(Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace, Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace, PointF[])"/>
+        public void TransformPoints (Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace destSpace,
+            Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace srcSpace, Point[] pts)
+        {
+            if (pts is null)
+                return;
+            var asFloat = Array.ConvertAll (pts, p => new PointF (p.X, p.Y));
+            TransformPoints (destSpace, srcSpace, asFloat);
+            for (var i = 0; i < pts.Length; i++)
+                pts[i] = new Point ((int)Math.Round (asFloat[i].X), (int)Math.Round (asFloat[i].Y));
+        }
+
+        /// <summary>Fills the interior of a region using the specified brush.</summary>
+        public void FillRegion (Majorsilence.Forms.Drawing.Brush brush, Majorsilence.Forms.Drawing.Region region)
+        {
+            if (_canvas is null || brush is null || region is null)
+                return;
+
+            using var paint = CreateFillPaint (brush);
+            _canvas.DrawRegion (region.GetSKRegion (), paint);
+        }
+
+        /// <summary>Draws a closed cardinal spline through the specified points.</summary>
+        public void DrawClosedCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
+            => DrawClosedCurve (pen, points, 0.5f, Majorsilence.Forms.Drawing.Drawing2D.FillMode.Alternate);
+
+        /// <inheritdoc cref="DrawClosedCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>
+        public void DrawClosedCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points, float tension,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillmode)
+        {
+            if (_canvas is null || pen is null || points is null || points.Length < 2)
+                return;
+
+            using var path = new Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath (fillmode);
+            path.AddClosedCurve (points, tension);
+            DrawPath (pen, path);
+        }
+
+        /// <inheritdoc cref="DrawClosedCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>
+        public void DrawClosedCurve (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
+            => DrawClosedCurve (pen, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)));
+
+        /// <summary>Fills the interior of a closed cardinal spline through the specified points.</summary>
+        public void FillClosedCurve (Majorsilence.Forms.Drawing.Brush brush, PointF[] points)
+            => FillClosedCurve (brush, points, Majorsilence.Forms.Drawing.Drawing2D.FillMode.Alternate);
+
+        /// <inheritdoc cref="FillClosedCurve(Majorsilence.Forms.Drawing.Brush, PointF[])"/>
+        public void FillClosedCurve (Majorsilence.Forms.Drawing.Brush brush, PointF[] points,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillmode, float tension = 0.5f)
+        {
+            if (_canvas is null || brush is null || points is null || points.Length < 2)
+                return;
+
+            using var path = new Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath (fillmode);
+            path.AddClosedCurve (points, tension);
+            FillPath (brush, path);
+        }
+
+        /// <inheritdoc cref="FillClosedCurve(Majorsilence.Forms.Drawing.Brush, PointF[])"/>
+        public void FillClosedCurve (Majorsilence.Forms.Drawing.Brush brush, Point[] points)
+            => FillClosedCurve (brush, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)));
+
+        /// <summary>Draws the image at its native size, clipped to the specified rectangle.</summary>
+        public void DrawImageUnscaledAndClipped (Majorsilence.Forms.Drawing.Image image, Rectangle rect)
+        {
+            if (_canvas is null || image?.GetSKBitmap () is not { } bitmap)
+                return;
+
+            _canvas.Save ();
+            _canvas.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+            _canvas.DrawBitmap (bitmap, rect.Left, rect.Top);
+            _canvas.Restore ();
+        }
+
+        /// <summary>Callback invoked during a long-running <c>DrawImage</c> to allow cancellation.</summary>
+        public delegate bool DrawImageAbort (IntPtr callbackdata);
+
         /// <summary>Intersects the clipping region with the given rectangle. Stub in Majorsilence.Forms.</summary>
         public void IntersectClip (Rectangle rect) => SetClip (rect);
 
@@ -1047,23 +1186,14 @@ namespace Majorsilence.Forms
         {
             if (_canvas is null || path is null) return;
 
-            using var paint = new SKPaint {
-                Color = new SKColor (pen.Color.R, pen.Color.G, pen.Color.B, pen.Color.A),
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = pen.Width,
-                IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None
-            };
+            // Stroke the path itself rather than a polyline rebuilt from PathPoints: replaying only the
+            // points turns every curve into straight segments, which is very visible for a path built
+            // by AddString or AddEllipse. Using the pen's own paint also picks up its dash pattern,
+            // caps, join and brush, which the hand-rolled SKPaint here previously discarded.
+            using var paint = pen.CreatePaint ();
+            paint.IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None;
 
-            using var skPath = new SKPath ();
-
-            foreach (var point in path.PathPoints) {
-                if (skPath.PointCount == 0)
-                    skPath.MoveTo (point.X, point.Y);
-                else
-                    skPath.LineTo (point.X, point.Y);
-            }
-
-            _canvas.DrawPath (skPath, paint);
+            _canvas.DrawPath (path.ToSKPath (), paint);
         }
 
         /// <summary>Fills the interior of a Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath using the specified brush.</summary>
@@ -1073,16 +1203,12 @@ namespace Majorsilence.Forms
 
             using var paint = CreateFillPaint (brush);
 
-            using var skPath = new SKPath ();
+            // As in DrawPath: fill the real path, so curves and the path's own fill mode survive.
+            var skPath = path.ToSKPath ();
+            skPath.FillType = path.FillMode == Majorsilence.Forms.Drawing.Drawing2D.FillMode.Winding
+                ? SKPathFillType.Winding
+                : SKPathFillType.EvenOdd;
 
-            foreach (var point in path.PathPoints) {
-                if (skPath.PointCount == 0)
-                    skPath.MoveTo (point.X, point.Y);
-                else
-                    skPath.LineTo (point.X, point.Y);
-            }
-
-            skPath.Close ();
             _canvas.DrawPath (skPath, paint);
         }
 #pragma warning restore CA1416

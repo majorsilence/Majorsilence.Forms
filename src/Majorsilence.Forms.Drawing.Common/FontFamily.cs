@@ -68,6 +68,50 @@ namespace Majorsilence.Forms.Drawing
             return typeface.IsBold == wantBold && typeface.IsItalic == wantItalic;
         }
 
+        /// <summary>
+        /// Returns the font families installed on this system. Same set as <see cref="Families"/>;
+        /// the parameter is accepted for System.Drawing compatibility and ignored, since the family
+        /// list here does not vary per drawing surface.
+        /// </summary>
+        public static FontFamily[] GetFamilies (object? graphics) => Families;
+
+        // Font metrics are reported in GDI+'s design-units-per-em space, so they are independent of any
+        // particular font size -- callers scale by (size / EmHeight). Skia reports metrics normalized to
+        // a 1.0 em, so measuring at exactly DesignUnitsPerEm converts in one step.
+        private const int DesignUnitsPerEm = 2048;
+
+        private SkiaSharp.SKFontMetrics MetricsFor (FontStyle style)
+        {
+            var typeface = FontSubstitution.Resolve (Name, new SkiaSharp.SKFontStyle (
+                (style & FontStyle.Bold) != 0 ? SkiaSharp.SKFontStyleWeight.Bold : SkiaSharp.SKFontStyleWeight.Normal,
+                SkiaSharp.SKFontStyleWidth.Normal,
+                (style & FontStyle.Italic) != 0 ? SkiaSharp.SKFontStyleSlant.Italic : SkiaSharp.SKFontStyleSlant.Upright));
+
+            using var font = new SkiaSharp.SKFont (typeface, DesignUnitsPerEm);
+            return font.Metrics;
+        }
+
+        /// <summary>Returns the em height, in design units, of this family in the specified style.</summary>
+        /// <remarks>
+        /// These four metrics are computed from the real typeface rather than guessed: a wrong value
+        /// here propagates silently into text layout, which is exactly the failure the GDI+ gap plan
+        /// (docs/gdi-gap-plan.md) treats as worse than a missing member.
+        /// </remarks>
+        public int GetEmHeight (FontStyle style) => DesignUnitsPerEm;
+
+        /// <summary>Returns the ascent, in design units, of this family in the specified style.</summary>
+        public int GetCellAscent (FontStyle style) => (int)Math.Round (-MetricsFor (style).Ascent);
+
+        /// <summary>Returns the descent, in design units, of this family in the specified style.</summary>
+        public int GetCellDescent (FontStyle style) => (int)Math.Round (MetricsFor (style).Descent);
+
+        /// <summary>Returns the line spacing, in design units, of this family in the specified style.</summary>
+        public int GetLineSpacing (FontStyle style)
+        {
+            var metrics = MetricsFor (style);
+            return (int)Math.Round (-metrics.Ascent + metrics.Descent + metrics.Leading);
+        }
+
         /// <inheritdoc/>
         public override string ToString () => $"[FontFamily: Name={Name}]";
 

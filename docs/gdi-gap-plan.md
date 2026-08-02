@@ -99,9 +99,33 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 | 2 — data-only enums | **Done.** 176 gaps closed, plus a new class of bug found and fixed (below). |
 | 3 — transform & clone families | **Done.** All 39 members; 23 tests. |
 | 4 — imaging, metadata, frames | **Done.** 57 gaps closed; 23 tests. |
-| 5–6 | Not started. |
+| 5 — `GraphicsPath` & `Graphics` | **Done.** 36 gaps closed; 32 tests. |
+| 6 — printing | Not started. |
 
-Baseline went **431 → 416 → 240 → 201 → 144** entries.
+Baseline went **431 → 416 → 240 → 201 → 144 → 108** entries. Everything still listed for
+`Graphics` is out of scope (metafile enumeration and HDC interop).
+
+**Phase 5 landed:** `GraphicsPath.AddString` (real glyph outlines via `SKFont.GetTextPath`, laid out
+from the top-left as GDI+ defines it), `Flatten`, `Reverse`, `Warp`, `AddPie`, `AddClosedCurve`,
+`Clone`, `GetLastPoint`, `IsOutlineVisible`, `PathTypes`/`PathData` (+ the `PathData` type) and
+`SetMarkers`/`ClearMarkers`; the four real `FontFamily` metrics plus `GetFamilies`;
+`StringFormat` tab stops and digit substitution; and on `Graphics`, `FillRegion`,
+`DrawClosedCurve`/`FillClosedCurve`, `DrawImageUnscaledAndClipped`, `IsClipEmpty`, `TranslateClip`,
+`TransformPoints`, `GetNearestColor`, `Flush`, `RenderingOrigin` and `TextContrast`.
+
+**Two pre-existing fidelity bugs fixed in passing.** `Graphics.DrawPath` and `FillPath` replayed the
+path as a polyline rebuilt from `PathPoints`, which threw away every curve, the path's `FillMode`, and
+(for `DrawPath`) the pen's dash pattern, caps, join and brush. Both now stroke/fill the real `SKPath`.
+This mattered immediately: a path built by `AddString` would otherwise have rendered as a scribble of
+straight lines between glyph control points.
+
+Markers deserve a note: GDI+ carries them as a flag bit on the point type rather than as separate
+state, so `SetMarkers` records the index and `PathTypes` ORs in `PathPointType.PathMarker` — making it
+observable rather than a stored value nothing reads.
+
+Still stored-but-not-applied, documented in place: `StringFormat` tab stops and digit substitution
+(the text path draws runs without a tab or locale-substitution pass), `Graphics.RenderingOrigin` and
+`TextContrast`, and `Warp`'s `WarpMode.Perspective` (interpolated bilinearly rather than re-projected).
 
 **Phase 4 landed:** `FrameDimension`, `PropertyItem` and `ColorPalette`; `Image.GetFrameCount`/
 `SelectActiveFrame`/`FrameDimensionsList`, the property-item set, `Palette`, `GetBounds`, `Flags`,

@@ -40,6 +40,45 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Specifies the character ranges measured by Graphics.MeasureCharacterRanges.</summary>
         public void SetMeasurableCharacterRanges (CharacterRange[] ranges) => MeasurableCharacterRanges = ranges;
 
+        private float firstTabOffset;
+        private float[] tabStops = [];
+
+        /// <summary>Sets the tab stops for this format, as offsets in the text's own units.</summary>
+        /// <param name="firstTabOffset">The distance from the origin to the first tab stop.</param>
+        /// <param name="tabStops">The distance between each subsequent tab stop.</param>
+        /// <remarks>
+        /// Stored and round-tripped. The text renderer here measures and draws runs without a tab-stop
+        /// pass, so tabs are not yet laid out to these positions.
+        /// </remarks>
+        public void SetTabStops (float firstTabOffset, float[] tabStops)
+        {
+            this.firstTabOffset = firstTabOffset;
+            this.tabStops = tabStops is null ? [] : (float[])tabStops.Clone ();
+        }
+
+        /// <summary>Gets the tab stops previously set by <see cref="SetTabStops"/>.</summary>
+        public float[] GetTabStops (out float firstTabOffset)
+        {
+            firstTabOffset = this.firstTabOffset;
+            return (float[])tabStops.Clone ();
+        }
+
+        /// <summary>Gets the digit substitution method set by <see cref="SetDigitSubstitution"/>.</summary>
+        public StringDigitSubstitute DigitSubstitutionMethod { get; private set; } = StringDigitSubstitute.User;
+
+        /// <summary>Gets the language set by <see cref="SetDigitSubstitution"/>, as a language ID.</summary>
+        public int DigitSubstitutionLanguage { get; private set; }
+
+        /// <summary>
+        /// Sets how digits are substituted for the given language. Stored and round-tripped; the text
+        /// path draws the code points it is given without locale-based digit substitution.
+        /// </summary>
+        public void SetDigitSubstitution (int language, StringDigitSubstitute substitute)
+        {
+            DigitSubstitutionLanguage = language;
+            DigitSubstitutionMethod = substitute;
+        }
+
         /// <summary>Gets a generic default StringFormat.</summary>
         public static StringFormat GenericDefault => new StringFormat ();
 
