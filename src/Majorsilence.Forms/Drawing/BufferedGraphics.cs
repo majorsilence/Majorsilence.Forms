@@ -63,6 +63,16 @@ namespace Majorsilence.Forms.Drawing
             return new BufferedGraphics (new Bitmap (width, height), targetGraphics);
         }
 
+        /// <summary>
+        /// Discards any cached buffer so the next <see cref="Allocate"/> builds a fresh one.
+        /// </summary>
+        /// <remarks>
+        /// A no-op here, and honestly so rather than by omission: <see cref="Allocate"/> already
+        /// creates a new bitmap on every call, so there is no retained buffer to invalidate. It exists
+        /// because System.Drawing code calls it after a resize.
+        /// </remarks>
+        public void Invalidate () { }
+
         /// <summary>Releases the resources used by this context. No-op in Majorsilence.Forms.Drawing.</summary>
         public void Dispose () => GC.SuppressFinalize (this);
     }

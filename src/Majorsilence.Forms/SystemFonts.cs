@@ -9,8 +9,11 @@ namespace Majorsilence.Forms
     /// </summary>
     public static class SystemFonts
     {
-        // Builds a font from the active theme so values track the UI font / size.
-        private static Majorsilence.Forms.Drawing.Font Create () => new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.FontSize);
+        // Builds a font from the active theme so values track the UI font / size. The caller's own
+        // property name is stamped on as SystemFontName, which is what makes Font.IsSystemFont a real
+        // answer rather than a hardcoded false.
+        private static Majorsilence.Forms.Drawing.Font Create ([System.Runtime.CompilerServices.CallerMemberName] string systemFontName = "")
+            => new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.FontSize) { SystemFontName = systemFontName };
 
         // DefaultFont is the ambient fallback every unfonted Control.Font resolves to (see
         // Control.Font's getter). Real System.Windows.Forms.SystemFonts.DefaultFont is
@@ -29,7 +32,8 @@ namespace Majorsilence.Forms
                 : "sans-serif";
 
         /// <summary>Gets the default font of the system.</summary>
-        public static Majorsilence.Forms.Drawing.Font DefaultFont => new Majorsilence.Forms.Drawing.Font (_defaultFontFamily, 8.25f);
+        public static Majorsilence.Forms.Drawing.Font DefaultFont =>
+            new Majorsilence.Forms.Drawing.Font (_defaultFontFamily, 8.25f) { SystemFontName = nameof (DefaultFont) };
 
         /// <summary>Gets the dialog box font.</summary>
         public static Majorsilence.Forms.Drawing.Font DialogFont => Create ();
@@ -62,6 +66,23 @@ namespace Majorsilence.Forms
         internal static SKTypeface DefaultTypeface => _defaultTypeface;
 
         /// <summary>Gets the default font size in points.</summary>
+        /// <summary>
+        /// Returns the system font with the given name (e.g. "MenuFont", "CaptionFont"), or null when
+        /// the name is not one of them — matching System.Drawing.SystemFonts.GetFontByName.
+        /// </summary>
+        public static Majorsilence.Forms.Drawing.Font? GetFontByName (string systemFontName) => systemFontName switch {
+            "DefaultFont" => DefaultFont,
+            "DialogFont" => DialogFont,
+            "IconTitleFont" => IconTitleFont,
+            "MenuFont" => MenuFont,
+            "MessageBoxFont" => MessageBoxFont,
+            "SmallCaptionFont" => SmallCaptionFont,
+            "StatusFont" => StatusFont,
+            "CaptionFont" => CaptionFont,
+            _ => null,
+        };
+
+        /// <summary>Gets the default font size, in points.</summary>
         public static float DefaultFontSize => 8.25f;
     }
 }

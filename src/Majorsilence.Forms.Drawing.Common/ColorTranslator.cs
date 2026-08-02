@@ -55,5 +55,25 @@ namespace Majorsilence.Forms.Drawing
                 return $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
             return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         }
-    }
+    
+        /// <summary>
+        /// Converts a color to a Win32 COLORREF, which packs the channels as 0x00BBGGRR.
+        /// </summary>
+        /// <remarks>
+        /// Despite the name this is meaningful cross-platform: it is a plain byte-order convention, and
+        /// migrated code round-trips colors through it (persisted settings, interop structs) on every OS.
+        /// Alpha is dropped, as COLORREF has no alpha channel.
+        /// </remarks>
+        public static int ToWin32 (System.Drawing.Color color) => color.R | (color.G << 8) | (color.B << 16);
+
+        /// <summary>Converts a Win32 COLORREF (0x00BBGGRR) to a color.</summary>
+        public static System.Drawing.Color FromWin32 (int value)
+            => System.Drawing.Color.FromArgb (value & 0xFF, (value >> 8) & 0xFF, (value >> 16) & 0xFF);
+
+        /// <summary>Converts a color to an OLE color value, which uses the same 0x00BBGGRR packing.</summary>
+        public static int ToOle (System.Drawing.Color color) => ToWin32 (color);
+
+        /// <summary>Converts an OLE color value to a color.</summary>
+        public static System.Drawing.Color FromOle (int value) => FromWin32 (value);
+}
 }

@@ -57,6 +57,28 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets the font family name.</summary>
         public string Name => FamilyName;
 
+        /// <summary>
+        /// Gets the face name originally requested, before any substitution. Identical to
+        /// <see cref="Name"/> here: substitution happens when a typeface is resolved for drawing, and
+        /// the requested family name is what this object keeps.
+        /// </summary>
+        public string OriginalFontName => FamilyName;
+
+        /// <summary>
+        /// Gets the name of the system font this was created from, or an empty string when it was not
+        /// created from one. See <see cref="IsSystemFont"/>.
+        /// </summary>
+        public string SystemFontName { get; internal set; } = string.Empty;
+
+        /// <summary>Gets whether this font was created from a member of <c>SystemFonts</c>.</summary>
+        public bool IsSystemFont => !string.IsNullOrEmpty (SystemFontName);
+
+        /// <summary>
+        /// Gets whether this font is derived from a GDI vertical font. Always false: vertical GDI faces
+        /// are a Windows text-stack concept with no counterpart in the Skia text path.
+        /// </summary>
+        public bool GdiVerticalFont => false;
+
         /// <summary>Gets the font family.</summary>
         public FontFamily FontFamily => new FontFamily (FamilyName);
 

@@ -98,6 +98,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets the color of highlighted menu item background.</summary>
         public static Color MenuHighlight => Color.FromArgb (0, 120, 215);
 
+        /// <summary>Gets the lighter end of the active title bar's gradient.</summary>
+        public static Color GradientActiveCaption => Color.FromArgb (185, 209, 234);
+
+        /// <summary>Gets the lighter end of the inactive title bar's gradient.</summary>
+        public static Color GradientInactiveCaption => Color.FromArgb (215, 228, 242);
+
         /// <summary>Gets the color used to shade alternate rows in a ListView.</summary>
         public static Color AlternateRow => Color.FromArgb (240, 248, 255);
 
@@ -124,6 +130,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets a cached pen for an arbitrary system color.</summary>
         public static Pen FromSystemColor (Color c) => Get (c);
+
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.GradientActiveCaption"/> color.</summary>
+        public static Pen GradientActiveCaption => Get (SystemColors.GradientActiveCaption);
+        /// <summary>Gets a cached pen for the <see cref="SystemColors.GradientInactiveCaption"/> color.</summary>
+        public static Pen GradientInactiveCaption => Get (SystemColors.GradientInactiveCaption);
 
         /// <summary>Gets a cached pen for the <see cref="SystemColors.ButtonFace"/> color.</summary>
         public static Pen ButtonFace => Get (SystemColors.ButtonFace);
@@ -207,6 +218,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets a cached brush for an arbitrary system color.</summary>
         public static SolidBrush FromSystemColor (Color c) => Get (c);
+
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.GradientActiveCaption"/> color.</summary>
+        public static SolidBrush GradientActiveCaption => Get (SystemColors.GradientActiveCaption);
+        /// <summary>Gets a cached brush for the <see cref="SystemColors.GradientInactiveCaption"/> color.</summary>
+        public static SolidBrush GradientInactiveCaption => Get (SystemColors.GradientInactiveCaption);
 
         /// <summary>Gets a cached brush for the <see cref="SystemColors.ButtonFace"/> color.</summary>
         public static SolidBrush ButtonFace => Get (SystemColors.ButtonFace);
