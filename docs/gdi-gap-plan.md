@@ -68,6 +68,47 @@ a hollow member is a silent wrong result at runtime. This also argues for one ad
 behavior*, but for *drawing and metrics* a wrong number propagates into layout. Metric-returning members
 should compute or throw, never guess.
 
+## Rescan, 2026-08-02: 107 overload gaps the name-level pass could not see
+
+With phases 1–5 done, the name-level baseline was nearly exhausted (108 entries, mostly out of scope).
+So the scanner was taught to compare **overloads**, not just member names — the blind spot that had
+already bitten this work twice: `Region.Union(Region)` was missing for the entire life of that type
+while `Region.Union(RectangleF)` existed, and the presence check happily said "have it".
+
+This immediately found **107 real gaps**, none of which any previous pass could report. Baseline is
+now 215 entries (27 `TYPE`, 81 `MEMBER`, 107 `SIG`).
+
+The check is call-compatibility, not signature equality: our methods routinely add a trailing optional
+parameter (a `MatrixOrder`, say), which still binds a call written against the shorter upstream
+overload. Ignoring that distinction reported 137 gaps, 30 of them noise.
+
+### What the 107 are
+
+| Group | Count | Notes |
+|---|---|---|
+| Integer/`float` convenience overloads | ~56 | `AddLine(int,…)`, `AddEllipse(int,…)`, `Region.IsVisible(float,float)`, `GraphicsPath.IsVisible(int,int)`. Purely mechanical, and exactly what designer-generated code emits. |
+| Overloads taking a `Graphics` | 22 | `Region.IsVisible(PointF, Graphics)`, `GraphicsPath.IsOutlineVisible(PointF, Pen, Graphics)`, … |
+| `Graphics.DrawImage` family | 21 | The largest single method group; upstream has ~30 overloads. |
+| `Widen`, `GetBounds(Matrix, Pen)`, misc | ~8 | Real methods with missing shapes. |
+
+The `Graphics`-taking group is the interesting one. `Region` and `GraphicsPath` live in
+`Majorsilence.Forms.Drawing.Common`, which **cannot reference `Graphics`** — it lives in
+`Majorsilence.Forms`, and the dependency runs the other way. That is why the existing members take
+`object? graphics = null`. The fix is not to move types around: an `object?`-typed overload accepts a
+`Graphics` argument at the call site, so migrated code compiles unchanged. It just has to exist for
+each shape, which today it does not (`Region.IsEmpty` has it; `Region.IsVisible` does not).
+
+`CopyFromScreen` and `FromHdc` in that list are Win32 screen/device-context interop and stay out of
+scope.
+
+### Phase 7 — overload completion
+
+Mechanical and low-risk, but high value for whether real migrated code compiles at all. Suggested
+order: the integer/`float` convenience overloads first (largest group, zero design questions), then
+the `object?`-graphics overloads, then the `DrawImage` family. Each is a delegation to an existing
+implementation, so the tests that matter are compile-level rather than behavioral — a handful of
+call-shape assertions per type is enough.
+
 ## Out of scope — do not implement
 
 Confirming and extending what the matrix already records, so the 54 is not read as 54 units of work:
@@ -101,6 +142,7 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 | 4 — imaging, metadata, frames | **Done.** 57 gaps closed; 23 tests. |
 | 5 — `GraphicsPath` & `Graphics` | **Done.** 36 gaps closed; 32 tests. |
 | 6 — printing | Not started. |
+| 7 — overload completion | Not started — found by the 2026-08-02 rescan, below. |
 
 Baseline went **431 → 416 → 240 → 201 → 144 → 108** entries. Everything still listed for
 `Graphics` is out of scope (metafile enumeration and HDC interop).

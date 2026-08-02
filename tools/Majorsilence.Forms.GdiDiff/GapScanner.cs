@@ -52,6 +52,9 @@ internal static class GapScanner
         var searchPaths = new List<string>(Directory.GetFiles(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "*.dll"));
         searchPaths.Add(upstream);
         searchPaths.AddRange(ours);
+        // Our own members' parameter types reach into SkiaSharp, which a library build does not copy
+        // next to its output; without it the signature walk cannot resolve them.
+        searchPaths.AddRange(PackageAssemblies("SkiaSharpPackageRoot"));
         foreach (var path in ours)
             searchPaths.AddRange(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.dll"));
 
@@ -90,10 +93,76 @@ internal static class GapScanner
 
             if (upstreamType.IsEnum && ourType.IsEnum)
                 gaps.AddRange(EnumValueMismatches(upstreamType, ourType));
+            else
+                gaps.AddRange(OverloadGaps(upstreamType, ourType));
         }
 
         gaps.Sort(StringComparer.Ordinal);
         return [.. gaps];
+    }
+
+    /// <summary>
+    /// Reports methods that exist by name on both sides but are missing a specific upstream
+    /// <em>overload</em>.
+    ///
+    /// The name-level pass above is blind to this, and it is a real gap rather than a cosmetic one:
+    /// <c>Region.Union(Region)</c> was absent for the entire life of that type while
+    /// <c>Region.Union(RectangleF)</c> existed, so the presence check said "have it" and migrated code
+    /// still failed to compile. Parameters are compared by simple type name, which makes the
+    /// System.Drawing to Majorsilence.Forms.Drawing namespace difference a non-issue and costs only the
+    /// (harmless here) possibility of two unrelated same-named types matching.
+    /// </summary>
+    private static IEnumerable<string> OverloadGaps(Type upstreamType, Type ourType)
+    {
+        const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+        var ourMethods = new List<(string Name, string[] Parameters, int Required)>();
+        for (var t = ourType; t is not null && t.FullName != "System.Object"; t = t.BaseType)
+            foreach (var method in t.GetMethods(Flags))
+            {
+                var parameters = method.GetParameters();
+                ourMethods.Add((
+                    method.Name,
+                    [.. parameters.Select(p => TypeName(p.ParameterType))],
+                    parameters.Count(p => !p.IsOptional)));
+            }
+
+        var reported = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var method in upstreamType.GetMethods(Flags))
+        {
+            if (method.IsSpecialName || method.Name.StartsWith("op_", StringComparison.Ordinal))
+                continue;
+            if (method.Name is "GetHashCode" or "Equals" or "ToString" or "Finalize")
+                continue;
+            // Only overloads of a method we already have; a wholly missing method is a MEMBER line.
+            if (!ourMethods.Any(m => m.Name == method.Name))
+                continue;
+
+            var wanted = method.GetParameters().Select(p => TypeName(p.ParameterType)).ToArray();
+            if (ourMethods.Any(m => Satisfies(m, method.Name, wanted)))
+                continue;
+
+            var signature = $"{method.Name}({string.Join(",", wanted)})";
+            if (reported.Add(signature))
+                yield return $"SIG    {upstreamType.FullName}.{signature}";
+        }
+
+        // A call written against the upstream overload has to compile against ours. That is not the same
+        // as an identical signature: our methods routinely add a trailing optional parameter (a
+        // MatrixOrder, say), which still binds a call that omits it. Treating those as gaps would bury
+        // the real findings in noise.
+        static bool Satisfies((string Name, string[] Parameters, int Required) ours, string name, string[] wanted)
+        {
+            if (ours.Name != name || ours.Parameters.Length < wanted.Length || ours.Required > wanted.Length)
+                return false;
+            for (var i = 0; i < wanted.Length; i++)
+                if (!string.Equals(ours.Parameters[i], wanted[i], StringComparison.Ordinal))
+                    return false;
+            return true;
+        }
+
+        static string TypeName(Type type) =>
+            type.IsByRef || type.IsArray ? TypeName(type.GetElementType()!) + (type.IsArray ? "[]" : "&") : type.Name;
     }
 
     /// <summary>
@@ -165,14 +234,35 @@ internal static class GapScanner
     }
 
     /// <summary>
+    /// Returns the assemblies in the newest non-framework <c>lib</c> folder of a package whose root was
+    /// baked in at build time, or nothing when the package is unavailable.
+    /// </summary>
+    private static string[] PackageAssemblies(string metadataKey)
+    {
+        var root = PackageRoot(metadataKey);
+        if (root is null || !Directory.Exists(Path.Combine(root, "lib")))
+            return [];
+
+        var best = Directory.GetDirectories(Path.Combine(root, "lib"), "net*")
+            .Where(d => !Path.GetFileName(d).StartsWith("net4", StringComparison.Ordinal))
+            .OrderByDescending(d => d, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+        return best is null ? [] : Directory.GetFiles(best, "*.dll");
+    }
+
+    private static string? PackageRoot(string key) =>
+        typeof(GapScanner).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => a.Key == key)?.Value;
+
+    /// <summary>
     /// Locates the upstream reference assembly from the NuGet package root baked in at build time (see
     /// this project's csproj), preferring the newest <c>lib/net*</c> flavor available in the package.
     /// </summary>
     private static string LocateUpstream()
     {
-        var root = typeof(GapScanner).Assembly
-            .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .FirstOrDefault(a => a.Key == "SystemDrawingCommonPackageRoot")?.Value;
+        var root = PackageRoot("SystemDrawingCommonPackageRoot");
 
         if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
             throw new FileNotFoundException("could not locate the System.Drawing.Common package (SystemDrawingCommonPackageRoot was not baked in at build time)");

@@ -16,6 +16,10 @@
          and it is deliberately not a runtime dependency of this tool. -->
     <PackageReference Include="System.Drawing.Common" GeneratePathProperty="true" ExcludeAssets="all" />
     <PackageReference Include="System.Reflection.MetadataLoadContext" />
+    <!-- Not used by this tool directly. The signature comparison has to resolve the parameter types of
+         our own members, and a library build does not copy transitive package assemblies next to its
+         output, so SkiaSharp has to be findable or the reflection walk fails. -->
+    <PackageReference Include="SkiaSharp" GeneratePathProperty="true" ExcludeAssets="all" />
   </ItemGroup>
 
   <!-- Bake the resolved package path in at build time so the tool needs no arguments to find the
@@ -24,6 +28,10 @@
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>SystemDrawingCommonPackageRoot</_Parameter1>
       <_Parameter2>$(PkgSystem_Drawing_Common)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>SkiaSharpPackageRoot</_Parameter1>
+      <_Parameter2>$(PkgSkiaSharp)</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
 
