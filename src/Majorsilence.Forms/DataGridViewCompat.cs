@@ -228,7 +228,17 @@ namespace Majorsilence.Forms
         /// <summary>The column scope.</summary>
         Column = 2,
         /// <summary>The row scope.</summary>
-        Row = 4
+        Row = 4,
+        /// <summary>The grid's own default style.</summary>
+        DataGridView = 8,
+        /// <summary>The column headers' style.</summary>
+        ColumnHeaders = 16,
+        /// <summary>The row headers' style.</summary>
+        RowHeaders = 32,
+        /// <summary>The style shared by every row.</summary>
+        Rows = 64,
+        /// <summary>The style applied to alternating rows.</summary>
+        AlternatingRows = 128
     }
 
     /// <summary>
@@ -314,7 +324,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a check box column in a DataGridView.
     /// </summary>
-    public class DataGridViewCheckBoxColumn : DataGridViewColumn { }
+    public partial class DataGridViewCheckBoxColumn : DataGridViewColumn { }
 
     /// <summary>
     /// Represents a button column in a DataGridView.
@@ -342,7 +352,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a combo box column in a DataGridView.
     /// </summary>
-    public class DataGridViewComboBoxColumn : DataGridViewColumn
+    public partial class DataGridViewComboBoxColumn : DataGridViewColumn
     {
         /// <summary>Gets or sets the data source for the combo box items.</summary>
         public object? DataSource { get; set; }
@@ -1139,7 +1149,7 @@ namespace Majorsilence.Forms
     public class DataGridViewTextBoxCell : DataGridViewCell { }
 
     /// <summary>Represents a check-box cell in a DataGridView. Stub in Majorsilence.Forms.</summary>
-    public class DataGridViewCheckBoxCell : DataGridViewCell
+    public partial class DataGridViewCheckBoxCell : DataGridViewCell
     {
         /// <summary>Gets or sets whether three-state toggling is supported.</summary>
         public bool ThreeState { get; set; }
@@ -1155,7 +1165,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a combo-box cell in a DataGridView. Stub in Majorsilence.Forms.</summary>
-    public class DataGridViewComboBoxCell : DataGridViewCell
+    public partial class DataGridViewComboBoxCell : DataGridViewCell
     {
         /// <summary>Gets the list of items for this cell's combo box.</summary>
         public System.Collections.ArrayList Items { get; } = new System.Collections.ArrayList ();

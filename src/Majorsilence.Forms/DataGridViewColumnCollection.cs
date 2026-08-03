@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a collection of DataGridViewColumn objects in a DataGridView control.
     /// </summary>
-    public class DataGridViewColumnCollection : Collection<DataGridViewColumn>
+    public partial class DataGridViewColumnCollection : Collection<DataGridViewColumn>
     {
         /// <summary>Moves a column to a new display position. Mirrors Telerik's Columns.Move.</summary>
         public void Move (int fromIndex, int toIndex)

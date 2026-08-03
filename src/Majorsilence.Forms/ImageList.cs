@@ -8,7 +8,7 @@ namespace Majorsilence.Forms;
 /// <summary>
 /// Represents a collection of images that can be used by controls.
 /// </summary>
-public class ImageList : Component
+public partial class ImageList : Component
 {
     // WinForms default ImageList.ImageSize is 16x16.
     private static readonly SKSize s_defaultImageSize = new (16, 16);

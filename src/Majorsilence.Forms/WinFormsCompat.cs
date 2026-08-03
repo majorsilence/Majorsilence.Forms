@@ -2192,7 +2192,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a control that allows the user to select a string from a collection by scrolling. Stub in Majorsilence.Forms.</summary>
-    public class DomainUpDown : NumericUpDown
+    public partial class DomainUpDown : NumericUpDown
     {
         private int _selectedIndex = -1;
 
@@ -3245,7 +3245,19 @@ namespace Majorsilence.Forms
         /// <summary>The item is checked.</summary>
         Checked = 8,
         /// <summary>The item is the default item.</summary>
-        Default = 32
+        Default = 32,
+        /// <summary>The item is greyed out.</summary>
+        Grayed = 2,
+        /// <summary>The item is drawn with the hot-tracking highlight.</summary>
+        HotLight = 64,
+        /// <summary>The item is in an inactive window.</summary>
+        Inactive = 128,
+        /// <summary>The item's mnemonic underline is not drawn.</summary>
+        NoAccelerator = 256,
+        /// <summary>The item's focus rectangle is not drawn.</summary>
+        NoFocusRect = 512,
+        /// <summary>The item is the edit portion of an owner-drawn combo box.</summary>
+        ComboBoxEdit = 4096
     }
 
     /// <summary>Provides data for the MeasureItem event.</summary>

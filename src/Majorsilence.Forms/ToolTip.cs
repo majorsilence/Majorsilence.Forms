@@ -8,7 +8,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Displays a small popup of descriptive text when the mouse hovers over an associated control.
     /// </summary>
-    public class ToolTip : Component
+    public partial class ToolTip : Component
     {
         private readonly Dictionary<Control, string> tips = new ();
         private PopupWindow? popup;

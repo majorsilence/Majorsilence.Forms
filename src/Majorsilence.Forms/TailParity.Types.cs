@@ -206,7 +206,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>A row of tool strips within a <see cref="ToolStripPanel"/>.</summary>
-    public class ToolStripPanelRow
+    public partial class ToolStripPanelRow
     {
         /// <summary>Initializes a new instance of the <see cref="ToolStripPanelRow"/> class.</summary>
         public ToolStripPanelRow (ToolStripPanel toolStripPanel) => ToolStripPanel = toolStripPanel;

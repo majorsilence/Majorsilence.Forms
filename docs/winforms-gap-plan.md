@@ -122,7 +122,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 502** (and `SIG` 146 → 0 since overload checking was turned on).
+Baseline: **1,905 → 385** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -137,6 +137,7 @@ Baseline: **1,905 → 502** (and `SIG` 146 → 0 since overload checking was tur
 | 13 — the mid-size controls | **Done.** `MonthCalendar`, `PropertyGrid`, `WebBrowser`, `PrintPreviewDialog`, `TreeView`, `RichTextBox`, `MaskedTextBox` and `AccessibleObject`, all at zero. |
 | 14 — `ControlPaint`, `DataFormats`, `DataObject`, `ListBox`, the composite ToolStrip items | **Done.** All at zero, and the visual-style renderers recognised as a false match. |
 | 15 — the flat tail | **Done.** `ButtonBase`, `TreeNode`, `Menu`, `ToolBar`, `SplitContainer`, `Binding`, `BindingManagerBase`, `Cursor`, `Clipboard`, `ToolStripPanel`, `ToolStripDropDown`, `ToolStrip`, `ToolStripManager` and the two file dialogs. |
+| 16 — the `DataGridView` row/cell/column family, and the rest of the tail | **Done.** 117 gaps, including two enums that were missing half their members. |
 
 Two things worth carrying forward:
 
@@ -286,12 +287,24 @@ the splitter actually is and says so in its remarks.
 `SplitContainer.SplitterMoved` and `SplitterMoving` were also declared with empty accessors, so the
 new `OnSplitterMoved`/`OnSplitterMoving` had nothing to raise until they were given a backing field.
 
+### What item 16 found
+
+**`DataGridViewColumn.AutoSizeMode` defaulted to `None`, upstream defaults to `NotSet`** — and
+`NotSet` is the entire mechanism: it is what makes a column fall back to the grid's
+`AutoSizeColumnsMode`. With `None` as the default, no column ever inherited, so setting
+`AutoSizeColumnsMode` on the grid did nothing at all. An existing test asserted the wrong default and
+was corrected.
+
+Two enums were missing half their members, both the silent kind: `DrawItemState` lacked six of eleven
+(`Grayed = 2` sits *below* the five that were present, so counting on from the last one would have
+been wrong), and `DataGridViewCellStyleScopes` lacked five of nine, each the next bit in the
+progression.
+
 ### Next
 
 `DataGrid`, `DataGridTableStyle` and `DataGridColumnStyle` (44/42/14) are the largest remaining block
 and stay low priority — the .NET 1.x controls superseded by `DataGridView`. The rest is the
-`DataGridView` cell and column types, the `TaskDialog` family, and a long tail of design-time
-converters.
+`TaskDialog` family, the design-time converters, and a scattering of two- and three-member types.
 
 ## Suggested order
 

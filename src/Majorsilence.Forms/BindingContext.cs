@@ -81,7 +81,7 @@ namespace Majorsilence.Forms
     /// System.Windows.Forms.BindingContext. Managers are cached per pair so repeated lookups share
     /// position state.
     /// </summary>
-    public class BindingContext
+    public partial class BindingContext
     {
         private readonly Dictionary<(object, string), BindingManagerBase> managers = new ();
 

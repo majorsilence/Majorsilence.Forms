@@ -21,7 +21,7 @@ namespace Majorsilence.Forms
     /// Represents a DateTimePicker control for selecting a date and/or time.
     /// Built on TimePicker for Majorsilence.Forms compatibility.
     /// </summary>
-    public class DateTimePicker : TextBox
+    public partial class DateTimePicker : TextBox
     {
         /// <summary>The minimum date value supported by the DateTimePicker (January 1, 1753).</summary>
         public static readonly DateTime MinDateTime = new DateTime (1753, 1, 1);
