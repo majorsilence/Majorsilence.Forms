@@ -909,6 +909,35 @@ namespace Majorsilence.Forms
             MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator, object param)
             => Show (text, caption, buttons, icon, defaultButton);
 
+        // The IWin32Window-owned forms. Control and Form both implement that interface here, so the
+        // owner is resolved rather than discarded.
+
+        /// <summary>Shows a message box owned by the given window.</summary>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
+
+        /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
+
+        /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, string keyword)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
+
+        /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
+
+        /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath,
+            HelpNavigator navigator, object param)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
+
         /// <summary>Shows a message box with the specified owner form and text.</summary>
         public static DialogResult Show (Form owner, string text)
             => Show (owner, text, string.Empty, MessageBoxButtons.OK, MessageBoxIcon.None);

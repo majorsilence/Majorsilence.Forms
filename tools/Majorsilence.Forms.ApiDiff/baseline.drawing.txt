@@ -19,7 +19,6 @@ MEMBER System.Drawing.Font.FromLogFont
 MEMBER System.Drawing.Font.ToHfont
 MEMBER System.Drawing.Font.ToLogFont
 MEMBER System.Drawing.Graphics.AddMetafileComment
-MEMBER System.Drawing.Graphics.EnumerateMetafile
 MEMBER System.Drawing.Graphics.EnumerateMetafileProc
 MEMBER System.Drawing.Graphics.FromHdcInternal
 MEMBER System.Drawing.Graphics.FromHwndInternal

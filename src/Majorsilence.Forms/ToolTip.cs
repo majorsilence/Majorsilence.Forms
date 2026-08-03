@@ -135,6 +135,37 @@ namespace Majorsilence.Forms
         /// </summary>
         public void Hide (Control control) => HidePopup ();
 
+        // The IWin32Window overloads. That interface is implemented by Control and Form here, so the
+        // owner is resolved back to a Control rather than the argument being dropped -- which is what
+        // makes these do the same thing as the Control-typed ones rather than merely compile.
+
+        /// <inheritdoc cref="Hide(Control)"/>
+        public void Hide (IWin32Window win) => HidePopup ();
+
+        /// <inheritdoc cref="Show(string,Control)"/>
+        public void Show (string text, IWin32Window window) => ShowFor (text, window);
+
+        /// <inheritdoc cref="Show(string,Control)"/>
+        public void Show (string text, IWin32Window window, int duration) => ShowFor (text, window);
+
+        /// <inheritdoc cref="Show(string,Control)"/>
+        public void Show (string text, IWin32Window window, int x, int y) => ShowFor (text, window);
+
+        /// <inheritdoc cref="Show(string,Control)"/>
+        public void Show (string text, IWin32Window window, int x, int y, int duration) => ShowFor (text, window);
+
+        /// <inheritdoc cref="Show(string,Control)"/>
+        public void Show (string text, IWin32Window window, System.Drawing.Point point) => ShowFor (text, window);
+
+        /// <inheritdoc cref="Show(string,Control)"/>
+        public void Show (string text, IWin32Window window, System.Drawing.Point point, int duration) => ShowFor (text, window);
+
+        private void ShowFor (string text, IWin32Window window)
+        {
+            if (window is Control control)
+                SetToolTip (control, text);
+        }
+
         /// <summary>Gets or sets whether the ToolTip appears as a balloon. Stub in Majorsilence.Forms.</summary>
         public bool IsBalloon { get; set; }
 

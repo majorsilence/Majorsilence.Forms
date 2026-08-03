@@ -85,9 +85,6 @@ namespace Majorsilence.Forms
         /// <summary>Raised when <see cref="RowsDefaultCellStyle"/> changes.</summary>
         public event EventHandler? RowsDefaultCellStyleChanged;
 
-        /// <summary>Raised when the corresponding state changes. Declared and raisable through <see cref="OnStyleChanged"/>; the framework does not raise it yet.</summary>
-        public event EventHandler? StyleChanged;
-
         /// <summary>Raised when <see cref="AutoSizeColumnsMode"/> changes.</summary>
         public event DataGridViewAutoSizeColumnsModeEventHandler? AutoSizeColumnsModeChanged;
 
@@ -193,11 +190,9 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the corresponding state changes. Declared and raisable through <see cref="OnRowHeightInfoPushed"/>; the framework does not raise it yet.</summary>
         public event DataGridViewRowHeightInfoPushedEventHandler? RowHeightInfoPushed;
 
-        /// <summary>Never raised: this control does not draw a background image. Present because designer-generated code binds it.</summary>
-        public event EventHandler? BackgroundImageChanged;
-
-        /// <summary>Never raised: this control does not draw a background image. Present because designer-generated code binds it.</summary>
-        public event EventHandler? BackgroundImageLayoutChanged;
+        // BackgroundImageChanged, BackgroundImageLayoutChanged and StyleChanged are inherited from
+        // Control, which declares them for every control rather than each repeating the same
+        // never-raised event.
 
 
         /// <summary>Raises the <see cref="AllowUserToAddRowsChanged"/> event.</summary>
@@ -262,9 +257,6 @@ namespace Majorsilence.Forms
 
         /// <summary>Raises the <see cref="RowsDefaultCellStyleChanged"/> event.</summary>
         protected virtual void OnRowsDefaultCellStyleChanged (EventArgs e) => RowsDefaultCellStyleChanged?.Invoke (this, e);
-
-        /// <summary>Raises the <see cref="StyleChanged"/> event.</summary>
-        protected virtual void OnStyleChanged (EventArgs e) => StyleChanged?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="AutoSizeColumnsModeChanged"/> event.</summary>
         protected virtual void OnAutoSizeColumnsModeChanged (DataGridViewAutoSizeColumnsModeEventArgs e) => AutoSizeColumnsModeChanged?.Invoke (this, e);
@@ -370,12 +362,6 @@ namespace Majorsilence.Forms
 
         /// <summary>Raises the <see cref="RowHeightInfoPushed"/> event.</summary>
         protected virtual void OnRowHeightInfoPushed (DataGridViewRowHeightInfoPushedEventArgs e) => RowHeightInfoPushed?.Invoke (this, e);
-
-        /// <summary>Raises the <see cref="BackgroundImageChanged"/> event.</summary>
-        protected virtual void OnBackgroundImageChanged (EventArgs e) => BackgroundImageChanged?.Invoke (this, e);
-
-        /// <summary>Raises the <see cref="BackgroundImageLayoutChanged"/> event.</summary>
-        protected virtual void OnBackgroundImageLayoutChanged (EventArgs e) => BackgroundImageLayoutChanged?.Invoke (this, e);
 
         /// <summary>Gets or sets the border style of the column header cells.</summary>
         public DataGridViewHeaderBorderStyle ColumnHeadersBorderStyle {

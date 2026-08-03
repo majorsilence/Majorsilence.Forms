@@ -39,6 +39,13 @@ internal static class GapScanner
 
         var gaps = new List<string>();
 
+        // An excluded type is only *unavailable* if this assembly really has nothing of that name.
+        // Several exclusions turn out to exist anyway -- IWin32Window is declared here even though
+        // hosting a real HWND is not a goal -- and members naming those are perfectly implementable,
+        // so they must keep being reported.
+        var ourSimpleNames = new HashSet<string>(ourTypes.Values.Select(t => t.Name), StringComparer.Ordinal);
+        bool Unavailable(string name) => surface.ExcludedTypeNames.Contains(name) && !ourSimpleNames.Contains(name);
+
         foreach (var upstreamType in upstreamAsm.GetExportedTypes())
         {
             var ns = upstreamType.Namespace ?? "";
@@ -60,12 +67,19 @@ internal static class GapScanner
                     ourMembers.Add(name);
 
             foreach (var name in upstreamMembers.Except(ourMembers, StringComparer.Ordinal))
+            {
+                // A member that can only be expressed in terms of a type this surface excludes and
+                // does not have is not a gap; it is the exclusion showing through.
+                if (MemberNeedsOnlyUnavailableTypes(upstreamType, name, Unavailable))
+                    continue;
+
                 gaps.Add($"MEMBER {upstreamType.FullName}.{name}");
+            }
 
             if (upstreamType.IsEnum && ourType.IsEnum)
                 gaps.AddRange(EnumValueMismatches(upstreamType, ourType));
             else if (surface.IncludeOverloads)
-                gaps.AddRange(OverloadGaps(surface, upstreamType, ourType));
+                gaps.AddRange(OverloadGaps(upstreamType, ourType, Unavailable));
         }
 
         gaps.Sort(StringComparer.Ordinal);
@@ -117,7 +131,7 @@ internal static class GapScanner
     /// <c>MessageBox.Show(IWin32Window, ...)</c> cannot be matched without declaring
     /// <c>IWin32Window</c>, and declaring it is exactly what the exclusion list rules out.
     /// </summary>
-    private static IEnumerable<string> OverloadGaps(Surface surface, Type upstreamType, Type ourType)
+    private static IEnumerable<string> OverloadGaps(Type upstreamType, Type ourType, Func<string, bool> unavailable)
     {
         const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
@@ -146,11 +160,9 @@ internal static class GapScanner
             var wanted = method.GetParameters().Select(p => TypeName(p.ParameterType)).ToArray();
             if (ourMethods.Any(m => Satisfies(m, method.Name, wanted)))
                 continue;
-            // An overload that takes a type this surface excludes is excluded for the same reason the
-            // type is. MessageBox.Show(IWin32Window, ...) cannot be matched without declaring
-            // IWin32Window, and declaring it is precisely what the exclusion list says is not a goal;
-            // reporting the overload anyway would be asking for work already decided against.
-            if (wanted.Any(surface.ExcludedTypeNames.Contains))
+            // An overload that can only be written in terms of a type this surface excludes and does
+            // not have is not a gap -- there is nothing to declare it against.
+            if (wanted.Any(unavailable))
                 continue;
 
             var signature = $"{method.Name}({string.Join(",", wanted)})";
@@ -198,6 +210,42 @@ internal static class GapScanner
                 return candidate;
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether every upstream member of this name mentions a type that is excluded and absent, so
+    /// there is nothing this assembly could declare it against.
+    /// </summary>
+    private static bool MemberNeedsOnlyUnavailableTypes(Type type, string name, Func<string, bool> unavailable)
+    {
+        const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+        var matches = type.GetMembers(Flags).Where(m => m.Name == name).ToArray();
+        if (matches.Length == 0)
+            return false;
+
+        return matches.All(m => Mentioned(m).Any(unavailable));
+
+        static IEnumerable<string> Mentioned(MemberInfo member)
+        {
+            switch (member)
+            {
+                case PropertyInfo p:
+                    yield return Simple(p.PropertyType);
+                    break;
+                case EventInfo e when e.EventHandlerType is not null:
+                    yield return Simple(e.EventHandlerType);
+                    break;
+                case MethodInfo mi:
+                    yield return Simple(mi.ReturnType);
+                    foreach (var parameter in mi.GetParameters())
+                        yield return Simple(parameter.ParameterType);
+                    break;
+            }
+        }
+
+        static string Simple(Type t) =>
+            t.IsByRef || t.IsArray ? Simple(t.GetElementType()!) : t.Name;
     }
 
     /// <summary>

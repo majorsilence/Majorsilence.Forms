@@ -17,6 +17,10 @@ namespace Majorsilence.Forms
         public Task<DialogResult> ShowDialogAsync ()
             => ShowDialogAsync (Application.OpenForms.LastOrDefault ()!);
 
+        /// <summary>Shows the form modally, owned by the given window.</summary>
+        public Task<DialogResult> ShowDialogAsync (IWin32Window owner)
+            => ShowDialogAsync (owner as Form ?? Application.OpenForms.LastOrDefault ()!);
+
         /// <summary>Validates the child controls, limited to those the constraints select.</summary>
         public bool ValidateChildren (ValidationConstraints validationConstraints)
             => ContainerControl.ValidateChildrenCore (Controls, validationConstraints);

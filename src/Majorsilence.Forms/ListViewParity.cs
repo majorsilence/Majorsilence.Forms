@@ -239,12 +239,9 @@ namespace Majorsilence.Forms
         /// <summary>Raised when <see cref="RightToLeftLayout"/> changes.</summary>
         public event EventHandler? RightToLeftLayoutChanged;
 
-        /// <summary>Raised when the background image changes.</summary>
-        /// <remarks>Never raised: this control does not draw a background image. Present because
-        /// designer-generated code binds it.</remarks>
-#pragma warning disable CS0067
-        public event EventHandler? BackgroundImageLayoutChanged;
-#pragma warning restore CS0067
+        // BackgroundImageChanged, BackgroundImageLayoutChanged and StyleChanged are inherited from
+        // Control, which declares them for every control rather than each repeating the same
+        // never-raised event.
 
         /// <summary>Raises the <see cref="DrawItem"/> event.</summary>
         protected virtual void OnDrawItem (DrawListViewItemEventArgs e) => DrawItem?.Invoke (this, e);

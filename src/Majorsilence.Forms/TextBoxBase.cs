@@ -287,16 +287,9 @@ namespace Majorsilence.Forms
         /// <summary>Raised when <see cref="ReadOnly"/> changes.</summary>
         public event EventHandler? ReadOnlyChanged;
 
-        /// <summary>Raised when the background image changes.</summary>
-        /// <remarks>Present because WinForms hides it here and designer code still binds it; this
-        /// layer does not draw a background image on a text box, so it is never raised.</remarks>
-#pragma warning disable CS0067
-        public event EventHandler? BackgroundImageChanged;
-
-        /// <summary>Raised when the background image layout changes. Never raised; see
-        /// <see cref="BackgroundImageChanged"/>.</summary>
-        public event EventHandler? BackgroundImageLayoutChanged;
-#pragma warning restore CS0067
+        // BackgroundImageChanged, BackgroundImageLayoutChanged and StyleChanged are inherited from
+        // Control, which declares them for every control rather than each repeating the same
+        // never-raised event.
 
         /// <summary>Raises the <see cref="AcceptsTabChanged"/> event.</summary>
         protected virtual void OnAcceptsTabChanged (EventArgs e) => AcceptsTabChanged?.Invoke (this, e);

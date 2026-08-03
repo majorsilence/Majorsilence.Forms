@@ -118,7 +118,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 1,084** (and `SIG` 146 → 0 since overload checking was turned on).
+Baseline: **1,905 → 978** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -128,6 +128,7 @@ Baseline: **1,905 → 1,084** (and `SIG` 146 → 0 since overload checking was t
 | 8 — `ListView` | **Done.** 34 members, plus three that had the wrong shape. |
 | 9 — the `DataGridView` family | **Done.** 125 gaps across the control, the cell and the row collection. |
 | 10 — overload parity | **Done.** `IncludeOverloads` turned on; all 146 `SIG` findings closed. |
+| 11 — `Control` and `Form` | **Done.** Both types are now at zero gaps. |
 
 Two things worth carrying forward:
 
@@ -198,11 +199,26 @@ worth recording:
 `DataGridCell`'s two-argument constructor was also discarding both arguments, so it was
 indistinguishable from the empty one.
 
+### What item 11 found
+
+`Control.InvokeAsync` deadlocked when called from the UI thread. It posted unconditionally, and
+`Post` only queues — the queue is drained by the message loop — so posting from the UI thread and
+then awaiting the result waits forever, and calling `InvokeAsync` from the UI thread is the ordinary
+case rather than the exotic one. It now runs inline when already on the dispatcher thread, which is
+what `Invoke` immediately above it already did.
+
+The exclusion rule added in item 10 was also too broad. It skipped any member naming an excluded
+type, on the reasoning that `MessageBox.Show (IWin32Window, …)` cannot be declared; but this assembly
+*does* declare `IWin32Window` — `Form` implements it — and `Message` exists too, so 13 implementable
+findings had been hidden. The rule now skips a member only when the excluded type is genuinely absent
+here, and those findings are closed properly.
+
 ### Next
 
 The largest remaining concentrations are `DataGrid` and `DataGridTableStyle` (46/42, still low
-priority — the .NET 1.x controls superseded by `DataGridView`), `Form` (30), `Control` (29),
-`PropertyGrid` (29), `PrintPreviewDialog` (29) and `BindingSource` (26).
+priority — the .NET 1.x controls superseded by `DataGridView`), `PropertyGrid` (29),
+`PrintPreviewDialog` (29), `BindingSource` (26), `MonthCalendar` (21), `Application` (21),
+`WebBrowser` (20) and `MenuItem` (16).
 
 ## Suggested order
 
