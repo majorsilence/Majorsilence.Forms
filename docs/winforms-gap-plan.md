@@ -28,7 +28,11 @@ Loaded through `MetadataLoadContext`, so nothing executes and it runs on Linux d
 hosting), the Win32 message plumbing (`Message`, `IMessageFilter`, `IWin32Window`, `NativeWindow`,
 `IWindowTarget` — there is no HWND or message pump here; backends deliver input through their own
 neutral seam), and Windows-only OS integration (`SystemInformation`, `InputLanguage`, `OSFeature`,
-`ImeContext`, `WindowsFormsSection`, `PowerStatus`).
+`ImeContext`, `WindowsFormsSection`, `PowerStatus`, `RegistryKey`).
+
+An exclusion suppresses a *type*; a member is only suppressed when the excluded type is genuinely
+absent from this assembly. That distinction matters: `IWin32Window` and `Message` are on the list yet
+are declared here anyway, so members that name them are still reported and still get implemented.
 
 **Overload checking is on** (`Surface.WinForms.IncludeOverloads`). It was off while the surface still
 had ~1,500 wholly-missing members, because an overload report on a half-implemented type is noise; it
@@ -118,7 +122,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 978** (and `SIG` 146 → 0 since overload checking was turned on).
+Baseline: **1,905 → 911** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -129,6 +133,7 @@ Baseline: **1,905 → 978** (and `SIG` 146 → 0 since overload checking was tur
 | 9 — the `DataGridView` family | **Done.** 125 gaps across the control, the cell and the row collection. |
 | 10 — overload parity | **Done.** `IncludeOverloads` turned on; all 146 `SIG` findings closed. |
 | 11 — `Control` and `Form` | **Done.** Both types are now at zero gaps. |
+| 12 — `Application`, `MenuItem`, `BindingSource` | **Done.** All three at zero. |
 
 Two things worth carrying forward:
 
@@ -213,12 +218,26 @@ type, on the reasoning that `MessageBox.Show (IWin32Window, …)` cannot be decl
 findings had been hidden. The rule now skips a member only when the excluded type is genuinely absent
 here, and those findings are closed properly.
 
+### What item 12 found
+
+Two members that existed and could not work:
+
+- **`CurrencyManager.List` was always null.** The constructor took the list and passed it to the
+  base, but `List` was a separate `init` property nothing assigned — so
+  `new CurrencyManager (list).List` returned null for every caller.
+- **`Application.SetColorMode` discarded its argument**, which left `ColorMode` with nothing to
+  report and made `IsDarkModeEnabled` unanswerable.
+
+`BindingSource`'s `Supports*` properties are answered from the bound list rather than by a constant,
+because that is where the truth is: a `List<T>` cannot sort or notify, a `BindingList<T>` can. When a
+list cannot sort, `ApplySort` records the request and `IsSorted` keeps reporting false, so a caller
+can tell the difference instead of being told a sort happened.
+
 ### Next
 
 The largest remaining concentrations are `DataGrid` and `DataGridTableStyle` (46/42, still low
 priority — the .NET 1.x controls superseded by `DataGridView`), `PropertyGrid` (29),
-`PrintPreviewDialog` (29), `BindingSource` (26), `MonthCalendar` (21), `Application` (21),
-`WebBrowser` (20) and `MenuItem` (16).
+`PrintPreviewDialog` (29), `MonthCalendar` (21) and `WebBrowser` (20).
 
 ## Suggested order
 

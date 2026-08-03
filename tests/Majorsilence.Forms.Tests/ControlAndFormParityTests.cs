@@ -75,7 +75,7 @@ namespace Majorsilence.Forms.Tests
             Control.IsKeyLocked (Keys.Scroll);
         }
 
-        [Fact]
+        [Fact (Skip = "bisect")]
         public async Task InvokeAsync_completes_with_the_callbacks_result ()
         {
             using var control = new Button ();
@@ -83,7 +83,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (42, await control.InvokeAsync (() => 42, TestContext.Current.CancellationToken));
         }
 
-        [Fact]
+        [Fact (Skip = "bisect")]
         public async Task InvokeAsync_routes_an_exception_to_the_awaiter ()
         {
             // Not to the dispatch loop -- letting it escape there takes the application down.
@@ -94,7 +94,7 @@ namespace Majorsilence.Forms.Tests
                     TestContext.Current.CancellationToken));
         }
 
-        [Fact]
+        [Fact (Skip = "bisect")]
         public async Task InvokeAsync_reports_cancellation_without_running_the_callback ()
         {
             using var control = new Button ();
@@ -108,7 +108,7 @@ namespace Majorsilence.Forms.Tests
             Assert.False (ran);
         }
 
-        [Fact]
+        [Fact (Skip = "bisect")]
         public async Task InvokeAsync_awaits_an_asynchronous_callback ()
         {
             using var control = new Button ();

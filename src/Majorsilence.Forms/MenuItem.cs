@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a MenuItem menu item.
     /// </summary>
-    public class MenuItem : ILayoutable
+    public partial class MenuItem : ILayoutable
     {
         private MenuItemCollection? items;
         private MenuDropDown? dropdown;

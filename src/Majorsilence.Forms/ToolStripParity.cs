@@ -235,7 +235,10 @@ namespace Majorsilence.Forms
         public void Invalidate (Rectangle r) => Owner?.Invalidate ();
 
         /// <summary>Selects this item.</summary>
-        public void Select ()
+        /// <remarks>Hides <c>MenuItem.Select</c>, which is an event upstream. ToolStripItem derives
+        /// from MenuItem in this library but not in WinForms, so the two names meet here; selecting an
+        /// item is the meaning callers of <c>ToolStripItem.Select ()</c> expect.</remarks>
+        public new void Select ()
         {
             if (!CanSelect)
                 return;

@@ -67,13 +67,13 @@ namespace Majorsilence.Forms
     public partial class ToolStripTextBox
     {
         /// <summary>Selects a range of text in the hosted text box.</summary>
-        public void Select (int start, int length) => TextBox.Select (start, length);
+        public new void Select (int start, int length) => TextBox.Select (start, length);
     }
 
     public partial class ToolStripComboBox
     {
         /// <summary>Selects a range of text in the hosted combo box's editable portion.</summary>
-        public void Select (int start, int length) => ComboBox.Select (start, length);
+        public new void Select (int start, int length) => ComboBox.Select (start, length);
     }
 
     public partial class ToolStripItem

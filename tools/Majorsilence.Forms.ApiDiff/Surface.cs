@@ -79,6 +79,11 @@ internal sealed record Surface(
             // Windows-only shell/OS integration.
             "SystemInformation", "InputLanguage", "InputLanguageCollection", "OSFeature", "FeatureSupport",
             "ImeContext", "ImeModeConversion", "WindowsFormsSection", "PowerStatus", "SystemParameter",
+            // The Windows registry. Application.UserAppDataRegistry and CommonAppDataRegistry are
+            // typed as RegistryKey, which lives in the Windows-only Microsoft.Win32.Registry package;
+            // taking that dependency to return a handle that throws everywhere but Windows would make
+            // the library less portable in exchange for nothing.
+            "RegistryKey",
         },
         IncludeOverloads: true);
 

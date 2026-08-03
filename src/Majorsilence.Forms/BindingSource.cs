@@ -10,7 +10,7 @@ namespace Majorsilence.Forms
     /// bound controls can read the schema (column set) of the resolved list -- including the case where
     /// the source is a DataSet and DataMember names one of its tables.
     /// </summary>
-    public class BindingSource : Component, IList, ITypedList
+    public partial class BindingSource : Component, IList, ITypedList
     {
         private IList _list = new List<object?> ();
         private object? _dataSource;

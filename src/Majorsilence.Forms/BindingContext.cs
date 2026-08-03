@@ -68,9 +68,11 @@ namespace Majorsilence.Forms
     /// <summary>The list-backed binding manager (WinForms compatibility name).</summary>
     public class CurrencyManager : BindingManagerBase
     {
-        internal CurrencyManager (IList? list) : base (list) { }
+        internal CurrencyManager (IList? list) : base (list) => List = list;
 
         /// <summary>Gets the bound list.</summary>
+        /// <remarks>The constructor takes the list but used to leave this property unset, so
+        /// <c>new CurrencyManager (list).List</c> was always null.</remarks>
         public IList? List { get; internal init; }
     }
 

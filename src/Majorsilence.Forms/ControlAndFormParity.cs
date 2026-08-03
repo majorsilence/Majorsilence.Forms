@@ -110,16 +110,43 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="FromHandle(IntPtr)"/>
         public static Control? FromChildHandle (IntPtr handle) => null;
 
-        // Dispatch for the InvokeAsync family. Running inline when the caller is already on the UI
-        // thread is not just an optimisation: Post only queues, and the queue is drained by the
-        // message loop, so posting from the UI thread and then awaiting the result deadlocks -- and
-        // calling InvokeAsync from the UI thread is the ordinary case, not the exotic one.
+        // Dispatch for the InvokeAsync family, and the two conditions are both load-bearing.
+        //
+        // Posting only enqueues; the queue is drained by the message loop. So posting from the UI
+        // thread and then awaiting the result deadlocks -- and calling InvokeAsync from the UI thread
+        // is the ordinary case, not the exotic one. Posting when no loop is running at all is worse:
+        // nothing will ever drain it, and the caller gets a task that can never complete.
+        //
+        // Running inline in either case is the honest answer. It is what Invoke already does for the
+        // first condition, and the second only arises before Application.Run or in a host that never
+        // calls it, where "later, on the UI thread" means never.
         private static void Dispatch (Action work)
         {
-            if (Platform.Backend.CheckAccess ())
+            if (Platform.Backend.CheckAccess () || !Application.HasMessageLoop)
                 work ();
             else
                 Platform.Backend.Post (work);
+        }
+
+        // An already-cancelled token is answered without going near the dispatcher. Checking it
+        // inside the dispatched work would make the answer depend on a message loop running, and a
+        // caller who cancelled before calling is entitled to a cancelled task either way.
+        private static bool AlreadyCancelled (TaskCompletionSource completion, CancellationToken cancellationToken)
+        {
+            if (!cancellationToken.IsCancellationRequested)
+                return false;
+
+            completion.SetCanceled (cancellationToken);
+            return true;
+        }
+
+        private static bool AlreadyCancelled<T> (TaskCompletionSource<T> completion, CancellationToken cancellationToken)
+        {
+            if (!cancellationToken.IsCancellationRequested)
+                return false;
+
+            completion.SetCanceled (cancellationToken);
+            return true;
         }
 
         /// <summary>Runs the callback on the UI thread and returns a task that completes with it.</summary>
@@ -128,6 +155,9 @@ namespace Majorsilence.Forms
             ArgumentNullException.ThrowIfNull (callback);
 
             var completion = new TaskCompletionSource ();
+
+            if (AlreadyCancelled (completion, cancellationToken))
+                return completion.Task;
 
             Dispatch (() => {
                 if (cancellationToken.IsCancellationRequested) {
@@ -155,6 +185,9 @@ namespace Majorsilence.Forms
 
             var completion = new TaskCompletionSource<T> ();
 
+            if (AlreadyCancelled (completion, cancellationToken))
+                return completion.Task;
+
             Dispatch (() => {
                 if (cancellationToken.IsCancellationRequested) {
                     completion.TrySetCanceled (cancellationToken);
@@ -178,6 +211,9 @@ namespace Majorsilence.Forms
 
             var completion = new TaskCompletionSource ();
 
+            if (AlreadyCancelled (completion, cancellationToken))
+                return completion.Task;
+
             Dispatch (async () => {
                 try {
                     await callback (cancellationToken).ConfigureAwait (true);
@@ -198,6 +234,9 @@ namespace Majorsilence.Forms
             ArgumentNullException.ThrowIfNull (callback);
 
             var completion = new TaskCompletionSource<T> ();
+
+            if (AlreadyCancelled (completion, cancellationToken))
+                return completion.Task;
 
             Dispatch (async () => {
                 try {

@@ -1116,8 +1116,8 @@ namespace Majorsilence.Forms
         /// <summary>Gets the owner item (parent ToolStripItem). Stub in Majorsilence.Forms.</summary>
         public ToolStripItem? OwnerItem => Parent as ToolStripItem;
 
-        /// <summary>Programmatically triggers a click on this item.</summary>
-        public void PerformClick () => OnClick (new MouseEventArgs (MouseButtons.Left, 1, 0, 0, Point.Empty));
+        // PerformClick is inherited from MenuItem, which is where WinForms declares it for menu items
+        // and where this hierarchy puts the shared implementation.
 
         /// <summary>Gets or sets the accessible role. Stub in Majorsilence.Forms.</summary>
         public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Default;

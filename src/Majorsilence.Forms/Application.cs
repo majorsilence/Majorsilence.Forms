@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Provides static methods and properties to manage an application, such as methods to start and stop an application.
     /// </summary>
-    public static class Application
+    public static partial class Application
     {
         private static CancellationTokenSource? _mainLoopCancellationTokenSource;
         private static bool is_exiting;
@@ -136,9 +136,11 @@ namespace Majorsilence.Forms
         public static void ExitThread () => Exit ();
 
         /// <summary>
-        /// Sets the application-wide color mode (light/dark/system). Stub in Majorsilence.Forms.
+        /// Sets the application-wide color mode (light/dark/system).
         /// </summary>
-        public static void SetColorMode (SystemColorMode colorMode) { }
+        /// <remarks>This used to discard its argument, which left <see cref="ColorMode"/> with nothing
+        /// to report. The value is now stored and is what ColorMode and IsDarkModeEnabled read.</remarks>
+        public static void SetColorMode (SystemColorMode colorMode) => ColorMode = colorMode;
 
         /// <summary>
         /// Raised when the application is exiting.
@@ -396,14 +398,14 @@ namespace Majorsilence.Forms
             set => System.Threading.Thread.CurrentThread.CurrentUICulture = value;
         }
 
-        /// <summary>Raised when a thread exception occurs that is not otherwise handled. Stub in Majorsilence.Forms.</summary>
-        public static event System.Threading.ThreadExceptionEventHandler? ThreadException { add { } remove { } }
+        /// <summary>Raised when a thread exception occurs that is not otherwise handled.</summary>
+        public static event System.Threading.ThreadExceptionEventHandler? ThreadException;
 
         /// <summary>Raised when the application is about to exit.</summary>
         public static event EventHandler? ApplicationExit { add { } remove { } }
 
         /// <summary>Raised when the application becomes idle.</summary>
-        public static event EventHandler? Idle { add { } remove { } }
+        public static event EventHandler? Idle;
 
         /// <summary>Sets the default exception handler for unhandled exceptions. Stub in Majorsilence.Forms.</summary>
         public static void SetUnhandledExceptionMode (UnhandledExceptionMode mode) { }
