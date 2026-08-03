@@ -38,7 +38,7 @@ namespace Majorsilence.Forms
     /// Represents a dialog for previewing documents before printing.
     /// Stub implementation — opens the generated PDF file externally.
     /// </summary>
-    public class PrintPreviewDialog : Form
+    public partial class PrintPreviewDialog : Form
     {
         /// <summary>Gets or sets the PrintDocument to preview.</summary>
         public PrintDocument? Document { get; set; }

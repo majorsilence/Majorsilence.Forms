@@ -122,7 +122,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 911** (and `SIG` 146 → 0 since overload checking was turned on).
+Baseline: **1,905 → 771** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -134,6 +134,7 @@ Baseline: **1,905 → 911** (and `SIG` 146 → 0 since overload checking was tur
 | 10 — overload parity | **Done.** `IncludeOverloads` turned on; all 146 `SIG` findings closed. |
 | 11 — `Control` and `Form` | **Done.** Both types are now at zero gaps. |
 | 12 — `Application`, `MenuItem`, `BindingSource` | **Done.** All three at zero. |
+| 13 — the mid-size controls | **Done.** `MonthCalendar`, `PropertyGrid`, `WebBrowser`, `PrintPreviewDialog`, `TreeView`, `RichTextBox`, `MaskedTextBox` and `AccessibleObject`, all at zero. |
 
 Two things worth carrying forward:
 
@@ -233,11 +234,27 @@ because that is where the truth is: a `List<T>` cannot sort or notify, a `Bindin
 list cannot sort, `ApplySort` records the request and `IsSorted` keeps reporting false, so a caller
 can tell the difference instead of being told a sort happened.
 
+### What item 13 found
+
+`MonthCalendar.GetDisplayRange` was written against the wrong enum. WinForms' `Day` starts at
+`Monday = 0` while `DayOfWeek` starts at `Sunday = 0`, and comparing the two directly put the padded
+range's week boundaries one day out. A test asserting the padded range starts on a week boundary
+caught it; a test that only checked the range was "wider" would not have.
+
+The pass also drew a line worth recording. `MonthCalendar`'s bolded dates, `TreeView`'s hit testing
+and `AccessibleObject`'s navigation surface are implemented for real. `WebBrowser`'s missing members
+are the hosting surface of an embedded IE control — scripting objects, encryption level, the four
+`Show*Dialog` methods — and the backends host a modern web view through a seam that offers none of
+it. Those are stored or refused, and each one says so in its own remarks rather than looking capable:
+`EncryptionLevel` reports `Unknown` because anything else would be a security claim this layer cannot
+back, and `Document` is null because the DOM types are documented non-goals.
+
 ### Next
 
-The largest remaining concentrations are `DataGrid` and `DataGridTableStyle` (46/42, still low
-priority — the .NET 1.x controls superseded by `DataGridView`), `PropertyGrid` (29),
-`PrintPreviewDialog` (29), `MonthCalendar` (21) and `WebBrowser` (20).
+`DataGrid`, `DataGridTableStyle` and `DataGridColumnStyle` (44/42/14) are the largest remaining block
+and stay low priority — the .NET 1.x controls superseded by `DataGridView`. After those:
+`TrackBarRenderer` (15), `ControlPaint` (15), `ScrollBarRenderer` (13), `DataFormats` (13),
+`ToolStripSplitButton` (12) and `ToolStripProgressBar` (12).
 
 ## Suggested order
 

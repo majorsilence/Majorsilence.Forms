@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// Represents a MonthCalendar control for selecting a date or range of dates.
     /// Stub in Majorsilence.Forms — renders as a simple label showing the selected date.
     /// </summary>
-    public class MonthCalendar : Control
+    public partial class MonthCalendar : Control
     {
         /// <summary>The minimum date a MonthCalendar can display (1753-01-01).</summary>
         public static readonly DateTime MinimumDateTime = new DateTime (1753, 1, 1);

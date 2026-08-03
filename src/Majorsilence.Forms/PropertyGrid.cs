@@ -12,7 +12,7 @@ namespace Majorsilence.Forms
     /// Represents a PropertyGrid control for browsing object properties at runtime.
     /// Displays public browsable properties sorted by category. Editing is not implemented.
     /// </summary>
-    public class PropertyGrid : ScrollableControl
+    public partial class PropertyGrid : ScrollableControl
     {
         private object? _selected_object;
         private List<PropertyEntry> _entries = [];

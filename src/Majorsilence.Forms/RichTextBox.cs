@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// WinForms compatibility: a multi-line text box that accepts RTF and plain text.
     /// Majorsilence.Forms does not render RTF; the RTF markup is stripped and plain text is shown.
     /// </summary>
-    public class RichTextBox : TextBox
+    public partial class RichTextBox : TextBox
     {
         private string _rtf = string.Empty;
 

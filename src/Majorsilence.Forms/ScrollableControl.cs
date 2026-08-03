@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ScrollableControl control.
     /// </summary>
-    public class ScrollableControl : Control
+    public partial class ScrollableControl : Control
     {
         private readonly HorizontalScrollBar hscrollbar;
         private readonly VerticalScrollBar vscrollbar;

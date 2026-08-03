@@ -11,7 +11,7 @@ namespace Majorsilence.Forms
     /// Provides information that accessibility clients use to adjust the user interface.
     /// Stub in Majorsilence.Forms.
     /// </summary>
-    public class AccessibleObject
+    public partial class AccessibleObject
     {
         /// <summary>Gets or sets the accessible object name.</summary>
         public virtual string? Name { get; set; }

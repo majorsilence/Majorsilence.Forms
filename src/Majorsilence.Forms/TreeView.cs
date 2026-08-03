@@ -8,7 +8,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a TreeView control.
     /// </summary>
-    public class TreeView : Control
+    public partial class TreeView : Control
     {
         private TreeViewDrawMode draw_mode;
         private readonly TreeViewItem root_item;

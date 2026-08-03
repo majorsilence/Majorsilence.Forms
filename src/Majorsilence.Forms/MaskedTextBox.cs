@@ -4,7 +4,7 @@ namespace Majorsilence.Forms
     /// WinForms compatibility: a TextBox that restricts user input based on a mask string.
     /// In Majorsilence.Forms, the mask is not enforced; this behaves as a plain TextBox.
     /// </summary>
-    public class MaskedTextBox : TextBox
+    public partial class MaskedTextBox : TextBox
     {
         private string _mask = string.Empty;
 
