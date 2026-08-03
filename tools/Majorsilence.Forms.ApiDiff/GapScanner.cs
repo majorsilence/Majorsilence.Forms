@@ -1,65 +1,36 @@
 using System.Reflection;
 
-namespace Majorsilence.Forms.GdiDiff;
+namespace Majorsilence.Forms.ApiDiff;
 
 /// <summary>
-/// The actual comparison: walks every exported type in upstream <c>System.Drawing.Common</c>, maps its
-/// namespace onto this repo's equivalent, and reports what has no counterpart.
+/// The comparison: walks every exported type in an upstream assembly, maps its namespace onto this
+/// repo's equivalent, and reports what has no counterpart.
+///
+/// Everything is loaded through <see cref="MetadataLoadContext"/>, so no target assembly is executed
+/// and it does not matter that the upstream assemblies only <em>run</em> on Windows.
 /// </summary>
 internal static class GapScanner
 {
-    /// <summary>
-    /// Namespace mapping, mirroring MIGRATION.md's table. <c>System.Drawing</c> has two targets because
-    /// a handful of its types (<c>Graphics</c>, <c>SystemBrushes</c>/<c>SystemPens</c>/<c>SystemFonts</c>,
-    /// the buffered-graphics trio) live in <c>Majorsilence.Forms</c> rather than the drawing package —
-    /// they depend on the Forms layer and would otherwise create a circular project reference. See
-    /// COMPATIBILITY_MATRIX.md's "System.Drawing / GDI+" section.
-    /// </summary>
-    private static string[] TargetNamespaces(string ns) => ns switch
+    public static string[] Scan(Surface surface, string repoRoot, string configuration)
     {
-        "System.Drawing" => ["Majorsilence.Forms.Drawing", "Majorsilence.Forms"],
-        "System.Drawing.Drawing2D" => ["Majorsilence.Forms.Drawing.Drawing2D"],
-        "System.Drawing.Imaging" => ["Majorsilence.Forms.Drawing.Imaging"],
-        "System.Drawing.Text" => ["Majorsilence.Forms.Drawing.Text"],
-        "System.Drawing.Printing" => ["Majorsilence.Forms.Printing"],
-        _ => [],
-    };
-
-    /// <summary>
-    /// Value types that are deliberately NOT reimplemented: the real cross-platform BCL
-    /// <c>System.Drawing.Primitives</c> types are used as-is. Reimplementing them would make every bare
-    /// <c>Point</c>/<c>Rectangle</c>/<c>Color</c> ambiguous in files that import both namespaces.
-    /// </summary>
-    private static readonly HashSet<string> Primitives = new(StringComparer.Ordinal)
-    {
-        "Color", "Point", "PointF", "Size", "SizeF", "Rectangle", "RectangleF", "KnownColor",
-    };
-
-    public static string[] Scan(string repoRoot, string configuration)
-    {
-        var upstream = LocateUpstream();
-        var ours = new[]
-        {
-            Path.Combine(repoRoot, "src", "Majorsilence.Forms.Drawing.Common", "bin", configuration, "net10.0", "Majorsilence.Forms.Drawing.Common.dll"),
-            Path.Combine(repoRoot, "src", "Majorsilence.Forms", "bin", configuration, "net10.0", "Majorsilence.Forms.dll"),
-        };
+        var upstreamPath = LocateUpstream(surface);
+        var ours = surface.OurAssemblies(repoRoot, configuration);
         foreach (var path in ours)
             if (!File.Exists(path))
                 throw new FileNotFoundException($"expected assembly not found: {path}");
 
-        // The resolver needs the shared framework (for System.Object etc.) plus everything sitting
-        // beside our own assemblies, so their base types and referenced types resolve.
+        // The resolver needs the shared framework (System.Object and friends), the upstream assembly's
+        // own neighbours, our assemblies, and SkiaSharp — our members' parameter types reach into it,
+        // and a library build does not copy transitive package assemblies next to its output.
         var searchPaths = new List<string>(Directory.GetFiles(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "*.dll"));
-        searchPaths.Add(upstream);
+        searchPaths.AddRange(Directory.GetFiles(Path.GetDirectoryName(upstreamPath)!, "*.dll"));
         searchPaths.AddRange(ours);
-        // Our own members' parameter types reach into SkiaSharp, which a library build does not copy
-        // next to its output; without it the signature walk cannot resolve them.
         searchPaths.AddRange(PackageAssemblies("SkiaSharpPackageRoot"));
         foreach (var path in ours)
             searchPaths.AddRange(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.dll"));
 
         using var mlc = new MetadataLoadContext(new PathAssemblyResolver(searchPaths.Distinct(StringComparer.Ordinal)));
-        var upstreamAsm = mlc.LoadFromAssemblyPath(upstream);
+        var upstreamAsm = mlc.LoadFromAssemblyPath(upstreamPath);
 
         var ourTypes = new Dictionary<string, Type>(StringComparer.Ordinal);
         foreach (var path in ours)
@@ -71,10 +42,10 @@ internal static class GapScanner
         foreach (var upstreamType in upstreamAsm.GetExportedTypes())
         {
             var ns = upstreamType.Namespace ?? "";
-            if (TargetNamespaces(ns).Length == 0 || upstreamType.IsNested || Primitives.Contains(upstreamType.Name))
+            if (!surface.NamespaceMap.ContainsKey(ns) || upstreamType.IsNested || surface.ExcludedTypeNames.Contains(upstreamType.Name))
                 continue;
 
-            var ourType = Resolve(ourTypes, ns, upstreamType.Name);
+            var ourType = Resolve(surface, ourTypes, ns, upstreamType.Name);
             if (ourType is null)
             {
                 gaps.Add($"TYPE   {upstreamType.FullName}");
@@ -93,12 +64,42 @@ internal static class GapScanner
 
             if (upstreamType.IsEnum && ourType.IsEnum)
                 gaps.AddRange(EnumValueMismatches(upstreamType, ourType));
-            else
+            else if (surface.IncludeOverloads)
                 gaps.AddRange(OverloadGaps(upstreamType, ourType));
         }
 
         gaps.Sort(StringComparer.Ordinal);
         return [.. gaps];
+    }
+
+    /// <summary>
+    /// Reports enum members that exist on both sides but carry a different number.
+    ///
+    /// This is a strictly nastier failure than a missing member and is invisible to a presence-only
+    /// diff: the code compiles, runs, and silently means something else. Designer-generated code and
+    /// <c>.resx</c> resources persist these as raw integers, so a wrong number corrupts data on
+    /// round-trip rather than failing loudly. Added after this check found 14 real mismatches on its
+    /// first run, including <c>StringFormatFlags.DirectionRightToLeft</c> and <c>DirectionVertical</c>
+    /// being transposed.
+    /// </summary>
+    private static IEnumerable<string> EnumValueMismatches(Type upstreamType, Type ourType)
+    {
+        var ourValues = EnumValues(ourType);
+        foreach (var (name, upstreamValue) in EnumValues(upstreamType))
+            if (ourValues.TryGetValue(name, out var ourValue) && ourValue != upstreamValue)
+                yield return $"VALUE  {upstreamType.FullName}.{name} ours={ourValue} upstream={upstreamValue}";
+    }
+
+    private static Dictionary<string, long> EnumValues(Type enumType)
+    {
+        var values = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var field in enumType.GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            var raw = field.GetRawConstantValue();
+            if (raw is not null)
+                values[field.Name] = Convert.ToInt64(raw, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return values;
     }
 
     /// <summary>
@@ -108,9 +109,9 @@ internal static class GapScanner
     /// The name-level pass above is blind to this, and it is a real gap rather than a cosmetic one:
     /// <c>Region.Union(Region)</c> was absent for the entire life of that type while
     /// <c>Region.Union(RectangleF)</c> existed, so the presence check said "have it" and migrated code
-    /// still failed to compile. Parameters are compared by simple type name, which makes the
-    /// System.Drawing to Majorsilence.Forms.Drawing namespace difference a non-issue and costs only the
-    /// (harmless here) possibility of two unrelated same-named types matching.
+    /// still failed to compile. Parameters are compared by simple type name, which makes the namespace
+    /// difference between the two sides a non-issue and costs only the (harmless here) possibility of
+    /// two unrelated same-named types matching.
     /// </summary>
     private static IEnumerable<string> OverloadGaps(Type upstreamType, Type ourType)
     {
@@ -160,7 +161,7 @@ internal static class GapScanner
                 // An `object` parameter binds an argument of any reference type, so it satisfies the
                 // upstream shape even though the type names differ. This is not a loophole: it is how
                 // Region and GraphicsPath accept a Graphics they are not allowed to reference (that type
-                // lives in Majorsilence.Forms, which depends on this assembly, not the reverse).
+                // lives in Majorsilence.Forms, which depends on the drawing assembly, not the reverse).
                 if (string.Equals(ours.Parameters[i], "Object", StringComparison.Ordinal))
                     continue;
                 if (!string.Equals(ours.Parameters[i], wanted[i], StringComparison.Ordinal))
@@ -173,45 +174,15 @@ internal static class GapScanner
             type.IsByRef || type.IsArray ? TypeName(type.GetElementType()!) + (type.IsArray ? "[]" : "&") : type.Name;
     }
 
-    /// <summary>
-    /// Reports enum members that exist on both sides but carry a different number.
-    ///
-    /// This is a strictly nastier failure than a missing member and is invisible to a presence-only
-    /// diff: the code compiles, runs, and silently means something else. Designer-generated code and
-    /// <c>.resx</c> resources persist these as raw integers, so a wrong number corrupts data on
-    /// round-trip rather than failing loudly. Added after this check found 14 real mismatches on its
-    /// first run, including <c>StringFormatFlags.DirectionRightToLeft</c> and <c>DirectionVertical</c>
-    /// being transposed.
-    /// </summary>
-    private static IEnumerable<string> EnumValueMismatches(Type upstreamType, Type ourType)
+    private static Type? Resolve(Surface surface, Dictionary<string, Type> ourTypes, string ns, string name)
     {
-        var ourValues = EnumValues(ourType);
-        foreach (var (name, upstreamValue) in EnumValues(upstreamType))
-            if (ourValues.TryGetValue(name, out var ourValue) && ourValue != upstreamValue)
-                yield return $"VALUE  {upstreamType.FullName}.{name} ours={ourValue} upstream={upstreamValue}";
-    }
-
-    private static Dictionary<string, long> EnumValues(Type enumType)
-    {
-        var values = new Dictionary<string, long>(StringComparer.Ordinal);
-        foreach (var field in enumType.GetFields(BindingFlags.Public | BindingFlags.Static))
-        {
-            var raw = field.GetRawConstantValue();
-            if (raw is not null)
-                values[field.Name] = Convert.ToInt64(raw, System.Globalization.CultureInfo.InvariantCulture);
-        }
-        return values;
-    }
-
-    private static Type? Resolve(Dictionary<string, Type> ourTypes, string ns, string name)
-    {
-        foreach (var target in TargetNamespaces(ns))
+        foreach (var target in surface.NamespaceMap[ns])
             if (ourTypes.TryGetValue($"{target}.{name}", out var exact))
                 return exact;
 
         // Fall back to a same-simple-name match anywhere under Majorsilence.Forms: several upstream
-        // Drawing2D/Imaging types are deliberately declared in the flatter Majorsilence.Forms.Drawing
-        // namespace rather than a sub-namespace, and that is a naming choice, not a missing type.
+        // types are deliberately declared in a flatter namespace than their original, and that is a
+        // naming choice rather than a missing type.
         foreach (var candidate in ourTypes.Values)
             if (candidate.Name == name && (candidate.Namespace?.StartsWith("Majorsilence.Forms", StringComparison.Ordinal) ?? false))
                 return candidate;
@@ -242,20 +213,13 @@ internal static class GapScanner
     }
 
     /// <summary>
-    /// Returns the assemblies in the newest non-framework <c>lib</c> folder of a package whose root was
-    /// baked in at build time, or nothing when the package is unavailable.
+    /// Returns the assemblies in the newest non-framework <c>ref</c>/<c>lib</c> folder of a package
+    /// whose root was baked in at build time, or nothing when the package is unavailable.
     /// </summary>
     private static string[] PackageAssemblies(string metadataKey)
     {
         var root = PackageRoot(metadataKey);
-        if (root is null || !Directory.Exists(Path.Combine(root, "lib")))
-            return [];
-
-        var best = Directory.GetDirectories(Path.Combine(root, "lib"), "net*")
-            .Where(d => !Path.GetFileName(d).StartsWith("net4", StringComparison.Ordinal))
-            .OrderByDescending(d => d, StringComparer.Ordinal)
-            .FirstOrDefault();
-
+        var best = root is null ? null : BestFrameworkFolder(root);
         return best is null ? [] : Directory.GetFiles(best, "*.dll");
     }
 
@@ -264,23 +228,36 @@ internal static class GapScanner
             .GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(a => a.Key == key)?.Value;
 
-    /// <summary>
-    /// Locates the upstream reference assembly from the NuGet package root baked in at build time (see
-    /// this project's csproj), preferring the newest <c>lib/net*</c> flavor available in the package.
-    /// </summary>
-    private static string LocateUpstream()
+    // Targeting packs put their assemblies under ref/<tfm>; ordinary packages under lib/<tfm>.
+    private static string? BestFrameworkFolder(string packageRoot)
     {
-        var root = PackageRoot("SystemDrawingCommonPackageRoot");
+        foreach (var container in new[] { "ref", "lib" })
+        {
+            var path = Path.Combine(packageRoot, container);
+            if (!Directory.Exists(path))
+                continue;
 
-        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-            throw new FileNotFoundException("could not locate the System.Drawing.Common package (SystemDrawingCommonPackageRoot was not baked in at build time)");
+            var best = Directory.GetDirectories(path, "net*")
+                .Where(d => !Path.GetFileName(d).StartsWith("net4", StringComparison.Ordinal))
+                .OrderByDescending(d => d, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (best is not null)
+                return best;
+        }
+        return null;
+    }
 
-        var candidate = Directory.GetDirectories(Path.Combine(root, "lib"), "net*")
-            .Where(d => !Path.GetFileName(d).StartsWith("net4", StringComparison.Ordinal))
-            .OrderByDescending(d => d, StringComparer.Ordinal)
-            .Select(d => Path.Combine(d, "System.Drawing.Common.dll"))
-            .FirstOrDefault(File.Exists);
+    private static string LocateUpstream(Surface surface)
+    {
+        var root = PackageRoot(surface.PackageRootKey)
+            ?? throw new FileNotFoundException($"could not locate the package for the {surface.Name} surface ({surface.PackageRootKey} was not baked in at build time)");
 
-        return candidate ?? throw new FileNotFoundException($"no System.Drawing.Common.dll under {root}/lib");
+        var folder = BestFrameworkFolder(root)
+            ?? throw new FileNotFoundException($"no ref/ or lib/ framework folder under {root}");
+
+        var candidate = Path.Combine(folder, surface.UpstreamAssembly);
+        return File.Exists(candidate)
+            ? candidate
+            : throw new FileNotFoundException($"{surface.UpstreamAssembly} not found under {folder}");
     }
 }

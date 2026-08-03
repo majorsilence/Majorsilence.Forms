@@ -3,18 +3,19 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>Majorsilence.Forms.GdiDiff</RootNamespace>
-    <AssemblyName>gdi-diff</AssemblyName>
+    <RootNamespace>Majorsilence.Forms.ApiDiff</RootNamespace>
+    <AssemblyName>api-diff</AssemblyName>
     <!-- Developer tool, not a shipped package. -->
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Reflection-only comparison target. GeneratePathProperty exposes $(PkgSystem_Drawing_Common) so
-         the reference assembly can be located without hardcoding a NuGet cache path; it is never
-         loaded for execution (MetadataLoadContext), so its Windows-only runtime behavior is irrelevant
-         and it is deliberately not a runtime dependency of this tool. -->
+    <!-- The reflection-only comparison targets. GeneratePathProperty exposes each package root so the
+         assemblies can be located without hardcoding a NuGet cache path; ExcludeAssets="all" keeps them
+         out of this tool's own compile and runtime, since they are only ever loaded through
+         MetadataLoadContext. That is also why it does not matter that both are Windows-only at runtime. -->
     <PackageReference Include="System.Drawing.Common" GeneratePathProperty="true" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.WindowsDesktop.App.Ref" GeneratePathProperty="true" ExcludeAssets="all" />
     <PackageReference Include="System.Reflection.MetadataLoadContext" />
     <!-- Not used by this tool directly. The signature comparison has to resolve the parameter types of
          our own members, and a library build does not copy transitive package assemblies next to its
@@ -22,12 +23,16 @@
     <PackageReference Include="SkiaSharp" GeneratePathProperty="true" ExcludeAssets="all" />
   </ItemGroup>
 
-  <!-- Bake the resolved package path in at build time so the tool needs no arguments to find the
-       assembly it diffs against. -->
+  <!-- Bake the resolved package paths in at build time so the tool needs no arguments to find the
+       assemblies it diffs against. Surface.cs names these keys. -->
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>SystemDrawingCommonPackageRoot</_Parameter1>
       <_Parameter2>$(PkgSystem_Drawing_Common)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>WindowsDesktopRefPackageRoot</_Parameter1>
+      <_Parameter2>$(PkgMicrosoft_WindowsDesktop_App_Ref)</_Parameter2>
     </AssemblyAttribute>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>SkiaSharpPackageRoot</_Parameter1>

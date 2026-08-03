@@ -174,7 +174,7 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 
 | Phase | Status |
 |---|---|
-| 0 — repeatable audit | **Done.** `tools/Majorsilence.Forms.GdiDiff` + committed `baseline.txt` + a CI gate in `dotnet.yml`. |
+| 0 — repeatable audit | **Done.** `tools/Majorsilence.Forms.ApiDiff` + committed `baseline.drawing.txt` + a CI gate in `dotnet.yml`. |
 | 1 — Class C hollows | **Done.** 36 tests; `COMPATIBILITY_MATRIX.md` corrected. |
 | 2 — data-only enums | **Done.** 176 gaps closed, plus a new class of bug found and fixed (below). |
 | 3 — transform & clone families | **Done.** All 39 members; 23 tests. |
@@ -287,7 +287,7 @@ right-to-left text was being laid out vertically. The rest came from enums decla
 values (`0, 1, 2, …`) that happened not to match GDI+ — which also collided once the full upstream
 `PaperKind` set was added (`A4` and `Tabloid` both landed on 3).
 
-All 14 are fixed, and the check is now part of `tools/Majorsilence.Forms.GdiDiff` as a `VALUE` gap line,
+All 14 are fixed, and the check is now part of `tools/Majorsilence.Forms.ApiDiff` as a `VALUE` gap line,
 so CI fails if one ever reappears. `EnumValueFidelityTests` and `PrintingEnumValueTests` additionally
 name the specific values that were wrong, so a regression identifies itself.
 
@@ -319,7 +319,7 @@ Ordered by *fidelity-per-effort for a migrated app*, not by upstream layout.
 
 ### Phase 0 — make the audit repeatable
 
-Move the diff tool to `tools/Majorsilence.Forms.GdiDiff/`, and add a test or CI step asserting the gap
+Move the diff tool to `tools/Majorsilence.Forms.ApiDiff/`, and add a test or CI step asserting the gap
 set does not grow. Without this the numbers here rot within a release, exactly as the 2026-07-29
 type-level audit did.
 

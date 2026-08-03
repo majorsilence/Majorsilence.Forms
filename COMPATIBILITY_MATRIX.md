@@ -61,6 +61,16 @@ WinForms API (WinForms never had built-in spellcheck) — it exists to back
 
 ## Public API surface audit (2026-07-29)
 
+> **Superseded for gap-finding (2026-08-02).** This section was written by hand and compares names
+> against upstream's `PublicAPI.Shipped.txt`. That audit is now automated:
+> [`tools/Majorsilence.Forms.ApiDiff`](tools/Majorsilence.Forms.ApiDiff) diffs `Majorsilence.Forms`
+> against the real `System.Windows.Forms` reference assembly by reflection, keeps a committed
+> `baseline.winforms.txt`, and fails CI if the gap set grows. Its first run found **1,905 entries**,
+> including **126 enum members that exist with the wrong numeric value** — a class of defect no
+> name-level audit can see, since the code compiles and runs and silently means something else. The
+> findings and a suggested order are in [`docs/winforms-gap-plan.md`](docs/winforms-gap-plan.md).
+> Treat the tool's baseline as the authoritative gap list and the narrative below as commentary.
+
 The section above describes what works. This section is a generated-and-reviewed audit of what's
 *there to call in the first place* — comparing `Majorsilence.Forms`'s actual public/protected
 member surface against upstream `dotnet/winforms`'s own `PublicAPI.Shipped.txt` (the file the
@@ -225,7 +235,7 @@ assembly — it's tracked via `ApiCompatExcludeAttributes.txt`/`CompatibilitySup
 instead — so this pass is type-level source-listing comparison, not member-level reflection).
 
 > **Superseded for gap-finding (2026-08-01).** That member-level pass now exists and is automated:
-> [`tools/Majorsilence.Forms.GdiDiff`](tools/Majorsilence.Forms.GdiDiff) diffs this surface against the
+> [`tools/Majorsilence.Forms.ApiDiff`](tools/Majorsilence.Forms.ApiDiff) diffs this surface against the
 > real `System.Drawing.Common` by reflection, keeps a committed `baseline.txt`, and fails CI if the gap
 > set grows. It found gaps this type-level table could not see — members missing from types listed here
 > as implemented, and members that existed but were hollow. The remediation plan is
