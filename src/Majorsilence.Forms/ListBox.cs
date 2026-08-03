@@ -10,7 +10,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ListBox control.
     /// </summary>
-    public class ListBox : ListControl
+    public partial class ListBox : ListControl
     {
         private int item_height = -1;
         private SelectionMode selection_mode = SelectionMode.One;

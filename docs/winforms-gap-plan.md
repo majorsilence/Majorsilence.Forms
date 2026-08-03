@@ -122,7 +122,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 771** (and `SIG` 146 → 0 since overload checking was turned on).
+Baseline: **1,905 → 633** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -135,6 +135,7 @@ Baseline: **1,905 → 771** (and `SIG` 146 → 0 since overload checking was tur
 | 11 — `Control` and `Form` | **Done.** Both types are now at zero gaps. |
 | 12 — `Application`, `MenuItem`, `BindingSource` | **Done.** All three at zero. |
 | 13 — the mid-size controls | **Done.** `MonthCalendar`, `PropertyGrid`, `WebBrowser`, `PrintPreviewDialog`, `TreeView`, `RichTextBox`, `MaskedTextBox` and `AccessibleObject`, all at zero. |
+| 14 — `ControlPaint`, `DataFormats`, `DataObject`, `ListBox`, the composite ToolStrip items | **Done.** All at zero, and the visual-style renderers recognised as a false match. |
 
 Two things worth carrying forward:
 
@@ -249,12 +250,31 @@ it. Those are stored or refused, and each one says so in its own remarks rather 
 `EncryptionLevel` reports `Unknown` because anything else would be a security claim this layer cannot
 back, and `Document` is null because the DOM types are documented non-goals.
 
+### What item 14 found
+
+**56 of the reported gaps were never real.** WinForms' `ButtonRenderer`, `TrackBarRenderer`,
+`ScrollBarRenderer` and six siblings are static helpers that ask the Windows theme engine to paint a
+part — their `IsSupported` is false wherever visual styles are off, which is everywhere this layer
+runs. This repo also has `Majorsilence.Forms.Renderers.*Renderer` classes that are its painting
+architecture and share nothing with them but a name, and the scanner's same-simple-name fallback was
+matching the two. They are excluded now, with the reason recorded in the exclusion list.
+
+**`ToolStripProgressBar` was the third facade found disconnected from what it hosts**, after
+`ToolStripTextBox` (item 7) and `ToolStripItem.Owner` (item 4). Its `Value`, `Minimum`, `Maximum` and
+`Style` were stored on the item while `PerformStep` acted on the hosted `ProgressBar`, so setting
+`Value` and stepping started from zero. All four now read and write the hosted bar. A test that
+exercised the two together caught it; four tests that each checked one property would not have.
+
+`DataFormats.GetFormat (int)` also had to be extended when the thirteen standard formats were added —
+it searched a hardcoded array that predated them, so the new formats came back as `Format8` rather
+than themselves.
+
 ### Next
 
 `DataGrid`, `DataGridTableStyle` and `DataGridColumnStyle` (44/42/14) are the largest remaining block
-and stay low priority — the .NET 1.x controls superseded by `DataGridView`. After those:
-`TrackBarRenderer` (15), `ControlPaint` (15), `ScrollBarRenderer` (13), `DataFormats` (13),
-`ToolStripSplitButton` (12) and `ToolStripProgressBar` (12).
+and stay low priority — the .NET 1.x controls superseded by `DataGridView`. After those the list is
+flat: `DataGridViewRow` (11), `ButtonBase` (11), `TreeNode` (10), `ToolStripPanel` (10) and
+`ToolBar` (10).
 
 ## Suggested order
 

@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Contains methods for drawing elements of controls.
     /// </summary>
-    public static class ControlPaint
+    public static partial class ControlPaint
     {
         /// <summary>
         /// Draws an arrow glyph, as seen on ComboBoxes and TreeView dropdowns.

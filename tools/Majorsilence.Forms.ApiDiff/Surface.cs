@@ -84,6 +84,15 @@ internal sealed record Surface(
             // taking that dependency to return a handle that throws everywhere but Windows would make
             // the library less portable in exchange for nothing.
             "RegistryKey",
+            // The visual-style renderers. Every one of these is a static helper that asks the Windows
+            // theme engine to paint a part -- their IsSupported is false wherever visual styles are
+            // off, which is everywhere this layer runs. They are also a false match: this repo has its
+            // own Majorsilence.Forms.Renderers.*Renderer classes, which are the painting architecture
+            // and share nothing but the name, so the scanner was reporting 56 members against types
+            // that have no relationship to the upstream ones.
+            "ButtonRenderer", "CheckBoxRenderer", "ComboBoxRenderer", "GroupBoxRenderer",
+            "ProgressBarRenderer", "RadioButtonRenderer", "ScrollBarRenderer", "TabRenderer",
+            "TextBoxRenderer", "TrackBarRenderer",
         },
         IncludeOverloads: true);
 

@@ -333,7 +333,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>WinForms compatibility: provides static members for clipboard data formats. Stub in Majorsilence.Forms.</summary>
-    public static class DataFormats
+    public static partial class DataFormats
     {
         /// <summary>Represents a clipboard data format.</summary>
         /// <remarks>WinForms nests this type inside DataFormats and names it <c>Format</c>; this
@@ -377,7 +377,11 @@ namespace Majorsilence.Forms
         /// through the id gives back the same object rather than a new nameless one.</remarks>
         public static DataFormat GetFormat (int id)
         {
-            DataFormat[] standard = [Text, UnicodeText, Rtf, Bitmap, FileDrop, Html, OemText, CommaSeparatedValue];
+            DataFormat[] standard = [
+                Text, UnicodeText, Rtf, Bitmap, FileDrop, Html, OemText, CommaSeparatedValue,
+                Dib, Dif, EnhancedMetafile, Locale, MetafilePict, Palette, PenData, Riff,
+                Serializable, StringFormat, SymbolicLink, Tiff, WaveAudio,
+            ];
             return Array.Find (standard, f => f.Id == id) ?? new DataFormat ($"Format{id}", id);
         }
     }

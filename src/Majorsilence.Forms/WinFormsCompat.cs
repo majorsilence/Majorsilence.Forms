@@ -1390,7 +1390,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a button with both a clickable portion and a drop-down arrow. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripSplitButton : ToolStripDropDownButton
+    public partial class ToolStripSplitButton : ToolStripDropDownButton
     {
         /// <summary>Initializes a new instance of the ToolStripSplitButton class.</summary>
         public ToolStripSplitButton () { }
@@ -1411,7 +1411,7 @@ namespace Majorsilence.Forms
         public event EventHandler? ButtonClick;
 
         /// <summary>Raised when the button portion of the item is double-clicked. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? ButtonDoubleClick { add { } remove { } }
+        public event EventHandler? ButtonDoubleClick;
 
         /// <inheritdoc/>
         protected internal override void OnClick (MouseEventArgs e)
@@ -1892,19 +1892,35 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a progress bar embedded in a StatusStrip.
     /// </summary>
-    public class ToolStripProgressBar : ToolStripItem
+    public partial class ToolStripProgressBar : ToolStripItem
     {
+        // These four used to be stored on the item, disconnected from the ProgressBar the item hosts
+        // -- the same shape of bug ToolStripTextBox had. Setting Value and then calling PerformStep,
+        // which acts on the hosted bar, stepped from zero.
+
         /// <summary>Gets or sets the current value.</summary>
-        public int Value { get; set; }
+        public int Value {
+            get => ProgressBar.Value;
+            set => ProgressBar.Value = value;
+        }
 
         /// <summary>Gets or sets the maximum value.</summary>
-        public int Maximum { get; set; } = 100;
+        public int Maximum {
+            get => ProgressBar.Maximum;
+            set => ProgressBar.Maximum = value;
+        }
 
         /// <summary>Gets or sets the minimum value.</summary>
-        public int Minimum { get; set; }
+        public int Minimum {
+            get => ProgressBar.Minimum;
+            set => ProgressBar.Minimum = value;
+        }
 
         /// <summary>Gets or sets the display style (Blocks, Continuous, or Marquee).</summary>
-        public ProgressBarStyle Style { get; set; } = ProgressBarStyle.Blocks;
+        public ProgressBarStyle Style {
+            get => ProgressBar.Style;
+            set => ProgressBar.Style = value;
+        }
     }
 
     /// <summary>

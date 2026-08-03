@@ -171,7 +171,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Implements <see cref="IDataObject"/> for transferring data. Stub in Majorsilence.Forms.</summary>
-    public class DataObject : IDataObject
+    public partial class DataObject : IDataObject
     {
         private readonly System.Collections.Generic.Dictionary<string, object?> _data = new ();
 

@@ -225,6 +225,28 @@ namespace Majorsilence.Forms
     [System.Flags]
     public enum TextFormatFlags
     {
+        /// <summary>Applies the default formatting.</summary>
+        Default = 0,
+        /// <summary>Expands tab characters.</summary>
+        ExpandTabs = 64,
+        /// <summary>Includes the font's external leading in the line height.</summary>
+        ExternalLeading = 512,
+        /// <summary>Adds padding for glyphs that overhang their cell.</summary>
+        GlyphOverhangPadding = 0,
+        /// <summary>Reserved.</summary>
+        Internal = 4096,
+        /// <summary>Modifies the supplied string to match the text drawn.</summary>
+        ModifyString = 65536,
+        /// <summary>Does not break on a double-width character.</summary>
+        NoFullWidthCharacterBreak = 524288,
+        /// <summary>Trims the middle of the path, keeping the file name.</summary>
+        PathEllipsis = 16384,
+        /// <summary>Draws only the mnemonic underline, not the text.</summary>
+        PrefixOnly = 2097152,
+        /// <summary>Lays the text out right to left.</summary>
+        RightToLeft = 131072,
+        /// <summary>Uses the text box control's line-height rules.</summary>
+        TextBoxControl = 8192,
         /// <summary>Text is left-aligned.</summary>
         Left = 0,
         /// <summary>Text is centered horizontally.</summary>
