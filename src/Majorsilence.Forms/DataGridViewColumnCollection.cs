@@ -55,6 +55,24 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Returns the first column matching the given element states (visibility etc.). Mirrors Telerik's Columns.GetFirstColumn.</summary>
+        /// <summary>Returns the first column matching the include states and matching none of the exclude states.</summary>
+        public DataGridViewColumn? GetFirstColumn (DataGridViewElementStates includeFilter, DataGridViewElementStates excludeFilter)
+        {
+            foreach (var col in this) {
+                if (includeFilter == DataGridViewElementStates.Visible && !col.Visible)
+                    continue;
+                if (excludeFilter == DataGridViewElementStates.Visible && col.Visible)
+                    continue;
+                if (excludeFilter == DataGridViewElementStates.Frozen && col.Frozen)
+                    continue;
+
+                return col;
+            }
+
+            return null;
+        }
+
+        /// <summary>Returns the first column matching the given element states (visibility etc.). Mirrors Telerik's Columns.GetFirstColumn.</summary>
         public DataGridViewColumn? GetFirstColumn (DataGridViewElementStates states)
         {
             foreach (var col in this)

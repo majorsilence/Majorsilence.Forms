@@ -65,7 +65,7 @@ internal static class GapScanner
             if (upstreamType.IsEnum && ourType.IsEnum)
                 gaps.AddRange(EnumValueMismatches(upstreamType, ourType));
             else if (surface.IncludeOverloads)
-                gaps.AddRange(OverloadGaps(upstreamType, ourType));
+                gaps.AddRange(OverloadGaps(surface, upstreamType, ourType));
         }
 
         gaps.Sort(StringComparer.Ordinal);
@@ -112,8 +112,12 @@ internal static class GapScanner
     /// still failed to compile. Parameters are compared by simple type name, which makes the namespace
     /// difference between the two sides a non-issue and costs only the (harmless here) possibility of
     /// two unrelated same-named types matching.
+    ///
+    /// An overload naming a type the surface excludes is skipped, for the same reason the type is:
+    /// <c>MessageBox.Show(IWin32Window, ...)</c> cannot be matched without declaring
+    /// <c>IWin32Window</c>, and declaring it is exactly what the exclusion list rules out.
     /// </summary>
-    private static IEnumerable<string> OverloadGaps(Type upstreamType, Type ourType)
+    private static IEnumerable<string> OverloadGaps(Surface surface, Type upstreamType, Type ourType)
     {
         const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
@@ -141,6 +145,12 @@ internal static class GapScanner
 
             var wanted = method.GetParameters().Select(p => TypeName(p.ParameterType)).ToArray();
             if (ourMethods.Any(m => Satisfies(m, method.Name, wanted)))
+                continue;
+            // An overload that takes a type this surface excludes is excluded for the same reason the
+            // type is. MessageBox.Show(IWin32Window, ...) cannot be matched without declaring
+            // IWin32Window, and declaring it is precisely what the exclusion list says is not a goal;
+            // reporting the overload anyway would be asking for work already decided against.
+            if (wanted.Any(surface.ExcludedTypeNames.Contains))
                 continue;
 
             var signature = $"{method.Name}({string.Join(",", wanted)})";

@@ -120,6 +120,15 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the format string. Stub in Majorsilence.Forms.</summary>
         public string FormatString { get; set; } = string.Empty;
 
+        /// <summary>Gets or sets when the data source is updated from the bound control.</summary>
+        public DataSourceUpdateMode DataSourceUpdateMode { get; set; } = DataSourceUpdateMode.OnValidation;
+
+        /// <summary>Gets or sets the value substituted when the data source holds DBNull.</summary>
+        public object? NullValue { get; set; }
+
+        /// <summary>Gets or sets the culture used when formatting the bound value.</summary>
+        public IFormatProvider? FormatInfo { get; set; }
+
         /// <summary>Raised when the control value is formatted. Stub in Majorsilence.Forms.</summary>
         public event ConvertEventHandler? Format { add { } remove { } }
 
@@ -210,7 +219,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents the collection of data bindings for a control. Stub in Majorsilence.Forms.</summary>
-    public class ControlBindingsCollection : System.Collections.ObjectModel.Collection<Binding>
+    public partial class ControlBindingsCollection : System.Collections.ObjectModel.Collection<Binding>
     {
         private readonly Control _control;
 
@@ -869,6 +878,37 @@ namespace Majorsilence.Forms
             return DialogResult.OK;
         }
 
+        // The long Show overloads. Only the arguments this layer can act on change anything: the help
+        // file, keyword and navigator name a Windows help subsystem that is not here, and
+        // MessageBoxOptions' RTL and service-notification flags have no counterpart either. They are
+        // accepted so designer-generated and copied-over calls compile, and the dialog shown is the
+        // one the first five arguments describe.
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, bool displayHelpButton)
+            => Show (text, caption, buttons, icon, defaultButton);
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath)
+            => Show (text, caption, buttons, icon, defaultButton);
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, string keyword)
+            => Show (text, caption, buttons, icon, defaultButton);
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator)
+            => Show (text, caption, buttons, icon, defaultButton);
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator, object param)
+            => Show (text, caption, buttons, icon, defaultButton);
+
         /// <summary>Shows a message box with the specified owner form and text.</summary>
         public static DialogResult Show (Form owner, string text)
             => Show (owner, text, string.Empty, MessageBoxButtons.OK, MessageBoxIcon.None);
@@ -1281,7 +1321,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a ToolStrip-hosted drop-down control.</summary>
-    public class ToolStripDropDown : ContextMenu
+    public partial class ToolStripDropDown : ContextMenu
     {
         /// <summary>Gets the items in this drop-down.</summary>
         public new MenuItemCollection Items => base.Items;
@@ -1729,7 +1769,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents the collection of items in a ToolStrip.</summary>
-    public class ToolStripItemCollection : Collection<ToolStripItem>
+    public partial class ToolStripItemCollection : Collection<ToolStripItem>
     {
         /// <summary>Invoked when an item is added (lets the owning ToolStrip raise ItemAdded).</summary>
         internal Action<ToolStripItem>? ItemAddedCallback;
@@ -2531,6 +2571,9 @@ namespace Majorsilence.Forms
 
         /// <summary>Reverts a previous merge on the target toolstrip. Stub in Majorsilence.Forms.</summary>
         public static bool RevertMerge (ToolStrip targetToolStrip) => false;
+
+        /// <summary>Reverts a merge on the strip with the given name. Stub in Majorsilence.Forms.</summary>
+        public static bool RevertMerge (string targetName) => false;
 
         /// <summary>Reverts a previous merge on the named target. Stub in Majorsilence.Forms.</summary>
         public static bool RevertMerge (ToolStrip targetToolStrip, ToolStrip sourceToolStrip) => false;
@@ -3637,6 +3680,15 @@ namespace Majorsilence.Forms
     {
         /// <summary>Displays the contents of a Help file. Stub in Majorsilence.Forms.</summary>
         public static void ShowHelp (Control? parent, string? url) { }
+
+        /// <summary>Displays a Help topic identified by keyword. Stub in Majorsilence.Forms.</summary>
+        public static void ShowHelp (Control? parent, string? url, string? keyword) { }
+
+        /// <summary>Displays a Help topic identified by a navigator command. Stub in Majorsilence.Forms.</summary>
+        public static void ShowHelp (Control? parent, string? url, HelpNavigator command) { }
+
+        /// <inheritdoc cref="ShowHelp(Control,string,HelpNavigator)"/>
+        public static void ShowHelp (Control? parent, string? url, HelpNavigator command, object? parameter) { }
 
         /// <summary>Displays a Help pop-up window. Stub in Majorsilence.Forms.</summary>
         public static void ShowPopup (Control parent, string caption, System.Drawing.Point location) { }

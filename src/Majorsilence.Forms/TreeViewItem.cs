@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a TreeViewItem.
     /// </summary>
-    public class TreeViewItem : ILayoutable
+    public partial class TreeViewItem : ILayoutable
     {
         private readonly TreeView? tree_view;
 

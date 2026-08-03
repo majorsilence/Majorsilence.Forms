@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a TextBox control.
     /// </summary>
-    public class TextBox : TextBoxBase
+    public partial class TextBox : TextBoxBase
     {
         internal readonly TextBoxDocument document;
 
@@ -570,8 +570,7 @@ namespace Majorsilence.Forms
             set { if (value && PasswordCharacter is null) PasswordCharacter = '*'; else if (!value) PasswordCharacter = null; }
         }
 
-        /// <summary>Selects text in the TextBox starting at the specified position.</summary>
-        public void Select (int start, int length) { SelectionStart = start; SelectionLength = length; }
+        // Select (int, int) is inherited from TextBoxBase, which is where WinForms declares it.
 
         /// <summary>Raised when the TextAlign property changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? TextAlignChanged { add { } remove { } }

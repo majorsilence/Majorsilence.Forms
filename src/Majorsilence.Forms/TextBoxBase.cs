@@ -26,7 +26,7 @@ namespace Majorsilence.Forms
     /// implementations were deleted in favour of these; they became overrides.
     /// </para>
     /// </remarks>
-    public abstract class TextBoxBase : ScrollControl
+    public abstract partial class TextBoxBase : ScrollControl
     {
         private bool accepts_tab;
         private BorderStyle border_style = BorderStyle.Fixed3D;

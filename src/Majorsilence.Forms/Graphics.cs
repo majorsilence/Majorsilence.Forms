@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using Majorsilence.Forms.Drawing.Drawing2D;
 using Majorsilence.Forms.Drawing.Text;
@@ -11,7 +12,7 @@ namespace Majorsilence.Forms
     /// WinForms compatibility: wraps an <see cref="SKCanvas"/> to provide a GDI-like drawing surface.
     /// Use <see cref="Control.CreateGraphics"/> for text measurement; for painting use <see cref="PaintEventArgs.Canvas"/>.
     /// </summary>
-    public sealed class Graphics : IDisposable
+    public sealed class Graphics : IDisposable, Majorsilence.Forms.Drawing.IDeviceContext
     {
         private readonly Control? _control;
         private readonly SKCanvas? _canvas;
@@ -909,7 +910,11 @@ namespace Majorsilence.Forms
         /// <summary>Draws an unscaled Majorsilence.Forms.Drawing.Icon at the specified location.</summary>
         public void DrawIconUnstretched (Majorsilence.Forms.Drawing.Icon icon, Rectangle targetRect) => DrawIcon (icon, targetRect.X, targetRect.Y);
 
-        /// <summary>Returns the device context handle. Returns IntPtr.Zero in Majorsilence.Forms (stub).</summary>
+        /// <summary>Returns the device context handle.</summary>
+        /// <remarks>Zero: there is no GDI device context behind a Skia canvas. Reported truthfully
+        /// rather than thrown, because callers pass the handle straight to a P/Invoke that is itself
+        /// absent here, and a zero handle is what those APIs already have to check for. This pair is
+        /// what satisfies <see cref="Majorsilence.Forms.Drawing.IDeviceContext"/>.</remarks>
         public IntPtr GetHdc () => IntPtr.Zero;
 
         /// <summary>Releases the device context handle. No-op in Majorsilence.Forms (stub).</summary>

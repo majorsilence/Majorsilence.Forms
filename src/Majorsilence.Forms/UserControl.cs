@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// Provides an empty control that can be used to create other controls.
     /// In Majorsilence.Forms, UserControl is an alias for Panel with full tab-stop support.
     /// </summary>
-    public class UserControl : Panel
+    public partial class UserControl : Panel
     {
         /// <summary>
         /// Initializes a new instance of the UserControl class.
@@ -46,7 +46,7 @@ namespace Majorsilence.Forms
     /// Provides focus-management functionality for controls that contain other controls.
     /// In Majorsilence.Forms this is an alias for Panel.
     /// </summary>
-    public class ContainerControl : Panel
+    public partial class ContainerControl : Panel
     {
         /// <summary>Gets or sets the active control inside this container.</summary>
         public Control? ActiveControl { get; set; }

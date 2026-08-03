@@ -15,7 +15,7 @@ namespace Majorsilence.Forms
     /// that needs those (the Telerik <c>RadPdfViewer</c>/<c>RadRichTextEditor</c> compat controls) should
     /// compose <see cref="WebViewHost"/> directly instead of going through this WinForms-shaped surface.
     /// </summary>
-    public class WebBrowser : Control
+    public partial class WebBrowser : Control
     {
         private readonly WebViewHost _host;
         private Uri? _url;

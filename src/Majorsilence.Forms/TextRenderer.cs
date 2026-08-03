@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using SkiaSharp;
 
@@ -78,24 +79,145 @@ namespace Majorsilence.Forms
             return MeasureText (text, tf, proposedSize, (int)font.SizeInPoints);
         }
 
-        /// <summary>Draws text at the given point using a Majorsilence.Forms.Drawing.Font. Stub in Majorsilence.Forms.</summary>
-        public static void DrawText (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor)
+        // TextRenderer's whole public surface is declared in terms of IDeviceContext upstream, not
+        // Graphics -- so these take the interface. A caller passing a Graphics is unaffected (it
+        // implements the interface), and a caller who declared a helper taking an IDeviceContext now
+        // compiles too, which was the point.
+        //
+        // The backColor overloads fill the text's box before drawing, which is what WinForms does and
+        // what makes them worth having rather than silently ignoring the argument.
+
+        /// <summary>Draws text inside the given rectangle.</summary>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor)
+            => DrawText (dc, text, font, bounds, foreColor, System.Drawing.Color.Empty, TextFormatFlags.Left);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,Rectangle,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, TextFormatFlags flags)
+            => DrawText (dc, text, font, bounds, foreColor, System.Drawing.Color.Empty, flags);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,Rectangle,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, System.Drawing.Color backColor)
+            => DrawText (dc, text, font, bounds, foreColor, backColor, TextFormatFlags.Left);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,Rectangle,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, System.Drawing.Color backColor, TextFormatFlags flags)
         {
+            if (dc is not Graphics g || font is null)
+                return;
+
+            if (!backColor.IsEmpty && backColor != System.Drawing.Color.Transparent) {
+                using var background = new Majorsilence.Forms.Drawing.SolidBrush (backColor);
+                g.FillRectangle (background, bounds);
+            }
+
             using var brush = new Majorsilence.Forms.Drawing.SolidBrush (foreColor);
             g.DrawString (text, font, brush, new RectangleF (bounds.X, bounds.Y, bounds.Width, bounds.Height));
         }
 
-        /// <summary>Draws text at the given point using a Majorsilence.Forms.Drawing.Font with flags. Stub in Majorsilence.Forms.</summary>
-        public static void DrawText (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, TextFormatFlags flags)
-            => DrawText (g, text, font, bounds, foreColor);
+        /// <summary>Draws text with its top-left corner at the given point.</summary>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor)
+            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, System.Drawing.Color.Empty, TextFormatFlags.Left);
 
-        /// <summary>Draws text at the specified point using a Majorsilence.Forms.Drawing.Font.</summary>
-        public static void DrawText (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor)
-            => DrawText (g, text, font, new Rectangle (pt.X, pt.Y, 0, 0), foreColor);
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, TextFormatFlags flags)
+            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, System.Drawing.Color.Empty, flags);
 
-        /// <summary>Draws text at the specified point with flags using a Majorsilence.Forms.Drawing.Font.</summary>
-        public static void DrawText (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, TextFormatFlags flags)
-            => DrawText (g, text, font, new Rectangle (pt.X, pt.Y, 0, 0), foreColor);
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, System.Drawing.Color backColor)
+            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, backColor, TextFormatFlags.Left);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, System.Drawing.Color backColor, TextFormatFlags flags)
+            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, backColor, flags);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,Rectangle,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor)
+            => DrawText (dc, text.ToString (), font, bounds, foreColor);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,Rectangle,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, TextFormatFlags flags)
+            => DrawText (dc, text.ToString (), font, bounds, foreColor, flags);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,Rectangle,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, System.Drawing.Color backColor)
+            => DrawText (dc, text.ToString (), font, bounds, foreColor, backColor);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,Rectangle,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, System.Drawing.Color backColor, TextFormatFlags flags)
+            => DrawText (dc, text.ToString (), font, bounds, foreColor, backColor, flags);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor)
+            => DrawText (dc, text.ToString (), font, pt, foreColor);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, TextFormatFlags flags)
+            => DrawText (dc, text.ToString (), font, pt, foreColor, flags);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, System.Drawing.Color backColor)
+            => DrawText (dc, text.ToString (), font, pt, foreColor, backColor);
+
+        /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
+        public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, System.Drawing.Color backColor, TextFormatFlags flags)
+            => DrawText (dc, text.ToString (), font, pt, foreColor, backColor, flags);
+
+        /// <summary>Measures text drawn on the given surface.</summary>
+        public static Size MeasureText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font)
+            => MeasureText (text, font);
+
+        /// <inheritdoc cref="MeasureText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font)"/>
+        public static Size MeasureText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, Size proposedSize)
+            => MeasureText (text, font, proposedSize);
+
+        /// <inheritdoc cref="MeasureText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font)"/>
+        public static Size MeasureText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, Size proposedSize, TextFormatFlags flags)
+            => MeasureText (text, font, proposedSize, flags);
+
+        /// <inheritdoc cref="MeasureText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font)"/>
+        public static Size MeasureText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font)
+            => MeasureText (text.ToString (), font);
+
+        /// <inheritdoc cref="MeasureText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font)"/>
+        public static Size MeasureText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, Size proposedSize)
+            => MeasureText (text.ToString (), font, proposedSize);
+
+        /// <inheritdoc cref="MeasureText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font)"/>
+        public static Size MeasureText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, Size proposedSize, TextFormatFlags flags)
+            => MeasureText (text.ToString (), font, proposedSize, flags);
+
+        /// <inheritdoc cref="MeasureText(string,Majorsilence.Forms.Drawing.Font)"/>
+        public static Size MeasureText (ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font)
+            => MeasureText (text.ToString (), font);
+
+        /// <inheritdoc cref="MeasureText(string,Majorsilence.Forms.Drawing.Font)"/>
+        public static Size MeasureText (ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, Size proposedSize)
+            => MeasureText (text.ToString (), font, proposedSize);
+
+        /// <inheritdoc cref="MeasureText(string,Majorsilence.Forms.Drawing.Font)"/>
+        public static Size MeasureText (ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, Size proposedSize, TextFormatFlags flags)
+            => MeasureText (text.ToString (), font, proposedSize, flags);
+
+        /// <summary>Measures text within the given bounds, honouring the single-line and wrapping flags.</summary>
+        public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font, Size proposedSize, TextFormatFlags flags)
+        {
+            // SingleLine means "do not wrap", so the proposed width must not constrain the answer.
+            var constraint = flags.HasFlag (TextFormatFlags.SingleLine)
+                ? new Size (int.MaxValue, proposedSize.Height)
+                : proposedSize;
+
+            return MeasureText (text, font, constraint);
+        }
+
+        // WinForms' point-based DrawText measures the text and draws it in that box, rather than
+        // passing a zero-sized rectangle through to the renderer -- which is what the previous
+        // implementation did, so nothing was drawn.
+        private static Rectangle AtPoint (System.Drawing.Point pt, string text, Majorsilence.Forms.Drawing.Font font)
+        {
+            var size = MeasureText (text, font);
+            return new Rectangle (pt.X, pt.Y, size.Width, size.Height);
+        }
+
 #pragma warning restore CA1416
     }
 

@@ -183,6 +183,21 @@ namespace Majorsilence.Forms
         /// <summary>Draws a 3D border with the specified style. Stub in Majorsilence.Forms.</summary>
         public static void DrawBorder3D (Graphics graphics, Rectangle rectangle, Border3DStyle style) { }
 
+        /// <summary>Draws a 3D border on the specified sides. Stub in Majorsilence.Forms.</summary>
+        public static void DrawBorder3D (Graphics graphics, Rectangle rectangle, Border3DStyle style, Border3DSide sides) { }
+
+        /// <inheritdoc cref="DrawBorder3D(Graphics,Rectangle)"/>
+        public static void DrawBorder3D (Graphics graphics, int x, int y, int width, int height)
+            => DrawBorder3D (graphics, new Rectangle (x, y, width, height));
+
+        /// <inheritdoc cref="DrawBorder3D(Graphics,Rectangle,Border3DStyle)"/>
+        public static void DrawBorder3D (Graphics graphics, int x, int y, int width, int height, Border3DStyle style)
+            => DrawBorder3D (graphics, new Rectangle (x, y, width, height), style);
+
+        /// <inheritdoc cref="DrawBorder3D(Graphics,Rectangle,Border3DStyle,Border3DSide)"/>
+        public static void DrawBorder3D (Graphics graphics, int x, int y, int width, int height, Border3DStyle style, Border3DSide sides)
+            => DrawBorder3D (graphics, new Rectangle (x, y, width, height), style, sides);
+
         /// <summary>Draws a border around a rectangle. Stub in Majorsilence.Forms.</summary>
         public static void DrawBorder (Graphics graphics, Rectangle bounds, System.Drawing.Color color, ButtonBorderStyle style) { }
 
@@ -217,6 +232,19 @@ namespace Majorsilence.Forms
         /// <summary>Draws a menu glyph. Stub in Majorsilence.Forms.</summary>
         public static void DrawMenuGlyph (Graphics graphics, Rectangle rectangle, MenuGlyph glyph) { }
 
+        /// <summary>Draws a menu glyph in the given colours. Stub in Majorsilence.Forms.</summary>
+        public static void DrawMenuGlyph (Graphics graphics, Rectangle rectangle, MenuGlyph glyph,
+            System.Drawing.Color foreColor, System.Drawing.Color backColor) { }
+
+        /// <inheritdoc cref="DrawMenuGlyph(Graphics,Rectangle,MenuGlyph)"/>
+        public static void DrawMenuGlyph (Graphics graphics, int x, int y, int width, int height, MenuGlyph glyph)
+            => DrawMenuGlyph (graphics, new Rectangle (x, y, width, height), glyph);
+
+        /// <inheritdoc cref="DrawMenuGlyph(Graphics,Rectangle,MenuGlyph,System.Drawing.Color,System.Drawing.Color)"/>
+        public static void DrawMenuGlyph (Graphics graphics, int x, int y, int width, int height, MenuGlyph glyph,
+            System.Drawing.Color foreColor, System.Drawing.Color backColor)
+            => DrawMenuGlyph (graphics, new Rectangle (x, y, width, height), glyph, foreColor, backColor);
+
         /// <summary>
         /// Draws a grid of single-pixel dots spaced <paramref name="cellSize"/> apart within
         /// <paramref name="area"/>, in a color that contrasts with <paramref name="backColor"/>
@@ -242,8 +270,16 @@ namespace Majorsilence.Forms
         /// <summary>Draws a radio button. Stub in Majorsilence.Forms.</summary>
         public static void DrawRadioButton (Graphics graphics, Rectangle rectangle, ButtonState state) { }
 
+        /// <inheritdoc cref="DrawRadioButton(Graphics,Rectangle,ButtonState)"/>
+        public static void DrawRadioButton (Graphics graphics, int x, int y, int width, int height, ButtonState state)
+            => DrawRadioButton (graphics, new Rectangle (x, y, width, height), state);
+
         /// <summary>Draws a scroll button. Stub in Majorsilence.Forms.</summary>
         public static void DrawScrollButton (Graphics graphics, Rectangle rectangle, ScrollButton button, ButtonState state) { }
+
+        /// <inheritdoc cref="DrawScrollButton(Graphics,Rectangle,ScrollButton,ButtonState)"/>
+        public static void DrawScrollButton (Graphics graphics, int x, int y, int width, int height, ScrollButton button, ButtonState state)
+            => DrawScrollButton (graphics, new Rectangle (x, y, width, height), button, state);
 
         /// <summary>Draws a size grip. Stub in Majorsilence.Forms.</summary>
         public static void DrawSizeGrip (Graphics graphics, System.Drawing.Color backColor, Rectangle bounds) { }
@@ -254,6 +290,19 @@ namespace Majorsilence.Forms
 
         /// <summary>Draws a string in its disabled/grayed state. Stub in Majorsilence.Forms.</summary>
         public static void DrawStringDisabled (Graphics graphics, string s, Majorsilence.Forms.Drawing.Font font, System.Drawing.Color color, RectangleF layoutRectangle, Majorsilence.Forms.Drawing.StringFormat? format) { }
+
+        /// <summary>Draws a string greyed out, the way a disabled control's text is drawn.</summary>
+        /// <remarks>Unlike the StringFormat overload above this one draws: it lightens the colour
+        /// towards the background and hands the text to TextRenderer, which is what the disabled
+        /// state actually looks like.</remarks>
+        public static void DrawStringDisabled (Majorsilence.Forms.Drawing.IDeviceContext dc, string s,
+            Majorsilence.Forms.Drawing.Font font, System.Drawing.Color color, Rectangle layoutRectangle, TextFormatFlags format)
+            => TextRenderer.DrawText (dc, s, font, layoutRectangle, LightenForDisabled (color), format);
+
+        // Halfway to white is what GDI+ does for a grayed string, and it stays legible on the light
+        // and dark themes alike because it moves towards the caller's colour rather than a constant.
+        private static System.Drawing.Color LightenForDisabled (System.Drawing.Color color)
+            => System.Drawing.Color.FromArgb (color.A, (color.R + 255) / 2, (color.G + 255) / 2, (color.B + 255) / 2);
 
 #pragma warning disable CA1416
         /// <summary>Draws a string at the specified coordinates. Stub in Majorsilence.Forms.</summary>

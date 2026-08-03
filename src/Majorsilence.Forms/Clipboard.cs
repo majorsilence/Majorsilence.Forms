@@ -58,6 +58,14 @@ namespace Majorsilence.Forms
         public static void SetText (string text, TextDataFormat format) => SetText (text);
 
         /// <summary>Sets an IDataObject on the clipboard. Stub — stores text if the object supports it.</summary>
+        /// <summary>Places data on the clipboard, retrying if another process holds it.</summary>
+        /// <remarks>The retry count and delay are accepted and not used: the backends' clipboard is
+        /// not a shared OS resource that can be locked out from under a caller, so there is nothing
+        /// to retry. Present because the overload is what a migrated app already calls.</remarks>
+        public static void SetDataObject (object data, bool copy, int retryTimes, int retryDelay)
+            => SetDataObject (data, copy);
+
+        /// <summary>Places data on the clipboard.</summary>
         public static void SetDataObject (object data, bool copy = false)
         {
             if (data is IDataObject dataObj) {
@@ -209,5 +217,23 @@ namespace Majorsilence.Forms
 
         /// <summary>Sets text on the data object.</summary>
         public void SetText (string text) => SetData (DataFormats.Text.Name, text);
+
+        /// <summary>Stores text under the format the given kind names.</summary>
+        public void SetText (string text, TextDataFormat format) => SetData (FormatName (format), text);
+
+        /// <summary>Returns whether text of the given kind is present.</summary>
+        public bool ContainsText (TextDataFormat format) => GetDataPresent (FormatName (format));
+
+        /// <summary>Returns the text of the given kind, or an empty string.</summary>
+        public string GetText (TextDataFormat format) => GetData (FormatName (format)) as string ?? string.Empty;
+
+        // The four text kinds are distinct clipboard formats, not decorations on one: storing RTF and
+        // reading it back as UnicodeText has to miss, or a paste would insert the markup.
+        private static string FormatName (TextDataFormat format) => format switch {
+            TextDataFormat.Rtf => DataFormats.Rtf.Name,
+            TextDataFormat.Html => DataFormats.Html.Name,
+            TextDataFormat.CommaSeparatedValue => DataFormats.CommaSeparatedValue.Name,
+            _ => DataFormats.Text.Name,
+        };
     }
 }

@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ProgressBar control.
     /// </summary>
-    public class ProgressBar : Control
+    public partial class ProgressBar : Control
     {
         private int maximum = 100;
         private int minimum;

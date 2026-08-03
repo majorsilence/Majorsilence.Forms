@@ -696,6 +696,10 @@ namespace Majorsilence.Forms
         /// <summary>
         ///  Gets the bounding rectangle of the cell at the specified row and column indices.
         /// </summary>
+        /// <summary>Returns the bounds of the given cell.</summary>
+        public Rectangle GetCellBounds(DataGridCell dgc) => GetCellBounds(dgc.RowNumber, dgc.ColumnNumber);
+
+        /// <summary>Returns the bounds of the cell at the given row and column.</summary>
         public Rectangle GetCellBounds(int rowIndex, int columnIndex)
         {
             return _grid.GetCellDisplayRectangle(columnIndex, rowIndex, false);

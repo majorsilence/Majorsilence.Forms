@@ -57,11 +57,8 @@ MEMBER System.Windows.Forms.Binding.BindingManagerBase
 MEMBER System.Windows.Forms.Binding.Control
 MEMBER System.Windows.Forms.Binding.ControlUpdateMode
 MEMBER System.Windows.Forms.Binding.DataSourceNullValue
-MEMBER System.Windows.Forms.Binding.DataSourceUpdateMode
-MEMBER System.Windows.Forms.Binding.FormatInfo
 MEMBER System.Windows.Forms.Binding.FormattingEnabled
 MEMBER System.Windows.Forms.Binding.IsBinding
-MEMBER System.Windows.Forms.Binding.NullValue
 MEMBER System.Windows.Forms.Binding.ReadValue
 MEMBER System.Windows.Forms.BindingCompleteEventArgs.BindingCompleteState
 MEMBER System.Windows.Forms.BindingContext.CollectionChanged
@@ -219,7 +216,6 @@ MEMBER System.Windows.Forms.Cursor.Tag
 MEMBER System.Windows.Forms.DataFormats.Dib
 MEMBER System.Windows.Forms.DataFormats.Dif
 MEMBER System.Windows.Forms.DataFormats.EnhancedMetafile
-MEMBER System.Windows.Forms.DataFormats.Format
 MEMBER System.Windows.Forms.DataFormats.Locale
 MEMBER System.Windows.Forms.DataFormats.MetafilePict
 MEMBER System.Windows.Forms.DataFormats.Palette
@@ -282,8 +278,6 @@ MEMBER System.Windows.Forms.DataGridBoolColumn.FalseValueChanged
 MEMBER System.Windows.Forms.DataGridBoolColumn.NullValue
 MEMBER System.Windows.Forms.DataGridBoolColumn.TrueValue
 MEMBER System.Windows.Forms.DataGridBoolColumn.TrueValueChanged
-MEMBER System.Windows.Forms.DataGridCell.ColumnNumber
-MEMBER System.Windows.Forms.DataGridCell.RowNumber
 MEMBER System.Windows.Forms.DataGridColumnStyle.Alignment
 MEMBER System.Windows.Forms.DataGridColumnStyle.AlignmentChanged
 MEMBER System.Windows.Forms.DataGridColumnStyle.DataGridTableStyle

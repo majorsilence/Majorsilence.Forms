@@ -55,10 +55,10 @@ internal sealed record Surface(
     /// WinForms — <c>System.Windows.Forms</c> against <c>Majorsilence.Forms</c>.
     /// </summary>
     /// <remarks>
-    /// Overload checking is deliberately off here for now. This surface still has hundreds of
-    /// wholly-missing members, and an overload report on a type that is itself half-implemented is
-    /// noise rather than signal — the same judgement that made the optional-parameter fix worth doing
-    /// on the drawing surface. Turn it on once the MEMBER count is down.
+    /// Overload checking was off here until the wholly-missing member count came down: an overload
+    /// report on a type that is itself half-implemented is noise rather than signal. It is on now,
+    /// which is what turns "the method exists" into "the call site compiles" — a caller writing
+    /// <c>grid.AutoResizeColumn (0, mode)</c> does not care that some <c>AutoResizeColumn</c> exists.
     /// </remarks>
     public static Surface WinForms { get; } = new(
         "winforms",
@@ -80,7 +80,7 @@ internal sealed record Surface(
             "SystemInformation", "InputLanguage", "InputLanguageCollection", "OSFeature", "FeatureSupport",
             "ImeContext", "ImeModeConversion", "WindowsFormsSection", "PowerStatus", "SystemParameter",
         },
-        IncludeOverloads: false);
+        IncludeOverloads: true);
 
     public static Surface[] All { get; } = [Drawing, WinForms];
 

@@ -161,7 +161,7 @@ namespace Majorsilence.Forms
     /// Base class for the spinner controls — <see cref="NumericUpDown"/> and
     /// <see cref="DomainUpDown"/>.
     /// </summary>
-    public abstract class UpDownBase : ContainerControl
+    public abstract partial class UpDownBase : ContainerControl
     {
         /// <summary>Gets or sets whether the up/down arrow keys change the value.</summary>
         public bool InterceptArrowKeys { get; set; } = true;

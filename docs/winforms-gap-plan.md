@@ -30,10 +30,11 @@ hosting), the Win32 message plumbing (`Message`, `IMessageFilter`, `IWin32Window
 neutral seam), and Windows-only OS integration (`SystemInformation`, `InputLanguage`, `OSFeature`,
 `ImeContext`, `WindowsFormsSection`, `PowerStatus`).
 
-**Overload checking is off for this surface for now.** With ~1,500 wholly-missing members, an overload
-report on a type that is itself half-implemented is noise rather than signal. Turn it on
-(`Surface.WinForms.IncludeOverloads`) once the `MEMBER` count is down — the drawing surface only earned
-it after five phases.
+**Overload checking is on** (`Surface.WinForms.IncludeOverloads`). It was off while the surface still
+had ~1,500 wholly-missing members, because an overload report on a half-implemented type is noise; it
+was turned on once the `MEMBER` count came down, found 146 gaps, and all 146 are closed. An overload
+naming an excluded type is skipped for the same reason the type is — `MessageBox.Show (IWin32Window,
+…)` cannot be matched without declaring `IWin32Window`, which the exclusion list rules out.
 
 ## Baseline: 1,905 entries
 
@@ -117,7 +118,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 1,090**.
+Baseline: **1,905 → 1,084** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -126,6 +127,7 @@ Baseline: **1,905 → 1,090**.
 | 7 — the ToolStrip hosted editors | **Done.** Reparented onto `ToolStripControlHost`; 75 gaps. |
 | 8 — `ListView` | **Done.** 34 members, plus three that had the wrong shape. |
 | 9 — the `DataGridView` family | **Done.** 125 gaps across the control, the cell and the row collection. |
+| 10 — overload parity | **Done.** `IncludeOverloads` turned on; all 146 `SIG` findings closed. |
 
 Two things worth carrying forward:
 
@@ -178,13 +180,29 @@ the count without helping anyone, so the 25 whose property already exists were w
 property's setter and fire for real; the rest are declared with a protected raiser and say in their
 own doc comment that the framework does not raise them yet.
 
+### What item 10 found
+
+Turning on overload checking changes the question from *does a method of this name exist* to *does
+this call site compile*, and the difference is where migration actually breaks. Three findings are
+worth recording:
+
+- **`TextRenderer`'s entire surface is declared against `IDeviceContext` upstream, not `Graphics`** —
+  26 of the 146. `System.Drawing.IDeviceContext` lives in `System.Drawing.Common`, an assembly this
+  layer deliberately does not reference, so it is reimplemented in `Majorsilence.Forms.Drawing` like
+  every other drawing type. That also closed a `TYPE` gap on the drawing surface.
+- **`TextRenderer.DrawText` at a `Point` drew nothing.** It passed a zero-sized rectangle straight to
+  the renderer. It now measures the text and draws in that box.
+- **`Control.Validate` returned `true` without raising anything**, which made `ValidateChildren` a
+  loop that did nothing. It now runs the same Validating-then-Validated sequence focus loss runs.
+
+`DataGridCell`'s two-argument constructor was also discarding both arguments, so it was
+indistinguishable from the empty one.
+
 ### Next
 
 The largest remaining concentrations are `DataGrid` and `DataGridTableStyle` (46/42, still low
-priority — they are the .NET 1.x controls superseded by `DataGridView`), `Form` (30), `Control` (29),
-`PropertyGrid` (29), `PrintPreviewDialog` (29) and `BindingSource` (26). Turning on
-`Surface.WinForms.IncludeOverloads` is also now worth considering: the `MEMBER` count is low enough
-that an overload report would be signal rather than noise.
+priority — the .NET 1.x controls superseded by `DataGridView`), `Form` (30), `Control` (29),
+`PropertyGrid` (29), `PrintPreviewDialog` (29) and `BindingSource` (26).
 
 ## Suggested order
 

@@ -203,6 +203,13 @@ namespace Majorsilence.Forms
         /// <summary>Returns the index of the item with the given property value. Stub in Majorsilence.Forms.</summary>
         public int Find (string propertyName, object key) => -1;
 
+        /// <summary>Finds the index of the item whose described property equals the given key.</summary>
+        public int Find (PropertyDescriptor property, object key)
+        {
+            ArgumentNullException.ThrowIfNull (property);
+            return Find (property.Name, key);
+        }
+
         /// <summary>Returns whether the list allows new items. Stub in Majorsilence.Forms.</summary>
         public bool AllowNew { get; set; } = true;
 

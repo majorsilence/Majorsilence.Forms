@@ -156,6 +156,30 @@ namespace Majorsilence.Forms
         /// <summary>Searches for the specified text in the RichTextBox. Returns the start index or -1.</summary>
         public int Find (string str) => Text.IndexOf (str, StringComparison.Ordinal);
 
+        /// <summary>Searches for the given text, honouring the search options.</summary>
+        public int Find (string str, RichTextBoxFinds options) => Find (str, 0, options);
+
+        /// <summary>Searches for the first occurrence of any of the given characters.</summary>
+        public int Find (char[] characterSet) => Find (characterSet, 0, -1);
+
+        /// <inheritdoc cref="Find(char[])"/>
+        public int Find (char[] characterSet, int start) => Find (characterSet, start, -1);
+
+        /// <inheritdoc cref="Find(char[])"/>
+        public int Find (char[] characterSet, int start, int end)
+        {
+            ArgumentNullException.ThrowIfNull (characterSet);
+
+            var text = Text;
+            var last = end < 0 ? text.Length : Math.Min (end, text.Length);
+
+            for (var i = Math.Max (0, start); i < last; i++)
+                if (Array.IndexOf (characterSet, text[i]) >= 0)
+                    return i;
+
+            return -1;
+        }
+
         /// <summary>Searches for the specified text starting at the given offset. Returns start index or -1.</summary>
         public int Find (string str, int start, RichTextBoxFinds options = RichTextBoxFinds.None)
             => Text.IndexOf (str, start, StringComparison.Ordinal);
@@ -179,6 +203,9 @@ namespace Majorsilence.Forms
 
         /// <summary>Paste from the clipboard into the specified format. Stub in Majorsilence.Forms (pastes plain text).</summary>
         public void Paste (DataFormat clipFormat) => base.Paste ();
+
+        /// <summary>Pastes the clipboard's contents in the given format.</summary>
+        public void Paste (DataFormats.Format clipFormat) => base.Paste ();
 
         /// <summary>Raised when the control's contents are resized. Stub in Majorsilence.Forms.</summary>
         public event EventHandler<ContentsResizedEventArgs>? ContentsResized { add { } remove { } }
@@ -308,6 +335,16 @@ namespace Majorsilence.Forms
     /// <summary>WinForms compatibility: provides static members for clipboard data formats. Stub in Majorsilence.Forms.</summary>
     public static class DataFormats
     {
+        /// <summary>Represents a clipboard data format.</summary>
+        /// <remarks>WinForms nests this type inside DataFormats and names it <c>Format</c>; this
+        /// layer declared it at namespace scope as <c>DataFormat</c>. Both names now exist and mean
+        /// the same shape, so <c>DataFormats.Format</c> in migrated code resolves.</remarks>
+        public sealed class Format : DataFormat
+        {
+            /// <summary>Initializes a new instance of the <see cref="Format"/> class.</summary>
+            public Format (string name, int id) : base (name, id) { }
+        }
+
         /// <summary>Text format.</summary>
         public static DataFormat Text { get; } = new DataFormat ("Text", 1);
 
@@ -334,5 +371,14 @@ namespace Majorsilence.Forms
 
         /// <summary>Returns the format with the specified name.</summary>
         public static DataFormat GetFormat (string format) => new DataFormat (format, 0);
+
+        /// <summary>Returns the format with the given numeric id.</summary>
+        /// <remarks>Matches one of the standard formats when the id is one of theirs, so a round trip
+        /// through the id gives back the same object rather than a new nameless one.</remarks>
+        public static DataFormat GetFormat (int id)
+        {
+            DataFormat[] standard = [Text, UnicodeText, Rtf, Bitmap, FileDrop, Html, OemText, CommaSeparatedValue];
+            return Array.Find (standard, f => f.Id == id) ?? new DataFormat ($"Format{id}", id);
+        }
     }
 }
