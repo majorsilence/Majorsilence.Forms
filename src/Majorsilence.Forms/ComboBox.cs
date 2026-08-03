@@ -471,10 +471,10 @@ namespace Majorsilence.Forms
     public enum ComboBoxStyle
     {
         /// <summary>Text portion is editable; list opens on arrow click.</summary>
-        DropDown,
+        DropDown = 1,
         /// <summary>Text portion is read-only; list opens on arrow click.</summary>
-        DropDownList,
+        DropDownList = 2,
         /// <summary>Text portion is editable; list is always visible.</summary>
-        Simple
+        Simple = 0,
     }
 }

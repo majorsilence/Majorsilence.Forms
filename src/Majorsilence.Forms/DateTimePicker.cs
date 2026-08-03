@@ -8,13 +8,13 @@ namespace Majorsilence.Forms
     public enum DateTimePickerFormat
     {
         /// <summary>Long date format.</summary>
-        Long,
+        Long = 1,
         /// <summary>Short date format.</summary>
-        Short,
+        Short = 2,
         /// <summary>Time format.</summary>
-        Time,
+        Time = 4,
         /// <summary>Custom format string.</summary>
-        Custom
+        Custom = 8,
     }
 
     /// <summary>

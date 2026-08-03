@@ -106,36 +106,36 @@ namespace Majorsilence.Forms
         /// <summary>Text is left-aligned.</summary>
         Left = 0,
         /// <summary>Text is centered horizontally.</summary>
-        HorizontalCenter = 0x0001,
+        HorizontalCenter = 1,
         /// <summary>Text is right-aligned.</summary>
-        Right = 0x0002,
+        Right = 2,
         /// <summary>Text is top-aligned.</summary>
         Top = 0,
         /// <summary>Text is centered vertically.</summary>
-        VerticalCenter = 0x0004,
+        VerticalCenter = 4,
         /// <summary>Text is bottom-aligned.</summary>
-        Bottom = 0x0008,
+        Bottom = 8,
         /// <summary>Words are wrapped.</summary>
-        WordBreak = 0x0010,
+        WordBreak = 16,
         /// <summary>Text is trimmed with ellipsis.</summary>
-        EndEllipsis = 0x0020,
+        EndEllipsis = 32768,
         /// <summary>Modify string to word-break to match ellipsis.</summary>
-        WordEllipsis = 0x0040,
+        WordEllipsis = 262144,
         /// <summary>Do not clip.</summary>
-        NoClipping = 0x0100,
+        NoClipping = 256,
         /// <summary>Single line only.</summary>
-        SingleLine = 0x0200,
+        SingleLine = 32,
         /// <summary>Prefix characters are not underlined.</summary>
-        NoPrefix = 0x0800,
+        NoPrefix = 2048,
         /// <summary>Remove mnemonic prefix character.</summary>
-        HidePrefix = 0x00100000,
+        HidePrefix = 1048576,
         /// <summary>Glyphs are not passed through the font mapper.</summary>
-        NoPadding = 0x10000000,
+        NoPadding = 268435456,
         /// <summary>GlyphOverhangPadding is removed from the left and right.</summary>
-        LeftAndRightPadding = 0x20000000,
+        LeftAndRightPadding = 536870912,
         /// <summary>Preserve internal leading.</summary>
-        PreserveGraphicsTranslateTransform = 0x00000400,
+        PreserveGraphicsTranslateTransform = 33554432,
         /// <summary>Preserve clipping.</summary>
-        PreserveGraphicsClipping = 0x01000000
+        PreserveGraphicsClipping = 16777216,
     }
 }

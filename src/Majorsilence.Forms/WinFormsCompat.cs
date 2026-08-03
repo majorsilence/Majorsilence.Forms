@@ -240,11 +240,11 @@ namespace Majorsilence.Forms
     public enum DataSourceUpdateMode
     {
         /// <summary>Update data source when the property changes.</summary>
-        OnPropertyChanged,
+        OnPropertyChanged = 1,
         /// <summary>Update data source when the control loses focus.</summary>
-        OnValidation,
+        OnValidation = 0,
         /// <summary>Data source is never updated automatically.</summary>
-        Never
+        Never = 2,
     }
 
     /// <summary>Provides data for the PreviewKeyDown event.</summary>
@@ -323,17 +323,17 @@ namespace Majorsilence.Forms
         /// <summary>The cause of the closure was not defined or could not be determined.</summary>
         None = 0,
         /// <summary>The Windows Task Manager is closing the application.</summary>
-        TaskManagerClosing = 1,
+        TaskManagerClosing = 4,
         /// <summary>The parent form of this MDI form is closing.</summary>
         MdiFormClosing = 2,
         /// <summary>The user closed the form through the user interface.</summary>
         UserClosing = 3,
         /// <summary>The Microsoft Windows operating system is closing all applications before a system shutdown.</summary>
-        WindowsShutDown = 4,
+        WindowsShutDown = 1,
         /// <summary>The Application.Exit method was invoked.</summary>
-        ApplicationExitCall = 5,
+        ApplicationExitCall = 6,
         /// <summary>The Form.Close method was called.</summary>
-        FormOwnerClosing = 6
+        FormOwnerClosing = 5,
     }
 
     /// <summary>
@@ -572,15 +572,15 @@ namespace Majorsilence.Forms
     public enum TreeViewAction
     {
         /// <summary>The event was caused by an unknown action.</summary>
-        Unknown,
+        Unknown = 0,
         /// <summary>The event was caused by a mouse click.</summary>
-        ByMouse,
+        ByMouse = 2,
         /// <summary>The event was caused by a keyboard action.</summary>
-        ByKeyboard,
+        ByKeyboard = 1,
         /// <summary>The event was caused by a collapse.</summary>
-        Collapse,
+        Collapse = 3,
         /// <summary>The event was caused by an expand.</summary>
-        Expand
+        Expand = 4,
     }
 
     /// <summary>Specifies character casing for a TextBox.</summary>
@@ -611,21 +611,21 @@ namespace Majorsilence.Forms
     public enum AutoCompleteSource
     {
         /// <summary>No auto-complete source.</summary>
-        None,
+        None = 128,
         /// <summary>Uses the file system.</summary>
-        FileSystem,
+        FileSystem = 1,
         /// <summary>Uses the history list.</summary>
-        HistoryList,
+        HistoryList = 2,
         /// <summary>Uses recently used URLs.</summary>
-        RecentlyUsedList,
+        RecentlyUsedList = 4,
         /// <summary>Uses all system sources.</summary>
-        AllSystemSources,
+        AllSystemSources = 7,
         /// <summary>Uses the file system directories.</summary>
-        FileSystemDirectories,
+        FileSystemDirectories = 32,
         /// <summary>Uses a custom list.</summary>
-        CustomSource,
+        CustomSource = 64,
         /// <summary>Uses all URLs.</summary>
-        AllUrl
+        AllUrl = 6,
     }
 
     /// <summary>Specifies the column header style for a ListView.</summary>
@@ -875,11 +875,11 @@ namespace Majorsilence.Forms
     public enum MessageBoxDefaultButton
     {
         /// <summary>The first button is the default.</summary>
-        Button1,
+        Button1 = 0,
         /// <summary>The second button is the default.</summary>
-        Button2,
+        Button2 = 256,
         /// <summary>The third button is the default.</summary>
-        Button3
+        Button3 = 512,
     }
 
     /// <summary>
@@ -1721,9 +1721,9 @@ namespace Majorsilence.Forms
         /// <summary>Left border.</summary>
         Left = 1,
         /// <summary>Right border.</summary>
-        Right = 2,
+        Right = 4,
         /// <summary>Top border.</summary>
-        Top = 4,
+        Top = 2,
         /// <summary>Bottom border.</summary>
         Bottom = 8,
         /// <summary>All sides.</summary>
@@ -2055,13 +2055,13 @@ namespace Majorsilence.Forms
     public enum ToolStripRenderMode
     {
         /// <summary>Use the ToolStripManager renderer.</summary>
-        ManagerRenderMode,
+        ManagerRenderMode = 3,
         /// <summary>Use a custom renderer.</summary>
-        Custom,
+        Custom = 0,
         /// <summary>Use the system renderer.</summary>
-        System,
+        System = 1,
         /// <summary>Use the professional renderer.</summary>
-        Professional
+        Professional = 2,
     }
 
     /// <summary>Specifies the grip style of a ToolStrip.</summary>
@@ -2077,13 +2077,13 @@ namespace Majorsilence.Forms
     public enum ToolStripTextDirection
     {
         /// <summary>Text is horizontal (default).</summary>
-        Horizontal,
+        Horizontal = 1,
         /// <summary>Text is inherited from parent.</summary>
-        Inherit,
+        Inherit = 0,
         /// <summary>Text is vertical going up (90° rotated).</summary>
-        Vertical90,
+        Vertical90 = 2,
         /// <summary>Text is vertical going down (270° rotated).</summary>
-        Vertical270
+        Vertical270 = 3,
     }
 
 
@@ -2091,15 +2091,15 @@ namespace Majorsilence.Forms
     public enum ToolStripLayoutStyle
     {
         /// <summary>Stack horizontally with overflow.</summary>
-        HorizontalStackWithOverflow,
+        HorizontalStackWithOverflow = 1,
         /// <summary>Stack vertically with overflow.</summary>
-        VerticalStackWithOverflow,
+        VerticalStackWithOverflow = 2,
         /// <summary>Stack horizontally without overflow.</summary>
-        StackWithOverflow,
+        StackWithOverflow = 0,
         /// <summary>Flow layout.</summary>
-        Flow,
+        Flow = 3,
         /// <summary>Table layout.</summary>
-        Table
+        Table = 4,
     }
 
     /// <summary>Provides a base class for rendering ToolStrip controls. Stub in Majorsilence.Forms.</summary>
@@ -2284,11 +2284,11 @@ namespace Majorsilence.Forms
         /// <summary>A sunken inner border and a raised outer border.</summary>
         Adjust = 8192,
         /// <summary>A flat border.</summary>
-        Flat = 0x4010,
+        Flat = 16394,
         /// <summary>A raised inner border and a sunken outer border.</summary>
-        Info = 0x0400,
+        Info = 1024,
         /// <summary>A raised inner border only.</summary>
-        Raised = 2,
+        Raised = 5,
         /// <summary>A raised inner border and a raised outer border (default).</summary>
         RaisedInner = 4,
         /// <summary>A raised outer border only.</summary>
@@ -2300,9 +2300,9 @@ namespace Majorsilence.Forms
         /// <summary>A sunken outer border only.</summary>
         SunkenOuter = 2,
         /// <summary>The border has no three-dimensional effect.</summary>
-        Bump = 0x0409,
+        Bump = 9,
         /// <summary>The border looks etched into the form.</summary>
-        Etched = 6
+        Etched = 6,
     }
 
     /// <summary>Specifies the border style for a button drawn by ControlPaint.</summary>
@@ -2344,15 +2344,15 @@ namespace Majorsilence.Forms
     public enum MenuGlyph
     {
         /// <summary>An arrow.</summary>
-        Arrow = 16,
+        Arrow = 0,
         /// <summary>A bullet.</summary>
-        Bullet = 18,
+        Bullet = 2,
         /// <summary>A check mark.</summary>
-        Checkmark = 17,
+        Checkmark = 1,
         /// <summary>A minimum value.</summary>
-        Min = 16,
+        Min = 0,
         /// <summary>A maximum value.</summary>
-        Max = 18
+        Max = 2,
     }
 
     /// <summary>Specifies the direction of a scroll button.</summary>
@@ -2396,9 +2396,9 @@ namespace Majorsilence.Forms
     public enum AccessibleRole
     {
         /// <summary>No accessible role.</summary>
-        None = -1,
+        None = 0,
         /// <summary>Default accessible role.</summary>
-        Default = 0,
+        Default = -1,
         /// <summary>A title bar.</summary>
         TitleBar = 1,
         /// <summary>A menu bar.</summary>
@@ -2520,7 +2520,7 @@ namespace Majorsilence.Forms
         /// <summary>A page tab list.</summary>
         PageTabList = 60,
         /// <summary>A clock.</summary>
-        Clock = 61
+        Clock = 61,
     }
 
     /// <summary>WinForms compatibility: provides access to a Win32 HWND. Stub in Majorsilence.Forms.</summary>
@@ -2685,11 +2685,11 @@ namespace Majorsilence.Forms
     public enum TabSizeMode
     {
         /// <summary>Tabs are sized to fit their label.</summary>
-        Normal,
+        Normal = 0,
         /// <summary>Tabs are fixed-size.</summary>
-        Fixed,
+        Fixed = 2,
         /// <summary>Tabs are stretched to fill the available width.</summary>
-        FillToRight
+        FillToRight = 1,
     }
 
     /// <summary>Provides data for an owner-draw event.</summary>
@@ -2956,9 +2956,9 @@ namespace Majorsilence.Forms
         /// <summary>Closed because an item was clicked.</summary>
         ItemClicked = 2,
         /// <summary>Closed programmatically by calling Close().</summary>
-        CloseCalled = 3,
+        CloseCalled = 4,
         /// <summary>Closed because the keyboard was used to select an item.</summary>
-        Keyboard = 4
+        Keyboard = 3,
     }
 
     /// <summary>Provides data for the ToolStripDropDown.Closed event.</summary>
@@ -3227,17 +3227,17 @@ namespace Majorsilence.Forms
     public enum HelpNavigator
     {
         /// <summary>The Help file opens to the topic corresponding to the specified keyword.</summary>
-        AssociateIndex = -2147483647,
+        AssociateIndex = -2147483643,
         /// <summary>The Help file opens to the Find tab in the navigation pane.</summary>
         Find = -2147483644,
         /// <summary>The Help file opens to the index tab.</summary>
         Index = -2147483645,
         /// <summary>The Help file opens to the keywords tab.</summary>
-        KeywordIndex = -2147483643,
+        KeywordIndex = -2147483642,
         /// <summary>The Help file opens to a specified topic.</summary>
-        Topic = -2147483646,
+        Topic = -2147483647,
         /// <summary>The Help file opens to the table of contents.</summary>
-        TableOfContents = -2147483642,
+        TableOfContents = -2147483646,
         /// <summary>The Help file opens to a specified topic.</summary>
         TopicId = -2147483641,
     }

@@ -110,15 +110,15 @@ namespace Majorsilence.Forms
     public enum TextDataFormat
     {
         /// <summary>Unicode text format.</summary>
-        UnicodeText,
+        UnicodeText = 1,
         /// <summary>Regular text format.</summary>
-        Text,
+        Text = 0,
         /// <summary>RTF text format.</summary>
-        Rtf,
+        Rtf = 2,
         /// <summary>HTML text format.</summary>
-        Html,
+        Html = 3,
         /// <summary>CommaSeparatedValue format.</summary>
-        CommaSeparatedValue
+        CommaSeparatedValue = 4,
     }
 
     /// <summary>Defines a format-independent mechanism for transferring data.</summary>

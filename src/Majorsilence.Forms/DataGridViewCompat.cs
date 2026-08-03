@@ -385,47 +385,47 @@ namespace Majorsilence.Forms
     public enum DataGridViewAutoSizeRowsMode
     {
         /// <summary>Row heights are not automatically adjusted.</summary>
-        None,
+        None = 0,
         /// <summary>Row heights adjust to fit the content of all cells, including headers.</summary>
-        AllCells,
+        AllCells = 7,
         /// <summary>Row heights adjust to fit the content of all cells, excluding headers.</summary>
-        AllCellsExceptHeaders,
+        AllCellsExceptHeaders = 6,
         /// <summary>Row heights adjust to fit the content of displayed cells, including headers.</summary>
-        DisplayedCells,
+        DisplayedCells = 11,
         /// <summary>Row heights adjust to fit the content of displayed cells, excluding headers.</summary>
-        DisplayedCellsExceptHeaders
+        DisplayedCellsExceptHeaders = 10,
     }
 
     /// <summary>Specifies how content is copied to the clipboard from a DataGridView.</summary>
     public enum DataGridViewClipboardCopyMode
     {
         /// <summary>Clipboard copy is disabled.</summary>
-        Disable,
+        Disable = 0,
         /// <summary>Text values of selected cells are copied.</summary>
-        EnableAlwaysIncludeHeaderText,
+        EnableAlwaysIncludeHeaderText = 3,
         /// <summary>Text values of selected cells are copied without headers.</summary>
-        EnableWithoutHeaderText,
+        EnableWithoutHeaderText = 2,
         /// <summary>Text values of selected cells are copied; headers are included if row/column headers are selected.</summary>
-        EnableWithAutoHeaderText
+        EnableWithAutoHeaderText = 1,
     }
 
     /// <summary>Specifies how column widths are automatically sized.</summary>
     public enum DataGridViewAutoSizeColumnsMode
     {
         /// <summary>Column widths are not automatically adjusted.</summary>
-        None,
+        None = 1,
         /// <summary>Column widths adjust to fit the content of all cells, including headers.</summary>
-        AllCells,
+        AllCells = 6,
         /// <summary>Column widths adjust to fit the content of all cells, excluding headers.</summary>
-        AllCellsExceptHeader,
+        AllCellsExceptHeader = 4,
         /// <summary>Column widths adjust to fit the header content.</summary>
-        ColumnHeader,
+        ColumnHeader = 2,
         /// <summary>Column widths adjust to fit the content of displayed cells, including headers.</summary>
-        DisplayedCells,
+        DisplayedCells = 10,
         /// <summary>Column widths adjust to fit the content of displayed cells, excluding headers.</summary>
-        DisplayedCellsExceptHeader,
+        DisplayedCellsExceptHeader = 8,
         /// <summary>Columns share the available width equally.</summary>
-        Fill
+        Fill = 16,
     }
 
     /// <summary>
@@ -447,11 +447,11 @@ namespace Majorsilence.Forms
     public enum DataGridViewColumnSortMode
     {
         /// <summary>The column can be sorted automatically.</summary>
-        Automatic,
+        Automatic = 1,
         /// <summary>The column cannot be sorted.</summary>
-        NotSortable,
+        NotSortable = 0,
         /// <summary>The column is sorted programmatically.</summary>
-        Programmatic
+        Programmatic = 2,
     }
 
     /// <summary>Specifies how content is aligned within a DataGridView cell.</summary>
@@ -575,11 +575,11 @@ namespace Majorsilence.Forms
     public enum DataGridViewAutoSizeRowMode
     {
         /// <summary>Size to the header cell only.</summary>
-        RowHeader = 0,
+        RowHeader = 1,
         /// <summary>Size to the displayed data cells.</summary>
-        AllCellsExceptHeader = 1,
+        AllCellsExceptHeader = 2,
         /// <summary>Size to all cells including the header.</summary>
-        AllCells = 2
+        AllCells = 3,
     }
 
     /// <summary>Provides data for the DataGridView.DataError event.</summary>
@@ -610,34 +610,34 @@ namespace Majorsilence.Forms
     public enum DataGridViewAutoSizeColumnMode
     {
         /// <summary>Behavior inherits from the DataGridView.AutoSizeColumnsMode value.</summary>
-        NotSet,
+        NotSet = 0,
         /// <summary>Column width is not automatically adjusted.</summary>
-        None,
+        None = 1,
         /// <summary>Column width adjusts to fit content of all cells.</summary>
-        AllCells,
+        AllCells = 6,
         /// <summary>Column width adjusts to fit content of all cells except the header.</summary>
-        AllCellsExceptHeader,
+        AllCellsExceptHeader = 4,
         /// <summary>Column width adjusts to fit the header cell content only.</summary>
-        ColumnHeader,
+        ColumnHeader = 2,
         /// <summary>Column width adjusts to fit content of displayed cells.</summary>
-        DisplayedCells,
+        DisplayedCells = 10,
         /// <summary>Column width adjusts to fit content of displayed cells except the header.</summary>
-        DisplayedCellsExceptHeader,
+        DisplayedCellsExceptHeader = 8,
         /// <summary>Column width adjusts so all columns fill the control width.</summary>
-        Fill
+        Fill = 16,
     }
 
     /// <summary>Specifies when cells in a DataGridView enter edit mode.</summary>
     public enum DataGridViewEditMode
     {
         /// <summary>Edit mode is entered by pressing F2 or double-clicking.</summary>
-        EditOnEnter,
+        EditOnEnter = 0,
         /// <summary>Edit mode is entered when a key is pressed or F2 is pressed.</summary>
-        EditOnKeystroke,
+        EditOnKeystroke = 1,
         /// <summary>Edit mode is entered when a key is pressed or F2 is pressed.</summary>
-        EditOnKeystrokeOrF2,
+        EditOnKeystrokeOrF2 = 2,
         /// <summary>Edit mode is entered programmatically only.</summary>
-        EditProgrammatically
+        EditProgrammatically = 4,
     }
 
     /// <summary>Specifies how the row header width is sized.</summary>
@@ -799,54 +799,54 @@ namespace Majorsilence.Forms
     public enum DataGridViewDataErrorContexts
     {
         /// <summary>Data parsing error.</summary>
-        Parsing = 1,
+        Parsing = 0x100,
         /// <summary>Cell commit error.</summary>
-        Commit = 2,
+        Commit = 0x200,
         /// <summary>Cell leaving error.</summary>
-        LeaveControl = 4,
+        LeaveControl = 0x800,
         /// <summary>Row dirty state needs evaluation.</summary>
         RowDirtyStateNeeded = 8,
         /// <summary>Bubble up error.</summary>
-        Formatting = 16,
+        Formatting = 1,
         /// <summary>Display error.</summary>
-        Display = 32,
+        Display = 2,
         /// <summary>Preferred size error.</summary>
-        PreferredSize = 64,
+        PreferredSize = 4,
         /// <summary>Scroll error.</summary>
-        Scroll = 128,
+        Scroll = 0x2000,
         /// <summary>Current cell change error.</summary>
-        CurrentCellChange = 256,
+        CurrentCellChange = 0x1000,
         /// <summary>Error while cleaning new row.</summary>
-        CleanupExceptionHandling = 512,
+        CleanupExceptionHandling = 0x200,
         /// <summary>Error while initializing a new row.</summary>
-        InitialValueRestoration = 1024
+        InitialValueRestoration = 0x400,
     }
 
     /// <summary>Specifies the border style of the cells in a DataGridView.</summary>
     public enum DataGridViewCellBorderStyle
     {
         /// <summary>No border.</summary>
-        None = 0,
+        None = 4,
         /// <summary>A single line border.</summary>
         Single = 1,
         /// <summary>A sunken 3D border.</summary>
-        Sunken = 2,
+        Sunken = 3,
         /// <summary>A raised 3D border.</summary>
-        Raised = 3,
+        Raised = 2,
         /// <summary>A single horizontal border only.</summary>
-        SingleHorizontal = 4,
+        SingleHorizontal = 8,
         /// <summary>A sunken horizontal 3D border only.</summary>
-        SunkenHorizontal = 5,
+        SunkenHorizontal = 10,
         /// <summary>A raised horizontal 3D border only.</summary>
-        RaisedHorizontal = 6,
+        RaisedHorizontal = 9,
         /// <summary>A single vertical border only.</summary>
-        SingleVertical = 7,
+        SingleVertical = 5,
         /// <summary>A sunken vertical 3D border only.</summary>
-        SunkenVertical = 8,
+        SunkenVertical = 7,
         /// <summary>A raised vertical 3D border only.</summary>
-        RaisedVertical = 9,
+        RaisedVertical = 6,
         /// <summary>Custom border.</summary>
-        Custom = 10
+        Custom = 0,
     }
 
 #pragma warning disable CA1711
@@ -1100,13 +1100,13 @@ namespace Majorsilence.Forms
         /// <summary>The border of the cell is to be painted.</summary>
         Border = 2,
         /// <summary>The focus rectangle is to be painted.</summary>
-        Focus = 4,
+        Focus = 32,
         /// <summary>The content background is to be painted.</summary>
-        ContentBackground = 8,
+        ContentBackground = 4,
         /// <summary>The foreground of the content is to be painted.</summary>
-        ContentForeground = 16,
+        ContentForeground = 8,
         /// <summary>The error icon is to be painted.</summary>
-        ErrorIcon = 32,
+        ErrorIcon = 16,
         /// <summary>The selection background is to be painted.</summary>
         SelectionBackground = 64,
         /// <summary>All parts of the cell are to be painted.</summary>
@@ -1309,10 +1309,10 @@ namespace Majorsilence.Forms
     public enum DataGridViewComboBoxDisplayStyle
     {
         /// <summary>The combo box appears as a drop-down button.</summary>
-        DropDownButton,
+        DropDownButton = 1,
         /// <summary>The combo box appears as a combo box.</summary>
-        ComboBox,
+        ComboBox = 0,
         /// <summary>No combo box UI is shown.</summary>
-        Nothing
+        Nothing = 2,
     }
 }

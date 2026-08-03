@@ -63,11 +63,11 @@ namespace Majorsilence.Forms
         /// <summary>Only the raw input characters.</summary>
         ExcludePromptAndLiterals = 0,
         /// <summary>Include literal characters but not the prompt character.</summary>
-        IncludeLiterals = 1,
+        IncludeLiterals = 2,
         /// <summary>Include prompt characters but not literal characters.</summary>
-        IncludePrompt = 2,
+        IncludePrompt = 1,
         /// <summary>Include both prompt and literal characters.</summary>
-        IncludePromptAndLiterals = 3
+        IncludePromptAndLiterals = 3,
     }
 
     /// <summary>Provides data for the MaskInputRejected event.</summary>

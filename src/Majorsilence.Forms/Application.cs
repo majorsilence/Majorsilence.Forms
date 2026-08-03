@@ -447,21 +447,21 @@ namespace Majorsilence.Forms
     public enum UnhandledExceptionMode
     {
         /// <summary>Throw the exception.</summary>
-        ThrowException,
+        ThrowException = 1,
         /// <summary>Catch the exception and notify the ThreadException handler.</summary>
-        CatchException,
+        CatchException = 2,
         /// <summary>Automatically choose based on whether a handler is attached.</summary>
-        Automatic
+        Automatic = 0,
     }
 
     /// <summary>Specifies the application-wide color mode. WinForms compatibility.</summary>
     public enum SystemColorMode
     {
         /// <summary>Follow the operating system setting.</summary>
-        System = 0,
+        System = 1,
         /// <summary>Use the classic (light) color set.</summary>
-        Classic = 1,
+        Classic = 0,
         /// <summary>Use the dark color set.</summary>
-        Dark = 2
+        Dark = 2,
     }
 }

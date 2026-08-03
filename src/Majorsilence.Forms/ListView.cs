@@ -315,15 +315,15 @@ namespace Majorsilence.Forms
     public enum View
     {
         /// <summary>Items are displayed as large icons with text below.</summary>
-        LargeIcon,
+        LargeIcon = 0,
         /// <summary>Items are displayed as small icons with text to the right.</summary>
-        SmallIcon,
+        SmallIcon = 2,
         /// <summary>Items are displayed in a single column of small icons with text.</summary>
-        List,
+        List = 3,
         /// <summary>Items are displayed with details in columns.</summary>
-        Details,
+        Details = 1,
         /// <summary>Items are displayed as large icons with more text.</summary>
-        Tile
+        Tile = 4,
     }
 
     /// <summary>Delegate for the ListView.ColumnClick event.</summary>

@@ -530,23 +530,23 @@ namespace Majorsilence.Forms
         /// <summary>IME disabled.</summary>
         Disable = 3,
         /// <summary>IME closed.</summary>
-        Close = 4,
+        Close = 11,
         /// <summary>IME in hiragana input mode.</summary>
-        Hiragana = 5,
+        Hiragana = 4,
         /// <summary>IME in katakana input mode.</summary>
-        Katakana = 6,
+        Katakana = 5,
         /// <summary>IME in half-width katakana input mode.</summary>
-        KatakanaHalf = 7,
+        KatakanaHalf = 6,
         /// <summary>IME in alphanumeric mode.</summary>
         Alpha = 8,
         /// <summary>IME in half-width alphanumeric mode.</summary>
-        AlphaFull = 9,
+        AlphaFull = 7,
         /// <summary>IME in hangul mode.</summary>
         Hangul = 10,
         /// <summary>IME in half-width hangul mode.</summary>
-        HangulFull = 11,
+        HangulFull = 9,
         /// <summary>Inherits from parent control.</summary>
-        Inherit = -1
+        Inherit = -1,
     }
 
     /// <summary>

@@ -273,19 +273,19 @@ namespace Majorsilence.Forms
     public enum RichTextBoxScrollBars
     {
         /// <summary>No scroll bars.</summary>
-        None,
+        None = 0,
         /// <summary>Only horizontal scroll bars.</summary>
-        Horizontal,
+        Horizontal = 1,
         /// <summary>Only vertical scroll bars.</summary>
-        Vertical,
+        Vertical = 2,
         /// <summary>Both horizontal and vertical scroll bars.</summary>
-        Both,
+        Both = 3,
         /// <summary>Forced horizontal scroll bar.</summary>
-        ForcedHorizontal,
+        ForcedHorizontal = 17,
         /// <summary>Forced vertical scroll bar.</summary>
-        ForcedVertical,
+        ForcedVertical = 18,
         /// <summary>Both forced scroll bars.</summary>
-        ForcedBoth
+        ForcedBoth = 19,
     }
 
     /// <summary>Specifies the data format of a file opened or saved with a RichTextBox.</summary>
