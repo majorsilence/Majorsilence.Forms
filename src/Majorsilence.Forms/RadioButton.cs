@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a RadioButton control.
     /// </summary>
-    public class RadioButton : Control, IHaveGlyph, IHaveTextAndImageAlign
+    public class RadioButton : ButtonBase, IHaveGlyph, IHaveTextAndImageAlign
     {
         private static readonly BitVector32.Section s_stateAutoEllipsis = BitVector32.CreateSection (1);
         private static readonly BitVector32.Section s_stateChecked = BitVector32.CreateSection (1, s_stateAutoEllipsis);
@@ -42,7 +42,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating if text will be truncated with an ellipsis if it cannot fully fit in the <see cref='RadioButton'/>.
         /// </summary>
-        public bool AutoEllipsis {
+        public override bool AutoEllipsis {
             get => _radiobuttonState[s_stateAutoEllipsis] != 0;
             set {
                 if (AutoEllipsis != value) {
@@ -267,7 +267,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the alignment of the text on the <see cref='RadioButton'/>.
         /// </summary>
-        public ContentAlignment TextAlign {
+        public override ContentAlignment TextAlign {
             get => Properties.GetEnum (s_propTextAlign, ContentAlignment.MiddleLeft);
             set {
                 SourceGenerated.EnumValidator.Validate (value);
@@ -283,7 +283,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the alignment of the text relative to the image on the <see cref='RadioButton'/>.
         /// </summary>
-        public TextImageRelation TextImageRelation {
+        public override TextImageRelation TextImageRelation {
             get => Properties.GetEnum (s_propTextImageRelation, TextImageRelation.ImageBeforeText);
             set {
                 SourceGenerated.EnumValidator.Validate (value);
@@ -300,10 +300,10 @@ namespace Majorsilence.Forms
         public Appearance Appearance { get; set; } = Appearance.Normal;
 
         /// <summary>Gets or sets the flat style appearance of the radio button. Stub in Majorsilence.Forms.</summary>
-        public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
+        public override FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
 
         /// <summary>Gets the appearance settings for a flat-style button. Stub in Majorsilence.Forms.</summary>
-        public FlatButtonAppearance FlatAppearance { get; } = new FlatButtonAppearance ();
+        public override FlatButtonAppearance FlatAppearance { get; } = new FlatButtonAppearance ();
 
         /// <summary>Simulates a click on the radio button. Checks the button if AutoCheck is true.</summary>
         public void PerformClick () => OnClick (new MouseEventArgs (MouseButtons.Left, 1, 0, 0, System.Drawing.Point.Empty));

@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a CheckBox control.
     /// </summary>
-    public class CheckBox : Control, IHaveGlyph, IHaveTextAndImageAlign
+    public class CheckBox : ButtonBase, IHaveGlyph, IHaveTextAndImageAlign
     {
         private CheckState _state;
 
@@ -43,7 +43,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating if text will be truncated with an ellipsis if it cannot fully fit in the <see cref='CheckBox'/>.
         /// </summary>
-        public bool AutoEllipsis {
+        public override bool AutoEllipsis {
             get => _checkboxState[s_stateAutoEllipsis] != 0;
             set {
                 if (AutoEllipsis != value) {
@@ -304,7 +304,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the alignment of the text on the <see cref='CheckBox'/>.
         /// </summary>
-        public ContentAlignment TextAlign {
+        public override ContentAlignment TextAlign {
             get => Properties.GetEnum (s_propTextAlign, ContentAlignment.MiddleLeft);
             set {
                 SourceGenerated.EnumValidator.Validate (value);
@@ -320,7 +320,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the alignment of the text relative to the image on the <see cref='CheckBox'/>.
         /// </summary>
-        public TextImageRelation TextImageRelation {
+        public override TextImageRelation TextImageRelation {
             get => Properties.GetEnum (s_propTextImageRelation, TextImageRelation.ImageBeforeText);
             set {
                 SourceGenerated.EnumValidator.Validate (value);
@@ -342,10 +342,10 @@ namespace Majorsilence.Forms
         public Appearance Appearance { get; set; } = Appearance.Normal;
 
         /// <summary>Gets or sets the flat style appearance of the check box. Stub in Majorsilence.Forms.</summary>
-        public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
+        public override FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
 
         /// <summary>Gets the appearance settings for a flat-style button. Stub in Majorsilence.Forms.</summary>
-        public FlatButtonAppearance FlatAppearance { get; } = new FlatButtonAppearance ();
+        public override FlatButtonAppearance FlatAppearance { get; } = new FlatButtonAppearance ();
 
         bool IHaveTextAndImageAlign.Multiline => false;
 

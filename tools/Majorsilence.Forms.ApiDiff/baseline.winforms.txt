@@ -140,6 +140,17 @@ MEMBER System.Windows.Forms.BindingSource.SupportsSearching
 MEMBER System.Windows.Forms.BindingSource.SupportsSorting
 MEMBER System.Windows.Forms.BindingSource.SuspendBinding
 MEMBER System.Windows.Forms.Button.NotifyDefault
+MEMBER System.Windows.Forms.ButtonBase.ButtonBaseAccessibleObject
+MEMBER System.Windows.Forms.ButtonBase.Command
+MEMBER System.Windows.Forms.ButtonBase.CommandCanExecuteChanged
+MEMBER System.Windows.Forms.ButtonBase.CommandChanged
+MEMBER System.Windows.Forms.ButtonBase.CommandParameter
+MEMBER System.Windows.Forms.ButtonBase.CommandParameterChanged
+MEMBER System.Windows.Forms.ButtonBase.Image
+MEMBER System.Windows.Forms.ButtonBase.ImageAlign
+MEMBER System.Windows.Forms.ButtonBase.ImageIndex
+MEMBER System.Windows.Forms.ButtonBase.ImageKey
+MEMBER System.Windows.Forms.ButtonBase.ImageList
 MEMBER System.Windows.Forms.ButtonRenderer.DrawButton
 MEMBER System.Windows.Forms.ButtonRenderer.DrawParentBackground
 MEMBER System.Windows.Forms.ButtonRenderer.IsBackgroundPartiallyTransparent
@@ -153,11 +164,8 @@ MEMBER System.Windows.Forms.CheckBoxRenderer.IsBackgroundPartiallyTransparent
 MEMBER System.Windows.Forms.CheckBoxRenderer.RenderMatchingApplicationState
 MEMBER System.Windows.Forms.CheckedListBox.CheckedIndexCollection
 MEMBER System.Windows.Forms.CheckedListBox.CheckedItemCollection
-MEMBER System.Windows.Forms.CheckedListBox.DataSourceChanged
-MEMBER System.Windows.Forms.CheckedListBox.DisplayMemberChanged
 MEMBER System.Windows.Forms.CheckedListBox.ObjectCollection
 MEMBER System.Windows.Forms.CheckedListBox.UseCompatibleTextRendering
-MEMBER System.Windows.Forms.CheckedListBox.ValueMemberChanged
 MEMBER System.Windows.Forms.Clipboard.ContainsAudio
 MEMBER System.Windows.Forms.Clipboard.ContainsFileDropList
 MEMBER System.Windows.Forms.Clipboard.GetAudioStream
@@ -741,6 +749,7 @@ MEMBER System.Windows.Forms.ListBox.ObjectCollection
 MEMBER System.Windows.Forms.ListBox.PreferredHeight
 MEMBER System.Windows.Forms.ListBox.SelectedObjectCollection
 MEMBER System.Windows.Forms.ListBox.UseCustomTabOffsets
+MEMBER System.Windows.Forms.ListControl.SelectedValueChanged
 MEMBER System.Windows.Forms.ListView.Alignment
 MEMBER System.Windows.Forms.ListView.ArrangeIcons
 MEMBER System.Windows.Forms.ListView.AutoResizeColumn
@@ -1496,6 +1505,9 @@ MEMBER System.Windows.Forms.TreeView.Sorted
 MEMBER System.Windows.Forms.TreeView.VisibleCount
 MEMBER System.Windows.Forms.TreeViewDrawMode.OwnerDrawAll
 MEMBER System.Windows.Forms.TreeViewDrawMode.OwnerDrawText
+MEMBER System.Windows.Forms.UpDownBase.BackgroundImageChanged
+MEMBER System.Windows.Forms.UpDownBase.BackgroundImageLayoutChanged
+MEMBER System.Windows.Forms.UpDownBase.DockPadding
 MEMBER System.Windows.Forms.UserControl.AutoValidateChanged
 MEMBER System.Windows.Forms.WebBrowser.AllowNavigation
 MEMBER System.Windows.Forms.WebBrowser.AllowWebBrowserDrop
@@ -1521,7 +1533,6 @@ TYPE   System.Windows.Forms.AmbientProperties
 TYPE   System.Windows.Forms.BaseCollection
 TYPE   System.Windows.Forms.BindableComponent
 TYPE   System.Windows.Forms.BindingsCollection
-TYPE   System.Windows.Forms.ButtonBase
 TYPE   System.Windows.Forms.ColumnHeaderConverter
 TYPE   System.Windows.Forms.CursorConverter
 TYPE   System.Windows.Forms.DataGridPreferredColumnWidthTypeConverter
@@ -1575,7 +1586,6 @@ TYPE   System.Windows.Forms.Layout.TableLayoutSettingsTypeConverter
 TYPE   System.Windows.Forms.LinkConverter
 TYPE   System.Windows.Forms.ListBindingConverter
 TYPE   System.Windows.Forms.ListBindingHelper
-TYPE   System.Windows.Forms.ListControl
 TYPE   System.Windows.Forms.ListViewHitTestInfo
 TYPE   System.Windows.Forms.ListViewInsertionMark
 TYPE   System.Windows.Forms.ListViewItemConverter
@@ -1610,7 +1620,6 @@ TYPE   System.Windows.Forms.TaskDialogRadioButtonCollection
 TYPE   System.Windows.Forms.TaskDialogVerificationCheckBox
 TYPE   System.Windows.Forms.ThreadExceptionDialog
 TYPE   System.Windows.Forms.ToolStripContentPanel
-TYPE   System.Windows.Forms.ToolStripDropDownItem
 TYPE   System.Windows.Forms.ToolStripDropDownItemAccessibleObject
 TYPE   System.Windows.Forms.ToolStripDropDownMenu
 TYPE   System.Windows.Forms.ToolStripGripRenderEventArgs
@@ -1627,7 +1636,6 @@ TYPE   System.Windows.Forms.TreeNodeConverter
 TYPE   System.Windows.Forms.TreeViewHitTestInfo
 TYPE   System.Windows.Forms.TreeViewImageIndexConverter
 TYPE   System.Windows.Forms.TreeViewImageKeyConverter
-TYPE   System.Windows.Forms.UpDownBase
 TYPE   System.Windows.Forms.VScrollProperties
 TYPE   System.Windows.Forms.WebBrowserBase
 TYPE   System.Windows.Forms.WebBrowserSiteBase
