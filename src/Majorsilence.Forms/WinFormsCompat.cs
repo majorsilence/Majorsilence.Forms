@@ -2102,9 +2102,309 @@ namespace Majorsilence.Forms
         Table = 4,
     }
 
-    /// <summary>Provides a base class for rendering ToolStrip controls. Stub in Majorsilence.Forms.</summary>
+    /// <summary>
+    /// Handles one of <see cref="ToolStripRenderer"/>'s render events.
+    /// </summary>
+    /// <remarks>
+    /// WinForms declares a separate handler delegate per render event; a single generic one carries
+    /// the same information with far less surface, and binds the same way at a call site.
+    /// </remarks>
+    public delegate void ToolStripRenderEventHandler<TEventArgs> (object sender, TEventArgs e) where TEventArgs : EventArgs;
+
+    /// <summary>
+    /// Base class for drawing <see cref="ToolStrip"/> chrome. Subclass and override the
+    /// <c>OnRender*</c> methods, or hook the <c>Render*</c> events, to theme toolbars and menus.
+    /// </summary>
+    /// <remarks>
+    /// Each <c>Draw*</c> method raises its event and then calls the matching <c>OnRender*</c>, so both
+    /// extension routes see every paint. The base <c>OnRender*</c> implementations do nothing on
+    /// purpose: this layer paints ToolStrips through its own theme, and a base that also painted would
+    /// draw underneath a subclass that paints.
+    /// </remarks>
     public abstract class ToolStripRenderer
     {
+        /// <summary>
+        /// Returns a greyed-out copy of an image, for an item that is disabled.
+        /// </summary>
+        public static Majorsilence.Forms.Drawing.Image? CreateDisabledImage (Majorsilence.Forms.Drawing.Image? normalImage)
+        {
+            if (normalImage is null)
+                return null;
+
+            // Standard luminance-preserving desaturation, then lightened, which is what a disabled
+            // toolbar glyph looks like in every WinForms theme.
+            var disabled = new Majorsilence.Forms.Drawing.Bitmap (normalImage.Width, normalImage.Height);
+            var source = new Majorsilence.Forms.Drawing.Bitmap (normalImage);
+            for (var y = 0; y < normalImage.Height; y++)
+                for (var x = 0; x < normalImage.Width; x++) {
+                    var c = source.GetPixel (x, y);
+                    var grey = (int)Math.Round (c.R * 0.299 + c.G * 0.587 + c.B * 0.114);
+                    grey = Math.Clamp ((grey + 255) / 2, 0, 255);
+                    disabled.SetPixel (x, y, Color.FromArgb (c.A, grey, grey, grey));
+                }
+            source.Dispose ();
+            return disabled;
+        }
+
+        /// <summary>Occurs when an arrow glyph is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripArrowRenderEventArgs>? RenderArrow;
+
+        /// <summary>Draws an arrow glyph.</summary>
+        public void DrawArrow (ToolStripArrowRenderEventArgs e)
+        {
+            RenderArrow?.Invoke (this, e);
+            OnRenderArrow (e);
+        }
+
+        /// <summary>Override to draw an arrow glyph.</summary>
+        protected virtual void OnRenderArrow (ToolStripArrowRenderEventArgs e) { }
+
+        /// <summary>Occurs when a ToolStrip's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripRenderEventArgs>? RenderToolStripBackground;
+
+        /// <summary>Draws a ToolStrip's background.</summary>
+        public void DrawToolStripBackground (ToolStripRenderEventArgs e)
+        {
+            RenderToolStripBackground?.Invoke (this, e);
+            OnRenderToolStripBackground (e);
+        }
+
+        /// <summary>Override to draw a ToolStrip's background.</summary>
+        protected virtual void OnRenderToolStripBackground (ToolStripRenderEventArgs e) { }
+
+        /// <summary>Occurs when a ToolStrip's border is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripRenderEventArgs>? RenderToolStripBorder;
+
+        /// <summary>Draws a ToolStrip's border.</summary>
+        public void DrawToolStripBorder (ToolStripRenderEventArgs e)
+        {
+            RenderToolStripBorder?.Invoke (this, e);
+            OnRenderToolStripBorder (e);
+        }
+
+        /// <summary>Override to draw a ToolStrip's border.</summary>
+        protected virtual void OnRenderToolStripBorder (ToolStripRenderEventArgs e) { }
+
+        /// <summary>Occurs when a ToolStrip's move grip is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripGripRenderEventArgs>? RenderGrip;
+
+        /// <summary>Draws a ToolStrip's move grip.</summary>
+        public void DrawGrip (ToolStripGripRenderEventArgs e)
+        {
+            RenderGrip?.Invoke (this, e);
+            OnRenderGrip (e);
+        }
+
+        /// <summary>Override to draw a ToolStrip's move grip.</summary>
+        protected virtual void OnRenderGrip (ToolStripGripRenderEventArgs e) { }
+
+        /// <summary>Occurs when the image margin of a drop-down is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripRenderEventArgs>? RenderImageMargin;
+
+        /// <summary>Draws the image margin of a drop-down.</summary>
+        public void DrawImageMargin (ToolStripRenderEventArgs e)
+        {
+            RenderImageMargin?.Invoke (this, e);
+            OnRenderImageMargin (e);
+        }
+
+        /// <summary>Override to draw the image margin of a drop-down.</summary>
+        protected virtual void OnRenderImageMargin (ToolStripRenderEventArgs e) { }
+
+        /// <summary>Occurs when an item's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderItemBackground;
+
+        /// <summary>Draws an item's background.</summary>
+        public void DrawItemBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderItemBackground?.Invoke (this, e);
+            OnRenderItemBackground (e);
+        }
+
+        /// <summary>Override to draw an item's background.</summary>
+        protected virtual void OnRenderItemBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when an item's check mark is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemImageRenderEventArgs>? RenderItemCheck;
+
+        /// <summary>Draws an item's check mark.</summary>
+        public void DrawItemCheck (ToolStripItemImageRenderEventArgs e)
+        {
+            RenderItemCheck?.Invoke (this, e);
+            OnRenderItemCheck (e);
+        }
+
+        /// <summary>Override to draw an item's check mark.</summary>
+        protected virtual void OnRenderItemCheck (ToolStripItemImageRenderEventArgs e) { }
+
+        /// <summary>Occurs when an item's image is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemImageRenderEventArgs>? RenderItemImage;
+
+        /// <summary>Draws an item's image.</summary>
+        public void DrawItemImage (ToolStripItemImageRenderEventArgs e)
+        {
+            RenderItemImage?.Invoke (this, e);
+            OnRenderItemImage (e);
+        }
+
+        /// <summary>Override to draw an item's image.</summary>
+        protected virtual void OnRenderItemImage (ToolStripItemImageRenderEventArgs e) { }
+
+        /// <summary>Occurs when an item's text is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemTextRenderEventArgs>? RenderItemText;
+
+        /// <summary>Draws an item's text.</summary>
+        public void DrawItemText (ToolStripItemTextRenderEventArgs e)
+        {
+            RenderItemText?.Invoke (this, e);
+            OnRenderItemText (e);
+        }
+
+        /// <summary>Override to draw an item's text.</summary>
+        protected virtual void OnRenderItemText (ToolStripItemTextRenderEventArgs e) { }
+
+        /// <summary>Occurs when a button's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderButtonBackground;
+
+        /// <summary>Draws a button's background.</summary>
+        public void DrawButtonBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderButtonBackground?.Invoke (this, e);
+            OnRenderButtonBackground (e);
+        }
+
+        /// <summary>Override to draw a button's background.</summary>
+        protected virtual void OnRenderButtonBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a drop-down button's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderDropDownButtonBackground;
+
+        /// <summary>Draws a drop-down button's background.</summary>
+        public void DrawDropDownButtonBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderDropDownButtonBackground?.Invoke (this, e);
+            OnRenderDropDownButtonBackground (e);
+        }
+
+        /// <summary>Override to draw a drop-down button's background.</summary>
+        protected virtual void OnRenderDropDownButtonBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when the overflow button's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderOverflowButtonBackground;
+
+        /// <summary>Draws the overflow button's background.</summary>
+        public void DrawOverflowButtonBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderOverflowButtonBackground?.Invoke (this, e);
+            OnRenderOverflowButtonBackground (e);
+        }
+
+        /// <summary>Override to draw the overflow button's background.</summary>
+        protected virtual void OnRenderOverflowButtonBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a split button's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderSplitButtonBackground;
+
+        /// <summary>Draws a split button's background.</summary>
+        public void DrawSplitButton (ToolStripItemRenderEventArgs e)
+        {
+            RenderSplitButtonBackground?.Invoke (this, e);
+            OnRenderSplitButtonBackground (e);
+        }
+
+        /// <summary>Override to draw a split button's background.</summary>
+        protected virtual void OnRenderSplitButtonBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a label's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderLabelBackground;
+
+        /// <summary>Draws a label's background.</summary>
+        public void DrawLabelBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderLabelBackground?.Invoke (this, e);
+            OnRenderLabelBackground (e);
+        }
+
+        /// <summary>Override to draw a label's background.</summary>
+        protected virtual void OnRenderLabelBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a menu item's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderMenuItemBackground;
+
+        /// <summary>Draws a menu item's background.</summary>
+        public void DrawMenuItemBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderMenuItemBackground?.Invoke (this, e);
+            OnRenderMenuItemBackground (e);
+        }
+
+        /// <summary>Override to draw a menu item's background.</summary>
+        protected virtual void OnRenderMenuItemBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a separator is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripSeparatorRenderEventArgs>? RenderSeparator;
+
+        /// <summary>Draws a separator.</summary>
+        public void DrawSeparator (ToolStripSeparatorRenderEventArgs e)
+        {
+            RenderSeparator?.Invoke (this, e);
+            OnRenderSeparator (e);
+        }
+
+        /// <summary>Override to draw a separator.</summary>
+        protected virtual void OnRenderSeparator (ToolStripSeparatorRenderEventArgs e) { }
+
+        /// <summary>Occurs when a StatusStrip's sizing grip is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripRenderEventArgs>? RenderStatusStripSizingGrip;
+
+        /// <summary>Draws a StatusStrip's sizing grip.</summary>
+        public void DrawStatusStripSizingGrip (ToolStripRenderEventArgs e)
+        {
+            RenderStatusStripSizingGrip?.Invoke (this, e);
+            OnRenderStatusStripSizingGrip (e);
+        }
+
+        /// <summary>Override to draw a StatusStrip's sizing grip.</summary>
+        protected virtual void OnRenderStatusStripSizingGrip (ToolStripRenderEventArgs e) { }
+
+        /// <summary>Occurs when a content panel's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripContentPanelRenderEventArgs>? RenderToolStripContentPanelBackground;
+
+        /// <summary>Draws a content panel's background.</summary>
+        public void DrawToolStripContentPanelBackground (ToolStripContentPanelRenderEventArgs e)
+        {
+            RenderToolStripContentPanelBackground?.Invoke (this, e);
+            OnRenderToolStripContentPanelBackground (e);
+        }
+
+        /// <summary>Override to draw a content panel's background.</summary>
+        protected virtual void OnRenderToolStripContentPanelBackground (ToolStripContentPanelRenderEventArgs e) { }
+
+        /// <summary>Occurs when a ToolStrip panel's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripPanelRenderEventArgs>? RenderToolStripPanelBackground;
+
+        /// <summary>Draws a ToolStrip panel's background.</summary>
+        public void DrawToolStripPanelBackground (ToolStripPanelRenderEventArgs e)
+        {
+            RenderToolStripPanelBackground?.Invoke (this, e);
+            OnRenderToolStripPanelBackground (e);
+        }
+
+        /// <summary>Override to draw a ToolStrip panel's background.</summary>
+        protected virtual void OnRenderToolStripPanelBackground (ToolStripPanelRenderEventArgs e) { }
+
+        /// <summary>Occurs when a status label's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderToolStripStatusLabelBackground;
+
+        /// <summary>Draws a status label's background.</summary>
+        public void DrawToolStripStatusLabelBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderToolStripStatusLabelBackground?.Invoke (this, e);
+            OnRenderToolStripStatusLabelBackground (e);
+        }
+
+        /// <summary>Override to draw a status label's background.</summary>
+        protected virtual void OnRenderToolStripStatusLabelBackground (ToolStripItemRenderEventArgs e) { }
     }
 
     /// <summary>Provides a professional-style renderer for ToolStrip. Stub in Majorsilence.Forms.</summary>

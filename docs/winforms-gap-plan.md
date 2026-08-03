@@ -108,6 +108,35 @@ Concentrated in a handful of large types:
 modern code — low priority despite the count. `ToolStripRenderer` at 41/41 means the type is a shell:
 custom ToolStrip rendering does not work at all.
 
+## Progress
+
+| Item | Status |
+|---|---|
+| 1 — the 126 `VALUE` mismatches | **Done.** All fixed, zero introduced; 24 tests. |
+| 2 — delegates and event args | **Done.** 50 enums, 44 event-args, 79 delegates; 173 gaps closed. |
+| 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
+| 4 — ToolStrip rendering | **`ToolStripRenderer` done** (41/41). `ToolStripItem`/`ToolStrip` members remain. |
+
+Baseline: **1,905 → 1,585**.
+
+Two things worth carrying forward:
+
+- **Generate, do not transcribe.** Item 1's values and item 2's shapes both came from the reference
+  assembly. That paid for itself immediately: a hand-written test asserting `SearchDirectionHint` as
+  `0..3` failed against the generated `37..40`, which are the Win32 arrow-key codes upstream actually
+  uses. The generated values were right and the human assertion was wrong.
+- **Reparenting is not free.** Item 3's first pass deleted the derived controls' members so they would
+  inherit from the new base — which silently discarded real behaviour (`Button.AutoEllipsis` runs a
+  layout transaction and invalidates; the base is a plain auto-property). The derived implementations
+  are now kept as `override`s, and a test calls through the base type to prove it.
+
+### Remaining in item 4
+
+`ToolStripItem` (70 members) and `ToolStrip` (30). Unlike the renderer these are not a self-contained
+unit — much of what is missing is the `Control`-parity surface (accessibility properties, the drag
+family, `Anchor`/`Dock`, the `*Changed` events), which is better done as one pass across the item
+hierarchy than piecemeal.
+
 ## Suggested order
 
 1. **The 126 `VALUE` mismatches.** Correctness bugs, mechanical fix, generate from upstream.
