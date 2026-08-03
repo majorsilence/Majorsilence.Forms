@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// and the manager tracks a current position over it. Editing/notification plumbing
     /// (IEditableObject, ListChanged re-sync) is not implemented.
     /// </summary>
-    public class BindingManagerBase
+    public partial class BindingManagerBase
     {
         private readonly IList? list;
         private int position = -1;

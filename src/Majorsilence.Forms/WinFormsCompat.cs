@@ -98,7 +98,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a data binding between a control property and a data source property. Stub in Majorsilence.Forms.</summary>
-    public class Binding
+    public partial class Binding
     {
         /// <summary>Initializes a new Binding stub.</summary>
         public Binding (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled = false)
@@ -2069,7 +2069,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a panel that can host ToolStrip controls. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripPanel : Panel
+    public partial class ToolStripPanel : Panel
     {
         /// <summary>Gets or sets whether the panel is locked. Stub in Majorsilence.Forms.</summary>
         public bool Locked { get; set; }
@@ -2600,7 +2600,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides global settings for all ToolStrip controls. Stub in Majorsilence.Forms.</summary>
-    public static class ToolStripManager
+    public static partial class ToolStripManager
     {
         /// <summary>Gets or sets the global render mode for ToolStrip controls. Stub in Majorsilence.Forms.</summary>
         public static ToolStripRenderMode RenderMode { get; set; } = ToolStripRenderMode.Professional;

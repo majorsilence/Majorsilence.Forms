@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Class for interacting with an operating system's clipboard.
     /// </summary>
-    public static class Clipboard
+    public static partial class Clipboard
     {
         /// <summary>Gets the contents of the clipboard as text.</summary>
         public static Task<string?> GetTextAsync ()

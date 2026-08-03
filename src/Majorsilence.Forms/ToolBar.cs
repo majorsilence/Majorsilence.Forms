@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ToolBar control.
     /// </summary>
-    public class ToolBar : MenuBase
+    public partial class ToolBar : MenuBase
     {
         private ToolBarButtonCollection? _buttons;
 

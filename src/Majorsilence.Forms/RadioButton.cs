@@ -138,7 +138,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the image displayed on the <see cref='RadioButton'/>.
         /// </summary>
 #pragma warning disable CA1416
-        public Majorsilence.Forms.Drawing.Image? Image {
+        public override Majorsilence.Forms.Drawing.Image? Image {
             get => Properties.GetObject<Majorsilence.Forms.Drawing.Image> (s_propImage);
             set {
                 if (Image != value) {
@@ -156,7 +156,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the alignment of the image on the <see cref='RadioButton'/>.
         /// </summary>
-        public ContentAlignment ImageAlign {
+        public override ContentAlignment ImageAlign {
             get => Properties.GetEnum (s_propImageAlign, ContentAlignment.MiddleLeft);
             set {
                 SourceGenerated.EnumValidator.Validate (value);
@@ -172,7 +172,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the index of the image in the <see cref='ImageList'/> associated with the <see cref='RadioButton'/>.
         /// </summary>
-        public int ImageIndex {
+        public override int ImageIndex {
             get => Properties.GetInteger (s_propImageIndex, -1);
             set {
                 if (ImageIndex != value) {
@@ -192,7 +192,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the key of the image in the <see cref='ImageList'/> associated with the <see cref='RadioButton'/>.
         /// </summary>
-        public string ImageKey {
+        public override string ImageKey {
             get => Properties.GetObject<string> (s_propImageKey) ?? string.Empty;
             set {
                 if (ImageKey != value) {
@@ -212,7 +212,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the <see cref='ImageList'/> associated with the <see cref='RadioButton'/>.
         /// </summary>
-        public ImageList? ImageList {
+        public override ImageList? ImageList {
             get => Properties.GetObject<ImageList> (s_propImageList);
             set {
                 if (ImageList != value) {

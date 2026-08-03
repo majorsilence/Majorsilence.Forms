@@ -23,7 +23,7 @@ namespace Majorsilence.Forms
     /// Base class for controls that behave like buttons — <see cref="Button"/>, <see cref="CheckBox"/>
     /// and <see cref="RadioButton"/>.
     /// </summary>
-    public abstract class ButtonBase : Control
+    public abstract partial class ButtonBase : Control
     {
         /// <summary>Gets or sets whether an ellipsis is shown when the text overflows.</summary>
         public virtual bool AutoEllipsis { get; set; }

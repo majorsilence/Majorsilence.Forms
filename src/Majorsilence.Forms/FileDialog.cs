@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a base class for file dialogs.
     /// </summary>
-    public abstract class FileDialog : FileSystemDialog
+    public abstract partial class FileDialog : FileSystemDialog
     {
         internal List<FileDialogFilter> filters = [];
         private string _filter = string.Empty;

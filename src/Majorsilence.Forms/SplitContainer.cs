@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a SplitContainer control.
     /// </summary>
-    public class SplitContainer : Control, System.ComponentModel.ISupportInitialize
+    public partial class SplitContainer : Control, System.ComponentModel.ISupportInitialize
     {
         private readonly Splitter splitter;
         private Orientation orientation;
@@ -140,7 +140,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the distance in pixels from the left or top edge to the splitter.</summary>
         public int SplitterDistance {
-            get => orientation == Orientation.Vertical ? Panel1.Width : Panel1.Height;
+            // Horizontal docks Panel1 to the left, so its Width is the distance. The getter used to
+            // read Panel1.Height for Horizontal -- the opposite of what its own setter writes and of
+            // what ResizePanels, GetMaximumPanel1Size and Panel2MinimumSize all use -- so assigning
+            // SplitterDistance and reading it back did not round-trip.
+            get => orientation == Orientation.Horizontal ? Panel1.Width : Panel1.Height;
             set => ResizePanels (value);
         }
 
@@ -172,10 +176,10 @@ namespace Majorsilence.Forms
         public int SplitterIncrement { get; set; } = 1;
 
         /// <summary>Raised when the splitter is moved. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<SplitterEventArgs>? SplitterMoved { add { } remove { } }
+        public event EventHandler<SplitterEventArgs>? SplitterMoved;
 
         /// <summary>Raised while the splitter is being moved. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<SplitterCancelEventArgs>? SplitterMoving { add { } remove { } }
+        public event EventHandler<SplitterCancelEventArgs>? SplitterMoving;
 
         // Handles the splitter's Drag event.
         private void Splitter_Drag (object? sender, EventArgs<Point> e)

@@ -11,7 +11,7 @@ namespace Majorsilence.Forms
     /// Menu a top-docked menu bar -- the horizontal expand layout, hover-opens-the-next-drop-down, and
     /// the MenuRenderer registration -- is unchanged and still lives here.
     /// </remarks>
-    public class Menu : ToolStrip
+    public partial class Menu : ToolStrip
     {
         /// <summary>
         /// Initializes a new instance of the Menu class.

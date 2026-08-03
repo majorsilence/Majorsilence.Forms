@@ -122,7 +122,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 633** (and `SIG` 146 → 0 since overload checking was turned on).
+Baseline: **1,905 → 502** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -136,6 +136,7 @@ Baseline: **1,905 → 633** (and `SIG` 146 → 0 since overload checking was tur
 | 12 — `Application`, `MenuItem`, `BindingSource` | **Done.** All three at zero. |
 | 13 — the mid-size controls | **Done.** `MonthCalendar`, `PropertyGrid`, `WebBrowser`, `PrintPreviewDialog`, `TreeView`, `RichTextBox`, `MaskedTextBox` and `AccessibleObject`, all at zero. |
 | 14 — `ControlPaint`, `DataFormats`, `DataObject`, `ListBox`, the composite ToolStrip items | **Done.** All at zero, and the visual-style renderers recognised as a false match. |
+| 15 — the flat tail | **Done.** `ButtonBase`, `TreeNode`, `Menu`, `ToolBar`, `SplitContainer`, `Binding`, `BindingManagerBase`, `Cursor`, `Clipboard`, `ToolStripPanel`, `ToolStripDropDown`, `ToolStrip`, `ToolStripManager` and the two file dialogs. |
 
 Two things worth carrying forward:
 
@@ -269,12 +270,28 @@ exercised the two together caught it; four tests that each checked one property 
 it searched a hardcoded array that predated them, so the new formats came back as `Format8` rather
 than themselves.
 
+### What item 15 found
+
+**`SplitContainer.SplitterDistance` did not round-trip.** Its getter read `Panel1.Height` when the
+orientation is `Horizontal`; its own setter, and `ResizePanels`, `GetMaximumPanel1Size` and
+`Panel2MinimumSize`, all use `Panel1.Width` for that case. So `split.SplitterDistance = 60` followed
+by reading it back returned something else entirely. The getter now matches the rest of the class.
+
+That surfaced a second thing worth writing down: **this control reads `Orientation` as the direction
+of the layout, WinForms reads it as the direction of the bar.** Here `Horizontal` docks Panel1 to the
+left, so the panels sit side by side — WinForms calls that `Vertical`. The convention predates this
+work and flipping it would move every existing `SplitContainer`, so `SplitterRectangle` reports where
+the splitter actually is and says so in its remarks.
+
+`SplitContainer.SplitterMoved` and `SplitterMoving` were also declared with empty accessors, so the
+new `OnSplitterMoved`/`OnSplitterMoving` had nothing to raise until they were given a backing field.
+
 ### Next
 
 `DataGrid`, `DataGridTableStyle` and `DataGridColumnStyle` (44/42/14) are the largest remaining block
-and stay low priority — the .NET 1.x controls superseded by `DataGridView`. After those the list is
-flat: `DataGridViewRow` (11), `ButtonBase` (11), `TreeNode` (10), `ToolStripPanel` (10) and
-`ToolBar` (10).
+and stay low priority — the .NET 1.x controls superseded by `DataGridView`. The rest is the
+`DataGridView` cell and column types, the `TaskDialog` family, and a long tail of design-time
+converters.
 
 ## Suggested order
 
