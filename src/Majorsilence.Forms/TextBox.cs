@@ -60,7 +60,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Copies the selected text of the TextBox to the clipboard.
         /// </summary>
-        public void Copy ()
+        public override void Copy ()
         {
             if (!document.IsTextSelected)
                 return;
@@ -80,7 +80,7 @@ namespace Majorsilence.Forms
         /// current font, plus padding -- the same role System.Windows.Forms.TextBox.PreferredHeight
         /// plays (used to auto-size a textbox instead of hardcoding a pixel height).
         /// </summary>
-        public int PreferredHeight
+        public override int PreferredHeight
         {
             get
             {
@@ -92,7 +92,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Copies the selected text of the TextBox to the clipboard and removes it from the TextBox.
         /// </summary>
-        public void Cut ()
+        public override void Cut ()
         {
             if (!document.IsTextSelected)
                 return;
@@ -141,12 +141,24 @@ namespace Majorsilence.Forms
         public new event EventHandler? HScroll;
 
         // Gets the index of the character at the specified location.
-        private int GetCharIndexFromPosition (Point location)
+        /// <inheritdoc/>
+        /// <remarks>Hit-tests the laid-out text through the document, so it answers the real
+        /// character under the point rather than the base's placeholder.</remarks>
+        public override int GetCharIndexFromPosition (Point pt)
         {
             if (!document.Text.HasValue ())
                 return 0;
 
-            return document.GetCharIndexFromPosition (location.X - TextOrigin.X, location.Y - TextOrigin.Y).ClosestCodePointIndex;
+            return document.GetCharIndexFromPosition (pt.X - TextOrigin.X, pt.Y - TextOrigin.Y).ClosestCodePointIndex;
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Reads the caret rectangle out of the laid-out text, so it accounts for the
+        /// current font, wrapping and scroll offset.</remarks>
+        public override Point GetPositionFromCharIndex (int index)
+        {
+            var caret = TextMeasurer.GetCursorLocation (document.GetTextBlock (), TextOrigin, index, CurrentFontSize);
+            return caret.IsEmpty ? Point.Empty : caret.Location;
         }
 
         /// <summary>
@@ -220,7 +232,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating the maximum length of text the TextBox can hold.
         /// </summary>
-        public int MaxLength {
+        public override int MaxLength {
             get => document.MaxLength;
             set => document.MaxLength = value;
         }
@@ -230,7 +242,7 @@ namespace Majorsilence.Forms
         /// Only the WinForms spelling exists: VB is case-insensitive, so a MultiLine/Multiline
         /// pair makes the member unusable from VB.
         /// </summary>
-        public bool Multiline {
+        public override bool Multiline {
             get => document.IsMultiline;
             set {
                 if (document.IsMultiline != value) {
@@ -239,6 +251,9 @@ namespace Majorsilence.Forms
                         Padding = new Padding (value ? 4 : 1, 0, 0, 0);
 
                     document.IsMultiline = value;
+                    // The state lives in the document rather than the base's field, so this override
+                    // owns raising the notification the base would otherwise have raised.
+                    OnMultilineChanged (EventArgs.Empty);
                 }
             }
         }
@@ -394,7 +409,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Inserts any text on the clipboard into the TextBox.
         /// </summary>
-        public void Paste ()
+        public override void Paste ()
         {
             if (document.ReadOnly)
                 return;
@@ -423,20 +438,26 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the number of characters of text currently in the TextBox.</summary>
-        public int TextLength => Text.Length;
+        public override int TextLength => Text.Length;
 
         /// <summary>
         /// Gets or sets a value indicating if the text can be edited.
         /// </summary>
-        public bool ReadOnly {
+        public override bool ReadOnly {
             get => document.ReadOnly;
-            set => document.ReadOnly = value;
+            set {
+                if (document.ReadOnly == value)
+                    return;
+
+                document.ReadOnly = value;
+                OnReadOnlyChanged (EventArgs.Empty);   // see Multiline
+            }
         }
 
         /// <summary>
         /// Scrolls the TextBox so that the caret is visible.
         /// </summary>
-        public void ScrollToCaret ()
+        public override void ScrollToCaret ()
         {
             var caret = TextMeasurer.GetCursorLocation (document.GetTextBlock (), TextOrigin, document.CursorIndex, CurrentFontSize);
 
@@ -499,7 +520,7 @@ namespace Majorsilence.Forms
         /// (or inserts at the caret if nothing is selected), matching
         /// System.Windows.Forms.TextBoxBase.SelectedText.
         /// </summary>
-        public string SelectedText {
+        public override string SelectedText {
             get => document.SelectedText;
             set => document.InsertText (value ?? string.Empty);
         }
@@ -507,15 +528,15 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Selects all text in the TextBox.
         /// </summary>
-        public void SelectAll () => document.SelectAll ();
+        public override void SelectAll () => document.SelectAll ();
 
         /// <summary>Clears all text from the TextBox.</summary>
-        public void Clear () => Text = string.Empty;
+        public override void Clear () => Text = string.Empty;
 
         /// <summary>
         /// Appends text to the current text of the TextBox.
         /// </summary>
-        public void AppendText (string text)
+        public override void AppendText (string text)
         {
             if (string.IsNullOrEmpty (text))
                 return;
@@ -526,19 +547,13 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets whether text wraps to the next line when the edge is reached.
         /// </summary>
-        public bool WordWrap { get; set; } = true;
+        public override bool WordWrap { get; set; } = true;
 
         /// <summary>Gets or sets whether pressing Enter in a multiline TextBox creates a new line. Stub in Majorsilence.Forms.</summary>
         public bool AcceptsReturn { get; set; }
 
-        /// <summary>Gets or sets whether pressing Tab in a TextBox inserts a tab character. Stub in Majorsilence.Forms.</summary>
-        public bool AcceptsTab { get; set; }
-
         /// <summary>Gets or sets the character casing applied to text. Stub in Majorsilence.Forms.</summary>
         public CharacterCasing CharacterCasing { get; set; } = CharacterCasing.Normal;
-
-        /// <summary>Gets or sets whether the selection is hidden when the control loses focus. Stub in Majorsilence.Forms.</summary>
-        public bool HideSelection { get; set; } = true;
 
         /// <summary>Gets or sets the auto-complete mode. Stub in Majorsilence.Forms.</summary>
         public AutoCompleteMode AutoCompleteMode { get; set; } = AutoCompleteMode.None;
@@ -558,23 +573,11 @@ namespace Majorsilence.Forms
         /// <summary>Selects text in the TextBox starting at the specified position.</summary>
         public void Select (int start, int length) { SelectionStart = start; SelectionLength = length; }
 
-        /// <summary>Undoes the last edit. Stub in Majorsilence.Forms.</summary>
-        public void Undo () { }
-
-        /// <summary>Clears the undo buffer. Stub in Majorsilence.Forms.</summary>
-        public void ClearUndo () { }
-
         /// <summary>Raised when the TextAlign property changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? TextAlignChanged { add { } remove { } }
 
-        /// <summary>Raised when the AcceptsTab property changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? AcceptsTabChanged { add { } remove { } }
-
-        /// <summary>Gets or sets whether the text has been modified since it was last set. Stub in Majorsilence.Forms.</summary>
-        public bool Modified { get; set; }
-
         /// <summary>Gets or sets the lines of text in the TextBox.</summary>
-        public string[] Lines {
+        public override string[] Lines {
             // WinForms returns an empty array (not a single empty string) when there is no text.
             get => Text.Length == 0 ? Array.Empty<string> () : Text.Replace ("\r\n", "\n").Replace ("\r", "\n").Split ('\n');
             set => Text = value is null ? string.Empty : string.Join ("\n", value);
@@ -590,9 +593,6 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the horizontal alignment of text in the TextBox. Stub in Majorsilence.Forms.</summary>
         public HorizontalAlignment TextAlign { get; set; } = HorizontalAlignment.Left;
 
-        /// <summary>Gets or sets the border style of the text box. Stub in Majorsilence.Forms.</summary>
-        public BorderStyle BorderStyle { get; set; } = BorderStyle.Fixed3D;
-
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
@@ -601,16 +601,36 @@ namespace Majorsilence.Forms
             get => document.Text;
             set {
                 if (document.Text != value) {
-                    document.Text = value;
+                    setting_text = true;
+                    try {
+                        document.Text = value;
+                    } finally {
+                        setting_text = false;
+                    }
+
+                    // WinForms clears Modified when Text is assigned: the property means "edited since
+                    // it was last set", so a programmatic assignment is the new baseline.
+                    Modified = false;
                     ScrollToCaret ();
                 }
             }
         }
 
+        // True only while the Text setter is writing to the document, which is how Modified tells a
+        // user edit apart from a programmatic assignment -- the document raises the same notification
+        // for both.
+        private bool setting_text;
+
         // Raised by TextBoxDocument whenever the text content actually changes (typing, paste, delete, or a
         // programmatic Text set). Bridges to Control.OnTextChanged so the WinForms TextChanged event fires --
         // the overridden Text setter above writes straight to the document and never runs the base setter.
-        internal void OnDocumentTextChanged () => OnTextChanged (EventArgs.Empty);
+        internal void OnDocumentTextChanged ()
+        {
+            if (!setting_text)
+                Modified = true;
+
+            OnTextChanged (EventArgs.Empty);
+        }
 
         // Where the text starts, taking scrolling into account
         internal Point TextOrigin => new Point (PaddedClientRectangle.Location.X - scroll_x, PaddedClientRectangle.Location.Y - scroll_y);

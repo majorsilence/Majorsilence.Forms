@@ -74,5 +74,41 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (0, (int)CloseReason.None);
             Assert.Equal (0, (int)AccessibleRole.None);
         }
+
+        // AccessibleEvents was missing 32 of upstream's 42 members. The values are Win32 WinEvent
+        // codes, and they are not contiguous with the low block: the System* events run 1..23 while
+        // the object events start at 0x8000, so anything that filled the gap by counting upward from
+        // the last member it happened to have would be wrong for every value after it.
+        [Theory]
+        [InlineData (AccessibleEvents.SystemSound, 0x0001)]
+        [InlineData (AccessibleEvents.SystemMinimizeEnd, 0x0017)]
+        [InlineData (AccessibleEvents.Create, 0x8000)]
+        [InlineData (AccessibleEvents.Reorder, 0x8004)]
+        [InlineData (AccessibleEvents.SelectionWithin, 0x8009)]
+        [InlineData (AccessibleEvents.DescriptionChange, 0x800D)]
+        [InlineData (AccessibleEvents.ParentChange, 0x800F)]
+        [InlineData (AccessibleEvents.AcceleratorChange, 0x8012)]
+        public void AccessibleEvents_values_are_the_Win32_WinEvent_codes (AccessibleEvents value, int expected)
+            => Assert.Equal (expected, (int)value);
+
+        [Fact]
+        public void AccessibleEvents_object_events_are_contiguous_from_Create ()
+        {
+            // Guards the splice itself: 19 consecutive codes from EVENT_OBJECT_CREATE, in order.
+            AccessibleEvents[] ordered = [
+                AccessibleEvents.Create, AccessibleEvents.Destroy, AccessibleEvents.Show,
+                AccessibleEvents.Hide, AccessibleEvents.Reorder, AccessibleEvents.Focus,
+                AccessibleEvents.Selection, AccessibleEvents.SelectionAdd,
+                AccessibleEvents.SelectionRemove, AccessibleEvents.SelectionWithin,
+                AccessibleEvents.StateChange, AccessibleEvents.LocationChange,
+                AccessibleEvents.NameChange, AccessibleEvents.DescriptionChange,
+                AccessibleEvents.ValueChange, AccessibleEvents.ParentChange,
+                AccessibleEvents.HelpChange, AccessibleEvents.DefaultActionChange,
+                AccessibleEvents.AcceleratorChange,
+            ];
+
+            for (var i = 0; i < ordered.Length; i++)
+                Assert.Equal (0x8000 + i, (int)ordered[i]);
+        }
     }
 }

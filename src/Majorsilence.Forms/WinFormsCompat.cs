@@ -449,31 +449,100 @@ namespace Majorsilence.Forms
         Inherit
     }
 
-    /// <summary>Specifies constants representing accessible events. Stub in Majorsilence.Forms.</summary>
+    /// <summary>Specifies constants representing accessible events.</summary>
+    /// <remarks>
+    /// The values are the Win32 <c>EVENT_*</c> WinEvent codes, generated from the reference assembly
+    /// rather than transcribed: 32 of the 42 were absent here, and the ten present were only the ones
+    /// a reader is likely to check by eye.
+    /// </remarks>
     public enum AccessibleEvents
     {
-        /// <summary>No event.</summary>
+        /// <summary>No event. Not an upstream member; kept because existing code here uses it.</summary>
         None = 0,
-        /// <summary>Object created.</summary>
+        /// <summary>A system sound played.</summary>
+        SystemSound = 1,
+        /// <summary>An alert raised.</summary>
+        SystemAlert = 2,
+        /// <summary>The foreground window changed.</summary>
+        SystemForeground = 3,
+        /// <summary>A menu bar entered the active state.</summary>
+        SystemMenuStart = 4,
+        /// <summary>A menu bar left the active state.</summary>
+        SystemMenuEnd = 5,
+        /// <summary>A pop-up menu was shown.</summary>
+        SystemMenuPopupStart = 6,
+        /// <summary>A pop-up menu closed.</summary>
+        SystemMenuPopupEnd = 7,
+        /// <summary>A window took mouse capture.</summary>
+        SystemCaptureStart = 8,
+        /// <summary>A window released mouse capture.</summary>
+        SystemCaptureEnd = 9,
+        /// <summary>A window is being moved or resized.</summary>
+        SystemMoveSizeStart = 10,
+        /// <summary>A window finished being moved or resized.</summary>
+        SystemMoveSizeEnd = 11,
+        /// <summary>A window entered context-sensitive help mode.</summary>
+        SystemContextHelpStart = 12,
+        /// <summary>A window left context-sensitive help mode.</summary>
+        SystemContextHelpEnd = 13,
+        /// <summary>A drag-and-drop operation started.</summary>
+        SystemDragDropStart = 14,
+        /// <summary>A drag-and-drop operation ended.</summary>
+        SystemDragDropEnd = 15,
+        /// <summary>A dialog box was shown.</summary>
+        SystemDialogStart = 16,
+        /// <summary>A dialog box closed.</summary>
+        SystemDialogEnd = 17,
+        /// <summary>Scrolling started on a scroll bar.</summary>
+        SystemScrollingStart = 18,
+        /// <summary>Scrolling ended on a scroll bar.</summary>
+        SystemScrollingEnd = 19,
+        /// <summary>The user began switching windows.</summary>
+        SystemSwitchStart = 20,
+        /// <summary>The user finished switching windows.</summary>
+        SystemSwitchEnd = 21,
+        /// <summary>A window was minimized.</summary>
+        SystemMinimizeStart = 22,
+        /// <summary>A window finished being minimized.</summary>
+        SystemMinimizeEnd = 23,
+        /// <summary>An object was created.</summary>
         Create = 0x8000,
-        /// <summary>Object destroyed.</summary>
+        /// <summary>An object was destroyed.</summary>
         Destroy = 0x8001,
-        /// <summary>Object shown.</summary>
+        /// <summary>An object was shown.</summary>
         Show = 0x8002,
-        /// <summary>Object hidden.</summary>
+        /// <summary>An object was hidden.</summary>
         Hide = 0x8003,
-        /// <summary>Object focus received.</summary>
+        /// <summary>An object's children changed order.</summary>
+        Reorder = 0x8004,
+        /// <summary>An object received the keyboard focus.</summary>
         Focus = 0x8005,
-        /// <summary>Object selection changed.</summary>
+        /// <summary>An object's selection changed to a single item.</summary>
         Selection = 0x8006,
-        /// <summary>Object value changed.</summary>
-        ValueChange = 0x800E,
-        /// <summary>Object name changed.</summary>
-        NameChange = 0x800C,
-        /// <summary>Object state changed.</summary>
+        /// <summary>An item was added to the selection.</summary>
+        SelectionAdd = 0x8007,
+        /// <summary>An item was removed from the selection.</summary>
+        SelectionRemove = 0x8008,
+        /// <summary>The selection changed within a container.</summary>
+        SelectionWithin = 0x8009,
+        /// <summary>An object's state changed.</summary>
         StateChange = 0x800A,
-        /// <summary>Object location changed.</summary>
-        LocationChange = 0x800B
+        /// <summary>An object's location changed.</summary>
+        LocationChange = 0x800B,
+        /// <summary>An object's name changed.</summary>
+        NameChange = 0x800C,
+        /// <summary>An object's description changed.</summary>
+        DescriptionChange = 0x800D,
+        /// <summary>An object's value changed.</summary>
+        ValueChange = 0x800E,
+        /// <summary>An object's parent changed.</summary>
+        ParentChange = 0x800F,
+        /// <summary>An object's help text changed.</summary>
+        HelpChange = 0x8010,
+        /// <summary>An object's default action changed.</summary>
+        DefaultActionChange = 0x8011,
+        /// <summary>An object's keyboard accelerator changed.</summary>
+        AcceleratorChange = 0x8012
     }
 
 #pragma warning disable CA1711

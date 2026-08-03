@@ -168,41 +168,14 @@ namespace Majorsilence.Forms
             return idx < 0 ? -1 : start + idx;
         }
 
-        /// <summary>Returns the line number of the line that contains the specified character position.</summary>
-        public int GetLineFromCharIndex (int index)
-        {
-            var text = Text;
-            if (index <= 0 || string.IsNullOrEmpty (text)) return 0;
-            index = Math.Min (index, text.Length);
-            var line = 0;
-            for (var i = 0; i < index; i++)
-                if (text[i] == '\n') line++;
-            return line;
-        }
+        // The line/character index family used to be duplicated here. It has moved to TextBoxBase,
+        // which is where WinForms declares it and where every text control can share one
+        // implementation. These copies were not carrying behaviour worth keeping -- they were
+        // strictly weaker: GetFirstCharIndexFromLine returned Text.Length rather than -1 for a line
+        // that does not exist, and none of them treated a bare CR as a line break. The two
+        // hit-testing ones were stubs that hid TextBox's real, document-backed implementation, so
+        // deleting them is what makes a RichTextBox answer GetCharIndexFromPosition correctly.
 
-        /// <summary>Returns the character index of the first character on a given line.</summary>
-        public int GetFirstCharIndexFromLine (int lineNumber)
-        {
-            var text = Text;
-            if (string.IsNullOrEmpty (text) || lineNumber <= 0) return 0;
-            var line = 0;
-            for (var i = 0; i < text.Length; i++) {
-                if (text[i] == '\n') {
-                    line++;
-                    if (line == lineNumber) return i + 1;
-                }
-            }
-            return text.Length;
-        }
-
-        /// <summary>Returns the character index of the first character on the current line.</summary>
-        public int GetFirstCharIndexOfCurrentLine () => GetFirstCharIndexFromLine (GetLineFromCharIndex (SelectionStart));
-
-        /// <summary>Returns the character index of the character at the specified location. Stub in Majorsilence.Forms.</summary>
-        public int GetCharIndexFromPosition (System.Drawing.Point pt) => SelectionStart;
-
-        /// <summary>Returns the location of the character at the specified index. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Point GetPositionFromCharIndex (int index) => System.Drawing.Point.Empty;
 
         /// <summary>Paste from the clipboard into the specified format. Stub in Majorsilence.Forms (pastes plain text).</summary>
         public void Paste (DataFormat clipFormat) => base.Paste ();
