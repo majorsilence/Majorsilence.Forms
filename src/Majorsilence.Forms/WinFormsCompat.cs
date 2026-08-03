@@ -1172,75 +1172,82 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents an editable text box embedded on a ToolStrip / toolbar.
     /// </summary>
-    public class ToolStripTextBox : ToolStripItem
+    public partial class ToolStripTextBox : ToolStripControlHost
     {
-        private string text = string.Empty;
-
         /// <summary>Initializes a new instance of the ToolStripTextBox class.</summary>
-        public ToolStripTextBox () { }
+        public ToolStripTextBox () : base (new TextBox ()) { }
 
         /// <summary>Initializes a new instance of the ToolStripTextBox class with the specified name.</summary>
-        public ToolStripTextBox (string name)
-        {
-            Name = name;
-        }
+        public ToolStripTextBox (string name) : base (new TextBox (), name) { }
+
+        /// <summary>Initializes a new instance hosting an existing TextBox.</summary>
+        public ToolStripTextBox (TextBox textBox) : base (textBox) { }
+
+        /// <summary>Gets the hosted TextBox.</summary>
+        public TextBox TextBox => (TextBox)Control;
 
         /// <summary>Gets or sets the text contained in the text box.</summary>
+        /// <remarks>
+        /// Reads and writes the hosted TextBox. This used to be a private string on the item that the
+        /// hosted control never saw, so Text and TextBox.Text were two unrelated values and the
+        /// editing verbs -- Cut, Paste, SelectAll -- operated on the one Text did not report.
+        /// </remarks>
         public new string Text {
-            get => text;
-            set {
-                if (text != value) {
-                    text = value ?? string.Empty;
-                    TextChanged?.Invoke (this, EventArgs.Empty);
-                }
-            }
+            get => TextBox.Text;
+            set => TextBox.Text = value ?? string.Empty;
         }
 
         /// <summary>Raised when the text changes.</summary>
-        public new event EventHandler? TextChanged;
+        public new event EventHandler? TextChanged {
+            add => TextBox.TextChanged += value;
+            remove => TextBox.TextChanged -= value;
+        }
 
-        /// <summary>Gets a reference to the underlying TextBox. Stub returns a detached TextBox in Majorsilence.Forms.</summary>
-        public TextBox TextBox { get; } = new TextBox ();
+        /// <summary>Gets or sets whether pressing Enter in the text box creates a new line.</summary>
+        public bool AcceptsReturn {
+            get => TextBox.AcceptsReturn;
+            set => TextBox.AcceptsReturn = value;
+        }
 
-        /// <summary>Gets or sets a value indicating whether pressing Enter in the text box creates a new line. Stub in Majorsilence.Forms.</summary>
-        public bool AcceptsReturn { get; set; }
+        /// <summary>Gets or sets whether pressing Tab moves focus or inserts a tab character.</summary>
+        public bool AcceptsTab {
+            get => TextBox.AcceptsTab;
+            set => TextBox.AcceptsTab = value;
+        }
 
-        /// <summary>Gets or sets a value indicating whether pressing Tab moves focus or inserts a tab character. Stub in Majorsilence.Forms.</summary>
-        public bool AcceptsTab { get; set; }
+        /// <summary>Gets or sets the maximum number of characters that can be entered.</summary>
+        public int MaxLength {
+            get => TextBox.MaxLength;
+            set => TextBox.MaxLength = value;
+        }
 
-        /// <summary>Gets or sets the maximum number of characters that can be entered. Stub in Majorsilence.Forms.</summary>
-        public int MaxLength { get; set; } = 32767;
+        /// <summary>Gets or sets whether the text in the text box is read-only.</summary>
+        public bool ReadOnly {
+            get => TextBox.ReadOnly;
+            set => TextBox.ReadOnly = value;
+        }
 
-        /// <summary>Gets or sets a value indicating whether the text in the text box is read-only. Stub in Majorsilence.Forms.</summary>
-        public bool ReadOnly { get; set; }
+        // KeyDown, GotFocus, LostFocus and the rest of the input surface are inherited from
+        // ToolStripControlHost, which already forwards them to the hosted control.
 
-        /// <summary>Gets whether the text box currently has input focus. Delegates to the underlying TextBox.</summary>
-        public bool Focused => TextBox.Focused;
+        /// <summary>Copies the current selection to the clipboard.</summary>
+        public void Cut () => TextBox.Cut ();
 
-        /// <summary>Raised when the control loses focus and validation completes. Delegates to the underlying TextBox.</summary>
-        public event EventHandler? Validated { add => TextBox.Validated += value; remove => TextBox.Validated -= value; }
+        /// <summary>Copies the current selection to the clipboard.</summary>
+        public void Copy () => TextBox.Copy ();
 
-        /// <summary>Raised when a key is pressed. Delegates to the underlying TextBox.</summary>
-        public event EventHandler<KeyEventArgs>? KeyDown { add => TextBox.KeyDown += value; remove => TextBox.KeyDown -= value; }
+        /// <summary>Pastes the clipboard contents over the current selection.</summary>
+        public void Paste () => TextBox.Paste ();
 
-        /// <summary>Copies the current selection to the clipboard. Delegates to the underlying TextBox.</summary>
-        public void Cut() => TextBox.Cut();
+        /// <summary>Undoes the last edit.</summary>
+        public void Undo () => TextBox.Undo ();
 
-        /// <summary>Copies the current selection to the clipboard. Delegates to the underlying TextBox.</summary>
-        public void Copy() => TextBox.Copy();
-
-        /// <summary>Pastes the clipboard contents. Delegates to the underlying TextBox.</summary>
-        public void Paste() => TextBox.Paste();
-
-        /// <summary>Undoes the last edit. Delegates to the underlying TextBox.</summary>
-        public void Undo() => TextBox.Undo();
-
-        /// <summary>Selects all text. Delegates to the underlying TextBox.</summary>
-        public void SelectAll() => TextBox.SelectAll();
+        /// <summary>Selects all text.</summary>
+        public void SelectAll () => TextBox.SelectAll ();
     }
 
     /// <summary>Hosts an arbitrary Control inside a ToolStrip. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripControlHost : ToolStripItem
+    public partial class ToolStripControlHost : ToolStripItem
     {
         /// <summary>Initializes a new instance hosting the specified control.</summary>
         public ToolStripControlHost (Control control) { Control = control; }
@@ -1482,10 +1489,20 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a combo box embedded in a MenuStrip.
     /// </summary>
-    public class ToolStripComboBox : ToolStripItem, IDisposable
+    public partial class ToolStripComboBox : ToolStripControlHost, IDisposable
     {
-        private readonly CompatComboBox combo_box = new CompatComboBox ();
         private bool _disposed;
+
+        /// <summary>Initializes a new instance of the ToolStripComboBox class.</summary>
+        public ToolStripComboBox () : base (new CompatComboBox ()) { }
+
+        /// <summary>Initializes a new instance of the ToolStripComboBox class with the specified name.</summary>
+        public ToolStripComboBox (string name) : base (new CompatComboBox (), name) { }
+
+        // The hosted control is the combo box; there is no second instance. It used to be a field
+        // initialised inline, which -- once this type hosts its control -- would have been a
+        // different combo from the one ToolStripControlHost lays out and paints.
+        private CompatComboBox combo_box => (CompatComboBox)Control;
 
         /// <inheritdoc/>
         public void Dispose ()
@@ -1496,7 +1513,7 @@ namespace Majorsilence.Forms
             GC.SuppressFinalize (this);
         }
 
-        /// <summary>Gets the underlying ComboBox control.</summary>
+        /// <summary>Gets the hosted ComboBox control.</summary>
         public CompatComboBox ComboBox => combo_box;
 
         /// <summary>Gets or sets the selected index.</summary>
@@ -1520,8 +1537,7 @@ namespace Majorsilence.Forms
             remove => combo_box.SelectedIndexChanged -= value;
         }
 
-        /// <summary>Raised when the control loses focus and validation completes. Delegates to the underlying ComboBox.</summary>
-        public event EventHandler? Validated { add => combo_box.Validated += value; remove => combo_box.Validated -= value; }
+        // Validated is inherited from ToolStripControlHost, which forwards it to the hosted control.
 
         /// <summary>Gets or sets the width of the underlying combo box.</summary>
         public new int Width { get => combo_box.Width; set => combo_box.Width = value; }

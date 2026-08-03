@@ -71,7 +71,54 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the appearance and behavior of the combo box.
         /// </summary>
-        public ComboBoxStyle DropDownStyle { get; set; } = ComboBoxStyle.DropDown;
+        public ComboBoxStyle DropDownStyle {
+            get => drop_down_style;
+            set {
+                if (drop_down_style == value)
+                    return;
+
+                drop_down_style = value;
+                DropDownStyleChanged?.Invoke (this, EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private ComboBoxStyle drop_down_style = ComboBoxStyle.DropDown;
+
+        /// <summary>Raised when the drop-down portion is shown.</summary>
+        /// <remarks>The counterpart of <see cref="DropDownClosed"/>. <see cref="DropDownOpened"/> is
+        /// raised alongside it; both exist because this control had the latter before the WinForms
+        /// name was added, and removing it would break code already using it.</remarks>
+        public event EventHandler? DropDown;
+
+        /// <summary>Raised when <see cref="DropDownStyle"/> changes.</summary>
+        public event EventHandler? DropDownStyleChanged;
+
+        /// <summary>Raised when the text changes because the user edited it, rather than because the
+        /// selection changed.</summary>
+        public event EventHandler? TextUpdate;
+
+        /// <summary>Gets or sets the flat-style appearance of the combo box.</summary>
+        public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
+
+        /// <summary>Gets the height one line of the combo box needs at the current font.</summary>
+        public int PreferredHeight
+            => (int)Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height) + Padding.Top + Padding.Bottom + 6;
+
+        /// <summary>Gets the height of the item at the specified index.</summary>
+        /// <remarks>Every item is the same height here; <see cref="DrawMode"/>'s variable-height mode
+        /// is not implemented, so the index is accepted and validated but does not change the answer.</remarks>
+        public int GetItemHeight (int index)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative (index);
+            return ItemHeight;
+        }
+
+        /// <summary>Raises the <see cref="TextUpdate"/> event.</summary>
+        protected virtual void OnTextUpdate (EventArgs e) => TextUpdate?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DropDown"/> event.</summary>
+        protected virtual void OnDropDown (EventArgs e) => DropDown?.Invoke (this, e);
 
         /// <summary>
         /// Gets or sets whether items are formatted before display (WinForms compatibility stub).
@@ -196,7 +243,11 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the DropDownOpened event.
         /// </summary>
-        protected virtual void OnDropDownOpened (EventArgs e) => DropDownOpened?.Invoke (this, e);
+        protected virtual void OnDropDownOpened (EventArgs e)
+        {
+            DropDownOpened?.Invoke (this, e);
+            OnDropDown (e);     // the WinForms-named event; see DropDown
+        }
 
         /// <inheritdoc/>
         protected override void OnKeyUp (KeyEventArgs e)
