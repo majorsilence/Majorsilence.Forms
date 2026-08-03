@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a DataGridView control for displaying tabular data.
     /// </summary>
-    public class DataGridView : Control, System.ComponentModel.ISupportInitialize
+    public partial class DataGridView : Control, System.ComponentModel.ISupportInitialize
     {
         private int header_height = 30;
         private int row_height = 25;
@@ -389,10 +389,34 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets how column widths are automatically adjusted.
         /// </summary>
-        public DataGridViewAutoSizeColumnsMode AutoSizeColumnsMode { get; set; } = DataGridViewAutoSizeColumnsMode.None;
+        public DataGridViewAutoSizeColumnsMode AutoSizeColumnsMode {
+            get => auto_size_columns_mode;
+            set {
+                if (EqualityComparer<DataGridViewAutoSizeColumnsMode>.Default.Equals (auto_size_columns_mode, value))
+                    return;
+
+                auto_size_columns_mode = value;
+                OnAutoSizeColumnsModeChanged (new DataGridViewAutoSizeColumnsModeEventArgs ([]));
+                Invalidate ();
+            }
+        }
+
+        private DataGridViewAutoSizeColumnsMode auto_size_columns_mode = DataGridViewAutoSizeColumnsMode.None;
 
         /// <summary>Gets or sets how row heights are automatically adjusted. Stub in Majorsilence.Forms.</summary>
-        public DataGridViewAutoSizeRowsMode AutoSizeRowsMode { get; set; } = DataGridViewAutoSizeRowsMode.None;
+        public DataGridViewAutoSizeRowsMode AutoSizeRowsMode {
+            get => auto_size_rows_mode;
+            set {
+                if (EqualityComparer<DataGridViewAutoSizeRowsMode>.Default.Equals (auto_size_rows_mode, value))
+                    return;
+
+                auto_size_rows_mode = value;
+                OnAutoSizeRowsModeChanged (new DataGridViewAutoSizeModeEventArgs (false));
+                Invalidate ();
+            }
+        }
+
+        private DataGridViewAutoSizeRowsMode auto_size_rows_mode = DataGridViewAutoSizeRowsMode.None;
 
         /// <summary>Gets or sets what is copied to the clipboard. Stub in Majorsilence.Forms.</summary>
         public DataGridViewClipboardCopyMode ClipboardCopyMode { get; set; } = DataGridViewClipboardCopyMode.EnableWithAutoHeaderText;
@@ -400,13 +424,37 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets how the height of the column header row is adjusted.
         /// </summary>
-        public DataGridViewColumnHeadersHeightSizeMode ColumnHeadersHeightSizeMode { get; set; } = DataGridViewColumnHeadersHeightSizeMode.EnableResizing;
+        public DataGridViewColumnHeadersHeightSizeMode ColumnHeadersHeightSizeMode {
+            get => column_headers_height_size_mode;
+            set {
+                if (EqualityComparer<DataGridViewColumnHeadersHeightSizeMode>.Default.Equals (column_headers_height_size_mode, value))
+                    return;
+
+                column_headers_height_size_mode = value;
+                OnColumnHeadersHeightSizeModeChanged (new DataGridViewAutoSizeModeEventArgs (false));
+                Invalidate ();
+            }
+        }
+
+        private DataGridViewColumnHeadersHeightSizeMode column_headers_height_size_mode = DataGridViewColumnHeadersHeightSizeMode.EnableResizing;
 
         /// <summary>
         /// Gets or sets whether columns are created automatically when DataSource is set.
         /// Majorsilence.Forms stub — column creation from DataSource is not automatically generated.
         /// </summary>
-        public bool AutoGenerateColumns { get; set; } = true;
+        public bool AutoGenerateColumns {
+            get => auto_generate_columns;
+            set {
+                if (EqualityComparer<bool>.Default.Equals (auto_generate_columns, value))
+                    return;
+
+                auto_generate_columns = value;
+                OnAutoGenerateColumnsChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private bool auto_generate_columns = true;
 
         void System.ComponentModel.ISupportInitialize.BeginInit () { }
         void System.ComponentModel.ISupportInitialize.EndInit () { }
@@ -444,7 +492,19 @@ namespace Majorsilence.Forms
             });
 
         /// <summary>Gets or sets the data member within the data source. Stub in Majorsilence.Forms.</summary>
-        public string DataMember { get; set; } = string.Empty;
+        public string DataMember {
+            get => data_member;
+            set {
+                if (EqualityComparer<string>.Default.Equals (data_member, value))
+                    return;
+
+                data_member = value;
+                OnDataMemberChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private string data_member = string.Empty;
 
         /// <summary>
         /// Gets or sets the border style applied to the grid's data cells. Setting it rewrites
@@ -463,6 +523,7 @@ namespace Majorsilence.Forms
                 if (value != DataGridViewCellBorderStyle.Custom)
                     ApplyCellBorderStyle (value);
 
+                OnCellBorderStyleChanged (EventArgs.Empty);
                 Invalidate ();
             }
         }
@@ -517,38 +578,158 @@ namespace Majorsilence.Forms
         private bool applying_cell_border_style;
 
         /// <summary>Gets or sets whether users can add new rows. Stub in Majorsilence.Forms.</summary>
-        public bool AllowUserToAddRows { get; set; } = true;
+        public bool AllowUserToAddRows {
+            get => allow_user_to_add_rows;
+            set {
+                if (EqualityComparer<bool>.Default.Equals (allow_user_to_add_rows, value))
+                    return;
+
+                allow_user_to_add_rows = value;
+                OnAllowUserToAddRowsChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private bool allow_user_to_add_rows = true;
 
         /// <summary>Gets or sets whether users can delete rows. Stub in Majorsilence.Forms.</summary>
-        public bool AllowUserToDeleteRows { get; set; } = true;
+        public bool AllowUserToDeleteRows {
+            get => allow_user_to_delete_rows;
+            set {
+                if (EqualityComparer<bool>.Default.Equals (allow_user_to_delete_rows, value))
+                    return;
+
+                allow_user_to_delete_rows = value;
+                OnAllowUserToDeleteRowsChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private bool allow_user_to_delete_rows = true;
 
         /// <summary>Gets or sets whether users can order columns. Stub in Majorsilence.Forms.</summary>
-        public bool AllowUserToOrderColumns { get; set; }
+        public bool AllowUserToOrderColumns {
+            get => allow_user_to_order_columns;
+            set {
+                if (allow_user_to_order_columns == value)
+                    return;
+
+                allow_user_to_order_columns = value;
+                OnAllowUserToOrderColumnsChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private bool allow_user_to_order_columns;
 
         /// <summary>
         /// Gets or sets whether the user can resize columns by dragging column header borders.
         /// </summary>
-        public bool AllowUserToResizeColumns { get; set; } = true;
+        public bool AllowUserToResizeColumns {
+            get => allow_user_to_resize_columns;
+            set {
+                if (EqualityComparer<bool>.Default.Equals (allow_user_to_resize_columns, value))
+                    return;
+
+                allow_user_to_resize_columns = value;
+                OnAllowUserToResizeColumnsChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private bool allow_user_to_resize_columns = true;
 
         /// <summary>
         /// Gets or sets whether the user can resize rows by dragging row header borders.
         /// </summary>
-        public bool AllowUserToResizeRows { get; set; } = true;
+        public bool AllowUserToResizeRows {
+            get => allow_user_to_resize_rows;
+            set {
+                if (EqualityComparer<bool>.Default.Equals (allow_user_to_resize_rows, value))
+                    return;
+
+                allow_user_to_resize_rows = value;
+                OnAllowUserToResizeRowsChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private bool allow_user_to_resize_rows = true;
 
         /// <summary>Gets or sets whether multiple rows can be selected.</summary>
-        public bool MultiSelect { get; set; } = true;
+        public bool MultiSelect {
+            get => multi_select;
+            set {
+                if (EqualityComparer<bool>.Default.Equals (multi_select, value))
+                    return;
+
+                multi_select = value;
+                OnMultiSelectChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private bool multi_select = true;
 
         /// <summary>Gets or sets the background color of the DataGridView. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Color BackgroundColor { get; set; } = System.Drawing.Color.Empty;
+        public System.Drawing.Color BackgroundColor {
+            get => background_color;
+            set {
+                if (EqualityComparer<System.Drawing.Color>.Default.Equals (background_color, value))
+                    return;
+
+                background_color = value;
+                OnBackgroundColorChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private System.Drawing.Color background_color = System.Drawing.Color.Empty;
 
         /// <summary>Gets or sets the color of the grid lines. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Color GridColor { get; set; } = System.Drawing.Color.Empty;
+        public System.Drawing.Color GridColor {
+            get => grid_color;
+            set {
+                if (EqualityComparer<System.Drawing.Color>.Default.Equals (grid_color, value))
+                    return;
+
+                grid_color = value;
+                OnGridColorChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private System.Drawing.Color grid_color = System.Drawing.Color.Empty;
 
         /// <summary>Gets or sets the edit mode of the DataGridView. Stub in Majorsilence.Forms.</summary>
-        public DataGridViewEditMode EditMode { get; set; } = DataGridViewEditMode.EditOnKeystrokeOrF2;
+        public DataGridViewEditMode EditMode {
+            get => edit_mode;
+            set {
+                if (EqualityComparer<DataGridViewEditMode>.Default.Equals (edit_mode, value))
+                    return;
+
+                edit_mode = value;
+                OnEditModeChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private DataGridViewEditMode edit_mode = DataGridViewEditMode.EditOnKeystrokeOrF2;
 
         /// <summary>Gets or sets the size mode for the row header width. Stub in Majorsilence.Forms.</summary>
-        public DataGridViewRowHeadersWidthSizeMode RowHeadersWidthSizeMode { get; set; } = DataGridViewRowHeadersWidthSizeMode.EnableResizing;
+        public DataGridViewRowHeadersWidthSizeMode RowHeadersWidthSizeMode {
+            get => row_headers_width_size_mode;
+            set {
+                if (EqualityComparer<DataGridViewRowHeadersWidthSizeMode>.Default.Equals (row_headers_width_size_mode, value))
+                    return;
+
+                row_headers_width_size_mode = value;
+                OnRowHeadersWidthSizeModeChanged (new DataGridViewAutoSizeModeEventArgs (false));
+                Invalidate ();
+            }
+        }
+
+        private DataGridViewRowHeadersWidthSizeMode row_headers_width_size_mode = DataGridViewRowHeadersWidthSizeMode.EnableResizing;
 
         /// <summary>Gets or sets the tab key behavior in the DataGridView. Stub in Majorsilence.Forms.</summary>
         public bool StandardTab { get; set; }
@@ -557,14 +738,38 @@ namespace Majorsilence.Forms
         /// Gets or sets the default cell style applied to alternating rows. Settable for WinForms
         /// designer assignments (see <see cref="DefaultCellStyle"/>).
         /// </summary>
-        public ControlStyle AlternatingRowsDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle AlternatingRowsDefaultCellStyle {
+            get => alternating_rows_default_cell_style;
+            set {
+                if (EqualityComparer<ControlStyle>.Default.Equals (alternating_rows_default_cell_style, value))
+                    return;
+
+                alternating_rows_default_cell_style = value;
+                OnAlternatingRowsDefaultCellStyleChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private ControlStyle alternating_rows_default_cell_style = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets or sets the default cell style applied to cells in the DataGridView. Settable so
         /// WinForms designer code assigning a DataGridViewCellStyle compiles (via ControlStyle's
         /// implicit conversion from DataGridViewCellStyle).
         /// </summary>
-        public ControlStyle DefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle DefaultCellStyle {
+            get => default_cell_style;
+            set {
+                if (EqualityComparer<ControlStyle>.Default.Equals (default_cell_style, value))
+                    return;
+
+                default_cell_style = value;
+                OnDefaultCellStyleChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private ControlStyle default_cell_style = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets or sets the default cell style applied to column header cells. Stays
@@ -573,19 +778,55 @@ namespace Majorsilence.Forms
         /// code assigning a `new DataGridViewCellStyle { BackColor = ..., Font = ..., ... }` here
         /// goes through ControlStyle's implicit conversion from DataGridViewCellStyle instead.
         /// </summary>
-        public ControlStyle ColumnHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle ColumnHeadersDefaultCellStyle {
+            get => column_headers_default_cell_style;
+            set {
+                if (EqualityComparer<ControlStyle>.Default.Equals (column_headers_default_cell_style, value))
+                    return;
+
+                column_headers_default_cell_style = value;
+                OnColumnHeadersDefaultCellStyleChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private ControlStyle column_headers_default_cell_style = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets or sets the default cell style applied to row header cells. Settable for
         /// WinForms designer assignments (see <see cref="DefaultCellStyle"/>).
         /// </summary>
-        public ControlStyle RowHeadersDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle RowHeadersDefaultCellStyle {
+            get => row_headers_default_cell_style;
+            set {
+                if (EqualityComparer<ControlStyle>.Default.Equals (row_headers_default_cell_style, value))
+                    return;
+
+                row_headers_default_cell_style = value;
+                OnRowHeadersDefaultCellStyleChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private ControlStyle row_headers_default_cell_style = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>
         /// Gets or sets the default cell style applied to all rows. Settable for WinForms
         /// designer assignments (see <see cref="DefaultCellStyle"/>).
         /// </summary>
-        public ControlStyle RowsDefaultCellStyle { get; set; } = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
+        public ControlStyle RowsDefaultCellStyle {
+            get => rows_default_cell_style;
+            set {
+                if (EqualityComparer<ControlStyle>.Default.Equals (rows_default_cell_style, value))
+                    return;
+
+                rows_default_cell_style = value;
+                OnRowsDefaultCellStyleChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private ControlStyle rows_default_cell_style = new ControlStyle (DataGridViewCell.DefaultCellStyleInternal);
 
         /// <summary>Commits any pending edit for the specified context. Delegates to EndEdit in Majorsilence.Forms.</summary>
         public bool CommitEdit (DataGridViewDataErrorContexts context) => EndEdit ();
@@ -1946,6 +2187,8 @@ namespace Majorsilence.Forms
 
                     if (read_only)
                         CancelEdit ();
+
+                    OnReadOnlyChanged (EventArgs.Empty);
                 }
             }
         }
@@ -2381,7 +2624,19 @@ namespace Majorsilence.Forms
         public void AutoResizeRow (int rowIndex, DataGridViewAutoSizeRowMode autoSizeRowMode) => Invalidate ();
 
         /// <summary>Gets or sets the visual style of the grid's border.</summary>
-        public BorderStyle BorderStyle { get; set; } = BorderStyle.Fixed3D;
+        public BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (EqualityComparer<BorderStyle>.Default.Equals (border_style, value))
+                    return;
+
+                border_style = value;
+                OnBorderStyleChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private BorderStyle border_style = BorderStyle.Fixed3D;
 
         /// <summary>Gets the columns currently selected (via column-header click). Stub: always empty -- the compat grid does not track column selection.</summary>
         public DataGridViewColumnCollection SelectedColumns => new DataGridViewColumnCollection (this);

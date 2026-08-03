@@ -117,7 +117,15 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 1,450**.
+Baseline: **1,905 → 1,090**.
+
+| Item | Status |
+|---|---|
+| 5 — `AccessibleEvents` | **Done.** 32 of 42 members were absent; values generated from upstream. |
+| 6 — `TextBoxBase` | **Done.** The editing surface lifted onto the base, 38 gaps. |
+| 7 — the ToolStrip hosted editors | **Done.** Reparented onto `ToolStripControlHost`; 75 gaps. |
+| 8 — `ListView` | **Done.** 34 members, plus three that had the wrong shape. |
+| 9 — the `DataGridView` family | **Done.** 125 gaps across the control, the cell and the row collection. |
 
 Two things worth carrying forward:
 
@@ -146,11 +154,37 @@ now walks the owning-control chain, which is what makes `GetCurrentParent`, `IsO
 `GetItemAt` mean anything. This is the third time in this plan that a member which merely *existed*
 was wrong — the same class of defect as the 126 `VALUE` mismatches.
 
+### What items 5 to 9 found
+
+The pattern that kept repeating is that **the gap count was the less interesting half of the
+problem**. A missing member fails loudly at compile time; a member that exists with the wrong shape
+or no wiring fails silently, and the scanner cannot see it because the name matches:
+
+- `ToolStripTextBox.Text` was a private string on the item, while `Cut`, `Paste` and `SelectAll`
+  operated on the hosted `TextBox`. Setting `Text` and then calling `SelectAll` selected nothing.
+- `ListView.SelectedItems` was an `IEnumerable<ListViewItem>`, so `SelectedItems.Count` did not
+  compile. `TopItem` was a `bool`. `HitTest` returned an `int`.
+- `ListViewItem.SubItems` started at column 1 because `Text` lived in a separate field, so migrated
+  code reading `SubItems[1].Text` got the third column.
+- `ToolStripItem.Owner` returned null for every item on a `ToolStrip` (item 4).
+
+Checking against the reference assembly rather than against the member's name caught two more:
+`ListView.RedrawItems` is a *method* taking a row range, not the event it reads as, and
+`AccessibleEvents`' values are not one contiguous run — the `System*` events are 1..23 while the
+object events start at `0x8000`.
+
+`DataGridView`'s 83 were mostly `*Changed` notifications. Declaring 59 dead events would have closed
+the count without helping anyone, so the 25 whose property already exists were wired into that
+property's setter and fire for real; the rest are declared with a protected raiser and say in their
+own doc comment that the framework does not raise them yet.
+
 ### Next
 
-With item 4 closed, the largest remaining concentrations are `DataGridView` (83 members),
-`ToolStripTextBox` and `TextBoxBase` (38 each), `ListView` (34) and `AccessibleEvents` (32).
-`DataGrid`/`DataGridTableStyle` (46/42) stay low priority — they are the .NET 1.x controls.
+The largest remaining concentrations are `DataGrid` and `DataGridTableStyle` (46/42, still low
+priority — they are the .NET 1.x controls superseded by `DataGridView`), `Form` (30), `Control` (29),
+`PropertyGrid` (29), `PrintPreviewDialog` (29) and `BindingSource` (26). Turning on
+`Surface.WinForms.IncludeOverloads` is also now worth considering: the `MEMBER` count is low enough
+that an overload report would be signal rather than noise.
 
 ## Suggested order
 
