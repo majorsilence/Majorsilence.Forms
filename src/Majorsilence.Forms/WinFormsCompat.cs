@@ -885,7 +885,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Base class for items that appear in a MenuStrip or StatusStrip.
     /// </summary>
-    public class ToolStripItem : MenuItem
+    public partial class ToolStripItem : MenuItem
     {
         /// <summary>Gets or sets the name of this item.</summary>
         public string Name { get; set; } = string.Empty;
@@ -967,8 +967,13 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the image list key for this item. Stub in Majorsilence.Forms.</summary>
         public string ImageKey { get; set; } = string.Empty;
 
-        /// <summary>Gets the owner ToolStrip. Stub in Majorsilence.Forms.</summary>
-        public ToolStrip? Owner => ParentControl as ToolStrip;
+        /// <summary>Gets the <see cref="ToolStrip"/> this item belongs to, or null when it is not on one.</summary>
+        /// <remarks>
+        /// Walks the owning-control chain rather than reading <c>ParentControl</c> directly: an item
+        /// added to a strip hangs off that strip's root item and has no ParentControl of its own, so
+        /// the direct read reported null for every item on a ToolStrip.
+        /// </remarks>
+        public ToolStrip? Owner => OwnerControl as ToolStrip;
 
         /// <summary>Gets the owner item (parent ToolStripItem). Stub in Majorsilence.Forms.</summary>
         public ToolStripItem? OwnerItem => Parent as ToolStripItem;
@@ -1013,7 +1018,7 @@ namespace Majorsilence.Forms
     public class ToolStripButton : ToolStripItem
     {
         /// <summary>Gets or sets the color treated as transparent in the button image. Stored for compat.</summary>
-        public System.Drawing.Color ImageTransparentColor { get; set; }
+        public new System.Drawing.Color ImageTransparentColor { get; set; }
 
         /// <summary>Initializes a new instance of the ToolStripButton class.</summary>
         public ToolStripButton () { }
@@ -1089,10 +1094,10 @@ namespace Majorsilence.Forms
         public bool LinkVisited { get; set; }
 
         /// <summary>Raised when the pointer enters the label. Stub in Majorsilence.Forms (never fires).</summary>
-        public event EventHandler? MouseEnter { add { } remove { } }
+        public new event EventHandler? MouseEnter { add { } remove { } }
 
         /// <summary>Raised when the pointer leaves the label. Stub in Majorsilence.Forms (never fires).</summary>
-        public event EventHandler? MouseLeave { add { } remove { } }
+        public new event EventHandler? MouseLeave { add { } remove { } }
     }
 
     /// <summary>
@@ -1123,7 +1128,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when the text changes.</summary>
-        public event EventHandler? TextChanged;
+        public new event EventHandler? TextChanged;
 
         /// <summary>Gets a reference to the underlying TextBox. Stub returns a detached TextBox in Majorsilence.Forms.</summary>
         public TextBox TextBox { get; } = new TextBox ();
@@ -1372,10 +1377,10 @@ namespace Majorsilence.Forms
         public event EventHandler? CheckedChanged;
 
         /// <summary>Gets or sets how this item behaves when toolstrips are merged. Stub in Majorsilence.Forms.</summary>
-        public MergeAction MergeAction { get; set; } = MergeAction.Append;
+        public new MergeAction MergeAction { get; set; } = MergeAction.Append;
 
         /// <summary>Gets or sets the merge index for this item. Stub in Majorsilence.Forms.</summary>
-        public int MergeIndex { get; set; } = -1;
+        public new int MergeIndex { get; set; } = -1;
     }
 
     /// <summary>Specifies how a ToolStripMenuItem behaves when toolstrips are merged.</summary>
@@ -1450,13 +1455,13 @@ namespace Majorsilence.Forms
         public event EventHandler? Validated { add => combo_box.Validated += value; remove => combo_box.Validated -= value; }
 
         /// <summary>Gets or sets the width of the underlying combo box.</summary>
-        public int Width { get => combo_box.Width; set => combo_box.Width = value; }
+        public new int Width { get => combo_box.Width; set => combo_box.Width = value; }
 
         /// <summary>Gets or sets the width of the drop-down portion of the underlying combo box.</summary>
         public int DropDownWidth { get => combo_box.DropDownWidth; set => combo_box.DropDownWidth = value; }
 
         /// <summary>Raised when the text of the underlying combo box changes. Delegates to the underlying ComboBox.</summary>
-        public event EventHandler? TextChanged { add => combo_box.TextChanged += value; remove => combo_box.TextChanged -= value; }
+        public new event EventHandler? TextChanged { add => combo_box.TextChanged += value; remove => combo_box.TextChanged -= value; }
     }
 
     /// <summary>
@@ -1694,7 +1699,7 @@ namespace Majorsilence.Forms
     public class ToolStripStatusLabel : ToolStripItem
     {
         /// <summary>Gets or sets the label width. Mirrors WinForms (wraps Size).</summary>
-        public int Width {
+        public new int Width {
             get => Size.Width;
             set => Size = new Size (value, Size.Height);
         }
@@ -1810,7 +1815,7 @@ namespace Majorsilence.Forms
     /// between ToolStrip and those compat types and re-expose <c>Items</c> as a
     /// <see cref="MenuItemCollection"/>, because that is the collection their renderers consume.
     /// </remarks>
-    public class ToolStrip : ToolBar
+    public partial class ToolStrip : ToolBar
     {
         private readonly ToolStripItemCollection _items;
 

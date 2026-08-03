@@ -115,9 +115,9 @@ custom ToolStrip rendering does not work at all.
 | 1 — the 126 `VALUE` mismatches | **Done.** All fixed, zero introduced; 24 tests. |
 | 2 — delegates and event args | **Done.** 50 enums, 44 event-args, 79 delegates; 173 gaps closed. |
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
-| 4 — ToolStrip rendering | **`ToolStripRenderer` done** (41/41). `ToolStripItem`/`ToolStrip` members remain. |
+| 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 1,585**.
+Baseline: **1,905 → 1,450**.
 
 Two things worth carrying forward:
 
@@ -130,12 +130,27 @@ Two things worth carrying forward:
   layout transaction and invalidates; the base is a plain auto-property). The derived implementations
   are now kept as `override`s, and a test calls through the base type to prove it.
 
-### Remaining in item 4
+### What item 4's second half found
 
-`ToolStripItem` (70 members) and `ToolStrip` (30). Unlike the renderer these are not a self-contained
-unit — much of what is missing is the `Control`-parity surface (accessibility properties, the drag
-family, `Anchor`/`Dock`, the `*Changed` events), which is better done as one pass across the item
-hierarchy than piecemeal.
+`ToolStripItem`/`ToolStrip` were done as one pass ([`ToolStripParity.cs`](../src/Majorsilence.Forms/ToolStripParity.cs)),
+since most of what was missing is the `Control`-parity surface — accessibility properties, the drag
+family, `Anchor`/`Dock`, the `*Changed` events — which fragments badly if taken type by type. Each
+member is classified in that file's header as **Real** (backed by state this layer has), **Raisable**
+(a real event with a protected raiser) or **Stored** (round-trips, not yet consulted by the drawing
+path), so a reader never has to guess which they are looking at.
+
+It also surfaced a live bug the gap count could not see: **`ToolStripItem.Owner` returned null for
+every item on a `ToolStrip`.** It read `ParentControl`, which only `MenuDropDown` ever assigns; an
+item added to a strip hangs off that strip's *root item* and has no `ParentControl` of its own. It
+now walks the owning-control chain, which is what makes `GetCurrentParent`, `IsOnDropDown` and
+`GetItemAt` mean anything. This is the third time in this plan that a member which merely *existed*
+was wrong — the same class of defect as the 126 `VALUE` mismatches.
+
+### Next
+
+With item 4 closed, the largest remaining concentrations are `DataGridView` (83 members),
+`ToolStripTextBox` and `TextBoxBase` (38 each), `ListView` (34) and `AccessibleEvents` (32).
+`DataGrid`/`DataGridTableStyle` (46/42) stay low priority — they are the .NET 1.x controls.
 
 ## Suggested order
 

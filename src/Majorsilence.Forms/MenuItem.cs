@@ -176,8 +176,10 @@ namespace Majorsilence.Forms
             Click?.Invoke (this, e);
         }
 
-        // The Control that owns this menu item.
-        private Control? OwnerControl {
+        // The Control that owns this menu item. Internal rather than private because
+        // ToolStripItem.Owner reports it -- an item reached through a root item's chain has no
+        // ParentControl of its own.
+        internal Control? OwnerControl {
             get {
                 if (ParentControl != null)
                     return ParentControl;

@@ -229,7 +229,7 @@ namespace Majorsilence.Forms
         public bool HasDropDownItems => dropDown is not null && dropDown.Items.Count > 0;
 
         /// <summary>Gets whether the drop-down is currently shown.</summary>
-        public bool Pressed => dropDown is not null && dropDown.Visible;
+        public override bool Pressed => dropDown is not null && dropDown.Visible;
 
         /// <summary>Shows this item's drop-down.</summary>
         public new void ShowDropDown ()
