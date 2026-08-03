@@ -35,7 +35,10 @@ namespace Majorsilence.Forms.Tests
             Assert.Empty (item.Name);
             Assert.False (item.Selected);
             Assert.Equal (-1, item.StateImageIndex);
-            Assert.Empty (item.SubItems);
+            // SubItems[0] is the item itself, as in WinForms -- so a fresh item has one sub-item,
+            // not none, and column i is always SubItems[i].
+            Assert.Single (item.SubItems);
+            Assert.Equal (string.Empty, item.SubItems[0].Text);
             Assert.Same (item.SubItems, item.SubItems);
             Assert.Null (item.Tag);
             Assert.Empty (item.Text);
@@ -54,7 +57,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (expectedText, item.Text);
             Assert.Equal (-1, item.ImageIndex);
             Assert.Empty (item.ImageKey);
-            Assert.Empty (item.SubItems);
+            Assert.Single (item.SubItems);
             Assert.Equal (-1, item.Index);
             Assert.Null (item.Parent);
         }
@@ -65,9 +68,10 @@ namespace Majorsilence.Forms.Tests
             var item = new ListViewItem (new[] { "text", "sub1", "sub2" });
 
             Assert.Equal ("text", item.Text);
-            Assert.Equal (2, item.SubItems.Count);
-            Assert.Equal ("sub1", item.SubItems[0].Text);
-            Assert.Equal ("sub2", item.SubItems[1].Text);
+            Assert.Equal (3, item.SubItems.Count);
+            Assert.Equal ("text", item.SubItems[0].Text);     // the item's own text
+            Assert.Equal ("sub1", item.SubItems[1].Text);
+            Assert.Equal ("sub2", item.SubItems[2].Text);
         }
 
         [Fact]
@@ -76,7 +80,7 @@ namespace Majorsilence.Forms.Tests
             var item = new ListViewItem (System.Array.Empty<string> ());
 
             Assert.Empty (item.Text);
-            Assert.Empty (item.SubItems);
+            Assert.Single (item.SubItems);
         }
 
         [Fact]
@@ -85,7 +89,7 @@ namespace Majorsilence.Forms.Tests
             var item = new ListViewItem (new[] { "text" });
 
             Assert.Equal ("text", item.Text);
-            Assert.Empty (item.SubItems);
+            Assert.Single (item.SubItems);
         }
 
         [Theory]
@@ -111,8 +115,8 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal ("text", item.Text);
             Assert.Equal (imageIndex, item.ImageIndex);
-            Assert.Single (item.SubItems);
-            Assert.Equal ("sub1", item.SubItems[0].Text);
+            Assert.Equal (2, item.SubItems.Count);
+            Assert.Equal ("sub1", item.SubItems[1].Text);
         }
 
         [Theory]
@@ -135,8 +139,8 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal ("text", item.Text);
             Assert.Equal ("imageKey", item.ImageKey);
             Assert.Equal (-1, item.ImageIndex);
-            Assert.Single (item.SubItems);
-            Assert.Equal ("sub1", item.SubItems[0].Text);
+            Assert.Equal (2, item.SubItems.Count);
+            Assert.Equal ("sub1", item.SubItems[1].Text);
         }
 
         [Theory]
@@ -251,8 +255,8 @@ namespace Majorsilence.Forms.Tests
             var subItem = item.SubItems.Add ("sub");
 
             Assert.Equal ("sub", subItem.Text);
-            Assert.Single (item.SubItems);
-            Assert.Same (subItem, item.SubItems[0]);
+            Assert.Equal (2, item.SubItems.Count);
+            Assert.Same (subItem, item.SubItems[1]);
         }
 
         [Fact]
@@ -261,7 +265,7 @@ namespace Majorsilence.Forms.Tests
             var item = new ListViewItem ();
             item.SubItems.Add ("sub");
 
-            Assert.Equal ("sub", item.SubItems.GetText (0));
+            Assert.Equal ("sub", item.SubItems.GetText (1));
             Assert.Equal (string.Empty, item.SubItems.GetText (5));
         }
 
@@ -361,8 +365,8 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (2, clone.ImageIndex);
             Assert.Equal ("key", clone.ImageKey);
             Assert.Same (tag, clone.Tag);
-            Assert.Single (clone.SubItems);
-            Assert.Equal ("sub1", clone.SubItems[0].Text);
+            Assert.Equal (2, clone.SubItems.Count);
+            Assert.Equal ("sub1", clone.SubItems[1].Text);
             Assert.NotSame (item, clone);
         }
     }
