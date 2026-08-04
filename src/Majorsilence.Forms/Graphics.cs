@@ -1443,6 +1443,8 @@ namespace Majorsilence.Forms
         /// <summary>Draws a Majorsilence.Forms.Drawing.Image scaled to fill the destination rectangle.</summary>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect)
         {
+            image?.PrepareForDraw (destRect.Width, destRect.Height);
+
             using var bmp = image?.ToSKBitmap ();
             if (bmp != null) DrawImage (bmp, destRect);
         }
@@ -1464,6 +1466,8 @@ namespace Majorsilence.Forms
         /// <summary>Draws a portion of a Majorsilence.Forms.Drawing.Image to the destination rectangle.</summary>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, Rectangle srcRect, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
         {
+            image?.PrepareForDraw (destRect.Width, destRect.Height);
+
             using var bmp = image?.ToSKBitmap ();
             if (bmp != null) DrawImage (bmp, destRect, srcRect, srcUnit);
         }

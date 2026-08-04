@@ -191,6 +191,7 @@ The original text:
 | 7 — overload completion | **Done.** 103 shapes; 13 tests. |
 | 8 — small real gaps | **Done.** System colors/brushes/pens, ColorTranslator, Font metadata. |
 | 9 — the documented non-goals | **Done.** All 49. **Baseline: 0.** |
+| 10 — metafile playback | **Done.** EMF and WMF are parsed and rendered, not stubbed. |
 
 **The drawing surface is at zero gaps** — 1,200+ → 0.
 
@@ -235,6 +236,57 @@ returns for a path it cannot resolve, so a caller that checks the result behaves
 **Still permanently partial** (unchanged): `Pen.Alignment` inset/outset stroking and `CustomLineCap`
 outline stroking. `Region.GetRegionData` has moved off this list — it works, but its bytes are this
 layer's encoding rather than GDI+'s, so they round-trip here and are not something to hand to Win32.
+
+### Phase 10 — metafile playback
+
+Phase 9 left `Metafile` able to read a header and nothing else, on the reasoning that EMF and WMF are
+"Windows GDI record-and-replay formats with no Skia equivalent". That conflated the *format* with the
+*API*. EMF and WMF are published specifications (MS-EMF, MS-WMF): a metafile is a length-prefixed
+sequence of little-endian record structs, and reading one has nothing to do with Windows. What needs
+Windows is asking GDI to replay it. Interpreting the records ourselves is a different problem, and a
+solved one — libwmf, Inkscape and LibreOffice all render these cross-platform.
+
+So playback is now real. `src/Majorsilence.Forms.Drawing.Common/Metafiles/` holds the record readers,
+a GDI device-context state machine, and the two record interpreters; `Metafile` parses on construction
+and rasterises onto a Skia canvas. Because it rasterises into the same backing bitmap every other
+`Image` uses, a metafile renders anywhere an image does — a `PictureBox`, `DrawImage`, a printed page
+— with no changes to any of those paths. And because it is vector data, `Image.PrepareForDraw` lets it
+re-render when asked for a size it has not drawn at yet, so scaling one up stays sharp instead of
+enlarging pixels.
+
+What the players cover: object creation and selection (pens, brushes, fonts, and the GDI stock
+objects), lines, polylines, polygons, poly-polygons, Béziers, rectangles, round rectangles, ellipses,
+arcs, chords, pies, path construction and filling, clipping, text with alignment and escapement,
+device-independent bitmap blits at 1/4/8/16/24/32 bits per pixel, the window/viewport and world
+transforms, and the SaveDC/RestoreDC stack.
+
+Three design points, because each is a way to get this wrong:
+
+- **Unknown records are skipped, not thrown on.** Metafiles routinely carry records from producers
+  nobody documents, and a clipboard metafile is routinely truncated. Drawing everything that parsed
+  beats discarding a picture over one unfamiliar record in three hundred.
+  `Metafile.UnsupportedRecordCount` reports the skips, so a systematically misread file is visible
+  rather than quietly half-drawn.
+- **EMF+ records are ignored.** They travel inside EMF comment records; rendering the EMF half is
+  exactly what a downlevel GDI renderer does with a dual metafile, so this is defined behaviour.
+- **WMF is not EMF with smaller integers.** It stores rectangles bottom-right first, takes several
+  records' arguments in reverse order, and selects objects by an index into a table it fills in
+  creation order rather than by a handle the record names — with deletes leaving a hole the next
+  create reuses. Each of those has a test whose failure mode is a picture that still draws, just
+  wrong, which is why they are asserted on pixels.
+
+One real bug surfaced during this: the viewport extent defaulted to 1×1, so any metafile that set a
+window extent without a viewport extent — which is most WMFs — collapsed its entire picture into a
+single pixel. GDI defaults it to the device extent.
+
+The tests build real EMF and WMF byte streams from the published record layouts and assert on the
+rendered pixels. That is deliberate on both counts: the platform cannot produce a metafile here, which
+is the whole reason the players exist, and a player can decode every field correctly and still draw
+the wrong picture, because what a record means depends on the device-context state it inherits.
+
+**Recording is still out of scope.** Creating a metafile by drawing into it needs `Graphics` to emit
+records instead of Skia calls, and `Graphics` is sealed over an `SKCanvas`; those constructors throw.
+
 
 Two real bugs surfaced while finishing, both fixed:
 

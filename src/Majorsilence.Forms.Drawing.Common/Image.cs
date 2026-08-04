@@ -44,6 +44,11 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets the backing SkiaSharp bitmap (for renderer use).</summary>
         internal SKBitmap? GetSKBitmap () => backing;
 
+        // Called before a scaled draw with the size about to be drawn at. A raster image ignores it;
+        // a vector-backed one (Metafile) re-renders, which is what keeps it sharp when scaled up
+        // instead of enlarging the pixels of an earlier rasterisation.
+        internal virtual void PrepareForDraw (int width, int height) { }
+
         // The bytes this image was decoded from, retained only when they are still needed afterwards:
         // to decode further frames, or to answer metadata queries. A single-frame image with no EXIF
         // drops them, so the common case does not pay to hold its source twice. See RetainSource.
