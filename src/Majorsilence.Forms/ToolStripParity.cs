@@ -320,7 +320,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Describes a <see cref="ToolStripItem"/> to assistive technology.</summary>
-    public class ToolStripItemAccessibleObject
+    public class ToolStripItemAccessibleObject : AccessibleObject
     {
         /// <summary>Initializes a new instance for the given item.</summary>
         public ToolStripItemAccessibleObject (ToolStripItem ownerItem) => Owner = ownerItem;
@@ -329,13 +329,16 @@ namespace Majorsilence.Forms
         public ToolStripItem Owner { get; }
 
         /// <summary>Gets the accessible name, falling back to the item's text.</summary>
-        public string Name => Owner.AccessibleName ?? Owner.Text ?? string.Empty;
+        public override string? Name {
+            get => Owner.AccessibleName ?? Owner.Text ?? string.Empty;
+            set => Owner.AccessibleName = value;
+        }
 
         /// <summary>Gets the accessible description.</summary>
-        public string? Description => Owner.AccessibleDescription;
+        public override string? Description => Owner.AccessibleDescription;
 
         /// <summary>Gets the description of the item's default action.</summary>
-        public string? DefaultAction => Owner.AccessibleDefaultActionDescription;
+        public override string? DefaultAction => Owner.AccessibleDefaultActionDescription;
     }
 
     public partial class ToolStrip

@@ -41,6 +41,10 @@ namespace Majorsilence.Forms
         /// <summary>The control uses optimized double buffering.</summary>
         OptimizedDoubleBuffer = 0x00020000,
         /// <summary>Padding is included in the GetPreferredSize result.</summary>
-        UseTextForAccessibility = 0x00040000
+        UseTextForAccessibility = 0x00040000,
+        /// <summary>The control raises OnNotifyMessage for every message sent to its WndProc.</summary>
+        EnableNotifyMessage = 0x00008000,
+        /// <summary>Visual styles are applied to the control implicitly.</summary>
+        ApplyThemingImplicitly = 0x00080000
     }
 }

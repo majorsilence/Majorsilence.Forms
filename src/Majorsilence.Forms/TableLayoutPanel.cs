@@ -18,7 +18,7 @@ namespace Majorsilence.Forms;
 [ProvideProperty ("Column", typeof (Control))]
 [ProvideProperty ("CellPosition", typeof (Control))]
 [DefaultProperty (nameof (ColumnCount))]
-public class TableLayoutPanel : Panel, IExtenderProvider
+public partial class TableLayoutPanel : Panel, IExtenderProvider
 {
     private readonly TableLayoutSettings _tableLayoutSettings;
     //private static readonly object s_eventCellPaint = new object ();

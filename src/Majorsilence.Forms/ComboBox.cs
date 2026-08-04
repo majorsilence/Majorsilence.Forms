@@ -193,6 +193,9 @@ namespace Majorsilence.Forms
             }
         }
 
+        // The nested ObjectCollection needs the list the items actually live on.
+        internal ListBox PopupListBox => popup_listbox;
+
         /// <summary>
         /// Gets the collection of items contained by this ComboBox.
         /// </summary>

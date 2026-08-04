@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a GroupBox container with a border and title.
     /// </summary>
-    public class GroupBox : Control
+    public partial class GroupBox : Control
     {
         /// <summary>Initializes a new instance of the GroupBox class.</summary>
         public GroupBox ()

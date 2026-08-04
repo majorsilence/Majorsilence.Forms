@@ -112,7 +112,7 @@ public partial class ImageList : Component
 /// <see cref="ComponentResourceManager"/> decodes the WinForms <c>ImageStream</c> resource into the
 /// <see cref="Frames"/> here, which <see cref="ImageList.ImageStream"/> then adopts.
 /// </summary>
-public sealed class ImageListStreamer
+public sealed partial class ImageListStreamer
 {
     /// <summary>Initializes a new, empty instance of the ImageListStreamer class.</summary>
     public ImageListStreamer () => Frames = Array.Empty<SKBitmap> ();

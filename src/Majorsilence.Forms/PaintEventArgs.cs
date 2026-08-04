@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     ///  Provides data for the Paint event.
     /// </summary>
-    public class PaintEventArgs : EventArgs
+    public partial class PaintEventArgs : EventArgs
     {
         /// <summary>
         ///  Initializes a new instance of the PaintEventArgs class.

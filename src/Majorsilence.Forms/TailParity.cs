@@ -138,7 +138,7 @@ namespace Majorsilence.Forms
     public partial class Menu
     {
         /// <summary>Gets the items on this menu.</summary>
-        public MenuItemCollection MenuItems => Items;
+        public global::Majorsilence.Forms.MenuItemCollection MenuItems => Items;
 
         /// <summary>Gets whether the menu has any items.</summary>
         public virtual bool IsParent => Items.Count > 0;

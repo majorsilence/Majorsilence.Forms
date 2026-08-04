@@ -54,7 +54,7 @@ namespace Majorsilence.Forms
     /// Base class for controls that present a list of items bound to a data source —
     /// <see cref="ListBox"/> and <see cref="ComboBox"/>.
     /// </summary>
-    public abstract class ListControl : Control
+    public abstract partial class ListControl : Control
     {
         private object? dataSource;
         private string displayMember = string.Empty;
@@ -226,7 +226,7 @@ namespace Majorsilence.Forms
         public bool HasDropDown => dropDown is not null;
 
         /// <summary>Gets whether this item's drop-down contains any items.</summary>
-        public bool HasDropDownItems => dropDown is not null && dropDown.Items.Count > 0;
+        public virtual bool HasDropDownItems => dropDown is not null && dropDown.Items.Count > 0;
 
         /// <summary>Gets whether the drop-down is currently shown.</summary>
         public override bool Pressed => dropDown is not null && dropDown.Visible;

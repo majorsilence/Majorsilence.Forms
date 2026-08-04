@@ -70,13 +70,28 @@ namespace Majorsilence.Forms
     {
         /// <summary>Called when data is dropped, allowing the handler to complete later.</summary>
         void OnDragDropAsync (DragEventArgs e);
+
+        /// <summary>Called when data is dropped, allowing the handler to complete later.</summary>
+        void OnAsyncDragDrop (DragEventArgs e) => OnDragDropAsync (e);
     }
 
     /// <summary>A data object whose stored values can be retrieved by type.</summary>
     public interface ITypedDataObject : IDataObject
     {
         /// <summary>Returns the stored value when it is of the requested type.</summary>
+        bool TryGetData<T> (out T? data);
+
+        /// <inheritdoc cref="TryGetData{T}(out T)"/>
         bool TryGetData<T> (string format, out T? data);
+
+        /// <inheritdoc cref="TryGetData{T}(out T)"/>
+        bool TryGetData<T> (string format, bool autoConvert, out T? data);
+
+        /// <inheritdoc cref="TryGetData{T}(out T)"/>
+        /// <remarks>The resolver maps a stored type name to the type to deserialise as. Nothing here
+        /// serialises by type name, so it is never consulted.</remarks>
+        bool TryGetData<T> (string format, Func<System.Reflection.Metadata.TypeName, Type> resolver,
+            bool autoConvert, out T? data);
     }
 
     /// <summary>Something that can run a command on behalf of a control.</summary>
@@ -94,6 +109,9 @@ namespace Majorsilence.Forms
     {
         /// <summary>Opens the named file for reading.</summary>
         System.IO.Stream? OpenFile (string path);
+
+        /// <summary>Opens a file given relative to the application's source.</summary>
+        System.IO.Stream? OpenFileFromSource (string relativePath) => OpenFile (relativePath);
     }
 
     /// <summary>The ambient property values a control inherits from its parent.</summary>
@@ -138,7 +156,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>A collection of <see cref="Binding"/> objects.</summary>
-    public class BindingsCollection : BaseCollection
+    public partial class BindingsCollection : BaseCollection
     {
         private readonly ArrayList bindings = [];
 

@@ -23,7 +23,7 @@
     /// <summary>
     /// Represents a column header cell in a DataGridView control.
     /// </summary>
-    public class DataGridViewColumnHeaderCell : DataGridViewHeaderCell
+    public partial class DataGridViewColumnHeaderCell : DataGridViewHeaderCell
     {
         /// <summary>
         /// Initializes a new instance of the DataGridViewColumnHeaderCell class.

@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a Button control.
     /// </summary>
-    public class Button : ButtonBase, IHaveTextAndImageAlign
+    public partial class Button : ButtonBase, IHaveTextAndImageAlign
     {
         private static readonly BitVector32.Section s_stateAutoEllipsis = BitVector32.CreateSection (1);
 

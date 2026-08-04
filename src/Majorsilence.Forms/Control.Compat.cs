@@ -563,6 +563,8 @@ namespace Majorsilence.Forms
         Hangul = 10,
         /// <summary>IME in half-width hangul mode.</summary>
         HangulFull = 9,
+        /// <summary>IME in half-width native mode.</summary>
+        OnHalf = 12,
         /// <summary>Inherits from parent control.</summary>
         Inherit = -1,
     }

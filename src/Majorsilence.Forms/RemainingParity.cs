@@ -311,7 +311,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>The accelerations of a <see cref="NumericUpDown"/>, kept sorted by duration.</summary>
-    public class NumericUpDownAccelerationCollection : System.Collections.ObjectModel.Collection<NumericUpDownAcceleration>
+    public partial class NumericUpDownAccelerationCollection : System.Collections.ObjectModel.Collection<NumericUpDownAcceleration>
     {
         /// <summary>Adds several accelerations at once.</summary>
         public void AddRange (params NumericUpDownAcceleration[] accelerations)

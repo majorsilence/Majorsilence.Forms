@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a CheckBox control.
     /// </summary>
-    public class CheckBox : ButtonBase, IHaveGlyph, IHaveTextAndImageAlign
+    public partial class CheckBox : ButtonBase, IHaveGlyph, IHaveTextAndImageAlign
     {
         private CheckState _state;
 

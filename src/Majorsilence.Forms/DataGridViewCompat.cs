@@ -285,7 +285,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a link column in a DataGridView. Stub in Majorsilence.Forms.
     /// </summary>
-    public class DataGridViewLinkColumn : DataGridViewColumn
+    public partial class DataGridViewLinkColumn : DataGridViewColumn
     {
         /// <summary>Gets or sets the link text. Stub in Majorsilence.Forms.</summary>
         public string Text { get; set; } = string.Empty;
@@ -329,7 +329,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a button column in a DataGridView.
     /// </summary>
-    public class DataGridViewButtonColumn : DataGridViewColumn
+    public partial class DataGridViewButtonColumn : DataGridViewColumn
     {
         /// <summary>Gets or sets the button text.</summary>
         public string Text { get; set; } = string.Empty;
@@ -404,6 +404,10 @@ namespace Majorsilence.Forms
         DisplayedCells = 11,
         /// <summary>Row heights adjust to fit the content of displayed cells, excluding headers.</summary>
         DisplayedCellsExceptHeaders = 10,
+        /// <summary>Row heights adjust to fit the header cells of all rows.</summary>
+        AllHeaders = 5,
+        /// <summary>Row heights adjust to fit the header cells of the displayed rows.</summary>
+        DisplayedHeaders = 9,
     }
 
     /// <summary>Specifies how content is copied to the clipboard from a DataGridView.</summary>
@@ -646,6 +650,8 @@ namespace Majorsilence.Forms
         EditOnKeystroke = 1,
         /// <summary>Edit mode is entered when a key is pressed or F2 is pressed.</summary>
         EditOnKeystrokeOrF2 = 2,
+        /// <summary>Editing begins when F2 is pressed on the current cell.</summary>
+        EditOnF2 = 3,
         /// <summary>Edit mode is entered programmatically only.</summary>
         EditProgrammatically = 4,
     }
@@ -772,7 +778,7 @@ namespace Majorsilence.Forms
     /// background, header and cells are drawn. Set <see cref="Handled"/> to suppress the grid's own
     /// painting of the row.
     /// </summary>
-    public class DataGridViewRowPrePaintEventArgs : DataGridViewRowPaintBaseEventArgs
+    public partial class DataGridViewRowPrePaintEventArgs : DataGridViewRowPaintBaseEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public DataGridViewRowPrePaintEventArgs (int rowIndex) : base (rowIndex) { }
@@ -788,7 +794,7 @@ namespace Majorsilence.Forms
     /// Provides data for the DataGridView.RowPostPaint event, raised by the renderer after a row has
     /// been drawn.
     /// </summary>
-    public class DataGridViewRowPostPaintEventArgs : DataGridViewRowPaintBaseEventArgs
+    public partial class DataGridViewRowPostPaintEventArgs : DataGridViewRowPaintBaseEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public DataGridViewRowPostPaintEventArgs (int rowIndex) : base (rowIndex) { }
@@ -815,7 +821,7 @@ namespace Majorsilence.Forms
         /// <summary>Cell leaving error.</summary>
         LeaveControl = 0x800,
         /// <summary>Row dirty state needs evaluation.</summary>
-        RowDirtyStateNeeded = 8,
+        RowDeletion = 8,
         /// <summary>Bubble up error.</summary>
         Formatting = 1,
         /// <summary>Display error.</summary>
@@ -826,10 +832,10 @@ namespace Majorsilence.Forms
         Scroll = 0x2000,
         /// <summary>Current cell change error.</summary>
         CurrentCellChange = 0x1000,
-        /// <summary>Error while cleaning new row.</summary>
-        CleanupExceptionHandling = 0x200,
         /// <summary>Error while initializing a new row.</summary>
         InitialValueRestoration = 0x400,
+        /// <summary>The error happened while building content for the clipboard.</summary>
+        ClipboardContent = 0x4000,
     }
 
     /// <summary>Specifies the border style of the cells in a DataGridView.</summary>
@@ -955,7 +961,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the DataGridView.CellPainting event.</summary>
-    public class DataGridViewCellPaintingEventArgs : DataGridViewCellEventArgs
+    public partial class DataGridViewCellPaintingEventArgs : DataGridViewCellEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public DataGridViewCellPaintingEventArgs (int columnIndex, int rowIndex) : base (columnIndex, rowIndex) { }
@@ -1146,7 +1152,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a text-box cell in a DataGridView. Stub in Majorsilence.Forms.</summary>
-    public class DataGridViewTextBoxCell : DataGridViewCell { }
+    public partial class DataGridViewTextBoxCell : DataGridViewCell { }
 
     /// <summary>Represents a check-box cell in a DataGridView. Stub in Majorsilence.Forms.</summary>
     public partial class DataGridViewCheckBoxCell : DataGridViewCell
@@ -1198,7 +1204,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents an image cell in a DataGridView. Stub in Majorsilence.Forms.</summary>
-    public class DataGridViewImageCell : DataGridViewCell
+    public partial class DataGridViewImageCell : DataGridViewCell
     {
         /// <summary>Gets or sets the image layout for this cell.</summary>
         public DataGridViewImageCellLayout ImageLayout { get; set; } = DataGridViewImageCellLayout.Normal;

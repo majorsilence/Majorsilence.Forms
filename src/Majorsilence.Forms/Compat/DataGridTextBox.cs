@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     ///  A text box cell used by <see cref="DataGrid"/> to display and edit text values.
     /// </summary>
-    public class DataGridTextBox : DataGridViewTextBoxCell
+    public partial class DataGridTextBox : DataGridViewTextBoxCell
     {
         /// <summary>
         ///  Gets or sets the text displayed in the cell.

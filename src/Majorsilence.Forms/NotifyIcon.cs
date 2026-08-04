@@ -12,7 +12,7 @@ namespace Majorsilence.Forms
     /// Majorsilence.Forms has no native tray support, so this is a stub that keeps the API surface
     /// compatible without crashing. ShowBalloonTip is a no-op; Click events never fire.
     /// </summary>
-    public class NotifyIcon : Component
+    public partial class NotifyIcon : Component
     {
         private string _text = string.Empty;
         private bool _visible;

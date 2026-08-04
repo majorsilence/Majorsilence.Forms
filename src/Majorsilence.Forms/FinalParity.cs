@@ -225,7 +225,7 @@ namespace Majorsilence.Forms
         /// <summary>The items of a <see cref="CheckedListBox"/>.</summary>
         /// <remarks>Derives from this assembly's list-box item collection, which is what
         /// <c>Items</c> already returns, so nothing that uses that type has to change.</remarks>
-        public class ObjectCollection : ListBoxItemCollection
+        public new class ObjectCollection : ListBoxItemCollection
         {
             /// <summary>Initializes a new instance of the <see cref="ObjectCollection"/> class.</summary>
             internal ObjectCollection (CheckedListBox owner) : base (owner) { }

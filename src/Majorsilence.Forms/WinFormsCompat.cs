@@ -257,7 +257,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the PreviewKeyDown event.</summary>
-    public class PreviewKeyDownEventArgs : EventArgs
+    public partial class PreviewKeyDownEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public PreviewKeyDownEventArgs (Keys keyData) { KeyData = keyData; }
@@ -589,7 +589,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for TreeView node label-edit events.</summary>
-    public class NodeLabelEditEventArgs : System.ComponentModel.CancelEventArgs
+    public partial class NodeLabelEditEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public NodeLabelEditEventArgs (TreeViewItem node) { Node = node; }
@@ -704,6 +704,8 @@ namespace Majorsilence.Forms
         CustomSource = 64,
         /// <summary>Uses all URLs.</summary>
         AllUrl = 6,
+        /// <summary>The items already in the control supply the completions.</summary>
+        ListItems = 256,
     }
 
     /// <summary>Specifies the column header style for a ListView.</summary>
@@ -729,7 +731,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>A collection of strings used for auto-complete suggestions. Stub in Majorsilence.Forms.</summary>
-    public class AutoCompleteStringCollection : System.Collections.Specialized.StringCollection { }
+    public partial class AutoCompleteStringCollection : System.Collections.Specialized.StringCollection { }
 
     /// <summary>
     /// WinForms compatibility alias for <see cref="TreeViewItem"/>. In WinForms, tree nodes are called TreeNode.
@@ -820,7 +822,9 @@ namespace Majorsilence.Forms
         /// <summary>Yes and No buttons.</summary>
         YesNo,
         /// <summary>Retry and Cancel buttons.</summary>
-        RetryCancel
+        RetryCancel,
+        /// <summary>Cancel, Try Again, and Continue buttons.</summary>
+        CancelTryContinue = 6
     }
 
     /// <summary>
@@ -1018,6 +1022,8 @@ namespace Majorsilence.Forms
         Button2 = 256,
         /// <summary>The third button is the default.</summary>
         Button3 = 512,
+        /// <summary>The fourth button is the default.</summary>
+        Button4 = 768,
     }
 
     /// <summary>
@@ -1153,7 +1159,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a clickable button on a ToolStrip / toolbar.
     /// </summary>
-    public class ToolStripButton : ToolStripItem
+    public partial class ToolStripButton : ToolStripItem
     {
         /// <summary>Gets or sets the color treated as transparent in the button image. Stored for compat.</summary>
         public new System.Drawing.Color ImageTransparentColor { get; set; }
@@ -1191,6 +1197,7 @@ namespace Majorsilence.Forms
             set {
                 if (_checked == value) return;
                 _checked = value;
+                OnCheckedChanged (EventArgs.Empty);
                 CheckStateChanged?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -1205,7 +1212,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a non-interactive text label on a ToolStrip / toolbar.
     /// </summary>
-    public class ToolStripLabel : ToolStripItem
+    public partial class ToolStripLabel : ToolStripItem
     {
         /// <summary>Initializes a new instance of the ToolStripLabel class.</summary>
         public ToolStripLabel () { }
@@ -1362,7 +1369,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a button on a ToolStrip that displays a drop-down menu when clicked.
     /// </summary>
-    public class ToolStripDropDownButton : ToolStripItem
+    public partial class ToolStripDropDownButton : ToolStripItem
     {
         /// <summary>Initializes a new instance of the ToolStripDropDownButton class.</summary>
         public ToolStripDropDownButton () { }
@@ -1426,7 +1433,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a menu item in a MenuStrip.
     /// </summary>
-    public class ToolStripMenuItem : ToolStripItem
+    public partial class ToolStripMenuItem : ToolStripItem
     {
         /// <summary>Initializes a new instance of the ToolStripMenuItem class.</summary>
         public ToolStripMenuItem () { }
@@ -1850,7 +1857,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a text label in a StatusStrip.
     /// </summary>
-    public class ToolStripStatusLabel : ToolStripItem
+    public partial class ToolStripStatusLabel : ToolStripItem
     {
         /// <summary>Gets or sets the label width. Mirrors WinForms (wraps Size).</summary>
         public new int Width {
@@ -1926,7 +1933,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a main menu bar for a Form (legacy WinForms component). Alias for Menu.
     /// </summary>
-    public class MainMenu : Menu
+    public partial class MainMenu : Menu
     {
         /// <summary>Initializes a new instance of the MainMenu class.</summary>
         public MainMenu () { }
@@ -1947,7 +1954,7 @@ namespace Majorsilence.Forms
     /// RenderMode, LayoutStyle, GripStyle, Stretch, CanOverflow, ImageScalingSize, ...) are all reachable
     /// here. The top-docked bar layout and rendering come from <see cref="Menu"/>.
     /// </summary>
-    public class MenuStrip : Menu
+    public partial class MenuStrip : Menu
     {
         /// <summary>Gets or sets the ToolStripMenuItem for the MDI window list. Stub in Majorsilence.Forms.</summary>
         public ToolStripMenuItem? MdiWindowListItem { get; set; }
@@ -2079,7 +2086,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents the overflow button on a ToolStrip. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripOverflowButton : ToolStripDropDownButton
+    public partial class ToolStripOverflowButton : ToolStripDropDownButton
     {
         /// <summary>Initializes a new instance of ToolStripOverflowButton.</summary>
         public ToolStripOverflowButton () { }
@@ -2583,7 +2590,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides a professional-style renderer for ToolStrip. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripProfessionalRenderer : ToolStripRenderer
+    public partial class ToolStripProfessionalRenderer : ToolStripRenderer
     {
         /// <summary>Initializes a new instance.</summary>
         public ToolStripProfessionalRenderer () { }
@@ -2631,7 +2638,7 @@ namespace Majorsilence.Forms
     /// reachable here. Its items are still painted by its own <see cref="Renderers.StatusStripRenderer"/>,
     /// which RenderManager keys off the concrete StatusStrip type.
     /// </summary>
-    public class StatusStrip : ToolStrip
+    public partial class StatusStrip : ToolStrip
     {
         /// <summary>Initializes a new instance of the StatusStrip class.</summary>
         public StatusStrip ()
@@ -2713,7 +2720,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the ListView.BeforeLabelEdit and AfterLabelEdit events.</summary>
-    public class LabelEditEventArgs : System.ComponentModel.CancelEventArgs
+    public partial class LabelEditEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public LabelEditEventArgs (int item) { Item = item; }
@@ -2999,6 +3006,12 @@ namespace Majorsilence.Forms
         PageTabList = 60,
         /// <summary>A clock.</summary>
         Clock = 61,
+        /// <summary>A split button.</summary>
+        SplitButton = 62,
+        /// <summary>An IP address entry field.</summary>
+        IpAddress = 63,
+        /// <summary>An outline button.</summary>
+        OutlineButton = 64,
     }
 
     /// <summary>WinForms compatibility: provides access to a Win32 HWND. Stub in Majorsilence.Forms.</summary>
@@ -3505,7 +3518,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the RichTextBox.LinkClicked event.</summary>
-    public class LinkClickedEventArgs : EventArgs
+    public partial class LinkClickedEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance of LinkClickedEventArgs.</summary>
         public LinkClickedEventArgs (string linkText) { LinkText = linkText; }
@@ -3535,7 +3548,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for binding completion events.</summary>
-    public class BindingCompleteEventArgs : System.ComponentModel.CancelEventArgs
+    public partial class BindingCompleteEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Initializes a new instance of BindingCompleteEventArgs.</summary>
         public BindingCompleteEventArgs (Binding? binding, BindingCompleteContext context)
@@ -3756,7 +3769,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>WinForms compatibility: provides methods for sending keystrokes to an application. Stub in Majorsilence.Forms.</summary>
-    public static class Help
+    public static partial class Help
     {
         /// <summary>Displays the contents of a Help file. Stub in Majorsilence.Forms.</summary>
         public static void ShowHelp (Control? parent, string? url) { }
@@ -3778,7 +3791,7 @@ namespace Majorsilence.Forms
     /// Specifies the contextual information about an application thread, such as the main form,
     /// used when calling <see cref="Application.Run(ApplicationContext)"/>.
     /// </summary>
-    public class ApplicationContext : IDisposable
+    public partial class ApplicationContext : IDisposable
     {
         private Form? _mainForm;
         private bool _disposed;

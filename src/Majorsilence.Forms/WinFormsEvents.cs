@@ -1311,7 +1311,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the draw list view column header event.</summary>
-    public class DrawListViewColumnHeaderEventArgs : EventArgs
+    public partial class DrawListViewColumnHeaderEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance of the <see cref="DrawListViewColumnHeaderEventArgs"/> class.</summary>
         public DrawListViewColumnHeaderEventArgs (Graphics graphics, Rectangle bounds, int columnIndex, ColumnHeader header, ListViewItemStates state, Color foreColor, Color backColor, Font font)
@@ -1607,7 +1607,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the property tab changed event.</summary>
-    public class PropertyTabChangedEventArgs : EventArgs
+    public partial class PropertyTabChangedEventArgs : EventArgs
     {
     }
 
@@ -1723,7 +1723,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the tool strip content panel render event.</summary>
-    public class ToolStripContentPanelRenderEventArgs : EventArgs
+    public partial class ToolStripContentPanelRenderEventArgs : EventArgs
     {
         /// <summary>Gets the graphics.</summary>
         public Graphics Graphics { get; } = default!;

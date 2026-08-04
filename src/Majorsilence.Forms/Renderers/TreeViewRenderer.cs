@@ -42,6 +42,17 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderItem (TreeView control, TreeViewItem item, PaintEventArgs e)
         {
+            // OwnerDrawAll hands over the whole node, background and focus cue included, so the
+            // event has to come before anything is painted. OwnerDrawText keeps those and hands
+            // over only the content -- hence the two checks rather than one.
+            if (control.DrawMode == TreeViewDrawMode.OwnerDrawAll) {
+                var all = new TreeViewDrawEventArgs (control, item, e);
+                control.OnDrawNode (all);
+
+                if (!all.DrawDefault)
+                    return;
+            }
+
             var is_selected = item == control.SelectedItem;
             var foreground_color = control.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
 
@@ -51,7 +62,7 @@ namespace Majorsilence.Forms.Renderers
             if (is_selected && control.Focused && control.ShowFocusCues)
                 e.Canvas.DrawFocusRectangle (item.Bounds, e.LogicalToDeviceUnits (1));
 
-            if (control.DrawMode == TreeViewDrawMode.OwnerDrawContent) {
+            if (control.DrawMode == TreeViewDrawMode.OwnerDrawText) {
                 var dea = new TreeViewDrawEventArgs (control, item, e);
                 control.OnDrawNode (dea);
 

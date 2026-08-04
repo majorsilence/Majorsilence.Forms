@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a RadioButton control.
     /// </summary>
-    public class RadioButton : ButtonBase, IHaveGlyph, IHaveTextAndImageAlign
+    public partial class RadioButton : ButtonBase, IHaveGlyph, IHaveTextAndImageAlign
     {
         private static readonly BitVector32.Section s_stateAutoEllipsis = BitVector32.CreateSection (1);
         private static readonly BitVector32.Section s_stateChecked = BitVector32.CreateSection (1, s_stateAutoEllipsis);

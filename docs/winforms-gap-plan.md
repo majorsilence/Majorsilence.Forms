@@ -122,7 +122,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 173** (and `SIG` 146 → 0 since overload checking was turned on).
+Baseline: **1,905 → 0** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -140,6 +140,9 @@ Baseline: **1,905 → 173** (and `SIG` 146 → 0 since overload checking was tur
 | 16 — the `DataGridView` row/cell/column family, and the rest of the tail | **Done.** 117 gaps, including two enums that were missing half their members. |
 | 17 — the .NET 1.x `DataGrid` family, and the scattered remainder | **Done.** 147 gaps; found a crash in `DataGridView`'s data binding. |
 | 18 — the missing types | **Done.** The HTML DOM excluded; `ListBindingHelper`, the selection snapshots, the editing controls, `ProfessionalColorTable` and the older controls' nested collections declared. |
+| 19 — the design-time converters | **Done.** 16 converters, every one tested as a round-trip rather than a one-way conversion. |
+| 20 — the `TaskDialog` family | **Done.** 13 types; `ShowDialog` composes a real dialog and returns the button the user chose. |
+| 21 — the last 173 | **Done.** 18 enum members, 23 nested types, and the ~130-member tail. **Baseline: 0.** |
 
 Two things worth carrying forward:
 
@@ -354,9 +357,39 @@ path here did that work inline. It walks an `IListSource`, unwraps an `IEnumerab
 type, and follows a dotted data member — reading the member off the *current item*, since "Orders" on
 a list of customers means one customer's orders.
 
-### Next
+### The last 173
 
-173 left: the design-time type converters (~16 types), the `TaskDialog` family (13), and a thin tail.
+Three groups, and each one taught something different.
+
+**18 enum members** were still missing outright, and two were mismatches rather than absences.
+`TreeViewDrawMode.OwnerDrawContent` was a name this layer invented for what WinForms calls
+`OwnerDrawText`, and `OwnerDrawAll` had been commented out — so a tree view could never hand over a
+whole node. Both are now real, the renderer honours them separately (`OwnerDrawAll` fires *before*
+the background and focus cue are painted, `OwnerDrawText` after), and the old name survives as an
+`[Obsolete]` alias with the same value. `DataGridViewDataErrorContexts` carried two invented members,
+one of which duplicated `Commit`'s number — two names on one value make `ToString()` pick arbitrarily,
+so a persisted context comes back naming something the writer never chose. Both were dropped in
+favour of the upstream `RowDeletion` and `ClipboardContent`.
+
+**23 nested types.** WinForms nests its collections and accessibility objects inside the control that
+owns them, and designer files always spell the nested name out — `ListView.ListViewItemCollection`,
+`ComboBox.ObjectCollection`, `ButtonBase.ButtonBaseAccessibleObject`. This layer had grown the same
+types at namespace scope, so those lines did not compile. Each nested type now derives from the
+namespace-scope one it shadows, which means both spellings name a usable type and nothing that
+compiled before stopped compiling. Two of them had to be handled with care: nesting shadows the outer
+name inside the owning class, so a bare nested `ToolStripItemAccessibleObject` would have silently
+replaced the richer one already there — a regression a name-level scanner cannot see, and one the
+existing tests caught.
+
+**The ~130-member tail**, one or two members each across sixty types. Three were "present but wrong"
+again: `ColumnHeader.ListView` was never assigned by `Columns.Add`, so every header's `ListView` — and
+the `ImageList` that reads it — was null; `ToolStripButton.Checked` raised only `CheckStateChanged`,
+never `CheckedChanged`; and `MdiClient.LayoutMdi` was internal, so `MdiClient` could not be arranged
+except through its `Form`.
+
+### Done
+
+**The WinForms surface is at zero gaps** — 1,905 → 0.
 
 ## Suggested order
 

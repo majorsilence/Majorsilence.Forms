@@ -17,6 +17,7 @@ namespace Majorsilence.Forms
         public ListView ()
         {
             Items = new ListViewItemCollection (this);
+            Columns = new ColumnHeaderCollection (this);
         }
 
         /// <inheritdoc/>
@@ -158,7 +159,7 @@ namespace Majorsilence.Forms
         public bool AllowColumnReorder { get; set; }
 
         /// <summary>Gets the collection of column headers for Details view.</summary>
-        public ColumnHeaderCollection Columns { get; } = new ColumnHeaderCollection ();
+        public ColumnHeaderCollection Columns { get; }
 
         /// <summary>Returns the bounding rectangle of the item at the specified index.</summary>
         public Rectangle GetItemRect (int index) =>
@@ -313,7 +314,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a column header in a ListView Details view.</summary>
-    public class ColumnHeader
+    public partial class ColumnHeader
     {
         /// <summary>Gets or sets the column header text.</summary>
         public string Text { get; set; } = string.Empty;

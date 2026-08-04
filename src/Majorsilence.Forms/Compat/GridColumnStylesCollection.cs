@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     ///  Represents a collection of <see cref="IDataGridColumnStyle"/> objects for a <see cref="DataGridTableStyle"/>.
     /// </summary>
-    public class GridColumnStylesCollection : CollectionBase, ICollection, IEnumerable
+    public partial class GridColumnStylesCollection : CollectionBase, ICollection, IEnumerable
     {
         /// <summary>
         ///  Occurs when the collection changes, before the new column style is added or inserted.

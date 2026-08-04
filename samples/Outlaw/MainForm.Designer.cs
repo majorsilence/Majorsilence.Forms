@@ -23,7 +23,7 @@ namespace Outlaw
             message_pane.Style.BackgroundColor = SKColors.White;
 
             // Email list
-            email_list = Controls.Add (new TreeView { Dock = DockStyle.Left, Width = 325, DrawMode = TreeViewDrawMode.OwnerDrawContent });
+            email_list = Controls.Add (new TreeView { Dock = DockStyle.Left, Width = 325, DrawMode = TreeViewDrawMode.OwnerDrawText });
             email_list.Style.Border.Left.Width = 0;
             email_list.Style.Border.Top.Width = 0;
             email_list.Style.Border.Bottom.Width = 0;

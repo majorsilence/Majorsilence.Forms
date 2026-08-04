@@ -587,7 +587,7 @@ namespace Majorsilence.Forms.Tests
 
         [Theory]
         [InlineData (TreeViewDrawMode.Normal)]
-        [InlineData (TreeViewDrawMode.OwnerDrawContent)]
+        [InlineData (TreeViewDrawMode.OwnerDrawText)]
         public void DrawMode_Set_GetReturnsExpected (TreeViewDrawMode value)
         {
             using var treeView = new TreeView { DrawMode = value };

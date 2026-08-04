@@ -484,7 +484,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raises the SelectedValueChanged event.</summary>
-        protected virtual void OnSelectedValueChanged (EventArgs e) => SelectedValueChanged?.Invoke (this, e);
+        protected override void OnSelectedValueChanged (EventArgs e) => base.OnSelectedValueChanged (e);
 
         /// <summary>
         /// Gets the scaled height each item occupies.
@@ -525,9 +525,6 @@ namespace Majorsilence.Forms
         /// Raised when the value of the SelectedIndex property changes.
         /// </summary>
         public event EventHandler? SelectedIndexChanged;
-
-        /// <summary>Raised when the SelectedValue property changes.</summary>
-        public event EventHandler? SelectedValueChanged;
 
         /// <summary>
         /// Gets or sets the currently selected item, if any.  If there are multiple selected items, the first selected item will be returned.

@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents the base class of a ScrollBar control.
     /// </summary>
-    public abstract class ScrollBar : Control
+    public abstract partial class ScrollBar : Control
     {
         private int large_change = 10;
         private int maximum = 100;

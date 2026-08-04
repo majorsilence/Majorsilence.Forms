@@ -29,7 +29,7 @@ namespace Majorsilence.Forms
         /// <see cref="ToolStrip"/>'s ToolStripItemCollection facade: MenuRenderer, LayoutItems and
         /// MenuBase's hit-testing all consume this collection, so it must stay the visible one.
         /// </summary>
-        public new MenuItemCollection Items => RootItems;
+        public new global::Majorsilence.Forms.MenuItemCollection Items => RootItems;
 
         /// <inheritdoc/>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);

@@ -363,7 +363,7 @@ namespace Majorsilence.Forms
         public virtual void ResetDropDownButtonWidth () => DropDownButtonWidth = 11;
 
         /// <summary>Raises the <see cref="ToolStripSplitButton.ButtonDoubleClick"/> event.</summary>
-        protected virtual void OnButtonDoubleClick (EventArgs e) => ButtonDoubleClick?.Invoke (this, e);
+        public virtual void OnButtonDoubleClick (EventArgs e) => ButtonDoubleClick?.Invoke (this, e);
 
         // ButtonDoubleClick already exists on this type; OnButtonDoubleClick above is the raiser it
         // never had.

@@ -278,7 +278,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>A cell that draws a hyperlink.</summary>
-    public class DataGridViewLinkCell : DataGridViewCell
+    public partial class DataGridViewLinkCell : DataGridViewCell
     {
         /// <summary>Gets or sets the colour of the link.</summary>
         public Color LinkColor { get; set; } = SystemColors.HotTrack;
@@ -368,8 +368,6 @@ namespace Majorsilence.Forms
         /// <summary>Gets the container this panel belongs to.</summary>
         public SplitContainer Owner { get; }
 
-        /// <summary>Gets the padding between the panel's docked edges and its contents.</summary>
-        public ScrollableControl.DockPaddingEdges DockPadding { get; } = new ScrollableControl.DockPaddingEdges ();
     }
 
     /// <summary>The panel a <see cref="ToolStripContainer"/> hosts its content in.</summary>
@@ -831,7 +829,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>A component that can be data-bound but is not a control.</summary>
-    public class BindableComponent : Component, IBindableComponent
+    public partial class BindableComponent : Component, IBindableComponent
     {
         private BindingContext? binding_context;
         private ControlBindingsCollection? data_bindings;
@@ -848,7 +846,7 @@ namespace Majorsilence.Forms
 
     /// <summary>Marks a control as dockable by the designer.</summary>
     [AttributeUsage (AttributeTargets.Class)]
-    public sealed class DockingAttribute : Attribute
+    public sealed partial class DockingAttribute : Attribute
     {
         /// <summary>Initializes a new instance of the <see cref="DockingAttribute"/> class.</summary>
         public DockingAttribute () => DockingBehavior = DockingBehavior.Never;
@@ -873,7 +871,7 @@ namespace Majorsilence.Forms
 
     /// <summary>Marks a DataGridView column type as visible in the designer.</summary>
     [AttributeUsage (AttributeTargets.Class)]
-    public sealed class DataGridViewColumnDesignTimeVisibleAttribute : Attribute
+    public sealed partial class DataGridViewColumnDesignTimeVisibleAttribute : Attribute
     {
         /// <summary>Initializes a new instance of the <see cref="DataGridViewColumnDesignTimeVisibleAttribute"/> class.</summary>
         public DataGridViewColumnDesignTimeVisibleAttribute () => Visible = true;
@@ -896,7 +894,7 @@ namespace Majorsilence.Forms
         /// relations, which this layer has no model for. A caller gets nothing rather than a style
         /// describing columns that do not exist.</remarks>
         public static DataGridTableStyle[] CreateGridTables (DataGridTableStyle gridTable, object dataSource,
-            string dataMember, System.Collections.IList listManager) => [];
+            string dataMember, BindingContext listManager) => [];
     }
 
     /// <summary>Lets a component editor page tell its site what it did.</summary>
@@ -939,6 +937,44 @@ namespace Majorsilence.Forms
         bool IsPresent (object feature, Version minimumVersion);
     }
 
+    /// <summary>The synchronization context a Majorsilence.Forms UI thread installs.</summary>
+    /// <remarks>Posting and sending go through the active backend, which is what marshals to the UI
+    /// thread here -- so an <c>await</c> in an event handler resumes on the UI thread exactly as it
+    /// does under WinForms.</remarks>
+    public class WindowsFormsSynchronizationContext : System.Threading.SynchronizationContext
+    {
+        /// <summary>Initializes a new instance of the <see cref="WindowsFormsSynchronizationContext"/> class.</summary>
+        public WindowsFormsSynchronizationContext () { }
+
+        /// <summary>Gets or sets whether the context is installed automatically on a UI thread.</summary>
+        public static bool AutoInstall { get; set; } = true;
+
+        /// <inheritdoc/>
+        public override void Post (System.Threading.SendOrPostCallback d, object? state)
+        {
+            ArgumentNullException.ThrowIfNull (d);
+            Backends.Platform.Backend.Post (() => d (state));
+        }
+
+        /// <inheritdoc/>
+        public override void Send (System.Threading.SendOrPostCallback d, object? state)
+        {
+            ArgumentNullException.ThrowIfNull (d);
+            Backends.Platform.Backend.Invoke (() => d (state));
+        }
+
+        /// <inheritdoc/>
+        public override System.Threading.SynchronizationContext CreateCopy () => new WindowsFormsSynchronizationContext ();
+
+        /// <summary>Removes the context installed on the current thread.</summary>
+        public static void Uninstall () => SetSynchronizationContext (null);
+
+        /// <summary>Releases the resources held by this context.</summary>
+        /// <remarks>Nothing to release: posting goes through the backend, which owns the message
+        /// loop and outlives any context wrapping it.</remarks>
+        public void Dispose () { }
+    }
+
     /// <summary>Extension methods for reading typed values out of a data object.</summary>
     public static class DataObjectExtensions
     {
@@ -969,6 +1005,17 @@ namespace Majorsilence.Forms
             data = default;
             return false;
         }
+
+        /// <inheritdoc cref="TryGetData{T}(IDataObject,out T)"/>
+        public static bool TryGetData<T> (this IDataObject dataObject, string format, bool autoConvert, out T? data)
+            => dataObject.TryGetData (format, out data);
+
+        /// <inheritdoc cref="TryGetData{T}(IDataObject,out T)"/>
+        /// <remarks>The resolver maps a stored type name to the type to deserialise as. Nothing here
+        /// serialises by type name -- values are stored as objects -- so it is never consulted.</remarks>
+        public static bool TryGetData<T> (this IDataObject dataObject, string format,
+            Func<System.Reflection.Metadata.TypeName, Type> resolver, bool autoConvert, out T? data)
+            => dataObject.TryGetData (format, out data);
     }
 }
 

@@ -353,6 +353,26 @@ This was a deliberate correction rather than an accident of the port. The old re
 `SplitterDistance` inconsistent with itself (its getter and setter disagreed about which panel
 dimension it meant), and left `Splitter`'s resize cursor describing the opposite of the bar it was on.
 
+## Renamed to match WinForms: `TreeViewDrawMode.OwnerDrawContent`
+
+`TreeViewDrawMode` had an invented member name. What WinForms calls `OwnerDrawText` was spelled
+`OwnerDrawContent` here, and `OwnerDrawAll` was missing entirely — so a tree view could hand over the
+text of a node but never the whole row.
+
+Both WinForms names now exist, with WinForms' numbers, and the tree view honours them separately:
+`OwnerDrawText` raises `DrawNode` after the background and focus cue are painted, `OwnerDrawAll`
+raises it before anything is painted at all.
+
+**Nothing breaks.** `OwnerDrawContent` is still there as an `[Obsolete]` alias with the same value, so
+existing code compiles and behaves as before; you will get a warning pointing at the new name. It will
+be removed in a future release.
+
+Two members of `DataGridViewDataErrorContexts` went the other way and were **removed**:
+`RowDirtyStateNeeded` and `CleanupExceptionHandling`. Neither is a WinForms member, neither was used
+anywhere, and the second duplicated `Commit`'s numeric value — which made `ToString()` on a persisted
+context able to name something the writer never chose. The WinForms members that belong at those
+values, `RowDeletion` and `ClipboardContent`, are now present.
+
 ## Compile-and-approximate, not pixel-perfect
 
 Once your code compiles against Majorsilence.Forms, not every property/event is fully wired — some
