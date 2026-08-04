@@ -227,15 +227,8 @@ namespace Majorsilence.Forms
         public Point AutoScrollPosition { get; set; }
 
         /// <summary>Gets the rectangle the splitter occupies.</summary>
-        /// <remarks>
-        /// Follows this control's own orientation convention, which is the opposite of WinForms':
-        /// here <c>Orientation.Horizontal</c> docks Panel1 to the left, so the panels sit side by side
-        /// and the splitter bar runs vertically. WinForms reads the enum as the direction of the bar
-        /// rather than of the layout. The convention predates this pass and flipping it would move
-        /// every existing SplitContainer, so this reports where the splitter actually is.
-        /// </remarks>
         public Rectangle SplitterRectangle
-            => Orientation == Orientation.Horizontal
+            => Orientation == Orientation.Vertical
                 ? new Rectangle (SplitterDistance, 0, SplitterWidth, Height)
                 : new Rectangle (0, SplitterDistance, Width, SplitterWidth);
 

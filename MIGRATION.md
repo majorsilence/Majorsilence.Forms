@@ -332,6 +332,27 @@ with:
 Pass `--strict` in CI to make any manual-review warning a non-zero exit — useful as a gate that
 fails a pipeline the moment a migrated branch introduces a new unmapped reference.
 
+## Breaking change: `SplitContainer.Orientation`
+
+`SplitContainer.Orientation` — and `Splitter.Orientation` with it — now means what it means in
+WinForms: **the direction of the splitter bar, not of the layout.**
+
+| | Panels side by side | Panels stacked |
+|---|---|---|
+| WinForms, and Majorsilence.Forms now | `Orientation.Vertical` (the default) | `Orientation.Horizontal` |
+| Majorsilence.Forms before | `Orientation.Horizontal` (the default) | `Orientation.Vertical` |
+
+**If you never set `Orientation`, nothing changes** — the default arrangement is still panels side by
+side; only the name for it moved. **If you did set it, invert it**, or the layout flips.
+
+Nothing warns you: both values compile before and after. The migrator does not rewrite this either,
+because it cannot tell a `SplitContainer.Orientation` from any other `Orientation` in a textual pass —
+so a grep for `Orientation` on your `SplitContainer` and `Splitter` instances is worth the minute.
+
+This was a deliberate correction rather than an accident of the port. The old reading also made
+`SplitterDistance` inconsistent with itself (its getter and setter disagreed about which panel
+dimension it meant), and left `Splitter`'s resize cursor describing the opposite of the bar it was on.
+
 ## Compile-and-approximate, not pixel-perfect
 
 Once your code compiles against Majorsilence.Forms, not every property/event is fully wired — some

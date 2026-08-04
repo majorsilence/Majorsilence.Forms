@@ -10,7 +10,10 @@ namespace Majorsilence.Forms
     public partial class SplitContainer : Control, System.ComponentModel.ISupportInitialize
     {
         private readonly Splitter splitter;
-        private Orientation orientation;
+        // Vertical, matching WinForms' default and its meaning: the splitter bar is vertical, so the
+        // panels sit side by side. This control used to read the enum as the direction of the layout
+        // rather than of the bar, so the same arrangement was called Horizontal.
+        private Orientation orientation = Orientation.Vertical;
         private int panel1_min_size = 25;
         private int panel2_min_size = 25;
 
@@ -45,7 +48,7 @@ namespace Majorsilence.Forms
         private int GetMaximumPanel1Size ()
         {
             // This is the maximum Panel1 size taking the Panel2MinimumSize into account
-            if (orientation == Orientation.Horizontal)
+            if (orientation == Orientation.Vertical)
                 return PaddedClientRectangle.Width - SplitterWidth - panel2_min_size;
             else
                 return PaddedClientRectangle.Height - SplitterWidth - panel2_min_size;
@@ -60,8 +63,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets a value indicating the orientation of the SplitContainer.
+        /// Gets or sets the orientation of the splitter.
         /// </summary>
+        /// <remarks>
+        /// As in WinForms, this is the direction of the splitter <em>bar</em>, not of the layout:
+        /// <see cref="Orientation.Vertical"/> means a vertical bar with the panels side by side, and
+        /// is the default. Earlier versions of this control read the enum the other way round.
+        /// </remarks>
         public Orientation Orientation {
             get => orientation;
             set {
@@ -71,7 +79,7 @@ namespace Majorsilence.Forms
                     SuspendLayout ();
 
                     splitter.Orientation = orientation;
-                    Panel1.Dock = orientation == Orientation.Horizontal ? DockStyle.Left : DockStyle.Top;
+                    Panel1.Dock = orientation == Orientation.Vertical ? DockStyle.Left : DockStyle.Top;
                     Panel1.Size = new Size (Panel1.Height, Panel1.Width);
 
                     ResumeLayout (true);
@@ -92,7 +100,7 @@ namespace Majorsilence.Forms
             set {
                 panel1_min_size = value;
 
-                ResizePanels (orientation == Orientation.Horizontal ? Panel1.Width : Panel1.Height);
+                ResizePanels (orientation == Orientation.Vertical ? Panel1.Width : Panel1.Height);
             }
         }
 
@@ -109,14 +117,14 @@ namespace Majorsilence.Forms
             set {
                 panel2_min_size = value;
 
-                ResizePanels (orientation == Orientation.Horizontal ? Panel1.Width : Panel1.Height);
+                ResizePanels (orientation == Orientation.Vertical ? Panel1.Width : Panel1.Height);
             }
         }
 
         // Updates the size of Panel1 to resize and move all controls.
         private void ResizePanels (int value)
         {
-            if (orientation == Orientation.Horizontal)
+            if (orientation == Orientation.Vertical)
                 Panel1.Width = value.Clamp (panel1_min_size, GetMaximumPanel1Size ());
             else
                 Panel1.Height = value.Clamp (panel1_min_size, GetMaximumPanel1Size ());
@@ -140,11 +148,8 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the distance in pixels from the left or top edge to the splitter.</summary>
         public int SplitterDistance {
-            // Horizontal docks Panel1 to the left, so its Width is the distance. The getter used to
-            // read Panel1.Height for Horizontal -- the opposite of what its own setter writes and of
-            // what ResizePanels, GetMaximumPanel1Size and Panel2MinimumSize all use -- so assigning
-            // SplitterDistance and reading it back did not round-trip.
-            get => orientation == Orientation.Horizontal ? Panel1.Width : Panel1.Height;
+            // Vertical docks Panel1 to the left, so its Width is the distance.
+            get => orientation == Orientation.Vertical ? Panel1.Width : Panel1.Height;
             set => ResizePanels (value);
         }
 
@@ -184,7 +189,7 @@ namespace Majorsilence.Forms
         // Handles the splitter's Drag event.
         private void Splitter_Drag (object? sender, EventArgs<Point> e)
         {
-            if (orientation == Orientation.Horizontal)
+            if (orientation == Orientation.Vertical)
                 ResizePanels (Panel1.Width - (int)(e.Value.X / ScaleFactor.Width));
             else
                 ResizePanels (Panel1.Height - (int)(e.Value.Y / ScaleFactor.Height));

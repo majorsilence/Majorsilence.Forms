@@ -101,12 +101,11 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void SplitterRectangle_follows_the_orientation ()
         {
-            // This control reads Orientation as the direction of the layout, not of the bar, which is
-            // the opposite of WinForms -- see SplitterRectangle's remarks. Horizontal therefore puts
-            // the panels side by side and the splitter bar runs vertically.
+            // Orientation is the direction of the bar, as in WinForms: Vertical puts the panels side
+            // by side with a vertical splitter between them.
             using var split = new SplitContainer {
                 Size = new Size (200, 100),
-                Orientation = Orientation.Horizontal,
+                Orientation = Orientation.Vertical,
                 SplitterDistance = 60,
                 SplitterWidth = 4,
             };
@@ -116,7 +115,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (4, sideBySide.Width);
             Assert.Equal (100, sideBySide.Height);
 
-            split.Orientation = Orientation.Vertical;
+            split.Orientation = Orientation.Horizontal;
 
             var stacked = split.SplitterRectangle;
             Assert.Equal (60, stacked.Y);
@@ -297,6 +296,35 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (25, strip.HorizontalScroll.Value);
             Assert.Equal (400, strip.VerticalScroll.Maximum);
             Assert.Equal (new Size (4, 6), strip.AutoScrollMargin);
+        }
+
+        [Fact]
+        public void Orientation_means_the_direction_of_the_bar_as_it_does_in_WinForms ()
+        {
+            // Vertical bar, panels side by side -- and it is the default, matching WinForms. This
+            // control used to read the enum as the direction of the layout, so the same arrangement
+            // was called Horizontal.
+            using var split = new SplitContainer { Size = new Size (200, 100) };
+
+            Assert.Equal (Orientation.Vertical, split.Orientation);
+            Assert.Equal (DockStyle.Left, split.Panel1.Dock);
+
+            split.Orientation = Orientation.Horizontal;
+
+            Assert.Equal (DockStyle.Top, split.Panel1.Dock);
+        }
+
+        [Fact]
+        public void SplitterDistance_round_trips_in_both_orientations ()
+        {
+            using var split = new SplitContainer { Size = new Size (300, 300), Panel1MinimumSize = 10, Panel2MinimumSize = 10 };
+
+            split.SplitterDistance = 80;
+            Assert.Equal (80, split.SplitterDistance);
+
+            split.Orientation = Orientation.Horizontal;
+            split.SplitterDistance = 70;
+            Assert.Equal (70, split.SplitterDistance);
         }
     }
 }

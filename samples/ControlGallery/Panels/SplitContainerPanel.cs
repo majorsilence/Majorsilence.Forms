@@ -9,7 +9,7 @@ namespace ControlGallery.Panels
         public SplitContainerPanel ()
         {
             var sc1 = Controls.Add (new SplitContainer { Dock = DockStyle.Fill, SplitterColor = Color.Black, Panel1MinimumSize = 125, Panel2MinimumSize = 125 });
-            var sc2 = sc1.Panel2.Controls.Add (new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 8, SplitterColor = Color.Green, Orientation = Orientation.Vertical });
+            var sc2 = sc1.Panel2.Controls.Add (new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 8, SplitterColor = Color.Green, Orientation = Orientation.Horizontal });
 
             sc1.Panel1.Style.BackgroundColor = SKColors.CornflowerBlue;
             sc2.Panel1.Style.BackgroundColor = SKColors.LightPink;

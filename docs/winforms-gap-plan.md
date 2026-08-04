@@ -278,11 +278,13 @@ orientation is `Horizontal`; its own setter, and `ResizePanels`, `GetMaximumPane
 `Panel2MinimumSize`, all use `Panel1.Width` for that case. So `split.SplitterDistance = 60` followed
 by reading it back returned something else entirely. The getter now matches the rest of the class.
 
-That surfaced a second thing worth writing down: **this control reads `Orientation` as the direction
-of the layout, WinForms reads it as the direction of the bar.** Here `Horizontal` docks Panel1 to the
-left, so the panels sit side by side — WinForms calls that `Vertical`. The convention predates this
-work and flipping it would move every existing `SplitContainer`, so `SplitterRectangle` reports where
-the splitter actually is and says so in its remarks.
+That surfaced a second thing: **this control read `Orientation` as the direction of the layout while
+WinForms reads it as the direction of the bar.** It was reported rather than changed at the time,
+since flipping it moves every existing `SplitContainer`; it has since been flipped deliberately —
+`Orientation.Vertical` is now a vertical bar with the panels side by side, and is the default, as
+upstream. `Splitter.Orientation` went with it, so the library reads one way throughout and the resize
+cursor finally describes the bar it is on. The breaking change is written up in
+[MIGRATION.md](../MIGRATION.md#breaking-change-splitcontainerorientation).
 
 `SplitContainer.SplitterMoved` and `SplitterMoving` were also declared with empty accessors, so the
 new `OnSplitterMoved`/`OnSplitterMoving` had nothing to raise until they were given a backing field.
