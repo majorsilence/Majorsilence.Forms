@@ -229,7 +229,22 @@ different, though, confirmed by decompiling the actual installed packages rather
     "Hold" setting, never the separate "HoldWithMouse" one, so it's safe by construction.
   - WinUI has no native swipe gesture (only the unrelated, heavyweight `SwipeControl` reveal-action
     control) — `Swipe` is synthesized from `ManipulationCompleted`'s velocity against a chosen
-    threshold (`UnoGestureWiring.MinSwipeVelocity`), a heuristic rather than a platform capability.
+    threshold, a heuristic rather than a platform capability.
+  - **The two platforms report velocity in different units**, confirmed from each vendor's own shipped
+    XML documentation: Avalonia's `SwipeGestureEventArgs.Velocity` is pixels per *second*, WinUI's
+    `ManipulationVelocities.Linear` is DIP per *millisecond*. `SwipeGestureEventArgs.VelocityX`/`Y`
+    here are documented as pixels per second, so `UnoGestureWiring` converts. Passing the raw WinUI
+    value through would both break that contract and — since the threshold is expressed per second —
+    demand roughly 150× the speed a human can move, so `Swipe` would never have fired at all.
+
+  The two judgement calls Uno needs and Avalonia does not — is this frame a pinch or a pan, and was
+  that flick fast enough to be a swipe — live in `GestureHeuristics` in the core assembly rather than
+  inline in the wiring, and are unit-tested (`GestureHeuristicsTests`). Neither can be verified by
+  running it: the Uno backend needs multi-touch hardware, and both have failure modes that read as
+  "gestures feel wrong" rather than as a crash. In particular the pinch/pan split uses a tolerance
+  rather than exact equality, because two contacts dragged across a screen never hold an exactly
+  constant separation — testing `Delta.Scale != 1f` classifies every two-finger pan as a pinch, and
+  since the two are mutually exclusive, two-finger panning would then never scroll.
 
 Like the rest of the backend seam, this is wired through new methods directly on the concrete
 `WindowBase` class (`HandleLongPress`/`HandlePinch`/`HandleSwipe`/`HandleScrollGesture`), not through
