@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a mouse cursor.
     /// </summary>
-    public class Cursor : IDisposable
+    public partial class Cursor : IDisposable
     {
         internal readonly CursorType CursorType;
 

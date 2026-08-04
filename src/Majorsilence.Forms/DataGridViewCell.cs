@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a cell in a DataGridView control.
     /// </summary>
-    public class DataGridViewCell
+    public partial class DataGridViewCell
     {
         /// <summary>The owning column (Telerik GridViewCellInfo.ColumnInfo naming).</summary>
         public DataGridViewColumn? ColumnInfo { get; internal set; }
@@ -92,7 +92,18 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the style for this cell.
         /// </summary>
-        public ControlStyle Style { get; set; } = new ControlStyle (DefaultCellStyleInternal);
+        public ControlStyle Style {
+            get => cell_style;
+            set {
+                cell_style = value;
+                // Records that a style was set on this cell rather than inherited, which is what
+                // HasStyle reports; the initial value is not an assignment.
+                has_explicit_style = true;
+            }
+        }
+
+        private ControlStyle cell_style = new ControlStyle (DefaultCellStyleInternal);
+        private bool has_explicit_style;
 
         /// <summary>
         /// Gets or sets an object that contains data to associate with the cell.

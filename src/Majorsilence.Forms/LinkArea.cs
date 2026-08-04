@@ -3,7 +3,7 @@
     /// <summary>
     /// Represents a range of text treated as a link.
     /// </summary>
-    public struct LinkArea : IEquatable<LinkArea>
+    public partial struct LinkArea : IEquatable<LinkArea>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="LinkArea"/> struct.

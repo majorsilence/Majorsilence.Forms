@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Class for interacting with an operating system's clipboard.
     /// </summary>
-    public static class Clipboard
+    public static partial class Clipboard
     {
         /// <summary>Gets the contents of the clipboard as text.</summary>
         public static Task<string?> GetTextAsync ()
@@ -58,6 +58,14 @@ namespace Majorsilence.Forms
         public static void SetText (string text, TextDataFormat format) => SetText (text);
 
         /// <summary>Sets an IDataObject on the clipboard. Stub — stores text if the object supports it.</summary>
+        /// <summary>Places data on the clipboard, retrying if another process holds it.</summary>
+        /// <remarks>The retry count and delay are accepted and not used: the backends' clipboard is
+        /// not a shared OS resource that can be locked out from under a caller, so there is nothing
+        /// to retry. Present because the overload is what a migrated app already calls.</remarks>
+        public static void SetDataObject (object data, bool copy, int retryTimes, int retryDelay)
+            => SetDataObject (data, copy);
+
+        /// <summary>Places data on the clipboard.</summary>
         public static void SetDataObject (object data, bool copy = false)
         {
             if (data is IDataObject dataObj) {
@@ -110,15 +118,15 @@ namespace Majorsilence.Forms
     public enum TextDataFormat
     {
         /// <summary>Unicode text format.</summary>
-        UnicodeText,
+        UnicodeText = 1,
         /// <summary>Regular text format.</summary>
-        Text,
+        Text = 0,
         /// <summary>RTF text format.</summary>
-        Rtf,
+        Rtf = 2,
         /// <summary>HTML text format.</summary>
-        Html,
+        Html = 3,
         /// <summary>CommaSeparatedValue format.</summary>
-        CommaSeparatedValue
+        CommaSeparatedValue = 4,
     }
 
     /// <summary>Defines a format-independent mechanism for transferring data.</summary>
@@ -163,7 +171,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Implements <see cref="IDataObject"/> for transferring data. Stub in Majorsilence.Forms.</summary>
-    public class DataObject : IDataObject
+    public partial class DataObject : IDataObject
     {
         private readonly System.Collections.Generic.Dictionary<string, object?> _data = new ();
 
@@ -209,5 +217,23 @@ namespace Majorsilence.Forms
 
         /// <summary>Sets text on the data object.</summary>
         public void SetText (string text) => SetData (DataFormats.Text.Name, text);
+
+        /// <summary>Stores text under the format the given kind names.</summary>
+        public void SetText (string text, TextDataFormat format) => SetData (FormatName (format), text);
+
+        /// <summary>Returns whether text of the given kind is present.</summary>
+        public bool ContainsText (TextDataFormat format) => GetDataPresent (FormatName (format));
+
+        /// <summary>Returns the text of the given kind, or an empty string.</summary>
+        public string GetText (TextDataFormat format) => GetData (FormatName (format)) as string ?? string.Empty;
+
+        // The four text kinds are distinct clipboard formats, not decorations on one: storing RTF and
+        // reading it back as UnicodeText has to miss, or a paste would insert the markup.
+        private static string FormatName (TextDataFormat format) => format switch {
+            TextDataFormat.Rtf => DataFormats.Rtf.Name,
+            TextDataFormat.Html => DataFormats.Html.Name,
+            TextDataFormat.CommaSeparatedValue => DataFormats.CommaSeparatedValue.Name,
+            _ => DataFormats.Text.Name,
+        };
     }
 }

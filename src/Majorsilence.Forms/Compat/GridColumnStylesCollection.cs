@@ -1,11 +1,12 @@
 ﻿using System.Collections;
+using System.Linq;
 
 namespace Majorsilence.Forms
 {
     /// <summary>
     ///  Represents a collection of <see cref="IDataGridColumnStyle"/> objects for a <see cref="DataGridTableStyle"/>.
     /// </summary>
-    public class GridColumnStylesCollection : CollectionBase, ICollection, IEnumerable
+    public partial class GridColumnStylesCollection : CollectionBase, ICollection, IEnumerable
     {
         /// <summary>
         ///  Occurs when the collection changes, before the new column style is added or inserted.
@@ -106,6 +107,33 @@ namespace Majorsilence.Forms
         /// <summary>
         ///  Returns the index of the specified column style in the collection, or -1 if it is not found.
         /// </summary>
+        /// <summary>Adds a column style and returns its index.</summary>
+        /// <remarks>DataGridColumnStyle implements IDataGridColumnStyle, so this and the interface
+        /// overload do the same work. It exists because WinForms declares the concrete parameter, and
+        /// a call site written against that signature has to bind without a cast.</remarks>
+        public int Add(DataGridColumnStyle column) => Add((IDataGridColumnStyle)column);
+
+        /// <inheritdoc cref="AddRange(IDataGridColumnStyle[])"/>
+        public void AddRange(DataGridColumnStyle[] columns)
+        {
+            ArgumentNullException.ThrowIfNull(columns);
+            AddRange(columns.Cast<IDataGridColumnStyle>().ToArray());
+        }
+
+        /// <inheritdoc cref="Contains(IDataGridColumnStyle)"/>
+        public bool Contains(DataGridColumnStyle column) => Contains((IDataGridColumnStyle)column);
+
+        /// <summary>Returns whether a column style is mapped to the described property.</summary>
+        public bool Contains(System.ComponentModel.PropertyDescriptor propertyDescriptor)
+        {
+            ArgumentNullException.ThrowIfNull(propertyDescriptor);
+            return Contains(propertyDescriptor.Name);
+        }
+
+        /// <inheritdoc cref="Remove(IDataGridColumnStyle)"/>
+        public void Remove(DataGridColumnStyle column) => Remove((IDataGridColumnStyle)column);
+
+        /// <summary>Returns the index of the given column style, or -1.</summary>
         public int IndexOf(DataGridColumnStyle item)
         {
             return InnerList.IndexOf(item);

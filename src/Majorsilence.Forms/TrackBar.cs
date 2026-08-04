@@ -37,7 +37,7 @@ namespace Majorsilence.Forms
     /// };
     /// </code>
     /// </example>
-    public class TrackBar : Control, System.ComponentModel.ISupportInitialize
+    public partial class TrackBar : Control, System.ComponentModel.ISupportInitialize
     {
         // WinForms designer-generated InitializeComponent code brackets a TrackBar's property
         // assignments with ((ISupportInitialize)(this.trackBar1)).BeginInit()/EndInit() -- the same

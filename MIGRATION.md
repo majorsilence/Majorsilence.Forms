@@ -332,6 +332,47 @@ with:
 Pass `--strict` in CI to make any manual-review warning a non-zero exit — useful as a gate that
 fails a pipeline the moment a migrated branch introduces a new unmapped reference.
 
+## Breaking change: `SplitContainer.Orientation`
+
+`SplitContainer.Orientation` — and `Splitter.Orientation` with it — now means what it means in
+WinForms: **the direction of the splitter bar, not of the layout.**
+
+| | Panels side by side | Panels stacked |
+|---|---|---|
+| WinForms, and Majorsilence.Forms now | `Orientation.Vertical` (the default) | `Orientation.Horizontal` |
+| Majorsilence.Forms before | `Orientation.Horizontal` (the default) | `Orientation.Vertical` |
+
+**If you never set `Orientation`, nothing changes** — the default arrangement is still panels side by
+side; only the name for it moved. **If you did set it, invert it**, or the layout flips.
+
+Nothing warns you: both values compile before and after. The migrator does not rewrite this either,
+because it cannot tell a `SplitContainer.Orientation` from any other `Orientation` in a textual pass —
+so a grep for `Orientation` on your `SplitContainer` and `Splitter` instances is worth the minute.
+
+This was a deliberate correction rather than an accident of the port. The old reading also made
+`SplitterDistance` inconsistent with itself (its getter and setter disagreed about which panel
+dimension it meant), and left `Splitter`'s resize cursor describing the opposite of the bar it was on.
+
+## Renamed to match WinForms: `TreeViewDrawMode.OwnerDrawContent`
+
+`TreeViewDrawMode` had an invented member name. What WinForms calls `OwnerDrawText` was spelled
+`OwnerDrawContent` here, and `OwnerDrawAll` was missing entirely — so a tree view could hand over the
+text of a node but never the whole row.
+
+Both WinForms names now exist, with WinForms' numbers, and the tree view honours them separately:
+`OwnerDrawText` raises `DrawNode` after the background and focus cue are painted, `OwnerDrawAll`
+raises it before anything is painted at all.
+
+**Nothing breaks.** `OwnerDrawContent` is still there as an `[Obsolete]` alias with the same value, so
+existing code compiles and behaves as before; you will get a warning pointing at the new name. It will
+be removed in a future release.
+
+Two members of `DataGridViewDataErrorContexts` went the other way and were **removed**:
+`RowDirtyStateNeeded` and `CleanupExceptionHandling`. Neither is a WinForms member, neither was used
+anywhere, and the second duplicated `Commit`'s numeric value — which made `ToString()` on a persisted
+context able to name something the writer never chose. The WinForms members that belong at those
+values, `RowDeletion` and `ClipboardContent`, are now present.
+
 ## Compile-and-approximate, not pixel-perfect
 
 Once your code compiles against Majorsilence.Forms, not every property/event is fully wired — some

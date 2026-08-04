@@ -10,7 +10,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a PictureBox control.
     /// </summary>
-    public class PictureBox : Control, ISupportInitialize
+    public partial class PictureBox : Control, ISupportInitialize
     {
         private static HttpClient? client;
 

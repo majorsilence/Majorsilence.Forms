@@ -7,10 +7,18 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ListViewItem.
     /// </summary>
-    public class ListViewItem
+    public partial class ListViewItem
     {
         /// <summary>Initializes a new instance of ListViewItem with no text.</summary>
-        public ListViewItem () { SubItems = new SubItemCollection (this); }
+        public ListViewItem ()
+        {
+            SubItems = new SubItemCollection (this);
+
+            // WinForms puts the item's own text at SubItems[0], so column i is always SubItems[i].
+            // This used to hold Text in a separate field with SubItems starting at column 1, which
+            // meant migrated code reading item.SubItems[1].Text got the third column's value.
+            SubItems.Add (new ListViewSubItem ());
+        }
 
         /// <summary>Initializes a new instance of ListViewItem with the specified text.</summary>
         public ListViewItem (string text) : this ()
@@ -126,14 +134,13 @@ namespace Majorsilence.Forms
         /// </summary>
         public object? Tag { get; set; }
 
-        private string _text = string.Empty;
 
         /// <summary>
         /// Gets or sets the text displayed on the item.
         /// </summary>
         public string Text {
-            get => _text;
-            set => _text = value ?? string.Empty;
+            get => SubItems[0].Text;
+            set => SubItems[0].Text = value ?? string.Empty;
         }
 
         /// <summary>Gets or sets whether subitems inherit the style of the parent item. Stub in Majorsilence.Forms.</summary>
@@ -178,8 +185,9 @@ namespace Majorsilence.Forms
                 ForeColor = ForeColor,
                 BackColor = BackColor
             };
-            foreach (ListViewSubItem sub in SubItems)
-                clone.SubItems.Add (new ListViewSubItem { Text = sub.Text, Tag = sub.Tag });
+            // Skips index 0: `new ListViewItem (Text)` has already produced it.
+            for (var i = 1; i < SubItems.Count; i++)
+                clone.SubItems.Add (new ListViewSubItem { Text = SubItems[i].Text, Tag = SubItems[i].Tag });
             return clone;
         }
 

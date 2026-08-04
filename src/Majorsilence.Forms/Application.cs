@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Reflection;
 using Majorsilence.Forms.Backends;
 
@@ -6,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Provides static methods and properties to manage an application, such as methods to start and stop an application.
     /// </summary>
-    public static class Application
+    public static partial class Application
     {
         private static CancellationTokenSource? _mainLoopCancellationTokenSource;
         private static bool is_exiting;
@@ -112,8 +113,16 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Exits the application.
         /// </summary>
-        public static void Exit ()
+        public static void Exit () => Exit (null);
+
+        /// <summary>Exits the application, giving handlers a chance to cancel.</summary>
+        /// <remarks>The Cancel flag is honoured: if a handler sets it before this is called, the
+        /// shutdown does not happen. That is the point of the overload.</remarks>
+        public static void Exit (CancelEventArgs? e)
         {
+            if (e?.Cancel == true)
+                return;
+
             is_exiting = true;
 
             OnExit?.Invoke (null, EventArgs.Empty);
@@ -122,14 +131,16 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Exits the message loop on the current thread. In Majorsilence.Forms this is equivalent to <see cref="Exit"/>.
+        /// Exits the message loop on the current thread. In Majorsilence.Forms this is equivalent to <see cref="Exit()"/>.
         /// </summary>
         public static void ExitThread () => Exit ();
 
         /// <summary>
-        /// Sets the application-wide color mode (light/dark/system). Stub in Majorsilence.Forms.
+        /// Sets the application-wide color mode (light/dark/system).
         /// </summary>
-        public static void SetColorMode (SystemColorMode colorMode) { }
+        /// <remarks>This used to discard its argument, which left <see cref="ColorMode"/> with nothing
+        /// to report. The value is now stored and is what ColorMode and IsDarkModeEnabled read.</remarks>
+        public static void SetColorMode (SystemColorMode colorMode) => ColorMode = colorMode;
 
         /// <summary>
         /// Raised when the application is exiting.
@@ -143,6 +154,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the main form of the application (the first form passed to Run).</summary>
         public static Form? MainForm => OpenForms.Count > 0 ? OpenForms[0] : null;
+
+        /// <summary>Runs a message loop with no main form.</summary>
+        /// <remarks>The loop ends when <see cref="Exit()"/> is called, since there is no form whose
+        /// closing would end it -- which is the shape of a tray or background application.</remarks>
+        public static void Run () => Run (new ApplicationContext ());
 
         /// <summary>
         /// Begins running a standard application message loop on the current thread, and makes the specified form visible.
@@ -267,7 +283,7 @@ namespace Majorsilence.Forms
             createMainForm ().Show ();
         }
 
-        /// <summary>Runs the platform backend's message loop until <see cref="Exit"/> is called.</summary>
+        /// <summary>Runs the platform backend's message loop until <see cref="Exit()"/> is called.</summary>
         private static void RunCore ()
         {
             if (_mainLoopCancellationTokenSource != null)
@@ -382,17 +398,20 @@ namespace Majorsilence.Forms
             set => System.Threading.Thread.CurrentThread.CurrentUICulture = value;
         }
 
-        /// <summary>Raised when a thread exception occurs that is not otherwise handled. Stub in Majorsilence.Forms.</summary>
-        public static event System.Threading.ThreadExceptionEventHandler? ThreadException { add { } remove { } }
+        /// <summary>Raised when a thread exception occurs that is not otherwise handled.</summary>
+        public static event System.Threading.ThreadExceptionEventHandler? ThreadException;
 
         /// <summary>Raised when the application is about to exit.</summary>
         public static event EventHandler? ApplicationExit { add { } remove { } }
 
         /// <summary>Raised when the application becomes idle.</summary>
-        public static event EventHandler? Idle { add { } remove { } }
+        public static event EventHandler? Idle;
 
         /// <summary>Sets the default exception handler for unhandled exceptions. Stub in Majorsilence.Forms.</summary>
         public static void SetUnhandledExceptionMode (UnhandledExceptionMode mode) { }
+
+        /// <inheritdoc cref="SetUnhandledExceptionMode(UnhandledExceptionMode)"/>
+        public static void SetUnhandledExceptionMode (UnhandledExceptionMode mode, bool threadScope) { }
 
         /// <summary>Adds a message filter to the application. Stub in Majorsilence.Forms.</summary>
         public static void AddMessageFilter (IMessageFilter value) { }
@@ -447,21 +466,21 @@ namespace Majorsilence.Forms
     public enum UnhandledExceptionMode
     {
         /// <summary>Throw the exception.</summary>
-        ThrowException,
+        ThrowException = 1,
         /// <summary>Catch the exception and notify the ThreadException handler.</summary>
-        CatchException,
+        CatchException = 2,
         /// <summary>Automatically choose based on whether a handler is attached.</summary>
-        Automatic
+        Automatic = 0,
     }
 
     /// <summary>Specifies the application-wide color mode. WinForms compatibility.</summary>
     public enum SystemColorMode
     {
         /// <summary>Follow the operating system setting.</summary>
-        System = 0,
+        System = 1,
         /// <summary>Use the classic (light) color set.</summary>
-        Classic = 1,
+        Classic = 0,
         /// <summary>Use the dark color set.</summary>
-        Dark = 2
+        Dark = 2,
     }
 }

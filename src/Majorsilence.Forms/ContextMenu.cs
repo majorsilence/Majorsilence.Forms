@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ContextMenu control.
     /// </summary>
-    public class ContextMenu : MenuDropDown
+    public partial class ContextMenu : MenuDropDown
     {
         /// <summary>
         /// Initializes a new instance of the ContextMenu class.

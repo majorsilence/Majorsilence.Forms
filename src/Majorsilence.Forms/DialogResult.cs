@@ -55,5 +55,9 @@ namespace Majorsilence.Forms
         ///  labeled No).
         /// </summary>
         No = 7,
+        /// <summary>The dialog box return value is TryAgain.</summary>
+        TryAgain = 10,
+        /// <summary>The dialog box return value is Continue.</summary>
+        Continue = 11,
     }
 }

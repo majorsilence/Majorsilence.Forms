@@ -8,7 +8,7 @@ namespace Majorsilence.Forms;
 /// <summary>
 /// Represents a collection of images that can be used by controls.
 /// </summary>
-public class ImageList : Component
+public partial class ImageList : Component
 {
     // WinForms default ImageList.ImageSize is 16x16.
     private static readonly SKSize s_defaultImageSize = new (16, 16);
@@ -112,7 +112,7 @@ public class ImageList : Component
 /// <see cref="ComponentResourceManager"/> decodes the WinForms <c>ImageStream</c> resource into the
 /// <see cref="Frames"/> here, which <see cref="ImageList.ImageStream"/> then adopts.
 /// </summary>
-public sealed class ImageListStreamer
+public sealed partial class ImageListStreamer
 {
     /// <summary>Initializes a new, empty instance of the ImageListStreamer class.</summary>
     public ImageListStreamer () => Frames = Array.Empty<SKBitmap> ();

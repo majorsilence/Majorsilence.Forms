@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a collection of DataGridViewRow objects in a DataGridView control.
     /// </summary>
-    public class DataGridViewRowCollection : Collection<DataGridViewRow>
+    public partial class DataGridViewRowCollection : Collection<DataGridViewRow>
     {
         private readonly DataGridView owner;
 

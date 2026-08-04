@@ -17,7 +17,16 @@ namespace Majorsilence.Forms
         /// </summary>
         public DataGridCell(int row, int column)
         {
-            // not needed but here for compatibility
+            // These used to be discarded, which made the two-argument constructor indistinguishable
+            // from the empty one -- so DataGrid.GetCellBounds (cell) had nothing to read.
+            RowNumber = row;
+            ColumnNumber = column;
         }
+
+        /// <summary>Gets or sets the row this cell identifies.</summary>
+        public int RowNumber { get; set; }
+
+        /// <summary>Gets or sets the column this cell identifies.</summary>
+        public int ColumnNumber { get; set; }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using Majorsilence.Forms.Drawing.Drawing2D;
 using Majorsilence.Forms.Drawing.Text;
@@ -11,21 +12,27 @@ namespace Majorsilence.Forms
     /// WinForms compatibility: wraps an <see cref="SKCanvas"/> to provide a GDI-like drawing surface.
     /// Use <see cref="Control.CreateGraphics"/> for text measurement; for painting use <see cref="PaintEventArgs.Canvas"/>.
     /// </summary>
-    public sealed class Graphics : IDisposable
+    public sealed class Graphics : IDisposable, Majorsilence.Forms.Drawing.IDeviceContext
     {
         private readonly Control? _control;
         private readonly SKCanvas? _canvas;
         private readonly bool _ownsCanvas;
+
+        // The image FromImage was created over, if any. An SKCanvas does NOT keep its backing SKBitmap
+        // alive, so without this a caller who does not hold the image themselves gets the bitmap
+        // collected out from under native code -- which aborts the process rather than throwing.
+        private readonly Majorsilence.Forms.Drawing.Image? _sourceImage;
         private bool _disposed;
 
         internal Graphics (Control? control = null) { _control = control; }
 
         internal Graphics (SKCanvas canvas, Control? control = null) { _canvas = canvas; _control = control; }
 
-        private Graphics (SKCanvas canvas, bool ownsCanvas)
+        private Graphics (SKCanvas canvas, bool ownsCanvas, Majorsilence.Forms.Drawing.Image? sourceImage = null)
         {
             _canvas = canvas;
             _ownsCanvas = ownsCanvas;
+            _sourceImage = sourceImage;
         }
 
         /// <summary>Creates a Graphics object for drawing on the specified Majorsilence.Forms.Drawing.Image.
@@ -34,7 +41,7 @@ namespace Majorsilence.Forms
         {
             ArgumentNullException.ThrowIfNull (image);
             var backing = image.GetSKBitmap () ?? throw new ArgumentException ("Image has no backing bitmap.", nameof (image));
-            return new Graphics (new SKCanvas (backing), ownsCanvas: true);
+            return new Graphics (new SKCanvas (backing), ownsCanvas: true, sourceImage: image);
         }
 
         /// <summary>Creates a Graphics object for the specified window handle. Returns a no-op instance in Majorsilence.Forms.</summary>
@@ -105,6 +112,135 @@ namespace Majorsilence.Forms
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF (StringFormat ignored).</summary>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea, Majorsilence.Forms.Drawing.StringFormat? format)
             => MeasureString (text, font, layoutArea);
+
+        /// <summary>
+        /// Returns one <see cref="Majorsilence.Forms.Drawing.Region"/> per character range previously
+        /// supplied to <see cref="Majorsilence.Forms.Drawing.StringFormat.SetMeasurableCharacterRanges"/>,
+        /// describing where that range lands when <paramref name="text"/> is laid out inside
+        /// <paramref name="layoutRect"/>.
+        /// </summary>
+        /// <remarks>
+        /// A range that wraps across lines produces a region containing one rectangle per line, the same
+        /// as GDI+. Wrapping is greedy word wrap against <c>layoutRect.Width</c>; a width of zero (or a
+        /// <see cref="Majorsilence.Forms.Drawing.StringFormat"/> with no ranges set) means no wrapping.
+        /// Text is positioned from the left edge of <paramref name="layoutRect"/> — horizontal
+        /// <c>StringFormat.Alignment</c> is not applied to the measurement.
+        /// </remarks>
+        public Majorsilence.Forms.Drawing.Region[] MeasureCharacterRanges (
+            string text,
+            Majorsilence.Forms.Drawing.Font font,
+            RectangleF layoutRect,
+            Majorsilence.Forms.Drawing.StringFormat? stringFormat)
+        {
+            var ranges = stringFormat?.MeasurableCharacterRanges;
+            if (ranges is null || ranges.Length == 0)
+                return [];
+
+            var result = new Majorsilence.Forms.Drawing.Region[ranges.Length];
+            if (string.IsNullOrEmpty (text) || font is null) {
+                for (var i = 0; i < ranges.Length; i++)
+                    result[i] = EmptyRegion ();
+                return result;
+            }
+
+            var skFont = font.GetSKFont ();
+            var metrics = skFont.Metrics;
+            var lineHeight = metrics.Descent - metrics.Ascent;
+            var lines = LayoutLines (text, skFont, layoutRect.Width);
+
+            for (var i = 0; i < ranges.Length; i++) {
+                var region = EmptyRegion ();
+                var rangeStart = ranges[i].First;
+                var rangeEnd = rangeStart + ranges[i].Length;
+
+                foreach (var (start, length, index) in lines) {
+                    // Clip this range against the slice of text that landed on this line.
+                    var segStart = Math.Max (rangeStart, start);
+                    var segEnd = Math.Min (rangeEnd, start + length);
+                    if (segEnd <= segStart)
+                        continue;
+
+                    var x = layoutRect.X + skFont.MeasureText (text.AsSpan (start, segStart - start));
+                    var width = skFont.MeasureText (text.AsSpan (segStart, segEnd - segStart));
+                    region.Union (new RectangleF (x, layoutRect.Y + index * lineHeight, width, lineHeight));
+                }
+
+                result[i] = region;
+            }
+
+            return result;
+        }
+
+        private static Majorsilence.Forms.Drawing.Region EmptyRegion ()
+        {
+            var region = new Majorsilence.Forms.Drawing.Region ();
+            region.MakeEmpty ();
+            return region;
+        }
+
+        /// <summary>
+        /// Splits <paramref name="text"/> into laid-out lines, honoring explicit newlines and greedy
+        /// word wrapping at <paramref name="maxWidth"/>. Each entry keeps its start index into the
+        /// original string so character ranges can be mapped back onto it.
+        /// </summary>
+        private static List<(int Start, int Length, int Index)> LayoutLines (string text, SKFont font, float maxWidth)
+        {
+            var lines = new List<(int, int, int)> ();
+            var lineIndex = 0;
+
+            for (var paragraphStart = 0; paragraphStart <= text.Length;) {
+                var newline = text.IndexOf ('\n', paragraphStart);
+                var paragraphEnd = newline < 0 ? text.Length : newline;
+                // A trailing \r belongs to the break, not to the measured text.
+                var contentEnd = paragraphEnd > paragraphStart && text[paragraphEnd - 1] == '\r' ? paragraphEnd - 1 : paragraphEnd;
+
+                if (maxWidth <= 0) {
+                    lines.Add ((paragraphStart, contentEnd - paragraphStart, lineIndex++));
+                } else {
+                    var cursor = paragraphStart;
+                    while (cursor <= contentEnd) {
+                        var take = FitRun (text, cursor, contentEnd, font, maxWidth);
+                        lines.Add ((cursor, take, lineIndex++));
+                        cursor += take;
+                        if (take == 0)
+                            break;      // nothing fits at all — avoid spinning forever
+                        // Consume the space the wrap happened on, so it isn't re-measured next line.
+                        while (cursor < contentEnd && text[cursor] == ' ')
+                            cursor++;
+                    }
+                }
+
+                if (newline < 0)
+                    break;
+                paragraphStart = paragraphEnd + 1;
+            }
+
+            return lines;
+        }
+
+        /// <summary>
+        /// Returns how many characters starting at <paramref name="start"/> fit within
+        /// <paramref name="maxWidth"/>, breaking on the last space that fits. Falls back to a hard
+        /// character break when a single word is itself wider than the line.
+        /// </summary>
+        private static int FitRun (string text, int start, int end, SKFont font, float maxWidth)
+        {
+            if (start >= end)
+                return 0;
+
+            var lastBreak = -1;
+            for (var i = start; i < end; i++) {
+                var width = font.MeasureText (text.AsSpan (start, i - start + 1));
+                if (width > maxWidth) {
+                    if (lastBreak >= 0)
+                        return lastBreak - start;        // break at the last space that fit
+                    return Math.Max (1, i - start);      // single over-long word: hard break
+                }
+                if (text[i] == ' ')
+                    lastBreak = i;
+            }
+            return end - start;
+        }
 
         // --- Transform stubs ---
 
@@ -227,6 +363,499 @@ namespace Majorsilence.Forms
         /// <summary>Resets the clipping region.</summary>
         public void ResetClip () { }
 
+        /// <summary>Gets whether the current clipping region is empty.</summary>
+        public bool IsClipEmpty => _canvas?.LocalClipBounds.IsEmpty ?? false;
+
+        /// <summary>Translates the clipping region by the specified amounts.</summary>
+        public void TranslateClip (float dx, float dy) => _canvas?.Translate (dx, dy);
+
+        /// <inheritdoc cref="TranslateClip(float, float)"/>
+        public void TranslateClip (int dx, int dy) => TranslateClip ((float)dx, dy);
+
+        /// <summary>Gets or sets the rendering origin, used to align dithering and hatch brushes.</summary>
+        /// <remarks>
+        /// Stored and round-tripped. Skia positions shaders by their own local matrix rather than by a
+        /// device-wide origin, so hatch alignment does not follow this value.
+        /// </remarks>
+        public Point RenderingOrigin { get; set; }
+
+        /// <summary>Gets or sets the gamma-correction value used when rendering text (0..12).</summary>
+        /// <remarks>Stored and round-tripped; Skia's text rendering exposes no equivalent knob.</remarks>
+        public int TextContrast { get; set; } = 4;
+
+        /// <summary>
+        /// Forces pending drawing to execute. A no-op: this canvas is not a batched device context, so
+        /// there is never queued work to flush.
+        /// </summary>
+        public void Flush () { }
+
+        /// <inheritdoc cref="Flush()"/>
+        public void Flush (Majorsilence.Forms.Drawing.Drawing2D.FlushIntention intention) { }
+
+        /// <summary>
+        /// Returns the nearest color representable on this surface. Every surface here is 32bpp, so the
+        /// color comes back unchanged rather than quantized to a palette.
+        /// </summary>
+        public Color GetNearestColor (Color color) => color;
+
+        /// <summary>Transforms an array of points between two coordinate spaces.</summary>
+        /// <remarks>
+        /// World and page space coincide here (no page transform or page unit is applied to the canvas),
+        /// so this applies the canvas's current transform going to device space and its inverse coming
+        /// back, and is the identity between world and page.
+        /// </remarks>
+        public void TransformPoints (Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace destSpace,
+            Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace srcSpace, PointF[] pts)
+        {
+            if (pts is null || _canvas is null || destSpace == srcSpace)
+                return;
+
+            var deviceIsDestination = destSpace == Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace.Device;
+            var deviceIsSource = srcSpace == Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace.Device;
+            if (!deviceIsDestination && !deviceIsSource)
+                return;     // world <-> page is the identity here
+
+            var matrix = _canvas.TotalMatrix;
+            if (deviceIsSource && !matrix.TryInvert (out matrix))
+                return;
+
+            for (var i = 0; i < pts.Length; i++) {
+                var mapped = matrix.MapPoint (new SKPoint (pts[i].X, pts[i].Y));
+                pts[i] = new PointF (mapped.X, mapped.Y);
+            }
+        }
+
+        /// <inheritdoc cref="TransformPoints(Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace, Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace, PointF[])"/>
+        public void TransformPoints (Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace destSpace,
+            Majorsilence.Forms.Drawing.Drawing2D.CoordinateSpace srcSpace, Point[] pts)
+        {
+            if (pts is null)
+                return;
+            var asFloat = Array.ConvertAll (pts, p => new PointF (p.X, p.Y));
+            TransformPoints (destSpace, srcSpace, asFloat);
+            for (var i = 0; i < pts.Length; i++)
+                pts[i] = new Point ((int)Math.Round (asFloat[i].X), (int)Math.Round (asFloat[i].Y));
+        }
+
+        /// <summary>Fills the interior of a region using the specified brush.</summary>
+        public void FillRegion (Majorsilence.Forms.Drawing.Brush brush, Majorsilence.Forms.Drawing.Region region)
+        {
+            if (_canvas is null || brush is null || region is null)
+                return;
+
+            using var paint = CreateFillPaint (brush);
+            _canvas.DrawRegion (region.GetSKRegion (), paint);
+        }
+
+        /// <summary>Draws a closed cardinal spline through the specified points.</summary>
+        public void DrawClosedCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
+            => DrawClosedCurve (pen, points, 0.5f, Majorsilence.Forms.Drawing.Drawing2D.FillMode.Alternate);
+
+        /// <inheritdoc cref="DrawClosedCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>
+        public void DrawClosedCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points, float tension,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillmode)
+        {
+            if (_canvas is null || pen is null || points is null || points.Length < 2)
+                return;
+
+            using var path = new Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath (fillmode);
+            path.AddClosedCurve (points, tension);
+            DrawPath (pen, path);
+        }
+
+        /// <inheritdoc cref="DrawClosedCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>
+        public void DrawClosedCurve (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
+            => DrawClosedCurve (pen, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)));
+
+        /// <summary>Fills the interior of a closed cardinal spline through the specified points.</summary>
+        public void FillClosedCurve (Majorsilence.Forms.Drawing.Brush brush, PointF[] points)
+            => FillClosedCurve (brush, points, Majorsilence.Forms.Drawing.Drawing2D.FillMode.Alternate);
+
+        /// <inheritdoc cref="FillClosedCurve(Majorsilence.Forms.Drawing.Brush, PointF[])"/>
+        public void FillClosedCurve (Majorsilence.Forms.Drawing.Brush brush, PointF[] points,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillmode, float tension = 0.5f)
+        {
+            if (_canvas is null || brush is null || points is null || points.Length < 2)
+                return;
+
+            using var path = new Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath (fillmode);
+            path.AddClosedCurve (points, tension);
+            FillPath (brush, path);
+        }
+
+        /// <inheritdoc cref="FillClosedCurve(Majorsilence.Forms.Drawing.Brush, PointF[])"/>
+        public void FillClosedCurve (Majorsilence.Forms.Drawing.Brush brush, Point[] points)
+            => FillClosedCurve (brush, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)));
+
+        /// <summary>Draws the image at its native size, clipped to the specified rectangle.</summary>
+        public void DrawImageUnscaledAndClipped (Majorsilence.Forms.Drawing.Image image, Rectangle rect)
+        {
+            if (_canvas is null || image?.GetSKBitmap () is not { } bitmap)
+                return;
+
+            _canvas.Save ();
+            _canvas.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+            _canvas.DrawBitmap (bitmap, rect.Left, rect.Top);
+            _canvas.Restore ();
+        }
+
+        /// <summary>Callback invoked during a long-running <c>DrawImage</c> to allow cancellation.</summary>
+        public delegate bool DrawImageAbort (IntPtr callbackdata);
+
+        // ---------------------------------------------------------------------------------------
+        // Overload completion (Phase 7 of docs/gdi-gap-plan.md).
+        //
+        // Every member below delegates to an existing implementation. They are not sugar: GDI+ has a
+        // very wide overload surface and *.Designer.cs emits integer literals, so a missing shape is a
+        // compile error in exactly the generated files a migration cannot hand-edit. The overload
+        // scanner in tools/Majorsilence.Forms.GdiDiff found these; it could not see them before,
+        // because a name-level check reports "DrawImage exists" and stops there.
+        // ---------------------------------------------------------------------------------------
+
+        // -- shapes: integer and RectangleF variants --
+
+        /// <inheritdoc cref="DrawArc(Majorsilence.Forms.Drawing.Pen, float, float, float, float, float, float)"/>
+        public void DrawArc (Majorsilence.Forms.Drawing.Pen pen, int x, int y, int width, int height, int startAngle, int sweepAngle)
+            => DrawArc (pen, (float)x, y, width, height, startAngle, sweepAngle);
+
+        /// <inheritdoc cref="DrawArc(Majorsilence.Forms.Drawing.Pen, float, float, float, float, float, float)"/>
+        public void DrawArc (Majorsilence.Forms.Drawing.Pen pen, RectangleF rect, float startAngle, float sweepAngle)
+            => DrawArc (pen, rect.X, rect.Y, rect.Width, rect.Height, startAngle, sweepAngle);
+
+        /// <inheritdoc cref="DrawBezier(Majorsilence.Forms.Drawing.Pen, PointF, PointF, PointF, PointF)"/>
+        public void DrawBezier (Majorsilence.Forms.Drawing.Pen pen, float x1, float y1, float x2, float y2,
+            float x3, float y3, float x4, float y4)
+            => DrawBezier (pen, new PointF (x1, y1), new PointF (x2, y2), new PointF (x3, y3), new PointF (x4, y4));
+
+        /// <inheritdoc cref="DrawEllipse(Majorsilence.Forms.Drawing.Pen, float, float, float, float)"/>
+        public void DrawEllipse (Majorsilence.Forms.Drawing.Pen pen, int x, int y, int width, int height)
+            => DrawEllipse (pen, (float)x, y, width, height);
+
+        /// <inheritdoc cref="FillEllipse(Majorsilence.Forms.Drawing.Brush, float, float, float, float)"/>
+        public void FillEllipse (Majorsilence.Forms.Drawing.Brush brush, int x, int y, int width, int height)
+            => FillEllipse (brush, (float)x, y, width, height);
+
+        /// <summary>Draws a pie section defined by an ellipse and two radial lines.</summary>
+        public void DrawPie (Majorsilence.Forms.Drawing.Pen pen, float x, float y, float width, float height,
+            float startAngle, float sweepAngle)
+        {
+            if (_canvas is null || pen is null)
+                return;
+            using var path = new Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath ();
+            path.AddPie (x, y, width, height, startAngle, sweepAngle);
+            DrawPath (pen, path);
+        }
+
+        /// <inheritdoc cref="DrawPie(Majorsilence.Forms.Drawing.Pen, float, float, float, float, float, float)"/>
+        public void DrawPie (Majorsilence.Forms.Drawing.Pen pen, int x, int y, int width, int height, int startAngle, int sweepAngle)
+            => DrawPie (pen, (float)x, y, width, height, startAngle, sweepAngle);
+
+        /// <inheritdoc cref="DrawPie(Majorsilence.Forms.Drawing.Pen, float, float, float, float, float, float)"/>
+        public void DrawPie (Majorsilence.Forms.Drawing.Pen pen, RectangleF rect, float startAngle, float sweepAngle)
+            => DrawPie (pen, rect.X, rect.Y, rect.Width, rect.Height, startAngle, sweepAngle);
+
+        /// <inheritdoc cref="FillPie(Majorsilence.Forms.Drawing.Brush, float, float, float, float, float, float)"/>
+        public void FillPie (Majorsilence.Forms.Drawing.Brush brush, int x, int y, int width, int height, int startAngle, int sweepAngle)
+            => FillPie (brush, (float)x, y, width, height, startAngle, sweepAngle);
+
+        /// <summary>Fills a polygon using the specified fill mode.</summary>
+        public void FillPolygon (Majorsilence.Forms.Drawing.Brush brush, PointF[] points,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillMode)
+        {
+            if (_canvas is null || brush is null || points is null || points.Length < 2)
+                return;
+            using var path = new Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath (fillMode);
+            path.AddPolygon (points);
+            FillPath (brush, path);
+        }
+
+        /// <inheritdoc cref="FillPolygon(Majorsilence.Forms.Drawing.Brush, PointF[], Majorsilence.Forms.Drawing.Drawing2D.FillMode)"/>
+        public void FillPolygon (Majorsilence.Forms.Drawing.Brush brush, Point[] points,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillMode)
+            => FillPolygon (brush, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)), fillMode);
+
+        // -- curves --
+
+        /// <inheritdoc cref="DrawCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>
+        public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points, float tension)
+            => DrawCurve (pen, points, 0, (points?.Length ?? 1) - 1, tension);
+
+        /// <inheritdoc cref="DrawCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>
+        public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points, int offset, int numberOfSegments)
+            => DrawCurve (pen, points, offset, numberOfSegments, 0.5f);
+
+        /// <inheritdoc cref="DrawCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>
+        public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, Point[] points, float tension)
+            => DrawCurve (pen, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)), tension);
+
+        /// <inheritdoc cref="DrawCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>
+        public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, Point[] points, int offset, int numberOfSegments, float tension)
+            => DrawCurve (pen, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)), offset, numberOfSegments, tension);
+
+        /// <inheritdoc cref="DrawClosedCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>
+        public void DrawClosedCurve (Majorsilence.Forms.Drawing.Pen pen, Point[] points, float tension,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillmode)
+            => DrawClosedCurve (pen, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)), tension, fillmode);
+
+        /// <inheritdoc cref="FillClosedCurve(Majorsilence.Forms.Drawing.Brush, PointF[])"/>
+        public void FillClosedCurve (Majorsilence.Forms.Drawing.Brush brush, Point[] points,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillmode)
+            => FillClosedCurve (brush, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)), fillmode);
+
+        /// <inheritdoc cref="FillClosedCurve(Majorsilence.Forms.Drawing.Brush, PointF[])"/>
+        public void FillClosedCurve (Majorsilence.Forms.Drawing.Brush brush, Point[] points,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillmode, float tension)
+            => FillClosedCurve (brush, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)), fillmode, tension);
+
+        // -- images --
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, int, int)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, float x, float y)
+            => DrawImage (image, x, y, image?.Width ?? 0, image?.Height ?? 0);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, int, int)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF point)
+            => DrawImage (image, point.X, point.Y);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, int, int)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point point)
+            => DrawImage (image, point.X, point.Y);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, Rectangle, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, float x, float y, RectangleF srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
+            => DrawImage (image, new RectangleF (x, y, srcRect.Width, srcRect.Height), srcRect, srcUnit);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, Rectangle, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, int x, int y, Rectangle srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
+            => DrawImage (image, new Rectangle (x, y, srcRect.Width, srcRect.Height), srcRect, srcUnit);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, Rectangle, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, float srcX, float srcY,
+            float srcWidth, float srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
+            => DrawImage (image, (RectangleF)destRect, new RectangleF (srcX, srcY, srcWidth, srcHeight), srcUnit);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, Rectangle, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, int srcX, int srcY,
+            int srcWidth, int srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
+            => DrawImage (image, destRect, new Rectangle (srcX, srcY, srcWidth, srcHeight), srcUnit);
+
+        /// <summary>
+        /// Draws an image into the parallelogram defined by three destination points (upper-left,
+        /// upper-right, lower-left).
+        /// </summary>
+        /// <remarks>
+        /// The affine transform implied by the three points is applied to the canvas, so rotation and
+        /// skew render correctly rather than being reduced to the bounding box.
+        /// </remarks>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints)
+        {
+            if (_canvas is null || image?.GetSKBitmap () is not { } bitmap || destPoints is null || destPoints.Length < 3)
+                return;
+
+            // Map the image's own rectangle onto the parallelogram: the two edge vectors from the
+            // upper-left corner give the matrix columns directly.
+            var origin = destPoints[0];
+            var xAxis = new PointF (destPoints[1].X - origin.X, destPoints[1].Y - origin.Y);
+            var yAxis = new PointF (destPoints[2].X - origin.X, destPoints[2].Y - origin.Y);
+            var width = Math.Max (1, image.Width);
+            var height = Math.Max (1, image.Height);
+
+            var matrix = new SKMatrix (
+                xAxis.X / width, yAxis.X / height, origin.X,
+                xAxis.Y / width, yAxis.Y / height, origin.Y,
+                0, 0, 1);
+
+            _canvas.Save ();
+            _canvas.Concat (matrix);
+            _canvas.DrawBitmap (bitmap, 0, 0);
+            _canvas.Restore ();
+        }
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[])"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints)
+            => DrawImage (image, Array.ConvertAll (destPoints ?? [], p => new PointF (p.X, p.Y)));
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[])"/>
+        /// <remarks>The source rectangle and unit are accepted for API compatibility; the whole image is drawn.</remarks>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints, RectangleF srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
+            => DrawImage (image, destPoints);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints, RectangleF srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr)
+            => DrawImage (image, destPoints);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints, Rectangle srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
+            => DrawImage (image, destPoints);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints, Rectangle srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr)
+            => DrawImage (image, destPoints);
+
+        // The abort-callback shapes. GDI+ polls the callback during a long draw; nothing here is
+        // interruptible (a Skia bitmap draw is a single call), so the callback is accepted and never
+        // invoked rather than being left absent and failing to compile.
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints, RectangleF srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr,
+            DrawImageAbort? callback)
+            => DrawImage (image, destPoints);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints, RectangleF srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr,
+            DrawImageAbort? callback, int callbackData)
+            => DrawImage (image, destPoints);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints, Rectangle srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr,
+            DrawImageAbort? callback)
+            => DrawImage (image, destPoints);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints, Rectangle srcRect,
+            Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr,
+            DrawImageAbort? callback, int callbackData)
+            => DrawImage (image, destPoints);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, int, int, int, int, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, int srcX, int srcY,
+            int srcWidth, int srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
+            Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr, DrawImageAbort? callback)
+            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, int, int, int, int, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, int srcX, int srcY,
+            int srcWidth, int srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
+            Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr, DrawImageAbort? callback, IntPtr callbackData)
+            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, float, float, float, float, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, float srcX, float srcY,
+            float srcWidth, float srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
+            Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr, DrawImageAbort? callback)
+            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit);
+
+        /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, float, float, float, float, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
+        public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, float srcX, float srcY,
+            float srcWidth, float srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
+            Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr, DrawImageAbort? callback, IntPtr callbackData)
+            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit);
+
+        /// <inheritdoc cref="DrawImageUnscaled(Majorsilence.Forms.Drawing.Image, int, int)"/>
+        public void DrawImageUnscaled (Majorsilence.Forms.Drawing.Image image, Point point)
+            => DrawImageUnscaled (image, point.X, point.Y);
+
+        /// <inheritdoc cref="DrawImageUnscaled(Majorsilence.Forms.Drawing.Image, int, int)"/>
+        /// <remarks>The width and height are ignored, as in System.Drawing: "unscaled" means the image's own size.</remarks>
+        public void DrawImageUnscaled (Majorsilence.Forms.Drawing.Image image, int x, int y, int width, int height)
+            => DrawImageUnscaled (image, x, y);
+
+        // -- clipping --
+
+        /// <inheritdoc cref="SetClip(Rectangle)"/>
+        public void SetClip (Rectangle rect, Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
+            => SetClip (rect);
+
+        /// <inheritdoc cref="SetClip(RectangleF)"/>
+        public void SetClip (RectangleF rect, Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
+            => SetClip (rect);
+
+        /// <inheritdoc cref="SetClip(Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath)"/>
+        public void SetClip (Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath path,
+            Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
+            => SetClip (path);
+
+        /// <inheritdoc cref="SetClip(Majorsilence.Forms.Drawing.Region)"/>
+        public void SetClip (Majorsilence.Forms.Drawing.Region region,
+            Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
+            => SetClip (region);
+
+        /// <summary>Sets this Graphics' clip to that of another Graphics.</summary>
+        /// <remarks>
+        /// Applies the source's current clip bounds. Skia exposes the clip as a bounding rectangle
+        /// rather than as a transferable region object, so a non-rectangular source clip is applied as
+        /// its bounds.
+        /// </remarks>
+        public void SetClip (Graphics graphics)
+        {
+            if (graphics?._canvas is null)
+                return;
+            var bounds = graphics._canvas.LocalClipBounds;
+            SetClip (new RectangleF (bounds.Left, bounds.Top, bounds.Width, bounds.Height));
+        }
+
+        /// <inheritdoc cref="SetClip(Graphics)"/>
+        public void SetClip (Graphics graphics, Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
+            => SetClip (graphics);
+
+        /// <inheritdoc cref="IntersectClip(Rectangle)"/>
+        public void IntersectClip (Majorsilence.Forms.Drawing.Region region) => SetClip (region);
+
+        /// <summary>Returns whether the specified point is inside the visible clip region.</summary>
+        public bool IsVisible (PointF point) => IsVisible (new RectangleF (point.X, point.Y, 1, 1));
+
+        /// <inheritdoc cref="IsVisible(PointF)"/>
+        public bool IsVisible (float x, float y) => IsVisible (new PointF (x, y));
+
+        /// <inheritdoc cref="IsVisible(PointF)"/>
+        public bool IsVisible (int x, int y) => IsVisible (new PointF (x, y));
+
+        /// <inheritdoc cref="IsVisible(RectangleF)"/>
+        public bool IsVisible (float x, float y, float width, float height)
+            => IsVisible (new RectangleF (x, y, width, height));
+
+        /// <inheritdoc cref="IsVisible(RectangleF)"/>
+        public bool IsVisible (int x, int y, int width, int height)
+            => IsVisible (new RectangleF (x, y, width, height));
+
+        // -- transforms and measurement --
+
+        /// <inheritdoc cref="ScaleTransform(float, float)"/>
+        /// <remarks>
+        /// <paramref name="order"/> is accepted for API compatibility. The canvas composes transforms in
+        /// prepend order, which is System.Drawing's own default.
+        /// </remarks>
+        public void ScaleTransform (float sx, float sy, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder order)
+            => ScaleTransform (sx, sy);
+
+        /// <inheritdoc cref="TranslateTransform(float, float)"/>
+        /// <remarks>See <see cref="ScaleTransform(float, float, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder)"/> for the order parameter.</remarks>
+        public void TranslateTransform (float dx, float dy, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder order)
+            => TranslateTransform (dx, dy);
+
+        /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font)"/>
+        public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, int width)
+            => MeasureString (text, font, width, null);
+
+        /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font)"/>
+        /// <remarks>The origin does not affect the measured size; it is accepted for API compatibility.</remarks>
+        public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, PointF origin,
+            Majorsilence.Forms.Drawing.StringFormat? stringFormat)
+            => MeasureString (text, font, stringFormat);
+
+        /// <summary>Measures the string and reports how much of it fit.</summary>
+        public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea,
+            Majorsilence.Forms.Drawing.StringFormat? stringFormat, out int charactersFitted, out int linesFilled)
+        {
+            var size = MeasureString (text, font, layoutArea, stringFormat);
+
+            // Without a real line-breaking pass here, report the honest best case: everything fit on the
+            // measured number of lines. MeasureCharacterRanges is the member that does real wrapping.
+            charactersFitted = text?.Length ?? 0;
+            var lineHeight = font is null ? 0f : MeasureString ("X", font).Height;
+            linesFilled = lineHeight <= 0 ? 1 : Math.Max (1, (int)Math.Round (size.Height / lineHeight));
+            return size;
+        }
+
         /// <summary>Intersects the clipping region with the given rectangle. Stub in Majorsilence.Forms.</summary>
         public void IntersectClip (Rectangle rect) => SetClip (rect);
 
@@ -281,7 +910,11 @@ namespace Majorsilence.Forms
         /// <summary>Draws an unscaled Majorsilence.Forms.Drawing.Icon at the specified location.</summary>
         public void DrawIconUnstretched (Majorsilence.Forms.Drawing.Icon icon, Rectangle targetRect) => DrawIcon (icon, targetRect.X, targetRect.Y);
 
-        /// <summary>Returns the device context handle. Returns IntPtr.Zero in Majorsilence.Forms (stub).</summary>
+        /// <summary>Returns the device context handle.</summary>
+        /// <remarks>Zero: there is no GDI device context behind a Skia canvas. Reported truthfully
+        /// rather than thrown, because callers pass the handle straight to a P/Invoke that is itself
+        /// absent here, and a zero handle is what those APIs already have to check for. This pair is
+        /// what satisfies <see cref="Majorsilence.Forms.Drawing.IDeviceContext"/>.</remarks>
         public IntPtr GetHdc () => IntPtr.Zero;
 
         /// <summary>Releases the device context handle. No-op in Majorsilence.Forms (stub).</summary>
@@ -918,23 +1551,14 @@ namespace Majorsilence.Forms
         {
             if (_canvas is null || path is null) return;
 
-            using var paint = new SKPaint {
-                Color = new SKColor (pen.Color.R, pen.Color.G, pen.Color.B, pen.Color.A),
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = pen.Width,
-                IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None
-            };
+            // Stroke the path itself rather than a polyline rebuilt from PathPoints: replaying only the
+            // points turns every curve into straight segments, which is very visible for a path built
+            // by AddString or AddEllipse. Using the pen's own paint also picks up its dash pattern,
+            // caps, join and brush, which the hand-rolled SKPaint here previously discarded.
+            using var paint = pen.CreatePaint ();
+            paint.IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None;
 
-            using var skPath = new SKPath ();
-
-            foreach (var point in path.PathPoints) {
-                if (skPath.PointCount == 0)
-                    skPath.MoveTo (point.X, point.Y);
-                else
-                    skPath.LineTo (point.X, point.Y);
-            }
-
-            _canvas.DrawPath (skPath, paint);
+            _canvas.DrawPath (path.ToSKPath (), paint);
         }
 
         /// <summary>Fills the interior of a Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath using the specified brush.</summary>
@@ -944,16 +1568,12 @@ namespace Majorsilence.Forms
 
             using var paint = CreateFillPaint (brush);
 
-            using var skPath = new SKPath ();
+            // As in DrawPath: fill the real path, so curves and the path's own fill mode survive.
+            var skPath = path.ToSKPath ();
+            skPath.FillType = path.FillMode == Majorsilence.Forms.Drawing.Drawing2D.FillMode.Winding
+                ? SKPathFillType.Winding
+                : SKPathFillType.EvenOdd;
 
-            foreach (var point in path.PathPoints) {
-                if (skPath.PointCount == 0)
-                    skPath.MoveTo (point.X, point.Y);
-                else
-                    skPath.LineTo (point.X, point.Y);
-            }
-
-            skPath.Close ();
             _canvas.DrawPath (skPath, paint);
         }
 #pragma warning restore CA1416

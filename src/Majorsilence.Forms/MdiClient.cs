@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// wrapped in an <see cref="MdiChildWindow"/> frame. The client owns child z-order/activation, the
     /// cascade/tile/arrange layouts (<see cref="Form.LayoutMdi"/>), and clamps children to its bounds.
     /// </summary>
-    public class MdiClient : ScrollableControl
+    public partial class MdiClient : ScrollableControl
     {
         private const int CascadeStep = 26;
 
@@ -226,7 +226,8 @@ namespace Majorsilence.Forms
 
         // ── LayoutMdi (Cascade / Tile / ArrangeIcons) ──────────────────────────────
 
-        internal void LayoutMdi (MdiLayout layout)
+        /// <summary>Arranges the child forms in the requested layout.</summary>
+        public void LayoutMdi (MdiLayout layout)
         {
             var open = frames.Where (f => f.WindowState != FormWindowState.Minimized).ToList ();
             var area = DisplayRectangle;

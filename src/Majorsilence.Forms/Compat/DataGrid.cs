@@ -696,6 +696,10 @@ namespace Majorsilence.Forms
         /// <summary>
         ///  Gets the bounding rectangle of the cell at the specified row and column indices.
         /// </summary>
+        /// <summary>Returns the bounds of the given cell.</summary>
+        public Rectangle GetCellBounds(DataGridCell dgc) => GetCellBounds(dgc.RowNumber, dgc.ColumnNumber);
+
+        /// <summary>Returns the bounds of the cell at the given row and column.</summary>
         public Rectangle GetCellBounds(int rowIndex, int columnIndex)
         {
             return _grid.GetCellDisplayRectangle(columnIndex, rowIndex, false);
@@ -704,17 +708,28 @@ namespace Majorsilence.Forms
         /// <summary>
         ///  Returns information about which grid element is located at the specified point.
         /// </summary>
-        public HitTestInfo HitTest(Point point)
-        {
-            return _grid.HitTest(point.X, point.Y);
-        }
+        public HitTestInfo HitTest(Point point) => HitTest(point.X, point.Y);
 
         /// <summary>
         ///  Returns information about which grid element is located at the specified coordinates.
         /// </summary>
         public HitTestInfo HitTest(int x, int y)
         {
-            return _grid.HitTest(x, y);
+            // DataGrid and DataGridView each nest their own HitTestInfo, so the inner grid's result
+            // has to be translated rather than returned -- upstream's DataGrid.HitTest returns
+            // DataGrid.HitTestInfo, and code that switches on Type expects DataGrid's own names.
+            var hit = _grid.HitTest(x, y);
+
+            var type = hit.Type switch {
+                DataGridViewHitTestType.Cell => HitTestType.Cell,
+                DataGridViewHitTestType.ColumnHeader => HitTestType.ColumnHeader,
+                DataGridViewHitTestType.RowHeader => HitTestType.RowHeader,
+                _ => HitTestType.None,
+            };
+
+            return type == HitTestType.None
+                ? HitTestInfo.Nowhere
+                : new HitTestInfo(type, hit.RowIndex, hit.ColumnIndex);
         }
 
         /// <summary>

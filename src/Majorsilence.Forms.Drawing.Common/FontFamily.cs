@@ -41,8 +41,76 @@ namespace Majorsilence.Forms.Drawing
         public static FontFamily[] Families =>
             SkiaSharp.SKFontManager.Default.FontFamilies.Select (name => new FontFamily (name)).ToArray ();
 
-        /// <summary>Returns whether the specified style is available for this family. Always true in Majorsilence.Forms.Drawing.</summary>
-        public bool IsStyleAvailable (FontStyle style) => true;
+        /// <summary>
+        /// Returns whether the specified style is available for this family, by resolving the family at
+        /// that style and checking whether the typeface actually came back with it. A family with no
+        /// real bold (or italic) face resolves to its regular face, which is reported as unavailable
+        /// rather than as a synthesized match.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="FontStyle.Underline"/> and <see cref="FontStyle.Strikeout"/> are drawn decorations
+        /// rather than typeface styles, so they are always available and do not affect the result --
+        /// the same way GDI+ treats them.
+        /// </remarks>
+        public bool IsStyleAvailable (FontStyle style)
+        {
+            var wantBold = (style & FontStyle.Bold) != 0;
+            var wantItalic = (style & FontStyle.Italic) != 0;
+
+            var requested = new SkiaSharp.SKFontStyle (
+                wantBold ? SkiaSharp.SKFontStyleWeight.Bold : SkiaSharp.SKFontStyleWeight.Normal,
+                SkiaSharp.SKFontStyleWidth.Normal,
+                wantItalic ? SkiaSharp.SKFontStyleSlant.Italic : SkiaSharp.SKFontStyleSlant.Upright);
+
+            // Deliberately not disposed: FontSubstitution keeps the embedded typefaces in a static
+            // cache and hands the shared instance back, so disposing here would break later lookups.
+            var typeface = FontSubstitution.Resolve (Name, requested);
+            return typeface.IsBold == wantBold && typeface.IsItalic == wantItalic;
+        }
+
+        /// <summary>
+        /// Returns the font families installed on this system. Same set as <see cref="Families"/>;
+        /// the parameter is accepted for System.Drawing compatibility and ignored, since the family
+        /// list here does not vary per drawing surface.
+        /// </summary>
+        public static FontFamily[] GetFamilies (object? graphics) => Families;
+
+        // Font metrics are reported in GDI+'s design-units-per-em space, so they are independent of any
+        // particular font size -- callers scale by (size / EmHeight). Skia reports metrics normalized to
+        // a 1.0 em, so measuring at exactly DesignUnitsPerEm converts in one step.
+        private const int DesignUnitsPerEm = 2048;
+
+        private SkiaSharp.SKFontMetrics MetricsFor (FontStyle style)
+        {
+            var typeface = FontSubstitution.Resolve (Name, new SkiaSharp.SKFontStyle (
+                (style & FontStyle.Bold) != 0 ? SkiaSharp.SKFontStyleWeight.Bold : SkiaSharp.SKFontStyleWeight.Normal,
+                SkiaSharp.SKFontStyleWidth.Normal,
+                (style & FontStyle.Italic) != 0 ? SkiaSharp.SKFontStyleSlant.Italic : SkiaSharp.SKFontStyleSlant.Upright));
+
+            using var font = new SkiaSharp.SKFont (typeface, DesignUnitsPerEm);
+            return font.Metrics;
+        }
+
+        /// <summary>Returns the em height, in design units, of this family in the specified style.</summary>
+        /// <remarks>
+        /// These four metrics are computed from the real typeface rather than guessed: a wrong value
+        /// here propagates silently into text layout, which is exactly the failure the GDI+ gap plan
+        /// (docs/gdi-gap-plan.md) treats as worse than a missing member.
+        /// </remarks>
+        public int GetEmHeight (FontStyle style) => DesignUnitsPerEm;
+
+        /// <summary>Returns the ascent, in design units, of this family in the specified style.</summary>
+        public int GetCellAscent (FontStyle style) => (int)Math.Round (-MetricsFor (style).Ascent);
+
+        /// <summary>Returns the descent, in design units, of this family in the specified style.</summary>
+        public int GetCellDescent (FontStyle style) => (int)Math.Round (MetricsFor (style).Descent);
+
+        /// <summary>Returns the line spacing, in design units, of this family in the specified style.</summary>
+        public int GetLineSpacing (FontStyle style)
+        {
+            var metrics = MetricsFor (style);
+            return (int)Math.Round (-metrics.Ascent + metrics.Descent + metrics.Leading);
+        }
 
         /// <inheritdoc/>
         public override string ToString () => $"[FontFamily: Name={Name}]";
@@ -85,7 +153,25 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>180-degree rotation followed by a horizontal flip.</summary>
         Rotate180FlipX = 6,
         /// <summary>270-degree rotation followed by a horizontal flip.</summary>
-        Rotate270FlipX = 7
+        Rotate270FlipX = 7,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>Rotate none flip y.</summary>
+        RotateNoneFlipY = 6,
+        /// <summary>Rotate 90 flip y.</summary>
+        Rotate90FlipY = 7,
+        /// <summary>Rotate 180 flip y.</summary>
+        Rotate180FlipY = 4,
+        /// <summary>Rotate 270 flip y.</summary>
+        Rotate270FlipY = 5,
+        /// <summary>Rotate none flip xy.</summary>
+        RotateNoneFlipXY = 2,
+        /// <summary>Rotate 90 flip xy.</summary>
+        Rotate90FlipXY = 3,
+        /// <summary>Rotate 180 flip xy.</summary>
+        Rotate180FlipXY = 0,
+        /// <summary>Rotate 270 flip xy.</summary>
+        Rotate270FlipXY = 1,
     }
 
     /// <summary>Specifies the unit of measure for drawing operations. Matches System.Drawing.GraphicsUnit.</summary>

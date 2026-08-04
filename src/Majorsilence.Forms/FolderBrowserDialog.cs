@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a dialog for choosing a file system directory.
     /// </summary>
-    public class FolderBrowserDialog : FileSystemDialog
+    public partial class FolderBrowserDialog : FileSystemDialog
     {
         private string selected_path = string.Empty;
         private string description = string.Empty;

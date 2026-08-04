@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a class for a file open dialog.
     /// </summary>
-    public class OpenFileDialog : FileDialog
+    public partial class OpenFileDialog : FileDialog
     {
         /// <summary>
         /// Gets or sets whether multiple files can be selected.

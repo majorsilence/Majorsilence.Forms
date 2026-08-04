@@ -10,7 +10,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ListBox control.
     /// </summary>
-    public class ListBox : Control
+    public partial class ListBox : ListControl
     {
         private int item_height = -1;
         private SelectionMode selection_mode = SelectionMode.One;
@@ -172,7 +172,7 @@ namespace Majorsilence.Forms
         public ListBoxItemCollection Items { get; }
 
         /// <summary>Gets or sets the data source for the ListBox.</summary>
-        public object? DataSource {
+        public override object? DataSource {
             get => _dataSource;
             set {
                 _dataSource = value;
@@ -181,7 +181,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the property to display from the data source.</summary>
-        public string DisplayMember {
+        public override string DisplayMember {
             get => _displayMember;
             set {
                 _displayMember = value ?? string.Empty;
@@ -190,7 +190,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the property used as the value from the data source.</summary>
-        public string ValueMember {
+        public override string ValueMember {
             get => _valueMember;
             set => _valueMember = value ?? string.Empty;
         }
@@ -200,7 +200,7 @@ namespace Majorsilence.Forms
         /// Mirrors WinForms ListControl.GetItemText.
         /// </summary>
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
-        public string GetItemText (object? item)
+        public override string GetItemText (object? item)
         {
             if (item is null)
                 return string.Empty;
@@ -484,7 +484,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raises the SelectedValueChanged event.</summary>
-        protected virtual void OnSelectedValueChanged (EventArgs e) => SelectedValueChanged?.Invoke (this, e);
+        protected override void OnSelectedValueChanged (EventArgs e) => base.OnSelectedValueChanged (e);
 
         /// <summary>
         /// Gets the scaled height each item occupies.
@@ -506,7 +506,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the index of the currently selected item.  If there are multiple selected items, the first item's index will be returned.
         /// </summary>
-        public int SelectedIndex {
+        public override int SelectedIndex {
             get => Items.SelectedIndex;
             set {
                 if (SelectionMode == SelectionMode.None)
@@ -525,9 +525,6 @@ namespace Majorsilence.Forms
         /// Raised when the value of the SelectedIndex property changes.
         /// </summary>
         public event EventHandler? SelectedIndexChanged;
-
-        /// <summary>Raised when the SelectedValue property changes.</summary>
-        public event EventHandler? SelectedValueChanged;
 
         /// <summary>
         /// Gets or sets the currently selected item, if any.  If there are multiple selected items, the first selected item will be returned.
@@ -583,7 +580,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the selected value using ValueMember reflection.</summary>
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
-        public object? SelectedValue {
+        public override object? SelectedValue {
             get {
                 if (SelectedIndex < 0 || DataSource is not System.Collections.IList list || SelectedIndex >= list.Count)
                     return SelectedItem;
@@ -643,7 +640,7 @@ namespace Majorsilence.Forms
         public bool MultiColumn { get; set; }
 
         /// <summary>Gets or sets whether formatting is applied to the DisplayMember. Stub in Majorsilence.Forms.</summary>
-        public bool FormattingEnabled { get; set; }
+        public override bool FormattingEnabled { get; set; }
 
         /// <summary>Gets or sets the width of each column in a multi-column ListBox. Stub in Majorsilence.Forms.</summary>
         public int ColumnWidth { get; set; }

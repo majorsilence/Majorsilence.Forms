@@ -365,7 +365,7 @@ public partial class Control
     /// Replaces <paramref name="logicalBitmap"/> with a copy scaled from logical (96 DPI) units to
     /// this control's device units. A no-op when the control is running at 96 DPI.
     /// </summary>
-    protected void ScaleBitmapLogicalToDevice (ref Majorsilence.Forms.Drawing.Bitmap logicalBitmap)
+    public void ScaleBitmapLogicalToDevice (ref Majorsilence.Forms.Drawing.Bitmap logicalBitmap)
         => logicalBitmap = ScaleBitmapLogicalToDevice (logicalBitmap, DeviceDpi);
 
     // Split out from the ref-taking protected overload so the scaling itself is testable at a DPI

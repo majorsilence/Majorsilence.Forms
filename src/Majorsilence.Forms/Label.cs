@@ -12,7 +12,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a Label control.
     /// </summary>
-    public class Label : Control, IHaveTextAndImageAlign
+    public partial class Label : Control, IHaveTextAndImageAlign
     {
         private static readonly object s_eventTextAlignChanged = new ();
 

@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a dialog box that allows the user to choose a font family, size, and style.
     /// </summary>
-    public class FontDialog : Form
+    public partial class FontDialog : Form
     {
         private readonly TextBox family_box;
         private readonly NumericUpDown size_box;

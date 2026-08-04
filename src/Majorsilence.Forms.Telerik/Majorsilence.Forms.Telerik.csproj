@@ -8,7 +8,11 @@
     <Description>Telerik UI for WinForms compat surface (RadGridView, RadPdfViewer, RadRichTextEditor, RadScheduler, and more) for Majorsilence.Forms.</Description>
     <PackageTags>Majorsilence;Forms;Telerik;Compatibility;WinForms</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
   </ItemGroup>

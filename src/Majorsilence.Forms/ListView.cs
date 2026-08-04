@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// Represents a ListView control.
     /// Note the ListView control has not been fully developed, and probably does not contain enough functionality to be useful yet.
     /// </summary>
-    public class ListView : Control
+    public partial class ListView : Control
     {
         /// <summary>
         /// Initializes a new instance of the ListView class.
@@ -17,6 +17,7 @@ namespace Majorsilence.Forms
         public ListView ()
         {
             Items = new ListViewItemCollection (this);
+            Columns = new ColumnHeaderCollection (this);
         }
 
         /// <inheritdoc/>
@@ -115,15 +116,6 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets all currently selected items.</summary>
-        public IEnumerable<ListViewItem> SelectedItems => Items.Where (i => i.Selected);
-
-        /// <summary>Gets the indices of all currently selected items.</summary>
-        public IEnumerable<int> SelectedIndices => Items
-            .Select ((item, index) => (item, index))
-            .Where (t => t.item.Selected)
-            .Select (t => t.index);
-
         /// <summary>Gets or sets the view mode of the list view.</summary>
         public View View { get; set; } = View.LargeIcon;
 
@@ -167,16 +159,7 @@ namespace Majorsilence.Forms
         public bool AllowColumnReorder { get; set; }
 
         /// <summary>Gets the collection of column headers for Details view.</summary>
-        public ColumnHeaderCollection Columns { get; } = new ColumnHeaderCollection ();
-
-        /// <summary>Gets all items with a checked state.</summary>
-        public IEnumerable<ListViewItem> CheckedItems => Items.Where (i => i.Checked);
-
-        /// <summary>Gets the indices of all checked items.</summary>
-        public IEnumerable<int> CheckedIndices => Items
-            .Select ((item, index) => (item, index))
-            .Where (t => t.item.Checked)
-            .Select (t => t.index);
+        public ColumnHeaderCollection Columns { get; }
 
         /// <summary>Returns the bounding rectangle of the item at the specified index.</summary>
         public Rectangle GetItemRect (int index) =>
@@ -254,14 +237,6 @@ namespace Majorsilence.Forms
         public ListViewItem? FindItemWithText (string text) =>
             Items.FirstOrDefault (i => string.Equals (i.Text, text, StringComparison.OrdinalIgnoreCase));
 
-        /// <summary>Returns the index of the item at the specified display coordinates, or -1.</summary>
-        public int HitTest (int x, int y)
-        {
-            for (var i = 0; i < Items.Count; i++)
-                if (Items[i].Bounds.Contains (x, y)) return i;
-            return -1;
-        }
-
         /// <summary>Clears all currently selected items.</summary>
         public void ClearSelection ()
         {
@@ -274,9 +249,6 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the item that is currently focused.</summary>
         public ListViewItem? FocusedItem { get; set; }
-
-        /// <summary>Gets or sets whether items are arranged in topdown order. Stub in Majorsilence.Forms.</summary>
-        public bool TopItem { get; set; }
 
         /// <summary>Gets the number of items that can be fully displayed vertically.</summary>
         public int CountPerPage => Height > 0 ? Math.Max (1, Height / LogicalToDeviceUnits (70)) : 1;
@@ -315,15 +287,15 @@ namespace Majorsilence.Forms
     public enum View
     {
         /// <summary>Items are displayed as large icons with text below.</summary>
-        LargeIcon,
+        LargeIcon = 0,
         /// <summary>Items are displayed as small icons with text to the right.</summary>
-        SmallIcon,
+        SmallIcon = 2,
         /// <summary>Items are displayed in a single column of small icons with text.</summary>
-        List,
+        List = 3,
         /// <summary>Items are displayed with details in columns.</summary>
-        Details,
+        Details = 1,
         /// <summary>Items are displayed as large icons with more text.</summary>
-        Tile
+        Tile = 4,
     }
 
     /// <summary>Delegate for the ListView.ColumnClick event.</summary>
@@ -342,7 +314,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a column header in a ListView Details view.</summary>
-    public class ColumnHeader
+    public partial class ColumnHeader
     {
         /// <summary>Gets or sets the column header text.</summary>
         public string Text { get; set; } = string.Empty;
@@ -417,7 +389,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a group of items within a ListView.</summary>
-    public class ListViewGroup
+    public partial class ListViewGroup
     {
         /// <summary>Initializes a new ListViewGroup.</summary>
         public ListViewGroup () { }
@@ -445,7 +417,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents the collection of ListViewGroup objects in a ListView.</summary>
-    public class ListViewGroupCollection : System.Collections.ObjectModel.Collection<ListViewGroup>
+    public partial class ListViewGroupCollection : System.Collections.ObjectModel.Collection<ListViewGroup>
     {
         /// <summary>Adds a group with the specified header text.</summary>
         public ListViewGroup Add (string header)

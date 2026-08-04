@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// and the manager tracks a current position over it. Editing/notification plumbing
     /// (IEditableObject, ListChanged re-sync) is not implemented.
     /// </summary>
-    public class BindingManagerBase
+    public partial class BindingManagerBase
     {
         private readonly IList? list;
         private int position = -1;
@@ -66,11 +66,13 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>The list-backed binding manager (WinForms compatibility name).</summary>
-    public class CurrencyManager : BindingManagerBase
+    public partial class CurrencyManager : BindingManagerBase
     {
-        internal CurrencyManager (IList? list) : base (list) { }
+        internal CurrencyManager (IList? list) : base (list) => List = list;
 
         /// <summary>Gets the bound list.</summary>
+        /// <remarks>The constructor takes the list but used to leave this property unset, so
+        /// <c>new CurrencyManager (list).List</c> was always null.</remarks>
         public IList? List { get; internal init; }
     }
 
@@ -79,7 +81,7 @@ namespace Majorsilence.Forms
     /// System.Windows.Forms.BindingContext. Managers are cached per pair so repeated lookups share
     /// position state.
     /// </summary>
-    public class BindingContext
+    public partial class BindingContext
     {
         private readonly Dictionary<(object, string), BindingManagerBase> managers = new ();
 

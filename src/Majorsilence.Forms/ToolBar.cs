@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ToolBar control.
     /// </summary>
-    public class ToolBar : MenuBase
+    public partial class ToolBar : MenuBase
     {
         private ToolBarButtonCollection? _buttons;
 
@@ -62,7 +62,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a button on a ToolBar control.</summary>
-    public class ToolBarButton
+    public partial class ToolBarButton
     {
         /// <summary>Gets or sets the text of the button.</summary>
         public string Text { get; set; } = string.Empty;

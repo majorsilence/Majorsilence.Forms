@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// Represents a dialog for configuring print settings.
     /// Simplified implementation — shows no UI, returns OK immediately.
     /// </summary>
-    public class PrintDialog : Form
+    public partial class PrintDialog : Form
     {
         /// <summary>Gets or sets the PrintDocument to configure.</summary>
         public PrintDocument? Document { get; set; }
@@ -38,7 +38,7 @@ namespace Majorsilence.Forms
     /// Represents a dialog for previewing documents before printing.
     /// Stub implementation — opens the generated PDF file externally.
     /// </summary>
-    public class PrintPreviewDialog : Form
+    public partial class PrintPreviewDialog : Form
     {
         /// <summary>Gets or sets the PrintDocument to preview.</summary>
         public PrintDocument? Document { get; set; }
@@ -62,7 +62,7 @@ namespace Majorsilence.Forms
     /// Represents a dialog for configuring page setup (margins, orientation, paper size).
     /// Stub implementation — shows no UI, returns OK immediately.
     /// </summary>
-    public class PageSetupDialog : Form
+    public partial class PageSetupDialog : Form
     {
         /// <summary>Gets or sets the PrintDocument whose page settings are configured.</summary>
         public PrintDocument? Document { get; set; }
@@ -104,7 +104,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a control that renders a print-preview of a document.
     /// </summary>
-    public class PrintPreviewControl : Control
+    public partial class PrintPreviewControl : Control
     {
         /// <summary>Gets or sets the PrintDocument to preview.</summary>
         public PrintDocument? Document { get; set; }

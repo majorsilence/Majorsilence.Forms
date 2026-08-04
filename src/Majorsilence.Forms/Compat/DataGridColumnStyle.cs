@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     ///  Base class for a column style used to render and edit data in a <see cref="DataGrid"/>.
     /// </summary>
-    public class DataGridColumnStyle : DataGridViewColumn, IDataGridColumnStyle
+    public partial class DataGridColumnStyle : DataGridViewColumn, IDataGridColumnStyle
     {
         /// <summary>
         ///  Gets or sets the name of the data member mapped to this column.

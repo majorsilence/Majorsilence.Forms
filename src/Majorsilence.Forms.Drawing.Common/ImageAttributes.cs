@@ -323,6 +323,145 @@ namespace Majorsilence.Forms.Drawing.Imaging
         public void ClearRemapTable (ColorAdjustType type) => remapTable = null;
 
         /// <summary>
+        /// Sets the remap table used when filling with a texture brush. Stored separately from
+        /// <see cref="SetRemapTable(ColorMap[])"/>, matching GDI+'s per-category split, but the draw
+        /// path applies only the bitmap remap table -- brush fills go through the shader, which has no
+        /// per-color substitution step.
+        /// </summary>
+        public void SetBrushRemapTable (ColorMap[] map)
+        {
+            ArgumentNullException.ThrowIfNull (map);
+            brushRemapTable = map;
+        }
+
+        /// <summary>Clears the brush remap table.</summary>
+        public void ClearBrushRemapTable () => brushRemapTable = null;
+
+        private ColorMap[]? brushRemapTable;
+
+        /// <summary>
+        /// Sets the alpha threshold above which a color is treated as fully opaque, as a fraction 0..1.
+        /// </summary>
+        /// <remarks>
+        /// Stored and round-tripped. Applying it means a per-pixel pass on the source (as
+        /// <see cref="SetColorKey(Color, Color)"/> does), which is not yet wired into the draw path.
+        /// </remarks>
+        public void SetThreshold (float threshold) => SetThreshold (threshold, ColorAdjustType.Default);
+
+        /// <inheritdoc cref="SetThreshold(float)"/>
+        public void SetThreshold (float threshold, ColorAdjustType type) => Threshold = threshold;
+
+        /// <summary>Clears the alpha threshold.</summary>
+        public void ClearThreshold () => ClearThreshold (ColorAdjustType.Default);
+
+        /// <summary>Clears the alpha threshold for the specified category.</summary>
+        public void ClearThreshold (ColorAdjustType type) => Threshold = null;
+
+        /// <summary>Gets the alpha threshold set by <see cref="SetThreshold(float)"/>, if any.</summary>
+        public float? Threshold { get; private set; }
+
+        /// <summary>
+        /// Turns off all color adjustment for subsequent draws without discarding the settings, so
+        /// <see cref="ClearNoOp()"/> restores them. Honored by the draw path: while set, no color filter
+        /// or per-pixel adjustment is applied.
+        /// </summary>
+        public void SetNoOp () => NoOp = true;
+
+        /// <inheritdoc cref="SetNoOp()"/>
+        public void SetNoOp (ColorAdjustType type) => NoOp = true;
+
+        /// <summary>Re-enables the color adjustments suspended by <see cref="SetNoOp()"/>.</summary>
+        public void ClearNoOp () => NoOp = false;
+
+        /// <inheritdoc cref="ClearNoOp()"/>
+        public void ClearNoOp (ColorAdjustType type) => NoOp = false;
+
+        /// <summary>Gets whether color adjustment is currently suspended.</summary>
+        public bool NoOp { get; private set; }
+
+        /// <summary>
+        /// Selects a single CMYK channel to output. Stored and round-tripped; the Skia draw path is RGBA
+        /// throughout and has no CMYK separation stage.
+        /// </summary>
+        public void SetOutputChannel (ColorChannelFlag flags) => OutputChannel = flags;
+
+        /// <inheritdoc cref="SetOutputChannel(ColorChannelFlag)"/>
+        public void SetOutputChannel (ColorChannelFlag flags, ColorAdjustType type) => OutputChannel = flags;
+
+        /// <summary>Clears the output channel selection.</summary>
+        public void ClearOutputChannel () => OutputChannel = null;
+
+        /// <inheritdoc cref="ClearOutputChannel()"/>
+        public void ClearOutputChannel (ColorAdjustType type) => OutputChannel = null;
+
+        /// <summary>Gets the output channel selected by <see cref="SetOutputChannel(ColorChannelFlag)"/>, if any.</summary>
+        public ColorChannelFlag? OutputChannel { get; private set; }
+
+        /// <summary>
+        /// Sets the ICC profile used for the output channel. Not supported: color management is out of
+        /// scope for this layer, so the path is stored and never opened.
+        /// </summary>
+        public void SetOutputChannelColorProfile (string colorProfileFilename) => OutputChannelColorProfile = colorProfileFilename;
+
+        /// <inheritdoc cref="SetOutputChannelColorProfile(string)"/>
+        public void SetOutputChannelColorProfile (string colorProfileFilename, ColorAdjustType type)
+            => OutputChannelColorProfile = colorProfileFilename;
+
+        /// <summary>Clears the output-channel color profile.</summary>
+        public void ClearOutputChannelColorProfile () => OutputChannelColorProfile = null;
+
+        /// <inheritdoc cref="ClearOutputChannelColorProfile()"/>
+        public void ClearOutputChannelColorProfile (ColorAdjustType type) => OutputChannelColorProfile = null;
+
+        /// <summary>Gets the ICC profile path set for the output channel, if any.</summary>
+        public string? OutputChannelColorProfile { get; private set; }
+
+        /// <summary>
+        /// Applies this instance's color adjustments to the entries of <paramref name="palette"/>.
+        /// </summary>
+        /// <remarks>
+        /// Applies the remap table and the color matrix, which are the adjustments that are meaningful
+        /// against palette entries rather than pixels. The palette is modified in place, as GDI+ does.
+        /// </remarks>
+        public void GetAdjustedPalette (ColorPalette palette, ColorAdjustType type)
+        {
+            if (palette is null || NoOp)
+                return;
+
+            for (var i = 0; i < palette.Entries.Length; i++) {
+                var color = palette.Entries[i];
+
+                if (remapTable is not null) {
+                    foreach (var map in remapTable) {
+                        if (map.OldColor.ToArgb () == color.ToArgb ()) {
+                            color = map.NewColor;
+                            break;
+                        }
+                    }
+                }
+
+                if (colorMatrix is not null)
+                    color = ApplyMatrix (colorMatrix, color);
+
+                palette.Entries[i] = color;
+            }
+        }
+
+        // The GDI+ convention: the color is a row vector [r g b a 1] multiplied by the 5x5 matrix, with
+        // every component normalized to 0..1 (including the translation row).
+        private static Color ApplyMatrix (ColorMatrix m, Color c)
+        {
+            float r = c.R / 255f, g = c.G / 255f, b = c.B / 255f, a = c.A / 255f;
+
+            float Component (int column) =>
+                r * m[0, column] + g * m[1, column] + b * m[2, column] + a * m[3, column] + m[4, column];
+
+            static int ToByte (float value) => Math.Clamp ((int)MathF.Round (value * 255f), 0, 255);
+
+            return Color.FromArgb (ToByte (Component (3)), ToByte (Component (0)), ToByte (Component (1)), ToByte (Component (2)));
+        }
+
+        /// <summary>
         /// Gets or sets the wrap mode used when the source rectangle extends past the image. Stored
         /// and round-tripped; the SkiaSharp draw path always clamps to the source rectangle.
         /// </summary>

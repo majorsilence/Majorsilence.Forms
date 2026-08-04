@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a NumericUpDown spin box control.
     /// </summary>
-    public class NumericUpDown : Control, System.ComponentModel.ISupportInitialize
+    public partial class NumericUpDown : Control, System.ComponentModel.ISupportInitialize
     {
         private decimal current_value;
         private decimal minimum;

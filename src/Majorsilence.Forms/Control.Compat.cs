@@ -314,10 +314,28 @@ namespace Majorsilence.Forms
         public bool AllowDrop { get; set; }
 
         /// <summary>Causes all validation in the control hierarchy to occur. Always returns true in Majorsilence.Forms.</summary>
-        public bool Validate () => true;
+        public bool Validate () => Validate (checkAutoValidate: false);
 
-        /// <summary>Causes all validation in the control hierarchy to occur. Always returns true in Majorsilence.Forms.</summary>
-        public bool Validate (bool checkAutoValidate) => true;
+        /// <summary>Runs this control's validation cycle, returning false when a handler cancelled it.</summary>
+        /// <remarks>
+        /// Both of these used to return true without raising anything, which made
+        /// <c>ValidateChildren</c> a loop that did nothing. They now run the same Validating then
+        /// Validated sequence that focus loss runs, and report the handler's Cancel.
+        /// </remarks>
+        public bool Validate (bool checkAutoValidate)
+        {
+            if (!CausesValidation)
+                return true;
+
+            var e = new System.ComponentModel.CancelEventArgs ();
+            OnValidating (e);
+
+            if (e.Cancel)
+                return false;
+
+            OnValidated (EventArgs.Empty);
+            return true;
+        }
 
         /// <summary>Gets or sets whether user input in the control causes validation to occur.</summary>
         public bool CausesValidation {
@@ -530,23 +548,25 @@ namespace Majorsilence.Forms
         /// <summary>IME disabled.</summary>
         Disable = 3,
         /// <summary>IME closed.</summary>
-        Close = 4,
+        Close = 11,
         /// <summary>IME in hiragana input mode.</summary>
-        Hiragana = 5,
+        Hiragana = 4,
         /// <summary>IME in katakana input mode.</summary>
-        Katakana = 6,
+        Katakana = 5,
         /// <summary>IME in half-width katakana input mode.</summary>
-        KatakanaHalf = 7,
+        KatakanaHalf = 6,
         /// <summary>IME in alphanumeric mode.</summary>
         Alpha = 8,
         /// <summary>IME in half-width alphanumeric mode.</summary>
-        AlphaFull = 9,
+        AlphaFull = 7,
         /// <summary>IME in hangul mode.</summary>
         Hangul = 10,
         /// <summary>IME in half-width hangul mode.</summary>
-        HangulFull = 11,
+        HangulFull = 9,
+        /// <summary>IME in half-width native mode.</summary>
+        OnHalf = 12,
         /// <summary>Inherits from parent control.</summary>
-        Inherit = -1
+        Inherit = -1,
     }
 
     /// <summary>

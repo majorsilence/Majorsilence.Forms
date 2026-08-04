@@ -12,7 +12,7 @@ namespace Majorsilence.Forms
     /// Represents a PropertyGrid control for browsing object properties at runtime.
     /// Displays public browsable properties sorted by category. Editing is not implemented.
     /// </summary>
-    public class PropertyGrid : ScrollableControl
+    public partial class PropertyGrid : ScrollableControl
     {
         private object? _selected_object;
         private List<PropertyEntry> _entries = [];
@@ -246,7 +246,7 @@ namespace Majorsilence.Forms
     /// System.Windows.Forms.GridItem. Unsealed so the Telerik-compat PropertyGridItem can derive
     /// from it (call sites TryCast SelectedGridItem to PropertyGridItem).
     /// </summary>
-    public class GridItem
+    public partial class GridItem
     {
         /// <summary>Gets the current value of the property this item represents.</summary>
         public object? Value { get; init; }
@@ -279,7 +279,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// A collection of GridItem objects, matching System.Windows.Forms.GridItemCollection's shape.
     /// </summary>
-    public sealed class GridItemCollection : System.Collections.Generic.List<GridItem>
+    public sealed partial class GridItemCollection : System.Collections.Generic.List<GridItem>
     {
     }
 }

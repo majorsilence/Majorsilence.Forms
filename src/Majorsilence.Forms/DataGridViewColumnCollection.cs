@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a collection of DataGridViewColumn objects in a DataGridView control.
     /// </summary>
-    public class DataGridViewColumnCollection : Collection<DataGridViewColumn>
+    public partial class DataGridViewColumnCollection : Collection<DataGridViewColumn>
     {
         /// <summary>Moves a column to a new display position. Mirrors Telerik's Columns.Move.</summary>
         public void Move (int fromIndex, int toIndex)
@@ -52,6 +52,24 @@ namespace Majorsilence.Forms
 
             if (column is not null)
                 Remove (column);
+        }
+
+        /// <summary>Returns the first column matching the given element states (visibility etc.). Mirrors Telerik's Columns.GetFirstColumn.</summary>
+        /// <summary>Returns the first column matching the include states and matching none of the exclude states.</summary>
+        public DataGridViewColumn? GetFirstColumn (DataGridViewElementStates includeFilter, DataGridViewElementStates excludeFilter)
+        {
+            foreach (var col in this) {
+                if (includeFilter == DataGridViewElementStates.Visible && !col.Visible)
+                    continue;
+                if (excludeFilter == DataGridViewElementStates.Visible && col.Visible)
+                    continue;
+                if (excludeFilter == DataGridViewElementStates.Frozen && col.Frozen)
+                    continue;
+
+                return col;
+            }
+
+            return null;
         }
 
         /// <summary>Returns the first column matching the given element states (visibility etc.). Mirrors Telerik's Columns.GetFirstColumn.</summary>

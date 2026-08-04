@@ -77,5 +77,10 @@
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.0.5" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+    <!-- tools/Majorsilence.Forms.ApiDiff: reflection-only loads of System.Drawing.Common and
+         System.Windows.Forms for the API gap audit. The WindowsDesktop targeting pack is never
+         referenced for compilation, only opened as metadata, so its Windows-only runtime is irrelevant. -->
+    <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.WindowsDesktop.App.Ref" Version="10.0.10" />
   </ItemGroup>
 </Project>

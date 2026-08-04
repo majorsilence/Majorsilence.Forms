@@ -29,11 +29,11 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (0, control.Width);
             Assert.Equal (0, control.Height);
 
-            // The constructor docks left and uses the west-east resize cursor.
+            // The constructor docks left and uses the west-east resize cursor -- a vertical bar.
             Assert.Equal (DockStyle.Left, control.Dock);
             Assert.Same (Cursors.SizeWestEast, control.Cursor);
 
-            Assert.Equal (Orientation.Horizontal, control.Orientation);
+            Assert.Equal (Orientation.Vertical, control.Orientation);
 
             // WinForms-compatible defaults.
             Assert.Equal (25, control.MinSize);
@@ -104,7 +104,7 @@ namespace Majorsilence.Forms.Tests
         [InlineData (25)]
         public void SplitterWidth_Set_GetReturnsExpected_Vertical (int value)
         {
-            using var control = new Splitter { Orientation = Orientation.Vertical };
+            using var control = new Splitter { Orientation = Orientation.Horizontal };
 
             control.SplitterWidth = value;
 
@@ -127,25 +127,27 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void Orientation_SetVertical_UpdatesDockAndCursor ()
+        public void Orientation_SetHorizontalBar_UpdatesDockAndCursor ()
         {
+            // Orientation is the direction of the bar, as in WinForms: a horizontal bar docks to the
+            // top and is dragged north to south.
             using var control = new Splitter ();
 
-            control.Orientation = Orientation.Vertical;
+            control.Orientation = Orientation.Horizontal;
 
-            Assert.Equal (Orientation.Vertical, control.Orientation);
+            Assert.Equal (Orientation.Horizontal, control.Orientation);
             Assert.Equal (DockStyle.Top, control.Dock);
             Assert.Same (Cursors.SizeNorthSouth, control.Cursor);
         }
 
         [Fact]
-        public void Orientation_SetHorizontal_UpdatesDockAndCursor ()
+        public void Orientation_SetVerticalBar_UpdatesDockAndCursor ()
         {
-            using var control = new Splitter { Orientation = Orientation.Vertical };
+            using var control = new Splitter { Orientation = Orientation.Horizontal };
 
-            control.Orientation = Orientation.Horizontal;
+            control.Orientation = Orientation.Vertical;
 
-            Assert.Equal (Orientation.Horizontal, control.Orientation);
+            Assert.Equal (Orientation.Vertical, control.Orientation);
             Assert.Equal (DockStyle.Left, control.Dock);
             Assert.Same (Cursors.SizeWestEast, control.Cursor);
         }
@@ -159,21 +161,21 @@ namespace Majorsilence.Forms.Tests
 
             // Setting the already-current orientation is a no-op and must not
             // clobber the explicitly-assigned Dock/Cursor.
-            control.Orientation = Orientation.Horizontal;
+            control.Orientation = Orientation.Vertical;
 
-            Assert.Equal (Orientation.Horizontal, control.Orientation);
+            Assert.Equal (Orientation.Vertical, control.Orientation);
             Assert.Equal (DockStyle.Right, control.Dock);
             Assert.Same (Cursors.Hand, control.Cursor);
         }
 
         [Fact]
-        public void Orientation_SetVertical_SwapsSize ()
+        public void Orientation_Change_SwapsSize ()
         {
             using var control = new Splitter ();
             control.Width = 40;
             control.Height = 5;
 
-            control.Orientation = Orientation.Vertical;
+            control.Orientation = Orientation.Horizontal;
 
             // The setter swaps the dimensions: new Size (Height, Width).
             Assert.Equal (5, control.Width);

@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a class for a file save dialog.
     /// </summary>
-    public class SaveFileDialog : FileDialog
+    public partial class SaveFileDialog : FileDialog
     {
         /// <summary>
         /// Gets or sets the default save extension. For example: "txt".

@@ -8,20 +8,20 @@ namespace Majorsilence.Forms
     public enum DateTimePickerFormat
     {
         /// <summary>Long date format.</summary>
-        Long,
+        Long = 1,
         /// <summary>Short date format.</summary>
-        Short,
+        Short = 2,
         /// <summary>Time format.</summary>
-        Time,
+        Time = 4,
         /// <summary>Custom format string.</summary>
-        Custom
+        Custom = 8,
     }
 
     /// <summary>
     /// Represents a DateTimePicker control for selecting a date and/or time.
     /// Built on TimePicker for Majorsilence.Forms compatibility.
     /// </summary>
-    public class DateTimePicker : TextBox
+    public partial class DateTimePicker : TextBox
     {
         /// <summary>The minimum date value supported by the DateTimePicker (January 1, 1753).</summary>
         public static readonly DateTime MinDateTime = new DateTime (1753, 1, 1);

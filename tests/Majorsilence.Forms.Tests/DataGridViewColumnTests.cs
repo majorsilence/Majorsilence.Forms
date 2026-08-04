@@ -43,7 +43,9 @@ namespace Majorsilence.Forms.Tests
             Assert.Null (column.Tag);
             Assert.Empty (column.ToolTipText);
             Assert.True (column.Visible);
-            Assert.Equal (DataGridViewAutoSizeColumnMode.None, column.AutoSizeMode);
+            // NotSet, not None: NotSet is what makes the column inherit the grid's AutoSizeColumnsMode,
+        // and it is the upstream default. See DataGridViewColumn.AutoSizeMode.
+        Assert.Equal (DataGridViewAutoSizeColumnMode.NotSet, column.AutoSizeMode);
             Assert.Equal (100, column.Width);
         }
 

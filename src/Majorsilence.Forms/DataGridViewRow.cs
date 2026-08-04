@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a row in a DataGridView control.
     /// </summary>
-    public class DataGridViewRow
+    public partial class DataGridViewRow
     {
         private int height = 25;
         private DataGridView? owner;

@@ -11,7 +11,12 @@
     <Description>Cross-platform spiritual successor to Winforms for .NET Core</Description>
     <PackageTags>Majorsilence;Forms;Winforms;GUI;UI;Cross;Platform</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="SkiaSharp" />

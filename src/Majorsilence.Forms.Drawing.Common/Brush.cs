@@ -13,8 +13,71 @@ namespace Majorsilence.Forms.Drawing
         // Builds a fill SKPaint for this brush. Caller owns disposal.
         internal abstract SKPaint CreatePaint ();
 
+        /// <summary>Creates an exact, independent copy of this brush.</summary>
+        /// <remarks>
+        /// Declared as returning <see cref="object"/> to match System.Drawing.Brush; every derived brush
+        /// overrides it with its own type via a covariant return, so callers rarely need to cast.
+        /// </remarks>
+        public abstract object Clone ();
+
         /// <summary>Releases the resources used by this brush. No-op in Majorsilence.Forms.Drawing.</summary>
         public void Dispose () => GC.SuppressFinalize (this);
+    }
+
+    /// <summary>
+    /// The geometric transform a gradient or texture brush applies to its own content.
+    ///
+    /// Shared by <see cref="LinearGradientBrush"/>, <see cref="PathGradientBrush"/> and
+    /// <see cref="TextureBrush"/>, which each expose the same six-member GDI+ transform surface over it.
+    /// It becomes the shader's *local* matrix, so it moves the gradient/texture within the filled shape
+    /// rather than transforming the shape itself.
+    /// </summary>
+    internal sealed class BrushTransform
+    {
+        // Held as the underlying SKMatrix struct rather than a Drawing2D.Matrix: Matrix is IDisposable,
+        // and owning one here would make every brush responsible for disposing it (CA1001) for no gain,
+        // since the matrix wraps a struct and holds nothing unmanaged.
+        private SKMatrix matrix = SKMatrix.Identity;
+
+        /// <summary>A copy, so callers cannot mutate the brush by holding onto the returned matrix.</summary>
+        public Drawing2D.Matrix Get () => new (matrix);
+
+        /// <summary>Assigning null resets to the identity, matching <see cref="Reset"/>.</summary>
+        public void Set (Drawing2D.Matrix? value) => matrix = value?.ToSKMatrix () ?? SKMatrix.Identity;
+
+        public void Reset () => matrix = SKMatrix.Identity;
+
+        public void Multiply (Drawing2D.Matrix m, Drawing2D.MatrixOrder order) => Mutate (x => x.Multiply (m, order));
+
+        public void Translate (float dx, float dy, Drawing2D.MatrixOrder order) => Mutate (x => x.Translate (dx, dy, order));
+
+        public void Scale (float sx, float sy, Drawing2D.MatrixOrder order) => Mutate (x => x.Scale (sx, sy, order));
+
+        public void Rotate (float angle, Drawing2D.MatrixOrder order) => Mutate (x => x.Rotate (angle, order));
+
+        public SKMatrix ToSKMatrix () => matrix;
+
+        public BrushTransform Clone () => new () { matrix = matrix };
+
+        // The compose operations (with their MatrixOrder semantics) live on Matrix, so borrow one for
+        // the duration of the mutation and store the result back.
+        private void Mutate (Action<Drawing2D.Matrix> operation)
+        {
+            var wrapper = new Drawing2D.Matrix (matrix);
+            operation (wrapper);
+            matrix = wrapper.ToSKMatrix ();
+        }
+    }
+
+    /// <summary>Maps a GDI+ <see cref="Drawing2D.WrapMode"/> onto the Skia shader tiling it corresponds to.</summary>
+    internal static class WrapModeExtensions
+    {
+        public static SKShaderTileMode ToSKTileMode (this Drawing2D.WrapMode mode) => mode switch {
+            Drawing2D.WrapMode.Clamp => SKShaderTileMode.Clamp,
+            Drawing2D.WrapMode.TileFlipX or Drawing2D.WrapMode.TileFlipY or Drawing2D.WrapMode.TileFlipXY
+                => SKShaderTileMode.Mirror,
+            _ => SKShaderTileMode.Repeat,
+        };
     }
 
     /// <summary>
@@ -31,6 +94,9 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets or sets the fill color.</summary>
         public Color Color { get; set; }
 
+        /// <inheritdoc/>
+        public override SolidBrush Clone () => new (Color);
+
         internal override SKPaint CreatePaint () => new SKPaint {
             Color = new SKColor (Color.R, Color.G, Color.B, Color.A),
             Style = SKPaintStyle.Fill,
@@ -44,9 +110,11 @@ namespace Majorsilence.Forms.Drawing
     public sealed class LinearGradientBrush : Brush
     {
         private readonly RectangleF rect;
-        private readonly Color color1;
-        private readonly Color color2;
+        // Not readonly: LinearColors is a settable property in System.Drawing.
+        private Color color1;
+        private Color color2;
         private readonly float angleDegrees;
+        private readonly BrushTransform transform = new ();
 
         /// <summary>Initializes a new instance of the LinearGradientBrush class.</summary>
         public LinearGradientBrush (RectangleF rect, Color color1, Color color2, float angleDegrees = 0f)
@@ -108,6 +176,71 @@ namespace Majorsilence.Forms.Drawing
         /// destination color space, so the flag does not currently alter output.
         /// </summary>
         public bool GammaCorrection { get; set; }
+
+        /// <summary>Gets the rectangle this gradient is defined over.</summary>
+        public RectangleF Rectangle => rect;
+
+        /// <summary>
+        /// Gets or sets how this gradient tiles outside <see cref="Rectangle"/>. Applied for real: it
+        /// selects the Skia shader tile mode.
+        /// </summary>
+        public Drawing2D.WrapMode WrapMode { get; set; } = Drawing2D.WrapMode.Clamp;
+
+        /// <summary>
+        /// Gets or sets the starting and ending colors as a two-element array, matching
+        /// System.Drawing. Setting fewer than two colors is ignored, as GDI+ does.
+        /// </summary>
+        public Color[] LinearColors {
+            get => [color1, color2];
+            set {
+                if (value is { Length: >= 2 }) {
+                    color1 = value[0];
+                    color2 = value[1];
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a copy of the transform applied to this gradient. Assigning null resets it to
+        /// the identity. See <see cref="BrushTransform"/> for how it is applied.
+        /// </summary>
+        public Drawing2D.Matrix Transform {
+            get => transform.Get ();
+            set => transform.Set (value);
+        }
+
+        /// <summary>Resets the gradient transform to the identity.</summary>
+        public void ResetTransform () => transform.Reset ();
+
+        /// <summary>Multiplies the gradient transform by <paramref name="matrix"/>.</summary>
+        public void MultiplyTransform (Drawing2D.Matrix matrix, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
+            => transform.Multiply (matrix, order);
+
+        /// <summary>Translates the gradient transform by the specified offsets.</summary>
+        public void TranslateTransform (float dx, float dy, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
+            => transform.Translate (dx, dy, order);
+
+        /// <summary>Scales the gradient transform by the specified factors.</summary>
+        public void ScaleTransform (float sx, float sy, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
+            => transform.Scale (sx, sy, order);
+
+        /// <summary>Rotates the gradient transform by the specified angle, in degrees.</summary>
+        public void RotateTransform (float angle, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
+            => transform.Rotate (angle, order);
+
+        /// <inheritdoc/>
+        public override LinearGradientBrush Clone ()
+        {
+            var clone = new LinearGradientBrush (rect, color1, color2, angleDegrees) {
+                GammaCorrection = GammaCorrection,
+                WrapMode = WrapMode,
+                blendColors = blendColors?.ToArray (),
+                blendPositions = blendPositions?.ToArray (),
+                blend = blend,
+            };
+            clone.transform.Set (transform.Get ());
+            return clone;
+        }
 
         private Color[]? blendColors;
         private float[]? blendPositions;
@@ -215,7 +348,8 @@ namespace Majorsilence.Forms.Drawing
                 start, end,
                 colors,
                 stops,
-                SKShaderTileMode.Clamp);
+                WrapMode.ToSKTileMode (),
+                transform.ToSKMatrix ());
 
             return new SKPaint {
                 Shader = shader,
@@ -251,6 +385,9 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Gets the foreground color of this brush.</summary>
         public Color ForegroundColor => foreColor;
+
+        /// <inheritdoc/>
+        public override HatchBrush Clone () => new (HatchStyle, foreColor, BackgroundColor);
 
         internal override SKPaint CreatePaint ()
         {
@@ -438,6 +575,14 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Solid diamond pattern.</summary>
         SolidDiamond = 52,
         /// <summary>Solid fill (100%).</summary>
-        Solid = 100
+        Solid = 100,
+
+        // --- Aliases and values completed from upstream System.Drawing.Common (see docs/gdi-gap-plan.md, Phase 2). ---
+        /// <summary>Large grid.</summary>
+        LargeGrid = 4,
+        /// <summary>Min.</summary>
+        Min = 0,
+        /// <summary>Max.</summary>
+        Max = 4,
     }
 }

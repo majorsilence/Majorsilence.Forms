@@ -3,7 +3,7 @@
     /// <summary>
     /// Represents a TabPage control.
     /// </summary>
-    public class TabPage : Panel
+    public partial class TabPage : Panel
     {
         /// <summary>
         /// Initializes a new instance of the TabPage class.

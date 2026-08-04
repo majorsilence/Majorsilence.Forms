@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// Represents a collection of TreeViewItems.
     /// </summary>
     /// <summary>WinForms-compatible name for the tree item collection (TreeView.Nodes).</summary>
-    public class TreeNodeCollection : Collection<TreeViewItem>
+    public partial class TreeNodeCollection : Collection<TreeViewItem>
     {
         /// <summary>
         /// Adds a new node with the specified text. Returns a <see cref="TreeNode"/> so WinForms
@@ -69,6 +69,113 @@ namespace Majorsilence.Forms
                 if (recurse)
                     Collect (item.Items, key, true, matches);
             }
+        }
+
+        // The overloads WinForms code actually writes. Add (TreeNode) in particular returns the new
+        // node's index -- `var i = nodes.Add (node);` is ordinary WinForms and did not compile here,
+        // because the only Add taking a node was Collection<T>'s void one.
+
+        /// <summary>Adds a node with the given key, text and image index.</summary>
+        public TreeNode Add (string key, string text, int imageIndex)
+        {
+            var node = new TreeNode (text) { Name = key, ImageIndex = imageIndex };
+            Add (node);
+            return node;
+        }
+
+        /// <summary>Adds a node with the given key, text and image indices.</summary>
+        public TreeNode Add (string key, string text, int imageIndex, int selectedImageIndex)
+        {
+            var node = new TreeNode (text) { Name = key, ImageIndex = imageIndex, SelectedImageIndex = selectedImageIndex };
+            Add (node);
+            return node;
+        }
+
+        /// <summary>Adds a node with the given key, text and image key.</summary>
+        public TreeNode Add (string key, string text, string imageKey)
+        {
+            var node = new TreeNode (text) { Name = key, ImageKey = imageKey };
+            Add (node);
+            return node;
+        }
+
+        /// <summary>Adds a node with the given key, text and image keys.</summary>
+        public TreeNode Add (string key, string text, string imageKey, string selectedImageKey)
+        {
+            var node = new TreeNode (text) { Name = key, ImageKey = imageKey, SelectedImageKey = selectedImageKey };
+            Add (node);
+            return node;
+        }
+
+        /// <summary>Adds an existing node and returns its index.</summary>
+        public int Add (TreeNode node)
+        {
+            Add ((TreeViewItem)node);
+            return Count - 1;
+        }
+
+        /// <summary>Returns whether the given node is in this collection.</summary>
+        public bool Contains (TreeNode node) => Contains ((TreeViewItem)node);
+
+        /// <summary>Returns the index of the given node, or -1.</summary>
+        public int IndexOf (TreeNode node) => IndexOf ((TreeViewItem)node);
+
+        /// <summary>Removes the given node.</summary>
+        public void Remove (TreeNode node) => Remove ((TreeViewItem)node);
+
+        /// <summary>Copies this collection into an array.</summary>
+        public void CopyTo (Array dest, int index)
+        {
+            ArgumentNullException.ThrowIfNull (dest);
+
+            foreach (var node in this)
+                dest.SetValue (node, index++);
+        }
+
+        /// <summary>Inserts an existing node at the given index.</summary>
+        public void Insert (int index, TreeNode node) => Insert (index, (TreeViewItem)node);
+
+        /// <summary>Inserts a node with the given text at the given index.</summary>
+        public TreeNode Insert (int index, string text) => Insert (index, string.Empty, text);
+
+        /// <summary>Inserts a node with the given key and text at the given index.</summary>
+        public TreeNode Insert (int index, string key, string text)
+        {
+            var node = new TreeNode (text) { Name = key };
+            Insert (index, node);
+            return node;
+        }
+
+        /// <summary>Inserts a node with the given key, text and image index.</summary>
+        public TreeNode Insert (int index, string key, string text, int imageIndex)
+        {
+            var node = new TreeNode (text) { Name = key, ImageIndex = imageIndex };
+            Insert (index, node);
+            return node;
+        }
+
+        /// <summary>Inserts a node with the given key, text and image indices.</summary>
+        public TreeNode Insert (int index, string key, string text, int imageIndex, int selectedImageIndex)
+        {
+            var node = new TreeNode (text) { Name = key, ImageIndex = imageIndex, SelectedImageIndex = selectedImageIndex };
+            Insert (index, node);
+            return node;
+        }
+
+        /// <summary>Inserts a node with the given key, text and image key.</summary>
+        public TreeNode Insert (int index, string key, string text, string imageKey)
+        {
+            var node = new TreeNode (text) { Name = key, ImageKey = imageKey };
+            Insert (index, node);
+            return node;
+        }
+
+        /// <summary>Inserts a node with the given key, text and image keys.</summary>
+        public TreeNode Insert (int index, string key, string text, string imageKey, string selectedImageKey)
+        {
+            var node = new TreeNode (text) { Name = key, ImageKey = imageKey, SelectedImageKey = selectedImageKey };
+            Insert (index, node);
+            return node;
         }
     }
 

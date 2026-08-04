@@ -9,7 +9,10 @@ namespace Majorsilence.Forms
     /// </summary>
     public class Splitter : Control
     {
-        private Orientation orientation;
+        // Vertical: the constructor docks left and shows the east-west cursor, which is a vertical
+        // bar. This used to be called Horizontal, the opposite of SplitContainer's new reading and of
+        // WinForms'.
+        private Orientation orientation = Orientation.Vertical;
         private bool is_dragging;
         private Point drag_start_point;
         private Point? last_drag_point;
@@ -86,8 +89,10 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets a value indicating the orientation of the Splitter.
+        /// Gets or sets the orientation of the splitter bar.
         /// </summary>
+        /// <remarks><see cref="Orientation.Vertical"/> is a vertical bar: docked to the left edge and
+        /// dragged east to west. Matches <see cref="SplitContainer.Orientation"/>.</remarks>
         public Orientation Orientation {
             get => orientation;
             set {
@@ -95,8 +100,8 @@ namespace Majorsilence.Forms
                     orientation = value;
 
                     Size = new Size (Height, Width);
-                    Dock = orientation == Orientation.Horizontal ? DockStyle.Left : DockStyle.Top;
-                    Cursor = orientation == Orientation.Horizontal ? Cursors.SizeWestEast : Cursors.SizeNorthSouth;
+                    Dock = orientation == Orientation.Vertical ? DockStyle.Left : DockStyle.Top;
+                    Cursor = orientation == Orientation.Vertical ? Cursors.SizeWestEast : Cursors.SizeNorthSouth;
                 }
             }
         }
@@ -105,9 +110,9 @@ namespace Majorsilence.Forms
         /// Gets or sets the width of the splitter.
         /// </summary>
         public int SplitterWidth {
-            get => orientation == Orientation.Horizontal ? Width : Height;
+            get => orientation == Orientation.Vertical ? Width : Height;
             set {
-                if (orientation == Orientation.Horizontal)
+                if (orientation == Orientation.Vertical)
                     Width = value;
                 else
                     Height = value;

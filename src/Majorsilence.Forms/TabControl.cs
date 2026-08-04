@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a TabControl control.
     /// </summary>
-    public class TabControl : Control
+    public partial class TabControl : Control
     {
         private readonly TabStrip tab_strip;
 

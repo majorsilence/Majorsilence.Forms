@@ -11,7 +11,7 @@ namespace Majorsilence.Forms
     /// Provides information that accessibility clients use to adjust the user interface.
     /// Stub in Majorsilence.Forms.
     /// </summary>
-    public class AccessibleObject
+    public partial class AccessibleObject
     {
         /// <summary>Gets or sets the accessible object name.</summary>
         public virtual string? Name { get; set; }
@@ -98,7 +98,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a data binding between a control property and a data source property. Stub in Majorsilence.Forms.</summary>
-    public class Binding
+    public partial class Binding
     {
         /// <summary>Initializes a new Binding stub.</summary>
         public Binding (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled = false)
@@ -119,6 +119,15 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the format string. Stub in Majorsilence.Forms.</summary>
         public string FormatString { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets when the data source is updated from the bound control.</summary>
+        public DataSourceUpdateMode DataSourceUpdateMode { get; set; } = DataSourceUpdateMode.OnValidation;
+
+        /// <summary>Gets or sets the value substituted when the data source holds DBNull.</summary>
+        public object? NullValue { get; set; }
+
+        /// <summary>Gets or sets the culture used when formatting the bound value.</summary>
+        public IFormatProvider? FormatInfo { get; set; }
 
         /// <summary>Raised when the control value is formatted. Stub in Majorsilence.Forms.</summary>
         public event ConvertEventHandler? Format { add { } remove { } }
@@ -210,7 +219,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents the collection of data bindings for a control. Stub in Majorsilence.Forms.</summary>
-    public class ControlBindingsCollection : System.Collections.ObjectModel.Collection<Binding>
+    public partial class ControlBindingsCollection : System.Collections.ObjectModel.Collection<Binding>
     {
         private readonly Control _control;
 
@@ -240,15 +249,15 @@ namespace Majorsilence.Forms
     public enum DataSourceUpdateMode
     {
         /// <summary>Update data source when the property changes.</summary>
-        OnPropertyChanged,
+        OnPropertyChanged = 1,
         /// <summary>Update data source when the control loses focus.</summary>
-        OnValidation,
+        OnValidation = 0,
         /// <summary>Data source is never updated automatically.</summary>
-        Never
+        Never = 2,
     }
 
     /// <summary>Provides data for the PreviewKeyDown event.</summary>
-    public class PreviewKeyDownEventArgs : EventArgs
+    public partial class PreviewKeyDownEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public PreviewKeyDownEventArgs (Keys keyData) { KeyData = keyData; }
@@ -323,17 +332,17 @@ namespace Majorsilence.Forms
         /// <summary>The cause of the closure was not defined or could not be determined.</summary>
         None = 0,
         /// <summary>The Windows Task Manager is closing the application.</summary>
-        TaskManagerClosing = 1,
+        TaskManagerClosing = 4,
         /// <summary>The parent form of this MDI form is closing.</summary>
         MdiFormClosing = 2,
         /// <summary>The user closed the form through the user interface.</summary>
         UserClosing = 3,
         /// <summary>The Microsoft Windows operating system is closing all applications before a system shutdown.</summary>
-        WindowsShutDown = 4,
+        WindowsShutDown = 1,
         /// <summary>The Application.Exit method was invoked.</summary>
-        ApplicationExitCall = 5,
+        ApplicationExitCall = 6,
         /// <summary>The Form.Close method was called.</summary>
-        FormOwnerClosing = 6
+        FormOwnerClosing = 5,
     }
 
     /// <summary>
@@ -449,31 +458,100 @@ namespace Majorsilence.Forms
         Inherit
     }
 
-    /// <summary>Specifies constants representing accessible events. Stub in Majorsilence.Forms.</summary>
+    /// <summary>Specifies constants representing accessible events.</summary>
+    /// <remarks>
+    /// The values are the Win32 <c>EVENT_*</c> WinEvent codes, generated from the reference assembly
+    /// rather than transcribed: 32 of the 42 were absent here, and the ten present were only the ones
+    /// a reader is likely to check by eye.
+    /// </remarks>
     public enum AccessibleEvents
     {
-        /// <summary>No event.</summary>
+        /// <summary>No event. Not an upstream member; kept because existing code here uses it.</summary>
         None = 0,
-        /// <summary>Object created.</summary>
+        /// <summary>A system sound played.</summary>
+        SystemSound = 1,
+        /// <summary>An alert raised.</summary>
+        SystemAlert = 2,
+        /// <summary>The foreground window changed.</summary>
+        SystemForeground = 3,
+        /// <summary>A menu bar entered the active state.</summary>
+        SystemMenuStart = 4,
+        /// <summary>A menu bar left the active state.</summary>
+        SystemMenuEnd = 5,
+        /// <summary>A pop-up menu was shown.</summary>
+        SystemMenuPopupStart = 6,
+        /// <summary>A pop-up menu closed.</summary>
+        SystemMenuPopupEnd = 7,
+        /// <summary>A window took mouse capture.</summary>
+        SystemCaptureStart = 8,
+        /// <summary>A window released mouse capture.</summary>
+        SystemCaptureEnd = 9,
+        /// <summary>A window is being moved or resized.</summary>
+        SystemMoveSizeStart = 10,
+        /// <summary>A window finished being moved or resized.</summary>
+        SystemMoveSizeEnd = 11,
+        /// <summary>A window entered context-sensitive help mode.</summary>
+        SystemContextHelpStart = 12,
+        /// <summary>A window left context-sensitive help mode.</summary>
+        SystemContextHelpEnd = 13,
+        /// <summary>A drag-and-drop operation started.</summary>
+        SystemDragDropStart = 14,
+        /// <summary>A drag-and-drop operation ended.</summary>
+        SystemDragDropEnd = 15,
+        /// <summary>A dialog box was shown.</summary>
+        SystemDialogStart = 16,
+        /// <summary>A dialog box closed.</summary>
+        SystemDialogEnd = 17,
+        /// <summary>Scrolling started on a scroll bar.</summary>
+        SystemScrollingStart = 18,
+        /// <summary>Scrolling ended on a scroll bar.</summary>
+        SystemScrollingEnd = 19,
+        /// <summary>The user began switching windows.</summary>
+        SystemSwitchStart = 20,
+        /// <summary>The user finished switching windows.</summary>
+        SystemSwitchEnd = 21,
+        /// <summary>A window was minimized.</summary>
+        SystemMinimizeStart = 22,
+        /// <summary>A window finished being minimized.</summary>
+        SystemMinimizeEnd = 23,
+        /// <summary>An object was created.</summary>
         Create = 0x8000,
-        /// <summary>Object destroyed.</summary>
+        /// <summary>An object was destroyed.</summary>
         Destroy = 0x8001,
-        /// <summary>Object shown.</summary>
+        /// <summary>An object was shown.</summary>
         Show = 0x8002,
-        /// <summary>Object hidden.</summary>
+        /// <summary>An object was hidden.</summary>
         Hide = 0x8003,
-        /// <summary>Object focus received.</summary>
+        /// <summary>An object's children changed order.</summary>
+        Reorder = 0x8004,
+        /// <summary>An object received the keyboard focus.</summary>
         Focus = 0x8005,
-        /// <summary>Object selection changed.</summary>
+        /// <summary>An object's selection changed to a single item.</summary>
         Selection = 0x8006,
-        /// <summary>Object value changed.</summary>
-        ValueChange = 0x800E,
-        /// <summary>Object name changed.</summary>
-        NameChange = 0x800C,
-        /// <summary>Object state changed.</summary>
+        /// <summary>An item was added to the selection.</summary>
+        SelectionAdd = 0x8007,
+        /// <summary>An item was removed from the selection.</summary>
+        SelectionRemove = 0x8008,
+        /// <summary>The selection changed within a container.</summary>
+        SelectionWithin = 0x8009,
+        /// <summary>An object's state changed.</summary>
         StateChange = 0x800A,
-        /// <summary>Object location changed.</summary>
-        LocationChange = 0x800B
+        /// <summary>An object's location changed.</summary>
+        LocationChange = 0x800B,
+        /// <summary>An object's name changed.</summary>
+        NameChange = 0x800C,
+        /// <summary>An object's description changed.</summary>
+        DescriptionChange = 0x800D,
+        /// <summary>An object's value changed.</summary>
+        ValueChange = 0x800E,
+        /// <summary>An object's parent changed.</summary>
+        ParentChange = 0x800F,
+        /// <summary>An object's help text changed.</summary>
+        HelpChange = 0x8010,
+        /// <summary>An object's default action changed.</summary>
+        DefaultActionChange = 0x8011,
+        /// <summary>An object's keyboard accelerator changed.</summary>
+        AcceleratorChange = 0x8012
     }
 
 #pragma warning disable CA1711
@@ -511,7 +589,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for TreeView node label-edit events.</summary>
-    public class NodeLabelEditEventArgs : System.ComponentModel.CancelEventArgs
+    public partial class NodeLabelEditEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public NodeLabelEditEventArgs (TreeViewItem node) { Node = node; }
@@ -572,15 +650,15 @@ namespace Majorsilence.Forms
     public enum TreeViewAction
     {
         /// <summary>The event was caused by an unknown action.</summary>
-        Unknown,
+        Unknown = 0,
         /// <summary>The event was caused by a mouse click.</summary>
-        ByMouse,
+        ByMouse = 2,
         /// <summary>The event was caused by a keyboard action.</summary>
-        ByKeyboard,
+        ByKeyboard = 1,
         /// <summary>The event was caused by a collapse.</summary>
-        Collapse,
+        Collapse = 3,
         /// <summary>The event was caused by an expand.</summary>
-        Expand
+        Expand = 4,
     }
 
     /// <summary>Specifies character casing for a TextBox.</summary>
@@ -611,21 +689,23 @@ namespace Majorsilence.Forms
     public enum AutoCompleteSource
     {
         /// <summary>No auto-complete source.</summary>
-        None,
+        None = 128,
         /// <summary>Uses the file system.</summary>
-        FileSystem,
+        FileSystem = 1,
         /// <summary>Uses the history list.</summary>
-        HistoryList,
+        HistoryList = 2,
         /// <summary>Uses recently used URLs.</summary>
-        RecentlyUsedList,
+        RecentlyUsedList = 4,
         /// <summary>Uses all system sources.</summary>
-        AllSystemSources,
+        AllSystemSources = 7,
         /// <summary>Uses the file system directories.</summary>
-        FileSystemDirectories,
+        FileSystemDirectories = 32,
         /// <summary>Uses a custom list.</summary>
-        CustomSource,
+        CustomSource = 64,
         /// <summary>Uses all URLs.</summary>
-        AllUrl
+        AllUrl = 6,
+        /// <summary>The items already in the control supply the completions.</summary>
+        ListItems = 256,
     }
 
     /// <summary>Specifies the column header style for a ListView.</summary>
@@ -651,7 +731,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>A collection of strings used for auto-complete suggestions. Stub in Majorsilence.Forms.</summary>
-    public class AutoCompleteStringCollection : System.Collections.Specialized.StringCollection { }
+    public partial class AutoCompleteStringCollection : System.Collections.Specialized.StringCollection { }
 
     /// <summary>
     /// WinForms compatibility alias for <see cref="TreeViewItem"/>. In WinForms, tree nodes are called TreeNode.
@@ -742,7 +822,9 @@ namespace Majorsilence.Forms
         /// <summary>Yes and No buttons.</summary>
         YesNo,
         /// <summary>Retry and Cancel buttons.</summary>
-        RetryCancel
+        RetryCancel,
+        /// <summary>Cancel, Try Again, and Continue buttons.</summary>
+        CancelTryContinue = 6
     }
 
     /// <summary>
@@ -799,6 +881,66 @@ namespace Majorsilence.Forms
             form.Show ();
             return DialogResult.OK;
         }
+
+        // The long Show overloads. Only the arguments this layer can act on change anything: the help
+        // file, keyword and navigator name a Windows help subsystem that is not here, and
+        // MessageBoxOptions' RTL and service-notification flags have no counterpart either. They are
+        // accepted so designer-generated and copied-over calls compile, and the dialog shown is the
+        // one the first five arguments describe.
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, bool displayHelpButton)
+            => Show (text, caption, buttons, icon, defaultButton);
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath)
+            => Show (text, caption, buttons, icon, defaultButton);
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, string keyword)
+            => Show (text, caption, buttons, icon, defaultButton);
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator)
+            => Show (text, caption, buttons, icon, defaultButton);
+
+        /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator, object param)
+            => Show (text, caption, buttons, icon, defaultButton);
+
+        // The IWin32Window-owned forms. Control and Form both implement that interface here, so the
+        // owner is resolved rather than discarded.
+
+        /// <summary>Shows a message box owned by the given window.</summary>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
+
+        /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
+
+        /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, string keyword)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
+
+        /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
+
+        /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
+        public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath,
+            HelpNavigator navigator, object param)
+            => Show ((owner as Form)!, text, caption, buttons, icon);
 
         /// <summary>Shows a message box with the specified owner form and text.</summary>
         public static DialogResult Show (Form owner, string text)
@@ -875,17 +1017,19 @@ namespace Majorsilence.Forms
     public enum MessageBoxDefaultButton
     {
         /// <summary>The first button is the default.</summary>
-        Button1,
+        Button1 = 0,
         /// <summary>The second button is the default.</summary>
-        Button2,
+        Button2 = 256,
         /// <summary>The third button is the default.</summary>
-        Button3
+        Button3 = 512,
+        /// <summary>The fourth button is the default.</summary>
+        Button4 = 768,
     }
 
     /// <summary>
     /// Base class for items that appear in a MenuStrip or StatusStrip.
     /// </summary>
-    public class ToolStripItem : MenuItem
+    public partial class ToolStripItem : MenuItem
     {
         /// <summary>Gets or sets the name of this item.</summary>
         public string Name { get; set; } = string.Empty;
@@ -967,14 +1111,19 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the image list key for this item. Stub in Majorsilence.Forms.</summary>
         public string ImageKey { get; set; } = string.Empty;
 
-        /// <summary>Gets the owner ToolStrip. Stub in Majorsilence.Forms.</summary>
-        public ToolStrip? Owner => ParentControl as ToolStrip;
+        /// <summary>Gets the <see cref="ToolStrip"/> this item belongs to, or null when it is not on one.</summary>
+        /// <remarks>
+        /// Walks the owning-control chain rather than reading <c>ParentControl</c> directly: an item
+        /// added to a strip hangs off that strip's root item and has no ParentControl of its own, so
+        /// the direct read reported null for every item on a ToolStrip.
+        /// </remarks>
+        public ToolStrip? Owner => OwnerControl as ToolStrip;
 
         /// <summary>Gets the owner item (parent ToolStripItem). Stub in Majorsilence.Forms.</summary>
         public ToolStripItem? OwnerItem => Parent as ToolStripItem;
 
-        /// <summary>Programmatically triggers a click on this item.</summary>
-        public void PerformClick () => OnClick (new MouseEventArgs (MouseButtons.Left, 1, 0, 0, Point.Empty));
+        // PerformClick is inherited from MenuItem, which is where WinForms declares it for menu items
+        // and where this hierarchy puts the shared implementation.
 
         /// <summary>Gets or sets the accessible role. Stub in Majorsilence.Forms.</summary>
         public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Default;
@@ -1010,10 +1159,10 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a clickable button on a ToolStrip / toolbar.
     /// </summary>
-    public class ToolStripButton : ToolStripItem
+    public partial class ToolStripButton : ToolStripItem
     {
         /// <summary>Gets or sets the color treated as transparent in the button image. Stored for compat.</summary>
-        public System.Drawing.Color ImageTransparentColor { get; set; }
+        public new System.Drawing.Color ImageTransparentColor { get; set; }
 
         /// <summary>Initializes a new instance of the ToolStripButton class.</summary>
         public ToolStripButton () { }
@@ -1048,6 +1197,7 @@ namespace Majorsilence.Forms
             set {
                 if (_checked == value) return;
                 _checked = value;
+                OnCheckedChanged (EventArgs.Empty);
                 CheckStateChanged?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -1062,7 +1212,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a non-interactive text label on a ToolStrip / toolbar.
     /// </summary>
-    public class ToolStripLabel : ToolStripItem
+    public partial class ToolStripLabel : ToolStripItem
     {
         /// <summary>Initializes a new instance of the ToolStripLabel class.</summary>
         public ToolStripLabel () { }
@@ -1089,84 +1239,91 @@ namespace Majorsilence.Forms
         public bool LinkVisited { get; set; }
 
         /// <summary>Raised when the pointer enters the label. Stub in Majorsilence.Forms (never fires).</summary>
-        public event EventHandler? MouseEnter { add { } remove { } }
+        public new event EventHandler? MouseEnter { add { } remove { } }
 
         /// <summary>Raised when the pointer leaves the label. Stub in Majorsilence.Forms (never fires).</summary>
-        public event EventHandler? MouseLeave { add { } remove { } }
+        public new event EventHandler? MouseLeave { add { } remove { } }
     }
 
     /// <summary>
     /// Represents an editable text box embedded on a ToolStrip / toolbar.
     /// </summary>
-    public class ToolStripTextBox : ToolStripItem
+    public partial class ToolStripTextBox : ToolStripControlHost
     {
-        private string text = string.Empty;
-
         /// <summary>Initializes a new instance of the ToolStripTextBox class.</summary>
-        public ToolStripTextBox () { }
+        public ToolStripTextBox () : base (new TextBox ()) { }
 
         /// <summary>Initializes a new instance of the ToolStripTextBox class with the specified name.</summary>
-        public ToolStripTextBox (string name)
-        {
-            Name = name;
-        }
+        public ToolStripTextBox (string name) : base (new TextBox (), name) { }
+
+        /// <summary>Initializes a new instance hosting an existing TextBox.</summary>
+        public ToolStripTextBox (TextBox textBox) : base (textBox) { }
+
+        /// <summary>Gets the hosted TextBox.</summary>
+        public TextBox TextBox => (TextBox)Control;
 
         /// <summary>Gets or sets the text contained in the text box.</summary>
+        /// <remarks>
+        /// Reads and writes the hosted TextBox. This used to be a private string on the item that the
+        /// hosted control never saw, so Text and TextBox.Text were two unrelated values and the
+        /// editing verbs -- Cut, Paste, SelectAll -- operated on the one Text did not report.
+        /// </remarks>
         public new string Text {
-            get => text;
-            set {
-                if (text != value) {
-                    text = value ?? string.Empty;
-                    TextChanged?.Invoke (this, EventArgs.Empty);
-                }
-            }
+            get => TextBox.Text;
+            set => TextBox.Text = value ?? string.Empty;
         }
 
         /// <summary>Raised when the text changes.</summary>
-        public event EventHandler? TextChanged;
+        public new event EventHandler? TextChanged {
+            add => TextBox.TextChanged += value;
+            remove => TextBox.TextChanged -= value;
+        }
 
-        /// <summary>Gets a reference to the underlying TextBox. Stub returns a detached TextBox in Majorsilence.Forms.</summary>
-        public TextBox TextBox { get; } = new TextBox ();
+        /// <summary>Gets or sets whether pressing Enter in the text box creates a new line.</summary>
+        public bool AcceptsReturn {
+            get => TextBox.AcceptsReturn;
+            set => TextBox.AcceptsReturn = value;
+        }
 
-        /// <summary>Gets or sets a value indicating whether pressing Enter in the text box creates a new line. Stub in Majorsilence.Forms.</summary>
-        public bool AcceptsReturn { get; set; }
+        /// <summary>Gets or sets whether pressing Tab moves focus or inserts a tab character.</summary>
+        public bool AcceptsTab {
+            get => TextBox.AcceptsTab;
+            set => TextBox.AcceptsTab = value;
+        }
 
-        /// <summary>Gets or sets a value indicating whether pressing Tab moves focus or inserts a tab character. Stub in Majorsilence.Forms.</summary>
-        public bool AcceptsTab { get; set; }
+        /// <summary>Gets or sets the maximum number of characters that can be entered.</summary>
+        public int MaxLength {
+            get => TextBox.MaxLength;
+            set => TextBox.MaxLength = value;
+        }
 
-        /// <summary>Gets or sets the maximum number of characters that can be entered. Stub in Majorsilence.Forms.</summary>
-        public int MaxLength { get; set; } = 32767;
+        /// <summary>Gets or sets whether the text in the text box is read-only.</summary>
+        public bool ReadOnly {
+            get => TextBox.ReadOnly;
+            set => TextBox.ReadOnly = value;
+        }
 
-        /// <summary>Gets or sets a value indicating whether the text in the text box is read-only. Stub in Majorsilence.Forms.</summary>
-        public bool ReadOnly { get; set; }
+        // KeyDown, GotFocus, LostFocus and the rest of the input surface are inherited from
+        // ToolStripControlHost, which already forwards them to the hosted control.
 
-        /// <summary>Gets whether the text box currently has input focus. Delegates to the underlying TextBox.</summary>
-        public bool Focused => TextBox.Focused;
+        /// <summary>Copies the current selection to the clipboard.</summary>
+        public void Cut () => TextBox.Cut ();
 
-        /// <summary>Raised when the control loses focus and validation completes. Delegates to the underlying TextBox.</summary>
-        public event EventHandler? Validated { add => TextBox.Validated += value; remove => TextBox.Validated -= value; }
+        /// <summary>Copies the current selection to the clipboard.</summary>
+        public void Copy () => TextBox.Copy ();
 
-        /// <summary>Raised when a key is pressed. Delegates to the underlying TextBox.</summary>
-        public event EventHandler<KeyEventArgs>? KeyDown { add => TextBox.KeyDown += value; remove => TextBox.KeyDown -= value; }
+        /// <summary>Pastes the clipboard contents over the current selection.</summary>
+        public void Paste () => TextBox.Paste ();
 
-        /// <summary>Copies the current selection to the clipboard. Delegates to the underlying TextBox.</summary>
-        public void Cut() => TextBox.Cut();
+        /// <summary>Undoes the last edit.</summary>
+        public void Undo () => TextBox.Undo ();
 
-        /// <summary>Copies the current selection to the clipboard. Delegates to the underlying TextBox.</summary>
-        public void Copy() => TextBox.Copy();
-
-        /// <summary>Pastes the clipboard contents. Delegates to the underlying TextBox.</summary>
-        public void Paste() => TextBox.Paste();
-
-        /// <summary>Undoes the last edit. Delegates to the underlying TextBox.</summary>
-        public void Undo() => TextBox.Undo();
-
-        /// <summary>Selects all text. Delegates to the underlying TextBox.</summary>
-        public void SelectAll() => TextBox.SelectAll();
+        /// <summary>Selects all text.</summary>
+        public void SelectAll () => TextBox.SelectAll ();
     }
 
     /// <summary>Hosts an arbitrary Control inside a ToolStrip. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripControlHost : ToolStripItem
+    public partial class ToolStripControlHost : ToolStripItem
     {
         /// <summary>Initializes a new instance hosting the specified control.</summary>
         public ToolStripControlHost (Control control) { Control = control; }
@@ -1200,7 +1357,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a ToolStrip-hosted drop-down control.</summary>
-    public class ToolStripDropDown : ContextMenu
+    public partial class ToolStripDropDown : ContextMenu
     {
         /// <summary>Gets the items in this drop-down.</summary>
         public new MenuItemCollection Items => base.Items;
@@ -1212,7 +1369,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a button on a ToolStrip that displays a drop-down menu when clicked.
     /// </summary>
-    public class ToolStripDropDownButton : ToolStripItem
+    public partial class ToolStripDropDownButton : ToolStripItem
     {
         /// <summary>Initializes a new instance of the ToolStripDropDownButton class.</summary>
         public ToolStripDropDownButton () { }
@@ -1240,7 +1397,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a button with both a clickable portion and a drop-down arrow. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripSplitButton : ToolStripDropDownButton
+    public partial class ToolStripSplitButton : ToolStripDropDownButton
     {
         /// <summary>Initializes a new instance of the ToolStripSplitButton class.</summary>
         public ToolStripSplitButton () { }
@@ -1261,7 +1418,7 @@ namespace Majorsilence.Forms
         public event EventHandler? ButtonClick;
 
         /// <summary>Raised when the button portion of the item is double-clicked. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? ButtonDoubleClick { add { } remove { } }
+        public event EventHandler? ButtonDoubleClick;
 
         /// <inheritdoc/>
         protected internal override void OnClick (MouseEventArgs e)
@@ -1276,7 +1433,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a menu item in a MenuStrip.
     /// </summary>
-    public class ToolStripMenuItem : ToolStripItem
+    public partial class ToolStripMenuItem : ToolStripItem
     {
         /// <summary>Initializes a new instance of the ToolStripMenuItem class.</summary>
         public ToolStripMenuItem () { }
@@ -1372,10 +1529,10 @@ namespace Majorsilence.Forms
         public event EventHandler? CheckedChanged;
 
         /// <summary>Gets or sets how this item behaves when toolstrips are merged. Stub in Majorsilence.Forms.</summary>
-        public MergeAction MergeAction { get; set; } = MergeAction.Append;
+        public new MergeAction MergeAction { get; set; } = MergeAction.Append;
 
         /// <summary>Gets or sets the merge index for this item. Stub in Majorsilence.Forms.</summary>
-        public int MergeIndex { get; set; } = -1;
+        public new int MergeIndex { get; set; } = -1;
     }
 
     /// <summary>Specifies how a ToolStripMenuItem behaves when toolstrips are merged.</summary>
@@ -1408,10 +1565,20 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a combo box embedded in a MenuStrip.
     /// </summary>
-    public class ToolStripComboBox : ToolStripItem, IDisposable
+    public partial class ToolStripComboBox : ToolStripControlHost, IDisposable
     {
-        private readonly CompatComboBox combo_box = new CompatComboBox ();
         private bool _disposed;
+
+        /// <summary>Initializes a new instance of the ToolStripComboBox class.</summary>
+        public ToolStripComboBox () : base (new CompatComboBox ()) { }
+
+        /// <summary>Initializes a new instance of the ToolStripComboBox class with the specified name.</summary>
+        public ToolStripComboBox (string name) : base (new CompatComboBox (), name) { }
+
+        // The hosted control is the combo box; there is no second instance. It used to be a field
+        // initialised inline, which -- once this type hosts its control -- would have been a
+        // different combo from the one ToolStripControlHost lays out and paints.
+        private CompatComboBox combo_box => (CompatComboBox)Control;
 
         /// <inheritdoc/>
         public void Dispose ()
@@ -1422,7 +1589,7 @@ namespace Majorsilence.Forms
             GC.SuppressFinalize (this);
         }
 
-        /// <summary>Gets the underlying ComboBox control.</summary>
+        /// <summary>Gets the hosted ComboBox control.</summary>
         public CompatComboBox ComboBox => combo_box;
 
         /// <summary>Gets or sets the selected index.</summary>
@@ -1446,17 +1613,16 @@ namespace Majorsilence.Forms
             remove => combo_box.SelectedIndexChanged -= value;
         }
 
-        /// <summary>Raised when the control loses focus and validation completes. Delegates to the underlying ComboBox.</summary>
-        public event EventHandler? Validated { add => combo_box.Validated += value; remove => combo_box.Validated -= value; }
+        // Validated is inherited from ToolStripControlHost, which forwards it to the hosted control.
 
         /// <summary>Gets or sets the width of the underlying combo box.</summary>
-        public int Width { get => combo_box.Width; set => combo_box.Width = value; }
+        public new int Width { get => combo_box.Width; set => combo_box.Width = value; }
 
         /// <summary>Gets or sets the width of the drop-down portion of the underlying combo box.</summary>
         public int DropDownWidth { get => combo_box.DropDownWidth; set => combo_box.DropDownWidth = value; }
 
         /// <summary>Raised when the text of the underlying combo box changes. Delegates to the underlying ComboBox.</summary>
-        public event EventHandler? TextChanged { add => combo_box.TextChanged += value; remove => combo_box.TextChanged -= value; }
+        public new event EventHandler? TextChanged { add => combo_box.TextChanged += value; remove => combo_box.TextChanged -= value; }
     }
 
     /// <summary>
@@ -1639,7 +1805,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents the collection of items in a ToolStrip.</summary>
-    public class ToolStripItemCollection : Collection<ToolStripItem>
+    public partial class ToolStripItemCollection : Collection<ToolStripItem>
     {
         /// <summary>Invoked when an item is added (lets the owning ToolStrip raise ItemAdded).</summary>
         internal Action<ToolStripItem>? ItemAddedCallback;
@@ -1691,10 +1857,10 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a text label in a StatusStrip.
     /// </summary>
-    public class ToolStripStatusLabel : ToolStripItem
+    public partial class ToolStripStatusLabel : ToolStripItem
     {
         /// <summary>Gets or sets the label width. Mirrors WinForms (wraps Size).</summary>
-        public int Width {
+        public new int Width {
             get => Size.Width;
             set => Size = new Size (value, Size.Height);
         }
@@ -1721,9 +1887,9 @@ namespace Majorsilence.Forms
         /// <summary>Left border.</summary>
         Left = 1,
         /// <summary>Right border.</summary>
-        Right = 2,
+        Right = 4,
         /// <summary>Top border.</summary>
-        Top = 4,
+        Top = 2,
         /// <summary>Bottom border.</summary>
         Bottom = 8,
         /// <summary>All sides.</summary>
@@ -1733,25 +1899,41 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a progress bar embedded in a StatusStrip.
     /// </summary>
-    public class ToolStripProgressBar : ToolStripItem
+    public partial class ToolStripProgressBar : ToolStripItem
     {
+        // These four used to be stored on the item, disconnected from the ProgressBar the item hosts
+        // -- the same shape of bug ToolStripTextBox had. Setting Value and then calling PerformStep,
+        // which acts on the hosted bar, stepped from zero.
+
         /// <summary>Gets or sets the current value.</summary>
-        public int Value { get; set; }
+        public int Value {
+            get => ProgressBar.Value;
+            set => ProgressBar.Value = value;
+        }
 
         /// <summary>Gets or sets the maximum value.</summary>
-        public int Maximum { get; set; } = 100;
+        public int Maximum {
+            get => ProgressBar.Maximum;
+            set => ProgressBar.Maximum = value;
+        }
 
         /// <summary>Gets or sets the minimum value.</summary>
-        public int Minimum { get; set; }
+        public int Minimum {
+            get => ProgressBar.Minimum;
+            set => ProgressBar.Minimum = value;
+        }
 
         /// <summary>Gets or sets the display style (Blocks, Continuous, or Marquee).</summary>
-        public ProgressBarStyle Style { get; set; } = ProgressBarStyle.Blocks;
+        public ProgressBarStyle Style {
+            get => ProgressBar.Style;
+            set => ProgressBar.Style = value;
+        }
     }
 
     /// <summary>
     /// Represents a main menu bar for a Form (legacy WinForms component). Alias for Menu.
     /// </summary>
-    public class MainMenu : Menu
+    public partial class MainMenu : Menu
     {
         /// <summary>Initializes a new instance of the MainMenu class.</summary>
         public MainMenu () { }
@@ -1772,7 +1954,7 @@ namespace Majorsilence.Forms
     /// RenderMode, LayoutStyle, GripStyle, Stretch, CanOverflow, ImageScalingSize, ...) are all reachable
     /// here. The top-docked bar layout and rendering come from <see cref="Menu"/>.
     /// </summary>
-    public class MenuStrip : Menu
+    public partial class MenuStrip : Menu
     {
         /// <summary>Gets or sets the ToolStripMenuItem for the MDI window list. Stub in Majorsilence.Forms.</summary>
         public ToolStripMenuItem? MdiWindowListItem { get; set; }
@@ -1810,7 +1992,7 @@ namespace Majorsilence.Forms
     /// between ToolStrip and those compat types and re-expose <c>Items</c> as a
     /// <see cref="MenuItemCollection"/>, because that is the collection their renderers consume.
     /// </remarks>
-    public class ToolStrip : ToolBar
+    public partial class ToolStrip : ToolBar
     {
         private readonly ToolStripItemCollection _items;
 
@@ -1894,7 +2076,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a panel that can host ToolStrip controls. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripPanel : Panel
+    public partial class ToolStripPanel : Panel
     {
         /// <summary>Gets or sets whether the panel is locked. Stub in Majorsilence.Forms.</summary>
         public bool Locked { get; set; }
@@ -1904,7 +2086,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents the overflow button on a ToolStrip. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripOverflowButton : ToolStripDropDownButton
+    public partial class ToolStripOverflowButton : ToolStripDropDownButton
     {
         /// <summary>Initializes a new instance of ToolStripOverflowButton.</summary>
         public ToolStripOverflowButton () { }
@@ -1980,7 +2162,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides navigation UI for a BindingSource. Stub in Majorsilence.Forms.</summary>
-    public class BindingNavigator : ToolStrip
+    public partial class BindingNavigator : ToolStrip
     {
         /// <summary>Initializes a new BindingNavigator.</summary>
         public BindingNavigator () { }
@@ -2017,7 +2199,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a control that allows the user to select a string from a collection by scrolling. Stub in Majorsilence.Forms.</summary>
-    public class DomainUpDown : NumericUpDown
+    public partial class DomainUpDown : NumericUpDown
     {
         private int _selectedIndex = -1;
 
@@ -2055,13 +2237,13 @@ namespace Majorsilence.Forms
     public enum ToolStripRenderMode
     {
         /// <summary>Use the ToolStripManager renderer.</summary>
-        ManagerRenderMode,
+        ManagerRenderMode = 3,
         /// <summary>Use a custom renderer.</summary>
-        Custom,
+        Custom = 0,
         /// <summary>Use the system renderer.</summary>
-        System,
+        System = 1,
         /// <summary>Use the professional renderer.</summary>
-        Professional
+        Professional = 2,
     }
 
     /// <summary>Specifies the grip style of a ToolStrip.</summary>
@@ -2077,13 +2259,13 @@ namespace Majorsilence.Forms
     public enum ToolStripTextDirection
     {
         /// <summary>Text is horizontal (default).</summary>
-        Horizontal,
+        Horizontal = 1,
         /// <summary>Text is inherited from parent.</summary>
-        Inherit,
+        Inherit = 0,
         /// <summary>Text is vertical going up (90° rotated).</summary>
-        Vertical90,
+        Vertical90 = 2,
         /// <summary>Text is vertical going down (270° rotated).</summary>
-        Vertical270
+        Vertical270 = 3,
     }
 
 
@@ -2091,24 +2273,324 @@ namespace Majorsilence.Forms
     public enum ToolStripLayoutStyle
     {
         /// <summary>Stack horizontally with overflow.</summary>
-        HorizontalStackWithOverflow,
+        HorizontalStackWithOverflow = 1,
         /// <summary>Stack vertically with overflow.</summary>
-        VerticalStackWithOverflow,
+        VerticalStackWithOverflow = 2,
         /// <summary>Stack horizontally without overflow.</summary>
-        StackWithOverflow,
+        StackWithOverflow = 0,
         /// <summary>Flow layout.</summary>
-        Flow,
+        Flow = 3,
         /// <summary>Table layout.</summary>
-        Table
+        Table = 4,
     }
 
-    /// <summary>Provides a base class for rendering ToolStrip controls. Stub in Majorsilence.Forms.</summary>
+    /// <summary>
+    /// Handles one of <see cref="ToolStripRenderer"/>'s render events.
+    /// </summary>
+    /// <remarks>
+    /// WinForms declares a separate handler delegate per render event; a single generic one carries
+    /// the same information with far less surface, and binds the same way at a call site.
+    /// </remarks>
+    public delegate void ToolStripRenderEventHandler<TEventArgs> (object sender, TEventArgs e) where TEventArgs : EventArgs;
+
+    /// <summary>
+    /// Base class for drawing <see cref="ToolStrip"/> chrome. Subclass and override the
+    /// <c>OnRender*</c> methods, or hook the <c>Render*</c> events, to theme toolbars and menus.
+    /// </summary>
+    /// <remarks>
+    /// Each <c>Draw*</c> method raises its event and then calls the matching <c>OnRender*</c>, so both
+    /// extension routes see every paint. The base <c>OnRender*</c> implementations do nothing on
+    /// purpose: this layer paints ToolStrips through its own theme, and a base that also painted would
+    /// draw underneath a subclass that paints.
+    /// </remarks>
     public abstract class ToolStripRenderer
     {
+        /// <summary>
+        /// Returns a greyed-out copy of an image, for an item that is disabled.
+        /// </summary>
+        public static Majorsilence.Forms.Drawing.Image? CreateDisabledImage (Majorsilence.Forms.Drawing.Image? normalImage)
+        {
+            if (normalImage is null)
+                return null;
+
+            // Standard luminance-preserving desaturation, then lightened, which is what a disabled
+            // toolbar glyph looks like in every WinForms theme.
+            var disabled = new Majorsilence.Forms.Drawing.Bitmap (normalImage.Width, normalImage.Height);
+            var source = new Majorsilence.Forms.Drawing.Bitmap (normalImage);
+            for (var y = 0; y < normalImage.Height; y++)
+                for (var x = 0; x < normalImage.Width; x++) {
+                    var c = source.GetPixel (x, y);
+                    var grey = (int)Math.Round (c.R * 0.299 + c.G * 0.587 + c.B * 0.114);
+                    grey = Math.Clamp ((grey + 255) / 2, 0, 255);
+                    disabled.SetPixel (x, y, Color.FromArgb (c.A, grey, grey, grey));
+                }
+            source.Dispose ();
+            return disabled;
+        }
+
+        /// <summary>Occurs when an arrow glyph is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripArrowRenderEventArgs>? RenderArrow;
+
+        /// <summary>Draws an arrow glyph.</summary>
+        public void DrawArrow (ToolStripArrowRenderEventArgs e)
+        {
+            RenderArrow?.Invoke (this, e);
+            OnRenderArrow (e);
+        }
+
+        /// <summary>Override to draw an arrow glyph.</summary>
+        protected virtual void OnRenderArrow (ToolStripArrowRenderEventArgs e) { }
+
+        /// <summary>Occurs when a ToolStrip's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripRenderEventArgs>? RenderToolStripBackground;
+
+        /// <summary>Draws a ToolStrip's background.</summary>
+        public void DrawToolStripBackground (ToolStripRenderEventArgs e)
+        {
+            RenderToolStripBackground?.Invoke (this, e);
+            OnRenderToolStripBackground (e);
+        }
+
+        /// <summary>Override to draw a ToolStrip's background.</summary>
+        protected virtual void OnRenderToolStripBackground (ToolStripRenderEventArgs e) { }
+
+        /// <summary>Occurs when a ToolStrip's border is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripRenderEventArgs>? RenderToolStripBorder;
+
+        /// <summary>Draws a ToolStrip's border.</summary>
+        public void DrawToolStripBorder (ToolStripRenderEventArgs e)
+        {
+            RenderToolStripBorder?.Invoke (this, e);
+            OnRenderToolStripBorder (e);
+        }
+
+        /// <summary>Override to draw a ToolStrip's border.</summary>
+        protected virtual void OnRenderToolStripBorder (ToolStripRenderEventArgs e) { }
+
+        /// <summary>Occurs when a ToolStrip's move grip is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripGripRenderEventArgs>? RenderGrip;
+
+        /// <summary>Draws a ToolStrip's move grip.</summary>
+        public void DrawGrip (ToolStripGripRenderEventArgs e)
+        {
+            RenderGrip?.Invoke (this, e);
+            OnRenderGrip (e);
+        }
+
+        /// <summary>Override to draw a ToolStrip's move grip.</summary>
+        protected virtual void OnRenderGrip (ToolStripGripRenderEventArgs e) { }
+
+        /// <summary>Occurs when the image margin of a drop-down is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripRenderEventArgs>? RenderImageMargin;
+
+        /// <summary>Draws the image margin of a drop-down.</summary>
+        public void DrawImageMargin (ToolStripRenderEventArgs e)
+        {
+            RenderImageMargin?.Invoke (this, e);
+            OnRenderImageMargin (e);
+        }
+
+        /// <summary>Override to draw the image margin of a drop-down.</summary>
+        protected virtual void OnRenderImageMargin (ToolStripRenderEventArgs e) { }
+
+        /// <summary>Occurs when an item's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderItemBackground;
+
+        /// <summary>Draws an item's background.</summary>
+        public void DrawItemBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderItemBackground?.Invoke (this, e);
+            OnRenderItemBackground (e);
+        }
+
+        /// <summary>Override to draw an item's background.</summary>
+        protected virtual void OnRenderItemBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when an item's check mark is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemImageRenderEventArgs>? RenderItemCheck;
+
+        /// <summary>Draws an item's check mark.</summary>
+        public void DrawItemCheck (ToolStripItemImageRenderEventArgs e)
+        {
+            RenderItemCheck?.Invoke (this, e);
+            OnRenderItemCheck (e);
+        }
+
+        /// <summary>Override to draw an item's check mark.</summary>
+        protected virtual void OnRenderItemCheck (ToolStripItemImageRenderEventArgs e) { }
+
+        /// <summary>Occurs when an item's image is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemImageRenderEventArgs>? RenderItemImage;
+
+        /// <summary>Draws an item's image.</summary>
+        public void DrawItemImage (ToolStripItemImageRenderEventArgs e)
+        {
+            RenderItemImage?.Invoke (this, e);
+            OnRenderItemImage (e);
+        }
+
+        /// <summary>Override to draw an item's image.</summary>
+        protected virtual void OnRenderItemImage (ToolStripItemImageRenderEventArgs e) { }
+
+        /// <summary>Occurs when an item's text is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemTextRenderEventArgs>? RenderItemText;
+
+        /// <summary>Draws an item's text.</summary>
+        public void DrawItemText (ToolStripItemTextRenderEventArgs e)
+        {
+            RenderItemText?.Invoke (this, e);
+            OnRenderItemText (e);
+        }
+
+        /// <summary>Override to draw an item's text.</summary>
+        protected virtual void OnRenderItemText (ToolStripItemTextRenderEventArgs e) { }
+
+        /// <summary>Occurs when a button's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderButtonBackground;
+
+        /// <summary>Draws a button's background.</summary>
+        public void DrawButtonBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderButtonBackground?.Invoke (this, e);
+            OnRenderButtonBackground (e);
+        }
+
+        /// <summary>Override to draw a button's background.</summary>
+        protected virtual void OnRenderButtonBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a drop-down button's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderDropDownButtonBackground;
+
+        /// <summary>Draws a drop-down button's background.</summary>
+        public void DrawDropDownButtonBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderDropDownButtonBackground?.Invoke (this, e);
+            OnRenderDropDownButtonBackground (e);
+        }
+
+        /// <summary>Override to draw a drop-down button's background.</summary>
+        protected virtual void OnRenderDropDownButtonBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when the overflow button's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderOverflowButtonBackground;
+
+        /// <summary>Draws the overflow button's background.</summary>
+        public void DrawOverflowButtonBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderOverflowButtonBackground?.Invoke (this, e);
+            OnRenderOverflowButtonBackground (e);
+        }
+
+        /// <summary>Override to draw the overflow button's background.</summary>
+        protected virtual void OnRenderOverflowButtonBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a split button's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderSplitButtonBackground;
+
+        /// <summary>Draws a split button's background.</summary>
+        public void DrawSplitButton (ToolStripItemRenderEventArgs e)
+        {
+            RenderSplitButtonBackground?.Invoke (this, e);
+            OnRenderSplitButtonBackground (e);
+        }
+
+        /// <summary>Override to draw a split button's background.</summary>
+        protected virtual void OnRenderSplitButtonBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a label's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderLabelBackground;
+
+        /// <summary>Draws a label's background.</summary>
+        public void DrawLabelBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderLabelBackground?.Invoke (this, e);
+            OnRenderLabelBackground (e);
+        }
+
+        /// <summary>Override to draw a label's background.</summary>
+        protected virtual void OnRenderLabelBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a menu item's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderMenuItemBackground;
+
+        /// <summary>Draws a menu item's background.</summary>
+        public void DrawMenuItemBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderMenuItemBackground?.Invoke (this, e);
+            OnRenderMenuItemBackground (e);
+        }
+
+        /// <summary>Override to draw a menu item's background.</summary>
+        protected virtual void OnRenderMenuItemBackground (ToolStripItemRenderEventArgs e) { }
+
+        /// <summary>Occurs when a separator is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripSeparatorRenderEventArgs>? RenderSeparator;
+
+        /// <summary>Draws a separator.</summary>
+        public void DrawSeparator (ToolStripSeparatorRenderEventArgs e)
+        {
+            RenderSeparator?.Invoke (this, e);
+            OnRenderSeparator (e);
+        }
+
+        /// <summary>Override to draw a separator.</summary>
+        protected virtual void OnRenderSeparator (ToolStripSeparatorRenderEventArgs e) { }
+
+        /// <summary>Occurs when a StatusStrip's sizing grip is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripRenderEventArgs>? RenderStatusStripSizingGrip;
+
+        /// <summary>Draws a StatusStrip's sizing grip.</summary>
+        public void DrawStatusStripSizingGrip (ToolStripRenderEventArgs e)
+        {
+            RenderStatusStripSizingGrip?.Invoke (this, e);
+            OnRenderStatusStripSizingGrip (e);
+        }
+
+        /// <summary>Override to draw a StatusStrip's sizing grip.</summary>
+        protected virtual void OnRenderStatusStripSizingGrip (ToolStripRenderEventArgs e) { }
+
+        /// <summary>Occurs when a content panel's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripContentPanelRenderEventArgs>? RenderToolStripContentPanelBackground;
+
+        /// <summary>Draws a content panel's background.</summary>
+        public void DrawToolStripContentPanelBackground (ToolStripContentPanelRenderEventArgs e)
+        {
+            RenderToolStripContentPanelBackground?.Invoke (this, e);
+            OnRenderToolStripContentPanelBackground (e);
+        }
+
+        /// <summary>Override to draw a content panel's background.</summary>
+        protected virtual void OnRenderToolStripContentPanelBackground (ToolStripContentPanelRenderEventArgs e) { }
+
+        /// <summary>Occurs when a ToolStrip panel's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripPanelRenderEventArgs>? RenderToolStripPanelBackground;
+
+        /// <summary>Draws a ToolStrip panel's background.</summary>
+        public void DrawToolStripPanelBackground (ToolStripPanelRenderEventArgs e)
+        {
+            RenderToolStripPanelBackground?.Invoke (this, e);
+            OnRenderToolStripPanelBackground (e);
+        }
+
+        /// <summary>Override to draw a ToolStrip panel's background.</summary>
+        protected virtual void OnRenderToolStripPanelBackground (ToolStripPanelRenderEventArgs e) { }
+
+        /// <summary>Occurs when a status label's background is drawn.</summary>
+        public event ToolStripRenderEventHandler<ToolStripItemRenderEventArgs>? RenderToolStripStatusLabelBackground;
+
+        /// <summary>Draws a status label's background.</summary>
+        public void DrawToolStripStatusLabelBackground (ToolStripItemRenderEventArgs e)
+        {
+            RenderToolStripStatusLabelBackground?.Invoke (this, e);
+            OnRenderToolStripStatusLabelBackground (e);
+        }
+
+        /// <summary>Override to draw a status label's background.</summary>
+        protected virtual void OnRenderToolStripStatusLabelBackground (ToolStripItemRenderEventArgs e) { }
     }
 
     /// <summary>Provides a professional-style renderer for ToolStrip. Stub in Majorsilence.Forms.</summary>
-    public class ToolStripProfessionalRenderer : ToolStripRenderer
+    public partial class ToolStripProfessionalRenderer : ToolStripRenderer
     {
         /// <summary>Initializes a new instance.</summary>
         public ToolStripProfessionalRenderer () { }
@@ -2125,7 +2607,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides global settings for all ToolStrip controls. Stub in Majorsilence.Forms.</summary>
-    public static class ToolStripManager
+    public static partial class ToolStripManager
     {
         /// <summary>Gets or sets the global render mode for ToolStrip controls. Stub in Majorsilence.Forms.</summary>
         public static ToolStripRenderMode RenderMode { get; set; } = ToolStripRenderMode.Professional;
@@ -2142,6 +2624,9 @@ namespace Majorsilence.Forms
         /// <summary>Reverts a previous merge on the target toolstrip. Stub in Majorsilence.Forms.</summary>
         public static bool RevertMerge (ToolStrip targetToolStrip) => false;
 
+        /// <summary>Reverts a merge on the strip with the given name. Stub in Majorsilence.Forms.</summary>
+        public static bool RevertMerge (string targetName) => false;
+
         /// <summary>Reverts a previous merge on the named target. Stub in Majorsilence.Forms.</summary>
         public static bool RevertMerge (ToolStrip targetToolStrip, ToolStrip sourceToolStrip) => false;
     }
@@ -2153,7 +2638,7 @@ namespace Majorsilence.Forms
     /// reachable here. Its items are still painted by its own <see cref="Renderers.StatusStripRenderer"/>,
     /// which RenderManager keys off the concrete StatusStrip type.
     /// </summary>
-    public class StatusStrip : ToolStrip
+    public partial class StatusStrip : ToolStrip
     {
         /// <summary>Initializes a new instance of the StatusStrip class.</summary>
         public StatusStrip ()
@@ -2235,7 +2720,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the ListView.BeforeLabelEdit and AfterLabelEdit events.</summary>
-    public class LabelEditEventArgs : System.ComponentModel.CancelEventArgs
+    public partial class LabelEditEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public LabelEditEventArgs (int item) { Item = item; }
@@ -2284,11 +2769,11 @@ namespace Majorsilence.Forms
         /// <summary>A sunken inner border and a raised outer border.</summary>
         Adjust = 8192,
         /// <summary>A flat border.</summary>
-        Flat = 0x4010,
+        Flat = 16394,
         /// <summary>A raised inner border and a sunken outer border.</summary>
-        Info = 0x0400,
+        Info = 1024,
         /// <summary>A raised inner border only.</summary>
-        Raised = 2,
+        Raised = 5,
         /// <summary>A raised inner border and a raised outer border (default).</summary>
         RaisedInner = 4,
         /// <summary>A raised outer border only.</summary>
@@ -2300,9 +2785,9 @@ namespace Majorsilence.Forms
         /// <summary>A sunken outer border only.</summary>
         SunkenOuter = 2,
         /// <summary>The border has no three-dimensional effect.</summary>
-        Bump = 0x0409,
+        Bump = 9,
         /// <summary>The border looks etched into the form.</summary>
-        Etched = 6
+        Etched = 6,
     }
 
     /// <summary>Specifies the border style for a button drawn by ControlPaint.</summary>
@@ -2344,15 +2829,15 @@ namespace Majorsilence.Forms
     public enum MenuGlyph
     {
         /// <summary>An arrow.</summary>
-        Arrow = 16,
+        Arrow = 0,
         /// <summary>A bullet.</summary>
-        Bullet = 18,
+        Bullet = 2,
         /// <summary>A check mark.</summary>
-        Checkmark = 17,
+        Checkmark = 1,
         /// <summary>A minimum value.</summary>
-        Min = 16,
+        Min = 0,
         /// <summary>A maximum value.</summary>
-        Max = 18
+        Max = 2,
     }
 
     /// <summary>Specifies the direction of a scroll button.</summary>
@@ -2396,9 +2881,9 @@ namespace Majorsilence.Forms
     public enum AccessibleRole
     {
         /// <summary>No accessible role.</summary>
-        None = -1,
+        None = 0,
         /// <summary>Default accessible role.</summary>
-        Default = 0,
+        Default = -1,
         /// <summary>A title bar.</summary>
         TitleBar = 1,
         /// <summary>A menu bar.</summary>
@@ -2520,7 +3005,13 @@ namespace Majorsilence.Forms
         /// <summary>A page tab list.</summary>
         PageTabList = 60,
         /// <summary>A clock.</summary>
-        Clock = 61
+        Clock = 61,
+        /// <summary>A split button.</summary>
+        SplitButton = 62,
+        /// <summary>An IP address entry field.</summary>
+        IpAddress = 63,
+        /// <summary>An outline button.</summary>
+        OutlineButton = 64,
     }
 
     /// <summary>WinForms compatibility: provides access to a Win32 HWND. Stub in Majorsilence.Forms.</summary>
@@ -2685,11 +3176,11 @@ namespace Majorsilence.Forms
     public enum TabSizeMode
     {
         /// <summary>Tabs are sized to fit their label.</summary>
-        Normal,
+        Normal = 0,
         /// <summary>Tabs are fixed-size.</summary>
-        Fixed,
+        Fixed = 2,
         /// <summary>Tabs are stretched to fill the available width.</summary>
-        FillToRight
+        FillToRight = 1,
     }
 
     /// <summary>Provides data for an owner-draw event.</summary>
@@ -2710,6 +3201,29 @@ namespace Majorsilence.Forms
             BackColor = (state & DrawItemState.Selected) != 0 ? Majorsilence.Forms.SystemColors.Highlight : Majorsilence.Forms.SystemColors.Window;
         }
 #pragma warning restore CA1416
+
+        /// <summary>Initializes a new instance from an existing Graphics.</summary>
+        public DrawItemEventArgs (Graphics graphics, Majorsilence.Forms.Drawing.Font? font,
+            System.Drawing.Rectangle rect, int index, DrawItemState state)
+            : this (graphics, font, rect, index, state,
+                    Majorsilence.Forms.SystemColors.WindowText,
+                    (state & DrawItemState.Selected) != 0
+                        ? Majorsilence.Forms.SystemColors.Highlight
+                        : Majorsilence.Forms.SystemColors.Window) { }
+
+        /// <summary>Initializes a new instance with explicit colours.</summary>
+        public DrawItemEventArgs (Graphics graphics, Majorsilence.Forms.Drawing.Font? font,
+            System.Drawing.Rectangle rect, int index, DrawItemState state,
+            System.Drawing.Color foreColor, System.Drawing.Color backColor)
+        {
+            _graphics = graphics;
+            Bounds = rect;
+            Index = index;
+            State = state;
+            Font = font ?? Majorsilence.Forms.SystemFonts.DefaultFont ?? new Majorsilence.Forms.Drawing.Font ("Arial", 9);
+            ForeColor = foreColor;
+            BackColor = backColor;
+        }
 
         /// <summary>Gets the graphics object for drawing.</summary>
         public Graphics Graphics => _graphics;
@@ -2767,7 +3281,19 @@ namespace Majorsilence.Forms
         /// <summary>The item is checked.</summary>
         Checked = 8,
         /// <summary>The item is the default item.</summary>
-        Default = 32
+        Default = 32,
+        /// <summary>The item is greyed out.</summary>
+        Grayed = 2,
+        /// <summary>The item is drawn with the hot-tracking highlight.</summary>
+        HotLight = 64,
+        /// <summary>The item is in an inactive window.</summary>
+        Inactive = 128,
+        /// <summary>The item's mnemonic underline is not drawn.</summary>
+        NoAccelerator = 256,
+        /// <summary>The item's focus rectangle is not drawn.</summary>
+        NoFocusRect = 512,
+        /// <summary>The item is the edit portion of an owner-drawn combo box.</summary>
+        ComboBoxEdit = 4096
     }
 
     /// <summary>Provides data for the MeasureItem event.</summary>
@@ -2828,7 +3354,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for drag-and-drop events.</summary>
-    public class DragEventArgs : EventArgs
+    public partial class DragEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public DragEventArgs (IDataObject? data, int keyState, int x, int y, DragDropEffects allowedEffect, DragDropEffects effect)
@@ -2861,7 +3387,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the GiveFeedback drag-and-drop event.</summary>
-    public class GiveFeedbackEventArgs : EventArgs
+    public partial class GiveFeedbackEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public GiveFeedbackEventArgs (DragDropEffects effect, bool useDefaultCursors)
@@ -2956,9 +3482,9 @@ namespace Majorsilence.Forms
         /// <summary>Closed because an item was clicked.</summary>
         ItemClicked = 2,
         /// <summary>Closed programmatically by calling Close().</summary>
-        CloseCalled = 3,
+        CloseCalled = 4,
         /// <summary>Closed because the keyboard was used to select an item.</summary>
-        Keyboard = 4
+        Keyboard = 3,
     }
 
     /// <summary>Provides data for the ToolStripDropDown.Closed event.</summary>
@@ -2992,7 +3518,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the RichTextBox.LinkClicked event.</summary>
-    public class LinkClickedEventArgs : EventArgs
+    public partial class LinkClickedEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance of LinkClickedEventArgs.</summary>
         public LinkClickedEventArgs (string linkText) { LinkText = linkText; }
@@ -3022,7 +3548,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for binding completion events.</summary>
-    public class BindingCompleteEventArgs : System.ComponentModel.CancelEventArgs
+    public partial class BindingCompleteEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Initializes a new instance of BindingCompleteEventArgs.</summary>
         public BindingCompleteEventArgs (Binding? binding, BindingCompleteContext context)
@@ -3163,7 +3689,7 @@ namespace Majorsilence.Forms
     /// Targets are keyed as objects so both <see cref="Control"/>s and <see cref="WindowBase"/>-derived
     /// forms are accepted — in real WinForms a Form IS a Control, and designer code routinely calls
     /// SetHelpKeyword(Me, …) on the form itself.</summary>
-    public class HelpProvider : System.ComponentModel.Component
+    public partial class HelpProvider : System.ComponentModel.Component
     {
         private readonly System.Collections.Generic.Dictionary<object, string> _helpStrings = new ();
         private readonly System.Collections.Generic.Dictionary<object, string> _helpKeywords = new ();
@@ -3227,26 +3753,35 @@ namespace Majorsilence.Forms
     public enum HelpNavigator
     {
         /// <summary>The Help file opens to the topic corresponding to the specified keyword.</summary>
-        AssociateIndex = -2147483647,
+        AssociateIndex = -2147483643,
         /// <summary>The Help file opens to the Find tab in the navigation pane.</summary>
         Find = -2147483644,
         /// <summary>The Help file opens to the index tab.</summary>
         Index = -2147483645,
         /// <summary>The Help file opens to the keywords tab.</summary>
-        KeywordIndex = -2147483643,
+        KeywordIndex = -2147483642,
         /// <summary>The Help file opens to a specified topic.</summary>
-        Topic = -2147483646,
+        Topic = -2147483647,
         /// <summary>The Help file opens to the table of contents.</summary>
-        TableOfContents = -2147483642,
+        TableOfContents = -2147483646,
         /// <summary>The Help file opens to a specified topic.</summary>
         TopicId = -2147483641,
     }
 
     /// <summary>WinForms compatibility: provides methods for sending keystrokes to an application. Stub in Majorsilence.Forms.</summary>
-    public static class Help
+    public static partial class Help
     {
         /// <summary>Displays the contents of a Help file. Stub in Majorsilence.Forms.</summary>
         public static void ShowHelp (Control? parent, string? url) { }
+
+        /// <summary>Displays a Help topic identified by keyword. Stub in Majorsilence.Forms.</summary>
+        public static void ShowHelp (Control? parent, string? url, string? keyword) { }
+
+        /// <summary>Displays a Help topic identified by a navigator command. Stub in Majorsilence.Forms.</summary>
+        public static void ShowHelp (Control? parent, string? url, HelpNavigator command) { }
+
+        /// <inheritdoc cref="ShowHelp(Control,string,HelpNavigator)"/>
+        public static void ShowHelp (Control? parent, string? url, HelpNavigator command, object? parameter) { }
 
         /// <summary>Displays a Help pop-up window. Stub in Majorsilence.Forms.</summary>
         public static void ShowPopup (Control parent, string caption, System.Drawing.Point location) { }
@@ -3256,7 +3791,7 @@ namespace Majorsilence.Forms
     /// Specifies the contextual information about an application thread, such as the main form,
     /// used when calling <see cref="Application.Run(ApplicationContext)"/>.
     /// </summary>
-    public class ApplicationContext : IDisposable
+    public partial class ApplicationContext : IDisposable
     {
         private Form? _mainForm;
         private bool _disposed;

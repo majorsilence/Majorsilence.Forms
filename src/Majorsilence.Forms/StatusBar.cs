@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a StatusBar control.
     /// </summary>
-    public class StatusBar : Control
+    public partial class StatusBar : Control
     {
         private StatusBarPanelCollection? _panels;
 
@@ -51,7 +51,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a panel in a StatusBar control.</summary>
-    public class StatusBarPanel : System.ComponentModel.Component
+    public partial class StatusBarPanel : System.ComponentModel.Component
     {
         /// <summary>Gets or sets the text of the panel.</summary>
         public string Text { get; set; } = string.Empty;

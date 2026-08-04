@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a column in a DataGridView control.
     /// </summary>
-    public class DataGridViewColumn : IDisposable
+    public partial class DataGridViewColumn : IDisposable
     {
         private string header_text = string.Empty;
         private int width = 100;
@@ -176,7 +176,10 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the auto-size mode. Stub in Majorsilence.Forms.</summary>
-        public DataGridViewAutoSizeColumnMode AutoSizeMode { get; set; } = DataGridViewAutoSizeColumnMode.None;
+        /// <remarks>NotSet is the default upstream, and it has to be: NotSet is what makes the column
+        /// fall back to the grid's AutoSizeColumnsMode. Defaulting to None meant a column never
+        /// inherited, so setting AutoSizeColumnsMode on the grid did nothing at all.</remarks>
+        public DataGridViewAutoSizeColumnMode AutoSizeMode { get; set; } = DataGridViewAutoSizeColumnMode.NotSet;
 
         /// <summary>Gets or sets the relative fill weight for fill-mode auto-sizing. Stub.</summary>
         public float FillWeight { get; set; } = 100f;

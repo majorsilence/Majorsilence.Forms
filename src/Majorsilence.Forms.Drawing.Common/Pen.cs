@@ -36,12 +36,24 @@ namespace Majorsilence.Forms.Drawing
             Width = width;
         }
 
-        /// <summary>Initializes a new Pen from a Brush (uses the brush's first color). Stub in Majorsilence.Forms.</summary>
+        /// <summary>
+        /// Initializes a new Pen that strokes with the specified brush. A <see cref="SolidBrush"/>
+        /// contributes its color directly; other brush types stroke with their own fill (gradient,
+        /// hatch, texture) via <see cref="Brush"/>.
+        /// </summary>
         public Pen (Brush brush, float width = 1f)
         {
+            Brush = brush;
             Color = brush is SolidBrush sb ? sb.Color : Color.Black;
             Width = width;
         }
+
+        /// <summary>
+        /// Gets or sets the brush this pen strokes with. When set to anything other than a
+        /// <see cref="SolidBrush"/>, the stroke is painted with that brush's shader, so a gradient or
+        /// textured outline renders for real rather than collapsing to a flat color.
+        /// </summary>
+        public Brush? Brush { get; set; }
 
         /// <summary>Gets or sets the pen color.</summary>
         public Color Color { get; set; }
@@ -102,6 +114,77 @@ namespace Majorsilence.Forms.Drawing
 
         private float[]? dashPattern;
 
+        /// <summary>Gets or sets the cap used at the ends of the dashes in a dashed line.</summary>
+        /// <remarks>
+        /// Stored and round-tripped. Skia applies one stroke cap to the whole path, including every
+        /// dash segment, so a dash cap that differs from <see cref="StartCap"/>/<see cref="EndCap"/>
+        /// cannot be expressed separately and the pen's stroke cap wins.
+        /// </remarks>
+        public Drawing2D.DashCap DashCap { get; set; } = Drawing2D.DashCap.Flat;
+
+        /// <summary>Gets the kind of fill this pen strokes with, derived from <see cref="Brush"/>.</summary>
+        public Drawing2D.PenType PenType => Brush switch {
+            HatchBrush => Drawing2D.PenType.HatchFill,
+            TextureBrush => Drawing2D.PenType.TextureFill,
+            PathGradientBrush => Drawing2D.PenType.PathGradient,
+            LinearGradientBrush => Drawing2D.PenType.LinearGradient,
+            _ => Drawing2D.PenType.SolidColor,
+        };
+
+        /// <summary>
+        /// Gets or sets the compound array, which splits the stroke into parallel lines and gaps
+        /// expressed as fractions of the pen width.
+        /// </summary>
+        /// <remarks>
+        /// Stored and round-tripped, but not applied: Skia strokes a single ribbon centered on the path
+        /// and has no compound-stroke concept, so honoring this would mean generating the parallel
+        /// outlines as geometry. Same category as <see cref="Alignment"/>.
+        /// </remarks>
+        public float[]? CompoundArray { get; set; }
+
+        private readonly BrushTransform transform = new ();
+
+        /// <summary>
+        /// Gets or sets a copy of this pen's geometric transform. Assigning null resets it to the identity.
+        /// </summary>
+        /// <remarks>
+        /// Stored and round-tripped. GDI+ applies this to the pen's own geometry (so a scaled pen
+        /// strokes wider); <c>SKPaint</c> has no per-pen matrix, and applying it to the canvas would
+        /// transform the shape being stroked rather than the stroke. When the pen strokes with a
+        /// <see cref="Brush"/>, the transform *is* applied to that brush's shader.
+        /// </remarks>
+        public Drawing2D.Matrix Transform {
+            get => transform.Get ();
+            set => transform.Set (value);
+        }
+
+        /// <summary>Resets the pen transform to the identity.</summary>
+        public void ResetTransform () => transform.Reset ();
+
+        /// <summary>Multiplies the pen transform by <paramref name="matrix"/>.</summary>
+        public void MultiplyTransform (Drawing2D.Matrix matrix, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
+            => transform.Multiply (matrix, order);
+
+        /// <summary>Translates the pen transform by the specified offsets.</summary>
+        public void TranslateTransform (float dx, float dy, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
+            => transform.Translate (dx, dy, order);
+
+        /// <summary>Scales the pen transform by the specified factors.</summary>
+        public void ScaleTransform (float sx, float sy, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
+            => transform.Scale (sx, sy, order);
+
+        /// <summary>Rotates the pen transform by the specified angle, in degrees.</summary>
+        public void RotateTransform (float angle, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
+            => transform.Rotate (angle, order);
+
+        /// <summary>Sets the start cap, end cap and dash cap in one call, matching System.Drawing.Pen.</summary>
+        public void SetLineCap (Drawing2D.LineCap startCap, Drawing2D.LineCap endCap, Drawing2D.DashCap dashCap)
+        {
+            StartCap = startCap;
+            EndCap = endCap;
+            DashCap = dashCap;
+        }
+
         /// <summary>Creates an independent copy of this pen.</summary>
         public Pen Clone () => new Pen (Color, Width) {
             DashStyle = DashStyle,
@@ -114,6 +197,9 @@ namespace Majorsilence.Forms.Drawing
             CustomStartCap = CustomStartCap,
             CustomEndCap = CustomEndCap,
             dashPattern = dashPattern?.ToArray (),
+            Brush = Brush,
+            DashCap = DashCap,
+            CompoundArray = CompoundArray?.ToArray (),
         };
 
         /// <summary>
@@ -164,6 +250,14 @@ namespace Majorsilence.Forms.Drawing
 
             if (effect is not null)
                 paint.PathEffect = effect;
+
+            // A non-solid brush strokes with its own shader, so gradient/hatch/texture outlines render
+            // for real. SolidBrush contributes nothing here: its color is already on the paint.
+            if (Brush is not null and not SolidBrush) {
+                using var brushPaint = Brush.CreatePaint ();
+                if (brushPaint.Shader is not null)
+                    paint.Shader = brushPaint.Shader;
+            }
 
             return paint;
         }

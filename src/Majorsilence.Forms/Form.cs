@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a top-level window to display to the user.
     /// </summary>
-    public class Form : WindowBase, IWin32Window
+    public partial class Form : WindowBase, IWin32Window
     {
         // If the border is only 1 pixel it's too hard to resize, so we may steal some pixels from the client area
         private const int MINIMUM_RESIZE_PIXELS = 4;

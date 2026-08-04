@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// WinForms compatibility: a multi-line text box that accepts RTF and plain text.
     /// Majorsilence.Forms does not render RTF; the RTF markup is stripped and plain text is shown.
     /// </summary>
-    public class RichTextBox : TextBox
+    public partial class RichTextBox : TextBox
     {
         private string _rtf = string.Empty;
 
@@ -156,6 +156,30 @@ namespace Majorsilence.Forms
         /// <summary>Searches for the specified text in the RichTextBox. Returns the start index or -1.</summary>
         public int Find (string str) => Text.IndexOf (str, StringComparison.Ordinal);
 
+        /// <summary>Searches for the given text, honouring the search options.</summary>
+        public int Find (string str, RichTextBoxFinds options) => Find (str, 0, options);
+
+        /// <summary>Searches for the first occurrence of any of the given characters.</summary>
+        public int Find (char[] characterSet) => Find (characterSet, 0, -1);
+
+        /// <inheritdoc cref="Find(char[])"/>
+        public int Find (char[] characterSet, int start) => Find (characterSet, start, -1);
+
+        /// <inheritdoc cref="Find(char[])"/>
+        public int Find (char[] characterSet, int start, int end)
+        {
+            ArgumentNullException.ThrowIfNull (characterSet);
+
+            var text = Text;
+            var last = end < 0 ? text.Length : Math.Min (end, text.Length);
+
+            for (var i = Math.Max (0, start); i < last; i++)
+                if (Array.IndexOf (characterSet, text[i]) >= 0)
+                    return i;
+
+            return -1;
+        }
+
         /// <summary>Searches for the specified text starting at the given offset. Returns start index or -1.</summary>
         public int Find (string str, int start, RichTextBoxFinds options = RichTextBoxFinds.None)
             => Text.IndexOf (str, start, StringComparison.Ordinal);
@@ -168,44 +192,20 @@ namespace Majorsilence.Forms
             return idx < 0 ? -1 : start + idx;
         }
 
-        /// <summary>Returns the line number of the line that contains the specified character position.</summary>
-        public int GetLineFromCharIndex (int index)
-        {
-            var text = Text;
-            if (index <= 0 || string.IsNullOrEmpty (text)) return 0;
-            index = Math.Min (index, text.Length);
-            var line = 0;
-            for (var i = 0; i < index; i++)
-                if (text[i] == '\n') line++;
-            return line;
-        }
+        // The line/character index family used to be duplicated here. It has moved to TextBoxBase,
+        // which is where WinForms declares it and where every text control can share one
+        // implementation. These copies were not carrying behaviour worth keeping -- they were
+        // strictly weaker: GetFirstCharIndexFromLine returned Text.Length rather than -1 for a line
+        // that does not exist, and none of them treated a bare CR as a line break. The two
+        // hit-testing ones were stubs that hid TextBox's real, document-backed implementation, so
+        // deleting them is what makes a RichTextBox answer GetCharIndexFromPosition correctly.
 
-        /// <summary>Returns the character index of the first character on a given line.</summary>
-        public int GetFirstCharIndexFromLine (int lineNumber)
-        {
-            var text = Text;
-            if (string.IsNullOrEmpty (text) || lineNumber <= 0) return 0;
-            var line = 0;
-            for (var i = 0; i < text.Length; i++) {
-                if (text[i] == '\n') {
-                    line++;
-                    if (line == lineNumber) return i + 1;
-                }
-            }
-            return text.Length;
-        }
-
-        /// <summary>Returns the character index of the first character on the current line.</summary>
-        public int GetFirstCharIndexOfCurrentLine () => GetFirstCharIndexFromLine (GetLineFromCharIndex (SelectionStart));
-
-        /// <summary>Returns the character index of the character at the specified location. Stub in Majorsilence.Forms.</summary>
-        public int GetCharIndexFromPosition (System.Drawing.Point pt) => SelectionStart;
-
-        /// <summary>Returns the location of the character at the specified index. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Point GetPositionFromCharIndex (int index) => System.Drawing.Point.Empty;
 
         /// <summary>Paste from the clipboard into the specified format. Stub in Majorsilence.Forms (pastes plain text).</summary>
         public void Paste (DataFormat clipFormat) => base.Paste ();
+
+        /// <summary>Pastes the clipboard's contents in the given format.</summary>
+        public void Paste (DataFormats.Format clipFormat) => base.Paste ();
 
         /// <summary>Raised when the control's contents are resized. Stub in Majorsilence.Forms.</summary>
         public event EventHandler<ContentsResizedEventArgs>? ContentsResized { add { } remove { } }
@@ -273,19 +273,19 @@ namespace Majorsilence.Forms
     public enum RichTextBoxScrollBars
     {
         /// <summary>No scroll bars.</summary>
-        None,
+        None = 0,
         /// <summary>Only horizontal scroll bars.</summary>
-        Horizontal,
+        Horizontal = 1,
         /// <summary>Only vertical scroll bars.</summary>
-        Vertical,
+        Vertical = 2,
         /// <summary>Both horizontal and vertical scroll bars.</summary>
-        Both,
+        Both = 3,
         /// <summary>Forced horizontal scroll bar.</summary>
-        ForcedHorizontal,
+        ForcedHorizontal = 17,
         /// <summary>Forced vertical scroll bar.</summary>
-        ForcedVertical,
+        ForcedVertical = 18,
         /// <summary>Both forced scroll bars.</summary>
-        ForcedBoth
+        ForcedBoth = 19,
     }
 
     /// <summary>Specifies the data format of a file opened or saved with a RichTextBox.</summary>
@@ -333,8 +333,18 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>WinForms compatibility: provides static members for clipboard data formats. Stub in Majorsilence.Forms.</summary>
-    public static class DataFormats
+    public static partial class DataFormats
     {
+        /// <summary>Represents a clipboard data format.</summary>
+        /// <remarks>WinForms nests this type inside DataFormats and names it <c>Format</c>; this
+        /// layer declared it at namespace scope as <c>DataFormat</c>. Both names now exist and mean
+        /// the same shape, so <c>DataFormats.Format</c> in migrated code resolves.</remarks>
+        public sealed class Format : DataFormat
+        {
+            /// <summary>Initializes a new instance of the <see cref="Format"/> class.</summary>
+            public Format (string name, int id) : base (name, id) { }
+        }
+
         /// <summary>Text format.</summary>
         public static DataFormat Text { get; } = new DataFormat ("Text", 1);
 
@@ -361,5 +371,18 @@ namespace Majorsilence.Forms
 
         /// <summary>Returns the format with the specified name.</summary>
         public static DataFormat GetFormat (string format) => new DataFormat (format, 0);
+
+        /// <summary>Returns the format with the given numeric id.</summary>
+        /// <remarks>Matches one of the standard formats when the id is one of theirs, so a round trip
+        /// through the id gives back the same object rather than a new nameless one.</remarks>
+        public static DataFormat GetFormat (int id)
+        {
+            DataFormat[] standard = [
+                Text, UnicodeText, Rtf, Bitmap, FileDrop, Html, OemText, CommaSeparatedValue,
+                Dib, Dif, EnhancedMetafile, Locale, MetafilePict, Palette, PenData, Riff,
+                Serializable, StringFormat, SymbolicLink, Tiff, WaveAudio,
+            ];
+            return Array.Find (standard, f => f.Id == id) ?? new DataFormat ($"Format{id}", id);
+        }
     }
 }

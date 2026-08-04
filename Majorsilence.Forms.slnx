@@ -37,6 +37,7 @@
     <Project Path="tests/PointOfSale.Data.Tests/PointOfSale.Data.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/Majorsilence.Forms.ApiDiff/Majorsilence.Forms.ApiDiff.csproj" />
     <Project Path="tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj" />
     <Project Path="tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj" />
   </Folder>
