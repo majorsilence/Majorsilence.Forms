@@ -191,9 +191,11 @@ namespace Majorsilence.Forms
         public void CopyTo (DataGridViewCell[] array, int index) => cells.CopyTo (array, index);
 
         /// <summary>Not supported: this collection is a snapshot.</summary>
+        [EditorBrowsable (EditorBrowsableState.Never)]
         public void Clear () => throw new NotSupportedException ();
 
         /// <summary>Not supported: this collection is a snapshot.</summary>
+        [EditorBrowsable (EditorBrowsableState.Never)]
         public void Insert (int index, DataGridViewCell dataGridViewCell) => throw new NotSupportedException ();
     }
 
@@ -218,9 +220,11 @@ namespace Majorsilence.Forms
         public void CopyTo (DataGridViewRow[] array, int index) => rows.CopyTo (array, index);
 
         /// <summary>Not supported: this collection is a snapshot.</summary>
+        [EditorBrowsable (EditorBrowsableState.Never)]
         public void Clear () => throw new NotSupportedException ();
 
         /// <summary>Not supported: this collection is a snapshot.</summary>
+        [EditorBrowsable (EditorBrowsableState.Never)]
         public void Insert (int index, DataGridViewRow dataGridViewRow) => throw new NotSupportedException ();
     }
 
@@ -245,9 +249,11 @@ namespace Majorsilence.Forms
         public void CopyTo (DataGridViewColumn[] array, int index) => columns.CopyTo (array, index);
 
         /// <summary>Not supported: this collection is a snapshot.</summary>
+        [EditorBrowsable (EditorBrowsableState.Never)]
         public void Clear () => throw new NotSupportedException ();
 
         /// <summary>Not supported: this collection is a snapshot.</summary>
+        [EditorBrowsable (EditorBrowsableState.Never)]
         public void Insert (int index, DataGridViewColumn dataGridViewColumn) => throw new NotSupportedException ();
     }
 

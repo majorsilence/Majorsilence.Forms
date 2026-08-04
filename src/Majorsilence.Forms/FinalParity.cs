@@ -327,22 +327,93 @@ namespace Majorsilence.Forms
 
             Font = dataGridViewCellStyle.Font ?? Font;
             ForeColor = dataGridViewCellStyle.ForeColor;
-            BackColor = dataGridViewCellStyle.BackColor;
+
+            // A text box cannot draw a translucent background, so WinForms forces the colour opaque
+            // rather than letting it composite to something the caller did not choose.
+            BackColor = dataGridViewCellStyle.BackColor.A < 255
+                ? Color.FromArgb (255, dataGridViewCellStyle.BackColor)
+                : dataGridViewCellStyle.BackColor;
+
+            if (dataGridViewCellStyle.WrapMode == DataGridViewTriState.True)
+                WordWrap = true;
+
+            TextAlign = TranslateAlignment (dataGridViewCellStyle.Alignment);
         }
 
         /// <summary>Returns whether this control wants the given key rather than the grid.</summary>
+        /// <remarks>
+        /// Follows WinForms exactly, and it is caret-aware rather than a flat list of keys: Left is
+        /// wanted only while there is still text to move left through, so the key falls through to the
+        /// grid at the edge of the value and moves to the next cell. A flat "the text box always wants
+        /// Left" makes the caret stick at the start of a cell instead of leaving it.
+        /// </remarks>
         public bool EditingControlWantsInputKey (Keys keyData, bool dataGridViewWantsInputKey)
         {
-            // A text box wants the keys that move the caret within the text; the grid wants the ones
-            // that move between cells. Getting this backwards makes arrow keys jump cells mid-word.
-            var key = keyData & Keys.KeyCode;
+            var end = SelectionStart + SelectionLength;
+            var text = Text;
+            var rightToLeft = RightToLeft == RightToLeft.Yes;
 
-            return key switch {
-                Keys.Right or Keys.Left or Keys.Home or Keys.End => true,
-                Keys.Up or Keys.Down when Multiline => true,
-                _ => !dataGridViewWantsInputKey,
-            };
+            switch (keyData & Keys.KeyCode) {
+                case Keys.Right:
+                    if (rightToLeft ? !(SelectionLength == 0 && SelectionStart == 0)
+                                    : !(SelectionLength == 0 && SelectionStart == text.Length))
+                        return true;
+                    break;
+
+                case Keys.Left:
+                    if (rightToLeft ? !(SelectionLength == 0 && SelectionStart == text.Length)
+                                    : !(SelectionLength == 0 && SelectionStart == 0))
+                        return true;
+                    break;
+
+                case Keys.Down:
+                    // Wanted while there is a line below the selection to move down into.
+                    if (end <= text.Length && text.IndexOf ('\n', Math.Min (end, text.Length)) != -1)
+                        return true;
+                    break;
+
+                case Keys.Up:
+                    // Wanted while the selection is not on the first line.
+                    var firstBreak = text.IndexOf ('\n');
+                    if (firstBreak >= 0 && end > firstBreak)
+                        return true;
+                    break;
+
+                case Keys.Home:
+                case Keys.End:
+                    if (SelectionLength != text.Length)
+                        return true;
+                    break;
+
+                case Keys.PageUp:
+                case Keys.PageDown:
+                    if (EditingControlValueChanged)
+                        return true;
+                    break;
+
+                case Keys.Delete:
+                    if (SelectionLength > 0 || SelectionStart < text.Length)
+                        return true;
+                    break;
+
+                case Keys.Enter:
+                    if ((keyData & (Keys.Control | Keys.Shift | Keys.Alt)) == Keys.Shift && Multiline && AcceptsReturn)
+                        return true;
+                    break;
+            }
+
+            return !dataGridViewWantsInputKey;
         }
+
+        // WinForms' own mapping: the three columns of DataGridViewContentAlignment collapse onto the
+        // text box's single horizontal alignment.
+        private static HorizontalAlignment TranslateAlignment (DataGridViewContentAlignment align) => align switch {
+            DataGridViewContentAlignment.TopRight or DataGridViewContentAlignment.MiddleRight
+                or DataGridViewContentAlignment.BottomRight => HorizontalAlignment.Right,
+            DataGridViewContentAlignment.TopCenter or DataGridViewContentAlignment.MiddleCenter
+                or DataGridViewContentAlignment.BottomCenter => HorizontalAlignment.Center,
+            _ => HorizontalAlignment.Left,
+        };
     }
 
     public partial class DataGridViewComboBoxEditingControl
@@ -361,20 +432,30 @@ namespace Majorsilence.Forms
 
             Font = dataGridViewCellStyle.Font ?? Font;
             ForeColor = dataGridViewCellStyle.ForeColor;
-            BackColor = dataGridViewCellStyle.BackColor;
+
+            // As on the text box: a combo cannot draw a translucent background.
+            BackColor = dataGridViewCellStyle.BackColor.A < 255
+                ? Color.FromArgb (255, dataGridViewCellStyle.BackColor)
+                : dataGridViewCellStyle.BackColor;
         }
 
         /// <summary>Returns whether this control wants the given key rather than the grid.</summary>
+        /// <remarks>
+        /// The vertical keys move through the list, so the combo takes them. Enter is taken
+        /// unconditionally and Escape only while the list is dropped down -- which is what WinForms
+        /// does, precedence quirk in its own condition included.
+        /// </remarks>
         public bool EditingControlWantsInputKey (Keys keyData, bool dataGridViewWantsInputKey)
         {
-            // A drop-down wants the vertical keys, which move through its items; the grid keeps the
-            // horizontal ones, which move between cells.
             var key = keyData & Keys.KeyCode;
 
-            return key switch {
-                Keys.Up or Keys.Down or Keys.PageUp or Keys.PageDown => true,
-                _ => !dataGridViewWantsInputKey,
-            };
+            if (key is Keys.Down or Keys.Up or Keys.Enter)
+                return true;
+
+            if (DroppedDown && key == Keys.Escape)
+                return true;
+
+            return !dataGridViewWantsInputKey;
         }
     }
 }

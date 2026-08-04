@@ -335,6 +335,19 @@ returned null would improve the count and make a caller's code fail later, at th
 instead of at compile time where it is cheap to find. `WebBrowserBase` and `WebBrowserSiteBase` went
 with them, for the same reason as `AxHost`.
 
+**A member that behaves plausibly is not the same as one that behaves like WinForms.** The two
+editing controls' `EditingControlWantsInputKey` was first written as a flat list of keys — the text
+box takes Left, Right, Home and End; the combo takes the vertical ones. That reads sensibly and is
+wrong: upstream is *caret-aware*, and takes Left only while there is still text to move left through,
+so the key falls through to the grid at the edge of the value and moves to the previous cell. The
+flat version sticks the caret at the start of a cell instead of leaving it. Both controls now follow
+upstream exactly, including that the combo takes Enter unconditionally and Escape only while its list
+is dropped down.
+
+The same check confirmed the other judgement call rather than overturning it: the selection
+collections' `Clear` and `Insert` really are `[EditorBrowsable(Never)]` upstream and really do throw,
+so the snapshot behaviour was right — and the attribute is now on them too.
+
 `ListBindingHelper` was worth more than its four members suggest: it is the resolver that turns a
 data source and a member name into the list and item properties a binding reads, and every binding
 path here did that work inline. It walks an `IListSource`, unwraps an `IEnumerable<T>` to its element

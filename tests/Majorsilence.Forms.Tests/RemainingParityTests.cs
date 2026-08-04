@@ -382,18 +382,87 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void The_editing_controls_split_the_keys_with_the_grid ()
+        public void The_text_editing_control_releases_an_arrow_key_at_the_edge_of_its_value ()
         {
-            // A text box keeps the keys that move the caret; a drop-down keeps the vertical ones that
-            // move through its items. Getting this backwards makes arrow keys jump cells mid-word.
-            using var text = new DataGridViewTextBoxEditingControl ();
+            // WinForms is caret-aware here, not a flat list of keys: the text box wants Left only
+            // while there is still text to move left through, so at the start of the value the key
+            // falls through to the grid and moves to the previous cell. A flat "always wants Left"
+            // sticks the caret at the start of a cell instead of leaving it.
+            using var text = new DataGridViewTextBoxEditingControl { Text = "abc" };
+
+            text.Select (0, 0);
+            Assert.False (text.EditingControlWantsInputKey (Keys.Left, dataGridViewWantsInputKey: true));
+
+            text.Select (2, 0);
+            Assert.True (text.EditingControlWantsInputKey (Keys.Left, dataGridViewWantsInputKey: true));
+
+            text.Select (3, 0);
+            Assert.False (text.EditingControlWantsInputKey (Keys.Right, dataGridViewWantsInputKey: true));
+
+            text.Select (1, 0);
+            Assert.True (text.EditingControlWantsInputKey (Keys.Right, dataGridViewWantsInputKey: true));
+        }
+
+        [Fact]
+        public void The_text_editing_control_takes_the_vertical_keys_only_when_there_is_a_line_to_reach ()
+        {
+            using var single = new DataGridViewTextBoxEditingControl { Text = "one line" };
+            single.Select (0, 0);
+
+            Assert.False (single.EditingControlWantsInputKey (Keys.Down, dataGridViewWantsInputKey: true));
+            Assert.False (single.EditingControlWantsInputKey (Keys.Up, dataGridViewWantsInputKey: true));
+
+            using var multi = new DataGridViewTextBoxEditingControl { Multiline = true, Text = "first\nsecond" };
+            multi.Select (0, 0);
+            Assert.True (multi.EditingControlWantsInputKey (Keys.Down, dataGridViewWantsInputKey: true));
+
+            multi.Select (multi.Text.Length, 0);
+            Assert.True (multi.EditingControlWantsInputKey (Keys.Up, dataGridViewWantsInputKey: true));
+        }
+
+        [Fact]
+        public void The_text_editing_control_takes_Home_and_End_unless_everything_is_selected ()
+        {
+            using var text = new DataGridViewTextBoxEditingControl { Text = "abc" };
+
+            text.Select (1, 0);
+            Assert.True (text.EditingControlWantsInputKey (Keys.Home, dataGridViewWantsInputKey: true));
+
+            text.SelectAll ();
+            Assert.False (text.EditingControlWantsInputKey (Keys.End, dataGridViewWantsInputKey: true));
+        }
+
+        [Fact]
+        public void The_combo_editing_control_takes_the_vertical_keys_and_Enter ()
+        {
+            // Upstream takes Down, Up and Enter unconditionally, and Escape only while the list is
+            // dropped down.
             using var combo = new DataGridViewComboBoxEditingControl ();
 
-            Assert.True (text.EditingControlWantsInputKey (Keys.Left, dataGridViewWantsInputKey: true));
-            Assert.False (text.EditingControlWantsInputKey (Keys.Down, dataGridViewWantsInputKey: true));
-
             Assert.True (combo.EditingControlWantsInputKey (Keys.Down, dataGridViewWantsInputKey: true));
+            Assert.True (combo.EditingControlWantsInputKey (Keys.Up, dataGridViewWantsInputKey: true));
+            Assert.True (combo.EditingControlWantsInputKey (Keys.Enter, dataGridViewWantsInputKey: true));
+
+            Assert.False (combo.EditingControlWantsInputKey (Keys.Escape, dataGridViewWantsInputKey: true));
             Assert.False (combo.EditingControlWantsInputKey (Keys.Left, dataGridViewWantsInputKey: true));
+            Assert.True (combo.EditingControlWantsInputKey (Keys.Left, dataGridViewWantsInputKey: false));
+        }
+
+        [Fact]
+        public void ApplyCellStyleToEditingControl_forces_a_translucent_background_opaque ()
+        {
+            // A text box cannot draw a translucent background, so WinForms makes the colour opaque
+            // rather than letting it composite to something the caller did not choose.
+            using var text = new DataGridViewTextBoxEditingControl ();
+
+            text.ApplyCellStyleToEditingControl (new DataGridViewCellStyle {
+                BackColor = System.Drawing.Color.FromArgb (128, 10, 20, 30),
+                Alignment = DataGridViewContentAlignment.MiddleRight,
+            });
+
+            Assert.Equal (255, text.BackColor.A);
+            Assert.Equal (System.Drawing.Color.FromArgb (255, 10, 20, 30), text.BackColor);
+            Assert.Equal (HorizontalAlignment.Right, text.TextAlign);
         }
 
         [Fact]
