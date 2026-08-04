@@ -10,7 +10,7 @@ namespace Majorsilence.Forms
     /// Majorsilence.Forms does not render error icons natively; the error text is stored for
     /// programmatic access and shown in the control's ToolTip text if a ToolTip is set.
     /// </summary>
-    public class ErrorProvider : Component, ISupportInitialize
+    public partial class ErrorProvider : Component, ISupportInitialize
     {
         // Real WinForms ErrorProvider implements ISupportInitialize, so designer code brackets it with
         // ((ISupportInitialize)errorProvider).BeginInit()/EndInit() -- explicit no-ops so that

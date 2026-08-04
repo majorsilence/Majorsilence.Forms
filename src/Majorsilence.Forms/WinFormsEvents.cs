@@ -1347,7 +1347,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the draw list view item event.</summary>
-    public class DrawListViewItemEventArgs : EventArgs
+    public partial class DrawListViewItemEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance of the <see cref="DrawListViewItemEventArgs"/> class.</summary>
         public DrawListViewItemEventArgs (Graphics graphics, ListViewItem item, Rectangle bounds, int itemIndex, ListViewItemStates state)
@@ -1374,7 +1374,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the draw list view sub item event.</summary>
-    public class DrawListViewSubItemEventArgs : EventArgs
+    public partial class DrawListViewSubItemEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance of the <see cref="DrawListViewSubItemEventArgs"/> class.</summary>
         public DrawListViewSubItemEventArgs (Graphics graphics, Rectangle bounds, ListViewItem item, ListViewItem.ListViewSubItem subItem, int itemIndex, int columnIndex, ColumnHeader header, ListViewItemStates itemState)
@@ -1410,7 +1410,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the draw tool tip event.</summary>
-    public class DrawToolTipEventArgs : EventArgs
+    public partial class DrawToolTipEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance of the <see cref="DrawToolTipEventArgs"/> class.</summary>
         public DrawToolTipEventArgs (Graphics graphics, IWin32Window associatedWindow, Control associatedControl, Rectangle bounds, string toolTipText, Color backColor, Color foreColor, Font font)

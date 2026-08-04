@@ -2155,7 +2155,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides navigation UI for a BindingSource. Stub in Majorsilence.Forms.</summary>
-    public class BindingNavigator : ToolStrip
+    public partial class BindingNavigator : ToolStrip
     {
         /// <summary>Initializes a new BindingNavigator.</summary>
         public BindingNavigator () { }
@@ -3318,7 +3318,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for drag-and-drop events.</summary>
-    public class DragEventArgs : EventArgs
+    public partial class DragEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public DragEventArgs (IDataObject? data, int keyState, int x, int y, DragDropEffects allowedEffect, DragDropEffects effect)
@@ -3351,7 +3351,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Provides data for the GiveFeedback drag-and-drop event.</summary>
-    public class GiveFeedbackEventArgs : EventArgs
+    public partial class GiveFeedbackEventArgs : EventArgs
     {
         /// <summary>Initializes a new instance.</summary>
         public GiveFeedbackEventArgs (DragDropEffects effect, bool useDefaultCursors)
@@ -3653,7 +3653,7 @@ namespace Majorsilence.Forms
     /// Targets are keyed as objects so both <see cref="Control"/>s and <see cref="WindowBase"/>-derived
     /// forms are accepted — in real WinForms a Form IS a Control, and designer code routinely calls
     /// SetHelpKeyword(Me, …) on the form itself.</summary>
-    public class HelpProvider : System.ComponentModel.Component
+    public partial class HelpProvider : System.ComponentModel.Component
     {
         private readonly System.Collections.Generic.Dictionary<object, string> _helpStrings = new ();
         private readonly System.Collections.Generic.Dictionary<object, string> _helpKeywords = new ();

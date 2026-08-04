@@ -122,7 +122,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 385** (and `SIG` 146 → 0 since overload checking was turned on).
+Baseline: **1,905 → 238** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -138,6 +138,7 @@ Baseline: **1,905 → 385** (and `SIG` 146 → 0 since overload checking was tur
 | 14 — `ControlPaint`, `DataFormats`, `DataObject`, `ListBox`, the composite ToolStrip items | **Done.** All at zero, and the visual-style renderers recognised as a false match. |
 | 15 — the flat tail | **Done.** `ButtonBase`, `TreeNode`, `Menu`, `ToolBar`, `SplitContainer`, `Binding`, `BindingManagerBase`, `Cursor`, `Clipboard`, `ToolStripPanel`, `ToolStripDropDown`, `ToolStrip`, `ToolStripManager` and the two file dialogs. |
 | 16 — the `DataGridView` row/cell/column family, and the rest of the tail | **Done.** 117 gaps, including two enums that were missing half their members. |
+| 17 — the .NET 1.x `DataGrid` family, and the scattered remainder | **Done.** 147 gaps; found a crash in `DataGridView`'s data binding. |
 
 Two things worth carrying forward:
 
@@ -302,11 +303,28 @@ Two enums were missing half their members, both the silent kind: `DrawItemState`
 been wrong), and `DataGridViewCellStyleScopes` lacked five of nine, each the next bit in the
 progression.
 
+### What item 17 found
+
+**Binding a `DataGridView` to a `List<string>` crashed.** Column generation enumerated the element
+type's readable properties, and `string` carries an indexer — reading one with no index arguments
+throws `TargetParameterCountException`, so the first row killed the bind. Indexers are now excluded
+from both the generated-column path and the manually-mapped one. Binding a grid to a list of strings
+is about as ordinary as data binding gets; the test that found it was written to check
+`SetDataBinding`, not this.
+
+The `DataGrid` family is two mechanical patterns — a `*Changed` event per property and a `Reset*` per
+colour — and both are implemented rather than declared: the setters compare and raise, and the
+resetters restore the documented default. The exception is the hierarchical-navigation surface
+(`NavigateTo`, `Expand`, `Collapse`, `IsExpanded`), which exists for the `DataSet` parent/child
+relations this layer has no equivalent of; `IsExpanded` reports false because there is nothing to
+expand, rather than implying a collapsed state.
+
 ### Next
 
-`DataGrid`, `DataGridTableStyle` and `DataGridColumnStyle` (44/42/14) are the largest remaining block
-and stay low priority — the .NET 1.x controls superseded by `DataGridView`. The rest is the
-`TaskDialog` family, the design-time converters, and a scattering of two- and three-member types.
+238 left, and the shape has changed: 75 of them are whole types rather than members. The blocks are
+the `TaskDialog` family (12), the design-time type converters (~16), the `DataGridView` cell and
+editing-control types (9), the HTML DOM (6, a documented non-goal), and a long tail of one- and
+two-member types.
 
 ## Suggested order
 

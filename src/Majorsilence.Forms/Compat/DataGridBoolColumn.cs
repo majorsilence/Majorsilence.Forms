@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     ///  A column style that displays and edits boolean values using a check box in a <see cref="DataGrid"/>.
     /// </summary>
-    public class  DataGridBoolColumn : DataGridViewCheckBoxColumn, IDataGridColumnStyle
+    public partial class DataGridBoolColumn : DataGridViewCheckBoxColumn, IDataGridColumnStyle
     {
         /// <summary>
         ///  Gets or sets the name of the data member mapped to this column.

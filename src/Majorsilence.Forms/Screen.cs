@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// Represents a display device on which controls and forms can be drawn.
     /// Backed by a backend-neutral <see cref="ScreenInfo"/> snapshot.
     /// </summary>
-    public class Screen
+    public partial class Screen
     {
         private readonly ScreenInfo _screen;
 

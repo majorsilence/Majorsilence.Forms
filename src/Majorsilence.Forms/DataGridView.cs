@@ -1597,8 +1597,11 @@ namespace Majorsilence.Forms
                 if (element_type is null)
                     return;
 
+                // Indexers are excluded, and not as a tidy-up: GetValue with no index arguments
+                // throws TargetParameterCountException, so binding to a List<string> -- whose element
+                // type carries string's Chars indexer -- crashed on the first row.
                 var properties = element_type.GetProperties (BindingFlags.Public | BindingFlags.Instance)
-                    .Where (p => p.CanRead)
+                    .Where (p => p.CanRead && p.GetIndexParameters ().Length == 0)
                     .ToArray ();
 
                 foreach (var prop in properties) {
@@ -1637,6 +1640,12 @@ namespace Majorsilence.Forms
                         var prop = string.IsNullOrEmpty (prop_name)
                             ? null
                             : item.GetType ().GetProperty (prop_name, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+
+                        // See the generated-columns branch: an indexer cannot be read without index
+                        // arguments, so a column mapped to one contributes nothing rather than throwing.
+                        if (prop?.GetIndexParameters ().Length > 0)
+                            prop = null;
+
                         row.Cells.Add (prop?.GetValue (item)?.ToString () ?? string.Empty);
                     }
 

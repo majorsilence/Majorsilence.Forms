@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     ///  Specifies the appearance and behavior of a <see cref="DataGrid"/> table, including its columns and colors.
     /// </summary>
-    public class DataGridTableStyle : Component, IDisposable
+    public partial class DataGridTableStyle : Component, IDisposable
     {
         /// <summary>
         ///  Initializes a new instance of the <see cref="DataGridTableStyle"/> class.

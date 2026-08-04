@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// Represents a collection of TreeViewItems.
     /// </summary>
     /// <summary>WinForms-compatible name for the tree item collection (TreeView.Nodes).</summary>
-    public class TreeNodeCollection : Collection<TreeViewItem>
+    public partial class TreeNodeCollection : Collection<TreeViewItem>
     {
         /// <summary>
         /// Adds a new node with the specified text. Returns a <see cref="TreeNode"/> so WinForms
