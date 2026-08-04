@@ -101,7 +101,10 @@ each shape, which today it does not (`Region.IsEmpty` has it; `Region.IsVisible`
 `CopyFromScreen` and `FromHdc` in that list are Win32 screen/device-context interop and stay out of
 scope.
 
-## Plan to close everything remaining (2026-08-02)
+## Plan to close everything remaining (2026-08-02) — historical
+
+*Kept for the record. Phases 7-10 completed all of this and the baseline is zero; the counts below
+are what the surface looked like on 2026-08-02.*
 
 Of the 215 baseline entries, **51 are already-documented non-goals** (metafile/EMF/WMF, Win32 handle
 interop, design-time converters, `RegionData`, `CopyPixelOperation`, `CopyFromScreen`). They stay.

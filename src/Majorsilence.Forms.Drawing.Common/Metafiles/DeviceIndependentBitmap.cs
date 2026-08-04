@@ -45,13 +45,37 @@ namespace Majorsilence.Forms.Drawing.Imaging.Metafiles
             var bitmap = new SKBitmap (width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
             var rows = Math.Min (height, available / stride);
 
+            // Built into one buffer and copied in a single call. SKBitmap.SetPixel is a P/Invoke per
+            // pixel, which for a megapixel bitmap embedded in a metafile cost seconds rather than
+            // milliseconds -- slow enough to look like a hang while a page rendered.
+            var destinationStride = bitmap.RowBytes;
+            var pixels = new byte[destinationStride * height];
+
             for (var y = 0; y < rows; y++) {
                 var row = bitsOffset + (y * stride);
-                var target = topDown ? y : height - 1 - y;
+                var target = (topDown ? y : height - 1 - y) * destinationStride;
 
-                for (var x = 0; x < width; x++)
-                    bitmap.SetPixel (x, target, ReadPixel (source, row, x, bitCount, palette));
+                for (var x = 0; x < width; x++) {
+                    var colour = ReadPixel (source, row, x, bitCount, palette);
+                    var at = target + (x * 4);
+
+                    // Bgra8888, so blue first.
+                    pixels[at] = colour.Blue;
+                    pixels[at + 1] = colour.Green;
+                    pixels[at + 2] = colour.Red;
+                    pixels[at + 3] = colour.Alpha;
+                }
             }
+
+            var handle = bitmap.GetPixels ();
+
+            if (handle == IntPtr.Zero) {
+                bitmap.Dispose ();
+                return null;
+            }
+
+            System.Runtime.InteropServices.Marshal.Copy (pixels, 0, handle, pixels.Length);
+            bitmap.NotifyPixelsChanged ();
 
             return bitmap;
         }

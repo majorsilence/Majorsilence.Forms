@@ -391,7 +391,10 @@ except through its `Form`.
 
 **The WinForms surface is at zero gaps** — 1,905 → 0.
 
-## Suggested order
+## Suggested order — historical
+
+*Kept for the record. Every item below is done; the baseline is zero. Read this as how the work was
+sequenced and why, not as anything outstanding.*
 
 1. **The 126 `VALUE` mismatches.** Correctness bugs, mechanical fix, generate from upstream.
 2. **The 88 `EventHandler` delegates + 54 `EventArgs`.** Unblocks designer files; near-zero risk.
