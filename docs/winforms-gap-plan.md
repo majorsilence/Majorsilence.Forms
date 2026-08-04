@@ -122,7 +122,7 @@ custom ToolStrip rendering does not work at all.
 | 3 — the base classes | **Done.** `ButtonBase`, `ListControl`, `UpDownBase`, `ToolStripDropDownItem`, with the concrete controls reparented onto them. |
 | 4 — ToolStrip rendering and item parity | **Done.** `ToolStripRenderer` (41/41), then `ToolStripItem`/`ToolStrip` as one pass; 135 gaps closed, 14 tests. |
 
-Baseline: **1,905 → 238** (and `SIG` 146 → 0 since overload checking was turned on).
+Baseline: **1,905 → 173** (and `SIG` 146 → 0 since overload checking was turned on).
 
 | Item | Status |
 |---|---|
@@ -139,6 +139,7 @@ Baseline: **1,905 → 238** (and `SIG` 146 → 0 since overload checking was tur
 | 15 — the flat tail | **Done.** `ButtonBase`, `TreeNode`, `Menu`, `ToolBar`, `SplitContainer`, `Binding`, `BindingManagerBase`, `Cursor`, `Clipboard`, `ToolStripPanel`, `ToolStripDropDown`, `ToolStrip`, `ToolStripManager` and the two file dialogs. |
 | 16 — the `DataGridView` row/cell/column family, and the rest of the tail | **Done.** 117 gaps, including two enums that were missing half their members. |
 | 17 — the .NET 1.x `DataGrid` family, and the scattered remainder | **Done.** 147 gaps; found a crash in `DataGridView`'s data binding. |
+| 18 — the missing types | **Done.** The HTML DOM excluded; `ListBindingHelper`, the selection snapshots, the editing controls, `ProfessionalColorTable` and the older controls' nested collections declared. |
 
 Two things worth carrying forward:
 
@@ -319,12 +320,30 @@ resetters restore the documented default. The exception is the hierarchical-navi
 relations this layer has no equivalent of; `IsExpanded` reports false because there is nothing to
 expand, rather than implying a collapsed state.
 
+### What item 18 found
+
+**Declaring a type makes the audit stricter, not looser.** Adding 25 types took the count *up* from
+228 to 304 before it came down, because a type that does not exist is one gap while a type that
+exists has every member compared. That is the tool working: the second number is the honest one.
+
+The **WebBrowser DOM is now an exclusion** rather than an open gap. `HtmlDocument` and its five
+companions describe the object model of a hosted Internet Explorer, reached through the COM
+automation interfaces that `AxHost` — already excluded — would have provided. The backends host their
+platform's modern web view through a seam that offers navigation and nothing else, so
+`WebBrowser.Document` is null and there is no document to hand back. Six types whose every member
+returned null would improve the count and make a caller's code fail later, at the first dereference,
+instead of at compile time where it is cheap to find. `WebBrowserBase` and `WebBrowserSiteBase` went
+with them, for the same reason as `AxHost`.
+
+`ListBindingHelper` was worth more than its four members suggest: it is the resolver that turns a
+data source and a member name into the list and item properties a binding reads, and every binding
+path here did that work inline. It walks an `IListSource`, unwraps an `IEnumerable<T>` to its element
+type, and follows a dotted data member — reading the member off the *current item*, since "Orders" on
+a list of customers means one customer's orders.
+
 ### Next
 
-238 left, and the shape has changed: 75 of them are whole types rather than members. The blocks are
-the `TaskDialog` family (12), the design-time type converters (~16), the `DataGridView` cell and
-editing-control types (9), the HTML DOM (6, a documented non-goal), and a long tail of one- and
-two-member types.
+173 left: the design-time type converters (~16 types), the `TaskDialog` family (13), and a thin tail.
 
 ## Suggested order
 

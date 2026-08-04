@@ -262,7 +262,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents an image column in a DataGridView. Stub in Majorsilence.Forms (images are not rendered).
     /// </summary>
-    public class DataGridViewImageColumn : DataGridViewColumn
+    public partial class DataGridViewImageColumn : DataGridViewColumn
     {
         /// <summary>Gets or sets the image displayed in the column. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Forms.Drawing.Image? Image { get; set; }

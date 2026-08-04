@@ -3189,6 +3189,29 @@ namespace Majorsilence.Forms
         }
 #pragma warning restore CA1416
 
+        /// <summary>Initializes a new instance from an existing Graphics.</summary>
+        public DrawItemEventArgs (Graphics graphics, Majorsilence.Forms.Drawing.Font? font,
+            System.Drawing.Rectangle rect, int index, DrawItemState state)
+            : this (graphics, font, rect, index, state,
+                    Majorsilence.Forms.SystemColors.WindowText,
+                    (state & DrawItemState.Selected) != 0
+                        ? Majorsilence.Forms.SystemColors.Highlight
+                        : Majorsilence.Forms.SystemColors.Window) { }
+
+        /// <summary>Initializes a new instance with explicit colours.</summary>
+        public DrawItemEventArgs (Graphics graphics, Majorsilence.Forms.Drawing.Font? font,
+            System.Drawing.Rectangle rect, int index, DrawItemState state,
+            System.Drawing.Color foreColor, System.Drawing.Color backColor)
+        {
+            _graphics = graphics;
+            Bounds = rect;
+            Index = index;
+            State = state;
+            Font = font ?? Majorsilence.Forms.SystemFonts.DefaultFont ?? new Majorsilence.Forms.Drawing.Font ("Arial", 9);
+            ForeColor = foreColor;
+            BackColor = backColor;
+        }
+
         /// <summary>Gets the graphics object for drawing.</summary>
         public Graphics Graphics => _graphics;
 

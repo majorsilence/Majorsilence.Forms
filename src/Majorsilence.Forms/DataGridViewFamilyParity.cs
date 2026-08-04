@@ -44,7 +44,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>The shared base of a <see cref="DataGridView"/>'s rows and columns.</summary>
-    public class DataGridViewBand : DataGridViewElement, IDisposable
+    public partial class DataGridViewBand : DataGridViewElement, IDisposable
     {
         /// <summary>Gets or sets the style applied to the band's cells by default.</summary>
         public DataGridViewCellStyle? DefaultCellStyle { get; set; }

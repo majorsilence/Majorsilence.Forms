@@ -93,6 +93,17 @@ internal sealed record Surface(
             "ButtonRenderer", "CheckBoxRenderer", "ComboBoxRenderer", "GroupBoxRenderer",
             "ProgressBarRenderer", "RadioButtonRenderer", "ScrollBarRenderer", "TabRenderer",
             "TextBoxRenderer", "TrackBarRenderer",
+            // The WebBrowser DOM. These describe the object model of a hosted Internet Explorer, and
+            // reaching it requires the COM automation interfaces that AxHost -- already excluded --
+            // would have provided. The backends host their platform's modern web view through a seam
+            // that offers navigation and nothing else, so WebBrowser.Document is null and there is no
+            // document, element or window to hand back. Declaring six types whose every member
+            // returned null would make the gap count look better and a caller's code fail later, at
+            // the first dereference, instead of at compile time where it is cheap to find.
+            "HtmlDocument", "HtmlElement", "HtmlElementCollection", "HtmlHistory", "HtmlWindow",
+            "HtmlWindowCollection",
+            // The ActiveX plumbing WebBrowser sits on upstream, for the same reason as AxHost.
+            "WebBrowserBase", "WebBrowserSiteBase",
         },
         IncludeOverloads: true);
 

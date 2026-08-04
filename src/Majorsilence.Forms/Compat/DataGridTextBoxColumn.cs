@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     ///  A column style that displays and edits text values in a <see cref="DataGrid"/>.
     /// </summary>
-    public class DataGridTextBoxColumn : DataGridViewTextBoxColumn, IDataGridColumnStyle
+    public partial class DataGridTextBoxColumn : DataGridViewTextBoxColumn, IDataGridColumnStyle
     {
         /// <summary>
         ///  Initializes a new instance of the <see cref="DataGridTextBoxColumn"/> class.

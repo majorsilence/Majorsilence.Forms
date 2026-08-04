@@ -66,7 +66,7 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>The list-backed binding manager (WinForms compatibility name).</summary>
-    public class CurrencyManager : BindingManagerBase
+    public partial class CurrencyManager : BindingManagerBase
     {
         internal CurrencyManager (IList? list) : base (list) => List = list;
 

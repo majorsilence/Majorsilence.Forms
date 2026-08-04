@@ -301,5 +301,112 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (2, grid.Rows.Count);
             Assert.DoesNotContain (grid.Columns.Cast<DataGridViewColumn> (), c => c.Name == "Chars");
         }
+
+        [Fact]
+        public void ListBindingHelper_unwraps_a_list_to_its_element_type ()
+        {
+            Assert.Equal (typeof (string), ListBindingHelper.GetListItemType (new System.Collections.Generic.List<string> ()));
+            Assert.Equal (typeof (int), ListBindingHelper.GetListItemType (new[] { 1, 2, 3 }));
+            Assert.Equal (typeof (object), ListBindingHelper.GetListItemType (null));
+        }
+
+        [Fact]
+        public void ListBindingHelper_follows_a_data_member_off_the_current_item ()
+        {
+            // "Orders" on a list of customers means the current customer's orders -- reading the
+            // member off the list itself would find nothing.
+            var rows = new System.Collections.Generic.List<Row> {
+                new () { Name = "first", Tags = new System.Collections.Generic.List<string> { "a", "b" } },
+            };
+
+            var inner = ListBindingHelper.GetList (rows, "Tags");
+
+            Assert.Equal (2, ((System.Collections.IList)inner!).Count);
+            Assert.Same (rows, ListBindingHelper.GetList (rows, null));
+        }
+
+        private sealed class Row
+        {
+            public string Name { get; set; } = string.Empty;
+
+            public System.Collections.Generic.List<string> Tags { get; set; } = [];
+        }
+
+        [Fact]
+        public void A_selected_cell_snapshot_refuses_to_be_edited ()
+        {
+            // Upstream documents these as copies; an edit that looked as though it changed the grid's
+            // selection but changed a detached list would be worse than a refusal.
+            using var grid = new DataGridView ();
+            grid.Columns.Add (new DataGridViewTextBoxColumn ());
+            grid.Rows.Add ("a");
+
+            var snapshot = new DataGridViewSelectedCellCollection (grid.Rows[0].Cells);
+
+            Assert.Equal (1, snapshot.Count);
+            Assert.True (snapshot.Contains (grid.Rows[0].Cells[0]));
+            Assert.Throws<NotSupportedException> (snapshot.Clear);
+            Assert.Throws<NotSupportedException> (() => snapshot.Insert (0, grid.Rows[0].Cells[0]));
+        }
+
+        [Fact]
+        public void CheckedListBox_checked_views_are_live ()
+        {
+            using var list = new CheckedListBox ();
+            list.Items.Add ("a");
+            list.Items.Add ("b");
+
+            var indices = new CheckedListBox.CheckedIndexCollection (list);
+
+            Assert.Equal (0, indices.Count);
+
+            list.SetItemChecked (1, true);
+
+            Assert.Equal (1, indices.Count);       // the same instance sees the change
+            Assert.Equal (1, indices[0]);
+            Assert.True (indices.Contains (1));
+        }
+
+        [Fact]
+        public void StatusBarPanelCollection_finds_panels_by_key ()
+        {
+            var panels = new StatusBar.StatusBarPanelCollection ();
+            panels.Add (new StatusBarPanel { Name = "status", Text = "Ready" });
+
+            Assert.True (panels.ContainsKey ("STATUS"));
+            Assert.Equal (0, panels.IndexOfKey ("status"));
+            Assert.Equal (-1, panels.IndexOfKey ("absent"));
+
+            panels.RemoveByKey ("status");
+            Assert.Equal (0, panels.Count);
+        }
+
+        [Fact]
+        public void The_editing_controls_split_the_keys_with_the_grid ()
+        {
+            // A text box keeps the keys that move the caret; a drop-down keeps the vertical ones that
+            // move through its items. Getting this backwards makes arrow keys jump cells mid-word.
+            using var text = new DataGridViewTextBoxEditingControl ();
+            using var combo = new DataGridViewComboBoxEditingControl ();
+
+            Assert.True (text.EditingControlWantsInputKey (Keys.Left, dataGridViewWantsInputKey: true));
+            Assert.False (text.EditingControlWantsInputKey (Keys.Down, dataGridViewWantsInputKey: true));
+
+            Assert.True (combo.EditingControlWantsInputKey (Keys.Down, dataGridViewWantsInputKey: true));
+            Assert.False (combo.EditingControlWantsInputKey (Keys.Left, dataGridViewWantsInputKey: true));
+        }
+
+        [Fact]
+        public void OwnerDrawPropertyBag_copies_without_sharing ()
+        {
+            var bag = new OwnerDrawPropertyBag { BackColor = System.Drawing.Color.Red };
+
+            Assert.False (bag.IsEmpty ());
+            Assert.True (new OwnerDrawPropertyBag ().IsEmpty ());
+
+            var copy = OwnerDrawPropertyBag.Copy (bag);
+            Assert.NotSame (bag, copy);
+            Assert.Equal (System.Drawing.Color.Red, copy.BackColor);
+        }
     }
 }

@@ -8,7 +8,7 @@ namespace Majorsilence.Forms
     /// WinForms compatibility: represents a ListBox in which a check box is displayed to the left of each item.
     /// In Majorsilence.Forms, this is implemented as a ListBox with checkbox rendering (visual only stub).
     /// </summary>
-    public class CheckedListBox : ListBox
+    public partial class CheckedListBox : ListBox
     {
         private CheckedObjectCollection? _checkedItems;
 
