@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Drawing
     /// pixel data as an <see cref="SKBitmap"/> so it works identically on Windows, macOS and Linux
     /// (unlike System.Drawing.Common, which requires GDI+ and throws on non-Windows platforms).
     /// </summary>
-    public abstract class Image : IDisposable, ICloneable
+    public abstract partial class Image : IDisposable, ICloneable
     {
         // Backing pixel store. Owned by this Image; disposed with it.
         private protected SKBitmap? backing;
@@ -305,7 +305,7 @@ namespace Majorsilence.Forms.Drawing
     /// <summary>
     /// Cross-platform, SkiaSharp-backed replacement for <c>System.Drawing.Bitmap</c>.
     /// </summary>
-    public sealed class Bitmap : Image
+    public sealed partial class Bitmap : Image
     {
         /// <summary>Initializes a new bitmap from the specified file.</summary>
         public Bitmap (string filename)

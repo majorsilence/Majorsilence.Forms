@@ -148,9 +148,16 @@ collection types.
 `NamespaceMap` updated for new types, `COMPATIBILITY_MATRIX.md` corrected, and the baseline
 regenerated so the gap set provably shrank.
 
-## Out of scope — do not implement
+## Out of scope — superseded 2026-08-04
 
-Confirming and extending what the matrix already records, so the 54 is not read as 54 units of work:
+**This section is kept for the record; phase 9 closed all of it.** The reasoning below was right about
+what Skia cannot do and wrong about what that implies. The repo's own
+[stub policy](../COMPATIBILITY_MATRIX.md#stub-policy) draws the line at *compiles with reduced
+fidelity* versus *does not compile*, and by that line an absent member is the worse outcome: a file
+that will not compile blocks the ninety per cent of it that would have worked. See "Phase 9" below
+for what each of these actually does now.
+
+The original text:
 
 - **EMF/WMF metafiles** — `Metafile`, `MetafileHeader`, `MetaHeader`, `MetafileType`,
   `MetafileFrameUnit`, `EmfType`, `EmfPlusRecordType`, `WmfPlaceableFileHeader`, `PlayRecordCallback`,
@@ -183,12 +190,51 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 | 6 — printing | **Done.** Controllers, preview capture, unit conversion, settings shapes. |
 | 7 — overload completion | **Done.** 103 shapes; 13 tests. |
 | 8 — small real gaps | **Done.** System colors/brushes/pens, ColorTranslator, Font metadata. |
+| 9 — the documented non-goals | **Done.** All 49. **Baseline: 0.** |
 
-**All in-scope work is complete.** The baseline is down to **54 entries, every one of them a
-documented non-goal**: metafile recording and playback, Win32 handle interop (`H*`/`hdevmode`/
-`hdevnames`), design-time type converters, `RegionData`, `CopyPixelOperation` and screen capture.
-Closing any of them would mean implementing a Windows-GDI concept that has no cross-platform meaning,
-which is the same category as the VB Application Model non-goal elsewhere in this repo.
+**The drawing surface is at zero gaps** — 1,200+ → 0.
+
+### Phase 9 — the non-goals, reconsidered
+
+Phase 8 left 49 entries recorded as permanent non-goals. Re-reading them against the stub policy,
+that verdict conflated two different things: *this cannot work on Skia* and *this should not exist*.
+Only the first was true, and it does not imply the second. Each of the 49 now falls into one of three
+cases, and which case it is says something real about the member:
+
+**Genuinely implementable, and implemented** — about half. The five design-time converters
+(`FontConverter` with its two nested converters, `IconConverter`, `ImageConverter`,
+`ImageFormatConverter`, `MarginsConverter`) are string and byte-array work with nothing
+Windows-specific in them; they were classed as non-goals for being "design-time", which is a
+statement about where they are *used*, not about whether they can be written. `CopyPixelOperation`
+and the metafile enums are numbers. `MetaHeader`, `WmfPlaceableFileHeader` and `MetafileHeader` are
+data. `Font.FromLogFont`/`ToLogFont` reads and writes a LOGFONT, which is a *layout*, not an API
+call — the fields are matched by name off whatever struct the caller declared, so any LOGFONT works.
+`Region.GetRegionData` encodes the region's rectangles and `Region(RegionData)` reads them back, so
+cloning a region through its data round-trips exactly. `Metafile.GetMetafileHeader` really parses the
+EMF and placeable-WMF headers, both fixed little-endian layouts, so code that inspects a file before
+deciding what to do with it works here.
+
+**Cannot work, and says so loudly** — the handle members. `GetHbitmap`, `ToHfont`, `GetHrgn`,
+`GetHalftonePalette`, `GetHdevmode`, `GetHdevnames`, `FromHicon`, `FromHbitmap`, `FromHrgn`,
+`FromHfont`, `Icon.FromHandle`, `BufferedGraphics.Render(IntPtr)` and the metafile recording
+constructors all throw `PlatformNotSupportedException` naming the member and what to use instead.
+Returning `IntPtr.Zero` would have been strictly worse than absence: the caller hands it to
+`DeleteObject` or `SelectObject` and corrupts silently somewhere else, whereas a throw names the line
+that caused it. Absence, meanwhile, stops the whole file compiling.
+
+**Correct as a no-op** — three of them. `Graphics.AddMetafileComment` does nothing, which is exactly
+what upstream does when the surface is not recording a metafile, so a caller that comments its
+drawing code behaves identically on both. `ReleaseHrgn` and `ReleaseHdcInternal` are no-ops rather
+than throws because you can only reach a release with a handle you never obtained — usually from a
+`finally` block, where throwing would mask the exception that actually stopped the caller.
+
+Two members are answered rather than refused: `Graphics.GetContextInfo` reports the offset and clip
+this surface already tracks, and `Icon.ExtractAssociatedIcon` returns null — an outcome upstream also
+returns for a path it cannot resolve, so a caller that checks the result behaves correctly.
+
+**Still permanently partial** (unchanged): `Pen.Alignment` inset/outset stroking and `CustomLineCap`
+outline stroking. `Region.GetRegionData` has moved off this list — it works, but its bytes are this
+layer's encoding rather than GDI+'s, so they round-trip here and are not something to hand to Win32.
 
 Two real bugs surfaced while finishing, both fixed:
 

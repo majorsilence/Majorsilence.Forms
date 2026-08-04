@@ -12,7 +12,7 @@ namespace Majorsilence.Forms
     /// WinForms compatibility: wraps an <see cref="SKCanvas"/> to provide a GDI-like drawing surface.
     /// Use <see cref="Control.CreateGraphics"/> for text measurement; for painting use <see cref="PaintEventArgs.Canvas"/>.
     /// </summary>
-    public sealed class Graphics : IDisposable, Majorsilence.Forms.Drawing.IDeviceContext
+    public sealed partial class Graphics : IDisposable, Majorsilence.Forms.Drawing.IDeviceContext
     {
         private readonly Control? _control;
         private readonly SKCanvas? _canvas;

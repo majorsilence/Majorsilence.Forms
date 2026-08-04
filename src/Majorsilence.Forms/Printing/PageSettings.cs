@@ -37,7 +37,7 @@ namespace Majorsilence.Forms.Printing
     /// Specifies settings for a printed page. Sizes are expressed in hundredths of an inch
     /// (following the WinForms convention, e.g. US Letter is 850 x 1100).
     /// </summary>
-    public sealed class PageSettings
+    public sealed partial class PageSettings
     {
         /// <summary>Gets or sets the paper width, in hundredths of an inch.</summary>
         public int PaperWidth { get; set; } = 850;

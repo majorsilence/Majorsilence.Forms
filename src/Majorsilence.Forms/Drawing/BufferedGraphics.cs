@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Drawing
     /// System.Drawing.BufferedGraphics: drawing goes to an offscreen <see cref="Bitmap"/> via
     /// <see cref="Graphics"/>, and <see cref="Render()"/> blits it to the target surface in one step.
     /// </summary>
-    public sealed class BufferedGraphics : IDisposable
+    public sealed partial class BufferedGraphics : IDisposable
     {
         private readonly Bitmap buffer;
         private readonly Majorsilence.Forms.Graphics? target;
