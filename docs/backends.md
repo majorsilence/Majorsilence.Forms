@@ -8,7 +8,7 @@ That host is abstracted behind a small seam so Majorsilence.Forms can run on mor
 
 | Assembly | Backend | Notes |
 |----------|---------|-------|
-| `Majorsilence.Forms.Avalonia` | Avalonia 12 (`AvaloniaPlatformBackend`) | Default desktop backend (Windows/macOS/Linux). Avalonia also ships its own Android, iOS, and Browser (WASM) targets, so this backend is a second path to mobile and web alongside Uno — not just desktop. |
+| `Majorsilence.Forms.Avalonia` | Avalonia 12 (`AvaloniaPlatformBackend`) | Default desktop backend (Windows/macOS/Linux). Also multi-targets Browser/WASM, Android, and iOS through Avalonia's own platform packages, so it is a second path to mobile and web alongside Uno — see [The Avalonia backend](#the-avalonia-backend). |
 | `Majorsilence.Forms.Headless` | Dependency-free SkiaSharp (`HeadlessPlatformBackend`) | Offscreen rendering for tests/servers; the reference second backend. |
 | `Majorsilence.Forms.Uno` | Uno Platform / Skia (`UnoPlatformBackend`) | Builds against `Uno.WinUI 6.5.237` + `SkiaSharp.Views.Uno.WinUI`; presents via `SKXamlCanvas`. Runs through a Uno app head (`samples/Gallery.Uno`) — verified bootstrapping + rendering Majorsilence.Forms on macOS. |
 
@@ -112,6 +112,82 @@ shows the window and ignores any owner — so `ToUnoWindow()` only gives back an
 window (see `samples/EmbeddingUno`'s "Open as Uno window" button). `Form.ShowDialog(parent)` (MF's own
 modal loop, which doesn't depend on native window ownership) is the way to get modal behavior under
 Uno regardless of hosting style.
+
+## The Avalonia backend
+
+`Majorsilence.Forms.Avalonia` is the default, and what a new desktop app gets with zero
+configuration. On Windows/macOS/Linux `MajorsilenceFormsWindowHost` *is* a real
+`Avalonia.Controls.Window`, which is why this is the only backend that implements
+`TryGetPlatformHandle` (`HWND`/`NSWindow`/`XID` — see [`native-interop.md`](native-interop.md)), and
+why `ToAvaloniaWindow()` gives a host app genuine OS-level `Owner`/`ShowDialog` semantics where the
+Uno equivalent cannot.
+
+It is not desktop-only. The project multi-targets:
+
+| TFM | Built | Avalonia platform package |
+|---|---|---|
+| `net8.0`, `net10.0` | Always | `Avalonia.Desktop` + `Avalonia.Controls.WebView` |
+| `net10.0-browser` | Always | `Avalonia.Browser` |
+| `net10.0-android` | Opt-in: `EnableAndroidTarget=true` | `Avalonia.Android` |
+| `net10.0-ios` | Opt-in: `EnableIOSTarget=true` | `Avalonia.iOS` |
+
+The browser row is unconditional because wasm-tools is only needed to *publish*. Android and iOS are
+opt-in because their workloads' reference assemblies are needed just to **compile** that row, so
+listing them unconditionally would break `dotnet build` for every contributor without the workload
+installed. `samples/Gallery.Android` and `samples/Gallery.iOS` set the property on their
+`ProjectReference`; CI sets it only in the dedicated jobs that install the workload first. The iOS
+workload additionally only installs on macOS at all.
+
+### Single-view platforms (browser, Android, iOS)
+
+None of those three has an OS window manager — each offers exactly one embeddable view per
+app/tab/screen (`ISingleViewApplicationLifetime.MainView`), and Avalonia's browser platform's
+`CreateWindow` always throws. They therefore share one host, `MajorsilenceFormsSingleViewHost`,
+compiled in under the `SINGLEVIEW` constant, where **every** Majorsilence.Forms window is a `Canvas`
+rather than an Avalonia `Window`:
+
+- The first non-popup window becomes `MainHost` and registers itself as MainView, filling the
+  viewport through ordinary Stretch layout.
+- Everything else — popups like ComboBox dropdowns and menus, plus any additional top-level forms —
+  is an absolutely positioned child of that Canvas. There is only one "screen" (the page/activity),
+  so `PointToScreen`/`PointToClient` and `Location` need no special-casing between the root and its
+  overlay children.
+
+Startup is host-driven rather than a blocking `Application.Run`, so each platform has its own entry
+point taking a **factory** — constructing a `WindowBase` touches the backend, so the form must not
+exist until after the backend is initialized:
+
+```csharp
+await Majorsilence.Forms.Application.RunBrowserAsync (() => new MainForm ());  // async bootstrap
+Majorsilence.Forms.Application.RunAndroid (() => new MainForm ());             // from OnCreate
+Majorsilence.Forms.Application.RunIOS (() => new MainForm ());                 // from FinishedLaunching
+```
+
+None of them block or run a main loop: the host's own event loop (the tab's JS event loop, the
+Activity's Looper, the OS run loop) drives the UI from then on, and `RunCore` must not be called.
+
+**What doesn't work there**, inherent to having no window manager rather than pending work:
+
+- **No window chrome.** `Title`, `Topmost`, `SetSystemDecorations`, `SetIcon`, `MinimumSize`/
+  `MaximumSize`, `CanResize`, `ShowInTaskbar`, and `WindowState` are all no-ops — `WindowState` always
+  reads `Normal`, so maximize/minimize do nothing. `BeginMoveDrag`/`BeginResizeDrag` have no window
+  manager to drag against.
+- **`ShowDialog` isn't OS-modal**, because there is no modal window concept. It still *behaves*
+  modally: the parent-disable and blocking wait that make it modal live above the seam, in
+  `WindowBase.ShowDialog` + `RunModalLoop`.
+- **No WebView.** `AvaloniaWebViewHandle.cs` is excluded from the compile for every single-view TFM
+  (no WebView2/WKWebView/WebKitGTK there), and the backend's WebView members report unsupported, so
+  compat controls that need one — `RadPdfViewer`, `RadRichTextEditor` — fall back to their
+  plain-viewer/`RichTextBox` paths. See `COMPATIBILITY_MATRIX.md`.
+- **Outside-click popup dismissal via window deactivation doesn't fire**, since a Canvas has no such
+  concept. Clicking elsewhere *inside* the app still dismisses popups (`Control.RaiseMouseDown` closes
+  them independently of window activation); only losing focus to something outside the app entirely
+  is unhandled.
+
+Maturity differs sharply across the three, and none is part of the headless CI build: the browser
+path runs the full gallery (`samples/Gallery.Wasm`) but is young, Android boots the gallery without
+having had real-device testing, and iOS has never been compiled at all. See
+[`samples.md`](samples.md) for how to build and run each.
 
 ## The Headless backend (reference)
 
