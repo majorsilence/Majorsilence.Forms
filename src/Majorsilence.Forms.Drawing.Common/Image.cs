@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Drawing
     /// pixel data as an <see cref="SKBitmap"/> so it works identically on Windows, macOS and Linux
     /// (unlike System.Drawing.Common, which requires GDI+ and throws on non-Windows platforms).
     /// </summary>
-    public abstract class Image : IDisposable, ICloneable
+    public abstract partial class Image : IDisposable, ICloneable
     {
         // Backing pixel store. Owned by this Image; disposed with it.
         private protected SKBitmap? backing;
@@ -43,6 +43,11 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Gets the backing SkiaSharp bitmap (for renderer use).</summary>
         internal SKBitmap? GetSKBitmap () => backing;
+
+        // Called before a scaled draw with the size about to be drawn at. A raster image ignores it;
+        // a vector-backed one (Metafile) re-renders, which is what keeps it sharp when scaled up
+        // instead of enlarging the pixels of an earlier rasterisation.
+        internal virtual void PrepareForDraw (int width, int height) { }
 
         // The bytes this image was decoded from, retained only when they are still needed afterwards:
         // to decode further frames, or to answer metadata queries. A single-frame image with no EXIF
@@ -305,7 +310,7 @@ namespace Majorsilence.Forms.Drawing
     /// <summary>
     /// Cross-platform, SkiaSharp-backed replacement for <c>System.Drawing.Bitmap</c>.
     /// </summary>
-    public sealed class Bitmap : Image
+    public sealed partial class Bitmap : Image
     {
         /// <summary>Initializes a new bitmap from the specified file.</summary>
         public Bitmap (string filename)

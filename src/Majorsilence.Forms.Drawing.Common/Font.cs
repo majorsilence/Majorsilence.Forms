@@ -7,7 +7,7 @@ namespace Majorsilence.Forms.Drawing
     /// A lightweight, cross-platform font description backed by SkiaSharp (SKFont). Cross-platform
     /// replacement for <c>System.Drawing.Font</c> (which is Windows-only).
     /// </summary>
-    public sealed class Font : IDisposable, ICloneable
+    public sealed partial class Font : IDisposable, ICloneable
     {
         private SKTypeface? typeface;
         private SKFont? font;

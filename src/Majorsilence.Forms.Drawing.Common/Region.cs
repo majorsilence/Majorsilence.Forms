@@ -10,7 +10,7 @@ namespace Majorsilence.Forms.Drawing
     /// Describes the interior of a graphics shape. Cross-platform replacement for
     /// <c>System.Drawing.Region</c>, backed by a SkiaSharp <see cref="SKRegion"/>.
     /// </summary>
-    public sealed class Region : IDisposable
+    public sealed partial class Region : IDisposable
     {
         // How far an "infinite" region extends in each direction. SKRegion is integer scanline-based and
         // has no infinite representation, so GDI+'s infinite region is modelled as a very large finite

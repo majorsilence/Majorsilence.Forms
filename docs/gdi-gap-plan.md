@@ -101,7 +101,10 @@ each shape, which today it does not (`Region.IsEmpty` has it; `Region.IsVisible`
 `CopyFromScreen` and `FromHdc` in that list are Win32 screen/device-context interop and stay out of
 scope.
 
-## Plan to close everything remaining (2026-08-02)
+## Plan to close everything remaining (2026-08-02) — historical
+
+*Kept for the record. Phases 7-10 completed all of this and the baseline is zero; the counts below
+are what the surface looked like on 2026-08-02.*
 
 Of the 215 baseline entries, **51 are already-documented non-goals** (metafile/EMF/WMF, Win32 handle
 interop, design-time converters, `RegionData`, `CopyPixelOperation`, `CopyFromScreen`). They stay.
@@ -148,9 +151,16 @@ collection types.
 `NamespaceMap` updated for new types, `COMPATIBILITY_MATRIX.md` corrected, and the baseline
 regenerated so the gap set provably shrank.
 
-## Out of scope — do not implement
+## Out of scope — superseded 2026-08-04
 
-Confirming and extending what the matrix already records, so the 54 is not read as 54 units of work:
+**This section is kept for the record; phase 9 closed all of it.** The reasoning below was right about
+what Skia cannot do and wrong about what that implies. The repo's own
+[stub policy](../COMPATIBILITY_MATRIX.md#stub-policy) draws the line at *compiles with reduced
+fidelity* versus *does not compile*, and by that line an absent member is the worse outcome: a file
+that will not compile blocks the ninety per cent of it that would have worked. See "Phase 9" below
+for what each of these actually does now.
+
+The original text:
 
 - **EMF/WMF metafiles** — `Metafile`, `MetafileHeader`, `MetaHeader`, `MetafileType`,
   `MetafileFrameUnit`, `EmfType`, `EmfPlusRecordType`, `WmfPlaceableFileHeader`, `PlayRecordCallback`,
@@ -183,12 +193,103 @@ Confirming and extending what the matrix already records, so the 54 is not read 
 | 6 — printing | **Done.** Controllers, preview capture, unit conversion, settings shapes. |
 | 7 — overload completion | **Done.** 103 shapes; 13 tests. |
 | 8 — small real gaps | **Done.** System colors/brushes/pens, ColorTranslator, Font metadata. |
+| 9 — the documented non-goals | **Done.** All 49. **Baseline: 0.** |
+| 10 — metafile playback | **Done.** EMF and WMF are parsed and rendered, not stubbed. |
 
-**All in-scope work is complete.** The baseline is down to **54 entries, every one of them a
-documented non-goal**: metafile recording and playback, Win32 handle interop (`H*`/`hdevmode`/
-`hdevnames`), design-time type converters, `RegionData`, `CopyPixelOperation` and screen capture.
-Closing any of them would mean implementing a Windows-GDI concept that has no cross-platform meaning,
-which is the same category as the VB Application Model non-goal elsewhere in this repo.
+**The drawing surface is at zero gaps** — 1,200+ → 0.
+
+### Phase 9 — the non-goals, reconsidered
+
+Phase 8 left 49 entries recorded as permanent non-goals. Re-reading them against the stub policy,
+that verdict conflated two different things: *this cannot work on Skia* and *this should not exist*.
+Only the first was true, and it does not imply the second. Each of the 49 now falls into one of three
+cases, and which case it is says something real about the member:
+
+**Genuinely implementable, and implemented** — about half. The five design-time converters
+(`FontConverter` with its two nested converters, `IconConverter`, `ImageConverter`,
+`ImageFormatConverter`, `MarginsConverter`) are string and byte-array work with nothing
+Windows-specific in them; they were classed as non-goals for being "design-time", which is a
+statement about where they are *used*, not about whether they can be written. `CopyPixelOperation`
+and the metafile enums are numbers. `MetaHeader`, `WmfPlaceableFileHeader` and `MetafileHeader` are
+data. `Font.FromLogFont`/`ToLogFont` reads and writes a LOGFONT, which is a *layout*, not an API
+call — the fields are matched by name off whatever struct the caller declared, so any LOGFONT works.
+`Region.GetRegionData` encodes the region's rectangles and `Region(RegionData)` reads them back, so
+cloning a region through its data round-trips exactly. `Metafile.GetMetafileHeader` really parses the
+EMF and placeable-WMF headers, both fixed little-endian layouts, so code that inspects a file before
+deciding what to do with it works here.
+
+**Cannot work, and says so loudly** — the handle members. `GetHbitmap`, `ToHfont`, `GetHrgn`,
+`GetHalftonePalette`, `GetHdevmode`, `GetHdevnames`, `FromHicon`, `FromHbitmap`, `FromHrgn`,
+`FromHfont`, `Icon.FromHandle`, `BufferedGraphics.Render(IntPtr)` and the metafile recording
+constructors all throw `PlatformNotSupportedException` naming the member and what to use instead.
+Returning `IntPtr.Zero` would have been strictly worse than absence: the caller hands it to
+`DeleteObject` or `SelectObject` and corrupts silently somewhere else, whereas a throw names the line
+that caused it. Absence, meanwhile, stops the whole file compiling.
+
+**Correct as a no-op** — three of them. `Graphics.AddMetafileComment` does nothing, which is exactly
+what upstream does when the surface is not recording a metafile, so a caller that comments its
+drawing code behaves identically on both. `ReleaseHrgn` and `ReleaseHdcInternal` are no-ops rather
+than throws because you can only reach a release with a handle you never obtained — usually from a
+`finally` block, where throwing would mask the exception that actually stopped the caller.
+
+Two members are answered rather than refused: `Graphics.GetContextInfo` reports the offset and clip
+this surface already tracks, and `Icon.ExtractAssociatedIcon` returns null — an outcome upstream also
+returns for a path it cannot resolve, so a caller that checks the result behaves correctly.
+
+**Still permanently partial** (unchanged): `Pen.Alignment` inset/outset stroking and `CustomLineCap`
+outline stroking. `Region.GetRegionData` has moved off this list — it works, but its bytes are this
+layer's encoding rather than GDI+'s, so they round-trip here and are not something to hand to Win32.
+
+### Phase 10 — metafile playback
+
+Phase 9 left `Metafile` able to read a header and nothing else, on the reasoning that EMF and WMF are
+"Windows GDI record-and-replay formats with no Skia equivalent". That conflated the *format* with the
+*API*. EMF and WMF are published specifications (MS-EMF, MS-WMF): a metafile is a length-prefixed
+sequence of little-endian record structs, and reading one has nothing to do with Windows. What needs
+Windows is asking GDI to replay it. Interpreting the records ourselves is a different problem, and a
+solved one — libwmf, Inkscape and LibreOffice all render these cross-platform.
+
+So playback is now real. `src/Majorsilence.Forms.Drawing.Common/Metafiles/` holds the record readers,
+a GDI device-context state machine, and the two record interpreters; `Metafile` parses on construction
+and rasterises onto a Skia canvas. Because it rasterises into the same backing bitmap every other
+`Image` uses, a metafile renders anywhere an image does — a `PictureBox`, `DrawImage`, a printed page
+— with no changes to any of those paths. And because it is vector data, `Image.PrepareForDraw` lets it
+re-render when asked for a size it has not drawn at yet, so scaling one up stays sharp instead of
+enlarging pixels.
+
+What the players cover: object creation and selection (pens, brushes, fonts, and the GDI stock
+objects), lines, polylines, polygons, poly-polygons, Béziers, rectangles, round rectangles, ellipses,
+arcs, chords, pies, path construction and filling, clipping, text with alignment and escapement,
+device-independent bitmap blits at 1/4/8/16/24/32 bits per pixel, the window/viewport and world
+transforms, and the SaveDC/RestoreDC stack.
+
+Three design points, because each is a way to get this wrong:
+
+- **Unknown records are skipped, not thrown on.** Metafiles routinely carry records from producers
+  nobody documents, and a clipboard metafile is routinely truncated. Drawing everything that parsed
+  beats discarding a picture over one unfamiliar record in three hundred.
+  `Metafile.UnsupportedRecordCount` reports the skips, so a systematically misread file is visible
+  rather than quietly half-drawn.
+- **EMF+ records are ignored.** They travel inside EMF comment records; rendering the EMF half is
+  exactly what a downlevel GDI renderer does with a dual metafile, so this is defined behaviour.
+- **WMF is not EMF with smaller integers.** It stores rectangles bottom-right first, takes several
+  records' arguments in reverse order, and selects objects by an index into a table it fills in
+  creation order rather than by a handle the record names — with deletes leaving a hole the next
+  create reuses. Each of those has a test whose failure mode is a picture that still draws, just
+  wrong, which is why they are asserted on pixels.
+
+One real bug surfaced during this: the viewport extent defaulted to 1×1, so any metafile that set a
+window extent without a viewport extent — which is most WMFs — collapsed its entire picture into a
+single pixel. GDI defaults it to the device extent.
+
+The tests build real EMF and WMF byte streams from the published record layouts and assert on the
+rendered pixels. That is deliberate on both counts: the platform cannot produce a metafile here, which
+is the whole reason the players exist, and a player can decode every field correctly and still draw
+the wrong picture, because what a record means depends on the device-context state it inherits.
+
+**Recording is still out of scope.** Creating a metafile by drawing into it needs `Graphics` to emit
+records instead of Skia calls, and `Graphics` is sealed over an `SKCanvas`; those constructors throw.
+
 
 Two real bugs surfaced while finishing, both fixed:
 

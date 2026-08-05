@@ -8,7 +8,7 @@ namespace Majorsilence.Forms.Drawing
     /// Represents a Windows icon, backed by SkiaSharp pixel data. Cross-platform replacement for
     /// <c>System.Drawing.Icon</c>.
     /// </summary>
-    public sealed class Icon : IDisposable, ICloneable
+    public sealed partial class Icon : IDisposable, ICloneable
     {
         private SKBitmap? backing;
 

@@ -25,14 +25,20 @@ namespace Majorsilence.Forms.Uno
     ///
     /// WinUI also has no native swipe gesture (only the unrelated, heavyweight <c>SwipeControl</c> for
     /// reveal-actions) -- <see cref="Control.Swipe"/> is synthesized here from
-    /// <see cref="UIElement.ManipulationCompleted"/>'s velocity against <see cref="MinSwipeVelocity"/>,
-    /// a chosen heuristic rather than a platform capability.
+    /// <see cref="UIElement.ManipulationCompleted"/>'s velocity. That decision, and the pinch-vs-pan
+    /// split below, live in <see cref="GestureHeuristics"/> rather than inline here: they are
+    /// judgement calls that cannot be verified by running them (no sandbox has multi-touch hardware),
+    /// so they are at least unit-tested.
+    ///
+    /// <b>Units matter here.</b> WinUI reports manipulation velocity in DIP per *millisecond*
+    /// (confirmed from Uno's own shipped XML documentation for
+    /// <c>Microsoft.UI.Input.ManipulationVelocities.Linear</c>), whereas Avalonia reports swipe
+    /// velocity in pixels per *second*. Both feed the same neutral <see cref="Control.Swipe"/> event,
+    /// so this backend converts -- otherwise <see cref="SwipeGestureEventArgs.VelocityX"/> would mean
+    /// something different depending on which backend an app happened to be running on.
     /// </summary>
     internal static class UnoGestureWiring
     {
-        // Chosen heuristic -- WinUI has no native swipe gesture to read a platform default from.
-        private const double MinSwipeVelocity = 500; // px/sec
-
         internal static void Attach (UIElement host, WindowBase owner, Func<double> scale)
         {
             host.ManipulationMode = ManipulationModes.TranslateX | ManipulationModes.TranslateY
@@ -48,9 +54,9 @@ namespace Majorsilence.Forms.Uno
                 var y = (int)(e.Position.Y * scale ());
 
                 // WinUI reports pan and pinch/rotate through the same event; split on whether this
-                // frame's incremental Scale/Rotation is non-trivial (a real two-finger frame) vs. a
-                // pure single-finger pan (Delta.Scale == 1, Delta.Rotation == 0).
-                if (e.Delta.Scale != 1f || e.Delta.Rotation != 0f)
+                // frame's incremental scale/rotation is a deliberate pinch rather than the drift two
+                // contacts always show while being dragged across the screen.
+                if (GestureHeuristics.IsPinchFrame (e.Delta.Scale, e.Delta.Rotation))
                     owner.HandlePinch (x, y, e.Cumulative.Scale, e.Cumulative.Rotation, e.Delta.Rotation);
                 else
                     owner.HandleScrollGesture (x, y, (int)(e.Delta.Translation.X * scale ()), (int)(e.Delta.Translation.Y * scale ()));
@@ -60,18 +66,16 @@ namespace Majorsilence.Forms.Uno
                 if (e.PointerDeviceType == PointerDeviceType.Mouse)
                     return;
 
-                var vx = e.Velocities.Linear.X;
-                var vy = e.Velocities.Linear.Y;
-                if (vx * vx + vy * vy < MinSwipeVelocity * MinSwipeVelocity)
-                    return;
+                // DIP per millisecond from WinUI, pixels per second for the neutral event.
+                var vx = e.Velocities.Linear.X * GestureHeuristics.MillisecondsPerSecond * scale ();
+                var vy = e.Velocities.Linear.Y * GestureHeuristics.MillisecondsPerSecond * scale ();
 
-                var direction = Math.Abs (vx) >= Math.Abs (vy)
-                    ? (vx >= 0 ? SwipeDirection.Right : SwipeDirection.Left)
-                    : (vy >= 0 ? SwipeDirection.Down : SwipeDirection.Up);
+                if (!GestureHeuristics.TryClassifySwipe (vx, vy, out var direction))
+                    return;
 
                 owner.HandleSwipe (
                     (int)(e.Position.X * scale ()), (int)(e.Position.Y * scale ()),
-                    vx * scale (), vy * scale (), direction);
+                    vx, vy, direction);
             };
 
             host.Holding += (_, e) => {

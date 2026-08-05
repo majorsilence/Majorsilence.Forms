@@ -20,7 +20,7 @@ namespace Majorsilence.Forms.Printing
     /// <summary>
     /// Specifies information about how a document is printed, including which pages and how many copies.
     /// </summary>
-    public sealed class PrinterSettings
+    public sealed partial class PrinterSettings
     {
         /// <summary>Initializes a new instance with its own default page settings.</summary>
         public PrinterSettings ()
