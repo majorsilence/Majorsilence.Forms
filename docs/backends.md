@@ -252,6 +252,16 @@ Like the rest of the backend seam, this is wired through new methods directly on
 events, with nothing to implement and no effect on its own behavior (the same pattern as the
 optional `IWebViewFactory` capability above).
 
+## Hosting native elements
+
+`INativeControlHostBackend` is a third optional capability, alongside `IWebViewFactory` — implemented
+by the Avalonia and Uno backends, absent on Headless. It lets a `NativeControlHost` control reserve a
+rectangle that the backend fills with a real toolkit element (an Avalonia `Control`, an Uno
+`UIElement`) overlaid on top of the Skia surface, kept aligned to the placeholder's bounds, clip and
+visibility. See [`native-interop.md`](native-interop.md) for how to use it, its airspace limits, why
+native handles can't be faked, and why video is usually better done with frame callbacks drawn into
+Skia than with a hosted native surface.
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two

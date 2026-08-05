@@ -21,6 +21,14 @@ the reverse (embedding a native control inside a Majorsilence.Forms app) — is 
 [`samples/WinFormsInterop`](samples/WinFormsInterop) (Windows-only; see
 [`docs/winforms-interop.md`](docs/winforms-interop.md)).
 
+For putting native content (video, maps, a browser engine) inside a Majorsilence.Forms control, and
+for what `Control.Handle`/`WindowBase.Handle` actually are, see
+[`docs/native-interop.md`](docs/native-interop.md). The short version: **native handles are real only
+at the window level and must never be faked** — `Control.Handle` is `IntPtr.Zero` because a control
+here is paint operations on a canvas, not an OS window. `NativeControlHost` is the supported seam for
+hosting native elements, and for video specifically a frame-callback surface drawn into Skia composites
+properly where a hosted native element cannot.
+
 ## Stub policy
 
 **If a member has no working implementation yet, it safely no-ops (or returns a sensible default)
