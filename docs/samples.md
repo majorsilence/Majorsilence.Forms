@@ -77,9 +77,17 @@ dotnet publish samples/Gallery.Wasm -c Release -o out
 ```
 
 Serve `out/wwwroot` with any static file server and open `index.html` — `dotnet run` does not serve a
-WebAssembly SDK project. There is no real filesystem in the browser, so the gallery's images are
-preloaded into the in-memory filesystem via `WasmFilesToIncludeInFileSystem` rather than special-casing
-`ImageLoader`.
+WebAssembly SDK project.
+
+> **Known gap: the gallery's icons don't render in the browser.** There is no real filesystem in the
+> browser, and the `WasmFilesToIncludeInFileSystem` item in `Gallery.Wasm.csproj` that is meant to
+> preload the images into the in-memory one has no effect here: it is only consumed by the
+> `_WasmGenerateAppBundle` target, which is gated on `$(WasmGenerateAppBundle) == 'true'` and so never
+> runs under `Microsoft.NET.Sdk.WebAssembly` (this project evaluates that property to `false`). The
+> item is populated and then silently ignored — no warning. `ImageLoader.Get` therefore misses every
+> file, and `Bitmap(string)` degrades to a 1×1 placeholder rather than throwing, so the app boots
+> cleanly with invisible icons. The same applies to `Gallery.Android` and `Gallery.iOS`. Making the
+> images `EmbeddedResource`s of `ControlGallery` would fix all three at once.
 
 There's no separate WASM package: `Majorsilence.Forms.Avalonia` multi-targets `net10.0-browser`
 alongside its desktop TFMs, and startup is async and host-driven rather than a blocking
