@@ -6,7 +6,7 @@ The easiest way to get started creating a Majorsilence.Forms application is with
 
 To install and run:
 ```
-dotnet new --install MajorsilenceForms.Templates
+dotnet new install Majorsilence.Forms.Templates
 dotnet new majorsilenceforms
 dotnet run
 ```

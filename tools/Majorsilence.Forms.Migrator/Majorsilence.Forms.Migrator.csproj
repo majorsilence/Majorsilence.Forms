@@ -36,6 +36,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Now that this project ships a compiled package, SourceLink makes the PublishRepositoryUrl /
+         EmbedUntrackedSources settings in Directory.Build.props actually take effect, as on every
+         other shipped assembly. -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
     <!-- Backing the optional "engine roslyn" source-rewrite engine (see the CLI's engine flag). See
          RoslynWorkspaceContext.cs / RoslynSourceConverter.cs. MSBuildLocator.RegisterDefaults() is gated
          strictly behind that engine being selected at runtime; these packages being referenced has no

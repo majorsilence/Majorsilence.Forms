@@ -1,4 +1,4 @@
-# MajorsilenceForms.Templates
+# Majorsilence.Forms.Templates
 
 `dotnet new` templates for scaffolding a
 [Majorsilence.Forms](https://github.com/majorsilence/Majorsilence.Forms) application — a WinForms-style,
@@ -6,7 +6,7 @@ cross-platform UI framework for .NET (Windows, macOS, Linux) that keeps `Form`s,
 handlers, and `*.Designer.cs` files.
 
 ```
-dotnet new install MajorsilenceForms.Templates
+dotnet new install Majorsilence.Forms.Templates
 dotnet new majorsilenceforms
 dotnet run
 ```
@@ -38,9 +38,12 @@ two `PackageReference` versions when cutting a new release, and re-verify end to
 
 ```bash
 dotnet pack tools/Majorsilence.Forms.Templates
-dotnet new install nupkg/MajorsilenceForms.Templates.<version>.nupkg
+# An absolute path is required here: `dotnet new install` rejects a relative one with
+# "is not supported" (exit code 106), including the ./ form.
+dotnet new install "$PWD/nupkg/Majorsilence.Forms.Templates.<version>.nupkg"
 dotnet new majorsilenceforms -o /tmp/msf-template-smoke-test
 dotnet build /tmp/msf-template-smoke-test
+dotnet new uninstall Majorsilence.Forms.Templates
 ```
 
 This package itself follows the repo's own `Directory.Build.props` version (so its version tracks

@@ -58,7 +58,7 @@ Majorsilence.Forms.Backends.Platform.Backend = new Majorsilence.Forms.Headless.H
 Or scaffold the whole thing:
 
 ```bash
-dotnet new install MajorsilenceForms.Templates
+dotnet new install Majorsilence.Forms.Templates
 dotnet new majorsilenceforms
 dotnet run
 ```
