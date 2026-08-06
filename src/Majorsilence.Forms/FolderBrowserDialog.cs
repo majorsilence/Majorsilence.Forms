@@ -35,13 +35,21 @@ namespace Majorsilence.Forms
         public Environment.SpecialFolder RootFolder { get; set; } = Environment.SpecialFolder.Desktop;
 
         /// <summary>Shows the dialog synchronously (blocking call).</summary>
-        public DialogResult ShowDialog () => AsyncHelper.RunSync (() => ShowDialogAsync (Application.OpenForms.LastOrDefault ()!));
+        public DialogResult ShowDialog ()
+        {
+            var owner = Application.OpenForms.LastOrDefault ();
+            return owner is not null ? ShowDialog (owner) : DialogResult.Cancel;
+        }
 
         /// <summary>Shows the dialog with an IWin32Window owner. Synchronous wrapper.</summary>
         public DialogResult ShowDialog (IWin32Window owner) => ShowDialog ();
 
         /// <summary>Shows the dialog synchronously with the specified owner, matching System.Windows.Forms semantics.</summary>
-        public DialogResult ShowDialog (Form owner) => AsyncHelper.RunSync (() => ShowDialogAsync (owner));
+        /// <remarks>
+        /// Waits by pumping a nested message loop rather than blocking — see
+        /// <see cref="FileDialog.ShowDialogSync(Form)"/> for why a blocking wait deadlocks here.
+        /// </remarks>
+        public DialogResult ShowDialog (Form owner) => Form.RunModal (ShowDialogAsync (owner));
 
         /// <summary>
         /// Shows the dialog to the user without blocking the caller.
