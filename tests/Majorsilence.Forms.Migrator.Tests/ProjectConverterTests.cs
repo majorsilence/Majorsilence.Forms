@@ -5,8 +5,10 @@ namespace Majorsilence.Forms.Migrator.Tests;
 
 public class ProjectConverterTests
 {
+    // PackageVersion is pinned rather than left at its default, which is the migrator's own assembly
+    // version and therefore moves with every release (see MigratorVersion).
     private static MigrationOptions Options (Backend backend = Backend.Avalonia, ReferenceMode mode = ReferenceMode.Package) =>
-        new () { Input = "x", Backend = backend, ReferenceMode = mode };
+        new () { Input = "x", Backend = backend, ReferenceMode = mode, PackageVersion = "0.3.0" };
 
     private const string WinFormsCsproj = """
         <Project Sdk="Microsoft.NET.Sdk">

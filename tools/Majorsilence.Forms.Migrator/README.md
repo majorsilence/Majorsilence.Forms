@@ -1,6 +1,14 @@
 # majorsilence-migrate
 
-A console tool that converts WinForms source and projects to [Majorsilence.Forms](../../README.md).
+A .NET global tool that converts WinForms source and projects to
+[Majorsilence.Forms](https://github.com/majorsilence/Majorsilence.Forms).
+
+```
+dotnet tool install -g Majorsilence.Forms.Migrator
+majorsilence-migrate <input> [options]
+```
+
+From a clone of the repo, without installing:
 
 ```
 dotnet run --project tools/Majorsilence.Forms.Migrator -- <input> [options]
@@ -117,7 +125,7 @@ Because of that, the migrator only flags what genuinely can't be carried across:
 | `--backend <name>` | `avalonia` (default) \| `uno` \| `headless`. |
 | `--references <mode>` | `package` (default) \| `project`. |
 | `--tfm <tfm>` | Force a target framework. Default: keep the version, just drop the `-windows` suffix. |
-| `--package-version <v>` | NuGet version for package references (default `0.3.0`). |
+| `--package-version <v>` | NuGet version for package references. Defaults to the migrator's own version — the tool and the packages ship from the same release. |
 | `--repo-root <dir>` | Repo root for resolving `--references project` paths. |
 | `--map <file>` | JSON file of extra namespace mappings (repeatable). |
 | `--strict` | Exit non-zero if any manual-review warning is produced (CI gate). |

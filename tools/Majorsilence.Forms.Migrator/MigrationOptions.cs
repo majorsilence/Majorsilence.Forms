@@ -79,7 +79,7 @@ internal sealed class MigrationOptions
     public string? TargetFramework { get; init; }
 
     /// <summary>NuGet version used when <see cref="ReferenceMode"/> is <see cref="ReferenceMode.Package"/>.</summary>
-    public string PackageVersion { get; init; } = "0.3.0";
+    public string PackageVersion { get; init; } = MigratorVersion.MajorsilenceFormsPackageVersion;
 
     /// <summary>
     /// Repo root used to compute relative paths when <see cref="ReferenceMode"/> is
