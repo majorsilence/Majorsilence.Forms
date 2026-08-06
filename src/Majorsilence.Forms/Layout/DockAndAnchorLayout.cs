@@ -543,8 +543,20 @@ internal sealed partial class DefaultLayout : LayoutEngine
         // "distance from its parent's edges" against the parent's CURRENT (possibly already-grown)
         // DisplayRectangle, permanently freezing an Anchored element at whatever size it happened to be
         // the moment such a redundant re-init last ran. Skip the no-op case: if this element's own
-        // Bounds haven't changed since the last real capture, there is nothing new to learn here.
-        if (anchorInfo.HasCapturedElementBounds && anchorInfo.CapturedElementBounds == element.Bounds)
+        // Bounds haven't changed since the last real capture, there is nothing new to learn here --
+        // UNLESS that last capture was itself taken against a degenerate (zero-size) parent
+        // DisplayRectangle. A container can still report a zero-size DisplayRectangle the first time
+        // one of its children is parented (e.g. a Form whose ClientSize hasn't been assigned yet
+        // partway through InitializeComponent's nested Suspend/ResumeLayout calls) -- an anchor delta
+        // captured against that phantom size is garbage, and skipping every later call because this
+        // element's own bounds coincidentally haven't moved since then would leave that garbage in
+        // place forever, corrupting the very next real anchor stretch (observed: a Panel anchored on
+        // all four sides ballooned to roughly double its designed size once the parent's real
+        // DisplayRectangle finally arrived, because the "distance from edges" it stretched from was
+        // captured relative to a 0x0 rectangle instead). Once a real (non-degenerate) capture has
+        // happened, later redundant re-inits are safe to skip exactly as intended above.
+        if (anchorInfo.HasCapturedElementBounds && anchorInfo.CapturedElementBounds == element.Bounds
+            && !anchorInfo.CapturedParentDisplayRectangle.IsEmpty)
             return;
 
         //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, "Update anchor info");
@@ -621,6 +633,7 @@ internal sealed partial class DefaultLayout : LayoutEngine
 
             anchorInfo.CapturedElementBounds = element.Bounds;
             anchorInfo.HasCapturedElementBounds = true;
+            anchorInfo.CapturedParentDisplayRectangle = parentDisplayRect;
 
             //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, "anchor info (l,t,r,b): (" + anchorInfo.Left + ", " + anchorInfo.Top + ", " + anchorInfo.Right + ", " + anchorInfo.Bottom + ")");
         }
@@ -868,5 +881,10 @@ internal sealed partial class DefaultLayout : LayoutEngine
         // recomputing -- see the comment at its call site for why that distinction matters.
         public Rectangle CapturedElementBounds;
         public bool HasCapturedElementBounds;
+
+        // The container's DisplayRectangle at the moment this snapshot was captured. A degenerate
+        // (zero-size) value here means the capture happened before the container had a real size to
+        // measure against -- see the comment at the call site that checks this.
+        public Rectangle CapturedParentDisplayRectangle;
     }
 }
