@@ -43,6 +43,7 @@ namespace Majorsilence.Forms
         static ComponentResourceManager ()
         {
             RegisterWinFormsEnumResolver ();
+            RegisterDrawingShimResolver ();
         }
 
         /// <summary>Creates an empty resource manager (no backing <c>.resx</c>).</summary>
@@ -62,9 +63,9 @@ namespace Majorsilence.Forms
 
             LoadCompiledResources (resourceSource);
 
-            var xml = LocateResx (resourceSource);
-            if (xml is not null)
-                Load (xml);
+            var resx = LocateResx (resourceSource);
+            if (resx is not null)
+                Load (resx.Value.Xml, resx.Value.Directory);
         }
 
         /// <summary>
@@ -84,11 +85,18 @@ namespace Majorsilence.Forms
             LoadCompiledResources (assembly, baseName);
         }
 
-        /// <summary>Builds a resource manager from a <c>.resx</c> file on disk.</summary>
+        /// <summary>
+        /// Builds a resource manager from a <c>.resx</c> file on disk. File-linked entries
+        /// (<c>ResXFileRef</c>) are resolved relative to that file's own directory, the way the
+        /// designer wrote them.
+        /// </summary>
         public static ComponentResourceManager FromFile (string path)
         {
             var mgr = new ComponentResourceManager ();
-            mgr.Load (File.ReadAllText (path));
+            string? directory;
+            try { directory = Path.GetDirectoryName (Path.GetFullPath (path)); }
+            catch { directory = null; }
+            mgr.Load (File.ReadAllText (path), directory);
             return mgr;
         }
 
@@ -305,6 +313,59 @@ namespace Majorsilence.Forms
                 name.Name == "System.Windows.Forms" ? shimAssembly : null;
         }
 
+        // The image counterpart of RegisterWinFormsEnumResolver. A compiled .resx stores an image
+        // against "System.Drawing.Bitmap, System.Drawing, ..." -- and while System.Drawing itself is a
+        // shared-framework facade that resolves fine, the Bitmap it type-forwards to lives in
+        // System.Drawing.Common, a NuGet package a cross-platform app has no reason to reference (and
+        // that cannot decode images off Windows anyway). So the reader's Type.GetType threw
+        // FileNotFoundException for System.Drawing.Common, LoadCompiledResources' per-entry catch
+        // swallowed it, and every single image in a Resources.resx came back null -- a form's buttons
+        // rendered as empty rectangles, which is how this was found.
+        //
+        // Majorsilence.Forms.DrawingShims (embedded at build time, see EmbedDrawingShims) declares
+        // stand-in Bitmap/Icon/Image types that decode nothing and just keep the original file bytes;
+        // NormalizeDeserialized below reads those back off and hands them to SkiaSharp.
+        [UnconditionalSuppressMessage ("Trimming", "IL2026",
+            Justification = "The loaded assembly is Majorsilence.Forms.DrawingShims, embedded above: three byte[]-holding types with no reflection-driven behavior of their own for a trimmer to remove.")]
+        private static void RegisterDrawingShimResolver ()
+        {
+            // Resolved and cached before the handler is registered, for the same recursion reason
+            // spelled out in RegisterWinFormsEnumResolver: this shim is itself named
+            // "System.Drawing.Common".
+            byte[]? shimBytes;
+            using (var stream = typeof (ComponentResourceManager).Assembly
+                       .GetManifestResourceStream ("Majorsilence.Forms.DrawingShims.dll"))
+            {
+                if (stream is null)
+                    return;   // build didn't embed it -- degrade quietly, exactly as before this existed.
+                using var buffer = new MemoryStream ();
+                stream.CopyTo (buffer);
+                shimBytes = buffer.ToArray ();
+            }
+
+            Assembly shimAssembly;
+            try { shimAssembly = Assembly.Load (shimBytes); }
+            catch { return; }
+
+            AssemblyLoadContext.Default.Resolving += (_, name) =>
+                name.Name == "System.Drawing.Common" ? shimAssembly : null;
+        }
+
+        // Pulls the original file bytes back off a stand-in image produced by the embedded
+        // System.Drawing.Common shim (see RegisterDrawingShimResolver). Reflection rather than a
+        // direct reference because that assembly is loaded from bytes at runtime and is deliberately
+        // not referenced at compile time -- its type names collide with the real System.Drawing.
+        [UnconditionalSuppressMessage ("Trimming", "IL2075",
+            Justification = "The property is on a Majorsilence.Forms.DrawingShims type, which is IsTrimmable but reached only by having been instantiated by the resource reader moments earlier; a miss degrades to false and the caller falls through to the live-System.Drawing path.")]
+        private static bool TryGetShimImageBytes (object value, [NotNullWhen (true)] out byte[]? bytes)
+        {
+            bytes = value.GetType ()
+                .GetProperty ("MajorsilenceRawBytes", BindingFlags.Public | BindingFlags.Instance)
+                ?.GetValue (value) as byte[];
+
+            return bytes is { Length: > 0 };
+        }
+
         // On Windows, System.Drawing.Common is functional, so DeserializingResourceReader hands back
         // LIVE System.Drawing.Icon/Bitmap/Font objects for graphics entries -- but designer code (and
         // every migrated property) is typed against Majorsilence.Forms.Drawing, so an unconditional
@@ -324,6 +385,13 @@ namespace Majorsilence.Forms
             var type = value.GetType ();
             try
             {
+                // A stand-in from the embedded shim: it never decoded anything, it just carried the
+                // original file across, so build the real image straight from those bytes. Checked
+                // before the switch below because the stand-ins share their FullNames with the live
+                // System.Drawing types that switch is written for.
+                if (TryGetShimImageBytes (value, out var shimBytes))
+                    return BuildImage (type.FullName, shimBytes);
+
                 switch (type.FullName)
                 {
                     case "System.Drawing.Icon":
@@ -370,9 +438,9 @@ namespace Majorsilence.Forms
 
         // ── resx parsing ──────────────────────────────────────────────────────────────────────
 
-        private sealed record ResxEntry (string? TypeName, string? MimeType, string RawValue);
+        private sealed record ResxEntry (string? TypeName, string? MimeType, string RawValue, string? BaseDirectory);
 
-        private void Load (string xml)
+        private void Load (string xml, string? baseDirectory = null)
         {
             XDocument doc;
             try { doc = XDocument.Parse (xml); }
@@ -386,13 +454,22 @@ namespace Majorsilence.Forms
                 _entries[name] = new ResxEntry (
                     TypeName: (string?) data.Attribute ("type"),
                     MimeType: (string?) data.Attribute ("mimetype"),
-                    RawValue: data.Element ("value")?.Value ?? string.Empty);
+                    RawValue: data.Element ("value")?.Value ?? string.Empty,
+                    BaseDirectory: baseDirectory);
             }
         }
 
         // Turns a raw resx entry into a live object: string, primitive, or Majorsilence.Forms.Drawing image.
         private static object? Materialize (ResxEntry entry)
         {
+            // A file-linked entry: the value is "<relative path>;<type>[;<encoding>]" and the real
+            // payload lives in a separate file next to the .resx. This is what Visual Studio writes
+            // for every image dragged into a Resources.resx, so without it the common case of a
+            // strongly-typed Resources.Play comes back as that "path;type" string rather than a
+            // picture -- and the generated `(Bitmap) obj` cast then throws.
+            if (IsFileRef (entry.TypeName))
+                return MaterializeFileRef (entry);
+
             // A serialized payload (image bytes, or a BinaryFormatter blob).
             if (!string.IsNullOrEmpty (entry.MimeType))
             {
@@ -426,6 +503,72 @@ namespace Majorsilence.Forms
         {
             try { bytes = System.Convert.FromBase64String (value.Trim ()); return true; }
             catch { bytes = Array.Empty<byte> (); return false; }
+        }
+
+        // "System.Resources.ResXFileRef, System.Windows.Forms" -- the only type whose value is a
+        // pointer to another file rather than the data itself.
+        private static bool IsFileRef (string? typeName)
+            => LeadingType (typeName).Equals ("System.Resources.ResXFileRef", StringComparison.Ordinal);
+
+        // The value of a file-linked entry is "<path>;<type name>[;<encoding>]", e.g.
+        // "..\Resources\play.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, ...".
+        // The type name itself contains commas but never a semicolon, so splitting on ';' is safe;
+        // a path containing one is not representable in this format to begin with.
+        private static object? MaterializeFileRef (ResxEntry entry)
+        {
+            var parts = entry.RawValue.Split (';');
+            if (parts.Length == 0)
+                return null;
+
+            var path = ResolveFileRefPath (parts[0].Trim (), entry.BaseDirectory);
+            if (path is null)
+                return null;
+
+            var targetType = parts.Length > 1 ? parts[1].Trim () : null;
+
+            byte[] bytes;
+            try { bytes = File.ReadAllBytes (path); }
+            catch { return null; }   // a link to a file that isn't there degrades to null, as an absent entry would.
+
+            var leading = LeadingType (targetType);
+
+            if (leading.Equals ("System.String", StringComparison.Ordinal))
+            {
+                // parts[2], when present, names the text encoding the file was written in.
+                var encoding = System.Text.Encoding.UTF8;
+                if (parts.Length > 2 && !string.IsNullOrWhiteSpace (parts[2]))
+                {
+                    try { encoding = System.Text.Encoding.GetEncoding (parts[2].Trim ()); }
+                    catch { /* an unknown encoding name falls back to UTF-8. */ }
+                }
+                try { return encoding.GetString (bytes); }
+                catch { return null; }
+            }
+
+            if (leading.Equals ("System.Byte[]", StringComparison.Ordinal))
+                return bytes;
+
+            return BuildImage (targetType, bytes);
+        }
+
+        // File refs are written with the separator of whatever machine last saved the .resx -- almost
+        // always Windows -- so a "..\Resources\play.png" has to be re-separated before it will open
+        // anywhere else.
+        private static string? ResolveFileRefPath (string reference, string? baseDirectory)
+        {
+            if (string.IsNullOrEmpty (reference))
+                return null;
+
+            var normalized = reference.Replace ('\\', Path.DirectorySeparatorChar)
+                                      .Replace ('/', Path.DirectorySeparatorChar);
+
+            try
+            {
+                return string.IsNullOrEmpty (baseDirectory) || Path.IsPathRooted (normalized)
+                    ? normalized
+                    : Path.GetFullPath (Path.Combine (baseDirectory, normalized));
+            }
+            catch { return null; }   // a reference that isn't a usable path at all.
         }
 
         private static object? BuildImage (string? typeName, byte[] bytes)
@@ -574,7 +717,10 @@ namespace Majorsilence.Forms
 
         // ── resx discovery for the (Type) constructor ────────────────────────────────────────
 
-        private static string? LocateResx (Type type)
+        // Returns the .resx XML together with the directory file-linked entries resolve against —
+        // null for an embedded copy, whose ResXFileRef paths point into the source tree that built it
+        // and so can't be followed at runtime.
+        private static (string Xml, string? Directory)? LocateResx (Type type)
         {
             var assembly = type.Assembly;
 
@@ -588,7 +734,7 @@ namespace Majorsilence.Forms
                 if (stream is not null)
                 {
                     using var reader = new StreamReader (stream);
-                    return reader.ReadToEnd ();
+                    return (reader.ReadToEnd (), null);
                 }
             }
 
@@ -604,7 +750,7 @@ namespace Majorsilence.Forms
                 {
                     var path = Path.Combine (dir!, candidate!);
                     if (File.Exists (path))
-                        return File.ReadAllText (path);
+                        return (File.ReadAllText (path), dir);
                 }
 
             return null;

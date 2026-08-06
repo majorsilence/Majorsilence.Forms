@@ -13,6 +13,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Also copied loose, not just compiled in: the ResXFileRef tests read the .resx off disk through
+         ComponentResourceManager.FromFile and follow its link to the .png sitting beside it. -->
+    <None Include="Fixtures\CompiledResourceFixture.resx" CopyToOutputDirectory="PreserveNewest" LinkBase="Fixtures" />
+    <None Include="Fixtures\fixture-image.png" CopyToOutputDirectory="PreserveNewest" LinkBase="Fixtures" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>

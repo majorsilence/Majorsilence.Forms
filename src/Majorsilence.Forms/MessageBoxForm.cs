@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// </summary>
     public class MessageBoxForm : Form
     {
-        private readonly TextBox label;
+        private readonly Label label;
         private readonly Panel button_panel;
 
         /// <summary>
@@ -19,10 +19,12 @@ namespace Majorsilence.Forms
             AllowMinimize = false;
             AllowMaximize = false;
 
-            label = Controls.Add (new TextBox {
+            // A Label, not a read-only TextBox: a TextBox has no word wrap, so it laid the message out
+            // as one long line and scrolled to the end of it, cutting off the *start* of the sentence
+            // ("...t find mplayer" instead of "Cannot find mplayer"). A multiline Label wraps.
+            label = Controls.Add (new Label {
                 Dock = DockStyle.Fill,
                 Multiline = true,
-                ReadOnly = true,
                 Padding = new Padding (10)
             });
 

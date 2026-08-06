@@ -15,7 +15,10 @@ namespace Majorsilence.Forms.Headless
         /// </summary>
         public static void Use ()
         {
-            if (Platform.Backend is not HeadlessPlatformBackend)
+            // ConfiguredBackend, not Backend: the getter resolves (and throws for) a default backend,
+            // so asking it here threw "No platform backend is configured" in exactly the case this
+            // method exists to handle — a process with no backend referenced at all.
+            if (Platform.ConfiguredBackend is not HeadlessPlatformBackend)
                 Platform.Backend = new HeadlessPlatformBackend ();
         }
 

@@ -52,6 +52,9 @@
     <ProjectReference Include="..\Majorsilence.Forms.WinFormsEnumShims\Majorsilence.Forms.WinFormsEnumShims.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+    <ProjectReference Include="..\Majorsilence.Forms.DrawingShims\Majorsilence.Forms.DrawingShims.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
   </ItemGroup>
 
   <Target Name="EmbedWinFormsEnumShims" BeforeTargets="AssignTargetPaths">
@@ -63,6 +66,20 @@
     <ItemGroup>
       <EmbeddedResource Include="@(_WinFormsEnumShimsBuildOutput)" Condition="'%(Extension)' == '.dll'">
         <LogicalName>Majorsilence.Forms.WinFormsEnumShims.dll</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+  <!-- Same shape as EmbedWinFormsEnumShims above, and embedded for the same deps.json reason. -->
+  <Target Name="EmbedDrawingShims" BeforeTargets="AssignTargetPaths">
+    <MSBuild Projects="..\Majorsilence.Forms.DrawingShims\Majorsilence.Forms.DrawingShims.csproj"
+             Targets="Build"
+             Properties="TargetFramework=$(TargetFramework);Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_DrawingShimsBuildOutput" />
+    </MSBuild>
+    <ItemGroup>
+      <EmbeddedResource Include="@(_DrawingShimsBuildOutput)" Condition="'%(Extension)' == '.dll'">
+        <LogicalName>Majorsilence.Forms.DrawingShims.dll</LogicalName>
       </EmbeddedResource>
     </ItemGroup>
   </Target>

@@ -729,6 +729,16 @@ namespace Majorsilence.Forms
 
             visible = true;
             OnVisibleChanged (EventArgs.Empty);
+
+            // Join OpenForms BEFORE Load is raised. Form.ShowDialog and MessageBox.Show pick their
+            // modal owner out of Application.OpenForms and fall back to a non-blocking Show() when it
+            // is empty, so registering afterwards made every dialog opened from a Load handler -- the
+            // standard WinForms "prompt for missing configuration on startup" shape -- silently
+            // non-modal on the first form: it flashed up and the handler ran straight on with nothing
+            // filled in.
+            if (this is Form f)
+                Application.OpenForms.Add (f);
+
             EnsureLoaded ();            // WinForms raises Load around the window's first display.
 
             // Assume active the moment we ask the backend to show one of our own windows, rather than
@@ -736,9 +746,6 @@ namespace Majorsilence.Forms
             // after this call returns depending on the platform) -- see IsActive's doc comment. The
             // real event still fires and reconfirms this when it eventually arrives.
             IsActive = true;
-
-            if (this is Form f)
-                Application.OpenForms.Add (f);
 
             if (!shown) {
                 shown = true;
