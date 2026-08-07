@@ -22,6 +22,14 @@ namespace Majorsilence.Forms.Backends
             set => _backend = value;
         }
 
+        /// <summary>
+        /// Gets the backend that has already been assigned, or null when none has been. Unlike
+        /// <see cref="Backend"/> this never resolves — or throws for — a default, so a caller that is
+        /// about to install its own backend can inspect what is there without tripping over the
+        /// "no platform backend is configured" error it exists to prevent.
+        /// </summary>
+        public static IPlatformBackend? ConfiguredBackend => _backend;
+
         private static IPlatformBackend ResolveDefaultBackend ()
         {
             var type = Type.GetType (DefaultBackendTypeName);

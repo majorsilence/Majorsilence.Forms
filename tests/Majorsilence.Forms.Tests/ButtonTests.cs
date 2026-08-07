@@ -296,5 +296,53 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal ("Majorsilence.Forms.Button, Text: Text", control.ToString ());
         }
+
+        // Regression: FlatStyle and FlatAppearance were stored and then ignored by every renderer, so
+        // a designer's borderless flat button (FlatStyle.Flat + FlatAppearance.BorderSize = 0 -- the
+        // standard way to make an image-only toolbar button) still painted the themed 1px border,
+        // drawing a visible box around each one.
+        [Fact]
+        public void FlatStyle_Flat_with_zero_BorderSize_paints_no_border ()
+        {
+            using var control = new Button ();
+            control.FlatStyle = FlatStyle.Flat;
+            control.FlatAppearance.BorderSize = 0;
+
+            Assert.Equal (0, control.CurrentStyle.Border.GetWidth ());
+        }
+
+        [Fact]
+        public void FlatStyle_Flat_honours_a_wider_BorderSize ()
+        {
+            using var control = new Button ();
+            control.FlatStyle = FlatStyle.Flat;
+            control.FlatAppearance.BorderSize = 3;
+
+            Assert.Equal (3, control.CurrentStyle.Border.GetWidth ());
+        }
+
+        [Fact]
+        public void FlatStyle_Standard_keeps_the_themed_border ()
+        {
+            using var control = new Button ();
+
+            Assert.Equal (FlatStyle.Standard, control.FlatStyle);
+            Assert.Equal (1, control.CurrentStyle.Border.GetWidth ());
+        }
+
+        [Fact]
+        public void Switching_back_from_Flat_restores_the_themed_border ()
+        {
+            // The override has to be cleared rather than remembered-and-restored: FlatAppearance is a
+            // mutable object, so there is no notification to snapshot the old value on.
+            using var control = new Button ();
+            control.FlatStyle = FlatStyle.Flat;
+            control.FlatAppearance.BorderSize = 0;
+            Assert.Equal (0, control.CurrentStyle.Border.GetWidth ());
+
+            control.FlatStyle = FlatStyle.Standard;
+
+            Assert.Equal (1, control.CurrentStyle.Border.GetWidth ());
+        }
     }
 }

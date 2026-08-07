@@ -58,7 +58,8 @@ See [Platform backends](docs/backends.md) for the details and how to add your ow
 ## Migrating an existing app
 
 - [`MIGRATION.md`](MIGRATION.md) — how the `majorsilence-migrate` CLI tool rewrites a WinForms
-  solution onto Majorsilence.Forms, and how to read its output.
+  solution onto Majorsilence.Forms, and how to read its output. Install it with
+  `dotnet tool install -g Majorsilence.Forms.Migrator`.
 - [`COMPATIBILITY_MATRIX.md`](COMPATIBILITY_MATRIX.md) — what's fully implemented, what's
   approximated, and what's deliberately out of scope, once your code compiles.
 

@@ -15,7 +15,7 @@ var backend = Backend.Avalonia;
 var referenceMode = ReferenceMode.Package;
 var engine = SourceEngine.Text;
 string? targetFramework = null;
-var packageVersion = "1.0.4";
+var packageVersion = MigratorVersion.MajorsilenceFormsPackageVersion;
 string? repoRoot = null;
 var strict = false;
 var noReport = false;
@@ -152,8 +152,10 @@ static int Fail(string message)
 
 static void PrintUsage()
 {
+    // $$ raw string: single braces stay literal (the --map JSON example below is full of them),
+    // {{expr}} interpolates.
     Console.WriteLine(
-        """
+        $$"""
         majorsilence-migrate — convert WinForms source & projects to Majorsilence.Forms
 
         USAGE
@@ -179,7 +181,8 @@ static void PrintUsage()
                                   input has no project to load).
               --tfm <tfm>         Force a target framework. Default: keep the project's version and
                                   just drop the -windows suffix (net8.0-windows -> net8.0).
-              --package-version <v>  NuGet version for package references (default: 0.3.0).
+              --package-version <v>  NuGet version for package references
+                                  (default: {{MigratorVersion.MajorsilenceFormsPackageVersion}}, this tool's own version).
               --repo-root <dir>   Repo root for resolving --references project paths (default: cwd).
               --map <file>        JSON file of extra namespace mappings (repeatable, e.g. Telerik).
               --dual-build        Wrap the top-of-file System.Windows.Forms/System.Drawing imports in an

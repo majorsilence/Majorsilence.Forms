@@ -17,7 +17,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <PackageId>MajorsilenceForms.Templates</PackageId>
+    <!-- Renamed from MajorsilenceForms.Templates (no dot) so the id sits under the Majorsilence.*
+         package id prefix like every other package this repo ships. The old id remains published on
+         nuget.org up to 26.0.27 and should be deprecated there in favour of this one. -->
+    <PackageId>Majorsilence.Forms.Templates</PackageId>
     <PackageType>Template</PackageType>
     <Title>Majorsilence.Forms Project Templates</Title>
     <Description>dotnet new templates for scaffolding a Majorsilence.Forms application (WinForms-style, cross-platform via SkiaSharp).</Description>

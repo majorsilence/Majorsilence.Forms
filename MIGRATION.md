@@ -6,6 +6,23 @@ once your code compiles against Majorsilence.Forms, see [`COMPATIBILITY_MATRIX.m
 
 Source: [`tools/Majorsilence.Forms.Migrator`](tools/Majorsilence.Forms.Migrator).
 
+## Installing
+
+It ships to nuget.org as a .NET global tool:
+
+```
+dotnet tool install -g Majorsilence.Forms.Migrator
+majorsilence-migrate --help
+```
+
+Update with `dotnet tool update -g Majorsilence.Forms.Migrator`. Prefer a per-repo install? Use
+`dotnet tool install Majorsilence.Forms.Migrator` inside a repo with a tool manifest
+(`dotnet new tool-manifest`) and run it as `dotnet majorsilence-migrate`.
+
+Two alternatives, if you'd rather not install a tool: each GitHub release also attaches a
+self-contained single-file binary per platform (no .NET runtime needed), and from a clone of this
+repo you can always run `dotnet run --project tools/Majorsilence.Forms.Migrator -- <input>`.
+
 ## Design: a textual rewriter, not a Roslyn transform — on purpose
 
 `majorsilence-migrate` does **not** parse a syntax tree or resolve symbols. It's a deliberate,
@@ -123,7 +140,8 @@ OPTIONS
                           input has no project to load.
       --tfm <tfm>         Force a target framework. Default: keep the project's version and
                           just drop the -windows suffix (net8.0-windows -> net8.0).
-      --package-version <v>  NuGet version for package references.
+      --package-version <v>  NuGet version for package references. Defaults to the migrator's own
+                          version — the tool and the packages ship from the same release.
       --repo-root <dir>   Repo root for resolving --references project paths (default: cwd).
       --map <file>        JSON file of extra namespace mappings (repeatable — e.g. a
                           third-party control vendor not already built in).

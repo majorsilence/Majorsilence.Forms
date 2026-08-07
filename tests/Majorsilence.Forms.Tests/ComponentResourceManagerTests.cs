@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Drawing;
 using Xunit;
 
@@ -202,6 +204,70 @@ public class ComponentResourceManagerTests
         Assert.Equal("hello", ComponentResourceManager.NormalizeDeserialized("hello"));
         Assert.Equal(new Size(7, 9), ComponentResourceManager.NormalizeDeserialized(new Size(7, 9)));
         Assert.Null(ComponentResourceManager.NormalizeDeserialized(null));
+    }
+
+    [Fact]
+    public void Compiled_resources_binary_yields_images_not_null()
+    {
+        // Regression: an image in a compiled .resources is stored against "System.Drawing.Bitmap,
+        // System.Drawing, ...", which type-forwards to System.Drawing.Common -- a package this
+        // framework deliberately never references. The reader's Type.GetType therefore threw
+        // FileNotFoundException, LoadCompiledResources' per-entry catch swallowed it, and EVERY image
+        // in a Resources.resx came back null: a migrated form's toolbar buttons rendered as empty
+        // rectangles. RegisterDrawingShimResolver supplies a stand-in that keeps the raw file bytes.
+        //
+        // The stand-in is deliberately a LAST resort: AssemblyLoadContext.Resolving fires only after
+        // normal probing fails, so a process that really does have System.Drawing.Common keeps it.
+        // THIS test project is such a process -- it references the package on purpose, for the
+        // Windows-only live-object tests further down -- so off Windows the real, GDI+-backed type
+        // wins the lookup and then cannot decode, which is a known gap rather than the bug under test.
+        // A migrated app is not in that position: neither it nor Majorsilence.Forms references the
+        // package, so the shim is what answers.
+        if (!System.OperatingSystem.IsWindowsVersionAtLeast(6, 1) && CanLoadRealSystemDrawingCommon())
+            return;
+
+        var mgr = new ComponentResourceManager(typeof(Fixtures.CompiledResourceFixture));
+
+        var image = mgr.GetObject("fixtureImage");
+
+        Assert.NotNull(image);
+        var bitmap = Assert.IsAssignableFrom<Majorsilence.Forms.Drawing.Image>(image);
+        Assert.True(bitmap.Width > 0);
+        Assert.True(bitmap.Height > 0);
+    }
+
+    private static bool CanLoadRealSystemDrawingCommon()
+    {
+        try { return System.Reflection.Assembly.Load("System.Drawing.Common") is not null; }
+        catch { return false; }
+    }
+
+    [Fact]
+    public void Raw_resx_resolves_a_ResXFileRef_to_the_linked_image()
+    {
+        // Regression: a file-linked entry -- what Visual Studio writes for every image dragged into a
+        // Resources.resx -- was returned as the raw "path;type" string, so the designer's
+        // (Bitmap) cast threw instead of producing a picture.
+        var resxPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "CompiledResourceFixture.resx");
+        var mgr = ComponentResourceManager.FromFile(resxPath);
+
+        var image = mgr.GetObject("fixtureImage");
+
+        Assert.NotNull(image);
+        var bitmap = Assert.IsAssignableFrom<Majorsilence.Forms.Drawing.Image>(image);
+        Assert.True(bitmap.Width > 0);
+    }
+
+    [Fact]
+    public void Raw_resx_file_ref_to_a_missing_file_is_null_not_the_reference_string()
+    {
+        var mgr = ComponentResourceManager.FromXml(Resx("""
+              <data name="gone" type="System.Resources.ResXFileRef, System.Windows.Forms">
+                <value>no-such-file.png;System.Drawing.Bitmap, System.Drawing</value>
+              </data>
+            """));
+
+        Assert.Null(mgr.GetObject("gone"));
     }
 
     private static string Resx(string body) => $"""

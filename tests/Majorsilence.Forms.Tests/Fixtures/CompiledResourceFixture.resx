@@ -48,4 +48,7 @@
   <data name="button1.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>Fill</value>
   </data>
+  <data name="fixtureImage" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>fixture-image.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

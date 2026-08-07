@@ -103,7 +103,9 @@ public class MigratorTests : IDisposable
         Write ("App.csproj", WinFormsCsproj);
         var outDir = Path.Combine (_dir, "out");
 
-        var exit = new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+        // Pin the version explicitly: MigrationOptions defaults it to the migrator's own assembly
+        // version, which moves with every release.
+        var exit = new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true, PackageVersion = "0.3.0" }).Run ();
 
         Assert.Equal (0, exit);
 
@@ -122,11 +124,31 @@ public class MigratorTests : IDisposable
         Write ("App.csproj", WinFormsCsproj);
         var outDir = Path.Combine (_dir, "out");
 
-        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true, PackageVersion = "0.3.0" }).Run ();
 
         var csproj = File.ReadAllText (Path.Combine (outDir, "App.csproj"));
         Assert.Contains ("Version=\"0.3.0\"", csproj);
         Assert.False (File.Exists (Path.Combine (outDir, "Directory.Packages.props")));
+    }
+
+    [Fact]
+    public void Default_package_version_is_the_migrators_own_version ()
+    {
+        Write ("App.csproj", WinFormsCsproj);
+        var outDir = Path.Combine (_dir, "out");
+
+        new Migrator (new MigrationOptions { Input = _dir, Output = outDir, NoReport = true }).Run ();
+
+        // The tool ships from the same repo (and Directory.Build.props Version) as the packages it
+        // references, so an unspecified --package-version must track the tool rather than a literal
+        // that goes stale after a release. Also guards the SourceLink "+<sha>" suffix being stripped:
+        // a version with build metadata in it is not a valid NuGet version.
+        var version = MigratorVersion.MajorsilenceFormsPackageVersion;
+        Assert.DoesNotContain ('+', version);
+        Assert.Matches (@"^\d+\.\d+\.\d+", version);
+
+        var csproj = File.ReadAllText (Path.Combine (outDir, "App.csproj"));
+        Assert.Contains ($"<PackageReference Include=\"Majorsilence.Forms\" Version=\"{version}\" />", csproj);
     }
 
     [Fact]

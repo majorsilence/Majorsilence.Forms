@@ -5,15 +5,41 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Majorsilence.Forms.Migrator</RootNamespace>
     <AssemblyName>majorsilence-migrate</AssemblyName>
-    <!-- Developer tool, not a shipped package. -->
-    <IsPackable>false</IsPackable>
+    <!-- Ships to nuget.org as a .NET global tool: `dotnet tool install -g Majorsilence.Forms.Migrator`
+         then `majorsilence-migrate <input>`. ToolCommandName matches AssemblyName so the generated
+         DotnetToolSettings.xml entry point and the documented command line stay the same. -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>majorsilence-migrate</ToolCommandName>
+    <!-- A tool package carries no lib/ref assets (everything lands under tools/); NU5128 is expected. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!-- The tool targets net10.0 but the machines being migrated *from* are frequently older. Roll
+         forward so a newer-only runtime can still run it rather than failing to launch. -->
+    <RollForward>latestMajor</RollForward>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.Migrator</PackageId>
+    <Title>Majorsilence.Forms Migrator</Title>
+    <Description>A .NET global tool (majorsilence-migrate) that converts WinForms solutions, projects, source and .resx files to Majorsilence.Forms, the cross-platform WinForms-compatible UI layer.</Description>
+    <PackageTags>Majorsilence;Forms;WinForms;migration;dotnet-tool;Cross;Platform</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Majorsilence.Forms.Migrator.Tests" />
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Now that this project ships a compiled package, SourceLink makes the PublishRepositoryUrl /
+         EmbedUntrackedSources settings in Directory.Build.props actually take effect, as on every
+         other shipped assembly. -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
     <!-- Backing the optional "engine roslyn" source-rewrite engine (see the CLI's engine flag). See
          RoslynWorkspaceContext.cs / RoslynSourceConverter.cs. MSBuildLocator.RegisterDefaults() is gated
          strictly behind that engine being selected at runtime; these packages being referenced has no

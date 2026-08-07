@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A tiny, fully cross-platform assembly whose only job is giving ComponentResourceManager
+       something to resolve "System.Drawing.Bitmap"/"Icon" into when a migrated WinForms .resx's
+       compiled .resources binary stores an image against those GDI+-backed, Windows-only types.
+       See ComponentResourceManager's RegisterDrawingShimResolver for how this gets wired in; this
+       project only defines the stand-in types, which do nothing but hold the original file bytes
+       so the real image can be decoded by SkiaSharp instead. -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsTrimmable>true</IsTrimmable>
+    <!-- Deliberate, and the same trick Majorsilence.Forms.WinFormsEnumShims uses:
+         AssemblyLoadContext.Resolving validates a supplied assembly's SIMPLE NAME against what was
+         requested but not its version/public key token, so this assembly must be literally named
+         "System.Drawing.Common" to stand in for it. Note it is System.Drawing.Common that goes
+         missing, not System.Drawing: the latter is a facade in the shared framework that resolves
+         fine and merely type-forwards Bitmap/Icon on to System.Drawing.Common, which is a NuGet
+         package a cross-platform app has no reason to reference (and which cannot decode images
+         off Windows anyway). Resolving is consulted only after normal probing has already failed,
+         so an app that does reference the real package keeps it. -->
+    <AssemblyName>System.Drawing.Common</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.DrawingShims</PackageId>
+    <Description>Internal support package for Majorsilence.Forms: stand-in image types used to read System.Drawing-typed .resx entries cross-platform. Not meant to be referenced directly.</Description>
+    <PackageTags>Majorsilence;Forms;Winforms;Migration;Internal</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+</Project>

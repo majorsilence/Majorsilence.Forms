@@ -3,9 +3,14 @@
   <PropertyGroup>
     <!-- .NET version to build for -->
     <_TargetFramework>net10.0</_TargetFramework>
-     <Version>26.0.27</Version>
+     <Version>26.0.28</Version>
     
-    <!-- NuGet packaging info -->
+    <!-- NuGet packaging info. Authors is set explicitly (it otherwise defaults to each project's
+         assembly name) so every package under the Majorsilence.* id prefix reports the same author as
+         the nuget.org account that owns it, one of the things nuget.org checks when reviewing an id
+         prefix reservation. PackageLicenseExpression is the current element; licenseUrl is deprecated
+         and must not be used. -->
+    <Authors>Majorsilence</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/majorsilence/Majorsilence.Forms</PackageProjectUrl>
     

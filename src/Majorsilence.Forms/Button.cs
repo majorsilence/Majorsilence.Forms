@@ -246,6 +246,47 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override ControlStyle StyleHover { get; } = new ControlStyle (DefaultStyleHover);
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Folds <see cref="FlatStyle"/> and <see cref="FlatAppearance"/> into the style chain before it
+        /// is handed to the renderer. They can't be applied when they're set: <see cref="FlatAppearance"/>
+        /// is a mutable object, so <c>button.FlatAppearance.BorderSize = 0</c> — the form the designer
+        /// emits — raises no notification at all. Resolving here instead means a borderless flat button
+        /// really is borderless, and switching back to <see cref="Majorsilence.Forms.FlatStyle.Standard"/>
+        /// restores the themed border by clearing the override rather than by guessing its old value.
+        /// </remarks>
+        public override ControlStyle CurrentStyle {
+            get {
+                ApplyFlatAppearance ();
+                return base.CurrentStyle;
+            }
+        }
+
+        private void ApplyFlatAppearance ()
+        {
+            // Popup is flat until the pointer is over it, when it raises a Standard border.
+            var isFlat = FlatStyle == FlatStyle.Flat
+                      || (FlatStyle == FlatStyle.Popup && !(IsHovering && Enabled));
+
+            if (!isFlat) {
+                // Null lets the width fall back through the style chain to the themed default.
+                Style.Border.Width = null;
+                StyleHover.Border.Width = null;
+                return;
+            }
+
+            Style.Border.Width = FlatAppearance.BorderSize;
+            StyleHover.Border.Width = FlatAppearance.BorderSize;
+
+            if (FlatAppearance.BorderColor != System.Drawing.Color.Empty) {
+                Style.Border.Color = FlatAppearance.BorderColor.ToSKColor ();
+                StyleHover.Border.Color = FlatAppearance.BorderColor.ToSKColor ();
+            }
+
+            if (FlatAppearance.MouseOverBackColor != System.Drawing.Color.Empty)
+                StyleHover.BackgroundColor = FlatAppearance.MouseOverBackColor.ToSKColor ();
+        }
+
         /// <summary>
         /// Gets or sets the alignment of the text on the <see cref='Button'/>.
         /// </summary>

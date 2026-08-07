@@ -152,9 +152,16 @@ namespace Majorsilence.Forms
         public abstract Task<DialogResult> ShowDialogAsync (Form owner);
 
         /// <summary>Shows the dialog modally with the given owner and blocks until closed.</summary>
-        public DialogResult ShowDialog (Form owner) => AsyncHelper.RunSync (() => ShowDialogAsync (owner));
+        public DialogResult ShowDialog (Form owner) => ShowDialogSync (owner);
 
         /// <summary>Shows the dialog synchronously with the specified form owner.</summary>
-        public DialogResult ShowDialogSync (Form owner) => AsyncHelper.RunSync (() => ShowDialogAsync (owner));
+        /// <remarks>
+        /// The task is started here on the calling (UI) thread and then waited on by pumping a nested
+        /// message loop, exactly as <see cref="Form.ShowDialog(Form)"/> does. It must not be run through
+        /// a blocking sync-over-async wait: the backend's file picker has to be driven from the UI
+        /// thread and completes on it, so blocking that thread hangs the application with no dialog
+        /// ever on screen.
+        /// </remarks>
+        public DialogResult ShowDialogSync (Form owner) => Form.RunModal (ShowDialogAsync (owner));
     }
 }
