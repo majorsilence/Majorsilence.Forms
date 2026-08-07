@@ -72,6 +72,29 @@ public class ToolStripTests
         Assert.True (contentFound, "ToolStrip with buttons rendered as an empty bar.");
     }
 
+    // Regression: ToolStripItem.Text was a plain auto-property, so assigning it changed nothing on
+    // screen. A status-bar label updated from a key handler kept showing its old text until something
+    // else happened to invalidate the control -- a caret-position indicator looked like it lagged a
+    // keystroke behind, catching up only when the next character repainted the form for its own reasons.
+    [Fact]
+    public void Changing_an_item_Text_repaints_the_strip ()
+    {
+        var form = new Form ();
+        var strip = new StatusStrip { Dock = DockStyle.Bottom, Height = 24 };
+        var label = new ToolStripStatusLabel { Text = "Ln 1, Col 1" };
+        strip.Items.Add (label);
+        form.Controls.Add (strip);
+
+        var before = HeadlessRenderer.CapturePng (form, 400, 200);
+
+        label.Text = "Ln 9, Col 7";
+
+        var after = HeadlessRenderer.CapturePng (form, 400, 200);
+
+        Assert.False (before.AsSpan ().SequenceEqual (after),
+            "changing a status label's Text left the rendered strip identical");
+    }
+
     [Fact]
     public void ItemClicked_StillRaised_ViaBaseClickPipeline ()
     {

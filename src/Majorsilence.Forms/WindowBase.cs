@@ -47,7 +47,7 @@ namespace Majorsilence.Forms
         /// <summary>Called by the backend after the window is closed.</summary>
         internal void OnBackendClosed ()
         {
-            Closed?.Invoke (this, EventArgs.Empty);
+            OnClosed (EventArgs.Empty);
 
             // WinForms raises FormClosed after the form has closed, for every close path -- programmatic
             // Close(), the window's close button, MDI child removal -- not just dialogs. Fire it once here
@@ -91,8 +91,23 @@ namespace Majorsilence.Forms
         internal void OnBackendActivated ()
         {
             IsActive = true;
-            Activated?.Invoke (this, EventArgs.Empty);
+            OnActivated (EventArgs.Empty);
         }
+
+        /// <summary>Raises the Activated event.</summary>
+        protected virtual void OnActivated (EventArgs e) => Activated?.Invoke (this, e);
+
+        /// <summary>Raises the Deactivate event.</summary>
+        protected virtual void OnDeactivate (EventArgs e) => Deactivated?.Invoke (this, e);
+
+        /// <summary>Raises the Closed event.</summary>
+        protected virtual void OnClosed (EventArgs e) => Closed?.Invoke (this, e);
+
+        /// <summary>
+        /// Raises the Resize event. <c>Resize</c> is an alias of <c>SizeChanged</c> here, so this
+        /// forwards rather than raising a second time.
+        /// </summary>
+        protected virtual void OnResize (EventArgs e) => OnSizeChanged (e);
 
         /// <summary>Called by the backend when the window is deactivated.</summary>
         internal void OnBackendDeactivated ()
@@ -102,7 +117,7 @@ namespace Majorsilence.Forms
             // Don't dismiss synchronously: showing a popup deactivates its parent (and a submenu
             // deactivates its parent popup). See Application.ScheduleClosePopupsOnDeactivate.
             Application.ScheduleClosePopupsOnDeactivate ();
-            Deactivated?.Invoke (this, EventArgs.Empty);
+            OnDeactivate (EventArgs.Empty);
         }
 
         /// <summary>Gets the bounds of the Window.</summary>
@@ -272,7 +287,7 @@ namespace Majorsilence.Forms
                 adapter.SetBounds (borderLeft, borderTop, logicalW, logicalH);
                 adapter.PerformLayout ();
                 OnClientLayoutChanged ();
-                OnSizeChanged (EventArgs.Empty);
+                OnResize (EventArgs.Empty);
             }
 
             var e = new PaintEventArgs (skInfo, canvas, scaling);
@@ -313,6 +328,15 @@ namespace Majorsilence.Forms
             CurrentStyle.Border.Top.GetWidth (),
             Backend.ClientSize.Width - CurrentStyle.Border.Right.GetWidth () - CurrentStyle.Border.Left.GetWidth (),
             Backend.ClientSize.Height - CurrentStyle.Border.Top.GetWidth () - CurrentStyle.Border.Bottom.GetWidth ());
+
+        /// <summary>
+        /// Gets the client area of the window, as WinForms' <c>Control.ClientRectangle</c> does: the size
+        /// of the client area at the origin. A form paints and hit-tests against this constantly, and it
+        /// is inherited for free on a WinForms Form; here Form derives from this type rather than from
+        /// Control, so it has to be declared.
+        /// </summary>
+        public System.Drawing.Rectangle ClientRectangle =>
+            new System.Drawing.Rectangle (System.Drawing.Point.Empty, Backend.ClientSize);
 
         internal virtual bool HandleMouseDown (int x, int y) => false;
 
@@ -697,6 +721,18 @@ namespace Majorsilence.Forms
 
         /// <summary>Converts a point from window coordinates to screen coordinates.</summary>
         public System.Drawing.Point PointToScreen (System.Drawing.Point point) => Backend.PointToScreen (point);
+
+        /// <summary>
+        /// Converts a rectangle from client to screen coordinates. The companion to
+        /// <see cref="PointToScreen"/>, and the shape a form measuring its own chrome uses
+        /// (<c>RectangleToScreen (ClientRectangle)</c>). Inherited from Control on a WinForms Form;
+        /// declared here because Form derives from this type instead.
+        /// </summary>
+        public System.Drawing.Rectangle RectangleToScreen (System.Drawing.Rectangle rect)
+        {
+            var origin = PointToScreen (System.Drawing.Point.Empty);
+            return new System.Drawing.Rectangle (rect.X + origin.X, rect.Y + origin.Y, rect.Width, rect.Height);
+        }
 
         /// <summary>Gets or sets whether the window is resizable.</summary>
         public bool Resizeable { get; set; }

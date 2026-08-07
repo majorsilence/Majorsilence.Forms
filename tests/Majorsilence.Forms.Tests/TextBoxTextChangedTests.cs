@@ -35,5 +35,65 @@ namespace Majorsilence.Forms.Tests
             Assert.True (count >= 1);
             Assert.Equal ("a", tb.Text);
         }
+
+        // Regression: the tests above drive the Text setter, which always raised the event. Real user
+        // input takes a different route -- the document's own insert/remove -- and that route never
+        // raised it at all, so typing, Enter and Backspace changed the text silently. An editor's dirty
+        // flag hangs off this event, so it stayed false no matter what was typed.
+        [Fact]
+        public void Typing_raises_TextChanged ()
+        {
+            using var form = new Form ();
+            var tb = new TextBox { Multiline = true, Dock = DockStyle.Fill };
+            form.Controls.Add (tb);
+            Headless.HeadlessRenderer.CapturePng (form, 300, 200);
+            tb.Select ();
+
+            var count = 0;
+            tb.TextChanged += (s, e) => count++;
+
+            Headless.HeadlessRenderer.TextInput (form, "a");
+
+            Assert.Equal (1, count);
+            Assert.Equal ("a", tb.Text);
+        }
+
+        [Fact]
+        public void Enter_raises_TextChanged ()
+        {
+            using var form = new Form ();
+            var tb = new TextBox { Multiline = true, Dock = DockStyle.Fill };
+            form.Controls.Add (tb);
+            Headless.HeadlessRenderer.CapturePng (form, 300, 200);
+            tb.Select ();
+            Headless.HeadlessRenderer.TextInput (form, "a");
+
+            var count = 0;
+            tb.TextChanged += (s, e) => count++;
+
+            Headless.HeadlessRenderer.KeyDown (form, Keys.Return);
+
+            Assert.Equal (1, count);
+            Assert.Equal ("a\n", tb.Text);
+        }
+
+        [Fact]
+        public void Backspace_raises_TextChanged ()
+        {
+            using var form = new Form ();
+            var tb = new TextBox { Multiline = true, Dock = DockStyle.Fill };
+            form.Controls.Add (tb);
+            Headless.HeadlessRenderer.CapturePng (form, 300, 200);
+            tb.Select ();
+            Headless.HeadlessRenderer.TextInput (form, "ab");
+
+            var count = 0;
+            tb.TextChanged += (s, e) => count++;
+
+            Headless.HeadlessRenderer.KeyDown (form, Keys.Back);
+
+            Assert.Equal (1, count);
+            Assert.Equal ("a", tb.Text);
+        }
     }
 }

@@ -424,7 +424,7 @@ public partial class Control
     /// <summary>
     /// Raised when the control is being validated (WinForms compat; fires on LostFocus).
     /// </summary>
-    public event EventHandler<System.ComponentModel.CancelEventArgs>? Validating;
+    public event System.ComponentModel.CancelEventHandler? Validating;
 
     /// <summary>
     /// Raised after the control has been validated (WinForms compat; fires on LostFocus when not cancelled).

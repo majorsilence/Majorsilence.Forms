@@ -57,7 +57,7 @@ namespace Majorsilence.Forms
         public event EventHandler? Validated { add => Control.Validated += value; remove => Control.Validated -= value; }
 
         /// <summary>Raised while the hosted control is validating.</summary>
-        public event EventHandler<System.ComponentModel.CancelEventArgs>? Validating {
+        public event System.ComponentModel.CancelEventHandler? Validating {
             add => Control.Validating += value;
             remove => Control.Validating -= value;
         }

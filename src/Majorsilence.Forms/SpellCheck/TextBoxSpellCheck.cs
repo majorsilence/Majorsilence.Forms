@@ -21,7 +21,7 @@ namespace Majorsilence.Forms.SpellCheck
             internal required SpellChecker Checker;
             internal required EventHandler TextChangedHandler;
             internal required MouseEventHandler ClickHandler;
-            internal required EventHandler<System.ComponentModel.CancelEventArgs> MenuOpeningHandler;
+            internal required System.ComponentModel.CancelEventHandler MenuOpeningHandler;
             internal List<MisspelledRange>? CachedRanges;
             internal int LastClickedCharIndex = -1;
         }

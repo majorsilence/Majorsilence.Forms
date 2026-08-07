@@ -224,6 +224,13 @@ namespace Majorsilence.Forms
             // TODO: Need to properly handle code points
             SetCursorToCharIndex (cursor_index + str.Length);
 
+            // The two low-level mutators (this and RemoveText) are what make the "every text mutation
+            // funnels through Invalidate()" contract above true. Neither used to call it, so typing,
+            // Enter and Backspace all changed the text without ever raising TextChanged -- only a
+            // programmatic `Text = ...` did. A migrated editor's dirty flag is set from that event, so
+            // it stayed false no matter what was typed and the save-on-close prompt never appeared.
+            Invalidate ();
+
             return true;
         }
 
@@ -397,6 +404,8 @@ namespace Majorsilence.Forms
         {
             text = text.Remove (start, length);
             cached_text_block = null;
+
+            Invalidate ();
         }
 
         public void Reset () => cached_text_block = null;

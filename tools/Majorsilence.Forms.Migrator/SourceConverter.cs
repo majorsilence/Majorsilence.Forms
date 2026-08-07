@@ -201,6 +201,20 @@ internal static class SourceConverter
             }
         }
 
+        // 5c. Windows registry access. Unlike everything else flagged here this is not a compile problem
+        //     at all — Microsoft.Win32.Registry resolves on every platform — so the build stays green and
+        //     the app dies on its first run instead, typically in a form constructor reading a
+        //     run-at-startup entry. Warn so it surfaces in the report rather than as a crash.
+        if (original.Contains(NamespaceMap.WindowsRegistryNamespace, StringComparison.Ordinal))
+        {
+            foreach (var type in NamespaceMap.WindowsOnlyRegistryTypes)
+            {
+                if (Regex.IsMatch(original, $@"(?<![\w.]){Regex.Escape(type)}\b"))
+                    Warn($"uses '{type}' (Windows registry), which has no cross-platform equivalent — " +
+                         "it compiles anywhere but only works on Windows; review manually");
+            }
+        }
+
         // 5b. Heavyweight Telerik types with no compat equivalent (RadPdfViewer, RadRichTextEditor, the
         //     scheduler data layer, …). Pass 1's guards leave the qualified form untouched; this also
         //     catches the *unqualified* form — e.g. `Dim v As RadPdfViewer` under a bare `Imports

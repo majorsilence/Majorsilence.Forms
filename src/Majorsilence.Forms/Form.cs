@@ -58,13 +58,28 @@ namespace Majorsilence.Forms
             // MouseDown/MouseMove/Leave; Form itself just didn't expose them. Needed for
             // top-level windows that track the mouse over their own surface directly (e.g.
             // borderless popup pickers), the same way ported WinForms code commonly does on Form.
+            adapter.Click += (s, e) => OnClick (e);
             adapter.MouseDown += (s, e) => MouseDown?.Invoke (this, e);
+            adapter.MouseUp += (s, e) => MouseUp?.Invoke (this, e);
             adapter.MouseMove += (s, e) => MouseMove?.Invoke (this, e);
             adapter.MouseLeave += (s, e) => Leave?.Invoke (this, e);
         }
 
+        /// <summary>
+        /// Raised when the form's own surface is clicked. Inherited from Control on a WinForms Form;
+        /// declared here because Form derives from WindowBase instead, and designer code attaches a
+        /// form-level click handler routinely (a splash screen dismissing itself, say).
+        /// </summary>
+        public event EventHandler? Click;
+
+        /// <summary>Raises the Click event.</summary>
+        protected virtual void OnClick (EventArgs e) => Click?.Invoke (this, e);
+
         /// <summary>Raised when a mouse button is pressed over the form's own surface.</summary>
         public event MouseEventHandler? MouseDown;
+
+        /// <summary>Raised when a mouse button is released over the form's own surface.</summary>
+        public event MouseEventHandler? MouseUp;
 
         /// <summary>Raised when the mouse moves over the form's own surface.</summary>
         public event MouseEventHandler? MouseMove;
@@ -160,7 +175,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised before the form is closed, allowing close to be programatically canceled.</summary>
-        public event EventHandler<CancelEventArgs>? Closing;
+        public event CancelEventHandler? Closing;
 
         /// <summary>Raised before the form is closed (WinForms compatibility alias for Closing).</summary>
         public event FormClosingEventHandler? FormClosing;
@@ -1058,8 +1073,13 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether to display the icon in the title bar. Stub in Majorsilence.Forms.</summary>
         public bool ShowIcon { get; set; } = true;
 
-        /// <summary>Raises the Load event on next show. Stub in Majorsilence.Forms.</summary>
-        public void OnLoad (EventArgs e) => Load?.Invoke (this, e);
+        /// <summary>Raises the Load event.</summary>
+        /// <remarks>
+        /// <c>protected virtual</c>, as in WinForms. It was public and non-virtual, so the standard
+        /// <c>protected override void OnLoad</c> a ported form is built around failed to compile (CS0506)
+        /// — the derived form could only reach its own startup work by subscribing to its own event.
+        /// </remarks>
+        protected virtual void OnLoad (EventArgs e) => Load?.Invoke (this, e);
 
         /// <summary>Gets whether the form is displayed as a modal dialog.</summary>
         public bool Modal { get; private set; }

@@ -41,19 +41,60 @@ namespace System.Drawing
     }
 
     /// <summary>Stand-in for <c>System.Drawing.Bitmap</c> (see file remarks).</summary>
-    [TypeConverter (typeof (ImageConverter))]
+    /// <remarks>
+    /// Carries its own converter rather than sharing <see cref="ImageConverter"/>: a converter is
+    /// selected by the resource's *declared* type, and one that always returned the base
+    /// <see cref="Image"/> could not satisfy an entry declared as a Bitmap — the read failed and the
+    /// resource silently came back null.
+    /// </remarks>
+    [TypeConverter (typeof (BitmapConverter))]
     public sealed class Bitmap : Image
     {
+        /// <summary>Creates an empty stand-in.</summary>
+        public Bitmap () { }
+
         /// <summary>Creates a stand-in holding every byte of <paramref name="stream"/>.</summary>
         public Bitmap (Stream stream) : base (stream) { }
     }
 
     /// <summary>Stand-in for <c>System.Drawing.Icon</c> (see file remarks).</summary>
-    [TypeConverter (typeof (ImageConverter))]
+    /// <remarks>See <see cref="Bitmap"/> for why this has its own converter.</remarks>
+    [TypeConverter (typeof (IconConverter))]
     public sealed class Icon : Image
     {
+        /// <summary>Creates an empty stand-in.</summary>
+        public Icon () { }
+
         /// <summary>Creates a stand-in holding every byte of <paramref name="stream"/>.</summary>
         public Icon (Stream stream) : base (stream) { }
+    }
+
+    /// <summary>Converts a byte[] image payload into a <see cref="Bitmap"/> stand-in.</summary>
+    public sealed class BitmapConverter : TypeConverter
+    {
+        /// <inheritdoc/>
+        public override bool CanConvertFrom (ITypeDescriptorContext? context, Type sourceType)
+            => sourceType == typeof (byte[]) || base.CanConvertFrom (context, sourceType);
+
+        /// <inheritdoc/>
+        public override object? ConvertFrom (ITypeDescriptorContext? context, CultureInfo? culture, object value)
+            => value is byte[] bytes
+                ? new Bitmap { MajorsilenceRawBytes = bytes }
+                : base.ConvertFrom (context, culture, value);
+    }
+
+    /// <summary>Converts a byte[] icon payload into an <see cref="Icon"/> stand-in.</summary>
+    public sealed class IconConverter : TypeConverter
+    {
+        /// <inheritdoc/>
+        public override bool CanConvertFrom (ITypeDescriptorContext? context, Type sourceType)
+            => sourceType == typeof (byte[]) || base.CanConvertFrom (context, sourceType);
+
+        /// <inheritdoc/>
+        public override object? ConvertFrom (ITypeDescriptorContext? context, CultureInfo? culture, object value)
+            => value is byte[] bytes
+                ? new Icon { MajorsilenceRawBytes = bytes }
+                : base.ConvertFrom (context, culture, value);
     }
 
     /// <summary>

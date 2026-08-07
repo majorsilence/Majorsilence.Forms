@@ -119,6 +119,22 @@ internal static class NamespaceMap
         "Telerik.WinControls.Layouts",
     ];
 
+    /// <summary>
+    /// <c>Microsoft.Win32</c> types that compile on every platform but only <i>work</i> on Windows, so
+    /// nothing in the build flags them and the failure lands at runtime instead — the registry has no
+    /// portable substitute, and off Windows these return null or throw. Warned about (gated on the file
+    /// actually referencing <c>Microsoft.Win32</c>, so a project's own <c>Registry</c> class isn't
+    /// mistaken for one) rather than rewritten, because there is nothing to rewrite them to: a
+    /// run-at-startup entry or a settings hive has to be re-homed by hand per target platform.
+    /// </summary>
+    public static readonly string[] WindowsOnlyRegistryTypes =
+    [
+        "Registry", "RegistryKey", "RegistryHive", "RegistryValueKind", "RegistryView",
+    ];
+
+    /// <summary>The namespace the types in <see cref="WindowsOnlyRegistryTypes"/> live in.</summary>
+    public const string WindowsRegistryNamespace = "Microsoft.Win32";
+
     /// <summary>The <c>Telerik.WinControls.UI</c> namespace, used to qualify the leaf names in <see cref="UnmappedTelerikTypes"/>.</summary>
     public const string TelerikUiNamespace = "Telerik.WinControls.UI";
 

@@ -17,6 +17,17 @@ namespace Majorsilence.Forms.Drawing
         // Backing pixel store. Owned by this Image; disposed with it.
         private protected SKBitmap? backing;
 
+        /// <summary>
+        /// Wraps an <see cref="SKBitmap"/> as an <see cref="Image"/>.
+        /// </summary>
+        /// <remarks>
+        /// A few collections here are typed in terms of the underlying Skia bitmap where WinForms types
+        /// them as <c>Image</c> — <c>ImageList.Images</c> most visibly — so ported code assigning an entry
+        /// to an <c>Image</c> had nothing to convert through. The wrapper takes ownership of
+        /// <paramref name="bitmap"/>, exactly as the internal constructor it forwards to does.
+        /// </remarks>
+        public static implicit operator Image? (SKBitmap? bitmap) => bitmap is null ? null : new Bitmap (bitmap);
+
         /// <summary>Gets the width, in pixels, of this image.</summary>
         public int Width => backing?.Width ?? 0;
 

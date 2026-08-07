@@ -254,10 +254,30 @@ namespace Majorsilence.Forms
             }
         }
 
+        private string text = string.Empty;
+
         /// <summary>
         /// Gets or sets the text of the menu item.
         /// </summary>
-        public string Text { get; set; } = string.Empty;
+        /// <remarks>
+        /// Assigning this repaints the owner, as every other visible property here does. As a plain
+        /// auto-property it changed nothing on screen: a status-bar label updated from a key handler kept
+        /// showing its old text until something *else* happened to invalidate the control, so a caret
+        /// position indicator appeared to lag a keystroke behind. The owner is laid out as well as
+        /// invalidated because an item's width is measured from its text.
+        /// </remarks>
+        public string Text {
+            get => text;
+            set {
+                if (text == value)
+                    return;
+
+                text = value;
+
+                OwnerControl?.PerformLayout ();
+                OwnerControl?.Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets whether the item has a check mark. WinForms compat — use sub-classes for implementation.</summary>
         public bool Checked { get; set; }

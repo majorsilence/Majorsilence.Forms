@@ -211,7 +211,10 @@ namespace Majorsilence.Forms
         public event EventHandler<ContentsResizedEventArgs>? ContentsResized { add { } remove { } }
 
         /// <summary>Raised when the user clicks a link in the RichTextBox. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<LinkClickedEventArgs>? LinkClicked { add { } remove { } }
+        public event LinkClickedEventHandler? LinkClicked;
+
+        /// <summary>Raises the LinkClicked event.</summary>
+        protected virtual void OnLinkClicked (LinkClickedEventArgs e) => LinkClicked?.Invoke (this, e);
 
         /// <summary>Raised when the selection changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? SelectionChanged { add { } remove { } }
