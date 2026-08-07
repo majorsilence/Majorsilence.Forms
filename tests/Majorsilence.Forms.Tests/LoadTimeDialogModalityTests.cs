@@ -30,10 +30,17 @@ public class LoadTimeDialogModalityTests
     public void A_dialog_opened_from_Load_finds_an_owner_to_be_modal_against()
     {
         using var form = new Form();
+
+        // Application.OpenForms is process-wide, so anything another test still has open would be
+        // picked as the owner ahead of this form and fail the assertion for the wrong reason. Ignore
+        // whatever was already open and reproduce the owner search over just this test's own form.
+        var preexisting = Application.OpenForms.Cast<Form>().ToArray();
+        Form? Candidates() => Application.OpenForms.Cast<Form>().Except(preexisting).FirstOrDefault(f => f != form)
+            ?? Application.OpenForms.Cast<Form>().Except(preexisting).FirstOrDefault();
+
         Form? ownerSeenByDialog = null;
 
-        form.Load += (_, _) =>
-            ownerSeenByDialog = Application.OpenForms.FirstOrDefault(f => f != form) ?? Application.OpenForms.FirstOrDefault();
+        form.Load += (_, _) => ownerSeenByDialog = Candidates();
 
         form.Show();
 

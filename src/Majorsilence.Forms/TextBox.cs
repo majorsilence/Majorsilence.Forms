@@ -199,6 +199,17 @@ namespace Majorsilence.Forms
                     case Keys.Back:
                         need_refresh = document.DeleteText (false, e.Control);
                         return true;
+                    case Keys.Return:
+                        // Enter has to insert the newline from the key-down path. OnKeyPress has a
+                        // KeyChar == 13 branch for it, but that only ever fires on a backend that
+                        // reports Enter as text input, and Avalonia -- like most -- does not: it
+                        // delivers Enter as a key event only, so on a real window that branch is dead
+                        // and a multiline box silently refused to take a new line.
+                        if (!Multiline)
+                            return false;
+
+                        need_refresh = document.InsertText ("\n");
+                        return true;
                     case Keys.C:
                         if (e.Control)
                             Copy ();
