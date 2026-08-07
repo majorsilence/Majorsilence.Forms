@@ -643,10 +643,16 @@ internal sealed class Migrator
     private static readonly string[] ProjectGlobs = ["*.csproj", "*.vbproj"];
 
     /// <summary>
-    /// True when the project is a WinForms project or contains WinForms code — the test for whether to
-    /// wire in Majorsilence.Forms. Looks at the project XML (UseWindowsForms, a System.Windows.Forms
-    /// assembly Reference or VB project import) and, failing that, scans the project's source for any
-    /// <c>System.Windows.Forms</c> usage.
+    /// True when the project needs the Majorsilence.Forms references wired in. Looks at the project XML
+    /// (UseWindowsForms, a System.Windows.Forms assembly Reference or VB project import) and, failing that,
+    /// scans the project's source for anything the rewrite will redirect into a <c>Majorsilence.*</c>
+    /// namespace — <c>System.Windows.Forms</c> usage, or a <c>System.Drawing</c> GDI+/WinForms-compat type.
+    ///
+    /// The System.Drawing arm matters for the plain class libraries a WinForms solution tends to carry
+    /// alongside its UI projects: they never mention System.Windows.Forms, but an image or font helper in
+    /// one still gets rewritten to <c>Majorsilence.Forms.Drawing.*</c>, and without a reference that
+    /// rewrite cannot compile. Projects using only the primitives Majorsilence.Forms leaves in
+    /// System.Drawing (Color/Point/Size/…) are still left untouched — nothing in them changes.
     /// </summary>
     private bool ProjectUsesWinForms(string projectDir, string projectXml) =>
         XmlSignalsWinForms(projectXml) || SourceSignalsWinForms(projectDir);
@@ -683,7 +689,11 @@ internal sealed class Migrator
                 if (IsInIgnoredDirectory(file) || IsUnderOutput(file))
                     continue;
                 try {
-                    if (File.ReadAllText(file).Contains("System.Windows.Forms", StringComparison.Ordinal))
+                    var text = File.ReadAllText(file);
+
+                    if (text.Contains("System.Windows.Forms", StringComparison.Ordinal))
+                        return true;
+                    if (SourceSignalsRedirectedDrawing(text))
                         return true;
                 } catch (IOException) {
                     // Unreadable file — ignore for the heuristic.
@@ -692,6 +702,35 @@ internal sealed class Migrator
         }
 
         return false;
+    }
+
+    // Matches the same `System.Drawing.<Leaf>` references SourceConverter's Pass 2 rewrites.
+    private static readonly Regex QualifiedDrawingType =
+        new(@"(?<![\w.])System\.Drawing\.([A-Za-z_][A-Za-z0-9_]*)", RegexOptions.Compiled);
+
+    // Matches a standalone `using System.Drawing;` / `Imports System.Drawing`.
+    private static readonly Regex BareDrawingImportLine =
+        new(@"(?m)^[ \t]*(using|Imports)[ \t]+System\.Drawing[ \t]*;?[ \t]*$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// True when this source would gain a <c>Majorsilence.*</c> reference from the System.Drawing rewrite:
+    /// either a qualified <c>System.Drawing.&lt;Type&gt;</c> that redirects, or — under a bare
+    /// <c>using System.Drawing;</c> — one of those type names used unqualified, which the import
+    /// reconciliation turns into a <c>Majorsilence.Forms.Drawing</c> import.
+    /// </summary>
+    private static bool SourceSignalsRedirectedDrawing(string text)
+    {
+        foreach (Match match in QualifiedDrawingType.Matches(text)) {
+            var bucket = DrawingTypeClassifier.Classify(match.Groups[1].Value);
+            if (bucket is DrawingTypeBucket.MajorsilenceDrawing or DrawingTypeBucket.MajorsilenceForms)
+                return true;
+        }
+
+        if (!BareDrawingImportLine.IsMatch(text))
+            return false;
+
+        return NamespaceMap.MajorsilenceDrawingTypes.Concat(NamespaceMap.MajorsilenceFormsTypes)
+            .Any(type => Regex.IsMatch(text, $@"(?<![\w.]){Regex.Escape(type)}(?![\w])"));
     }
 
     /// <summary>The directories to walk for source/resource files, derived from the input kind.</summary>

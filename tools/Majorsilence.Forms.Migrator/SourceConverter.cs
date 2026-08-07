@@ -170,6 +170,12 @@ internal static class SourceConverter
         //    unqualified now live in Majorsilence.Forms.Drawing, so add/keep that import when they're present.
         text = RewriteDrawingImports(text, effectiveDualBuild);
 
+        // 3b. A handful of the WinForms-compat types redirected in pass 2 also ship in
+        //     System.Drawing.Primitives, so when the file keeps its System.Drawing import both namespaces
+        //     offer the same bare name and an unqualified use stops compiling (CS0104). Pin those to the
+        //     Majorsilence.Forms one with a using-alias rather than rewriting every use site.
+        text = AddAmbiguityAliases(text);
+
         // 4. Flag any namespace we deliberately refused to rewrite — but only when a reference actually
         //    resolves to something cross-platform-unavailable. Some types under these namespaces ship in
         //    the BCL (e.g. System.ComponentModel.Design.HelpKeywordAttribute, used by typed-DataSet
@@ -521,6 +527,44 @@ internal static class SourceConverter
         // types are used unqualified, otherwise drop the line entirely.
         var replacement = usesGdiPlus && !companionPresent ? companion : null;
         return RemoveImportLine(text, match, replacement, newline);
+    }
+
+    // Emits `using SystemColors = Majorsilence.Forms.SystemColors;` (VB: `Imports SystemColors = …`) for
+    // each name that a kept System.Drawing import would otherwise make ambiguous. One alias line fixes every
+    // use site in the file, which suits a textual rewriter far better than qualifying each reference — and it
+    // leaves the code reading exactly as it did before the migration.
+    private static string AddAmbiguityAliases(string text)
+    {
+        // No System.Drawing import left means only one candidate for the name — nothing to disambiguate.
+        var match = BareDrawingImport.Match(text);
+        if (!match.Success)
+            return text;
+
+        var kw = match.Groups["kw"].Value;
+        var indent = match.Groups["indent"].Value;
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+
+        var aliases = new List<string>();
+
+        foreach (var type in NamespaceMap.AmbiguousWithSystemDrawing.OrderBy(t => t, StringComparer.Ordinal))
+        {
+            if (!UsedUnqualified(text, type))
+                continue;
+
+            // Already aliased (e.g. a re-run over an already-migrated tree) — don't add a duplicate.
+            if (Regex.IsMatch(text, $@"(?m)^[ \t]*(using|Imports)[ \t]+{Regex.Escape(type)}[ \t]*="))
+                continue;
+
+            aliases.Add(kw == "Imports"
+                ? $"{indent}Imports {type} = Majorsilence.Forms.{type}"
+                : $"{indent}using {type} = Majorsilence.Forms.{type};");
+        }
+
+        if (aliases.Count == 0)
+            return text;
+
+        return text[..(match.Index + match.Length)] + newline + string.Join(newline, aliases)
+            + text[(match.Index + match.Length)..];
     }
 
     // A type name used unqualified (a whole word not preceded by '.' or another identifier char), i.e. one

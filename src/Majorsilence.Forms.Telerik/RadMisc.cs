@@ -190,7 +190,7 @@ namespace Majorsilence.Forms.Telerik
     {
         // Each entry keeps the menu alongside the exact hooked delegate instance, so a later Set(control, null)
         // (or replacing the menu) can unhook the correct handler (delegate -= requires the same instance).
-        private static readonly Dictionary<Control, (RadContextMenu Menu, EventHandler<MouseEventArgs> Handler)> _menus = new ();
+        private static readonly Dictionary<Control, (RadContextMenu Menu, MouseEventHandler Handler)> _menus = new ();
 
         /// <summary>Associates the specified <see cref="RadContextMenu"/> with a control (null clears the association).</summary>
         public static void SetRadContextMenu (Control control, RadContextMenu? menu)
@@ -201,7 +201,7 @@ namespace Majorsilence.Forms.Telerik
             if (menu is null)
                 return;
 
-            EventHandler<MouseEventArgs> handler = (_, e) => {
+            MouseEventHandler handler = (_, e) => {
                 if (e.Button == MouseButtons.Right)
                     menu.Show (control, e.Location);
             };

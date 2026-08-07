@@ -64,10 +64,10 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when a mouse button is pressed over the form's own surface.</summary>
-        public event EventHandler<MouseEventArgs>? MouseDown;
+        public event MouseEventHandler? MouseDown;
 
         /// <summary>Raised when the mouse moves over the form's own surface.</summary>
-        public event EventHandler<MouseEventArgs>? MouseMove;
+        public event MouseEventHandler? MouseMove;
 
         /// <summary>Raised when the mouse leaves the form's own surface.</summary>
         public event EventHandler? Leave;
@@ -163,7 +163,7 @@ namespace Majorsilence.Forms
         public event EventHandler<CancelEventArgs>? Closing;
 
         /// <summary>Raised before the form is closed (WinForms compatibility alias for Closing).</summary>
-        public event EventHandler<FormClosingEventArgs>? FormClosing;
+        public event FormClosingEventHandler? FormClosing;
 
         /// <summary>Raised after the form is closed.</summary>
         public event FormClosedEventHandler? FormClosed;

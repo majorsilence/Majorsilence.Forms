@@ -196,7 +196,7 @@ namespace Majorsilence.Forms
         /// <summary>Shows a ToolTip with the given text at the given position relative to the control. Stub in Majorsilence.Forms.</summary>
         public void Show (string text, Control control, int x, int y, int duration) => SetToolTip (control, text);
 
-        private void Control_MouseEnter (object? sender, MouseEventArgs e)
+        private void Control_MouseEnter (object? sender, EventArgs e)
         {
             if (!Active || sender is not Control control)
                 return;
@@ -204,14 +204,14 @@ namespace Majorsilence.Forms
             if (!tips.TryGetValue (control, out var text) || string.IsNullOrEmpty (text))
                 return;
 
-            ShowPopup (control, text, e);
+            ShowPopup (control, text, control.LastMousePosition);
         }
 
         private void Control_MouseLeave (object? sender, EventArgs e) => HidePopup ();
 
         private void Control_MouseDown (object? sender, MouseEventArgs e) => HidePopup ();
 
-        private void ShowPopup (Control control, string text, MouseEventArgs e)
+        private void ShowPopup (Control control, string text, System.Drawing.Point at)
         {
             try {
                 var window = control.FindWindow ();
@@ -233,7 +233,7 @@ namespace Majorsilence.Forms
                 popup.Size = new Size ((int)measured.Width + 16, (int)measured.Height + 10);
 
                 // Offset below/right of the cursor like a standard tooltip.
-                popup.Show (control, e.X + 12, e.Y + 18);
+                popup.Show (control, at.X + 12, at.Y + 18);
             } catch {
                 // A tooltip must never take down the host application.
             }

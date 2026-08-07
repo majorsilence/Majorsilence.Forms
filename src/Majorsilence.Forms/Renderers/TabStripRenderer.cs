@@ -10,8 +10,38 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (TabStrip control, PaintEventArgs e)
         {
+            // An owner-drawn TabControl paints every tab through its DrawItem event instead, so the
+            // strip contributes nothing of its own -- matching WinForms, where the built-in tab
+            // painting is replaced wholesale rather than drawn underneath.
+            var owner = control.Parent as TabControl;
+
+            if (owner?.IsOwnerDrawn == true) {
+                RenderOwnerDrawn (owner, control, e);
+                return;
+            }
+
             foreach (var item in control.Tabs)
                 RenderItem (control, item, e);
+        }
+
+        private static void RenderOwnerDrawn (TabControl owner, TabStrip control, PaintEventArgs e)
+        {
+            for (var index = 0; index < control.Tabs.Count; index++) {
+                var item = control.Tabs[index];
+
+                var state = DrawItemState.Default;
+
+                if (item.Selected)
+                    state |= DrawItemState.Selected;
+                if (!item.Enabled || !control.Enabled)
+                    state |= DrawItemState.Disabled;
+                if (item.Hovered)
+                    state |= DrawItemState.HotLight;
+
+                using var args = new DrawItemEventArgs (e.Graphics, owner.Font, item.Bounds, index, state);
+
+                owner.RaiseDrawItem (args);
+            }
         }
 
         /// <summary>

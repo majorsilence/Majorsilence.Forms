@@ -1,10 +1,10 @@
 using System;
 using System.Drawing;
 using System.Linq;
-using Majorsilence.Forms.Drawing.Drawing2D;
 using SkiaSharp;
 
-namespace Majorsilence.Forms.Drawing
+// Mirrors GDI+, where PathGradientBrush lives in System.Drawing.Drawing2D rather than System.Drawing.
+namespace Majorsilence.Forms.Drawing.Drawing2D
 {
     /// <summary>
     /// A brush that fills with a gradient radiating from a center point out to a surrounding boundary.

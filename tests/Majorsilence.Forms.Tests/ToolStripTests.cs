@@ -60,11 +60,14 @@ public class ToolStripTests
         var png = HeadlessRenderer.CapturePng (form, 400, 100);
 
         using var bmp = SKBitmap.Decode (png);
-        var background = bmp.GetPixel (390, 90);
+
+        // CapturePng returns the client area, so the strip's own bounds are already the right
+        // coordinates to scan -- there is no title bar above them to skip past.
+        var background = bmp.GetPixel (bmp.Width - 10, bmp.Height - 10);
         var contentFound = false;
         for (var y = strip.Top; y < strip.Top + strip.Height && !contentFound; y++)
-            for (var x = 0; x < 200; x++)
-                if (bmp.GetPixel (x, y + 34) != background) { contentFound = true; break; }   // +34 = form title bar
+            for (var x = strip.Left; x < Math.Min (strip.Left + strip.Width, bmp.Width); x++)
+                if (bmp.GetPixel (x, y) != background) { contentFound = true; break; }
 
         Assert.True (contentFound, "ToolStrip with buttons rendered as an empty bar.");
     }

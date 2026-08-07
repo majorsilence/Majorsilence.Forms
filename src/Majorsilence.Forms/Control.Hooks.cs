@@ -161,12 +161,12 @@ public partial class Control
     /// <summary>
     /// Raises the <see cref="MouseClick"/> event. Called by <see cref="OnClick"/>.
     /// </summary>
-    protected virtual void OnMouseClick (MouseEventArgs e) => (Events[s_mouseClickEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+    protected virtual void OnMouseClick (MouseEventArgs e) => (Events[s_mouseClickEvent] as MouseEventHandler)?.Invoke (this, e);
 
     /// <summary>
     /// Raises the <see cref="MouseDoubleClick"/> event. Called by <see cref="OnDoubleClick"/>.
     /// </summary>
-    protected virtual void OnMouseDoubleClick (MouseEventArgs e) => (Events[s_mouseDoubleClickEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+    protected virtual void OnMouseDoubleClick (MouseEventArgs e) => (Events[s_mouseDoubleClickEvent] as MouseEventHandler)?.Invoke (this, e);
 
     /// <summary>
     /// Raises the <see cref="MouseHover"/> event. Majorsilence.Forms has no hover timer, so this is

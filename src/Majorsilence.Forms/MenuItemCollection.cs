@@ -51,7 +51,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Adds a new MenuItem to the collection with the specified text, image (SKBitmap), and Click handler.
         /// </summary>
-        public MenuItem Add (string text, SKBitmap? image = null, EventHandler<MouseEventArgs>? onClick = null)
+        public MenuItem Add (string text, SKBitmap? image = null, EventHandler? onClick = null)
         {
             return Add (new MenuItem (text, image, onClick));
         }
@@ -60,7 +60,7 @@ namespace Majorsilence.Forms
         /// Adds a new MenuItem to the collection with the specified text, image, and Click handler.
         /// </summary>
 #pragma warning disable CA1416
-        public MenuItem Add (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
+        public MenuItem Add (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler? onClick = null)
         {
             var item = new MenuItem (text, (SKBitmap?)null, onClick);
             item.Image = image;

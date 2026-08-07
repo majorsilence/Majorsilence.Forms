@@ -153,6 +153,23 @@ internal static class NamespaceMap
     };
 
     /// <summary>
+    /// The subset of <see cref="MajorsilenceFormsTypes"/> that also ships in <c>System.Drawing.Primitives</c>,
+    /// i.e. is still resolvable through a kept <c>using System.Drawing;</c> after the migration. Used
+    /// <i>unqualified</i>, such a name binds to two candidates at once — <c>System.Drawing.X</c> and
+    /// <c>Majorsilence.Forms.X</c> — and the file fails to compile with CS0104, so the converter emits a
+    /// using-alias pinning it to the Majorsilence.Forms one.
+    ///
+    /// The rest of <see cref="MajorsilenceFormsTypes"/> (<c>Graphics</c>, <c>ContentAlignment</c>,
+    /// <c>SystemBrushes</c>, <c>SystemPens</c>, <c>SystemFonts</c>) is type-forwarded to the Windows-only
+    /// <c>System.Drawing.Common</c> assembly, which a migrated project no longer references — those names
+    /// have exactly one candidate and need no alias.
+    /// </summary>
+    public static readonly HashSet<string> AmbiguousWithSystemDrawing = new(StringComparer.Ordinal)
+    {
+        "SystemColors", "ColorTranslator",
+    };
+
+    /// <summary>
     /// High-signal <c>System.Drawing</c> top-level types from the Windows-only <c>System.Drawing.Common</c>
     /// that have <b>no</b> Majorsilence replacement (in either namespace). When one is used <i>unqualified</i>
     /// under a <c>using System.Drawing;</c>, the textual rewrite can't see it, so we name-match it to warn —
