@@ -171,6 +171,11 @@ namespace Majorsilence.Forms
 
             Client.Activate (ChildForm);
 
+            // Activate() is a no-op when this child is already the active one, so reclaim focus here
+            // too: clicking back into a child after using the container's menu has to take keyboard
+            // focus off that menu again.
+            Client.GiveFocusToActiveChild ();
+
             var scaling = FrameScaling;
             var lx = (int) (e.X / scaling);
             var ly = (int) (e.Y / scaling);

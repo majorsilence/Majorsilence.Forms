@@ -494,9 +494,29 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating the start of the TextBox's selected text.
         /// </summary>
+        /// <remarks>
+        /// The document tracks a selection anchor (−1 when nothing is selected) separately from the
+        /// caret, but WinForms exposes one number for both: with no selection <c>SelectionStart</c> is
+        /// the caret, and with a selection it is the lower of its two ends. Returning the raw anchor
+        /// handed callers −1 for the common case of a caret and no selection, which reads as a
+        /// character index and quietly corrupts any arithmetic done on it — a status bar computing
+        /// line/column from it lands outside the text and gets nothing back.
+        /// </remarks>
         public override int SelectionStart {
-            get => document.SelectionStart;
-            set => document.SelectionStart = value;
+            get {
+                if (document.SelectionStart < 0 || document.SelectionEnd < 0)
+                    return document.CursorIndex;
+
+                return Math.Min (document.SelectionStart, document.SelectionEnd);
+            }
+            set {
+                // Moving the caret drops the selection, as in WinForms — the `SelectionStart = x;
+                // SelectionLength = n;` pair rebuilds it from the new caret via the setter below.
+                document.SelectionStart = -1;
+                document.SelectionEnd = -1;
+                document.SetCursorToCharIndex (Math.Clamp (value, 0, TextLength));
+                Invalidate ();
+            }
         }
 
         /// <summary>
@@ -510,8 +530,19 @@ namespace Majorsilence.Forms
                 return Math.Abs (document.SelectionEnd - document.SelectionStart);
             }
             set {
-                var start = document.SelectionStart < 0 ? 0 : document.SelectionStart;
-                document.SelectionEnd = start + value;
+                // Anchor on SelectionStart's WinForms meaning (the caret when nothing is selected), so
+                // selecting from a caret position works; a non-positive length clears the selection.
+                var start = SelectionStart;
+
+                if (value <= 0) {
+                    document.SelectionStart = -1;
+                    document.SelectionEnd = -1;
+                } else {
+                    document.SelectionStart = start;
+                    document.SelectionEnd = Math.Clamp (start + value, 0, TextLength);
+                }
+
+                Invalidate ();
             }
         }
 

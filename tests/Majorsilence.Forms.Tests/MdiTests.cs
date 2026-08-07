@@ -209,5 +209,81 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (area.Width - 2 * MdiChildWindow.FrameBorder, child.Size.Width);
             Assert.Equal (area.Height - MdiChildWindow.CaptionHeight - 2 * MdiChildWindow.FrameBorder, child.Size.Height);
         }
+
+        // Regression: a hosted child owns no OS window, so every keystroke arrives at the CONTAINER.
+        // MdiChildWindow forwarded pointer input inward but nothing forwarded keys, so the active
+        // child's focused control never received any -- an MDI text editor showed a caret, reported
+        // "Ln 1, Col 1", and silently dropped everything typed into it.
+        [Fact]
+        public void Typing_reaches_the_active_child_focused_control ()
+        {
+            using var parent = new Form { IsMdiContainer = true };
+            HeadlessRenderer.CapturePng (parent, 600, 400);
+
+            using var child = Child ();
+            var textbox = new TextBox { Multiline = true, Dock = DockStyle.Fill };
+            child.Controls.Add (textbox);
+            child.MdiParent = parent;
+            child.Show ();
+            HeadlessRenderer.CapturePng (parent, 600, 400);
+
+            textbox.Select ();
+
+            HeadlessRenderer.TextInput (parent, "hi");
+            HeadlessRenderer.KeyDown (parent, Keys.Back);
+
+            Assert.Equal ("h", textbox.Text);
+        }
+
+        // Regression, and the shape a real MDI shell actually has: the container's menu strip is its
+        // first selectable control and gets selected as soon as the window is shown. Nothing took that
+        // selection away when a child was activated, so the container kept claiming keyboard focus for
+        // a menu the user never opened and the child silently dropped everything typed at it.
+        [Fact]
+        public void Activating_a_child_takes_focus_off_the_containers_menu ()
+        {
+            using var parent = new Form { IsMdiContainer = true };
+            var menu = new MenuStrip ();
+            parent.Controls.Add (menu);
+            HeadlessRenderer.CapturePng (parent, 600, 400);
+            menu.Select ();
+
+            using var child = Child ();
+            var textbox = new TextBox { Multiline = true, Dock = DockStyle.Fill };
+            child.Controls.Add (textbox);
+            child.MdiParent = parent;
+            child.Show ();
+            HeadlessRenderer.CapturePng (parent, 600, 400);
+
+            textbox.Select ();
+            HeadlessRenderer.TextInput (parent, "hi");
+
+            Assert.Equal ("hi", textbox.Text);
+        }
+
+        // The container is allowed focusable chrome of its own (a toolbar text box, say). While that
+        // holds focus the keys belong to it, not to the active child.
+        [Fact]
+        public void Typing_stays_with_the_container_when_its_own_control_has_focus ()
+        {
+            using var parent = new Form { IsMdiContainer = true };
+            var parentBox = new TextBox { Width = 100 };
+            parent.Controls.Add (parentBox);
+            HeadlessRenderer.CapturePng (parent, 600, 400);
+
+            using var child = Child ();
+            var childBox = new TextBox { Multiline = true, Dock = DockStyle.Fill };
+            child.Controls.Add (childBox);
+            child.MdiParent = parent;
+            child.Show ();
+            HeadlessRenderer.CapturePng (parent, 600, 400);
+
+            parentBox.Select ();
+
+            HeadlessRenderer.TextInput (parent, "hi");
+
+            Assert.Equal ("hi", parentBox.Text);
+            Assert.Equal (string.Empty, childBox.Text);
+        }
     }
 }

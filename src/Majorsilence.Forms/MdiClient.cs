@@ -99,8 +99,34 @@ namespace Majorsilence.Forms
             frames.Remove (frame);
             frames.Add (frame);
 
+            GiveFocusToActiveChild ();
+
             Owner?.RaiseMdiChildActivate ();
             Invalidate ();
+        }
+
+        /// <summary>
+        /// Moves keyboard focus off the container's own controls, so it belongs to the active child.
+        /// </summary>
+        /// <remarks>
+        /// A container normally has selectable chrome of its own — a menu strip is the first selectable
+        /// control on most MDI shells, and gets selected as soon as the window is shown. Nothing used to
+        /// take that selection away when a child was activated, so the container went on claiming keyboard
+        /// focus for a menu the user never opened, and <see cref="WindowBase.HandleTextInput"/> kept the
+        /// keystrokes rather than routing them inward: the active child drew a caret and silently dropped
+        /// everything typed at it. Clearing the container's selection is what "focus is in the child now"
+        /// means here, since the child tracks its own focused control independently.
+        ///
+        /// Selecting a container control again (clicking its menu or toolbar) puts the selection back and
+        /// keyboard returns to the container, which is the WinForms behaviour too.
+        /// </remarks>
+        internal void GiveFocusToActiveChild ()
+        {
+            if (active is null)
+                return;
+
+            if (FindForm () is { } owner)
+                owner.adapter.SelectedControl = null;
         }
 
         // ── Geometry helpers used by the frame during drag/resize ──────────────────

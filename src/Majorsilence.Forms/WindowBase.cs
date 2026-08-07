@@ -586,8 +586,35 @@ namespace Majorsilence.Forms
                     return true;
             }
 
+            if (TryRouteToActiveMdiChild (child => child.HandleKeyDown (keys), out var mdiHandled))
+                return mdiHandled;
+
             adapter.RaiseKeyDown (kd_e);
             return kd_e.Handled;
+        }
+
+        /// <summary>
+        /// An MDI child never owns an on-screen window — its frame composites the child's content into
+        /// the container's, and <see cref="MdiChildWindow"/> forwards pointer input inward. Keyboard has
+        /// to make the same trip: the container is the only window the backend delivers key events to,
+        /// so without this the active child's focused control never hears a keystroke.
+        ///
+        /// Only when the container itself has nothing focused. A container is free to own focusable
+        /// chrome of its own (a toolbar's text box, say), and while that holds focus the keys are its
+        /// own — matching WinForms, where focus is genuinely in one place or the other.
+        /// </summary>
+        private bool TryRouteToActiveMdiChild (Func<Form, bool> dispatch, out bool handled)
+        {
+            handled = false;
+
+            if (this is not Form { ActiveMdiChild: { } child } || ReferenceEquals (child, this))
+                return false;
+
+            if (adapter.SelectedControl is not null)
+                return false;
+
+            handled = dispatch (child);
+            return true;
         }
 
         /// <summary>Routes a key-up. Returns true if handled.</summary>
@@ -601,6 +628,9 @@ namespace Majorsilence.Forms
                 if (ku_e.Handled)
                     return true;
             }
+
+            if (TryRouteToActiveMdiChild (child => child.HandleKeyUp (keys), out var mdiHandled))
+                return mdiHandled;
 
             adapter.RaiseKeyUp (ku_e);
             return ku_e.Handled;
@@ -620,6 +650,9 @@ namespace Majorsilence.Forms
                 if (kp_e.Handled)
                     return true;
             }
+
+            if (TryRouteToActiveMdiChild (child => child.HandleTextInput (text), out var mdiHandled))
+                return mdiHandled;
 
             adapter.RaiseKeyPress (kp_e);
             return kp_e.Handled;
