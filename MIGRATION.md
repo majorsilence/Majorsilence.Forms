@@ -429,6 +429,33 @@ anywhere, and the second duplicated `Commit`'s numeric value — which made `ToS
 context able to name something the writer never chose. The WinForms members that belong at those
 values, `RowDeletion` and `ClipboardContent`, are now present.
 
+## Strongly-typed resource designers
+
+A `.resx` with a code generator set (`Resources.Designer.cs`, and any `ICO.Designer.cs`/`PNG.Designer.cs`
+style class the *StronglyTypedResourceBuilder* emits) produces accessors shaped like this:
+
+```csharp
+public static Icon New => (Icon) ResourceManager.GetObject ("New", resourceCulture);
+```
+
+The namespace rewrite retypes that cast to `Majorsilence.Forms.Drawing.Icon`, but the manager behind it is
+a `System.Resources.ResourceManager`, which hands back whatever type the compiled `.resources` names — a
+`System.Drawing.Icon`, live on Windows or the embedded stand-in elsewhere. The cast then throws
+`InvalidCastException` **at runtime, on the first resource read**, having compiled perfectly cleanly.
+
+So in those generated files — and only those, gated on the builder's own `GeneratedCodeAttribute` —
+`System.Resources.ResourceManager` is rewritten to `Majorsilence.Forms.ComponentResourceManager`. It takes
+the same `(baseName, Assembly)` and `(Type)` constructors and reads the same compiled `.resources`, but
+normalizes graphics entries to `Majorsilence.Forms.Drawing` types, so the generated cast succeeds.
+Hand-written code that uses `ResourceManager` for ordinary string lookups keeps the real BCL type.
+
+What survives the round trip from a compiled `.resources`, verified end-to-end on a non-Windows host:
+strings, `Color`, `Point`, `Size` and the other `System.Drawing.Primitives` value types (untouched — they
+are the real BCL types), `Int32`/`Boolean`/the rest of the primitives, images and icons (including
+file-linked `ResXFileRef` entries, which the SDK resolves at build time), `Font`, and the
+BinaryFormatter-blob types listed in the compatibility matrix. Only entries whose type has no
+cross-platform meaning at all are dropped, and they come back as `null` rather than throwing.
+
 ## Breaking change: event delegate types now match WinForms
 
 Designer-generated code wires events up with an explicitly constructed delegate — `this.textBox.KeyDown

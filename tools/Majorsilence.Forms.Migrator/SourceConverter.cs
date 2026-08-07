@@ -221,6 +221,25 @@ internal static class SourceConverter
             @"(?<![\w.])System\.ComponentModel\.ComponentResourceManager\b",
             "Majorsilence.Forms.ComponentResourceManager");
 
+        // 6b. The same problem one layer over, for the *strongly-typed resource designer* a project gets
+        //     from a .resx with a code generator set (Resources.Designer.cs, ICO.Designer.cs, ...). Its
+        //     accessors are `return ((Icon)(ResourceManager.GetObject ("New", culture)));`, and pass 2 has
+        //     just retyped that cast to Majorsilence.Forms.Drawing.Icon — but the manager is still a
+        //     System.Resources.ResourceManager, which hands back whatever type the compiled .resources
+        //     names (a System.Drawing.Icon, live on Windows or the embedded shim elsewhere). The cast then
+        //     throws InvalidCastException at runtime on the first resource read, having compiled cleanly.
+        //     Majorsilence.Forms.ComponentResourceManager takes the same (baseName, Assembly) and (Type)
+        //     constructors, reads the same compiled .resources, and normalizes graphics entries to
+        //     Majorsilence.Forms.Drawing types, so the generated cast succeeds.
+        //
+        //     Deliberately gated on the generator's own attribute rather than applied file-wide:
+        //     System.Resources.ResourceManager is an ordinary BCL type that hand-written code uses for
+        //     plain string lookups, and that code should keep the real one.
+        if (text.Contains("StronglyTypedResourceBuilder", StringComparison.Ordinal))
+            text = Regex.Replace(text,
+                @"(?<![\w.])System\.Resources\.ResourceManager\b",
+                "Majorsilence.Forms.ComponentResourceManager");
+
         // 7. Visual Basic specifics. With MyType=Empty there is no implicit WinForms constructor, so
         //    inject the explicit one each form needs; then flag the 'My' framework and Windows-only types
         //    that genuinely need a human.

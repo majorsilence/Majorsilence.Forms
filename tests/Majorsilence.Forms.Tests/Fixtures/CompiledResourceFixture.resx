@@ -42,6 +42,9 @@
   <data name="button1.TabIndex" type="System.Int32, mscorlib">
     <value>0</value>
   </data>
+  <data name="button1.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Arial, 12pt, style=Bold</value>
+  </data>
   <data name="button1.Visible" type="System.Boolean, mscorlib">
     <value>False</value>
   </data>

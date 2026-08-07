@@ -366,6 +366,18 @@ namespace Majorsilence.Forms
             return bytes is { Length: > 0 };
         }
 
+        // Companion to TryGetShimImageBytes for the font stand-in; same reflection-not-reference reasoning.
+        [UnconditionalSuppressMessage ("Trimming", "IL2075",
+            Justification = "The property is on a Majorsilence.Forms.DrawingShims type, which is IsTrimmable but reached only by having been instantiated by the resource reader moments earlier; a miss degrades to false and the caller falls through to the live-System.Drawing path.")]
+        private static bool TryGetShimFontSpec (object value, [NotNullWhen (true)] out string? spec)
+        {
+            spec = value.GetType ()
+                .GetProperty ("MajorsilenceFontSpec", BindingFlags.Public | BindingFlags.Instance)
+                ?.GetValue (value) as string;
+
+            return !string.IsNullOrWhiteSpace (spec);
+        }
+
         // On Windows, System.Drawing.Common is functional, so DeserializingResourceReader hands back
         // LIVE System.Drawing.Icon/Bitmap/Font objects for graphics entries -- but designer code (and
         // every migrated property) is typed against Majorsilence.Forms.Drawing, so an unconditional
@@ -391,6 +403,11 @@ namespace Majorsilence.Forms
                 // System.Drawing types that switch is written for.
                 if (TryGetShimImageBytes (value, out var shimBytes))
                     return BuildImage (type.FullName, shimBytes);
+
+                // The font stand-in, likewise: it carried the converter string across undecoded, and
+                // ParseFont is the same parser a font written straight into .resx XML goes through.
+                if (TryGetShimFontSpec (value, out var fontSpec))
+                    return ParseFont (fontSpec);
 
                 switch (type.FullName)
                 {
