@@ -430,7 +430,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the window surface is painted. Declared for WinForms source compat; the compat window paints through its root adapter and does not raise this yet.</summary>
 #pragma warning disable CS0067
-        public event EventHandler<PaintEventArgs>? Paint;
+        public event PaintEventHandler? Paint;
 #pragma warning restore CS0067
 
         /// <summary>

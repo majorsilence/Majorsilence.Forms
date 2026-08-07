@@ -473,7 +473,7 @@ public partial class Control
     }
 
     /// <summary>Raised when the control is painted. WinForms compat — hooks into OnPaint.</summary>
-    public event EventHandler<PaintEventArgs>? Paint;
+    public event PaintEventHandler? Paint;
 
     /// <summary>Raised when the control is moved (fires with LocationChanged).</summary>
     public event EventHandler? Move;
