@@ -85,10 +85,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the default <see cref="ControlStyle"/> for all <see cref="TrackBar"/> instances.
         /// </summary>
-        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
-            (style) => {
-                style.BackgroundColor = Theme.BackgroundColor;
-            });
+        /// <remarks>
+        /// Deliberately sets no background colour. A TrackBar's BackColor is AMBIENT in WinForms —
+        /// it takes the colour of whatever it sits on — and the surface around the groove is a large
+        /// part of the control, so pinning one here made a track bar on a dark panel paint a wide
+        /// light bar across it and ignore its container entirely. Leaving the chain empty lets
+        /// <see cref="Control.GetEffectiveBackgroundColor"/> resolve it from the parent, which lands
+        /// on the same theme colour as before for a track bar on an ordinary form.
+        /// Contrast the input surfaces (TextBox, ComboBox, ListBox, TreeView, ...), which really do
+        /// pin a colour: theirs is SystemColors.Window in WinForms, not ambient.
+        /// </remarks>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle, (_) => { });
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
