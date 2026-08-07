@@ -236,6 +236,46 @@ public class ComponentResourceManagerTests
         Assert.True(bitmap.Height > 0);
     }
 
+    // Regression: an image pasted straight into a .resx (rather than linked as a file) is stored as a
+    // type-converter resource over a byte[], declared as System.Drawing.Bitmap. The stand-ins carried a
+    // single converter that always produced the base Image, so the reader could not satisfy the declared
+    // Bitmap type, the per-entry catch swallowed the failure, and the property came back null — a splash
+    // screen handed a null image and dereferenced it on the next line.
+    [Fact]
+    public void Compiled_resources_bytearray_bitmap_yields_an_image_not_null()
+    {
+        if (!System.OperatingSystem.IsWindowsVersionAtLeast(6, 1) && CanLoadRealSystemDrawingCommon())
+            return;
+
+        var mgr = new ComponentResourceManager(typeof(Fixtures.CompiledResourceFixture));
+
+        var image = Assert.IsAssignableFrom<Majorsilence.Forms.Drawing.Image>(mgr.GetObject("fixtureBitmapBytes"));
+
+        Assert.True(image.Width > 0);
+        Assert.True(image.Height > 0);
+    }
+
+    [Fact]
+    public void Compiled_resources_font_yields_Majorsilence_font_not_null()
+    {
+        // Companion to the image regression above, for the other type a compiled .resources stores
+        // against a System.Drawing name: a font, written by its type converter as "Arial, 12pt,
+        // style=Bold". The image stand-ins alone left that entry unreadable, so `this.button1.Font =
+        // (Font) resources.GetObject ("button1.Font")` silently produced null and the control kept its
+        // default font. Same last-resort caveat as above: this project references the real
+        // System.Drawing.Common on purpose, so off Windows the GDI+ type wins the lookup and fails.
+        if (!System.OperatingSystem.IsWindowsVersionAtLeast(6, 1) && CanLoadRealSystemDrawingCommon())
+            return;
+
+        var mgr = new ComponentResourceManager(typeof(Fixtures.CompiledResourceFixture));
+
+        var font = Assert.IsType<Majorsilence.Forms.Drawing.Font>(mgr.GetObject("button1.Font"));
+
+        Assert.Equal("Arial", font.Name);
+        Assert.Equal(12f, font.Size);
+        Assert.Equal(Majorsilence.Forms.Drawing.FontStyle.Bold, font.Style);
+    }
+
     private static bool CanLoadRealSystemDrawingCommon()
     {
         try { return System.Reflection.Assembly.Load("System.Drawing.Common") is not null; }

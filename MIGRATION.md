@@ -103,12 +103,26 @@ text` already handles it identically, faster.
 1. **Project files** (`.csproj`/`.vbproj`): removes `UseWindowsForms`/`UseWPF`, drops the
    `-windows` TFM suffix (`net8.0-windows` → `net8.0`, including in imported `.props`/`.targets`),
    drops the Windows-desktop framework reference, removes WinForms-only NuGet packages (Telerik UI
-   for WinForms, DevExpress, ...), and adds a `Majorsilence.Forms` + backend reference — only to
-   projects that are/use WinForms; class libraries with no UI are left untouched. (`--dual-build`
-   changes this — see [Incremental migration](#incremental-migration-building-against-both---dual-build).)
+   for WinForms, DevExpress, **`System.Drawing.Common`**, ...), and adds a `Majorsilence.Forms` +
+   backend reference — to every project the rewrite actually touches; class libraries with no UI are
+   left untouched. (`--dual-build` changes this — see
+   [Incremental migration](#incremental-migration-building-against-both---dual-build).)
+
+   Two parts of that are easy to get wrong by hand. **`System.Drawing.Common` has to go**, not merely
+   because it is Windows-only from .NET 7 on, but because leaving it referenced puts
+   `System.Drawing.Bitmap`/`Font`/`Pen`/... back in scope beside the `Majorsilence.Forms.Drawing`
+   replacements the rewrite just introduced — every unqualified use then fails as an ambiguous
+   reference rather than resolving to the port. And **"projects the rewrite touches" is wider than
+   "WinForms projects"**: the plain class libraries a WinForms solution carries alongside its UI
+   projects often never mention `System.Windows.Forms`, yet an image or font helper in one still gets
+   rewritten to `Majorsilence.Forms.Drawing.*` and cannot compile without the reference. Projects
+   using only the primitives that stay in `System.Drawing` (`Color`, `Point`, `Size`, ...) are still
+   left alone — nothing in them changes.
 2. **Source files** (`.cs`/`.vb`): rewrites namespaces via a longest-prefix-first table (see
    [Namespace mapping](#namespace-mapping) below), collapses duplicate `using`/`Imports` lines that
-   result from multiple source namespaces mapping to the same target, and — for VB — injects the
+   result from multiple source namespaces mapping to the same target, emits a using-alias for the
+   handful of names a kept `System.Drawing` import would otherwise make ambiguous (see
+   [Namespace mapping](#namespace-mapping)), and — for VB — injects the
    implicit WinForms constructor lost when `MyType=Empty` no longer applies, generates a
    `My.Resources` accessor, and warns on the remaining unimplemented `My.*` framework usage (see
    [VB Application Model](#vb-application-model-myapplication-myforms)).
@@ -252,6 +266,30 @@ An unqualified GDI+ type used under a bare `using System.Drawing;` (no prefix fo
 anchor on) is also caught: a name-match warns on `Metafile`, `ImageAttributes`, `ColorMatrix`, and
 similar Windows-only types that would otherwise be silent compile breaks.
 
+### Ambiguous names: `SystemColors` and `ColorTranslator`
+
+Most of `System.Drawing` lives in the Windows-only `System.Drawing.Common`, which a migrated project
+stops referencing — so once `Graphics`, `SystemBrushes`, `SystemPens`, `SystemFonts` and
+`ContentAlignment` are redirected to `Majorsilence.Forms`, the `System.Drawing` name is simply gone and
+there is nothing to collide with.
+
+`SystemColors` and `ColorTranslator` are the exceptions: they ship in `System.Drawing.Primitives`, part
+of the shared framework, so they are *still* resolvable through the `using System.Drawing;` the migration
+keeps for the primitives. Used unqualified — `SystemColors.ControlText`, exactly how WinForms code is
+written — the name then has two candidates, `System.Drawing.SystemColors` and
+`Majorsilence.Forms.SystemColors`, and the file fails to compile with CS0104.
+
+The converter emits a using-alias pinning the name to the Majorsilence one:
+
+```csharp
+using System.Drawing;
+using SystemColors = Majorsilence.Forms.SystemColors;
+```
+
+One line fixes every use site in the file, so the code below it reads exactly as it did before the
+migration. The alias is added only to files that actually use the name unqualified, and re-running the
+tool over an already-migrated tree won't add it twice.
+
 ### Third-party control vendors (e.g. Telerik)
 
 Telerik UI for WinForms has a **built-in** mapping onto
@@ -390,6 +428,82 @@ Two members of `DataGridViewDataErrorContexts` went the other way and were **rem
 anywhere, and the second duplicated `Commit`'s numeric value — which made `ToString()` on a persisted
 context able to name something the writer never chose. The WinForms members that belong at those
 values, `RowDeletion` and `ClipboardContent`, are now present.
+
+## Strongly-typed resource designers
+
+A `.resx` with a code generator set (`Resources.Designer.cs`, and any `ICO.Designer.cs`/`PNG.Designer.cs`
+style class the *StronglyTypedResourceBuilder* emits) produces accessors shaped like this:
+
+```csharp
+public static Icon New => (Icon) ResourceManager.GetObject ("New", resourceCulture);
+```
+
+The namespace rewrite retypes that cast to `Majorsilence.Forms.Drawing.Icon`, but the manager behind it is
+a `System.Resources.ResourceManager`, which hands back whatever type the compiled `.resources` names — a
+`System.Drawing.Icon`, live on Windows or the embedded stand-in elsewhere. The cast then throws
+`InvalidCastException` **at runtime, on the first resource read**, having compiled perfectly cleanly.
+
+So in those generated files — and only those, gated on the builder's own `GeneratedCodeAttribute` —
+`System.Resources.ResourceManager` is rewritten to `Majorsilence.Forms.ComponentResourceManager`. It takes
+the same `(baseName, Assembly)` and `(Type)` constructors and reads the same compiled `.resources`, but
+normalizes graphics entries to `Majorsilence.Forms.Drawing` types, so the generated cast succeeds.
+Hand-written code that uses `ResourceManager` for ordinary string lookups keeps the real BCL type.
+
+What survives the round trip from a compiled `.resources`, verified end-to-end on a non-Windows host:
+strings, `Color`, `Point`, `Size` and the other `System.Drawing.Primitives` value types (untouched — they
+are the real BCL types), `Int32`/`Boolean`/the rest of the primitives, images and icons (including
+file-linked `ResXFileRef` entries, which the SDK resolves at build time), `Font`, and the
+BinaryFormatter-blob types listed in the compatibility matrix. Only entries whose type has no
+cross-platform meaning at all are dropped, and they come back as `null` rather than throwing.
+
+## Breaking change: event delegate types now match WinForms
+
+Designer-generated code wires events up with an explicitly constructed delegate — `this.textBox.KeyDown
++= new KeyEventHandler(this.TextBox_KeyDown);`, `this.MnuFileNew.Click += new
+System.EventHandler(this.MnuFileNew_Click);` — and C# will not convert between two delegate types just
+because their signatures agree. Several events here were declared as `EventHandler<TArgs>` where WinForms
+uses a named delegate, so every one of those designer lines failed to compile. They now use the WinForms
+delegate:
+
+| Event | Was | Now |
+|---|---|---|
+| `Control.KeyDown`, `.KeyUp` | `EventHandler<KeyEventArgs>` | `KeyEventHandler` |
+| `Control.MouseDown`, `.MouseUp`, `.MouseMove`, `.MouseWheel`, `.MouseClick`, `.MouseDoubleClick` | `EventHandler<MouseEventArgs>` | `MouseEventHandler` |
+| `Form.FormClosing` | `EventHandler<FormClosingEventArgs>` | `FormClosingEventHandler` |
+| `PrintDocument.PrintPage` | `EventHandler<PrintPageEventArgs>` | `PrintPageEventHandler` |
+| `Control.MouseEnter` | `EventHandler<MouseEventArgs>` | `EventHandler` |
+| `MenuItem`/`ToolStripItem`/`ToolStripMenuItem`/`ToolStripButton``.Click` | `EventHandler<MouseEventArgs>` | `EventHandler` |
+
+**Handlers written as lambdas or method groups keep compiling** — the parameter types are unchanged for
+the first four rows, so `c.KeyDown += (s, e) => e.KeyCode` is unaffected. Two things do break, both
+deliberately:
+
+* **Explicitly constructed `new EventHandler<KeyEventArgs>(...)`** (and the other typed forms) no longer
+  converts. Drop the wrapper (`c.KeyDown += Handler;`) or name the WinForms delegate.
+* **`Click` and `MouseEnter` no longer carry mouse coordinates**, because in WinForms they never did —
+  `Click` is an `EventArgs` event and `MouseClick` is the typed variant. A handler that read `e.X`/`e.Button`
+  off a `Click` must move to `MouseClick`; on a menu item, which has no mouse-typed variant in WinForms
+  either, take the position from the owning control. The related constructor and factory overloads
+  (`new MenuItem(text, image, onClick)`, `MenuItemCollection.Add(text, image, onClick)`,
+  `new ToolStripMenuItem(...)`, `new ToolStripButton(...)`) take `EventHandler` to match.
+
+`Control.OnMouseEnter` changes signature with its event, from `OnMouseEnter(MouseEventArgs)` to WinForms'
+`OnMouseEnter(EventArgs)` — an override of the old signature fails to compile with CS0115 rather than
+silently not being called. Where a control genuinely needs the pointer position at entry, the framework
+records it internally (that is how `ToolTip` still places its popup at the cursor).
+
+## Moved to match GDI+: the gradient and hatch brushes
+
+`LinearGradientBrush`, `PathGradientBrush`, `HatchBrush` and `HatchStyle` were in
+`Majorsilence.Forms.Drawing`. GDI+ puts them in `System.Drawing.Drawing2D`, not `System.Drawing`, so they
+have moved to **`Majorsilence.Forms.Drawing.Drawing2D`** to match. `Brush`, `SolidBrush` and
+`TextureBrush` stay put — those really are `System.Drawing` types.
+
+This is what the namespace mapping already promised: `using System.Drawing.Drawing2D;` is rewritten to
+`using Majorsilence.Forms.Drawing.Drawing2D;`, and before this move that import resolved none of the
+brushes it was supposed to. Code that reaches them through the rewritten import — the overwhelmingly
+common case — is unaffected. Only a **fully-qualified** `Majorsilence.Forms.Drawing.LinearGradientBrush`
+needs updating, to `Majorsilence.Forms.Drawing.Drawing2D.LinearGradientBrush`.
 
 ## Compile-and-approximate, not pixel-perfect
 

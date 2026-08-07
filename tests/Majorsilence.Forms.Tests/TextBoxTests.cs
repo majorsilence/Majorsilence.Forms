@@ -419,5 +419,106 @@ namespace Majorsilence.Forms.Tests
             using var control = new TextBox ();
             Assert.True (control.WordWrap);
         }
+
+        // Regression: with no selection, SelectionStart is the CARET, never -1. The document tracks the
+        // selection anchor and the caret separately and uses -1 for "no selection", and that anchor used
+        // to be returned raw -- so a caret with nothing selected reported -1, which reads as a character
+        // index and corrupts any arithmetic on it. A migrated status bar deriving line/column from it
+        // searched for character -1, found no line, and dereferenced the null it got back.
+        // Regression: Enter is delivered as a key event, not as text input, by Avalonia and most other
+        // backends. The newline was only ever inserted from OnKeyPress's KeyChar == 13 branch, which
+        // those backends never reach, so a multiline box silently refused to take a new line.
+        [Fact]
+        public void Enter_inserts_a_newline_in_a_multiline_box ()
+        {
+            using var form = new Form ();
+            var control = new TextBox { Multiline = true, Dock = DockStyle.Fill };
+            form.Controls.Add (control);
+            Headless.HeadlessRenderer.CapturePng (form, 300, 200);
+            control.Select ();
+
+            Headless.HeadlessRenderer.TextInput (form, "a");
+            Headless.HeadlessRenderer.KeyDown (form, Keys.Return);
+            Headless.HeadlessRenderer.TextInput (form, "b");
+
+            Assert.Equal ("a\nb", control.Text);
+            Assert.Equal (2, control.Lines.Length);
+        }
+
+        [Fact]
+        public void Enter_does_not_insert_a_newline_in_a_single_line_box ()
+        {
+            using var form = new Form ();
+            var control = new TextBox { Dock = DockStyle.Top };
+            form.Controls.Add (control);
+            Headless.HeadlessRenderer.CapturePng (form, 300, 200);
+            control.Select ();
+
+            Headless.HeadlessRenderer.TextInput (form, "a");
+            Headless.HeadlessRenderer.KeyDown (form, Keys.Return);
+            Headless.HeadlessRenderer.TextInput (form, "b");
+
+            Assert.Equal ("ab", control.Text);
+        }
+
+        [Fact]
+        public void SelectionStart_with_no_selection_is_the_caret ()
+        {
+            using var control = new TextBox { Text = "hello" };
+
+            control.SelectionStart = 3;
+
+            Assert.Equal (3, control.SelectionStart);
+            Assert.Equal (0, control.SelectionLength);
+            Assert.Equal (string.Empty, control.SelectedText);
+        }
+
+        [Fact]
+        public void SelectionStart_is_never_negative_on_an_empty_box ()
+        {
+            using var control = new TextBox ();
+
+            Assert.Equal (0, control.SelectionStart);
+            Assert.Equal (0, control.SelectionLength);
+        }
+
+        [Fact]
+        public void SelectionStart_then_SelectionLength_selects_from_that_point ()
+        {
+            using var control = new TextBox { Text = "hello world" };
+
+            control.SelectionStart = 6;
+            control.SelectionLength = 5;
+
+            Assert.Equal (6, control.SelectionStart);
+            Assert.Equal (5, control.SelectionLength);
+            Assert.Equal ("world", control.SelectedText);
+        }
+
+        [Fact]
+        public void SelectionStart_reports_the_lower_end_of_a_selection ()
+        {
+            using var control = new TextBox { Text = "hello world" };
+
+            control.SelectionStart = 2;
+            control.SelectionLength = 4;
+
+            Assert.Equal (2, control.SelectionStart);
+            Assert.Equal ("llo ", control.SelectedText);
+        }
+
+        [Fact]
+        public void Clearing_SelectionLength_collapses_the_selection_and_keeps_the_caret ()
+        {
+            using var control = new TextBox { Text = "hello world" };
+            control.SelectionStart = 6;
+            control.SelectionLength = 5;
+
+            control.SelectionLength = 0;
+
+            Assert.Equal (6, control.SelectionStart);
+            Assert.Equal (0, control.SelectionLength);
+            Assert.Equal (string.Empty, control.SelectedText);
+        }
     }
 }

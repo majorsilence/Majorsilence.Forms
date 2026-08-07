@@ -170,6 +170,12 @@ internal static class SourceConverter
         //    unqualified now live in Majorsilence.Forms.Drawing, so add/keep that import when they're present.
         text = RewriteDrawingImports(text, effectiveDualBuild);
 
+        // 3b. A handful of the WinForms-compat types redirected in pass 2 also ship in
+        //     System.Drawing.Primitives, so when the file keeps its System.Drawing import both namespaces
+        //     offer the same bare name and an unqualified use stops compiling (CS0104). Pin those to the
+        //     Majorsilence.Forms one with a using-alias rather than rewriting every use site.
+        text = AddAmbiguityAliases(text);
+
         // 4. Flag any namespace we deliberately refused to rewrite — but only when a reference actually
         //    resolves to something cross-platform-unavailable. Some types under these namespaces ship in
         //    the BCL (e.g. System.ComponentModel.Design.HelpKeywordAttribute, used by typed-DataSet
@@ -195,6 +201,20 @@ internal static class SourceConverter
             }
         }
 
+        // 5c. Windows registry access. Unlike everything else flagged here this is not a compile problem
+        //     at all — Microsoft.Win32.Registry resolves on every platform — so the build stays green and
+        //     the app dies on its first run instead, typically in a form constructor reading a
+        //     run-at-startup entry. Warn so it surfaces in the report rather than as a crash.
+        if (original.Contains(NamespaceMap.WindowsRegistryNamespace, StringComparison.Ordinal))
+        {
+            foreach (var type in NamespaceMap.WindowsOnlyRegistryTypes)
+            {
+                if (Regex.IsMatch(original, $@"(?<![\w.]){Regex.Escape(type)}\b"))
+                    Warn($"uses '{type}' (Windows registry), which has no cross-platform equivalent — " +
+                         "it compiles anywhere but only works on Windows; review manually");
+            }
+        }
+
         // 5b. Heavyweight Telerik types with no compat equivalent (RadPdfViewer, RadRichTextEditor, the
         //     scheduler data layer, …). Pass 1's guards leave the qualified form untouched; this also
         //     catches the *unqualified* form — e.g. `Dim v As RadPdfViewer` under a bare `Imports
@@ -214,6 +234,25 @@ internal static class SourceConverter
         text = Regex.Replace(text,
             @"(?<![\w.])System\.ComponentModel\.ComponentResourceManager\b",
             "Majorsilence.Forms.ComponentResourceManager");
+
+        // 6b. The same problem one layer over, for the *strongly-typed resource designer* a project gets
+        //     from a .resx with a code generator set (Resources.Designer.cs, ICO.Designer.cs, ...). Its
+        //     accessors are `return ((Icon)(ResourceManager.GetObject ("New", culture)));`, and pass 2 has
+        //     just retyped that cast to Majorsilence.Forms.Drawing.Icon — but the manager is still a
+        //     System.Resources.ResourceManager, which hands back whatever type the compiled .resources
+        //     names (a System.Drawing.Icon, live on Windows or the embedded shim elsewhere). The cast then
+        //     throws InvalidCastException at runtime on the first resource read, having compiled cleanly.
+        //     Majorsilence.Forms.ComponentResourceManager takes the same (baseName, Assembly) and (Type)
+        //     constructors, reads the same compiled .resources, and normalizes graphics entries to
+        //     Majorsilence.Forms.Drawing types, so the generated cast succeeds.
+        //
+        //     Deliberately gated on the generator's own attribute rather than applied file-wide:
+        //     System.Resources.ResourceManager is an ordinary BCL type that hand-written code uses for
+        //     plain string lookups, and that code should keep the real one.
+        if (text.Contains("StronglyTypedResourceBuilder", StringComparison.Ordinal))
+            text = Regex.Replace(text,
+                @"(?<![\w.])System\.Resources\.ResourceManager\b",
+                "Majorsilence.Forms.ComponentResourceManager");
 
         // 7. Visual Basic specifics. With MyType=Empty there is no implicit WinForms constructor, so
         //    inject the explicit one each form needs; then flag the 'My' framework and Windows-only types
@@ -521,6 +560,44 @@ internal static class SourceConverter
         // types are used unqualified, otherwise drop the line entirely.
         var replacement = usesGdiPlus && !companionPresent ? companion : null;
         return RemoveImportLine(text, match, replacement, newline);
+    }
+
+    // Emits `using SystemColors = Majorsilence.Forms.SystemColors;` (VB: `Imports SystemColors = …`) for
+    // each name that a kept System.Drawing import would otherwise make ambiguous. One alias line fixes every
+    // use site in the file, which suits a textual rewriter far better than qualifying each reference — and it
+    // leaves the code reading exactly as it did before the migration.
+    private static string AddAmbiguityAliases(string text)
+    {
+        // No System.Drawing import left means only one candidate for the name — nothing to disambiguate.
+        var match = BareDrawingImport.Match(text);
+        if (!match.Success)
+            return text;
+
+        var kw = match.Groups["kw"].Value;
+        var indent = match.Groups["indent"].Value;
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+
+        var aliases = new List<string>();
+
+        foreach (var type in NamespaceMap.AmbiguousWithSystemDrawing.OrderBy(t => t, StringComparer.Ordinal))
+        {
+            if (!UsedUnqualified(text, type))
+                continue;
+
+            // Already aliased (e.g. a re-run over an already-migrated tree) — don't add a duplicate.
+            if (Regex.IsMatch(text, $@"(?m)^[ \t]*(using|Imports)[ \t]+{Regex.Escape(type)}[ \t]*="))
+                continue;
+
+            aliases.Add(kw == "Imports"
+                ? $"{indent}Imports {type} = Majorsilence.Forms.{type}"
+                : $"{indent}using {type} = Majorsilence.Forms.{type};");
+        }
+
+        if (aliases.Count == 0)
+            return text;
+
+        return text[..(match.Index + match.Length)] + newline + string.Join(newline, aliases)
+            + text[(match.Index + match.Length)..];
     }
 
     // A type name used unqualified (a whole word not preceded by '.' or another identifier char), i.e. one

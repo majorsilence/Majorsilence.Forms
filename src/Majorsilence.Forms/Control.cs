@@ -1128,7 +1128,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the KeyDown event.
         /// </summary>
-        protected virtual void OnKeyDown (KeyEventArgs e) => (Events[s_keyDownEvent] as EventHandler<KeyEventArgs>)?.Invoke (this, e);
+        protected virtual void OnKeyDown (KeyEventArgs e) => (Events[s_keyDownEvent] as KeyEventHandler)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the KeyPress event.
@@ -1138,7 +1138,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the KeyUp event.
         /// </summary>
-        protected virtual void OnKeyUp (KeyEventArgs e) => (Events[s_keyUpEvent] as EventHandler<KeyEventArgs>)?.Invoke (this, e);
+        protected virtual void OnKeyUp (KeyEventArgs e) => (Events[s_keyUpEvent] as KeyEventHandler)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the LocationChanged event.
@@ -1160,12 +1160,12 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the MouseDown event.
         /// </summary>
-        protected virtual void OnMouseDown (MouseEventArgs e) => (Events[s_mouseDownEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+        protected virtual void OnMouseDown (MouseEventArgs e) => (Events[s_mouseDownEvent] as MouseEventHandler)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the MouseEnter event.
         /// </summary>
-        protected virtual void OnMouseEnter (MouseEventArgs e)
+        protected virtual void OnMouseEnter (EventArgs e)
         {
             FindForm ()?.SetCursor (Cursor);
 
@@ -1174,7 +1174,7 @@ namespace Majorsilence.Forms
                 Invalidate ();
             }
 
-            (Events[s_mouseEnterEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+            (Events[s_mouseEnterEvent] as EventHandler)?.Invoke (this, e);
 
             // Majorsilence.Forms has no hover timer, so hover fires once per entry.
             OnMouseHover (EventArgs.Empty);
@@ -1196,17 +1196,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the MouseMove event.
         /// </summary>
-        protected virtual void OnMouseMove (MouseEventArgs e) => (Events[s_mouseMoveEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+        protected virtual void OnMouseMove (MouseEventArgs e) => (Events[s_mouseMoveEvent] as MouseEventHandler)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the MouseUp event.
         /// </summary>
-        protected virtual void OnMouseUp (MouseEventArgs e) => (Events[s_mouseUpEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+        protected virtual void OnMouseUp (MouseEventArgs e) => (Events[s_mouseUpEvent] as MouseEventHandler)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the MouseWheel event.
         /// </summary>
-        protected virtual void OnMouseWheel (MouseEventArgs e) => (Events[s_mouseWheelEvent] as EventHandler<MouseEventArgs>)?.Invoke (this, e);
+        protected virtual void OnMouseWheel (MouseEventArgs e) => (Events[s_mouseWheelEvent] as MouseEventHandler)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the Pinch event.
@@ -1306,6 +1306,26 @@ namespace Majorsilence.Forms
                 return window.Value;
 
             return Theme.BackgroundColor;
+        }
+
+        /// <summary>
+        /// Resolves the control's effective foreground the way WinForms' ambient ForeColor does: an
+        /// explicit color anywhere in the control's own style chain wins; otherwise the color comes
+        /// from the parent control (a Button on a panel with white text draws white), ending at the
+        /// hosting window (WinForms ambience terminates at Form.ForeColor) and only then the theme
+        /// default. Drawing resolves through here too, so what <see cref="ForeColor"/> reports and
+        /// what is painted cannot disagree.
+        /// </summary>
+        internal SKColor GetEffectiveForegroundColor ()
+        {
+            var chain = CurrentStyle.TryGetForegroundColor ();
+            if (chain is not null)
+                return chain.Value;
+
+            if (Parent is not null)
+                return Parent.GetEffectiveForegroundColor ();
+
+            return FindWindow ()?.CurrentStyle.TryGetForegroundColor () ?? Theme.ForegroundColor;
         }
 
         /// <summary>
@@ -1643,9 +1663,20 @@ namespace Majorsilence.Forms
 
             if (child != null)
                 child.RaiseMouseEnter (TranslateMouseEvents (e, child));
-            else if (Enabled)
+            else if (Enabled) {
+                // OnMouseEnter takes EventArgs, as in WinForms, so the position the pointer entered at
+                // is recorded here for the few consumers (ToolTip) that need to place something at it.
+                LastMousePosition = e.Location;
                 OnMouseEnter (e);
+            }
         }
+
+        /// <summary>
+        /// The most recent pointer position, in client coordinates, seen by this control. Updated on
+        /// mouse enter and move. WinForms exposes the equivalent through <c>Control.MousePosition</c>,
+        /// which needs a live cursor position the backends don't provide.
+        /// </summary>
+        internal System.Drawing.Point LastMousePosition { get; private set; }
 
         /// <summary>
         /// Finds the correct control and calls its OnMouseLeave method.
@@ -1675,6 +1706,8 @@ namespace Majorsilence.Forms
             }
 
             var child = Controls.FindVisibleChildAt (e.Location);
+
+            LastMousePosition = e.Location;
 
             if (current_mouse_in != null && current_mouse_in != child) {
                 current_mouse_in.RaiseMouseLeave (e);
@@ -2173,7 +2206,9 @@ namespace Majorsilence.Forms
         /// over <see cref="ControlStyle.ForegroundColor"/> using <see cref="System.Drawing.Color"/>.
         /// </summary>
         public System.Drawing.Color ForeColor {
-            get => Style.ForegroundColor?.ToDrawingColor () ?? Style.GetForegroundColor ().ToDrawingColor ();
+            // Ambient like WinForms: with no explicit color anywhere in the style chain, the value
+            // reflects the parent control's effective foreground.
+            get => GetEffectiveForegroundColor ().ToDrawingColor ();
             set {
                 var color = value.ToSKColor ();
 

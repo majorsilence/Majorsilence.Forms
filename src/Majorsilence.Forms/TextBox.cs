@@ -199,6 +199,17 @@ namespace Majorsilence.Forms
                     case Keys.Back:
                         need_refresh = document.DeleteText (false, e.Control);
                         return true;
+                    case Keys.Return:
+                        // Enter has to insert the newline from the key-down path. OnKeyPress has a
+                        // KeyChar == 13 branch for it, but that only ever fires on a backend that
+                        // reports Enter as text input, and Avalonia -- like most -- does not: it
+                        // delivers Enter as a key event only, so on a real window that branch is dead
+                        // and a multiline box silently refused to take a new line.
+                        if (!Multiline)
+                            return false;
+
+                        need_refresh = document.InsertText ("\n");
+                        return true;
                     case Keys.C:
                         if (e.Control)
                             Copy ();
@@ -494,9 +505,29 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating the start of the TextBox's selected text.
         /// </summary>
+        /// <remarks>
+        /// The document tracks a selection anchor (−1 when nothing is selected) separately from the
+        /// caret, but WinForms exposes one number for both: with no selection <c>SelectionStart</c> is
+        /// the caret, and with a selection it is the lower of its two ends. Returning the raw anchor
+        /// handed callers −1 for the common case of a caret and no selection, which reads as a
+        /// character index and quietly corrupts any arithmetic done on it — a status bar computing
+        /// line/column from it lands outside the text and gets nothing back.
+        /// </remarks>
         public override int SelectionStart {
-            get => document.SelectionStart;
-            set => document.SelectionStart = value;
+            get {
+                if (document.SelectionStart < 0 || document.SelectionEnd < 0)
+                    return document.CursorIndex;
+
+                return Math.Min (document.SelectionStart, document.SelectionEnd);
+            }
+            set {
+                // Moving the caret drops the selection, as in WinForms — the `SelectionStart = x;
+                // SelectionLength = n;` pair rebuilds it from the new caret via the setter below.
+                document.SelectionStart = -1;
+                document.SelectionEnd = -1;
+                document.SetCursorToCharIndex (Math.Clamp (value, 0, TextLength));
+                Invalidate ();
+            }
         }
 
         /// <summary>
@@ -510,8 +541,19 @@ namespace Majorsilence.Forms
                 return Math.Abs (document.SelectionEnd - document.SelectionStart);
             }
             set {
-                var start = document.SelectionStart < 0 ? 0 : document.SelectionStart;
-                document.SelectionEnd = start + value;
+                // Anchor on SelectionStart's WinForms meaning (the caret when nothing is selected), so
+                // selecting from a caret position works; a non-positive length clears the selection.
+                var start = SelectionStart;
+
+                if (value <= 0) {
+                    document.SelectionStart = -1;
+                    document.SelectionEnd = -1;
+                } else {
+                    document.SelectionStart = start;
+                    document.SelectionEnd = Math.Clamp (start + value, 0, TextLength);
+                }
+
+                Invalidate ();
             }
         }
 
@@ -572,8 +614,8 @@ namespace Majorsilence.Forms
 
         // Select (int, int) is inherited from TextBoxBase, which is where WinForms declares it.
 
-        /// <summary>Raised when the TextAlign property changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? TextAlignChanged { add { } remove { } }
+        /// <summary>Raised when the <see cref="TextAlign"/> property changes.</summary>
+        public event EventHandler? TextAlignChanged;
 
         /// <summary>Gets or sets the lines of text in the TextBox.</summary>
         public override string[] Lines {
@@ -589,8 +631,30 @@ namespace Majorsilence.Forms
                 ScrollToCaret ();
         }
 
-        /// <summary>Gets or sets the horizontal alignment of text in the TextBox. Stub in Majorsilence.Forms.</summary>
-        public HorizontalAlignment TextAlign { get; set; } = HorizontalAlignment.Left;
+        private HorizontalAlignment text_align = HorizontalAlignment.Left;
+
+        /// <summary>Gets or sets the horizontal alignment of text in the TextBox.</summary>
+        /// <remarks>
+        /// Applied to the document, so the caret and hit-testing follow the laid-out text rather than
+        /// only the painted glyphs moving. A right-aligned display box -- a calculator readout, a
+        /// currency field -- reads as broken without it, and the designer emits nothing else.
+        /// </remarks>
+        public HorizontalAlignment TextAlign {
+            get => text_align;
+            set {
+                if (text_align == value)
+                    return;
+
+                text_align = value;
+                document.Alignment = value switch {
+                    HorizontalAlignment.Center => Topten.RichTextKit.TextAlignment.Center,
+                    HorizontalAlignment.Right => Topten.RichTextKit.TextAlignment.Right,
+                    _ => Topten.RichTextKit.TextAlignment.Left,
+                };
+                TextAlignChanged?.Invoke (this, EventArgs.Empty);
+                Invalidate ();
+            }
+        }
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
@@ -632,7 +696,23 @@ namespace Majorsilence.Forms
         }
 
         // Where the text starts, taking scrolling into account
-        internal Point TextOrigin => new Point (PaddedClientRectangle.Location.X - scroll_x, PaddedClientRectangle.Location.Y - scroll_y);
+        internal Point TextOrigin => new Point (PaddedClientRectangle.Location.X - scroll_x,
+                                                PaddedClientRectangle.Location.Y - scroll_y + SingleLineVerticalOffset);
+
+        // A single-line TextBox centres its text vertically -- what a Win32 EDIT without ES_MULTILINE
+        // does, and what every WinForms layout assumes. Only visible on a box taller than its font,
+        // which the designer produces whenever AutoSize is off: top-aligned text there floats against
+        // the upper edge, and anything overlapping that edge (a label sharing the strip, a border)
+        // clips the glyphs. Multiline keeps its text at the top, as WinForms does.
+        private int SingleLineVerticalOffset {
+            get {
+                if (Multiline)
+                    return 0;
+
+                var slack = PaddedClientRectangle.Height - (int) document.GetTextBlock ().MeasuredHeight;
+                return slack > 0 ? slack / 2 : 0;
+            }
+        }
 
         // The virtual bounds of what is currently shown to the user.
         private Rectangle TextViewport => new Rectangle (new Point (PaddedClientRectangle.Location.X + scroll_x, PaddedClientRectangle.Location.Y + scroll_y), PaddedClientRectangle.Size);

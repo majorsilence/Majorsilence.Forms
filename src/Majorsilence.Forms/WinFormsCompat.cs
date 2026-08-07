@@ -1174,7 +1174,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Initializes a new instance of the ToolStripButton class with text, image, and click handler.</summary>
-        public ToolStripButton (string text, SkiaSharp.SKBitmap? image, EventHandler<MouseEventArgs>? onClick = null)
+        public ToolStripButton (string text, SkiaSharp.SKBitmap? image, EventHandler? onClick = null)
         {
             Text = text;
             ((MenuItem)this).SetImageSK (image);
@@ -1185,7 +1185,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Initializes a new instance of the ToolStripButton class with text, a Majorsilence.Forms.Drawing.Image, and click handler.</summary>
 #pragma warning disable CA1416
-        public ToolStripButton (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
+        public ToolStripButton (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler? onClick = null)
             : this (text, image?.ToSKBitmap (), onClick) { }
 #pragma warning restore CA1416
 
@@ -1350,17 +1350,39 @@ namespace Majorsilence.Forms
         public event EventHandler? LostFocus { add => Control.LostFocus += value; remove => Control.LostFocus -= value; }
 
         /// <summary>Raised when a key is pressed while focus is on the hosted control. Forwards to the hosted control.</summary>
-        public event EventHandler<KeyEventArgs>? KeyDown { add => Control.KeyDown += value; remove => Control.KeyDown -= value; }
+        public event KeyEventHandler? KeyDown { add => Control.KeyDown += value; remove => Control.KeyDown -= value; }
 
         /// <summary>Raised when a key is released while focus is on the hosted control. Forwards to the hosted control.</summary>
-        public event EventHandler<KeyEventArgs>? KeyUp { add => Control.KeyUp += value; remove => Control.KeyUp -= value; }
+        public event KeyEventHandler? KeyUp { add => Control.KeyUp += value; remove => Control.KeyUp -= value; }
     }
 
     /// <summary>Represents a ToolStrip-hosted drop-down control.</summary>
     public partial class ToolStripDropDown : ContextMenu
     {
+        // When this drop-down belongs to a menu item (ToolStripMenuItem.DropDown), it is a view onto
+        // that item rather than a menu in its own right: the item already owns the sub-item collection
+        // and the open/closed state, and WinForms treats item.DropDownItems and item.DropDown.Items as
+        // the same collection. Unowned drop-downs (a ContextMenuStrip, say) keep their own.
+        private MenuItem? OwnerMenuItem => OwnerItem;
+
         /// <summary>Gets the items in this drop-down.</summary>
-        public new MenuItemCollection Items => base.Items;
+        public new MenuItemCollection Items => OwnerMenuItem?.Items ?? base.Items;
+
+        /// <inheritdoc/>
+        public override bool Visible {
+            get => OwnerMenuItem is { } owner ? owner.IsDropDownOpened : base.Visible;
+            set {
+                if (OwnerMenuItem is not { } owner) {
+                    base.Visible = value;
+                    return;
+                }
+
+                if (value)
+                    owner.ShowDropDown ();
+                else
+                    owner.HideDropDown ();
+            }
+        }
 
         // NOTE: Show (Point) and Show (Control, Point) are inherited from ContextMenu. Show (Point) used
         // to be redeclared here with an empty body, which shadowed the real one; both are now real.
@@ -1442,7 +1464,7 @@ namespace Majorsilence.Forms
         public ToolStripMenuItem (string text) { Text = text; }
 
         /// <summary>Initializes a new instance with text, image (SKBitmap), and click handler.</summary>
-        public ToolStripMenuItem (string text, SkiaSharp.SKBitmap? image, EventHandler<MouseEventArgs>? onClick = null)
+        public ToolStripMenuItem (string text, SkiaSharp.SKBitmap? image, EventHandler? onClick = null)
         {
             Text = text;
             ((MenuItem)this).SetImageSK (image);
@@ -1453,7 +1475,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Initializes a new instance with text, a Majorsilence.Forms.Drawing.Image, and click handler.</summary>
 #pragma warning disable CA1416
-        public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick = null)
+        public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler? onClick = null)
         {
             Text = text;
             Image = image;
@@ -1463,7 +1485,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Initializes a new instance with text, a Majorsilence.Forms.Drawing.Image, click handler, and subitems.</summary>
-        public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler<MouseEventArgs>? onClick, params ToolStripMenuItem[] dropDownItems)
+        public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler? onClick, params ToolStripMenuItem[] dropDownItems)
             : this (text, image?.ToSKBitmap (), onClick)
         {
             foreach (var item in dropDownItems)
@@ -1481,6 +1503,16 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the collection of sub-items for this menu item.</summary>
         public MenuItemCollection DropDownItems => Items;
+
+        private ToolStripDropDown? drop_down;
+
+        /// <summary>
+        /// Gets the drop-down hosting this item's sub-items. As in WinForms, its <c>Items</c> are the
+        /// same collection as <see cref="DropDownItems"/> and its <c>Visible</c> reports whether the
+        /// sub-menu is currently open.
+        /// </summary>
+        public ToolStripDropDown DropDown =>
+            drop_down ??= new ToolStripDropDown { OwnerItem = this, IsAutoGenerated = true };
 
         private bool _checked;
 

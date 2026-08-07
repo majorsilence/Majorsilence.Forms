@@ -18,7 +18,7 @@ namespace Majorsilence.Forms
         protected override bool IsTopLevelMenu => true;
 
         /// <summary>Raised before the context menu is displayed. Can be used to dynamically modify items.</summary>
-        public event EventHandler<System.ComponentModel.CancelEventArgs>? Opening;
+        public event System.ComponentModel.CancelEventHandler? Opening;
 
         /// <summary>Raised after the context menu has been displayed.</summary>
         public event EventHandler? Opened;

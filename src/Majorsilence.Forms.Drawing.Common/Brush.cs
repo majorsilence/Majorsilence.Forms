@@ -27,7 +27,7 @@ namespace Majorsilence.Forms.Drawing
     /// <summary>
     /// The geometric transform a gradient or texture brush applies to its own content.
     ///
-    /// Shared by <see cref="LinearGradientBrush"/>, <see cref="PathGradientBrush"/> and
+    /// Shared by <see cref="Drawing2D.LinearGradientBrush"/>, <see cref="Drawing2D.PathGradientBrush"/> and
     /// <see cref="TextureBrush"/>, which each expose the same six-member GDI+ transform surface over it.
     /// It becomes the shader's *local* matrix, so it moves the gradient/texture within the filled shape
     /// rather than transforming the shape itself.
@@ -103,7 +103,14 @@ namespace Majorsilence.Forms.Drawing
             IsAntialias = true
         };
     }
+}
 
+// GDI+ splits the brushes across two namespaces: Brush/SolidBrush/TextureBrush sit in System.Drawing,
+// while the gradient and hatch brushes sit in System.Drawing.Drawing2D. The types below mirror that
+// second group, so a `using System.Drawing.Drawing2D;` rewritten to Majorsilence.Forms.Drawing.Drawing2D
+// resolves them exactly as it did before the migration.
+namespace Majorsilence.Forms.Drawing.Drawing2D
+{
     /// <summary>
     /// A brush that fills with a linear gradient between two colors.
     /// </summary>

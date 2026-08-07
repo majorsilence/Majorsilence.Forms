@@ -92,7 +92,7 @@ namespace ControlGallery.Panels
             child.Show ();
         }
 
-        private static void AddButton (Panel bar, string text, ref int left, int width, EventHandler<MouseEventArgs> onClick)
+        private static void AddButton (Panel bar, string text, ref int left, int width, MouseEventHandler onClick)
         {
             var b = new Button { Text = text, Left = left, Top = 8, Width = width, Height = 28 };
             b.MouseClick += onClick;

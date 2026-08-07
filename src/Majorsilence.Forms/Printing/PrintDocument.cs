@@ -28,7 +28,7 @@ namespace Majorsilence.Forms.Printing
         public PageSettings DefaultPageSettings { get; set; } = new PageSettings ();
 
         /// <summary>Raised for each page being printed.</summary>
-        public event EventHandler<PrintPageEventArgs>? PrintPage;
+        public event PrintPageEventHandler? PrintPage;
 
         /// <summary>Raised before the first page is printed.</summary>
         public event EventHandler? BeginPrint;

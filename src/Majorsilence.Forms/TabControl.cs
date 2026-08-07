@@ -124,7 +124,10 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the alignment of the tabs. Stub in Majorsilence.Forms (always top).</summary>
         public TabAlignment Alignment { get; set; } = TabAlignment.Top;
 
-        /// <summary>Gets or sets the draw mode for the tabs. Stub in Majorsilence.Forms.</summary>
+        /// <summary>
+        /// Gets or sets the draw mode for the tabs. <see cref="TabDrawMode.OwnerDrawFixed"/> hands each
+        /// tab's appearance to the <see cref="DrawItem"/> event instead of the built-in renderer.
+        /// </summary>
         public TabDrawMode DrawMode { get; set; } = TabDrawMode.Normal;
 
         /// <summary>Gets or sets the fixed size of each tab. Stub in Majorsilence.Forms.</summary>
@@ -160,8 +163,28 @@ namespace Majorsilence.Forms
                 ? tab_strip.Tabs[index].Bounds
                 : new System.Drawing.Rectangle (index * 100, 0, 100, 25);
 
-        /// <summary>Raised when a tab is drawn (owner-draw mode). Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<DrawItemEventArgs>? DrawItem { add { } remove { } }
+        /// <summary>
+        /// Raised for each tab when <see cref="DrawMode"/> is an owner-draw mode, letting the handler
+        /// paint the tab itself.
+        /// </summary>
+        public event EventHandler<DrawItemEventArgs>? DrawItem;
+
+        /// <summary>
+        /// Raises the DrawItem event.
+        /// </summary>
+        protected virtual void OnDrawItem (DrawItemEventArgs e) => DrawItem?.Invoke (this, e);
+
+        /// <summary>
+        /// True when tabs are painted by <see cref="OnDrawItem"/> rather than the built-in renderer.
+        /// </summary>
+        internal bool IsOwnerDrawn => DrawMode != TabDrawMode.Normal;
+
+        /// <summary>
+        /// Lets the tab strip's renderer hand a tab over to the owner-draw event. Kept internal so the
+        /// strip -- which is an implementation detail of this control -- doesn't have to expose the
+        /// TabControl's protected surface.
+        /// </summary>
+        internal void RaiseDrawItem (DrawItemEventArgs e) => OnDrawItem (e);
 
         /// <summary>Raised before a tab page is selected. Stub in Majorsilence.Forms.</summary>
         public event EventHandler<TabControlCancelEventArgs>? Selecting { add { } remove { } }

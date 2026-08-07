@@ -18,6 +18,11 @@ internal static class WinFormsPackages
         "Infragistics.Win*",          // Infragistics WinForms
         "C1.Win*",                    // ComponentOne WinForms
         "Syncfusion.*.WinForms*",     // Syncfusion WinForms
+        // GDI+ itself: Windows-only from .NET 7 on, and wholly replaced by Majorsilence.Forms.Drawing.
+        // Leaving it referenced is worse than useless -- it puts System.Drawing.Bitmap/Font/Pen/... back
+        // in scope beside their Majorsilence.Forms.Drawing replacements, so every unqualified use in a
+        // migrated file becomes an ambiguous reference (CS0104) rather than resolving to the port.
+        "System.Drawing.Common",
     };
 
     public static bool IsMatch(string packageId, IEnumerable<string> patterns) =>

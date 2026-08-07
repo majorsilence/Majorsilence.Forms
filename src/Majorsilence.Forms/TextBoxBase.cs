@@ -54,6 +54,12 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the border drawn around the control.</summary>
+        /// <remarks>
+        /// The value drives the painted border, not just the property: the type's default style asks
+        /// for a 1px frame, so a control that was set to <see cref="BorderStyle.None"/> in the designer
+        /// kept drawing one. Zeroing the instance style's border width also widens the client
+        /// rectangle by those pixels, which is what WinForms does for a borderless text box.
+        /// </remarks>
         public virtual BorderStyle BorderStyle {
             get => border_style;
             set {
@@ -61,7 +67,9 @@ namespace Majorsilence.Forms
                     return;
 
                 border_style = value;
+                Style.Border.Width = value == BorderStyle.None ? 0 : 1;
                 OnBorderStyleChanged (EventArgs.Empty);
+                PerformLayout ();
                 Invalidate ();
             }
         }

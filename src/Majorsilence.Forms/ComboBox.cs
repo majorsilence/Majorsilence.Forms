@@ -495,8 +495,17 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the drawing mode for the elements of the ComboBox. Stub in Majorsilence.Forms.</summary>
         public DrawMode DrawMode { get; set; } = DrawMode.Normal;
 
-        /// <summary>Raised when an owner-drawn element needs to be drawn. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<DrawItemEventArgs>? DrawItem { add { } remove { } }
+        /// <summary>Raised when an owner-drawn element needs to be drawn.</summary>
+        /// <remarks>
+        /// The event is real and <see cref="OnDrawItem"/> is overridable, so a control deriving from
+        /// ComboBox to paint its own items compiles and its hook is reachable. The built-in item
+        /// rendering does not yet call it, so an owner-drawn combo still paints normally — see the
+        /// compatibility matrix.
+        /// </remarks>
+        public event EventHandler<DrawItemEventArgs>? DrawItem;
+
+        /// <summary>Raises the DrawItem event.</summary>
+        protected virtual void OnDrawItem (DrawItemEventArgs e) => DrawItem?.Invoke (this, e);
 
         /// <summary>Raised when an owner-drawn element needs to be measured. Stub in Majorsilence.Forms.</summary>
         public event EventHandler<MeasureItemEventArgs>? MeasureItem { add { } remove { } }

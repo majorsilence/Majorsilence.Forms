@@ -58,16 +58,31 @@ namespace Majorsilence.Forms
             // MouseDown/MouseMove/Leave; Form itself just didn't expose them. Needed for
             // top-level windows that track the mouse over their own surface directly (e.g.
             // borderless popup pickers), the same way ported WinForms code commonly does on Form.
+            adapter.Click += (s, e) => OnClick (e);
             adapter.MouseDown += (s, e) => MouseDown?.Invoke (this, e);
+            adapter.MouseUp += (s, e) => MouseUp?.Invoke (this, e);
             adapter.MouseMove += (s, e) => MouseMove?.Invoke (this, e);
             adapter.MouseLeave += (s, e) => Leave?.Invoke (this, e);
         }
 
+        /// <summary>
+        /// Raised when the form's own surface is clicked. Inherited from Control on a WinForms Form;
+        /// declared here because Form derives from WindowBase instead, and designer code attaches a
+        /// form-level click handler routinely (a splash screen dismissing itself, say).
+        /// </summary>
+        public event EventHandler? Click;
+
+        /// <summary>Raises the Click event.</summary>
+        protected virtual void OnClick (EventArgs e) => Click?.Invoke (this, e);
+
         /// <summary>Raised when a mouse button is pressed over the form's own surface.</summary>
-        public event EventHandler<MouseEventArgs>? MouseDown;
+        public event MouseEventHandler? MouseDown;
+
+        /// <summary>Raised when a mouse button is released over the form's own surface.</summary>
+        public event MouseEventHandler? MouseUp;
 
         /// <summary>Raised when the mouse moves over the form's own surface.</summary>
-        public event EventHandler<MouseEventArgs>? MouseMove;
+        public event MouseEventHandler? MouseMove;
 
         /// <summary>Raised when the mouse leaves the form's own surface.</summary>
         public event EventHandler? Leave;
@@ -160,10 +175,10 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised before the form is closed, allowing close to be programatically canceled.</summary>
-        public event EventHandler<CancelEventArgs>? Closing;
+        public event CancelEventHandler? Closing;
 
         /// <summary>Raised before the form is closed (WinForms compatibility alias for Closing).</summary>
-        public event EventHandler<FormClosingEventArgs>? FormClosing;
+        public event FormClosingEventHandler? FormClosing;
 
         /// <summary>Raised after the form is closed.</summary>
         public event FormClosedEventHandler? FormClosed;
@@ -650,15 +665,39 @@ namespace Majorsilence.Forms
             set => binding_context = value;
         }
 
-        /// <summary>Gets or sets the border style of the form (stub — actual decoration is controlled by UseSystemDecorations).</summary>
+        /// <summary>Gets or sets the border style of the form.</summary>
+        /// <remarks>
+        /// <para>
+        /// <see cref="FormBorderStyle.None"/> means no caption and no border at all. An app that wants
+        /// to draw its own title bar sets it and then paints the caption itself, so honouring it has to
+        /// suppress <em>both</em> chromes: the OS decorations, and the <see cref="TitleBar"/> this
+        /// library draws in their place. Suppressing only one leaves the window wearing two title bars.
+        /// </para>
+        /// <para>
+        /// The fixed styles keep a caption but drop the resize grip; <see cref="UseSystemDecorations"/>
+        /// still chooses <em>whose</em> caption that is.
+        /// </para>
+        /// </remarks>
         public FormBorderStyle FormBorderStyle {
             get => form_border_style;
             set {
                 SourceGenerated.EnumValidator.Validate (value);
+
+                if (form_border_style == value)
+                    return;
+
                 form_border_style = value;
+
+                Backend.SetSystemDecorations (use_system_decorations && !IsBorderless);
+                Style.Border.Width = IsBorderless || use_system_decorations ? 0 : 1;
+                Resizeable = value is FormBorderStyle.Sizable or FormBorderStyle.SizableToolWindow;
+                UpdateTitleBarChrome ();
             }
         }
         private FormBorderStyle form_border_style = FormBorderStyle.Sizable;
+
+        // Whether the form asked for no chrome whatsoever.
+        private bool IsBorderless => form_border_style == FormBorderStyle.None;
 
         /// <summary>Gets or sets whether a maximize button appears in the title bar.</summary>
         public bool MaximizeBox {
@@ -737,8 +776,8 @@ namespace Majorsilence.Forms
 
                 if (use_system_decorations != value) {
                     use_system_decorations = value;
-                    Style.Border.Width = use_system_decorations ? 0 : 1;
-                    Backend.SetSystemDecorations (value);
+                    Style.Border.Width = IsBorderless || use_system_decorations ? 0 : 1;
+                    Backend.SetSystemDecorations (value && !IsBorderless);
                     UpdateTitleBarChrome ();
                 }
             }
@@ -768,10 +807,11 @@ namespace Majorsilence.Forms
         // the current UseSystemDecorations + ExtendsContentIntoTitleBar combination.
         private void UpdateTitleBarChrome ()
         {
-            var extend = use_system_decorations && extends_content_into_title_bar;
+            var extend = use_system_decorations && extends_content_into_title_bar && !IsBorderless;
 
-            // The custom title bar is shown for fully-custom chrome, or when merged into a native bar.
-            TitleBar.Visible = !use_system_decorations || extend;
+            // The custom title bar is shown for fully-custom chrome, or when merged into a native bar --
+            // but never on a borderless form, which asked for no caption from anyone.
+            TitleBar.Visible = !IsBorderless && (!use_system_decorations || extend);
             // In the merged case the OS draws the caption buttons, so the title bar runs in overlay mode.
             TitleBar.NativeOverlay = extend;
 
@@ -1058,8 +1098,13 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether to display the icon in the title bar. Stub in Majorsilence.Forms.</summary>
         public bool ShowIcon { get; set; } = true;
 
-        /// <summary>Raises the Load event on next show. Stub in Majorsilence.Forms.</summary>
-        public void OnLoad (EventArgs e) => Load?.Invoke (this, e);
+        /// <summary>Raises the Load event.</summary>
+        /// <remarks>
+        /// <c>protected virtual</c>, as in WinForms. It was public and non-virtual, so the standard
+        /// <c>protected override void OnLoad</c> a ported form is built around failed to compile (CS0506)
+        /// — the derived form could only reach its own startup work by subscribing to its own event.
+        /// </remarks>
+        protected virtual void OnLoad (EventArgs e) => Load?.Invoke (this, e);
 
         /// <summary>Gets whether the form is displayed as a modal dialog.</summary>
         public bool Modal { get; private set; }

@@ -210,7 +210,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Occurs when a link is clicked.
         /// </summary>
-        public event EventHandler<LinkLabelLinkClickedEventArgs>? LinkClicked;
+        public event LinkLabelLinkClickedEventHandler? LinkClicked;
 
         /// <summary>
         /// Gets the link currently focused for keyboard interaction.

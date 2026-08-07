@@ -65,7 +65,7 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void MenuItem_Ctor_TextOnClick_WiresClickHandler ()
         {
-            EventHandler<MouseEventArgs> handler = (s, e) => { };
+            EventHandler handler = (s, e) => { };
 
             var item = new MenuItem ("Click", (SKBitmap?)null, handler);
 
@@ -146,7 +146,7 @@ namespace Majorsilence.Forms.Tests
         public void MenuItem_Click_AddRemoveHandler_DoesNotThrow ()
         {
             var item = new MenuItem ("Item");
-            EventHandler<MouseEventArgs> handler = (s, e) => { };
+            EventHandler handler = (s, e) => { };
 
             item.Click += handler;
             item.Click -= handler;

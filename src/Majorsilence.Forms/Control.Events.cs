@@ -191,7 +191,7 @@ public partial class Control
     /// <summary>
     /// Raised when the user presses down a key.
     /// </summary>
-    public event EventHandler<KeyEventArgs>? KeyDown {
+    public event KeyEventHandler? KeyDown {
         add => Events.AddHandler (s_keyDownEvent, value);
         remove => Events.RemoveHandler (s_keyDownEvent, value);
     }
@@ -207,7 +207,7 @@ public partial class Control
     /// <summary>
     /// Raised when the user releases a key.
     /// </summary>
-    public event EventHandler<KeyEventArgs>? KeyUp {
+    public event KeyEventHandler? KeyUp {
         add => Events.AddHandler (s_keyUpEvent, value);
         remove => Events.RemoveHandler (s_keyUpEvent, value);
     }
@@ -239,7 +239,7 @@ public partial class Control
     /// <summary>
     /// Raised when a mouse button is pressed.
     /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseDown {
+    public event MouseEventHandler? MouseDown {
         add => Events.AddHandler (s_mouseDownEvent, value);
         remove => Events.RemoveHandler (s_mouseDownEvent, value);
     }
@@ -247,7 +247,7 @@ public partial class Control
     /// <summary>
     /// Raised when the mouse cursor enters the control.
     /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseEnter {
+    public event EventHandler? MouseEnter {
         add => Events.AddHandler (s_mouseEnterEvent, value);
         remove => Events.RemoveHandler (s_mouseEnterEvent, value);
     }
@@ -263,7 +263,7 @@ public partial class Control
     /// <summary>
     /// Raised when the mouse cursor is moved within the control.
     /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseMove {
+    public event MouseEventHandler? MouseMove {
         add => Events.AddHandler (s_mouseMoveEvent, value);
         remove => Events.RemoveHandler (s_mouseMoveEvent, value);
     }
@@ -271,7 +271,7 @@ public partial class Control
     /// <summary>
     /// Raised when a mouse button ir released.
     /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseUp {
+    public event MouseEventHandler? MouseUp {
         add => Events.AddHandler (s_mouseUpEvent, value);
         remove => Events.RemoveHandler (s_mouseUpEvent, value);
     }
@@ -279,7 +279,7 @@ public partial class Control
     /// <summary>
     /// Raised when a mouse wheel is rotated.
     /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseWheel {
+    public event MouseEventHandler? MouseWheel {
         add => Events.AddHandler (s_mouseWheelEvent, value);
         remove => Events.RemoveHandler (s_mouseWheelEvent, value);
     }
@@ -424,7 +424,7 @@ public partial class Control
     /// <summary>
     /// Raised when the control is being validated (WinForms compat; fires on LostFocus).
     /// </summary>
-    public event EventHandler<System.ComponentModel.CancelEventArgs>? Validating;
+    public event System.ComponentModel.CancelEventHandler? Validating;
 
     /// <summary>
     /// Raised after the control has been validated (WinForms compat; fires on LostFocus when not cancelled).
@@ -473,7 +473,7 @@ public partial class Control
     }
 
     /// <summary>Raised when the control is painted. WinForms compat — hooks into OnPaint.</summary>
-    public event EventHandler<PaintEventArgs>? Paint;
+    public event PaintEventHandler? Paint;
 
     /// <summary>Raised when the control is moved (fires with LocationChanged).</summary>
     public event EventHandler? Move;
@@ -539,13 +539,13 @@ public partial class Control
     public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp { add { } remove { } }
 
     /// <summary>Raised when the user clicks the control with the mouse (typed mouse variant of <see cref="Click"/>).</summary>
-    public event EventHandler<MouseEventArgs>? MouseClick {
+    public event MouseEventHandler? MouseClick {
         add => Events.AddHandler (s_mouseClickEvent, value);
         remove => Events.RemoveHandler (s_mouseClickEvent, value);
     }
 
     /// <summary>Raised when the user double-clicks the control with the mouse (typed mouse variant of <see cref="DoubleClick"/>).</summary>
-    public event EventHandler<MouseEventArgs>? MouseDoubleClick {
+    public event MouseEventHandler? MouseDoubleClick {
         add => Events.AddHandler (s_mouseDoubleClickEvent, value);
         remove => Events.RemoveHandler (s_mouseDoubleClickEvent, value);
     }
