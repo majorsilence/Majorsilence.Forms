@@ -614,8 +614,8 @@ namespace Majorsilence.Forms
 
         // Select (int, int) is inherited from TextBoxBase, which is where WinForms declares it.
 
-        /// <summary>Raised when the TextAlign property changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? TextAlignChanged { add { } remove { } }
+        /// <summary>Raised when the <see cref="TextAlign"/> property changes.</summary>
+        public event EventHandler? TextAlignChanged;
 
         /// <summary>Gets or sets the lines of text in the TextBox.</summary>
         public override string[] Lines {
@@ -631,8 +631,30 @@ namespace Majorsilence.Forms
                 ScrollToCaret ();
         }
 
-        /// <summary>Gets or sets the horizontal alignment of text in the TextBox. Stub in Majorsilence.Forms.</summary>
-        public HorizontalAlignment TextAlign { get; set; } = HorizontalAlignment.Left;
+        private HorizontalAlignment text_align = HorizontalAlignment.Left;
+
+        /// <summary>Gets or sets the horizontal alignment of text in the TextBox.</summary>
+        /// <remarks>
+        /// Applied to the document, so the caret and hit-testing follow the laid-out text rather than
+        /// only the painted glyphs moving. A right-aligned display box -- a calculator readout, a
+        /// currency field -- reads as broken without it, and the designer emits nothing else.
+        /// </remarks>
+        public HorizontalAlignment TextAlign {
+            get => text_align;
+            set {
+                if (text_align == value)
+                    return;
+
+                text_align = value;
+                document.Alignment = value switch {
+                    HorizontalAlignment.Center => Topten.RichTextKit.TextAlignment.Center,
+                    HorizontalAlignment.Right => Topten.RichTextKit.TextAlignment.Right,
+                    _ => Topten.RichTextKit.TextAlignment.Left,
+                };
+                TextAlignChanged?.Invoke (this, EventArgs.Empty);
+                Invalidate ();
+            }
+        }
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
@@ -674,7 +696,23 @@ namespace Majorsilence.Forms
         }
 
         // Where the text starts, taking scrolling into account
-        internal Point TextOrigin => new Point (PaddedClientRectangle.Location.X - scroll_x, PaddedClientRectangle.Location.Y - scroll_y);
+        internal Point TextOrigin => new Point (PaddedClientRectangle.Location.X - scroll_x,
+                                                PaddedClientRectangle.Location.Y - scroll_y + SingleLineVerticalOffset);
+
+        // A single-line TextBox centres its text vertically -- what a Win32 EDIT without ES_MULTILINE
+        // does, and what every WinForms layout assumes. Only visible on a box taller than its font,
+        // which the designer produces whenever AutoSize is off: top-aligned text there floats against
+        // the upper edge, and anything overlapping that edge (a label sharing the strip, a border)
+        // clips the glyphs. Multiline keeps its text at the top, as WinForms does.
+        private int SingleLineVerticalOffset {
+            get {
+                if (Multiline)
+                    return 0;
+
+                var slack = PaddedClientRectangle.Height - (int) document.GetTextBlock ().MeasuredHeight;
+                return slack > 0 ? slack / 2 : 0;
+            }
+        }
 
         // The virtual bounds of what is currently shown to the user.
         private Rectangle TextViewport => new Rectangle (new Point (PaddedClientRectangle.Location.X + scroll_x, PaddedClientRectangle.Location.Y + scroll_y), PaddedClientRectangle.Size);

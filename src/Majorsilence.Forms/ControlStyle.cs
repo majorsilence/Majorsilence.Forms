@@ -85,6 +85,17 @@ namespace Majorsilence.Forms
                 : BackgroundColor ?? _parent?.TryGetBackgroundColor ();
 
         /// <summary>
+        /// Gets the foreground color defined anywhere in this style chain, or null when the chain
+        /// never sets one (the root <see cref="Control.DefaultStyle"/> is excluded, as in
+        /// <see cref="TryGetBackgroundColor"/>) so the control can resolve its WinForms-style ambient
+        /// foreground from its parent control instead.
+        /// </summary>
+        internal SKColor? TryGetForegroundColor ()
+            => ReferenceEquals (this, Control.DefaultStyle)
+                ? null
+                : ForegroundColor ?? _parent?.TryGetForegroundColor ();
+
+        /// <summary>
         /// Gets the font defined anywhere in this style chain, or null when the chain never sets one
         /// (the root <see cref="Control.DefaultStyle"/> is excluded, as in
         /// <see cref="TryGetBackgroundColor"/>) so the control can resolve its WinForms-style ambient

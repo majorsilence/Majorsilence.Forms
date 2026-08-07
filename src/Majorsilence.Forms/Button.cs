@@ -130,10 +130,13 @@ namespace Majorsilence.Forms
         public SKBitmap? ImageSK => Properties.GetObject<SKBitmap> (s_propImageSK);
 
         /// <summary>
-        /// Gets or sets the alignment of the image on the <see cref='Button'/>.
+        /// Gets or sets the alignment of the image on the <see cref='Button'/>. Defaults to
+        /// <see cref="ContentAlignment.MiddleCenter"/>, as System.Windows.Forms.ButtonBase does --
+        /// same reasoning as <see cref="TextAlign"/>: a designer only emits the property when it
+        /// differs from the default, so an icon button relies on it to centre its glyph.
         /// </summary>
         public override ContentAlignment ImageAlign {
-            get => Properties.GetEnum (s_propImageAlign, ContentAlignment.MiddleLeft);
+            get => Properties.GetEnum (s_propImageAlign, ContentAlignment.MiddleCenter);
             set {
                 SourceGenerated.EnumValidator.Validate (value);
 
@@ -288,10 +291,14 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets the alignment of the text on the <see cref='Button'/>.
+        /// Gets or sets the alignment of the text on the <see cref='Button'/>. Defaults to
+        /// <see cref="ContentAlignment.MiddleCenter"/>, as System.Windows.Forms.ButtonBase does --
+        /// a designer only emits TextAlign when it differs from that, so every button laid out in the
+        /// designer relies on the default to centre its caption. (CheckBox and RadioButton keep their
+        /// own MiddleLeft default, which is what WinForms uses for those.)
         /// </summary>
         public override ContentAlignment TextAlign {
-            get => Properties.GetEnum (s_propTextAlign, ContentAlignment.MiddleLeft);
+            get => Properties.GetEnum (s_propTextAlign, ContentAlignment.MiddleCenter);
             set {
                 SourceGenerated.EnumValidator.Validate (value);
 

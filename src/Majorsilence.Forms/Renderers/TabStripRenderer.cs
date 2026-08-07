@@ -62,7 +62,7 @@ namespace Majorsilence.Forms.Renderers
             // emphasis comes from the accent underline below rather than a bold variant.
             var font_color = !item.Enabled || !control.Enabled
                 ? Theme.ForegroundDisabledColor
-                : control.CurrentStyle.GetForegroundColor ();
+                : control.GetEffectiveForegroundColor ();
             var font = control.GetEffectiveFont ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
 

@@ -44,12 +44,14 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (FlatStyle.Standard, control.FlatStyle);
             Assert.NotNull (control.FlatAppearance);
             Assert.Null (control.Image);
-            Assert.Equal (ContentAlignment.MiddleLeft, control.ImageAlign);
+            // WinForms' ButtonBase centres both, and a designer omits either property when it matches
+            // that default -- so every designer-laid-out button depends on these two values.
+            Assert.Equal (ContentAlignment.MiddleCenter, control.ImageAlign);
             Assert.Equal (-1, control.ImageIndex);
             Assert.Empty (control.ImageKey);
             Assert.Null (control.ImageList);
             Assert.Empty (control.Text);
-            Assert.Equal (ContentAlignment.MiddleLeft, control.TextAlign);
+            Assert.Equal (ContentAlignment.MiddleCenter, control.TextAlign);
             Assert.Equal (TextImageRelation.ImageBeforeText, control.TextImageRelation);
             Assert.False (control.UseCompatibleTextRendering);
             Assert.Equal (new Size (100, 30), control.Size);

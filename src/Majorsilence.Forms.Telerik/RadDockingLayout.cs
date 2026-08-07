@@ -132,7 +132,7 @@ namespace Majorsilence.Forms.Telerik
                 e.Canvas.DrawRect (r.Left + 0.5f, r.Top + 0.5f, r.Width - 1, r.Height - 1, border);
                 e.Canvas.DrawText (Caption (w), font, deviceFontSize,
                     new Rectangle (r.Left + pad, r.Top, r.Width - pad - 4, r.Height),
-                    strip.Enabled ? strip.CurrentStyle.GetForegroundColor () : Theme.ForegroundDisabledColor,
+                    strip.Enabled ? strip.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor,
                     ContentAlignment.MiddleLeft, maxLines: 1);
 
                 state.Rects.Add ((w, r));

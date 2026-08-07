@@ -665,15 +665,39 @@ namespace Majorsilence.Forms
             set => binding_context = value;
         }
 
-        /// <summary>Gets or sets the border style of the form (stub — actual decoration is controlled by UseSystemDecorations).</summary>
+        /// <summary>Gets or sets the border style of the form.</summary>
+        /// <remarks>
+        /// <para>
+        /// <see cref="FormBorderStyle.None"/> means no caption and no border at all. An app that wants
+        /// to draw its own title bar sets it and then paints the caption itself, so honouring it has to
+        /// suppress <em>both</em> chromes: the OS decorations, and the <see cref="TitleBar"/> this
+        /// library draws in their place. Suppressing only one leaves the window wearing two title bars.
+        /// </para>
+        /// <para>
+        /// The fixed styles keep a caption but drop the resize grip; <see cref="UseSystemDecorations"/>
+        /// still chooses <em>whose</em> caption that is.
+        /// </para>
+        /// </remarks>
         public FormBorderStyle FormBorderStyle {
             get => form_border_style;
             set {
                 SourceGenerated.EnumValidator.Validate (value);
+
+                if (form_border_style == value)
+                    return;
+
                 form_border_style = value;
+
+                Backend.SetSystemDecorations (use_system_decorations && !IsBorderless);
+                Style.Border.Width = IsBorderless || use_system_decorations ? 0 : 1;
+                Resizeable = value is FormBorderStyle.Sizable or FormBorderStyle.SizableToolWindow;
+                UpdateTitleBarChrome ();
             }
         }
         private FormBorderStyle form_border_style = FormBorderStyle.Sizable;
+
+        // Whether the form asked for no chrome whatsoever.
+        private bool IsBorderless => form_border_style == FormBorderStyle.None;
 
         /// <summary>Gets or sets whether a maximize button appears in the title bar.</summary>
         public bool MaximizeBox {
@@ -752,8 +776,8 @@ namespace Majorsilence.Forms
 
                 if (use_system_decorations != value) {
                     use_system_decorations = value;
-                    Style.Border.Width = use_system_decorations ? 0 : 1;
-                    Backend.SetSystemDecorations (value);
+                    Style.Border.Width = IsBorderless || use_system_decorations ? 0 : 1;
+                    Backend.SetSystemDecorations (value && !IsBorderless);
                     UpdateTitleBarChrome ();
                 }
             }
@@ -783,10 +807,11 @@ namespace Majorsilence.Forms
         // the current UseSystemDecorations + ExtendsContentIntoTitleBar combination.
         private void UpdateTitleBarChrome ()
         {
-            var extend = use_system_decorations && extends_content_into_title_bar;
+            var extend = use_system_decorations && extends_content_into_title_bar && !IsBorderless;
 
-            // The custom title bar is shown for fully-custom chrome, or when merged into a native bar.
-            TitleBar.Visible = !use_system_decorations || extend;
+            // The custom title bar is shown for fully-custom chrome, or when merged into a native bar --
+            // but never on a borderless form, which asked for no caption from anyone.
+            TitleBar.Visible = !IsBorderless && (!use_system_decorations || extend);
             // In the merged case the OS draws the caption buttons, so the title bar runs in overlay mode.
             TitleBar.NativeOverlay = extend;
 

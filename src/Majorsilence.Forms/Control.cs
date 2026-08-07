@@ -1309,6 +1309,26 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Resolves the control's effective foreground the way WinForms' ambient ForeColor does: an
+        /// explicit color anywhere in the control's own style chain wins; otherwise the color comes
+        /// from the parent control (a Button on a panel with white text draws white), ending at the
+        /// hosting window (WinForms ambience terminates at Form.ForeColor) and only then the theme
+        /// default. Drawing resolves through here too, so what <see cref="ForeColor"/> reports and
+        /// what is painted cannot disagree.
+        /// </summary>
+        internal SKColor GetEffectiveForegroundColor ()
+        {
+            var chain = CurrentStyle.TryGetForegroundColor ();
+            if (chain is not null)
+                return chain.Value;
+
+            if (Parent is not null)
+                return Parent.GetEffectiveForegroundColor ();
+
+            return FindWindow ()?.CurrentStyle.TryGetForegroundColor () ?? Theme.ForegroundColor;
+        }
+
+        /// <summary>
         /// Resolves the font used to draw/measure this control's text the way WinForms' ambient Font
         /// does: an explicit font anywhere in the control's own style chain wins; otherwise it comes
         /// from the parent chain (a Form's designer font reaches every child that never set one),
@@ -2186,7 +2206,9 @@ namespace Majorsilence.Forms
         /// over <see cref="ControlStyle.ForegroundColor"/> using <see cref="System.Drawing.Color"/>.
         /// </summary>
         public System.Drawing.Color ForeColor {
-            get => Style.ForegroundColor?.ToDrawingColor () ?? Style.GetForegroundColor ().ToDrawingColor ();
+            // Ambient like WinForms: with no explicit color anywhere in the style chain, the value
+            // reflects the parent control's effective foreground.
+            get => GetEffectiveForegroundColor ().ToDrawingColor ();
             set {
                 var color = value.ToSKColor ();
 

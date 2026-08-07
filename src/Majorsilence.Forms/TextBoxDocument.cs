@@ -145,9 +145,16 @@ namespace Majorsilence.Forms
             if (cached_text_block != null)
                 return cached_text_block;
 
-            var max_size = multiline ? new Size (width, int.MaxValue) : TextMeasurer.MaxSize;
+            // A single line normally lays out in an unbounded width, so long text scrolls sideways
+            // instead of wrapping. Centre/right alignment needs a real right edge to measure from --
+            // aligned inside int.MaxValue every glyph lands off the end of the world and the control
+            // paints blank -- so bound it to the visible width. MaxLines is 1 here, so bounding the
+            // width cannot introduce wrapping.
+            var max_size = multiline ? new Size (width, int.MaxValue)
+                         : alignment == TextAlignment.Left ? TextMeasurer.MaxSize
+                         : new Size (Math.Max (width, 1), int.MaxValue);
             var color = !Enabled ? Theme.ForegroundDisabledColor :
-                        Text.HasValue () ? textbox.CurrentStyle.GetForegroundColor () :
+                        Text.HasValue () ? textbox.GetEffectiveForegroundColor () :
                                 placeholder_font_color;
 
             if (textbox.Colorizer is { } colorizer && DisplayText.HasValue ())
