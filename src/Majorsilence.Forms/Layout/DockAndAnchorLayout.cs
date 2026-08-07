@@ -256,7 +256,28 @@ internal sealed partial class DefaultLayout : LayoutEngine
             var element = children.ElementAt (i);
             if (CommonProperties.GetNeedsAnchorLayout (element)) {
                 Debug.Assert (GetAnchorInfo (element) is not null, "AnchorInfo should be initialized before LayoutAnchorControls().");
-                SetCachedBounds (element, GetAnchorDestination (element, displayRectangle, /*measureOnly=*/false));
+
+                var destination = GetAnchorDestination (element, displayRectangle, /*measureOnly=*/false);
+                SetCachedBounds (element, destination);
+
+                // Record where the anchor just put this element, so the guard in UpdateAnchorInfo
+                // still recognises its own work on the NEXT resize. That guard skips re-capturing
+                // while an element's bounds match the last capture, and moving it here without
+                // saying so left the capture stale: the following resize saw "bounds changed",
+                // re-snapshotted the distance-from-edges of an element still sitting at its old
+                // position against the container's ALREADY-updated DisplayRectangle, and wrote back
+                // a garbage delta -- pinning the element wherever the previous resize had left it.
+                // The symptom was a window that grew fine, then kept its controls out at the wide
+                // position when shrunk again, so they hung off the edge (found on a media player's
+                // bottom-right transport buttons). An anchor-driven move never invalidates the
+                // deltas it was computed from, so refreshing the capture here is safe by
+                // construction.
+                var anchorInfo = GetAnchorInfo (element);
+                if (anchorInfo is not null) {
+                    anchorInfo.CapturedElementBounds = destination;
+                    anchorInfo.HasCapturedElementBounds = true;
+                    anchorInfo.CapturedParentDisplayRectangle = displayRectangle;
+                }
             }
         }
     }
