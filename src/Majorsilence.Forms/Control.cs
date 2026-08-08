@@ -1235,6 +1235,22 @@ namespace Majorsilence.Forms
         /// <param name="e">A PaintEventArgs that contains the event data.</param>
         protected virtual void OnPaint (PaintEventArgs e)
         {
+            // Deliberately empty, matching WinForms. Child controls are NOT painted here -- see
+            // PaintChildren, which RaisePaint calls afterwards. In WinForms every child is its own
+            // HWND and repaints itself, so a derived control can override OnPaint and skip base
+            // without its children disappearing; that idiom is common in ported custom-control
+            // code, so the child pass must live outside anything user code can suppress.
+        }
+
+        /// <summary>
+        /// Draws this control's visible children onto its surface. Runs after OnPaint and the Paint
+        /// event, so children sit above whatever the control drew -- the WinForms z-order, where a
+        /// child HWND always occludes its parent's client area.
+        /// </summary>
+        internal void PaintChildren (PaintEventArgs e)
+        {
+            var offset = ChildPaintOffset;
+
             // Bottom-to-top: WinForms z-order puts index 0 on TOP, so it must be drawn last.
             foreach (var control in Controls.GetControlsPaintOrder ()) {
                 if (!control.Visible || control.Width <= 0 || control.Height <= 0)
@@ -1255,9 +1271,16 @@ namespace Majorsilence.Forms
                     }
                 }
 
-                e.Canvas.DrawBitmap (buffer, control.ScaledLeft, control.ScaledTop);
+                e.Canvas.DrawBitmap (buffer, offset.X + control.ScaledLeft, offset.Y + control.ScaledTop);
             }
         }
+
+        /// <summary>
+        /// Scaled offset applied to child positions when they are blitted onto this control.
+        /// Zero everywhere except the ControlAdapter, which is handed the window's whole native
+        /// surface and has to skip past the managed form border.
+        /// </summary>
+        internal virtual Point ChildPaintOffset => Point.Empty;
 
         /// <summary>
         /// Paints the control's background.
@@ -1877,6 +1900,7 @@ namespace Majorsilence.Forms
             SetState (States.IsDirty, false);
             OnPaint (e);
             Paint?.Invoke (this, e);
+            PaintChildren (e);
         }
 
         /// <summary>
