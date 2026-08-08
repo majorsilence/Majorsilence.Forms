@@ -110,25 +110,44 @@ namespace Majorsilence.Forms
                 g.FillRectangle (background, bounds);
             }
 
+            if (string.IsNullOrEmpty (text))
+                return;
+
+            var box = new RectangleF (bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            var origin = g.AlignTextInBounds (text, font, box, HorizontalFactor (flags), VerticalFactor (flags));
+
             using var brush = new Majorsilence.Forms.Drawing.SolidBrush (foreColor);
-            g.DrawString (text, font, brush, new RectangleF (bounds.X, bounds.Y, bounds.Width, bounds.Height));
+            g.DrawStringClipped (text, font, brush, origin, flags.HasFlag (TextFormatFlags.NoClipping) ? null : box);
         }
+
+        // TextFormatFlags.Left and .Top are both 0, so they are the absence of the other flags
+        // rather than values to test for; HorizontalCenter/Right and VerticalCenter/Bottom are the
+        // only bits that move anything.
+        private static float HorizontalFactor (TextFormatFlags flags)
+            => flags.HasFlag (TextFormatFlags.HorizontalCenter) ? 0.5f
+             : flags.HasFlag (TextFormatFlags.Right) ? 1f
+             : 0f;
+
+        private static float VerticalFactor (TextFormatFlags flags)
+            => flags.HasFlag (TextFormatFlags.VerticalCenter) ? 0.5f
+             : flags.HasFlag (TextFormatFlags.Bottom) ? 1f
+             : 0f;
 
         /// <summary>Draws text with its top-left corner at the given point.</summary>
         public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor)
-            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, System.Drawing.Color.Empty, TextFormatFlags.Left);
+            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, System.Drawing.Color.Empty, TextFormatFlags.Left | TextFormatFlags.NoClipping);
 
         /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
         public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, TextFormatFlags flags)
-            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, System.Drawing.Color.Empty, flags);
+            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, System.Drawing.Color.Empty, flags | TextFormatFlags.NoClipping);
 
         /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
         public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, System.Drawing.Color backColor)
-            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, backColor, TextFormatFlags.Left);
+            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, backColor, TextFormatFlags.Left | TextFormatFlags.NoClipping);
 
         /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,System.Drawing.Point,System.Drawing.Color)"/>
         public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, System.Drawing.Point pt, System.Drawing.Color foreColor, System.Drawing.Color backColor, TextFormatFlags flags)
-            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, backColor, flags);
+            => DrawText (dc, text, font, AtPoint (pt, text, font), foreColor, backColor, flags | TextFormatFlags.NoClipping);
 
         /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,Rectangle,System.Drawing.Color)"/>
         public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, ReadOnlySpan<char> text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor)
@@ -212,6 +231,12 @@ namespace Majorsilence.Forms
         // WinForms' point-based DrawText measures the text and draws it in that box, rather than
         // passing a zero-sized rectangle through to the renderer -- which is what the previous
         // implementation did, so nothing was drawn.
+        //
+        // The box is exactly text-sized, so the alignment flags have no slack to work with and the
+        // point stays the top-left corner. That matches the documented WinForms contract for this
+        // overload; callers who want alignment need to pass a rectangle. The callers above add
+        // NoClipping because a text-tight clip would shave antialiased edges and glyph overhang,
+        // and WinForms does not clip point-positioned text at all.
         private static Rectangle AtPoint (System.Drawing.Point pt, string text, Majorsilence.Forms.Drawing.Font font)
         {
             var size = MeasureText (text, font);

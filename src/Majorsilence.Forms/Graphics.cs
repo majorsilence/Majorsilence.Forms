@@ -85,7 +85,7 @@ namespace Majorsilence.Forms
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
-            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal);
+            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal) ?? SKTypeface.Default;
             return MeasureString (text, face, (int)font.Size);
         }
 
@@ -93,7 +93,7 @@ namespace Majorsilence.Forms
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
-            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal);
+            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal) ?? SKTypeface.Default;
             return MeasureString (text, face, (int)layoutArea.Width, (int)font.Size);
         }
 
@@ -105,7 +105,7 @@ namespace Majorsilence.Forms
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, int width, Majorsilence.Forms.Drawing.StringFormat? format)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
-            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal);
+            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal) ?? SKTypeface.Default;
             return MeasureString (text, face, width, (int)font.Size);
         }
 
@@ -1298,7 +1298,7 @@ namespace Majorsilence.Forms
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y)
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
-            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal);
+            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal) ?? SKTypeface.Default;
             using var skFont = new SKFont (face, font.Size);
             using var paint = brush.CreatePaint ();
             _canvas.DrawText (text, x, y + font.Size, SKTextAlign.Left, skFont, paint);
@@ -1322,9 +1322,73 @@ namespace Majorsilence.Forms
             _canvas.Restore ();
         }
 
-        /// <summary>Draws a string within the specified rectangle (StringFormat is ignored).</summary>
+        /// <summary>
+        /// Draws a string within the specified rectangle, honouring the format's Alignment and
+        /// LineAlignment. Trimming and FormatFlags are still ignored.
+        /// </summary>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, Majorsilence.Forms.Drawing.StringFormat? format)
-            => DrawString (text, font, brush, bounds);
+        {
+            if (format is null) {
+                DrawString (text, font, brush, bounds);
+                return;
+            }
+
+            var origin = AlignTextInBounds (
+                text, font, bounds,
+                ToOffsetFactor (format.Alignment),
+                ToOffsetFactor (format.LineAlignment));
+
+            DrawStringClipped (text, font, brush, origin, bounds);
+        }
+
+        // Near -> 0 (no shift), Center -> half the slack, Far -> all of it.
+        private static float ToOffsetFactor (Majorsilence.Forms.Drawing.StringAlignment alignment) => alignment switch {
+            Majorsilence.Forms.Drawing.StringAlignment.Center => 0.5f,
+            Majorsilence.Forms.Drawing.StringAlignment.Far => 1f,
+            _ => 0f,
+        };
+
+        /// <summary>
+        /// Positions <paramref name="text"/> inside <paramref name="bounds"/>, shifting it by the
+        /// given fraction of the leftover space on each axis. A factor of 0 leaves it at the
+        /// top-left, 0.5 centres it, 1 pushes it to the far edge.
+        /// </summary>
+        /// <remarks>
+        /// Text longer than the box yields a negative offset, so it overhangs symmetrically the way
+        /// GDI's DT_CENTER does, rather than being pinned to the near edge.
+        /// </remarks>
+        internal PointF AlignTextInBounds (string text, Majorsilence.Forms.Drawing.Font font, RectangleF bounds, float xFactor, float yFactor)
+        {
+            var size = MeasureString (text, font);
+            return new PointF (
+                bounds.X + ((bounds.Width - size.Width) * xFactor),
+                bounds.Y + ((bounds.Height - size.Height) * yFactor));
+        }
+
+        /// <summary>
+        /// Draws text at <paramref name="origin"/> while clipping to a separate rectangle, or to
+        /// nothing when <paramref name="clip"/> is null.
+        /// </summary>
+        /// <remarks>
+        /// The two have to be independent: GDI's alignment flags move text around inside the layout
+        /// rectangle, but clipping still happens against that rectangle -- so the position the text
+        /// is drawn at is not the corner of the box it is clipped to.
+        /// </remarks>
+        internal void DrawStringClipped (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, PointF origin, RectangleF? clip)
+        {
+            if (_canvas is null || string.IsNullOrEmpty (text)) return;
+
+            if (clip is null) {
+                DrawString (text, font, brush, origin.X, origin.Y);
+                return;
+            }
+
+            var rect = clip.Value;
+            _canvas.Save ();
+            _canvas.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+            DrawString (text, font, brush, origin.X, origin.Y);
+            _canvas.Restore ();
+        }
 
         /// <summary>Draws a string within the specified rectangle.</summary>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, object? format)
