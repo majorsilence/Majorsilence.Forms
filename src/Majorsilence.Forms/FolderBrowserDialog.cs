@@ -37,7 +37,7 @@ namespace Majorsilence.Forms
         /// <summary>Shows the dialog synchronously (blocking call).</summary>
         public DialogResult ShowDialog ()
         {
-            var owner = Application.OpenForms.LastOrDefault ();
+            var owner = Application.ModalOwnerCandidates.LastOrDefault ();
             return owner is not null ? ShowDialog (owner) : DialogResult.Cancel;
         }
 

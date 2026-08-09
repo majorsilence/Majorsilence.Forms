@@ -141,7 +141,7 @@ namespace Majorsilence.Forms
         /// <summary>Shows the dialog synchronously with the first open form as the owner. WinForms compatibility.</summary>
         public DialogResult ShowDialog ()
         {
-            var owner = Application.OpenForms.FirstOrDefault ();
+            var owner = Application.ModalOwnerCandidates.FirstOrDefault ();
             return owner is not null ? ShowDialogSync (owner) : DialogResult.Cancel;
         }
 

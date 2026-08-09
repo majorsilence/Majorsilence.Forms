@@ -30,6 +30,15 @@ namespace Majorsilence.Forms
         internal MdiClient? MdiClientControl;
         internal MdiChildWindow? MdiHost;
 
+        // Set when this form was added to an ordinary control tree via Controls.Add(Form) -- the
+        // "form.TopLevel = false; panel.Controls.Add (form)" idiom. Like MdiHost it means the form owns
+        // no on-screen OS window and is composited by its frame instead, so the same properties that
+        // branch on MdiHost below branch on this too.
+        internal FormHost? PanelHost;
+
+        // True while this form is drawn inside another control tree rather than its own OS window.
+        internal bool IsFrameHosted => MdiHost != null || PanelHost != null;
+
         /// <summary>
         /// Initializes a new instance of the Form class.
         /// </summary>
@@ -152,6 +161,24 @@ namespace Majorsilence.Forms
                 Application.OpenForms.Remove (this);
                 host.Client.RemoveChild (host);   // clears MdiHost
                 OnBackendClosed ();               // raises Closed + FormClosed (once)
+                return;
+            }
+
+            // Same for a panel-hosted form: closing it means taking its frame out of the control tree
+            // it was added to. The dashboard idiom depends on this -- "close the old page, add the new
+            // one" is how those apps swap content, and leaving the frame parented would stack pages on
+            // top of each other.
+            if (PanelHost != null) {
+                var args = new CancelEventArgs ();
+                OnClosing (args);
+                if (args.Cancel)
+                    return;
+
+                var host = PanelHost;
+                Application.OpenForms.Remove (this);
+                host.Parent?.Controls.Remove (host);   // clears PanelHost via FormHost.DetachChild
+                PanelHost = null;
+                OnBackendClosed ();                    // raises Closed + FormClosed (once)
                 return;
             }
 
@@ -362,13 +389,22 @@ namespace Majorsilence.Forms
 
         /// <summary>
         /// Gets or sets the unscaled location of the control. For an MDI child this is its position within
-        /// the parent's MDI client area; otherwise it's the window's screen position.
+        /// the parent's MDI client area, for a panel-hosted form the position of its frame within that
+        /// panel; otherwise it's the window's screen position.
         /// </summary>
         public new System.Drawing.Point Location {
-            get => MdiHost != null ? new System.Drawing.Point (MdiHost.Left, MdiHost.Top) : Backend.Location;
+            get {
+                if (MdiHost != null)
+                    return new System.Drawing.Point (MdiHost.Left, MdiHost.Top);
+                if (PanelHost != null)
+                    return new System.Drawing.Point (PanelHost.Left, PanelHost.Top);
+                return Backend.Location;
+            }
             set {
                 if (MdiHost != null)
                     MdiHost.Client.MoveChild (MdiHost, value.X, value.Y);
+                else if (PanelHost != null)
+                    PanelHost.Location = value;
                 else if (Backend.Location != value)
                     Backend.Location = value;
             }
@@ -491,10 +527,22 @@ namespace Majorsilence.Forms
                 e.Cancel = true;
         }
 
+        /// <summary>
+        /// Picks the form a modal dialog should be owned by: the first open form that is not the dialog
+        /// itself and actually owns a window.
+        /// </summary>
+        /// <remarks>
+        /// See <see cref="Application.ModalOwnerCandidates"/> for why frame-hosted forms are excluded.
+        /// Factored out of ShowDialog so it is testable without entering the modal loop, where a
+        /// regression would hang the test run instead of failing it.
+        /// </remarks>
+        internal static Form? FindModalOwner (Form dialog) =>
+            Application.ModalOwnerCandidates.FirstOrDefault (f => f != dialog);
+
         /// <summary>Displays the window modally using the first open form as the parent.</summary>
         public DialogResult ShowDialog ()
         {
-            var parent = Application.OpenForms.FirstOrDefault (f => f != this);
+            var parent = FindModalOwner (this);
 
             if (parent == null) {
                 Show ();
@@ -608,13 +656,22 @@ namespace Majorsilence.Forms
 
         /// <summary>
         /// Gets or sets the unscaled size of the window. For an MDI child this is the size of its content
-        /// area inside the host frame; otherwise it's the window's client size.
+        /// area inside the host frame, for a panel-hosted form the size of its frame; otherwise it's the
+        /// window's client size.
         /// </summary>
         public new System.Drawing.Size Size {
-            get => MdiHost != null ? MdiHost.ContentSize : Backend.ClientSize;
+            get {
+                if (MdiHost != null)
+                    return MdiHost.ContentSize;
+                if (PanelHost != null)
+                    return PanelHost.Size;
+                return Backend.ClientSize;
+            }
             set {
                 if (MdiHost != null)
                     MdiHost.SetContentSize (value);
+                else if (PanelHost != null)
+                    PanelHost.Size = value;
                 else
                     Backend.Size = value;
             }
@@ -906,7 +963,10 @@ namespace Majorsilence.Forms
         /// control tree; assign <see cref="MdiParent"/> to host a form inside another one.
         /// </summary>
         public Control? Parent {
-            get => MdiHost?.Client ?? parent;
+            // A panel-hosted form reports the control its frame was added to, not the frame itself --
+            // the frame is an implementation detail, and WinForms code reaches for Parent to add
+            // siblings alongside the hosted form ("Parent.Controls.Add (otherForm)").
+            get => MdiHost?.Client ?? PanelHost?.Parent ?? parent;
             set => parent = value;
         }
 
@@ -969,7 +1029,12 @@ namespace Majorsilence.Forms
 
         // Configures this form for being hosted as an MDI child: no self-drawn title bar/border (the frame
         // draws them) and no window-edge resize routing (the frame handles resize).
-        private void PrepareAsMdiChild ()
+        private void PrepareAsMdiChild () => PrepareAsHostedChild ();
+
+        // Configures this form for being drawn inside a frame in someone else's control tree: no
+        // self-drawn title bar or border (the host owns any chrome there is) and no window-edge resize
+        // routing. Shared by MDI children and Controls.Add(Form) hosting.
+        internal void PrepareAsHostedChild ()
         {
             Resizeable = false;
             TitleBar.Visible = false;
@@ -978,6 +1043,26 @@ namespace Majorsilence.Forms
 
         internal override bool TryShowHosted ()
         {
+            // Already sitting in a control tree via Controls.Add (form): Show() must not create an OS
+            // window, it just makes the frame visible. Checked first because the frame is what the
+            // caller actually parented the form into -- an MdiParent assignment left over from earlier
+            // does not override where it currently lives.
+            if (PanelHost is { } frame) {
+                frame.Visible = true;
+                visible = true;
+                Application.OpenForms.Add (this);
+
+                EnsureLoaded ();        // Load before the form is shown, matching WinForms.
+
+                if (!shown) {
+                    shown = true;
+                    OnShown (EventArgs.Empty);
+                }
+
+                frame.Invalidate ();
+                return true;
+            }
+
             if (mdi_parent?.MdiClientControl is not { } client)
                 return false;
 
@@ -999,8 +1084,12 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override void Invalidate ()
         {
+            // A hosted form has no surface of its own; repainting means dirtying the frame that
+            // composites it, so the request travels up that control tree instead.
             if (MdiHost != null)
                 MdiHost.Invalidate ();
+            else if (PanelHost != null)
+                PanelHost.Invalidate ();
             else
                 base.Invalidate ();
         }
@@ -1084,7 +1173,16 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Brings the form to the front of the z-order.</summary>
-        public void BringToFront () => Backend.Activate ();
+        public void BringToFront ()
+        {
+            // For a hosted form "front" means front of the frame's sibling z-order, not of the desktop.
+            if (MdiHost != null)
+                MdiHost.Client.Activate (this);
+            else if (PanelHost != null)
+                PanelHost.BringToFront ();
+            else
+                Backend.Activate ();
+        }
 
         /// <summary>Gets the bounds of the form when it is not minimized or maximized.</summary>
         public System.Drawing.Rectangle RestoreBounds => Bounds;

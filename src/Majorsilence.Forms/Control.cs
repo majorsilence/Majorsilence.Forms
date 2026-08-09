@@ -1592,6 +1592,15 @@ namespace Majorsilence.Forms
         internal void RaiseKeyDown (KeyEventArgs e)
         {
             if (this is ControlAdapter adapter) {
+                // A panel-hosted form owns its own focus chain, so it has to see the key before the Tab
+                // handling below -- otherwise Tab inside the hosted form would move focus among the
+                // container's controls instead of cycling within the form, and the hosted form's own
+                // AcceptButton/CancelButton would never fire.
+                if (adapter.SelectedControl is FormHost host) {
+                    e.Handled = host.ForwardKeyDown (e.KeyData);
+                    return;
+                }
+
                 // Tab moves focus; handle here so it works even if no TextInput fires.
                 if ((e.KeyData & Keys.KeyCode) == Keys.Tab) {
                     if (adapter.FindForm () is Form f)
@@ -1618,6 +1627,12 @@ namespace Majorsilence.Forms
         internal void RaiseKeyPress (KeyPressEventArgs e)
         {
             if (this is ControlAdapter adapter) {
+                // Ahead of the Tab handling, for the same reason as RaiseKeyDown.
+                if (adapter.SelectedControl is FormHost host) {
+                    e.Handled = host.ForwardTextInput (e.KeyChar.ToString ());
+                    return;
+                }
+
                 // Tab
                 if (e.KeyChar == 9) {
                     if (adapter.FindForm () is Form f)
@@ -1670,6 +1685,11 @@ namespace Majorsilence.Forms
         internal void RaiseKeyUp (KeyEventArgs e)
         {
             if (this is ControlAdapter adapter) {
+                if (adapter.SelectedControl is FormHost host) {
+                    e.Handled = host.ForwardKeyUp (e.KeyData);
+                    return;
+                }
+
                 adapter.SelectedControl?.RaiseKeyUp (e);
                 return;
             }

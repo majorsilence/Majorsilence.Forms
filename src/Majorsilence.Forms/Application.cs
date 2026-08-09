@@ -152,6 +152,18 @@ namespace Majorsilence.Forms
         /// </summary>
         public static FormCollection OpenForms => open_forms ??= [];
 
+        /// <summary>
+        /// The open forms that can own a modal dialog: those that actually own an OS window.
+        /// </summary>
+        /// <remarks>
+        /// Frame-hosted forms -- MDI children, and forms placed in a control tree with
+        /// <c>Controls.Add (form)</c> -- appear in <see cref="OpenForms"/> just as they do in WinForms,
+        /// but they are composited into someone else's window rather than owning one. Making such a form
+        /// a modal owner disables a backend that was never realized and then blocks forever in the modal
+        /// loop, so every owner search goes through here instead of over OpenForms directly.
+        /// </remarks>
+        internal static IEnumerable<Form> ModalOwnerCandidates => OpenForms.Where (f => !f.IsFrameHosted);
+
         /// <summary>Gets the main form of the application (the first form passed to Run).</summary>
         public static Form? MainForm => OpenForms.Count > 0 ? OpenForms[0] : null;
 

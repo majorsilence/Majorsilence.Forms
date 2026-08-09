@@ -350,7 +350,15 @@ namespace Majorsilence.Forms
         public void Hide ()
         {
             visible = false;
-            Backend.Hide ();
+
+            // A frame-hosted form has no OS window to hide -- hiding it means hiding the frame that
+            // composites it. Calling Backend.Hide would be a no-op at best on a window that was never
+            // shown, leaving the form still painted inside its host. The popup bookkeeping below is
+            // shared: it tracks a window that is going away regardless of how it was displayed.
+            if (this is Form { PanelHost: { } frame })
+                frame.Visible = false;
+            else
+                Backend.Hide ();
 
             if (Application.ActivePopupWindow == this)
                 Application.ActivePopupWindow = null;

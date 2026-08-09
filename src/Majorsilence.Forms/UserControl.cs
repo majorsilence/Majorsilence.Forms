@@ -40,6 +40,21 @@ namespace Majorsilence.Forms
 
         /// <summary>Raises the Load event.</summary>
         protected virtual void OnLoad (EventArgs e) => Load?.Invoke (this, e);
+
+        /// <summary>
+        /// Raises <see cref="Load"/> the first time the control goes live, matching WinForms, where
+        /// UserControl.OnCreateControl is what fires Load.
+        /// </summary>
+        /// <remarks>
+        /// Without this the event existed but nothing ever raised it, so a ported UserControl compiled
+        /// cleanly and then silently never ran its Load handler -- typically the one populating it.
+        /// CreateControl is guarded by the Created state, so this happens exactly once.
+        /// </remarks>
+        protected override void OnCreateControl ()
+        {
+            base.OnCreateControl ();
+            OnLoad (EventArgs.Empty);
+        }
     }
 
     /// <summary>
