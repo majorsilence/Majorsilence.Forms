@@ -9,11 +9,21 @@ namespace Majorsilence.Forms
     /// </summary>
     public static class SystemFonts
     {
-        // Builds a font from the active theme so values track the UI font / size. The caller's own
-        // property name is stamped on as SystemFontName, which is what makes Font.IsSystemFont a real
-        // answer rather than a hardcoded false.
+        // Every one of these is a WinForms UI font, and on Windows they are all about 9pt -- the shell
+        // uses one size for menus, captions, status bars and message boxes alike. They used to be built
+        // at Theme.FontSize, which is the Avalonia chrome size (14 on Windows and macOS): more than half
+        // again as large. That is the same mismatch DefaultFont is commented for below, and it lands on
+        // any control assigned a system font -- RibbonWinForms sets Font = SystemFonts.CaptionFont, and
+        // its panel and button text overflowed the slots the ribbon had measured for it.
+        //
+        // The family still tracks the theme, so the text matches the rest of the UI; only the size is
+        // pinned to what WinForms code was laid out against.
+        private const float SystemFontSize = 9f;
+
+        // The caller's own property name is stamped on as SystemFontName, which is what makes
+        // Font.IsSystemFont a real answer rather than a hardcoded false.
         private static Majorsilence.Forms.Drawing.Font Create ([System.Runtime.CompilerServices.CallerMemberName] string systemFontName = "")
-            => new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.FontSize) { SystemFontName = systemFontName };
+            => new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, SystemFontSize) { SystemFontName = systemFontName };
 
         // DefaultFont is the ambient fallback every unfonted Control.Font resolves to (see
         // Control.Font's getter). Real System.Windows.Forms.SystemFonts.DefaultFont is

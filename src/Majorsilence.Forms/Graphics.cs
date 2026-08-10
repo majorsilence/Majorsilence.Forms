@@ -254,10 +254,33 @@ namespace Majorsilence.Forms.Drawing
         /// <inheritdoc cref="DpiX"/>
         public float DpiY => 96f;
 
-        /// <summary>Gets the clip bounds (returns control bounds or Empty).</summary>
-        public RectangleF ClipBounds => _control is not null
-            ? new RectangleF (0, 0, _control.Width, _control.Height)
-            : RectangleF.Empty;
+        /// <summary>Gets the bounding rectangle of the current clipping region.</summary>
+        /// <remarks>
+        /// Reports the canvas' actual clip. It used to report the control's bounds -- or Empty when the
+        /// Graphics wrapped a bitmap rather than a control, as double-buffered painting does -- which
+        /// broke the save-and-restore idiom <c>var last = g.ClipBounds; g.SetClip(...); g.SetClip(last);</c>:
+        /// restoring an empty rectangle clipped away everything drawn from that point on.
+        /// </remarks>
+        public RectangleF ClipBounds {
+            get {
+                if (_canvas is { } c) {
+                    // DeviceClipBounds is exact, where LocalClipBounds is outset by a pixel to be
+                    // conservative about antialiasing; it ignores the transform, so it is only usable
+                    // while there is none.
+                    if (c.TotalMatrix.IsIdentity) {
+                        var device = c.DeviceClipBounds;
+                        return new RectangleF (device.Left, device.Top, device.Width, device.Height);
+                    }
+
+                    var bounds = c.LocalClipBounds;
+                    return new RectangleF (bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+                }
+
+                return _control is not null
+                    ? new RectangleF (0, 0, _control.Width, _control.Height)
+                    : RectangleF.Empty;
+            }
+        }
 
         /// <summary>Gets the visible clip bounds. Alias for ClipBounds in Majorsilence.Forms.</summary>
         public RectangleF VisibleClipBounds => ClipBounds;
@@ -361,17 +384,63 @@ namespace Majorsilence.Forms.Drawing
 
         // --- Clipping ---
 
-        /// <summary>Sets the clipping region to the given rectangle.</summary>
-        public void SetClip (Rectangle rect) => _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+        /// <summary>
+        /// The canvas save count captured before any clip was applied, i.e. the depth to unwind to in
+        /// order to get back to an unclipped surface. Null until the first clip operation.
+        /// </summary>
+        private int? _clipBaseline;
 
-        /// <summary>Resets the clipping region.</summary>
-        public void ResetClip () { }
+        /// <summary>
+        /// Unwinds any clip previously applied through this Graphics, leaving the canvas as it was
+        /// before the first clip, and re-arms the baseline for the next one.
+        /// </summary>
+        /// <remarks>
+        /// Skia's clip is cumulative -- <c>ClipRect</c> can only ever narrow, never widen -- whereas
+        /// <c>Graphics.SetClip</c> replaces. Bridging the two needs save/restore: the baseline save
+        /// records the unclipped state, and replacing the clip means restoring to it first.
+        /// </remarks>
+        private void RestoreClipBaseline ()
+        {
+            if (_canvas is null)
+                return;
+
+            if (_clipBaseline is { } depth)
+                _canvas.RestoreToCount (depth);
+
+            _clipBaseline = _canvas.Save ();
+        }
+
+        /// <summary>Sets the clipping region to the given rectangle, replacing any current clip.</summary>
+        public void SetClip (Rectangle rect) => SetClip ((RectangleF)rect);
+
+        /// <summary>Resets the clipping region, so that drawing is unrestricted again.</summary>
+        public void ResetClip ()
+        {
+            if (_canvas is null)
+                return;
+
+            if (_clipBaseline is { } depth) {
+                _canvas.RestoreToCount (depth);
+                _clipBaseline = null;
+            }
+        }
 
         /// <summary>Gets whether the current clipping region is empty.</summary>
         public bool IsClipEmpty => _canvas?.LocalClipBounds.IsEmpty ?? false;
 
         /// <summary>Translates the clipping region by the specified amounts.</summary>
-        public void TranslateClip (float dx, float dy) => _canvas?.Translate (dx, dy);
+        /// <remarks>
+        /// Moves the clip alone. It used to translate the canvas, which moved every subsequent drawing
+        /// operation along with it.
+        /// </remarks>
+        public void TranslateClip (float dx, float dy)
+        {
+            if (_canvas is null)
+                return;
+
+            var bounds = _canvas.LocalClipBounds;
+            SetClip (new RectangleF (bounds.Left + dx, bounds.Top + dy, bounds.Width, bounds.Height));
+        }
 
         /// <inheritdoc cref="TranslateClip(float, float)"/>
         public void TranslateClip (int dx, int dy) => TranslateClip ((float)dx, dy);
@@ -779,11 +848,27 @@ namespace Majorsilence.Forms.Drawing
 
         /// <inheritdoc cref="SetClip(Rectangle)"/>
         public void SetClip (Rectangle rect, Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
-            => SetClip (rect);
+            => SetClip ((RectangleF)rect, combineMode);
 
         /// <inheritdoc cref="SetClip(RectangleF)"/>
+        /// <remarks>
+        /// Honours Replace, Intersect and Exclude. Union, Xor and Complement have no Skia equivalent and
+        /// fall back to Replace.
+        /// </remarks>
         public void SetClip (RectangleF rect, Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
-            => SetClip (rect);
+        {
+            switch (combineMode) {
+            case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Intersect:
+                IntersectClip (rect);
+                break;
+            case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Exclude:
+                ExcludeClip (Rectangle.Round (rect));
+                break;
+            default:
+                SetClip (rect);
+                break;
+            }
+        }
 
         /// <inheritdoc cref="SetClip(Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath)"/>
         public void SetClip (Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath path,
@@ -793,7 +878,10 @@ namespace Majorsilence.Forms.Drawing
         /// <inheritdoc cref="SetClip(Majorsilence.Forms.Drawing.Region)"/>
         public void SetClip (Majorsilence.Forms.Drawing.Region region,
             Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
-            => SetClip (region);
+        {
+            if (region is not null)
+                SetClip (region.GetBounds (this), combineMode);
+        }
 
         /// <summary>Sets this Graphics' clip to that of another Graphics.</summary>
         /// <remarks>
@@ -872,11 +960,17 @@ namespace Majorsilence.Forms.Drawing
             return size;
         }
 
-        /// <summary>Intersects the clipping region with the given rectangle. Stub in Majorsilence.Forms.</summary>
-        public void IntersectClip (Rectangle rect) => SetClip (rect);
+        /// <summary>Narrows the clipping region to its intersection with the given rectangle.</summary>
+        public void IntersectClip (Rectangle rect) => IntersectClip ((RectangleF)rect);
 
-        /// <summary>Intersects the clipping region with the given rectangle. Stub in Majorsilence.Forms.</summary>
-        public void IntersectClip (RectangleF rect) => SetClip (rect);
+        /// <inheritdoc cref="IntersectClip(Rectangle)"/>
+        public void IntersectClip (RectangleF rect)
+        {
+            // Unlike SetClip this keeps the current clip, so it must not unwind to the baseline:
+            // Skia's ClipRect already intersects.
+            _clipBaseline ??= _canvas?.Save ();
+            _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+        }
 
         /// <summary>Gets or sets the clipping region.</summary>
         /// <remarks>
@@ -888,25 +982,32 @@ namespace Majorsilence.Forms.Drawing
         /// and then simply stopped.
         /// </remarks>
         public Majorsilence.Forms.Drawing.Region Clip {
-            get => _clip ??= (_canvas is { } c && !c.LocalClipBounds.IsEmpty
+            // Read live from the canvas rather than cached, so that a clip applied between two reads is
+            // reflected -- a stale snapshot here would restore the wrong clip.
+            get => _canvas is { } c && !c.LocalClipBounds.IsEmpty
                 ? new Majorsilence.Forms.Drawing.Region (Rectangle.Round (new RectangleF (
                     c.LocalClipBounds.Left, c.LocalClipBounds.Top, c.LocalClipBounds.Width, c.LocalClipBounds.Height)))
-                : new Majorsilence.Forms.Drawing.Region ());
+                : new Majorsilence.Forms.Drawing.Region ();
             set {
-                _clip = value;
-
                 if (value is not null)
-                    SetClip (Rectangle.Round (value.GetBounds (this)));
+                    SetClip (value);
             }
         }
 
-        private Majorsilence.Forms.Drawing.Region? _clip;
+        /// <summary>Excludes a rectangle from the clipping region.</summary>
+        public void ExcludeClip (Rectangle rect)
+        {
+            _clipBaseline ??= _canvas?.Save ();
+            _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom),
+                SKClipOperation.Difference);
+        }
 
-        /// <summary>Excludes a rectangle from the clipping region. Stub in Majorsilence.Forms.</summary>
-        public void ExcludeClip (Rectangle rect) { }
-
-        /// <summary>Excludes a region from the clipping region. Stub in Majorsilence.Forms.</summary>
-        public void ExcludeClip (Majorsilence.Forms.Drawing.Region region) { }
+        /// <summary>Excludes a region from the clipping region, as its bounding rectangle.</summary>
+        public void ExcludeClip (Majorsilence.Forms.Drawing.Region region)
+        {
+            if (region is not null)
+                ExcludeClip (Rectangle.Round (region.GetBounds (this)));
+        }
 
         /// <summary>Returns whether the specified point is within the clipping region. Always returns true in Majorsilence.Forms.</summary>
         public bool IsVisible (Point point) => true;
@@ -1683,7 +1784,7 @@ namespace Majorsilence.Forms.Drawing
         }
 #pragma warning restore CA1416
 
-        /// <summary>Sets the clipping region of this Graphics to the intersection of the current clip and a Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath.</summary>
+        /// <summary>Sets the clipping region to a Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath, replacing any current clip.</summary>
 #pragma warning disable CA1416
         public void SetClip (Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath path)
         {
@@ -1698,17 +1799,37 @@ namespace Majorsilence.Forms.Drawing
             }
 
             skPath.Close ();
+            RestoreClipBaseline ();
             _canvas.ClipPath (skPath);
         }
 #pragma warning restore CA1416
 
-        /// <summary>Sets the clipping region to a rectangle. WinForms compatibility overload.</summary>
+        /// <summary>Sets the clipping region to a rectangle, replacing any current clip.</summary>
         public void SetClip (RectangleF rect)
-            => _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+        {
+            if (_canvas is null)
+                return;
 
-        /// <summary>Sets the clipping region to the intersection with an existing region. Stub in Majorsilence.Forms.</summary>
+            RestoreClipBaseline ();
+            _canvas.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+        }
+
+        /// <summary>Sets the clipping region to an existing region, replacing any current clip.</summary>
+        /// <remarks>
+        /// A non-rectangular region is applied as its bounding rectangle: Skia clips to rectangles and
+        /// paths, and <see cref="Majorsilence.Forms.Drawing.Region"/> does not expose its geometry.
+        /// </remarks>
 #pragma warning disable CA1416
-        public void SetClip (Majorsilence.Forms.Drawing.Region region) { }
+        public void SetClip (Majorsilence.Forms.Drawing.Region region)
+        {
+            if (_canvas is null || region is null)
+                return;
+
+            if (region.IsInfinite (this))
+                ResetClip ();
+            else
+                SetClip (region.GetBounds (this));
+        }
 #pragma warning restore CA1416
 
         /// <inheritdoc/>
@@ -1716,6 +1837,11 @@ namespace Majorsilence.Forms.Drawing
         {
             if (!_disposed) {
                 _disposed = true;
+
+                // Clipping is implemented with a canvas save, so leave the canvas at the depth we found
+                // it -- when it is borrowed rather than owned, the next user inherits whatever is left.
+                ResetClip ();
+
                 if (_ownsCanvas)
                     _canvas?.Dispose ();
             }

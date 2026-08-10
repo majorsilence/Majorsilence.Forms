@@ -23,8 +23,11 @@ namespace Majorsilence.Forms
 
     public partial class Control
     {
+        // Control.DefaultFont is SystemFonts.DefaultFont upstream, and the two have to agree: this is
+        // the font an unfonted control is laid out with, so building it at the theme's chrome size
+        // instead made text wider than the sizes designer files were generated against.
         private static readonly Lazy<Majorsilence.Forms.Drawing.Font> s_defaultFont =
-            new (() => new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.FontSize));
+            new (() => Majorsilence.Forms.SystemFonts.DefaultFont);
 
         /// <summary>Gets or sets the offset scrolled to when this control is scrolled into view.</summary>
         public virtual Point AutoScrollOffset { get; set; }
