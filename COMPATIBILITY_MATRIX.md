@@ -157,6 +157,14 @@ per-row:
   `ComboBox`) pins its own background because WinForms gives it `SystemColors.Window`, so it stays
   light on a dark container.
 
+- **Mouse capture belongs to the control that took it, for the whole gesture.** *Added 2026-08-07.*
+  A control that captures on `MouseDown` receives every subsequent move and the release until the
+  button comes up — over its own children included, which is what lets a drag begun on a container
+  survive crossing a button sitting on it. Routing by hit-test after the press instead handed the
+  move to whichever child the pointer crossed and silently ended the gesture; a window dragged by a
+  custom title bar stopped dead at the caption buttons. A child that took the capture itself still
+  wins over its ancestors.
+
 Status below is scored from a migrating developer's point of view: **Implemented** means the
 mainstream, commonly-used surface is there (gaps are limited to the two patterns above, or to
 deep/rare corners); **Partial** names the specific commonly-used members that are missing;
@@ -165,7 +173,7 @@ deep/rare corners); **Partial** names the specific commonly-used members that ar
 | Control / type | Status | Notes |
 |---|---|---|
 | `Control` (base) | Implemented | Inherited by every control below. The protected extensibility surface named in the first systemic pattern above is present and firing as of 2026-07-29; the residue is the stub events listed there that still have no `On*` hook. |
-| `Button`, `CheckBox`, `RadioButton`, `Label`, `LinkLabel`, `PictureBox`, `Panel`, `GroupBox`, `TabControl`/`TabPage`, `FlowLayoutPanel`, `TableLayoutPanel`, `TrackBar`, `ProgressBar`, `ScrollBar`/`HScrollBar`/`VScrollBar`, `Splitter`, `UserControl` | Implemented | Only the systemic gaps above; no missing members specific to these types. They pick up the whole `Control` protected surface by inheritance. `Button.TextAlign`/`ImageAlign` default to `MiddleCenter` as WinForms' `ButtonBase` does (as of 2026-08-07); `CheckBox`/`RadioButton` keep WinForms' `MiddleLeft`. |
+| `Button`, `CheckBox`, `RadioButton`, `Label`, `LinkLabel`, `PictureBox`, `Panel`, `GroupBox`, `TabControl`/`TabPage`, `FlowLayoutPanel`, `TableLayoutPanel`, `TrackBar`, `ProgressBar`, `ScrollBar`/`HScrollBar`/`VScrollBar`, `Splitter`, `UserControl` | Implemented | Only the systemic gaps above; no missing members specific to these types. They pick up the whole `Control` protected surface by inheritance. `Button.TextAlign`/`ImageAlign` default to `MiddleCenter` as WinForms' `ButtonBase` does (as of 2026-08-07); `CheckBox`/`RadioButton` keep WinForms' `MiddleLeft`. `Label.AutoSize` really measures the text and resizes to it, growing *and* shrinking (as of 2026-08-07): `GetPreferredSize` used to return the size the label already had, so an auto-sized label kept whatever the designer left on it — and an over-wide label is opaque to the mouse, so it swallows the clicks of the container underneath. |
 | `TextBox` | Implemented | Full surface for get/set/select/undo usage. `BorderStyle` and `TextAlign` drive rendering rather than only storing a value (as of 2026-08-07), and a single-line box centres its text vertically the way a Win32 `EDIT` without `ES_MULTILINE` does; multiline still starts at the top. |
 | `RichTextBox` | Partial | No `Undo`/`Redo`/`CanUndo`/`CanRedo`/`RedoActionName`, no `SelectedRtf`, no `CanPaste`, no `AutoWordSelection`. |
 | `MaskedTextBox` | Partial | No `InsertKeyMode`/`IsOverwriteMode`, no `GetCharIndexFromPosition`/`GetPositionFromCharIndex` family, no `ValidateText`. |

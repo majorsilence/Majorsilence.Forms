@@ -349,6 +349,13 @@ namespace Majorsilence.Forms
 
         void Backends.IWindowBackend.Activate () => Activate ();
 
+        // Avalonia's Window exposes exactly this; setting it before Show() is what keeps an overlay
+        // from stealing focus from the window being dragged over.
+        bool Backends.IWindowBackend.ShowActivated {
+            get => ShowActivated;
+            set => ShowActivated = value;
+        }
+
         bool Backends.IWindowBackend.Enabled {
             get => IsEnabled;
             set => IsEnabled = value;

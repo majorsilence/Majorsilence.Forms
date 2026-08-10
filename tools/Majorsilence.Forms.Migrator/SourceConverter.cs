@@ -579,9 +579,14 @@ internal static class SourceConverter
 
         var aliases = new List<string>();
 
-        foreach (var type in NamespaceMap.AmbiguousWithSystemDrawing.OrderBy(t => t, StringComparer.Ordinal))
+        foreach (var type in NamespaceMap.AliasedWithSystemDrawing.OrderBy(t => t, StringComparer.Ordinal))
         {
             if (!UsedUnqualified(text, type))
+                continue;
+
+            // The file declares its own type by that name -- alias it and every reference would silently
+            // retarget. Leave it alone; a name collision this direct is the author's to resolve.
+            if (DeclaresType(text, type))
                 continue;
 
             // Already aliased (e.g. a re-run over an already-migrated tree) — don't add a duplicate.
@@ -604,6 +609,10 @@ internal static class SourceConverter
     // that depends on an imported namespace rather than a fully-qualified reference.
     private static bool UsedUnqualified(string text, string typeName) =>
         Regex.IsMatch(text, $@"(?<![\w.]){Regex.Escape(typeName)}(?![\w])");
+
+    // Whether this file declares a type of its own by that name (C# or VB).
+    private static bool DeclaresType(string text, string typeName) =>
+        Regex.IsMatch(text, $@"(?im)^[ \t]*((public|internal|private|protected|partial|sealed|abstract|static|friend|notinheritable|mustinherit)[ \t]+)*(class|struct|interface|enum|record|module)[ \t]+{Regex.Escape(typeName)}\b");
 
     // Removes the import line the match covers, including its trailing newline so no blank line is left;
     // optionally substitutes a replacement import line in its place.

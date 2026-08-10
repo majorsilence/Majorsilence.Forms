@@ -1409,11 +1409,11 @@ namespace Majorsilence.Forms
         [EditorBrowsable (EditorBrowsableState.Advanced)]
         protected virtual void OnResize (EventArgs e)
         {
-            // TODO?
-            //if ((_controlStyle & ControlStyles.ResizeRedraw) == ControlStyles.ResizeRedraw
-            //    || GetState (States.ExceptionWhilePainting)) {
-            //    Invalidate ();
-            //}
+            // A control that asked for ResizeRedraw wants the WHOLE surface repainted on every resize,
+            // not just the strip a grow exposes -- what an owner-drawn control needs when its painting
+            // is a function of its size (a centred caption, a border inset, a gradient).
+            if (GetStyle (ControlStyles.ResizeRedraw))
+                Invalidate ();
 
             LayoutTransaction.DoLayout (this, this, PropertyNames.Bounds);
             (Events[s_resizeEvent] as EventHandler)?.Invoke (this, e);
@@ -1462,7 +1462,15 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnVisibleChanged (EventArgs e)
         {
-            CreateControl ();
+            // Becoming visible only makes a control live if it is attached to something. WinForms has
+            // the same guard (SetVisibleCore creates the handle only when the parent is created), and
+            // it matters because OnCreateControl is where a control reaches for its surroundings --
+            // FindForm() to hook the form's events being the standard move. A control that sets its own
+            // Visible in its constructor, before anything has parented it, would otherwise fire
+            // OnCreateControl with no form to find and NullReference inside perfectly ordinary code.
+            // Attaching later still creates it: ControlCollection.Add does that after AssignParent.
+            if (Parent is not null)
+                CreateControl ();
 
             (Events[s_visibleChangedEvent] as EventHandler)?.Invoke (this, e);
 
@@ -1763,6 +1771,27 @@ namespace Majorsilence.Forms
                 return;
             }
 
+            // No child holds the capture, but this control does. WinForms routes every move to the
+            // capturing control until the button comes up -- over its own children included -- which
+            // is what lets a drag that started on a container survive crossing a button sitting on it.
+            // Hit-testing instead would hand the move to that button and silently end the drag: the
+            // exact failure of a custom title bar with caption buttons on it.
+            if (is_captured) {
+                // The pointer is no longer interacting with whatever it was hovering; without this the
+                // child it crossed would stay painted hot for the rest of the drag.
+                if (current_mouse_in != null) {
+                    current_mouse_in.RaiseMouseLeave (e);
+                    current_mouse_in = null;
+                }
+
+                LastMousePosition = e.Location;
+
+                if (Enabled)
+                    OnMouseMove (e);
+
+                return;
+            }
+
             var child = Controls.FindVisibleChildAt (e.Location);
 
             LastMousePosition = e.Location;
@@ -1798,6 +1827,17 @@ namespace Majorsilence.Forms
 
             if (captured != null) {
                 captured.RaiseMouseUp (TranslateMouseEvents (e, captured));
+                return;
+            }
+
+            // Same rule as RaiseMouseMove: the capture holder gets the release, wherever the pointer
+            // ended up. It also has to be the one that drops the capture.
+            if (is_captured) {
+                if (Enabled) {
+                    Capture = false;
+                    OnMouseUp (e);
+                }
+
                 return;
             }
 

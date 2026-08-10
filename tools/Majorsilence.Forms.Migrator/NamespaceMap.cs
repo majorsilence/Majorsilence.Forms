@@ -169,21 +169,25 @@ internal static class NamespaceMap
     };
 
     /// <summary>
-    /// The subset of <see cref="MajorsilenceFormsTypes"/> that also ships in <c>System.Drawing.Primitives</c>,
-    /// i.e. is still resolvable through a kept <c>using System.Drawing;</c> after the migration. Used
-    /// <i>unqualified</i>, such a name binds to two candidates at once — <c>System.Drawing.X</c> and
-    /// <c>Majorsilence.Forms.X</c> — and the file fails to compile with CS0104, so the converter emits a
-    /// using-alias pinning it to the Majorsilence.Forms one.
+    /// Every name in <see cref="MajorsilenceFormsTypes"/> needs a using-alias in a file that keeps its
+    /// <c>using System.Drawing;</c>, for one of two reasons:
     ///
-    /// The rest of <see cref="MajorsilenceFormsTypes"/> (<c>Graphics</c>, <c>ContentAlignment</c>,
-    /// <c>SystemBrushes</c>, <c>SystemPens</c>, <c>SystemFonts</c>) is type-forwarded to the Windows-only
-    /// <c>System.Drawing.Common</c> assembly, which a migrated project no longer references — those names
-    /// have exactly one candidate and need no alias.
+    /// <list type="bullet">
+    /// <item><c>SystemColors</c> and <c>ColorTranslator</c> also ship in <c>System.Drawing.Primitives</c>,
+    /// which a migrated project still references. Used unqualified they bind to two candidates at once —
+    /// <c>System.Drawing.X</c> and <c>Majorsilence.Forms.X</c> — and the file fails with CS0104.</item>
+    /// <item>The rest (<c>Graphics</c>, <c>ContentAlignment</c>, <c>SystemBrushes</c>, <c>SystemPens</c>,
+    /// <c>SystemFonts</c>) is type-forwarded to the Windows-only <c>System.Drawing.Common</c>, which a
+    /// migrated project drops. That looks safe — one candidate, no ambiguity — but only if the file also
+    /// imports <c>Majorsilence.Forms</c>, and a file that draws without naming a single control type never
+    /// gets that import. Then there is no Majorsilence candidate at all, the name still resolves through
+    /// <c>using System.Drawing;</c> to the forwarded type, and the file fails with CS1069.</item>
+    /// </list>
+    ///
+    /// One alias line fixes every use site, and is harmless where the import happens to be present: an
+    /// alias outranks a using-directive, so it just pins the name to the same type it would have bound to.
     /// </summary>
-    public static readonly HashSet<string> AmbiguousWithSystemDrawing = new(StringComparer.Ordinal)
-    {
-        "SystemColors", "ColorTranslator",
-    };
+    public static readonly HashSet<string> AliasedWithSystemDrawing = MajorsilenceFormsTypes;
 
     /// <summary>
     /// High-signal <c>System.Drawing</c> top-level types from the Windows-only <c>System.Drawing.Common</c>

@@ -831,6 +831,10 @@ namespace Majorsilence.Forms
         // placed in its parent's MDI client area rather than getting its own top-level OS window.
         internal virtual bool TryShowHosted () => false;
 
+        // Whether Show() should also activate this window. Form overrides it from the WinForms-shaped
+        // ShowWithoutActivation hook; see that property.
+        internal virtual bool ShowsActivated => true;
+
         /// <summary>Displays the window to the user.</summary>
         public void Show ()
         {
@@ -838,8 +842,9 @@ namespace Majorsilence.Forms
                 return;
 
             SetWindowStartupLocation ();
+            Backend.ShowActivated = ShowsActivated;
             Backend.Show ();
-            EnsureShownBookkeeping ();
+            EnsureShownBookkeeping (activated: ShowsActivated);
         }
 
         internal void ShowDialog (WindowBase parent)
@@ -857,7 +862,7 @@ namespace Majorsilence.Forms
         // instead of being shown through Form.Show() -- so behaviour is identical regardless of which
         // side actually triggered the native show. Guarded by `visible` so calling it more than once
         // (e.g. a host window's Opened/Activated firing repeatedly) is harmless.
-        internal void EnsureShownBookkeeping ()
+        internal void EnsureShownBookkeeping (bool activated = true)
         {
             if (visible)
                 return;
@@ -879,8 +884,11 @@ namespace Majorsilence.Forms
             // Assume active the moment we ask the backend to show one of our own windows, rather than
             // waiting for its real Activated event (which, empirically, can arrive either before or
             // after this call returns depending on the platform) -- see IsActive's doc comment. The
-            // real event still fires and reconfirms this when it eventually arrives.
-            IsActive = true;
+            // real event still fires and reconfirms this when it eventually arrives. A window shown
+            // without activation is the exception: it never becomes active, so assuming it did would
+            // make the window it appeared over look deactivated to the app.
+            if (activated)
+                IsActive = true;
 
             if (!shown) {
                 shown = true;

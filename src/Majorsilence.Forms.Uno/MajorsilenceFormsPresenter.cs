@@ -451,6 +451,9 @@ namespace Majorsilence.Forms.Uno
         /// <inheritdoc/>
         public void Activate () => TryFocus ();
 
+        /// <summary>Embedded in a host's visual tree: nothing to activate, so this is stored only.</summary>
+        public bool ShowActivated { get; set; } = true;
+
         /// <inheritdoc/>
         public string Title { set { } }
         /// <inheritdoc/>

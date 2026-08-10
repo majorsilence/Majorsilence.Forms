@@ -90,6 +90,17 @@ namespace Majorsilence.Forms
         public bool GetStyle (ControlStyles flag) => (control_styles & flag) == flag;
 
         /// <summary>
+        /// Gets or sets whether the control redraws itself whenever it is resized. The named shorthand
+        /// for <see cref="ControlStyles.ResizeRedraw"/>, which is how a custom-painted control asks for
+        /// a full repaint instead of only the newly-exposed strip; owner-drawn controls set it in their
+        /// constructor, so it has to exist for them to compile.
+        /// </summary>
+        protected bool ResizeRedraw {
+            get => GetStyle (ControlStyles.ResizeRedraw);
+            set => SetStyle (ControlStyles.ResizeRedraw, value);
+        }
+
+        /// <summary>
         /// Gets or sets the background image displayed in the control.
         /// Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// </summary>

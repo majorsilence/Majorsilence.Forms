@@ -2068,6 +2068,7 @@ namespace Majorsilence.Forms
                 ItemAddedCallback = item => {
                     base_items.Add (item);
                     item.Click += (_, _) => ItemClicked?.Invoke (this, new ToolStripItemClickedEventArgs (item));
+                    Renderer?.InitializeItem (item);
                     ItemAdded?.Invoke (this, new ToolStripItemEventArgs (item));
                 },
                 ItemRemovedCallback = item => base_items.Remove (item),
@@ -2101,8 +2102,33 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the rendering mode for the ToolStrip. Stub in Majorsilence.Forms.</summary>
         public ToolStripRenderMode RenderMode { get; set; } = ToolStripRenderMode.ManagerRenderMode;
 
-        /// <summary>Gets or sets the renderer for the ToolStrip. Stub in Majorsilence.Forms.</summary>
-        public ToolStripRenderer? Renderer { get; set; }
+        /// <summary>
+        /// Gets or sets the renderer for the ToolStrip. Painting is still dispatched by
+        /// <see cref="Majorsilence.Forms.Renderers.RenderManager"/> keyed on the concrete type, so assigning
+        /// this does not change how the strip draws — but the renderer's
+        /// <see cref="ToolStripRenderer.Initialize"/>/<see cref="ToolStripRenderer.InitializeItem"/> hooks do
+        /// run, which is where a custom renderer sets the colours and padding that a theme depends on.
+        /// </summary>
+        public ToolStripRenderer? Renderer {
+            get => renderer;
+            set {
+                if (ReferenceEquals (renderer, value))
+                    return;
+
+                renderer = value;
+
+                if (value is null)
+                    return;
+
+                // Items already in the strip when the renderer arrives have to be initialized too --
+                // designer code fills Items before assigning Renderer as often as the other way round.
+                value.Initialize (this);
+                foreach (ToolStripItem item in Items)
+                    value.InitializeItem (item);
+            }
+        }
+
+        private ToolStripRenderer? renderer;
 
         /// <summary>Gets or sets whether items can overflow to a dropdown. Stub in Majorsilence.Forms.</summary>
         public bool CanOverflow { get; set; } = true;
@@ -2369,6 +2395,20 @@ namespace Majorsilence.Forms
             source.Dispose ();
             return disabled;
         }
+
+        /// <summary>
+        /// Called once when this renderer is attached to a <see cref="ToolStrip"/>, before anything is
+        /// drawn. A custom renderer uses it to set the strip-wide appearance it cannot express per-item
+        /// (padding, back colour, the auto-size behaviour of the whole strip).
+        /// </summary>
+        protected internal virtual void Initialize (ToolStrip toolStrip) { }
+
+        /// <summary>
+        /// Called once per item as it joins a <see cref="ToolStrip"/> this renderer is attached to. The
+        /// per-item companion to <see cref="Initialize"/> — where a renderer sets fore/back colours and
+        /// padding that would otherwise have to be repeated in every paint.
+        /// </summary>
+        protected internal virtual void InitializeItem (ToolStripItem item) { }
 
         /// <summary>Occurs when an arrow glyph is drawn.</summary>
         public event ToolStripRenderEventHandler<ToolStripArrowRenderEventArgs>? RenderArrow;

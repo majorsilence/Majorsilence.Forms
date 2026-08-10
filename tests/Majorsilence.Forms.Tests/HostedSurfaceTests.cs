@@ -54,6 +54,8 @@ public class HostedSurfaceTests
         public void Close () { }
         public void Activate () { }
 
+        public bool ShowActivated { get; set; } = true;
+
         public string Title { set { } }
         public bool Topmost { get; set; }
         public void SetSystemDecorations (bool useSystemDecorations) { }

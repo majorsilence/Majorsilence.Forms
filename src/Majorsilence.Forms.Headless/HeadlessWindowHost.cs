@@ -45,6 +45,9 @@ namespace Majorsilence.Forms.Headless
 
         public void Activate () => _owner.OnBackendActivated ();
 
+        /// <summary>Whether Show() also activates. Recorded so tests can assert on it.</summary>
+        public bool ShowActivated { get; set; } = true;
+
         // ── Appearance / behaviour ──
         public string Title { set { } }
         public bool Topmost { get; set; }

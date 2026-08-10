@@ -128,7 +128,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the button that is activated when Enter is pressed.</summary>
-        public Button? AcceptButton { get; set; }
+        /// <remarks>
+        /// Typed <see cref="IButtonControl"/>, as WinForms types it — the point of the interface is that a
+        /// form's default button need not be a <see cref="Button"/> at all. A control library that
+        /// re-declares the property to narrow or hide it (<c>public new IButtonControl AcceptButton</c>)
+        /// could not compile against a <see cref="Button"/>-typed one.
+        /// </remarks>
+        public IButtonControl? AcceptButton { get; set; }
 
         /// <summary>Gets or sets whether the form can be maximized.</summary>
         public bool AllowMaximize {
@@ -143,7 +149,8 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the button that is activated when Escape is pressed.</summary>
-        public Button? CancelButton { get; set; }
+        /// <inheritdoc cref="AcceptButton" path="/remarks"/>
+        public IButtonControl? CancelButton { get; set; }
 
         /// <summary>Gets or sets whether the form receives key events before child controls.</summary>
         public bool KeyPreview { get; set; }
@@ -1029,6 +1036,16 @@ namespace Majorsilence.Forms
         /// remove-close-button override pattern; the compat window ignores the values.
         /// </summary>
         protected virtual CreateParams CreateParams => new CreateParams ();
+
+        /// <summary>
+        /// Gets whether the window is shown without taking focus from whatever is currently active.
+        /// Overridden to <see langword="true"/> by overlay windows — a drag preview, a translucent
+        /// highlight, a notification — which must appear without stealing the caret from the form the
+        /// user is working in. Honoured by <see cref="WindowBase.Show"/>.
+        /// </summary>
+        protected virtual bool ShowWithoutActivation => false;
+
+        internal override bool ShowsActivated => !ShowWithoutActivation;
 
         /// <summary>Gets the active MDI child form, or null.</summary>
         public Form? ActiveMdiChild => MdiClientControl?.ActiveChild;
