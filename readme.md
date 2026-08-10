@@ -137,4 +137,23 @@ This project is an AI-enhanced fork of Modern Forms (Original Repository: [https
 
 ## Migrated Project Examples
 
-- 
+Majorsilence projects that are migrating to majorsilence.forms.
+
+- https://github.com/majorsilence/MPlayercontrol
+- https://github.com/majorsilence/Reporting/tree/feature/modernization-roadmap
+
+
+A list of projects that have been forked to exercise majorsilence.forms winforms compatibility and migrator.
+
+- https://github.com/majorsilence/AT-NetCore-NotepadPlusPlus 
+- https://github.com/majorsilence/DarkUI
+- https://github.com/majorsilence/PKHeX
+- https://github.com/majorsilence/Calculator
+- https://github.com/majorsilence/metroframework-modern-ui
+- https://github.com/majorsilence/GymcimDesktopFormApp
+- https://github.com/majorsilence/HealthCare-Plus
+- https://github.com/majorsilence/WindowsUI
+- https://github.com/majorsilence/ArdeshirV.Forms
+- https://github.com/majorsilence/KaomojiKeyboard
+- https://github.com/majorsilence/C-Flappy-Bird-Game-Windows-Form
+
