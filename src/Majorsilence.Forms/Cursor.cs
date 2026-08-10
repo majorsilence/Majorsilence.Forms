@@ -14,6 +14,15 @@ namespace Majorsilence.Forms
             CursorType = type;
         }
 
+        /// <summary>Creates a cursor from a Win32 icon/cursor handle.</summary>
+        /// <remarks>
+        /// Accepted for source compatibility -- code that builds a drag cursor from a bitmap goes through
+        /// <c>GetHicon</c> and this constructor -- but there are no HWNDs or HICONs here, so the handle is
+        /// not read and the cursor behaves as the default. Documented as a stub rather than throwing: a
+        /// drag that shows the standard pointer is a cosmetic loss, a crash is not.
+        /// </remarks>
+        public Cursor (IntPtr handle) : this (CursorType.Arrow) { }
+
         /// <inheritdoc/>
         public void Dispose ()
         {

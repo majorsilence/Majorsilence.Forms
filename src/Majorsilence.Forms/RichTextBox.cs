@@ -333,6 +333,14 @@ namespace Majorsilence.Forms
 
         /// <summary>Initializes a new instance.</summary>
         public DataFormat (string name, int id) { Name = name; Id = id; }
+
+        /// <summary>Converts to the format name, so a DataFormats constant can be used wherever
+        /// System.Windows.Forms takes a format string -- <c>new DataObject (DataFormats.FileDrop, files)</c>
+        /// being the usual one.</summary>
+        public static implicit operator string (DataFormat format) => format.Name;
+
+        /// <inheritdoc/>
+        public override string ToString () => Name;
     }
 
     /// <summary>WinForms compatibility: provides static members for clipboard data formats. Stub in Majorsilence.Forms.</summary>

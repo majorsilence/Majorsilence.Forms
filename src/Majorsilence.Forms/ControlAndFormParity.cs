@@ -358,6 +358,16 @@ namespace Majorsilence.Forms
         private Color form_caption_back_color = Color.Empty;
         private Color form_caption_text_color = Color.Empty;
 
+        /// <summary>Runs the callback on the UI thread and returns a task that completes with it.</summary>
+        /// <remarks>Forwards to the root adapter's implementation, so the marshal and its cancellation
+        /// behaviour are identical to <see cref="Control.InvokeAsync(Action, CancellationToken)"/>.</remarks>
+        public Task InvokeAsync (Action callback, CancellationToken cancellationToken = default)
+            => adapter.InvokeAsync (callback, cancellationToken);
+
+        /// <inheritdoc cref="InvokeAsync(Action, CancellationToken)"/>
+        public Task<T> InvokeAsync<T> (Func<T> callback, CancellationToken cancellationToken = default)
+            => adapter.InvokeAsync (callback, cancellationToken);
+
         /// <summary>Gets or sets whether the form supports per-pixel transparency.</summary>
         public bool AllowTransparency { get; set; }
 
