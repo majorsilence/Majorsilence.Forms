@@ -54,6 +54,76 @@ public partial class Control
             Add<Control> (item);
         }
 
+        /// <summary>
+        ///  Adds a <see cref="Form"/> as a child of this control, as WinForms does for a form whose
+        ///  <see cref="Form.TopLevel"/> is false. The form is wrapped in a frame that composites it into
+        ///  this control tree; it owns no on-screen window while hosted.
+        /// </summary>
+        /// <remarks>
+        ///  A Form is not a Control here (it derives from <see cref="WindowBase"/>, so that only real
+        ///  windows carry the backend, render loop and platform input plumbing), which is why this needs
+        ///  its own overload rather than going through <see cref="Add{T}"/>. Adding the same form twice
+        ///  moves it, matching how Insert re-parents an already-parented control.
+        /// </remarks>
+        public virtual void Add (Form form)
+        {
+            if (form is null)
+                return;
+
+            // Already hosted somewhere: re-parent rather than building a second frame for it, so the
+            // form is never composited into two trees at once.
+            if (form.PanelHost is { } existing) {
+                if (existing.Parent == Owner)
+                    return;
+
+                existing.Parent?.Controls.Remove (existing);
+                form.PanelHost = existing;      // Remove cleared it; this add is a move, not a detach
+                Add<Control> (existing);
+                return;
+            }
+
+            var frame = new FormHost (form) {
+                // Dock/Bounds are typically set on the form before it is added ("form.Dock =
+                // DockStyle.Fill; panel.Controls.Add (form)"), so the frame inherits them here.
+                Dock = form.Dock,
+                Visible = form.Visible,
+            };
+
+            if (form.Dock == DockStyle.None)
+                frame.Bounds = new Rectangle (form.Location, form.Size);
+
+            form.PanelHost = frame;
+
+            // No self-drawn title bar or border: the form fills the frame exactly. Same preparation an
+            // MDI child gets, for the same reason -- the host owns the chrome, and here there is none.
+            form.PrepareAsHostedChild ();
+
+            Add<Control> (frame);
+        }
+
+        /// <summary>
+        ///  Removes a hosted <see cref="Form"/> from this control, undoing <see cref="Add(Form)"/>.
+        /// </summary>
+        /// <remarks>
+        ///  Because Form and Control are unrelated types here, this is an overload rather than the same
+        ///  method, which makes an untyped <c>Remove (null)</c> ambiguous. Cast the argument
+        ///  (<c>Remove ((Control) null)</c>) in the rare code that passes a bare null literal; any
+        ///  typed expression resolves normally. The same applies to <see cref="Contains(Form)"/>.
+        /// </remarks>
+        public virtual bool Remove (Form form)
+        {
+            if (form?.PanelHost is not { } frame || frame.Parent != Owner)
+                return false;
+
+            return Remove (frame);
+        }
+
+        /// <summary>
+        ///  Determines whether the specified <see cref="Form"/> is hosted directly by this control.
+        /// </summary>
+        public bool Contains (Form form) =>
+            form?.PanelHost is { } frame && control_list.Contains (frame);
+
         internal T AddImplicitControl<T> (T item) where T : Control
         {
             // We do a lot less here for an implicit control because we control them
@@ -458,6 +528,11 @@ public partial class Control
 
                 // Remove the control from the internal control array
                 control_list.Remove (item);
+
+                // Drop a hosted form's back-reference to its frame, so the form is not left believing
+                // it is still parented. Covers Clear() and RemoveAt() too, which both route through here.
+                (item as FormHost)?.DetachChild ();
+
                 item.AssignParent (null);
 
                 LayoutTransaction.DoLayout (Owner, item, PropertyNames.Parent);

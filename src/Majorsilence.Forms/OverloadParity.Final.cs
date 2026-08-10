@@ -15,11 +15,11 @@ namespace Majorsilence.Forms
         /// <remarks>Falls back to the most recently opened form as the owner, which is the same
         /// choice <c>ShowDialog ()</c> already makes.</remarks>
         public Task<DialogResult> ShowDialogAsync ()
-            => ShowDialogAsync (Application.OpenForms.LastOrDefault ()!);
+            => ShowDialogAsync (Application.ModalOwnerCandidates.LastOrDefault ()!);
 
         /// <summary>Shows the form modally, owned by the given window.</summary>
         public Task<DialogResult> ShowDialogAsync (IWin32Window owner)
-            => ShowDialogAsync (owner as Form ?? Application.OpenForms.LastOrDefault ()!);
+            => ShowDialogAsync (owner as Form ?? Application.ModalOwnerCandidates.LastOrDefault ()!);
 
         /// <summary>Validates the child controls, limited to those the constraints select.</summary>
         public bool ValidateChildren (ValidationConstraints validationConstraints)

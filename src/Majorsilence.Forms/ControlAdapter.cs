@@ -26,41 +26,18 @@ namespace Majorsilence.Forms
 
         public new WindowBase ParentForm { get; }
 
-        protected override void OnPaint (PaintEventArgs e)
-        {
-            // We have this special version for the Adapter because it is
-            // given the Form's native surface including any managed Form
-            // borders, and it needs to not draw on top of those borders.
-            // That is, this often needs to start drawing at (1, 1) instead of (0, 0)
-            // This could probably eliminated in the future with Canvas.Translate.
-            var form_border = ParentForm.CurrentStyle.Border;
+        // The Adapter is given the Form's native surface including any managed Form borders, and it
+        // needs to not draw on top of those borders -- that is, it often has to start drawing at
+        // (1, 1) instead of (0, 0). This could probably be eliminated in the future with
+        // Canvas.Translate.
+        internal override Point ChildPaintOffset {
+            get {
+                var form_border = ParentForm.CurrentStyle.Border;
+                var scaling = Scaling;
 
-            var scaling = Scaling;
-            var form_x = (int)(form_border.Left.GetWidth () * scaling);
-            var form_y = (int)(form_border.Top.GetWidth ()  * scaling);
-
-            // Bottom-to-top: WinForms z-order puts index 0 on TOP, so it must be drawn last
-            // (matches Control.OnPaint).
-            foreach (var control in Controls.GetControlsPaintOrder ()) {
-                if (!control.Visible || control.Width <= 0 || control.Height <= 0)
-                    continue;
-
-                var info = new SKImageInfo (control.ScaledSize.Width, control.ScaledSize.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
-                var buffer = control.GetBackBuffer ();
-
-                if (control.NeedsPaint) {
-                    using (var canvas = new SKCanvas (buffer)) {
-                        // start drawing
-                        var args = new PaintEventArgs (info, canvas, Scaling);
-
-                        control.RaisePaintBackground (args);
-                        control.RaisePaint (args);
-
-                        canvas.Flush ();
-                    }
-                }
-
-                e.Canvas.DrawBitmap (buffer, form_x + control.ScaledLeft, form_y + control.ScaledTop);
+                return new Point (
+                    (int)(form_border.Left.GetWidth () * scaling),
+                    (int)(form_border.Top.GetWidth () * scaling));
             }
         }
 

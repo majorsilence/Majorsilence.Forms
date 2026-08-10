@@ -444,7 +444,7 @@ namespace Majorsilence.Forms
 
             // WinForms measures a fixed reference string, so the ratio between two fonts is what the
             // caller ends up using; the absolute number only has to be consistent.
-            var typeface = SkiaSharp.SKTypeface.FromFamilyName (font.Name) ?? Theme.UIFont;
+            var typeface = TypefaceCache.Get (font.Name) ?? Theme.UIFont;
             var size = TextMeasurer.MeasureText ("AaBbYyZz", typeface, (int)Math.Round (font.SizeInPoints));
             return new SizeF (size.Width / 8f, size.Height);
         }

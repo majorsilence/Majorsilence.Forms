@@ -197,7 +197,9 @@ namespace Majorsilence.Forms.Tests
             var child = new Control ();
             owner.Controls.Add (child);
 
-            var result = owner.Controls.Remove (null!);
+            // Cast required only because a bare null is ambiguous between the Control and Form
+            // overloads of Remove -- see the remarks on ControlCollection.Remove(Form).
+            var result = owner.Controls.Remove ((Control) null!);
 
             Assert.False (result);
             Assert.Equal (1, owner.Controls.Count);
