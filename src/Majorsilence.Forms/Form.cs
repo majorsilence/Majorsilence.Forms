@@ -562,11 +562,19 @@ namespace Majorsilence.Forms
             Closing?.Invoke (this, e);
 
             var form_closing_args = new FormClosingEventArgs { Cancel = e.Cancel };
-            FormClosing?.Invoke (this, form_closing_args);
+            OnFormClosing (form_closing_args);
 
             if (form_closing_args.Cancel)
                 e.Cancel = true;
         }
+
+        /// <summary>Raises the <see cref="FormClosing"/> event.</summary>
+        /// <remarks>
+        /// The hook a form overrides to veto its own close -- "you have unsaved changes, really quit?" is
+        /// written this way as often as with a handler, and it has to be reachable for that code to compile.
+        /// Routed through by <see cref="OnClosing"/>, so an override sees every close the event does.
+        /// </remarks>
+        protected virtual void OnFormClosing (FormClosingEventArgs e) => FormClosing?.Invoke (this, e);
 
         /// <summary>
         /// Picks the form a modal dialog should be owned by: the first open form that is not the dialog
@@ -967,10 +975,10 @@ namespace Majorsilence.Forms
         public bool AllowDrop { get; set; }
 
         /// <summary>Raised when a drag-and-drop operation enters the form. Stub in Majorsilence.Forms (never fires).</summary>
-        public event EventHandler<DragEventArgs>? DragEnter { add { } remove { } }
+        public event DragEventHandler? DragEnter { add { } remove { } }
 
         /// <summary>Raised when a drag-and-drop operation completes over the form. Stub in Majorsilence.Forms (never fires).</summary>
-        public event EventHandler<DragEventArgs>? DragDrop { add { } remove { } }
+        public event DragEventHandler? DragDrop { add { } remove { } }
 
         /// <summary>
         /// Gets or sets the MDI parent. Set this (and call <see cref="WindowBase.Show"/>) to host this form

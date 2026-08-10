@@ -8,7 +8,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ComboBox control.
     /// </summary>
-    public partial class ComboBox : Control
+    public partial class ComboBox : ListControl
     {
         private PopupWindow? popup;
         private readonly ListBox popup_listbox;
@@ -123,10 +123,10 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets whether items are formatted before display (WinForms compatibility stub).
         /// </summary>
-        public bool FormattingEnabled { get; set; }
+        public override bool FormattingEnabled { get; set; }
 
         /// <summary>Gets or sets the data source for the ComboBox.</summary>
-        public object? DataSource {
+        public override object? DataSource {
             get => _dataSource;
             set {
                 _dataSource = value;
@@ -135,7 +135,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the property to display from the data source.</summary>
-        public string DisplayMember {
+        public override string DisplayMember {
             get => _displayMember;
             set {
                 _displayMember = value ?? string.Empty;
@@ -144,7 +144,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the property used as the value from the data source.</summary>
-        public string ValueMember {
+        public override string ValueMember {
             get => _valueMember;
             set => _valueMember = value ?? string.Empty;
         }
@@ -299,16 +299,13 @@ namespace Majorsilence.Forms
             OnSelectedValueChanged (e);
         }
 
-        /// <summary>Raises the SelectedValueChanged event.</summary>
-        protected virtual void OnSelectedValueChanged (EventArgs e) => SelectedValueChanged?.Invoke (this, e);
-
         /// <summary>Raises the SelectionChangeCommitted event.</summary>
         protected virtual void OnSelectionChangeCommitted (EventArgs e) => SelectionChangeCommitted?.Invoke (this, e);
 
         /// <summary>
         /// Gets or sets the index of the currently selected item.  Returns -1 if no item is selected.
         /// </summary>
-        public int SelectedIndex {
+        public override int SelectedIndex {
             get => popup_listbox.SelectedIndex;
             set => popup_listbox.SelectedIndex = value;
         }
@@ -325,9 +322,6 @@ namespace Majorsilence.Forms
         /// Raised when the value of the SelectedIndex property changes.
         /// </summary>
         public event EventHandler? SelectedIndexChanged;
-
-        /// <summary>Raised when the SelectedValue property changes.</summary>
-        public event EventHandler? SelectedValueChanged;
 
         /// <summary>Gets or sets the width of the drop-down list. 0 means match control width.</summary>
         public int DropDownWidth { get; set; }
@@ -419,7 +413,7 @@ namespace Majorsilence.Forms
         private static object? GetPropValue (object? item, string prop) => item?.GetType ().GetProperty (prop)?.GetValue (item);
 
         /// <summary>Gets or sets the selected value (uses ValueMember if set).</summary>
-        public object? SelectedValue {
+        public override object? SelectedValue {
             get {
                 if (SelectedIndex < 0 || DataSource is not System.Collections.IList list || SelectedIndex >= list.Count)
                     return SelectedItem;
@@ -453,7 +447,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Returns the display text for the given item, using DisplayMember if set.</summary>
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
-        public string GetItemText (object? item)
+        public override string GetItemText (object? item)
         {
             if (item is null) return string.Empty;
             if (!string.IsNullOrEmpty (DisplayMember)) {

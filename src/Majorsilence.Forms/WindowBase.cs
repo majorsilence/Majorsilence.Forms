@@ -579,7 +579,18 @@ namespace Majorsilence.Forms
 
             var ev = new MouseEventArgs (buttons, 0, x, y, delta, keyData: keys);
             adapter.RaiseMouseWheel (ev);
+
+            // WinForms delivers the wheel to the window itself as well, which is how a form scrolls or
+            // zooms a view it owns without every child having to forward. Declared here because Form
+            // does not derive from Control and so inherits nothing from it.
+            OnMouseWheel (ev);
         }
+
+        /// <summary>Raises the <see cref="MouseWheel"/> event.</summary>
+        protected virtual void OnMouseWheel (MouseEventArgs e) => MouseWheel?.Invoke (this, e);
+
+        /// <summary>Raised when the mouse wheel turns over this window.</summary>
+        public event MouseEventHandler? MouseWheel;
 
         internal void HandlePointerExited (MouseButtons buttons, int x, int y, Keys keys)
         {
@@ -802,6 +813,16 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether the window is resizable.</summary>
         public bool Resizeable { get; set; }
+
+        // Two more members a WinForms Form gets by inheriting Control, which this one cannot. Both read
+        // exactly as they do on Control -- ModifierKeys is static state shared by the whole app, and the
+        // cursor default is the arrow -- so they simply forward rather than duplicating anything.
+
+        /// <summary>Gets the modifier keys currently held down. Mirrors <see cref="Control.ModifierKeys"/>.</summary>
+        public static Keys ModifierKeys => Control.ModifierKeys;
+
+        /// <summary>Gets the cursor used when none is set. Mirrors <see cref="Control.DefaultCursor"/>.</summary>
+        protected virtual Cursor DefaultCursor => Cursor.Default;
 
         private System.Drawing.Size ScaledClientSize => new System.Drawing.Size (
             (int)(Backend.ClientSize.Width * Scaling),

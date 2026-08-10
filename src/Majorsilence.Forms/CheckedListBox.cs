@@ -134,6 +134,17 @@ namespace Majorsilence.Forms
             return _inner.Count - 1;
         }
 
+        /// <summary>Adds every item in <paramref name="items"/>, unchecked.</summary>
+        /// <remarks>What designer code and bulk-population code both reach for; without it each caller
+        /// has to write the loop, which is not what the WinForms collection requires.</remarks>
+        public void AddRange (System.Collections.IEnumerable items)
+        {
+            ArgumentNullException.ThrowIfNull (items);
+
+            foreach (var item in items)
+                _inner.Add (new CheckedListBoxItem (item, false));
+        }
+
         /// <summary>Adds an item with the specified initial check state.</summary>
         public int Add (object item, CheckState checkState)
         {
