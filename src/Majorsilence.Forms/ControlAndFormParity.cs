@@ -368,6 +368,11 @@ namespace Majorsilence.Forms
         public Task<T> InvokeAsync<T> (Func<T> callback, CancellationToken cancellationToken = default)
             => adapter.InvokeAsync (callback, cancellationToken);
 
+        /// <summary>Gets the form this window belongs to, which for a form is itself.</summary>
+        /// <remarks>Control.FindForm walks up until it reaches a Form; starting at one it returns
+        /// immediately. Declared here because Form does not derive from Control.</remarks>
+        public Form? FindForm () => this;
+
         /// <summary>Gets or sets whether the form supports per-pixel transparency.</summary>
         public bool AllowTransparency { get; set; }
 

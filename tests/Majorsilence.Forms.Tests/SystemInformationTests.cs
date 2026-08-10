@@ -113,19 +113,22 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void BorderSize_Get_ReturnsExpected ()
         {
-            Assert.Equal (1, SystemInformation.BorderSize);
+            // A Size, as System.Windows.Forms declares it -- callers read .Width/.Height to inset with.
+            Assert.Equal (new System.Drawing.Size (1, 1), SystemInformation.BorderSize);
         }
 
         [Fact]
         public void FixedFrameBorderSize_Get_ReturnsExpected ()
         {
-            Assert.Equal (3, SystemInformation.FixedFrameBorderSize);
+            // A Size, as System.Windows.Forms declares it -- callers read .Width/.Height to inset with.
+            Assert.Equal (new System.Drawing.Size (3, 3), SystemInformation.FixedFrameBorderSize);
         }
 
         [Fact]
         public void FrameBorderSize_Get_ReturnsExpected ()
         {
-            Assert.Equal (4, SystemInformation.FrameBorderSize);
+            // A Size, as System.Windows.Forms declares it -- callers read .Width/.Height to inset with.
+            Assert.Equal (new System.Drawing.Size (4, 4), SystemInformation.FrameBorderSize);
         }
 
         [Fact]

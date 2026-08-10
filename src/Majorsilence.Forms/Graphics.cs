@@ -574,6 +574,18 @@ namespace Majorsilence.Forms.Drawing
             Majorsilence.Forms.Drawing.Drawing2D.FillMode fillMode)
             => FillPolygon (brush, Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y)), fillMode);
 
+        /// <inheritdoc cref="FillPolygon(Majorsilence.Forms.Drawing.Brush, PointF[], Majorsilence.Forms.Drawing.Drawing2D.FillMode)"/>
+        /// <remarks>Span overload, as upstream has: points are commonly built on the stack, and a span
+        /// does not implicitly convert to the array the other overloads take.</remarks>
+        public void FillPolygon (Majorsilence.Forms.Drawing.Brush brush, ReadOnlySpan<PointF> points,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillMode = Majorsilence.Forms.Drawing.Drawing2D.FillMode.Alternate)
+            => FillPolygon (brush, points.ToArray (), fillMode);
+
+        /// <inheritdoc cref="FillPolygon(Majorsilence.Forms.Drawing.Brush, ReadOnlySpan{PointF}, Majorsilence.Forms.Drawing.Drawing2D.FillMode)"/>
+        public void FillPolygon (Majorsilence.Forms.Drawing.Brush brush, ReadOnlySpan<Point> points,
+            Majorsilence.Forms.Drawing.Drawing2D.FillMode fillMode = Majorsilence.Forms.Drawing.Drawing2D.FillMode.Alternate)
+            => FillPolygon (brush, points.ToArray (), fillMode);
+
         // -- curves --
 
         /// <inheritdoc cref="DrawCurve(Majorsilence.Forms.Drawing.Pen, PointF[])"/>

@@ -275,12 +275,19 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void SelectedItem_SetItemNotInList_ThrowsArgumentException ()
+        public void SelectedItem_SetItemNotInList_LeavesSelectionUnchanged ()
         {
             using var control = new ListBox ();
             control.Items.Add ("item1");
+            control.SelectedItem = "item1";
 
-            Assert.Throws<ArgumentException> (() => control.SelectedItem = "NoSuchItem");
+            // System.Windows.Forms only assigns when the lookup succeeds -- an item that is not in the
+            // list is ignored, not an error. A designer setting a value before the list is populated
+            // relies on that.
+            control.SelectedItem = "NoSuchItem";
+
+            Assert.Equal ("item1", control.SelectedItem);
+            Assert.Equal (0, control.SelectedIndex);
         }
 
         // ----- SelectionMode -----

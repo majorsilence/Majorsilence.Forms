@@ -80,8 +80,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets the screen size of the default cursor in pixels.</summary>
         public static Size CursorSize => new Size (32, 32);
 
-        /// <summary>Gets the width of the border drawn around a window border in pixels.</summary>
-        public static int BorderSize => 1;
+        /// <summary>Gets the thickness of the border drawn around a window, in pixels. A Size, as upstream:
+        /// callers read <c>.Width</c>/<c>.Height</c> off it to inset a client area.</summary>
+        public static Size BorderSize { get; } = new Size (1, 1);
 
         /// <summary>Gets whether the operating system is a network-enabled version.</summary>
         public static bool Network => true;
@@ -95,11 +96,11 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether the computer is running on battery power.</summary>
         public static PowerStatus PowerStatus => new PowerStatus ();
 
-        /// <summary>Gets the height of the border for a window without sizing capabilities.</summary>
-        public static int FixedFrameBorderSize => 3;
+        /// <summary>Gets the thickness of the frame border for a window without sizing capabilities.</summary>
+        public static Size FixedFrameBorderSize { get; } = new Size (3, 3);
 
         /// <summary>Gets the thickness of the frame border around a sizable window.</summary>
-        public static int FrameBorderSize => 4;
+        public static Size FrameBorderSize { get; } = new Size (4, 4);
 
         /// <summary>Gets the thickness of the sizing border around a sizable window.</summary>
         public static int SizingBorderWidth => 4;

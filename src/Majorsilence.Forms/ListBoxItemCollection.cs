@@ -198,12 +198,15 @@ namespace Majorsilence.Forms
                     return;
                 }
 
+                // An item that is not in the list is ignored, leaving the selection as it was --
+                // System.Windows.Forms only assigns when the lookup succeeds. Assigning a value the
+                // list does not (yet) hold is ordinary: a designer sets SelectedValue on a combo before
+                // its items are populated, and a bound editor writes back a value the current filter
+                // has excluded. Throwing turned both into a crash inside InitializeComponent.
                 var index = IndexOf (value);
 
-                if (index == -1)
-                    throw new ArgumentException ("Item is not part of this list");
-
-                SelectedIndex = index;
+                if (index != -1)
+                    SelectedIndex = index;
             }
         }
 

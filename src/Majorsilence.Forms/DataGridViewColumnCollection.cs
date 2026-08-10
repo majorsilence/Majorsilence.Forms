@@ -7,6 +7,15 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class DataGridViewColumnCollection : Collection<DataGridViewColumn>
     {
+        /// <summary>Adds a column and returns its index.</summary>
+        /// <remarks>System.Windows.Forms returns the new column's index here, and callers use it to
+        /// address the cell they just created; Collection&lt;T&gt;.Add returns void, so this hides it.</remarks>
+        public new int Add (DataGridViewColumn column)
+        {
+            base.Add (column);
+            return Count - 1;
+        }
+
         /// <summary>Moves a column to a new display position. Mirrors Telerik's Columns.Move.</summary>
         public void Move (int fromIndex, int toIndex)
         {
