@@ -156,4 +156,5 @@ A list of projects that have been forked to exercise majorsilence.forms winforms
 - https://github.com/majorsilence/ArdeshirV.Forms
 - https://github.com/majorsilence/KaomojiKeyboard
 - https://github.com/majorsilence/C-Flappy-Bird-Game-Windows-Form
+- https://github.com/majorsilence/RibbonWinForms
 
