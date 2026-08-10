@@ -90,6 +90,13 @@ namespace Majorsilence.Forms
         public bool GetStyle (ControlStyles flag) => (control_styles & flag) == flag;
 
         /// <summary>
+        /// Notifies the control of Windows messages. Declared so a form that overrides it compiles;
+        /// never called, because there is no Win32 message pump here (the same documented non-goal as
+        /// WndProc and the IMessageFilter surface).
+        /// </summary>
+        protected virtual void OnNotifyMessage (Message m) { }
+
+        /// <summary>
         /// Gets or sets whether the control redraws itself whenever it is resized. The named shorthand
         /// for <see cref="ControlStyles.ResizeRedraw"/>, which is how a custom-painted control asks for
         /// a full repaint instead of only the newly-exposed strip; owner-drawn controls set it in their

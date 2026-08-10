@@ -215,7 +215,7 @@ public partial class Control
     /// <summary>
     /// Raised when the control performs a layout.
     /// </summary>
-    public event EventHandler<LayoutEventArgs>? Layout {
+    public event LayoutEventHandler? Layout {
         add => Events.AddHandler (s_layoutEvent, value);
         remove => Events.RemoveHandler (s_layoutEvent, value);
     }

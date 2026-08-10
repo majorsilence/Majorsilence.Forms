@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -10,6 +10,10 @@ namespace Majorsilence.Forms
     public class KeyPressEventArgs : EventArgs
     {
         private readonly Keys key_data;
+
+        /// <summary>Initializes the args from a single character, as System.Windows.Forms does.</summary>
+        public KeyPressEventArgs (char keyChar, Keys keyData = Keys.None)
+            : this (keyChar.ToString (), keyData) { }
 
         /// <summary>
         ///  Initializes a new instance of the KeyPressEventArgs class.

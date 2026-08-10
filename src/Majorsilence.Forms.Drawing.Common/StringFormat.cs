@@ -98,7 +98,7 @@ namespace Majorsilence.Forms.Drawing
         public StringTrimming Trimming { get; set; } = StringTrimming.Character;
 
         /// <summary>Gets or sets the type of hotkey prefix processing.</summary>
-        public HotkeyPrefix HotkeyPrefix { get; set; } = HotkeyPrefix.None;
+        public Majorsilence.Forms.Drawing.Text.HotkeyPrefix HotkeyPrefix { get; set; } = Majorsilence.Forms.Drawing.Text.HotkeyPrefix.None;
 
         /// <summary>Creates an exact copy of this StringFormat.</summary>
         public object Clone () => new StringFormat (this);
@@ -164,14 +164,6 @@ namespace Majorsilence.Forms.Drawing
         MeasureTrailingSpaces = 0x800,
     }
 
-    /// <summary>Specifies how to process the hotkey prefix in text. Matches System.Drawing.Text.HotkeyPrefix.</summary>
-    public enum HotkeyPrefix
-    {
-        /// <summary>No hotkey prefix processing.</summary>
-        None = 0,
-        /// <summary>Display the hotkey prefix (underline the following character).</summary>
-        Show = 1,
-        /// <summary>Do not display the hotkey prefix.</summary>
-        Hide = 2
-    }
+    // HotkeyPrefix is declared in Majorsilence.Forms.Drawing.Text, where System.Drawing puts it.
+    // A second copy here made the name ambiguous for any file importing both namespaces.
 }

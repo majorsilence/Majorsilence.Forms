@@ -133,6 +133,15 @@ internal static class SourceConverter
         foreach (var (_, to, pattern) in PrefixRules)
             text = pattern.Replace(text, to);
 
+        // 1b. A file that DECLARED a namespace under System (a library extending System.Windows.Forms with
+        //     its own controls does exactly this) reached System.IntPtr, System.EventHandler, System.Type
+        //     and friends through namespace nesting, with no `using System;` anywhere in the file. Moving
+        //     the declaration to Majorsilence.Forms takes that scope away, and the file stops compiling on
+        //     names that have nothing to do with WinForms. Restore it explicitly. Only System is added:
+        //     the intermediate ancestors (System.Windows, say) may have no referenced assembly, so a using
+        //     for one would be an error in its own right.
+        text = RestoreSystemScope(original, text, language);
+
         // 1a. User-supplied namespace rewrites (e.g. Telerik -> Majorsilence.Forms.Telerik). Same boundary
         //     rules as the built-ins; longest-first ordering is guaranteed by CustomMap.Load.
         foreach (var (from, to) in (customMap ?? CustomMap.Empty).Namespaces)
@@ -250,9 +259,25 @@ internal static class SourceConverter
         //     System.Resources.ResourceManager is an ordinary BCL type that hand-written code uses for
         //     plain string lookups, and that code should keep the real one.
         if (text.Contains("StronglyTypedResourceBuilder", StringComparison.Ordinal))
+        {
             text = Regex.Replace(text,
                 @"(?<![\w.])System\.Resources\.ResourceManager\b",
                 "Majorsilence.Forms.ComponentResourceManager");
+
+            // The generator emits the name unqualified when it also emits `using System.Resources;`,
+            // which the rewrite above cannot see. An alias catches every use without editing generated
+            // code -- and it has to be caught: the designer casts what the manager returns to the
+            // migrated Bitmap type, so the stock ResourceManager hands back a System.Drawing.Bitmap and
+            // every image property throws InvalidCastException at run time, not compile time.
+            if (Regex.IsMatch(text, @"(?m)^[ \t]*using[ \t]+System\.Resources[ \t]*;")
+                && !Regex.IsMatch(text, @"(?m)^[ \t]*using[ \t]+ResourceManager[ \t]*="))
+            {
+                text = Regex.Replace(text,
+                    @"(?m)^([ \t]*)using([ \t]+)System\.Resources[ \t]*;",
+                    "$1using$2System.Resources;\n$1using ResourceManager = Majorsilence.Forms.ComponentResourceManager;",
+                    RegexOptions.None);
+            }
+        }
 
         // 7. Visual Basic specifics. With MyType=Empty there is no implicit WinForms constructor, so
         //    inject the explicit one each form needs; then flag the 'My' framework and Windows-only types
@@ -522,7 +547,7 @@ internal static class SourceConverter
         var needsSystemDrawing = NamespaceMap.DrawingPrimitives.Any(p => UsedUnqualified(text, p));
         var usesGdiPlus = NamespaceMap.MajorsilenceDrawingTypes.Any(t => UsedUnqualified(text, t));
         var companionPresent = Regex.IsMatch(text,
-            @"(?m)^[ \t]*(using|Imports)[ \t]+Majorsilence\.Drawing[ \t]*;?[ \t]*$");
+            $@"(?m)^[ \t]*(using|Imports)[ \t]+{Regex.Escape (NamespaceMap.DrawingTarget)}[ \t]*;?[ \t]*$");
 
         var indent = match.Groups["indent"].Value;
         var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
@@ -609,6 +634,48 @@ internal static class SourceConverter
 
         return text[..(anchor.Index + anchor.Length)] + newline + string.Join(newline, aliases)
             + text[(anchor.Index + anchor.Length)..];
+    }
+
+    // A namespace declaration, block or file-scoped, C# or VB.
+    private static readonly Regex NamespaceDeclaration =
+        new(@"(?m)^[ \t]*(namespace|Namespace)[ \t]+(?<name>[\w.]+)", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Adds <c>using System;</c> when the file's own namespace declaration has just been moved out from
+    /// under <c>System</c>, restoring the implicit access to it that nesting used to provide.
+    /// </summary>
+    private static string RestoreSystemScope(string original, string text, SourceLanguage language)
+    {
+        var declared = NamespaceDeclaration.Match(original);
+        if (!declared.Success)
+            return text;
+
+        var name = declared.Groups["name"].Value;
+        if (name != "System" && !name.StartsWith("System.", StringComparison.Ordinal))
+            return text;
+
+        // Still under System after the rewrite (nothing mapped it) -- the scope was never lost.
+        var rewritten = NamespaceDeclaration.Match(text);
+        if (rewritten.Success && rewritten.Groups["name"].Value is var now
+            && (now == "System" || now.StartsWith("System.", StringComparison.Ordinal)))
+            return text;
+
+        var keyword = language == SourceLanguage.VisualBasic ? "Imports" : "using";
+        if (Regex.IsMatch(text, $@"(?m)^[ \t]*{keyword}[ \t]+System[ \t]*;?[ \t]*$"))
+            return text;
+
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var line = language == SourceLanguage.VisualBasic ? "Imports System" : "using System;";
+
+        // After the existing imports when there are any, otherwise straight above the declaration.
+        var anchor = LastImportLine(text);
+        if (anchor is not null)
+            return text[..(anchor.Index + anchor.Length)] + newline + line + text[(anchor.Index + anchor.Length)..];
+
+        var at = NamespaceDeclaration.Match(text);
+        return at.Success
+            ? text[..at.Index] + line + newline + newline + text[at.Index..]
+            : line + newline + text;
     }
 
     // Any top-level import line, C# or VB. A file-scoped `namespace X;` and any attribute or type

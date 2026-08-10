@@ -16,6 +16,10 @@ namespace Majorsilence.Forms.Drawing
     {
         private readonly Control? _control;
         private readonly SKCanvas? _canvas;
+
+        // The surface this Graphics draws onto. Exposed to the Forms layer so PaintEventArgs can be
+        // built from a Graphics, which is the shape WinForms code constructs it in.
+        internal SKCanvas? Canvas => _canvas;
         private readonly bool _ownsCanvas;
 
         // The image FromImage was created over, if any. An SKCanvas does NOT keep its backing SKBitmap
@@ -874,8 +878,29 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Intersects the clipping region with the given rectangle. Stub in Majorsilence.Forms.</summary>
         public void IntersectClip (RectangleF rect) => SetClip (rect);
 
-        /// <summary>Gets or sets the clipping region. Stub in Majorsilence.Forms — always null.</summary>
-        public Majorsilence.Forms.Drawing.Region? Clip { get => null; set { } }
+        /// <summary>Gets or sets the clipping region.</summary>
+        /// <remarks>
+        /// Never null, as in System.Drawing: an unclipped surface reports an infinite region. It used to
+        /// return null, which broke the standard save-and-restore idiom that custom painting is built on
+        /// -- <c>var saved = g.Clip; g.SetClip(...); ...; g.Clip = saved;</c>. Combining against the null
+        /// threw, and because that kind of drawing code often sits inside a broad catch, the rest of the
+        /// paint was silently abandoned rather than reported: a control that drew its first few pieces
+        /// and then simply stopped.
+        /// </remarks>
+        public Majorsilence.Forms.Drawing.Region Clip {
+            get => _clip ??= (_canvas is { } c && !c.LocalClipBounds.IsEmpty
+                ? new Majorsilence.Forms.Drawing.Region (Rectangle.Round (new RectangleF (
+                    c.LocalClipBounds.Left, c.LocalClipBounds.Top, c.LocalClipBounds.Width, c.LocalClipBounds.Height)))
+                : new Majorsilence.Forms.Drawing.Region ());
+            set {
+                _clip = value;
+
+                if (value is not null)
+                    SetClip (Rectangle.Round (value.GetBounds (this)));
+            }
+        }
+
+        private Majorsilence.Forms.Drawing.Region? _clip;
 
         /// <summary>Excludes a rectangle from the clipping region. Stub in Majorsilence.Forms.</summary>
         public void ExcludeClip (Rectangle rect) { }

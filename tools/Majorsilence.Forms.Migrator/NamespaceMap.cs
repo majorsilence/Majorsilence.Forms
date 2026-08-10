@@ -60,6 +60,10 @@ internal static class NamespaceMap
         ("System.Drawing.Drawing2D", "Majorsilence.Forms.Drawing.Drawing2D"),
         ("System.Drawing.Imaging", "Majorsilence.Forms.Drawing.Imaging"),
         ("System.Drawing.Text", "Majorsilence.Forms.Drawing.Text"),
+        ("System.Windows.Forms.VisualStyles", "Majorsilence.Forms.VisualStyles"),
+        ("System.Windows.Forms.Design", "Majorsilence.Forms.Design"),
+        ("System.ComponentModel.Design", "Majorsilence.Forms.Design"),
+        ("System.Drawing.Design", "Majorsilence.Forms.Design"),
         ("System.Drawing.Printing", "Majorsilence.Forms.Printing"),
         ("System.Windows.Forms", "Majorsilence.Forms"),
     ];
@@ -110,9 +114,6 @@ internal static class NamespaceMap
     /// </summary>
     public static readonly string[] UnsupportedNamespaces =
     [
-        "System.Windows.Forms.VisualStyles",
-        "System.Drawing.Design",
-        "System.ComponentModel.Design",
         "Telerik.WinControls.Themes",
         "Telerik.WinControls.Design",
         "Telerik.WinControls.Primitives",

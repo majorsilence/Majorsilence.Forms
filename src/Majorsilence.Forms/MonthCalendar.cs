@@ -175,10 +175,10 @@ namespace Majorsilence.Forms
         public Color TrailingForeColor { get; set; } = Color.Empty;
 
         /// <summary>Raised when the selected date changes.</summary>
-        public event EventHandler<DateRangeEventArgs>? DateChanged;
+        public event DateRangeEventHandler? DateChanged;
 
         /// <summary>Raised when the user makes a selection.</summary>
-        public event EventHandler<DateRangeEventArgs>? DateSelected { add { } remove { } }
+        public event DateRangeEventHandler? DateSelected { add { } remove { } }
 
         /// <summary>
         /// Sets <paramref name="date"/> as the current selected date. The start and end of

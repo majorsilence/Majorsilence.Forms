@@ -586,6 +586,18 @@ namespace Majorsilence.Forms
             OnMouseWheel (ev);
         }
 
+        /// <summary>Raised when the window's Text changes. Mirrors Control.TextChanged.</summary>
+        public event EventHandler? TextChanged;
+
+        /// <summary>Raises the <see cref="TextChanged"/> event.</summary>
+        protected virtual void OnTextChanged (EventArgs e) => TextChanged?.Invoke (this, e);
+
+        /// <summary>Raised when the window lays out its children. Mirrors Control.Layout.</summary>
+        public event LayoutEventHandler? Layout {
+            add => adapter.Layout += value;
+            remove => adapter.Layout -= value;
+        }
+
         /// <summary>Raises the <see cref="MouseWheel"/> event.</summary>
         protected virtual void OnMouseWheel (MouseEventArgs e) => MouseWheel?.Invoke (this, e);
 
@@ -823,6 +835,13 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the cursor used when none is set. Mirrors <see cref="Control.DefaultCursor"/>.</summary>
         protected virtual Cursor DefaultCursor => Cursor.Default;
+
+        /// <summary>
+        /// Notifies the window of Windows messages. Declared so a form that overrides it compiles; never
+        /// called, because there is no Win32 message pump here. Present on both Control and WindowBase
+        /// because a Form does not inherit from Control -- and a form is the usual thing to override it on.
+        /// </summary>
+        protected virtual void OnNotifyMessage (Message m) { }
 
         /// <summary>Gets the pointer position in screen coordinates. Mirrors <see cref="Control.MousePosition"/>.</summary>
         public static System.Drawing.Point MousePosition => Control.MousePosition;
