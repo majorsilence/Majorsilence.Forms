@@ -1835,16 +1835,24 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents the collection of items in a ToolStrip.</summary>
-    public partial class ToolStripItemCollection : Collection<ToolStripItem>
+    /// <remarks>
+    /// The element type is <see cref="MenuItem"/> rather than <see cref="ToolStripItem"/>, which is what
+    /// these collections really hold: a menu mixes ToolStripItems with plain MenuItems and separators
+    /// (see <c>MenuItemCollection.Add(string, ...)</c> and the spell-check context menu). That is also
+    /// what lets <see cref="MenuItemCollection"/> derive from this type, so the single collection a menu
+    /// owns satisfies both names -- upstream types every strip's <c>Items</c> as this one, and code
+    /// written against WinForms passes it around accordingly.
+    /// </remarks>
+    public partial class ToolStripItemCollection : Collection<MenuItem>
     {
         /// <summary>Invoked when an item is added (lets the owning ToolStrip raise ItemAdded).</summary>
-        internal Action<ToolStripItem>? ItemAddedCallback;
+        internal Action<MenuItem>? ItemAddedCallback;
 
         /// <summary>Invoked when an item is removed (lets the owning ToolStrip unmirror it).</summary>
-        internal Action<ToolStripItem>? ItemRemovedCallback;
+        internal Action<MenuItem>? ItemRemovedCallback;
 
         /// <inheritdoc/>
-        protected override void InsertItem (int index, ToolStripItem item)
+        protected override void InsertItem (int index, MenuItem item)
         {
             base.InsertItem (index, item);
             ItemAddedCallback?.Invoke (item);
@@ -1868,7 +1876,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void SetItem (int index, ToolStripItem item)
+        protected override void SetItem (int index, MenuItem item)
         {
             var old = this[index];
             base.SetItem (index, item);
@@ -2055,9 +2063,16 @@ namespace Majorsilence.Forms
             return new ToolStripItemCollection {
                 ItemAddedCallback = item => {
                     base_items.Add (item);
-                    item.Click += (_, _) => ItemClicked?.Invoke (this, new ToolStripItemClickedEventArgs (item));
-                    Renderer?.InitializeItem (item);
-                    ItemAdded?.Invoke (this, new ToolStripItemEventArgs (item));
+
+                    // ItemClicked/ItemAdded and the renderer hook are all typed on ToolStripItem
+                    // upstream. A collection may also hold plain MenuItems and separators, which still
+                    // belong in the strip -- they just have no ToolStripItem-shaped event to raise.
+                    if (item is not ToolStripItem stripItem)
+                        return;
+
+                    stripItem.Click += (_, _) => ItemClicked?.Invoke (this, new ToolStripItemClickedEventArgs (stripItem));
+                    Renderer?.InitializeItem (stripItem);
+                    ItemAdded?.Invoke (this, new ToolStripItemEventArgs (stripItem));
                 },
                 ItemRemovedCallback = item => base_items.Remove (item),
             };

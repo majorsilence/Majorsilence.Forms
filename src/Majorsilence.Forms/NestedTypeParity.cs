@@ -527,7 +527,9 @@ namespace Majorsilence.Forms
             /// <inheritdoc/>
             public override AccessibleObject? GetChild (int index)
                 => Owner is ToolStrip strip && index >= 0 && index < strip.Items.Count
-                    ? strip.Items[index].AccessibilityObject
+                    // AccessibilityObject is a ToolStripItem member; a plain MenuItem in the strip has
+                    // none to expose.
+                    ? (strip.Items[index] as ToolStripItem)?.AccessibilityObject
                     : null;
 
             /// <inheritdoc/>

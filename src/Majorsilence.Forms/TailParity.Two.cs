@@ -33,7 +33,8 @@ namespace Majorsilence.Forms
                 return -1;
 
             for (var i = 0; i < Count; i++)
-                if (string.Equals (this[i].Name, key, StringComparison.OrdinalIgnoreCase))
+                if (this[i] is ToolStripItem item
+                    && string.Equals (item.Name, key, StringComparison.OrdinalIgnoreCase))
                     return i;
 
             return -1;
