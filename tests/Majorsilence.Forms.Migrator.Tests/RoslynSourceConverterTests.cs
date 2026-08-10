@@ -164,6 +164,7 @@ public class RoslynSourceConverterTests : IDisposable
     [InlineData ("Font")]
     [InlineData ("Pen")]
     [InlineData ("SolidBrush")]
+    [InlineData ("Graphics")]
     public void Redirects_GDI_plus_types_to_Majorsilence_Drawing (string gdiType)
     {
         var result = Convert ($"class F {{ System.Drawing.{gdiType} X; }}\n");
@@ -171,7 +172,6 @@ public class RoslynSourceConverterTests : IDisposable
     }
 
     [Theory]
-    [InlineData ("Graphics")]
     [InlineData ("SystemColors")]
     public void Redirects_WinForms_compat_drawing_types_to_Majorsilence_Forms (string type)
     {

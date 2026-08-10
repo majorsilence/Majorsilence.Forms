@@ -246,7 +246,13 @@ because they depend on the Forms layer and would otherwise form a circular proje
 `NrbfResourceReader.cs` (materialises `ImageListStreamer`). Each carries a header comment saying so.
 The drawing project grants `InternalsVisibleTo` to `Majorsilence.Forms` so those four can keep using
 the SkiaSharp interop seam (`CreatePaint`, `GetSKBitmap`, `ToSKPath`, `ImageAttributes.ToSKColorFilter`,
-...) without that seam becoming public API.
+...) without that seam becoming public API. They are *namespaced* `Majorsilence.Forms.Drawing`
+regardless of which project builds them — assembly and namespace are separate choices, and only the
+assembly is constrained by the cycle. `Graphics` moved into that namespace on 2026-08-10, having been
+the one `System.Drawing` type sitting in `Majorsilence.Forms`; that exception was what forced the
+migrator to special-case the name, and a file that drew without naming a control type never imported
+`Majorsilence.Forms`, so the name fell through to the type-forwarded (unreferenced) `System.Drawing.Graphics`
+and failed with CS1069.
 
 Two font-related root files also stay, for a different reason. `SystemFonts.cs` builds its fonts from
 `Theme`, so it hits the same cycle. `CachingFontMapper.cs` has no cycle and *could* move, but installs

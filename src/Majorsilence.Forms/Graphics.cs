@@ -6,7 +6,7 @@ using SkiaSharp;
 
 #pragma warning disable CA1416  // WinForms compat layer — intentionally uses Windows-only System.Drawing APIs
 
-namespace Majorsilence.Forms
+namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
     /// WinForms compatibility: wraps an <see cref="SKCanvas"/> to provide a GDI-like drawing surface.
@@ -1685,6 +1685,10 @@ namespace Majorsilence.Forms
         }
     }
 
+}
+
+namespace Majorsilence.Forms
+{
     public partial class Control
     {
         /// <summary>

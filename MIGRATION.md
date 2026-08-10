@@ -269,9 +269,10 @@ similar Windows-only types that would otherwise be silent compile breaks.
 ### Ambiguous names: `SystemColors` and `ColorTranslator`
 
 Most of `System.Drawing` lives in the Windows-only `System.Drawing.Common`, which a migrated project
-stops referencing — so once `Graphics`, `SystemBrushes`, `SystemPens`, `SystemFonts` and
-`ContentAlignment` are redirected to `Majorsilence.Forms`, the `System.Drawing` name is simply gone and
-there is nothing to collide with.
+stops referencing — so once `SystemBrushes`, `SystemPens`, `SystemFonts` and `ContentAlignment` are
+redirected to `Majorsilence.Forms` (and `Graphics`, with the rest of GDI+, to
+`Majorsilence.Forms.Drawing`), the `System.Drawing` name is simply gone and there is nothing to collide
+with.
 
 `SystemColors` and `ColorTranslator` are the exceptions: they ship in `System.Drawing.Primitives`, part
 of the shared framework, so they are *still* resolvable through the `using System.Drawing;` the migration

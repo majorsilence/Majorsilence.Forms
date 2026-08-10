@@ -147,7 +147,7 @@ namespace Majorsilence.Forms.Tests
         {
             public int Starts, Pages, Ends;
             public override void OnStartPrint (PrintDocument d, PrintEventArgs e) => Starts++;
-            public override Majorsilence.Forms.Graphics? OnStartPage (PrintDocument d, PrintPageEventArgs e)
+            public override Majorsilence.Forms.Drawing.Graphics? OnStartPage (PrintDocument d, PrintPageEventArgs e)
             {
                 Pages++;
                 return null;

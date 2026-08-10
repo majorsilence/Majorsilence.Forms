@@ -6,5 +6,6 @@
 global using Bitmap = Majorsilence.Forms.Drawing.Bitmap;
 global using Font = Majorsilence.Forms.Drawing.Font;
 global using FontStyle = Majorsilence.Forms.Drawing.FontStyle;
+global using Graphics = Majorsilence.Forms.Drawing.Graphics;
 global using Icon = Majorsilence.Forms.Drawing.Icon;
 global using Image = Majorsilence.Forms.Drawing.Image;

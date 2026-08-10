@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using SkiaSharp;
 
 namespace Majorsilence.Forms
@@ -167,7 +167,7 @@ namespace Majorsilence.Forms
                 e.Canvas.FillCircle (origin.X, origin.Y, inner_radius, disabled ? Theme.ForegroundDisabledColor : Theme.AccentColor2);
         }
 
-        // --- WinForms compatibility overloads taking Majorsilence.Forms.Graphics ---
+        // --- WinForms compatibility overloads taking Majorsilence.Forms.Drawing.Graphics ---
 
         /// <summary>Draws a focus rectangle on the given graphics surface.</summary>
         public static void DrawFocusRectangle (Graphics graphics, Rectangle rectangle)

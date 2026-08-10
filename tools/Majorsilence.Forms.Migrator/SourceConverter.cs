@@ -568,13 +568,19 @@ internal static class SourceConverter
     // leaves the code reading exactly as it did before the migration.
     private static string AddAmbiguityAliases(string text)
     {
-        // No System.Drawing import left means only one candidate for the name — nothing to disambiguate.
+        // Anchor on the kept `using System.Drawing;` when there is one, so the alias reads as the
+        // correction to it. When there isn't, the alias is still needed and often *more* so: the import
+        // pass replaces `using System.Drawing;` with the Majorsilence.Forms.Drawing companion in a file
+        // that uses GDI+ types, which leaves a name like SystemBrushes -- reimplemented under
+        // Majorsilence.Forms, not .Drawing -- with no candidate at all (CS0103) in a file that never
+        // needed to import the control namespace. Fall back to the last import line in that case.
         var match = BareDrawingImport.Match(text);
-        if (!match.Success)
+        var anchor = match.Success ? match : LastImportLine(text);
+        if (anchor is null)
             return text;
 
-        var kw = match.Groups["kw"].Value;
-        var indent = match.Groups["indent"].Value;
+        var kw = anchor.Groups["kw"].Success ? anchor.Groups["kw"].Value : "using";
+        var indent = anchor.Groups["indent"].Success ? anchor.Groups["indent"].Value : "";
         var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
 
         var aliases = new List<string>();
@@ -601,8 +607,23 @@ internal static class SourceConverter
         if (aliases.Count == 0)
             return text;
 
-        return text[..(match.Index + match.Length)] + newline + string.Join(newline, aliases)
-            + text[(match.Index + match.Length)..];
+        return text[..(anchor.Index + anchor.Length)] + newline + string.Join(newline, aliases)
+            + text[(anchor.Index + anchor.Length)..];
+    }
+
+    // Any top-level import line, C# or VB. A file-scoped `namespace X;` and any attribute or type
+    // declaration come after these, so the last match is the end of the import block.
+    private static readonly Regex ImportLine =
+        new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+[^\r\n=]+;?[ \t]*$", RegexOptions.Compiled);
+
+    // The last import line in the file, or null when it has none to hang an alias off.
+    private static Match? LastImportLine(string text)
+    {
+        Match? last = null;
+        foreach (Match m in ImportLine.Matches(text))
+            last = m;
+
+        return last;
     }
 
     // A type name used unqualified (a whole word not preceded by '.' or another identifier char), i.e. one

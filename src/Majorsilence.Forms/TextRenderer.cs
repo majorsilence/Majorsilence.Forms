@@ -62,7 +62,7 @@ namespace Majorsilence.Forms
         /// <summary>Measures text using a Majorsilence.Forms.Drawing.Font. Delegates to SKTypeface approximation.</summary>
         /// <summary>Measures text drawn with the given font. Mirrors the WinForms overload that takes
         /// a device context; measurement here is device-independent so the Graphics is not consulted.</summary>
-        public static Size MeasureText (Majorsilence.Forms.Graphics g, string text, Majorsilence.Forms.Drawing.Font font)
+        public static Size MeasureText (Majorsilence.Forms.Drawing.Graphics g, string text, Majorsilence.Forms.Drawing.Font font)
             => MeasureText (text, font);
 
         /// <summary>Measures text drawn with the given font.</summary>

@@ -42,6 +42,7 @@ public class SourceConverterTests
     [InlineData ("Pen")]
     [InlineData ("SolidBrush")]
     [InlineData ("Icon")]
+    [InlineData ("Graphics")]
     [InlineData ("Brushes")]
     [InlineData ("Pens")]
     [InlineData ("TextureBrush")]
@@ -62,7 +63,6 @@ public class SourceConverterTests
     }
 
     [Theory]
-    [InlineData ("Graphics")]
     [InlineData ("ContentAlignment")]
     [InlineData ("SystemColors")]
     [InlineData ("SystemFonts")]

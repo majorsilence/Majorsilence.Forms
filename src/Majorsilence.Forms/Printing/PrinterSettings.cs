@@ -132,20 +132,20 @@ namespace Majorsilence.Forms.Printing
         public PrinterResolutionCollection PrinterResolutions { get; } = new ([new PrinterResolution ()]);
 
         /// <summary>
-        /// Creates a <see cref="Majorsilence.Forms.Graphics"/> for measuring against this printer's
+        /// Creates a <see cref="Majorsilence.Forms.Drawing.Graphics"/> for measuring against this printer's
         /// page, backed by an offscreen surface at the default page settings' DPI.
         /// </summary>
-        public Majorsilence.Forms.Graphics CreateMeasurementGraphics ()
+        public Majorsilence.Forms.Drawing.Graphics CreateMeasurementGraphics ()
         {
             var bounds = DefaultPageSettings.Bounds;
             var scale = DefaultPageSettings.Dpi / 100f;   // Bounds are hundredths of an inch.
             var width = Math.Max (1, (int)(bounds.Width * scale));
             var height = Math.Max (1, (int)(bounds.Height * scale));
-            return Majorsilence.Forms.Graphics.FromImage (new Majorsilence.Forms.Drawing.Bitmap (width, height));
+            return Majorsilence.Forms.Drawing.Graphics.FromImage (new Majorsilence.Forms.Drawing.Bitmap (width, height));
         }
 
         /// <inheritdoc cref="CreateMeasurementGraphics()"/>
-        public Majorsilence.Forms.Graphics CreateMeasurementGraphics (PageSettings pageSettings) => CreateMeasurementGraphics ();
+        public Majorsilence.Forms.Drawing.Graphics CreateMeasurementGraphics (PageSettings pageSettings) => CreateMeasurementGraphics ();
 
 
         // Nested, matching System.Drawing: these are PrinterSettings.PaperSizeCollection and friends in
@@ -181,10 +181,10 @@ namespace Majorsilence.Forms.Printing
 
         /// <inheritdoc cref="CreateMeasurementGraphics()"/>
         /// <param name="honorOriginAtMargins">Accepted for API compatibility; the surface always starts at the page origin.</param>
-        public Majorsilence.Forms.Graphics CreateMeasurementGraphics (bool honorOriginAtMargins) => CreateMeasurementGraphics ();
+        public Majorsilence.Forms.Drawing.Graphics CreateMeasurementGraphics (bool honorOriginAtMargins) => CreateMeasurementGraphics ();
 
         /// <inheritdoc cref="CreateMeasurementGraphics(bool)"/>
-        public Majorsilence.Forms.Graphics CreateMeasurementGraphics (PageSettings pageSettings, bool honorOriginAtMargins)
+        public Majorsilence.Forms.Drawing.Graphics CreateMeasurementGraphics (PageSettings pageSettings, bool honorOriginAtMargins)
             => CreateMeasurementGraphics ();
 
         /// <summary>Creates an independent copy of these settings.</summary>

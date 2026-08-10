@@ -91,7 +91,7 @@ internal static class NamespaceMap
     public static readonly HashSet<string> MajorsilenceDrawingTypes = new(StringComparer.Ordinal)
     {
         "Bitmap", "Brush", "Brushes", "CompositingMode", "CompositingQuality", "DashStyle", "FillMode",
-        "Font", "FontFamily", "FontStyle", "GraphicsPath", "GraphicsState", "GraphicsUnit",
+        "Font", "FontFamily", "FontStyle", "Graphics", "GraphicsPath", "GraphicsState", "GraphicsUnit",
         "HatchBrush", "HatchStyle", "HotkeyPrefix", "Icon", "Image", "ImageFormat",
         "ImageLockMode", "InterpolationMode", "LinearGradientBrush", "LineCap", "LineJoin",
         "Matrix", "MatrixOrder", "Pen", "Pens", "PixelFormat", "PixelOffsetMode",
@@ -164,7 +164,7 @@ internal static class NamespaceMap
     /// </summary>
     public static readonly HashSet<string> MajorsilenceFormsTypes = new(StringComparer.Ordinal)
     {
-        "Graphics", "ContentAlignment", "ColorTranslator",
+        "ContentAlignment", "ColorTranslator",
         "SystemColors", "SystemBrushes", "SystemPens", "SystemFonts",
     };
 
@@ -176,7 +176,7 @@ internal static class NamespaceMap
     /// <item><c>SystemColors</c> and <c>ColorTranslator</c> also ship in <c>System.Drawing.Primitives</c>,
     /// which a migrated project still references. Used unqualified they bind to two candidates at once —
     /// <c>System.Drawing.X</c> and <c>Majorsilence.Forms.X</c> — and the file fails with CS0104.</item>
-    /// <item>The rest (<c>Graphics</c>, <c>ContentAlignment</c>, <c>SystemBrushes</c>, <c>SystemPens</c>,
+    /// <item>The rest (<c>ContentAlignment</c>, <c>SystemBrushes</c>, <c>SystemPens</c>,
     /// <c>SystemFonts</c>) is type-forwarded to the Windows-only <c>System.Drawing.Common</c>, which a
     /// migrated project drops. That looks safe — one candidate, no ambiguity — but only if the file also
     /// imports <c>Majorsilence.Forms</c>, and a file that draws without naming a single control type never
