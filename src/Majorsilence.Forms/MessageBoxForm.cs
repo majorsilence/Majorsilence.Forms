@@ -37,6 +37,11 @@ namespace Majorsilence.Forms
             });
 
             AddButtons (MessageBoxButtons.OK);
+
+            // Re-centre whenever the panel itself is resized. The form's own resize is too early: the
+            // docked panel has not been given its final width by then, so centring against it put the
+            // buttons well left of centre.
+            button_panel.SizeChanged += (_, _) => CenterButtons ();
         }
 
         /// <summary>
@@ -100,7 +105,10 @@ namespace Majorsilence.Forms
         // left edge, so the message box showed its text and no buttons at all.
         private void CenterButtons ()
         {
-            var buttons = button_panel.Controls.GetAllControls ().ToList ();
+            // Buttons only: GetAllControls also yields the panel's implicit chrome -- its scrollbars --
+            // which were being counted into the total width and, worse, repositioned along with the
+            // buttons. That is what left them sitting well left of centre.
+            var buttons = button_panel.Controls.GetAllControls ().OfType<Button> ().ToList ();
             if (buttons.Count == 0 || button_panel.Width <= 0)
                 return;
 
@@ -113,12 +121,6 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <inheritdoc/>
-        protected override void OnResize (EventArgs e)
-        {
-            base.OnResize (e);
-            CenterButtons ();
-        }
 
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (400, 200);
