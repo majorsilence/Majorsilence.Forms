@@ -70,7 +70,7 @@ namespace Majorsilence.Forms
 
             if (this is Form f) {
                 var args = new System.ComponentModel.CancelEventArgs ();
-                f.OnClosing (args);
+                f.RaiseClosing (args);
                 return args.Cancel;
             }
 
@@ -144,7 +144,7 @@ namespace Majorsilence.Forms
             if (this is Form f) {
                 var args = new System.ComponentModel.CancelEventArgs ();
 
-                f.OnClosing (args);
+                f.RaiseClosing (args);
 
                 if (args.Cancel)
                     return;
@@ -213,8 +213,37 @@ namespace Majorsilence.Forms
                 enabled = value;
                 if (Backend is not null)
                     Backend.Enabled = value;
-                EnabledChanged?.Invoke (this, EventArgs.Empty);
+                OnEnabledChanged (EventArgs.Empty);
             }
+        }
+
+        /// <summary>Raises the EnabledChanged event.</summary>
+        /// <remarks>
+        /// Control declares this as a protected virtual and ported window code overrides it (to repaint
+        /// disabled chrome, typically); it is declared here because a window is not a Control.
+        /// </remarks>
+        protected virtual void OnEnabledChanged (EventArgs e) => EnabledChanged?.Invoke (this, e);
+
+        /// <summary>
+        /// Sets the window's bounds, honouring which components <paramref name="specified"/> selects.
+        /// Mirrors Control.SetBoundsCore, the single choke-point WinForms code overrides to constrain
+        /// or snap a window's geometry.
+        /// </summary>
+        protected virtual void SetBoundsCore (int x, int y, int width, int height, BoundsSpecified specified)
+        {
+            var location = Location;
+            var size = Size;
+
+            var newX = specified.HasFlag (BoundsSpecified.X) ? x : location.X;
+            var newY = specified.HasFlag (BoundsSpecified.Y) ? y : location.Y;
+            var newWidth = specified.HasFlag (BoundsSpecified.Width) ? width : size.Width;
+            var newHeight = specified.HasFlag (BoundsSpecified.Height) ? height : size.Height;
+
+            if (newX != location.X || newY != location.Y)
+                Location = new System.Drawing.Point (newX, newY);
+
+            if (newWidth != size.Width || newHeight != size.Height)
+                Backend.Size = new System.Drawing.Size (newWidth, newHeight);
         }
 
         /// <summary>Raised when <see cref="Enabled"/> changes. Mirrors WinForms Control.EnabledChanged (modal dialogs toggle their owner through this property).</summary>
@@ -228,7 +257,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the window's default font. Mirrors WinForms Form.Font; forwarded to
         /// the root control adapter so child controls inherit it.</summary>
-        public Majorsilence.Forms.Drawing.Font? Font {
+        public virtual Majorsilence.Forms.Drawing.Font? Font {
             get => adapter?.Font;
             set { if (adapter is not null && value is not null) adapter.Font = value; }
         }
@@ -711,10 +740,39 @@ namespace Majorsilence.Forms
         /// <summary>Raises the Shown event.</summary>
         protected virtual void OnShown (EventArgs e) => Shown?.Invoke (this, e);
 
-        private void OnVisibleChanged (EventArgs e)
+        /// <summary>Raised when <see cref="Visible"/> changes. Mirrors WinForms Control.VisibleChanged.</summary>
+        public event EventHandler? VisibleChanged;
+
+        /// <summary>Raises the VisibleChanged event and propagates it to the window's children.</summary>
+        protected virtual void OnVisibleChanged (EventArgs e)
         {
             adapter.RaiseParentVisibleChanged (e);
+            VisibleChanged?.Invoke (this, e);
         }
+
+        /// <summary>
+        /// Raised when the window moves. A WinForms alias of <see cref="LocationChanged"/>, which is
+        /// what ported code that repositions satellite windows (drop shadows, tool windows) hooks.
+        /// </summary>
+        public event EventHandler? Move {
+            add => LocationChanged += value;
+            remove => LocationChanged -= value;
+        }
+
+        /// <summary>
+        /// Forces the window to repaint any invalidated regions immediately. Majorsilence.Forms repaints
+        /// on the backend's own tick rather than synchronously, so this is an <see cref="Invalidate()"/>
+        /// -- the paint happens on the next tick instead of before this call returns.
+        /// </summary>
+        public void Update () => Invalidate ();
+
+        /// <summary>Sets the specified <see cref="ControlStyles"/> flag on the window's root adapter.</summary>
+        /// <remarks>
+        /// Control declares this and ported window code calls it in its constructor (opting into
+        /// double-buffering and user paint, typically). A window is not a Control here, so it forwards
+        /// to the adapter that actually hosts the control tree.
+        /// </remarks>
+        public void SetStyle (ControlStyles flag, bool value) => adapter.SetStyle (flag, value);
 
         private bool PointInDoubleClickRange (System.Drawing.Point point)
         {
@@ -893,7 +951,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the background color of the window. Convenience wrapper over
         /// <see cref="ControlStyle.BackgroundColor"/>, mirroring <see cref="Control.BackColor"/>.
         /// </summary>
-        public System.Drawing.Color BackColor {
+        public virtual System.Drawing.Color BackColor {
             get => Style.BackgroundColor?.ToDrawingColor () ?? Style.GetBackgroundColor ().ToDrawingColor ();
             set {
                 Style.BackgroundColor = value.ToSKColor ();
@@ -905,7 +963,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the foreground (text) color of the window. Convenience wrapper over
         /// <see cref="ControlStyle.ForegroundColor"/>, mirroring <see cref="Control.ForeColor"/>.
         /// </summary>
-        public System.Drawing.Color ForeColor {
+        public virtual System.Drawing.Color ForeColor {
             get => Style.ForegroundColor?.ToDrawingColor () ?? Style.GetForegroundColor ().ToDrawingColor ();
             set {
                 Style.ForegroundColor = value.ToSKColor ();

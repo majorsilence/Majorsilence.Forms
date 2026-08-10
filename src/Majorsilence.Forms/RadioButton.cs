@@ -233,7 +233,7 @@ namespace Majorsilence.Forms
         protected virtual void OnCheckedChanged (EventArgs e) => CheckedChanged?.Invoke (this, e);
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnClick (EventArgs e)
         {
             if (AutoCheck && !Checked)
                 Checked = true;

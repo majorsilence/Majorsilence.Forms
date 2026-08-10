@@ -107,7 +107,7 @@ namespace Majorsilence.Forms
         protected override void OnMouseWheel (MouseEventArgs e)
         {
             base.OnMouseWheel (e);
-            ChildForm.HandlePointerWheel (e.Button, e.X, e.Y, e.Delta, e.Modifiers);
+            ChildForm.HandlePointerWheel (e.Button, e.X, e.Y, e.DeltaPoint, e.Modifiers);
         }
 
         protected override void OnMouseLeave (EventArgs e)

@@ -253,7 +253,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the context menu that will be shown for the control.
         /// </summary>
-        public ContextMenu? ContextMenu {
+        public virtual ContextMenu? ContextMenu {
             get => (ContextMenu?)Properties.GetObject (s_contextMenuProperty);
             set {
                 if (value != ContextMenu) {
@@ -989,15 +989,15 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the Click event.
         /// </summary>
-        protected virtual void OnClick (MouseEventArgs e)
+        /// <remarks>
+        /// Takes <see cref="EventArgs"/>, as WinForms does, so <c>protected override void OnClick
+        /// (EventArgs e)</c> ports unchanged. Click handling that needs the pointer position belongs in
+        /// <see cref="OnMouseClick"/>, which receives the <see cref="MouseEventArgs"/> and runs straight
+        /// afterwards.
+        /// </remarks>
+        protected virtual void OnClick (EventArgs e)
         {
-            if (e.Button == MouseButtons.Right && ContextMenu != null) {
-                ContextMenu.Show (this, PointToScreen (e.Location));
-                return;
-            }
-
             (Events[s_clickEvent] as EventHandler)?.Invoke (this, e);
-            OnMouseClick (e);
         }
 
         /// <summary>
@@ -1559,10 +1559,25 @@ namespace Majorsilence.Forms
 
             var child = Controls.FindVisibleChildAt (e.Location);
 
-            if (child != null)
+            if (child != null) {
                 child.RaiseClick (TranslateMouseEvents (e, child));
-            else if (Enabled)
-                OnClick (e);
+                return;
+            }
+
+            if (!Enabled)
+                return;
+
+            // A right-click over a control with a context menu opens the menu instead of counting as a
+            // click, so this runs before either event. It lives here rather than in OnClick now that
+            // OnClick takes EventArgs and has no button to test.
+            if (e.Button == MouseButtons.Right && ContextMenu != null) {
+                ContextMenu.Show (this, PointToScreen (e.Location));
+                return;
+            }
+
+            // WinForms order: Click first, then the typed MouseClick.
+            OnClick (e);
+            OnMouseClick (e);
         }
 
         /// <summary>
@@ -2228,7 +2243,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the background color of the control. This is a convenience wrapper over
         /// <see cref="ControlStyle.BackgroundColor"/> using <see cref="System.Drawing.Color"/>.
         /// </summary>
-        public System.Drawing.Color BackColor {
+        public virtual System.Drawing.Color BackColor {
             // Ambient like WinForms: with no explicit color anywhere in the style chain, the value
             // reflects the parent control's effective background.
             get => GetEffectiveBackgroundColor ().ToDrawingColor ();
@@ -2249,7 +2264,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the foreground (text) color of the control. This is a convenience wrapper
         /// over <see cref="ControlStyle.ForegroundColor"/> using <see cref="System.Drawing.Color"/>.
         /// </summary>
-        public System.Drawing.Color ForeColor {
+        public virtual System.Drawing.Color ForeColor {
             // Ambient like WinForms: with no explicit color anywhere in the style chain, the value
             // reflects the parent control's effective foreground.
             get => GetEffectiveForegroundColor ().ToDrawingColor ();
@@ -2274,7 +2289,7 @@ namespace Majorsilence.Forms
         // [AllowNull]: the getter never returns null (falls back parent -> default UI font), but the setter
         // accepts null to reset the font to inherited/theme -- matching WinForms' [AllowNull] Control.Font.
         [System.Diagnostics.CodeAnalysis.AllowNull]
-        public Majorsilence.Forms.Drawing.Font Font {
+        public virtual Majorsilence.Forms.Drawing.Font Font {
             get => _font ?? Parent?.Font ?? Majorsilence.Forms.SystemFonts.DefaultFont;
             set {
                 // Only a real change notifies. Note this compares the explicitly-set font, not the
@@ -2348,7 +2363,7 @@ namespace Majorsilence.Forms
             if (control == null)
                 return e;
 
-            return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.ScaledLeft, e.Location.Y - control.ScaledTop, e.Delta, e.Location.X, e.Location.Y, e.Modifiers);
+            return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.ScaledLeft, e.Location.Y - control.ScaledTop, e.DeltaPoint, e.Location.X, e.Location.Y, e.Modifiers);
         }
 
         /// <summary>

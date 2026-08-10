@@ -23,6 +23,56 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             FillMode = fillMode;
         }
 
+        /// <summary>
+        /// Initializes a path from an array of points and a matching array of point types.
+        /// </summary>
+        /// <remarks>
+        /// Only the <see cref="PathPointType.Start"/>/<see cref="PathPointType.Line"/> distinction and
+        /// the <see cref="PathPointType.CloseSubpath"/> flag are honoured; Bezier point types are
+        /// treated as line segments, since reconstructing curve control points from a flat array is
+        /// ambiguous without the original path. Callers that need curves should build the path with
+        /// <c>AddBezier</c> instead. This is the constructor WinForms code uses to stamp out a fixed
+        /// polygon in one call.
+        /// </remarks>
+        /// <exception cref="ArgumentException">The two arrays have different lengths.</exception>
+        public GraphicsPath (PointF[] pts, byte[] types)
+        {
+            ArgumentNullException.ThrowIfNull (pts);
+            ArgumentNullException.ThrowIfNull (types);
+
+            if (pts.Length != types.Length)
+                throw new ArgumentException ("pts and types must have the same length.", nameof (types));
+
+            for (var i = 0; i < pts.Length; i++) {
+                var kind = (PathPointType)(types[i] & (byte)PathPointType.PathTypeMask);
+
+                if (i == 0 || kind == PathPointType.Start)
+                    path.MoveTo (pts[i].X, pts[i].Y);
+                else
+                    path.LineTo (pts[i].X, pts[i].Y);
+
+                if ((types[i] & (byte)PathPointType.CloseSubpath) != 0)
+                    path.Close ();
+            }
+        }
+
+        /// <inheritdoc cref="GraphicsPath(PointF[], byte[])"/>
+        public GraphicsPath (Point[] pts, byte[] types)
+            : this (ToPointF (pts), types)
+        {
+        }
+
+        private static PointF[] ToPointF (Point[] pts)
+        {
+            ArgumentNullException.ThrowIfNull (pts);
+
+            var result = new PointF[pts.Length];
+            for (var i = 0; i < pts.Length; i++)
+                result[i] = new PointF (pts[i].X, pts[i].Y);
+
+            return result;
+        }
+
         /// <summary>Gets or sets the fill mode for this path.</summary>
         public FillMode FillMode { get; set; } = FillMode.Alternate;
 

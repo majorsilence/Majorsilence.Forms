@@ -28,7 +28,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Forces the control to invalidate and immediately repaint.
         /// </summary>
-        public void Refresh () => Invalidate ();
+        public virtual void Refresh () => Invalidate ();
 
         /// <summary>
         /// Sets input focus to the control. Returns true if focus was successfully set.
@@ -61,6 +61,17 @@ namespace Majorsilence.Forms
             var origin = PointToScreen (Point.Empty);
             return new Rectangle (rect.X - origin.X, rect.Y - origin.Y, rect.Width, rect.Height);
         }
+
+        /// <summary>Raises the GotFocus event on behalf of another control.</summary>
+        /// <remarks>
+        /// WinForms provides this so a composite control can surface the focus events of a child it
+        /// wraps as its own -- a themed text box hosting a real text box, for instance.
+        /// </remarks>
+        protected void InvokeGotFocus (Control? toInvoke, EventArgs e) => toInvoke?.RaiseEnter ();
+
+        /// <summary>Raises the LostFocus event on behalf of another control.</summary>
+        /// <inheritdoc cref="InvokeGotFocus"/>
+        protected void InvokeLostFocus (Control? toInvoke, EventArgs e) => toInvoke?.RaiseLeave ();
 
         /// <summary>
         /// Sets the specified <see cref="ControlStyles"/> flag.
@@ -398,7 +409,7 @@ namespace Majorsilence.Forms
         public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Default;
 
         /// <summary>Gets or sets the ContextMenuStrip associated with this control (WinForms compat alias for ContextMenu).</summary>
-        public ContextMenuStrip? ContextMenuStrip {
+        public virtual ContextMenuStrip? ContextMenuStrip {
             get => ContextMenu as ContextMenuStrip;
             set => ContextMenu = value;
         }

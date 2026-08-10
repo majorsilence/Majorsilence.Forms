@@ -58,6 +58,13 @@ namespace Majorsilence.Forms
         public class TabPageCollection : Majorsilence.Forms.TabPageCollection
         {
             internal TabPageCollection (TabControl owner, TabStrip tabStrip) : base (owner, tabStrip) { }
+
+            /// <summary>Initializes a collection for the given tab control.</summary>
+            /// <remarks>
+            /// The WinForms-shaped constructor, so a library can derive its own collection type. It
+            /// binds to the owner's existing tab strip rather than creating a second one.
+            /// </remarks>
+            public TabPageCollection (TabControl owner) : this (owner, owner.TabStrip) { }
         }
     }
 

@@ -364,8 +364,8 @@ namespace Majorsilence.Forms.Tests
         {
             var e = new HandledMouseEventArgs (MouseButtons.Left, 2, 10, 20, 120);
 
-            Assert.Equal (120, e.Delta.Y);
-            Assert.Equal (0, e.Delta.X);
+            Assert.Equal (120, e.Delta);
+            Assert.Equal (0, e.DeltaPoint.X);
             Assert.False (e.Handled);
 
             var handled = new HandledMouseEventArgs (MouseButtons.Left, 1, 0, 0, 0, defaultHandledValue: true);

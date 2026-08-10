@@ -207,7 +207,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnClick (EventArgs e)
         {
             if (FindForm () is Form form)
                 form.DialogResult = DialogResult;

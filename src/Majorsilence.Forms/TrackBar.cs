@@ -563,9 +563,9 @@ namespace Majorsilence.Forms
             if (!Enabled)
                 return;
 
-            if (e.Delta.Y > 0)
+            if (e.Delta > 0)
                 ChangeValueBy (SmallChange);
-            else if (e.Delta.Y < 0)
+            else if (e.Delta < 0)
                 ChangeValueBy (-SmallChange);
         }
 

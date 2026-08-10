@@ -604,7 +604,7 @@ namespace Majorsilence.Forms
         public AutoCompleteSource AutoCompleteSource { get; set; } = AutoCompleteSource.None;
 
         /// <summary>Gets or sets a custom list of strings used for auto-complete. Stub in Majorsilence.Forms.</summary>
-        public System.Collections.Specialized.StringCollection AutoCompleteCustomSource { get; set; } = new System.Collections.Specialized.StringCollection ();
+        public AutoCompleteStringCollection AutoCompleteCustomSource { get; set; } = new AutoCompleteStringCollection ();
 
         /// <summary>Gets or sets whether the system's default password character is used. Stub in Majorsilence.Forms.</summary>
         public bool UseSystemPasswordChar {
@@ -616,6 +616,13 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the <see cref="TextAlign"/> property changes.</summary>
         public event EventHandler? TextAlignChanged;
+
+        /// <summary>Raises the TextAlignChanged event.</summary>
+        /// <remarks>
+        /// WinForms declares this protected virtual on TextBoxBase, and control libraries that decorate
+        /// a text box override it to re-lay-out their own chrome when alignment changes.
+        /// </remarks>
+        protected virtual void OnTextAlignChanged (EventArgs e) => TextAlignChanged?.Invoke (this, e);
 
         /// <summary>Gets or sets the lines of text in the TextBox.</summary>
         public override string[] Lines {
@@ -651,7 +658,7 @@ namespace Majorsilence.Forms
                     HorizontalAlignment.Right => Topten.RichTextKit.TextAlignment.Right,
                     _ => Topten.RichTextKit.TextAlignment.Left,
                 };
-                TextAlignChanged?.Invoke (this, EventArgs.Empty);
+                OnTextAlignChanged (EventArgs.Empty);
                 Invalidate ();
             }
         }

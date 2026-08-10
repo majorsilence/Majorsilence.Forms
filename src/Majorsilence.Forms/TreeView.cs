@@ -451,13 +451,13 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnMouseClick (MouseEventArgs e)
         {
             var item = GetItemAtLocation (e.Location);
 
             // If an item wasn't clicked, let the base run and nothing else
             if (item is null) {
-                base.OnClick (e);
+                base.OnMouseClick (e);
                 return;
             }
 
@@ -469,11 +469,11 @@ namespace Majorsilence.Forms
                 }
 
                 // Otherwise let the base handle any right-click
-                base.OnClick (e);
+                base.OnMouseClick (e);
                 return;
             }
 
-            base.OnClick (e);
+            base.OnMouseClick (e);
 
             var element = item.GetElementAtLocation (e.Location);
 

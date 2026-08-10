@@ -288,13 +288,13 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Returns a thumbnail of this image at the requested size.</summary>
-        /// <inheritdoc cref="GetThumbnailImage(int, int, Func{bool}, IntPtr)"/>
-        /// <remarks>The abort callback is accepted for API compatibility; scaling here is not interruptible.</remarks>
-        public Image GetThumbnailImage (int thumbWidth, int thumbHeight, GetThumbnailImageAbort? callback, IntPtr callbackData)
-            => GetThumbnailImage (thumbWidth, thumbHeight, callback is null ? (Func<bool>?)null : () => callback (), callbackData);
-
-        /// <summary>Returns a thumbnail of this image.</summary>
-        public Image GetThumbnailImage (int thumbWidth, int thumbHeight, Func<bool>? callback = null, IntPtr callbackData = default)
+        /// <remarks>
+        /// The abort callback is accepted for API compatibility; scaling here is not interruptible.
+        /// This is the only overload, matching WinForms: a second one taking <c>Func&lt;bool&gt;</c>
+        /// made the WinForms spelling <c>GetThumbnailImage (w, h, null, IntPtr.Zero)</c> ambiguous,
+        /// because a null literal fits both delegate types.
+        /// </remarks>
+        public Image GetThumbnailImage (int thumbWidth, int thumbHeight, GetThumbnailImageAbort? callback = null, IntPtr callbackData = default)
             => new Bitmap (this, thumbWidth, thumbHeight);
 
         /// <summary>Rotates and/or flips this image.</summary>

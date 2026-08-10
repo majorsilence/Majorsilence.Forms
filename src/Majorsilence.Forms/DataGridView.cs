@@ -161,11 +161,11 @@ namespace Majorsilence.Forms
         /// Raised when a cell begins editing.
         /// </summary>
         /// <summary>Raised when a cell is clicked.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellClick;
+        public event DataGridViewCellEventHandler? CellClick;
 
         /// <summary>Raised when a cell loses input focus. Mirrors WinForms DataGridView.CellLeave.</summary>
 #pragma warning disable CS0067 // raised once cell-focus tracking lands; declared for WinForms source compat
-        public event EventHandler<DataGridViewCellEventArgs>? CellLeave;
+        public event DataGridViewCellEventHandler? CellLeave;
 #pragma warning restore CS0067
 
         /// <summary>Raised when a cell's tooltip text is needed.</summary>
@@ -175,10 +175,10 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellCancelEventArgs>? CellBeginEdit;
 
         /// <summary>Raised when a cell ends editing.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellEndEdit;
+        public event DataGridViewCellEventHandler? CellEndEdit;
 
         /// <summary>Raised when a cell value has changed.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellValueChanged;
+        public event DataGridViewCellEventHandler? CellValueChanged;
 
         /// <summary>Raised when the <see cref="DataSource"/> changes. WinForms compatibility.</summary>
         public event EventHandler? DataSourceChanged;
@@ -187,21 +187,21 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a cell is being formatted for display.</summary>
         public event EventHandler<DataGridViewCellFormattingEventArgs>? CellFormatting { add => _cellFormatting += value; remove => _cellFormatting -= value; }
 
-        private EventHandler<DataGridViewRowsAddedEventArgs>? _rowsAdded;
+        private DataGridViewRowsAddedEventHandler? _rowsAdded;
         /// <summary>Raised when a row is added.</summary>
-        public event EventHandler<DataGridViewRowsAddedEventArgs>? RowsAdded { add => _rowsAdded += value; remove => _rowsAdded -= value; }
+        public event DataGridViewRowsAddedEventHandler? RowsAdded { add => _rowsAdded += value; remove => _rowsAdded -= value; }
 
-        private EventHandler<DataGridViewRowsRemovedEventArgs>? _rowsRemoved;
+        private DataGridViewRowsRemovedEventHandler? _rowsRemoved;
         /// <summary>Raised when rows are removed.</summary>
-        public event EventHandler<DataGridViewRowsRemovedEventArgs>? RowsRemoved { add => _rowsRemoved += value; remove => _rowsRemoved -= value; }
+        public event DataGridViewRowsRemovedEventHandler? RowsRemoved { add => _rowsRemoved += value; remove => _rowsRemoved -= value; }
 
-        private EventHandler<DataGridViewRowCancelEventArgs>? _userDeletingRow;
+        private DataGridViewRowCancelEventHandler? _userDeletingRow;
         /// <summary>Raised when the user is about to delete a row.</summary>
-        public event EventHandler<DataGridViewRowCancelEventArgs>? UserDeletingRow { add => _userDeletingRow += value; remove => _userDeletingRow -= value; }
+        public event DataGridViewRowCancelEventHandler? UserDeletingRow { add => _userDeletingRow += value; remove => _userDeletingRow -= value; }
 
-        private EventHandler<DataGridViewRowEventArgs>? _userDeletedRow;
+        private DataGridViewRowEventHandler? _userDeletedRow;
         /// <summary>Raised after the user has deleted a row.</summary>
-        public event EventHandler<DataGridViewRowEventArgs>? UserDeletedRow { add => _userDeletedRow += value; remove => _userDeletedRow -= value; }
+        public event DataGridViewRowEventHandler? UserDeletedRow { add => _userDeletedRow += value; remove => _userDeletedRow -= value; }
 
         private EventHandler<DataGridViewDataErrorEventArgs>? _dataError;
         /// <summary>Raised when a data error occurs (e.g., binding failure).</summary>
@@ -220,7 +220,7 @@ namespace Majorsilence.Forms
         public event EventHandler? RowDirtyStateNeeded { add => _rowDirtyStateNeeded += value; remove => _rowDirtyStateNeeded -= value; }
 
         /// <summary>Raised when a cell is double-clicked.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellDoubleClick;
+        public event DataGridViewCellEventHandler? CellDoubleClick;
 
         /// <summary>Raised on a mouse click in a cell.</summary>
         public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseClick;
@@ -238,16 +238,16 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseMove { add { } remove { } }
 
         /// <summary>Raised when the mouse enters a cell.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellMouseEnter;
+        public event DataGridViewCellEventHandler? CellMouseEnter;
 
         /// <summary>Raised when the mouse leaves a cell.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellMouseLeave;
+        public event DataGridViewCellEventHandler? CellMouseLeave;
 
         /// <summary>Raised when a cell is validating its content.</summary>
         public event EventHandler<DataGridViewCellValidatingEventArgs>? CellValidating;
 
         /// <summary>Raised after a cell has been validated.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellValidated;
+        public event DataGridViewCellEventHandler? CellValidated;
 
         private EventHandler<DataGridViewRowPrePaintEventArgs>? _rowPrePaint;
         /// <summary>
@@ -267,12 +267,12 @@ namespace Majorsilence.Forms
         /// </summary>
         public event EventHandler<DataGridViewCellCancelEventArgs>? RowValidating { add => _rowValidating += value; remove => _rowValidating -= value; }
 
-        private EventHandler<DataGridViewCellEventArgs>? _rowValidated;
+        private DataGridViewCellEventHandler? _rowValidated;
         /// <summary>Raised after a row has been validated (i.e. <see cref="RowValidating"/> was not cancelled).</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? RowValidated { add => _rowValidated += value; remove => _rowValidated -= value; }
+        public event DataGridViewCellEventHandler? RowValidated { add => _rowValidated += value; remove => _rowValidated -= value; }
 
         /// <summary>Raised to supply default values for new rows.</summary>
-        public event EventHandler<DataGridViewRowEventArgs>? DefaultValuesNeeded { add { } remove { } }
+        public event DataGridViewRowEventHandler? DefaultValuesNeeded { add { } remove { } }
 
         /// <summary>Raised when a column is added to the grid.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnAdded { add { } remove { } }
@@ -283,19 +283,19 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the user clicks a row header.</summary>
         public event EventHandler<DataGridViewCellMouseEventArgs>? RowHeaderMouseClick { add { } remove { } }
 
-        private EventHandler<DataGridViewCellEventArgs>? _rowEnter;
+        private DataGridViewCellEventHandler? _rowEnter;
         /// <summary>Raised when a row becomes the current row.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? RowEnter { add => _rowEnter += value; remove => _rowEnter -= value; }
+        public event DataGridViewCellEventHandler? RowEnter { add => _rowEnter += value; remove => _rowEnter -= value; }
 
-        private EventHandler<DataGridViewCellEventArgs>? _rowLeave;
+        private DataGridViewCellEventHandler? _rowLeave;
         /// <summary>Raised when a row stops being the current row.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? RowLeave { add => _rowLeave += value; remove => _rowLeave -= value; }
+        public event DataGridViewCellEventHandler? RowLeave { add => _rowLeave += value; remove => _rowLeave -= value; }
 
         /// <summary>Raised when a cell's content is clicked.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellContentClick;
+        public event DataGridViewCellEventHandler? CellContentClick;
 
         /// <summary>Raised when a cell's content is double-clicked.</summary>
-        public event EventHandler<DataGridViewCellEventArgs>? CellContentDoubleClick { add { } remove { } }
+        public event DataGridViewCellEventHandler? CellContentDoubleClick { add { } remove { } }
 
         private EventHandler<DataGridViewCellPaintingEventArgs>? _cellPainting;
         /// <summary>
@@ -315,7 +315,7 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellParsingEventArgs>? CellParsing { add => _cellParsing += value; remove => _cellParsing -= value; }
 
         /// <summary>Raised when the state of a row changes.</summary>
-        public event EventHandler<DataGridViewRowStateChangedEventArgs>? RowStateChanged { add { } remove { } }
+        public event DataGridViewRowStateChangedEventHandler? RowStateChanged { add { } remove { } }
 
         /// <summary>Raised when the state of a cell changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler<DataGridViewCellStateChangedEventArgs>? CellStateChanged { add { } remove { } }
@@ -333,16 +333,16 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnWidthChanged { add { } remove { } }
 
         /// <summary>Raised when a new row is needed (virtual mode). Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<DataGridViewRowEventArgs>? NewRowNeeded { add { } remove { } }
+        public event DataGridViewRowEventHandler? NewRowNeeded { add { } remove { } }
 
         /// <summary>Raised when the height of a row changes.</summary>
-        public event EventHandler<DataGridViewRowEventArgs>? RowHeightChanged { add { } remove { } }
+        public event DataGridViewRowEventHandler? RowHeightChanged { add { } remove { } }
 
         /// <summary>Raised when a row header cell is double-clicked.</summary>
         public event EventHandler<DataGridViewCellMouseEventArgs>? RowHeaderMouseDoubleClick { add { } remove { } }
 
         /// <summary>Raised when the user is deleting a row. Fires before the row is deleted.</summary>
-        public event EventHandler<DataGridViewRowEventArgs>? UserAddedRow { add { } remove { } }
+        public event DataGridViewRowEventHandler? UserAddedRow { add { } remove { } }
 
         /// <summary>Raised when the sort glyph direction changes.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnSortModeChanged { add { } remove { } }
@@ -2111,7 +2111,7 @@ namespace Majorsilence.Forms
             }
 
             if (e.KeyCode == Keys.PageDown) {
-                var new_index = Math.Min (selected_row_index + DisplayedRowCount, Rows.Count - 1);
+                var new_index = Math.Min (selected_row_index + DisplayedRowCount (true), Rows.Count - 1);
                 SelectedRowIndex = new_index;
                 EnsureRowVisible (new_index);
                 e.Handled = true;
@@ -2119,7 +2119,7 @@ namespace Majorsilence.Forms
             }
 
             if (e.KeyCode == Keys.PageUp) {
-                var new_index = Math.Max (selected_row_index - DisplayedRowCount, 0);
+                var new_index = Math.Max (selected_row_index - DisplayedRowCount (true), 0);
                 SelectedRowIndex = new_index;
                 EnsureRowVisible (new_index);
                 e.Handled = true;
@@ -2814,26 +2814,29 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the number of full rows that can be displayed at a time.
         /// </summary>
-        public int DisplayedRowCount {
-            get {
-                var content = GetContentArea ();
-                var available = content.Height - RowsTopOffset;
-                var count = 0;
-                var h = 0;
+        /// <remarks>
+        /// A method rather than a property, matching WinForms. <paramref name="includePartialRow"/> is
+        /// accepted for source compatibility but does not change the result: the count here is always
+        /// of fully visible rows.
+        /// </remarks>
+        public int DisplayedRowCount (bool includePartialRow = false)
+        {
+            var content = GetContentArea ();
+            var available = content.Height - RowsTopOffset;
+            var count = 0;
+            var h = 0;
 
-                for (var i = 0; i < Rows.Count; i++) {
-                    var rh = LogicalToDeviceUnits (Rows[i].Height);
+            for (var i = 0; i < Rows.Count; i++) {
+                var rh = LogicalToDeviceUnits (Rows[i].Height);
 
-                    if (h + rh <= available) {
-                        count++;
-                        h += rh;
-                    } else {
-                        break;
-                    }
-                }
+                if (h + rh > available)
+                    break;
 
-                return count;
+                count++;
+                h += rh;
             }
+
+            return count;
         }
 
         /// <summary>
@@ -2841,13 +2844,13 @@ namespace Majorsilence.Forms
         /// </summary>
         private void EnsureRowVisible (int index)
         {
-            if (DisplayedRowCount >= Rows.Count)
+            if (DisplayedRowCount (true) >= Rows.Count)
                 return;
 
             if (index < top_index)
                 FirstDisplayedScrollingRowIndex = index;
-            else if (index >= top_index + DisplayedRowCount)
-                FirstDisplayedScrollingRowIndex = index - DisplayedRowCount + 1;
+            else if (index >= top_index + DisplayedRowCount (true))
+                FirstDisplayedScrollingRowIndex = index - DisplayedRowCount (true) + 1;
         }
 
         // Moves the selection to the next cell, wrapping to the next row.

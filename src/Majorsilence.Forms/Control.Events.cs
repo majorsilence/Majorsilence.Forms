@@ -530,7 +530,14 @@ public partial class Control
     }
 
     /// <summary>Raised when the control is added to a container control. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? ChangeUICues { add { } remove { } }
+    public event UICuesEventHandler? ChangeUICues;
+
+    /// <summary>Raises the ChangeUICues event.</summary>
+    /// <remarks>
+    /// Majorsilence.Forms never changes keyboard/focus cue state on its own, so nothing raises this
+    /// internally; it exists because ported control libraries override it and wire handlers to it.
+    /// </remarks>
+    protected virtual void OnChangeUICues (UICuesEventArgs e) => ChangeUICues?.Invoke (this, e);
 
     /// <summary>Raised when the control's HelpRequested event fires. Stub in Majorsilence.Forms.</summary>
     public event HelpEventHandler? HelpRequested { add { } remove { } }

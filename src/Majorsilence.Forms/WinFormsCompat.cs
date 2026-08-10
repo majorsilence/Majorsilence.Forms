@@ -2006,6 +2006,16 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance owned by the specified container (WinForms designer overload; the container is not used).</summary>
         public ContextMenuStrip (System.ComponentModel.IContainer container) { }
 
+        /// <summary>Displays the menu relative to a control, in the given direction.</summary>
+        /// <remarks>
+        /// The direction is accepted for source compatibility but not honoured: popups are placed at the
+        /// requested point and flipped by the backend only when they would leave the screen. Declared
+        /// here rather than on ContextMenu because ToolStripDropDown already declares this shape, and a
+        /// base-class copy would hide it.
+        /// </remarks>
+        public void Show (Control parent, System.Drawing.Point position, ToolStripDropDownDirection direction)
+            => Show (parent, position);
+
         // NOTE: Show (Point) is deliberately NOT redeclared here. It used to be overridden with an empty
         // body, which shadowed the working inherited overloads and made the most idiomatic WinForms call
         // shape -- contextMenuStrip.Show (screenPoint) -- silently do nothing. ContextMenu.Show (Point)
@@ -2626,6 +2636,12 @@ namespace Majorsilence.Forms
     {
         /// <summary>Initializes a new instance.</summary>
         public ToolStripProfessionalRenderer () { }
+
+        /// <summary>Initializes a new instance that paints from the given colour table.</summary>
+        public ToolStripProfessionalRenderer (ProfessionalColorTable professionalColorTable)
+        {
+            ColorTable = professionalColorTable;
+        }
 
         /// <summary>Gets or sets whether rounded borders are used. Stub in Majorsilence.Forms.</summary>
         public bool RoundedEdges { get; set; } = true;

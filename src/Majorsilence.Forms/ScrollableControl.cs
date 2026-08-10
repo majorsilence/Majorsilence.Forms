@@ -54,7 +54,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating the user can scroll to controls beyond the ScrollableControl's bounds.
         /// </summary>
-        public bool AutoScroll {
+        public virtual bool AutoScroll {
             get => auto_scroll;
             set {
                 if (auto_scroll != value) {

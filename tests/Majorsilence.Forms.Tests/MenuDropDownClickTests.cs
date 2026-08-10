@@ -9,12 +9,14 @@ namespace Majorsilence.Forms.Tests
     // the OnClick -> item.Click chain is intact.
     public class MenuDropDownClickTests
     {
-        // Exposes the protected OnClick so a test can drive it at a point, exactly as the window's
-        // click routing would once the pointer release reaches the dropdown control.
+        // Drives the control's real click dispatch at a point, exactly as the window's click routing
+        // would once the pointer release reaches the dropdown control. Goes through RaiseClick rather
+        // than a single protected method so the test exercises whatever OnClick/OnMouseClick split the
+        // control actually uses -- location-dependent handling lives in OnMouseClick, as in WinForms.
         private sealed class TestableMenuDropDown : MenuDropDown
         {
             public TestableMenuDropDown (MenuItem root) : base (root) { }
-            public void ClickAt (Point p) => OnClick (new MouseEventArgs (MouseButtons.Left, 1, p.X, p.Y, Point.Empty));
+            public void ClickAt (Point p) => RaiseClick (new MouseEventArgs (MouseButtons.Left, 1, p.X, p.Y, Point.Empty));
         }
 
         [Fact]

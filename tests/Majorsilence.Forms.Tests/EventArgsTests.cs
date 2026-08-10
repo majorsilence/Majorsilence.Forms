@@ -26,7 +26,9 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (clicks, e.Clicks);
             Assert.Equal (x, e.X);
             Assert.Equal (y, e.Y);
-            Assert.Equal (new Point (3, 4), e.Delta);
+            // Delta is the WinForms scalar (vertical); DeltaPoint carries both axes.
+            Assert.Equal (4, e.Delta);
+            Assert.Equal (new Point (3, 4), e.DeltaPoint);
             Assert.Equal (new Point (x, y), e.Location);
         }
 

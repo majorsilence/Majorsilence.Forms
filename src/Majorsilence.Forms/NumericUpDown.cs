@@ -167,14 +167,14 @@ namespace Majorsilence.Forms
             (style) => style.Border.Width = 1);
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnMouseClick (MouseEventArgs e)
         {
             if (GetIncrementArea ().Contains (e.Location))
                 Value = Math.Min (Value + 1, Maximum);
             else if (GetDecrementArea ().Contains (e.Location))
                 Value = Math.Max (Value - 1, Minimum);
 
-            base.OnClick (e);
+            base.OnMouseClick (e);
         }
 
         /// <inheritdoc/>

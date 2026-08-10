@@ -88,9 +88,9 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnMouseClick (MouseEventArgs e)
         {
-            base.OnClick (e);
+            base.OnMouseClick (e);
 
             var clicked_tab = GetTabAtLocation (e.Location);
 

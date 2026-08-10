@@ -223,8 +223,8 @@ namespace Majorsilence.Forms
             if (!Enabled)
                 return;
 
-            if (e.Delta.Y != 0)
-                UpdateFromValue (Value - (e.Delta.Y * SmallChange));
+            if (e.Delta != 0)
+                UpdateFromValue (Value - (e.Delta * SmallChange));
         }
 
         /// <inheritdoc/>

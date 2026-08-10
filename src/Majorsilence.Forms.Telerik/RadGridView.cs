@@ -2017,7 +2017,7 @@ namespace Majorsilence.Forms.Telerik
         public event EventHandler<ContextMenuOpeningEventArgs>? ContextMenuOpening { add => _contextMenuOpening += value; remove => _contextMenuOpening -= value; }
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnMouseClick (MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Right) {
                 var content = GetContentArea ();
@@ -2049,7 +2049,7 @@ namespace Majorsilence.Forms.Telerik
                 }
             }
 
-            base.OnClick (e);
+            base.OnMouseClick (e);
         }
 
         private void ShowHeaderContextMenu (int columnIndex, Point location)

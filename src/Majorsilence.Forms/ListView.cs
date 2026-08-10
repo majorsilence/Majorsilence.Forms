@@ -62,9 +62,9 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnMouseClick (MouseEventArgs e)
         {
-            base.OnClick (e);
+            base.OnMouseClick (e);
 
             var clicked_item = Items.FirstOrDefault (tp => tp.Bounds.Contains (e.Location));
 
@@ -378,6 +378,20 @@ namespace Majorsilence.Forms
             var h = new ColumnHeader { Text = text, Width = width, Index = Count };
             Add (h);
             return h;
+        }
+
+        /// <summary>Adds an array of column headers to the collection.</summary>
+        /// <remarks>
+        /// This is the shape the WinForms designer emits for a ListView with columns -- one
+        /// <c>Columns.AddRange (new ColumnHeader[] { ... })</c> per list -- so every migrated
+        /// designer file needs it.
+        /// </remarks>
+        public void AddRange (params ColumnHeader[] values)
+        {
+            ArgumentNullException.ThrowIfNull (values);
+
+            foreach (var value in values)
+                Add (value);
         }
 
         /// <inheritdoc/>

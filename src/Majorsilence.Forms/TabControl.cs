@@ -9,6 +9,10 @@ namespace Majorsilence.Forms
     {
         private readonly TabStrip tab_strip;
 
+        // Exposed so the WinForms-shaped TabPageCollection (TabControl) constructor can bind to the
+        // strip this control already owns instead of creating a second one.
+        internal TabStrip TabStrip => tab_strip;
+
         /// <summary>
         /// Initializes a new instance of the TabControl class.
         /// </summary>

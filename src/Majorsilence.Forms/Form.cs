@@ -68,9 +68,9 @@ namespace Majorsilence.Forms
             // top-level windows that track the mouse over their own surface directly (e.g.
             // borderless popup pickers), the same way ported WinForms code commonly does on Form.
             adapter.Click += (s, e) => OnClick (e);
-            adapter.MouseDown += (s, e) => MouseDown?.Invoke (this, e);
-            adapter.MouseUp += (s, e) => MouseUp?.Invoke (this, e);
-            adapter.MouseMove += (s, e) => MouseMove?.Invoke (this, e);
+            adapter.MouseDown += (s, e) => OnMouseDown (e);
+            adapter.MouseUp += (s, e) => OnMouseUp (e);
+            adapter.MouseMove += (s, e) => OnMouseMove (e);
             adapter.MouseLeave += (s, e) => Leave?.Invoke (this, e);
         }
 
@@ -83,6 +83,19 @@ namespace Majorsilence.Forms
 
         /// <summary>Raises the Click event.</summary>
         protected virtual void OnClick (EventArgs e) => Click?.Invoke (this, e);
+
+        // Control declares OnMouseDown/OnMouseUp/OnMouseMove as protected virtuals and WinForms code
+        // overrides them on a Form as a matter of course; Form derives from WindowBase here, so they
+        // have to be declared alongside the events rather than inherited.
+
+        /// <summary>Raises the MouseDown event.</summary>
+        protected virtual void OnMouseDown (MouseEventArgs e) => MouseDown?.Invoke (this, e);
+
+        /// <summary>Raises the MouseUp event.</summary>
+        protected virtual void OnMouseUp (MouseEventArgs e) => MouseUp?.Invoke (this, e);
+
+        /// <summary>Raises the MouseMove event.</summary>
+        protected virtual void OnMouseMove (MouseEventArgs e) => MouseMove?.Invoke (this, e);
 
         /// <summary>Raised when a mouse button is pressed over the form's own surface.</summary>
         public event MouseEventHandler? MouseDown;
@@ -201,6 +214,9 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Lets WindowBase run the closing sequence on a Form it holds a reference to.
+        internal void RaiseClosing (CancelEventArgs e) => OnClosing (e);
+
         /// <summary>Raised before the form is closed, allowing close to be programatically canceled.</summary>
         public event CancelEventHandler? Closing;
 
@@ -231,7 +247,20 @@ namespace Majorsilence.Forms
         public event EventHandler? ResizeBegin { add { } remove { } }
 
         /// <summary>Raised when the user finishes resizing the form. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? ResizeEnd { add { } remove { } }
+        public event EventHandler? ResizeEnd;
+
+        /// <summary>
+        /// Raises the ResizeEnd event. Nothing in Majorsilence.Forms detects the end of a user resize
+        /// drag yet, so this never fires on its own -- it exists so ported code that overrides it
+        /// compiles, and so a backend that can report drag-end has somewhere to raise it.
+        /// </summary>
+        protected virtual void OnResizeEnd (EventArgs e) => ResizeEnd?.Invoke (this, e);
+
+        /// <summary>
+        /// Gets the window's default padding. Mirrors Control.DefaultPadding, which WinForms forms
+        /// override to reserve space for their own chrome.
+        /// </summary>
+        protected virtual Padding DefaultPadding => Padding.Empty;
 
         /// <summary>Raised when the form is activated by the backend.</summary>
         public new event EventHandler? Activated {
@@ -516,7 +545,12 @@ namespace Majorsilence.Forms
         public string Name { get; set; } = string.Empty;
 
         /// <summary>Raises the Closing event.</summary>
-        public virtual void OnClosing (CancelEventArgs e)
+        /// <remarks>
+        /// Protected, as in WinForms. <see cref="WindowBase"/> reaches it through
+        /// <see cref="RaiseClosing"/>, since a base class cannot call a protected member through a
+        /// derived-typed reference.
+        /// </remarks>
+        protected virtual void OnClosing (CancelEventArgs e)
         {
             Closing?.Invoke (this, e);
 

@@ -116,7 +116,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnMouseClick (MouseEventArgs e)
         {
             var clicked_item = GetItemAtLocation (e.Location);
 

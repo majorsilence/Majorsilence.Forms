@@ -34,6 +34,22 @@ namespace Majorsilence.Forms
         /// <summary>Gets the default height of a caption bar (title bar).</summary>
         public static int CaptionHeight => 30;
 
+        /// <summary>Gets whether the drop shadow effect for windows is enabled.</summary>
+        /// <remarks>
+        /// Always false: window drop shadows are the compositor's business, and Majorsilence.Forms does
+        /// not ask for one. Ported code reads this to decide whether to draw its own shadow, and false
+        /// is the answer that makes it do so.
+        /// </remarks>
+        public static bool IsDropShadowEnabled => false;
+
+        /// <summary>Gets the thickness of a 3D border, in pixels.</summary>
+        /// <remarks>
+        /// Fixed at the classic Windows 2x2 rather than queried from the OS: Majorsilence.Forms draws
+        /// its own borders, so nothing here varies by desktop theme. Control libraries read this to
+        /// inset their content.
+        /// </remarks>
+        public static System.Drawing.Size Border3DSize => new System.Drawing.Size (2, 2);
+
         /// <summary>Gets the double-click time in milliseconds.</summary>
         public static int DoubleClickTime => 500;
 

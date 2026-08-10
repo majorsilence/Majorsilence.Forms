@@ -548,8 +548,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="BackColorChanged"/>
         public event EventHandler? TextChanged;
 
-        /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? VisibleChanged;
+        // VisibleChanged was a stub here too; it now comes from WindowBase, which actually raises it.
 #pragma warning restore CS0067
     }
 
