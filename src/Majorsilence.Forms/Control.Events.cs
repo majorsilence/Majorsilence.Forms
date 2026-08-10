@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -437,13 +437,13 @@ public partial class Control
     // future backend can drive them without another API change.
 
     /// <summary>Raised when a drag-and-drop operation enters the control.</summary>
-    public event EventHandler<DragEventArgs>? DragEnter {
+    public event DragEventHandler? DragEnter {
         add => Events.AddHandler (s_dragEnterEvent, value);
         remove => Events.RemoveHandler (s_dragEnterEvent, value);
     }
 
     /// <summary>Raised when the user drags an object over the control.</summary>
-    public event EventHandler<DragEventArgs>? DragOver {
+    public event DragEventHandler? DragOver {
         add => Events.AddHandler (s_dragOverEvent, value);
         remove => Events.RemoveHandler (s_dragOverEvent, value);
     }
@@ -455,7 +455,7 @@ public partial class Control
     }
 
     /// <summary>Raised when a drag-and-drop operation is completed.</summary>
-    public event EventHandler<DragEventArgs>? DragDrop {
+    public event DragEventHandler? DragDrop {
         add => Events.AddHandler (s_dragDropEvent, value);
         remove => Events.RemoveHandler (s_dragDropEvent, value);
     }

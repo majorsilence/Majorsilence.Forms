@@ -193,13 +193,13 @@ public partial class Control
     // them today and a future backend can drive them without an API change.
 
     /// <summary>Raises the <see cref="DragEnter"/> event.</summary>
-    protected virtual void OnDragEnter (DragEventArgs e) => (Events[s_dragEnterEvent] as EventHandler<DragEventArgs>)?.Invoke (this, e);
+    protected virtual void OnDragEnter (DragEventArgs e) => (Events[s_dragEnterEvent] as DragEventHandler)?.Invoke (this, e);
 
     /// <summary>Raises the <see cref="DragOver"/> event.</summary>
-    protected virtual void OnDragOver (DragEventArgs e) => (Events[s_dragOverEvent] as EventHandler<DragEventArgs>)?.Invoke (this, e);
+    protected virtual void OnDragOver (DragEventArgs e) => (Events[s_dragOverEvent] as DragEventHandler)?.Invoke (this, e);
 
     /// <summary>Raises the <see cref="DragDrop"/> event.</summary>
-    protected virtual void OnDragDrop (DragEventArgs e) => (Events[s_dragDropEvent] as EventHandler<DragEventArgs>)?.Invoke (this, e);
+    protected virtual void OnDragDrop (DragEventArgs e) => (Events[s_dragDropEvent] as DragEventHandler)?.Invoke (this, e);
 
     /// <summary>Raises the <see cref="DragLeave"/> event.</summary>
     protected virtual void OnDragLeave (EventArgs e) => (Events[s_dragLeaveEvent] as EventHandler)?.Invoke (this, e);

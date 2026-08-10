@@ -824,6 +824,27 @@ namespace Majorsilence.Forms
         /// <summary>Gets the cursor used when none is set. Mirrors <see cref="Control.DefaultCursor"/>.</summary>
         protected virtual Cursor DefaultCursor => Cursor.Default;
 
+        /// <summary>Gets the pointer position in screen coordinates. Mirrors <see cref="Control.MousePosition"/>.</summary>
+        public static System.Drawing.Point MousePosition => Control.MousePosition;
+
+        /// <summary>Gets whether the window can receive focus. Mirrors <see cref="Control.CanFocus"/>.</summary>
+        public bool CanFocus => Visible && Enabled;
+
+        /// <summary>Reapplies the window's styles. Mirrors <see cref="Control.UpdateStyles"/>; a no-op here,
+        /// as there is no window-style bitmask to push to a handle.</summary>
+        public void UpdateStyles () { }
+
+        /// <summary>Starts a drag-and-drop operation. Mirrors <see cref="Control.DoDragDrop(object, DragDropEffects)"/>; forwards to
+        /// the root adapter, and so returns None until the backend grows a drag source.</summary>
+        public DragDropEffects DoDragDrop (object data, DragDropEffects allowedEffects)
+            => adapter.DoDragDrop (data, allowedEffects);
+
+        /// <summary>Raised while a drag is over this window, to set the cursor. Forwards to the root adapter.</summary>
+        public event EventHandler<GiveFeedbackEventArgs>? GiveFeedback {
+            add => adapter.GiveFeedback += value;
+            remove => adapter.GiveFeedback -= value;
+        }
+
         private System.Drawing.Size ScaledClientSize => new System.Drawing.Size (
             (int)(Backend.ClientSize.Width * Scaling),
             (int)(Backend.ClientSize.Height * Scaling));
