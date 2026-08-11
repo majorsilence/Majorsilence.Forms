@@ -88,11 +88,31 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        protected override void OnMouseDown (MouseEventArgs e)
+        {
+            base.OnMouseDown (e);
+
+            // WinForms commits the tab change on mouse DOWN, so by the time Click and MouseClick are
+            // raised the new tab is already current. Selecting in OnMouseClick instead meant every
+            // Click handler observed the tab the user had just left -- and migrated code reads
+            // SelectedTab inside Click to decide which tab's data to load.
+            if (e.Button == MouseButtons.Left)
+                SelectTabAt (e.Location);
+        }
+
+        /// <inheritdoc/>
         protected override void OnMouseClick (MouseEventArgs e)
         {
             base.OnMouseClick (e);
 
-            var clicked_tab = GetTabAtLocation (e.Location);
+            // Kept for input paths that deliver a click without a preceding mouse-down. The setter
+            // ignores a selection that has not changed, so this is a no-op after OnMouseDown.
+            SelectTabAt (e.Location);
+        }
+
+        private void SelectTabAt (System.Drawing.Point location)
+        {
+            var clicked_tab = GetTabAtLocation (location);
 
             // This does a null check
             if (clicked_tab?.Enabled == true)
