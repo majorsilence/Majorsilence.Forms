@@ -208,6 +208,23 @@ namespace Majorsilence.Forms
             if (Application.OpenForms.Contains (this))
                 return;
 
+            CompleteClose ();
+        }
+
+        /// <summary>
+        /// Finishes a close that has actually gone through: hands the result back to
+        /// <see cref="ShowDialog()"/> and re-enables the window that opened this one.
+        /// </summary>
+        /// <remarks>
+        /// Separate from <see cref="Close"/> because a close started by the window's own close button
+        /// never calls Close at all -- the backend raises its Closed callback directly -- so
+        /// <c>OnBackendClosed</c> has to reach this too. While it did not, dismissing a modal dialog
+        /// with its close button made the window disappear while ShowDialog never returned and its
+        /// owner stayed disabled: the whole app was left unusable and could not be shut down.
+        /// Idempotent, because Close and the backend callback both run during a programmatic close.
+        /// </remarks>
+        internal void CompleteClose ()
+        {
             if (dialog_parent is not null) {
                 dialog_parent.Backend.Enabled = true;
                 dialog_parent.Backend.Activate ();
@@ -217,7 +234,9 @@ namespace Majorsilence.Forms
             if (dialog_task is not null) {
                 var task = dialog_task;
                 dialog_task = null;
-                task.SetResult (dialog_result);
+
+                // Dismissing a dialog without setting a result is a cancel, as in WinForms.
+                task.SetResult (dialog_result == DialogResult.None ? DialogResult.Cancel : dialog_result);
             }
         }
 

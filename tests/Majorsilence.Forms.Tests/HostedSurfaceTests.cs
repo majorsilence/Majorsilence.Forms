@@ -345,4 +345,29 @@ public class HostedSurfaceTests
         Assert.NotEqual (backend.LastBounds, backend.LastClip);
         Assert.True (backend.LastVisible);
     }
+
+    [Fact]
+    public void A_Hidden_Child_Does_Not_Leave_The_Tree_Permanently_Dirty ()
+    {
+        var surface = new HostedSurface (new FakeHostBackend ());
+
+        var panel = new Panel ();
+        var shown = new Label { Text = "shown", Left = 5, Top = 5, Width = 80, Height = 20 };
+        var hidden = new Label { Text = "hidden", Left = 5, Top = 30, Width = 80, Height = 20, Visible = false };
+        panel.Controls.Add (shown);
+        panel.Controls.Add (hidden);
+        surface.Content = panel;
+
+        _ = RenderToPng (surface, 200, 100);
+
+        // PaintChildren skips hidden controls, so the hidden label's own dirty flag is never cleared.
+        // If it still counted as needing paint the backend's 16ms render timer would repaint the whole
+        // window on every tick forever -- every form carries hidden implicit children (scrollbars, size
+        // grip, title bar), so this pinned the CPU of every app at idle.
+        Assert.False (panel.NeedsPaint, "a hidden child must not leave the tree permanently dirty");
+
+        // Showing it again has to bring it back into the paint pass.
+        hidden.Visible = true;
+        Assert.True (panel.NeedsPaint, "showing a hidden child must mark the tree for repaint");
+    }
 }

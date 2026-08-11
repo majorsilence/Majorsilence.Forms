@@ -47,6 +47,13 @@ namespace Majorsilence.Forms
         /// <summary>Called by the backend after the window is closed.</summary>
         internal void OnBackendClosed ()
         {
+            // A form closed by its own close button never goes through Close(), so this is the only
+            // place the bookkeeping Close() does can happen for it: leaving it out kept the form in
+            // OpenForms for the life of the process and, for a modal one, left ShowDialog awaiting a
+            // result that never arrived.
+            if (this is Form closed)
+                Application.OpenForms.Remove (closed);
+
             OnClosed (EventArgs.Empty);
 
             // WinForms raises FormClosed after the form has closed, for every close path -- programmatic
@@ -54,6 +61,9 @@ namespace Majorsilence.Forms
             // (FormClosing already fired before the close via OnClosing/OnBackendClosing) so ordinary forms
             // get FormClosed too, in FormClosing-then-FormClosed order.
             (this as Form)?.RaiseFormClosed ();
+
+            // After FormClosed, so ShowDialog returns to its caller only once the form is fully closed.
+            (this as Form)?.CompleteClose ();
         }
 
         // Set while a programmatic Close() is running so the backend's own closing callback doesn't
