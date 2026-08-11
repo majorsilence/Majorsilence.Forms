@@ -45,11 +45,24 @@ namespace Majorsilence.Forms
             var frame = new MdiChildWindow (this, child);
             child.MdiHost = frame;
 
-            // Initial size: the child's designer-set client size, cascaded so successive children offset.
+            // Initial size: the child's designer-set client size.
             var content = child.InitialMdiContentSize;
             frame.SetContentSize (content);
+
+            // Open centred in the client area, then cascade successive children off that centre so a
+            // stack of windows stays individually reachable instead of perfectly overlapping. Opening
+            // hard against the top-left corner left the caption bar butted into the container's own
+            // chrome, which made it hard to see where the child window began.
+            // The cascade offset is added to the centre rather than clamped into it: clamping collapsed
+            // successive children onto the same spot whenever a child was nearly as wide as the client.
+            // FitToClient below already pulls anything overhanging back inside, as it did when children
+            // cascaded from the corner.
+            var area = DisplayRectangle;
             var offset = (frames.Count % 8) * CascadeStep;
-            frame.Location = new Point (offset, offset);
+            var centreX = area.Width > frame.Width ? (area.Width - frame.Width) / 2 : 0;
+            var centreY = area.Height > frame.Height ? (area.Height - frame.Height) / 2 : 0;
+
+            frame.Location = new Point (centreX + offset, centreY + offset);
             frame.RestoreBounds = frame.Bounds;
 
             frames.Add (frame);

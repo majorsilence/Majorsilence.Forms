@@ -82,7 +82,9 @@ namespace Majorsilence.Forms
             // Frame background + caption strip.
             e.Canvas.Clear (Theme.BorderMidColor);
             var captionColor = MacStyleCaption
-                ? Theme.BackgroundColor                            // macOS keeps title chrome light
+                // Light, but a shade off the content beneath it: an exactly-matching fill made the
+                // boundary between caption and form invisible.
+                ? (active ? MacCaptionActive : MacCaptionInactive)
                 : (active ? Theme.AccentColor : Theme.AccentColor2);
             e.Canvas.FillRectangle (new Rectangle (0, 0, w, caption + border), captionColor);
 
@@ -92,9 +94,10 @@ namespace Majorsilence.Forms
             SKColor textColor;
 
             if (MacStyleCaption) {
-                // Hairline under the caption: macOS separates title chrome from content with a rule
-                // rather than a colour change.
-                e.Canvas.FillRectangle (new Rectangle (0, caption + border - D (1), w, D (1)), Theme.BorderMidColor);
+                // Rule under the caption: macOS separates title chrome from content with a line rather
+                // than a colour change. Drawn in the frame outline colour so caption, separator and
+                // window edge all read as one border.
+                e.Canvas.FillRectangle (new Rectangle (0, caption + border - D (1), w, D (1)), FrameOutline);
 
                 // Centred title, inset by the button run on BOTH sides so it stays optically centred
                 // in the window and can never collide with the traffic lights.
@@ -131,6 +134,14 @@ namespace Majorsilence.Forms
                     e.Canvas.DrawBitmap (content_buffer, border, caption + border);
                 }
             }
+
+            // Outline last, so it frames the composited content instead of being painted over: without
+            // it a child window's edge is indistinguishable from the MDI background behind it.
+            var edge = D (1);
+            e.Canvas.FillRectangle (new Rectangle (0, 0, w, edge), FrameOutline);                 // top
+            e.Canvas.FillRectangle (new Rectangle (0, h - edge, w, edge), FrameOutline);          // bottom
+            e.Canvas.FillRectangle (new Rectangle (0, 0, edge, h), FrameOutline);                 // left
+            e.Canvas.FillRectangle (new Rectangle (w - edge, 0, edge, h), FrameOutline);          // right
         }
 
         private int VisibleButtonCount () =>
@@ -153,6 +164,15 @@ namespace Majorsilence.Forms
         // Logical width of one caption button cell. macOS' traffic lights are 12pt discs about 8pt
         // apart, so a 20pt cell reproduces their spacing; Windows' square glyph buttons are wider.
         internal static int CaptionButtonSlot => MacStyleCaption ? 20 : ButtonWidth;
+
+        // Caption chrome for the macOS look: light, but distinct from the form content beneath so the
+        // title bar reads as its own band. The active bar is the darker of the two, as on macOS.
+        private static readonly SKColor MacCaptionActive = new SKColor (0xDE, 0xDE, 0xDE);
+        private static readonly SKColor MacCaptionInactive = new SKColor (0xF0, 0xF0, 0xF0);
+
+        // Frame outline: a single crisp line around the whole window and under the caption, so the
+        // child's edges are unambiguous against a same-coloured MDI background.
+        private static readonly SKColor FrameOutline = new SKColor (0x8A, 0x8A, 0x8A);
 
         // Traffic-light fills. An unfocused macOS window greys all three out.
         private static readonly SKColor MacClose = new SKColor (0xFF, 0x5F, 0x57);
