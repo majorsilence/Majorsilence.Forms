@@ -335,6 +335,17 @@ namespace Majorsilence.Forms
             canvas.DrawBorder (new System.Drawing.Rectangle (0, 0, physW, physH), CurrentStyle);
             OnPaint (e);
 
+            // WinForms' Form derives from Control, so a Form.Paint handler runs immediately after
+            // OnPaint and before the child controls are drawn. WindowBase is not a Control, so the
+            // Paint event it declares has to be raised by hand here -- mirroring Control.RaisePaint,
+            // which invokes Paint straight after OnPaint. Without this, `form.Paint += handler`
+            // compiles and silently never fires.
+            //
+            // Drawing here survives: the client area's own background pass below is a no-op, because
+            // Control.OnPaintBackground returns early for ControlAdapter, so nothing repaints over
+            // this before the children go down on top.
+            Paint?.Invoke (this, e);
+
             // Clip canvas to the inner client area (excludes borders).
             canvas.ClipRect (new SkiaSharp.SKRect (
                 physBorderLeft, physBorderTop,

@@ -483,6 +483,10 @@ namespace Majorsilence.Forms
         public string Text {
             get => text;
             set {
+                // Backstop for the same WinForms coercion TextBox.Text applies: DisplayText and
+                // StripInvalidCharacters both dereference this field, so it must never hold null.
+                value ??= string.Empty;
+
                 if (text != value) {
                     text = value;
                     cached_text_block = null;

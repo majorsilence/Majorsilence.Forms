@@ -670,6 +670,11 @@ namespace Majorsilence.Forms
         public override string Text {
             get => document.Text;
             set {
+                // WinForms compat: Text is never null — a null assignment is coerced to empty. This
+                // override bypasses the coercion in Control.Text, so it has to repeat it; without it
+                // a null lands in the document and TextBoxDocument.DisplayText dereferences it.
+                value ??= string.Empty;
+
                 if (document.Text != value) {
                     setting_text = true;
                     try {

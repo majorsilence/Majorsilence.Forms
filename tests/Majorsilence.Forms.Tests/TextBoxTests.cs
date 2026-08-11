@@ -20,6 +20,33 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Text_SetNull_CoercedToEmpty ()
+        {
+            // WinForms never stores a null Text. TextBox overrides Text and so bypasses the coercion
+            // in Control.Text; it used to pass the null straight into TextBoxDocument, where
+            // DisplayText dereferenced it and threw.
+            using var control = new TextBox { Text = "hello" };
+
+            // null! because Text is annotated non-nullable; callers migrating from WinForms still
+            // reach here through untyped generated code, which is exactly what this guards.
+            control.Text = null!;
+
+            Assert.Equal (string.Empty, control.Text);
+        }
+
+        [Fact]
+        public void Text_SetNullOnNewControl_DoesNotThrow ()
+        {
+            // The original repro: assigning a null string straight after construction, which is what
+            // generated designer/settings code does when its backing value was never populated.
+            using var control = new TextBox ();
+
+            control.Text = null!;
+
+            Assert.Equal (string.Empty, control.Text);
+        }
+
+        [Fact]
         public void MaxLength_DefaultsToZero ()
         {
             // WinForms convention: 0 means "no limit".

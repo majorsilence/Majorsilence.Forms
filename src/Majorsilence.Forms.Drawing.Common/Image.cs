@@ -443,11 +443,61 @@ namespace Majorsilence.Forms.Drawing
         public void SetPixel (int x, int y, System.Drawing.Color color)
             => backing?.SetPixel (x, y, new SKColor (color.R, color.G, color.B, color.A));
 
-        /// <summary>Makes the default transparent color transparent. No-op in Majorsilence.Forms.Drawing.</summary>
-        public void MakeTransparent () { }
+        /// <summary>
+        /// Makes the default transparent color transparent for this image.
+        /// </summary>
+        /// <remarks>
+        /// GDI+ takes the key from the bottom-left pixel, falling back to LightGray for an empty
+        /// image, and does nothing unless that pixel is fully opaque.
+        /// </remarks>
+        public void MakeTransparent ()
+        {
+            var key = System.Drawing.Color.LightGray;
 
-        /// <summary>Makes the specified color transparent. No-op in Majorsilence.Forms.Drawing.</summary>
-        public void MakeTransparent (System.Drawing.Color transparentColor) { }
+            if (Width > 0 && Height > 0)
+                key = GetPixel (0, Height - 1);
+
+            if (key.A < 255)
+                return;
+
+            MakeTransparent (key);
+        }
+
+        /// <summary>
+        /// Makes every pixel matching <paramref name="transparentColor"/> fully transparent, the
+        /// colour-key idiom used for sprite sheets that predate per-pixel alpha.
+        /// </summary>
+        public void MakeTransparent (System.Drawing.Color transparentColor)
+        {
+            if (backing is null || backing.Width == 0 || backing.Height == 0)
+                return;
+
+            // GDI+ does this on a 32bpp ARGB copy, so a source decoded without an alpha channel still
+            // ends up transparent instead of silently keeping its key colour.
+            if (backing.ColorType != SKColorType.Bgra8888 || backing.AlphaType != SKAlphaType.Premul) {
+                var converted = new SKBitmap (backing.Width, backing.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+                using (var canvas = new SKCanvas (converted))
+                    canvas.DrawBitmap (backing, 0, 0);
+
+                backing.Dispose ();
+                backing = converted;
+            }
+
+            // Whole-buffer get/set: a GetPixel/SetPixel pair per pixel re-validates the surface on
+            // every call, which is measurable on the sprite-sheet-sized images this is used for.
+            var pixels = backing.Pixels;
+
+            for (var i = 0; i < pixels.Length; i++) {
+                var p = pixels[i];
+
+                // Match on the full ARGB, as GDI+ does -- not just RGB.
+                if (p.Alpha == transparentColor.A && p.Red == transparentColor.R &&
+                    p.Green == transparentColor.G && p.Blue == transparentColor.B)
+                    pixels[i] = SKColors.Transparent;
+            }
+
+            backing.Pixels = pixels;
+        }
 
         /// <summary>Sets the resolution for this bitmap.</summary>
         public void SetResolution (float xDpi, float yDpi)
