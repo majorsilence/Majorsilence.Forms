@@ -102,6 +102,7 @@ namespace Majorsilence.Forms
         {
             IsActive = true;
             OnActivated (EventArgs.Empty);
+            OnGotFocus (EventArgs.Empty);
         }
 
         /// <summary>Raises the Activated event.</summary>
@@ -119,6 +120,46 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnResize (EventArgs e) => OnSizeChanged (e);
 
+        /// <summary>
+        /// Raises the Move event. <c>Move</c> is an alias of <c>LocationChanged</c> here, so this
+        /// forwards rather than raising a second time -- same shape as <see cref="OnResize"/>.
+        /// </summary>
+        /// <remarks>
+        /// Present because <c>Form</c> derives from <c>Control</c> in WinForms and so inherits its
+        /// overridable hooks; WindowBase is not a Control, so each one ported code overrides has to be
+        /// declared here explicitly.
+        /// </remarks>
+        protected virtual void OnMove (EventArgs e) => OnLocationChanged (e);
+
+        /// <summary>
+        /// Gets the height, in pixels, of one line of text in the window's current font.
+        /// </summary>
+        /// <remarks>
+        /// WinForms puts this on Control, which Form inherits; WindowBase is not a Control, so it is
+        /// declared here as well. Ported layout arithmetic uses it as a scale-aware unit (a resize
+        /// gripper sized <c>FontHeight / 3</c>, for instance).
+        /// </remarks>
+        protected int FontHeight => Font?.Height ?? Majorsilence.Forms.SystemFonts.DefaultFont.Height;
+
+        /// <summary>Raised when the window gains focus.</summary>
+        public event EventHandler? GotFocus;
+
+        /// <summary>Raised when the window loses focus.</summary>
+        public event EventHandler? LostFocus;
+
+        /// <summary>Raises the GotFocus event.</summary>
+        /// <remarks>
+        /// A top-level window has no focus state separate from activation on these backends, so this
+        /// rides on activation -- which is also when WinForms raises it for a Form in practice. Code
+        /// that pauses on focus loss (a media player dimming when you switch away, say) behaves the
+        /// same; code that distinguishes activation from focus does not.
+        /// </remarks>
+        protected virtual void OnGotFocus (EventArgs e) => GotFocus?.Invoke (this, e);
+
+        /// <summary>Raises the LostFocus event.</summary>
+        /// <inheritdoc cref="OnGotFocus"/>
+        protected virtual void OnLostFocus (EventArgs e) => LostFocus?.Invoke (this, e);
+
         /// <summary>Called by the backend when the window is deactivated.</summary>
         internal void OnBackendDeactivated ()
         {
@@ -128,6 +169,7 @@ namespace Majorsilence.Forms
             // deactivates its parent popup). See Application.ScheduleClosePopupsOnDeactivate.
             Application.ScheduleClosePopupsOnDeactivate ();
             OnDeactivate (EventArgs.Empty);
+            OnLostFocus (EventArgs.Empty);
         }
 
         /// <summary>Gets the bounds of the Window.</summary>
@@ -504,7 +546,11 @@ namespace Majorsilence.Forms
                 if (Backend.Location == value)
                     return;
                 Backend.Location = value;
-                OnLocationChanged (EventArgs.Empty);
+
+                // Through OnMove, which forwards to OnLocationChanged -- mirroring how the size setter
+                // goes through OnResize. Raising OnLocationChanged directly would leave an override of
+                // OnMove unreachable.
+                OnMove (EventArgs.Empty);
             }
         }
 
@@ -528,7 +574,7 @@ namespace Majorsilence.Forms
         protected virtual void OnLocationChanged (EventArgs e) => LocationChanged?.Invoke (this, e);
 
         /// <summary>Called by the backend when the OS window is moved.</summary>
-        internal void OnBackendMoved () => OnLocationChanged (EventArgs.Empty);
+        internal void OnBackendMoved () => OnMove (EventArgs.Empty);
 
         /// <summary>Raised when the window's client size changes. Mirrors WinForms Form.SizeChanged.
         /// Raised from the layout pipeline whenever the client area takes a new size.</summary>

@@ -456,12 +456,22 @@ namespace Majorsilence.Forms
                 return Backend.Location;
             }
             set {
+                // Compared through the getter so the check covers all three hosting cases uniformly.
+                if (Location == value)
+                    return;
+
                 if (MdiHost != null)
                     MdiHost.Client.MoveChild (MdiHost, value.X, value.Y);
                 else if (PanelHost != null)
                     PanelHost.Location = value;
-                else if (Backend.Location != value)
+                else
                     Backend.Location = value;
+
+                // WinForms raises Move/LocationChanged for a programmatic Location assignment, not only
+                // for an OS-driven move. This setter shadows WindowBase.Location (`new`), so without
+                // this the notification was lost for every Form -- code repositioning a satellite
+                // window (a drop shadow, a tool window) from Move never ran.
+                OnMove (EventArgs.Empty);
             }
         }
 
@@ -998,11 +1008,48 @@ namespace Majorsilence.Forms
         /// fire); provided so ported code compiles against Form the same as it does Control.</summary>
         public bool AllowDrop { get; set; }
 
-        /// <summary>Raised when a drag-and-drop operation enters the form. Stub in Majorsilence.Forms (never fires).</summary>
-        public event DragEventHandler? DragEnter { add { } remove { } }
+        // Real handler storage rather than `{ add { } remove { } }`, which discarded the handler
+        // outright: `form.DragEnter += h` looked wired up and h was thrown away, so an override of
+        // OnDragEnter could never be reached even once a backend does raise these. Nothing raises them
+        // yet (there is no OS drag source -- DoDragDrop returns None), so they are still "declared and
+        // never fired", which is the documented stub shape; the difference is that the handler and the
+        // overridable hook now exist to be called.
+        private DragEventHandler? drag_enter;
+        private DragEventHandler? drag_over;
+        private DragEventHandler? drag_drop;
 
-        /// <summary>Raised when a drag-and-drop operation completes over the form. Stub in Majorsilence.Forms (never fires).</summary>
-        public event DragEventHandler? DragDrop { add { } remove { } }
+        /// <summary>Raised when a drag-and-drop operation enters the form. Never fires yet — see <see cref="AllowDrop"/>.</summary>
+        public event DragEventHandler? DragEnter {
+            add => drag_enter += value;
+            remove => drag_enter -= value;
+        }
+
+        /// <summary>Raised as a drag-and-drop operation moves over the form. Never fires yet — see <see cref="AllowDrop"/>.</summary>
+        public event DragEventHandler? DragOver {
+            add => drag_over += value;
+            remove => drag_over -= value;
+        }
+
+        /// <summary>Raised when a drag-and-drop operation completes over the form. Never fires yet — see <see cref="AllowDrop"/>.</summary>
+        public event DragEventHandler? DragDrop {
+            add => drag_drop += value;
+            remove => drag_drop -= value;
+        }
+
+        /// <summary>Raises the <see cref="DragEnter"/> event.</summary>
+        /// <remarks>
+        /// Declared here because WinForms' Form inherits it from Control and ported code overrides it;
+        /// WindowBase is not a Control. Matches Control.OnDragEnter.
+        /// </remarks>
+        protected virtual void OnDragEnter (DragEventArgs e) => drag_enter?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DragOver"/> event.</summary>
+        /// <inheritdoc cref="OnDragEnter"/>
+        protected virtual void OnDragOver (DragEventArgs e) => drag_over?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DragDrop"/> event.</summary>
+        /// <inheritdoc cref="OnDragEnter"/>
+        protected virtual void OnDragDrop (DragEventArgs e) => drag_drop?.Invoke (this, e);
 
         /// <summary>
         /// Gets or sets the MDI parent. Set this (and call <see cref="WindowBase.Show"/>) to host this form

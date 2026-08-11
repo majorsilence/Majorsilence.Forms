@@ -504,6 +504,23 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the return value of the message.</summary>
         public IntPtr Result { get; set; }
+
+        /// <summary>
+        /// Marshals <see cref="LParam"/> into an instance of <paramref name="cls"/>, as WinForms does
+        /// for messages that pass a struct by pointer (WM_COPYDATA and friends).
+        /// </summary>
+        /// <returns>
+        /// The marshalled instance, or null when <see cref="LParam"/> is zero — which is what a filter
+        /// or WndProc override sees on the backends here, since nothing synthesises struct pointers.
+        /// </returns>
+        public readonly object? GetLParam (Type cls)
+        {
+            ArgumentNullException.ThrowIfNull (cls);
+
+            return LParam == IntPtr.Zero
+                ? null
+                : System.Runtime.InteropServices.Marshal.PtrToStructure (LParam, cls);
+        }
     }
 
     /// <summary>Specifies the visual style state of the application.</summary>
