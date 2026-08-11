@@ -2176,17 +2176,21 @@ namespace Majorsilence.Forms
         // Without this, each empty edge panel claimed its full Panel default size (200x100),
         // squeezing the content and even forcing a negative height on the opposite edge.
 
+        // ToolStripPanel (not plain Panel) so an edge hosting more than one strip stacks them into
+        // rows -- a menu bar and a toolbar added to the same edge then appear one above the other,
+        // as they do in real WinForms, instead of fighting over the edge and hiding one another.
+
         /// <summary>Gets the top ToolStripPanel.</summary>
-        public Panel TopToolStripPanel { get; } = new Panel { Dock = DockStyle.Top, AutoSize = true };
+        public ToolStripPanel TopToolStripPanel { get; } = new ToolStripPanel { Dock = DockStyle.Top, AutoSize = true };
 
         /// <summary>Gets the bottom ToolStripPanel.</summary>
-        public Panel BottomToolStripPanel { get; } = new Panel { Dock = DockStyle.Bottom, AutoSize = true };
+        public ToolStripPanel BottomToolStripPanel { get; } = new ToolStripPanel { Dock = DockStyle.Bottom, AutoSize = true };
 
         /// <summary>Gets the left ToolStripPanel.</summary>
-        public Panel LeftToolStripPanel { get; } = new Panel { Dock = DockStyle.Left, AutoSize = true };
+        public ToolStripPanel LeftToolStripPanel { get; } = new ToolStripPanel { Dock = DockStyle.Left, AutoSize = true, Orientation = Orientation.Vertical };
 
         /// <summary>Gets the right ToolStripPanel.</summary>
-        public Panel RightToolStripPanel { get; } = new Panel { Dock = DockStyle.Right, AutoSize = true };
+        public ToolStripPanel RightToolStripPanel { get; } = new ToolStripPanel { Dock = DockStyle.Right, AutoSize = true, Orientation = Orientation.Vertical };
 
         /// <summary>Gets the content panel in the center.</summary>
         public Panel ContentPanel { get; } = new Panel { Dock = DockStyle.Fill };
