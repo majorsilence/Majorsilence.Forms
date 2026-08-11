@@ -81,16 +81,39 @@ namespace Majorsilence.Forms
 
             // Frame background + caption strip.
             e.Canvas.Clear (Theme.BorderMidColor);
-            var captionColor = active ? Theme.AccentColor : Theme.AccentColor2;
+            var captionColor = MacStyleCaption
+                ? Theme.BackgroundColor                            // macOS keeps title chrome light
+                : (active ? Theme.AccentColor : Theme.AccentColor2);
             e.Canvas.FillRectangle (new Rectangle (0, 0, w, caption + border), captionColor);
 
-            // Title text (leave room for the caption buttons on the right).
-            var buttonsWidth = D (ButtonWidth) * VisibleButtonCount ();
-            var textRect = new Rectangle (border + D (4), border, w - 2 * border - buttonsWidth - D (4), caption);
+            var buttonsWidth = D (CaptionButtonSlot) * VisibleButtonCount ();
+            Rectangle textRect;
+            ContentAlignment textAlign;
+            SKColor textColor;
+
+            if (MacStyleCaption) {
+                // Hairline under the caption: macOS separates title chrome from content with a rule
+                // rather than a colour change.
+                e.Canvas.FillRectangle (new Rectangle (0, caption + border - D (1), w, D (1)), Theme.BorderMidColor);
+
+                // Centred title, inset by the button run on BOTH sides so it stays optically centred
+                // in the window and can never collide with the traffic lights.
+                var inset = border + buttonsWidth + D (4);
+                textRect = new Rectangle (inset, border, Math.Max (0, w - (2 * inset)), caption);
+                textAlign = ContentAlignment.MiddleCenter;
+                // An unfocused macOS window dims its title rather than recolouring the bar.
+                textColor = active ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+            } else {
+                // Windows: title leads, buttons trail.
+                textRect = new Rectangle (border + D (4), border, w - 2 * border - buttonsWidth - D (4), caption);
+                textAlign = ContentAlignment.MiddleLeft;
+                textColor = Theme.ForegroundColorOnAccent;
+            }
+
             if (textRect.Width > 0)
                 e.Canvas.DrawText (ChildForm.Text ?? string.Empty, Theme.UIFont,
-                    e.LogicalToDeviceUnits (Theme.FontSize), textRect, Theme.ForegroundColorOnAccent,
-                    ContentAlignment.MiddleLeft, ellipsis: true);
+                    e.LogicalToDeviceUnits (Theme.FontSize), textRect, textColor,
+                    textAlign, ellipsis: true);
 
             PaintCaptionButtons (e, w, border, caption);
 
@@ -113,25 +136,124 @@ namespace Majorsilence.Forms
         private int VisibleButtonCount () =>
             1 + (ChildForm.MaximizeBox ? 1 : 0) + (ChildForm.MinimizeBox ? 1 : 0);
 
+        /// <summary>
+        /// Whether the caption buttons sit at the leading (left) edge, as macOS places its window
+        /// controls, rather than the trailing edge Windows uses. Defaults to the host platform;
+        /// settable so a host can pin one convention and so tests can exercise both.
+        /// </summary>
+        internal static bool CaptionButtonsOnLeft { get; set; } = OperatingSystem.IsMacOS ();
+
+        /// <summary>
+        /// Whether the caption is drawn in the macOS idiom: light chrome with a hairline separator,
+        /// a centred title, and coloured traffic-light discs instead of Windows' accent-filled bar
+        /// with square glyphs and a leading title. Tracks the button placement.
+        /// </summary>
+        internal static bool MacStyleCaption => CaptionButtonsOnLeft;
+
+        // Logical width of one caption button cell. macOS' traffic lights are 12pt discs about 8pt
+        // apart, so a 20pt cell reproduces their spacing; Windows' square glyph buttons are wider.
+        internal static int CaptionButtonSlot => MacStyleCaption ? 20 : ButtonWidth;
+
+        // Traffic-light fills. An unfocused macOS window greys all three out.
+        private static readonly SKColor MacClose = new SKColor (0xFF, 0x5F, 0x57);
+        private static readonly SKColor MacMinimize = new SKColor (0xFE, 0xBC, 0x2E);
+        private static readonly SKColor MacZoom = new SKColor (0x28, 0xC8, 0x40);
+        private static readonly SKColor MacInactive = new SKColor (0xD6, 0xD6, 0xD6);
+
+        /// <summary>
+        /// The visible caption buttons in the order they appear along the caption, leading edge
+        /// first. macOS orders its controls close/minimize/zoom from the left; Windows orders them
+        /// minimize/maximize/close towards the right. Painting and hit testing both read this, so
+        /// the drawn glyph and the clickable box cannot drift apart.
+        /// </summary>
+        internal CaptionHit[] CaptionButtonOrder ()
+        {
+            var order = CaptionButtonsOnLeft
+                ? new[] { CaptionHit.Close, CaptionHit.Minimize, CaptionHit.Maximize }
+                : new[] { CaptionHit.Minimize, CaptionHit.Maximize, CaptionHit.Close };
+
+            return order.Where (hit => hit switch {
+                CaptionHit.Maximize => ChildForm.MaximizeBox,
+                CaptionHit.Minimize => ChildForm.MinimizeBox,
+                _ => true,
+            }).ToArray ();
+        }
+
+        /// <summary>
+        /// Left edge of the caption button at <paramref name="index"/>, in the same units as
+        /// <paramref name="buttonWidth"/> and <paramref name="totalWidth"/>. The run is packed
+        /// against whichever edge the platform puts its controls on.
+        /// </summary>
+        internal static int CaptionButtonX (int index, int count, int buttonWidth, int totalWidth, int border)
+            => CaptionButtonsOnLeft
+                ? border + (index * buttonWidth)
+                : totalWidth - border - ((count - index) * buttonWidth);
+
         private void PaintCaptionButtons (PaintEventArgs e, int w, int border, int caption)
         {
-            var bw = (int) Math.Round (ButtonWidth * e.Scaling);
-            var x = w - border - bw;
+            var bw = (int) Math.Round (CaptionButtonSlot * e.Scaling);
+            var order = CaptionButtonOrder ();
+            var active = Client.ActiveChild == ChildForm;
 
-            // Close (rightmost).
-            ControlPaint.DrawCloseGlyph (e, CenterGlyph (new Rectangle (x, border, bw, caption), e));
-            if (ChildForm.MaximizeBox) {
-                x -= bw;
-                if (WindowState == FormWindowState.Maximized)
-                    ControlPaint.DrawRestoreGlyph (e, CenterGlyph (new Rectangle (x, border, bw, caption), e));
-                else
-                    ControlPaint.DrawMaximizeGlyph (e, CenterGlyph (new Rectangle (x, border, bw, caption), e));
-            }
-            if (ChildForm.MinimizeBox) {
-                x -= bw;
-                ControlPaint.DrawMinimizeGlyph (e, CenterGlyph (new Rectangle (x, border, bw, caption), e));
+            for (var i = 0; i < order.Length; i++) {
+                var cell = new Rectangle (CaptionButtonX (i, order.Length, bw, w, border), border, bw, caption);
+
+                if (MacStyleCaption) {
+                    PaintMacTrafficLight (e, cell, order[i], active);
+                    continue;
+                }
+
+                var box = CenterGlyph (cell, e);
+
+                switch (order[i]) {
+                    case CaptionHit.Close:
+                        ControlPaint.DrawCloseGlyph (e, box);
+                        break;
+                    case CaptionHit.Maximize:
+                        if (WindowState == FormWindowState.Maximized)
+                            ControlPaint.DrawRestoreGlyph (e, box);
+                        else
+                            ControlPaint.DrawMaximizeGlyph (e, box);
+                        break;
+                    case CaptionHit.Minimize:
+                        ControlPaint.DrawMinimizeGlyph (e, box);
+                        break;
+                }
             }
         }
+
+        /// <summary>
+        /// Draws one macOS traffic light: a filled disc with a slightly darker rim. macOS shows the
+        /// glyph inside only while the pointer is over the group, so at rest these are plain discs.
+        /// </summary>
+        private static void PaintMacTrafficLight (PaintEventArgs e, Rectangle cell, CaptionHit hit, bool active)
+        {
+            var diameter = e.LogicalToDeviceUnits (12);
+            var radius = diameter / 2;
+            var cx = cell.X + (cell.Width / 2);
+            var cy = cell.Y + (cell.Height / 2);
+
+            var fill = active
+                ? hit switch {
+                    CaptionHit.Close => MacClose,
+                    CaptionHit.Minimize => MacMinimize,
+                    CaptionHit.Maximize => MacZoom,
+                    _ => MacInactive,
+                }
+                : MacInactive;
+
+            e.Canvas.FillCircle (cx, cy, radius, fill);
+
+            // Rim: keeps a light disc from disappearing into light chrome.
+            e.Canvas.DrawCircle (cx, cy, radius, Darken (fill), e.LogicalToDeviceUnits (1));
+        }
+
+        private static SKColor Darken (SKColor color)
+            => new SKColor (
+                (byte) (color.Red * 0.82),
+                (byte) (color.Green * 0.82),
+                (byte) (color.Blue * 0.82),
+                color.Alpha);
 
         private static Rectangle CenterGlyph (Rectangle button, PaintEventArgs e)
         {
@@ -149,17 +271,21 @@ namespace Majorsilence.Forms
 
         // ── Caption-button hit testing (logical, control-relative) ────────────────
 
-        private enum CaptionHit { None, Close, Maximize, Minimize }
+        internal enum CaptionHit { None, Close, Maximize, Minimize }
 
         private CaptionHit HitCaptionButton (int lx, int ly)
         {
             if (ly < FrameBorder || ly > FrameBorder + CaptionHeight)
                 return CaptionHit.None;
 
-            var x = Width - FrameBorder - ButtonWidth;
-            if (lx >= x && lx < x + ButtonWidth) return CaptionHit.Close;
-            if (ChildForm.MaximizeBox) { x -= ButtonWidth; if (lx >= x && lx < x + ButtonWidth) return CaptionHit.Maximize; }
-            if (ChildForm.MinimizeBox) { x -= ButtonWidth; if (lx >= x && lx < x + ButtonWidth) return CaptionHit.Minimize; }
+            var order = CaptionButtonOrder ();
+
+            for (var i = 0; i < order.Length; i++) {
+                var x = CaptionButtonX (i, order.Length, CaptionButtonSlot, Width, FrameBorder);
+                if (lx >= x && lx < x + CaptionButtonSlot)
+                    return order[i];
+            }
+
             return CaptionHit.None;
         }
 
@@ -302,7 +428,7 @@ namespace Majorsilence.Forms
         }
 
         private Size MinChildSize => new Size (
-            Math.Max (3 * ButtonWidth + 2 * FrameBorder, 2 * FrameBorder + 40),
+            Math.Max (3 * CaptionButtonSlot + 2 * FrameBorder, 2 * FrameBorder + 40),
             CaptionHeight + 2 * FrameBorder + 10);
 
         // ── Min / max ────────────────────────────────────────────────────────────
