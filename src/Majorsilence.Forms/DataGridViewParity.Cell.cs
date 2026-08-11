@@ -296,7 +296,7 @@ namespace Majorsilence.Forms
         protected virtual void Dispose (bool disposing) { }
 
         private static SkiaSharp.SKTypeface ToTypeface (Font? font)
-            => font is null ? SkiaSharp.SKTypeface.Default : (TypefaceCache.Get (font.Name) ?? SkiaSharp.SKTypeface.Default);
+            => TypefaceCache.Resolve (font);
 
         private static int FontSize (Font? font) => (int)Math.Round (font?.Size ?? 12f);
     }

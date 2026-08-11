@@ -89,7 +89,7 @@ namespace Majorsilence.Forms.Drawing
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
-            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal) ?? SKTypeface.Default;
+            var face = TypefaceCache.Resolve (font);
             return MeasureString (text, face, (int)font.Size);
         }
 
@@ -97,7 +97,7 @@ namespace Majorsilence.Forms.Drawing
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
-            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal) ?? SKTypeface.Default;
+            var face = TypefaceCache.Resolve (font);
             return MeasureString (text, face, (int)layoutArea.Width, (int)font.Size);
         }
 
@@ -109,7 +109,7 @@ namespace Majorsilence.Forms.Drawing
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, int width, Majorsilence.Forms.Drawing.StringFormat? format)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
-            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal) ?? SKTypeface.Default;
+            var face = TypefaceCache.Resolve (font);
             return MeasureString (text, face, width, (int)font.Size);
         }
 
@@ -1436,7 +1436,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y)
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
-            var face = TypefaceCache.Get (font.FontFamily.Name, font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal) ?? SKTypeface.Default;
+            var face = TypefaceCache.Resolve (font);
             using var skFont = new SKFont (face, font.Size);
             using var paint = brush.CreatePaint ();
             _canvas.DrawText (text, x, y + font.Size, SKTextAlign.Left, skFont, paint);

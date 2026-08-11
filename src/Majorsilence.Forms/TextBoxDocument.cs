@@ -105,6 +105,58 @@ namespace Majorsilence.Forms
             return true;
         }
 
+        // Win32 edit controls keep a single-level undo buffer that Undo toggles: undo, then undo again
+        // to redo. Consecutive edits of the same kind coalesce, so undoing a run of typing reverts the
+        // whole run rather than one character -- which is what makes single-level undo usable.
+        private enum EditKind { None, Insert, Remove }
+
+        private string? undo_text;
+        private EditKind last_edit = EditKind.None;
+        private bool suppress_undo_capture;
+
+        // Snapshots the pre-edit text at an operation boundary. Same-kind edits in a row keep the
+        // snapshot they started with, which is what groups a typing run into one undo step.
+        private void CaptureUndo (EditKind kind)
+        {
+            if (suppress_undo_capture)
+                return;
+
+            if (last_edit != kind)
+                undo_text = text;
+
+            last_edit = kind;
+        }
+
+        /// <summary>Gets whether <see cref="Undo"/> has an edit to reverse.</summary>
+        public bool CanUndo => undo_text is not null;
+
+        /// <summary>Discards the undo buffer.</summary>
+        public void ClearUndo ()
+        {
+            undo_text = null;
+            last_edit = EditKind.None;
+        }
+
+        /// <summary>
+        /// Reverses the last edit. Calling it again reapplies that edit, matching the toggle behaviour
+        /// of the Win32 edit control's single-level buffer.
+        /// </summary>
+        public bool Undo ()
+        {
+            if (undo_text is null)
+                return false;
+
+            (text, undo_text) = (undo_text, text);
+            cached_text_block = null;
+
+            // The next edit starts a new group, and the caret may be past the restored end of text.
+            last_edit = EditKind.None;
+            SetCursorToCharIndex (Math.Min (cursor_index, text.Length));
+            Invalidate ();
+
+            return true;
+        }
+
         public string DisplayText => text.Length == 0 ? placeholder :
                                      password_char.HasValue ? new string (password_char.Value, text.Length) :
                                      text;
@@ -217,8 +269,18 @@ namespace Majorsilence.Forms
             if (read_only)
                 return false;
 
+            // One undo step for the whole operation: replacing a selection is a delete plus an insert
+            // and Win32 reverses it in a single Undo, so the RemoveText inside DeleteSelection must not
+            // open a step of its own.
+            CaptureUndo (EditKind.Insert);
+
             // Delete any currently selected text
-            DeleteSelection ();
+            suppress_undo_capture = true;
+            try {
+                DeleteSelection ();
+            } finally {
+                suppress_undo_capture = false;
+            }
 
             str = StripInvalidCharacters (str);
 
@@ -409,6 +471,8 @@ namespace Majorsilence.Forms
 
         private void RemoveText (int start, int length)
         {
+            CaptureUndo (EditKind.Remove);
+
             text = text.Remove (start, length);
             cached_text_block = null;
 
@@ -488,6 +552,10 @@ namespace Majorsilence.Forms
                 value ??= string.Empty;
 
                 if (text != value) {
+                    // WM_SETTEXT resets the Win32 edit control's undo buffer, so a programmatic
+                    // assignment discards the step rather than becoming one.
+                    ClearUndo ();
+
                     text = value;
                     cached_text_block = null;
 

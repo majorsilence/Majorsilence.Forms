@@ -69,12 +69,25 @@ namespace Majorsilence.Forms
 
         private static bool use_wait_cursor;
 
-        /// <summary>Runs every registered message filter over the given message.</summary>
-        /// <remarks>Always false — no filter can ever be registered, because
-        /// <c>AddMessageFilter</c> takes an <c>IMessageFilter</c> and the Win32 message pump it
-        /// filters is a documented non-goal. Present because the method is public API that calling
-        /// code compiles against.</remarks>
-        public static bool FilterMessage (ref Message message) => false;
+        /// <summary>
+        /// Runs every registered message filter over the given message, returning true if one consumed
+        /// it. The library calls this for input before dispatching it to a control.
+        /// </summary>
+        public static bool FilterMessage (ref Message message)
+        {
+            // Snapshot reference: the array is replaced, never mutated, so a filter may add or remove
+            // filters while this loop is running.
+            var filters = _messageFilters;
+            if (filters.Length == 0)
+                return false;
+
+            foreach (var filter in filters) {
+                if (filter.PreFilterMessage (ref message))
+                    return true;
+            }
+
+            return false;
+        }
 
         /// <summary>Initializes COM for the calling thread.</summary>
         /// <remarks>Reports the thread's existing apartment state rather than changing it: there is no

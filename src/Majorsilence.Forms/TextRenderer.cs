@@ -68,14 +68,14 @@ namespace Majorsilence.Forms
         /// <summary>Measures text drawn with the given font.</summary>
         public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font)
         {
-            var tf = TypefaceCache.Get (font.Name) ?? Theme.UIFont;
+            var tf = TypefaceCache.Resolve (font);
             return MeasureText (text, tf, (int)font.SizeInPoints);
         }
 
         /// <summary>Measures text using a Majorsilence.Forms.Drawing.Font with size constraints.</summary>
         public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font, Size proposedSize)
         {
-            var tf = TypefaceCache.Get (font.Name) ?? Theme.UIFont;
+            var tf = TypefaceCache.Resolve (font);
             return MeasureText (text, tf, proposedSize, (int)font.SizeInPoints);
         }
 

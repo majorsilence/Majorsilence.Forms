@@ -41,9 +41,20 @@ namespace Majorsilence.Forms
                 ? "Microsoft Sans Serif"
                 : "sans-serif";
 
+        // Set by Application.SetDefaultFont. WinForms lets an app replace the ambient default that
+        // every unfonted control inherits; null means "use the classic platform default below".
+        private static Majorsilence.Forms.Drawing.Font? _defaultFontOverride;
+
         /// <summary>Gets the default font of the system.</summary>
         public static Majorsilence.Forms.Drawing.Font DefaultFont =>
-            new Majorsilence.Forms.Drawing.Font (_defaultFontFamily, 8.25f) { SystemFontName = nameof (DefaultFont) };
+            _defaultFontOverride
+            ?? new Majorsilence.Forms.Drawing.Font (_defaultFontFamily, 8.25f) { SystemFontName = nameof (DefaultFont) };
+
+        /// <summary>
+        /// Replaces the ambient default font, or restores the platform default when passed null.
+        /// </summary>
+        internal static void SetDefaultFont (Majorsilence.Forms.Drawing.Font? font)
+            => _defaultFontOverride = font;
 
         /// <summary>Gets the dialog box font.</summary>
         public static Majorsilence.Forms.Drawing.Font DialogFont => Create ();

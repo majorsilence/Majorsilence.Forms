@@ -31,6 +31,29 @@ namespace Majorsilence.Forms
 
         public override SKTypeface TypefaceFromStyle (IStyle style, bool ignoreFontVariants)
         {
+            // A family loaded at runtime through PrivateFontCollection is unknown to the system font
+            // manager, so the inner mapper cannot find it and silently substitutes a default face.
+            // Because a TextBlock carries only the family *name*, that substitution is what the whole
+            // layout is measured from -- text drawn with the private font would be measured with a
+            // different one, and laid out to the wrong width.
+            //
+            // Deliberately ahead of, and excluded from, the cache: the registry is an in-memory
+            // dictionary lookup with no font-manager query to amortise, and caching it would both pin
+            // a typeface the collection owns and disposes, and hide a family registered after the
+            // name's first use. The IsEmpty check keeps the (overwhelmingly common) no-private-fonts
+            // path down to one uncontended lock.
+            if (!Drawing.Text.PrivateFontRegistry.IsEmpty) {
+                var privateFace = Drawing.Text.PrivateFontRegistry.Resolve (
+                    style.FontFamily ?? string.Empty,
+                    new SKFontStyle (
+                        (SKFontStyleWeight)style.FontWeight,
+                        style.FontWidth,
+                        style.FontItalic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright));
+
+                if (privateFace is not null)
+                    return privateFace;
+            }
+
             var key = new Key (style.FontFamily ?? string.Empty, style.FontWeight, style.FontWidth, style.FontItalic, ignoreFontVariants);
             return _cache.GetOrAdd (key, static (_, ctx) => ctx.inner.TypefaceFromStyle (ctx.style, ctx.ignoreFontVariants), (inner: _inner, style, ignoreFontVariants));
         }

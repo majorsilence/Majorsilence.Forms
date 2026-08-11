@@ -667,6 +667,25 @@ namespace Majorsilence.Forms
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
         /// <inheritdoc/>
+        public override bool CanUndo => document.CanUndo;
+
+        /// <inheritdoc/>
+        public override void Undo ()
+        {
+            // Guarded by setting_text for the same reason the Text setter is: the document raises the
+            // same change notification for an undo as for a user edit, and an undo is not a user edit.
+            setting_text = true;
+            try {
+                document.Undo ();
+            } finally {
+                setting_text = false;
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void ClearUndo () => document.ClearUndo ();
+
+        /// <inheritdoc/>
         public override string Text {
             get => document.Text;
             set {

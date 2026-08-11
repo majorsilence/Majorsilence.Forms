@@ -766,10 +766,15 @@ namespace Majorsilence.Forms
             set => Size = value;
         }
 
-        /// <summary>Gets or sets the automatic scaling mode. No-op in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the automatic scaling mode.</summary>
+        /// <remarks>
+        /// Stored and returned, but it does not drive layout: the platform backend owns DPI scaling,
+        /// so there is no designer-time-to-runtime font/DPI rescale to perform. Every WinForms designer
+        /// file assigns this, hence the round-trip rather than throwing.
+        /// </remarks>
         public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Font;
 
-        /// <summary>Gets or sets the auto-scale dimensions. No-op in Majorsilence.Forms.</summary>
+        /// <inheritdoc cref="AutoScaleMode"/>
         public System.Drawing.SizeF AutoScaleDimensions { get; set; }
 
         /// <summary>Gets or sets how the form performs implicit validation when focus leaves a child control.</summary>

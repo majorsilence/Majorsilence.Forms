@@ -557,8 +557,19 @@ namespace Majorsilence.Forms
 
         // ── Neutral input handlers (the platform backend translates native input and calls these) ──
 
+        // Offers input to Application's message filters before it reaches a control, the way a Win32
+        // message loop does. A filter returning true consumes the input.
+        private bool Filtered (int msg, System.IntPtr wParam, System.IntPtr lParam)
+        {
+            var m = new Message { HWnd = Handle, Msg = msg, WParam = wParam, LParam = lParam };
+            return Application.FilterMessage (ref m);
+        }
+
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
+            if (Filtered (WindowMessages.ButtonDownMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+                return;
+
             // A press can be the first pointer event a window sees (click-through onto an inactive
             // window), so it counts as an entry too.
             TrackPointerInside ();
@@ -572,6 +583,9 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
+            if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+                return;
+
             var ev = BuildMouseClickArgs (button, new System.Drawing.Point (x, y), keys);
 
             if (ev.Clicks > 1)
@@ -583,6 +597,9 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
         {
+            if (Filtered (WindowMessages.WM_MOUSEMOVE, System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+                return;
+
             // Raise MouseEnter before the resize-border shortcut below returns: the window chrome is
             // part of the window, so entering over a border edge is still an entry.
             TrackPointerInside ();
@@ -660,6 +677,10 @@ namespace Majorsilence.Forms
         /// <summary>Routes a key-down. Returns true if handled (the backend should suppress further native processing).</summary>
         internal bool HandleKeyDown (Keys keys)
         {
+            // wParam is the virtual-key code on Windows, which is what Keys already encodes.
+            if (Filtered (WindowMessages.WM_KEYDOWN, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
+                return true;
+
             var kd_e = new KeyEventArgs (keys);
 
             // Form-level shortcuts: AcceptButton / CancelButton / modal Escape
@@ -725,6 +746,9 @@ namespace Majorsilence.Forms
         /// <summary>Routes a key-up. Returns true if handled.</summary>
         internal bool HandleKeyUp (Keys keys)
         {
+            if (Filtered (WindowMessages.WM_KEYUP, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
+                return true;
+
             var ku_e = new KeyEventArgs (keys);
 
             if (FormSeesKeyFirst) {
@@ -746,6 +770,11 @@ namespace Majorsilence.Forms
         {
             if (string.IsNullOrEmpty (text))
                 return false;
+
+            // WM_CHAR carries one character; report the first, matching how a filter would see a run
+            // of native WM_CHARs begin.
+            if (Filtered (WindowMessages.WM_CHAR, (System.IntPtr)text[0], System.IntPtr.Zero))
+                return true;
 
             var kp_e = new KeyPressEventArgs (text, Keys.None);
 
