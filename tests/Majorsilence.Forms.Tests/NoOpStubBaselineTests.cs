@@ -117,9 +117,11 @@ public class NoOpStubBaselineTests
                 if (method.RelativeVirtualAddress == 0)
                     continue;
 
+                // Ordinal: these are CLR metadata name prefixes, not user-facing text, so they must
+                // never be compared under the current culture.
                 var name = md.GetString (method.Name);
-                if (name.StartsWith ("get_") || name.StartsWith ("set_") ||
-                    name.StartsWith ("add_") || name.StartsWith ("remove_"))
+                if (name.StartsWith ("get_", StringComparison.Ordinal) || name.StartsWith ("set_", StringComparison.Ordinal) ||
+                    name.StartsWith ("add_", StringComparison.Ordinal) || name.StartsWith ("remove_", StringComparison.Ordinal))
                     continue;
 
                 var signature = md.GetBlobBytes (method.Signature);
