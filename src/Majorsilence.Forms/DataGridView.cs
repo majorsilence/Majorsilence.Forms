@@ -861,6 +861,8 @@ namespace Majorsilence.Forms
         /// Commits the current edit and hides the edit TextBox.
         /// </summary>
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
+        [UnconditionalSuppressMessage ("Trimming", "IL2026",
+            Justification = "TypeDescriptor is how WinForms resolves the bound member to write back to; a trimmed descriptor degrades to the reflection path alongside it.")]
         public bool EndEdit ()
         {
             if (edit_textbox is null || editing_row_index < 0 || editing_column_index < 0)
@@ -909,7 +911,30 @@ namespace Majorsilence.Forms
                     var item = data_source[editing_row_index];
 
                     if (item is not null && editing_column_index < Columns.Count) {
-                        var prop = item.GetType ().GetProperty (Columns[editing_column_index].HeaderText, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+                        // DataPropertyName is the bound member; HeaderText is only a fallback (app code
+                        // routinely reassigns HeaderText for display). Descriptors are consulted first so
+                        // DataRowView columns are writable too.
+                        var column = Columns[editing_column_index];
+                        var member = string.IsNullOrEmpty (column.DataPropertyName) ? column.HeaderText : column.DataPropertyName;
+                        var descriptor = string.IsNullOrEmpty (member)
+                            ? null
+                            : System.ComponentModel.TypeDescriptor.GetProperties (item)[member];
+
+                        if (descriptor is not null && !descriptor.IsReadOnly) {
+                            try {
+                                var converted = parsed_value is not null && descriptor.PropertyType.IsInstanceOfType (parsed_value)
+                                    ? parsed_value
+                                    : Convert.ChangeType (parsed_value, descriptor.PropertyType);
+                                descriptor.SetValue (item, converted);
+                            } catch {
+                                editing_cell.Value = (object)old_value;
+                                committed = false;
+                            }
+                        }
+
+                        var prop = descriptor is not null
+                            ? null
+                            : item.GetType ().GetProperty (member, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
                         if (prop?.CanWrite == true) {
                             try {
                                 // A CellParsing handler may already have produced a value of the bound
@@ -1573,8 +1598,24 @@ namespace Majorsilence.Forms
                         continue;
 
                     var row = new DataGridViewRow ();
-                    for (var i = 0; i < descriptors.Count; i++)
-                        row.Cells.Add (descriptors[i].GetValue (item)?.ToString () ?? string.Empty);
+
+                    // The TYPED value, not its text: WinForms cell values keep the bound member's type,
+                    // so handlers can cast (e.g. CType(cell.Value, Decimal)) and numeric/date columns
+                    // sort and format as numbers and dates rather than as strings.
+                    if (AutoGenerateColumns) {
+                        for (var i = 0; i < descriptors.Count; i++)
+                            row.Cells.Add (descriptors[i].GetValue (item));
+                    } else {
+                        // Columns the caller defined: fill them in THEIR order, from the member each one
+                        // names. Walking the descriptors regardless meant a grid with manually defined
+                        // columns got the source's columns in the source's order instead of its own.
+                        for (var i = 0; i < Columns.Count; i++) {
+                            var col = Columns[i];
+                            var member = string.IsNullOrEmpty (col.DataPropertyName) ? col.HeaderText : col.DataPropertyName;
+                            row.Cells.Add (ReadMember (item, member));
+                        }
+                    }
+
                     row.DataBoundItem = item;
                     typedRows.Add (row);
                 }
@@ -1618,8 +1659,9 @@ namespace Majorsilence.Forms
                         continue;
 
                     var row = new DataGridViewRow ();
+                    // Typed values -- see the descriptor branch above.
                     for (var i = 0; i < properties.Length; i++)
-                        row.Cells.Add (properties[i].GetValue (item)?.ToString () ?? string.Empty);
+                        row.Cells.Add (properties[i].GetValue (item));
                     row.DataBoundItem = item;
                     propertyRows.Add (row);
                 }
@@ -1637,16 +1679,11 @@ namespace Majorsilence.Forms
                     for (var i = 0; i < Columns.Count; i++) {
                         var col = Columns[i];
                         var prop_name = string.IsNullOrEmpty (col.DataPropertyName) ? col.HeaderText : col.DataPropertyName;
-                        var prop = string.IsNullOrEmpty (prop_name)
-                            ? null
-                            : item.GetType ().GetProperty (prop_name, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
 
-                        // See the generated-columns branch: an indexer cannot be read without index
-                        // arguments, so a column mapped to one contributes nothing rather than throwing.
-                        if (prop?.GetIndexParameters ().Length > 0)
-                            prop = null;
-
-                        row.Cells.Add (prop?.GetValue (item)?.ToString () ?? string.Empty);
+                        // Property descriptors first: a DataRowView exposes its columns as descriptors,
+                        // not CLR properties, so reflection alone left every cell of a DataTable-bound
+                        // grid with manually defined columns empty. Typed value, as above.
+                        row.Cells.Add (ReadMember (item, prop_name));
                     }
 
                     row.DataBoundItem = item;
@@ -1691,6 +1728,61 @@ namespace Majorsilence.Forms
                 return list[0]!.GetType ();
 
             return null;
+        }
+
+        // Reads a bound member off a data item, preferring property descriptors: a DataRowView exposes
+        // its columns that way and has no CLR property per column, so reflection alone finds nothing.
+        // Indexers are skipped -- GetValue with no index arguments throws TargetParameterCountException,
+        // which is why binding to a List<string> (whose element type carries string's Chars indexer)
+        // used to crash on the first row.
+        [UnconditionalSuppressMessage ("Trimming", "IL2075",
+            Justification = "Bound item types are only known at runtime — same as WinForms.")]
+        [UnconditionalSuppressMessage ("Trimming", "IL2026",
+            Justification = "TypeDescriptor is how WinForms resolves bound members; a trimmed descriptor degrades to the reflection path below.")]
+        private static object? ReadMember (object item, string? member)
+        {
+            if (string.IsNullOrEmpty (member))
+                return null;
+
+            var descriptor = System.ComponentModel.TypeDescriptor.GetProperties (item)[member];
+
+            if (descriptor is not null)
+                return descriptor.GetValue (item);
+
+            var prop = item.GetType ().GetProperty (member, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+
+            if (prop is null || prop.GetIndexParameters ().Length > 0)
+                return null;
+
+            return prop.GetValue (item);
+        }
+
+        // Orders two cell values by their own type rather than by their text, so a numeric column sorts
+        // 2 before 10 and a date column sorts chronologically. Values of differing or non-comparable
+        // types fall back to a culture-aware text comparison.
+        private static int CompareCellValues (object? a, object? b)
+        {
+            if (a is null && b is null)
+                return 0;
+            if (a is null)
+                return -1;
+            if (b is null)
+                return 1;
+
+            if (a.GetType () == b.GetType () && a is IComparable same_type)
+                return same_type.CompareTo (b);
+
+            // Mixed numeric types (e.g. int against decimal) still compare numerically.
+            if (a is IConvertible && b is IConvertible
+                && a is not string && b is not string) {
+                try {
+                    return Convert.ToDecimal (a).CompareTo (Convert.ToDecimal (b));
+                } catch (Exception e) when (e is FormatException or InvalidCastException or OverflowException) {
+                    // Not actually numeric — fall through to text.
+                }
+            }
+
+            return string.Compare (a.ToString (), b.ToString (), StringComparison.CurrentCultureIgnoreCase);
         }
 
         // Estimates a column width based on header text length.
@@ -2465,18 +2557,11 @@ namespace Majorsilence.Forms
             var sorted = Rows.ToList ();
 
             sorted.Sort ((a, b) => {
-                var val_a = columnIndex < a.Cells.Count ? a.Cells[columnIndex].Value?.ToString () ?? string.Empty : string.Empty;
-                var val_b = columnIndex < b.Cells.Count ? b.Cells[columnIndex].Value?.ToString () ?? string.Empty : string.Empty;
+                var raw_a = columnIndex < a.Cells.Count ? a.Cells[columnIndex].Value : null;
+                var raw_b = columnIndex < b.Cells.Count ? b.Cells[columnIndex].Value : null;
 
-                // Try numeric comparison first
-                if (double.TryParse (val_a, out var num_a) && double.TryParse (val_b, out var num_b)) {
-                    var cmp = num_a.CompareTo (num_b);
-                    return order == SortOrder.Descending ? -cmp : cmp;
-                }
-
-                // Fall back to string comparison
-                var result = string.Compare (val_a, val_b, StringComparison.CurrentCultureIgnoreCase);
-                return order == SortOrder.Descending ? -result : result;
+                var cmp = CompareCellValues (raw_a, raw_b);
+                return order == SortOrder.Descending ? -cmp : cmp;
             });
 
             // Replace rows without triggering per-item change notifications
