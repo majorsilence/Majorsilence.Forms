@@ -202,33 +202,23 @@ namespace Majorsilence.Forms
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
         public override string GetItemText (object? item)
         {
-            if (item is null)
-                return string.Empty;
-
-            if (!string.IsNullOrEmpty (_displayMember)) {
-                var prop = item.GetType ().GetProperty (_displayMember);
-                return prop?.GetValue (item)?.ToString () ?? item.ToString () ?? string.Empty;
-            }
-
-            return item.ToString () ?? string.Empty;
+            // Property descriptors first so DataRowView columns resolve; see DataSourceBinding.
+            return DataSourceBinding.DisplayText (item, _displayMember);
         }
 
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
         private void RefreshDataSource ()
         {
-            if (_dataSource is not IList list)
+            var list = DataSourceBinding.AsList (_dataSource);
+
+            if (list is null)
                 return;
 
             Items.Clear ();
 
-            foreach (var item in list) {
-                if (!string.IsNullOrEmpty (_displayMember)) {
-                    var prop = item?.GetType ().GetProperty (_displayMember);
-                    Items.Add (prop?.GetValue (item)?.ToString () ?? item?.ToString () ?? string.Empty);
-                } else {
-                    Items.Add (item?.ToString () ?? string.Empty);
-                }
-            }
+            // Bound objects, not display text -- see the matching comment in ComboBox.RefreshDataSource.
+            foreach (var item in list)
+                Items.Add (item);
         }
 
         // The height that would be needed to display all items.
@@ -582,7 +572,9 @@ namespace Majorsilence.Forms
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
         public override object? SelectedValue {
             get {
-                if (SelectedIndex < 0 || DataSource is not System.Collections.IList list || SelectedIndex >= list.Count)
+                var list = DataSourceBinding.AsList (DataSource);
+
+                if (SelectedIndex < 0 || list is null || SelectedIndex >= list.Count)
                     return SelectedItem;
 
                 var item = list[SelectedIndex];
@@ -590,10 +582,12 @@ namespace Majorsilence.Forms
                 if (string.IsNullOrEmpty (ValueMember))
                     return item;
 
-                return item?.GetType ().GetProperty (ValueMember)?.GetValue (item);
+                return DataSourceBinding.MemberValue (item, ValueMember);
             }
             set {
-                if (DataSource is not System.Collections.IList list || value == null) {
+                var list = DataSourceBinding.AsList (DataSource);
+
+                if (list is null || value == null) {
                     SelectedItem = value;
                     return;
                 }
@@ -602,7 +596,7 @@ namespace Majorsilence.Forms
                     var item = list[i];
                     var item_value = string.IsNullOrEmpty (ValueMember)
                         ? item
-                        : item?.GetType ().GetProperty (ValueMember)?.GetValue (item);
+                        : DataSourceBinding.MemberValue (item, ValueMember);
 
                     if (Equals (item_value, value)) {
                         SelectedIndex = i;

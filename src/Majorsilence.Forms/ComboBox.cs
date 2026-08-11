@@ -152,19 +152,28 @@ namespace Majorsilence.Forms
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
         private void RefreshDataSource ()
         {
-            if (_dataSource is not IList list)
+            var list = DataSourceBinding.AsList (_dataSource);
+
+            if (list is null)
                 return;
 
             Items.Clear ();
 
-            foreach (var item in list) {
-                if (!string.IsNullOrEmpty (_displayMember)) {
-                    var prop = item?.GetType ().GetProperty (_displayMember);
-                    Items.Add (prop?.GetValue (item)?.ToString () ?? item?.ToString () ?? string.Empty);
-                } else {
-                    Items.Add (item?.ToString () ?? string.Empty);
-                }
-            }
+            // The BOUND OBJECTS go in, not their display text: WinForms keeps the source items as the
+            // control's items (so SelectedItem is e.g. a DataRowView the caller can cast) and uses
+            // DisplayMember only when rendering, via GetItemText. Storing strings instead made
+            // SelectedItem a String and broke every cast in a SelectedIndexChanged handler.
+            foreach (var item in list)
+                Items.Add (item);
+
+            // Items live on the popup list, which renders them through its own GetItemText -- it needs
+            // the same DisplayMember or it would fall back to ToString on the bound object.
+            popup_listbox.DisplayMember = _displayMember;
+
+            // WinForms selects the first row when a non-empty source is bound; without this, code that
+            // binds a source and immediately reads/sets the selection sees an unselected control.
+            if (Items.Count > 0 && SelectedIndex < 0)
+                SelectedIndex = 0;
         }
 
         /// <summary>
@@ -410,12 +419,14 @@ namespace Majorsilence.Forms
         public AutoCompleteStringCollection AutoCompleteCustomSource { get; set; } = new AutoCompleteStringCollection ();
 
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
-        private static object? GetPropValue (object? item, string prop) => item?.GetType ().GetProperty (prop)?.GetValue (item);
+        private static object? GetPropValue (object? item, string prop) => DataSourceBinding.MemberValue (item, prop);
 
         /// <summary>Gets or sets the selected value (uses ValueMember if set).</summary>
         public override object? SelectedValue {
             get {
-                if (SelectedIndex < 0 || DataSource is not System.Collections.IList list || SelectedIndex >= list.Count)
+                var list = DataSourceBinding.AsList (DataSource);
+
+                if (SelectedIndex < 0 || list is null || SelectedIndex >= list.Count)
                     return SelectedItem;
 
                 var item = list[SelectedIndex];
@@ -423,7 +434,9 @@ namespace Majorsilence.Forms
                 return string.IsNullOrEmpty (ValueMember) ? item : GetPropValue (item, ValueMember);
             }
             set {
-                if (DataSource is not System.Collections.IList list || value == null) {
+                var list = DataSourceBinding.AsList (DataSource);
+
+                if (list is null || value == null) {
                     SelectedItem = value;
                     return;
                 }
@@ -449,12 +462,8 @@ namespace Majorsilence.Forms
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
         public override string GetItemText (object? item)
         {
-            if (item is null) return string.Empty;
-            if (!string.IsNullOrEmpty (DisplayMember)) {
-                var prop = item.GetType ().GetProperty (DisplayMember);
-                if (prop != null) return prop.GetValue (item)?.ToString () ?? string.Empty;
-            }
-            return item.ToString () ?? string.Empty;
+            // Property descriptors first so DataRowView columns resolve; see DataSourceBinding.
+            return DataSourceBinding.DisplayText (item, DisplayMember);
         }
 
         /// <summary>Finds the first item that exactly matches the given string (case-insensitive).</summary>

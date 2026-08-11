@@ -48,7 +48,8 @@ namespace Majorsilence.Forms.Renderers
             bounds.Inflate (-4, 0);
 
             // Draw text
-            e.Canvas.DrawText (item.ToString ()!, bounds, control, ContentAlignment.MiddleLeft, maxLines: 1);
+            // GetItemText, not ToString: items are the bound objects, so DisplayMember decides the text.
+            e.Canvas.DrawText (control.GetItemText (item), bounds, control, ContentAlignment.MiddleLeft, maxLines: 1);
         }
     }
 }

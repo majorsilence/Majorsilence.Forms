@@ -53,7 +53,7 @@ namespace Majorsilence.Forms.Tests
             var toolbar = new ToolStrip { Dock = DockStyle.Fill };
             toolbar.Items.Add (new ToolStripButton { Text = "Close", AutoSize = false, Size = new Size (150, 64) });
             var menu = new MenuStrip { Dock = DockStyle.None };
-            menu.Items.Add (new ToolStripMenuItem { Text = "&Vendors" });
+            menu.Items.Add (new ToolStripMenuItem { Text = "&File" });
 
             container.TopToolStripPanel.Controls.Add (toolbar);   // added FIRST
             container.TopToolStripPanel.Controls.Add (menu);      // added SECOND
@@ -74,7 +74,7 @@ namespace Majorsilence.Forms.Tests
             // Regression: ToolStripItem.AutoSize/Size were unconsulted stubs, so the renderer's text
             // measurement always won and a host-assigned button box (image above text) collapsed to
             // caption width. WinForms treats AutoSize=false + explicit Size as a fixed item box.
-            var item = new ToolStripButton { Text = "Vendor Records", AutoSize = false, Size = new Size (150, 64) };
+            var item = new ToolStripButton { Text = "Open File", AutoSize = false, Size = new Size (150, 64) };
 
             var preferred = item.GetPreferredSize (Size.Empty);
 
@@ -85,7 +85,7 @@ namespace Majorsilence.Forms.Tests
         public void Auto_sized_item_still_measures_itself ()
         {
             // The fixed-size path must not swallow the default: AutoSize items keep measuring.
-            var item = new ToolStripButton { Text = "Vendor Records", AutoSize = true, Size = new Size (150, 64) };
+            var item = new ToolStripButton { Text = "Open File", AutoSize = true, Size = new Size (150, 64) };
 
             Assert.NotEqual (new Size (150, 64), item.GetPreferredSize (Size.Empty));
         }
@@ -99,7 +99,7 @@ namespace Majorsilence.Forms.Tests
             using var toolbar = new ToolStrip ();
 
             toolbar.Items.Add (new ToolStripButton { Text = "Close", AutoSize = false, Size = new Size (150, 64) });
-            toolbar.Items.Add (new ToolStripButton { Text = "Invoice", AutoSize = false, Size = new Size (150, 64) });
+            toolbar.Items.Add (new ToolStripButton { Text = "Save", AutoSize = false, Size = new Size (150, 64) });
 
             var preferred = toolbar.GetPreferredSize (Size.Empty);
 
