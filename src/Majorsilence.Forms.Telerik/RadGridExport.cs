@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Printing;
+﻿using Majorsilence.Forms.Printing;
 
 namespace Majorsilence.Forms.Telerik
 {
@@ -348,8 +348,8 @@ namespace Majorsilence.Forms.Telerik
             var rowIndex = 0;
 
             doc.PrintPage += (_, e) => {
-                var g = e.Graphics;
-                var top = e.MarginBounds.Top;
+                var g = e.SkiaGraphics;
+                float top = e.MarginBounds.Top;
 
                 if (export.ShowHeaderAndFooter && !string.IsNullOrEmpty (export.MiddleHeader)) {
                     var headerRect = new System.Drawing.RectangleF (e.MarginBounds.Left, top, e.MarginBounds.Width, headerBandHeight);
