@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Reflection;
@@ -135,7 +135,7 @@ namespace Majorsilence.Forms
 
             // GetCellBounds returns device pixel coordinates; child control bounds are
             // in logical units, so convert before positioning the TextBox.
-            edit_textbox = new TextBox {
+            var editor = new TextBox {
                 Left = DeviceToLogicalUnits (cell_bounds.Left) + 1,
                 Top = DeviceToLogicalUnits (cell_bounds.Top) + 1,
                 Width = DeviceToLogicalUnits (cell_bounds.Width) - 2,
@@ -143,18 +143,35 @@ namespace Majorsilence.Forms
                 Text = cell_value
             };
 
-            edit_textbox.Style.Border.Width = 0;
+            edit_textbox = editor;
+            editor.Style.Border.Width = 0;
 
-            edit_textbox.KeyDown += EditTextBox_KeyDown;
-            edit_textbox.LostFocus += EditTextBox_LostFocus;
+            editor.KeyDown += EditTextBox_KeyDown;
+            editor.LostFocus += EditTextBox_LostFocus;
 
-            Controls.Add (edit_textbox);
+            Controls.Add (editor);
+
+            // Everything from here can re-enter and tear the edit down again, so work through the local
+            // and re-check the field after each step rather than dereferencing it.
+            //
+            // Two ways in. A handler of the event below may call EndEdit itself -- that is allowed. And
+            // Select () moves focus, which deselects whatever held it; if that raises LostFocus back into
+            // this grid, EditTextBox_LostFocus calls EndEdit, which disposes the editor and nulls the
+            // field. Reading edit_textbox afterwards then threw a NullReferenceException out of a
+            // double-click, killing the application.
 
             // Let handlers customise/inspect the editing control before it is shown (WinForms).
-            OnEditingControlShowing (new DataGridViewEditingControlShowingEventArgs (edit_textbox, new DataGridViewCellStyle ()));
+            OnEditingControlShowing (new DataGridViewEditingControlShowingEventArgs (editor, new DataGridViewCellStyle ()));
 
-            edit_textbox.Select ();
-            edit_textbox.SelectAll ();
+            if (!ReferenceEquals (edit_textbox, editor))
+                return;
+
+            editor.Select ();
+
+            if (!ReferenceEquals (edit_textbox, editor))
+                return;
+
+            editor.SelectAll ();
         }
 
         /// <summary>
@@ -274,11 +291,53 @@ namespace Majorsilence.Forms
         /// <summary>Raised to supply default values for new rows.</summary>
         public event DataGridViewRowEventHandler? DefaultValuesNeeded { add { } remove { } }
 
+        // Real handler storage rather than `{ add { } remove { } }`, which discarded the handler: the
+        // event looked wired up and nothing could ever be called, so neither a subscriber nor an
+        // override of the On* hooks below was reachable.
+        private EventHandler<DataGridViewColumnEventArgs>? _columnAdded;
+        private EventHandler<DataGridViewColumnEventArgs>? _columnRemoved;
+
         /// <summary>Raised when a column is added to the grid.</summary>
-        public event EventHandler<DataGridViewColumnEventArgs>? ColumnAdded { add { } remove { } }
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnAdded {
+            add => _columnAdded += value;
+            remove => _columnAdded -= value;
+        }
 
         /// <summary>Raised when a column is removed from the grid.</summary>
-        public event EventHandler<DataGridViewColumnEventArgs>? ColumnRemoved { add { } remove { } }
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnRemoved {
+            add => _columnRemoved += value;
+            remove => _columnRemoved -= value;
+        }
+
+        /// <summary>Raises the <see cref="ColumnAdded"/> event.</summary>
+        /// <remarks>
+        /// Grids that decorate their own columns override this -- AdvancedDataGridView swaps in a
+        /// filtering header cell here -- so the collection routes through it rather than raising the
+        /// event directly.
+        /// </remarks>
+        protected virtual void OnColumnAdded (DataGridViewColumnEventArgs e) => _columnAdded?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="ColumnRemoved"/> event.</summary>
+        protected virtual void OnColumnRemoved (DataGridViewColumnEventArgs e) => _columnRemoved?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="RowsAdded"/> event.</summary>
+        protected virtual void OnRowsAdded (DataGridViewRowsAddedEventArgs e) => _rowsAdded?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="RowsRemoved"/> event.</summary>
+        protected virtual void OnRowsRemoved (DataGridViewRowsRemovedEventArgs e) => _rowsRemoved?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DataSourceChanged"/> event.</summary>
+        /// <remarks>
+        /// Overload of the private parameterless OnDataSourceChanged, which rebuilds rows and columns
+        /// from the binding source. This one is the WinForms-shaped hook that derived grids override.
+        /// </remarks>
+        protected virtual void OnDataSourceChanged (EventArgs e) => DataSourceChanged?.Invoke (this, e);
+
+        // Called by the column/row collections, which cannot reach the protected hooks directly.
+        internal void RaiseColumnAdded (DataGridViewColumn column) => OnColumnAdded (new DataGridViewColumnEventArgs (column));
+        internal void RaiseColumnRemoved (DataGridViewColumn column) => OnColumnRemoved (new DataGridViewColumnEventArgs (column));
+        internal void RaiseRowsAdded (int rowIndex, int rowCount) => OnRowsAdded (new DataGridViewRowsAddedEventArgs (rowIndex, rowCount));
+        internal void RaiseRowsRemoved (int rowIndex, int rowCount) => OnRowsRemoved (new DataGridViewRowsRemovedEventArgs (rowIndex, rowCount));
 
         /// <summary>Raised when the user clicks a row header.</summary>
         public event EventHandler<DataGridViewCellMouseEventArgs>? RowHeaderMouseClick { add { } remove { } }
@@ -469,6 +528,8 @@ namespace Majorsilence.Forms
             set {
                 // WinForms accepts any list-like source. Resolve the common ADO.NET cases:
                 // a DataTable binds via its DefaultView; an IListSource (e.g. DataSet) via GetList ().
+                DetachFromBoundList ();
+
                 data_source = value switch {
                     null => null,
                     IList list => list,
@@ -476,8 +537,10 @@ namespace Majorsilence.Forms
                     System.ComponentModel.IListSource source => source.GetList (),
                     _ => data_source
                 };
+
+                AttachToBoundList ();
                 OnDataSourceChanged ();
-                DataSourceChanged?.Invoke (this, EventArgs.Empty);
+                OnDataSourceChanged (EventArgs.Empty);
             }
         }
 
@@ -1066,7 +1129,24 @@ namespace Majorsilence.Forms
         /// </summary>
         public Rectangle GetCellBounds (int rowIndex, int columnIndex)
         {
-            if (rowIndex < 0 || rowIndex >= Rows.Count || columnIndex < 0 || columnIndex >= Columns.Count)
+            if (columnIndex < 0 || columnIndex >= Columns.Count)
+                return Rectangle.Empty;
+
+            // rowIndex -1 addresses the COLUMN HEADER, not an invalid row -- that is the WinForms
+            // convention, and it is how a custom header cell finds the rectangle it was painted into so
+            // it can place things (a filter button, a glyph) relative to it.
+            if (rowIndex == -1) {
+                if (!ColumnHeadersVisible)
+                    return Rectangle.Empty;
+
+                return new Rectangle (
+                    GetColumnDeviceLeft (columnIndex),
+                    GetContentArea ().Top,
+                    LogicalToDeviceUnits (Columns[columnIndex].Width),
+                    ScaledHeaderHeight);
+            }
+
+            if (rowIndex < 0 || rowIndex >= Rows.Count)
                 return Rectangle.Empty;
 
             if (rowIndex < top_index)
@@ -1559,6 +1639,79 @@ namespace Majorsilence.Forms
         /// </summary>
         public event EventHandler<EventArgs<DataGridViewColumn>>? ColumnHeaderClick;
 
+        /// <summary>
+        /// Builds the column for a bound member, choosing its type from the member's type.
+        /// </summary>
+        /// <remarks>
+        /// WinForms picks the column class from the bound type -- a bool member gets a checkbox column,
+        /// an image member an image column -- and only falls back to a text column for everything else.
+        /// Generating a text column for every member instead is why a bound bool used to render the
+        /// literal text "True" and an image rendered as its type name.
+        ///
+        /// Name and DataPropertyName are both set to the member name, not just HeaderText: the
+        /// Columns[name] indexer matches Name OR HeaderText, and app code routinely reassigns HeaderText
+        /// and then looks the column up again by its original field name.
+        /// </remarks>
+        private DataGridViewColumn CreateBoundColumn (string member, Type? memberType)
+        {
+            var type = memberType is null ? null : Nullable.GetUnderlyingType (memberType) ?? memberType;
+
+            DataGridViewColumn column =
+                type == typeof (bool) ? new DataGridViewCheckBoxColumn ()
+                : IsImageType (type) ? new DataGridViewImageColumn ()
+                : new DataGridViewColumn ();
+
+            column.HeaderText = member;
+            column.Name = member;
+            column.DataPropertyName = member;
+            column.Width = EstimateColumnWidth (member);
+            return column;
+        }
+
+        private static bool IsImageType (Type? type)
+            => type is not null
+               && (typeof (Majorsilence.Forms.Drawing.Image).IsAssignableFrom (type) || type == typeof (byte[]));
+
+        // The list we hold a ListChanged subscription on. Tracked separately from data_source because it
+        // must be detached even after data_source has been replaced.
+        private System.ComponentModel.IBindingList? bound_list;
+
+        private void AttachToBoundList ()
+        {
+            bound_list = data_source as System.ComponentModel.IBindingList;
+
+            if (bound_list is not null)
+                bound_list.ListChanged += OnBoundListChanged;
+        }
+
+        private void DetachFromBoundList ()
+        {
+            if (bound_list is null)
+                return;
+
+            bound_list.ListChanged -= OnBoundListChanged;
+            bound_list = null;
+        }
+
+        // Keeps the grid in step with a source that changes after binding.
+        //
+        // This is the normal case, not an edge case: designer code assigns DataSource inside
+        // InitializeComponent, and the form loads its data afterwards -- so at bind time the source is
+        // routinely an empty list with no schema yet. Without this the grid draws that empty snapshot
+        // forever and the app looks broken while holding perfectly good data.
+        //
+        // Every change re-runs the full bind. That is heavier than patching the single affected row, but
+        // it is correct for every ListChangedType including schema changes, and Rows.ReplaceAll already
+        // makes the rebuild a single notification rather than one per row.
+        private void OnBoundListChanged (object? sender, System.ComponentModel.ListChangedEventArgs e)
+        {
+            if (IsDisposed)
+                return;
+
+            OnDataSourceChanged ();
+            Invalidate ();
+        }
+
         // Populates rows and columns from the DataSource.
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
         private void OnDataSourceChanged ()
@@ -1585,11 +1738,8 @@ namespace Majorsilence.Forms
                 if (AutoGenerateColumns) {
                     Columns.Clear ();
 
-                    foreach (System.ComponentModel.PropertyDescriptor descriptor in descriptors) {
-                        var generated = Columns.Add (descriptor.Name, EstimateColumnWidth (descriptor.Name));
-                        generated.Name = descriptor.Name;
-                        generated.DataPropertyName = descriptor.Name;
-                    }
+                    foreach (System.ComponentModel.PropertyDescriptor descriptor in descriptors)
+                        Columns.Add (CreateBoundColumn (descriptor.Name, descriptor.PropertyType));
                 }
 
                 var typedRows = new System.Collections.Generic.List<DataGridViewRow> ();
@@ -1645,13 +1795,8 @@ namespace Majorsilence.Forms
                     .Where (p => p.CanRead && p.GetIndexParameters ().Length == 0)
                     .ToArray ();
 
-                foreach (var prop in properties) {
-                    var generated = Columns.Add (prop.Name, EstimateColumnWidth (prop.Name));
-                    // See the DataView branch above: set Name/DataPropertyName to the member name so
-                    // Columns[name] lookups keep working after app code reassigns HeaderText.
-                    generated.Name = prop.Name;
-                    generated.DataPropertyName = prop.Name;
-                }
+                foreach (var prop in properties)
+                    Columns.Add (CreateBoundColumn (prop.Name, prop.PropertyType));
 
                 var propertyRows = new System.Collections.Generic.List<DataGridViewRow> ();
                 foreach (var item in data_source) {
@@ -1958,9 +2103,83 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+
+        // ---- Header-cell pointer routing -------------------------------------------------------
+        //
+        // WinForms delivers pointer input to the cell under the pointer, and a custom header cell
+        // relies on that to run its own hit-testing (a filter button, say). Nothing here did that, so
+        // an override of DataGridViewCell.OnMouse* was unreachable. HeaderBounds is set by the
+        // renderer each paint, which is what makes the lookup possible.
+
+        private DataGridViewColumnHeaderCell? hovered_header_cell;
+        private int hovered_header_column = -1;
+
+        /// <summary>Finds the column header under a device-pixel point, or null.</summary>
+        private DataGridViewColumnHeaderCell? HeaderCellAt (Point location, out int columnIndex, out Point cellRelative)
+        {
+            columnIndex = -1;
+            cellRelative = Point.Empty;
+
+            if (!ColumnHeadersVisible)
+                return null;
+
+            for (var i = 0; i < Columns.Count; i++) {
+                var column = Columns[i];
+
+                if (!column.Visible || !column.HeaderBounds.Contains (location))
+                    continue;
+
+                columnIndex = i;
+                cellRelative = new Point (location.X - column.HeaderBounds.X, location.Y - column.HeaderBounds.Y);
+                return column.HeaderCell;
+            }
+
+            return null;
+        }
+
+        // -1 is WinForms' row index for a column header.
+        private DataGridViewCellMouseEventArgs HeaderCellMouseArgs (int columnIndex, Point cellRelative, MouseEventArgs e)
+            => new DataGridViewCellMouseEventArgs (columnIndex, -1, cellRelative.X, cellRelative.Y, e);
+
+        private void RouteHeaderMouseDown (MouseEventArgs e)
+        {
+            var cell = HeaderCellAt (e.Location, out var columnIndex, out var cellRelative);
+            cell?.OnMouseDown (HeaderCellMouseArgs (columnIndex, cellRelative, e));
+        }
+
+        private void RouteHeaderMouseUp (MouseEventArgs e)
+        {
+            var cell = HeaderCellAt (e.Location, out var columnIndex, out var cellRelative);
+            cell?.OnMouseUp (HeaderCellMouseArgs (columnIndex, cellRelative, e));
+        }
+
+        private void RouteHeaderMouseMove (MouseEventArgs e)
+        {
+            var cell = HeaderCellAt (e.Location, out var columnIndex, out var cellRelative);
+
+            // Leaving one header for another (or for nothing) has to raise OnMouseLeave on the old
+            // cell, or a hover highlight sticks on after the pointer has gone.
+            if (!ReferenceEquals (cell, hovered_header_cell)) {
+                hovered_header_cell?.OnMouseLeave (-1);
+                hovered_header_cell = cell;
+                hovered_header_column = columnIndex;
+            }
+
+            cell?.OnMouseMove (HeaderCellMouseArgs (columnIndex, cellRelative, e));
+        }
+
+        private void ClearHeaderHover ()
+        {
+            hovered_header_cell?.OnMouseLeave (-1);
+            hovered_header_cell = null;
+            hovered_header_column = -1;
+        }
+
+        /// <summary>Raises the MouseDown event and routes the press to the column header cell under it.</summary>
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
+            RouteHeaderMouseDown (e);
 
             if (!Enabled || !e.Button.HasFlag (MouseButtons.Left))
                 return;
@@ -2065,6 +2284,7 @@ namespace Majorsilence.Forms
         protected override void OnMouseLeave (EventArgs e)
         {
             base.OnMouseLeave (e);
+            ClearHeaderHover ();
             HoveredRowIndex = -1;
             UpdateHoveredCell (-1, -1);
 
@@ -2076,6 +2296,7 @@ namespace Majorsilence.Forms
         protected override void OnMouseMove (MouseEventArgs e)
         {
             base.OnMouseMove (e);
+            RouteHeaderMouseMove (e);
 
             if (is_resizing_column) {
                 var delta = e.Location.X - resize_start_x;
@@ -2142,6 +2363,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void OnMouseUp (MouseEventArgs e)
         {
+            RouteHeaderMouseUp (e);
             base.OnMouseUp (e);
 
             if (is_resizing_column) {

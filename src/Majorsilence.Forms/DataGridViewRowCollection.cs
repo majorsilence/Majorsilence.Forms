@@ -95,8 +95,12 @@ namespace Majorsilence.Forms
             foreach (var row in this)
                 row.SetOwner (null);
 
+            int clearedCount = Count;
             base.ClearItems ();
             owner.OnRowsChanged ();
+
+            if (clearedCount > 0)
+                owner.RaiseRowsRemoved (0, clearedCount);
         }
 
         /// <inheritdoc/>
@@ -105,6 +109,7 @@ namespace Majorsilence.Forms
             item.SetOwner (owner);
             base.InsertItem (index, item);
             owner.OnRowsChanged ();
+            owner.RaiseRowsAdded (index, 1);
         }
 
         /// <inheritdoc/>
@@ -113,6 +118,7 @@ namespace Majorsilence.Forms
             this[index].SetOwner (null);
             base.RemoveItem (index);
             owner.OnRowsChanged ();
+            owner.RaiseRowsRemoved (index, 1);
         }
 
         /// <summary>

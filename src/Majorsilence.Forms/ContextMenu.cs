@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 
 namespace Majorsilence.Forms
 {
@@ -24,7 +24,7 @@ namespace Majorsilence.Forms
         public event EventHandler? Opened;
 
         /// <summary>Raised after the context menu has been closed.</summary>
-        public event EventHandler<ToolStripDropDownClosedEventArgs>? Closed;
+        public event ToolStripDropDownClosedEventHandler? Closed;
 
         /// <summary>Raised when the context menu is closing.</summary>
         public event EventHandler<ToolStripDropDownClosingEventArgs>? Closing;

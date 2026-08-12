@@ -27,9 +27,6 @@ Majorsilence.Forms.BindingNavigator.BeginInit/0
 Majorsilence.Forms.BindingSource.CancelEdit/0
 Majorsilence.Forms.BindingSource.EndEdit/0
 Majorsilence.Forms.BindingSource.ResetAllowNew/0
-Majorsilence.Forms.BindingSource.ResetBindings/1
-Majorsilence.Forms.BindingSource.ResetCurrentItem/0
-Majorsilence.Forms.BindingSource.ResetItem/1
 Majorsilence.Forms.Clipboard.SetImage/1
 Majorsilence.Forms.ColumnHeader.AutoResize/1
 Majorsilence.Forms.ComboBox.SelectAll/0

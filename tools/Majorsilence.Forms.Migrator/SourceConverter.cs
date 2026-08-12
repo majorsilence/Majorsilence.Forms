@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace Majorsilence.Forms.Migrator;
 
@@ -39,6 +39,30 @@ internal enum VbConstructorMode
 internal static class SourceConverter
 {
     public sealed record Result(string Text, bool Changed, IReadOnlyList<string> Warnings);
+
+    // [DllImport("user32.dll")] / [LibraryImport("user32")] / <DllImport("user32.dll")> (VB), plus VB's
+    // older `Declare Function Foo Lib "user32"` form, which names the library without any attribute.
+    private static readonly Regex NativeImportDeclaration = new(
+        """(?:[\[<]\s*(?:System\.Runtime\.InteropServices\.)?(?:DllImport|LibraryImport)\s*\(\s*"(?<lib>[^"]+)")""" +
+        """|(?:\bDeclare\s+(?:Auto\s+|Ansi\s+|Unicode\s+)?(?:Function|Sub)\s+\w+\s+Lib\s+"(?<lib>[^"]+)")""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Declarations spell the same library a few ways -- "user32.dll", "USER32.DLL", "user32". Reduce to
+    // one lower-case stem so a single table entry covers them all, and so a file that uses two spellings
+    // of the same library warns once rather than once per spelling.
+    private static string NormalizeLibraryName(string library)
+    {
+        var name = library.Trim().ToLowerInvariant();
+
+        // A few declarations give a full path; only the file name identifies the library.
+        var slash = name.LastIndexOfAny(['\\', '/']);
+        if (slash >= 0)
+            name = name[(slash + 1)..];
+
+        return name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+            ? name[..^4]
+            : name;
+    }
 
     // A fully-qualified System.Drawing type reference, e.g. "System.Drawing.Bitmap". The boundary
     // lookbehind avoids matching the tail of an unrelated namespace (MyApp.System.Drawing.X).
@@ -221,6 +245,31 @@ internal static class SourceConverter
                 if (Regex.IsMatch(original, $@"(?<![\w.]){Regex.Escape(type)}\b"))
                     Warn($"uses '{type}' (Windows registry), which has no cross-platform equivalent — " +
                          "it compiles anywhere but only works on Windows; review manually");
+            }
+        }
+
+        // 5d. P/Invokes into Windows system libraries. Like 5c this compiles everywhere and fails at
+        //     run time, but later and more confusingly: the binding happens on the first *call*, so the
+        //     app can start, show a form, and only die when some code path reaches the declaration.
+        //     Warn per library, and name the managed replacement for the entry points that have one.
+        foreach (Match m in NativeImportDeclaration.Matches(original))
+        {
+            var library = NormalizeLibraryName(m.Groups["lib"].Value);
+
+            if (!NamespaceMap.WindowsOnlyNativeLibraries.Contains(library, StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            Warn($"declares a P/Invoke into '{library}' (Windows system library) — it compiles anywhere " +
+                 "but throws DllNotFoundException on the first call off Windows; review manually");
+        }
+
+        if (NativeImportDeclaration.IsMatch(original))
+        {
+            foreach (var (entryPoint, replacement) in NamespaceMap.PInvokeManagedEquivalents)
+            {
+                if (Regex.IsMatch(original, $@"(?<![\w.]){Regex.Escape(entryPoint)}\s*\("))
+                    Warn($"'{entryPoint}' is P/Invoked — Majorsilence.Forms exposes {replacement}, " +
+                         "which works on every platform");
             }
         }
 

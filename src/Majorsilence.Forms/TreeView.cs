@@ -216,10 +216,10 @@ namespace Majorsilence.Forms
         public event EventHandler<NodeLabelEditEventArgs>? BeforeLabelEdit { add { } remove { } }
 
         /// <summary>WinForms compatibility: raised when the user clicks a node with the mouse.</summary>
-        public event EventHandler<TreeNodeMouseClickEventArgs>? NodeMouseClick;
+        public event TreeNodeMouseClickEventHandler? NodeMouseClick;
 
         /// <summary>WinForms compatibility: raised when the user double-clicks a node with the mouse.</summary>
-        public event EventHandler<TreeNodeMouseClickEventArgs>? NodeMouseDoubleClick;
+        public event TreeNodeMouseClickEventHandler? NodeMouseDoubleClick;
 
         /// <summary>WinForms compatibility: raised when the mouse enters a node.</summary>
         public event EventHandler<TreeNodeMouseHoverEventArgs>? NodeMouseHover { add { } remove { } }

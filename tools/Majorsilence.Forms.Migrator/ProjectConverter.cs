@@ -1,4 +1,4 @@
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 
 namespace Majorsilence.Forms.Migrator;
 
@@ -75,7 +75,11 @@ internal static class ProjectConverter
         {
             // Strip the Windows-desktop opt-ins. UseWindowsForms/UseWPF pull in the Windows-only desktop
             // framework, which defeats the whole point of moving to a cross-platform stack.
-            foreach (var prop in new[] { "UseWindowsForms", "UseWPF", "EnableWindowsTargeting" })
+            // ImportWindowsDesktopTargets is the same opt-in under its older name, and is easy to miss
+            // because on its own it does not fail the build -- it imports the desktop targets, which then
+            // warn NETSDK1106 ("requires UseWpf or UseWindowsForms") on every single build once the two
+            // properties above have been removed.
+            foreach (var prop in new[] { "UseWindowsForms", "UseWPF", "EnableWindowsTargeting", "ImportWindowsDesktopTargets" })
             {
                 foreach (var el in root.Descendants().Where(e => e.Name.LocalName == prop).ToList())
                 {

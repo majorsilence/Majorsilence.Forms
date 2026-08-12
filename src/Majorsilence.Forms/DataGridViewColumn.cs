@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 
 namespace Majorsilence.Forms
 {
@@ -121,7 +121,26 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the header cell for this column.
         /// </summary>
-        public DataGridViewColumnHeaderCell HeaderCell { get; } = new DataGridViewColumnHeaderCell ();
+        /// <summary>The header cell for this column.</summary>
+        /// <remarks>
+        /// Settable because grids replace it with their own type -- a filterable grid swaps in a
+        /// header cell that paints a funnel and handles its clicks. Never null: assigning null
+        /// restores a plain header rather than leaving the column without one.
+        /// </remarks>
+        public DataGridViewColumnHeaderCell HeaderCell {
+            get {
+                // Linked on read rather than only on write: the field initializer below cannot reference
+                // `this`, and every constructor would otherwise have to remember to do it.
+                header_cell.owning_column = this;
+                return header_cell;
+            }
+            set {
+                header_cell = value ?? new DataGridViewColumnHeaderCell ();
+                header_cell.owning_column = this;
+            }
+        }
+
+        private DataGridViewColumnHeaderCell header_cell = new DataGridViewColumnHeaderCell ();
 
         /// <summary>
         /// Gets or sets the header text for this column.

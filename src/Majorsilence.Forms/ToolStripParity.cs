@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -117,7 +117,7 @@ namespace Majorsilence.Forms
         /// Gets or sets whether this item is available to be shown on its parent. Real: it is the
         /// backing state <see cref="MenuItem.Visible"/> reflects.
         /// </summary>
-        public bool Available {
+        public override bool Available {
             get => available;
             set {
                 if (available == value)

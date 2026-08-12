@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Migrator;
+﻿using Majorsilence.Forms.Migrator;
 using Xunit;
 
 namespace Majorsilence.Forms.Migrator.Tests;
@@ -25,6 +25,26 @@ public class ProjectConverterTests
     {
         var result = ProjectConverter.Convert (WinFormsCsproj, Options (), ".");
         Assert.DoesNotContain ("UseWindowsForms", result.Xml);
+        Assert.True (result.Changed);
+    }
+
+    [Fact]
+    public void Removes_ImportWindowsDesktopTargets ()
+    {
+        // Older projects opt into the desktop targets under this name instead. Left in place it does not
+        // break the build, it just warns NETSDK1106 on every build once UseWindowsForms is gone.
+        const string csproj = """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0-windows</TargetFramework>
+                <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+              </PropertyGroup>
+            </Project>
+            """;
+
+        var result = ProjectConverter.Convert (csproj, Options (), ".");
+
+        Assert.DoesNotContain ("ImportWindowsDesktopTargets", result.Xml);
         Assert.True (result.Changed);
     }
 

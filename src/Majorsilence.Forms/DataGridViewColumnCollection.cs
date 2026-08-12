@@ -137,11 +137,15 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void ClearItems ()
         {
+            var removedColumns = System.Linq.Enumerable.ToArray (this);
             foreach (var column in this)
                 column.SetOwner (null);
 
             base.ClearItems ();
             owner.OnColumnsChanged ();
+
+            foreach (var column in removedColumns)
+                owner.RaiseColumnRemoved (column);
         }
 
         /// <inheritdoc/>
@@ -150,14 +154,20 @@ namespace Majorsilence.Forms
             item.SetOwner (owner);
             base.InsertItem (index, item);
             owner.OnColumnsChanged ();
+
+            // OnColumnsChanged is the internal relayout notification; this is the public WinForms
+            // event, which derived grids override to decorate the new column.
+            owner.RaiseColumnAdded (item);
         }
 
         /// <inheritdoc/>
         protected override void RemoveItem (int index)
         {
+            var removedColumn = this[index];
             this[index].SetOwner (null);
             base.RemoveItem (index);
             owner.OnColumnsChanged ();
+            owner.RaiseColumnRemoved (removedColumn);
         }
 
         /// <inheritdoc/>

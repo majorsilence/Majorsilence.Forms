@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.ComponentModel;
 using System.Linq;
@@ -340,6 +340,9 @@ namespace Majorsilence.Forms
         /// <remarks>Forwarded to the list when it can sort itself. A list that cannot -- a plain
         /// <c>List&lt;T&gt;</c>, say -- is left alone rather than being reordered behind the caller's
         /// back, and <see cref="IsSorted"/> keeps reporting false so the caller can tell.</remarks>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage ("Naming", "CA1725:Parameter names should match base declaration",
+            Justification = "WinForms names this parameter 'sort', not IBindingList's 'direction'. Callers " +
+                            "porting from WinForms use named arguments; matching the interface would break them.")]
         public virtual void ApplySort (PropertyDescriptor property, ListSortDirection sort)
         {
             ArgumentNullException.ThrowIfNull (property);
@@ -357,6 +360,24 @@ namespace Majorsilence.Forms
 
             if (_list is IBindingListView { SupportsAdvancedSorting: true } view)
                 view.ApplySort (sorts);
+        }
+
+        /// <summary>Asks the list to maintain a search index over the given property.</summary>
+        /// <remarks>
+        /// A hint, not a contract -- IBindingList.Find works whether or not an index exists. Forwarded so
+        /// a list that does optimise searches gets the chance to; a list that ignores it loses nothing.
+        /// </remarks>
+        public virtual void AddIndex (PropertyDescriptor property)
+        {
+            ArgumentNullException.ThrowIfNull (property);
+            (_list as IBindingList)?.AddIndex (property);
+        }
+
+        /// <summary>Releases a search index previously requested by <see cref="AddIndex"/>.</summary>
+        public virtual void RemoveIndex (PropertyDescriptor property)
+        {
+            ArgumentNullException.ThrowIfNull (property);
+            (_list as IBindingList)?.RemoveIndex (property);
         }
 
         /// <summary>Removes any sort applied to the list.</summary>

@@ -1,4 +1,4 @@
-using Xunit;
+﻿using Xunit;
 
 namespace Majorsilence.Forms.Migrator.Tests;
 
@@ -624,5 +624,92 @@ public class SourceConverterTests
         int count = 0, i = 0;
         while ((i = haystack.IndexOf (needle, i, System.StringComparison.Ordinal)) >= 0) { count++; i += needle.Length; }
         return count;
+    }
+
+    [Theory]
+    [InlineData ("user32.dll")]
+    [InlineData ("USER32.DLL")]
+    [InlineData ("user32")]
+    [InlineData ("kernel32.dll")]
+    [InlineData ("dwmapi.dll")]
+    public void Warns_on_PInvoke_into_a_Windows_system_library (string library)
+    {
+        var result = SourceConverter.Convert (
+            $"[System.Runtime.InteropServices.DllImport(\"{library}\")]\nstatic extern bool Foo();\n");
+
+        Assert.Contains (result.Warnings, w => w.Contains ("user32") || w.Contains ("kernel32") || w.Contains ("dwmapi"));
+        Assert.Contains (result.Warnings, w => w.Contains ("DllNotFoundException"));
+    }
+
+    [Fact]
+    public void Warns_on_LibraryImport_as_well_as_DllImport ()
+    {
+        var result = SourceConverter.Convert ("[LibraryImport(\"user32.dll\")]\nstatic partial bool Foo();\n");
+        Assert.Contains (result.Warnings, w => w.Contains ("user32"));
+    }
+
+    [Fact]
+    public void Warns_on_the_VB_Declare_Lib_form ()
+    {
+        var result = SourceConverter.Convert ("Declare Auto Function Foo Lib \"user32.dll\" () As Boolean\n");
+        Assert.Contains (result.Warnings, w => w.Contains ("user32"));
+    }
+
+    [Fact]
+    public void Does_not_warn_on_a_PInvoke_into_a_portable_native_library ()
+    {
+        // libmpv/SQLite/MediaInfo P/Invokes migrate fine once the name resolves per platform. Flagging
+        // them would bury the genuine Windows-only breakages.
+        var result = SourceConverter.Convert ("[DllImport(\"libmpv-2.dll\")]\nstatic extern int Foo();\n");
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("DllNotFoundException"));
+    }
+
+    [Fact]
+    public void Names_the_managed_replacement_for_a_known_entry_point ()
+    {
+        var result = SourceConverter.Convert (
+            "[DllImport(\"user32.dll\")]\nstatic extern bool SetProcessDPIAware();\nvoid M() { SetProcessDPIAware(); }\n");
+
+        Assert.Contains (result.Warnings, w => w.Contains ("SetHighDpiMode"));
+    }
+
+    [Fact]
+    public void Leaves_the_PInvoke_declaration_untouched ()
+    {
+        const string source = "[DllImport(\"user32.dll\")]\nstatic extern bool SetProcessDPIAware();\n";
+        var result = SourceConverter.Convert (source);
+
+        Assert.Contains ("DllImport(\"user32.dll\")", result.Text);
+        Assert.Contains ("SetProcessDPIAware", result.Text);
+    }
+
+    [Fact]
+    public void Warns_once_for_a_library_spelled_two_ways ()
+    {
+        var result = SourceConverter.Convert (
+            "[DllImport(\"user32.dll\")]\nstatic extern bool A();\n" +
+            "[DllImport(\"USER32.DLL\")]\nstatic extern bool B();\n");
+
+        var hits = result.Warnings.Count (w => w.Contains ("user32") && w.Contains ("DllNotFoundException"));
+        Assert.Equal (1, hits);
+    }
+
+    [Fact]
+    public void Warns_once_per_library_not_once_per_declaration ()
+    {
+        var result = SourceConverter.Convert (
+            "[DllImport(\"user32.dll\")]\nstatic extern bool A();\n" +
+            "[DllImport(\"user32.dll\")]\nstatic extern bool B();\n");
+
+        var hits = result.Warnings.Count (w => w.Contains ("user32") && w.Contains ("DllNotFoundException"));
+        Assert.Equal (1, hits);
+    }
+
+    [Fact]
+    public void Does_not_warn_about_entry_points_when_the_file_has_no_PInvoke ()
+    {
+        // A method merely *named* GetCursorPos is not a P/Invoke.
+        var result = SourceConverter.Convert ("void M() { GetCursorPos(); }\n");
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("MousePosition"));
     }
 }
