@@ -1,4 +1,4 @@
-# `System.Windows.Forms` gap analysis
+﻿# `System.Windows.Forms` gap analysis
 
 **Measured 2026-08-02** against the real `System.Windows.Forms.dll` from the .NET 10 WindowsDesktop
 targeting pack, vs. a Release build of `Majorsilence.Forms.dll`.
@@ -386,6 +386,14 @@ again: `ColumnHeader.ListView` was never assigned by `Columns.Add`, so every hea
 the `ImageList` that reads it — was null; `ToolStripButton.Checked` raised only `CheckStateChanged`,
 never `CheckedChanged`; and `MdiClient.LayoutMdi` was internal, so `MdiClient` could not be arranged
 except through its `Form`.
+
+### Wanted next: visual designer support
+
+Out of scope for this gap analysis, which counts `System.Windows.Forms` types and members -- a design
+surface is new infrastructure rather than a missing member. Tracked as a wanted feature in
+[`BACKLOG.md`](../BACKLOG.md#wanted-soon-visual-designer-support). The member-level groundwork it depends
+on (the `Reset*`/`ShouldSerialize*` serialization members, the design-time attributes, the
+`Majorsilence.Forms.Design` type shapes) is already counted as done here.
 
 ### Done
 
