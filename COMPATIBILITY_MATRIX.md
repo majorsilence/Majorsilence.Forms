@@ -1,4 +1,4 @@
-# Compatibility matrix
+﻿# Compatibility matrix
 
 What's real, what's approximated, and what's out of scope in Majorsilence.Forms — for developers
 migrating a WinForms app and for AI coding assistants generating code against this framework. For
@@ -85,6 +85,13 @@ dialogs, etc.) are functionally implemented, not stubs — see them live in
 [`samples/ControlGallery`](samples/ControlGallery), which has one demo panel per control. The
 `*.Designer.cs`/`*.Designer.vb` code-behind pattern is preserved as-is; you don't rewrite your
 designer-generated layout code.
+
+**Visual designer:** there isn't one yet, and it is a wanted feature -- see
+[Wanted soon: visual designer support](BACKLOG.md#wanted-soon-visual-designer-support). Designer
+*code* migrates and runs; what is missing is a design surface to edit it in.
+`Majorsilence.Forms.Design` supplies the design-time types (`ControlDesigner`, `UITypeEditor`,
+`CollectionEditor`, `IWindowsFormsEditorService`, adorner glyphs) so a control library's own designers
+compile and are preserved, but nothing instantiates them at runtime.
 
 **Spellcheck** (`Majorsilence.Forms.SpellCheck`, wired into `TextBox`) is a dependency-free,
 from-scratch implementation — a pre-expanded Hunspell/SCOWL en-US wordlist embedded as a compressed

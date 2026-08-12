@@ -1,4 +1,36 @@
-# Backlog
+﻿# Backlog
+
+## Wanted soon: visual designer support
+
+**Status: wanted, not yet started.** This is a planned feature, not a deferred one — unlike everything
+under "genuinely deferred" below, the intent is to build it.
+
+What exists today is the *shape* and none of the surface. `Majorsilence.Forms.Design`
+(`src/Majorsilence.Forms/Design.cs`) declares the design-time types WinForms spreads across three
+namespaces -- `ComponentDesigner`, `ControlDesigner`, `ParentControlDesigner`, `UITypeEditor`,
+`CollectionEditor`, `IWindowsFormsEditorService`, and the `Behavior`/`Glyph`/`Adorner` shapes -- so a
+migrated control library that ships a designer per control, adorner glyphs and collection editors
+compiles and keeps that code intact. Nothing instantiates any of it at runtime: there is no design
+surface, no selection service, and no adorner window, so the verbs and glyphs a designer registers are
+never shown.
+
+Turning that into real designer support means, roughly in dependency order:
+
+| Piece | What it involves |
+|---|---|
+| Design surface host | Something that creates designers for components, owns the `IDesignerHost` service container, and hosts a live control tree in "design mode" rather than running it. `System.ComponentModel.Design.IDesignerHost` is in-box and usable; the host implementation is not. |
+| Selection + adorners | A selection service, sizing/moving grips, and an adorner layer above the control surface for the glyphs `ControlDesigner.Adorners` already lets designers register. |
+| Property grid integration | `PropertyGrid` exists as a control; it needs to drive `UITypeEditor`/`CollectionEditor` through a real `IWindowsFormsEditorService` so drop-down and modal editors work. Today that interface resolves but nothing provides it, so `GetService` returns null and editors fall back to the plain value. |
+| Code serialization | Round-tripping the designer's changes back into `InitializeComponent` in `*.Designer.cs`/`*.Designer.vb`. The `Reset*`/`ShouldSerialize*` members the matrix already tracks exist for exactly this. |
+| Editor/IDE surface | Where the designer actually runs. Worth deciding early, because it constrains everything above: an in-app design mode, a standalone tool, or an extension for an existing editor are materially different projects. |
+
+Design-time attributes (`[Designer]`, `[Editor]`, `[DesignerSerializationVisibility]`, `[Browsable]`,
+`[Category]`, `[DefaultValue]`) are already carried through migration, so existing consumer code should
+not need editing when a surface arrives -- that was the point of keeping the shapes.
+
+Related: the migrator no longer remaps `System.ComponentModel.Design` (it is partly in-box, and the
+blanket remap hid `IDesignerHost`); `System.Windows.Forms.Design` and `System.Drawing.Design` still map
+to `Majorsilence.Forms.Design`.
 
 ## Telerik compat layer: genuinely deferred items
 
