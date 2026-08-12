@@ -98,6 +98,13 @@ public partial class Control
             // MDI child gets, for the same reason -- the host owns the chrome, and here there is none.
             form.PrepareAsHostedChild ();
 
+            // If the form already put an OS window on screen, take it down: from here it is composited
+            // into the frame instead, and leaving the window up gives a stray empty duplicate beside the
+            // host. This is reachable whenever a caller shows a form before parenting it -- WinForms code
+            // sets Visible and Parent as separate steps and either order is normal there, because a
+            // WinForms Form assigned a Parent stops being a top-level window.
+            form.HideOwnWindowForHosting ();
+
             Add<Control> (frame);
         }
 

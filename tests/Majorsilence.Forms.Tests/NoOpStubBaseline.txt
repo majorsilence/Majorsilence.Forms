@@ -93,7 +93,6 @@ Majorsilence.Forms.Drawing.Graphics.ReleaseHdc/0
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdc/1
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdcInternal/1
 Majorsilence.Forms.ErrorProvider.UpdateBinding/0
-Majorsilence.Forms.Form.Activate/0
 Majorsilence.Forms.GridItem.Select/0
 Majorsilence.Forms.Help.ShowHelp/2
 Majorsilence.Forms.Help.ShowHelp/3

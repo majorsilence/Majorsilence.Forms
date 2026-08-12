@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using Majorsilence.Forms.Drawing;
@@ -806,6 +806,46 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         public Matrix (float m11, float m12, float m21, float m22, float dx, float dy)
         {
             matrix = new SKMatrix { ScaleX = m11, SkewY = m12, SkewX = m21, ScaleY = m22, TransX = dx, TransY = dy, Persp2 = 1 };
+        }
+
+        /// <summary>
+        /// Initializes a matrix that maps <paramref name="rect"/> onto the parallelogram defined by
+        /// three points: upper-left, upper-right and lower-left of the destination.
+        /// </summary>
+        /// <remarks>
+        /// The GDI+ constructor used to rotate or shear a drawing into place -- a vertical tab strip
+        /// maps its horizontal layout rectangle onto a rotated parallelogram rather than re-deriving
+        /// every coordinate.
+        /// </remarks>
+        public Matrix (System.Drawing.Rectangle rect, System.Drawing.Point[] plgpts)
+        {
+            ArgumentNullException.ThrowIfNull (plgpts);
+
+            if (plgpts.Length != 3)
+                throw new ArgumentException ("Exactly three destination points are required.", nameof (plgpts));
+
+            // Solve for the affine map taking (0,0),(1,0),(0,1) in rect-space to the three points.
+            // Width/height of zero would make that unsolvable, so fall back to identity rather than
+            // producing a matrix full of infinities.
+            if (rect.Width == 0 || rect.Height == 0) {
+                matrix = SKMatrix.Identity;
+                return;
+            }
+
+            var scaleX = (plgpts[1].X - plgpts[0].X) / (float)rect.Width;
+            var skewY = (plgpts[1].Y - plgpts[0].Y) / (float)rect.Width;
+            var skewX = (plgpts[2].X - plgpts[0].X) / (float)rect.Height;
+            var scaleY = (plgpts[2].Y - plgpts[0].Y) / (float)rect.Height;
+
+            matrix = new SKMatrix {
+                ScaleX = scaleX,
+                SkewY = skewY,
+                SkewX = skewX,
+                ScaleY = scaleY,
+                TransX = plgpts[0].X - (scaleX * rect.X) - (skewX * rect.Y),
+                TransY = plgpts[0].Y - (skewY * rect.X) - (scaleY * rect.Y),
+                Persp2 = 1,
+            };
         }
 
         internal Matrix (SKMatrix skMatrix) => matrix = skMatrix;

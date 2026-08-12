@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 
@@ -2102,7 +2102,14 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the ToolStrip renders in a specific style. Stub in Majorsilence.Forms.</summary>
         public bool ShowItemToolTips { get; set; } = true;
 
-        /// <summary>Gets or sets the rendering mode for the ToolStrip. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the rendering mode for the ToolStrip.</summary>
+        /// <remarks>
+        /// Assigning <see cref="Renderer"/> moves this to <see cref="ToolStripRenderMode.Custom"/>, as in
+        /// WinForms -- that is how a theme engine saving and restoring a strip's appearance can tell a
+        /// custom renderer was in use. Setting a mode here does not swap the renderer out, which is a
+        /// deliberate difference: painting is dispatched by RenderManager on the concrete type, so the
+        /// assigned renderer stays the one whose Initialize hooks ran.
+        /// </remarks>
         public ToolStripRenderMode RenderMode { get; set; } = ToolStripRenderMode.ManagerRenderMode;
 
         /// <summary>
@@ -2122,6 +2129,9 @@ namespace Majorsilence.Forms
 
                 if (value is null)
                     return;
+
+                // A renderer of one's own IS the Custom mode -- see RenderMode above.
+                RenderMode = ToolStripRenderMode.Custom;
 
                 // Items already in the strip when the renderer arrives have to be initialized too --
                 // designer code fills Items before assigning Renderer as often as the other way round.
@@ -2705,7 +2715,7 @@ namespace Majorsilence.Forms
     public static partial class ToolStripManager
     {
         /// <summary>Gets or sets the global render mode for ToolStrip controls. Stub in Majorsilence.Forms.</summary>
-        public static ToolStripRenderMode RenderMode { get; set; } = ToolStripRenderMode.Professional;
+        public static ToolStripManagerRenderMode RenderMode { get; set; } = ToolStripManagerRenderMode.Professional;
 
         /// <summary>Gets or sets the global renderer for ToolStrip controls. Stub in Majorsilence.Forms.</summary>
         public static ToolStripRenderer? Renderer { get; set; }

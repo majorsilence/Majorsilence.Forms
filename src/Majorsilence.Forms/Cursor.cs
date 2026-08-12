@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Backends;
+﻿using Majorsilence.Forms.Backends;
 
 namespace Majorsilence.Forms
 {
@@ -70,8 +70,23 @@ namespace Majorsilence.Forms
         /// <summary>Shows the cursor. Stub in Majorsilence.Forms.</summary>
         public static void Show () { }
 
-        /// <summary>Gets or sets the cursor's position in screen coordinates. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the cursor's position in screen coordinates.</summary>
+        /// <remarks>
+        /// Tracked from the pointer events the windows receive, converted to screen coordinates. It used
+        /// to be a plain stored property that nothing ever assigned, so it always read (0, 0) -- and
+        /// <see cref="Control.MousePosition"/> reads through to here. Any control that hit-tests the
+        /// pointer without being handed a MouseEventArgs -- the WinForms
+        /// <c>HitTest (PointToClient (Control.MousePosition))</c> idiom, which is how a tab strip works
+        /// out which tab was clicked -- therefore tested the top-left corner of the screen and found
+        /// nothing, so clicking a tab did nothing at all.
+        ///
+        /// Setting it still only stores: warping the pointer is a platform capability the backends do
+        /// not expose, and the next real pointer event overwrites the stored value.
+        /// </remarks>
         public static System.Drawing.Point Position { get; set; }
+
+        // Called from the window pointer handlers, with coordinates already in screen space.
+        internal static void TrackPosition (System.Drawing.Point screenPosition) => Position = screenPosition;
 
         /// <summary>Gets or sets whether the cursor is clipped to a rectangle. Stub in Majorsilence.Forms.</summary>
         public static System.Drawing.Rectangle Clip { get; set; }

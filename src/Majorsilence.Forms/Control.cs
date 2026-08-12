@@ -1176,9 +1176,29 @@ namespace Majorsilence.Forms
 
             (Events[s_mouseEnterEvent] as EventHandler)?.Invoke (this, e);
 
-            // Majorsilence.Forms has no hover timer, so hover fires once per entry.
+            // Majorsilence.Forms has no hover timer, so hover fires once per entry -- unless the
+            // handler re-arms it with ResetMouseEventArgs.
+            hover_raised = true;
             OnMouseHover (EventArgs.Empty);
         }
+
+        // Whether MouseHover has already been raised for the current time inside this control.
+        private bool hover_raised;
+
+        /// <summary>
+        /// Re-arms mouse hover so <see cref="MouseHover"/> can be raised again without the pointer
+        /// having to leave and re-enter the control.
+        /// </summary>
+        /// <remarks>
+        /// Called from a MouseHover handler that wants to keep tracking -- an auto-hide tab strip does
+        /// this so moving along the strip keeps reporting which tab is under the pointer, instead of
+        /// reporting only the tab the pointer first entered on.
+        ///
+        /// WinForms re-arms a dwell timer, so its next hover comes after the pointer rests for
+        /// SystemInformation.MouseHoverTime. There is no such timer here, so the next hover comes on the
+        /// next pointer move instead: sooner and more often than WinForms, but reporting the same thing.
+        /// </remarks>
+        protected void ResetMouseEventArgs () => hover_raised = false;
 
         /// <summary>
         /// Raises the MouseLeave event.
@@ -1190,13 +1210,23 @@ namespace Majorsilence.Forms
                 Invalidate ();
             }
 
+            hover_raised = false;
             (Events[s_mouseLeaveEvent] as EventHandler)?.Invoke (this, e);
         }
 
         /// <summary>
         /// Raises the MouseMove event.
         /// </summary>
-        protected virtual void OnMouseMove (MouseEventArgs e) => (Events[s_mouseMoveEvent] as MouseEventHandler)?.Invoke (this, e);
+        protected virtual void OnMouseMove (MouseEventArgs e)
+        {
+            (Events[s_mouseMoveEvent] as MouseEventHandler)?.Invoke (this, e);
+
+            // Only after ResetMouseEventArgs has re-armed it; otherwise hover stays once-per-entry.
+            if (!hover_raised) {
+                hover_raised = true;
+                OnMouseHover (EventArgs.Empty);
+            }
+        }
 
         /// <summary>
         /// Raises the MouseUp event.

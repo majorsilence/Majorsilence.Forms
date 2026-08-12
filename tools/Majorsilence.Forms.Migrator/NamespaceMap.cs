@@ -62,7 +62,6 @@ internal static class NamespaceMap
         ("System.Drawing.Text", "Majorsilence.Forms.Drawing.Text"),
         ("System.Windows.Forms.VisualStyles", "Majorsilence.Forms.VisualStyles"),
         ("System.Windows.Forms.Design", "Majorsilence.Forms.Design"),
-        ("System.ComponentModel.Design", "Majorsilence.Forms.Design"),
         ("System.Drawing.Design", "Majorsilence.Forms.Design"),
         ("System.Drawing.Printing", "Majorsilence.Forms.Printing"),
         ("System.Windows.Forms", "Majorsilence.Forms"),

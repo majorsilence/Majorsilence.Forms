@@ -352,13 +352,15 @@ internal sealed partial class DefaultLayout : LayoutEngine
                         }
 
                     case DockStyle.Fill:
-                        //if (element is MdiClient)
-                        //{
-                        //    Debug.Assert(mdiClient is null, "How did we end up with multiple MdiClients?");
-                        //    mdiClient = element;
-                        //}
-                        //else
-                        {
+                        // The MDI client is deferred to after the loop rather than docked in z-order
+                        // like any other Fill child. This is what WinForms does, and it is the reason
+                        // an MDI parent can also host docked menus, toolbars and a Fill'd panel: the
+                        // client takes whatever is left once every other docked sibling -- including
+                        // ones in front of it -- has claimed its slice.
+                        if (element is MdiClient) {
+                            Debug.Assert (mdiClient is null, "How did we end up with multiple MdiClients?");
+                            mdiClient = element;
+                        } else {
                             var elementSize = remainingBounds.Size;
                             var newElementBounds = new Rectangle (remainingBounds.X, remainingBounds.Y, elementSize.Width, elementSize.Height);
 
@@ -371,11 +373,12 @@ internal sealed partial class DefaultLayout : LayoutEngine
                         break;
                 }
             }
+        }
 
-            // Treat the MDI client specially, since it's supposed to blend in with the parent form
-            if (mdiClient is not null) {
-                SetCachedBounds (mdiClient, remainingBounds);
-            }
+        // Treat the MDI client specially, since it's supposed to blend in with the parent form.
+        // After the loop: remainingBounds is only final once every other docked child is placed.
+        if (mdiClient is not null) {
+            SetCachedBounds (mdiClient, remainingBounds);
         }
 
         return preferredSize;

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 
 namespace Majorsilence.Forms
 {
@@ -522,8 +522,22 @@ namespace Majorsilence.Forms
         /// </summary>
         public IntPtr Handle => (IntPtr)(GetHashCode () | 1);
 
-        /// <summary>Gets or sets how the window's background image is laid out. Stored for designer compat (the compat window does not draw a background image yet).</summary>
-        public ImageLayout BackgroundImageLayout { get; set; } = ImageLayout.Tile;
+        /// <summary>Gets or sets the image drawn behind the window's controls.</summary>
+        /// <remarks>
+        /// Forwarded to the root adapter, which fills the window's client area and already knows how to
+        /// paint a background image. Previously the layout below was stored and ignored, so a form with
+        /// a background image simply showed none.
+        /// </remarks>
+        public Majorsilence.Forms.Drawing.Image? BackgroundImage {
+            get => adapter.BackgroundImage;
+            set => adapter.BackgroundImage = value;
+        }
+
+        /// <summary>Gets or sets how <see cref="BackgroundImage"/> is laid out.</summary>
+        public ImageLayout BackgroundImageLayout {
+            get => adapter.BackgroundImageLayout;
+            set => adapter.BackgroundImageLayout = value;
+        }
 
         /// <summary>Gets or sets user data associated with the window. Mirrors WinForms Control.Tag.</summary>
         public object? Tag { get; set; }
@@ -611,8 +625,32 @@ namespace Majorsilence.Forms
             return Application.FilterMessage (ref m);
         }
 
+        // Keeps Cursor.Position/Control.MousePosition current.
+        //
+        // Converted through the ROOT ADAPTER, not through the window backend. The two disagree on where
+        // the origin is: measured on a real window, the backend put client (0,0) at screen (1115, 62)
+        // while the adapter put it at (1115, 30) -- the window's own Location. The 32px gap is the
+        // title bar, because Avalonia's PointToScreen measures from the client area and
+        // Control.PointToScreen measures from the window. Small, but a tab strip is ~21px tall, so
+        // every hit test against Control.MousePosition landed clean outside it and matched nothing.
+        //
+        // Control.PointToScreen also consumes exactly the coordinates these handlers deliver, and is
+        // the same path the controls reading Control.MousePosition use to convert it back with
+        // PointToClient -- so the round trip is exact by construction rather than by coincidence.
+        private void TrackCursorPosition (int x, int y)
+        {
+            try {
+                Cursor.TrackPosition (adapter.PointToScreen (new System.Drawing.Point (x, y)));
+            } catch (System.Exception) {
+                // A backend that cannot map coordinates yet (no platform window) must not break input
+                // routing; the stale value is better than a thrown pointer event.
+            }
+        }
+
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
+            TrackCursorPosition (x, y);
+
             if (Filtered (WindowMessages.ButtonDownMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
                 return;
 
@@ -629,6 +667,8 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
+            TrackCursorPosition (x, y);
+
             if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
                 return;
 
@@ -643,6 +683,8 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
         {
+            TrackCursorPosition (x, y);
+
             if (Filtered (WindowMessages.WM_MOUSEMOVE, System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
                 return;
 
@@ -1104,6 +1146,71 @@ namespace Majorsilence.Forms
 
         /// <summary>Forces the window's controls to apply layout logic.</summary>
         public void PerformLayout () => adapter.PerformLayout ();
+
+        // The rest of this block is the same story as SuspendLayout/ResumeLayout above: members a
+        // WinForms Form inherits from Control, which a Majorsilence.Forms Form cannot because it is not
+        // one. Each forwards to the root adapter, which IS a Control and does host the children, so the
+        // answers are the real ones rather than placeholders.
+
+        /// <summary>
+        /// Gets the <see cref="Control"/> that hosts this window's children.
+        /// </summary>
+        /// <remarks>
+        /// In WinForms the Form *is* that control, so code passes a Form wherever a Control is wanted --
+        /// as a drag source, as a parent to reparent onto, as the thing a Parent-walk expects to reach.
+        /// A Majorsilence.Forms Form is not a Control, so this names the control it delegates to and
+        /// gives such code somewhere real to point. <see cref="Control.FindForm"/> maps back the other
+        /// way.
+        /// </remarks>
+        public Control ContentControl => adapter;
+
+        /// <summary>Gets whether the window or one of its children currently has input focus.</summary>
+        public bool ContainsFocus => adapter.ContainsFocus;
+
+        /// <summary>Gets or sets whether the window has captured the mouse.</summary>
+        public bool Capture {
+            get => adapter.Capture;
+            set => adapter.Capture = value;
+        }
+
+        /// <summary>Occurs when the window's handle is created.</summary>
+        public event EventHandler? HandleCreated {
+            add => adapter.HandleCreated += value;
+            remove => adapter.HandleCreated -= value;
+        }
+
+        /// <summary>Occurs when the window's parent changes.</summary>
+        public event EventHandler? ParentChanged {
+            add => adapter.ParentChanged += value;
+            remove => adapter.ParentChanged -= value;
+        }
+
+        /// <summary>Converts a screen rectangle to window client coordinates.</summary>
+        public System.Drawing.Rectangle RectangleToClient (System.Drawing.Rectangle rect)
+            => adapter.RectangleToClient (rect);
+
+        /// <summary>Moves focus to the next control in the tab order.</summary>
+        public bool SelectNextControl (Control? start, bool forward, bool tabStopOnly, bool nested, bool wrap)
+            => adapter.SelectNextControl (start, forward, tabStopOnly, nested, wrap);
+
+        /// <summary>
+        /// Called when the window lays its controls out.
+        /// </summary>
+        /// <remarks>
+        /// In WinForms a Form is a Control and inherits this from it. Here a Form is not a Control --
+        /// its children live on the root ControlAdapter -- so the adapter forwards its own layout pass
+        /// up to the window. Without it a Form could not override OnLayout at all, which is how a
+        /// window that positions its children itself (a docking host, a splitter frame) does that work.
+        ///
+        /// This deliberately does not raise <see cref="Layout"/>: that event is forwarded straight to
+        /// the adapter's own, which the adapter has already raised by the time it calls this. Raising it
+        /// here too would deliver every layout to subscribers twice.
+        /// </remarks>
+        protected internal virtual void OnLayout (LayoutEventArgs e) { }
+
+        // Called by the root adapter when it lays out, so the window's own OnLayout override runs as
+        // part of the same pass rather than needing a separate trigger.
+        internal void RaiseLayout (LayoutEventArgs e) => OnLayout (e);
 
         /// <summary>
         /// Gets whether the window's backing handle has been created. In Majorsilence.Forms the

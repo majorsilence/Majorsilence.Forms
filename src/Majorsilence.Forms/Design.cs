@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.ComponentModel.Design;
 using System.Drawing;
@@ -17,6 +17,27 @@ namespace Majorsilence.Forms.Design
     // glyphs onto -- so nothing instantiates these at runtime, and the verbs and glyphs a designer
     // registers are never shown. That is the honest boundary: the code survives the migration intact and
     // is ready for a design surface, rather than being deleted and rewritten if one ever arrives.
+
+    /// <summary>
+    /// The service a <see cref="UITypeEditor"/> uses to show its editing UI.
+    /// </summary>
+    /// <remarks>
+    /// WinForms puts this in System.Windows.Forms.Design, which does not exist off Windows, so an
+    /// editor that drops down a control could not even be compiled. As with the designers below, this
+    /// is the shape rather than a working host: nothing here provides the service, so
+    /// GetService returns null at runtime and the editor falls back to its plain value.
+    /// </remarks>
+    public interface IWindowsFormsEditorService
+    {
+        /// <summary>Closes a previously opened drop-down control.</summary>
+        void CloseDropDown ();
+
+        /// <summary>Shows the given control in a drop-down below the property.</summary>
+        void DropDownControl (Control? control);
+
+        /// <summary>Shows the given form as a modal dialog.</summary>
+        Majorsilence.Forms.DialogResult ShowDialog (Form dialog);
+    }
 
     /// <summary>The base designer for a component.</summary>
     public class ComponentDesigner : IDesigner

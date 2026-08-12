@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 
 namespace Majorsilence.Forms
 {
@@ -31,6 +31,14 @@ namespace Majorsilence.Forms
         /// <summary>Gets the height of a single-line menu bar in pixels.</summary>
         public static int MenuHeight => 24;
 
+        /// <summary>Gets the font used for menu text.</summary>
+        /// <remarks>
+        /// The theme's UI font rather than a Windows system metric -- that is the font menus actually
+        /// render with here, so a caller measuring menu text against it gets the right answer.
+        /// </remarks>
+        public static Majorsilence.Forms.Drawing.Font MenuFont =>
+            new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.ItemFontSize);
+
         /// <summary>Gets the default height of a caption bar (title bar).</summary>
         public static int CaptionHeight => 30;
 
@@ -52,6 +60,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the double-click time in milliseconds.</summary>
         public static int DoubleClickTime => 500;
+
+        /// <summary>Gets the time, in milliseconds, the mouse must rest before a hover is raised.</summary>
+        /// <remarks>Reports the Windows default. See Control.ResetMouseEventArgs for how hover is
+        /// actually raised here, which is not timer-driven.</remarks>
+        public static int MouseHoverTime => 400;
 
         /// <summary>Gets the double-click rectangle size (area in which a second click is a double-click).</summary>
         public static Size DoubleClickSize => new Size (4, 4);

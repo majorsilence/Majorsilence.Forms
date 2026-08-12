@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Majorsilence.Forms.Backends;
 using System.Drawing;
 using System.Linq;
@@ -435,10 +435,19 @@ namespace Majorsilence.Forms
                     return;
 
                 right_to_left_layout = value;
-                RightToLeftLayoutChanged?.Invoke (this, EventArgs.Empty);
+                OnRightToLeftLayoutChanged (EventArgs.Empty);
                 PerformLayout ();
             }
         }
+
+        /// <summary>Raises the <see cref="RightToLeftLayoutChanged"/> event.</summary>
+        /// <remarks>
+        /// The overridable is the point: a form that hosts controls with their own RightToLeftLayout
+        /// (a TreeView, a ListView) overrides this to push its new value down to them, which it cannot
+        /// do from the event alone without subscribing to itself.
+        /// </remarks>
+        protected virtual void OnRightToLeftLayoutChanged (EventArgs e)
+            => RightToLeftLayoutChanged?.Invoke (this, e);
 
         private bool right_to_left_layout;
 

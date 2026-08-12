@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Majorsilence.Forms.Layout;
 using SkiaSharp;
 
@@ -123,9 +123,24 @@ namespace Majorsilence.Forms
         /// <summary>Attempts to set focus to the form. Matches Control.Focus's shape (returns whether the focus request succeeded).</summary>
         public bool Focus ()
         {
+            // A frame-hosted form owns no OS window, and must not be given one here. The backend's
+            // Activate orders the native window on screen WITHOUT going through Show, so the window
+            // appears while Avalonia's IsVisible stays false -- which also makes a later Hide a no-op,
+            // so the window cannot be taken back down. That left a full-size stray window beside the
+            // host every time something focused a hosted form. Focusing a hosted form means selecting
+            // the frame that composites it, inside the tree that hosts it.
+            if (HostFrame is { } frame) {
+                frame.Select ();
+                return true;
+            }
+
             Backend.Activate ();
             return true;
         }
+
+        // The control standing in for this form while it is hosted in someone else's tree, or null when
+        // the form is a real top-level window. Panel hosting and MDI hosting both go through a frame.
+        private Control? HostFrame => (Control?)PanelHost ?? MdiHost;
 
         /// <summary>Gets or sets the button that is activated when Enter is pressed.</summary>
         /// <remarks>
@@ -746,6 +761,13 @@ namespace Majorsilence.Forms
                 return Backend.ClientSize;
             }
             set {
+                // Clamp instead of throwing. WinForms hands the size to SetWindowPos, which treats a
+                // negative extent as zero, so laying a window out to a negative size is something
+                // WinForms code does and survives -- a docking pane whose available area has collapsed
+                // computes exactly that while the user drags a splitter past its neighbour. The Avalonia
+                // backend rejects it with ArgumentException, which crashed the app mid-layout.
+                value = new System.Drawing.Size (Math.Max (0, value.Width), Math.Max (0, value.Height));
+
                 if (MdiHost != null)
                     MdiHost.SetContentSize (value);
                 else if (PanelHost != null)
@@ -986,15 +1008,15 @@ namespace Majorsilence.Forms
 
                 if (value) {
                     MdiClientControl = new MdiClient { Owner = this };
+                    // Appended, i.e. left at the BACK of the z-order, which is where WinForms puts it
+                    // and where it has to stay: index 0 is the front, and the front is painted last, so
+                    // a front MDI client covers every sibling -- the menu, the toolbar, and any Fill'd
+                    // panel (a docking host's whole UI) drawn beneath it.
+                    //
+                    // It gets the leftover space regardless of that position, because
+                    // DockAndAnchorLayout defers the MDI client to the end of the dock pass rather than
+                    // taking it in z-order.
                     Controls.Add (MdiClientControl);
-                    // Dock layout processes z-order front-to-back (index 0 first; see
-                    // DockAndAnchorLayout.LayoutDockedControls), and Controls.Add appends at the
-                    // back. Left there, the MDI client's Dock=Fill gets computed against the whole
-                    // display rectangle before any sibling menu/toolbar/status strip -- typically
-                    // already present from InitializeComponent -- has claimed its own slice, so it
-                    // visually covers them entirely. BringToFront moves it to the front (index 0),
-                    // making it dock-process last and correctly receive only the leftover space.
-                    MdiClientControl.BringToFront ();
                 } else if (MdiClientControl != null) {
                     Controls.Remove (MdiClientControl);
                     MdiClientControl = null;
@@ -1078,16 +1100,46 @@ namespace Majorsilence.Forms
         /// Gets or sets the control this form is hosted in. Mirrors WinForms Control.Parent as it
         /// applies to a Form: while hosted as an MDI child the parent is the container's
         /// <see cref="MdiClient"/> (exactly as in WinForms, where an MDI child's Parent is the
-        /// MdiClient control), and a top-level window reports null. Setting it stores the value —
-        /// Majorsilence.Forms cannot re-parent a window that owns a native top-level window into a
-        /// control tree; assign <see cref="MdiParent"/> to host a form inside another one.
+        /// MdiClient control), and a top-level window reports null.
         /// </summary>
+        /// <remarks>
+        /// Assigning this really hosts the form, by the same route as
+        /// <c>parent.Controls.Add (form)</c> -- the form is wrapped in a frame and composited into that
+        /// control tree instead of owning a top-level window. Assigning null takes it back out.
+        ///
+        /// It used to only store the value. That made <c>form.Parent = panel</c> a silent no-op: the
+        /// form stayed a separate top-level window, so an app that hosts forms inside a container by
+        /// assigning Parent -- which is how WinForms code does it, and how a docking library puts a
+        /// document into a pane -- got a stray empty window per form and nothing in the container.
+        /// </remarks>
         public Control? Parent {
             // A panel-hosted form reports the control its frame was added to, not the frame itself --
             // the frame is an implementation detail, and WinForms code reaches for Parent to add
             // siblings alongside the hosted form ("Parent.Controls.Add (otherForm)").
             get => MdiHost?.Client ?? PanelHost?.Parent ?? parent;
-            set => parent = value;
+            set {
+                parent = value;
+
+                // An MDI child's parent is owned by MdiParent, not settable through here -- WinForms
+                // reports the MdiClient and ignores writes just the same.
+                if (MdiHost != null)
+                    return;
+
+                if (value is null) {
+                    // Detach without closing: taking a hosted form out of the tree is not the same as
+                    // disposing it, and callers move forms between containers.
+                    if (PanelHost is { } host) {
+                        host.Parent?.Controls.Remove (host);
+                        PanelHost = null;
+                    }
+
+                    return;
+                }
+
+                // Add handles the already-hosted case as a move, so this is safe to re-assign.
+                if (PanelHost?.Parent != value)
+                    value.Controls.Add (this);
+            }
         }
 
         /// <summary>
@@ -1170,6 +1222,20 @@ namespace Majorsilence.Forms
             TitleBar.Visible = false;
             Style.Border.Width = 0;
         }
+
+        // Takes down the OS window this form may already have shown, on becoming frame-hosted.
+        //
+        // Deliberately not Hide (): Hide would set visible = false and raise VisibleChanged, but the form
+        // is not becoming invisible -- it is about to be painted inside its host, and callers that set
+        // Visible = true before parenting expect it to still read true afterwards.
+        //
+        // Unconditional, and not guarded on `shown`: that flag records whether the Shown *event* has
+        // been raised, which is not the same as owning a window right now. EnsureShownBookkeeping
+        // returns early once `visible` is true, so a form shown again while already visible ends up
+        // with a live OS window and shown == false -- exactly the case a guard here would skip, leaving
+        // the window stranded on screen beside its host. Hiding a window that was never shown is
+        // harmless.
+        internal void HideOwnWindowForHosting () => Backend.Hide ();
 
         internal override bool TryShowHosted ()
         {
@@ -1277,8 +1343,14 @@ namespace Majorsilence.Forms
             set => Location = value;
         }
 
-        /// <summary>Activates the form and gives it focus. No-op stub in Majorsilence.Forms.</summary>
-        public void Activate () { }
+        /// <summary>Activates the form and gives it focus.</summary>
+        /// <remarks>
+        /// Was an empty stub, so <c>form.Activate ()</c> silently did nothing -- the WinForms idiom for
+        /// bringing an already-open window to the user rather than opening a second one. Routed through
+        /// the same path as <see cref="Focus"/>, which keeps a hosted form from acquiring a stray OS
+        /// window of its own.
+        /// </remarks>
+        public void Activate () => Focus ();
 
         /// <summary>Activates the form. Mirrors WinForms Control.Select as it applies to a Form.</summary>
         public void Select () => BringToFront ();

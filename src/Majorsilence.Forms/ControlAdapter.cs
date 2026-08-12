@@ -26,6 +26,20 @@ namespace Majorsilence.Forms
 
         public new WindowBase ParentForm { get; }
 
+        /// <summary>
+        /// Lays the window's children out, then lets the window itself lay out.
+        /// </summary>
+        /// <remarks>
+        /// The adapter is the Control standing in for the Form, so its layout pass IS the Form's.
+        /// Base first: a Form's OnLayout override generally positions children relative to the ones
+        /// the normal dock/anchor pass has just placed, so it has to see their settled bounds.
+        /// </remarks>
+        protected override void OnLayout (LayoutEventArgs e)
+        {
+            base.OnLayout (e);
+            ParentForm?.RaiseLayout (e);
+        }
+
         // The Adapter is given the Form's native surface including any managed Form borders, and it
         // needs to not draw on top of those borders -- that is, it often has to start drawing at
         // (1, 1) instead of (0, 0). This could probably be eliminated in the future with

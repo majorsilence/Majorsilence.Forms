@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -488,9 +488,6 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the accessible role reported for the dialog.</summary>
         public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Client;
-
-        /// <summary>Gets or sets the dialog's background image.</summary>
-        public virtual Majorsilence.Forms.Drawing.Image? BackgroundImage { get; set; }
 
         /// <summary>Gets or sets the input method editor mode.</summary>
         public ImeMode ImeMode { get; set; } = ImeMode.Inherit;
