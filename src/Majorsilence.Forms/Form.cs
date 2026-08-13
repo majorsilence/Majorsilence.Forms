@@ -142,6 +142,13 @@ namespace Majorsilence.Forms
         // the form is a real top-level window. Panel hosting and MDI hosting both go through a frame.
         private Control? HostFrame => (Control?)PanelHost ?? MdiHost;
 
+        /// <summary>
+        /// The control this form is hosted in, when it has been put inside another control rather than
+        /// shown as its own top-level window (see <see cref="Control.ControlCollection.Add(Form)"/>).
+        /// Null for an ordinary top-level form.
+        /// </summary>
+        internal Control? HostingControl => HostFrame;
+
         /// <inheritdoc/>
         internal override WindowBase PresentationWindow {
             get {

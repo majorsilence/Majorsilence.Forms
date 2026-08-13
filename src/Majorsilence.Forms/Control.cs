@@ -169,18 +169,80 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating the control is currently getting system mouse events.
         /// </summary>
+        /// <remarks>
+        /// Capture is EXCLUSIVE, as it is in WinForms: taking it hands it over, and whoever held it
+        /// stops receiving mouse events and is told so through <see cref="OnMouseCaptureChanged"/>.
+        ///
+        /// This used to flag the control *and every ancestor* independently, with no notion of a single
+        /// holder, so handing capture over did nothing: the previous holder kept its flag and
+        /// <see cref="ControlCollection.FindCapturedChild"/> — which walks to the deepest capturing
+        /// control — kept routing every move straight back to it. That is precisely how WinForms code
+        /// takes over a drag it started: the control captures on mouse-down, then hands capture to the
+        /// form, after which moves arrive at the form instead. Left broken, DockPanelSuite's tab drag
+        /// re-entered BeginDrag on every single mouse move, each one building another full-screen drag
+        /// outline window, until ~30 of them covered the screen and the app looked hung.
+        ///
+        /// Ancestors are no longer flagged because the getter already reports true for them (a parent
+        /// aggregates its subtree through <see cref="ControlCollection.AnyCaptured"/>), so the routing
+        /// walk still finds the holder — while `is_captured` now means "this control IS the holder",
+        /// which is the question the mouse dispatch in RaiseMouseMove/RaiseMouseUp actually asks.
+        /// </remarks>
         public bool Capture {
             get => is_captured || Controls.AnyCaptured ();
             set {
-                var changed = is_captured != value;
+                if (value) {
+                    var previous = s_captureHolder;
 
-                is_captured = value;
+                    // Claim it first: releasing the previous holder runs this same setter, and it must
+                    // not clear the holder we are in the middle of installing.
+                    s_captureHolder = this;
 
-                if (changed)
-                    OnMouseCaptureChanged (EventArgs.Empty);
+                    if (previous is not null && !ReferenceEquals (previous, this))
+                        previous.Capture = false;
 
-                if (Parent != null)
-                    Parent.Capture = value;
+                    if (!is_captured) {
+                        is_captured = true;
+                        OnMouseCaptureChanged (EventArgs.Empty);
+                    }
+                } else {
+                    if (ReferenceEquals (s_captureHolder, this))
+                        s_captureHolder = null;
+
+                    if (is_captured) {
+                        is_captured = false;
+                        OnMouseCaptureChanged (EventArgs.Empty);
+                    }
+                }
+            }
+        }
+
+        // The single control currently holding capture. Static because capture is a property of the
+        // pointer, not of a window, and these apps run one UI thread -- the same assumption
+        // Application's message filter list is built on.
+        private static Control? s_captureHolder;
+
+        /// <summary>The control currently holding the mouse capture, or null. See <see cref="Capture"/>.</summary>
+        /// <remarks>
+        /// Self-healing: a control that was disposed while holding the capture releases it here rather
+        /// than swallowing every mouse event in the application for the rest of the session. Disposal
+        /// clears this too — this covers a holder torn down by some route that never ran Dispose.
+        /// </remarks>
+        internal static Control? CaptureHolder {
+            get {
+                if (s_captureHolder is { IsDisposed: true })
+                    s_captureHolder = null;
+
+                return s_captureHolder;
+            }
+        }
+
+        /// <summary>The top of this control's parent chain — the adapter of the window it lives in.</summary>
+        internal Control RootControl {
+            get {
+                var root = this;
+                while (root.Parent is { } parent)
+                    root = parent;
+                return root;
             }
         }
 
@@ -2524,6 +2586,11 @@ namespace Majorsilence.Forms
 
                 foreach (var c in Controls.GetAllControls (true))
                     c.Dispose (disposing);
+
+                // A disposed control must not keep the capture: it would go on being handed every mouse
+                // event in the application, with nothing left to deliver them to.
+                if (ReferenceEquals (s_captureHolder, this))
+                    s_captureHolder = null;
 
                 disposedValue = true;
                 _isDisposed = true;

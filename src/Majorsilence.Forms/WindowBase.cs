@@ -658,6 +658,73 @@ namespace Majorsilence.Forms
             return scaling is <= 0 or 1 ? value : (int)System.Math.Round (value / scaling);
         }
 
+        /// <summary>
+        /// Whether the capture holder sits in a form that is <em>hosted inside this window</em> — its own
+        /// WindowBase, so this window's dispatch will not reach it, yet visually part of this window and
+        /// so entitled to this window's pointer input.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately narrower than "any other window". Capture in WinForms is per-thread and does hold
+        /// across unrelated top-level windows, but honouring that here would let one window's unreleased
+        /// capture swallow input to every other window in the process — a much worse failure than the one
+        /// being fixed, and one nothing in a hosted-form drag needs.
+        /// </remarks>
+        private bool HostsInAnotherWindow (Control holder)
+        {
+            var root = holder.RootControl;
+
+            // Walk out of each hosted form into the control that hosts it, up to this window's own tree.
+            for (var hops = 0; hops < 32; hops++) {
+                if (ReferenceEquals (root, adapter))
+                    return hops > 0;   // hops == 0 means it is already ours; normal dispatch handles it.
+
+                if (root is not ControlAdapter { ParentForm: Form hosted } || hosted.HostingControl is not { } frame)
+                    return false;
+
+                root = frame.RootControl;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Hands a mouse event to the control holding the capture when that control lives in a
+        /// <em>different</em> window, and reports whether it did.
+        /// </summary>
+        /// <remarks>
+        /// Capture belongs to the pointer, not to a window: while a control holds it, every mouse event
+        /// is that control's, even when the pointer is somewhere else entirely. This window's own
+        /// dispatch already routes to a holder inside its own tree, so only the cross-window case is
+        /// handled here.
+        ///
+        /// That case is how WinForms code takes over a drag one of its children began — the child
+        /// captures on mouse-down, then the library hands capture to a form. In a docking library that
+        /// form is the *document* being dragged, which is a separate window hosted inside the main one.
+        /// Left unrouted, the main window went on hit-testing as usual and delivered every move straight
+        /// back to the tab strip, which restarted the drag on each one: ~30 full-screen drag-outline
+        /// windows stacked up over the screen, and the app looked hung.
+        /// </remarks>
+        private bool RoutedToCaptureHolder (MouseButtons button, int clicks, Keys keys,
+                                            System.Action<Control, MouseEventArgs> raise)
+        {
+            var holder = Control.CaptureHolder;
+
+            if (holder is null || !HostsInAnotherWindow (holder))
+                return false;
+
+            System.Drawing.Point local;
+            try {
+                // Cursor.Position was just updated from this event, and is in screen units.
+                local = holder.PointToClient (Cursor.Position);
+            } catch (System.Exception) {
+                return false;   // can't map (no platform window yet) -- fall back to normal dispatch.
+            }
+
+            raise (holder, new MouseEventArgs (button, clicks, local.X, local.Y,
+                                               System.Drawing.Point.Empty, keyData: keys));
+            return true;
+        }
+
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
             int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
@@ -665,6 +732,9 @@ namespace Majorsilence.Forms
             TrackCursorPosition (lx, ly);
 
             if (Filtered (WindowMessages.ButtonDownMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
+                return;
+
+            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => c.RaiseMouseDown (e)))
                 return;
 
             // A press can be the first pointer event a window sees (click-through onto an inactive
@@ -687,6 +757,9 @@ namespace Majorsilence.Forms
             if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
                 return;
 
+            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => { c.RaiseClick (e); c.RaiseMouseUp (e); }))
+                return;
+
             var ev = BuildMouseClickArgs (button, new System.Drawing.Point (lx, ly), keys);
 
             if (ev.Clicks > 1)
@@ -703,6 +776,9 @@ namespace Majorsilence.Forms
             TrackCursorPosition (lx, ly);
 
             if (Filtered (WindowMessages.WM_MOUSEMOVE, System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
+                return;
+
+            if (RoutedToCaptureHolder (buttons, 0, keys, static (c, e) => c.RaiseMouseMove (e)))
                 return;
 
             // Raise MouseEnter before the resize-border shortcut below returns: the window chrome is
