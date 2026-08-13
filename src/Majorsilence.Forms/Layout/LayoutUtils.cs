@@ -514,26 +514,33 @@ internal sealed partial class LayoutUtils
     }
 
     // Expands adjacent regions to bounds.  region1Align indicates which way the adjacency occurs.
+    //
+    // "Adjacent" here means ordered and non-overlapping, not touching exactly. SplitRegion takes a margin
+    // and leaves precisely that much space between the two regions, so an equality check fires for any
+    // text-and-image control with a non-zero margin -- a plain Button with an ImageList does it, and the
+    // Debug.Fail took the process down in Debug builds while Release rendered it correctly. What actually
+    // matters to the expansion below is the ordering, since each region is then stretched to the bounds
+    // edge and the gap is absorbed.
     public static void ExpandRegionsToFillBounds (Rectangle bounds, AnchorStyles region1Align, ref Rectangle region1, ref Rectangle region2)
     {
         switch (region1Align) {
             case AnchorStyles.Left:
-                Debug.Assert (region1.Right == region2.Left, "Adjacency error.");
+                Debug.Assert (region1.Right <= region2.Left, "Adjacency error.");
                 region1 = SubstituteSpecifiedBounds (bounds, region1, AnchorStyles.Right);
                 region2 = SubstituteSpecifiedBounds (bounds, region2, AnchorStyles.Left);
                 break;
             case AnchorStyles.Right:
-                Debug.Assert (region2.Right == region1.Left, "Adjacency error.");
+                Debug.Assert (region2.Right <= region1.Left, "Adjacency error.");
                 region1 = SubstituteSpecifiedBounds (bounds, region1, AnchorStyles.Left);
                 region2 = SubstituteSpecifiedBounds (bounds, region2, AnchorStyles.Right);
                 break;
             case AnchorStyles.Top:
-                Debug.Assert (region1.Bottom == region2.Top, "Adjacency error.");
+                Debug.Assert (region1.Bottom <= region2.Top, "Adjacency error.");
                 region1 = SubstituteSpecifiedBounds (bounds, region1, AnchorStyles.Bottom);
                 region2 = SubstituteSpecifiedBounds (bounds, region2, AnchorStyles.Top);
                 break;
             case AnchorStyles.Bottom:
-                Debug.Assert (region2.Bottom == region1.Top, "Adjacency error.");
+                Debug.Assert (region2.Bottom <= region1.Top, "Adjacency error.");
                 region1 = SubstituteSpecifiedBounds (bounds, region1, AnchorStyles.Top);
                 region2 = SubstituteSpecifiedBounds (bounds, region2, AnchorStyles.Bottom);
                 break;
