@@ -73,6 +73,18 @@ internal static class ProjectConverter
 
         if (!dualBuild)
         {
+            // The Windows-desktop SDK itself. Left in place it warns on every build of the converted
+            // project, twice over: NETSDK1137 ("no longer necessary to use the
+            // Microsoft.NET.Sdk.WindowsDesktop SDK") and, once UseWindowsForms is stripped just below,
+            // NETSDK1106 ("requires UseWpf or UseWindowsForms"). Neither breaks the build, which is
+            // exactly why they survive a migration and then follow the project around forever.
+            var sdk = root.Attribute("Sdk");
+            if (sdk is not null && sdk.Value.StartsWith("Microsoft.NET.Sdk.WindowsDesktop", StringComparison.OrdinalIgnoreCase))
+            {
+                sdk.Value = "Microsoft.NET.Sdk";
+                changed = true;
+            }
+
             // Strip the Windows-desktop opt-ins. UseWindowsForms/UseWPF pull in the Windows-only desktop
             // framework, which defeats the whole point of moving to a cross-platform stack.
             // ImportWindowsDesktopTargets is the same opt-in under its older name, and is easy to miss
