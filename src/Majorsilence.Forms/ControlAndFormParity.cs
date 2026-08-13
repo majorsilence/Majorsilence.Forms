@@ -113,6 +113,69 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="FromHandle(IntPtr)"/>
         public static Control? FromChildHandle (IntPtr handle) => null;
 
+        /// <summary>
+        /// Returns the innermost visible control at a screen point, searching every open top-level
+        /// window, or null when the point is over none of them.
+        /// </summary>
+        /// <remarks>
+        /// The portable stand-in for the <c>Control.FromChildHandle (WindowFromPoint (pt))</c> idiom.
+        /// That idiom cannot work here — <see cref="FromChildHandle"/> is necessarily null, since there
+        /// are no window handles in this layer — so ported code that asks "what is under the cursor?"
+        /// silently got nothing back. A docking library asks exactly that to decide where a drag may be
+        /// dropped, and with no answer every drop falls through to its last resort: a tab dragged within
+        /// its own strip was floated into a new window instead of being re-ordered.
+        ///
+        /// Windows are searched most-recently-opened first, which stands in for z-order (a float window
+        /// or dialog is opened after the window it covers). Forms hosted inside another control are
+        /// skipped: they are reached through the control that hosts them, and their bounds are measured
+        /// against that host rather than the screen.
+        ///
+        /// "Screen" here means the space <see cref="MousePosition"/> and <see cref="PointToScreen"/>
+        /// work in, which measures from the window's own origin rather than its client area (see the
+        /// note on WindowBase.TrackCursorPosition — the two differ by the title bar). Containment is
+        /// therefore tested after converting through <see cref="PointToClient"/>, the exact inverse,
+        /// rather than against Form.Bounds: mixing the two spaces put the test a title bar's worth away
+        /// from the descent that follows it, which is enough to miss a ~21px tab strip entirely.
+        /// </remarks>
+        public static Control? FromScreenPoint (Point screenPoint)
+        {
+            var forms = Application.OpenForms;
+
+            for (var i = forms.Count - 1; i >= 0; i--) {
+                var form = forms[i];
+
+                // Disabled windows are skipped: a disabled window cannot receive mouse input, so it is
+                // never what is "under the cursor". This is not a nicety -- a drag overlay is exactly
+                // such a window (DockPanelSuite's DragForm sets Enabled = false), it covers the whole
+                // screen, and it is opened last, so without this every hit test during a drag answered
+                // with the overlay the drag itself had just put up, and never the pane underneath.
+                if (form is null || !form.Visible || !form.Enabled || form.HostingControl is not null)
+                    continue;
+
+                if (form.ContentControl is not { } root)
+                    continue;
+
+                Point local;
+                try { local = root.PointToClient (screenPoint); } catch (Exception) { continue; }
+
+                if (local.X < 0 || local.Y < 0 || local.X >= root.Width || local.Y >= root.Height)
+                    continue;
+
+                var control = (Control)root;
+
+                // Descend to the deepest child under the point, translating into each one's client
+                // coordinates on the way -- the same walk mouse dispatch performs.
+                while (control.Controls.FindVisibleChildAt (local) is { } child) {
+                    local = new Point (local.X - child.Left, local.Y - child.Top);
+                    control = child;
+                }
+
+                return control;
+            }
+
+            return null;
+        }
+
         // Dispatch for the InvokeAsync family, and the two conditions are both load-bearing.
         //
         // Posting only enqueues; the queue is drained by the message loop. So posting from the UI
