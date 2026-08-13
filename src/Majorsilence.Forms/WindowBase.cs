@@ -1037,6 +1037,20 @@ namespace Majorsilence.Forms
 
         internal virtual void SetWindowStartupLocation (WindowBase? owner = null) { }
 
+        /// <summary>
+        /// The window that actually presents this one on screen. Normally itself; a <see cref="Form"/>
+        /// hosted in someone else's control tree (an MDI child, or one placed via Controls.Add) returns
+        /// the top-level window it is hosted in.
+        /// </summary>
+        /// <remarks>
+        /// A hosted form's own <see cref="Backend"/> is constructed but never shown -- its content is
+        /// rendered into the host's frame instead. Operating on that unused backend is not the no-op it
+        /// looks like: <c>Backend.Activate ()</c> maps to the platform's "make key and order front",
+        /// which puts an empty window on screen. Anything reaching for a window to enable, activate or
+        /// measure must go through here rather than <c>Backend</c> directly.
+        /// </remarks>
+        internal virtual WindowBase PresentationWindow => this;
+
         // Lets a subclass (Form) divert Show() into being hosted inside another window — an MDI child is
         // placed in its parent's MDI client area rather than getting its own top-level OS window.
         internal virtual bool TryShowHosted () => false;
@@ -1059,8 +1073,14 @@ namespace Majorsilence.Forms
 
         internal void ShowDialog (WindowBase parent)
         {
-            SetWindowStartupLocation (parent);
-            parent.Backend.Enabled = false;
+            // Disable and measure against the window presenting the parent: when the parent is an MDI
+            // child it has no window of its own, and its unrealized backend reports a meaningless
+            // position (so CenterParent placed the dialog somewhere arbitrary) while leaving the real
+            // window it lives in still accepting input.
+            var parentWindow = parent.PresentationWindow;
+
+            SetWindowStartupLocation (parentWindow);
+            parentWindow.Backend.Enabled = false;
             Backend.Show ();
             EnsureShownBookkeeping ();
         }

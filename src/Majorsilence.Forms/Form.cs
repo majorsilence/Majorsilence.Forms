@@ -142,6 +142,17 @@ namespace Majorsilence.Forms
         // the form is a real top-level window. Panel hosting and MDI hosting both go through a frame.
         private Control? HostFrame => (Control?)PanelHost ?? MdiHost;
 
+        /// <inheritdoc/>
+        internal override WindowBase PresentationWindow {
+            get {
+                // Walk out through the host chain (a hosted form can itself be hosted) to the form that
+                // owns a real window. FindForm climbs the parent chain, so this terminates.
+                var host = HostFrame?.FindForm ();
+
+                return host is not null && host != this ? host.PresentationWindow : this;
+            }
+        }
+
         /// <summary>Gets or sets the button that is activated when Enter is pressed.</summary>
         /// <remarks>
         /// Typed <see cref="IButtonControl"/>, as WinForms types it — the point of the interface is that a
@@ -241,8 +252,19 @@ namespace Majorsilence.Forms
         internal void CompleteClose ()
         {
             if (dialog_parent is not null) {
-                dialog_parent.Backend.Enabled = true;
-                dialog_parent.Backend.Activate ();
+                // Re-enable and raise the window that presents the opener, not the opener's own backend:
+                // an MDI child's backend is an unshown window, and activating it made a blank duplicate
+                // of that form appear on screen every time a dialog it opened was dismissed.
+                var parentWindow = dialog_parent.PresentationWindow;
+
+                parentWindow.Backend.Enabled = true;
+                parentWindow.Backend.Activate ();
+
+                // Activation still belongs to the opener, so hand it back within the MDI client too --
+                // otherwise whichever child was active before the dialog keeps the caption highlight.
+                if (dialog_parent is Form { MdiParent: { } mdiParent } child)
+                    mdiParent.ActivateMdiChild (child);
+
                 dialog_parent = null;
             }
 
