@@ -21,6 +21,20 @@ namespace Majorsilence.Forms
     {
         private static readonly ConcurrentDictionary<(string Family, int Weight, int Width, int Slant), SKTypeface?> cache = new ();
 
+        /// <summary>
+        /// Resolves the typeface a <see cref="Majorsilence.Forms.Drawing.Font"/> actually renders with.
+        /// </summary>
+        /// <remarks>
+        /// Measuring APIs must go through this rather than looking the family name up directly. The
+        /// paint path resolves via <c>Font.GetSKTypeface()</c> (see Control.Font and ControlStyle),
+        /// which honours families loaded through <c>PrivateFontCollection</c> and carries the font's
+        /// slant; a name-only cache lookup consults the system font manager alone, so it silently
+        /// measures a *different* face than the one drawn for any privately-loaded or italic font.
+        /// Text laid out from those metrics is clipped or mis-centred.
+        /// </remarks>
+        public static SKTypeface Resolve (Majorsilence.Forms.Drawing.Font? font)
+            => font?.GetSKTypeface () ?? Theme.UIFont;
+
         /// <summary>Gets a typeface for the family at normal weight/width/slant.</summary>
         public static SKTypeface? Get (string? family)
             => Get (family, SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);

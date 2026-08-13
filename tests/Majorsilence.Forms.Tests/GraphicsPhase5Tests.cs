@@ -191,6 +191,95 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void SetClip_replaces_the_current_clip_rather_than_intersecting_it ()
+        {
+            // Skia's clip only ever narrows, so a SetClip built on ClipRect could never widen again:
+            // the first narrow clip in a paint silently discarded everything drawn after it.
+            using var surface = NewSurface ();
+            using var g = Graphics.FromImage (surface);
+
+            g.SetClip (new Rectangle (0, 0, 10, 10));
+            g.SetClip (new Rectangle (0, 0, 60, 60));
+            g.FillRectangle (new SolidBrush (Color.Red), new Rectangle (40, 40, 10, 10));
+
+            Assert.True (surface.GetPixel (45, 45).A > 0, "drawing after widening the clip should appear");
+        }
+
+        [Fact]
+        public void ResetClip_lifts_a_previously_applied_clip ()
+        {
+            using var surface = NewSurface ();
+            using var g = Graphics.FromImage (surface);
+
+            g.SetClip (new Rectangle (0, 0, 10, 10));
+            g.ResetClip ();
+            g.FillRectangle (new SolidBrush (Color.Red), new Rectangle (40, 40, 10, 10));
+
+            Assert.True (surface.GetPixel (45, 45).A > 0, "drawing after ResetClip should appear");
+        }
+
+        [Fact]
+        public void IntersectClip_narrows_the_clip_instead_of_replacing_it ()
+        {
+            using var surface = NewSurface ();
+            using var g = Graphics.FromImage (surface);
+
+            g.SetClip (new Rectangle (0, 0, 30, 30));
+            g.IntersectClip (new Rectangle (20, 20, 30, 30));
+            g.FillRectangle (new SolidBrush (Color.Red), new Rectangle (0, 0, 60, 60));
+
+            Assert.True (surface.GetPixel (25, 25).A > 0, "the overlap of both rectangles should be drawn");
+            Assert.Equal (0, surface.GetPixel (5, 5).A);      // only in the first rectangle
+            Assert.Equal (0, surface.GetPixel (45, 45).A);    // only in the second
+        }
+
+        [Fact]
+        public void ClipBounds_reports_the_current_clip_on_a_bitmap_backed_Graphics ()
+        {
+            // ClipBounds used to report the control's bounds, and Empty when there was no control --
+            // which is the double-buffered case. Custom painting saves and restores the clip through
+            // this property, so an empty answer clipped the rest of the paint away.
+            using var surface = NewSurface ();
+            using var g = Graphics.FromImage (surface);
+
+            Assert.Equal (new RectangleF (0, 0, 60, 60), g.ClipBounds);
+
+            g.SetClip (new Rectangle (10, 10, 20, 20));
+            Assert.Equal (new RectangleF (10, 10, 20, 20), g.ClipBounds);
+        }
+
+        [Fact]
+        public void The_save_and_restore_clip_idiom_round_trips ()
+        {
+            // var last = g.ClipBounds; g.SetClip (part); ...; g.SetClip (last);
+            // This is how RibbonWinForms -- and custom painting generally -- scopes a clip.
+            using var surface = NewSurface ();
+            using var g = Graphics.FromImage (surface);
+
+            var last = g.ClipBounds;
+            g.SetClip (new Rectangle (0, 0, 10, 10));
+            g.SetClip (last);
+            g.FillRectangle (new SolidBrush (Color.Red), new Rectangle (40, 40, 10, 10));
+
+            Assert.True (surface.GetPixel (45, 45).A > 0, "restoring the saved clip should restore drawing");
+        }
+
+        [Fact]
+        public void TranslateClip_moves_the_clip_without_moving_what_is_drawn ()
+        {
+            // It used to translate the canvas, which shifted every later drawing operation as well.
+            using var surface = NewSurface ();
+            using var g = Graphics.FromImage (surface);
+
+            g.SetClip (new Rectangle (0, 0, 20, 20));
+            g.TranslateClip (20, 20);
+            g.FillRectangle (new SolidBrush (Color.Red), new Rectangle (0, 0, 60, 60));
+
+            Assert.True (surface.GetPixel (25, 25).A > 0, "the moved clip should let the fill through");
+            Assert.Equal (0, surface.GetPixel (5, 5).A);   // where the clip used to be
+        }
+
+        [Fact]
         public void GetNearestColor_returns_the_color_unchanged_on_a_32bpp_surface ()
         {
             using var surface = NewSurface ();

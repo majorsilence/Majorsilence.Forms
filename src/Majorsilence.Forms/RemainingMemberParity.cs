@@ -473,7 +473,7 @@ namespace Majorsilence.Forms
     public partial class ToolStripProfessionalRenderer
     {
         /// <summary>Gets the colour table this renderer paints from.</summary>
-        public ProfessionalColorTable ColorTable { get; } = new ProfessionalColorTable ();
+        public ProfessionalColorTable ColorTable { get; protected set; } = new ProfessionalColorTable ();
     }
 
     public partial class ToolStripStatusLabel

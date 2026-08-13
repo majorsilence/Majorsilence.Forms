@@ -58,6 +58,13 @@ namespace Majorsilence.Forms
         public class TabPageCollection : Majorsilence.Forms.TabPageCollection
         {
             internal TabPageCollection (TabControl owner, TabStrip tabStrip) : base (owner, tabStrip) { }
+
+            /// <summary>Initializes a collection for the given tab control.</summary>
+            /// <remarks>
+            /// The WinForms-shaped constructor, so a library can derive its own collection type. It
+            /// binds to the owner's existing tab strip rather than creating a second one.
+            /// </remarks>
+            public TabPageCollection (TabControl owner) : this (owner, owner.TabStrip) { }
         }
     }
 
@@ -520,7 +527,9 @@ namespace Majorsilence.Forms
             /// <inheritdoc/>
             public override AccessibleObject? GetChild (int index)
                 => Owner is ToolStrip strip && index >= 0 && index < strip.Items.Count
-                    ? strip.Items[index].AccessibilityObject
+                    // AccessibilityObject is a ToolStripItem member; a plain MenuItem in the strip has
+                    // none to expose.
+                    ? (strip.Items[index] as ToolStripItem)?.AccessibilityObject
                     : null;
 
             /// <inheritdoc/>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -202,6 +202,57 @@ namespace Majorsilence.Forms
 
     public partial class ToolStripItemCollection
     {
+        // WinForms types these members ToolStripItem. Here the collection is a Collection<MenuItem> --
+        // ToolStripItem derives FROM MenuItem in this library, the reverse of WinForms -- so the inherited
+        // members are MenuItem-typed and the ToolStripItem-typed signatures WinForms code is written
+        // against were missing. Passing a ToolStripItem to the inherited overloads happens to work by
+        // implicit upcast, but the ones taking a ToolStripItem *array* or returning an index do not:
+        // `Items.CopyTo (new ToolStripItem[n], 0)` simply did not compile.
+
+        /// <summary>Adds an item and returns its index.</summary>
+        public int Add (ToolStripItem value)
+        {
+            ArgumentNullException.ThrowIfNull (value);
+
+            Add ((MenuItem)value);
+            return Count - 1;
+        }
+
+        /// <summary>Gets whether the collection contains the given item.</summary>
+        public bool Contains (ToolStripItem value) => Contains ((MenuItem?)value!);
+
+        /// <summary>Gets the index of the given item, or -1.</summary>
+        public int IndexOf (ToolStripItem value) => IndexOf ((MenuItem?)value!);
+
+        /// <summary>Inserts an item at the given index.</summary>
+        public void Insert (int index, ToolStripItem value)
+        {
+            ArgumentNullException.ThrowIfNull (value);
+            Insert (index, (MenuItem)value);
+        }
+
+        /// <summary>Removes the given item.</summary>
+        public void Remove (ToolStripItem value) => Remove ((MenuItem?)value!);
+
+        /// <summary>Copies the items into the given array, starting at the given index.</summary>
+        /// <remarks>
+        /// Each item is cast on the way out. Every item a caller put in through the ToolStripItem-typed
+        /// members is one, but this collection's element type is the wider MenuItem, so a plain MenuItem
+        /// added through an inherited overload would throw here -- the same InvalidCastException an array
+        /// copy of the wrong element type gives, rather than silently dropping it.
+        /// </remarks>
+        public void CopyTo (ToolStripItem[] array, int index)
+        {
+            ArgumentNullException.ThrowIfNull (array);
+            ArgumentOutOfRangeException.ThrowIfNegative (index);
+
+            if (array.Length - index < Count)
+                throw new ArgumentException ("The destination array is too small.", nameof (array));
+
+            for (var i = 0; i < Count; i++)
+                array[index + i] = (ToolStripItem)this[i];
+        }
+
         /// <summary>Adds a button with the given text.</summary>
         public ToolStripItem Add (string text)
         {

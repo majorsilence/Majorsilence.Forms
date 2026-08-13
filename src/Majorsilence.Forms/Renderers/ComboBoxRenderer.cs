@@ -25,7 +25,7 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw the text of the selected item
             if (control.Items.SelectedItem != null)
-                e.Canvas.DrawText (control.Items.SelectedItem.ToString ()!, text_area, control, ContentAlignment.MiddleLeft, maxLines: 1);
+                e.Canvas.DrawText (control.GetItemText (control.Items.SelectedItem), text_area, control, ContentAlignment.MiddleLeft, maxLines: 1);
 
             // Draw the drop down glyph
             var button_bounds = GetDropDownButtonArea (control, e);

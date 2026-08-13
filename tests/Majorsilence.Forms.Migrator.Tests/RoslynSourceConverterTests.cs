@@ -1,4 +1,4 @@
-using Xunit;
+﻿using Xunit;
 
 namespace Majorsilence.Forms.Migrator.Tests;
 
@@ -164,6 +164,7 @@ public class RoslynSourceConverterTests : IDisposable
     [InlineData ("Font")]
     [InlineData ("Pen")]
     [InlineData ("SolidBrush")]
+    [InlineData ("Graphics")]
     public void Redirects_GDI_plus_types_to_Majorsilence_Drawing (string gdiType)
     {
         var result = Convert ($"class F {{ System.Drawing.{gdiType} X; }}\n");
@@ -171,7 +172,6 @@ public class RoslynSourceConverterTests : IDisposable
     }
 
     [Theory]
-    [InlineData ("Graphics")]
     [InlineData ("SystemColors")]
     public void Redirects_WinForms_compat_drawing_types_to_Majorsilence_Forms (string type)
     {
@@ -233,11 +233,13 @@ public class RoslynSourceConverterTests : IDisposable
     // ---- Pass 4 / 5b: reused textual warning helpers ----
 
     [Fact]
-    public void Warns_on_unsupported_VisualStyles_namespace ()
+    // See the textual engine's counterpart: VisualStyles has a compat namespace now, so it is rewritten
+    // rather than warned about and left.
+    public void VisualStyles_namespace_is_rewritten_to_the_compat_one ()
     {
         var result = Convert ("using System.Windows.Forms.VisualStyles;\nclass F { }\n");
-        Assert.Contains ("System.Windows.Forms.VisualStyles", result.Text); // left as-is
-        Assert.Contains (result.Warnings, w => w.Contains ("VisualStyles"));
+        Assert.Contains ("Majorsilence.Forms.VisualStyles", result.Text);
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("VisualStyles"));
     }
 
     // ---- Pass 8: duplicate import dedup ----

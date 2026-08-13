@@ -159,7 +159,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the custom auto-complete candidates.</summary>
-        public System.Collections.Specialized.StringCollection AutoCompleteCustomSource {
+        public AutoCompleteStringCollection AutoCompleteCustomSource {
             get => TextBox.AutoCompleteCustomSource;
             set => TextBox.AutoCompleteCustomSource = value;
         }

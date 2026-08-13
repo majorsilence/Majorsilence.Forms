@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Reflection;
 using Majorsilence.Forms.Backends;
 
@@ -106,9 +106,72 @@ namespace Majorsilence.Forms
         public static bool SetHighDpiMode (HighDpiMode highDpiMode) => true;
 
         /// <summary>
-        /// Sets the default font for the application. No-op in Majorsilence.Forms.
+        /// Sets the ambient default font every control without an explicit Font inherits.
         /// </summary>
-        public static void SetDefaultFont (Majorsilence.Forms.Drawing.Font font) { }
+        /// <remarks>
+        /// WinForms requires this before the first window is created and throws otherwise; here it is
+        /// simply applied from the point it is called, so controls already created keep resolving to
+        /// whatever the default was when they were measured. Passing null restores the platform default.
+        /// </remarks>
+        public static void SetDefaultFont (Majorsilence.Forms.Drawing.Font font)
+            => SystemFonts.SetDefaultFont (font);
+
+        private static double? ui_scale;
+
+        /// <summary>
+        /// An extra zoom factor applied to the whole UI, on top of the display's own scale factor.
+        /// Defaults to 1.0 (no change).
+        /// </summary>
+        /// <remarks>
+        /// This is the same machinery HiDPI already uses, just with a factor you choose instead of one
+        /// the display reports: it multiplies <c>WindowBase.Scaling</c>, so every logical unit that
+        /// goes through <c>LogicalToDeviceUnits</c> -- font sizes, paddings, control sizes, glyphs --
+        /// grows together. Nothing about font sizes or designer coordinates changes, so layout
+        /// arithmetic that a designer computed still holds; only the number of device pixels each
+        /// logical unit turns into does.
+        ///
+        /// It exists because display scaling does not cover every case. A large, dense monitor that the
+        /// OS reports at scale 1.0 renders WinForms' classic 8.25pt default font at its true, very small
+        /// physical size, and no amount of DPI *detection* helps -- the OS is saying this is not a HiDPI
+        /// display. This is the knob for that.
+        ///
+        /// Deliberately does not affect <c>WindowBase.DesktopScaling</c>, which stays the real display
+        /// factor: <c>Control.PointToScreen</c> converts through <c>DesktopScaling / Scaling</c>, so
+        /// leaving it alone makes that ratio compensate for the zoom automatically and screen
+        /// coordinates keep round-tripping.
+        ///
+        /// The environment variable <c>MAJORSILENCE_UI_SCALE</c> seeds the initial value, so a scale can
+        /// be tried against an app without rebuilding it. An explicit assignment overrides it.
+        ///
+        /// Caveat: anything that hardcodes pixel sizes instead of converting through
+        /// <c>LogicalToDeviceUnits</c> will not grow with the rest, so a scale far from 1.0 can show up
+        /// such spots.
+        /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">The value is not greater than zero.</exception>
+        public static double UiScale {
+            get => ui_scale ??= ReadUiScaleFromEnvironment ();
+            set {
+                ArgumentOutOfRangeException.ThrowIfLessThanOrEqual (value, 0);
+
+                if (ui_scale == value)
+                    return;
+
+                ui_scale = value;
+
+                // Every cached size in every open window was computed against the old factor.
+                foreach (var form in OpenForms.ToArray ()) {
+                    form.PerformLayout ();
+                    form.Invalidate ();
+                }
+            }
+        }
+
+        private static double ReadUiScaleFromEnvironment ()
+            => double.TryParse (Environment.GetEnvironmentVariable ("MAJORSILENCE_UI_SCALE"),
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var scale) && scale > 0
+                ? scale
+                : 1.0;
 
         /// <summary>
         /// Exits the application.
@@ -425,11 +488,50 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="SetUnhandledExceptionMode(UnhandledExceptionMode)"/>
         public static void SetUnhandledExceptionMode (UnhandledExceptionMode mode, bool threadScope) { }
 
-        /// <summary>Adds a message filter to the application. Stub in Majorsilence.Forms.</summary>
-        public static void AddMessageFilter (IMessageFilter value) { }
+        // Copy-on-write so FilterMessage can walk the list without holding the lock: a filter is free
+        // to add or remove filters while being called, which would otherwise mutate the collection
+        // mid-enumeration.
+        private static readonly object _messageFilterGate = new ();
+        private static IMessageFilter[] _messageFilters = [];
 
-        /// <summary>Removes a message filter from the application. Stub in Majorsilence.Forms.</summary>
-        public static void RemoveMessageFilter (IMessageFilter value) { }
+        /// <summary>
+        /// Adds a filter that sees input messages before they are dispatched to a control.
+        /// </summary>
+        /// <remarks>
+        /// This is the portable way to watch input application-wide — the thing ported code otherwise
+        /// reaches for a global OS hook to do (for example, dismissing a popup when a click lands
+        /// outside it). Filters run for mouse and keyboard input; see
+        /// <see cref="WindowMessages"/> for the message ids raised. WinForms keeps filters per-thread;
+        /// here the list is process-wide, which matches single-UI-thread apps and is why a filter added
+        /// on a worker thread still applies.
+        /// </remarks>
+        public static void AddMessageFilter (IMessageFilter value)
+        {
+            if (value is null)
+                return;
+
+            lock (_messageFilterGate)
+                _messageFilters = [.. _messageFilters, value];
+        }
+
+        /// <summary>Removes a filter previously added by <see cref="AddMessageFilter"/>.</summary>
+        public static void RemoveMessageFilter (IMessageFilter value)
+        {
+            if (value is null)
+                return;
+
+            lock (_messageFilterGate) {
+                var index = System.Array.IndexOf (_messageFilters, value);
+                if (index < 0)
+                    return;
+
+                var next = new IMessageFilter[_messageFilters.Length - 1];
+                System.Array.Copy (_messageFilters, 0, next, 0, index);
+                System.Array.Copy (_messageFilters, index + 1, next, index, next.Length - index);
+                _messageFilters = next;
+            }
+        }
+
 
         /// <summary>Gets whether the application is still running the main message loop.</summary>
         public static bool MessageLoop => true;
@@ -459,6 +561,23 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the return value of the message.</summary>
         public IntPtr Result { get; set; }
+
+        /// <summary>
+        /// Marshals <see cref="LParam"/> into an instance of <paramref name="cls"/>, as WinForms does
+        /// for messages that pass a struct by pointer (WM_COPYDATA and friends).
+        /// </summary>
+        /// <returns>
+        /// The marshalled instance, or null when <see cref="LParam"/> is zero — which is what a filter
+        /// or WndProc override sees on the backends here, since nothing synthesises struct pointers.
+        /// </returns>
+        public readonly object? GetLParam (Type cls)
+        {
+            ArgumentNullException.ThrowIfNull (cls);
+
+            return LParam == IntPtr.Zero
+                ? null
+                : System.Runtime.InteropServices.Marshal.PtrToStructure (LParam, cls);
+        }
     }
 
     /// <summary>Specifies the visual style state of the application.</summary>

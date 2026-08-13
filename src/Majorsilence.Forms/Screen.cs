@@ -54,6 +54,11 @@ namespace Majorsilence.Forms
         /// <summary>Gets the screen that contains the specified control.</summary>
         public static Screen? FromControl (Control control) => PrimaryScreen;
 
+        /// <summary>Gets the screen showing the given window.</summary>
+        /// <remarks>Overload for <see cref="WindowBase"/>: a Form is not a Control here, and asking which
+        /// screen a window sits on -- to size a dialog against the working area -- is the common case.</remarks>
+        public static Screen? FromControl (WindowBase window) => PrimaryScreen;
+
         /// <summary>Gets the screen that has the largest intersection with the specified rectangle.</summary>
         public static Screen? FromRectangle (System.Drawing.Rectangle rect)
         {

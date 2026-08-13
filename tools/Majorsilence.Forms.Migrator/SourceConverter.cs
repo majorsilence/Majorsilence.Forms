@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace Majorsilence.Forms.Migrator;
 
@@ -39,6 +39,30 @@ internal enum VbConstructorMode
 internal static class SourceConverter
 {
     public sealed record Result(string Text, bool Changed, IReadOnlyList<string> Warnings);
+
+    // [DllImport("user32.dll")] / [LibraryImport("user32")] / <DllImport("user32.dll")> (VB), plus VB's
+    // older `Declare Function Foo Lib "user32"` form, which names the library without any attribute.
+    private static readonly Regex NativeImportDeclaration = new(
+        """(?:[\[<]\s*(?:System\.Runtime\.InteropServices\.)?(?:DllImport|LibraryImport)\s*\(\s*"(?<lib>[^"]+)")""" +
+        """|(?:\bDeclare\s+(?:Auto\s+|Ansi\s+|Unicode\s+)?(?:Function|Sub)\s+\w+\s+Lib\s+"(?<lib>[^"]+)")""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Declarations spell the same library a few ways -- "user32.dll", "USER32.DLL", "user32". Reduce to
+    // one lower-case stem so a single table entry covers them all, and so a file that uses two spellings
+    // of the same library warns once rather than once per spelling.
+    private static string NormalizeLibraryName(string library)
+    {
+        var name = library.Trim().ToLowerInvariant();
+
+        // A few declarations give a full path; only the file name identifies the library.
+        var slash = name.LastIndexOfAny(['\\', '/']);
+        if (slash >= 0)
+            name = name[(slash + 1)..];
+
+        return name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+            ? name[..^4]
+            : name;
+    }
 
     // A fully-qualified System.Drawing type reference, e.g. "System.Drawing.Bitmap". The boundary
     // lookbehind avoids matching the tail of an unrelated namespace (MyApp.System.Drawing.X).
@@ -133,6 +157,15 @@ internal static class SourceConverter
         foreach (var (_, to, pattern) in PrefixRules)
             text = pattern.Replace(text, to);
 
+        // 1b. A file that DECLARED a namespace under System (a library extending System.Windows.Forms with
+        //     its own controls does exactly this) reached System.IntPtr, System.EventHandler, System.Type
+        //     and friends through namespace nesting, with no `using System;` anywhere in the file. Moving
+        //     the declaration to Majorsilence.Forms takes that scope away, and the file stops compiling on
+        //     names that have nothing to do with WinForms. Restore it explicitly. Only System is added:
+        //     the intermediate ancestors (System.Windows, say) may have no referenced assembly, so a using
+        //     for one would be an error in its own right.
+        text = RestoreSystemScope(original, text, language);
+
         // 1a. User-supplied namespace rewrites (e.g. Telerik -> Majorsilence.Forms.Telerik). Same boundary
         //     rules as the built-ins; longest-first ordering is guaranteed by CustomMap.Load.
         foreach (var (from, to) in (customMap ?? CustomMap.Empty).Namespaces)
@@ -215,6 +248,31 @@ internal static class SourceConverter
             }
         }
 
+        // 5d. P/Invokes into Windows system libraries. Like 5c this compiles everywhere and fails at
+        //     run time, but later and more confusingly: the binding happens on the first *call*, so the
+        //     app can start, show a form, and only die when some code path reaches the declaration.
+        //     Warn per library, and name the managed replacement for the entry points that have one.
+        foreach (Match m in NativeImportDeclaration.Matches(original))
+        {
+            var library = NormalizeLibraryName(m.Groups["lib"].Value);
+
+            if (!NamespaceMap.WindowsOnlyNativeLibraries.Contains(library, StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            Warn($"declares a P/Invoke into '{library}' (Windows system library) — it compiles anywhere " +
+                 "but throws DllNotFoundException on the first call off Windows; review manually");
+        }
+
+        if (NativeImportDeclaration.IsMatch(original))
+        {
+            foreach (var (entryPoint, replacement) in NamespaceMap.PInvokeManagedEquivalents)
+            {
+                if (Regex.IsMatch(original, $@"(?<![\w.]){Regex.Escape(entryPoint)}\s*\("))
+                    Warn($"'{entryPoint}' is P/Invoked — Majorsilence.Forms exposes {replacement}, " +
+                         "which works on every platform");
+            }
+        }
+
         // 5b. Heavyweight Telerik types with no compat equivalent (RadPdfViewer, RadRichTextEditor, the
         //     scheduler data layer, …). Pass 1's guards leave the qualified form untouched; this also
         //     catches the *unqualified* form — e.g. `Dim v As RadPdfViewer` under a bare `Imports
@@ -250,9 +308,25 @@ internal static class SourceConverter
         //     System.Resources.ResourceManager is an ordinary BCL type that hand-written code uses for
         //     plain string lookups, and that code should keep the real one.
         if (text.Contains("StronglyTypedResourceBuilder", StringComparison.Ordinal))
+        {
             text = Regex.Replace(text,
                 @"(?<![\w.])System\.Resources\.ResourceManager\b",
                 "Majorsilence.Forms.ComponentResourceManager");
+
+            // The generator emits the name unqualified when it also emits `using System.Resources;`,
+            // which the rewrite above cannot see. An alias catches every use without editing generated
+            // code -- and it has to be caught: the designer casts what the manager returns to the
+            // migrated Bitmap type, so the stock ResourceManager hands back a System.Drawing.Bitmap and
+            // every image property throws InvalidCastException at run time, not compile time.
+            if (Regex.IsMatch(text, @"(?m)^[ \t]*using[ \t]+System\.Resources[ \t]*;")
+                && !Regex.IsMatch(text, @"(?m)^[ \t]*using[ \t]+ResourceManager[ \t]*="))
+            {
+                text = Regex.Replace(text,
+                    @"(?m)^([ \t]*)using([ \t]+)System\.Resources[ \t]*;",
+                    "$1using$2System.Resources;\n$1using ResourceManager = Majorsilence.Forms.ComponentResourceManager;",
+                    RegexOptions.None);
+            }
+        }
 
         // 7. Visual Basic specifics. With MyType=Empty there is no implicit WinForms constructor, so
         //    inject the explicit one each form needs; then flag the 'My' framework and Windows-only types
@@ -522,7 +596,7 @@ internal static class SourceConverter
         var needsSystemDrawing = NamespaceMap.DrawingPrimitives.Any(p => UsedUnqualified(text, p));
         var usesGdiPlus = NamespaceMap.MajorsilenceDrawingTypes.Any(t => UsedUnqualified(text, t));
         var companionPresent = Regex.IsMatch(text,
-            @"(?m)^[ \t]*(using|Imports)[ \t]+Majorsilence\.Drawing[ \t]*;?[ \t]*$");
+            $@"(?m)^[ \t]*(using|Imports)[ \t]+{Regex.Escape (NamespaceMap.DrawingTarget)}[ \t]*;?[ \t]*$");
 
         var indent = match.Groups["indent"].Value;
         var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
@@ -568,20 +642,31 @@ internal static class SourceConverter
     // leaves the code reading exactly as it did before the migration.
     private static string AddAmbiguityAliases(string text)
     {
-        // No System.Drawing import left means only one candidate for the name — nothing to disambiguate.
+        // Anchor on the kept `using System.Drawing;` when there is one, so the alias reads as the
+        // correction to it. When there isn't, the alias is still needed and often *more* so: the import
+        // pass replaces `using System.Drawing;` with the Majorsilence.Forms.Drawing companion in a file
+        // that uses GDI+ types, which leaves a name like SystemBrushes -- reimplemented under
+        // Majorsilence.Forms, not .Drawing -- with no candidate at all (CS0103) in a file that never
+        // needed to import the control namespace. Fall back to the last import line in that case.
         var match = BareDrawingImport.Match(text);
-        if (!match.Success)
+        var anchor = match.Success ? match : LastImportLine(text);
+        if (anchor is null)
             return text;
 
-        var kw = match.Groups["kw"].Value;
-        var indent = match.Groups["indent"].Value;
+        var kw = anchor.Groups["kw"].Success ? anchor.Groups["kw"].Value : "using";
+        var indent = anchor.Groups["indent"].Success ? anchor.Groups["indent"].Value : "";
         var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
 
         var aliases = new List<string>();
 
-        foreach (var type in NamespaceMap.AmbiguousWithSystemDrawing.OrderBy(t => t, StringComparer.Ordinal))
+        foreach (var type in NamespaceMap.AliasedWithSystemDrawing.OrderBy(t => t, StringComparer.Ordinal))
         {
             if (!UsedUnqualified(text, type))
+                continue;
+
+            // The file declares its own type by that name -- alias it and every reference would silently
+            // retarget. Leave it alone; a name collision this direct is the author's to resolve.
+            if (DeclaresType(text, type))
                 continue;
 
             // Already aliased (e.g. a re-run over an already-migrated tree) — don't add a duplicate.
@@ -596,14 +681,75 @@ internal static class SourceConverter
         if (aliases.Count == 0)
             return text;
 
-        return text[..(match.Index + match.Length)] + newline + string.Join(newline, aliases)
-            + text[(match.Index + match.Length)..];
+        return text[..(anchor.Index + anchor.Length)] + newline + string.Join(newline, aliases)
+            + text[(anchor.Index + anchor.Length)..];
+    }
+
+    // A namespace declaration, block or file-scoped, C# or VB.
+    private static readonly Regex NamespaceDeclaration =
+        new(@"(?m)^[ \t]*(namespace|Namespace)[ \t]+(?<name>[\w.]+)", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Adds <c>using System;</c> when the file's own namespace declaration has just been moved out from
+    /// under <c>System</c>, restoring the implicit access to it that nesting used to provide.
+    /// </summary>
+    private static string RestoreSystemScope(string original, string text, SourceLanguage language)
+    {
+        var declared = NamespaceDeclaration.Match(original);
+        if (!declared.Success)
+            return text;
+
+        var name = declared.Groups["name"].Value;
+        if (name != "System" && !name.StartsWith("System.", StringComparison.Ordinal))
+            return text;
+
+        // Still under System after the rewrite (nothing mapped it) -- the scope was never lost.
+        var rewritten = NamespaceDeclaration.Match(text);
+        if (rewritten.Success && rewritten.Groups["name"].Value is var now
+            && (now == "System" || now.StartsWith("System.", StringComparison.Ordinal)))
+            return text;
+
+        var keyword = language == SourceLanguage.VisualBasic ? "Imports" : "using";
+        if (Regex.IsMatch(text, $@"(?m)^[ \t]*{keyword}[ \t]+System[ \t]*;?[ \t]*$"))
+            return text;
+
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var line = language == SourceLanguage.VisualBasic ? "Imports System" : "using System;";
+
+        // After the existing imports when there are any, otherwise straight above the declaration.
+        var anchor = LastImportLine(text);
+        if (anchor is not null)
+            return text[..(anchor.Index + anchor.Length)] + newline + line + text[(anchor.Index + anchor.Length)..];
+
+        var at = NamespaceDeclaration.Match(text);
+        return at.Success
+            ? text[..at.Index] + line + newline + newline + text[at.Index..]
+            : line + newline + text;
+    }
+
+    // Any top-level import line, C# or VB. A file-scoped `namespace X;` and any attribute or type
+    // declaration come after these, so the last match is the end of the import block.
+    private static readonly Regex ImportLine =
+        new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+[^\r\n=]+;?[ \t]*$", RegexOptions.Compiled);
+
+    // The last import line in the file, or null when it has none to hang an alias off.
+    private static Match? LastImportLine(string text)
+    {
+        Match? last = null;
+        foreach (Match m in ImportLine.Matches(text))
+            last = m;
+
+        return last;
     }
 
     // A type name used unqualified (a whole word not preceded by '.' or another identifier char), i.e. one
     // that depends on an imported namespace rather than a fully-qualified reference.
     private static bool UsedUnqualified(string text, string typeName) =>
         Regex.IsMatch(text, $@"(?<![\w.]){Regex.Escape(typeName)}(?![\w])");
+
+    // Whether this file declares a type of its own by that name (C# or VB).
+    private static bool DeclaresType(string text, string typeName) =>
+        Regex.IsMatch(text, $@"(?im)^[ \t]*((public|internal|private|protected|partial|sealed|abstract|static|friend|notinheritable|mustinherit)[ \t]+)*(class|struct|interface|enum|record|module)[ \t]+{Regex.Escape(typeName)}\b");
 
     // Removes the import line the match covers, including its trailing newline so no blank line is left;
     // optionally substitutes a replacement import line in its place.

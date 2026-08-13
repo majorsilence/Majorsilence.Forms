@@ -259,7 +259,7 @@ namespace Majorsilence.Forms
         protected virtual void OnCheckStateChanged (EventArgs e) => CheckStateChanged?.Invoke (this, e);
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnClick (EventArgs e)
         {
             if (AutoCheck) {
                 if (ThreeState) {

@@ -340,6 +340,9 @@ namespace Majorsilence.Forms
 
         void IWindowBackend.Activate () => Focus ();
 
+        // Embedded in a host's visual tree: there is no window to activate, so this is stored only.
+        bool IWindowBackend.ShowActivated { get; set; } = true;
+
         bool IWindowBackend.Enabled {
             get => IsEnabled;
             set => IsEnabled = value;

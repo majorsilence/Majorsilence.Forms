@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 
 namespace Majorsilence.Forms
 {
@@ -47,6 +47,13 @@ namespace Majorsilence.Forms
         /// <summary>Called by the backend after the window is closed.</summary>
         internal void OnBackendClosed ()
         {
+            // A form closed by its own close button never goes through Close(), so this is the only
+            // place the bookkeeping Close() does can happen for it: leaving it out kept the form in
+            // OpenForms for the life of the process and, for a modal one, left ShowDialog awaiting a
+            // result that never arrived.
+            if (this is Form closed)
+                Application.OpenForms.Remove (closed);
+
             OnClosed (EventArgs.Empty);
 
             // WinForms raises FormClosed after the form has closed, for every close path -- programmatic
@@ -54,6 +61,9 @@ namespace Majorsilence.Forms
             // (FormClosing already fired before the close via OnClosing/OnBackendClosing) so ordinary forms
             // get FormClosed too, in FormClosing-then-FormClosed order.
             (this as Form)?.RaiseFormClosed ();
+
+            // After FormClosed, so ShowDialog returns to its caller only once the form is fully closed.
+            (this as Form)?.CompleteClose ();
         }
 
         // Set while a programmatic Close() is running so the backend's own closing callback doesn't
@@ -70,7 +80,7 @@ namespace Majorsilence.Forms
 
             if (this is Form f) {
                 var args = new System.ComponentModel.CancelEventArgs ();
-                f.OnClosing (args);
+                f.RaiseClosing (args);
                 return args.Cancel;
             }
 
@@ -92,6 +102,7 @@ namespace Majorsilence.Forms
         {
             IsActive = true;
             OnActivated (EventArgs.Empty);
+            OnGotFocus (EventArgs.Empty);
         }
 
         /// <summary>Raises the Activated event.</summary>
@@ -109,6 +120,46 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnResize (EventArgs e) => OnSizeChanged (e);
 
+        /// <summary>
+        /// Raises the Move event. <c>Move</c> is an alias of <c>LocationChanged</c> here, so this
+        /// forwards rather than raising a second time -- same shape as <see cref="OnResize"/>.
+        /// </summary>
+        /// <remarks>
+        /// Present because <c>Form</c> derives from <c>Control</c> in WinForms and so inherits its
+        /// overridable hooks; WindowBase is not a Control, so each one ported code overrides has to be
+        /// declared here explicitly.
+        /// </remarks>
+        protected virtual void OnMove (EventArgs e) => OnLocationChanged (e);
+
+        /// <summary>
+        /// Gets the height, in pixels, of one line of text in the window's current font.
+        /// </summary>
+        /// <remarks>
+        /// WinForms puts this on Control, which Form inherits; WindowBase is not a Control, so it is
+        /// declared here as well. Ported layout arithmetic uses it as a scale-aware unit (a resize
+        /// gripper sized <c>FontHeight / 3</c>, for instance).
+        /// </remarks>
+        protected int FontHeight => Font?.Height ?? Majorsilence.Forms.SystemFonts.DefaultFont.Height;
+
+        /// <summary>Raised when the window gains focus.</summary>
+        public event EventHandler? GotFocus;
+
+        /// <summary>Raised when the window loses focus.</summary>
+        public event EventHandler? LostFocus;
+
+        /// <summary>Raises the GotFocus event.</summary>
+        /// <remarks>
+        /// A top-level window has no focus state separate from activation on these backends, so this
+        /// rides on activation -- which is also when WinForms raises it for a Form in practice. Code
+        /// that pauses on focus loss (a media player dimming when you switch away, say) behaves the
+        /// same; code that distinguishes activation from focus does not.
+        /// </remarks>
+        protected virtual void OnGotFocus (EventArgs e) => GotFocus?.Invoke (this, e);
+
+        /// <summary>Raises the LostFocus event.</summary>
+        /// <inheritdoc cref="OnGotFocus"/>
+        protected virtual void OnLostFocus (EventArgs e) => LostFocus?.Invoke (this, e);
+
         /// <summary>Called by the backend when the window is deactivated.</summary>
         internal void OnBackendDeactivated ()
         {
@@ -118,6 +169,7 @@ namespace Majorsilence.Forms
             // deactivates its parent popup). See Application.ScheduleClosePopupsOnDeactivate.
             Application.ScheduleClosePopupsOnDeactivate ();
             OnDeactivate (EventArgs.Empty);
+            OnLostFocus (EventArgs.Empty);
         }
 
         /// <summary>Gets the bounds of the Window.</summary>
@@ -144,7 +196,7 @@ namespace Majorsilence.Forms
             if (this is Form f) {
                 var args = new System.ComponentModel.CancelEventArgs ();
 
-                f.OnClosing (args);
+                f.RaiseClosing (args);
 
                 if (args.Cancel)
                     return;
@@ -213,8 +265,37 @@ namespace Majorsilence.Forms
                 enabled = value;
                 if (Backend is not null)
                     Backend.Enabled = value;
-                EnabledChanged?.Invoke (this, EventArgs.Empty);
+                OnEnabledChanged (EventArgs.Empty);
             }
+        }
+
+        /// <summary>Raises the EnabledChanged event.</summary>
+        /// <remarks>
+        /// Control declares this as a protected virtual and ported window code overrides it (to repaint
+        /// disabled chrome, typically); it is declared here because a window is not a Control.
+        /// </remarks>
+        protected virtual void OnEnabledChanged (EventArgs e) => EnabledChanged?.Invoke (this, e);
+
+        /// <summary>
+        /// Sets the window's bounds, honouring which components <paramref name="specified"/> selects.
+        /// Mirrors Control.SetBoundsCore, the single choke-point WinForms code overrides to constrain
+        /// or snap a window's geometry.
+        /// </summary>
+        protected virtual void SetBoundsCore (int x, int y, int width, int height, BoundsSpecified specified)
+        {
+            var location = Location;
+            var size = Size;
+
+            var newX = specified.HasFlag (BoundsSpecified.X) ? x : location.X;
+            var newY = specified.HasFlag (BoundsSpecified.Y) ? y : location.Y;
+            var newWidth = specified.HasFlag (BoundsSpecified.Width) ? width : size.Width;
+            var newHeight = specified.HasFlag (BoundsSpecified.Height) ? height : size.Height;
+
+            if (newX != location.X || newY != location.Y)
+                Location = new System.Drawing.Point (newX, newY);
+
+            if (newWidth != size.Width || newHeight != size.Height)
+                Backend.Size = new System.Drawing.Size (newWidth, newHeight);
         }
 
         /// <summary>Raised when <see cref="Enabled"/> changes. Mirrors WinForms Control.EnabledChanged (modal dialogs toggle their owner through this property).</summary>
@@ -228,7 +309,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the window's default font. Mirrors WinForms Form.Font; forwarded to
         /// the root control adapter so child controls inherit it.</summary>
-        public Majorsilence.Forms.Drawing.Font? Font {
+        public virtual Majorsilence.Forms.Drawing.Font? Font {
             get => adapter?.Font;
             set { if (adapter is not null && value is not null) adapter.Font = value; }
         }
@@ -295,6 +376,17 @@ namespace Majorsilence.Forms
             OnPaintBackground (e);
             canvas.DrawBorder (new System.Drawing.Rectangle (0, 0, physW, physH), CurrentStyle);
             OnPaint (e);
+
+            // WinForms' Form derives from Control, so a Form.Paint handler runs immediately after
+            // OnPaint and before the child controls are drawn. WindowBase is not a Control, so the
+            // Paint event it declares has to be raised by hand here -- mirroring Control.RaisePaint,
+            // which invokes Paint straight after OnPaint. Without this, `form.Paint += handler`
+            // compiles and silently never fires.
+            //
+            // Drawing here survives: the client area's own background pass below is a no-op, because
+            // Control.OnPaintBackground returns early for ControlAdapter, so nothing repaints over
+            // this before the children go down on top.
+            Paint?.Invoke (this, e);
 
             // Clip canvas to the inner client area (excludes borders).
             canvas.ClipRect (new SkiaSharp.SKRect (
@@ -430,8 +522,22 @@ namespace Majorsilence.Forms
         /// </summary>
         public IntPtr Handle => (IntPtr)(GetHashCode () | 1);
 
-        /// <summary>Gets or sets how the window's background image is laid out. Stored for designer compat (the compat window does not draw a background image yet).</summary>
-        public ImageLayout BackgroundImageLayout { get; set; } = ImageLayout.Tile;
+        /// <summary>Gets or sets the image drawn behind the window's controls.</summary>
+        /// <remarks>
+        /// Forwarded to the root adapter, which fills the window's client area and already knows how to
+        /// paint a background image. Previously the layout below was stored and ignored, so a form with
+        /// a background image simply showed none.
+        /// </remarks>
+        public Majorsilence.Forms.Drawing.Image? BackgroundImage {
+            get => adapter.BackgroundImage;
+            set => adapter.BackgroundImage = value;
+        }
+
+        /// <summary>Gets or sets how <see cref="BackgroundImage"/> is laid out.</summary>
+        public ImageLayout BackgroundImageLayout {
+            get => adapter.BackgroundImageLayout;
+            set => adapter.BackgroundImageLayout = value;
+        }
 
         /// <summary>Gets or sets user data associated with the window. Mirrors WinForms Control.Tag.</summary>
         public object? Tag { get; set; }
@@ -454,7 +560,11 @@ namespace Majorsilence.Forms
                 if (Backend.Location == value)
                     return;
                 Backend.Location = value;
-                OnLocationChanged (EventArgs.Empty);
+
+                // Through OnMove, which forwards to OnLocationChanged -- mirroring how the size setter
+                // goes through OnResize. Raising OnLocationChanged directly would leave an override of
+                // OnMove unreachable.
+                OnMove (EventArgs.Empty);
             }
         }
 
@@ -478,7 +588,7 @@ namespace Majorsilence.Forms
         protected virtual void OnLocationChanged (EventArgs e) => LocationChanged?.Invoke (this, e);
 
         /// <summary>Called by the backend when the OS window is moved.</summary>
-        internal void OnBackendMoved () => OnLocationChanged (EventArgs.Empty);
+        internal void OnBackendMoved () => OnMove (EventArgs.Empty);
 
         /// <summary>Raised when the window's client size changes. Mirrors WinForms Form.SizeChanged.
         /// Raised from the layout pipeline whenever the client area takes a new size.</summary>
@@ -507,8 +617,43 @@ namespace Majorsilence.Forms
 
         // ── Neutral input handlers (the platform backend translates native input and calls these) ──
 
+        // Offers input to Application's message filters before it reaches a control, the way a Win32
+        // message loop does. A filter returning true consumes the input.
+        private bool Filtered (int msg, System.IntPtr wParam, System.IntPtr lParam)
+        {
+            var m = new Message { HWnd = Handle, Msg = msg, WParam = wParam, LParam = lParam };
+            return Application.FilterMessage (ref m);
+        }
+
+        // Keeps Cursor.Position/Control.MousePosition current.
+        //
+        // Converted through the ROOT ADAPTER, not through the window backend. The two disagree on where
+        // the origin is: measured on a real window, the backend put client (0,0) at screen (1115, 62)
+        // while the adapter put it at (1115, 30) -- the window's own Location. The 32px gap is the
+        // title bar, because Avalonia's PointToScreen measures from the client area and
+        // Control.PointToScreen measures from the window. Small, but a tab strip is ~21px tall, so
+        // every hit test against Control.MousePosition landed clean outside it and matched nothing.
+        //
+        // Control.PointToScreen also consumes exactly the coordinates these handlers deliver, and is
+        // the same path the controls reading Control.MousePosition use to convert it back with
+        // PointToClient -- so the round trip is exact by construction rather than by coincidence.
+        private void TrackCursorPosition (int x, int y)
+        {
+            try {
+                Cursor.TrackPosition (adapter.PointToScreen (new System.Drawing.Point (x, y)));
+            } catch (System.Exception) {
+                // A backend that cannot map coordinates yet (no platform window) must not break input
+                // routing; the stale value is better than a thrown pointer event.
+            }
+        }
+
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
+            TrackCursorPosition (x, y);
+
+            if (Filtered (WindowMessages.ButtonDownMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+                return;
+
             // A press can be the first pointer event a window sees (click-through onto an inactive
             // window), so it counts as an entry too.
             TrackPointerInside ();
@@ -522,6 +667,11 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
+            TrackCursorPosition (x, y);
+
+            if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+                return;
+
             var ev = BuildMouseClickArgs (button, new System.Drawing.Point (x, y), keys);
 
             if (ev.Clicks > 1)
@@ -533,6 +683,11 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
         {
+            TrackCursorPosition (x, y);
+
+            if (Filtered (WindowMessages.WM_MOUSEMOVE, System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+                return;
+
             // Raise MouseEnter before the resize-border shortcut below returns: the window chrome is
             // part of the window, so entering over a border edge is still an entry.
             TrackPointerInside ();
@@ -550,7 +705,30 @@ namespace Majorsilence.Forms
 
             var ev = new MouseEventArgs (buttons, 0, x, y, delta, keyData: keys);
             adapter.RaiseMouseWheel (ev);
+
+            // WinForms delivers the wheel to the window itself as well, which is how a form scrolls or
+            // zooms a view it owns without every child having to forward. Declared here because Form
+            // does not derive from Control and so inherits nothing from it.
+            OnMouseWheel (ev);
         }
+
+        /// <summary>Raised when the window's Text changes. Mirrors Control.TextChanged.</summary>
+        public event EventHandler? TextChanged;
+
+        /// <summary>Raises the <see cref="TextChanged"/> event.</summary>
+        protected virtual void OnTextChanged (EventArgs e) => TextChanged?.Invoke (this, e);
+
+        /// <summary>Raised when the window lays out its children. Mirrors Control.Layout.</summary>
+        public event LayoutEventHandler? Layout {
+            add => adapter.Layout += value;
+            remove => adapter.Layout -= value;
+        }
+
+        /// <summary>Raises the <see cref="MouseWheel"/> event.</summary>
+        protected virtual void OnMouseWheel (MouseEventArgs e) => MouseWheel?.Invoke (this, e);
+
+        /// <summary>Raised when the mouse wheel turns over this window.</summary>
+        public event MouseEventHandler? MouseWheel;
 
         internal void HandlePointerExited (MouseButtons buttons, int x, int y, Keys keys)
         {
@@ -587,6 +765,10 @@ namespace Majorsilence.Forms
         /// <summary>Routes a key-down. Returns true if handled (the backend should suppress further native processing).</summary>
         internal bool HandleKeyDown (Keys keys)
         {
+            // wParam is the virtual-key code on Windows, which is what Keys already encodes.
+            if (Filtered (WindowMessages.WM_KEYDOWN, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
+                return true;
+
             var kd_e = new KeyEventArgs (keys);
 
             // Form-level shortcuts: AcceptButton / CancelButton / modal Escape
@@ -652,6 +834,9 @@ namespace Majorsilence.Forms
         /// <summary>Routes a key-up. Returns true if handled.</summary>
         internal bool HandleKeyUp (Keys keys)
         {
+            if (Filtered (WindowMessages.WM_KEYUP, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
+                return true;
+
             var ku_e = new KeyEventArgs (keys);
 
             if (FormSeesKeyFirst) {
@@ -673,6 +858,11 @@ namespace Majorsilence.Forms
         {
             if (string.IsNullOrEmpty (text))
                 return false;
+
+            // WM_CHAR carries one character; report the first, matching how a filter would see a run
+            // of native WM_CHARs begin.
+            if (Filtered (WindowMessages.WM_CHAR, (System.IntPtr)text[0], System.IntPtr.Zero))
+                return true;
 
             var kp_e = new KeyPressEventArgs (text, Keys.None);
 
@@ -711,10 +901,39 @@ namespace Majorsilence.Forms
         /// <summary>Raises the Shown event.</summary>
         protected virtual void OnShown (EventArgs e) => Shown?.Invoke (this, e);
 
-        private void OnVisibleChanged (EventArgs e)
+        /// <summary>Raised when <see cref="Visible"/> changes. Mirrors WinForms Control.VisibleChanged.</summary>
+        public event EventHandler? VisibleChanged;
+
+        /// <summary>Raises the VisibleChanged event and propagates it to the window's children.</summary>
+        protected virtual void OnVisibleChanged (EventArgs e)
         {
             adapter.RaiseParentVisibleChanged (e);
+            VisibleChanged?.Invoke (this, e);
         }
+
+        /// <summary>
+        /// Raised when the window moves. A WinForms alias of <see cref="LocationChanged"/>, which is
+        /// what ported code that repositions satellite windows (drop shadows, tool windows) hooks.
+        /// </summary>
+        public event EventHandler? Move {
+            add => LocationChanged += value;
+            remove => LocationChanged -= value;
+        }
+
+        /// <summary>
+        /// Forces the window to repaint any invalidated regions immediately. Majorsilence.Forms repaints
+        /// on the backend's own tick rather than synchronously, so this is an <see cref="Invalidate()"/>
+        /// -- the paint happens on the next tick instead of before this call returns.
+        /// </summary>
+        public void Update () => Invalidate ();
+
+        /// <summary>Sets the specified <see cref="ControlStyles"/> flag on the window's root adapter.</summary>
+        /// <remarks>
+        /// Control declares this and ported window code calls it in its constructor (opting into
+        /// double-buffering and user paint, typically). A window is not a Control here, so it forwards
+        /// to the adapter that actually hosts the control tree.
+        /// </remarks>
+        public void SetStyle (ControlStyles flag, bool value) => adapter.SetStyle (flag, value);
 
         private bool PointInDoubleClickRange (System.Drawing.Point point)
         {
@@ -745,6 +964,44 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the window is resizable.</summary>
         public bool Resizeable { get; set; }
 
+        // Two more members a WinForms Form gets by inheriting Control, which this one cannot. Both read
+        // exactly as they do on Control -- ModifierKeys is static state shared by the whole app, and the
+        // cursor default is the arrow -- so they simply forward rather than duplicating anything.
+
+        /// <summary>Gets the modifier keys currently held down. Mirrors <see cref="Control.ModifierKeys"/>.</summary>
+        public static Keys ModifierKeys => Control.ModifierKeys;
+
+        /// <summary>Gets the cursor used when none is set. Mirrors <see cref="Control.DefaultCursor"/>.</summary>
+        protected virtual Cursor DefaultCursor => Cursor.Default;
+
+        /// <summary>
+        /// Notifies the window of Windows messages. Declared so a form that overrides it compiles; never
+        /// called, because there is no Win32 message pump here. Present on both Control and WindowBase
+        /// because a Form does not inherit from Control -- and a form is the usual thing to override it on.
+        /// </summary>
+        protected virtual void OnNotifyMessage (Message m) { }
+
+        /// <summary>Gets the pointer position in screen coordinates. Mirrors <see cref="Control.MousePosition"/>.</summary>
+        public static System.Drawing.Point MousePosition => Control.MousePosition;
+
+        /// <summary>Gets whether the window can receive focus. Mirrors <see cref="Control.CanFocus"/>.</summary>
+        public bool CanFocus => Visible && Enabled;
+
+        /// <summary>Reapplies the window's styles. Mirrors <see cref="Control.UpdateStyles"/>; a no-op here,
+        /// as there is no window-style bitmask to push to a handle.</summary>
+        public void UpdateStyles () { }
+
+        /// <summary>Starts a drag-and-drop operation. Mirrors <see cref="Control.DoDragDrop(object, DragDropEffects)"/>; forwards to
+        /// the root adapter, and so returns None until the backend grows a drag source.</summary>
+        public DragDropEffects DoDragDrop (object data, DragDropEffects allowedEffects)
+            => adapter.DoDragDrop (data, allowedEffects);
+
+        /// <summary>Raised while a drag is over this window, to set the cursor. Forwards to the root adapter.</summary>
+        public event EventHandler<GiveFeedbackEventArgs>? GiveFeedback {
+            add => adapter.GiveFeedback += value;
+            remove => adapter.GiveFeedback -= value;
+        }
+
         private System.Drawing.Size ScaledClientSize => new System.Drawing.Size (
             (int)(Backend.ClientSize.Width * Scaling),
             (int)(Backend.ClientSize.Height * Scaling));
@@ -760,9 +1017,20 @@ namespace Majorsilence.Forms
         public System.Drawing.Size ScaledSize => ScaledClientSize;
 
         /// <summary>Gets the current scale factor of the window.</summary>
-        public double Scaling => Backend.Scaling;
+        /// <remarks>
+        /// The display's factor times <see cref="Application.UiScale"/>. This is the single point the
+        /// whole UI scales from -- <c>Control.DeviceDpi</c> is derived from it and every
+        /// <c>LogicalToDeviceUnits</c> conversion follows.
+        /// </remarks>
+        public double Scaling => Backend.Scaling * Application.UiScale;
 
         /// <summary>Gets the current scale factor of the desktop.</summary>
+        /// <remarks>
+        /// The real display factor, deliberately WITHOUT <see cref="Application.UiScale"/>: the desktop
+        /// does not zoom just because this app does. <c>Control.PointToScreen</c> converts control
+        /// coordinates to desktop ones through <c>DesktopScaling / Scaling</c>, so keeping this
+        /// unzoomed makes that ratio undo the zoom exactly.
+        /// </remarks>
         public double DesktopScaling => Backend.Scaling;
 
         internal void SetCursor (Cursor cursor) => current_cursor = cursor;
@@ -773,6 +1041,10 @@ namespace Majorsilence.Forms
         // placed in its parent's MDI client area rather than getting its own top-level OS window.
         internal virtual bool TryShowHosted () => false;
 
+        // Whether Show() should also activate this window. Form overrides it from the WinForms-shaped
+        // ShowWithoutActivation hook; see that property.
+        internal virtual bool ShowsActivated => true;
+
         /// <summary>Displays the window to the user.</summary>
         public void Show ()
         {
@@ -780,8 +1052,9 @@ namespace Majorsilence.Forms
                 return;
 
             SetWindowStartupLocation ();
+            Backend.ShowActivated = ShowsActivated;
             Backend.Show ();
-            EnsureShownBookkeeping ();
+            EnsureShownBookkeeping (activated: ShowsActivated);
         }
 
         internal void ShowDialog (WindowBase parent)
@@ -799,7 +1072,7 @@ namespace Majorsilence.Forms
         // instead of being shown through Form.Show() -- so behaviour is identical regardless of which
         // side actually triggered the native show. Guarded by `visible` so calling it more than once
         // (e.g. a host window's Opened/Activated firing repeatedly) is harmless.
-        internal void EnsureShownBookkeeping ()
+        internal void EnsureShownBookkeeping (bool activated = true)
         {
             if (visible)
                 return;
@@ -821,8 +1094,11 @@ namespace Majorsilence.Forms
             // Assume active the moment we ask the backend to show one of our own windows, rather than
             // waiting for its real Activated event (which, empirically, can arrive either before or
             // after this call returns depending on the platform) -- see IsActive's doc comment. The
-            // real event still fires and reconfirms this when it eventually arrives.
-            IsActive = true;
+            // real event still fires and reconfirms this when it eventually arrives. A window shown
+            // without activation is the exception: it never becomes active, so assuming it did would
+            // make the window it appeared over look deactivated to the app.
+            if (activated)
+                IsActive = true;
 
             if (!shown) {
                 shown = true;
@@ -882,6 +1158,71 @@ namespace Majorsilence.Forms
         /// <summary>Forces the window's controls to apply layout logic.</summary>
         public void PerformLayout () => adapter.PerformLayout ();
 
+        // The rest of this block is the same story as SuspendLayout/ResumeLayout above: members a
+        // WinForms Form inherits from Control, which a Majorsilence.Forms Form cannot because it is not
+        // one. Each forwards to the root adapter, which IS a Control and does host the children, so the
+        // answers are the real ones rather than placeholders.
+
+        /// <summary>
+        /// Gets the <see cref="Control"/> that hosts this window's children.
+        /// </summary>
+        /// <remarks>
+        /// In WinForms the Form *is* that control, so code passes a Form wherever a Control is wanted --
+        /// as a drag source, as a parent to reparent onto, as the thing a Parent-walk expects to reach.
+        /// A Majorsilence.Forms Form is not a Control, so this names the control it delegates to and
+        /// gives such code somewhere real to point. <see cref="Control.FindForm"/> maps back the other
+        /// way.
+        /// </remarks>
+        public Control ContentControl => adapter;
+
+        /// <summary>Gets whether the window or one of its children currently has input focus.</summary>
+        public bool ContainsFocus => adapter.ContainsFocus;
+
+        /// <summary>Gets or sets whether the window has captured the mouse.</summary>
+        public bool Capture {
+            get => adapter.Capture;
+            set => adapter.Capture = value;
+        }
+
+        /// <summary>Occurs when the window's handle is created.</summary>
+        public event EventHandler? HandleCreated {
+            add => adapter.HandleCreated += value;
+            remove => adapter.HandleCreated -= value;
+        }
+
+        /// <summary>Occurs when the window's parent changes.</summary>
+        public event EventHandler? ParentChanged {
+            add => adapter.ParentChanged += value;
+            remove => adapter.ParentChanged -= value;
+        }
+
+        /// <summary>Converts a screen rectangle to window client coordinates.</summary>
+        public System.Drawing.Rectangle RectangleToClient (System.Drawing.Rectangle rect)
+            => adapter.RectangleToClient (rect);
+
+        /// <summary>Moves focus to the next control in the tab order.</summary>
+        public bool SelectNextControl (Control? start, bool forward, bool tabStopOnly, bool nested, bool wrap)
+            => adapter.SelectNextControl (start, forward, tabStopOnly, nested, wrap);
+
+        /// <summary>
+        /// Called when the window lays its controls out.
+        /// </summary>
+        /// <remarks>
+        /// In WinForms a Form is a Control and inherits this from it. Here a Form is not a Control --
+        /// its children live on the root ControlAdapter -- so the adapter forwards its own layout pass
+        /// up to the window. Without it a Form could not override OnLayout at all, which is how a
+        /// window that positions its children itself (a docking host, a splitter frame) does that work.
+        ///
+        /// This deliberately does not raise <see cref="Layout"/>: that event is forwarded straight to
+        /// the adapter's own, which the adapter has already raised by the time it calls this. Raising it
+        /// here too would deliver every layout to subscribers twice.
+        /// </remarks>
+        protected internal virtual void OnLayout (LayoutEventArgs e) { }
+
+        // Called by the root adapter when it lays out, so the window's own OnLayout override runs as
+        // part of the same pass rather than needing a separate trigger.
+        internal void RaiseLayout (LayoutEventArgs e) => OnLayout (e);
+
         /// <summary>
         /// Gets whether the window's backing handle has been created. In Majorsilence.Forms the
         /// platform handle exists once the window has been shown; migrated code uses this to guard
@@ -893,7 +1234,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the background color of the window. Convenience wrapper over
         /// <see cref="ControlStyle.BackgroundColor"/>, mirroring <see cref="Control.BackColor"/>.
         /// </summary>
-        public System.Drawing.Color BackColor {
+        public virtual System.Drawing.Color BackColor {
             get => Style.BackgroundColor?.ToDrawingColor () ?? Style.GetBackgroundColor ().ToDrawingColor ();
             set {
                 Style.BackgroundColor = value.ToSKColor ();
@@ -905,7 +1246,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the foreground (text) color of the window. Convenience wrapper over
         /// <see cref="ControlStyle.ForegroundColor"/>, mirroring <see cref="Control.ForeColor"/>.
         /// </summary>
-        public System.Drawing.Color ForeColor {
+        public virtual System.Drawing.Color ForeColor {
             get => Style.ForegroundColor?.ToDrawingColor () ?? Style.GetForegroundColor ().ToDrawingColor ();
             set {
                 Style.ForegroundColor = value.ToSKColor ();

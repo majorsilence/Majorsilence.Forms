@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 
 namespace Majorsilence.Forms
 {
@@ -37,6 +37,11 @@ namespace Majorsilence.Forms
             });
 
             AddButtons (MessageBoxButtons.OK);
+
+            // Re-centre whenever the panel itself is resized. The form's own resize is too early: the
+            // docked panel has not been given its final width by then, so centring against it put the
+            // buttons well left of centre.
+            button_panel.SizeChanged += (_, _) => CenterButtons ();
         }
 
         /// <summary>
@@ -87,15 +92,35 @@ namespace Majorsilence.Forms
                  : num_lines > 4  ? new Size (600, 300)
                  :                   new Size (400, 200);
 
-            // Center buttons horizontally.
-            var totalW = button_panel.Controls.GetAllControls ().Sum (c => c.Width + 10);
-            var startX = (Size.Width - totalW) / 2;
+            CenterButtons ();
+        }
 
-            foreach (var btn in button_panel.Controls.GetAllControls ()) {
+        // Centres the buttons in their panel.
+        //
+        // Called on every resize, not once at construction. The dialog is built before it has a window,
+        // so the docked children are laid out against a client area that does not exist yet -- the Fill
+        // label comes out 0 x -45 and the Bottom panel sits above the top edge. That is corrected by the
+        // layout pass the backend runs when the window appears, and positions computed before it are
+        // simply wrong: measured against a zero-width panel the buttons landed at negative X, off the
+        // left edge, so the message box showed its text and no buttons at all.
+        private void CenterButtons ()
+        {
+            // Buttons only: GetAllControls also yields the panel's implicit chrome -- its scrollbars --
+            // which were being counted into the total width and, worse, repositioned along with the
+            // buttons. That is what left them sitting well left of centre.
+            var buttons = button_panel.Controls.GetAllControls ().OfType<Button> ().ToList ();
+            if (buttons.Count == 0 || button_panel.Width <= 0)
+                return;
+
+            var totalW = buttons.Sum (c => c.Width + 10) - 10;
+            var startX = Math.Max (0, (button_panel.Width - totalW) / 2);
+
+            foreach (var btn in buttons) {
                 btn.Left = startX;
                 startX += btn.Width + 10;
             }
         }
+
 
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (400, 200);

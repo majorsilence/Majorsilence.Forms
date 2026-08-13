@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using Majorsilence.Forms.Printing;
 
 namespace Majorsilence.Forms.Telerik
@@ -173,8 +173,8 @@ namespace Majorsilence.Forms.Telerik
 
             document.PrintPage += (_, e) => {
                 pageNumber++;
-                var g = e.Graphics;
-                var top = e.MarginBounds.Top;
+                var g = e.SkiaGraphics;
+                float top = e.MarginBounds.Top;
 
                 if (drawTitle) {
                     var title = $"{styleName}: {start:d} - {end:d}";

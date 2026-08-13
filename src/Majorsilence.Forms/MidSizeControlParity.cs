@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -489,9 +489,6 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the accessible role reported for the dialog.</summary>
         public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Client;
 
-        /// <summary>Gets or sets the dialog's background image.</summary>
-        public virtual Majorsilence.Forms.Drawing.Image? BackgroundImage { get; set; }
-
         /// <summary>Gets or sets the input method editor mode.</summary>
         public ImeMode ImeMode { get; set; } = ImeMode.Inherit;
 
@@ -546,10 +543,9 @@ namespace Majorsilence.Forms
         public event EventHandler? RightToLeftChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? TextChanged;
+        public new event EventHandler? TextChanged;
 
-        /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? VisibleChanged;
+        // VisibleChanged was a stub here too; it now comes from WindowBase, which actually raises it.
 #pragma warning restore CS0067
     }
 

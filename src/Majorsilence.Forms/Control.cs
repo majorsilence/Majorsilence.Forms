@@ -253,7 +253,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the context menu that will be shown for the control.
         /// </summary>
-        public ContextMenu? ContextMenu {
+        public virtual ContextMenu? ContextMenu {
             get => (ContextMenu?)Properties.GetObject (s_contextMenuProperty);
             set {
                 if (value != ContextMenu) {
@@ -989,15 +989,15 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the Click event.
         /// </summary>
-        protected virtual void OnClick (MouseEventArgs e)
+        /// <remarks>
+        /// Takes <see cref="EventArgs"/>, as WinForms does, so <c>protected override void OnClick
+        /// (EventArgs e)</c> ports unchanged. Click handling that needs the pointer position belongs in
+        /// <see cref="OnMouseClick"/>, which receives the <see cref="MouseEventArgs"/> and runs straight
+        /// afterwards.
+        /// </remarks>
+        protected virtual void OnClick (EventArgs e)
         {
-            if (e.Button == MouseButtons.Right && ContextMenu != null) {
-                ContextMenu.Show (this, PointToScreen (e.Location));
-                return;
-            }
-
             (Events[s_clickEvent] as EventHandler)?.Invoke (this, e);
-            OnMouseClick (e);
         }
 
         /// <summary>
@@ -1176,9 +1176,29 @@ namespace Majorsilence.Forms
 
             (Events[s_mouseEnterEvent] as EventHandler)?.Invoke (this, e);
 
-            // Majorsilence.Forms has no hover timer, so hover fires once per entry.
+            // Majorsilence.Forms has no hover timer, so hover fires once per entry -- unless the
+            // handler re-arms it with ResetMouseEventArgs.
+            hover_raised = true;
             OnMouseHover (EventArgs.Empty);
         }
+
+        // Whether MouseHover has already been raised for the current time inside this control.
+        private bool hover_raised;
+
+        /// <summary>
+        /// Re-arms mouse hover so <see cref="MouseHover"/> can be raised again without the pointer
+        /// having to leave and re-enter the control.
+        /// </summary>
+        /// <remarks>
+        /// Called from a MouseHover handler that wants to keep tracking -- an auto-hide tab strip does
+        /// this so moving along the strip keeps reporting which tab is under the pointer, instead of
+        /// reporting only the tab the pointer first entered on.
+        ///
+        /// WinForms re-arms a dwell timer, so its next hover comes after the pointer rests for
+        /// SystemInformation.MouseHoverTime. There is no such timer here, so the next hover comes on the
+        /// next pointer move instead: sooner and more often than WinForms, but reporting the same thing.
+        /// </remarks>
+        protected void ResetMouseEventArgs () => hover_raised = false;
 
         /// <summary>
         /// Raises the MouseLeave event.
@@ -1190,13 +1210,23 @@ namespace Majorsilence.Forms
                 Invalidate ();
             }
 
+            hover_raised = false;
             (Events[s_mouseLeaveEvent] as EventHandler)?.Invoke (this, e);
         }
 
         /// <summary>
         /// Raises the MouseMove event.
         /// </summary>
-        protected virtual void OnMouseMove (MouseEventArgs e) => (Events[s_mouseMoveEvent] as MouseEventHandler)?.Invoke (this, e);
+        protected virtual void OnMouseMove (MouseEventArgs e)
+        {
+            (Events[s_mouseMoveEvent] as MouseEventHandler)?.Invoke (this, e);
+
+            // Only after ResetMouseEventArgs has re-armed it; otherwise hover stays once-per-entry.
+            if (!hover_raised) {
+                hover_raised = true;
+                OnMouseHover (EventArgs.Empty);
+            }
+        }
 
         /// <summary>
         /// Raises the MouseUp event.
@@ -1409,11 +1439,11 @@ namespace Majorsilence.Forms
         [EditorBrowsable (EditorBrowsableState.Advanced)]
         protected virtual void OnResize (EventArgs e)
         {
-            // TODO?
-            //if ((_controlStyle & ControlStyles.ResizeRedraw) == ControlStyles.ResizeRedraw
-            //    || GetState (States.ExceptionWhilePainting)) {
-            //    Invalidate ();
-            //}
+            // A control that asked for ResizeRedraw wants the WHOLE surface repainted on every resize,
+            // not just the strip a grow exposes -- what an owner-drawn control needs when its painting
+            // is a function of its size (a centred caption, a border inset, a gradient).
+            if (GetStyle (ControlStyles.ResizeRedraw))
+                Invalidate ();
 
             LayoutTransaction.DoLayout (this, this, PropertyNames.Bounds);
             (Events[s_resizeEvent] as EventHandler)?.Invoke (this, e);
@@ -1462,7 +1492,15 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnVisibleChanged (EventArgs e)
         {
-            CreateControl ();
+            // Becoming visible only makes a control live if it is attached to something. WinForms has
+            // the same guard (SetVisibleCore creates the handle only when the parent is created), and
+            // it matters because OnCreateControl is where a control reaches for its surroundings --
+            // FindForm() to hook the form's events being the standard move. A control that sets its own
+            // Visible in its constructor, before anything has parented it, would otherwise fire
+            // OnCreateControl with no form to find and NullReference inside perfectly ordinary code.
+            // Attaching later still creates it: ControlCollection.Add does that after AssignParent.
+            if (Parent is not null)
+                CreateControl ();
 
             (Events[s_visibleChangedEvent] as EventHandler)?.Invoke (this, e);
 
@@ -1559,10 +1597,25 @@ namespace Majorsilence.Forms
 
             var child = Controls.FindVisibleChildAt (e.Location);
 
-            if (child != null)
+            if (child != null) {
                 child.RaiseClick (TranslateMouseEvents (e, child));
-            else if (Enabled)
-                OnClick (e);
+                return;
+            }
+
+            if (!Enabled)
+                return;
+
+            // A right-click over a control with a context menu opens the menu instead of counting as a
+            // click, so this runs before either event. It lives here rather than in OnClick now that
+            // OnClick takes EventArgs and has no button to test.
+            if (e.Button == MouseButtons.Right && ContextMenu != null) {
+                ContextMenu.Show (this, PointToScreen (e.Location));
+                return;
+            }
+
+            // WinForms order: Click first, then the typed MouseClick.
+            OnClick (e);
+            OnMouseClick (e);
         }
 
         /// <summary>
@@ -1748,6 +1801,27 @@ namespace Majorsilence.Forms
                 return;
             }
 
+            // No child holds the capture, but this control does. WinForms routes every move to the
+            // capturing control until the button comes up -- over its own children included -- which
+            // is what lets a drag that started on a container survive crossing a button sitting on it.
+            // Hit-testing instead would hand the move to that button and silently end the drag: the
+            // exact failure of a custom title bar with caption buttons on it.
+            if (is_captured) {
+                // The pointer is no longer interacting with whatever it was hovering; without this the
+                // child it crossed would stay painted hot for the rest of the drag.
+                if (current_mouse_in != null) {
+                    current_mouse_in.RaiseMouseLeave (e);
+                    current_mouse_in = null;
+                }
+
+                LastMousePosition = e.Location;
+
+                if (Enabled)
+                    OnMouseMove (e);
+
+                return;
+            }
+
             var child = Controls.FindVisibleChildAt (e.Location);
 
             LastMousePosition = e.Location;
@@ -1783,6 +1857,17 @@ namespace Majorsilence.Forms
 
             if (captured != null) {
                 captured.RaiseMouseUp (TranslateMouseEvents (e, captured));
+                return;
+            }
+
+            // Same rule as RaiseMouseMove: the capture holder gets the release, wherever the pointer
+            // ended up. It also has to be the one that drops the capture.
+            if (is_captured) {
+                if (Enabled) {
+                    Capture = false;
+                    OnMouseUp (e);
+                }
+
                 return;
             }
 
@@ -2228,7 +2313,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the background color of the control. This is a convenience wrapper over
         /// <see cref="ControlStyle.BackgroundColor"/> using <see cref="System.Drawing.Color"/>.
         /// </summary>
-        public System.Drawing.Color BackColor {
+        public virtual System.Drawing.Color BackColor {
             // Ambient like WinForms: with no explicit color anywhere in the style chain, the value
             // reflects the parent control's effective background.
             get => GetEffectiveBackgroundColor ().ToDrawingColor ();
@@ -2249,7 +2334,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the foreground (text) color of the control. This is a convenience wrapper
         /// over <see cref="ControlStyle.ForegroundColor"/> using <see cref="System.Drawing.Color"/>.
         /// </summary>
-        public System.Drawing.Color ForeColor {
+        public virtual System.Drawing.Color ForeColor {
             // Ambient like WinForms: with no explicit color anywhere in the style chain, the value
             // reflects the parent control's effective foreground.
             get => GetEffectiveForegroundColor ().ToDrawingColor ();
@@ -2274,7 +2359,7 @@ namespace Majorsilence.Forms
         // [AllowNull]: the getter never returns null (falls back parent -> default UI font), but the setter
         // accepts null to reset the font to inherited/theme -- matching WinForms' [AllowNull] Control.Font.
         [System.Diagnostics.CodeAnalysis.AllowNull]
-        public Majorsilence.Forms.Drawing.Font Font {
+        public virtual Majorsilence.Forms.Drawing.Font Font {
             get => _font ?? Parent?.Font ?? Majorsilence.Forms.SystemFonts.DefaultFont;
             set {
                 // Only a real change notifies. Note this compares the explicitly-set font, not the
@@ -2348,7 +2433,7 @@ namespace Majorsilence.Forms
             if (control == null)
                 return e;
 
-            return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.ScaledLeft, e.Location.Y - control.ScaledTop, e.Delta, e.Location.X, e.Location.Y, e.Modifiers);
+            return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.ScaledLeft, e.Location.Y - control.ScaledTop, e.DeltaPoint, e.Location.X, e.Location.Y, e.Modifiers);
         }
 
         /// <summary>

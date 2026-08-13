@@ -7,6 +7,56 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class DataGridViewCell
     {
+        /// <summary>
+        /// Draws this cell. The grid calls it after painting the cell's default appearance, so an
+        /// override adds to what is already there.
+        /// </summary>
+        /// <remarks>
+        /// This is where WinForms puts custom cell rendering, and ported code overrides it -- a
+        /// filterable grid draws its funnel glyph here, for instance. The semantics differ from
+        /// WinForms in one way worth knowing: there, the cell paints everything and skipping
+        /// <c>base.Paint</c> suppresses the default. Here the renderer has already drawn the default
+        /// by the time this runs, so an override overlays rather than replaces. Replacing wholesale
+        /// is still done by subclassing the renderer (see DataGridViewRenderer.RenderColumnHeader),
+        /// which is this library's own extension point.
+        ///
+        /// protected internal so the grid and renderer can invoke it; an override in another assembly
+        /// is declared simply `protected`, as C# requires.
+        /// </remarks>
+        protected internal virtual void Paint (
+            Majorsilence.Forms.Drawing.Graphics graphics,
+            Rectangle clipBounds,
+            Rectangle cellBounds,
+            int rowIndex,
+            DataGridViewElementStates cellState,
+            object? value,
+            object? formattedValue,
+            string? errorText,
+            DataGridViewCellStyle cellStyle,
+            DataGridViewAdvancedBorderStyle advancedBorderStyle,
+            DataGridViewPaintParts paintParts)
+        {
+        }
+
+        /// <summary>Called when the pointer goes down over this cell.</summary>
+        /// <remarks>
+        /// The grid routes pointer input to the cell under the pointer, so an override sees presses on
+        /// its own area only. Coordinates on the event are relative to the cell, matching WinForms.
+        /// </remarks>
+        protected internal virtual void OnMouseDown (DataGridViewCellMouseEventArgs e) { }
+
+        /// <summary>Called when the pointer moves over this cell.</summary>
+        /// <inheritdoc cref="OnMouseDown"/>
+        protected internal virtual void OnMouseMove (DataGridViewCellMouseEventArgs e) { }
+
+        /// <summary>Called when the pointer is released over this cell.</summary>
+        /// <inheritdoc cref="OnMouseDown"/>
+        protected internal virtual void OnMouseUp (DataGridViewCellMouseEventArgs e) { }
+
+        /// <summary>Called when the pointer leaves this cell.</summary>
+        /// <param name="rowIndex">The cell's row, or -1 for a column header.</param>
+        protected internal virtual void OnMouseLeave (int rowIndex) { }
+
         /// <summary>The owning column (Telerik GridViewCellInfo.ColumnInfo naming).</summary>
         public DataGridViewColumn? ColumnInfo { get; internal set; }
 
@@ -14,7 +64,12 @@ namespace Majorsilence.Forms
         public virtual Type? EditType => null;
 
         /// <summary>The value type of the cell. Mirrors WinForms DataGridViewCell.ValueType.</summary>
-        public virtual Type? ValueType => null;
+        public virtual Type? ValueType {
+            get => value_type;
+            set => value_type = value;
+        }
+
+        private Type? value_type;
 
         /// <summary>The default value for a new row's cell. Mirrors WinForms.</summary>
         public virtual object? DefaultNewRowValue => null;
@@ -57,12 +112,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the column index of this cell.
         /// </summary>
-        public int ColumnIndex => owner?.Cells.IndexOf (this) ?? -1;
+        /// <remarks>
+        /// A header cell has no row, so it has no position in one. It still has a column index -- its
+        /// column's -- and code that paints or hit-tests a header asks the cell for it.
+        /// </remarks>
+        public int ColumnIndex => owner?.Cells.IndexOf (this) ?? owning_column?.Index ?? -1;
 
         /// <summary>
         /// Gets the DataGridView that contains this cell.
         /// </summary>
-        public DataGridView? DataGridView => owner?.DataGridView;
+        /// <remarks>Resolved through the owning column for header cells, which belong to no row.</remarks>
+        public DataGridView? DataGridView => owner?.DataGridView ?? owning_column?.DataGridView;
 
         /// <summary>
         /// Gets the row that contains this cell.
@@ -145,9 +205,16 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether this cell is visible. Stub in Majorsilence.Forms.</summary>
         public bool Visible { get; set; } = true;
 
+        // Set for cells that belong to a column directly rather than through a row -- i.e. header cells,
+        // which have no ColumnIndex to look themselves up by.
+        internal DataGridViewColumn? owning_column;
+
         /// <summary>Gets the column that contains this cell.</summary>
         public DataGridViewColumn? OwningColumn {
             get {
+                if (owning_column is not null)
+                    return owning_column;
+
                 var colIndex = ColumnIndex;
                 var dgv = DataGridView;
                 if (dgv is null || colIndex < 0 || colIndex >= dgv.Columns.Count) return null;

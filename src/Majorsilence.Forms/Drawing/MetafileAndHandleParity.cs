@@ -3,11 +3,11 @@ using System.Drawing;
 using System.IO;
 using Majorsilence.Forms.Drawing.Imaging;
 
-namespace Majorsilence.Forms
+namespace Majorsilence.Forms.Drawing
 {
-    // The Graphics half of the metafile and handle work (docs/gdi-gap-plan.md). Graphics lives in
-    // this assembly rather than the drawing one -- it depends on Control -- so its share of those
-    // members has to live here too. The three cases are the ones stated in
+    // The Graphics half of the metafile and handle work (docs/gdi-gap-plan.md). Graphics is namespaced
+    // with the rest of the drawing types but built into this assembly rather than the drawing one --
+    // it depends on Control -- so its share of those members has to live here too. The three cases are the ones stated in
     // Majorsilence.Forms.Drawing/HandleInterop.cs.
 
     public sealed partial class Graphics
@@ -78,7 +78,7 @@ namespace Majorsilence.Forms.Drawing
     {
         /// <summary>Writes the buffer to a device context.</summary>
         /// <exception cref="PlatformNotSupportedException">Always. There is no HDC to write to; use
-        /// the <see cref="Render(Majorsilence.Forms.Graphics)"/> overload.</exception>
+        /// the <see cref="Render(Majorsilence.Forms.Drawing.Graphics)"/> overload.</exception>
         public void Render (IntPtr targetDC)
             => throw new PlatformNotSupportedException (
                 "BufferedGraphics.Render(IntPtr) writes to a Win32 device context. Use Render(Graphics) or Render() instead.");

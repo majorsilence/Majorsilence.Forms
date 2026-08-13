@@ -17,11 +17,17 @@ namespace Majorsilence.Forms
         /// <summary>
         ///  Initializes a new instance of the <see cref='MouseEventArgs'/> class.
         /// </summary>
+        /// <remarks>
+        /// The Majorsilence.Forms shape, taking a two-dimensional wheel delta. Backends can report
+        /// horizontal wheel movement (trackpads and tilt wheels do), which WinForms' single
+        /// <see cref="Delta"/> has no room for; see <see cref="DeltaPoint"/>.
+        /// </remarks>
         public MouseEventArgs (MouseButtons button, int clicks, int x, int y, Point delta, int? screenX = null, int? screenY = null, Keys keyData = Keys.None)
         {
             Button = button;
             Clicks = clicks;
-            Delta = delta;
+            DeltaPoint = delta;
+            Delta = delta.Y;
             X = x;
             Y = y;
             ScreenLocation = new Point (screenX ?? x, screenY ?? y);
@@ -29,6 +35,18 @@ namespace Majorsilence.Forms
 
             // Keep the static Control.ModifierKeys current for WinForms-compatible callers.
             Majorsilence.Forms.Control.ModifierKeys = keyData & Keys.Modifiers;
+        }
+
+        /// <summary>
+        ///  Initializes a new instance of the <see cref='MouseEventArgs'/> class, WinForms-style.
+        /// </summary>
+        /// <remarks>
+        /// The WinForms constructor signature, so <c>new MouseEventArgs (button, clicks, x, y, delta)</c>
+        /// ports unchanged. The delta is vertical; the horizontal component is zero.
+        /// </remarks>
+        public MouseEventArgs (MouseButtons button, int clicks, int x, int y, int delta)
+            : this (button, clicks, x, y, new Point (0, delta))
+        {
         }
 
         /// <summary>
@@ -52,9 +70,23 @@ namespace Majorsilence.Forms
         public int Y { get; }
 
         /// <summary>
-        ///  Gets a signed count of the number of detents the mouse wheel has rotated in each direction.
+        ///  Gets a signed count of the number of detents the mouse wheel has rotated.
         /// </summary>
-        public Point Delta { get; }
+        /// <remarks>
+        /// Vertical movement only, matching WinForms, so <c>if (e.Delta &gt; 0)</c> ports unchanged.
+        /// Use <see cref="DeltaPoint"/> when horizontal wheel movement matters.
+        /// </remarks>
+        public int Delta { get; }
+
+        /// <summary>
+        ///  Gets a signed count of the number of detents the mouse wheel has rotated on each axis.
+        /// </summary>
+        /// <remarks>
+        /// Majorsilence.Forms addition: trackpads and tilt wheels report horizontal scrolling, which
+        /// WinForms' one-dimensional <see cref="Delta"/> cannot carry. <c>DeltaPoint.Y</c> equals
+        /// <see cref="Delta"/>.
+        /// </remarks>
+        public Point DeltaPoint { get; }
 
         /// <summary>
         ///  Gets the location of the mouse during MouseEvent.

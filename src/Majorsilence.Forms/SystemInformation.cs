@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 
 namespace Majorsilence.Forms
 {
@@ -31,11 +31,40 @@ namespace Majorsilence.Forms
         /// <summary>Gets the height of a single-line menu bar in pixels.</summary>
         public static int MenuHeight => 24;
 
+        /// <summary>Gets the font used for menu text.</summary>
+        /// <remarks>
+        /// The theme's UI font rather than a Windows system metric -- that is the font menus actually
+        /// render with here, so a caller measuring menu text against it gets the right answer.
+        /// </remarks>
+        public static Majorsilence.Forms.Drawing.Font MenuFont =>
+            new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.ItemFontSize);
+
         /// <summary>Gets the default height of a caption bar (title bar).</summary>
         public static int CaptionHeight => 30;
 
+        /// <summary>Gets whether the drop shadow effect for windows is enabled.</summary>
+        /// <remarks>
+        /// Always false: window drop shadows are the compositor's business, and Majorsilence.Forms does
+        /// not ask for one. Ported code reads this to decide whether to draw its own shadow, and false
+        /// is the answer that makes it do so.
+        /// </remarks>
+        public static bool IsDropShadowEnabled => false;
+
+        /// <summary>Gets the thickness of a 3D border, in pixels.</summary>
+        /// <remarks>
+        /// Fixed at the classic Windows 2x2 rather than queried from the OS: Majorsilence.Forms draws
+        /// its own borders, so nothing here varies by desktop theme. Control libraries read this to
+        /// inset their content.
+        /// </remarks>
+        public static System.Drawing.Size Border3DSize => new System.Drawing.Size (2, 2);
+
         /// <summary>Gets the double-click time in milliseconds.</summary>
         public static int DoubleClickTime => 500;
+
+        /// <summary>Gets the time, in milliseconds, the mouse must rest before a hover is raised.</summary>
+        /// <remarks>Reports the Windows default. See Control.ResetMouseEventArgs for how hover is
+        /// actually raised here, which is not timer-driven.</remarks>
+        public static int MouseHoverTime => 400;
 
         /// <summary>Gets the double-click rectangle size (area in which a second click is a double-click).</summary>
         public static Size DoubleClickSize => new Size (4, 4);
@@ -64,8 +93,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets the screen size of the default cursor in pixels.</summary>
         public static Size CursorSize => new Size (32, 32);
 
-        /// <summary>Gets the width of the border drawn around a window border in pixels.</summary>
-        public static int BorderSize => 1;
+        /// <summary>Gets the thickness of the border drawn around a window, in pixels. A Size, as upstream:
+        /// callers read <c>.Width</c>/<c>.Height</c> off it to inset a client area.</summary>
+        public static Size BorderSize { get; } = new Size (1, 1);
 
         /// <summary>Gets whether the operating system is a network-enabled version.</summary>
         public static bool Network => true;
@@ -79,11 +109,11 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether the computer is running on battery power.</summary>
         public static PowerStatus PowerStatus => new PowerStatus ();
 
-        /// <summary>Gets the height of the border for a window without sizing capabilities.</summary>
-        public static int FixedFrameBorderSize => 3;
+        /// <summary>Gets the thickness of the frame border for a window without sizing capabilities.</summary>
+        public static Size FixedFrameBorderSize { get; } = new Size (3, 3);
 
         /// <summary>Gets the thickness of the frame border around a sizable window.</summary>
-        public static int FrameBorderSize => 4;
+        public static Size FrameBorderSize { get; } = new Size (4, 4);
 
         /// <summary>Gets the thickness of the sizing border around a sizable window.</summary>
         public static int SizingBorderWidth => 4;

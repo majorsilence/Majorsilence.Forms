@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Majorsilence.Forms.Layout;
 using SkiaSharp;
 
@@ -68,9 +68,9 @@ namespace Majorsilence.Forms
             // top-level windows that track the mouse over their own surface directly (e.g.
             // borderless popup pickers), the same way ported WinForms code commonly does on Form.
             adapter.Click += (s, e) => OnClick (e);
-            adapter.MouseDown += (s, e) => MouseDown?.Invoke (this, e);
-            adapter.MouseUp += (s, e) => MouseUp?.Invoke (this, e);
-            adapter.MouseMove += (s, e) => MouseMove?.Invoke (this, e);
+            adapter.MouseDown += (s, e) => OnMouseDown (e);
+            adapter.MouseUp += (s, e) => OnMouseUp (e);
+            adapter.MouseMove += (s, e) => OnMouseMove (e);
             adapter.MouseLeave += (s, e) => Leave?.Invoke (this, e);
         }
 
@@ -83,6 +83,19 @@ namespace Majorsilence.Forms
 
         /// <summary>Raises the Click event.</summary>
         protected virtual void OnClick (EventArgs e) => Click?.Invoke (this, e);
+
+        // Control declares OnMouseDown/OnMouseUp/OnMouseMove as protected virtuals and WinForms code
+        // overrides them on a Form as a matter of course; Form derives from WindowBase here, so they
+        // have to be declared alongside the events rather than inherited.
+
+        /// <summary>Raises the MouseDown event.</summary>
+        protected virtual void OnMouseDown (MouseEventArgs e) => MouseDown?.Invoke (this, e);
+
+        /// <summary>Raises the MouseUp event.</summary>
+        protected virtual void OnMouseUp (MouseEventArgs e) => MouseUp?.Invoke (this, e);
+
+        /// <summary>Raises the MouseMove event.</summary>
+        protected virtual void OnMouseMove (MouseEventArgs e) => MouseMove?.Invoke (this, e);
 
         /// <summary>Raised when a mouse button is pressed over the form's own surface.</summary>
         public event MouseEventHandler? MouseDown;
@@ -110,12 +123,33 @@ namespace Majorsilence.Forms
         /// <summary>Attempts to set focus to the form. Matches Control.Focus's shape (returns whether the focus request succeeded).</summary>
         public bool Focus ()
         {
+            // A frame-hosted form owns no OS window, and must not be given one here. The backend's
+            // Activate orders the native window on screen WITHOUT going through Show, so the window
+            // appears while Avalonia's IsVisible stays false -- which also makes a later Hide a no-op,
+            // so the window cannot be taken back down. That left a full-size stray window beside the
+            // host every time something focused a hosted form. Focusing a hosted form means selecting
+            // the frame that composites it, inside the tree that hosts it.
+            if (HostFrame is { } frame) {
+                frame.Select ();
+                return true;
+            }
+
             Backend.Activate ();
             return true;
         }
 
+        // The control standing in for this form while it is hosted in someone else's tree, or null when
+        // the form is a real top-level window. Panel hosting and MDI hosting both go through a frame.
+        private Control? HostFrame => (Control?)PanelHost ?? MdiHost;
+
         /// <summary>Gets or sets the button that is activated when Enter is pressed.</summary>
-        public Button? AcceptButton { get; set; }
+        /// <remarks>
+        /// Typed <see cref="IButtonControl"/>, as WinForms types it — the point of the interface is that a
+        /// form's default button need not be a <see cref="Button"/> at all. A control library that
+        /// re-declares the property to narrow or hide it (<c>public new IButtonControl AcceptButton</c>)
+        /// could not compile against a <see cref="Button"/>-typed one.
+        /// </remarks>
+        public IButtonControl? AcceptButton { get; set; }
 
         /// <summary>Gets or sets whether the form can be maximized.</summary>
         public bool AllowMaximize {
@@ -130,7 +164,8 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the button that is activated when Escape is pressed.</summary>
-        public Button? CancelButton { get; set; }
+        /// <inheritdoc cref="AcceptButton" path="/remarks"/>
+        public IButtonControl? CancelButton { get; set; }
 
         /// <summary>Gets or sets whether the form receives key events before child controls.</summary>
         public bool KeyPreview { get; set; }
@@ -188,6 +223,23 @@ namespace Majorsilence.Forms
             if (Application.OpenForms.Contains (this))
                 return;
 
+            CompleteClose ();
+        }
+
+        /// <summary>
+        /// Finishes a close that has actually gone through: hands the result back to
+        /// <see cref="ShowDialog()"/> and re-enables the window that opened this one.
+        /// </summary>
+        /// <remarks>
+        /// Separate from <see cref="Close"/> because a close started by the window's own close button
+        /// never calls Close at all -- the backend raises its Closed callback directly -- so
+        /// <c>OnBackendClosed</c> has to reach this too. While it did not, dismissing a modal dialog
+        /// with its close button made the window disappear while ShowDialog never returned and its
+        /// owner stayed disabled: the whole app was left unusable and could not be shut down.
+        /// Idempotent, because Close and the backend callback both run during a programmatic close.
+        /// </remarks>
+        internal void CompleteClose ()
+        {
             if (dialog_parent is not null) {
                 dialog_parent.Backend.Enabled = true;
                 dialog_parent.Backend.Activate ();
@@ -197,9 +249,14 @@ namespace Majorsilence.Forms
             if (dialog_task is not null) {
                 var task = dialog_task;
                 dialog_task = null;
-                task.SetResult (dialog_result);
+
+                // Dismissing a dialog without setting a result is a cancel, as in WinForms.
+                task.SetResult (dialog_result == DialogResult.None ? DialogResult.Cancel : dialog_result);
             }
         }
+
+        // Lets WindowBase run the closing sequence on a Form it holds a reference to.
+        internal void RaiseClosing (CancelEventArgs e) => OnClosing (e);
 
         /// <summary>Raised before the form is closed, allowing close to be programatically canceled.</summary>
         public event CancelEventHandler? Closing;
@@ -231,7 +288,20 @@ namespace Majorsilence.Forms
         public event EventHandler? ResizeBegin { add { } remove { } }
 
         /// <summary>Raised when the user finishes resizing the form. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? ResizeEnd { add { } remove { } }
+        public event EventHandler? ResizeEnd;
+
+        /// <summary>
+        /// Raises the ResizeEnd event. Nothing in Majorsilence.Forms detects the end of a user resize
+        /// drag yet, so this never fires on its own -- it exists so ported code that overrides it
+        /// compiles, and so a backend that can report drag-end has somewhere to raise it.
+        /// </summary>
+        protected virtual void OnResizeEnd (EventArgs e) => ResizeEnd?.Invoke (this, e);
+
+        /// <summary>
+        /// Gets the window's default padding. Mirrors Control.DefaultPadding, which WinForms forms
+        /// override to reserve space for their own chrome.
+        /// </summary>
+        protected virtual Padding DefaultPadding => Padding.Empty;
 
         /// <summary>Raised when the form is activated by the backend.</summary>
         public new event EventHandler? Activated {
@@ -401,12 +471,22 @@ namespace Majorsilence.Forms
                 return Backend.Location;
             }
             set {
+                // Compared through the getter so the check covers all three hosting cases uniformly.
+                if (Location == value)
+                    return;
+
                 if (MdiHost != null)
                     MdiHost.Client.MoveChild (MdiHost, value.X, value.Y);
                 else if (PanelHost != null)
                     PanelHost.Location = value;
-                else if (Backend.Location != value)
+                else
                     Backend.Location = value;
+
+                // WinForms raises Move/LocationChanged for a programmatic Location assignment, not only
+                // for an OS-driven move. This setter shadows WindowBase.Location (`new`), so without
+                // this the notification was lost for every Form -- code repositioning a satellite
+                // window (a drop shadow, a tool window) from Move never ran.
+                OnMove (EventArgs.Empty);
             }
         }
 
@@ -516,16 +596,29 @@ namespace Majorsilence.Forms
         public string Name { get; set; } = string.Empty;
 
         /// <summary>Raises the Closing event.</summary>
-        public virtual void OnClosing (CancelEventArgs e)
+        /// <remarks>
+        /// Protected, as in WinForms. <see cref="WindowBase"/> reaches it through
+        /// <see cref="RaiseClosing"/>, since a base class cannot call a protected member through a
+        /// derived-typed reference.
+        /// </remarks>
+        protected virtual void OnClosing (CancelEventArgs e)
         {
             Closing?.Invoke (this, e);
 
             var form_closing_args = new FormClosingEventArgs { Cancel = e.Cancel };
-            FormClosing?.Invoke (this, form_closing_args);
+            OnFormClosing (form_closing_args);
 
             if (form_closing_args.Cancel)
                 e.Cancel = true;
         }
+
+        /// <summary>Raises the <see cref="FormClosing"/> event.</summary>
+        /// <remarks>
+        /// The hook a form overrides to veto its own close -- "you have unsaved changes, really quit?" is
+        /// written this way as often as with a handler, and it has to be reachable for that code to compile.
+        /// Routed through by <see cref="OnClosing"/>, so an override sees every close the event does.
+        /// </remarks>
+        protected virtual void OnFormClosing (FormClosingEventArgs e) => FormClosing?.Invoke (this, e);
 
         /// <summary>
         /// Picks the form a modal dialog should be owned by: the first open form that is not the dialog
@@ -668,6 +761,13 @@ namespace Majorsilence.Forms
                 return Backend.ClientSize;
             }
             set {
+                // Clamp instead of throwing. WinForms hands the size to SetWindowPos, which treats a
+                // negative extent as zero, so laying a window out to a negative size is something
+                // WinForms code does and survives -- a docking pane whose available area has collapsed
+                // computes exactly that while the user drags a splitter past its neighbour. The Avalonia
+                // backend rejects it with ArgumentException, which crashed the app mid-layout.
+                value = new System.Drawing.Size (Math.Max (0, value.Width), Math.Max (0, value.Height));
+
                 if (MdiHost != null)
                     MdiHost.SetContentSize (value);
                 else if (PanelHost != null)
@@ -698,10 +798,15 @@ namespace Majorsilence.Forms
             set => Size = value;
         }
 
-        /// <summary>Gets or sets the automatic scaling mode. No-op in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the automatic scaling mode.</summary>
+        /// <remarks>
+        /// Stored and returned, but it does not drive layout: the platform backend owns DPI scaling,
+        /// so there is no designer-time-to-runtime font/DPI rescale to perform. Every WinForms designer
+        /// file assigns this, hence the round-trip rather than throwing.
+        /// </remarks>
         public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Font;
 
-        /// <summary>Gets or sets the auto-scale dimensions. No-op in Majorsilence.Forms.</summary>
+        /// <inheritdoc cref="AutoScaleMode"/>
         public System.Drawing.SizeF AutoScaleDimensions { get; set; }
 
         /// <summary>Gets or sets how the form performs implicit validation when focus leaves a child control.</summary>
@@ -903,15 +1008,15 @@ namespace Majorsilence.Forms
 
                 if (value) {
                     MdiClientControl = new MdiClient { Owner = this };
+                    // Appended, i.e. left at the BACK of the z-order, which is where WinForms puts it
+                    // and where it has to stay: index 0 is the front, and the front is painted last, so
+                    // a front MDI client covers every sibling -- the menu, the toolbar, and any Fill'd
+                    // panel (a docking host's whole UI) drawn beneath it.
+                    //
+                    // It gets the leftover space regardless of that position, because
+                    // DockAndAnchorLayout defers the MDI client to the end of the dock pass rather than
+                    // taking it in z-order.
                     Controls.Add (MdiClientControl);
-                    // Dock layout processes z-order front-to-back (index 0 first; see
-                    // DockAndAnchorLayout.LayoutDockedControls), and Controls.Add appends at the
-                    // back. Left there, the MDI client's Dock=Fill gets computed against the whole
-                    // display rectangle before any sibling menu/toolbar/status strip -- typically
-                    // already present from InitializeComponent -- has claimed its own slice, so it
-                    // visually covers them entirely. BringToFront moves it to the front (index 0),
-                    // making it dock-process last and correctly receive only the leftover space.
-                    MdiClientControl.BringToFront ();
                 } else if (MdiClientControl != null) {
                     Controls.Remove (MdiClientControl);
                     MdiClientControl = null;
@@ -925,11 +1030,48 @@ namespace Majorsilence.Forms
         /// fire); provided so ported code compiles against Form the same as it does Control.</summary>
         public bool AllowDrop { get; set; }
 
-        /// <summary>Raised when a drag-and-drop operation enters the form. Stub in Majorsilence.Forms (never fires).</summary>
-        public event EventHandler<DragEventArgs>? DragEnter { add { } remove { } }
+        // Real handler storage rather than `{ add { } remove { } }`, which discarded the handler
+        // outright: `form.DragEnter += h` looked wired up and h was thrown away, so an override of
+        // OnDragEnter could never be reached even once a backend does raise these. Nothing raises them
+        // yet (there is no OS drag source -- DoDragDrop returns None), so they are still "declared and
+        // never fired", which is the documented stub shape; the difference is that the handler and the
+        // overridable hook now exist to be called.
+        private DragEventHandler? drag_enter;
+        private DragEventHandler? drag_over;
+        private DragEventHandler? drag_drop;
 
-        /// <summary>Raised when a drag-and-drop operation completes over the form. Stub in Majorsilence.Forms (never fires).</summary>
-        public event EventHandler<DragEventArgs>? DragDrop { add { } remove { } }
+        /// <summary>Raised when a drag-and-drop operation enters the form. Never fires yet — see <see cref="AllowDrop"/>.</summary>
+        public event DragEventHandler? DragEnter {
+            add => drag_enter += value;
+            remove => drag_enter -= value;
+        }
+
+        /// <summary>Raised as a drag-and-drop operation moves over the form. Never fires yet — see <see cref="AllowDrop"/>.</summary>
+        public event DragEventHandler? DragOver {
+            add => drag_over += value;
+            remove => drag_over -= value;
+        }
+
+        /// <summary>Raised when a drag-and-drop operation completes over the form. Never fires yet — see <see cref="AllowDrop"/>.</summary>
+        public event DragEventHandler? DragDrop {
+            add => drag_drop += value;
+            remove => drag_drop -= value;
+        }
+
+        /// <summary>Raises the <see cref="DragEnter"/> event.</summary>
+        /// <remarks>
+        /// Declared here because WinForms' Form inherits it from Control and ported code overrides it;
+        /// WindowBase is not a Control. Matches Control.OnDragEnter.
+        /// </remarks>
+        protected virtual void OnDragEnter (DragEventArgs e) => drag_enter?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DragOver"/> event.</summary>
+        /// <inheritdoc cref="OnDragEnter"/>
+        protected virtual void OnDragOver (DragEventArgs e) => drag_over?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DragDrop"/> event.</summary>
+        /// <inheritdoc cref="OnDragEnter"/>
+        protected virtual void OnDragDrop (DragEventArgs e) => drag_drop?.Invoke (this, e);
 
         /// <summary>
         /// Gets or sets the MDI parent. Set this (and call <see cref="WindowBase.Show"/>) to host this form
@@ -958,16 +1100,46 @@ namespace Majorsilence.Forms
         /// Gets or sets the control this form is hosted in. Mirrors WinForms Control.Parent as it
         /// applies to a Form: while hosted as an MDI child the parent is the container's
         /// <see cref="MdiClient"/> (exactly as in WinForms, where an MDI child's Parent is the
-        /// MdiClient control), and a top-level window reports null. Setting it stores the value —
-        /// Majorsilence.Forms cannot re-parent a window that owns a native top-level window into a
-        /// control tree; assign <see cref="MdiParent"/> to host a form inside another one.
+        /// MdiClient control), and a top-level window reports null.
         /// </summary>
+        /// <remarks>
+        /// Assigning this really hosts the form, by the same route as
+        /// <c>parent.Controls.Add (form)</c> -- the form is wrapped in a frame and composited into that
+        /// control tree instead of owning a top-level window. Assigning null takes it back out.
+        ///
+        /// It used to only store the value. That made <c>form.Parent = panel</c> a silent no-op: the
+        /// form stayed a separate top-level window, so an app that hosts forms inside a container by
+        /// assigning Parent -- which is how WinForms code does it, and how a docking library puts a
+        /// document into a pane -- got a stray empty window per form and nothing in the container.
+        /// </remarks>
         public Control? Parent {
             // A panel-hosted form reports the control its frame was added to, not the frame itself --
             // the frame is an implementation detail, and WinForms code reaches for Parent to add
             // siblings alongside the hosted form ("Parent.Controls.Add (otherForm)").
             get => MdiHost?.Client ?? PanelHost?.Parent ?? parent;
-            set => parent = value;
+            set {
+                parent = value;
+
+                // An MDI child's parent is owned by MdiParent, not settable through here -- WinForms
+                // reports the MdiClient and ignores writes just the same.
+                if (MdiHost != null)
+                    return;
+
+                if (value is null) {
+                    // Detach without closing: taking a hosted form out of the tree is not the same as
+                    // disposing it, and callers move forms between containers.
+                    if (PanelHost is { } host) {
+                        host.Parent?.Controls.Remove (host);
+                        PanelHost = null;
+                    }
+
+                    return;
+                }
+
+                // Add handles the already-hosted case as a move, so this is safe to re-assign.
+                if (PanelHost?.Parent != value)
+                    value.Controls.Add (this);
+            }
         }
 
         /// <summary>
@@ -995,6 +1167,16 @@ namespace Majorsilence.Forms
         /// remove-close-button override pattern; the compat window ignores the values.
         /// </summary>
         protected virtual CreateParams CreateParams => new CreateParams ();
+
+        /// <summary>
+        /// Gets whether the window is shown without taking focus from whatever is currently active.
+        /// Overridden to <see langword="true"/> by overlay windows — a drag preview, a translucent
+        /// highlight, a notification — which must appear without stealing the caret from the form the
+        /// user is working in. Honoured by <see cref="WindowBase.Show"/>.
+        /// </summary>
+        protected virtual bool ShowWithoutActivation => false;
+
+        internal override bool ShowsActivated => !ShowWithoutActivation;
 
         /// <summary>Gets the active MDI child form, or null.</summary>
         public Form? ActiveMdiChild => MdiClientControl?.ActiveChild;
@@ -1040,6 +1222,20 @@ namespace Majorsilence.Forms
             TitleBar.Visible = false;
             Style.Border.Width = 0;
         }
+
+        // Takes down the OS window this form may already have shown, on becoming frame-hosted.
+        //
+        // Deliberately not Hide (): Hide would set visible = false and raise VisibleChanged, but the form
+        // is not becoming invisible -- it is about to be painted inside its host, and callers that set
+        // Visible = true before parenting expect it to still read true afterwards.
+        //
+        // Unconditional, and not guarded on `shown`: that flag records whether the Shown *event* has
+        // been raised, which is not the same as owning a window right now. EnsureShownBookkeeping
+        // returns early once `visible` is true, so a form shown again while already visible ends up
+        // with a live OS window and shown == false -- exactly the case a guard here would skip, leaving
+        // the window stranded on screen beside its host. Hiding a window that was never shown is
+        // harmless.
+        internal void HideOwnWindowForHosting () => Backend.Hide ();
 
         internal override bool TryShowHosted ()
         {
@@ -1147,8 +1343,14 @@ namespace Majorsilence.Forms
             set => Location = value;
         }
 
-        /// <summary>Activates the form and gives it focus. No-op stub in Majorsilence.Forms.</summary>
-        public void Activate () { }
+        /// <summary>Activates the form and gives it focus.</summary>
+        /// <remarks>
+        /// Was an empty stub, so <c>form.Activate ()</c> silently did nothing -- the WinForms idiom for
+        /// bringing an already-open window to the user rather than opening a second one. Routed through
+        /// the same path as <see cref="Focus"/>, which keeps a hosted form from acquiring a stray OS
+        /// window of its own.
+        /// </remarks>
+        public void Activate () => Focus ();
 
         /// <summary>Activates the form. Mirrors WinForms Control.Select as it applies to a Form.</summary>
         public void Select () => BringToFront ();

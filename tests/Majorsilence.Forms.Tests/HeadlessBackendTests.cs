@@ -314,4 +314,30 @@ public class HeadlessBackendTests
         parent.Close ();
         Assert.Equal (baseline, Application.OpenForms.Count);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ShowDialog_CompletesWhenTheWindowIsClosedByItsCloseButton ()
+    {
+        // The close button never calls Form.Close: the backend raises its Closed callback directly.
+        // That path used to skip the dialog bookkeeping entirely, so the window disappeared while
+        // ShowDialog awaited a result forever and its owner was left disabled -- an app that could
+        // neither be used nor shut down.
+        var baseline = Application.OpenForms.Count;
+
+        var parent = new Form ();
+        parent.Show ();
+
+        var dialog = new Form ();
+        var task = dialog.ShowDialogAsync (parent);
+        Assert.False (task.IsCompleted);
+
+        dialog.OnBackendClosed ();   // what the backend reports when the close button is used
+
+        Assert.True (task.IsCompleted, "closing the window must complete ShowDialog");
+        Assert.Equal (DialogResult.Cancel, await task);   // dismissed without a result is a cancel
+        Assert.DoesNotContain (dialog, Application.OpenForms);
+
+        parent.Close ();
+        Assert.Equal (baseline, Application.OpenForms.Count);
+    }
 }

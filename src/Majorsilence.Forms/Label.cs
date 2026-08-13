@@ -63,6 +63,112 @@ namespace Majorsilence.Forms
             }
         }
 
+        // GDI label text carries a ~2px bearing inset on each side, which LabelRenderer reproduces.
+        // The preferred width has to leave room for it or an auto-sized label clips its own last glyph.
+        private const int TextBearingInset = 2;
+
+        /// <summary>
+        /// Measures the size this label wants to be: its text under the font it will actually be drawn
+        /// with, plus padding and the bearing inset, unioned with any image.
+        /// </summary>
+        internal override Size GetPreferredSizeCore (Size proposedSize)
+        {
+            var text = Text;
+            var image = ImageSK;
+
+            // Nothing to measure -- keep whatever size was set rather than collapsing to nothing.
+            if (!text.HasValue () && image is null)
+                return base.GetPreferredSizeCore (proposedSize);
+
+            var width = 0;
+            var height = 0;
+
+            if (text.HasValue ()) {
+                // Measured with the ambient font (GetEffectiveFont), which is the font the renderer
+                // draws with -- measuring with a different one is how a label ends up sized for text
+                // it isn't showing. Logical units throughout, to match Bounds.
+                var constraint = proposedSize.Width > 0 && proposedSize.Width < int.MaxValue
+                    ? new Size (proposedSize.Width, int.MaxValue)
+                    : TextMeasurer.MaxSize;
+
+                var measured = TextMeasurer.MeasureText (text, GetEffectiveFont (), GetEffectiveFontSize (), constraint);
+
+                width = (int) Math.Ceiling (measured.Width) + TextBearingInset * 2;
+                height = (int) Math.Ceiling (measured.Height);
+            }
+
+            if (image is not null) {
+                width = Math.Max (width, image.Width);
+                height = Math.Max (height, image.Height);
+            }
+
+            return new Size (width + Padding.Horizontal, height + Padding.Vertical);
+        }
+
+        /// <summary>
+        /// Resizes the label to its preferred size when <see cref="AutoSize"/> is on.
+        /// </summary>
+        /// <remarks>
+        /// WinForms' Label does this itself rather than leaving it to the layout engine, and the
+        /// difference matters: the engine's auto-size pass only ever *grows* an element, so a label
+        /// carrying a designer size larger than its text would keep it forever. A designer emits
+        /// AutoSize = true followed by the size the label happened to have at design time, so that is
+        /// the normal case, not an edge one -- and an over-wide label silently swallows the mouse
+        /// events of whatever it is sitting on.
+        /// </remarks>
+        private void AdjustSize ()
+        {
+            if (!AutoSize)
+                return;
+
+            var preferred = GetPreferredSize (Size.Empty);
+
+            if (preferred != Size && preferred.Width > 0 && preferred.Height > 0)
+                Size = preferred;
+        }
+
+        /// <inheritdoc/>
+        public override bool AutoSize {
+            get => base.AutoSize;
+            set {
+                if (base.AutoSize == value)
+                    return;
+
+                base.AutoSize = value;
+                AdjustSize ();
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void OnTextChanged (EventArgs e)
+        {
+            base.OnTextChanged (e);
+            AdjustSize ();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnFontChanged (EventArgs e)
+        {
+            base.OnFontChanged (e);
+            AdjustSize ();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnPaddingChanged (EventArgs e)
+        {
+            base.OnPaddingChanged (e);
+            AdjustSize ();
+        }
+
+        // Until the label has a parent it has no ambient font to measure against, so a designer that
+        // configures the label before adding it would measure with the wrong one. Re-measure on attach.
+        /// <inheritdoc/>
+        protected override void OnParentChanged (EventArgs e)
+        {
+            base.OnParentChanged (e);
+            AdjustSize ();
+        }
+
         /// <inheritdoc/>
         protected override Padding DefaultMargin => new Padding (3, 0, 3, 0);
 

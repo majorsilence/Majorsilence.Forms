@@ -1,4 +1,4 @@
-# Compatibility matrix
+﻿# Compatibility matrix
 
 What's real, what's approximated, and what's out of scope in Majorsilence.Forms — for developers
 migrating a WinForms app and for AI coding assistants generating code against this framework. For
@@ -52,6 +52,31 @@ doesn't yet do anything. Concretely:
 
 If you find a member that throws instead of stubbing, that's a bug — file it.
 
+### The cost of that policy, and the guard on it
+
+A silent no-op is the hardest gap to find: it compiles, it runs, and the only symptom is wrong output
+somewhere downstream. `Image.MakeTransparent` was one — ported code keyed a sprite's background colour
+to transparent, the call did nothing, and every sprite drew with a white box behind it. Nothing threw
+and there was nothing to grep for.
+
+`NoOpStubBaselineTests` therefore pins the known set of empty-bodied public `void` methods in
+`NoOpStubBaseline.txt` (161 at the time of writing). A newly added one fails the test, so accepting a
+stub is a conscious act that includes recording it here. Shrinking that list is the goal; regenerate it
+with `MAJORSILENCE_WRITE_STUB_BASELINE=1` after implementing or deliberately accepting an entry.
+
+Gaps found by migrating real apps (RibbonWinForms, a WinForms game) and since fixed:
+
+| Was | Symptom | Now |
+| --- | --- | --- |
+| `WindowBase` never raised `Paint` | `form.Paint += handler` compiled and never fired; a form that draws its own content rendered nothing | Raised after `OnPaint`, mirroring `Control.RaisePaint` |
+| `Image.MakeTransparent` empty | Colour-keyed sprite sheets kept an opaque background | Implemented with GDI+ semantics (bottom-left key pixel, full-ARGB match, 32bpp conversion) |
+| `TextBox.Text` accepted null | `NullReferenceException` from `TextBoxDocument.DisplayText`; `Control.Text` already coerced, the override bypassed it | Coerced to empty, as WinForms does |
+| Measuring resolved fonts by family name only | A `PrivateFontCollection` font was drawn correctly but measured with the system fallback, so text was laid out to the wrong width; italic was dropped too | `TypefaceCache.Resolve` plus private-font lookup in `CachingFontMapper` |
+| `CachingFontMapper` installed only by `Theme`'s static constructor | A pure measuring path silently got RichTextKit's built-in mapper, losing both the typeface cache and private fonts | Installed from `TextMeasurer`'s static constructor |
+| `Application.AddMessageFilter` empty | The portable way to watch input application-wide did nothing, pushing ported code toward a global OS hook (`SetWindowsHookEx`, which aborts off Windows) | Filters registered and run for mouse/keyboard input before dispatch |
+| `TextBoxBase.Undo`/`ClearUndo` empty | No undo (honestly reported, since `CanUndo` returned false) | Single-level undo on `TextBoxDocument` with Win32 toggle semantics and typing-run coalescing |
+| `Application.SetDefaultFont` empty | An app-wide default font was silently discarded | Sets the ambient default every unfonted control inherits |
+
 ## Core WinForms surface
 
 Standard controls (`Button`, `TextBox`, `ComboBox`, `ListBox`, `ListView`, `TreeView`,
@@ -60,6 +85,13 @@ dialogs, etc.) are functionally implemented, not stubs — see them live in
 [`samples/ControlGallery`](samples/ControlGallery), which has one demo panel per control. The
 `*.Designer.cs`/`*.Designer.vb` code-behind pattern is preserved as-is; you don't rewrite your
 designer-generated layout code.
+
+**Visual designer:** there isn't one yet, and it is a wanted feature -- see
+[Wanted soon: visual designer support](BACKLOG.md#wanted-soon-visual-designer-support). Designer
+*code* migrates and runs; what is missing is a design surface to edit it in.
+`Majorsilence.Forms.Design` supplies the design-time types (`ControlDesigner`, `UITypeEditor`,
+`CollectionEditor`, `IWindowsFormsEditorService`, adorner glyphs) so a control library's own designers
+compile and are preserved, but nothing instantiates them at runtime.
 
 **Spellcheck** (`Majorsilence.Forms.SpellCheck`, wired into `TextBox`) is a dependency-free,
 from-scratch implementation — a pre-expanded Hunspell/SCOWL en-US wordlist embedded as a compressed
@@ -157,6 +189,14 @@ per-row:
   `ComboBox`) pins its own background because WinForms gives it `SystemColors.Window`, so it stays
   light on a dark container.
 
+- **Mouse capture belongs to the control that took it, for the whole gesture.** *Added 2026-08-07.*
+  A control that captures on `MouseDown` receives every subsequent move and the release until the
+  button comes up — over its own children included, which is what lets a drag begun on a container
+  survive crossing a button sitting on it. Routing by hit-test after the press instead handed the
+  move to whichever child the pointer crossed and silently ended the gesture; a window dragged by a
+  custom title bar stopped dead at the caption buttons. A child that took the capture itself still
+  wins over its ancestors.
+
 Status below is scored from a migrating developer's point of view: **Implemented** means the
 mainstream, commonly-used surface is there (gaps are limited to the two patterns above, or to
 deep/rare corners); **Partial** names the specific commonly-used members that are missing;
@@ -165,7 +205,7 @@ deep/rare corners); **Partial** names the specific commonly-used members that ar
 | Control / type | Status | Notes |
 |---|---|---|
 | `Control` (base) | Implemented | Inherited by every control below. The protected extensibility surface named in the first systemic pattern above is present and firing as of 2026-07-29; the residue is the stub events listed there that still have no `On*` hook. |
-| `Button`, `CheckBox`, `RadioButton`, `Label`, `LinkLabel`, `PictureBox`, `Panel`, `GroupBox`, `TabControl`/`TabPage`, `FlowLayoutPanel`, `TableLayoutPanel`, `TrackBar`, `ProgressBar`, `ScrollBar`/`HScrollBar`/`VScrollBar`, `Splitter`, `UserControl` | Implemented | Only the systemic gaps above; no missing members specific to these types. They pick up the whole `Control` protected surface by inheritance. `Button.TextAlign`/`ImageAlign` default to `MiddleCenter` as WinForms' `ButtonBase` does (as of 2026-08-07); `CheckBox`/`RadioButton` keep WinForms' `MiddleLeft`. |
+| `Button`, `CheckBox`, `RadioButton`, `Label`, `LinkLabel`, `PictureBox`, `Panel`, `GroupBox`, `TabControl`/`TabPage`, `FlowLayoutPanel`, `TableLayoutPanel`, `TrackBar`, `ProgressBar`, `ScrollBar`/`HScrollBar`/`VScrollBar`, `Splitter`, `UserControl` | Implemented | Only the systemic gaps above; no missing members specific to these types. They pick up the whole `Control` protected surface by inheritance. `Button.TextAlign`/`ImageAlign` default to `MiddleCenter` as WinForms' `ButtonBase` does (as of 2026-08-07); `CheckBox`/`RadioButton` keep WinForms' `MiddleLeft`. `Label.AutoSize` really measures the text and resizes to it, growing *and* shrinking (as of 2026-08-07): `GetPreferredSize` used to return the size the label already had, so an auto-sized label kept whatever the designer left on it — and an over-wide label is opaque to the mouse, so it swallows the clicks of the container underneath. |
 | `TextBox` | Implemented | Full surface for get/set/select/undo usage. `BorderStyle` and `TextAlign` drive rendering rather than only storing a value (as of 2026-08-07), and a single-line box centres its text vertically the way a Win32 `EDIT` without `ES_MULTILINE` does; multiline still starts at the top. |
 | `RichTextBox` | Partial | No `Undo`/`Redo`/`CanUndo`/`CanRedo`/`RedoActionName`, no `SelectedRtf`, no `CanPaste`, no `AutoWordSelection`. |
 | `MaskedTextBox` | Partial | No `InsertKeyMode`/`IsOverwriteMode`, no `GetCharIndexFromPosition`/`GetPositionFromCharIndex` family, no `ValidateText`. |
@@ -238,7 +278,13 @@ because they depend on the Forms layer and would otherwise form a circular proje
 `NrbfResourceReader.cs` (materialises `ImageListStreamer`). Each carries a header comment saying so.
 The drawing project grants `InternalsVisibleTo` to `Majorsilence.Forms` so those four can keep using
 the SkiaSharp interop seam (`CreatePaint`, `GetSKBitmap`, `ToSKPath`, `ImageAttributes.ToSKColorFilter`,
-...) without that seam becoming public API.
+...) without that seam becoming public API. They are *namespaced* `Majorsilence.Forms.Drawing`
+regardless of which project builds them — assembly and namespace are separate choices, and only the
+assembly is constrained by the cycle. `Graphics` moved into that namespace on 2026-08-10, having been
+the one `System.Drawing` type sitting in `Majorsilence.Forms`; that exception was what forced the
+migrator to special-case the name, and a file that drew without naming a control type never imported
+`Majorsilence.Forms`, so the name fell through to the type-forwarded (unreferenced) `System.Drawing.Graphics`
+and failed with CS1069.
 
 Two font-related root files also stay, for a different reason. `SystemFonts.cs` builds its fonts from
 `Theme`, so it hits the same cycle. `CachingFontMapper.cs` has no cycle and *could* move, but installs
@@ -295,7 +341,7 @@ what is and is not backed by real rendering.
 | `Blend`/`ColorBlend` (`SetBlendTriangularShape`/`SetSigmaBellShape`) | Implemented | The real GDI+ data types exist (`Blend.Factors`/`.Positions`, `ColorBlend.Colors`/`.Positions`) and both shape presets are implemented against the documented algorithms — triangular is the piecewise-linear ramp peaking at `focus`, sigma-bell is a cumulative-normal (erf-based) falloff sampled at 256 points. Both feed the existing multi-stop plumbing rather than a second path: setting `Blend` expands the factors into color stops, and setting `InterpolationColors` clears `Blend`. Available on `LinearGradientBrush` and `PathGradientBrush`. **Breaking change:** `LinearGradientBrush.InterpolationColors` is now a `ColorBlend` (it was a bare `Color[]`) to match upstream — the `Color[]`/`float[]` pair is still reachable through `ColorBlend.Colors`/`.Positions` and the `InterpolationPositions` convenience property, which shares the same storage. |
 | `BitmapData` (`Bitmap.LockBits`/`UnlockBits`), `ImageLockMode` | Implemented | Real bulk pixel-buffer access. `LockBits` hands back a freshly-allocated buffer in the requested layout with a GDI+-correct 4-byte-aligned `Stride`, and `UnlockBits` copies it back unless the lock was `ReadOnly`. This copies rather than pointing straight into the `SKBitmap`, deliberately: the Skia backing store is premultiplied 32bpp, while `Format32bppArgb` is defined as straight alpha, so handing out the raw pointer would quietly hand out the wrong pixels. `Format32bppArgb`, `Format32bppPArgb`, `Format32bppRgb` and `Format24bppRgb` are laid out directly; narrower formats widen to `Format32bppArgb` and `BitmapData.PixelFormat` reports what was actually produced. Sub-rectangle locks, double-lock detection and lock cleanup on `Dispose` all behave as GDI+ does. |
 | `PropertyItem` (`Image.PropertyItems`) | Implemented | EXIF is parsed directly out of the JPEG APP1/TIFF IFD structure (`ExifReader`), since SkiaSharp exposes only the orientation tag. Covers the primary IFD and the EXIF sub-IFD, which is where the commonly-requested tags live; PNG text chunks, GPS sub-IFDs and maker notes are not parsed. `SetPropertyItem`/`RemovePropertyItem` edit the in-memory set, which is not written back on `Save`. |
-| `FontCollection`, `PrivateFontCollection`, `InstalledFontCollection` | Implemented | `PrivateFontCollection.AddFontFile`/`AddMemoryFont` (both the `IntPtr`/length GDI+ shape and a `byte[]` convenience overload) load real typefaces via `SKTypeface.FromFile`/`FromData`, following the same `SKData`-retention pattern `FontSubstitution` already uses for the embedded fallback fonts. Loaded families register process-wide, so `new Font(collection.Families[0].Name, size)` genuinely renders with the loaded font without it being installed; disposing the collection unregisters them again. `InstalledFontCollection` is backed by SkiaSharp's own `SKFontManager` enumeration, which *is* cross-platform (DirectWrite / CoreText / fontconfig) — no faking needed, and it returns exactly what `FontFamily.Families` returns. |
+| `FontCollection`, `PrivateFontCollection`, `InstalledFontCollection` | Implemented | `PrivateFontCollection.AddFontFile`/`AddMemoryFont` (both the `IntPtr`/length GDI+ shape and a `byte[]` convenience overload) load real typefaces via `SKTypeface.FromFile`/`FromData`, following the same `SKData`-retention pattern `FontSubstitution` already uses for the embedded fallback fonts. Loaded families register process-wide, so `new Font(collection.Families[0].Name, size)` genuinely renders with the loaded font without it being installed; disposing the collection unregisters them again. Measurement honours them too: `Graphics.MeasureString`/`TextRenderer.MeasureText` resolve through the same registry as the paint path (via `TypefaceCache.Resolve` and `CachingFontMapper`), so text is not laid out from a substituted face. `InstalledFontCollection` is backed by SkiaSharp's own `SKFontManager` enumeration, which *is* cross-platform (DirectWrite / CoreText / fontconfig) — no faking needed, and it returns exactly what `FontFamily.Families` returns. |
 | `SystemBrushes`, `SystemPens` | Implemented | These already existed in `Majorsilence.Forms/SystemColors.cs` when the audit was taken (the row was a false positive from the type-level source-listing method — they live next to `SystemColors`, not in a file of their own), but they covered only ~half of `SystemColors` and allocated a new object per property read. Both now expose one property per `SystemColors` entry plus `FromSystemColor(Color)`, and each returns a cached instance, matching System.Drawing's process-wide singletons. |
 | `ColorPalette` (`Image.Palette`) | Partial | The type and `Image.Palette` round-trip, and `ImageAttributes.GetAdjustedPalette` applies the remap table and color matrix to its entries. Assigning a palette does not re-quantize the image: modern SkiaSharp has no indexed bitmap type, so every surface here is 32bpp regardless. |
 | `Metafile`/`MetafileHeader`/`EmfType`/`EmfPlusRecordType`/`MetaHeader`/`WmfPlaceableFileHeader`, Win32 handle interop (`H*`/`hdevmode`/`hdevnames`), the design-time converters | Present; mostly functional | *Updated 2026-08-04.* **Metafiles render.** EMF and WMF are parsed and replayed onto Skia by this layer's own record interpreters, so a metafile loaded from a file, stream or the clipboard draws in a `PictureBox`, through `DrawImage`, or onto a printed page like any other image — and re-renders when scaled, being vector data. Unknown records are skipped and counted (`UnsupportedRecordCount`); EMF+ records inside an EMF are ignored, which is what a downlevel GDI renderer does. Metafile *recording* still throws. The converters (`FontConverter`, `IconConverter`, `ImageConverter`, `ImageFormatConverter`, `MarginsConverter`), `Font.FromLogFont`/`ToLogFont` and `Region.GetRegionData` are fully functional and round-trip. Every member that would have to produce or read a Win32 handle throws `PlatformNotSupportedException` naming the alternative — a zero handle would corrupt silently in the caller's next P/Invoke. See [the GDI plan](docs/gdi-gap-plan.md#phase-10--metafile-playback). |

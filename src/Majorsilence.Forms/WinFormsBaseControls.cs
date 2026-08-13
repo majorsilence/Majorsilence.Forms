@@ -206,7 +206,7 @@ namespace Majorsilence.Forms
         public event ToolStripItemClickedEventHandler? DropDownItemClicked;
 
         /// <summary>Gets or sets the drop-down shown by this item, creating one on first access.</summary>
-        public ToolStripDropDown DropDown {
+        public virtual ToolStripDropDown DropDown {
             get => dropDown ??= new ToolStripDropDown ();
             set => dropDown = value;
         }
@@ -217,7 +217,7 @@ namespace Majorsilence.Forms
         /// <c>ToolStripItemCollection</c>: the drop-down here is built from menu items, and returning
         /// a different collection type would mean copying, so mutations through it would be lost.
         /// </remarks>
-        public MenuItemCollection DropDownItems => DropDown.Items;
+        public virtual MenuItemCollection DropDownItems => DropDown.Items;
 
         /// <summary>Gets or sets the direction the drop-down opens in.</summary>
         public ToolStripDropDownDirection DropDownDirection { get; set; } = ToolStripDropDownDirection.Default;

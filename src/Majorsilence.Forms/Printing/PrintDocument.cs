@@ -179,10 +179,10 @@ namespace Majorsilence.Forms.Printing
         public virtual void OnStartPrint (PrintDocument document, PrintEventArgs e) { }
 
         /// <summary>
-        /// Called before each page. Returning a <see cref="Majorsilence.Forms.Graphics"/> lets a
+        /// Called before each page. Returning a <see cref="Majorsilence.Forms.Drawing.Graphics"/> lets a
         /// controller redirect that page's drawing; returning null uses the document's own surface.
         /// </summary>
-        public virtual Majorsilence.Forms.Graphics? OnStartPage (PrintDocument document, PrintPageEventArgs e) => null;
+        public virtual Majorsilence.Forms.Drawing.Graphics? OnStartPage (PrintDocument document, PrintPageEventArgs e) => null;
 
         /// <summary>Called after each page has been drawn.</summary>
         public virtual void OnEndPage (PrintDocument document, PrintPageEventArgs e) { }
@@ -198,7 +198,7 @@ namespace Majorsilence.Forms.Printing
         public override void OnStartPrint (PrintDocument document, PrintEventArgs e) { }
 
         /// <inheritdoc/>
-        public override Majorsilence.Forms.Graphics? OnStartPage (PrintDocument document, PrintPageEventArgs e) => null;
+        public override Majorsilence.Forms.Drawing.Graphics? OnStartPage (PrintDocument document, PrintPageEventArgs e) => null;
 
         /// <inheritdoc/>
         public override void OnEndPage (PrintDocument document, PrintPageEventArgs e) { }
@@ -241,7 +241,7 @@ namespace Majorsilence.Forms.Printing
         public override void OnStartPrint (PrintDocument document, PrintEventArgs e) => pages.Clear ();
 
         /// <inheritdoc/>
-        public override Majorsilence.Forms.Graphics? OnStartPage (PrintDocument document, PrintPageEventArgs e)
+        public override Majorsilence.Forms.Drawing.Graphics? OnStartPage (PrintDocument document, PrintPageEventArgs e)
         {
             if (e is null)
                 return null;
@@ -250,7 +250,7 @@ namespace Majorsilence.Forms.Printing
             var bounds = System.Drawing.Rectangle.Round (e.PageBounds);
             var image = new Majorsilence.Forms.Drawing.Bitmap (Math.Max (1, bounds.Width), Math.Max (1, bounds.Height));
             pages.Add (new PreviewPageInfo (image, bounds.Size));
-            return Majorsilence.Forms.Graphics.FromImage (image);
+            return Majorsilence.Forms.Drawing.Graphics.FromImage (image);
         }
 
         /// <inheritdoc/>

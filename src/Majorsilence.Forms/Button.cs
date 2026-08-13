@@ -9,7 +9,10 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a Button control.
     /// </summary>
-    public partial class Button : ButtonBase, IHaveTextAndImageAlign
+    // IButtonControl is what Form.AcceptButton/CancelButton are typed as, so without it the ordinary
+    // `this.AcceptButton = btnOk;` does not compile. Every member it requires -- DialogResult,
+    // PerformClick, NotifyDefault -- was already here; only the declaration was missing.
+    public partial class Button : ButtonBase, IHaveTextAndImageAlign, IButtonControl
     {
         private static readonly BitVector32.Section s_stateAutoEllipsis = BitVector32.CreateSection (1);
 
@@ -207,7 +210,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnClick (EventArgs e)
         {
             if (FindForm () is Form form)
                 form.DialogResult = DialogResult;

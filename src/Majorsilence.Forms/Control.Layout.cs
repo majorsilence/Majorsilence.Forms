@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -333,7 +333,7 @@ public partial class Control
     /// </summary>
     protected virtual void OnLayout (LayoutEventArgs e)
     {
-        (Events[s_layoutEvent] as EventHandler<LayoutEventArgs>)?.Invoke (this, e);
+        (Events[s_layoutEvent] as LayoutEventHandler)?.Invoke (this, e);
 
         var parentRequiresLayout = LayoutEngine.Layout (this, e);
 

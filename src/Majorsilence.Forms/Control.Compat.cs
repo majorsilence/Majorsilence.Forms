@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using Majorsilence.Forms.Backends;
 using SkiaSharp;
@@ -28,7 +28,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Forces the control to invalidate and immediately repaint.
         /// </summary>
-        public void Refresh () => Invalidate ();
+        public virtual void Refresh () => Invalidate ();
 
         /// <summary>
         /// Sets input focus to the control. Returns true if focus was successfully set.
@@ -45,7 +45,24 @@ namespace Majorsilence.Forms
         public Point PointToClient (Point point)
         {
             var origin = PointToScreen (Point.Empty);
-            return new Point (point.X - origin.X, point.Y - origin.Y);
+            var delta = new Point (point.X - origin.X, point.Y - origin.Y);
+
+            // Undo the desktop/window ratio PointToScreen applied on the way out, or this is not its
+            // inverse. The ratio is 1 whenever the window scale and the desktop scale agree, which was
+            // always true until Application.UiScale could zoom one without the other -- so subtracting
+            // the origin was enough and this asymmetry stayed hidden. Under a zoom it is not: a point
+            // 20px into a control came back as 10px, which is exactly the kind of error that makes a
+            // hit test miss.
+            var window = FindWindow ();
+
+            if (window is null)
+                return delta;
+
+            var desktop_ratio = window.DesktopScaling / window.Scaling;
+
+            return desktop_ratio is 0 or 1
+                ? delta
+                : new Point ((int)Math.Round (delta.X / desktop_ratio), (int)Math.Round (delta.Y / desktop_ratio));
         }
 
         /// <summary>Converts a Rectangle from client to screen coordinates.</summary>
@@ -62,6 +79,17 @@ namespace Majorsilence.Forms
             return new Rectangle (rect.X - origin.X, rect.Y - origin.Y, rect.Width, rect.Height);
         }
 
+        /// <summary>Raises the GotFocus event on behalf of another control.</summary>
+        /// <remarks>
+        /// WinForms provides this so a composite control can surface the focus events of a child it
+        /// wraps as its own -- a themed text box hosting a real text box, for instance.
+        /// </remarks>
+        protected void InvokeGotFocus (Control? toInvoke, EventArgs e) => toInvoke?.RaiseEnter ();
+
+        /// <summary>Raises the LostFocus event on behalf of another control.</summary>
+        /// <inheritdoc cref="InvokeGotFocus"/>
+        protected void InvokeLostFocus (Control? toInvoke, EventArgs e) => toInvoke?.RaiseLeave ();
+
         /// <summary>
         /// Sets the specified <see cref="ControlStyles"/> flag.
         /// </summary>
@@ -77,6 +105,24 @@ namespace Majorsilence.Forms
         /// Returns whether the specified <see cref="ControlStyles"/> flag is set.
         /// </summary>
         public bool GetStyle (ControlStyles flag) => (control_styles & flag) == flag;
+
+        /// <summary>
+        /// Notifies the control of Windows messages. Declared so a form that overrides it compiles;
+        /// never called, because there is no Win32 message pump here (the same documented non-goal as
+        /// WndProc and the IMessageFilter surface).
+        /// </summary>
+        protected virtual void OnNotifyMessage (Message m) { }
+
+        /// <summary>
+        /// Gets or sets whether the control redraws itself whenever it is resized. The named shorthand
+        /// for <see cref="ControlStyles.ResizeRedraw"/>, which is how a custom-painted control asks for
+        /// a full repaint instead of only the newly-exposed strip; owner-drawn controls set it in their
+        /// constructor, so it has to exist for them to compile.
+        /// </summary>
+        protected bool ResizeRedraw {
+            get => GetStyle (ControlStyles.ResizeRedraw);
+            set => SetStyle (ControlStyles.ResizeRedraw, value);
+        }
 
         /// <summary>
         /// Gets or sets the background image displayed in the control.
@@ -398,7 +444,7 @@ namespace Majorsilence.Forms
         public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Default;
 
         /// <summary>Gets or sets the ContextMenuStrip associated with this control (WinForms compat alias for ContextMenu).</summary>
-        public ContextMenuStrip? ContextMenuStrip {
+        public virtual ContextMenuStrip? ContextMenuStrip {
             get => ContextMenu as ContextMenuStrip;
             set => ContextMenu = value;
         }

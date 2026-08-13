@@ -1,5 +1,5 @@
 // Stays in Majorsilence.Forms rather than moving to Majorsilence.Forms.Drawing.Common with the rest of
-// the GDI+ layer: every member here is typed on Majorsilence.Forms.Graphics, which is itself pinned to
+// the GDI+ layer: every member here is typed on Majorsilence.Forms.Drawing.Graphics, which is itself pinned to
 // this assembly (Graphics.cs declares a partial of Control and calls Theme/TextMeasurer). Moving this
 // file would make Majorsilence.Forms.Drawing.Common depend on Majorsilence.Forms -- a circular reference.
 using System;
@@ -15,24 +15,24 @@ namespace Majorsilence.Forms.Drawing
     public sealed partial class BufferedGraphics : IDisposable
     {
         private readonly Bitmap buffer;
-        private readonly Majorsilence.Forms.Graphics? target;
+        private readonly Majorsilence.Forms.Drawing.Graphics? target;
         private bool disposed;
 
-        internal BufferedGraphics (Bitmap buffer, Majorsilence.Forms.Graphics? target)
+        internal BufferedGraphics (Bitmap buffer, Majorsilence.Forms.Drawing.Graphics? target)
         {
             this.buffer = buffer;
             this.target = target;
-            Graphics = Majorsilence.Forms.Graphics.FromImage (buffer);
+            Graphics = Majorsilence.Forms.Drawing.Graphics.FromImage (buffer);
         }
 
         /// <summary>Gets the <see cref="Graphics"/> that draws onto the offscreen buffer.</summary>
-        public Majorsilence.Forms.Graphics Graphics { get; }
+        public Majorsilence.Forms.Drawing.Graphics Graphics { get; }
 
         /// <summary>Writes the buffer to the target surface supplied when it was allocated.</summary>
         public void Render () => target?.DrawImage (buffer, 0, 0);
 
         /// <summary>Writes the buffer to the specified target surface.</summary>
-        public void Render (Majorsilence.Forms.Graphics targetGraphics) => targetGraphics?.DrawImage (buffer, 0, 0);
+        public void Render (Majorsilence.Forms.Drawing.Graphics targetGraphics) => targetGraphics?.DrawImage (buffer, 0, 0);
 
         /// <summary>Releases the buffer and its graphics.</summary>
         public void Dispose ()
@@ -56,7 +56,7 @@ namespace Majorsilence.Forms.Drawing
         public System.Drawing.Size MaximumBuffer { get; set; } = new (3000, 3000);
 
         /// <summary>Allocates a buffer of the given size for double-buffered drawing onto the target.</summary>
-        public BufferedGraphics Allocate (Majorsilence.Forms.Graphics targetGraphics, Rectangle targetRectangle)
+        public BufferedGraphics Allocate (Majorsilence.Forms.Drawing.Graphics targetGraphics, Rectangle targetRectangle)
         {
             var width = Math.Max (1, targetRectangle.Width);
             var height = Math.Max (1, targetRectangle.Height);

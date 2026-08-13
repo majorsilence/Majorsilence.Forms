@@ -505,4 +505,71 @@ public class StripHierarchyTests
 
         form.Close ();
     }
+
+    // --- One collection, both names ---------------------------------------------------------------
+
+    // System.Windows.Forms types every strip's Items as ToolStripItemCollection, so ported code declares
+    // helpers that way -- `void InvertIcons(ToolStripItemCollection items)` and the like. The menus here
+    // hand out a MenuItemCollection, and until these two types were joined there was no conversion
+    // between them, so every such call failed to compile.
+    [Fact]
+    public void A_menus_Items_satisfies_a_ToolStripItemCollection_parameter ()
+    {
+        using var menu = new ContextMenuStrip ();
+
+        static int Count (ToolStripItemCollection items) => items.Count;
+
+        menu.Items.Add (new ToolStripMenuItem ("One"));
+
+        Assert.Equal (1, Count (menu.Items));   // would not compile before
+    }
+
+    // The point of sharing the type rather than projecting between two: there is one storage, so an item
+    // added through either name is visible through the other. A copying facade would have missed this.
+    [Fact]
+    public void Both_names_see_the_same_storage ()
+    {
+        using var menu = new ContextMenuStrip ();
+
+        ToolStripItemCollection asStripItems = menu.Items;
+        MenuItemCollection asMenuItems = menu.Items;
+
+        asStripItems.Add (new ToolStripMenuItem ("added as a strip item"));
+        asMenuItems.Add (new ToolStripMenuItem ("added as a menu item"));
+
+        Assert.Equal (2, asStripItems.Count);
+        Assert.Equal (2, asMenuItems.Count);
+        Assert.Same (asStripItems, asMenuItems);
+    }
+
+    // The reason a live view over the collection could not work: these menus legitimately hold plain
+    // MenuItems and separators, which are not ToolStripItems and have no ToolStripItem to project to.
+    [Fact]
+    public void The_collection_holds_plain_menu_items_too ()
+    {
+        using var menu = new ContextMenuStrip ();
+
+        menu.Items.Add (new ToolStripMenuItem ("a strip item"));
+        menu.Items.Add ("a plain menu item");
+        menu.Items.Add (new MenuSeparatorItem ());
+
+        Assert.Equal (3, menu.Items.Count);
+        Assert.Single (menu.Items.OfType<ToolStripItem> ());
+    }
+
+    // Key lookup is a ToolStripItem concept (Name lives there), so a plain MenuItem must simply never
+    // match rather than throwing as the collection is walked.
+    [Fact]
+    public void Key_lookup_skips_items_that_have_no_name ()
+    {
+        using var menu = new ContextMenuStrip ();
+
+        menu.Items.Add ("a plain menu item");
+        menu.Items.Add (new ToolStripMenuItem ("Named") { Name = "target" });
+
+        Assert.True (menu.Items.ContainsKey ("target"));
+        Assert.Equal (1, menu.Items.IndexOfKey ("target"));
+        Assert.False (menu.Items.ContainsKey ("absent"));
+    }
+
 }

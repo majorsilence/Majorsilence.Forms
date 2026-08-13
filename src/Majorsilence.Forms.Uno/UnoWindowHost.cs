@@ -731,6 +731,12 @@ namespace Majorsilence.Forms.Uno
                 _window!.Activate ();
         }
 
+        /// <summary>
+        /// Whether Show() also activates. WinUI's Window.Activate is the only way to show a window here,
+        /// so a non-activating window is honoured by skipping the Activate call rather than by a flag.
+        /// </summary>
+        public bool ShowActivated { get; set; } = true;
+
         private void WireLifecycle ()
         {
             _window!.Activated += (_, e) => {

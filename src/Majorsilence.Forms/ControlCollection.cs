@@ -98,6 +98,13 @@ public partial class Control
             // MDI child gets, for the same reason -- the host owns the chrome, and here there is none.
             form.PrepareAsHostedChild ();
 
+            // If the form already put an OS window on screen, take it down: from here it is composited
+            // into the frame instead, and leaving the window up gives a stray empty duplicate beside the
+            // host. This is reachable whenever a caller shows a form before parenting it -- WinForms code
+            // sets Visible and Parent as separate steps and either order is normal there, because a
+            // WinForms Form assigned a Parent stops being a top-level window.
+            form.HideOwnWindowForHosting ();
+
             Add<Control> (frame);
         }
 
@@ -264,13 +271,23 @@ public partial class Control
         internal bool AnyNeedsPaint ()
         {
             for (var i = 0; i < control_list.Count; i++)
-                if (control_list[i].NeedsPaint) return true;
+                if (CountsForPaint (control_list[i])) return true;
 
             for (var i = 0; i < implicit_control_list.Count; i++)
-                if (implicit_control_list[i].NeedsPaint) return true;
+                if (CountsForPaint (implicit_control_list[i])) return true;
 
             return false;
         }
+
+        // Control.PaintChildren skips anything hidden or without area, so those controls never reach
+        // RaisePaint -- which is what clears their dirty flag. Counting them here meant a window with a
+        // hidden implicit child (the scrollbars, size grip and title bar every form carries) reported
+        // "needs paint" on every single frame and could never report anything else: the backend's
+        // 16ms render timer then repainted the whole window 60 times a second, forever, in every app.
+        // A control that is not drawn cannot need drawing; when it is shown again its dirty flag is
+        // still set, so it starts counting again on its own.
+        private static bool CountsForPaint (Control control)
+            => control.Visible && control.Width > 0 && control.Height > 0 && control.NeedsPaint;
 
         // Returns true if any control (explicit or implicit) has mouse capture.
         internal bool AnyCaptured ()

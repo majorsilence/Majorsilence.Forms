@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Majorsilence.Forms.Backends;
 using System.Drawing;
 using System.Linq;
@@ -23,8 +23,11 @@ namespace Majorsilence.Forms
 
     public partial class Control
     {
+        // Control.DefaultFont is SystemFonts.DefaultFont upstream, and the two have to agree: this is
+        // the font an unfonted control is laid out with, so building it at the theme's chrome size
+        // instead made text wider than the sizes designer files were generated against.
         private static readonly Lazy<Majorsilence.Forms.Drawing.Font> s_defaultFont =
-            new (() => new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.FontSize));
+            new (() => Majorsilence.Forms.SystemFonts.DefaultFont);
 
         /// <summary>Gets or sets the offset scrolled to when this control is scrolled into view.</summary>
         public virtual Point AutoScrollOffset { get; set; }
@@ -358,6 +361,21 @@ namespace Majorsilence.Forms
         private Color form_caption_back_color = Color.Empty;
         private Color form_caption_text_color = Color.Empty;
 
+        /// <summary>Runs the callback on the UI thread and returns a task that completes with it.</summary>
+        /// <remarks>Forwards to the root adapter's implementation, so the marshal and its cancellation
+        /// behaviour are identical to <see cref="Control.InvokeAsync(Action, CancellationToken)"/>.</remarks>
+        public Task InvokeAsync (Action callback, CancellationToken cancellationToken = default)
+            => adapter.InvokeAsync (callback, cancellationToken);
+
+        /// <inheritdoc cref="InvokeAsync(Action, CancellationToken)"/>
+        public Task<T> InvokeAsync<T> (Func<T> callback, CancellationToken cancellationToken = default)
+            => adapter.InvokeAsync (callback, cancellationToken);
+
+        /// <summary>Gets the form this window belongs to, which for a form is itself.</summary>
+        /// <remarks>Control.FindForm walks up until it reaches a Form; starting at one it returns
+        /// immediately. Declared here because Form does not derive from Control.</remarks>
+        public Form? FindForm () => this;
+
         /// <summary>Gets or sets whether the form supports per-pixel transparency.</summary>
         public bool AllowTransparency { get; set; }
 
@@ -417,10 +435,19 @@ namespace Majorsilence.Forms
                     return;
 
                 right_to_left_layout = value;
-                RightToLeftLayoutChanged?.Invoke (this, EventArgs.Empty);
+                OnRightToLeftLayoutChanged (EventArgs.Empty);
                 PerformLayout ();
             }
         }
+
+        /// <summary>Raises the <see cref="RightToLeftLayoutChanged"/> event.</summary>
+        /// <remarks>
+        /// The overridable is the point: a form that hosts controls with their own RightToLeftLayout
+        /// (a TreeView, a ListView) overrides this to push its new value down to them, which it cannot
+        /// do from the event alone without subscribing to itself.
+        /// </remarks>
+        protected virtual void OnRightToLeftLayoutChanged (EventArgs e)
+            => RightToLeftLayoutChanged?.Invoke (this, e);
 
         private bool right_to_left_layout;
 
@@ -444,7 +471,7 @@ namespace Majorsilence.Forms
 
             // WinForms measures a fixed reference string, so the ratio between two fonts is what the
             // caller ends up using; the absolute number only has to be consistent.
-            var typeface = TypefaceCache.Get (font.Name) ?? Theme.UIFont;
+            var typeface = TypefaceCache.Resolve (font);
             var size = TextMeasurer.MeasureText ("AaBbYyZz", typeface, (int)Math.Round (font.SizeInPoints));
             return new SizeF (size.Width / 8f, size.Height);
         }

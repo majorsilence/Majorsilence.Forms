@@ -48,6 +48,22 @@ jobs:
         if: runner.os == 'Windows'
         run: dotnet test --configuration Release --no-build
 
+      # HiDPI gate. MF_HEADLESS_SCALE makes the headless backend report a scaled display, so the
+      # logical->device conversions are actually exercised instead of being identity as they are at
+      # scale 1 -- which is how a coordinate bug can sit undetected until it meets a real HiDPI screen.
+      #
+      # Scoped, not the whole suite: at scale 2 roughly twenty tests still fail and one hangs (triage in
+      # BACKLOG.md). Running everything here would be a permanently red, permanently slow gate. This
+      # subset passes today, so it protects the scaling paths now; widen the filter as the rest is fixed.
+      - name: Test (HiDPI, simulated scale 2)
+        if: runner.os == 'Windows'
+        env:
+          MF_HEADLESS_SCALE: '2'
+        run: >-
+          dotnet test tests/Majorsilence.Forms.Tests/Majorsilence.Forms.Tests.csproj
+          --configuration Release --no-build
+          --filter "FullyQualifiedName~UiScaleTests|FullyQualifiedName~CursorPositionTracking|FullyQualifiedName~Dpi|FullyQualifiedName~Scal"
+
       # API gap gate. Compares both reimplemented surfaces -- Majorsilence.Forms.Drawing against
       # System.Drawing.Common, and Majorsilence.Forms against System.Windows.Forms -- and fails if
       # either gap set grew since its committed baseline. Reflection-only, so it runs anywhere despite

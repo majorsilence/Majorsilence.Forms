@@ -15,7 +15,7 @@ namespace Majorsilence.Forms.Drawing
     /// <para>
     /// It exists mainly because <c>TextRenderer</c>'s entire public surface is declared in terms of it
     /// upstream: <c>TextRenderer.DrawText (IDeviceContext, ...)</c>, not <c>(Graphics, ...)</c>. Code
-    /// that passes a <c>Majorsilence.Forms.Graphics</c> never names the interface, but code
+    /// that passes a <c>Majorsilence.Forms.Drawing.Graphics</c> never names the interface, but code
     /// that declares a helper taking one does, and that helper has to compile.
     /// </para>
     /// <para>

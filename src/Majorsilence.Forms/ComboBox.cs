@@ -8,7 +8,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a ComboBox control.
     /// </summary>
-    public partial class ComboBox : Control
+    public partial class ComboBox : ListControl
     {
         private PopupWindow? popup;
         private readonly ListBox popup_listbox;
@@ -123,10 +123,10 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets whether items are formatted before display (WinForms compatibility stub).
         /// </summary>
-        public bool FormattingEnabled { get; set; }
+        public override bool FormattingEnabled { get; set; }
 
         /// <summary>Gets or sets the data source for the ComboBox.</summary>
-        public object? DataSource {
+        public override object? DataSource {
             get => _dataSource;
             set {
                 _dataSource = value;
@@ -135,7 +135,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the property to display from the data source.</summary>
-        public string DisplayMember {
+        public override string DisplayMember {
             get => _displayMember;
             set {
                 _displayMember = value ?? string.Empty;
@@ -144,7 +144,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the property used as the value from the data source.</summary>
-        public string ValueMember {
+        public override string ValueMember {
             get => _valueMember;
             set => _valueMember = value ?? string.Empty;
         }
@@ -152,19 +152,28 @@ namespace Majorsilence.Forms
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
         private void RefreshDataSource ()
         {
-            if (_dataSource is not IList list)
+            var list = DataSourceBinding.AsList (_dataSource);
+
+            if (list is null)
                 return;
 
             Items.Clear ();
 
-            foreach (var item in list) {
-                if (!string.IsNullOrEmpty (_displayMember)) {
-                    var prop = item?.GetType ().GetProperty (_displayMember);
-                    Items.Add (prop?.GetValue (item)?.ToString () ?? item?.ToString () ?? string.Empty);
-                } else {
-                    Items.Add (item?.ToString () ?? string.Empty);
-                }
-            }
+            // The BOUND OBJECTS go in, not their display text: WinForms keeps the source items as the
+            // control's items (so SelectedItem is e.g. a DataRowView the caller can cast) and uses
+            // DisplayMember only when rendering, via GetItemText. Storing strings instead made
+            // SelectedItem a String and broke every cast in a SelectedIndexChanged handler.
+            foreach (var item in list)
+                Items.Add (item);
+
+            // Items live on the popup list, which renders them through its own GetItemText -- it needs
+            // the same DisplayMember or it would fall back to ToString on the bound object.
+            popup_listbox.DisplayMember = _displayMember;
+
+            // WinForms selects the first row when a non-empty source is bound; without this, code that
+            // binds a source and immediately reads/sets the selection sees an unselected control.
+            if (Items.Count > 0 && SelectedIndex < 0)
+                SelectedIndex = 0;
         }
 
         /// <summary>
@@ -223,7 +232,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnClick (EventArgs e)
         {
             base.OnClick (e);
 
@@ -299,16 +308,13 @@ namespace Majorsilence.Forms
             OnSelectedValueChanged (e);
         }
 
-        /// <summary>Raises the SelectedValueChanged event.</summary>
-        protected virtual void OnSelectedValueChanged (EventArgs e) => SelectedValueChanged?.Invoke (this, e);
-
         /// <summary>Raises the SelectionChangeCommitted event.</summary>
         protected virtual void OnSelectionChangeCommitted (EventArgs e) => SelectionChangeCommitted?.Invoke (this, e);
 
         /// <summary>
         /// Gets or sets the index of the currently selected item.  Returns -1 if no item is selected.
         /// </summary>
-        public int SelectedIndex {
+        public override int SelectedIndex {
             get => popup_listbox.SelectedIndex;
             set => popup_listbox.SelectedIndex = value;
         }
@@ -325,9 +331,6 @@ namespace Majorsilence.Forms
         /// Raised when the value of the SelectedIndex property changes.
         /// </summary>
         public event EventHandler? SelectedIndexChanged;
-
-        /// <summary>Raised when the SelectedValue property changes.</summary>
-        public event EventHandler? SelectedValueChanged;
 
         /// <summary>Gets or sets the width of the drop-down list. 0 means match control width.</summary>
         public int DropDownWidth { get; set; }
@@ -416,12 +419,14 @@ namespace Majorsilence.Forms
         public AutoCompleteStringCollection AutoCompleteCustomSource { get; set; } = new AutoCompleteStringCollection ();
 
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
-        private static object? GetPropValue (object? item, string prop) => item?.GetType ().GetProperty (prop)?.GetValue (item);
+        private static object? GetPropValue (object? item, string prop) => DataSourceBinding.MemberValue (item, prop);
 
         /// <summary>Gets or sets the selected value (uses ValueMember if set).</summary>
-        public object? SelectedValue {
+        public override object? SelectedValue {
             get {
-                if (SelectedIndex < 0 || DataSource is not System.Collections.IList list || SelectedIndex >= list.Count)
+                var list = DataSourceBinding.AsList (DataSource);
+
+                if (SelectedIndex < 0 || list is null || SelectedIndex >= list.Count)
                     return SelectedItem;
 
                 var item = list[SelectedIndex];
@@ -429,7 +434,9 @@ namespace Majorsilence.Forms
                 return string.IsNullOrEmpty (ValueMember) ? item : GetPropValue (item, ValueMember);
             }
             set {
-                if (DataSource is not System.Collections.IList list || value == null) {
+                var list = DataSourceBinding.AsList (DataSource);
+
+                if (list is null || value == null) {
                     SelectedItem = value;
                     return;
                 }
@@ -453,14 +460,10 @@ namespace Majorsilence.Forms
 
         /// <summary>Returns the display text for the given item, using DisplayMember if set.</summary>
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
-        public string GetItemText (object? item)
+        public override string GetItemText (object? item)
         {
-            if (item is null) return string.Empty;
-            if (!string.IsNullOrEmpty (DisplayMember)) {
-                var prop = item.GetType ().GetProperty (DisplayMember);
-                if (prop != null) return prop.GetValue (item)?.ToString () ?? string.Empty;
-            }
-            return item.ToString () ?? string.Empty;
+            // Property descriptors first so DataRowView columns resolve; see DataSourceBinding.
+            return DataSourceBinding.DisplayText (item, DisplayMember);
         }
 
         /// <summary>Finds the first item that exactly matches the given string (case-insensitive).</summary>

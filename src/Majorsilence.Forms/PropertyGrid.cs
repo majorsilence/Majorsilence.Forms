@@ -93,7 +93,7 @@ namespace Majorsilence.Forms
         public event EventHandler? SelectedObjectsChanged { add { } remove { } }
 
         /// <summary>Raised when a property value changes.</summary>
-        public event EventHandler? PropertyValueChanged { add { } remove { } }
+        public event PropertyValueChangedEventHandler? PropertyValueChanged { add { } remove { } }
 
         /// <summary>Gets the currently selected grid item. Stub in Majorsilence.Forms — always returns null (PropertyGrid has no per-row selection tracking yet).</summary>
         public GridItem? SelectedGridItem => null;

@@ -305,5 +305,14 @@ namespace Majorsilence.Forms
         /// hit-testing, and rendering by <see cref="Menu"/>/<see cref="MenuDropDown"/> (WinForms compat).
         /// </summary>
         public bool Visible { get; set; } = true;
+
+        /// <summary>Whether the item is displayed. WinForms alias of <see cref="Visible"/>.</summary>
+        /// <remarks>
+        /// ToolStripItem overrides this to raise AvailableChanged; here it is a plain alias.
+        /// </remarks>
+        public virtual bool Available {
+            get => Visible;
+            set => Visible = value;
+        }
     }
 }

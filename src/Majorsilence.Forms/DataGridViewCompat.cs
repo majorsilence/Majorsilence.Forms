@@ -678,7 +678,7 @@ namespace Majorsilence.Forms
         public DataGridViewCellMouseEventArgs (int columnIndex, int rowIndex, int localX, int localY, MouseEventArgs e)
             : base (columnIndex, rowIndex)
         {
-            X = localX; Y = localY; Button = e.Button; Clicks = e.Clicks; Delta = e.Delta.Y;
+            X = localX; Y = localY; Button = e.Button; Clicks = e.Clicks; Delta = e.Delta;
         }
 
         /// <summary>Gets the x-coordinate of the mouse relative to the cell.</summary>

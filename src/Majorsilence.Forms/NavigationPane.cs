@@ -43,9 +43,9 @@ public class NavigationPane : Control
     }
 
     /// <inheritdoc/>
-    protected override void OnClick (MouseEventArgs e)
+    protected override void OnMouseClick (MouseEventArgs e)
     {
-        base.OnClick (e);
+        base.OnMouseClick (e);
 
         var clicked_item = GetItemAtLocation (e.Location);
 

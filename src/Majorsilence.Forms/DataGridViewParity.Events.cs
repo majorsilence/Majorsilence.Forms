@@ -41,7 +41,7 @@ namespace Majorsilence.Forms
 
         internal static int Y (HandledMouseEventArgs e) => Require (e).Y;
 
-        internal static int Delta (HandledMouseEventArgs e) => Require (e).Delta.Y;
+        internal static int Delta (HandledMouseEventArgs e) => Require (e).Delta;
 
         internal static bool Handled (HandledMouseEventArgs e) => Require (e).Handled;
 

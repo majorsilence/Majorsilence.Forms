@@ -45,9 +45,9 @@ namespace Majorsilence.Forms
         private RibbonTabPage? GetPageFromTab (TabStripItem? item) => TabPages.FirstOrDefault (p => p.TabStripItem == item);
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnMouseClick (MouseEventArgs e)
         {
-            base.OnClick (e);
+            base.OnMouseClick (e);
 
             var clicked_item = GetItemAtLocation (e.Location);
             clicked_item?.OnClick (e);

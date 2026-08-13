@@ -244,11 +244,17 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void SelectedItem_SetNotInList_ThrowsArgumentException ()
+        public void SelectedItem_SetNotInList_LeavesSelectionUnchanged ()
         {
             using var control = CreateWithItems (5);
+            control.SelectedIndex = 2;
 
-            Assert.Throws<ArgumentException> (() => control.SelectedItem = "missing");
+            // See ListBoxTests: not-found is ignored upstream, not an error. Throwing here crashed
+            // PKHeX's editor during InitializeComponent, where a combo's SelectedValue is assigned
+            // before its items exist.
+            control.SelectedItem = "missing";
+
+            Assert.Equal (2, control.SelectedIndex);
         }
 
         [Fact]

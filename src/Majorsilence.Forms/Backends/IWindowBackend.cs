@@ -35,6 +35,12 @@ namespace Majorsilence.Forms.Backends
         void Close ();
         /// <summary>Brings the window to the front and activates it.</summary>
         void Activate ();
+        /// <summary>
+        /// Gets or sets whether <see cref="Show"/> also activates the window. Set false for an overlay
+        /// that must appear without taking focus from the window the user is working in — a drag
+        /// preview, a translucent highlight, a notification. Must be set before <see cref="Show"/>.
+        /// </summary>
+        bool ShowActivated { get; set; }
 
         // ── Appearance / behaviour ───────────────────────────────────────────────
         /// <summary>Sets the window title.</summary>

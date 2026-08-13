@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Majorsilence.Forms.Backends;
 
 namespace Majorsilence.Forms.Headless
@@ -42,17 +42,26 @@ namespace Majorsilence.Forms.Headless
 
         // ── Input injection (drives the same neutral input path a real backend uses) ──
 
-        /// <summary>Sends a pointer-moved event (client coordinates) to the window.</summary>
+        // The coordinates below are LOGICAL client coordinates -- the same units a caller reads off
+        // Control.Bounds, which is what makes "click the centre of that button" expressible. The window's
+        // pointer handlers take device pixels (a real backend multiplies by its render scaling before
+        // calling them), so convert here. At scaling 1 this is identity, which is why passing them
+        // straight through worked until a scaled display was simulated: every injected click then landed
+        // at 1/scale of its intended position and hit whatever was there instead.
+        private static int ToDevice (WindowBase window, int logical)
+            => (int)System.Math.Round (logical * window.Scaling);
+
+        /// <summary>Sends a pointer-moved event (logical client coordinates) to the window.</summary>
         public static void MouseMove (WindowBase window, int x, int y, MouseButtons buttons = MouseButtons.None)
-            => window.HandlePointerMoved (buttons, x, y, Keys.None);
+            => window.HandlePointerMoved (buttons, ToDevice (window, x), ToDevice (window, y), Keys.None);
 
-        /// <summary>Sends a pointer-pressed event (client coordinates) to the window.</summary>
+        /// <summary>Sends a pointer-pressed event (logical client coordinates) to the window.</summary>
         public static void MouseDown (WindowBase window, int x, int y, MouseButtons button = MouseButtons.Left)
-            => window.HandlePointerPressed (button, x, y, Keys.None);
+            => window.HandlePointerPressed (button, ToDevice (window, x), ToDevice (window, y), Keys.None);
 
-        /// <summary>Sends a pointer-released event (client coordinates) to the window.</summary>
+        /// <summary>Sends a pointer-released event (logical client coordinates) to the window.</summary>
         public static void MouseUp (WindowBase window, int x, int y, MouseButtons button = MouseButtons.Left)
-            => window.HandlePointerReleased (button, x, y, Keys.None);
+            => window.HandlePointerReleased (button, ToDevice (window, x), ToDevice (window, y), Keys.None);
 
         /// <summary>Sends a full click (move → down → up) at the given client coordinates.</summary>
         public static void Click (WindowBase window, int x, int y, MouseButtons button = MouseButtons.Left)

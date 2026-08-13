@@ -9,6 +9,10 @@ namespace Majorsilence.Forms
     {
         private readonly TabStrip tab_strip;
 
+        // Exposed so the WinForms-shaped TabPageCollection (TabControl) constructor can bind to the
+        // strip this control already owns instead of creating a second one.
+        internal TabStrip TabStrip => tab_strip;
+
         /// <summary>
         /// Initializes a new instance of the TabControl class.
         /// </summary>
@@ -19,6 +23,14 @@ namespace Majorsilence.Forms
             });
 
             tab_strip.SelectedTabChanged += TabStrip_SelectedTabChanged;
+
+            // In WinForms the tab headers are part of the TabControl itself, so clicking one raises
+            // TabControl.Click. Here the headers live in an implicit child strip, which would otherwise
+            // swallow the click: the strip receives it and the TabControl never hears about it.
+            // Migrated code routinely hangs work off `Handles someTab.Click` (loading a tab's grid on
+            // demand is the common shape), and that work simply never ran.
+            tab_strip.Click += (_, e) => OnClick (e);
+            tab_strip.MouseClick += (_, e) => OnMouseClick (e);
 
             TabPages = new TabPageCollection (this, tab_strip);
         }

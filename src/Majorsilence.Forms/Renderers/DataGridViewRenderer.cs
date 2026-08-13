@@ -116,6 +116,23 @@ namespace Majorsilence.Forms.Renderers
             // Draw sort indicator
             if (column.SortOrder != SortOrder.None)
                 RenderSortGlyph (e, bounds, column.SortOrder, fg);
+
+            // Hand the header cell its turn. WinForms grids put custom header rendering in
+            // DataGridViewCell.Paint, and a subclass overriding it is otherwise never reached -- this
+            // library's own extension point is the renderer, which ported code does not know about.
+            // The default drawing above has already happened, so an override overlays it.
+            column.HeaderCell?.Paint (
+                e.Graphics,
+                e.ClipRectangle,
+                bounds,
+                -1,                                   // -1 is WinForms' row index for a column header
+                DataGridViewElementStates.Visible,
+                column.HeaderText,
+                column.HeaderText,
+                errorText: null,
+                column.HeaderCell.InheritedStyle,
+                new DataGridViewAdvancedBorderStyle (),
+                DataGridViewPaintParts.All);
         }
 
         /// <summary>
@@ -457,7 +474,9 @@ namespace Majorsilence.Forms.Renderers
             var font_size = cellStyle?.FontSize ?? control.DefaultCellStyle.FontSize ?? Theme.ItemFontSize;
             var scaled_font = control.LogicalToDeviceUnits (font_size);
 
-            if (column is DataGridViewCheckBoxColumn || column.DisplaysAsCheckBox) {
+            if (column is DataGridViewImageColumn image_col) {
+                RenderImageCell (control, image_col, rowIndex, columnIndex, bounds, e);
+            } else if (column is DataGridViewCheckBoxColumn || column.DisplaysAsCheckBox) {
                 RenderCheckBoxCell (e, bounds, value);
             } else if (column is DataGridViewButtonColumn btn_col) {
                 var btn_text = btn_col.UseColumnTextForButtonValue ? btn_col.HeaderText : value;
@@ -513,6 +532,52 @@ namespace Majorsilence.Forms.Renderers
 
         /// <summary>Device-pixel right inset applied to a header's text, leaving room for glyphs a subclass draws at the header's right (sort/filter). Default 0.</summary>
         protected virtual int HeaderRightInset (DataGridView control, DataGridViewColumn column) => 0;
+
+        /// <summary>
+        /// Draws the cell's image, scaled to fit inside the cell and centred, preserving aspect ratio.
+        /// </summary>
+        /// <remarks>
+        /// Reads the raw cell value rather than the formatted string the other branches use -- an image
+        /// has no useful text form, which is exactly why a bound image column used to render as its type
+        /// name. Falls back to the column's own Image so a column with a fixed icon still draws.
+        /// </remarks>
+        protected virtual void RenderImageCell (DataGridView control, DataGridViewImageColumn column,
+            int rowIndex, int columnIndex, Rectangle bounds, PaintEventArgs e)
+        {
+            ArgumentNullException.ThrowIfNull (control);
+            ArgumentNullException.ThrowIfNull (column);
+            ArgumentNullException.ThrowIfNull (e);
+
+            object? raw = null;
+
+            if (rowIndex >= 0 && rowIndex < control.Rows.Count) {
+                var cells = control.Rows[rowIndex].Cells;
+                if (columnIndex >= 0 && columnIndex < cells.Count)
+                    raw = cells[columnIndex].Value;
+            }
+
+            var image = raw as Majorsilence.Forms.Drawing.Image ?? column.Image;
+            var bitmap = image?.GetSKBitmap ();
+
+            if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
+                return;
+
+            var box = bounds;
+            box.Inflate (-2, -2);
+
+            if (box.Width <= 0 || box.Height <= 0)
+                return;
+
+            // Scale down to fit, but never up -- a 24px icon in a tall row should stay 24px rather than
+            // being blown up and blurred.
+            var scale = Math.Min (1.0, Math.Min ((double)box.Width / bitmap.Width, (double)box.Height / bitmap.Height));
+            var w = (int)Math.Round (bitmap.Width * scale);
+            var h = (int)Math.Round (bitmap.Height * scale);
+
+            e.Canvas.DrawBitmap (bitmap,
+                new Rectangle (box.Left + ((box.Width - w) / 2), box.Top + ((box.Height - h) / 2), w, h),
+                disabled: !control.Enabled);
+        }
 
         private static void RenderCheckBoxCell (PaintEventArgs e, Rectangle bounds, string value)
         {

@@ -118,6 +118,59 @@ namespace Majorsilence.Forms
         /// <summary>Raises the ValueChanged event.</summary>
         protected virtual void OnValueChanged (EventArgs e) => ValueChanged?.Invoke (this, e);
 
+        /// <summary>Gets or sets the border drawn around the control. Declared here because
+        /// System.Windows.Forms puts it on UpDownBase, which this control does not derive from.</summary>
+        public BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (border_style == value)
+                    return;
+
+                border_style = value;
+                Style.Border.Width = value == BorderStyle.None ? 0 : 1;
+                PerformLayout ();
+                Invalidate ();
+            }
+        }
+
+        private BorderStyle border_style = BorderStyle.Fixed3D;
+
+        // System.Windows.Forms declares these on UpDownBase, which this control cannot derive from here
+        // (it is a Control, painting its own edit area rather than hosting a child TextBox). A themed
+        // subclass overrides them to repaint when the edit area gains or loses focus, so they have to
+        // exist and be raised, or the subclass simply fails to compile. `source` is the edit surface --
+        // this control itself, since there is no separate TextBox to hand back.
+
+        /// <summary>Raises the equivalent of UpDownBase's TextBox GotFocus notification.</summary>
+        protected virtual void OnTextBoxGotFocus (object source, EventArgs e) { }
+
+        /// <summary>Raises the equivalent of UpDownBase's TextBox LostFocus notification.</summary>
+        protected virtual void OnTextBoxLostFocus (object source, EventArgs e) { }
+
+        /// <summary>Raises the equivalent of UpDownBase's TextBox TextChanged notification.</summary>
+        protected virtual void OnTextBoxTextChanged (object source, EventArgs e) { }
+
+        /// <inheritdoc/>
+        protected override void OnGotFocus (EventArgs e)
+        {
+            base.OnGotFocus (e);
+            OnTextBoxGotFocus (this, e);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnLostFocus (EventArgs e)
+        {
+            base.OnLostFocus (e);
+            OnTextBoxLostFocus (this, e);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnTextChanged (EventArgs e)
+        {
+            base.OnTextChanged (e);
+            OnTextBoxTextChanged (this, e);
+        }
+
         /// <summary>Increments the value by the amount of the Increment property.</summary>
         public void UpButton ()
         {
@@ -167,14 +220,14 @@ namespace Majorsilence.Forms
             (style) => style.Border.Width = 1);
 
         /// <inheritdoc/>
-        protected override void OnClick (MouseEventArgs e)
+        protected override void OnMouseClick (MouseEventArgs e)
         {
             if (GetIncrementArea ().Contains (e.Location))
                 Value = Math.Min (Value + 1, Maximum);
             else if (GetDecrementArea ().Contains (e.Location))
                 Value = Math.Max (Value - 1, Minimum);
 
-            base.OnClick (e);
+            base.OnMouseClick (e);
         }
 
         /// <inheritdoc/>

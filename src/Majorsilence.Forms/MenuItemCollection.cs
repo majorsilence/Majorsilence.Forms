@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using SkiaSharp;
 
 namespace Majorsilence.Forms
@@ -6,7 +6,15 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a collection of MenuItems.
     /// </summary>
-    public class MenuItemCollection : Collection<MenuItem>
+    /// <remarks>
+    /// Derives from <see cref="ToolStripItemCollection"/> so a menu's one collection carries both names.
+    /// System.Windows.Forms types every strip's <c>Items</c> as ToolStripItemCollection, and ported code
+    /// passes it to helpers declared that way; before this, the menu handed out a MenuItemCollection and
+    /// no conversion existed. Sharing the type rather than projecting between two is what keeps a single
+    /// storage: a facade that copied would miss items added through the other name, and a view could not
+    /// represent the plain MenuItems these collections legitimately hold.
+    /// </remarks>
+    public class MenuItemCollection : ToolStripItemCollection
     {
         private readonly MenuItem owner;
 
@@ -59,8 +67,11 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Adds a new MenuItem to the collection with the specified text, image, and Click handler.
         /// </summary>
+        /// <remarks>Deliberately hides <see cref="ToolStripItemCollection.Add(string, Majorsilence.Forms.Drawing.Image, EventHandler)"/>:
+        /// that overload builds a <c>ToolStripButton</c>, which is a toolbar concept. Adding text and an
+        /// image to a <em>menu</em> should produce a menu item, so this collection keeps its own.</remarks>
 #pragma warning disable CA1416
-        public MenuItem Add (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler? onClick = null)
+        public new MenuItem Add (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler? onClick = null)
         {
             var item = new MenuItem (text, (SKBitmap?)null, onClick);
             item.Image = image;

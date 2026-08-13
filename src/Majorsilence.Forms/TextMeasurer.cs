@@ -9,6 +9,14 @@ namespace Majorsilence.Forms
     /// </summary>
     public static class TextMeasurer
     {
+        // Every TextBlock in the library is created here (TextBoxDocument included), and a TextBlock
+        // resolves its family name through FontMapper.Default at layout time. Installing from here
+        // rather than relying on Theme's static constructor is what makes that dependable: Theme is
+        // not otherwise touched on a pure measuring path, so a caller that measured text before
+        // anything read a theme value silently got RichTextKit's built-in mapper -- losing both the
+        // typeface cache this exists for and PrivateFontCollection resolution.
+        static TextMeasurer () => CachingFontMapper.Install ();
+
         // All parameters that uniquely determine a TextBlock's content and layout.
         private readonly record struct TextBlockKey (
             string Text,

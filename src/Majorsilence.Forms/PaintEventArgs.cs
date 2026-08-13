@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using SkiaSharp;
 
 namespace Majorsilence.Forms
@@ -16,6 +16,21 @@ namespace Majorsilence.Forms
             Info = info;
             Canvas = canvas;
             Scaling = scaling;
+        }
+
+        /// <summary>
+        /// Initializes a new instance from a graphics surface and a clip rectangle, the shape
+        /// System.Windows.Forms uses. Ported code builds one of these to raise its own Paint event --
+        /// a control forwarding painting to a handler, or a renderer invoked outside a paint cycle.
+        /// </summary>
+        public PaintEventArgs (Graphics graphics, System.Drawing.Rectangle clipRect)
+        {
+            ArgumentNullException.ThrowIfNull (graphics);
+
+            _graphics = graphics;
+            Canvas = graphics.Canvas!;
+            Info = new SKImageInfo (Math.Max (clipRect.Width, 0), Math.Max (clipRect.Height, 0));
+            Scaling = 1.0;
         }
 
         private Graphics? _graphics;

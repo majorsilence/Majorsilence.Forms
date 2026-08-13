@@ -134,3 +134,29 @@ This project is an AI-enhanced fork of Modern Forms (Original Repository: [https
   - Multi-Platform Expansion: Implemented native support for WebAssembly (WASM), Android, and iOS, extending reach beyond desktop environments.
   - Host Rebasement: Successfully rebased the underlying OS hosts on Avalonia and Uno Platform, leveraging their robust rendering engines and platform interop layers for superior performance and stability.
 3. Human Verification: All AI-generated adaptations, particularly the complex host rebasing and platform-specific implementations, have been manually reviewed, tested, and integrated to ensure architectural integrity.
+
+## Migrated Project Examples
+
+Majorsilence projects that are migrating to majorsilence.forms.
+
+- https://github.com/majorsilence/MPlayercontrol
+- https://github.com/majorsilence/Reporting/tree/feature/modernization-roadmap
+
+
+A list of projects that have been forked to exercise majorsilence.forms winforms compatibility and migrator.
+
+- https://github.com/majorsilence/AT-NetCore-NotepadPlusPlus 
+- https://github.com/majorsilence/DarkUI
+- https://github.com/majorsilence/PKHeX
+- https://github.com/majorsilence/Calculator
+- https://github.com/majorsilence/metroframework-modern-ui
+- https://github.com/majorsilence/GymcimDesktopFormApp
+- https://github.com/majorsilence/HealthCare-Plus
+- https://github.com/majorsilence/WindowsUI
+- https://github.com/majorsilence/ArdeshirV.Forms
+- https://github.com/majorsilence/KaomojiKeyboard
+- https://github.com/majorsilence/C-Flappy-Bird-Game-Windows-Form
+- https://github.com/majorsilence/RibbonWinForms
+- https://github.com/majorsilence/SuperMarioBros-CSharp-Remake
+- https://github.com/majorsilence/advanceddatagridview
+

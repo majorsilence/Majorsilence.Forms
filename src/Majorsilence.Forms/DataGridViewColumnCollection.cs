@@ -7,6 +7,15 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class DataGridViewColumnCollection : Collection<DataGridViewColumn>
     {
+        /// <summary>Adds a column and returns its index.</summary>
+        /// <remarks>System.Windows.Forms returns the new column's index here, and callers use it to
+        /// address the cell they just created; Collection&lt;T&gt;.Add returns void, so this hides it.</remarks>
+        public new int Add (DataGridViewColumn column)
+        {
+            base.Add (column);
+            return Count - 1;
+        }
+
         /// <summary>Moves a column to a new display position. Mirrors Telerik's Columns.Move.</summary>
         public void Move (int fromIndex, int toIndex)
         {
@@ -128,11 +137,15 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void ClearItems ()
         {
+            var removedColumns = System.Linq.Enumerable.ToArray (this);
             foreach (var column in this)
                 column.SetOwner (null);
 
             base.ClearItems ();
             owner.OnColumnsChanged ();
+
+            foreach (var column in removedColumns)
+                owner.RaiseColumnRemoved (column);
         }
 
         /// <inheritdoc/>
@@ -141,14 +154,20 @@ namespace Majorsilence.Forms
             item.SetOwner (owner);
             base.InsertItem (index, item);
             owner.OnColumnsChanged ();
+
+            // OnColumnsChanged is the internal relayout notification; this is the public WinForms
+            // event, which derived grids override to decorate the new column.
+            owner.RaiseColumnAdded (item);
         }
 
         /// <inheritdoc/>
         protected override void RemoveItem (int index)
         {
+            var removedColumn = this[index];
             this[index].SetOwner (null);
             base.RemoveItem (index);
             owner.OnColumnsChanged ();
+            owner.RaiseColumnRemoved (removedColumn);
         }
 
         /// <inheritdoc/>

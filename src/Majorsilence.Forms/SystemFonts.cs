@@ -9,11 +9,21 @@ namespace Majorsilence.Forms
     /// </summary>
     public static class SystemFonts
     {
-        // Builds a font from the active theme so values track the UI font / size. The caller's own
-        // property name is stamped on as SystemFontName, which is what makes Font.IsSystemFont a real
-        // answer rather than a hardcoded false.
+        // Every one of these is a WinForms UI font, and on Windows they are all about 9pt -- the shell
+        // uses one size for menus, captions, status bars and message boxes alike. They used to be built
+        // at Theme.FontSize, which is the Avalonia chrome size (14 on Windows and macOS): more than half
+        // again as large. That is the same mismatch DefaultFont is commented for below, and it lands on
+        // any control assigned a system font -- RibbonWinForms sets Font = SystemFonts.CaptionFont, and
+        // its panel and button text overflowed the slots the ribbon had measured for it.
+        //
+        // The family still tracks the theme, so the text matches the rest of the UI; only the size is
+        // pinned to what WinForms code was laid out against.
+        private const float SystemFontSize = 9f;
+
+        // The caller's own property name is stamped on as SystemFontName, which is what makes
+        // Font.IsSystemFont a real answer rather than a hardcoded false.
         private static Majorsilence.Forms.Drawing.Font Create ([System.Runtime.CompilerServices.CallerMemberName] string systemFontName = "")
-            => new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.FontSize) { SystemFontName = systemFontName };
+            => new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, SystemFontSize) { SystemFontName = systemFontName };
 
         // DefaultFont is the ambient fallback every unfonted Control.Font resolves to (see
         // Control.Font's getter). Real System.Windows.Forms.SystemFonts.DefaultFont is
@@ -31,9 +41,20 @@ namespace Majorsilence.Forms
                 ? "Microsoft Sans Serif"
                 : "sans-serif";
 
+        // Set by Application.SetDefaultFont. WinForms lets an app replace the ambient default that
+        // every unfonted control inherits; null means "use the classic platform default below".
+        private static Majorsilence.Forms.Drawing.Font? _defaultFontOverride;
+
         /// <summary>Gets the default font of the system.</summary>
         public static Majorsilence.Forms.Drawing.Font DefaultFont =>
-            new Majorsilence.Forms.Drawing.Font (_defaultFontFamily, 8.25f) { SystemFontName = nameof (DefaultFont) };
+            _defaultFontOverride
+            ?? new Majorsilence.Forms.Drawing.Font (_defaultFontFamily, 8.25f) { SystemFontName = nameof (DefaultFont) };
+
+        /// <summary>
+        /// Replaces the ambient default font, or restores the platform default when passed null.
+        /// </summary>
+        internal static void SetDefaultFont (Majorsilence.Forms.Drawing.Font? font)
+            => _defaultFontOverride = font;
 
         /// <summary>Gets the dialog box font.</summary>
         public static Majorsilence.Forms.Drawing.Font DialogFont => Create ();
