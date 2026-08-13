@@ -139,25 +139,33 @@ public class SourceConverterTests
         Assert.Contains (result.Warnings, w => w.Contains ("ApplicationConfiguration.Initialize"));
     }
 
+    // Was "warns and leaves alone", from when there was no compat VisualStyles namespace to point at.
+    // Majorsilence.Forms.VisualStyles now exists (ScrollBarState, CheckBoxState, RadioButtonState and
+    // friends), so rewriting is strictly better than leaving it: mapped types work, and an unmapped one
+    // fails to compile visibly instead of resolving to a namespace that does not exist off Windows.
     [Fact]
-    public void Warns_on_unsupported_VisualStyles_namespace ()
+    public void VisualStyles_namespace_is_rewritten_to_the_compat_one ()
     {
         var result = SourceConverter.Convert ("using System.Windows.Forms.VisualStyles;\nusing System.Windows.Forms.Button;");
-        Assert.Contains ("System.Windows.Forms.VisualStyles", result.Text); // left as-is
-        Assert.Contains (result.Warnings, w => w.Contains ("VisualStyles"));
+
+        Assert.Contains ("Majorsilence.Forms.VisualStyles", result.Text);
+        Assert.DoesNotContain ("System.Windows.Forms.VisualStyles", result.Text);
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("VisualStyles"));
+
         Assert.Contains ("Majorsilence.Forms.Button", result.Text); // the generalized guard still rewrites the rest
         Assert.DoesNotContain ("System.Windows.Forms.Button", result.Text);
     }
 
     [Fact]
-    public void Unsupported_subnamespace_warns_once_not_as_a_leaf_type ()
+    public void Unsupported_subnamespace_is_not_reported_as_a_leaf_type ()
     {
-        // System.Drawing.Design is a namespace, not a type — it must not also be reported as a missing
-        // "System.Drawing.Design" leaf type by the drawing-type pass.
+        // System.Drawing.Design is a namespace, not a type — the drawing-type pass must not report it as
+        // a missing "System.Drawing.Design" leaf type. It now maps onto Majorsilence.Forms.Design
+        // (UITypeEditor, CollectionEditor, the designer bases), so there is nothing left to warn about
+        // either; what this still guards is that the namespace is never mistaken for a type.
         var result = SourceConverter.Convert ("System.Drawing.Design.UITypeEditor e;");
-        var hits = result.Warnings.Count (w => w.Contains ("System.Drawing.Design"));
-        Assert.Equal (1, hits); // exactly one — was two before the dedup fix
-        // The lone warning is the namespace one, not the misleading "leaf type" form.
+
+        Assert.Contains ("Majorsilence.Forms.Design.UITypeEditor", result.Text);
         Assert.DoesNotContain (result.Warnings, w => w.StartsWith ("'System.Drawing.Design' has no", System.StringComparison.Ordinal));
     }
 

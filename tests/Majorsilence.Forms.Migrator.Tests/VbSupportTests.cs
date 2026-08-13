@@ -1,4 +1,4 @@
-using Xunit;
+﻿using Xunit;
 
 namespace Majorsilence.Forms.Migrator.Tests;
 
@@ -345,11 +345,17 @@ public class VbSupportTests
         Assert.DoesNotContain (result.Warnings, w => w.Contains ("System.ComponentModel.Design"));
     }
 
+    // Was "still flagged", from when the whole namespace was treated as unavailable. It is in-box on
+    // .NET -- IDesigner, IDesignerHost, DesignerVerb and the rest resolve on every platform, and
+    // Majorsilence.Forms.Design itself compiles against them -- so it is neither rewritten nor warned
+    // about. (The migrator used to remap the prefix, which hid the in-box IDesignerHost from consumers.)
     [Fact]
-    public void Other_ComponentModel_Design_type_is_still_flagged ()
+    public void ComponentModel_Design_is_left_alone_because_it_is_in_box ()
     {
         var src = "Dim d As System.ComponentModel.Design.IDesigner";
         var result = SourceConverter.Convert (src, language: SourceLanguage.VisualBasic);
-        Assert.Contains (result.Warnings, w => w.Contains ("System.ComponentModel.Design"));
+
+        Assert.Contains ("System.ComponentModel.Design.IDesigner", result.Text);
+        Assert.DoesNotContain (result.Warnings, w => w.Contains ("System.ComponentModel.Design"));
     }
 }
