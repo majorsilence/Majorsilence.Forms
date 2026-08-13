@@ -90,6 +90,25 @@ namespace Majorsilence.Forms
         internal MenuItemCollection RootItems => root_item.Items;
 
         /// <summary>
+        /// The client area in LOGICAL units, for laying items out.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="Control.ClientRectangle"/> is device-scaled while item Bounds are logical, so
+        /// laying out directly into it stored device-sized geometry in logical fields: at scaling 2 a
+        /// 28px menu bar produced 56px-tall items that then reported as spilling out of the bar they
+        /// were laid into. Identity at scaling 1. (The wider mismatch between ClientRectangle's units
+        /// and Bounds' is tracked in BACKLOG.md -- 81 call sites, so not something to flip in passing.)
+        /// </remarks>
+        protected Rectangle LogicalClientRectangle {
+            get {
+                var r = ClientRectangle;
+                return new Rectangle (
+                    DeviceToLogicalUnits (r.X), DeviceToLogicalUnits (r.Y),
+                    DeviceToLogicalUnits (r.Width), DeviceToLogicalUnits (r.Height));
+            }
+        }
+
+        /// <summary>
         /// Lays out the child menu items.
         /// </summary>
         protected abstract void LayoutItems ();

@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Drawing;
 
 namespace Majorsilence.Forms.Telerik
@@ -343,8 +343,11 @@ namespace Majorsilence.Forms.Telerik
             Invalidate ();
         }
 
+        // Logical: tab Bounds are logical and TabAt hit-tests them against logical MouseEventArgs
+        // coordinates, but ClientRectangle is device-scaled -- laying out into it directly made every
+        // tab scale-times too wide, so a drag aimed at the third tab landed on the first.
         private void LayoutTabsNow () =>
-            StackLayoutEngine.HorizontalExpand.Layout (ClientRectangle, Tabs.Cast<ILayoutable> ());
+            StackLayoutEngine.HorizontalExpand.Layout (DockStrip.LogicalClient (this), Tabs.Cast<ILayoutable> ());
 
         private void SyncSelectionFromOwner ()
         {

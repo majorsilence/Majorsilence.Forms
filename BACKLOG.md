@@ -1,26 +1,35 @@
 ﻿# Backlog
 
-## HiDPI: the full suite does not pass at simulated scale 2
+## HiDPI
 
-`MF_HEADLESS_SCALE=2` makes the headless backend report a scaled display. CI runs a scaling-focused
-subset at that scale (see `.github/workflows/dotnet.yml`); the **whole** suite does not pass there yet,
-which is why the gate is scoped rather than blanket.
+Covered in CI: the full suite runs under `MF_HEADLESS_SCALE=2` and passes
+(`.github/workflows/dotnet.yml`). Nothing outstanding here -- kept as a note on what the failures
+turned out to be, because the same mistake is easy to reintroduce.
 
-State as of this triage, after fixing the headless input contract (`HeadlessRenderer`'s coordinates are
-logical and are now converted to device pixels before injection -- previously passed straight through,
-so at scale 2 every injected click landed at half its intended position):
+The suite went from 22 failures at scale 2 to none. Almost all of it was **one confusion: logical versus
+device units**. `Bounds`, `MouseEventArgs` and `GetTabRect` are logical; `ClientRectangle`, back buffers
+and captured bitmaps are device pixels. The two are identical at scaling 1, so mixing them is invisible
+until a scaled display shows up -- and it was mixed in six places:
 
-| Cluster | Examples | Notes |
-|---|---|---|
-| Hit-testing under scale | `A_full_click_lands_on_the_clicked_tab`, `Second_row_tab_is_hit_testable`, `A_disabled_tab_header_is_not_selected`, `MenuStrip_LaysItemsOutLeftToRightAcrossTheBar` | These pass **logical** coordinates computed from `GetTabRect`/`Bounds`, so the injection is now correct and the failure is downstream: the library's own hit-testing does not agree with its layout at scale != 1. Most likely a real defect a HiDPI user would hit. |
-| Painting / capture | `ChildIsPainted_WhetherOrNotOverrideChainsToBase`, `ChildPaintsAboveParentsOwnDrawing`, `PaintEvent_DoesNotSuppressChildControls`, `RendersFormToPng_AtRequestedSize` | Capture size vs scale; needs deciding whether `CapturePng`'s width/height are logical or device. |
-| Text metrics | `Designer_sized_radio_text_is_not_clipped`, `Single_line_text_is_centred_vertically`, `DropDownList_TooShortForFont_KeepsCapsInsteadOfSlicingTop`, `Overflowing_headers_wrap_into_multiple_rows` | Some are genuine scale bugs; some assert scale-1 pixel geometry by construction and should assert proportionally instead. |
-| A hang | one test does not return at scale 2 | Not yet identified. Blocks running the full suite at scale 2 at all, so it is the first thing to find. |
+| Where | What it did |
+|---|---|
+| Input routing | Child lookup and per-control translation ran in device space, so `MouseEventArgs` reached controls in device pixels and hit tests against logical rectangles missed. |
+| `HeadlessRenderer` / `AutomationSession` | Injected logical coordinates straight into handlers that take device pixels, so every synthetic click landed at 1/scale of its target. |
+| Renderer preferred sizes | Measured text at the device font size and returned the result as a logical size, so strip items came out scale-times too wide. |
+| `TabStrip` / dock layout | Laid children out into the device `ClientRectangle` and stored the result in logical `Bounds` -- compounding once per nesting level (a 400-logical dock produced a 1600-logical tab strip). |
+| Dock header hit rects | Stored in device units while mouse coordinates are logical. |
+| Several tests | Sampled device-pixel bitmaps using logical control bounds, or asserted scale-1 pixel geometry outright. |
 
-Two things worth keeping in mind when picking this up. The clusters are not all the same kind of
-problem -- some are library defects, some are tests that hardcode scale-1 pixels and are simply wrong to
-assert that -- so each needs classifying before fixing. And the hang has to go first: until it does,
-there is no way to get a full failure list at scale 2, only the prefix before it stalls.
+Two things worth keeping:
+
+- **`Control.ClientRectangle` is device-scaled while `Bounds` is logical.** That asymmetry is the root of
+  most of the above and it is still there -- 81 call sites, 33 of them renderers that genuinely want
+  device pixels, so it was not something to flip in passing. `DeviceToLogicalUnits` and the local
+  `LogicalClient` helpers convert at each layout site instead. Worth revisiting as its own change.
+- **The scale-2 suite must run with `xunit.parallelizeTestCollections=false`.** It is not a scaling
+  problem: a test that opens a modal dialog picks its owner from the global `Application.OpenForms`, and
+  in parallel it can pick another test's window and wait on it forever. Run serially it finishes in
+  seconds. Fixing the isolation properly would let the gate drop the flag.
 
 ## Wanted soon: visual designer support
 

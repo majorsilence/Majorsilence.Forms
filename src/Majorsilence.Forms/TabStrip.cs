@@ -62,8 +62,12 @@ namespace Majorsilence.Forms
         // its TabControl, the pages automatically move below the whole band.
         private void LayoutTabs ()
         {
-            var avail = Math.Max (60, ClientRectangle.Width);
-            var rowHeight = LogicalToDeviceUnits (DefaultSize.Height);
+            // All logical. Tab Bounds are logical and are hit-tested against logical MouseEventArgs
+            // coordinates, but ClientRectangle is device-scaled and rowHeight was being scaled up too --
+            // so on a 2x display tabs got device-sized rows and a logical width, and a click aimed at one
+            // tab landed on another. Identity at scaling 1.
+            var avail = Math.Max (60, DeviceToLogicalUnits (ClientRectangle.Width));
+            var rowHeight = DefaultSize.Height;
 
             var x = 0;
             var row = 0;

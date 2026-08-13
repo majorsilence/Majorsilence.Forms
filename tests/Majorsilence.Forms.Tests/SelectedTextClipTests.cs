@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Headless;
+﻿using Majorsilence.Forms.Headless;
 using SkiaSharp;
 using Xunit;
 
@@ -58,8 +58,12 @@ public class SelectedTextClipTests
         using var bmp = SKBitmap.Decode (png);
 
         // Count dark glyph ink per row across the text region (inside the combo, left of the glyph button).
-        int x0 = cbo.Left + 3, x1 = cbo.Left + cbo.Width - 24;
-        int y0 = cbo.Top, y1 = cbo.Top + cbo.Height;
+        // Logical sample window scaled into the device-pixel bitmap.
+        var s = form.Width > 0 ? bmp.Width / (double)form.Width : 1.0;
+        int SX (int v) => (int)System.Math.Round (v * s);
+
+        int x0 = SX (cbo.Left + 3), x1 = SX (cbo.Left + cbo.Width - 24);
+        int y0 = SX (cbo.Top), y1 = SX (cbo.Top + cbo.Height);
         var rowInk = new int[y1 - y0];
         for (var y = y0; y < y1; y++) {
             var ink = 0;
@@ -103,9 +107,13 @@ public class SelectedTextClipTests
         var png = HeadlessRenderer.CapturePng (form, 260, 60);
         using var bmp = SKBitmap.Decode (png);
 
+        // The sample window is the combo's LOGICAL bounds; the bitmap is device pixels, so scale it.
+        var s = form.Width > 0 ? bmp.Width / (double)form.Width : 1.0;
+        int SX (int v) => (int)System.Math.Round (v * s);
+
         var ink = 0;
-        for (var y = cbo.Top; y < cbo.Top + cbo.Height; y++)
-            for (var x = cbo.Left + 3; x < cbo.Left + cbo.Width - 24; x++) {
+        for (var y = SX (cbo.Top); y < SX (cbo.Top + cbo.Height); y++)
+            for (var x = SX (cbo.Left + 3); x < SX (cbo.Left + cbo.Width - 24); x++) {
                 var p = bmp.GetPixel (x, y);
                 if (p.Red < 110 && p.Green < 110 && p.Blue < 110) ink++;
             }

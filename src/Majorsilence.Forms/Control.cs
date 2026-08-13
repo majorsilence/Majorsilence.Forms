@@ -922,6 +922,26 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Converts a scaled (device) value back to an unscaled (logical) one.
+        /// </summary>
+        /// <remarks>
+        /// The inverse of <see cref="LogicalToDeviceUnits(int)"/>, for results that come back from
+        /// something measured at the device font size -- text metrics, mainly -- and then have to be
+        /// stored somewhere logical such as a control's Bounds.
+        /// </remarks>
+        public int DeviceToLogicalUnits (int value)
+        {
+            var dpi = DeviceDpi;
+            return dpi <= 0 || dpi == DpiHelper.LogicalDpi
+                ? value
+                : (int)Math.Round (value * DpiHelper.LogicalDpi / dpi);
+        }
+
+        /// <inheritdoc cref="DeviceToLogicalUnits(int)"/>
+        public Size DeviceToLogicalUnits (Size value)
+            => new Size (DeviceToLogicalUnits (value.Width), DeviceToLogicalUnits (value.Height));
+
+        /// <summary>
         /// Converts an unscaled Padding to a scaled Padding.
         /// </summary>
         public Padding LogicalToDeviceUnits (Padding value)

@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Headless;
+﻿using Majorsilence.Forms.Headless;
 using Xunit;
 
 namespace Majorsilence.Forms.Tests
@@ -115,10 +115,15 @@ namespace Majorsilence.Forms.Tests
         public void Single_line_text_is_centred_vertically ()
         {
             using var textBox = Borderless (HorizontalAlignment.Left);
-            var ink = InkBounds (Render (textBox))!.Value;
+            var bmp = Render (textBox);
+            var ink = InkBounds (bmp)!.Value;
+
+            // The ink is measured in the back buffer's device pixels; the control's Height is logical.
+            // Compare in bitmap space so this holds on a scaled display too.
+            var height = bmp.Height > 0 ? bmp.Height : textBox.Height;
 
             var above = ink.Top;
-            var below = textBox.Height - 1 - ink.Bottom;
+            var below = height - 1 - ink.Bottom;
 
             Assert.True (above > 4, $"text should not hug the top edge (gap above: {above})");
             Assert.True (System.Math.Abs (above - below) <= 4,

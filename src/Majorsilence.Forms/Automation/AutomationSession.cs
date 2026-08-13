@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -53,10 +53,24 @@ namespace Majorsilence.Forms.Automation
         {
             ArgumentNullException.ThrowIfNull (element);
 
-            var p = element.ClickPoint;
+            // ClickPoint comes from the element's logical Bounds; the pointer handlers take device
+            // pixels. Identity at scaling 1, so this went unnoticed -- on a scaled display every
+            // automated click landed at a fraction of its intended position and hit the wrong control,
+            // which is how driving a text box ended up typing into nothing.
+            var p = ToDevice (element.ClickPoint);
+
             _window.HandlePointerMoved (MouseButtons.Left, p.X, p.Y, Keys.None);
             _window.HandlePointerPressed (MouseButtons.Left, p.X, p.Y, Keys.None);
             _window.HandlePointerReleased (MouseButtons.Left, p.X, p.Y, Keys.None);
+        }
+
+        private System.Drawing.Point ToDevice (System.Drawing.Point logical)
+        {
+            var scaling = _window.Scaling;
+
+            return scaling is <= 0 or 1
+                ? logical
+                : new System.Drawing.Point ((int)Math.Round (logical.X * scaling), (int)Math.Round (logical.Y * scaling));
         }
 
         /// <summary>Clicks the element to focus it, then sends the text as input.</summary>

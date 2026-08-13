@@ -3190,14 +3190,6 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>
-        /// Converts device units to logical units.
-        /// </summary>
-        internal int DeviceToLogicalUnits (int value)
-        {
-            var factor = Scaling;
-            return factor > 0 ? (int)(value / factor) : value;
-        }
     }
 
     /// <summary>

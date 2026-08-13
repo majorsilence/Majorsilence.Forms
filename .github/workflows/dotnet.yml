@@ -52,9 +52,10 @@ jobs:
       # logical->device conversions are actually exercised instead of being identity as they are at
       # scale 1 -- which is how a coordinate bug can sit undetected until it meets a real HiDPI screen.
       #
-      # Scoped, not the whole suite: at scale 2 roughly twenty tests still fail and one hangs (triage in
-      # BACKLOG.md). Running everything here would be a permanently red, permanently slow gate. This
-      # subset passes today, so it protects the scaling paths now; widen the filter as the rest is fixed.
+      # The WHOLE suite, and it passes. Collections run serially here on purpose: a test that opens a
+      # modal dialog picks its owner out of the global Application.OpenForms, and in parallel it can pick
+      # another test's window and block forever. That is a test-isolation problem rather than a product
+      # one, but it makes a parallel run at any scale hang, so this gate does not rely on it.
       - name: Test (HiDPI, simulated scale 2)
         if: runner.os == 'Windows'
         env:
@@ -62,7 +63,7 @@ jobs:
         run: >-
           dotnet test tests/Majorsilence.Forms.Tests/Majorsilence.Forms.Tests.csproj
           --configuration Release --no-build
-          --filter "FullyQualifiedName~UiScaleTests|FullyQualifiedName~CursorPositionTracking|FullyQualifiedName~Dpi|FullyQualifiedName~Scal"
+          -- xunit.parallelizeTestCollections=false
 
       # API gap gate. Compares both reimplemented surfaces -- Majorsilence.Forms.Drawing against
       # System.Drawing.Common, and Majorsilence.Forms against System.Windows.Forms -- and fails if
