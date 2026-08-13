@@ -1291,10 +1291,46 @@ namespace Majorsilence.Forms
         public void SuspendLayout () => adapter.SuspendLayout ();
 
         /// <summary>Resumes normal layout logic, optionally forcing an immediate layout.</summary>
-        public void ResumeLayout (bool performLayout = true) => adapter.ResumeLayout (performLayout);
+        public void ResumeLayout (bool performLayout = true)
+        {
+            adapter.ResumeLayout (performLayout);
+
+            if (performLayout)
+                RaiseLayoutForExplicitRequest ();
+        }
 
         /// <summary>Forces the window's controls to apply layout logic.</summary>
-        public void PerformLayout () => adapter.PerformLayout ();
+        public void PerformLayout ()
+        {
+            adapter.PerformLayout ();
+            RaiseLayoutForExplicitRequest ();
+        }
+
+        // The adapter forwards its layout pass to this window only once the window has been shown (see
+        // ControlAdapter.OnLayout, which explains why). An explicit PerformLayout/ResumeLayout from the
+        // consumer is a different thing entirely and has to reach the window's own OnLayout whether it is
+        // on screen yet or not: a window that decides its visibility there -- DockPanelSuite's
+        // FloatWindow sets `Visible = VisibleNestedPanes.Count > 0` in OnLayout, and constructs itself
+        // inside SuspendLayout/ResumeLayout precisely so that runs -- can never become visible otherwise.
+        // Left unraised, a document dragged out to float went into a window that was never shown, which
+        // read as the document simply vanishing.
+        private void RaiseLayoutForExplicitRequest ()
+        {
+            // Already forwarded by the adapter's own pass, and a re-entrant raise would let an OnLayout
+            // that triggers layout recurse without end.
+            if (shown || raising_layout)
+                return;
+
+            raising_layout = true;
+
+            try {
+                RaiseLayout (new LayoutEventArgs (adapter, null));
+            } finally {
+                raising_layout = false;
+            }
+        }
+
+        private bool raising_layout;
 
         // The rest of this block is the same story as SuspendLayout/ResumeLayout above: members a
         // WinForms Form inherits from Control, which a Majorsilence.Forms Form cannot because it is not

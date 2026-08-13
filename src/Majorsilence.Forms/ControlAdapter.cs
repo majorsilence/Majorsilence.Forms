@@ -37,7 +37,14 @@ namespace Majorsilence.Forms
         protected override void OnLayout (LayoutEventArgs e)
         {
             base.OnLayout (e);
-            ParentForm?.RaiseLayout (e);
+
+            // Only once the window has actually been shown. Adding controls during a Form subclass's
+            // construction lays the adapter out, and forwarding that would invoke the subclass's
+            // OnLayout override before its own constructor has run -- a real consumer (DockPanelSuite's
+            // FloatWindow) reads a collection there that its constructor has not created yet and throws.
+            // WinForms does not raise a Form's layout before it has a handle either.
+            if (ParentForm is { shown: true } window)
+                window.RaiseLayout (e);
         }
 
         // The Adapter is given the Form's native surface including any managed Form borders, and it
