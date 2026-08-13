@@ -35,6 +35,9 @@ namespace Majorsilence.Forms
         private int tab_index = -1;
         private string text = string.Empty;
         private byte layout_suspend_count;
+        // Set when our own size changes while layout is suspended; consumed by ResumeLayout to
+        // re-snapshot anchored children against the display rectangle they never saw.
+        private bool _resizedWhileLayoutSuspended;
 
         private SKBitmap? back_buffer;
         private Control? current_mouse_in;

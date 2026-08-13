@@ -483,6 +483,14 @@ public partial class Control
         but we break things at every step.
         */
         if (!performLayout) {
+            // Only a container that actually changed size while suspended has stale anchor snapshots to
+            // repair. Invalidating unconditionally here would also hit callers that resume without a
+            // resize and depend on the snapshot surviving -- ScrollableControl.ScrollWindow goes out of
+            // its way to move children without disturbing it -- and would cancel the very anchor
+            // movement an in-progress resize is applying.
+            var recaptureAnchors = _resizedWhileLayoutSuspended;
+            _resizedWhileLayoutSuspended = false;
+
             CommonProperties.xClearPreferredSizeCache (this);
             var controlsCollection = (ControlCollection?)Properties.GetObject (s_controlsCollectionProperty);
 
@@ -491,6 +499,14 @@ public partial class Control
             // enumerate
             if (controlsCollection is not null) {
                 for (var i = 0; i < controlsCollection.Count; i++) {
+                    // This blanket re-init exists so children pick up a container size that changed
+                    // while layout was suspended. The snapshot has to be invalidated first, or
+                    // UpdateAnchorInfo's redundant-re-init skip keeps the pre-resize reference and the
+                    // next layout stretches every anchored child from a size the container no longer
+                    // has. See DefaultLayout.InvalidateAnchorInfo.
+                    if (recaptureAnchors)
+                        DefaultLayout.InvalidateAnchorInfo (controlsCollection[i]);
+
                     LayoutEngine.InitLayout (controlsCollection[i], BoundsSpecified.All);
                     CommonProperties.xClearPreferredSizeCache (controlsCollection[i]);
                 }
@@ -621,6 +637,12 @@ public partial class Control
             OnLocationChanged (EventArgs.Empty);
 
         if (newSize) {
+            // A size change while our own layout is suspended leaves every anchored child holding a
+            // snapshot taken against the display rectangle we no longer have. Nothing re-snapshots
+            // them on the way out, so record it for ResumeLayout to repair. See ResumeLayout.
+            if (layout_suspend_count > 0)
+                _resizedWhileLayoutSuspended = true;
+
             OnSizeChanged (EventArgs.Empty);
             // OnClientSizeChanged (EventArgs.Empty);
             //PerformLayout (this, nameof (Bounds)); // TESTING

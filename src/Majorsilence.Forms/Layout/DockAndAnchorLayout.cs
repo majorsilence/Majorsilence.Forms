@@ -819,6 +819,37 @@ internal sealed partial class DefaultLayout : LayoutEngine
         element.Properties.SetObject (s_layoutInfoProperty, value);
     }
 
+    /// <summary>
+    /// Drops the "this snapshot is still current" marker so the next <see cref="InitLayoutCore"/> for
+    /// <paramref name="element"/> re-captures its anchor distances instead of taking the skip in
+    /// <see cref="UpdateAnchorInfo"/>.
+    /// </summary>
+    /// <remarks>
+    /// Only <see cref="Control.ResumeLayout(bool)"/>'s no-layout path calls this, and it has to: a
+    /// container that was resized WHILE its layout was suspended still holds anchor snapshots taken
+    /// against its previous DisplayRectangle. The skip in UpdateAnchorInfo cannot tell that case apart
+    /// from a genuinely redundant re-init, because the child's own Bounds have not moved and the stale
+    /// parent rectangle is not degenerate -- so it returns early and the old reference survives. The
+    /// next layout then "stretches" the child from a size the container no longer has.
+    ///
+    /// Designer code hits this constantly: InitializeComponent suspends the panel, adds children while
+    /// the panel is still its default 200x100, assigns the real Size, then calls ResumeLayout(False)
+    /// followed by PerformLayout(). Without this invalidation a child placed below y=100 anchors from a
+    /// negative distance-to-bottom and lands far outside the panel (observed: a button designed at
+    /// y=205 in an 851x238 panel ending up at y=343, off the visible area entirely).
+    ///
+    /// Not folded into UpdateAnchorInfo's guard as a "parent rectangle changed" test: during a normal
+    /// resize the parent rectangle changes too, and re-capturing there would cancel the very anchor
+    /// movement the layout is running.
+    /// </remarks>
+    internal static void InvalidateAnchorInfo (IArrangedElement element)
+    {
+        var anchorInfo = (AnchorInfo?)element.Properties.GetObject (s_layoutInfoProperty);
+
+        if (anchorInfo is not null)
+            anchorInfo.HasCapturedElementBounds = false;
+    }
+
     private protected override void InitLayoutCore (IArrangedElement element, BoundsSpecified specified)
     {
         Debug.Assert (specified == BoundsSpecified.None || GetCachedBounds (element) == element.Bounds,
