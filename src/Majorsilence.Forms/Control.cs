@@ -1567,10 +1567,12 @@ namespace Majorsilence.Forms
 
                 var window_location = window.Location;
 
-                // For Mac, the desktop coordinates are measured at a different scale than
-                // our form coordinates, so we need to fix that. For other platforms, ratio is 1.
-                var desktop_ratio = window.DesktopScaling / window.Scaling;
-                point = new Point ((int)(point.X * desktop_ratio), (int)(point.Y * desktop_ratio));
+                // Logical in, desktop out: the accumulated offset is in logical units and the window's
+                // Location is in desktop ones, so scale by the real display factor. Deliberately
+                // DesktopScaling and not Scaling -- Scaling carries Application.UiScale, and zooming the
+                // app must not move where its windows think they are on the desktop.
+                var scale = window.DesktopScaling;
+                point = new Point ((int)Math.Round (point.X * scale), (int)Math.Round (point.Y * scale));
 
                 window_location.Offset (point);
 
@@ -1578,8 +1580,8 @@ namespace Majorsilence.Forms
             }
 
             // If this isn't the top, we need to add our location to the point
-            // and ask our parent to translate that
-            point.Offset (ScaledBounds.Location);
+            // and ask our parent to translate that. Logical, matching what callers pass in.
+            point.Offset (Bounds.Location);
 
             // If we aren't parented to a Form, this method is pretty meaningless
             return Parent?.PointToScreen (point) ?? point;
@@ -2436,7 +2438,7 @@ namespace Majorsilence.Forms
             if (control == null)
                 return e;
 
-            return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.ScaledLeft, e.Location.Y - control.ScaledTop, e.DeltaPoint, e.Location.X, e.Location.Y, e.Modifiers);
+            return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.Left, e.Location.Y - control.Top, e.DeltaPoint, e.Location.X, e.Location.Y, e.Modifiers);
         }
 
         /// <summary>

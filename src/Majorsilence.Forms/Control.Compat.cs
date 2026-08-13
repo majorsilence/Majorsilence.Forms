@@ -58,11 +58,11 @@ namespace Majorsilence.Forms
             if (window is null)
                 return delta;
 
-            var desktop_ratio = window.DesktopScaling / window.Scaling;
+            var scale = window.DesktopScaling;
 
-            return desktop_ratio is 0 or 1
+            return scale is 0 or 1
                 ? delta
-                : new Point ((int)Math.Round (delta.X / desktop_ratio), (int)Math.Round (delta.Y / desktop_ratio));
+                : new Point ((int)Math.Round (delta.X / scale), (int)Math.Round (delta.Y / scale));
         }
 
         /// <summary>Converts a Rectangle from client to screen coordinates.</summary>

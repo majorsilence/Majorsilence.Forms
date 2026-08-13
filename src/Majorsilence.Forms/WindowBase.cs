@@ -637,21 +637,34 @@ namespace Majorsilence.Forms
         // Control.PointToScreen also consumes exactly the coordinates these handlers deliver, and is
         // the same path the controls reading Control.MousePosition use to convert it back with
         // PointToClient -- so the round trip is exact by construction rather than by coincidence.
-        private void TrackCursorPosition (int x, int y)
+        private void TrackCursorPosition (int logicalX, int logicalY)
         {
             try {
-                Cursor.TrackPosition (adapter.PointToScreen (new System.Drawing.Point (x, y)));
+                Cursor.TrackPosition (adapter.PointToScreen (new System.Drawing.Point (logicalX, logicalY)));
             } catch (System.Exception) {
                 // A backend that cannot map coordinates yet (no platform window) must not break input
                 // routing; the stale value is better than a thrown pointer event.
             }
         }
 
+        // The backends deliver device pixels. Everything public -- Bounds, MouseEventArgs, the lParam a
+        // message filter reads, PointToClient/PointToScreen -- is in logical units, so the conversion
+        // belongs here, once, at the boundary. Identity at scaling 1, which is why input that was routed
+        // in device space worked until a scaled display was simulated: a control then hit-tested device
+        // coordinates against its logical Bounds and matched the wrong child, or none.
+        private int DeviceToLogical (int value)
+        {
+            var scaling = Scaling;
+            return scaling is <= 0 or 1 ? value : (int)System.Math.Round (value / scaling);
+        }
+
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
-            TrackCursorPosition (x, y);
+            int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
-            if (Filtered (WindowMessages.ButtonDownMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+            TrackCursorPosition (lx, ly);
+
+            if (Filtered (WindowMessages.ButtonDownMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
                 return;
 
             // A press can be the first pointer event a window sees (click-through onto an inactive
@@ -661,18 +674,20 @@ namespace Majorsilence.Forms
             if (Resizeable && HandleMouseDown (x, y))
                 return;
 
-            var ev = new MouseEventArgs (button, 1, x, y, System.Drawing.Point.Empty, keyData: keys);
+            var ev = new MouseEventArgs (button, 1, lx, ly, System.Drawing.Point.Empty, keyData: keys);
             adapter.RaiseMouseDown (ev);
         }
 
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
-            TrackCursorPosition (x, y);
+            int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
-            if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+            TrackCursorPosition (lx, ly);
+
+            if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
                 return;
 
-            var ev = BuildMouseClickArgs (button, new System.Drawing.Point (x, y), keys);
+            var ev = BuildMouseClickArgs (button, new System.Drawing.Point (lx, ly), keys);
 
             if (ev.Clicks > 1)
                 adapter.RaiseDoubleClick (ev);
@@ -683,9 +698,11 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
         {
-            TrackCursorPosition (x, y);
+            int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
-            if (Filtered (WindowMessages.WM_MOUSEMOVE, System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+            TrackCursorPosition (lx, ly);
+
+            if (Filtered (WindowMessages.WM_MOUSEMOVE, System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
                 return;
 
             // Raise MouseEnter before the resize-border shortcut below returns: the window chrome is
@@ -695,7 +712,7 @@ namespace Majorsilence.Forms
             if (Resizeable && HandleMouseMove (x, y))
                 return;
 
-            var ev = new MouseEventArgs (buttons, 0, x, y, System.Drawing.Point.Empty, keyData: keys);
+            var ev = new MouseEventArgs (buttons, 0, lx, ly, System.Drawing.Point.Empty, keyData: keys);
             adapter.RaiseMouseMove (ev);
         }
 

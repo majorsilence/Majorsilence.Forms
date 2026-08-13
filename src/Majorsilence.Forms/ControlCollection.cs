@@ -327,13 +327,13 @@ public partial class Control
         {
             for (var i = 0; i < implicit_control_list.Count; i++) {
                 var c = implicit_control_list[i];
-                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.ScaledBounds.Contains (location))
+                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.Bounds.Contains (location))
                     return c;
             }
 
             for (var i = 0; i < control_list.Count; i++) {
                 var c = control_list[i];
-                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.ScaledBounds.Contains (location))
+                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.Bounds.Contains (location))
                     return c;
             }
 

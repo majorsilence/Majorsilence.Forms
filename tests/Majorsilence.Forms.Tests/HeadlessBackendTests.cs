@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Headless;
+﻿using Majorsilence.Forms.Headless;
 using SkiaSharp;
 using Xunit;
 
@@ -27,9 +27,13 @@ public class HeadlessBackendTests
         Assert.NotNull (png);
         Assert.True (png.Length > 0);
 
+        // The requested size is logical; the bitmap comes back in device pixels, so on a scaled display
+        // it is proportionally larger. Asserting the raw numbers only held while scaling was 1.
+        var scale = form.Scaling;
+
         using var bmp = SKBitmap.Decode (png);
-        Assert.Equal (200, bmp.Width);
-        Assert.Equal (120, bmp.Height);
+        Assert.Equal ((int)(200 * scale), bmp.Width);
+        Assert.Equal ((int)(120 * scale), bmp.Height);
     }
 
     [Fact]

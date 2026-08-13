@@ -1,3 +1,4 @@
+﻿using System;
 using Majorsilence.Forms.Headless;
 using SkiaSharp;
 using Xunit;
@@ -63,11 +64,16 @@ public class FormPaintEventTests
         var png = HeadlessRenderer.CapturePng (form);
         using var bmp = SKBitmap.Decode (png);
 
+        // The button's bounds are logical and the bitmap is device pixels, so sample points have to be
+        // scaled -- identical while the display factor is 1, off by that factor otherwise.
+        var scale = form.Width > 0 ? bmp.Width / (double)form.Width : 1.0;
+        SKColor At (int x, int y) => bmp.GetPixel ((int)Math.Round (x * scale), (int)Math.Round (y * scale));
+
         // Assert the handler's fill actually landed somewhere first. Without it, "the button is not
         // red" would also hold when Paint never ran at all, and the test would pass vacuously.
-        Assert.Equal (HandlerFill, bmp.GetPixel (button.Left + button.Width + 20, button.Top));
+        Assert.Equal (HandlerFill, At (button.Left + button.Width + 20, button.Top));
 
-        Assert.NotEqual (HandlerFill, bmp.GetPixel (button.Left + button.Width / 2,
-                                                    button.Top + button.Height / 2));
+        Assert.NotEqual (HandlerFill, At (button.Left + button.Width / 2,
+                                          button.Top + button.Height / 2));
     }
 }
