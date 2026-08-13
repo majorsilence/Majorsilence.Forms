@@ -1402,9 +1402,20 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnPaintBackground (PaintEventArgs e)
         {
-            // The ControlAdapter itself should not have a background/border
-            if (this is ControlAdapter)
+            // The ControlAdapter itself should not have a background/border -- the window paints those
+            // (see WindowBase.RenderFrame) and repainting them here would cover what a Form.Paint
+            // handler just drew.
+            //
+            // Its background IMAGE is a different matter: Form.BackgroundImage forwards to the adapter,
+            // so returning before drawing it made that property stored-and-never-drawn. A splash screen
+            // built the usual way -- a borderless form whose whole content is BackgroundImage -- came up
+            // as a blank white rectangle over the application.
+            if (this is ControlAdapter) {
+                if (BackgroundImage is not null)
+                    PaintBackgroundImage (e);
+
                 return;
+            }
 
             // Transparent controls should not draw a background or border
             if (behaviors.HasFlag (ControlBehaviors.Transparent)) {
