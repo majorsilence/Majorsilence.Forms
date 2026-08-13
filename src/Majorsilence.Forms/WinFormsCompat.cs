@@ -1061,10 +1061,27 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the image displayed on this item. Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// The converted <see cref="SkiaSharp.SKBitmap"/> is synced to the base class so renderers can access it.
+        /// Reading falls back to whatever <see cref="ImageIndex"/>/<see cref="ImageKey"/> names in the owning
+        /// strip's <see cref="ToolStrip.ImageList"/>, as WinForms does, when no image was assigned outright.
         /// </summary>
 #pragma warning disable CA1416
         public new virtual Majorsilence.Forms.Drawing.Image? Image {
-            get => _toolStripImage;
+            get {
+                if (_toolStripImage is { } assigned)
+                    return assigned;
+
+                if (ImageListImage is not { } bitmap)
+                    return null;
+
+                // Wrapped once per underlying bitmap rather than per read: callers compare and dispose what
+                // this hands back, and a fresh wrapper each time would make `item.Image == item.Image` false.
+                if (!ReferenceEquals (bitmap, resolved_image_source)) {
+                    resolved_image_source = bitmap;
+                    resolved_image = bitmap;    // implicit SKBitmap -> Image
+                }
+
+                return resolved_image;
+            }
             set {
                 _toolStripImage = value;
                 ((MenuItem)this).SetImageSK (value?.ToSKBitmap ());
@@ -1077,8 +1094,26 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets how the image is aligned on the item.</summary>
         public ContentAlignment ImageAlign { get; set; } = ContentAlignment.MiddleLeft;
 
-        /// <summary>Gets or sets an integer that identifies the image from an ImageList. Stub in Majorsilence.Forms.</summary>
-        public int ImageIndex { get; set; } = -1;
+        private int image_index = -1;
+        private string image_key = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the index of this item's image in the owning strip's
+        /// <see cref="ToolStrip.ImageList"/>. Setting it clears <see cref="ImageKey"/>, as WinForms does —
+        /// an item is addressed by index or by key, never both.
+        /// </summary>
+        public int ImageIndex {
+            get => image_index;
+            set {
+                if (image_index == value)
+                    return;
+
+                image_index = value;
+                image_key = string.Empty;
+
+                InvalidateImage ();
+            }
+        }
 
         /// <summary>Gets or sets how the item's image is scaled. Mirrors WinForms
         /// ToolStripItem.ImageScaling (the Size-typed knob is ImageScalingSize on the strip).</summary>
@@ -1108,8 +1143,58 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the font for this item. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Forms.Drawing.Font? Font { get; set; }
 
-        /// <summary>Gets or sets the image list key for this item. Stub in Majorsilence.Forms.</summary>
-        public string ImageKey { get; set; } = string.Empty;
+        /// <summary>
+        /// Gets or sets the key naming this item's image in the owning strip's
+        /// <see cref="ToolStrip.ImageList"/>. Setting it clears <see cref="ImageIndex"/>, as WinForms does.
+        /// </summary>
+        public string ImageKey {
+            get => image_key;
+            set {
+                value ??= string.Empty;
+
+                if (image_key == value)
+                    return;
+
+                image_key = value;
+                image_index = -1;
+
+                InvalidateImage ();
+            }
+        }
+
+        private Majorsilence.Forms.Drawing.Image? resolved_image;
+        private SkiaSharp.SKBitmap? resolved_image_source;
+
+        /// <inheritdoc/>
+        internal override SkiaSharp.SKBitmap? ImageSK => base.ImageSK ?? ImageListImage;
+
+        // The image this item's index/key names, or null. Resolved on read rather than when ImageIndex is
+        // assigned: designer code sets the index while the item is still unparented and before
+        // ImageList.ImageStream has been filled in, so anything resolved eagerly would be null forever.
+        private SkiaSharp.SKBitmap? ImageListImage {
+            get {
+                // Read through ToolBar, the single storage both it and ToolStrip.ImageList share.
+                if ((OwnerControl as ToolBar)?.ImageList is not { } list)
+                    return null;
+
+                var index = image_index;
+
+                if (index < 0 && image_key.Length > 0)
+                    index = list.Images.IndexOfKey (image_key);
+
+                return index >= 0 && index < list.Images.Count ? list.Images[index] : null;
+            }
+        }
+
+        // An item's preferred size is measured from its image, so a changed image is a layout change.
+        private void InvalidateImage ()
+        {
+            resolved_image = null;
+            resolved_image_source = null;
+
+            OwnerControl?.PerformLayout ();
+            OwnerControl?.Invalidate ();
+        }
 
         /// <summary>Gets the <see cref="ToolStrip"/> this item belongs to, or null when it is not on one.</summary>
         /// <remarks>
@@ -2149,8 +2234,17 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the layout style. Stub in Majorsilence.Forms.</summary>
         public ToolStripLayoutStyle LayoutStyle { get; set; } = ToolStripLayoutStyle.HorizontalStackWithOverflow;
 
-        /// <summary>Gets or sets the ImageList associated with this ToolStrip. Stub in Majorsilence.Forms.</summary>
-        public new ImageList? ImageList { get; set; }
+        /// <summary>Gets or sets the ImageList this strip's items index into.</summary>
+        /// <remarks>
+        /// Deliberately the same storage as <see cref="ToolBar.ImageList"/> rather than a second field of
+        /// its own. As separate properties the two silently disagreed: designer code assigns through the
+        /// ToolStrip-typed variable it declared, while item image lookup reads the base one, so every
+        /// button resolved its ImageIndex against a null list and drew with no image.
+        /// </remarks>
+        public new ImageList? ImageList {
+            get => base.ImageList;
+            set => base.ImageList = value;
+        }
 
         /// <summary>Gets or sets whether the ToolStrip stretches to fill its container. Stub in Majorsilence.Forms.</summary>
         public bool Stretch { get; set; }

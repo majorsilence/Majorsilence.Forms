@@ -154,8 +154,12 @@ namespace Majorsilence.Forms
         }
 #pragma warning restore CA1416
 
-        /// <summary>Gets the SKBitmap representation of the image (used by renderers).</summary>
-        internal SKBitmap? ImageSK => _imageSK;
+        /// <summary>
+        /// Gets the SKBitmap representation of the image (used by renderers, for both measuring and
+        /// drawing). Virtual so <see cref="ToolStripItem"/> can fall back to the image its
+        /// <see cref="ToolStripItem.ImageIndex"/> names in the owning strip's ImageList.
+        /// </summary>
+        internal virtual SKBitmap? ImageSK => _imageSK;
 
         /// <summary>Sets the image directly from an SKBitmap (internal use).</summary>
         internal void SetImageSK (SKBitmap? bmp) { _image = null; _imageSK = bmp; }

@@ -16,8 +16,28 @@ namespace Majorsilence.Forms
         /// <summary>Fires when a ToolBarButton is clicked.</summary>
         public event EventHandler<ToolBarButtonClickEventArgs>? ButtonClick { add { } remove { } }
 
-        /// <summary>Gets or sets the ImageList used by this toolbar's buttons. Stub in Majorsilence.Forms.</summary>
-        public ImageList? ImageList { get; set; }
+        private ImageList? image_list;
+
+        /// <summary>
+        /// Gets or sets the ImageList this strip's items index into through
+        /// <see cref="ToolStripItem.ImageIndex"/> / <see cref="ToolStripItem.ImageKey"/>.
+        /// </summary>
+        /// <remarks>
+        /// Assigning this re-lays out the strip as well as repainting it, because an item's preferred
+        /// size is measured from the image it will draw.
+        /// </remarks>
+        public ImageList? ImageList {
+            get => image_list;
+            set {
+                if (ReferenceEquals (image_list, value))
+                    return;
+
+                image_list = value;
+
+                PerformLayout ();
+                Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets the size of the toolbar buttons. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Size ButtonSize { get; set; } = new System.Drawing.Size (24, 22);

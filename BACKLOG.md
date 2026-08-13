@@ -31,6 +31,48 @@ Two things worth keeping:
   in parallel it can pick another test's window and wait on it forever. Run serially it finishes in
   seconds. Fixing the isolation properly would let the gate drop the flag.
 
+## Wanted: `--dual-build` for VB
+
+**Status: wanted, not yet started.** `--dual-build` currently converts a VB project the normal
+fully-committed way and emits a warning explaining why (`MIGRATION.md`, "Incremental migration"). That
+leaves VB shops without the one workflow C# shops get for de-risking a migration: keep building against
+real WinForms while the Majorsilence side is brought up, flipping between them with one MSBuild
+property. A cut-over is a much harder sell than a switch, so this gap is a real adoption blocker rather
+than a convenience.
+
+**The language is not the obstacle.** The stated reason for not offering it -- that `MyType=Empty`
+switches off the whole VB "My" application framework and a preprocessor symbol can't toggle that -- is
+about the *My framework*, not about conditional compilation. Verified with the .NET 10 SDK: VB happily
+accepts conditional compilation directives around `Imports`, compiling either branch depending on the
+symbol:
+
+```vb
+#If MAJORSILENCE_FORMS Then
+Imports Majorsilence.Forms
+#Else
+Imports System.Windows.Forms
+#End If
+```
+
+So the import swap -- the entire C# implementation of `--dual-build` -- transfers directly. What does
+not transfer is everything the migrator does for VB *because* the My framework went away.
+
+**What it would take:**
+
+| Piece | What it involves |
+| --- | --- |
+| Conditional project properties | `MyType`, `UseWindowsForms`, the `-windows` TFM suffix and the WinForms-only package references all have to vary with the switch. These are MSBuild properties, so `Condition="'$(MAJORSILENCE_FORMS)' == 'true'"` is the obvious tool -- but whether `MyType` can be flipped this way in an SDK-style `.vbproj` (rather than being baked in by the VB targets) needs proving out first. This is the one genuine unknown. |
+| Conditional constructor injection | The implicit parameterless constructor `MyType=Empty` supplies is re-injected as an explicit `Sub New()` today. Against real WinForms that duplicates the compiler-supplied one, so it has to be wrapped in `#If MAJORSILENCE_FORMS Then` -- which is legal inside a class, so this is mechanical. |
+| Conditional `My.Resources` accessor | The generated `My Project\Resources.vb` module collides with the real `My.Resources` when building against WinForms. Either wrap the generated module in the same directive, or exclude the file with an MSBuild condition -- the latter is cleaner, since the file is generated wholesale. |
+| Remaining `My.*` usage | Unchanged from today: still warn-and-leave. Dual-build does not make `My.Forms`/`My.Settings` work on the Majorsilence side, and shouldn't pretend to. |
+| Docs | `MIGRATION.md` currently states dual-build is C#-only, and the training guide on the site repeats it (telling VB teams to plan a cut-over). Both need updating together with the code. |
+
+**Acceptance test:** a VB WinForms project with a form, a designer partial, a `Resources.resx` and at
+least one `My.Resources` use, converted with `--dual-build`, that builds *and runs* both with
+`MAJORSILENCE_FORMS=true` and without it, from the same source tree, with no manual edits in between.
+Anything less than "runs both ways" is not the feature -- the C# version's value is precisely that the
+old build keeps working untouched.
+
 ## Wanted soon: visual designer support
 
 **Status: wanted, not yet started.** This is a planned feature, not a deferred one — unlike everything
@@ -62,6 +104,26 @@ not need editing when a surface arrives -- that was the point of keeping the sha
 Related: the migrator no longer remaps `System.ComponentModel.Design` (it is partly in-box, and the
 blanket remap hid `IDesignerHost`); `System.Windows.Forms.Design` and `System.Drawing.Design` still map
 to `Majorsilence.Forms.Design`.
+
+## Compiled `.resources`: the legacy (pre-extensions) layout
+
+`RawResourcesReader` (`src/Majorsilence.Forms/RawResourcesReader.cs`) recovers the raw payload of entries
+that `DeserializingResourceReader` refuses to hand back — a designer resource written through
+BinaryFormatter throws `PlatformNotSupportedException` outright on .NET 9+, which is what left every
+migrated `ImageList.ImageStream` null and every toolbar button image missing.
+
+It parses only the layout the **extensions** writer emits (the header names
+`System.Resources.Extensions.DeserializingResourceReader`), where each user payload is tagged with a
+`SerializationFormat` and length-prefixed — which is what makes a payload extractable on its own, and what
+any modern SDK build produces. A `.resources` written by the plain BCL `ResourceWriter` (a prebuilt
+.NET Framework-era assembly) stores BinaryFormatter graphs with neither tag nor length, so an entry's
+extent is only implied by where the next one starts. Reading those would mean sorting the data-section
+offsets and slicing between them; not done, and untested against a real such file, so those entries are
+still skipped rather than guessed at.
+
+Also unresolved from the same area: `RawFormat.TypeConverterString` payloads are not converted (a `Font`
+recorded that way still falls to the shim path), and `ToolBarButton.ImageIndex`/`ImageKey` remain stubs —
+the legacy `ToolBar.Buttons` collection is not rendered at all, unlike `Items`.
 
 ## Telerik compat layer: genuinely deferred items
 
