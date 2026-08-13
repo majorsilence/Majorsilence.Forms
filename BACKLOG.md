@@ -1,5 +1,27 @@
 ﻿# Backlog
 
+## HiDPI: the full suite does not pass at simulated scale 2
+
+`MF_HEADLESS_SCALE=2` makes the headless backend report a scaled display. CI runs a scaling-focused
+subset at that scale (see `.github/workflows/dotnet.yml`); the **whole** suite does not pass there yet,
+which is why the gate is scoped rather than blanket.
+
+State as of this triage, after fixing the headless input contract (`HeadlessRenderer`'s coordinates are
+logical and are now converted to device pixels before injection -- previously passed straight through,
+so at scale 2 every injected click landed at half its intended position):
+
+| Cluster | Examples | Notes |
+|---|---|---|
+| Hit-testing under scale | `A_full_click_lands_on_the_clicked_tab`, `Second_row_tab_is_hit_testable`, `A_disabled_tab_header_is_not_selected`, `MenuStrip_LaysItemsOutLeftToRightAcrossTheBar` | These pass **logical** coordinates computed from `GetTabRect`/`Bounds`, so the injection is now correct and the failure is downstream: the library's own hit-testing does not agree with its layout at scale != 1. Most likely a real defect a HiDPI user would hit. |
+| Painting / capture | `ChildIsPainted_WhetherOrNotOverrideChainsToBase`, `ChildPaintsAboveParentsOwnDrawing`, `PaintEvent_DoesNotSuppressChildControls`, `RendersFormToPng_AtRequestedSize` | Capture size vs scale; needs deciding whether `CapturePng`'s width/height are logical or device. |
+| Text metrics | `Designer_sized_radio_text_is_not_clipped`, `Single_line_text_is_centred_vertically`, `DropDownList_TooShortForFont_KeepsCapsInsteadOfSlicingTop`, `Overflowing_headers_wrap_into_multiple_rows` | Some are genuine scale bugs; some assert scale-1 pixel geometry by construction and should assert proportionally instead. |
+| A hang | one test does not return at scale 2 | Not yet identified. Blocks running the full suite at scale 2 at all, so it is the first thing to find. |
+
+Two things worth keeping in mind when picking this up. The clusters are not all the same kind of
+problem -- some are library defects, some are tests that hardcode scale-1 pixels and are simply wrong to
+assert that -- so each needs classifying before fixing. And the hang has to go first: until it does,
+there is no way to get a full failure list at scale 2, only the prefix before it stalls.
+
 ## Wanted soon: visual designer support
 
 **Status: wanted, not yet started.** This is a planned feature, not a deferred one — unlike everything
