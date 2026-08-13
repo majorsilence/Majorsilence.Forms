@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using Majorsilence.Forms.Backends;
 using SkiaSharp;
@@ -45,7 +45,24 @@ namespace Majorsilence.Forms
         public Point PointToClient (Point point)
         {
             var origin = PointToScreen (Point.Empty);
-            return new Point (point.X - origin.X, point.Y - origin.Y);
+            var delta = new Point (point.X - origin.X, point.Y - origin.Y);
+
+            // Undo the desktop/window ratio PointToScreen applied on the way out, or this is not its
+            // inverse. The ratio is 1 whenever the window scale and the desktop scale agree, which was
+            // always true until Application.UiScale could zoom one without the other -- so subtracting
+            // the origin was enough and this asymmetry stayed hidden. Under a zoom it is not: a point
+            // 20px into a control came back as 10px, which is exactly the kind of error that makes a
+            // hit test miss.
+            var window = FindWindow ();
+
+            if (window is null)
+                return delta;
+
+            var desktop_ratio = window.DesktopScaling / window.Scaling;
+
+            return desktop_ratio is 0 or 1
+                ? delta
+                : new Point ((int)Math.Round (delta.X / desktop_ratio), (int)Math.Round (delta.Y / desktop_ratio));
         }
 
         /// <summary>Converts a Rectangle from client to screen coordinates.</summary>

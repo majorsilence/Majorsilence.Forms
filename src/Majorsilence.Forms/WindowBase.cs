@@ -1017,9 +1017,20 @@ namespace Majorsilence.Forms
         public System.Drawing.Size ScaledSize => ScaledClientSize;
 
         /// <summary>Gets the current scale factor of the window.</summary>
-        public double Scaling => Backend.Scaling;
+        /// <remarks>
+        /// The display's factor times <see cref="Application.UiScale"/>. This is the single point the
+        /// whole UI scales from -- <c>Control.DeviceDpi</c> is derived from it and every
+        /// <c>LogicalToDeviceUnits</c> conversion follows.
+        /// </remarks>
+        public double Scaling => Backend.Scaling * Application.UiScale;
 
         /// <summary>Gets the current scale factor of the desktop.</summary>
+        /// <remarks>
+        /// The real display factor, deliberately WITHOUT <see cref="Application.UiScale"/>: the desktop
+        /// does not zoom just because this app does. <c>Control.PointToScreen</c> converts control
+        /// coordinates to desktop ones through <c>DesktopScaling / Scaling</c>, so keeping this
+        /// unzoomed makes that ratio undo the zoom exactly.
+        /// </remarks>
         public double DesktopScaling => Backend.Scaling;
 
         internal void SetCursor (Cursor cursor) => current_cursor = cursor;

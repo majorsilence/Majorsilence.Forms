@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Reflection;
 using Majorsilence.Forms.Backends;
 
@@ -115,6 +115,63 @@ namespace Majorsilence.Forms
         /// </remarks>
         public static void SetDefaultFont (Majorsilence.Forms.Drawing.Font font)
             => SystemFonts.SetDefaultFont (font);
+
+        private static double? ui_scale;
+
+        /// <summary>
+        /// An extra zoom factor applied to the whole UI, on top of the display's own scale factor.
+        /// Defaults to 1.0 (no change).
+        /// </summary>
+        /// <remarks>
+        /// This is the same machinery HiDPI already uses, just with a factor you choose instead of one
+        /// the display reports: it multiplies <c>WindowBase.Scaling</c>, so every logical unit that
+        /// goes through <c>LogicalToDeviceUnits</c> -- font sizes, paddings, control sizes, glyphs --
+        /// grows together. Nothing about font sizes or designer coordinates changes, so layout
+        /// arithmetic that a designer computed still holds; only the number of device pixels each
+        /// logical unit turns into does.
+        ///
+        /// It exists because display scaling does not cover every case. A large, dense monitor that the
+        /// OS reports at scale 1.0 renders WinForms' classic 8.25pt default font at its true, very small
+        /// physical size, and no amount of DPI *detection* helps -- the OS is saying this is not a HiDPI
+        /// display. This is the knob for that.
+        ///
+        /// Deliberately does not affect <c>WindowBase.DesktopScaling</c>, which stays the real display
+        /// factor: <c>Control.PointToScreen</c> converts through <c>DesktopScaling / Scaling</c>, so
+        /// leaving it alone makes that ratio compensate for the zoom automatically and screen
+        /// coordinates keep round-tripping.
+        ///
+        /// The environment variable <c>MAJORSILENCE_UI_SCALE</c> seeds the initial value, so a scale can
+        /// be tried against an app without rebuilding it. An explicit assignment overrides it.
+        ///
+        /// Caveat: anything that hardcodes pixel sizes instead of converting through
+        /// <c>LogicalToDeviceUnits</c> will not grow with the rest, so a scale far from 1.0 can show up
+        /// such spots.
+        /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">The value is not greater than zero.</exception>
+        public static double UiScale {
+            get => ui_scale ??= ReadUiScaleFromEnvironment ();
+            set {
+                ArgumentOutOfRangeException.ThrowIfLessThanOrEqual (value, 0);
+
+                if (ui_scale == value)
+                    return;
+
+                ui_scale = value;
+
+                // Every cached size in every open window was computed against the old factor.
+                foreach (var form in OpenForms.ToArray ()) {
+                    form.PerformLayout ();
+                    form.Invalidate ();
+                }
+            }
+        }
+
+        private static double ReadUiScaleFromEnvironment ()
+            => double.TryParse (Environment.GetEnvironmentVariable ("MAJORSILENCE_UI_SCALE"),
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var scale) && scale > 0
+                ? scale
+                : 1.0;
 
         /// <summary>
         /// Exits the application.
