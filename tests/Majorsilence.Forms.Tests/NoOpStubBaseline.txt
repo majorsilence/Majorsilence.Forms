@@ -14,6 +14,7 @@ Majorsilence.Forms.Application.SetUnhandledExceptionMode/1
 Majorsilence.Forms.Application.SetUnhandledExceptionMode/2
 Majorsilence.Forms.Backends.IWindowBackend.SetCaptionRegions/1
 Majorsilence.Forms.Backends.IWindowBackend.SetExtendClientIntoTitleBar/2
+Majorsilence.Forms.Backends.IWindowBackend.SetShaped/1
 Majorsilence.Forms.Binding.ReadValue/0
 Majorsilence.Forms.Binding.WriteValue/0
 Majorsilence.Forms.BindingManagerBase.AddNew/0

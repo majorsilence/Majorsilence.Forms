@@ -371,6 +371,28 @@ namespace Majorsilence.Forms
                 OnResize (EventArgs.Empty);
             }
 
+            // A shaped window paints only inside its region. The region is in logical units and the
+            // canvas in physical ones, so the boundary path is scaled across rather than clipped raw.
+            var clipped = false;
+
+            if (Region is { } shape) {
+                var skRegion = shape.GetSKRegion ();
+
+                canvas.Save ();
+                clipped = true;
+
+                if (skRegion.IsEmpty) {
+                    // An empty region means "paint nothing" -- how a drag overlay is built before it has
+                    // any guides to show. Clipping to the empty PATH would not do it: Skia treats an
+                    // empty path as no clip at all, so the window painted in full.
+                    canvas.ClipRect (SkiaSharp.SKRect.Empty);
+                } else {
+                    using var path = skRegion.GetBoundaryPath ();
+                    path.Transform (SkiaSharp.SKMatrix.CreateScale ((float)scaling, (float)scaling));
+                    canvas.ClipPath (path, SkiaSharp.SKClipOperation.Intersect, antialias: true);
+                }
+            }
+
             var e = new PaintEventArgs (skInfo, canvas, scaling);
 
             OnPaintBackground (e);
@@ -395,6 +417,9 @@ namespace Majorsilence.Forms
 
             adapter.RaisePaintBackground (e);
             adapter.RaisePaint (e);
+
+            if (clipped)
+                canvas.Restore ();
 
             canvas.Flush ();
         }
@@ -1416,7 +1441,31 @@ namespace Majorsilence.Forms
         /// <see cref="Control.Region"/> (also stored) — Majorsilence.Forms does not clip a window to
         /// a non-rectangular region yet.
         /// </summary>
-        public Majorsilence.Forms.Drawing.Region? Region { get; set; }
+        /// <remarks>
+        /// A window with a region is SHAPED: it paints only inside the region, and the rest of it reads
+        /// through to whatever is behind. Both halves are needed — clipping alone would only expose the
+        /// window's own opaque backdrop — so the backend is told to stop filling that backdrop (see
+        /// <see cref="Backends.IWindowBackend.SetShaped"/>) and <see cref="RenderFrame"/> clips to the
+        /// region.
+        ///
+        /// This is how a drag overlay draws just its guides: a full-screen, input-transparent window
+        /// whose region is a handful of small shapes. Stored and never read, it produced the opposite —
+        /// a screen-sized opaque rectangle over everything for the duration of a drag.
+        /// </remarks>
+        public Majorsilence.Forms.Drawing.Region? Region {
+            get => region;
+            set {
+                if (ReferenceEquals (region, value))
+                    return;
+
+                region = value;
+
+                Backend.SetShaped (value is not null);
+                Invalidate ();
+            }
+        }
+
+        private Majorsilence.Forms.Drawing.Region? region;
 
         /// <summary>
         /// Gets or sets the reading order of the window. Forwarded to the root control adapter, which

@@ -368,6 +368,46 @@ namespace Majorsilence.Forms
             set => Topmost = value;
         }
 
+        void Backends.IWindowBackend.SetShaped (bool shaped)
+        {
+            _shaped = shaped;
+            ApplyBackdrop ();
+        }
+
+        // A window needs a see-through backdrop when it is shaped (paints only inside a Region) or
+        // translucent (Opacity < 1) -- WinForms' layered-window cases. Without it the clip or the alpha
+        // is composited over the window's own opaque fill, so a half-transparent drag preview reads as a
+        // solid sheet and a shaped overlay as a solid rectangle.
+        //
+        // macOS is the awkward one twice over: the constructor forces an opaque backdrop (so the extended
+        // title-bar area does not pick up vibrancy), and the platform drops transparency again whenever
+        // the window is resized -- which a drag overlay is, constantly.
+        private void ApplyBackdrop ()
+        {
+            var seeThrough = _shaped || Opacity < 1.0;
+
+            TransparencyLevelHint = seeThrough
+                ? new[] { WindowTransparencyLevel.Transparent }
+                : new[] { WindowTransparencyLevel.None };
+
+            if (seeThrough)
+                Background = Brushes.Transparent;
+        }
+
+
+        private bool _shaped;
+
+        // A shaped window loses its transparency when the platform window is resized -- the overlay a
+        // docking drag puts up is created tiny and then stretched over the whole panel, so by the time it
+        // matters the backdrop is opaque again. Re-declaring the hint after each resize keeps it.
+        protected override void OnResized (WindowResizedEventArgs e)
+        {
+            base.OnResized (e);
+
+            if ((_shaped || Opacity < 1.0) && ActualTransparencyLevel != WindowTransparencyLevel.Transparent)
+                ApplyBackdrop ();
+        }
+
         void Backends.IWindowBackend.SetSystemDecorations (bool useSystemDecorations)
         {
             WindowDecorations = useSystemDecorations ? WindowDecorations.Full : WindowDecorations.None;
@@ -578,7 +618,10 @@ namespace Majorsilence.Forms
 
         double Backends.IWindowBackend.Opacity {
             get => Opacity;
-            set => Opacity = value;
+            set {
+                Opacity = value;
+                ApplyBackdrop ();
+            }
         }
 
         FormWindowState Backends.IWindowBackend.WindowState {
