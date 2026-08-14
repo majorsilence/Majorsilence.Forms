@@ -220,9 +220,22 @@ public sealed class WebDriverClient : IDisposable
     public Task<byte []> ScreenshotAsync(CancellationToken cancellationToken) =>
         RunAsync(async sid =>
         {
-            var base64 = (await GetAsync($"session/{sid}/screenshot", cancellationToken).ConfigureAwait(false))
-                .GetString() ?? string.Empty;
-            return Convert.FromBase64String(base64);
+            try
+            {
+                var base64 = (await GetAsync($"session/{sid}/screenshot", cancellationToken)
+                    .ConfigureAwait(false)).GetString() ?? string.Empty;
+                return Convert.FromBase64String(base64);
+            }
+            catch (WebDriverProtocolException ex) when (ex.Message.Contains("Headless", StringComparison.Ordinal))
+            {
+                // The server renders screenshots through HeadlessRenderer, which refuses a window it does
+                // not host — so this is what every desktop app hits, and the raw message ("Window is not
+                // hosted on the Headless backend") reads like a bug rather than a boundary.
+                throw new WebDriverProtocolException("screenshots unavailable",
+                    "This app is not running on the Headless backend, and the automation endpoint can only "
+                    + "render screenshots for windows the headless renderer hosts. Read the control tree "
+                    + "instead (ui_snapshot), or capture images from a headless test run.");
+            }
         }, cancellationToken);
 
     /// <inheritdoc/>

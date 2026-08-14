@@ -71,9 +71,9 @@ namespace AutomationTarget
                 Left = 12, Top = 198, Width = 100, Height = 30, Enabled = false
             };
 
-            // A ListBox's *items* are not in the automation tree yet, so a client reading `logList` gets
-            // the control, not its contents. This label carries the same information in a form a client
-            // can actually assert on — which is the general workaround for that limit.
+            // The list's items are in the automation tree (each one a listitem node with its own bounds), so
+            // a client can read the history directly. This label stays because the newest entry is what most
+            // assertions actually want, and one stable target beats scanning children for it.
             lastActionLabel = new Label {
                 Name = "lastActionLabel", Text = "nothing yet",
                 Left = 12, Top = 236, Width = 436, Height = 22

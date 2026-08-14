@@ -30,7 +30,7 @@ Automation endpoint: http://127.0.0.1:4444/
 | Agree checkbox | `agreeCheck` | Toggling it enables Submit |
 | Submit | `submitButton` | Starts disabled — this is what a wait-for-enabled is actually for |
 | Last action label | `lastActionLabel` | The most recent action, in a form a client can read |
-| Action log | `logList` | The same history, on screen |
+| Action log | `logList` | The same history — its rows are `listitem` nodes a client can read and click |
 | Instructions label | *(none)* | Deliberately unnamed: it appears in the tree with an empty id, which is what "name your controls" means in practice |
 
 Every action is also written to stdout, so you can compare what a client *claims* it did against what the
@@ -56,11 +56,14 @@ SID=$(curl -s -X POST http://127.0.0.1:4444/session -d '{}' | sed 's/.*"sessionI
 curl -s "http://127.0.0.1:4444/session/$SID/source"
 ```
 
-## Two boundaries this sample runs into
+## Two things this sample will teach you the hard way
 
 - **Screenshots need the Headless backend.** This sample runs on Avalonia, so
   `GET /session/{id}/screenshot` (and the MCP server's `ui_screenshot`) will tell you screenshots are
   unavailable. That is the endpoint's boundary, not a bug: capture images from a headless test run.
-- **A `ListBox`'s items are not in the automation tree.** Reading `logList` gets you the control, not its
-  contents, which is why `lastActionLabel` exists. Mirroring state into a readable control is the general
-  workaround.
+- **A list's items are nodes, but they have no `id`.** `logList`'s entries are in the tree as `listitem`
+  nodes with their own bounds, so you can read the history and click a row — but locate them by name, text
+  or XPath (`//*[@role='listitem']`), since an item has no `Name` of its own. Which row is selected is read
+  from the list itself, whose `value` is its selected item. `lastActionLabel` stays because the newest entry
+  is usually what an assertion wants, and one stable target beats scanning children for it. (List items
+  arrived after 26.0.30; on a pinned 26.0.30 the list is visible but empty in the tree.)

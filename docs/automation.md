@@ -60,6 +60,27 @@ live UI as XML — which is what makes locators recordable, snapshots diffable, 
 The tag is the control type; `id` is `Control.Name`, `name` is the accessible name. Those attributes are
 exactly what every locator below matches on.
 
+**Not everything in the tree is a control.** Menu items, toolbar buttons, and `ListBox` items are painted
+by their parent rather than hosted as child controls, so a tree built from the control hierarchy alone
+stopped at the strip or the list — you could find a `ToolStrip` and click nothing on it, or find a list and
+read nothing in it. They are now nodes in their own right, with their own on-screen bounds:
+
+```xml
+<ListBox id="wordList" name="wordList" role="list" type="ListBox" value="Beta" ... >
+  <ListBoxItem id="" name="Alpha" role="listitem" type="ListBoxItem" x="11" y="11" width="258" height="17" />
+  <ListBoxItem id="" name="Beta"  role="listitem" type="ListBoxItem" x="11" y="28" width="258" height="17" />
+</ListBox>
+```
+
+Two things to know about items. They carry **no `id`** — an item has no `Name` of its own, and a synthetic
+index would shift under you as the list scrolls — so locate them by name, text, or XPath
+(`By.Name ("Beta")`, `//*[@role='listitem']`). And **which item is selected is read from the list**, whose
+`value` is its selected item; an item's own text stays its text. Only the items scrolled into view appear,
+because an item off screen has no rectangle to click.
+
+*Menu and toolbar items, list items, and the HiDPI hit-test fix behind clicking them landed after 26.0.30
+— on a pinned 26.0.30 you'll see the strip and the list but not their contents.*
+
 ---
 
 ## Pick your level
@@ -1595,7 +1616,8 @@ Other boundaries worth knowing before you design a suite around them:
 |---|---|
 | One window per WebDriver session | No frame or window switching; multi-window flows belong at level 1 |
 | Screenshots need the Headless backend | `GET …/screenshot` fails against a desktop-hosted window ([above](#level-2--selenium-and-the-webdriver-server)); capture in the headless run |
-| List/tab *items* aren't in the tree | Reading a `ListBox`'s contents isn't possible yet — assert on state the app also exposes as a control |
+| Tab headers and grid cells aren't in the tree | Menu, toolbar and list items are ([above](#one-tree-three-consumers)); tabs and `DataGridView` cells still need their own nodes |
+| No per-item selection state | Read the list's `value` for its selected item; an item cannot report "selected" on its own yet |
 | Hidden controls omitted from the tree | You can't assert on an invisible control's contents — assert visibility instead |
 | No JavaScript execution endpoint | Selenium APIs built on `execute/sync` (`ExecuteScript`, `GetAttribute`, JS-based waits) are unavailable; use `GetDomAttribute` and your own polling |
 | No implicit waits | Bring your own [`Wait` helper](#waiting-without-threadsleep) |
@@ -1622,8 +1644,11 @@ And the two habits that cause most of the pain:
 - Complete the UIA patterns: `Value`/`Toggle` write support, structure-changed events, and `TextBox`
   per-keystroke value events (raising `TextChanged` from the editor).
 - **AT-SPI (Linux)** and **NSAccessibility (macOS)** bridges over the same tree.
-- Expand roles and states (selection, expand/collapse, value ranges), and surface non-control items such
-  as individual tabs and list items.
+- ✅ **Non-control items**: menu items, toolbar buttons and `ListBox` items are in the tree, with their own
+  bounds, and clickable.
+- Expand roles and states (selection, expand/collapse, value ranges) — an item cannot yet report that it
+  is selected, which is why the list carries that.
+- Surface the remaining painted items: tab headers, `DataGridView` cells, tree nodes.
 - A higher-level `Majorsilence.Forms.Testing` ergonomics layer — fluent helpers and golden-image asserts,
   so the [wait helper](#waiting-without-threadsleep) and [golden-image plumbing](#visual-regression-with-golden-images) above stop being yours to own.
 
