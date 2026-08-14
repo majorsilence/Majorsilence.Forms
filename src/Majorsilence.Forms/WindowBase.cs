@@ -1108,6 +1108,35 @@ namespace Majorsilence.Forms
             return new System.Drawing.Rectangle (rect.X + origin.X, rect.Y + origin.Y, rect.Width, rect.Height);
         }
 
+        /// <summary>
+        /// Raised when the user starts dragging the window by its caption, before the window begins to
+        /// move. Setting <see cref="CaptionDragStartingEventArgs.Cancel"/> stops the move, leaving the
+        /// gesture to the application.
+        /// </summary>
+        /// <remarks>
+        /// The portable stand-in for intercepting <c>WM_NCLBUTTONDOWN</c> over <c>HTCAPTION</c>, which is
+        /// how WinForms code takes over a title-bar drag — a docking library does it so dragging a
+        /// floating window re-docks it instead of moving it around the desktop. There are no non-client
+        /// messages here, so without this the gesture was unreachable.
+        ///
+        /// Only raised for a caption this library draws. A window using the operating system's title bar
+        /// (<see cref="Form.UseSystemDecorations"/>, the default on macOS) never sees the press at all —
+        /// the OS moves the window itself — so a window that wants this must own its caption.
+        /// </remarks>
+        public event EventHandler<CaptionDragStartingEventArgs>? CaptionDragStarting;
+
+        /// <summary>Raises <see cref="CaptionDragStarting"/>.</summary>
+        protected virtual void OnCaptionDragStarting (CaptionDragStartingEventArgs e)
+            => CaptionDragStarting?.Invoke (this, e);
+
+        // Returns true when a handler claimed the gesture, in which case the window must not move.
+        internal bool RaiseCaptionDragStarting (System.Drawing.Point location)
+        {
+            var e = new CaptionDragStartingEventArgs (location);
+            OnCaptionDragStarting (e);
+            return e.Cancel;
+        }
+
         /// <summary>Gets or sets whether the window is resizable.</summary>
         public bool Resizeable { get; set; }
 

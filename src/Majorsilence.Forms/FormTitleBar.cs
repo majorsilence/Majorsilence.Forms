@@ -195,7 +195,16 @@ namespace Majorsilence.Forms
 
             // We won't get a MouseUp from the system for this, so don't capture the mouse
             Capture = false;
-            FindForm ()?.BeginMoveDrag ();
+
+            if (FindForm () is not { } form)
+                return;
+
+            // The application gets first refusal on the gesture (a docking library turns it into a
+            // re-dock); only move the window if nobody claimed it.
+            if (form.RaiseCaptionDragStarting (e.Location))
+                return;
+
+            form.BeginMoveDrag ();
         }
 
         /// <inheritdoc/>
