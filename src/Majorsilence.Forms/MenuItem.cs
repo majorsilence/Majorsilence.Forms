@@ -275,7 +275,7 @@ namespace Majorsilence.Forms
         /// position indicator appeared to lag a keystroke behind. The owner is laid out as well as
         /// invalidated because an item's width is measured from its text.
         /// </remarks>
-        public string Text {
+        public virtual string Text {
             get => text;
             set {
                 if (text == value)

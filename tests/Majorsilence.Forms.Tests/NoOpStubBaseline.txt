@@ -32,7 +32,6 @@ Majorsilence.Forms.Clipboard.SetImage/1
 Majorsilence.Forms.ColumnHeader.AutoResize/1
 Majorsilence.Forms.ComboBox.SelectAll/0
 Majorsilence.Forms.Control.AccessibilityNotifyClients/2
-Majorsilence.Forms.Control.CreateHandle/0
 Majorsilence.Forms.Control.DrawToBitmap/2
 Majorsilence.Forms.Control.ScrollControlIntoView/1
 Majorsilence.Forms.Control.UpdateStyles/0
@@ -148,6 +147,8 @@ Majorsilence.Forms.TrackBar.EndInit/0
 Majorsilence.Forms.TreeView.Sort/0
 Majorsilence.Forms.TreeViewItem.BeginEdit/0
 Majorsilence.Forms.TreeViewItem.EndEdit/1
+Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/2
+Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/3
 Majorsilence.Forms.WebBrowser.GoBack/0
 Majorsilence.Forms.WebBrowser.GoForward/0
 Majorsilence.Forms.WebBrowser.GoHome/0

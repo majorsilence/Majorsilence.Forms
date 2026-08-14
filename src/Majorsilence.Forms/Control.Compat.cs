@@ -23,7 +23,7 @@ namespace Majorsilence.Forms
         /// Gets or sets a value indicating the control is double-buffered. Majorsilence.Forms always renders
         /// each control into its own off-screen surface, so this is effectively always true.
         /// </summary>
-        public bool DoubleBuffered { get; set; } = true;
+        protected virtual bool DoubleBuffered { get; set; } = true;
 
         /// <summary>
         /// Forces the control to invalidate and immediately repaint.
@@ -292,7 +292,7 @@ namespace Majorsilence.Forms
         public IntPtr Handle => IntPtr.Zero;
 
         /// <summary>Forces the creation of the control handle. Stub in Majorsilence.Forms — handle is always ready.</summary>
-        public void CreateHandle () { }
+        protected virtual void CreateHandle () { }
 
         /// <summary>Applies updated ControlStyles flags. Stub in Majorsilence.Forms — styles are applied immediately.</summary>
         public void UpdateStyles () { }
@@ -359,7 +359,7 @@ namespace Majorsilence.Forms
         public string? AccessibleDescription { get; set; }
 
         /// <summary>Gets or sets whether the control accepts drag-and-drop data. Stub in Majorsilence.Forms.</summary>
-        public bool AllowDrop { get; set; }
+        public virtual bool AllowDrop { get; set; }
 
         /// <summary>Causes all validation in the control hierarchy to occur. Always returns true in Majorsilence.Forms.</summary>
         public bool Validate () => Validate (checkAutoValidate: false);

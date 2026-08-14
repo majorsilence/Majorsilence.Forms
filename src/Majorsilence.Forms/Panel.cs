@@ -20,7 +20,7 @@ namespace Majorsilence.Forms
             SetControlBehavior (ControlBehaviors.Selectable, false);
         }
         /// <summary>Gets or sets how the panel behaves when its AutoSize property is enabled.</summary>
-        public AutoSizeMode AutoSizeMode {
+        public virtual AutoSizeMode AutoSizeMode {
             get => GetAutoSizeMode ();
             set {
                 if (!Enum.IsDefined (value))

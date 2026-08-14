@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 
 namespace Majorsilence.Forms
@@ -6,7 +7,7 @@ namespace Majorsilence.Forms
     /// WinForms compatibility: specifies the base class used for displaying dialog boxes on screen.
     /// In Majorsilence.Forms, dialogs are implemented as Form subclasses; this class provides compatibility.
     /// </summary>
-    public abstract class CommonDialog : Component
+    public abstract partial class CommonDialog : Component
     {
         /// <summary>Gets or sets an arbitrary object that provides additional data about the dialog. Stub in Majorsilence.Forms.</summary>
         public object? Tag { get; set; }
@@ -24,7 +25,7 @@ namespace Majorsilence.Forms
         /// When overridden in a derived class, specifies the common dialog box.
         /// Returns true if the user clicked OK, false if cancelled.
         /// </summary>
-        protected abstract bool RunDialog (IWin32Window? hwndOwner);
+        protected virtual bool RunDialog (IWin32Window? hwndOwner) => RunDialog (hwndOwner?.Handle ?? IntPtr.Zero);
 
         /// <summary>Raised after the dialog is closed.</summary>
         public event EventHandler? HelpRequest;

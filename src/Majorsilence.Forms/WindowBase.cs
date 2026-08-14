@@ -553,13 +553,13 @@ namespace Majorsilence.Forms
         /// paint a background image. Previously the layout below was stored and ignored, so a form with
         /// a background image simply showed none.
         /// </remarks>
-        public Majorsilence.Forms.Drawing.Image? BackgroundImage {
+        public virtual Majorsilence.Forms.Drawing.Image? BackgroundImage {
             get => adapter.BackgroundImage;
             set => adapter.BackgroundImage = value;
         }
 
         /// <summary>Gets or sets how <see cref="BackgroundImage"/> is laid out.</summary>
-        public ImageLayout BackgroundImageLayout {
+        public virtual ImageLayout BackgroundImageLayout {
             get => adapter.BackgroundImageLayout;
             set => adapter.BackgroundImageLayout = value;
         }
@@ -1567,7 +1567,7 @@ namespace Majorsilence.Forms
         /// <see cref="Majorsilence.Forms.RightToLeft.Inherit"/> resolve through this the same way they
         /// resolve through a parent Control in WinForms.
         /// </summary>
-        public RightToLeft RightToLeft {
+        public virtual RightToLeft RightToLeft {
             get => adapter is null ? RightToLeft.No : adapter.RightToLeft;
             set { if (adapter is not null) adapter.RightToLeft = value; }
         }

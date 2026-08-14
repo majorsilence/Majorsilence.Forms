@@ -567,7 +567,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets whether this control currently has keyboard focus.
         /// </summary>
-        public bool Focused => Selected;
+        public virtual bool Focused => Selected;
 
         /// <summary>
         /// Releases the back buffer.
@@ -1147,6 +1147,7 @@ namespace Majorsilence.Forms
         protected virtual void OnDoubleClick (MouseEventArgs e)
         {
             (Events[s_doubleClickEvent] as EventHandler)?.Invoke (this, e);
+            OnDoubleClick ((EventArgs)e);
             OnMouseDoubleClick (e);
         }
 

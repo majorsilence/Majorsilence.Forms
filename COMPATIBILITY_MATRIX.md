@@ -400,6 +400,16 @@ host app references — the Telerik package itself has no backend dependency.
 | Uno backend, or Avalonia with the engine unavailable | — | System PDF viewer | `RichTextBox` fallback |
 | Headless backend | — (no `IWebViewFactory` at all) | Caches the document and paints a placeholder; never shells out to a system viewer (so CI/automated tests never spawn OS processes) | `RichTextBox` fallback |
 
+## Visual styles (`System.Windows.Forms.VisualStyles`)
+
+`VisualStyleRenderer` and `VisualStyleElement` exist so that code which draws a themed part — a status
+bar's resize grip, a themed arrow — compiles and runs, but there is **no msstyles theme engine** off
+Windows to draw with, so `VisualStyleRenderer.DrawBackground` is a no-op and
+`VisualStyleRenderer.IsSupported` / `IsElementDefined` report `false`. That pair is how WinForms code is
+already written to decide whether to theme or fall back to its own painting, so code that checks first
+takes its fallback path and never reaches the no-op. `VisualStyleElement` carries the element groups the
+compat layer has been asked for so far, under the upstream nested-class names.
+
 ## VB Application Model
 
 Not implemented — see [`MIGRATION.md`'s VB Application Model section](MIGRATION.md#vb-application-model-myapplication-myforms)

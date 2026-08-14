@@ -374,7 +374,7 @@ namespace Majorsilence.Forms
         protected virtual void OnTextAlignChanged (EventArgs e) => (Events[s_eventTextAlignChanged] as EventHandler)?.Invoke (this, e);
 
         /// <summary>Gets or sets the border style for the label. Stub in Majorsilence.Forms (does not render borders).</summary>
-        public BorderStyle BorderStyle { get; set; } = BorderStyle.None;
+        public virtual BorderStyle BorderStyle { get; set; } = BorderStyle.None;
 
         /// <summary>Gets or sets the flat style for the label. Stub in Majorsilence.Forms.</summary>
         public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;

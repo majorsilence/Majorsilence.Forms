@@ -122,8 +122,14 @@ namespace Majorsilence.Forms
         /// <param name="location">The coordinates used to determine the index.</param>
         public int GetIndexAtLocation (Point location)
         {
+            // Mouse coordinates are logical (MouseEventArgs, like Bounds), while GetItemRectangle is built
+            // from ClientRectangle and ScaledItemHeight and is therefore in device pixels. Comparing the two
+            // directly picks the item at index/scale on a scaled display -- clicking the second row selects
+            // the first at scaling 2 -- so the point is converted before it is tested.
+            var device = new Point (LogicalToDeviceUnits (location.X), LogicalToDeviceUnits (location.Y));
+
             for (var i = top_index; i < Math.Min (Items.Count, top_index + VisibleItemCount + 1); i++)
-                if (GetItemRectangle (i).Contains (location))
+                if (GetItemRectangle (i).Contains (device))
                     return i;
 
             return -1;
@@ -610,7 +616,7 @@ namespace Majorsilence.Forms
         public bool Sorted { get; set; }
 
         /// <summary>Gets or sets the height of each item when DrawMode is OwnerDrawFixed. Stub in Majorsilence.Forms.</summary>
-        public DrawMode DrawMode { get; set; } = DrawMode.Normal;
+        public virtual DrawMode DrawMode { get; set; } = DrawMode.Normal;
 
         /// <summary>Gets or sets whether the control height resizes to avoid showing partial items. Stub in Majorsilence.Forms.</summary>
         public bool IntegralHeight { get; set; } = true;

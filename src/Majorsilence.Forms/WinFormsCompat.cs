@@ -1135,10 +1135,10 @@ namespace Majorsilence.Forms
         public RightToLeft RightToLeft { get; set; } = RightToLeft.No;
 
         /// <summary>Gets or sets the foreground color of this item. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Color ForeColor { get; set; } = System.Drawing.Color.Empty;
+        public virtual System.Drawing.Color ForeColor { get; set; } = System.Drawing.Color.Empty;
 
         /// <summary>Gets or sets the background color of this item. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Color BackColor { get; set; } = System.Drawing.Color.Empty;
+        public virtual System.Drawing.Color BackColor { get; set; } = System.Drawing.Color.Empty;
 
         /// <summary>Gets or sets the font for this item. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Forms.Drawing.Font? Font { get; set; }
@@ -1420,7 +1420,7 @@ namespace Majorsilence.Forms
         public Control Control { get; }
 
         /// <summary>Gets or sets the size of the hosted control.</summary>
-        public new System.Drawing.Size Size {
+        public override System.Drawing.Size Size {
             get => Control.Size;
             set => Control.Size = value;
         }
