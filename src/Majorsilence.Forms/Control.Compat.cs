@@ -128,11 +128,12 @@ namespace Majorsilence.Forms
         /// Gets or sets the background image displayed in the control.
         /// Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
-        public Majorsilence.Forms.Drawing.Image? BackgroundImage {
+        public virtual Majorsilence.Forms.Drawing.Image? BackgroundImage {
             get => background_image;
             set {
                 if (background_image != value) {
                     background_image = value;
+                    OnBackgroundImageChanged (EventArgs.Empty);
                     Invalidate ();
                 }
             }
@@ -141,11 +142,12 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the layout used to position the <see cref="BackgroundImage"/>.
         /// </summary>
-        public ImageLayout BackgroundImageLayout {
+        public virtual ImageLayout BackgroundImageLayout {
             get => background_image_layout;
             set {
                 if (background_image_layout != value) {
                     background_image_layout = value;
+                    OnBackgroundImageLayoutChanged (EventArgs.Empty);
                     Invalidate ();
                 }
             }

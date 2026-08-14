@@ -362,14 +362,19 @@ namespace Majorsilence.Forms
         /// binds it.</remarks>
 #pragma warning disable CS0067
         public event EventHandler? StyleChanged;
+#pragma warning restore CS0067
 
-        /// <summary>Raised when the background image changes. Never raised; this layer does not draw one.</summary>
+        /// <summary>Raised when <see cref="BackgroundImage"/> changes.</summary>
         public event EventHandler? BackgroundImageChanged;
 
-        /// <summary>Raised when the background image layout changes. Never raised; see
-        /// <see cref="BackgroundImageChanged"/>.</summary>
+        /// <summary>Raised when <see cref="BackgroundImageLayout"/> changes.</summary>
         public event EventHandler? BackgroundImageLayoutChanged;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="BackgroundImageChanged"/> event.</summary>
+        protected virtual void OnBackgroundImageChanged (EventArgs e) => BackgroundImageChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="BackgroundImageLayoutChanged"/> event.</summary>
+        protected virtual void OnBackgroundImageLayoutChanged (EventArgs e) => BackgroundImageLayoutChanged?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="DataContextChanged"/> event.</summary>
         protected virtual void OnDataContextChanged (EventArgs e)

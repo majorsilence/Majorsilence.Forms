@@ -88,6 +88,7 @@ Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) fol
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
+- [`AutomationTarget`](samples/AutomationTarget) — a small app that exposes its own automation endpoint, so you have something real to drive from the [MCP server](tools/Majorsilence.Forms.Mcp), Selenium, or `curl`. See [Automation & UI testing](docs/automation.md).
 
 Run the gallery on the Avalonia backend:
 

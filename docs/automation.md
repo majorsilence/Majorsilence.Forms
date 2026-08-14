@@ -600,6 +600,12 @@ End Using
 (role), get attribute, get rect, get enabled, **page source** (`GET …/source`, XML), screenshot (PNG, via
 the offscreen renderer), and `GET /status`.
 
+One asymmetry to know about: everything above works against a window on any backend, but **screenshots
+are Headless-only**. `GET …/screenshot` renders through `HeadlessRenderer`, which refuses a window it
+doesn't host — point it at a desktop app on the Avalonia backend and it answers `Window is not hosted on
+the Headless backend`. Read the tree instead, and take screenshots in the headless test run where
+[golden images](#visual-regression-with-golden-images) live anyway.
+
 **Locator strategies:** `id`, `name`, `tag name` (role), `xpath`, `css selector` (`#id` and `[name='…']`
 forms), plus the custom `role`, `type`, and `link text`. Element references re-resolve against a fresh
 snapshot on every use, preferring the stable AutomationId — so a reference stays valid after the UI
@@ -1374,7 +1380,7 @@ The tools it exposes:
 | `ui_click` | `target`, `strategy` | confirmation, or why it was refused |
 | `ui_type` | `target`, `text`, `strategy`, `clear` | what the control reads afterwards |
 | `ui_wait_for` | `target`, `strategy`, `timeoutMs`, `requireEnabled` | readiness, or why the wait timed out |
-| `ui_screenshot` | — | a PNG of the window |
+| `ui_screenshot` | — | a PNG of the window — [Headless-hosted windows only](#level-2--selenium-and-the-webdriver-server) |
 
 Three decisions in there worth copying if you build your own:
 
@@ -1385,6 +1391,19 @@ Three decisions in there worth copying if you build your own:
   recognise, so an unchecked typo would silently search the wrong way and answer "not found".
 - **`ui_click` and `ui_type` are annotated destructive, the rest read-only**, which is what a host shows
   the user when deciding what to auto-approve.
+
+**Something to point it at.** `samples/AutomationTarget` is a small app built for exactly this: it starts
+the endpoint itself and prints the commands to drive it.
+
+```
+dotnet run --project samples/AutomationTarget -- --webdriver 4444
+```
+
+Its controls each exercise one thing a client has to handle — a text box to write and read, a button whose
+handler changes a label, a permanently disabled button (so you can see a refusal rather than a false
+success), and a Submit button that only becomes enabled once a checkbox is ticked, which is what
+`ui_wait_for` is for. Every action is appended to a visible log, so you can check that what the client
+claims it did is what the app actually saw.
 
 Where it comes from: it packs as the `Majorsilence.Forms.Mcp` global tool
 (`dotnet tool install -g Majorsilence.Forms.Mcp`) from the next release onwards. Before that — and today —
@@ -1575,6 +1594,8 @@ Other boundaries worth knowing before you design a suite around them:
 | Limit | Consequence |
 |---|---|
 | One window per WebDriver session | No frame or window switching; multi-window flows belong at level 1 |
+| Screenshots need the Headless backend | `GET …/screenshot` fails against a desktop-hosted window ([above](#level-2--selenium-and-the-webdriver-server)); capture in the headless run |
+| List/tab *items* aren't in the tree | Reading a `ListBox`'s contents isn't possible yet — assert on state the app also exposes as a control |
 | Hidden controls omitted from the tree | You can't assert on an invisible control's contents — assert visibility instead |
 | No JavaScript execution endpoint | Selenium APIs built on `execute/sync` (`ExecuteScript`, `GetAttribute`, JS-based waits) are unavailable; use `GetDomAttribute` and your own polling |
 | No implicit waits | Bring your own [`Wait` helper](#waiting-without-threadsleep) |

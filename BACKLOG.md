@@ -163,3 +163,20 @@ publishing packages under those identities is not something to do by accident.)
 
 A package id is permanent once pushed, so this is a deliberate call rather than a cleanup: decide which
 of the three are ready to carry a stable name, then add those to both lists.
+
+## Wanted: screenshots from a desktop-hosted window
+
+**Status: a real gap, found while driving `samples/AutomationTarget` over the MCP server.** The WebDriver
+endpoint's `GET /session/{id}/screenshot` renders through `HeadlessRenderer`, which refuses a window it
+does not host, so it only works when the app under test runs on the Headless backend. Against a normal
+desktop app on Avalonia it fails with `Window is not hosted on the Headless backend` — every other
+command (tree, find, click, keys, rect, attributes) works there.
+
+That is the one asymmetry between headless and desktop automation, and it is the first thing anyone hits
+when they point an assistant at a running app: the tree is readable but the window is not viewable.
+Avalonia can render a control tree to a `RenderTargetBitmap`, so the backend seam could grow a
+`CaptureWindow` that the endpoint prefers when the host provides one, falling back to `HeadlessRenderer`.
+
+Documented as a boundary in `docs/automation.md` (level 2 and the limits table) and in the MCP tool's
+README until then. `tools/Majorsilence.Forms.Mcp` translates the raw message into an actionable one,
+because on its own it reads like a bug rather than a limit.

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(_TargetFramework)</TargetFramework>
+    <RootNamespace>AutomationTarget</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
+    <!-- The point of this sample: it hosts the automation endpoint itself. Everything that drives it
+         (the MCP server, Selenium, curl) is a client of this. Majorsilence.Forms.Headless comes along
+         transitively, which is what renders the offscreen screenshots the endpoint serves. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WebDriver\Majorsilence.Forms.WebDriver.csproj" />
+  </ItemGroup>
+
+</Project>
