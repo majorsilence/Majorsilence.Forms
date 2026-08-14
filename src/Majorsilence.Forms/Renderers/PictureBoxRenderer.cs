@@ -14,7 +14,13 @@ namespace Majorsilence.Forms.Renderers
                 var client = control.PaddedClientRectangle;
 
                 switch (control.SizeMode) {
-                    //case PictureBoxSizeMode.AutoSize:
+                    // AutoSize draws the image at its natural size, exactly as Normal does -- the
+                    // difference between them is that AutoSize also resizes the control to match (see
+                    // PictureBox.UpdateSize), not how the image is painted. Commented out, this arm fell
+                    // through a switch with no default and the image was never drawn at all: a docking
+                    // library's drop guides are AutoSize picture boxes, so all that appeared where the
+                    // guides should be was the bare background of the window carrying them.
+                    case PictureBoxSizeMode.AutoSize:
                     case PictureBoxSizeMode.Normal:
                         e.Canvas.DrawBitmap (control.SKImage, new Rectangle (0, 0, control.SKImage.Width, control.SKImage.Height), !control.Enabled);
                         break;

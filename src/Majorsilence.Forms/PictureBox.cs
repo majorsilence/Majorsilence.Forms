@@ -207,8 +207,26 @@ namespace Majorsilence.Forms
             if (_skImage == null)
                 return;
 
+            // WinForms' PictureBox sizes ITSELF to the image under SizeMode.AutoSize -- it does not wait
+            // for a parent layout pass, and it does not require Control.AutoSize to be set. Asking the
+            // parent to lay out was a no-op for a control that is neither docked nor anchored, so the box
+            // sat at its default 100x50 however big the image was.
+            //
+            // A docking library's drop guides are built exactly this way: a PictureBox per guide, sized
+            // by its own artwork. Stuck at the default, the guides were hit-tested against a box smaller
+            // than the cluster drawn on screen, and the hot-spot lookup indexed the artwork at
+            // coordinates that did not correspond to it -- so dropping on a lobe mostly missed.
+            if (size_mode == PictureBoxSizeMode.AutoSize)
+                Size = new Size (_skImage.Width, _skImage.Height);
+
             Parent?.PerformLayout (this, nameof (AutoSize));
         }
+
+        /// <inheritdoc/>
+        public override Size GetPreferredSize (Size proposedSize)
+            => size_mode == PictureBoxSizeMode.AutoSize && _skImage is not null
+                ? new Size (_skImage.Width, _skImage.Height)
+                : base.GetPreferredSize (proposedSize);
     }
 }
 #pragma warning restore CA1416
