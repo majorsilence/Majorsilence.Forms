@@ -65,6 +65,12 @@ internal static class NamespaceMap
         ("System.Drawing.Design", "Majorsilence.Forms.Design"),
         ("System.Drawing.Printing", "Majorsilence.Forms.Printing"),
         ("System.Windows.Forms", "Majorsilence.Forms"),
+        // System.Media holds SystemSounds/SystemSound, which live in System.Windows.Extensions -- a
+        // Windows-only assembly. The namespace itself resolves off Windows (something else declares it),
+        // so a bare `using System.Media;` compiles and then every SystemSounds reference in the file fails
+        // as an unknown name, which is a far more confusing error than a missing namespace. Redirected to
+        // the replacements in src/Majorsilence.Forms/SystemFeatures.cs.
+        ("System.Media", "Majorsilence.Forms.Media"),
     ];
 
     /// <summary>
