@@ -62,6 +62,12 @@ namespace Majorsilence.Forms.Automation
             if (c is MenuBase strip)
                 children.AddRange (BuildItems (strip.RootItems, origin));
 
+            // A ListBox paints its Items rather than hosting them, so they are not Controls either and the
+            // same walk stopped at the list: a caller could find the list and read nothing inside it, which
+            // is why apps had to mirror list contents into a label to make them assertable.
+            if (c is ListBox list)
+                children.AddRange (BuildListItems (list, origin));
+
             return new AutomationElement (
                 source: c,
                 automationId: c.Name ?? string.Empty,
@@ -104,6 +110,52 @@ namespace Majorsilence.Forms.Automation
             }
 
             return list;
+        }
+
+        // Only the items scrolled into view are added: an item off screen has no rectangle to click, and a
+        // list of ten thousand rows would otherwise bury the tree it belongs to. The window is the same one
+        // GetIndexAtLocation probes -- first visible item to one past the last -- because an item scrolled
+        // half out of view is still on screen and still clickable.
+        private static List<AutomationElement> BuildListItems (ListBox list, Point origin)
+        {
+            var items = new List<AutomationElement> ();
+            var end = System.Math.Min (list.Items.Count, list.TopIndex + list.VisibleItemCount + 1);
+
+            for (var index = System.Math.Max (0, list.TopIndex); index < end; index++) {
+                // GetItemRectangle is built from ClientRectangle and ScaledItemHeight, so it comes back in
+                // device pixels, while every Bounds in this tree is logical. Converting here is what keeps a
+                // click landing on the item on a scaled display rather than at 1/scale of it.
+                var device = list.GetItemRectangle (index);
+                if (device.Width <= 0 || device.Height <= 0)
+                    continue;
+
+                var item = list.Items [index];
+
+                items.Add (new AutomationElement (
+                    source: item ?? (object) string.Empty,
+                    // An item has no Name of its own, and a synthetic index-based id would shift under the
+                    // caller as the list scrolls or grows -- exactly the brittleness ids exist to avoid.
+                    // Items are located by name, text or xpath instead.
+                    automationId: string.Empty,
+                    name: list.GetItemText (item),
+                    role: "listitem",
+                    controlType: "ListBoxItem",
+                    // No value of its own: GetText reads Value first, so anything here would answer "what
+                    // does this item say?" with something other than the item's text. Which item is selected
+                    // is reported by the list itself, below.
+                    value: null,
+                    enabled: list.Enabled,
+                    visible: true,
+                    focused: false,
+                    bounds: new Rectangle (
+                        origin.X + list.DeviceToLogicalUnits (device.X),
+                        origin.Y + list.DeviceToLogicalUnits (device.Y),
+                        list.DeviceToLogicalUnits (device.Width),
+                        list.DeviceToLogicalUnits (device.Height)),
+                    children: System.Array.Empty<AutomationElement> ()));
+            }
+
+            return items;
         }
 
         private static string NameOfItem (MenuItem item)
@@ -159,6 +211,10 @@ namespace Majorsilence.Forms.Automation
             RadioButton rb => rb.Checked ? "true" : "false",
             TextBox tb => tb.Text,
             ComboBox cbo => cbo.Text,
+            // The selected item, the way a ComboBox reports its text -- so "what is selected?" is one read
+            // of the list rather than a scan of its items. A multi-select list reports its primary
+            // selection here; per-item selection state needs a state field the tree does not have yet.
+            ListBox list => list.SelectedItem?.ToString () ?? string.Empty,
             _ => null
         };
     }
