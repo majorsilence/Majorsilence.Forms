@@ -161,6 +161,19 @@ per-row:
   base-class gap itself is unchanged: a `Form` still isn't a `Control`, so it can't go into a
   `Control.ControlCollection` or be found by a `Control`-typed walk of a tree, and any *other*
   `Control` member not listed in the `Form` row still has to be added one at a time.
+  *Updated 2026-08-14 — the divergence is now measured and gated rather than discovered one compiler
+  error at a time.* `ControlWindowParityTests` reflects over both surfaces and pins every `Control`
+  member the window side lacks in `tests/Majorsilence.Forms.Tests/ControlWindowParityBaseline.txt`
+  (200 entries today). Adding a member to `Control` without a `WindowBase`/`Form` counterpart now
+  fails that test by name, so the hole is caught here instead of in somebody's ported application.
+  Note the baseline is a *list of differences*, not a to-do list: `Dock`, `Anchor`, `Parent`,
+  `TabIndex`, `Left`/`Top`/`Right`/`Bottom` and the rest of the placement-inside-a-parent surface have
+  no meaning for a top-level window even upstream. The entries worth closing are the ones that
+  describe a window as readily as a control — which is how `DeviceDpi`, `CreateGraphics`,
+  `GetChildAtPoint`, `SetBounds`, `ResizeRedraw`, `OnHelpRequested`, `RecreateHandle` and
+  `HandleDestroyed` came off it. Going the other way (making `Form` a `Control`) would mean merging
+  `WindowBase` with the internal `ControlAdapter` that currently *is* the root control, which collides
+  on coordinate space, on `Visible`/`Enabled` semantics, and on layout ordering.
   *Updated 2026-07-30 — the `ToolStrip` half of this finding is fixed too.*
   `MenuStrip`, `ContextMenuStrip` and `StatusStrip` now genuinely derive from `ToolStrip`, matching
   upstream, so `Renderer`, `RenderMode`, `LayoutStyle`, `GripStyle`, `GripVisible`, `Stretch`,
