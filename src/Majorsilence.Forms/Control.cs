@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents the base class for all Controls.
     /// </summary>
-    public partial class Control : Component, ILayoutable, IArrangedElement, IDisposable, IWin32Window
+    public partial class Control : Component, ILayoutable, IArrangedElement, IDisposable, IWin32Window, IBindableComponent
     {
         /// <summary>Win32 HWND compatibility -- Majorsilence.Forms has no HWND, always IntPtr.Zero.
         /// Implemented so ported WinForms code like `MessageBox.Show(this, ...)` (passing a
@@ -2207,6 +2207,20 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gives the control focus.
         /// </summary>
+        /// <summary>
+        /// Selects this control, or -- when <paramref name="directed"/> -- the next selectable control
+        /// in tab order. The overridable WinForms routes every selection through; a container that
+        /// manages its own focus (a workspace deciding which of its cells takes it) overrides this.
+        /// </summary>
+        protected virtual void Select (bool directed, bool forward)
+        {
+            if (directed)
+                SelectNextControl (null, forward, tabStopOnly: true, nested: true, wrap: false);
+            else
+                Select ();
+        }
+
+        /// <summary>Selects this control, giving it focus.</summary>
         public void Select ()
         {
             if (Selected || !CanSelect)
@@ -2367,7 +2381,13 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets a value indicating a focus rectangle should be drawn on the selected control.
         /// </summary>
-        public bool ShowFocusCues => FindForm ()?.ShowFocusCues == true;
+        /// <remarks>
+        /// Protected-internal, not public: WinForms declares this protected, and themed control
+        /// libraries reach it by reflecting with BindingFlags.NonPublic -- against a public property
+        /// that lookup finds nothing and the caller dereferences null. Internal keeps this library's
+        /// own renderers, which read it across instances, compiling.
+        /// </remarks>
+        protected internal virtual bool ShowFocusCues => FindForm ()?.ShowFocusCues == true;
 
         /// <summary>
         /// Gets or sets the unscaled size of the control.

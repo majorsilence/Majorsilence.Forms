@@ -211,10 +211,11 @@ namespace Majorsilence.Forms.Drawing
                 "Region.FromHrgn needs a Win32 HRGN, which has no meaning outside Windows GDI. Construct the Region from a rectangle or path instead.");
 
         /// <summary>Creates a GDI region handle for this region.</summary>
-        /// <exception cref="PlatformNotSupportedException">Always. See the note in HandleInterop.cs.</exception>
-        public IntPtr GetHrgn (object? g)
-            => throw new PlatformNotSupportedException (
-                "Region.GetHrgn would have to return a Win32 HRGN the caller then deletes. There is no GDI object behind this region to hand out.");
+        /// <remarks>Returns <see cref="IntPtr.Zero"/>: there is no GDI object behind this region to hand
+        /// out. It used to throw, but the callers seen in practice hand the value straight to a Win32
+        /// invalidation call and then delete it -- chrome bookkeeping with a natural neutral value --
+        /// so per the stub policy a null handle beats an exception on a code path that otherwise works.</remarks>
+        public IntPtr GetHrgn (object? g) => IntPtr.Zero;
 
         /// <summary>Releases a region handle obtained from <see cref="GetHrgn"/>.</summary>
         /// <remarks>A no-op: <see cref="GetHrgn"/> never returns, so there is no handle to release.

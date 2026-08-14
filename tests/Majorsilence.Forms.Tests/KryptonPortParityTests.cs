@@ -100,6 +100,49 @@ public class KryptonPortParityTests
         Assert.Same (dropDown, button.DropDown);
     }
 
+    // The drop-down must be a view onto its item, not a second menu beside it. It was created without
+    // an owner, so items added through DropDownItems went into a collection the strip never rendered
+    // and DropDown.Close() closed an orphan while the real menu stayed open -- both silently.
+    [Fact]
+    public void ToolStripDropDownButton_DropDownIsAViewOntoTheItem ()
+    {
+        var button = new ToolStripDropDownButton ("File");
+
+        button.DropDownItems.Add (new ToolStripMenuItem ("Open"));
+
+        // The item's own Items is what the strip renders and automation walks, so the added item must
+        // land there -- and the drop-down's Items must be that same collection, not a copy.
+        Assert.Single (button.Items);
+        Assert.Same (button.Items, button.DropDown.Items);
+        Assert.True (button.HasDropDownItems);
+
+        // Never opened: the facade agrees.
+        Assert.False (button.DropDown.Visible);
+        Assert.False (button.Pressed);
+    }
+
+    [Fact]
+    public void ToolStripDropDownButton_CloseClosesTheRealMenu ()
+    {
+        using var form = new Form ();
+        using var strip = new ToolStrip ();
+        var button = new ToolStripDropDownButton ("File");
+
+        button.DropDownItems.Add (new ToolStripMenuItem ("Open"));
+        strip.Items.Add (button);
+        form.Controls.Add (strip);
+        form.Show ();
+
+        button.ShowDropDown ();
+        Assert.True (button.DropDown.Visible);
+        Assert.True (button.Pressed);
+
+        // Krypton's focus-lost path: close the shown menu through the drop-down facade.
+        button.DropDown.Close (ToolStripDropDownCloseReason.AppFocusChange);
+        Assert.False (button.DropDown.Visible);
+        Assert.False (button.Pressed);
+    }
+
     // A cell style set on the grid has to read back as a DataGridViewCellStyle -- the conversion existed
     // one way only, so a derived grid could not re-expose DefaultCellStyle with the WinForms type.
     [Fact]
@@ -216,6 +259,11 @@ public class KryptonPortParityTests
 
         view.ItemSelectionChanged += (_, e) => seen.Add ((e.Item.Text, e.IsSelected));
 
+        // WinForms order: the per-item changes land before SelectedIndexChanged, so a handler of the
+        // latter reads a selection that has already settled.
+        view.SelectedIndexChanged += (_, _) =>
+            Assert.Equal (view.SelectedItem?.Text == "first" ? 1 : 3, seen.Count);
+
         view.SelectedItem = first;
         view.SelectedItem = second;
 
@@ -247,6 +295,34 @@ public class KryptonPortParityTests
 
         Assert.Equal (1, updown.SelectedIndex);
         Assert.Equal ("beta", updown.Text);
+    }
+
+    // A container can report a degenerate DisplayRectangle transiently (a themed form's root panel
+    // does, mid-construction). Anchoring against it collapsed every anchored child to zero width, and
+    // the next re-init laundered the collapse into the stored anchor deltas -- permanently. The layout
+    // engine now skips the anchor pass against a degenerate rectangle, so the collapse never happens
+    // and the deltas stay true.
+    [Fact]
+    public void AnchoredChild_SurvivesATransientlyCollapsedParent ()
+    {
+        using var parent = new Panel { Size = new Size (400, 100) };
+        var child = new Panel {
+            Bounds = new Rectangle (10, 10, 380, 30),
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+        };
+        parent.Controls.Add (child);
+        parent.PerformLayout ();
+
+        parent.Size = new Size (0, 0);        // the transient collapse
+        parent.PerformLayout ();
+        parent.Size = new Size (500, 100);    // the recovery
+        parent.PerformLayout ();
+
+        // Designed 380 wide with 10 left / 10 right in a 400-wide parent; at 500 the anchors give
+        // 480. Before the fix this came back 0: the child had been shrunk against the empty rectangle
+        // and its recorded distances rewritten from the shrunken bounds.
+        Assert.Equal (480, child.Width);
+        Assert.Equal (10, child.Left);
     }
 
     [Fact]

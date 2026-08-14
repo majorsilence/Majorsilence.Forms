@@ -132,6 +132,33 @@ namespace Majorsilence.Forms
         }
     }
 
+    public partial class Control
+    {
+        /// <summary>Paints the parent's background behind this control, for simulated transparency.</summary>
+        /// <remarks>
+        /// WinForms declares this internal, and themed control libraries call it by REFLECTION
+        /// (<c>BindingFlags.NonPublic</c>) to paint their transparent-background controls -- so its
+        /// absence surfaced as a null dereference on the reflected handle, not as a compile error.
+        /// The equivalent here is painting the nearest ancestor's opaque back colour: re-entering the
+        /// parent's whole paint routine, which is what WinForms does, is not needed by this library's
+        /// compositing, where the parent has already painted beneath us this frame.
+        /// </remarks>
+        internal void PaintTransparentBackground (PaintEventArgs e, Rectangle rectangle, Region? transparentRegion)
+        {
+            var color = BackColor;
+
+            for (var ancestor = Parent; ancestor is not null; ancestor = ancestor.Parent) {
+                if (ancestor.BackColor.A != 0) {
+                    color = ancestor.BackColor;
+                    break;
+                }
+            }
+
+            using var brush = new SolidBrush (color);
+            e.Graphics.FillRectangle (brush, rectangle);
+        }
+    }
+
     public partial class WindowBase
     {
         /// <summary>

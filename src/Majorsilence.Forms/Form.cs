@@ -309,13 +309,18 @@ namespace Majorsilence.Forms
 
         // Raises FormClosed exactly once, regardless of how many close callbacks reach it (programmatic
         // Close, close button, MDI removal can each drive OnBackendClosed). Called from OnBackendClosed.
+        /// <summary>Raises the <see cref="FormClosed"/> event.</summary>
+        /// <remarks>The overridable WinForms routes the event through, so a form that cleans up on
+        /// close overrides this rather than subscribing to itself. On the real close path here too.</remarks>
+        protected virtual void OnFormClosed (FormClosedEventArgs e) => FormClosed?.Invoke (this, e);
+
         internal void RaiseFormClosed ()
         {
             if (_formClosedFired)
                 return;
 
             _formClosedFired = true;
-            FormClosed?.Invoke (this, new FormClosedEventArgs ());
+            OnFormClosed (new FormClosedEventArgs ());
         }
 
 

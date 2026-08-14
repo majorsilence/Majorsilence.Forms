@@ -39,6 +39,15 @@ namespace Majorsilence.Forms
             ImageIndex = imageIndex;
         }
 
+        /// <summary>Initializes an item with sub-items, an image index, colours and a font.</summary>
+        public ListViewItem (string[] items, int imageIndex, Color foreColor, Color backColor,
+                             Majorsilence.Forms.Drawing.Font? font) : this (items, imageIndex)
+        {
+            ForeColor = foreColor;
+            BackColor = backColor;
+            Font = font;
+        }
+
         /// <summary>Initializes a new instance with sub-item strings and an image index.</summary>
         public ListViewItem (string[] items, int imageIndex) : this (items)
         {

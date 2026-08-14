@@ -635,7 +635,16 @@ namespace Majorsilence.Forms
                 Invalidate ();
 
             SizeChanged?.Invoke (this, e);
+
+            // The window's client area always changes with its size here (there is no style change that
+            // resizes the frame alone), so the two notifications are raised together -- code that docks a
+            // companion window against a form's client edge (a ribbon's floating windows, say) subscribes
+            // to this one.
+            ClientSizeChanged?.Invoke (this, e);
         }
+
+        /// <summary>Raised when the size of the window's client area changes. Mirrors Control.ClientSizeChanged.</summary>
+        public event EventHandler? ClientSizeChanged;
 
         /// <summary>Raised when the window is resized. Mirrors WinForms Form.Resize (alias of SizeChanged).</summary>
         public event EventHandler? Resize {
@@ -1346,11 +1355,22 @@ namespace Majorsilence.Forms
             set {
                 if (visible == value)
                     return;
-                if (value)
-                    Show ();
-                else
-                    Hide ();
+                SetVisibleCore (value);
             }
+        }
+
+        /// <summary>Shows or hides the window.</summary>
+        /// <remarks>
+        /// The choke point every visibility change routes through, as in WinForms -- which is the entire
+        /// value of the member: a popup that suppresses being shown until it has content overrides this,
+        /// and an override only intercepts anything if <see cref="Visible"/> actually goes through it.
+        /// </remarks>
+        protected virtual void SetVisibleCore (bool value)
+        {
+            if (value)
+                Show ();
+            else
+                Hide ();
         }
 
         // ── WinForms layout/handle/color compatibility ───────────────────────────

@@ -111,11 +111,9 @@ namespace Majorsilence.Forms
 
                 Invalidate ();
 
-                // The guard above ensures this only fires on an actual selection change (WinForms).
-                OnSelectedIndexChanged (EventArgs.Empty);
-
-                // WinForms reports the deselection and the selection separately, in that order, so a
-                // handler tracking selection sees the item it must let go of before the one it gains.
+                // WinForms reports the per-item changes first -- the deselection, then the selection, so
+                // a handler tracking selection sees the item it must let go of before the one it gains --
+                // and only then the index-level SelectedIndexChanged, once the selection has settled.
                 if (current_item is not null)
                     OnItemSelectionChanged (new ListViewItemSelectionChangedEventArgs (
                         current_item, Items.IndexOf (current_item), false));
@@ -123,6 +121,9 @@ namespace Majorsilence.Forms
                 if (value is not null)
                     OnItemSelectionChanged (new ListViewItemSelectionChangedEventArgs (
                         value, Items.IndexOf (value), true));
+
+                // The guard above ensures this only fires on an actual selection change (WinForms).
+                OnSelectedIndexChanged (EventArgs.Empty);
             }
         }
 

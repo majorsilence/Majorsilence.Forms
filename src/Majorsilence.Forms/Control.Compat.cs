@@ -282,8 +282,15 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether a wait cursor is shown for this control and its children.</summary>
         public bool UseWaitCursor { get; set; }
 
-        /// <summary>Always returns true in Majorsilence.Forms — the control is always created.</summary>
-        public bool IsHandleCreated => true;
+        /// <summary>Gets whether the control has been created (this library's equivalent of the handle).</summary>
+        /// <remarks>
+        /// Answers from <see cref="Created"/> -- the moment <see cref="CreateControl"/> runs and
+        /// <c>HandleCreated</c> is raised -- rather than the constant true it used to be. The constant was
+        /// not harmless: WinForms code standardly writes <c>if (IsHandleCreated)</c> as its "am I fully
+        /// initialized yet?" guard inside layout paths, and answering true inside a constructor sent such
+        /// code into members its constructor had not assigned yet.
+        /// </remarks>
+        public bool IsHandleCreated => Created;
 
         /// <summary>Always returns false in Majorsilence.Forms — right-to-left mirroring is not supported.</summary>
         public bool IsMirrored => false;
@@ -466,6 +473,14 @@ namespace Majorsilence.Forms
         public virtual BindingContext BindingContext {
             get => binding_context ?? Parent?.BindingContext ?? (binding_context = new BindingContext ());
             set => binding_context = value;
+        }
+
+        // IBindableComponent declares the property nullable; this control's own getter never returns
+        // null (it creates a context on demand), which is the stronger guarantee, so the interface is
+        // satisfied explicitly rather than weakening the public member.
+        BindingContext? IBindableComponent.BindingContext {
+            get => BindingContext;
+            set => BindingContext = value ?? new BindingContext ();
         }
 
         /// <summary>Gets the Form that the control is on, if any.</summary>

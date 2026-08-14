@@ -94,6 +94,7 @@ namespace Majorsilence.Forms
             _surface.SizeChanged += OnSurfaceSizeChanged;
 
             Opened += (_, _) => {
+                _opened = true;
                 EnsureFramebuffer ();
                 StartRenderTimer ();
             };
@@ -201,7 +202,7 @@ namespace Majorsilence.Forms
                 // The Majorsilence.Forms paint pipeline is backend-neutral (SkiaSharp); it lives on WindowBase.
                 _owner.RenderFrame (surface.Canvas, physW, physH, scaling);
             } catch (Exception ex) {
-                Console.Error.WriteLine ($"[MF] PaintFrame error: {ex.Message}");
+                Console.Error.WriteLine ($"[MF] PaintFrame error: {ex}");
             } finally {
                 _painting = false;
             }
@@ -323,8 +324,26 @@ namespace Majorsilence.Forms
             set { Width = value.Width; Height = value.Height; }
         }
 
+        // Set once the window has actually opened; before that, Avalonia's ClientSize is a default the
+        // platform invented, not anything this window was asked to be.
+        private bool _opened;
+
         System.Drawing.Size Backends.IWindowBackend.ClientSize
-            => new System.Drawing.Size ((int)ClientSize.Width, (int)ClientSize.Height);
+        {
+            get {
+                // Before the window opens, answer with the size the caller ASKED for (Width/Height store
+                // pending values; the hint above makes client size and window size the same thing here).
+                // Avalonia only reconciles ClientSize at open, so reading it early returns its default --
+                // and everything that lays out during a Form's constructor (anchor captures, a themed
+                // form sizing its root panel) trusted that phantom size. The visible symptom: anchored
+                // designer controls collapsed to zero width, because their anchor distances were captured
+                // against the phantom and then applied against the real size.
+                if (!_opened && !double.IsNaN (Width) && !double.IsNaN (Height) && Width > 0 && Height > 0)
+                    return new System.Drawing.Size ((int)Width, (int)Height);
+
+                return new System.Drawing.Size ((int)ClientSize.Width, (int)ClientSize.Height);
+            }
+        }
 
         double Backends.IWindowBackend.Scaling => RenderScaling;
 

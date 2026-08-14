@@ -524,7 +524,7 @@ public partial class Control
     }
 
     /// <summary>Raised before <see cref="KeyDown"/> so a key can be previewed.</summary>
-    public event EventHandler<PreviewKeyDownEventArgs>? PreviewKeyDown {
+    public event PreviewKeyDownEventHandler? PreviewKeyDown {
         add => Events.AddHandler (s_previewKeyDownEvent, value);
         remove => Events.RemoveHandler (s_previewKeyDownEvent, value);
     }

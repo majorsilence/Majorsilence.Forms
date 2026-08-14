@@ -182,7 +182,7 @@ public partial class Control
     /// <summary>
     /// Raises the <see cref="PreviewKeyDown"/> event, called just before <see cref="OnKeyDown"/>.
     /// </summary>
-    protected virtual void OnPreviewKeyDown (PreviewKeyDownEventArgs e) => (Events[s_previewKeyDownEvent] as EventHandler<PreviewKeyDownEventArgs>)?.Invoke (this, e);
+    protected virtual void OnPreviewKeyDown (PreviewKeyDownEventArgs e) => (Events[s_previewKeyDownEvent] as PreviewKeyDownEventHandler)?.Invoke (this, e);
 
     #endregion
 

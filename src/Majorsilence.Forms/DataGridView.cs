@@ -294,11 +294,11 @@ namespace Majorsilence.Forms
         // Real handler storage rather than `{ add { } remove { } }`, which discarded the handler: the
         // event looked wired up and nothing could ever be called, so neither a subscriber nor an
         // override of the On* hooks below was reachable.
-        private EventHandler<DataGridViewColumnEventArgs>? _columnAdded;
+        private DataGridViewColumnEventHandler? _columnAdded;
         private EventHandler<DataGridViewColumnEventArgs>? _columnRemoved;
 
         /// <summary>Raised when a column is added to the grid.</summary>
-        public event EventHandler<DataGridViewColumnEventArgs>? ColumnAdded {
+        public event DataGridViewColumnEventHandler? ColumnAdded {
             add => _columnAdded += value;
             remove => _columnAdded -= value;
         }
@@ -380,10 +380,10 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellStateChangedEventArgs>? CellStateChanged { add { } remove { } }
 
         /// <summary>Raised when a cell enters editing mode and the editing control is about to be shown. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<DataGridViewEditingControlShowingEventArgs>? EditingControlShowing;
+        public event DataGridViewEditingControlShowingEventHandler? EditingControlShowing;
 
         /// <summary>Raised when a column header cell is clicked.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? ColumnHeaderMouseClick;
+        public event DataGridViewCellMouseEventHandler? ColumnHeaderMouseClick;
 
         /// <summary>Raised when a column header cell is double-clicked.</summary>
         public event EventHandler<DataGridViewCellMouseEventArgs>? ColumnHeaderMouseDoubleClick { add { } remove { } }

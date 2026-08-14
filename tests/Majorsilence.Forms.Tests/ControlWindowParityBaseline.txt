@@ -25,7 +25,6 @@ CanSelect
 CausesValidationChanged
 ChangeUICues
 CheckForIllegalCrossThreadCalls
-ClientSizeChanged
 CompanyName
 Container
 Contains/1
@@ -37,7 +36,6 @@ ControlRemoved
 CreateAccessibilityInstance/0
 CreateControl/0
 CreateControlsInstance/0
-CreateHandle/0
 Created
 CursorChanged
 DataBindings
@@ -196,7 +194,6 @@ Selected
 SendToBack/0
 SetAutoSizeMode/1
 SetControlBehavior/2
-SetVisibleCore/1
 Site
 StyleChanged
 StyleHover

@@ -72,7 +72,10 @@ namespace Majorsilence.Forms.Design
         protected void RaiseComponentChanged (MemberDescriptor? member, object? oldValue, object? newValue) { }
 
         /// <summary>Called after the component is created by the designer.</summary>
-        public virtual void InitializeNewComponent (IDictionary<string, object?>? defaultValues) { }
+        /// <remarks>Takes the non-generic <see cref="System.Collections.IDictionary"/>, as WinForms
+        /// declares it -- it was generic here, so a designer overriding the WinForms signature had no
+        /// suitable method to override.</remarks>
+        public virtual void InitializeNewComponent (System.Collections.IDictionary? defaultValues) { }
 
         /// <summary>Gets the smart-tag action lists this designer offers for its component.</summary>
         /// <remarks>A control library overrides this to return one list per control; the lists are built

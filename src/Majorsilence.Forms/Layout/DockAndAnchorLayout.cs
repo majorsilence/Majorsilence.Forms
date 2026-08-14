@@ -245,9 +245,17 @@ internal sealed partial class DefaultLayout : LayoutEngine
         //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, "\t\tdisplayRect: " + container.DisplayRectangle.ToString());
 
         var displayRectangle = container.DisplayRectangle;
-        if (CommonProperties.GetAutoSize (container) && ((displayRectangle.Width == 0) || (displayRectangle.Height == 0))) {
-            // we haven't set ourselves to the preferred size yet. proceeding will
-            // just set all the control widths to zero. let's return here
+        if ((displayRectangle.Width <= 0) || (displayRectangle.Height <= 0)) {
+            // A degenerate display rectangle cannot be anchored against: applying the deltas to it
+            // collapses every anchored child to nothing. That was originally guarded only for AutoSize
+            // containers ("we haven't set ourselves to the preferred size yet"), but a fixed-size
+            // container can report a zero rectangle transiently too -- a themed form's root panel does,
+            // mid-construction -- and the collapse it caused was then made permanent: the blanket
+            // re-init on the next ResumeLayout saw the anchor-produced zero-width bounds, could not
+            // skip (the capture on record was against the empty rectangle), and re-captured the
+            // deltas from the collapsed bounds as if the application had chosen them. Skipping the
+            // pass entirely leaves the children at their last real bounds and the deltas untouched,
+            // so the next pass against a real rectangle places them correctly.
             return;
         }
 
@@ -582,6 +590,23 @@ internal sealed partial class DefaultLayout : LayoutEngine
         if (anchorInfo.HasCapturedElementBounds && anchorInfo.CapturedElementBounds == element.Bounds
             && !anchorInfo.CapturedParentDisplayRectangle.IsEmpty)
             return;
+
+        // The mirror-image defence: never OVERWRITE a snapshot taken against a real parent rectangle
+        // with one taken against a degenerate one. A container can report a zero-size DisplayRectangle
+        // transiently mid-construction (observed: a themed form's root panel during the re-parenting
+        // churn of its constructor, via ScrollableControl.Recalculate's blanket re-init). The anchor
+        // pass that runs at that moment shrinks this element to nothing -- so the guard above does not
+        // skip, the element's bounds having genuinely changed -- and capturing here would launder that
+        // collapse into "valid" deltas that keep the element at zero size forever. Keeping the good
+        // snapshot instead makes the collapse self-healing: as soon as the parent reports real bounds
+        // again, the next anchor pass re-stretches this element from the deltas that were true.
+        if (anchorInfo.HasCapturedElementBounds
+            && !anchorInfo.CapturedParentDisplayRectangle.IsEmpty
+            && element.Container is { } container) {
+            var currentParentRect = container.DisplayRectangle;
+            if (currentParentRect.Width <= 0 || currentParentRect.Height <= 0)
+                return;
+        }
 
         //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, "Update anchor info");
         Debug.Indent ();

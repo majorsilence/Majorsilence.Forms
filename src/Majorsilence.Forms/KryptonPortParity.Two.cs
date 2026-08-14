@@ -54,6 +54,24 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected bool ResizeRedraw { get; set; }
 
+        /// <summary>
+        /// Selects the next selectable control in tab order. Mirrors the Control overload of the same
+        /// shape; the undirected case selects the window's first control, which is what activating a
+        /// window selects here (the window itself has no focus state of its own to take).
+        /// </summary>
+        protected virtual void Select (bool directed, bool forward)
+        {
+            if (directed)
+                SelectNextControl (null, forward, tabStopOnly: true, nested: true, wrap: false);
+            else
+                SelectNextControl (null, forward: true, tabStopOnly: true, nested: true, wrap: false);
+        }
+
+        /// <summary>Creates the window's underlying handle if it does not yet exist.</summary>
+        /// <remarks>A no-op, same contract as <see cref="RecreateHandle"/>: the backend window comes
+        /// into being when the window is shown, and there is nothing sensible to force earlier.</remarks>
+        protected void CreateHandle () { }
+
         /// <summary>Recreates the window's underlying handle.</summary>
         /// <remarks>
         /// A no-op. WinForms code calls this to make the OS re-read window style bits it can only apply at
