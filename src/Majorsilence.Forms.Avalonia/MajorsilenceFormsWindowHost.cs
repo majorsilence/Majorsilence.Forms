@@ -386,6 +386,16 @@ namespace Majorsilence.Forms
         {
             var seeThrough = _shaped || Opacity < 1.0;
 
+            // Re-declaring transparency is not free -- the platform can rebuild the window's backdrop for
+            // it -- and a drag overlay reassigns its Region continuously, which lands here every time. Only
+            // act when the state actually changes, or when the platform has dropped what we asked for
+            // (macOS does that on resize, which is why OnResized calls back in).
+            if (_lastSeeThrough == seeThrough &&
+                (!seeThrough || ActualTransparencyLevel == WindowTransparencyLevel.Transparent))
+                return;
+
+            _lastSeeThrough = seeThrough;
+
             TransparencyLevelHint = seeThrough
                 ? new[] { WindowTransparencyLevel.Transparent }
                 : new[] { WindowTransparencyLevel.None };
@@ -396,6 +406,7 @@ namespace Majorsilence.Forms
 
 
         private bool _shaped;
+        private bool? _lastSeeThrough;
 
         // A shaped window loses its transparency when the platform window is resized -- the overlay a
         // docking drag puts up is created tiny and then stretched over the whole panel, so by the time it
