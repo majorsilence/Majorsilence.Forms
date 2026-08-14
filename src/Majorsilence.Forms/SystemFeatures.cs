@@ -200,10 +200,9 @@ namespace Majorsilence.Forms.Media
 {
     /// <summary>One of the operating system's standard alert sounds.</summary>
     /// <remarks>
-    /// Stands in for <c>System.Media.SystemSound</c>, which lives in a Windows-only assembly. Playing the
-    /// OS alert sounds needs a per-platform audio path this library does not carry, so
-    /// <see cref="Play"/> is silent — the stub policy's neutral outcome. A message box that plays a sound
-    /// alongside its icon still shows the icon, which is the part that carries the meaning.
+    /// Stands in for <c>System.Media.SystemSound</c>, which lives in a Windows-only assembly.
+    /// <see cref="Play"/> is real: it routes through the operating system's own alert sounds (see
+    /// <see cref="NativeAudio"/> for the per-platform mapping and the silence fallback).
     /// </remarks>
     public class SystemSound
     {
@@ -214,8 +213,196 @@ namespace Majorsilence.Forms.Media
         /// apart rather than having to compare against the <see cref="SystemSounds"/> properties.</remarks>
         public string Name { get; }
 
-        /// <summary>Plays the sound. Silent here: there is no cross-platform system-sound path.</summary>
-        public void Play () { }
+        /// <summary>Plays the sound through the operating system's alert-sound path.</summary>
+        /// <remarks>Real as of 2026-08: routed through <see cref="NativeAudio"/> -- Windows' own
+        /// SystemSounds, macOS's stock alert set, the freedesktop sound theme on Linux. Fire-and-forget
+        /// and never throws; where no OS path exists it stays silent, as the stub did.</remarks>
+        public void Play () => NativeAudio.Start (NativeAudio.SystemSoundCommands (Name));
+    }
+
+    /// <summary>Plays a .wav file or stream.</summary>
+    /// <remarks>
+    /// Stands in for <c>System.Media.SoundPlayer</c>, which lives in a Windows-only assembly. Playback
+    /// is real: it routes through <see cref="NativeAudio"/>, so the sound plays through the operating
+    /// system's own utility and the child process gives the API its semantics -- <see cref="Stop"/>
+    /// kills it, <see cref="PlaySync"/> waits for it, <see cref="PlayLooping"/> respawns it until
+    /// stopped. A stream is materialised to a temporary .wav the utility can open, once per stream, and
+    /// deleted on dispose. The Load family still completes immediately: there is nothing to preload
+    /// when the OS opens the file itself, and <see cref="IsLoadCompleted"/> stays true so a caller that
+    /// waits for the load is never left waiting.
+    /// </remarks>
+    public class SoundPlayer : System.ComponentModel.Component
+    {
+        private System.IO.Stream? stream;
+        private string sound_location = string.Empty;
+        private string? temp_file;
+        private IPlayingSound? playing;
+        private System.Threading.CancellationTokenSource? loop;
+
+        /// <summary>Initializes an empty player.</summary>
+        public SoundPlayer () { }
+
+        /// <summary>Initializes a player for the given .wav stream.</summary>
+        public SoundPlayer (System.IO.Stream? stream) => Stream = stream;
+
+        /// <summary>Initializes a player for the given .wav path.</summary>
+        public SoundPlayer (string soundLocation) => SoundLocation = soundLocation ?? string.Empty;
+
+        /// <summary>Gets or sets the .wav stream to play.</summary>
+        public System.IO.Stream? Stream {
+            get => stream;
+            set {
+                if (ReferenceEquals (stream, value))
+                    return;
+
+                stream = value;
+                DeleteTempFile ();   // the materialised copy no longer matches
+                StreamChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Gets or sets the path of the .wav to play.</summary>
+        /// <remarks>A local file path. URLs are accepted for compatibility but play silently -- fetching
+        /// remote audio is not something this layer will do implicitly.</remarks>
+        public string SoundLocation {
+            get => sound_location;
+            set {
+                value ??= string.Empty;
+                if (sound_location == value)
+                    return;
+
+                sound_location = value;
+                SoundLocationChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Gets whether loading has finished. Always true: the OS utility opens the file itself.</summary>
+        public bool IsLoadCompleted => true;
+
+        /// <summary>Gets or sets how long a load may take, in milliseconds.</summary>
+        public int LoadTimeout { get; set; } = 10_000;
+
+        /// <summary>Gets or sets arbitrary data associated with the player.</summary>
+        public object? Tag { get; set; }
+
+        /// <summary>Loads the sound synchronously. Completes immediately; see <see cref="IsLoadCompleted"/>.</summary>
+        public void Load () { }
+
+        /// <summary>Loads the sound asynchronously. Completes immediately, raising <see cref="LoadCompleted"/>.</summary>
+        public void LoadAsync () => LoadCompleted?.Invoke (this,
+            new System.ComponentModel.AsyncCompletedEventArgs (null, false, null));
+
+        /// <summary>Plays the sound without blocking. A play already in progress is stopped first, as upstream.</summary>
+        public void Play ()
+        {
+            Stop ();
+            playing = StartOnce ();
+        }
+
+        /// <summary>Plays the sound and blocks until it finishes.</summary>
+        public void PlaySync ()
+        {
+            Stop ();
+            playing = StartOnce ();
+            playing?.Wait ();
+        }
+
+        /// <summary>Plays the sound repeatedly until <see cref="Stop"/> is called.</summary>
+        /// <remarks>Looped by respawning the player as each pass ends -- the utilities have no loop flag
+        /// in common -- so there is a brief seam between iterations. Alert-style cues loop cleanly;
+        /// gapless music loops are out of scope for this API upstream too.</remarks>
+        public void PlayLooping ()
+        {
+            Stop ();
+
+            var cts = new System.Threading.CancellationTokenSource ();
+            loop = cts;
+
+            System.Threading.Tasks.Task.Run (() => {
+                while (!cts.IsCancellationRequested) {
+                    var pass = StartOnce ();
+                    if (pass is null)
+                        return;    // nothing can play; do not spin
+
+                    playing = pass;
+                    pass.Wait ();
+                }
+            }, cts.Token);
+        }
+
+        /// <summary>Stops playback, ending a loop if one is running.</summary>
+        public void Stop ()
+        {
+            loop?.Cancel ();
+            loop = null;
+            playing?.Dispose ();
+            playing = null;
+        }
+
+        private IPlayingSound? StartOnce ()
+        {
+            var path = ResolvePath ();
+            return path is null ? null : NativeAudio.Start (NativeAudio.FileCommands (path));
+        }
+
+        // SoundLocation wins when both are set, matching the "whichever identifies a sound" contract;
+        // a URL location plays silently rather than fetching.
+        private string? ResolvePath ()
+        {
+            if (sound_location.Length > 0)
+                return System.IO.File.Exists (sound_location) ? sound_location : null;
+
+            if (stream is null)
+                return null;
+
+            if (temp_file is null) {
+                try {
+                    var path = System.IO.Path.Combine (System.IO.Path.GetTempPath (),
+                        $"majorsilence-sound-{Guid.NewGuid ():N}.wav");
+
+                    using (var file = System.IO.File.Create (path)) {
+                        if (stream.CanSeek)
+                            stream.Position = 0;
+                        stream.CopyTo (file);
+                    }
+
+                    temp_file = path;
+                } catch {
+                    return null;   // unreadable stream or unwritable temp dir: silence, not an exception
+                }
+            }
+
+            return temp_file;
+        }
+
+        private void DeleteTempFile ()
+        {
+            if (temp_file is null)
+                return;
+
+            try { System.IO.File.Delete (temp_file); } catch { }
+            temp_file = null;
+        }
+
+        /// <inheritdoc/>
+        protected override void Dispose (bool disposing)
+        {
+            if (disposing) {
+                Stop ();
+                DeleteTempFile ();
+            }
+
+            base.Dispose (disposing);
+        }
+
+        /// <summary>Raised when an asynchronous load finishes. Raised by <see cref="LoadAsync"/> immediately.</summary>
+        public event System.ComponentModel.AsyncCompletedEventHandler? LoadCompleted;
+
+        /// <summary>Raised when <see cref="SoundLocation"/> changes.</summary>
+        public event EventHandler? SoundLocationChanged;
+
+        /// <summary>Raised when <see cref="Stream"/> changes.</summary>
+        public event EventHandler? StreamChanged;
     }
 
     /// <summary>The operating system's standard alert sounds.</summary>
