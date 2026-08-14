@@ -257,4 +257,58 @@ internal static class NamespaceMap
 
     /// <summary>The namespace the GDI+ replacements live in; added alongside a kept <c>System.Drawing</c> import.</summary>
     public const string DrawingTarget = "Majorsilence.Forms.Drawing";
+
+    /// <summary>
+    /// Names that exist in <b>both</b> a BCL namespace and a Majorsilence one, mapped to the BCL namespace
+    /// the pre-migration source meant by them. Importing both namespaces makes an unqualified use ambiguous
+    /// (CS0104), and the migration must not silently change which type the code refers to — so the alias
+    /// pins the name to what it resolved to before.
+    /// </summary>
+    /// <remarks>
+    /// <c>BackgroundWorker</c> and <c>PropertyTabScope</c> are real cross-platform BCL types that the compat
+    /// layer also declares; <c>ColorConverter</c> ships in <c>System.Drawing.Primitives</c> as well as in
+    /// <c>Majorsilence.Forms.Drawing</c>. All three are only a problem for a file (or a project's global
+    /// usings) that imports both sides, which is exactly what a migrated WinForms project does.
+    /// </remarks>
+    public static readonly (string Type, string BclNamespace)[] BclPreferredTypes =
+    [
+        ("BackgroundWorker", "System.ComponentModel"),
+        ("PropertyTabScope", "System.ComponentModel"),
+        ("ColorConverter", "System.Drawing"),
+    ];
+
+    /// <summary>
+    /// <c>System.ComponentModel.Design</c> types that do <b>not</b> ship in the BCL — they live in the
+    /// Windows-only <c>System.Windows.Forms.Design</c> assembly — and that Majorsilence.Forms reimplements
+    /// under <c>Majorsilence.Forms.Design</c>. Everything else in that namespace (<c>IDesigner</c>,
+    /// <c>IDesignerHost</c>, <c>DesignerVerb</c>, <c>DesignerVerbCollection</c>, …) is real BCL and must be
+    /// left alone, which is why this is a type-level redirect rather than a namespace mapping.
+    /// </summary>
+    /// <remarks>
+    /// This is the smart-tag surface a control library declares one of per control
+    /// (<c>DesignerActionList</c> + items) plus the collection-editor dialog and the multi-line string
+    /// editor that properties are attributed with. <c>CollectionForm</c> is nested inside
+    /// <c>CollectionEditor</c> upstream and here too, so a qualified <c>System.ComponentModel.Design.CollectionForm</c>
+    /// is not a thing to rewrite — an unqualified use resolves through the <c>Majorsilence.Forms.Design</c> import.
+    /// </remarks>
+    public static readonly HashSet<string> DesignTimeTypes = new(StringComparer.Ordinal)
+    {
+        "CollectionEditor", "DesignerActionList", "DesignerActionListCollection", "DesignerActionItem",
+        "DesignerActionItemCollection", "DesignerActionMethodItem", "DesignerActionPropertyItem",
+        "DesignerActionHeaderItem", "DesignerActionTextItem", "MultilineStringEditor",
+    };
+
+    /// <summary>
+    /// <c>Microsoft.Win32</c> types Majorsilence.Forms reimplements under its own namespace. These are the
+    /// system-notification types that ship in the Windows-only <c>System.Drawing.Common</c>:
+    /// <c>SystemEvents</c> and everything its <c>UserPreferenceChanged</c> event needs. The rest of
+    /// <c>Microsoft.Win32</c> — <c>Registry</c>, <c>RegistryKey</c>, <c>SafeHandles</c> — is genuinely
+    /// Windows-only or genuinely cross-platform BCL, and is left untouched (the registry types are already
+    /// reported as manual-review items).
+    /// </summary>
+    public static readonly HashSet<string> Win32CompatTypes = new(StringComparer.Ordinal)
+    {
+        "SystemEvents", "UserPreferenceChangedEventArgs", "UserPreferenceCategory",
+        "UserPreferenceChangedEventHandler",
+    };
 }
