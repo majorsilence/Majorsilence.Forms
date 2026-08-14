@@ -30,11 +30,19 @@ namespace Majorsilence.Forms.Headless
 
         // ── Lifecycle ──
         // Rendering is on-demand (CapturePng), not on Show — Show only activates the window.
-        public void Show () => _owner.OnBackendActivated ();
+        // Tracked so a test can tell whether a form actually raised an OS window -- the whole question
+        // behind Form.TopLevel.
+        public bool IsShown { get; private set; }
+
+        public void Show ()
+        {
+            IsShown = true;
+            _owner.OnBackendActivated ();
+        }
 
         public void ShowDialog (IWindowBackend? owner) => Show ();
 
-        public void Hide () { }
+        public void Hide () => IsShown = false;
 
         public void Close ()
         {
@@ -43,7 +51,14 @@ namespace Majorsilence.Forms.Headless
             _owner.OnBackendClosed ();
         }
 
-        public void Activate () => _owner.OnBackendActivated ();
+        // Deliberately raises the window, as the real platforms do: Activate orders a window on screen
+        // even when it was never shown. Modelling that is what lets a test catch code activating a window
+        // its form does not own -- which strands it, because the platform's later Hide then does nothing.
+        public void Activate ()
+        {
+            IsShown = true;
+            _owner.OnBackendActivated ();
+        }
 
         /// <summary>Whether Show() also activates. Recorded so tests can assert on it.</summary>
         public bool ShowActivated { get; set; } = true;
@@ -63,11 +78,28 @@ namespace Majorsilence.Forms.Headless
         public bool Enabled { get; set; } = true;
 
         // ── Coordinate conversion ──
-        public Point PointToClient (Point screen) => new (screen.X - _location.X, screen.Y - _location.Y);
-        public Point PointToScreen (Point client) => new (client.X + _location.X, client.Y + _location.Y);
+        //
+        // Client (0,0) is offset from the window's own origin by whatever chrome the platform draws
+        // above/left of the client area -- a native title bar, typically. Headless has none by default,
+        // so the two coincide and every existing measurement is unchanged; ChromeOffset lets a test
+        // simulate a platform that does, which is the only way to catch code that treats a window's
+        // Location as its client origin. Real windows differ by ~32px there, which is enough for a drag
+        // overlay to hit-test its drop guides clean past where they were drawn.
+        public static Size ChromeOffset { get; set; }
+
+        public Point PointToClient (Point screen) =>
+            new (screen.X - _location.X - ChromeOffset.Width, screen.Y - _location.Y - ChromeOffset.Height);
+
+        public Point PointToScreen (Point client) =>
+            new (client.X + _location.X + ChromeOffset.Width, client.Y + _location.Y + ChromeOffset.Height);
 
         // ── Drag (no chrome in headless) ──
-        public void BeginMoveDrag () { }
+        //
+        // Counted rather than ignored: whether a caption drag actually moved the window is the whole
+        // question when an application claims that gesture for itself.
+        public static int MoveDragCount { get; set; }
+
+        public void BeginMoveDrag () => MoveDragCount++;
         public void BeginResizeDrag (WindowEdge edge) { }
 
         // ── Rendering ── (headless renders on demand via Render(), so there is nothing to schedule)
