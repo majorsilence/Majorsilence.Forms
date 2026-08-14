@@ -134,6 +134,15 @@ namespace Majorsilence.Forms
                 return true;
             }
 
+            // Nor when the form owns no shown window for another reason: it was told it is not top-level,
+            // or it simply is not visible. Activate() on the platform ORDERS THE WINDOW ON SCREEN without
+            // going through Show, so IsVisible stays false and a later Hide is a no-op -- the window can
+            // then never be taken back down. A docking library detaches a form (Parent = null) and focuses
+            // it mid-re-dock, which is exactly this case, and left a blank window stranded over the
+            // application.
+            if (!visible || !TopLevel)
+                return true;
+
             Backend.Activate ();
             return true;
         }
@@ -1268,6 +1277,21 @@ namespace Majorsilence.Forms
 
         internal override bool TryShowHosted ()
         {
+            // Told it is not top-level and not yet parented: it owns no OS window, so becoming visible is
+            // bookkeeping until something hosts it. WinForms behaves the same -- a non-top-level form
+            // with no parent simply is not on screen.
+            if (!TopLevel && !IsFrameHosted) {
+                visible = true;
+                EnsureLoaded ();
+
+                if (!shown) {
+                    shown = true;
+                    OnShown (EventArgs.Empty);
+                }
+
+                return true;
+            }
+
             // Already sitting in a control tree via Controls.Add (form): Show() must not create an OS
             // window, it just makes the frame visible. Checked first because the frame is what the
             // caller actually parented the form into -- an MdiParent assignment left over from earlier
@@ -1348,7 +1372,29 @@ namespace Majorsilence.Forms
         public MenuStrip? MainMenuStrip { get; set; }
 
         /// <summary>Gets or sets whether the form is a top-level window.</summary>
-        public bool TopLevel { get; set; } = true;
+        /// <remarks>
+        /// Setting this false is how WinForms code says "stop owning an OS window" before parenting a
+        /// form into a control tree — the <c>form.TopLevel = false; panel.Controls.Add (form)</c> idiom,
+        /// and what a docking library does on every dock-state change. Stored and never acted on, the
+        /// form kept its own window: re-docking a floated document left its old window behind as a large
+        /// blank rectangle over the application.
+        /// </remarks>
+        public bool TopLevel {
+            get => top_level;
+            set {
+                if (top_level == value)
+                    return;
+
+                top_level = value;
+
+                if (!value)
+                    Backend.Hide ();        // composited by whatever hosts it from here on
+                else if (visible && !IsFrameHosted)
+                    Backend.Show ();
+            }
+        }
+
+        private bool top_level = true;
 
         /// <summary>Gets or sets the start position of the form when it is first shown.</summary>
         public new FormStartPosition StartPosition {
@@ -1411,8 +1457,8 @@ namespace Majorsilence.Forms
                 MdiHost.Client.Activate (this);
             else if (PanelHost != null)
                 PanelHost.BringToFront ();
-            else
-                Backend.Activate ();
+            else if (visible && TopLevel)
+                Backend.Activate ();   // see Focus(): activating strands a window the form does not own
         }
 
         /// <summary>Gets the bounds of the form when it is not minimized or maximized.</summary>
