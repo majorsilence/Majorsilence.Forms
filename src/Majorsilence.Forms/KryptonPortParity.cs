@@ -102,7 +102,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Called when the form's window handle has been destroyed.</summary>
         /// <inheritdoc cref="OnHandleCreated"/>
-        protected virtual void OnHandleDestroyed (EventArgs e) { }
+        protected virtual void OnHandleDestroyed (EventArgs e) => HandleDestroyed?.Invoke (this, e);
 
         /// <summary>Called when <see cref="RightToLeft"/> changes.</summary>
         protected virtual void OnRightToLeftChanged (EventArgs e) { }

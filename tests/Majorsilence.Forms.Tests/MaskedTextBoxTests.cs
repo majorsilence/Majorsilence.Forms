@@ -29,7 +29,7 @@ namespace Majorsilence.Forms.Tests
             Assert.False (control.AsciiOnly);
             Assert.False (control.HidePromptOnLeave);
             Assert.False (control.UseSystemPasswordChar);
-            Assert.False (control.CutCopyMaskFormat);
+            Assert.Equal (MaskFormat.IncludeLiterals, control.CutCopyMaskFormat);
             Assert.Equal (MaskFormat.IncludeLiterals, control.TextMaskFormat);
             Assert.Null (control.Culture);
             Assert.Equal (string.Empty, control.Text);
@@ -179,17 +179,41 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (!value, control.UseSystemPasswordChar);
         }
 
+        // CutCopyMaskFormat is a MaskFormat, as WinForms declares it -- it was a bool here, which no
+        // caller holding a MaskFormat could assign to.
         [Theory]
-        [InlineData (true)]
-        [InlineData (false)]
-        public void CutCopyMaskFormat_Set_GetReturnsExpected (bool value)
+        [InlineData (MaskFormat.IncludeLiterals)]
+        [InlineData (MaskFormat.IncludePrompt)]
+        [InlineData (MaskFormat.IncludePromptAndLiterals)]
+        [InlineData (MaskFormat.ExcludePromptAndLiterals)]
+        public void CutCopyMaskFormat_Set_GetReturnsExpected (MaskFormat value)
         {
             using var control = new MaskedTextBox { CutCopyMaskFormat = value };
             Assert.Equal (value, control.CutCopyMaskFormat);
 
             // Set different.
-            control.CutCopyMaskFormat = !value;
-            Assert.Equal (!value, control.CutCopyMaskFormat);
+            var other = value == MaskFormat.IncludeLiterals ? MaskFormat.IncludePrompt : MaskFormat.IncludeLiterals;
+            control.CutCopyMaskFormat = other;
+            Assert.Equal (other, control.CutCopyMaskFormat);
+        }
+
+        [Fact]
+        public void MaskedTextProvider_IsNullWithoutAMaskAndDescribesTheMaskWithOne ()
+        {
+            using var control = new MaskedTextBox ();
+
+            // No mask means no provider, as upstream -- there is nothing for one to describe.
+            Assert.Null (control.MaskedTextProvider);
+
+            control.Mask = "000-000";
+            control.Text = "123456";
+
+            var provider = control.MaskedTextProvider;
+
+            Assert.NotNull (provider);
+            Assert.Equal ("000-000", provider!.Mask);
+            Assert.Equal ('_', provider.PromptChar);
+            Assert.Equal ("123-456", provider.ToDisplayString ());
         }
 
         [Theory]

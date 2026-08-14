@@ -32,14 +32,46 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether all required positions in the mask are satisfied. Always returns true in Majorsilence.Forms.</summary>
         public bool MaskFull => true;
 
-        /// <summary>Gets or sets whether to cut/copy the mask along with the text. Stub in Majorsilence.Forms.</summary>
-        public bool CutCopyMaskFormat { get; set; }
+        /// <summary>Gets or sets which parts of the mask are placed on the clipboard by cut and copy.</summary>
+        /// <remarks>
+        /// WinForms types this as <see cref="MaskFormat"/>; it was a <c>bool</c> here, which meant the
+        /// property existed under the right name with a type nothing could assign to it. Stored: the mask
+        /// is not enforced, so there is no literal-versus-input distinction to act on.
+        /// </remarks>
+        public MaskFormat CutCopyMaskFormat { get; set; } = MaskFormat.IncludeLiterals;
 
         /// <summary>Gets or sets the culture used for separator characters. Stub in Majorsilence.Forms.</summary>
         public System.Globalization.CultureInfo? Culture { get; set; }
 
-        /// <summary>Gets the text without the formatting characters defined by the mask.</summary>
-        public string? MaskedTextProvider => Text;
+        /// <summary>Gets a mask provider describing this box's mask.</summary>
+        /// <remarks>
+        /// A real <see cref="System.ComponentModel.MaskedTextProvider"/> -- the type is in the BCL and is
+        /// cross-platform, so there is no reason to stand in for it. It returned the box's own <c>Text</c>
+        /// as a string before, which is the wrong type and the wrong value: callers use this to ask the
+        /// mask questions (<c>ToDisplayString</c>, <c>MaskCompleted</c>, edit positions), not to read the
+        /// text back.
+        ///
+        /// Built on demand from <see cref="Mask"/> and seeded with the current text, and null when no mask
+        /// is set -- matching WinForms, where a maskless box has no provider. This does not make the box
+        /// enforce its mask; it makes the description of the mask available and correct.
+        /// </remarks>
+        public System.ComponentModel.MaskedTextProvider? MaskedTextProvider {
+            get {
+                if (string.IsNullOrEmpty (_mask))
+                    return null;
+
+                // AsciiOnly is a constructor argument on the provider, not a settable property.
+                var provider = new System.ComponentModel.MaskedTextProvider (
+                    _mask, Culture ?? System.Globalization.CultureInfo.CurrentCulture, AsciiOnly) {
+                    PromptChar = PromptChar,
+                };
+
+                if (Text.Length > 0)
+                    provider.Set (Text);
+
+                return provider;
+            }
+        }
 
         /// <summary>Gets or sets the text mask format used for cut and copy operations. Stub in Majorsilence.Forms.</summary>
         public MaskFormat TextMaskFormat { get; set; } = MaskFormat.IncludeLiterals;

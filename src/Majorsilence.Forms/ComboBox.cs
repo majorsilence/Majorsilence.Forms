@@ -22,8 +22,19 @@ namespace Majorsilence.Forms
         /// </summary>
         public ComboBox ()
         {
-            popup_listbox = new ListBox { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true };
+            popup_listbox = new PopupList { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true };
             popup_listbox.SelectedIndexChanged += ListBox_SelectedIndexChanged;
+        }
+
+        // The list a combo box drops down is a real ListBox, and the combo's items are that list's items.
+        // This subclass exists only so the collection they live in is a ComboBox.ObjectCollection -- the
+        // type name WinForms code uses for a combo's items -- rather than the list box's own.
+        private sealed class PopupList : ListBox
+        {
+            // ComboBox.ObjectCollection spelled in full deliberately. Unqualified, `ObjectCollection`
+            // binds to the one inherited from ListBox -- a base class is searched before the enclosing
+            // class -- so this silently built the wrong type and the cast in ComboBox.Items threw.
+            protected override ListBox.ObjectCollection CreateItemCollection () => new ComboBox.ObjectCollection (this);
         }
 
         /// <inheritdoc/>
@@ -208,7 +219,10 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the collection of items contained by this ComboBox.
         /// </summary>
-        public ListBoxItemCollection Items => popup_listbox.Items;
+        /// <remarks>Typed as the nested <see cref="ObjectCollection"/>, the name WinForms code writes when
+        /// it re-exposes a combo's items. The cast always holds: <see cref="PopupList"/> is the only thing
+        /// that builds this collection and it builds exactly this type.</remarks>
+        public ObjectCollection Items => (ObjectCollection)popup_listbox.Items;
 
         // When the selected item of the popup ListBox changes, update the ComboBox
         private void ListBox_SelectedIndexChanged (object? sender, EventArgs e)

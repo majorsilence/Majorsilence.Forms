@@ -157,8 +157,30 @@ namespace Majorsilence.Forms
             ForeColor = ForeColor,
             SelectionBackColor = SelectionBackColor,
             SelectionForeColor = SelectionForeColor,
-            Alignment = Alignment
+            Alignment = Alignment,
+            WrapMode = WrapMode,
         };
+
+        /// <summary>
+        /// Gets or sets how text wraps when this style is used as a grid cell style.
+        /// </summary>
+        /// <remarks>Stored for <see cref="DataGridViewCellStyle"/> compatibility and carried across both
+        /// conversions, the same as <see cref="Alignment"/>; the grid renderers apply their own wrapping.</remarks>
+        public DataGridViewTriState WrapMode { get; set; } = DataGridViewTriState.NotSet;
+
+        /// <summary>
+        /// Converts a ControlStyle to a <see cref="DataGridViewCellStyle"/>, so WinForms code that reads a
+        /// grid's cell-style property back into a DataGridViewCellStyle variable compiles.
+        /// </summary>
+        /// <remarks>
+        /// The companion to the conversion below, which has existed for a while: assigning a
+        /// DataGridViewCellStyle to one of the grid's ControlStyle-typed properties worked, and reading it
+        /// back did not — so a derived grid could not re-expose <c>DefaultCellStyle</c> with the WinForms
+        /// type, which is the first thing a themed grid does. Note it produces a copy, as the reverse
+        /// direction always has: mutating the result changes the copy, so assign it back to have it stick.
+        /// </remarks>
+        public static implicit operator DataGridViewCellStyle (ControlStyle style)
+            => style is null ? new DataGridViewCellStyle () : style.ToDataGridViewCellStyle ();
 
         /// <summary>
         /// Converts a DataGridViewCellStyle to a ControlStyle, so WinForms-style designer code
@@ -172,6 +194,8 @@ namespace Majorsilence.Forms
                 ForeColor = style.ForeColor,
                 SelectionBackColor = style.SelectionBackColor,
                 SelectionForeColor = style.SelectionForeColor,
+                Alignment = style.Alignment,
+                WrapMode = style.WrapMode,
             };
             if (style.Font is { } font) {
                 result.Font = font.GetSKTypeface ();

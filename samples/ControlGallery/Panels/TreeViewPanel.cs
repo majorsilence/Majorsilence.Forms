@@ -59,9 +59,9 @@ namespace ControlGallery.Panels
             virtual_mode.CheckedChanged += (o, e) => tree.VirtualMode = virtual_mode.Checked;
         }
 
-        private TreeViewItem CreateDirectoryNode (string path, int level)
+        private TreeNode CreateDirectoryNode (string path, int level)
         {
-            var tvi = new TreeViewItem (Path.GetFileName (path)) { Image = ImageLoader.Get ("folder.png") };
+            var tvi = new TreeNode (Path.GetFileName (path)) { Image = ImageLoader.Get ("folder.png") };
 
             if (level > 3)
                 return tvi;

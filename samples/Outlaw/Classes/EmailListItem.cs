@@ -3,7 +3,7 @@ using Majorsilence.Forms;
 
 namespace Outlaw
 {
-    internal sealed class EmailListItem : TreeViewItem
+    internal sealed class EmailListItem : TreeNode
     {
         public string Subject { get; set; }
         public string Body { get; set; }

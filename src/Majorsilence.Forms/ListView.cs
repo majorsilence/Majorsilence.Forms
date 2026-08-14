@@ -113,6 +113,16 @@ namespace Majorsilence.Forms
 
                 // The guard above ensures this only fires on an actual selection change (WinForms).
                 OnSelectedIndexChanged (EventArgs.Empty);
+
+                // WinForms reports the deselection and the selection separately, in that order, so a
+                // handler tracking selection sees the item it must let go of before the one it gains.
+                if (current_item is not null)
+                    OnItemSelectionChanged (new ListViewItemSelectionChangedEventArgs (
+                        current_item, Items.IndexOf (current_item), false));
+
+                if (value is not null)
+                    OnItemSelectionChanged (new ListViewItemSelectionChangedEventArgs (
+                        value, Items.IndexOf (value), true));
             }
         }
 
@@ -169,7 +179,17 @@ namespace Majorsilence.Forms
         public event EventHandler<ItemCheckEventArgs>? ItemCheck { add { } remove { } }
 
         /// <summary>Raised when an item's selection state changes.</summary>
-        public event EventHandler? ItemSelectionChanged { add { } remove { } }
+        /// <remarks>
+        /// Real, and typed with WinForms' <see cref="ListViewItemSelectionChangedEventHandler"/>. It was a
+        /// plain <c>EventHandler</c> with empty accessors, so it carried none of the information the event
+        /// exists to carry -- which item, at which index, selected or deselected -- and dropped its
+        /// handlers besides. Raised from the <see cref="SelectedItem"/> setter.
+        /// </remarks>
+        public event ListViewItemSelectionChangedEventHandler? ItemSelectionChanged;
+
+        /// <summary>Raises the <see cref="ItemSelectionChanged"/> event.</summary>
+        protected virtual void OnItemSelectionChanged (ListViewItemSelectionChangedEventArgs e)
+            => ItemSelectionChanged?.Invoke (this, e);
 
         /// <summary>Raised when the selected indices change.</summary>
         public event EventHandler? SelectedIndexChanged;

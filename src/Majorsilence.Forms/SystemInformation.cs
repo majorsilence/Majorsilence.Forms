@@ -129,6 +129,30 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the maximum number of elements in a single menu.</summary>
         public static int MaxWindowTrackSize => int.MaxValue;
+
+        /// <summary>Gets whether the user has asked the system for a high-contrast appearance.</summary>
+        /// <remarks>
+        /// Always false. The accessibility preference this reports is an OS signal that no backend here
+        /// surfaces, and it cannot be inferred from the palette: a plain light theme is already black on
+        /// white, so contrast alone does not distinguish one. A caller that switches to a high-contrast
+        /// palette on this flag keeps the palette it has, which is the safe direction to be wrong in --
+        /// and <see cref="Theme.SetBuiltInTheme"/> is the way to select one deliberately.
+        /// </remarks>
+        public static bool HighContrast => false;
+
+        /// <summary>Gets how long a submenu waits before opening, in milliseconds.</summary>
+        /// <remarks>400, the Windows default. This is the delay a menu manager sleeps for before pushing
+        /// out the child of a hovered item, so the value has to be a plausible one rather than zero.</remarks>
+        public static int MenuShowDelay => 400;
+
+        /// <summary>Gets the amount a wheel must rotate to count as one detent.</summary>
+        /// <remarks>120, the <c>WHEEL_DELTA</c> constant. Wheel deltas arriving from the backend are
+        /// expressed in these units, so a control dividing by this reaches whole notches.</remarks>
+        public static int MouseWheelScrollDelta => 120;
+
+        /// <summary>Gets whether the process is running in a context that can interact with a user.</summary>
+        /// <remarks>Answers from <see cref="Application.UserInteractive"/>, so the two cannot disagree.</remarks>
+        public static bool UserInteractive => Application.UserInteractive;
     }
 
     /// <summary>

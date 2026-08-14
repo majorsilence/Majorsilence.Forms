@@ -39,7 +39,7 @@ namespace Majorsilence.Forms
     /// Provides a low-level encapsulation of a window handle and associated Windows message processing.
     /// Stub in Majorsilence.Forms — all operations are no-ops.
     /// </summary>
-    public class NativeWindow
+    public partial class NativeWindow
     {
         /// <summary>Gets the handle to the window. Always IntPtr.Zero in Majorsilence.Forms.</summary>
         public IntPtr Handle => IntPtr.Zero;
@@ -592,13 +592,13 @@ namespace Majorsilence.Forms
     public partial class NodeLabelEditEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
-        public NodeLabelEditEventArgs (TreeViewItem node) { Node = node; }
+        public NodeLabelEditEventArgs (TreeNode node) { Node = node; }
 
         /// <summary>Initializes a new instance with a new label.</summary>
-        public NodeLabelEditEventArgs (TreeViewItem node, string? label) { Node = node; Label = label; }
+        public NodeLabelEditEventArgs (TreeNode node, string? label) { Node = node; Label = label; }
 
         /// <summary>Gets the node whose label is being edited.</summary>
-        public TreeViewItem Node { get; }
+        public TreeNode Node { get; }
 
         /// <summary>Gets the new label text, or null if the edit was cancelled.</summary>
         public string? Label { get; }
@@ -614,7 +614,7 @@ namespace Majorsilence.Forms
         public TreeViewEventArgs (TreeNode node, TreeViewAction action) { Node = node; Action = action; }
 
         /// <summary>
-        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeViewItem)
+        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeNode)
         /// to match System.Windows.Forms.TreeViewEventArgs.Node -- all nodes added through the
         /// public TreeNode-based API are TreeNode instances in practice; raisers skip the event
         /// for internally-created plain TreeViewItems.
@@ -636,7 +636,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeViewItem)
+        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeNode)
         /// to match System.Windows.Forms.TreeViewCancelEventArgs.Node -- all nodes added through
         /// the public TreeNode-based API are TreeNode instances in practice.
         /// </summary>
@@ -734,33 +734,34 @@ namespace Majorsilence.Forms
     public partial class AutoCompleteStringCollection : System.Collections.Specialized.StringCollection { }
 
     /// <summary>
-    /// WinForms compatibility alias for <see cref="TreeViewItem"/>. In WinForms, tree nodes are called TreeNode.
-    /// In Majorsilence.Forms, this class is called TreeViewItem — TreeNode is an alias for easy migration.
+    /// The Majorsilence-native name for a tree node, kept so that code written against this library
+    /// before the two names were reconciled still compiles.
     /// </summary>
-    public class TreeNode : TreeViewItem
+    /// <remarks>
+    /// This used to be the other way round: the implementation class was <c>TreeViewItem</c> and
+    /// <see cref="TreeNode"/> was a subclass of it "for easy migration". That does not work, and the
+    /// reason is worth recording. Every WinForms-shaped member -- <c>TreeView.SelectedNode</c>,
+    /// <c>TopNode</c>, <c>GetNodeAt</c>, <c>Nodes[i]</c>, <c>node.Parent</c> -- returned the base type, so
+    /// assigning any of them to the <c>TreeNode</c> variable that WinForms code declares needed a
+    /// downcast, and a cast is exactly what a migration must not require. Nor could an implicit conversion
+    /// paper over it: C# forbids a user-defined conversion to a base class.
+    ///
+    /// So <c>TreeNode</c> is now the implementation and this is the subclass. Nodes flow the compiling
+    /// direction (a TreeViewItem <i>is</i> a TreeNode), and anything typed <c>TreeNode</c> accepts one.
+    /// The one thing that no longer holds is the reverse: a member returning <c>TreeNode</c> cannot be
+    /// assigned to a <c>TreeViewItem</c> variable without a cast. Native code that declares
+    /// <c>TreeViewItem</c> variables should change them to <c>TreeNode</c>.
+    /// </remarks>
+    public class TreeViewItem : TreeNode
     {
-        /// <summary>Initializes a new instance of TreeNode.</summary>
-        public TreeNode () { }
+        /// <summary>Initializes a new instance.</summary>
+        public TreeViewItem () { }
 
-        /// <summary>Initializes a new instance of TreeNode with the specified text.</summary>
-        public TreeNode (string text) : base (text) { }
+        /// <summary>Initializes a new instance with the specified text.</summary>
+        public TreeViewItem (string text) : base (text) { }
 
-        /// <summary>Initializes a new instance of TreeNode with text and child nodes.</summary>
-        public TreeNode (string text, TreeNode[] children) : base (text, children) { }
-
-        /// <summary>Initializes a new instance of TreeNode with text and image indices.</summary>
-        public TreeNode (string text, int imageIndex, int selectedImageIndex) : base (text)
-        {
-            ImageIndex = imageIndex;
-            SelectedImageIndex = selectedImageIndex;
-        }
-
-        /// <summary>Initializes a new instance of TreeNode with text, image indices, and child nodes.</summary>
-        public TreeNode (string text, int imageIndex, int selectedImageIndex, TreeNode[] children) : base (text, children)
-        {
-            ImageIndex = imageIndex;
-            SelectedImageIndex = selectedImageIndex;
-        }
+        /// <summary>Initializes a new instance with text and child nodes.</summary>
+        public TreeViewItem (string text, params TreeNode[] children) : base (text, children) { }
     }
 
     /// <summary>Specifies how a container control validates its children when it loses input focus.</summary>
@@ -1476,7 +1477,15 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a button on a ToolStrip that displays a drop-down menu when clicked.
     /// </summary>
-    public partial class ToolStripDropDownButton : ToolStripItem
+    /// <remarks>
+    /// Derives from <see cref="ToolStripDropDownItem"/>, as WinForms does. It used to derive straight from
+    /// <see cref="ToolStripItem"/> and redeclare a drop-down surface of its own -- a <c>DropDownItems</c>
+    /// that returned the button's own <c>Items</c>, a <c>ShowDropDown</c> that did nothing, and three
+    /// events with empty accessors. The consequence was that <c>DropDown</c> itself did not exist on the
+    /// button at all, so code closing a menu through <c>button.DropDown.Close(...)</c> would not compile;
+    /// with the base in place, that surface is the real one and the shadowing members are gone.
+    /// </remarks>
+    public partial class ToolStripDropDownButton : ToolStripDropDownItem
     {
         /// <summary>Initializes a new instance of the ToolStripDropDownButton class.</summary>
         public ToolStripDropDownButton () { }
@@ -1486,21 +1495,6 @@ namespace Majorsilence.Forms
         {
             Text = text;
         }
-
-        /// <summary>Gets the collection of items shown in the drop-down.</summary>
-        public MenuItemCollection DropDownItems => Items;
-
-        /// <summary>Programmatically opens the drop-down. Stub in Majorsilence.Forms.</summary>
-        public new void ShowDropDown () { }
-
-        /// <summary>Raised before the drop-down is opened. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? DropDownOpening { add { } remove { } }
-
-        /// <summary>Raised after the drop-down is opened. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? DropDownOpened { add { } remove { } }
-
-        /// <summary>Raised after the drop-down is closed. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? DropDownClosed { add { } remove { } }
     }
 
     /// <summary>Represents a button with both a clickable portion and a drop-down arrow. Stub in Majorsilence.Forms.</summary>
@@ -1582,6 +1576,21 @@ namespace Majorsilence.Forms
 
         /// <summary>Initializes a new instance with text, a Majorsilence.Forms.Drawing.Image, and subitems.</summary>
         public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, params ToolStripMenuItem[] dropDownItems)
+            : this (text, image?.ToSKBitmap ())
+        {
+            foreach (var item in dropDownItems)
+                Items.Add (item);
+        }
+
+        /// <summary>Initializes a new instance with text, an image, and sub-items of any item type.</summary>
+        /// <remarks>
+        /// WinForms types the params array as <c>ToolStripItem[]</c>, not <c>ToolStripMenuItem[]</c>, so a
+        /// menu built with separators in it -- the common case -- goes through this overload. Only the
+        /// narrower one existed, which made <c>new ToolStripMenuItem(text, image, sep, item, ...)</c> fail
+        /// to resolve. The <c>EventHandler</c> overload above is still preferred for a two-argument call,
+        /// so this does not change what an existing call binds to.
+        /// </remarks>
+        public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, params ToolStripItem[] dropDownItems)
             : this (text, image?.ToSKBitmap ())
         {
             foreach (var item in dropDownItems)
@@ -2089,7 +2098,7 @@ namespace Majorsilence.Forms
     /// ToolStripDropDownMenu : ToolStripDropDown : ToolStrip, so ToolStrip members are reachable here.
     /// The Opening/Opened/Closing/Closed popup lifecycle comes from <see cref="ContextMenu"/>.
     /// </summary>
-    public class ContextMenuStrip : ToolStripDropDown
+    public partial class ContextMenuStrip : ToolStripDropDown
     {
         /// <summary>Initializes a new instance.</summary>
         public ContextMenuStrip () { }
@@ -2382,15 +2391,22 @@ namespace Majorsilence.Forms
     {
         private int _selectedIndex = -1;
 
-        /// <summary>Gets or sets the collection of items displayed in the control.</summary>
-        public System.Collections.Specialized.StringCollection Items { get; } = new System.Collections.Specialized.StringCollection ();
+        /// <summary>Gets the collection of items displayed in the control.</summary>
+        /// <remarks>
+        /// Typed as the nested <see cref="DomainUpDownItemCollection"/>, which is what WinForms returns and
+        /// therefore what code re-exposing this property declares. It was a <c>StringCollection</c>, so
+        /// that re-exposure did not compile -- and the nested collection type sat unused beside it.
+        /// The items are objects rather than strings, as upstream: the control shows each item's
+        /// <c>ToString()</c>, so anything can go in.
+        /// </remarks>
+        public DomainUpDownItemCollection Items { get; } = new DomainUpDownItemCollection ();
 
         /// <summary>Gets or sets the index of the currently selected item.</summary>
         public int SelectedIndex {
             get => _selectedIndex;
             set {
                 _selectedIndex = value;
-                Text = (value >= 0 && value < Items.Count) ? Items[value] ?? string.Empty : string.Empty;
+                Text = value >= 0 && value < Items.Count ? Items[value]?.ToString () ?? string.Empty : string.Empty;
             }
         }
 
@@ -2398,9 +2414,13 @@ namespace Majorsilence.Forms
         public object? SelectedItem {
             get => _selectedIndex >= 0 && _selectedIndex < Items.Count ? Items[_selectedIndex] : null;
             set {
-                if (value is string s) {
-                    for (int i = 0; i < Items.Count; i++) {
-                        if (Items[i] == s) { SelectedIndex = i; return; }
+                for (var i = 0; i < Items.Count; i++) {
+                    // Compared by value, not by reference: the items are objects now, so the ArrayList
+                    // indexer hands back object and `==` would have become a reference comparison that
+                    // fails for two equal strings held in different instances.
+                    if (Equals (Items[i], value)) {
+                        SelectedIndex = i;
+                        return;
                     }
                 }
             }
@@ -3638,10 +3658,10 @@ namespace Majorsilence.Forms
     public class TreeNodeMouseClickEventArgs : MouseEventArgs
     {
         /// <summary>Gets the tree node that was clicked.</summary>
-        public TreeViewItem Node { get; }
+        public TreeNode Node { get; }
 
         /// <summary>Initializes a new instance.</summary>
-        public TreeNodeMouseClickEventArgs (TreeViewItem node, MouseButtons button, int clicks, int x, int y)
+        public TreeNodeMouseClickEventArgs (TreeNode node, MouseButtons button, int clicks, int x, int y)
             : base (button, clicks, x, y, System.Drawing.Point.Empty)
         {
             Node = node;
@@ -3652,10 +3672,10 @@ namespace Majorsilence.Forms
     public class TreeNodeMouseHoverEventArgs : EventArgs
     {
         /// <summary>Gets the tree node that the mouse is hovering over.</summary>
-        public TreeViewItem Node { get; }
+        public TreeNode Node { get; }
 
         /// <summary>Initializes a new instance.</summary>
-        public TreeNodeMouseHoverEventArgs (TreeViewItem node) => Node = node;
+        public TreeNodeMouseHoverEventArgs (TreeNode node) => Node = node;
     }
 
     /// <summary>Provides data for the TreeView.ItemDrag and ListView.ItemDrag events.</summary>

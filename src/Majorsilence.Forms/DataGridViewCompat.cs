@@ -264,6 +264,15 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class DataGridViewImageColumn : DataGridViewColumn
     {
+        /// <summary>Initializes an image column whose cells hold images.</summary>
+        public DataGridViewImageColumn () { }
+
+        /// <summary>Initializes an image column, choosing whether its cells hold icons or images.</summary>
+        /// <remarks>WinForms' second constructor. <see cref="ValuesAreIcons"/> keeps the choice, since the
+        /// two are drawn differently -- an icon carries its own size and alpha, an image is scaled to the
+        /// cell.</remarks>
+        public DataGridViewImageColumn (bool valuesAreIcons) => ValuesAreIcons = valuesAreIcons;
+
         /// <summary>Gets or sets the image displayed in the column. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Forms.Drawing.Image? Image { get; set; }
 
@@ -728,7 +737,7 @@ namespace Majorsilence.Forms
         public int RowIndex { get; }
 
         /// <summary>Gets the surface the row is being painted on, or null when the event was raised outside a paint pass.</summary>
-        public Majorsilence.Forms.Drawing.SkiaGraphics? Graphics { get; internal set; }
+        public Majorsilence.Forms.Drawing.Graphics? Graphics { get; internal set; }
 
         /// <summary>Gets the area of the grid that needs repainting, in device pixels.</summary>
         public Rectangle ClipBounds { get; set; }
@@ -967,7 +976,7 @@ namespace Majorsilence.Forms
         public DataGridViewCellPaintingEventArgs (int columnIndex, int rowIndex) : base (columnIndex, rowIndex) { }
 
         /// <summary>Gets the graphics surface to paint on. Set by the renderer when the event is raised during a paint pass.</summary>
-        public Majorsilence.Forms.Drawing.SkiaGraphics? Graphics { get; set; }
+        public Majorsilence.Forms.Drawing.Graphics? Graphics { get; set; }
 
         // Installed by the renderer that raises CellPainting so the Paint* methods below run the grid's
         // real default cell painting for the requested parts.
@@ -1157,6 +1166,14 @@ namespace Majorsilence.Forms
     /// <summary>Represents a check-box cell in a DataGridView. Stub in Majorsilence.Forms.</summary>
     public partial class DataGridViewCheckBoxCell : DataGridViewCell
     {
+        /// <summary>Initializes a two-state check-box cell.</summary>
+        public DataGridViewCheckBoxCell () { }
+
+        /// <summary>Initializes a check-box cell, choosing two- or three-state toggling.</summary>
+        /// <remarks>WinForms' second constructor. A derived cell that offers the choice in its own
+        /// constructor chains to this one, so its absence blocked the whole type.</remarks>
+        public DataGridViewCheckBoxCell (bool threeState) => ThreeState = threeState;
+
         /// <summary>Gets or sets whether three-state toggling is supported.</summary>
         public bool ThreeState { get; set; }
 

@@ -198,7 +198,7 @@ namespace Majorsilence.Forms.Renderers
             // e.PaintHeader -- and set Handled to suppress the default rendering below.
             if (control.HasRowPrePaintHandlers) {
                 var pre = new DataGridViewRowPrePaintEventArgs (rowIndex) {
-                    Graphics = new Majorsilence.Forms.Drawing.SkiaGraphics (e.Canvas),
+                    Graphics = new Majorsilence.Forms.Drawing.Graphics (e.Canvas),
                     ClipBounds = e.ClipRectangle,
                     RowBounds = bounds,
                     State = row.State,
@@ -255,7 +255,7 @@ namespace Majorsilence.Forms.Renderers
             // Post-paint hook (WinForms RowPostPaint), after the row's cells and border are drawn.
             if (control.HasRowPostPaintHandlers) {
                 var post = new DataGridViewRowPostPaintEventArgs (rowIndex) {
-                    Graphics = new Majorsilence.Forms.Drawing.SkiaGraphics (e.Canvas),
+                    Graphics = new Majorsilence.Forms.Drawing.Graphics (e.Canvas),
                     ClipBounds = e.ClipRectangle,
                     RowBounds = bounds,
                     State = row.State,
@@ -342,7 +342,7 @@ namespace Majorsilence.Forms.Renderers
             // default painting for the parts it does not draw, and set Handled to suppress the rest.
             if (control.HasCellPaintingHandlers) {
                 var args = new DataGridViewCellPaintingEventArgs (columnIndex, rowIndex) {
-                    Graphics = new Majorsilence.Forms.Drawing.SkiaGraphics (e.Canvas),
+                    Graphics = new Majorsilence.Forms.Drawing.Graphics (e.Canvas),
                     ClipBounds = e.ClipRectangle,
                     CellBounds = cell_rect,
                     Value = the_cell?.Value,

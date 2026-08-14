@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// Represents a collection of TreeViewItems.
     /// </summary>
     /// <summary>WinForms-compatible name for the tree item collection (TreeView.Nodes).</summary>
-    public partial class TreeNodeCollection : Collection<TreeViewItem>
+    public partial class TreeNodeCollection : Collection<TreeNode>
     {
         /// <summary>
         /// Adds a new node with the specified text. Returns a <see cref="TreeNode"/> so WinForms
@@ -60,7 +60,7 @@ namespace Majorsilence.Forms
             return matches.ToArray ();
         }
 
-        private static void Collect (IEnumerable<TreeViewItem> items, string key, bool recurse, List<TreeNode> matches)
+        private static void Collect (IEnumerable<TreeNode> items, string key, bool recurse, List<TreeNode> matches)
         {
             foreach (var item in items) {
                 if (item is TreeNode node && string.Equals (node.Name, key, StringComparison.OrdinalIgnoreCase))
@@ -108,20 +108,28 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Adds an existing node and returns its index.</summary>
-        public int Add (TreeNode node)
+        /// <remarks>
+        /// Calls <c>base.Add</c> explicitly. It used to cast the argument to the collection's element type
+        /// and call <c>Add</c> unqualified, which reached <c>Collection&lt;T&gt;.Add</c> only because the
+        /// element type was then the node's base class. Once node and element type became the same type
+        /// that cast stopped changing anything, so the call bound to this method and recursed until the
+        /// stack ran out -- the qualification is what makes the target explicit rather than incidental.
+        /// </remarks>
+        public new int Add (TreeNode node)
         {
-            Add ((TreeViewItem)node);
+            base.Add (node);
             return Count - 1;
         }
 
         /// <summary>Returns whether the given node is in this collection.</summary>
-        public bool Contains (TreeNode node) => Contains ((TreeViewItem)node);
+        /// <inheritdoc cref="Add(TreeNode)" path="/remarks"/>
+        public new bool Contains (TreeNode node) => base.Contains (node);
 
         /// <summary>Returns the index of the given node, or -1.</summary>
-        public int IndexOf (TreeNode node) => IndexOf ((TreeViewItem)node);
+        public new int IndexOf (TreeNode node) => base.IndexOf (node);
 
         /// <summary>Removes the given node.</summary>
-        public void Remove (TreeNode node) => Remove ((TreeViewItem)node);
+        public new void Remove (TreeNode node) => base.Remove (node);
 
         /// <summary>Copies this collection into an array.</summary>
         public void CopyTo (Array dest, int index)
@@ -133,7 +141,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Inserts an existing node at the given index.</summary>
-        public void Insert (int index, TreeNode node) => Insert (index, (TreeViewItem)node);
+        public new void Insert (int index, TreeNode node) => base.Insert (index, node);
 
         /// <summary>Inserts a node with the given text at the given index.</summary>
         public TreeNode Insert (int index, string text) => Insert (index, string.Empty, text);
@@ -182,17 +190,17 @@ namespace Majorsilence.Forms
     /// <summary>Represents the collection of items in a TreeView.</summary>
     public class TreeViewItemCollection : TreeNodeCollection
     {
-        private readonly TreeViewItem owner;
+        private readonly TreeNode owner;
 
-        internal TreeViewItemCollection (TreeViewItem owner)
+        internal TreeViewItemCollection (TreeNode owner)
         {
             this.owner = owner;
         }
 
         /// <summary>
-        /// Adds the TreeViewItem to the collection.
+        /// Adds the TreeNode to the collection.
         /// </summary>
-        public new TreeViewItem Add (TreeViewItem item)
+        public new TreeNode Add (TreeNode item)
         {
             base.Add (item);
 
@@ -204,17 +212,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Adds a new item to the collection with the specified text and SKBitmap image.
         /// </summary>
-        public TreeViewItem Add (string text, SKBitmap image) { var item = new TreeViewItem (text); item.SetImageSK (image); return Add (item); }
+        public TreeNode Add (string text, SKBitmap image) { var item = new TreeNode (text); item.SetImageSK (image); return Add (item); }
 
         /// <summary>
         /// Adds a new item to the collection with the specified text and image (WinForms compatibility overload).
         /// </summary>
-        public TreeViewItem Add (string text, Majorsilence.Forms.Drawing.Image image) { var item = new TreeViewItem (text); item.Image = image; return Add (item); }
+        public TreeNode Add (string text, Majorsilence.Forms.Drawing.Image image) { var item = new TreeNode (text); item.Image = image; return Add (item); }
 
         /// <summary>
         /// Adds a collection of TreeViewItems to the collection.
         /// </summary>
-        public void AddRange (IEnumerable<TreeViewItem> children)
+        public void AddRange (IEnumerable<TreeNode> children)
         {
             var tv = owner.TreeView;
 
@@ -227,7 +235,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void InsertItem (int index, TreeViewItem item)
+        protected override void InsertItem (int index, TreeNode item)
         {
             base.InsertItem (index, item);
 
@@ -258,7 +266,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void SetItem (int index, TreeViewItem item)
+        protected override void SetItem (int index, TreeNode item)
         {
             var old_item = this.ElementAtOrDefault (index);
 

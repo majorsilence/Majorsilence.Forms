@@ -40,6 +40,7 @@ namespace Majorsilence.Forms
         public void Dispose ()
         {
             Dispose (true);
+            RaiseDisposed ();
             GC.SuppressFinalize (this);
         }
 

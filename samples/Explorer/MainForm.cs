@@ -34,7 +34,7 @@ namespace Explore
                 SetSelectedDirectory (Path.Combine (current_directory, item.Text));
         }
 
-        private void Tree_ItemSelected (object sender, EventArgs<TreeViewItem> e)
+        private void Tree_ItemSelected (object sender, EventArgs<TreeNode> e)
         {
             if (e.Value.Tag is string drive)
                 SetSelectedDirectory (drive);
@@ -57,7 +57,7 @@ namespace Explore
                 directories = view.Items.Count;
 
                 if (!tree_item.HasChildren)
-                    tree_item.Items.AddRange (view.Items.Select (l => new TreeViewItem (l.Text) { Image = ImageLoader.Get ("folder.png"), Tag = Path.Combine (current_directory, l.Text) }));
+                    tree_item.Items.AddRange (view.Items.Select (l => new TreeNode (l.Text) { Image = ImageLoader.Get ("folder.png"), Tag = Path.Combine (current_directory, l.Text) }));
 
                 foreach (var f in Directory.EnumerateFiles (directory).Take (50))
                     view.Items.Add (new ListViewItem { Text = Path.GetFileName (f), Image = ImageLoader.Get ("new.png") });

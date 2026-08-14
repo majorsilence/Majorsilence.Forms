@@ -56,7 +56,7 @@ namespace Majorsilence.Forms
 #pragma warning restore CS0067
     }
 
-    public partial class TreeViewItem
+    public partial class TreeNode
     {
         /// <summary>Gets or sets the context menu shown when this node is right-clicked.</summary>
         public virtual ContextMenuStrip? ContextMenuStrip { get; set; }
@@ -79,10 +79,10 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the next node the user can see below this one, or null.</summary>
-        public TreeViewItem? NextVisibleNode => VisibleNodes ().SkipWhile (n => !ReferenceEquals (n, this)).Skip (1).FirstOrDefault ();
+        public TreeNode? NextVisibleNode => VisibleNodes ().SkipWhile (n => !ReferenceEquals (n, this)).Skip (1).FirstOrDefault ();
 
         /// <summary>Gets the previous node the user can see above this one, or null.</summary>
-        public TreeViewItem? PrevVisibleNode => VisibleNodes ().TakeWhile (n => !ReferenceEquals (n, this)).LastOrDefault ();
+        public TreeNode? PrevVisibleNode => VisibleNodes ().TakeWhile (n => !ReferenceEquals (n, this)).LastOrDefault ();
 
         /// <summary>Gets the window handle of the node.</summary>
         /// <remarks>Zero: nodes are not windows here, which is the same reason
@@ -101,7 +101,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns a copy of this node and its children.</summary>
         public virtual object Clone ()
         {
-            var clone = new TreeViewItem (Text) {
+            var clone = new TreeNode (Text) {
                 Name = Name,
                 Tag = Tag,
                 ImageIndex = ImageIndex,
@@ -112,7 +112,7 @@ namespace Majorsilence.Forms
             };
 
             foreach (var child in Nodes)
-                if (child.Clone () is TreeViewItem copy)
+                if (child.Clone () is TreeNode copy)
                     clone.Nodes.Add (copy);
 
             return clone;
@@ -125,7 +125,7 @@ namespace Majorsilence.Forms
         // The nodes the user could scroll to, in the order they appear. GetVisibleItems is the
         // tree's own walk -- reusing it keeps this agreeing with what the control lays out -- and the
         // Skip (1) drops the hidden root item, exactly as TreeView.LayoutItems does.
-        private IEnumerable<TreeViewItem> VisibleNodes ()
+        private IEnumerable<TreeNode> VisibleNodes ()
         {
             var root = this;
             while (root.Parent is { } parent)

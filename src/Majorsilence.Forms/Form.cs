@@ -359,8 +359,16 @@ namespace Majorsilence.Forms
             remove => mdi_child_activate -= value;
         }
 
-        /// <summary>Raised when the DPI setting for the form changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? DpiChanged { add { } remove { } }
+        /// <summary>Raised when the DPI the form is displayed at changes.</summary>
+        /// <remarks>
+        /// Typed with the args WinForms uses, so a handler can read the old and new DPI -- the two numbers
+        /// a form needs to rescale anything it sized itself. Declared and raisable but not raised: the
+        /// backend does not notify this layer when a window moves between monitors of different scale.
+        /// Its accessors used to be empty, which additionally meant handlers were silently discarded.
+        /// </remarks>
+#pragma warning disable CS0067
+        public event EventHandler<DpiChangedEventArgs>? DpiChanged;
+#pragma warning restore CS0067
 
         /// <summary>Raised when the input language changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler<InputLanguageChangedEventArgs>? InputLanguageChanged { add { } remove { } }

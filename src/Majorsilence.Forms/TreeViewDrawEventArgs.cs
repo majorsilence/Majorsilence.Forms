@@ -11,14 +11,14 @@ public class TreeViewDrawEventArgs : PaintEventArgs
     public TreeView TreeView { get; }
 
     /// <summary>
-    /// Gets the TreeViewItem to draw.
+    /// Gets the TreeNode to draw.
     /// </summary>
-    public TreeViewItem Item { get; }
+    public TreeNode Item { get; }
 
     /// <summary>
     ///  Initializes a new instance of the TreeViewDrawEventArgs class.
     /// </summary>
-    public TreeViewDrawEventArgs (TreeView treeView, TreeViewItem item, PaintEventArgs pea) : base (pea.Info, pea.Canvas, pea.Scaling)
+    public TreeViewDrawEventArgs (TreeView treeView, TreeNode item, PaintEventArgs pea) : base (pea.Info, pea.Canvas, pea.Scaling)
     {
         TreeView = treeView;
         Item = item;

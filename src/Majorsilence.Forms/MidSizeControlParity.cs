@@ -388,18 +388,11 @@ namespace Majorsilence.Forms
             => TypeDescriptor.GetProperties (component);
     }
 
-    /// <summary>How long a property tab stays associated with a grid.</summary>
-    public enum PropertyTabScope
-    {
-        /// <summary>The tab is fixed for the life of the grid.</summary>
-        Static = 0,
-        /// <summary>The tab applies to every object.</summary>
-        Global = 1,
-        /// <summary>The tab applies to the current document.</summary>
-        Document = 2,
-        /// <summary>The tab applies to the current component only.</summary>
-        Component = 3,
-    }
+    // PropertyTabScope used to be redeclared here. It is a real cross-platform BCL type
+    // (System.ComponentModel.PropertyTabScope, alongside PropertyTabAttribute which carries it), so the
+    // copy was not filling a gap -- it was competing with the original. WinForms' own
+    // PropertyGrid.RefreshTabs takes the BCL enum, so a caller holding one from the attribute it read it
+    // off could not pass it here. RefreshTabs and PropertyTabCollection now take the BCL type.
 
     public partial class WebBrowser
     {

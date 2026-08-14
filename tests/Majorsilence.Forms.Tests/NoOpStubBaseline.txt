@@ -81,6 +81,9 @@ Majorsilence.Forms.Design.Behavior.BehaviorService.Invalidate/1
 Majorsilence.Forms.Design.Behavior.BehaviorService.SyncSelection/0
 Majorsilence.Forms.Design.ComponentDesigner.DoDefaultAction/0
 Majorsilence.Forms.Design.ComponentDesigner.InitializeNewComponent/1
+Majorsilence.Forms.Design.DesignerActionUIService.HideUI/1
+Majorsilence.Forms.Design.DesignerActionUIService.Refresh/1
+Majorsilence.Forms.Design.DesignerActionUIService.ShowUI/1
 Majorsilence.Forms.Drawing.BufferedGraphicsContext.Invalidate/0
 Majorsilence.Forms.Drawing.Graphics.AddMetafileComment/1
 Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/3
@@ -104,6 +107,7 @@ Majorsilence.Forms.HelpProvider.SetShowHelp/2
 Majorsilence.Forms.ImageCollection.SetKeyName/2
 Majorsilence.Forms.ImageListStreamer.Dispose/0
 Majorsilence.Forms.ListViewItem.BeginEdit/0
+Majorsilence.Forms.Media.SystemSound.Play/0
 Majorsilence.Forms.NativeWindow.AssignHandle/1
 Majorsilence.Forms.NativeWindow.CreateHandle/1
 Majorsilence.Forms.NativeWindow.DestroyHandle/0
@@ -135,7 +139,6 @@ Majorsilence.Forms.TextBoxBase.ClearUndo/0
 Majorsilence.Forms.TextBoxBase.ScrollToCaret/0
 Majorsilence.Forms.TextBoxBase.Undo/0
 Majorsilence.Forms.TextRenderer.DrawText/5
-Majorsilence.Forms.ToolStripDropDownButton.ShowDropDown/0
 Majorsilence.Forms.ToolStripManager.LoadSettings/1
 Majorsilence.Forms.ToolStripManager.LoadSettings/2
 Majorsilence.Forms.ToolStripManager.SaveSettings/1
@@ -144,9 +147,9 @@ Majorsilence.Forms.ToolStripPanel.BeginInit/0
 Majorsilence.Forms.ToolTip.SetToolTip/2
 Majorsilence.Forms.TrackBar.BeginInit/0
 Majorsilence.Forms.TrackBar.EndInit/0
+Majorsilence.Forms.TreeNode.BeginEdit/0
+Majorsilence.Forms.TreeNode.EndEdit/1
 Majorsilence.Forms.TreeView.Sort/0
-Majorsilence.Forms.TreeViewItem.BeginEdit/0
-Majorsilence.Forms.TreeViewItem.EndEdit/1
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/2
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/3
 Majorsilence.Forms.WebBrowser.GoBack/0

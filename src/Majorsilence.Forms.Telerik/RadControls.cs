@@ -335,7 +335,7 @@ namespace Majorsilence.Forms.Telerik
         public RadTreeNode[] FindNodes (Predicate<RadTreeNode> match)
         {
             var result = new List<RadTreeNode> ();
-            void Visit (System.Collections.Generic.IEnumerable<TreeViewItem> items)
+            void Visit (System.Collections.Generic.IEnumerable<TreeNode> items)
             {
                 foreach (var item in items) {
                     if (item is RadTreeNode node && match (node))
@@ -385,7 +385,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the parent node, typed as <see cref="RadTreeNode"/> (or null for a root-level or detached node).</summary>
         public new RadTreeNode? Parent => base.Parent as RadTreeNode;
 
-        /// <summary>Gets the child nodes, typed as <see cref="RadTreeNode"/> (Telerik alias for <see cref="Majorsilence.Forms.TreeViewItem.Nodes"/>).</summary>
+        /// <summary>Gets the child nodes, typed as <see cref="RadTreeNode"/> (Telerik alias for <see cref="Majorsilence.Forms.TreeNode.Nodes"/>).</summary>
         public new RadTreeNodeCollection Nodes => new RadTreeNodeCollection (base.Nodes);
     }
 

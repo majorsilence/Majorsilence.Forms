@@ -217,6 +217,23 @@ namespace Majorsilence.Forms.Design
 
         /// <summary>Gets whether this control may be parented to the given designer's control.</summary>
         public virtual bool CanBeParentedTo (IDesigner parentDesigner) => true;
+
+        /// <summary>Gets or sets whether the designer hides resize handles that would not fit.</summary>
+        /// <remarks>
+        /// Set in <c>Initialize</c> by nearly every control designer, which is why it is the single most
+        /// common design-time member a themed control library touches. Stored only: the handles it governs
+        /// are drawn by the design surface, and there is none here.
+        /// </remarks>
+        public bool AutoResizeHandles { get; set; }
+
+        /// <summary>Lets one of the control's internal children be designed in its own right.</summary>
+        /// <remarks>
+        /// A composite control calls this for each part a user should be able to drop controls into -- the
+        /// panel inside a group box, the two halves of a split container. Returns false: enabling design
+        /// mode requires a design surface to enable it on, and a caller that checks the result correctly
+        /// concludes the child is not designable.
+        /// </remarks>
+        protected bool EnableDesignMode (Control? child, string name) => false;
     }
 
     /// <summary>A designer for a control that can contain other controls.</summary>
@@ -235,6 +252,16 @@ namespace Majorsilence.Forms.Design
 
         /// <inheritdoc cref="CanParent(Control)"/>
         public virtual bool CanParent (ControlDesigner controlDesigner) => true;
+
+        /// <summary>Adds snap lines for the container's padding edges to the given list.</summary>
+        /// <remarks>
+        /// A container designer overrides <see cref="ControlDesigner.SnapLines"/>, calls this to get the
+        /// four padding edges, then adds its own. The list is created when the caller passes null -- which
+        /// is how the overrides upstream are written -- so a derived designer can chain into it safely.
+        /// There is no design surface to consume the lines; what matters is that the list comes back usable.
+        /// </remarks>
+        protected void AddPaddingSnapLines (ref System.Collections.ArrayList? snapLines)
+            => snapLines ??= new System.Collections.ArrayList ();
     }
 
     /// <summary>A designer for a control that scrolls its contents.</summary>
@@ -292,6 +319,24 @@ namespace Majorsilence.Forms.Design
             [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers (
                 System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
             Type itemType) => Activator.CreateInstance (itemType);
+
+        /// <summary>Disposes an item the editor created and the user then removed.</summary>
+        /// <remarks>
+        /// Real, and it matters: a collection editor that adds a component, has it rejected, and never
+        /// disposes it leaks whatever that component holds. WinForms routes designer-hosted components
+        /// through the host's DestroyComponent; with no host, disposing directly is the whole of the work.
+        /// </remarks>
+        protected virtual void DestroyInstance (object? instance)
+        {
+            if (instance is IDisposable disposable)
+                disposable.Dispose ();
+        }
+
+        /// <summary>Gets the descriptor context the property is being edited in.</summary>
+        /// <remarks>Null: there is no property grid supplying one. A caller reads it to reach the
+        /// container that owns the components it is editing, so it must be null-checked -- as it must
+        /// upstream too, where the grid has not always set it by the time an editor asks.</remarks>
+        protected ITypeDescriptorContext? Context => null;
 
         /// <summary>Gets the items currently in the collection.</summary>
         protected virtual object[] GetItems (object? editValue)
@@ -360,6 +405,20 @@ namespace Majorsilence.Forms.Design
 
             /// <summary>Called when <see cref="EditValue"/> has been replaced.</summary>
             protected abstract void OnEditValueChanged ();
+
+            /// <summary>Creates one new item of the given type, through the editor that owns this form.</summary>
+            /// <remarks>
+            /// The form is where the "add" button lives, so the form is what asks for the instance; routing
+            /// it to the editor is what lets an editor with a custom <c>CreateInstance</c> still decide what
+            /// gets made. Same reasoning for <see cref="DestroyInstance"/> on the way out.
+            /// </remarks>
+            protected object? CreateInstance (
+                [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers (
+                    System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+                Type itemType) => CollectionEditor.CreateInstance (itemType);
+
+            /// <inheritdoc cref="CollectionEditor.DestroyInstance"/>
+            protected void DestroyInstance (object? instance) => CollectionEditor.DestroyInstance (instance);
 
             /// <summary>Reports an error raised while editing the collection.</summary>
             protected virtual void DisplayError (Exception e) { }
@@ -697,6 +756,37 @@ namespace Majorsilence.Forms.Design
 
         /// <summary>Removes the list.</summary>
         public void Remove (DesignerActionList value) => List.Remove (value);
+    }
+
+    /// <summary>Drives the smart-tag panel that shows a component's <see cref="DesignerActionList"/> items.</summary>
+    /// <remarks>
+    /// A component's action list reaches for this after changing a property so the panel redraws with the
+    /// new state -- an orientation toggle whose label has to flip, say. Every method is a no-op: there is
+    /// no panel to refresh. It is requested through <c>GetService(typeof(DesignerActionUIService))</c>,
+    /// which returns null here, so in practice the calls are guarded and never made; the type has to
+    /// resolve for the <c>is</c> pattern around them to compile.
+    /// </remarks>
+    public class DesignerActionUIService : IDisposable
+    {
+        /// <summary>Rebuilds the panel for the given component so it reflects current property values.</summary>
+        public void Refresh (object? component) { }
+
+        /// <summary>Hides the panel for the given component.</summary>
+        public void HideUI (object? component) { }
+
+        /// <summary>Shows the panel for the given component.</summary>
+        public void ShowUI (object? component) { }
+
+        /// <summary>Gets whether the panel for the given component should be shown automatically.</summary>
+        public bool ShouldAutoShow (System.ComponentModel.IComponent? component) => false;
+
+        /// <summary>Raised when the set of action lists for a component has changed. Never raised.</summary>
+#pragma warning disable CS0067
+        public event EventHandler? DesignerActionListsChanged;
+#pragma warning restore CS0067
+
+        /// <summary>Releases the service.</summary>
+        public void Dispose () => GC.SuppressFinalize (this);
     }
 }
 

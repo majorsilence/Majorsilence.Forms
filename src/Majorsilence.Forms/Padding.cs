@@ -32,7 +32,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents the amount of spacing between a control's edges and its content.
     /// </summary>
-    public struct Padding
+    public partial struct Padding
     {
         /// <summary>
         /// Initializes a new instance of the Padding class with the specified padding for all sides.

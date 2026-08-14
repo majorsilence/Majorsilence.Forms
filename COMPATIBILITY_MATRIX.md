@@ -410,6 +410,57 @@ already written to decide whether to theme or fall back to its own painting, so 
 takes its fallback path and never reaches the no-op. `VisualStyleElement` carries the element groups the
 compat layer has been asked for so far, under the upstream nested-class names.
 
+`VisualStyleInformation` describes the style in force, and there is none: `IsSupportedByOS` and
+`IsEnabledByUser` report `false` and the descriptive members (`ColorScheme`, `DisplayName`, `ThemeFilename`,
+…) return empty strings. Those are the two answers callers actually branch on — the upstream pattern is
+`if (VisualStyleInformation.IsEnabledByUser)` or a test of `ColorScheme` for emptiness, followed by a
+palette of the caller's own — so reporting "no theme" routes them to the path that renders correctly here.
+The two colour members are real: `TextControlBorder` and `ControlHighlightHot` answer from
+`SystemColors`, so a control outlining a box gets a border matching the palette actually in force.
+
+## Asking the OS about itself
+
+Three small areas where WinForms reaches Win32 and this layer answers from what it can genuinely see.
+
+**`OSFeature`** (and its `FeatureSupport` base) reports every optional feature **absent** —
+`GetVersionPresent` returns `null` and `IsPresent` returns `false`. For the two that are asked for in
+practice that is the true answer: per-pixel window alpha is not implemented (`Form.AllowTransparency`
+stores its value and does nothing with it) and there is no msstyles engine. It is also the useful
+direction to be wrong in, which is why the type is worth having rather than stubbing at the call site:
+code testing for layered windows does so to choose between an alpha-blended effect and a plain one, so
+`null` routes it to the one that actually draws.
+
+**`InputLanguage`** cannot enumerate keyboard layouts — that is a Win32 call with no cross-platform
+equivalent — so it answers from the culture instead. `CurrentInputLanguage` is the current culture
+(settable, and the setting is remembered, but it does not switch the OS layout);
+`InstalledInputLanguages` lists the current and installed-UI cultures, de-duplicated; `LayoutName` gives
+the culture's English name rather than inventing a layout identifier; and `Handle` is `IntPtr.Zero`,
+because there is no HKL. That is enough for what callers do with it — naming the language the user is
+working in.
+
+**`Majorsilence.Forms.Media.SystemSounds`** replaces `System.Media.SystemSounds`, which lives in a
+Windows-only assembly. The five sounds exist and `SystemSound.Play` is **silent**: playing the OS alert
+sounds needs a per-platform audio path this library does not carry. A message box that plays a sound
+alongside its icon still shows the icon, which is the part that carries the meaning. The migrator
+redirects `System.Media` here, because a bare `using System.Media;` resolves off Windows and then every
+`SystemSounds` reference in the file fails as an unknown name — a far more confusing error than a missing
+namespace would be.
+
+## Design-time smart tags
+
+`DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list
+reaches for it after changing a property, so the smart-tag panel redraws with the new state. `Refresh`,
+`ShowUI` and `HideUI` are **no-ops** and `ShouldAutoShow` returns `false` — there is no panel to refresh.
+In practice the calls are never made at all: the service is requested through
+`GetService(typeof(DesignerActionUIService))`, which returns `null` here, so the surrounding `is` pattern
+fails and the body is skipped. The type has to resolve for that pattern to compile. The same boundary
+applies to `ControlDesigner.AutoResizeHandles` (stored; the handles it governs are drawn by a design
+surface, and there is none) and `ControlDesigner.EnableDesignMode`, which returns `false` — enabling
+design mode needs a design surface to enable it on, and a caller that checks the result correctly
+concludes the child is not designable. `CollectionEditor.DestroyInstance` is the exception: it really
+disposes, because an editor that creates a component, has it rejected and never disposes it leaks
+whatever that component held.
+
 ## VB Application Model
 
 Not implemented — see [`MIGRATION.md`'s VB Application Model section](MIGRATION.md#vb-application-model-myapplication-myforms)

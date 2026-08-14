@@ -64,6 +64,11 @@ namespace Majorsilence.Forms
 
             // After FormClosed, so ShowDialog returns to its caller only once the form is fully closed.
             (this as Form)?.CompleteClose ();
+
+            // Last of all: the handle is what a form's window ultimately is, so its destruction is the
+            // final notification a form sends. Code that tracks the set of live forms keys on this rather
+            // than on Closed, because it is the point after which the form can safely be forgotten.
+            OnHandleDestroyed (EventArgs.Empty);
         }
 
         // Set while a programmatic Close() is running so the backend's own closing callback doesn't
@@ -620,7 +625,17 @@ namespace Majorsilence.Forms
         public event EventHandler? SizeChanged;
 
         /// <summary>Raises the SizeChanged event.</summary>
-        protected virtual void OnSizeChanged (EventArgs e) => SizeChanged?.Invoke (this, e);
+        protected virtual void OnSizeChanged (EventArgs e)
+        {
+            // A window that asked for ResizeRedraw wants its WHOLE surface repainted on every resize, not
+            // just the strip the OS uncovered -- which is what a form drawing its own border and caption
+            // needs, or the old border stays drawn along the edge that moved. Mirrors what Control.cs does
+            // for the ControlStyles.ResizeRedraw flag.
+            if (ResizeRedraw)
+                Invalidate ();
+
+            SizeChanged?.Invoke (this, e);
+        }
 
         /// <summary>Raised when the window is resized. Mirrors WinForms Form.Resize (alias of SizeChanged).</summary>
         public event EventHandler? Resize {

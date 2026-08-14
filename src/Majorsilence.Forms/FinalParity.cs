@@ -223,13 +223,18 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>The items of a <see cref="CheckedListBox"/>.</summary>
-        /// <remarks>Derives from this assembly's list-box item collection, which is what
-        /// <c>Items</c> already returns, so nothing that uses that type has to change.</remarks>
-        public new class ObjectCollection : ListBoxItemCollection
+        /// <remarks>Derives from the list box's own collection, so anything typed
+        /// <c>ListBox.ObjectCollection</c> -- including <see cref="ListBox.Items"/> itself -- accepts it.</remarks>
+        public new class ObjectCollection : ListBox.ObjectCollection
         {
             /// <summary>Initializes a new instance of the <see cref="ObjectCollection"/> class.</summary>
             internal ObjectCollection (CheckedListBox owner) : base (owner) { }
         }
+
+        /// <inheritdoc/>
+        /// <remarks>Substitutes this list's own collection type, which is the whole reason
+        /// <see cref="ListBox.CreateItemCollection"/> is overridable.</remarks>
+        protected override ListBox.ObjectCollection CreateItemCollection () => new ObjectCollection (this);
     }
 
     public partial class DomainUpDown

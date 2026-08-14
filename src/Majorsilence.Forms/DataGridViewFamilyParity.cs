@@ -253,9 +253,12 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when the column is disposed.</summary>
-#pragma warning disable CS0067
+        /// <remarks>Really raised, from <see cref="Dispose()"/> -- a column is an <c>IComponent</c>, and a
+        /// container holding one has no other way to learn it has gone.</remarks>
         public event EventHandler? Disposed;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="Disposed"/> event.</summary>
+        internal void RaiseDisposed () => Disposed?.Invoke (this, EventArgs.Empty);
     }
 
     public partial class DataGridViewColumnCollection

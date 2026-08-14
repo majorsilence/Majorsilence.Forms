@@ -148,6 +148,67 @@ namespace Majorsilence.Forms.VisualStyles
         public Size GetPartSize (Graphics g, ThemeSizeType type) => Size.Empty;
     }
 
+    /// <summary>
+    /// Describes the visual style (msstyles theme) in force — the cross-platform stand-in for
+    /// <c>System.Windows.Forms.VisualStyles.VisualStyleInformation</c>.
+    /// </summary>
+    /// <remarks>
+    /// There is no msstyles engine here, so there is no style in force to describe:
+    /// <see cref="IsEnabledByUser"/> reports false and the descriptive members report empty. That is the
+    /// answer callers are written for — the upstream pattern is to check <see cref="IsEnabledByUser"/> (or
+    /// test <see cref="ColorScheme"/> for emptiness) and fall back to a palette of their own, which is
+    /// exactly what this library wants them to do. <see cref="VisualStyleRenderer.IsSupported"/> agrees.
+    /// </remarks>
+    public static class VisualStyleInformation
+    {
+        /// <summary>Gets whether visual styles are available on this machine. Always false.</summary>
+        public static bool IsSupportedByOS => false;
+
+        /// <summary>Gets whether the user has visual styles turned on. Always false.</summary>
+        public static bool IsEnabledByUser => false;
+
+        /// <summary>Gets the name of the colour scheme within the theme. Always empty.</summary>
+        /// <remarks>On Windows this is what distinguishes the Blue, Olive and Silver variants of a theme,
+        /// and callers switch a palette on it; empty means "no variant", so they keep their default.</remarks>
+        public static string ColorScheme => string.Empty;
+
+        /// <summary>Gets the theme's display name. Always empty.</summary>
+        public static string DisplayName => string.Empty;
+
+        /// <summary>Gets the theme author. Always empty.</summary>
+        public static string Author => string.Empty;
+
+        /// <summary>Gets the theme's company. Always empty.</summary>
+        public static string Company => string.Empty;
+
+        /// <summary>Gets a description of the theme. Always empty.</summary>
+        public static string Description => string.Empty;
+
+        /// <summary>Gets the path to the theme file. Always empty.</summary>
+        public static string ThemeFilename => string.Empty;
+
+        /// <summary>Gets the theme's size name. Always empty.</summary>
+        public static string Size => string.Empty;
+
+        /// <summary>Gets the theme's version. Always empty.</summary>
+        public static string Version => string.Empty;
+
+        /// <summary>Gets the smallest font the theme uses. Always empty.</summary>
+        public static string MinimumColorDepth => string.Empty;
+
+        /// <summary>Gets whether the theme supports flat menus. Always false.</summary>
+        public static bool SupportsFlatMenus => false;
+
+        /// <summary>Gets the colour the theme draws a text box's border in.</summary>
+        /// <remarks>Answers from <see cref="SystemColors.WindowFrame"/>, so a control that uses it to
+        /// outline a box gets a border that matches the palette actually in force rather than nothing.</remarks>
+        public static Color TextControlBorder => SystemColors.WindowFrame;
+
+        /// <summary>Gets the colour the theme highlights a hovered item with.</summary>
+        /// <inheritdoc cref="TextControlBorder"/>
+        public static Color ControlHighlightHot => SystemColors.Highlight;
+    }
+
     /// <summary>Which edges of an element to draw.</summary>
     [Flags]
     public enum Edges

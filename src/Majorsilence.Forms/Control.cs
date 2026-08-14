@@ -293,9 +293,24 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets the scaled size of the control.
+        /// Gets or sets the size of the control's client area.
         /// </summary>
-        public Size ClientSize => ClientRectangle.Size;
+        /// <remarks>
+        /// The setter grows <see cref="Size"/> by whatever the border currently takes, which is what makes
+        /// <c>ClientSize = contentSize</c> mean the same thing here as in WinForms: a caller that has
+        /// measured its content and wants exactly that much room inside the border gets it, rather than
+        /// losing the border's width off the inside. It was read-only before, so those assignments -- the
+        /// normal way a dialog sizes itself to its content -- did not compile.
+        /// </remarks>
+        public Size ClientSize {
+            get => ClientRectangle.Size;
+            set {
+                var client = ClientRectangle.Size;
+                var border = new Size (Width - client.Width, Height - client.Height);
+
+                Size = new Size (value.Width + border.Width, value.Height + border.Height);
+            }
+        }
 
         /// <summary>
         /// Gets a value indicating if the specified control is parented to this control or any of its children.

@@ -26,7 +26,9 @@ namespace Majorsilence.Forms
         /// </summary>
         public ListBox ()
         {
-            Items = new ListBoxItemCollection (this);
+            // Through CreateItemCollection so a derived list can substitute its own collection type --
+            // which is how CheckedListBox returns one that tracks check state alongside each item.
+            Items = CreateItemCollection ();
 
             Items.CollectionChanged += (o, e) => UpdateVerticalScrollBar ();
 
@@ -175,7 +177,14 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the collection of items contained by this ListBox.
         /// </summary>
-        public ListBoxItemCollection Items { get; }
+        /// <remarks>
+        /// Typed as the nested <see cref="ObjectCollection"/>, which is the name WinForms code writes when
+        /// it declares a variable or re-exposes this property (<c>public ListBox.ObjectCollection Items
+        /// =&gt; _listBox.Items;</c>). It used to return the base <see cref="ListBoxItemCollection"/>, so
+        /// that assignment needed a downcast; the instance was always an ObjectCollection anyway, which is
+        /// what made the cast safe and therefore pointless.
+        /// </remarks>
+        public ObjectCollection Items { get; }
 
         /// <summary>Gets or sets the data source for the ListBox.</summary>
         public override object? DataSource {
@@ -533,7 +542,10 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets all currently selected items.
         /// </summary>
-        public IList<object> SelectedItems => Items.SelectedItems.ToList ();
+        /// <remarks>Typed as the nested <see cref="SelectedObjectCollection"/> for the same reason
+        /// <see cref="Items"/> is typed as <see cref="ObjectCollection"/>: that is the name WinForms code
+        /// uses for it. A snapshot, as it was before -- adding to the result does not select anything.</remarks>
+        public SelectedObjectCollection SelectedItems => new SelectedObjectCollection (this);
 
         /// <summary>
         /// Gets or set the selection mode of the ListBox.

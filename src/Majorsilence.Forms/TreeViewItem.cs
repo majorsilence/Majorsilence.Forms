@@ -5,9 +5,9 @@ using SkiaSharp;
 namespace Majorsilence.Forms
 {
     /// <summary>
-    /// Represents a TreeViewItem.
+    /// Represents a TreeNode.
     /// </summary>
-    public partial class TreeViewItem : ILayoutable
+    public partial class TreeNode : ILayoutable
     {
         private readonly TreeView? tree_view;
 
@@ -15,24 +15,43 @@ namespace Majorsilence.Forms
         internal TreeViewItemCollection? items;
 
         /// <summary>
-        /// Initializes a new instance of the TreeViewItem class.
+        /// Initializes a new instance of the TreeNode class.
         /// </summary>
-        public TreeViewItem ()
+        public TreeNode ()
         {
         }
 
         /// <summary>
-        /// Initializes a new instance of the TreeViewItem class with the specified text.
+        /// Initializes a new instance of the TreeNode class with the specified text.
         /// </summary>
-        public TreeViewItem (string text) : this () => Text = text;
+        public TreeNode (string text) : this () => Text = text;
 
         /// <summary>
-        /// Initializes a new instance of the TreeViewItem class with the specified text and child nodes.
+        /// Initializes a new instance of the TreeNode class with the specified text and child nodes.
         /// </summary>
-        public TreeViewItem (string text, params TreeViewItem[] children) : this (text) => Items.AddRange (children);
+        public TreeNode (string text, params TreeNode[] children) : this (text) => Items.AddRange (children);
+
+        /// <summary>
+        /// Initializes a new instance with text and the indices of its normal and selected images.
+        /// </summary>
+        public TreeNode (string text, int imageIndex, int selectedImageIndex) : this (text)
+        {
+            ImageIndex = imageIndex;
+            SelectedImageIndex = selectedImageIndex;
+        }
+
+        /// <summary>
+        /// Initializes a new instance with text, image indices and child nodes.
+        /// </summary>
+        public TreeNode (string text, int imageIndex, int selectedImageIndex, TreeNode[] children)
+            : this (text, children)
+        {
+            ImageIndex = imageIndex;
+            SelectedImageIndex = selectedImageIndex;
+        }
 
         // This constructor is used by the TreeView to create the root node
-        internal TreeViewItem (TreeView treeView)
+        internal TreeNode (TreeView treeView)
         {
             tree_view = treeView;
             Expanded = true;
@@ -117,7 +136,7 @@ namespace Majorsilence.Forms
         }
 
         // Get an IEnumerable of this item and all of its children, recursive.
-        internal IEnumerable<TreeViewItem> GetAllItems ()
+        internal IEnumerable<TreeNode> GetAllItems ()
         {
             yield return this;
 
@@ -168,7 +187,7 @@ namespace Majorsilence.Forms
         // Gets an enumerator of this node and currently visible children nodes, recursively.
         // Note this is nodes whose state is visible (parent is expanded).
         // Not necessarily nodes currently scrolled into view.
-        internal IEnumerable<TreeViewItem> GetVisibleItems ()
+        internal IEnumerable<TreeNode> GetVisibleItems ()
         {
             yield return this;
 
@@ -245,9 +264,9 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Retrives the next sibling of this item.
         /// </summary>
-        public TreeViewItem? NextItem ()
+        public TreeNode? NextItem ()
         {
-            if (Parent is TreeViewItem parent) {
+            if (Parent is TreeNode parent) {
                 var index = Parent.Items.IndexOf (this);
 
                 if (parent.Items.Count > index + 1)
@@ -260,14 +279,14 @@ namespace Majorsilence.Forms
         /// <summary>
         /// The parent item that contains this item.
         /// </summary>
-        public TreeViewItem? Parent { get; internal set; }
+        public TreeNode? Parent { get; internal set; }
 
         /// <summary>
         /// Retrives the previous sibling of this item.
         /// </summary>
-        public TreeViewItem? PreviousItem ()
+        public TreeNode? PreviousItem ()
         {
-            if (Parent is TreeViewItem parent) {
+            if (Parent is TreeNode parent) {
                 var index = Parent.Items.IndexOf (this);
 
                 if (index > 0)
@@ -339,13 +358,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the first child node of this item, or null if no children.</summary>
-        public TreeViewItem? FirstNode => Items.Count > 0 ? Items[0] : null;
+        public TreeNode? FirstNode => Items.Count > 0 ? Items[0] : null;
 
         /// <summary>Gets the last child node of this item, or null if no children.</summary>
-        public TreeViewItem? LastNode => Items.Count > 0 ? Items[Items.Count - 1] : null;
+        public TreeNode? LastNode => Items.Count > 0 ? Items[Items.Count - 1] : null;
 
         /// <summary>Gets the next sibling item.</summary>
-        public TreeViewItem? NextNode {
+        public TreeNode? NextNode {
             get {
                 if (Parent is null)
                     return null;
@@ -356,7 +375,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the previous sibling item.</summary>
-        public TreeViewItem? PrevNode {
+        public TreeNode? PrevNode {
             get {
                 if (Parent is null)
                     return null;
@@ -436,7 +455,7 @@ namespace Majorsilence.Forms
         private int LogicalToDeviceUnits (int value) => TreeView?.LogicalToDeviceUnits (value) ?? value;
 
         /// <summary>
-        /// Elements of a TreeViewItem.
+        /// Elements of a TreeNode.
         /// </summary>
         protected internal enum TreeViewItemElement
         {
@@ -446,17 +465,17 @@ namespace Majorsilence.Forms
             None,
 
             /// <summary>
-            /// The glyph (dropdown arrow) of the TreeViewItem.
+            /// The glyph (dropdown arrow) of the TreeNode.
             /// </summary>
             Glyph,
 
             /// <summary>
-            /// The image of the TreeViewItem.
+            /// The image of the TreeNode.
             /// </summary>
             Image,
 
             /// <summary>
-            /// The text of the TreeViewItem.
+            /// The text of the TreeNode.
             /// </summary>
             Text
         }
