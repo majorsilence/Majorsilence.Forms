@@ -77,6 +77,12 @@
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.0.5" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+    <!-- tools/Majorsilence.Forms.Mcp: the official MCP C# SDK, which supplies the stdio JSON-RPC
+         transport and the tool discovery/schema generation, plus the generic host it plugs into. The
+         MCP server is a standalone client of the app's WebDriver endpoint, so neither package is
+         referenced by anything the framework itself ships. -->
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
     <!-- tools/Majorsilence.Forms.ApiDiff: reflection-only loads of System.Drawing.Common and
          System.Windows.Forms for the API gap audit. The WindowsDesktop targeting pack is never
          referenced for compilation, only opened as metadata, so its Windows-only runtime is irrelevant. -->

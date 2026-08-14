@@ -65,7 +65,10 @@ See [Platform backends](docs/backends.md) for the details and how to add your ow
 
 ## Getting started
 
-See [Getting Started](docs/getting-started.md) to scaffold your first Majorsilence.Forms app.
+See [Getting Started](docs/getting-started.md) to scaffold your first Majorsilence.Forms app, and
+[Automation & UI testing](docs/automation.md) to drive it from tests — headlessly in CI, from Selenium
+or FlaUI, through Windows UI Automation and a screen reader, or from an AI assistant via the
+[MCP server](tools/Majorsilence.Forms.Mcp) in `tools/`.
 
 A form looks exactly like you'd expect:
 

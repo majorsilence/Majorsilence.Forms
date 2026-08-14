@@ -142,3 +142,24 @@ merely unimplemented yet.
 
 Consumers whose code uses the calendar grid UI need to either rewrite that feature against the agenda
 view/`RadScheduler` data layer, or wait for month/week grid rendering to be picked up here.
+
+## Packaging gap: `Majorsilence.Forms.WebDriver` is built but never published
+
+**Status: nothing to build, a list to decide on.** The project carries a `PackageId`, a description, and
+a `PackageOutputPath`, but it appears in neither workflow's `PACKABLE_PROJECTS`
+(`.github/workflows/publish-nuget.yml`, `release.yml`), so it has never shipped. nuget.org has the core
+package plus Avalonia, Uno, Telerik, Headless, and Drawing.Common — no WebDriver.
+
+That is the one thing standing between the automation documentation and a reader who has not cloned the
+repo. `docs/automation.md` level 2 (Selenium), level 3 (FlaUI/WinAppDriver through the UIA bridge), and
+the MCP server in `tools/Majorsilence.Forms.Mcp` all require an *app* that references
+`Majorsilence.Forms.WebDriver` and starts a `WebDriverServer`. Today that means a `ProjectReference` into
+a clone, which is fine for this repo's own samples and tests and awkward for anyone else.
+
+`Majorsilence.Forms.WindowsUIAutomation` and `Majorsilence.Forms.WindowsFormsInterop` are in the same
+position: consumer-facing, packable, unlisted. (`DrawingShims` and `WinFormsEnumShims` are the
+`System.Drawing.Common` / `System.Windows.Forms` facade assemblies, so their absence looks deliberate —
+publishing packages under those identities is not something to do by accident.)
+
+A package id is permanent once pushed, so this is a deliberate call rather than a cleanup: decide which
+of the three are ready to carry a stable name, then add those to both lists.

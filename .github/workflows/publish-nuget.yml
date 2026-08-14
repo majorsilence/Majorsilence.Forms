@@ -34,6 +34,7 @@ env:
     src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
     tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
     tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
+    tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
 
 jobs:
   publish:
