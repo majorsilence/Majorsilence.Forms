@@ -650,6 +650,35 @@ namespace Majorsilence.Forms
             return Application.FilterMessage (ref m);
         }
 
+        /// <summary>
+        /// Where this window's CLIENT (0, 0) sits on the desktop, in screen pixels.
+        /// </summary>
+        /// <remarks>
+        /// Not the window's <see cref="Location"/>: on a window with a native title bar the two differ by
+        /// the height of that bar. Measured on a real window, the backend put client (0,0) at (1115, 62)
+        /// while the window sat at (1115, 30).
+        ///
+        /// Everything that crosses between a control and the desktop goes through here, so the whole
+        /// application agrees on one screen space. Using the window's own Location instead made
+        /// Control.MousePosition a title bar's worth off from true screen coordinates -- self-consistent
+        /// for the window the pointer was over, and wrong for every other window converting it. A drag
+        /// overlay hit-testing its drop guides against the cursor is exactly that case: the guides tested
+        /// ~32px above where they were drawn, so dropping on one never registered and a document could
+        /// not be docked by hand.
+        ///
+        /// Backends without chrome (headless) answer with the window location, which is what this did
+        /// before, so their coordinates are unchanged at any scale.
+        /// </remarks>
+        internal System.Drawing.Point ClientOriginOnScreen {
+            get {
+                try {
+                    return Backend.PointToScreen (System.Drawing.Point.Empty);
+                } catch (System.Exception) {
+                    return Location;   // no platform window yet
+                }
+            }
+        }
+
         // Keeps Cursor.Position/Control.MousePosition current.
         //
         // Converted through the ROOT ADAPTER, not through the window backend. The two disagree on where

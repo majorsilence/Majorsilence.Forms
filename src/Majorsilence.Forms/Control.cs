@@ -1658,7 +1658,10 @@ namespace Majorsilence.Forms
                 if (window is null)
                     return point;
 
-                var window_location = window.Location;
+                // The CLIENT origin, not the window's -- they differ by the title bar on a window with
+                // native chrome, and everything downstream (Cursor.Position, PointToClient, cross-window
+                // hit tests) has to agree on one screen space.
+                var window_location = window.ClientOriginOnScreen;
 
                 // Logical in, desktop out: the accumulated offset is in logical units and the window's
                 // Location is in desktop ones, so scale by the real display factor. Deliberately
