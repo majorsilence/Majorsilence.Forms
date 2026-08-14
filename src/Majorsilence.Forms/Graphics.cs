@@ -404,11 +404,27 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null)
                 return;
 
-            if (_clipBaseline is { } depth)
+            // Only unwind when the canvas is still at the depth where the baseline was armed. Skia's
+            // Restore pops MATRIX and clip together, for every frame above the target -- so firing a
+            // baseline recorded at some other nesting level does not merely replace a clip, it pops
+            // frames that belong to someone else. The paint pipeline saves around every child it
+            // paints, and a themed renderer replaces the clip from inside those frames (save old clip,
+            // clip to the rounded border path, draw, put the old clip back): a stale baseline from a
+            // sibling's paint would unwind the child's whole canvas state -- observed as text drawn
+            // with the translation popped and the clip resurrected from an icon's 32x32 glyph scope,
+            // i.e. quick-rejected into nothing. A baseline at a foreign depth is abandoned instead:
+            // within one scope (constant depth) replace still works, which is the GDI+ contract the
+            // save-old/set-new/restore-old idiom actually exercises.
+            if (_clipBaseline is { } depth && _canvas.SaveCount == _clipBaselineArmedAt)
                 _canvas.RestoreToCount (depth);
 
             _clipBaseline = _canvas.Save ();
+            _clipBaselineArmedAt = _canvas.SaveCount;
         }
+
+        // The canvas save-count right after the baseline save: the guard that tells "our save is the
+        // top of the stack" apart from "someone saved (or restored) around us since".
+        private int _clipBaselineArmedAt;
 
         /// <summary>Sets the clipping region to the given rectangle, replacing any current clip.</summary>
         public void SetClip (Rectangle rect) => SetClip ((RectangleF)rect);
@@ -419,9 +435,11 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null)
                 return;
 
-            if (_clipBaseline is { } depth) {
+            if (_clipBaseline is { } depth && _canvas.SaveCount == _clipBaselineArmedAt) {
                 _canvas.RestoreToCount (depth);
                 _clipBaseline = null;
+            } else {
+                _clipBaseline = null;   // stale baseline: abandon rather than pop foreign frames
             }
         }
 
@@ -968,7 +986,10 @@ namespace Majorsilence.Forms.Drawing
         {
             // Unlike SetClip this keeps the current clip, so it must not unwind to the baseline:
             // Skia's ClipRect already intersects.
-            _clipBaseline ??= _canvas?.Save ();
+            if (_clipBaseline is null && _canvas is not null) {
+                _clipBaseline = _canvas.Save ();
+                _clipBaselineArmedAt = _canvas.SaveCount;
+            }
             _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
         }
 
@@ -997,7 +1018,10 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Excludes a rectangle from the clipping region.</summary>
         public void ExcludeClip (Rectangle rect)
         {
-            _clipBaseline ??= _canvas?.Save ();
+            if (_clipBaseline is null && _canvas is not null) {
+                _clipBaseline = _canvas.Save ();
+                _clipBaselineArmedAt = _canvas.SaveCount;
+            }
             _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom),
                 SKClipOperation.Difference);
         }

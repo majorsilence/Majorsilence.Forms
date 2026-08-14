@@ -53,7 +53,16 @@ TestForm launches, themes and renders, but StartScreen's anchored children are i
 3. **Post-show programmatic `Form.Size` writes are silently ignored even for a plain Form** (Avalonia
    backend path). Independent bug; the probe demonstrates it.
 
-New front: the command-link button FACES don't draw their heading/description text (layout and
+[FIXED 2026-08-14] The invisible button text was GraphicsPath figure semantics in
+Majorsilence.Forms.Drawing.Common: GDI+ connects segments appended to an open figure with implicit
+lines, and AddArc/AddLine/AddBezier didn't -- so a rounded border built the canonical GDI+ way (four
+corner arcs, edges implied) enclosed no area, Region(path) rasterized empty, and Krypton's
+ViewDrawCanvas clipped every rounded-corner control's content to nothing. Palette-dependent because
+square-border palettes never build that path. Pinned by GraphicsPathFigureTests. Diagnosed via the
+offscreen frame probe (scratchpad/kprobe) + env-gated clip tracing -- that toolchain is the way to
+chase any future paint bug.
+
+Older note (superseded): the command-link button FACES don't draw their heading/description text (layout and
 chrome are correct; also fixed on the way: `ShowFocusCues` made protected-internal so Krypton's
 NonPublic reflection finds it, and internal `Control.PaintTransparentBackground(PaintEventArgs,
 Rectangle, Region)` added -- both reached by reflection, so absence was a runtime NRE, not a compile

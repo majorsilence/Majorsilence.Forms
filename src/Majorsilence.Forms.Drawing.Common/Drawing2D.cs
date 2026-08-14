@@ -154,6 +154,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             path.MoveTo (x + width / 2f, y + height / 2f);
             path.ArcTo (oval, startAngle, sweepAngle, forceMoveTo: false);
             path.Close ();
+            figureOpen = false;   // self-closing figure, as GDI+ specifies
         }
 
         /// <inheritdoc cref="AddPie(float, float, float, float, float, float)"/>
@@ -490,7 +491,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             => AddCurve (points is null ? [] : Array.ConvertAll (points, p => new PointF (p.X, p.Y)), offset, numberOfSegments, tension);
 
         /// <summary>Appends a rectangle to this path.</summary>
-        public void AddRectangle (RectangleF rect) => path.AddRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+        public void AddRectangle (RectangleF rect)
+        {
+            path.AddRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+            figureOpen = false;   // self-closing figure, as GDI+ specifies
+        }
 
         /// <summary>Appends a rectangle using float coordinates.</summary>
         public void AddRectangle (float x, float y, float width, float height) => AddRectangle (new RectangleF (x, y, width, height));
@@ -506,7 +511,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         }
 
         /// <summary>Appends an ellipse to this path.</summary>
-        public void AddEllipse (RectangleF rect) => path.AddOval (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+        public void AddEllipse (RectangleF rect)
+        {
+            path.AddOval (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+            figureOpen = false;   // self-closing figure, as GDI+ specifies
+        }
 
         /// <summary>Appends an ellipse to this path.</summary>
         public void AddEllipse (float x, float y, float width, float height) => AddEllipse (new RectangleF (x, y, width, height));
@@ -515,16 +524,26 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         public void AddEllipse (Rectangle rect) => AddEllipse (new RectangleF (rect.X, rect.Y, rect.Width, rect.Height));
 
         /// <summary>Appends an elliptical arc to this path.</summary>
+        /// <remarks>
+        /// Through <c>ArcTo</c>, not <c>SKPath.AddArc</c>: AddArc starts a NEW contour per call, where
+        /// GDI+ connects the arc to the open figure's current point with an implicit line. The
+        /// difference is the difference between a rounded rectangle (four corner arcs, connected) and
+        /// four floating quarter-circles that enclose nothing.
+        /// </remarks>
         public void AddArc (float x, float y, float width, float height, float startAngle, float sweepAngle)
-            => path.AddArc (new SKRect (x, y, x + width, y + height), startAngle, sweepAngle);
+        {
+            path.ArcTo (new SKRect (x, y, x + width, y + height), startAngle, sweepAngle,
+                forceMoveTo: !figureOpen || path.PointCount == 0);
+            figureOpen = true;
+        }
 
         /// <summary>Appends an elliptical arc to this path.</summary>
         public void AddArc (RectangleF rect, float startAngle, float sweepAngle)
-            => path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
+            => AddArc (rect.Left, rect.Top, rect.Width, rect.Height, startAngle, sweepAngle);
 
         /// <summary>Appends an elliptical arc using an integer rectangle.</summary>
         public void AddArc (Rectangle rect, float startAngle, float sweepAngle)
-            => path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
+            => AddArc (rect.Left, rect.Top, rect.Width, rect.Height, startAngle, sweepAngle);
 
         /// <summary>Appends a cubic Bézier curve to this path.</summary>
         public void AddBezier (PointF pt1, PointF pt2, PointF pt3, PointF pt4)
@@ -587,6 +606,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
                 sk[i] = new SKPoint (points[i].X, points[i].Y);
 
             path.AddPoly (sk, true);
+            figureOpen = false;   // self-closing figure, as GDI+ specifies
         }
 
         /// <summary>Appends a closed polygon (Point overload).</summary>
@@ -600,6 +620,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
                 sk[i] = new SKPoint (points[i].X, points[i].Y);
 
             path.AddPoly (sk, true);
+            figureOpen = false;   // self-closing figure, as GDI+ specifies
         }
 
         /// <summary>Appends another path to this path.</summary>
@@ -610,13 +631,21 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         }
 
         /// <summary>Starts a new figure without closing the current one.</summary>
-        public void StartFigure () { }
+        public void StartFigure () => figureOpen = false;
 
         /// <summary>Closes the current figure.</summary>
-        public void CloseFigure () => path.Close ();
+        public void CloseFigure ()
+        {
+            path.Close ();
+            figureOpen = false;
+        }
 
         /// <summary>Closes all open figures.</summary>
-        public void CloseAllFigures () => path.Close ();
+        public void CloseAllFigures ()
+        {
+            path.Close ();
+            figureOpen = false;
+        }
 
         /// <summary>Empties this path.</summary>
         public void Reset ()
@@ -743,10 +772,29 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             path = widened;
         }
 
+        // Whether a figure is open: segments appended while one is open CONNECT to the current point,
+        // as GDI+ specifies; after StartFigure/CloseFigure (or a self-closing Add like AddRectangle)
+        // the next segment begins a new figure instead.
+        private bool figureOpen;
+
         private void EnsureStart (float x, float y)
         {
-            if (path.PointCount == 0)
+            // GDI+ semantics, and the single most consequential line in this file: a segment appended
+            // to an OPEN figure whose start does not coincide with the current point gets an implicit
+            // connecting line first. This used to only MoveTo on an empty path -- so a border built the
+            // canonical GDI+ way (four corner arcs, edges supplied by the implicit connections) came out
+            // as four disconnected strokes enclosing NO area. Filling it painted nothing, and clipping
+            // to it clipped to nothing: every themed control with rounded corners lost its clip, and
+            // with it all of its content.
+            if (!figureOpen || path.PointCount == 0) {
                 path.MoveTo (x, y);
+            } else {
+                var last = path.LastPoint;
+                if (Math.Abs (last.X - x) > 0.001f || Math.Abs (last.Y - y) > 0.001f)
+                    path.LineTo (x, y);
+            }
+
+            figureOpen = true;
         }
 
         /// <summary>
