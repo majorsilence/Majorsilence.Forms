@@ -89,7 +89,13 @@ public class PictureBoxAutoSizeTests
         // where the guides belonged was the bare background of the window carrying them.
         HeadlessRenderer.Use ();
 
-        using var form = new Form { Width = 80, Height = 80, BackColor = System.Drawing.Color.White };
+        // Borderless, so the client area starts at the window's own origin on every platform: Windows
+        // and Linux draw the library's title bar over the top 34 logical pixels of a decorated form,
+        // which is where the box -- and the pixel sampled below -- would otherwise be.
+        using var form = new Form {
+            Width = 80, Height = 80, BackColor = System.Drawing.Color.White,
+            FormBorderStyle = FormBorderStyle.None,
+        };
         var box = new PictureBox { Left = 0, Top = 0, SizeMode = PictureBoxSizeMode.AutoSize };
         form.Controls.Add (box);
 

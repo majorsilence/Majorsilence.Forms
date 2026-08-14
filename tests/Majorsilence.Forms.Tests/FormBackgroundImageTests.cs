@@ -36,7 +36,13 @@ public class FormBackgroundImageTests
     {
         HeadlessRenderer.Use ();
 
-        using var form = new Form { Width = Size, Height = Size, BackColor = Color.White };
+        // Borderless: the splash screen this exists for, and the only way the sampled pixel means the
+        // same thing on every platform. Windows and Linux paint the library's own title bar over the
+        // top 34 logical pixels of a decorated form, which on a 60x60 window covers the centre.
+        using var form = new Form {
+            Width = Size, Height = Size, BackColor = Color.White,
+            FormBorderStyle = FormBorderStyle.None,
+        };
 
         if (withImage)
             form.BackgroundImage = SolidImage (SKColors.Lime);
@@ -80,7 +86,10 @@ public class FormBackgroundImageTests
     {
         HeadlessRenderer.Use ();
 
-        using var form = new Form { Width = Size, Height = Size, BackColor = Color.White };
+        using var form = new Form {
+            Width = Size, Height = Size, BackColor = Color.White,
+            FormBorderStyle = FormBorderStyle.None,
+        };
         form.BackgroundImage = SolidImage (SKColors.Lime);
         HeadlessRenderer.CapturePng (form, Size, Size);
 
