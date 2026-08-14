@@ -55,6 +55,13 @@ namespace Majorsilence.Forms.Automation
         {
             var children = BuildChildren (c, origin);
 
+            // A menu bar or tool strip keeps its items in Items, not Controls -- a MenuItem is not a
+            // Control -- so walking controls alone left every menu and every toolbar button out of the
+            // tree entirely. An automated test could see that a ToolStrip existed and could not click
+            // anything on it, which rules out driving an application by its menus.
+            if (c is MenuBase strip)
+                children.AddRange (BuildItems (strip.RootItems, origin));
+
             return new AutomationElement (
                 source: c,
                 automationId: c.Name ?? string.Empty,
@@ -69,12 +76,56 @@ namespace Majorsilence.Forms.Automation
                 children: children);
         }
 
+        // Items carry their own Bounds, relative to the strip that lays them out, so the running origin
+        // is the same accumulation used for controls. Sub-menus nest through Items in turn, which is what
+        // lets a test walk File -> Open without opening anything first.
+        private static List<AutomationElement> BuildItems (MenuItemCollection items, Point parentOrigin)
+        {
+            var list = new List<AutomationElement> ();
+
+            foreach (var item in items) {
+                if (!item.Visible)
+                    continue;
+
+                var origin = new Point (parentOrigin.X + item.Bounds.X, parentOrigin.Y + item.Bounds.Y);
+
+                list.Add (new AutomationElement (
+                    source: item,
+                    automationId: (item as ToolStripItem)?.Name ?? string.Empty,
+                    name: NameOfItem (item),
+                    role: item is ToolStripSeparator ? "separator" : "menuitem",
+                    controlType: item.GetType ().Name,
+                    value: null,
+                    enabled: item.Enabled,
+                    visible: item.Visible,
+                    focused: false,
+                    bounds: new Rectangle (origin, item.Bounds.Size),
+                    children: BuildItems (item.Items, origin)));
+            }
+
+            return list;
+        }
+
+        private static string NameOfItem (MenuItem item)
+        {
+            if (!string.IsNullOrEmpty (item.Text))
+                return Mnemonics.Strip (item.Text);
+
+            return (item as ToolStripItem)?.Name ?? string.Empty;
+        }
+
         private static string AccessibleNameOf (Control c)
         {
             if (!string.IsNullOrEmpty (c.AccessibleName))
                 return c.AccessibleName!;
+
+            // The accessible name is what a user hears and reads, so the mnemonic marker is not part of
+            // it: "&File" is named "File", matching what UI Automation and MSAA report on Windows. It
+            // also makes By.Name usable -- a caller searching for the text on screen has no reason to
+            // know where the designer put the ampersand.
             if (!string.IsNullOrEmpty (c.Text))
-                return c.Text;
+                return Mnemonics.Strip (c.Text);
+
             return c.Name ?? string.Empty;
         }
 

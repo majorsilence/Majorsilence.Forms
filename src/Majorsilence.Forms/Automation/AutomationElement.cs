@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Automation
     public sealed class AutomationElement
     {
         internal AutomationElement (
-            Control source,
+            object source,
             string automationId,
             string name,
             string role,
@@ -39,7 +39,10 @@ namespace Majorsilence.Forms.Automation
 
         // The underlying control this snapshot was built from (not exposed publicly to keep the model
         // a stable, backend-neutral contract).
-        internal Control Source { get; }
+        // object, not Control: a menu or toolbar item is a MenuItem, which is not a Control, and those
+        // items are part of the tree (see AutomationProvider.BuildItems). Consumers pattern-match on the
+        // type they care about.
+        internal object Source { get; }
 
         /// <summary>Stable automation id (the control's <see cref="Control.Name"/>), or empty.</summary>
         public string AutomationId { get; }
