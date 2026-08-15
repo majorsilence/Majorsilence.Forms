@@ -13,6 +13,17 @@ internal static class WinFormsPackages
 {
     public static readonly IReadOnlyList<string> DefaultPatterns = new[]
     {
+        // The Krypton suites ship as Windows-only WinForms packages. A repo that builds Krypton from
+        // source (Standard-Toolkit beside this one) gets it as a ProjectReference instead, and
+        // leaving the package alongside is worse than useless: every Krypton type then exists twice
+        // (CS0433 "exists in both ... Version=95 ... and ... Version=110"), and the package drags
+        // real System.Windows.Forms back in, so its types leak into signatures the migrated source
+        // cannot satisfy (CS0012). Covers .Canary/.Nightly and the sibling suites.
+        "Krypton.Toolkit*",
+        "Krypton.Navigator*",
+        "Krypton.Docking*",
+        "Krypton.Workspace*",
+        "Krypton.Ribbon*",
         "Telerik.UI.for.WinForms*",   // Telerik UI for WinForms -> Majorsilence.Forms.Telerik
         "DevExpress.Win*",            // DevExpress WinForms (DevExpress.Win.*)
         "Infragistics.Win*",          // Infragistics WinForms

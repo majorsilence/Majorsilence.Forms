@@ -198,17 +198,23 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseDrawItem (DrawItemEventArgs e) => OnDrawItem (e);
 
-        /// <summary>Raised before a tab page is selected. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<TabControlCancelEventArgs>? Selecting { add { } remove { } }
+        // Typed with WinForms' own delegates, not EventHandler<T>: the two are not interchangeable, so
+        // code that wires one of these the WinForms way (`new TabControlCancelEventHandler(...)`, or by
+        // forwarding an event of that delegate type) did not compile. Declared and raisable but not
+        // raised by this layer yet -- selection changes go through SelectedTabPage.
+#pragma warning disable CS0067
+        /// <summary>Raised before a tab page is selected.</summary>
+        public event TabControlCancelEventHandler? Selecting;
 
-        /// <summary>Raised after a tab page is selected. Stub in Majorsilence.Forms.</summary>
-        public new event EventHandler<TabControlEventArgs>? Selected { add { } remove { } }
+        /// <summary>Raised after a tab page is selected.</summary>
+        public new event TabControlEventHandler? Selected;
 
-        /// <summary>Raised before a tab page is deselected. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<TabControlCancelEventArgs>? Deselecting { add { } remove { } }
+        /// <summary>Raised before a tab page is deselected.</summary>
+        public event TabControlCancelEventHandler? Deselecting;
 
-        /// <summary>Raised after a tab page is deselected. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<TabControlEventArgs>? Deselected { add { } remove { } }
+        /// <summary>Raised after a tab page is deselected.</summary>
+        public event TabControlEventHandler? Deselected;
+#pragma warning restore CS0067
 
         /// <summary>Gets or sets the selected tab page (WinForms alias for SelectedTabPage).</summary>
         public TabPage? SelectedTab {

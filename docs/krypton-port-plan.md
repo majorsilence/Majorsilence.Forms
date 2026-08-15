@@ -22,6 +22,42 @@ still has Windows TFMs. In order:
 6. Build each project; expect 0. Any stragglers will be small — follow the shapes in this repo's
    `KryptonPortParity*.cs` and the bridge script's comments.
 
+## 1b. DONE 2026-08-14: real Standard-Toolkit green, Cyotek migrated, Extended-Toolkit started
+
+- **Standard-Toolkit (real repo)**: §1 executed — props TFMs to net10.0, nuget.org-only nuget.config,
+  bridge script applied, System.Media remapped, Utilities alias dedupe. All six projects AND TestForm
+  build at 0 errors.
+- **Cyotek.Windows.Forms.ColorPicker fork**: migrated in place; library and tests build at 0 and its own
+  **52 tests pass**. TestForm now project-references it, so the real ColorPickerDialog is back (the
+  bridge script's package-drop entries were replaced with the project reference). Its *demo* is blocked
+  only by `TheArtOfDev.HtmlRenderer.WinForms`, an unrelated Windows-only third-party package.
+- **Extended-Toolkit**: migrated (670 of 2,367 files); **37 of 66 projects at 0 errors**, the rest
+  totalling ~316 errors across 71 unique causes (was effectively unbuildable; single projects were at
+  1,500+). Fixups live in `tools/fixups/krypton-extended-toolkit-bridge.py`.
+
+### Extended-Toolkit: what remains, by cause
+
+Ordered by leverage. None are large; several are legacy-.NET-Framework rather than migration issues.
+
+1. **`PermissionSet` / `PermissionSetAttribute` (52)** — .NET Framework Code Access Security, *removed*
+   from modern .NET. These attributes are dead weight upstream too; delete the declarations (a fixup
+   script entry). Not an MF gap.
+2. **`MenuItem` → `ToolStripItem` conversion (14)** — MF hierarchy: `ToolStripItem : MenuItem`, so the
+   conversion runs the wrong way. Same family as the TreeNode inversion already fixed; check whether the
+   collection should be typed `ToolStripItem`.
+3. **`CodeDomProvider` (12)** — same shape as the System.Configuration fix already made: add
+   `System.CodeDom` to the migrator's `DesktopSdkReplacements` table in `ProjectConverter.cs`.
+4. **`DoWorkEventArgs` ambiguous (12)** — MF declares one that collides with the BCL's; add it to the
+   migrator's `BclPreferredTypes` (it already handles BackgroundWorker/PropertyTabScope this way).
+5. **`SnapLine` / `SnapLineType` / `SnapLinePriority` (30)** — design-time snap lines; add to
+   `Majorsilence.Forms.Design` beside the other designer types.
+6. **Long tail (~70 more)** — assorted single-site gaps; run the per-project sweep in this doc's
+   "how to measure" note below and take them by frequency.
+
+**How to measure:** from `Extended-Toolkit/Source/Krypton Toolkit`, build each `*/*.csproj` (skipping
+`*Backup*`), grep `error CS`, and aggregate — that per-cause histogram is what made the first three
+fixes obvious, each of which cleared hundreds of errors at once.
+
 ## 2. TestForm (the demo)
 
 Blocked only on `Cyotek.Windows.Forms.ColorPicker` (forces the Windows platform, NETSDK1136). Remove

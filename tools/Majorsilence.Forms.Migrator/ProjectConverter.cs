@@ -146,6 +146,8 @@ internal static class ProjectConverter
         if (addMajorsilenceReferences)
             AddReferences(root, options, projectDirectory, centralPackageManagement, ref changed, warnings, addedPackages);
 
+        AddDesktopSdkReplacementPackages(root, projectDirectory, centralPackageManagement, options, ref changed, addedPackages);
+
         if (dualBuild)
             AddDualBuildConstant(root, ref changed);
 
@@ -273,6 +275,72 @@ internal static class ProjectConverter
             new XAttribute("Condition", $"'$({ConditionalImports.ConditionSymbol})' == 'true'"),
             $"$(DefineConstants);{ConditionalImports.ConditionSymbol}"));
         changed = true;
+    }
+
+    /// <summary>
+    /// Packages the Windows Desktop SDK supplied implicitly, which a converted project must now name.
+    /// </summary>
+    /// <remarks>
+    /// Dropping <c>UseWindowsForms</c> and the <c>-windows</c> TFM also drops the WindowsDesktop
+    /// framework reference — and with it assemblies that are perfectly cross-platform when referenced as
+    /// packages. <c>System.Configuration.ConfigurationManager</c> is the one that bites: every
+    /// designer-generated <c>Settings.Designer.cs</c> derives from
+    /// <c>ApplicationSettingsBase</c>, so a project with an application-settings file goes from building
+    /// to hundreds of CS1069s, all of them saying "add a reference to this assembly".
+    ///
+    /// Keyed off the source actually using the namespace, so a project without settings does not gain a
+    /// dependency it never asked for.
+    /// </remarks>
+    private static readonly (string Namespace, string Package)[] DesktopSdkReplacements =
+    [
+        ("System.Configuration", "System.Configuration.ConfigurationManager"),
+    ];
+
+    private static void AddDesktopSdkReplacementPackages(XElement root, string projectDirectory,
+        bool centralPackageManagement, MigrationOptions options, ref bool changed, List<string> addedPackages)
+    {
+        var ns = root.Name.Namespace;
+        var itemGroup = new XElement(ns + "ItemGroup");
+
+        foreach (var (usedNamespace, package) in DesktopSdkReplacements)
+        {
+            if (ReferenceAlreadyPresent(root, package))
+                continue;
+
+            if (!ProjectSourceUsesNamespace(projectDirectory, usedNamespace))
+                continue;
+
+            var packageRef = new XElement(ns + "PackageReference", new XAttribute("Include", package));
+            if (!centralPackageManagement)
+                packageRef.Add(new XAttribute("Version", "9.0.0"));
+
+            itemGroup.Add(packageRef);
+            addedPackages.Add(package);
+            changed = true;
+        }
+
+        if (itemGroup.HasElements)
+            root.Add(itemGroup);
+    }
+
+    // A cheap textual scan of the project's own folder: enough to tell "this project has settings" from
+    // "this one does not", without loading the project or resolving symbols.
+    private static bool ProjectSourceUsesNamespace(string projectDirectory, string usedNamespace)
+    {
+        if (!Directory.Exists(projectDirectory))
+            return false;
+
+        foreach (var file in Directory.EnumerateFiles(projectDirectory, "*.cs", SearchOption.AllDirectories))
+        {
+            if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                || file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+                continue;
+
+            if (File.ReadAllText(file).Contains(usedNamespace, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
     }
 
     private static void AddReferences(XElement root, MigrationOptions options, string projectDirectory,

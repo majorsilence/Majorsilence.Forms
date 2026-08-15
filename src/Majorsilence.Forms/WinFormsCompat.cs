@@ -1699,7 +1699,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a combo box embedded in a MenuStrip.
     /// </summary>
-    public partial class ToolStripComboBox : ToolStripControlHost, IDisposable
+    public partial class ToolStripComboBox : ToolStripControlHost
     {
         private bool _disposed;
 
@@ -1715,12 +1715,19 @@ namespace Majorsilence.Forms
         private CompatComboBox combo_box => (CompatComboBox)Control;
 
         /// <inheritdoc/>
-        public void Dispose ()
+        /// <remarks>Overrides the base item's virtual rather than declaring its own Dispose(): hiding it
+        /// meant disposing through a ToolStripItem-typed reference skipped the hosted combo entirely.</remarks>
+        protected override void Dispose (bool disposing)
         {
-            if (_disposed) return;
+            if (_disposed)
+                return;
+
             _disposed = true;
-            combo_box.Dispose ();
-            GC.SuppressFinalize (this);
+
+            if (disposing)
+                combo_box.Dispose ();
+
+            base.Dispose (disposing);
         }
 
         /// <summary>Gets the hosted ComboBox control.</summary>

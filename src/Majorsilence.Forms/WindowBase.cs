@@ -316,7 +316,13 @@ namespace Majorsilence.Forms
         /// the root control adapter so child controls inherit it.</summary>
         public virtual Majorsilence.Forms.Drawing.Font? Font {
             get => adapter?.Font;
-            set { if (adapter is not null && value is not null) adapter.Font = value; }
+            set {
+                if (adapter is null || value is null)
+                    return;
+
+                adapter.Font = value;
+                OnFontChanged (EventArgs.Empty);
+            }
         }
 
         /// <summary>Gets or sets the cursor shown over the window. Mirrors WinForms Form.Cursor.</summary>

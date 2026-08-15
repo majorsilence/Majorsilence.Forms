@@ -190,15 +190,13 @@ REPLACEMENTS = [
      "        {\n            ContainerControl = this,\n            BlinkStyle = KryptonErrorBlinkStyle.BlinkIfDifferentError,",
      "        {\n            BlinkStyle = KryptonErrorBlinkStyle.BlinkIfDifferentError,", 1),
 
-    # -- TestForm (the demo): Cyotek's ColorPickerDialog is a Windows-only package that forces the
-    # Windows platform (NETSDK1136). Majorsilence.Forms' ColorDialog is a real Form, so the wrapper --
-    # which only adds a checkbox panel and a poll timer on top -- rebases onto it unchanged.
-    ("TestForm/LiveColorPickerDialog.cs",
-     "internal sealed class LiveColorPickerDialog : Cyotek.Windows.Forms.ColorPickerDialog",
-     "internal sealed class LiveColorPickerDialog : ColorDialog", 1),
+    # -- TestForm (the demo): Cyotek's ColorPicker ships as a Windows-only PACKAGE that forces the
+    # Windows platform (NETSDK1136). The fork at ~/Projects/Cyotek.Windows.Forms.ColorPicker is migrated
+    # onto Majorsilence.Forms, so the package reference becomes a project reference and the real
+    # ColorPickerDialog -- which LiveColorPickerDialog derives from -- comes back.
     ("TestForm/TestForm.csproj",
-     """    <PackageReference Include="Cyotek.Windows.Forms.ColorPicker" Version="2.0.0-beta.7" />\n""",
-     "", 1),
+     """    <PackageReference Include="Cyotek.Windows.Forms.ColorPicker" Version="2.0.0-beta.7" />""",
+     """    <ProjectReference Include="$(MSBuildThisFileDirectory)..\\..\\..\\..\\Cyotek.Windows.Forms.ColorPicker\\Cyotek.Windows.Forms.ColorPicker\\Cyotek.Windows.Forms.ColorPicker.csproj" />""", 1),
 
     # TestForm pages: assignments whose sink types cannot take a Majorsilence.Forms Form.
     # ContainerControl is ContainerControl-typed (a form is not one here), SynchronizingObject is

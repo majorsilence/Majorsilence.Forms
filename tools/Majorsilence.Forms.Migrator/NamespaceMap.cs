@@ -111,6 +111,10 @@ internal static class NamespaceMap
         // Added once these gained real implementations (see COMPATIBILITY_MATRIX.md's GDI+ surface audit):
         "CharacterRange", "ImageAttributes", "ColorMatrix", "ColorMap",
         "Encoder", "EncoderParameter", "EncoderParameters", "BitmapData",
+        // Design-time metadata a control library puts on every control it ships. Both spellings:
+        // C# lets an attribute be written with or without the Attribute suffix, and a file using
+        // only the short form still needs the import.
+        "ToolboxBitmap", "ToolboxBitmapAttribute",
     };
 
     /// <summary>

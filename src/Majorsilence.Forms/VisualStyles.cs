@@ -268,6 +268,23 @@ namespace Majorsilence.Forms.VisualStyles
         }
     }
 
+    /// <summary>The state a push button is drawn in.</summary>
+    /// <remarks>Values match <c>System.Windows.Forms.VisualStyles.PushButtonState</c>, which is
+    /// 1-based -- code that persists one as an int must round-trip to the same button.</remarks>
+    public enum PushButtonState
+    {
+        /// <summary>The normal, unpressed state.</summary>
+        Normal = 1,
+        /// <summary>The pointer is over the button.</summary>
+        Hot = 2,
+        /// <summary>The button is pressed.</summary>
+        Pressed = 3,
+        /// <summary>The button cannot be clicked.</summary>
+        Disabled = 4,
+        /// <summary>The button is the form's default.</summary>
+        Default = 5,
+    }
+
     /// <summary>Draws a check box glyph.</summary>
     public static class CheckBoxRenderer
     {

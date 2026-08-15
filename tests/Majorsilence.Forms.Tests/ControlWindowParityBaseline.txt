@@ -62,7 +62,6 @@ EndUpdate/0
 Enter
 Finalize/0
 Focused
-FontChanged
 ForeColorChanged
 FromChildHandle/1
 FromScreenPoint/1
@@ -113,7 +112,6 @@ OnDockChanged/1
 OnDoubleClick/1
 OnDragLeave/1
 OnEnter/1
-OnFontChanged/1
 OnForeColorChanged/1
 OnGiveFeedback/1
 OnImeModeChanged/1
@@ -191,7 +189,6 @@ Scroll
 ScrollControlIntoView/1
 ScrollGesture
 Selected
-SendToBack/0
 SetAutoSizeMode/1
 SetControlBehavior/2
 Site

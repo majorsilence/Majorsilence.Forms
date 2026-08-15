@@ -150,6 +150,35 @@ namespace Majorsilence.Forms
         /// expressed in these units, so a control dividing by this reaches whole notches.</remarks>
         public static int MouseWheelScrollDelta => 120;
 
+        /// <summary>Gets whether menus fade out when they close rather than vanishing.</summary>
+        /// <remarks>False, with <see cref="IsMenuAnimationEnabled"/>: menu open/close animation is an OS
+        /// effect this layer does not implement, and a caller that checks first skips the animation code
+        /// rather than running an animation that never appears.</remarks>
+        public static bool IsMenuFadeEnabled => false;
+
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool IsMenuAnimationEnabled => false;
+
+        /// <summary>Gets whether font smoothing is enabled.</summary>
+        /// <remarks>True: text here is drawn by SkiaSharp, which antialiases glyphs by default.</remarks>
+        public static bool IsFontSmoothingEnabled => true;
+
+        /// <summary>Gets whether the user's selection fades out rather than clearing.</summary>
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool IsSelectionFadeEnabled => false;
+
+        /// <summary>Gets whether tool tips animate into view.</summary>
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool IsToolTipAnimationEnabled => false;
+
+        /// <summary>Gets whether combo boxes animate their drop-down.</summary>
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool IsComboBoxAnimationEnabled => false;
+
+        /// <summary>Gets whether UI effects are enabled at all.</summary>
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool UIEffectsEnabled => false;
+
         /// <summary>Gets whether the process is running in a context that can interact with a user.</summary>
         /// <remarks>Answers from <see cref="Application.UserInteractive"/>, so the two cannot disagree.</remarks>
         public static bool UserInteractive => Application.UserInteractive;

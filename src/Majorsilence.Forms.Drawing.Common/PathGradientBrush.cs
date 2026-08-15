@@ -27,6 +27,20 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         public PathGradientBrush (Point[] points)
             : this (points.Select (p => new PointF (p.X, p.Y)).ToArray ()) { }
 
+        /// <summary>Initializes a new PathGradientBrush with the given wrap mode.</summary>
+        /// <remarks>
+        /// The wrap mode is stored on <c>Brush.WrapMode</c> and does not change the fill: this
+        /// brush paints one centre-to-edge ramp across the polygon's bounds, so there is no tiling for a
+        /// wrap mode to govern. Callers pass Clamp here (the common case) to say "do not tile", which is
+        /// what already happens.
+        /// </remarks>
+        public PathGradientBrush (PointF[] points, Drawing2D.WrapMode wrapMode)
+            : this (points) => WrapMode = wrapMode;
+
+        /// <inheritdoc cref="PathGradientBrush(PointF[], Drawing2D.WrapMode)"/>
+        public PathGradientBrush (Point[] points, Drawing2D.WrapMode wrapMode)
+            : this (points) => WrapMode = wrapMode;
+
         /// <summary>Initializes a new PathGradientBrush for the bounds of the specified path.</summary>
         public PathGradientBrush (GraphicsPath path)
         {

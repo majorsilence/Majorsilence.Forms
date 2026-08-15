@@ -521,9 +521,6 @@ namespace Majorsilence.Forms
         public event EventHandler? DockChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? FontChanged;
-
-        /// <inheritdoc cref="BackColorChanged"/>
         public event EventHandler? ForeColorChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>

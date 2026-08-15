@@ -67,13 +67,29 @@ namespace Majorsilence.Forms
         // matter which one the caller reached for. 'anchor' is only used to resolve the owning window for
         // the popup; 'source' is what SourceControl reports (null for the parentless overloads, matching
         // WinForms), and it must be assigned before Opening so handlers can read it.
+        /// <summary>Raises the <see cref="Opening"/> event; cancelling it keeps the menu closed.</summary>
+        /// <remarks>
+        /// The one cancellable point in the lifecycle, and the reason a derived menu overrides it: a
+        /// drop-down that fills itself lazily builds its items here and cancels when there is nothing to
+        /// show. On the real open path, so an override genuinely suppresses the open.
+        /// </remarks>
+        protected virtual void OnOpening (System.ComponentModel.CancelEventArgs e) => Opening?.Invoke (this, e);
+
+        /// <summary>Runs the Opening sequence and reports whether a handler cancelled the open.</summary>
+        internal bool RaiseOpeningCancelled ()
+        {
+            var args = new System.ComponentModel.CancelEventArgs ();
+            OnOpening (args);
+            return args.Cancel;
+        }
+
         private void ShowCore (Control anchor, Control? source, Point location)
         {
             SourceControl = source;
             Application.ActiveMenu ??= this;
 
             var cancelArgs = new System.ComponentModel.CancelEventArgs ();
-            Opening?.Invoke (this, cancelArgs);
+            OnOpening (cancelArgs);
 
             if (!cancelArgs.Cancel) {
                 base.Show (anchor, location);

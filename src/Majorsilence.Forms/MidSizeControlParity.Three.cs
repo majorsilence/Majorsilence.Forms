@@ -353,10 +353,15 @@ namespace Majorsilence.Forms
         public bool DropDownButtonSelected => Selected && Hovered;
 
         /// <summary>Raises the button half's click without opening the drop-down.</summary>
+        /// <remarks>Raises the item's Click (what a plain handler subscribes to) and then goes through
+        /// <see cref="OnButtonClick"/>, so a derived split button that overrides the button half to apply
+        /// its current value takes part too.</remarks>
         public void PerformButtonClick ()
         {
-            if (Enabled)
+            if (Enabled) {
                 PerformClick ();
+                OnButtonClick (EventArgs.Empty);
+            }
         }
 
         /// <summary>Restores <c>DropDownButtonWidth</c> to its default.</summary>

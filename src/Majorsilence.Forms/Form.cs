@@ -1481,6 +1481,19 @@ namespace Majorsilence.Forms
                 Backend.Activate ();   // see Focus(): activating strands a window the form does not own
         }
 
+        /// <summary>Sends the form to the back of the z-order.</summary>
+        /// <remarks>
+        /// The counterpart of <see cref="BringToFront"/>, whose absence was an asymmetry rather than a
+        /// decision: a form could be raised but not lowered. Hosted forms move within their frame's
+        /// sibling order; a top-level window has no cross-application "send to back" the backend
+        /// exposes, so that case is a no-op rather than a pretence.
+        /// </remarks>
+        public void SendToBack ()
+        {
+            if (PanelHost != null)
+                PanelHost.SendToBack ();
+        }
+
         /// <summary>Gets the bounds of the form when it is not minimized or maximized.</summary>
         public System.Drawing.Rectangle RestoreBounds => Bounds;
 
