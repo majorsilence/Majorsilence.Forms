@@ -325,6 +325,40 @@ public class KryptonPortParityTests
         Assert.Equal (10, child.Left);
     }
 
+    // A control that raises its own Click (Krypton's buttons route mouse-up through a view
+    // controller) turns the standard raise off with ControlStyles.StandardClick -- ignoring the style
+    // double-fired every such click, so one press opened two of everything.
+    [Fact]
+    public void RaiseClick_HonoursStandardClickStyle ()
+    {
+        using var form = new Form ();
+        var standard = new SelfClickingButton (standardClick: true) { Bounds = new Rectangle (10, 10, 60, 20) };
+        var selfRaising = new SelfClickingButton (standardClick: false) { Bounds = new Rectangle (10, 40, 60, 20) };
+        form.Controls.Add (standard);
+        form.Controls.Add (selfRaising);
+        form.Show ();
+
+        var clicks = new System.Collections.Generic.Dictionary<object, int> { [standard] = 0, [selfRaising] = 0 };
+        standard.Click += (s, _) => clicks[s!]++;
+        selfRaising.Click += (s, _) => clicks[s!]++;
+
+        standard.SimulateStandardRaise ();
+        selfRaising.SimulateStandardRaise ();
+
+        Assert.Equal (1, clicks[standard]);      // default: the standard raise fires
+        Assert.Equal (0, clicks[selfRaising]);   // suppressed: the control raises its own instead
+    }
+
+    private sealed class SelfClickingButton : Control
+    {
+        public SelfClickingButton (bool standardClick)
+            => SetStyle (ControlStyles.StandardClick | ControlStyles.StandardDoubleClick, standardClick);
+
+        // Drives the internal standard-raise path a pointer release takes.
+        public void SimulateStandardRaise ()
+            => RaiseClick (new MouseEventArgs (MouseButtons.Left, 1, 5, 5, 0));
+    }
+
     [Fact]
     public void SystemInformation_ReportsTheWin32Constants ()
     {

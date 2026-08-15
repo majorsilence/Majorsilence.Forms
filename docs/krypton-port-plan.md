@@ -68,6 +68,32 @@ NonPublic reflection finds it, and internal `Control.PaintTransparentBackground(
 Rectangle, Region)` added -- both reached by reflection, so absence was a runtime NRE, not a compile
 error. Peel the next layer the same way: run TestForm, read the PaintFrame stack, fix, repeat.)
 
+[FIXED 2026-08-14] Double-open on button click: MF raised Click unconditionally on pointer-up, but a
+control that raises its own click (Krypton's view controllers) sets ControlStyles.StandardClick=false
+precisely to suppress the standard raise. RaiseClick/RaiseDoubleClick now honour the styles; pinned by
+KryptonPortParityTests.RaiseClick_HonoursStandardClickStyle.
+
+Dark-theme contrast, measured (2026-08-14): the PALETTES are exonerated -- PaletteOffice2010Black and
+PaletteMicrosoft365Black genuinely specify light-gray button faces (RGB 189/169) with DARK text
+(70,70,70); that is Krypton's authentic dark-theme design. The divergence is that rendered text comes
+out near-WHITE on those palettes: prime suspect is AccurateText.DrawString's brush-type fallback --
+`brush is SolidBrush ... is LinearGradientBrush ... else GetContentShortTextColor1(LabelNormalControl)`
+-- which on a dark global palette returns near-white. If the `is` tests fail (brush subtype from
+CreateColorBrush?) every text draw silently takes the fallback colour. Verify with the offscreen probe:
+trace which branch fires under Office2010Black, then fix the brush-type dispatch or the fallback.
+
+Office 2007/2010 Black contrast, RESOLVED as palette-faithful (2026-08-14): traced end to end --
+Krypton passes SolidBrush(Color.White) for command-link text, and PaletteOffice2010Black itself
+specifies ButtonCommand text=White on back1/back2 = RGB 189/169 light gray, colorStyle=Linear. MF
+renders exactly the palette's numbers; white-on-light-gray is the palette data. Command links are a
+newer Krypton.Utilities control, likely under-tested against the old dark palettes upstream. Options
+if it matters: verify on real WinForms/Windows for an upstream report, or have TestForm set
+CommandLinkTextValues colors per-theme. NOT an MF rendering bug.
+
+Still open, user-reported: some THEMES still paint badly (compare palettes side by side; the fixed
+GraphicsPath/clip machinery may not be the whole story for gradient-heavy palettes), and assorted
+visual glitches on child forms (BadgeTest shows minor artefacts). Chase with the offscreen frame probe.
+
 Also observed: `WindowBase.RenderFrame` invokes `OnResize` during first paint — a Krypton override that
 calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1).
 

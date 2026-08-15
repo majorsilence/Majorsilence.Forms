@@ -1730,6 +1730,13 @@ namespace Majorsilence.Forms
                 return;
             }
 
+            // A control that raises its own click -- Krypton's buttons route mouse-up through a view
+            // controller and call OnClick themselves -- turns the standard raise OFF with
+            // ControlStyles.StandardClick, exactly to prevent the double fire this guard prevents.
+            // Ignoring the style meant one click opened two of everything.
+            if (!GetStyle (ControlStyles.StandardClick))
+                return;
+
             // WinForms order: Click first, then the typed MouseClick.
             OnClick (e);
             OnMouseClick (e);
@@ -1752,7 +1759,7 @@ namespace Majorsilence.Forms
 
             if (child != null)
                 child.RaiseDoubleClick (TranslateMouseEvents (e, child));
-            else if (Enabled)
+            else if (Enabled && GetStyle (ControlStyles.StandardDoubleClick))   // see RaiseClick's guard
                 OnDoubleClick (e);
         }
 
