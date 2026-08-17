@@ -66,17 +66,35 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Converts a Rectangle from client to screen coordinates.</summary>
+        /// <remarks>
+        /// The size converts as well as the origin. <see cref="PointToScreen"/> multiplies logical
+        /// coordinates by the desktop factor, so pairing a converted origin with an unconverted
+        /// <c>Width</c>/<c>Height</c> yields a rectangle scale-times too small -- invisible at scaling 1
+        /// and wrong on every HiDPI display, in exactly the "is this point inside that control" test
+        /// this method exists to answer.
+        /// </remarks>
         public Rectangle RectangleToScreen (Rectangle rect)
         {
-            var origin = PointToScreen (Point.Empty);
-            return new Rectangle (rect.X + origin.X, rect.Y + origin.Y, rect.Width, rect.Height);
+            var origin = PointToScreen (rect.Location);
+            var scale = FindWindow ()?.DesktopScaling ?? 1;
+
+            return scale is 0 or 1
+                ? new Rectangle (origin, rect.Size)
+                : new Rectangle (origin,
+                    new Size ((int)Math.Round (rect.Width * scale), (int)Math.Round (rect.Height * scale)));
         }
 
         /// <summary>Converts a Rectangle from screen to client coordinates.</summary>
+        /// <remarks>The inverse of <see cref="RectangleToScreen"/>, size included.</remarks>
         public Rectangle RectangleToClient (Rectangle rect)
         {
-            var origin = PointToScreen (Point.Empty);
-            return new Rectangle (rect.X - origin.X, rect.Y - origin.Y, rect.Width, rect.Height);
+            var origin = PointToClient (rect.Location);
+            var scale = FindWindow ()?.DesktopScaling ?? 1;
+
+            return scale is 0 or 1
+                ? new Rectangle (origin, rect.Size)
+                : new Rectangle (origin,
+                    new Size ((int)Math.Round (rect.Width / scale), (int)Math.Round (rect.Height / scale)));
         }
 
         /// <summary>Raises the GotFocus event on behalf of another control.</summary>

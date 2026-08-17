@@ -309,12 +309,12 @@ namespace Majorsilence.Forms.Telerik
         }
 
         // The strip's bounds in screen coordinates (used for cross-window drop hit-testing).
-        internal Rectangle ScreenBounds {
-            get {
-                var topLeft = PointToScreen (Point.Empty);
-                return new Rectangle (topLeft.X, topLeft.Y, Width, Height);
-            }
-        }
+        //
+        // Through RectangleToScreen, which scales the extents as well as the origin: pairing a converted
+        // top-left with the logical Width/Height produced a rectangle half its real size at scaling 2, so
+        // a tab released over the right-hand end of its OWN strip tested as "dropped outside" and was torn
+        // off into a new window instead of just reordering.
+        internal Rectangle ScreenBounds => RectangleToScreen (new Rectangle (Point.Empty, Size));
 
         // Fully qualified: Majorsilence.Forms.Telerik also declares a (Telerik-compat) TabStripItem;
         // this strip is UI chrome and always means the Majorsilence.Forms one.
