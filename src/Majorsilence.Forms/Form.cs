@@ -134,6 +134,15 @@ namespace Majorsilence.Forms
                 return true;
             }
 
+            // Nor when the form owns no shown window for another reason: it was told it is not top-level,
+            // or it simply is not visible. Activate() on the platform ORDERS THE WINDOW ON SCREEN without
+            // going through Show, so IsVisible stays false and a later Hide is a no-op -- the window can
+            // then never be taken back down. A docking library detaches a form (Parent = null) and focuses
+            // it mid-re-dock, which is exactly this case, and left a blank window stranded over the
+            // application.
+            if (!visible || !TopLevel)
+                return true;
+
             Backend.Activate ();
             return true;
         }
@@ -141,6 +150,24 @@ namespace Majorsilence.Forms
         // The control standing in for this form while it is hosted in someone else's tree, or null when
         // the form is a real top-level window. Panel hosting and MDI hosting both go through a frame.
         private Control? HostFrame => (Control?)PanelHost ?? MdiHost;
+
+        /// <summary>
+        /// The control this form is hosted in, when it has been put inside another control rather than
+        /// shown as its own top-level window (see <see cref="Control.ControlCollection.Add(Form)"/>).
+        /// Null for an ordinary top-level form.
+        /// </summary>
+        internal Control? HostingControl => HostFrame;
+
+        /// <inheritdoc/>
+        internal override WindowBase PresentationWindow {
+            get {
+                // Walk out through the host chain (a hosted form can itself be hosted) to the form that
+                // owns a real window. FindForm climbs the parent chain, so this terminates.
+                var host = HostFrame?.FindForm ();
+
+                return host is not null && host != this ? host.PresentationWindow : this;
+            }
+        }
 
         /// <summary>Gets or sets the button that is activated when Enter is pressed.</summary>
         /// <remarks>
@@ -241,8 +268,19 @@ namespace Majorsilence.Forms
         internal void CompleteClose ()
         {
             if (dialog_parent is not null) {
-                dialog_parent.Backend.Enabled = true;
-                dialog_parent.Backend.Activate ();
+                // Re-enable and raise the window that presents the opener, not the opener's own backend:
+                // an MDI child's backend is an unshown window, and activating it made a blank duplicate
+                // of that form appear on screen every time a dialog it opened was dismissed.
+                var parentWindow = dialog_parent.PresentationWindow;
+
+                parentWindow.Backend.Enabled = true;
+                parentWindow.Backend.Activate ();
+
+                // Activation still belongs to the opener, so hand it back within the MDI client too --
+                // otherwise whichever child was active before the dialog keeps the caption highlight.
+                if (dialog_parent is Form { MdiParent: { } mdiParent } child)
+                    mdiParent.ActivateMdiChild (child);
+
                 dialog_parent = null;
             }
 
@@ -271,21 +309,32 @@ namespace Majorsilence.Forms
 
         // Raises FormClosed exactly once, regardless of how many close callbacks reach it (programmatic
         // Close, close button, MDI removal can each drive OnBackendClosed). Called from OnBackendClosed.
+        /// <summary>Raises the <see cref="FormClosed"/> event.</summary>
+        /// <remarks>The overridable WinForms routes the event through, so a form that cleans up on
+        /// close overrides this rather than subscribing to itself. On the real close path here too.</remarks>
+        protected virtual void OnFormClosed (FormClosedEventArgs e) => FormClosed?.Invoke (this, e);
+
         internal void RaiseFormClosed ()
         {
             if (_formClosedFired)
                 return;
 
             _formClosedFired = true;
-            FormClosed?.Invoke (this, new FormClosedEventArgs ());
+            OnFormClosed (new FormClosedEventArgs ());
         }
 
 
         /// <summary>Raised when the form is first shown (WinForms compatibility alias; raised together with Shown).</summary>
         public event EventHandler? Load;
 
-        /// <summary>Raised when the user begins to resize the form. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? ResizeBegin { add { } remove { } }
+        /// <summary>Raised when the user begins to resize the form.</summary>
+        /// <remarks>No backend reports the start of a user resize drag yet, so this does not fire on its
+        /// own; it is a real event rather than a discard so that ported code which overrides
+        /// <see cref="OnResizeBegin"/> compiles and runs once a backend can raise it.</remarks>
+        public event EventHandler? ResizeBegin;
+
+        /// <summary>Raises the <see cref="ResizeBegin"/> event.</summary>
+        protected virtual void OnResizeBegin (EventArgs e) => ResizeBegin?.Invoke (this, e);
 
         /// <summary>Raised when the user finishes resizing the form. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? ResizeEnd;
@@ -321,8 +370,16 @@ namespace Majorsilence.Forms
             remove => mdi_child_activate -= value;
         }
 
-        /// <summary>Raised when the DPI setting for the form changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? DpiChanged { add { } remove { } }
+        /// <summary>Raised when the DPI the form is displayed at changes.</summary>
+        /// <remarks>
+        /// Typed with the args WinForms uses, so a handler can read the old and new DPI -- the two numbers
+        /// a form needs to rescale anything it sized itself. Declared and raisable but not raised: the
+        /// backend does not notify this layer when a window moves between monitors of different scale.
+        /// Its accessors used to be empty, which additionally meant handlers were silently discarded.
+        /// </remarks>
+#pragma warning disable CS0067
+        public event EventHandler<DpiChangedEventArgs>? DpiChanged;
+#pragma warning restore CS0067
 
         /// <summary>Raised when the input language changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler<InputLanguageChangedEventArgs>? InputLanguageChanged { add { } remove { } }
@@ -767,6 +824,13 @@ namespace Majorsilence.Forms
                 // computes exactly that while the user drags a splitter past its neighbour. The Avalonia
                 // backend rejects it with ArgumentException, which crashed the app mid-layout.
                 value = new System.Drawing.Size (Math.Max (0, value.Width), Math.Max (0, value.Height));
+
+                // Writing an unchanged size is not free: it is a round trip to the window server, and a
+                // drag that recomputes geometry per mouse-move sets the same value over and over. Measured
+                // on a float-window drag, 61 of 85 size writes were no-ops -- enough platform traffic to
+                // make the drag visibly lag behind the cursor until the mouse stopped.
+                if (value == Size)
+                    return;
 
                 if (MdiHost != null)
                     MdiHost.SetContentSize (value);
@@ -1239,6 +1303,21 @@ namespace Majorsilence.Forms
 
         internal override bool TryShowHosted ()
         {
+            // Told it is not top-level and not yet parented: it owns no OS window, so becoming visible is
+            // bookkeeping until something hosts it. WinForms behaves the same -- a non-top-level form
+            // with no parent simply is not on screen.
+            if (!TopLevel && !IsFrameHosted) {
+                visible = true;
+                EnsureLoaded ();
+
+                if (!shown) {
+                    shown = true;
+                    OnShown (EventArgs.Empty);
+                }
+
+                return true;
+            }
+
             // Already sitting in a control tree via Controls.Add (form): Show() must not create an OS
             // window, it just makes the frame visible. Checked first because the frame is what the
             // caller actually parented the form into -- an MdiParent assignment left over from earlier
@@ -1319,7 +1398,29 @@ namespace Majorsilence.Forms
         public MenuStrip? MainMenuStrip { get; set; }
 
         /// <summary>Gets or sets whether the form is a top-level window.</summary>
-        public bool TopLevel { get; set; } = true;
+        /// <remarks>
+        /// Setting this false is how WinForms code says "stop owning an OS window" before parenting a
+        /// form into a control tree — the <c>form.TopLevel = false; panel.Controls.Add (form)</c> idiom,
+        /// and what a docking library does on every dock-state change. Stored and never acted on, the
+        /// form kept its own window: re-docking a floated document left its old window behind as a large
+        /// blank rectangle over the application.
+        /// </remarks>
+        public bool TopLevel {
+            get => top_level;
+            set {
+                if (top_level == value)
+                    return;
+
+                top_level = value;
+
+                if (!value)
+                    Backend.Hide ();        // composited by whatever hosts it from here on
+                else if (visible && !IsFrameHosted)
+                    Backend.Show ();
+            }
+        }
+
+        private bool top_level = true;
 
         /// <summary>Gets or sets the start position of the form when it is first shown.</summary>
         public new FormStartPosition StartPosition {
@@ -1382,8 +1483,21 @@ namespace Majorsilence.Forms
                 MdiHost.Client.Activate (this);
             else if (PanelHost != null)
                 PanelHost.BringToFront ();
-            else
-                Backend.Activate ();
+            else if (visible && TopLevel)
+                Backend.Activate ();   // see Focus(): activating strands a window the form does not own
+        }
+
+        /// <summary>Sends the form to the back of the z-order.</summary>
+        /// <remarks>
+        /// The counterpart of <see cref="BringToFront"/>, whose absence was an asymmetry rather than a
+        /// decision: a form could be raised but not lowered. Hosted forms move within their frame's
+        /// sibling order; a top-level window has no cross-application "send to back" the backend
+        /// exposes, so that case is a no-op rather than a pretence.
+        /// </remarks>
+        public void SendToBack ()
+        {
+            if (PanelHost != null)
+                PanelHost.SendToBack ();
         }
 
         /// <summary>Gets the bounds of the form when it is not minimized or maximized.</summary>

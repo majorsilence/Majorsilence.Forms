@@ -178,6 +178,28 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         }
 
         /// <summary>
+        /// Initializes a new LinearGradientBrush at the given angle, optionally scaling the angle to the
+        /// rectangle's aspect ratio.
+        /// </summary>
+        /// <remarks>
+        /// <paramref name="isAngleScaleable"/> is accepted and ignored: GDI+ uses it to skew the gradient
+        /// vector so a 45-degree angle runs corner-to-corner of a non-square rectangle rather than at a
+        /// true 45 degrees. The gradient here is built from the angle directly, so the flag would change
+        /// only the shear of an already-approximated ramp -- callers pass it (usually false) to pick the
+        /// overload, not to ask for the shear.
+        /// </remarks>
+        public LinearGradientBrush (RectangleF rect, Color color1, Color color2, float angleDegrees, bool isAngleScaleable)
+            : this (rect, color1, color2, angleDegrees)
+        {
+        }
+
+        /// <inheritdoc cref="LinearGradientBrush(RectangleF, Color, Color, float, bool)"/>
+        public LinearGradientBrush (Rectangle rect, Color color1, Color color2, float angleDegrees, bool isAngleScaleable)
+            : this (new RectangleF (rect.X, rect.Y, rect.Width, rect.Height), color1, color2, angleDegrees)
+        {
+        }
+
+        /// <summary>
         /// Gets or sets whether gamma correction is applied to this gradient. Accepted and round-tripped
         /// for System.Drawing.Drawing2D.LinearGradientBrush compatibility; Skia renders gradients in the
         /// destination color space, so the flag does not currently alter output.

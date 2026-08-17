@@ -25,6 +25,9 @@ namespace Majorsilence.Forms
         private const int IlHeadSize = 28;
         private const int IlcMask = 0x0001;
 
+        // BITMAPFILEHEADER (14) + BITMAPINFOHEADER (40) — the fields BmpLength reads.
+        private const int BmpHeaderSize = 54;
+
         /// <summary>
         /// Decodes the streamer payload into one <see cref="SKBitmap"/> per image (each <c>cx</c>×<c>cy</c>).
         /// Returns an empty list if the payload is malformed or in an unsupported variant.
@@ -133,17 +136,56 @@ namespace Majorsilence.Forms
         private static SKBitmap? DecodeBmp (byte[] raw, int start, out int end)
         {
             end = raw.Length;
-            if (start + 6 > raw.Length)
+            if (start + BmpHeaderSize > raw.Length)
                 return null;
 
-            // BITMAPFILEHEADER.bfSize (bytes 2..5) — trust it only if it lands on a sane boundary.
-            var bfSize = (int)ReadU32 (raw, start + 2);
-            end = bfSize > 0 && start + bfSize <= raw.Length ? start + bfSize : raw.Length;
+            end = start + BmpLength (raw, start);
 
             var length = end - start;
             var bmp = new byte[length];
             Array.Copy (raw, start, bmp, 0, length);
             return SKBitmap.Decode (bmp);
+        }
+
+        // How many bytes the BMP at <paramref name="start"/> occupies, measured from its headers rather
+        // than taken from BITMAPFILEHEADER.bfSize.
+        //
+        // bfSize is supposed to be the whole file's length, but the writer behind an image-list stream
+        // fills it with the offset to the pixel bits instead (1078 == 14 + 40 + a 256-entry palette, for
+        // the 8bpp strip a designer ImageList produces). Trusting it cut the slice off immediately after
+        // the palette, so SkiaSharp decoded correct dimensions over no pixel data at all: every frame came
+        // back the right size and fully transparent, and a toolbar bound to the list drew nothing.
+        private static int BmpLength (byte[] raw, int start)
+        {
+            var available = raw.Length - start;
+
+            var offBits = (int)ReadU32 (raw, start + 10);
+            var width = (int)ReadU32 (raw, start + 18);
+            var height = (int)ReadU32 (raw, start + 22);
+            var bitCount = ReadU16 (raw, start + 28);
+            var compression = (int)ReadU32 (raw, start + 30);
+            var sizeImage = (int)ReadU32 (raw, start + 34);
+
+            if (offBits <= 0 || offBits > available || width <= 0 || bitCount <= 0)
+                return FallbackLength (raw, start, available);
+
+            // Rows are padded out to a 4-byte boundary; a negative height just means top-down.
+            var rowBytes = ((width * bitCount + 31) / 32) * 4;
+            var imageBytes = compression == 0 || sizeImage <= 0
+                ? rowBytes * Math.Abs (height)
+                : sizeImage;
+
+            var total = offBits + imageBytes;
+
+            return total > 0 && total <= available ? total : FallbackLength (raw, start, available);
+        }
+
+        // Nothing usable in the headers: fall back to bfSize where it is at least in range, otherwise to
+        // the rest of the buffer, which is what this did before it read the headers at all.
+        private static int FallbackLength (byte[] raw, int start, int available)
+        {
+            var bfSize = (int)ReadU32 (raw, start + 2);
+            return bfSize > 0 && bfSize <= available ? bfSize : available;
         }
 
         private static int IndexOf (byte[] haystack, ReadOnlySpan<byte> needle, int start)

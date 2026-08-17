@@ -29,6 +29,27 @@ public class ProjectConverterTests
     }
 
     [Fact]
+    public void Retargets_the_WindowsDesktop_SDK_to_the_plain_one ()
+    {
+        // Harmless to the build, which is why it survives a migration -- but it warns NETSDK1137 and
+        // NETSDK1106 on every build of the converted project from then on.
+        const string csproj = """
+            <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+              <PropertyGroup>
+                <TargetFramework>net8.0-windows</TargetFramework>
+                <UseWindowsForms>true</UseWindowsForms>
+              </PropertyGroup>
+            </Project>
+            """;
+
+        var result = ProjectConverter.Convert (csproj, Options (), ".");
+
+        Assert.Contains ("Sdk=\"Microsoft.NET.Sdk\"", result.Xml);
+        Assert.DoesNotContain ("WindowsDesktop", result.Xml);
+        Assert.True (result.Changed);
+    }
+
+    [Fact]
     public void Removes_ImportWindowsDesktopTargets ()
     {
         // Older projects opt into the desktop targets under this name instead. Left in place it does not

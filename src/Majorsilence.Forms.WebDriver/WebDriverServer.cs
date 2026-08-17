@@ -330,12 +330,15 @@ namespace Majorsilence.Forms.WebDriver
 
         private static string? ExtractAttr (string css, string attr)
         {
-            var marker = "[" + attr + "=";
-            var i = css.IndexOf (marker, StringComparison.Ordinal);
-            if (i < 0)
-                return null;
-            var rest = css[(i + marker.Length)..].TrimEnd (']').Trim ('\'', '"');
-            return rest;
+            // Whitespace and quoting vary by client, so this cannot match "[attr=" literally.
+            // Selenium's own .NET client renders By.Name ("x") as *[name ="x"] -- note the space
+            // before the '=' -- which a literal match misses; the request then fell through to a
+            // control-type lookup and found nothing, so By.Name silently located no element.
+            var match = System.Text.RegularExpressions.Regex.Match (
+                css,
+                @"\[\s*" + System.Text.RegularExpressions.Regex.Escape (attr) + @"\s*=\s*(?<q>['""]?)(?<value>.*?)\k<q>\s*\]");
+
+            return match.Success ? match.Groups["value"].Value : null;
         }
 
         // ── UI-thread marshalling ──

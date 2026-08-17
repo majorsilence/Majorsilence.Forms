@@ -150,6 +150,45 @@ namespace Majorsilence.Forms.Tests
             server.Stop ();
         }
 
+        // Selenium's own .NET client does not send using:"name" -- By.Name ("x") is rendered as the CSS
+        // selector *[name ="x"], with a space before the '='. Matching "[name=" literally missed that,
+        // so the lookup fell through to a control-type match, found nothing, and every By.Name in a
+        // real Selenium suite raised NoSuchElement. These are the spellings clients actually emit.
+        [Theory]
+        [InlineData ("*[name =\"nameBox\"]")]      // Selenium .NET By.Name
+        [InlineData ("[name='nameBox']")]
+        [InlineData ("[name = \"nameBox\"]")]
+        [InlineData ("input[name=nameBox]")]
+        public void CssNameSelector_ToleratesClientSpellings (string selector)
+        {
+            using var form = new Form { UseSystemDecorations = true };
+            var textbox = new TextBox { Name = "nameBox", Left = 10, Top = 50, Width = 200, Height = 30 };
+            form.Controls.Add (textbox);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            using var server = new WebDriverServer (form, FreePort ());
+            server.Start ();
+            var baseUrl = server.Url.ToString ();
+
+            var found = RunPumped (async () => {
+                using var http = new HttpClient { BaseAddress = new Uri (baseUrl) };
+
+                var session = await PostJson (http, "session", "{}");
+                var sid = session.RootElement.GetProperty ("value").GetProperty ("sessionId").GetString ();
+
+                var body = JsonSerializer.Serialize (new { @using = "css selector", value = selector });
+                var find = await PostJson (http, $"session/{sid}/element", body);
+
+                return find.RootElement.GetProperty ("value").TryGetProperty (ElementKey, out var el)
+                    ? el.GetString ()
+                    : null;
+            });
+
+            Assert.False (string.IsNullOrEmpty (found), $"selector {selector} located no element");
+
+            server.Stop ();
+        }
+
         private static async Task<JsonDocument> PostJson (HttpClient http, string path, string body)
         {
             var resp = await http.PostAsync (path, new StringContent (body, Encoding.UTF8, "application/json"));

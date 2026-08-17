@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(_TargetFramework)</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="System.Drawing.Common" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The MCP tool under test, plus the pieces needed to stand up something for it to drive: a real
+         window on the Headless backend with a real WebDriver server in front of it. The tool itself
+         references none of these — it only speaks HTTP — so these are the test's dependencies, not its. -->
+    <ProjectReference Include="..\..\tools\Majorsilence.Forms.Mcp\Majorsilence.Forms.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WebDriver\Majorsilence.Forms.WebDriver.csproj" />
+  </ItemGroup>
+
+</Project>

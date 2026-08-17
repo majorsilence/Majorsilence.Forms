@@ -59,9 +59,16 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Adds a new MenuItem to the collection with the specified text, image (SKBitmap), and Click handler.
         /// </summary>
+        /// <remarks>
+        /// Builds a <see cref="ToolStripMenuItem"/> rather than a bare <see cref="MenuItem"/>. It is one
+        /// -- ToolStripMenuItem derives from MenuItem here -- so every existing caller is unaffected, but
+        /// the item is now also a <see cref="ToolStripItem"/>, which is the type WinForms code expects back
+        /// from a menu's item collection. Returning a bare MenuItem compiled fine and then threw
+        /// InvalidCastException at the assignment, which is the worse failure of the two.
+        /// </remarks>
         public MenuItem Add (string text, SKBitmap? image = null, EventHandler? onClick = null)
         {
-            return Add (new MenuItem (text, image, onClick));
+            return Add (new ToolStripMenuItem (text, image, onClick));
         }
 
         /// <summary>
@@ -73,7 +80,7 @@ namespace Majorsilence.Forms
 #pragma warning disable CA1416
         public new MenuItem Add (string text, Majorsilence.Forms.Drawing.Image? image, EventHandler? onClick = null)
         {
-            var item = new MenuItem (text, (SKBitmap?)null, onClick);
+            var item = new ToolStripMenuItem (text, (SKBitmap?)null, onClick);
             item.Image = image;
             return Add (item);
         }

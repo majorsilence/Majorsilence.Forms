@@ -39,7 +39,7 @@ namespace Majorsilence.Forms
     /// Provides a low-level encapsulation of a window handle and associated Windows message processing.
     /// Stub in Majorsilence.Forms — all operations are no-ops.
     /// </summary>
-    public class NativeWindow
+    public partial class NativeWindow
     {
         /// <summary>Gets the handle to the window. Always IntPtr.Zero in Majorsilence.Forms.</summary>
         public IntPtr Handle => IntPtr.Zero;
@@ -221,10 +221,17 @@ namespace Majorsilence.Forms
     /// <summary>Represents the collection of data bindings for a control. Stub in Majorsilence.Forms.</summary>
     public partial class ControlBindingsCollection : System.Collections.ObjectModel.Collection<Binding>
     {
-        private readonly Control _control;
+        private readonly IBindableComponent _control;
 
-        /// <summary>Initializes a new instance for the given control.</summary>
-        public ControlBindingsCollection (Control control) { _control = control; }
+        /// <summary>Initializes a new instance for the given bindable component.</summary>
+        /// <remarks>Takes <see cref="IBindableComponent"/>, as WinForms does -- data binding is a
+        /// component-level facility, and a bindable component that is not a Control (a ribbon group
+        /// item, say) constructs its own collection through this.</remarks>
+        public ControlBindingsCollection (IBindableComponent control)
+        {
+            _control = control;
+            BindableComponent = control;
+        }
 
         /// <summary>Adds a new binding to the collection.</summary>
         public Binding Add (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled = false)
@@ -235,7 +242,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the control that owns this collection.</summary>
-        public Control Control => _control;
+        public IBindableComponent Control => _control;
 
         /// <summary>Gets the binding for the specified control property name, or null.</summary>
         public Binding? this[string propertyName]
@@ -592,13 +599,13 @@ namespace Majorsilence.Forms
     public partial class NodeLabelEditEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Initializes a new instance.</summary>
-        public NodeLabelEditEventArgs (TreeViewItem node) { Node = node; }
+        public NodeLabelEditEventArgs (TreeNode node) { Node = node; }
 
         /// <summary>Initializes a new instance with a new label.</summary>
-        public NodeLabelEditEventArgs (TreeViewItem node, string? label) { Node = node; Label = label; }
+        public NodeLabelEditEventArgs (TreeNode node, string? label) { Node = node; Label = label; }
 
         /// <summary>Gets the node whose label is being edited.</summary>
-        public TreeViewItem Node { get; }
+        public TreeNode Node { get; }
 
         /// <summary>Gets the new label text, or null if the edit was cancelled.</summary>
         public string? Label { get; }
@@ -614,7 +621,7 @@ namespace Majorsilence.Forms
         public TreeViewEventArgs (TreeNode node, TreeViewAction action) { Node = node; Action = action; }
 
         /// <summary>
-        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeViewItem)
+        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeNode)
         /// to match System.Windows.Forms.TreeViewEventArgs.Node -- all nodes added through the
         /// public TreeNode-based API are TreeNode instances in practice; raisers skip the event
         /// for internally-created plain TreeViewItems.
@@ -636,7 +643,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeViewItem)
+        /// Gets the tree node that raised the event. Typed TreeNode (not the base TreeNode)
         /// to match System.Windows.Forms.TreeViewCancelEventArgs.Node -- all nodes added through
         /// the public TreeNode-based API are TreeNode instances in practice.
         /// </summary>
@@ -734,33 +741,34 @@ namespace Majorsilence.Forms
     public partial class AutoCompleteStringCollection : System.Collections.Specialized.StringCollection { }
 
     /// <summary>
-    /// WinForms compatibility alias for <see cref="TreeViewItem"/>. In WinForms, tree nodes are called TreeNode.
-    /// In Majorsilence.Forms, this class is called TreeViewItem — TreeNode is an alias for easy migration.
+    /// The Majorsilence-native name for a tree node, kept so that code written against this library
+    /// before the two names were reconciled still compiles.
     /// </summary>
-    public class TreeNode : TreeViewItem
+    /// <remarks>
+    /// This used to be the other way round: the implementation class was <c>TreeViewItem</c> and
+    /// <see cref="TreeNode"/> was a subclass of it "for easy migration". That does not work, and the
+    /// reason is worth recording. Every WinForms-shaped member -- <c>TreeView.SelectedNode</c>,
+    /// <c>TopNode</c>, <c>GetNodeAt</c>, <c>Nodes[i]</c>, <c>node.Parent</c> -- returned the base type, so
+    /// assigning any of them to the <c>TreeNode</c> variable that WinForms code declares needed a
+    /// downcast, and a cast is exactly what a migration must not require. Nor could an implicit conversion
+    /// paper over it: C# forbids a user-defined conversion to a base class.
+    ///
+    /// So <c>TreeNode</c> is now the implementation and this is the subclass. Nodes flow the compiling
+    /// direction (a TreeViewItem <i>is</i> a TreeNode), and anything typed <c>TreeNode</c> accepts one.
+    /// The one thing that no longer holds is the reverse: a member returning <c>TreeNode</c> cannot be
+    /// assigned to a <c>TreeViewItem</c> variable without a cast. Native code that declares
+    /// <c>TreeViewItem</c> variables should change them to <c>TreeNode</c>.
+    /// </remarks>
+    public class TreeViewItem : TreeNode
     {
-        /// <summary>Initializes a new instance of TreeNode.</summary>
-        public TreeNode () { }
+        /// <summary>Initializes a new instance.</summary>
+        public TreeViewItem () { }
 
-        /// <summary>Initializes a new instance of TreeNode with the specified text.</summary>
-        public TreeNode (string text) : base (text) { }
+        /// <summary>Initializes a new instance with the specified text.</summary>
+        public TreeViewItem (string text) : base (text) { }
 
-        /// <summary>Initializes a new instance of TreeNode with text and child nodes.</summary>
-        public TreeNode (string text, TreeNode[] children) : base (text, children) { }
-
-        /// <summary>Initializes a new instance of TreeNode with text and image indices.</summary>
-        public TreeNode (string text, int imageIndex, int selectedImageIndex) : base (text)
-        {
-            ImageIndex = imageIndex;
-            SelectedImageIndex = selectedImageIndex;
-        }
-
-        /// <summary>Initializes a new instance of TreeNode with text, image indices, and child nodes.</summary>
-        public TreeNode (string text, int imageIndex, int selectedImageIndex, TreeNode[] children) : base (text, children)
-        {
-            ImageIndex = imageIndex;
-            SelectedImageIndex = selectedImageIndex;
-        }
+        /// <summary>Initializes a new instance with text and child nodes.</summary>
+        public TreeViewItem (string text, params TreeNode[] children) : base (text, children) { }
     }
 
     /// <summary>Specifies how a container control validates its children when it loses input focus.</summary>
@@ -1061,10 +1069,27 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the image displayed on this item. Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// The converted <see cref="SkiaSharp.SKBitmap"/> is synced to the base class so renderers can access it.
+        /// Reading falls back to whatever <see cref="ImageIndex"/>/<see cref="ImageKey"/> names in the owning
+        /// strip's <see cref="ToolStrip.ImageList"/>, as WinForms does, when no image was assigned outright.
         /// </summary>
 #pragma warning disable CA1416
         public new virtual Majorsilence.Forms.Drawing.Image? Image {
-            get => _toolStripImage;
+            get {
+                if (_toolStripImage is { } assigned)
+                    return assigned;
+
+                if (ImageListImage is not { } bitmap)
+                    return null;
+
+                // Wrapped once per underlying bitmap rather than per read: callers compare and dispose what
+                // this hands back, and a fresh wrapper each time would make `item.Image == item.Image` false.
+                if (!ReferenceEquals (bitmap, resolved_image_source)) {
+                    resolved_image_source = bitmap;
+                    resolved_image = bitmap;    // implicit SKBitmap -> Image
+                }
+
+                return resolved_image;
+            }
             set {
                 _toolStripImage = value;
                 ((MenuItem)this).SetImageSK (value?.ToSKBitmap ());
@@ -1077,8 +1102,26 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets how the image is aligned on the item.</summary>
         public ContentAlignment ImageAlign { get; set; } = ContentAlignment.MiddleLeft;
 
-        /// <summary>Gets or sets an integer that identifies the image from an ImageList. Stub in Majorsilence.Forms.</summary>
-        public int ImageIndex { get; set; } = -1;
+        private int image_index = -1;
+        private string image_key = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the index of this item's image in the owning strip's
+        /// <see cref="ToolStrip.ImageList"/>. Setting it clears <see cref="ImageKey"/>, as WinForms does —
+        /// an item is addressed by index or by key, never both.
+        /// </summary>
+        public int ImageIndex {
+            get => image_index;
+            set {
+                if (image_index == value)
+                    return;
+
+                image_index = value;
+                image_key = string.Empty;
+
+                InvalidateImage ();
+            }
+        }
 
         /// <summary>Gets or sets how the item's image is scaled. Mirrors WinForms
         /// ToolStripItem.ImageScaling (the Size-typed knob is ImageScalingSize on the strip).</summary>
@@ -1100,16 +1143,66 @@ namespace Majorsilence.Forms
         public RightToLeft RightToLeft { get; set; } = RightToLeft.No;
 
         /// <summary>Gets or sets the foreground color of this item. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Color ForeColor { get; set; } = System.Drawing.Color.Empty;
+        public virtual System.Drawing.Color ForeColor { get; set; } = System.Drawing.Color.Empty;
 
         /// <summary>Gets or sets the background color of this item. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Color BackColor { get; set; } = System.Drawing.Color.Empty;
+        public virtual System.Drawing.Color BackColor { get; set; } = System.Drawing.Color.Empty;
 
         /// <summary>Gets or sets the font for this item. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Forms.Drawing.Font? Font { get; set; }
 
-        /// <summary>Gets or sets the image list key for this item. Stub in Majorsilence.Forms.</summary>
-        public string ImageKey { get; set; } = string.Empty;
+        /// <summary>
+        /// Gets or sets the key naming this item's image in the owning strip's
+        /// <see cref="ToolStrip.ImageList"/>. Setting it clears <see cref="ImageIndex"/>, as WinForms does.
+        /// </summary>
+        public string ImageKey {
+            get => image_key;
+            set {
+                value ??= string.Empty;
+
+                if (image_key == value)
+                    return;
+
+                image_key = value;
+                image_index = -1;
+
+                InvalidateImage ();
+            }
+        }
+
+        private Majorsilence.Forms.Drawing.Image? resolved_image;
+        private SkiaSharp.SKBitmap? resolved_image_source;
+
+        /// <inheritdoc/>
+        internal override SkiaSharp.SKBitmap? ImageSK => base.ImageSK ?? ImageListImage;
+
+        // The image this item's index/key names, or null. Resolved on read rather than when ImageIndex is
+        // assigned: designer code sets the index while the item is still unparented and before
+        // ImageList.ImageStream has been filled in, so anything resolved eagerly would be null forever.
+        private SkiaSharp.SKBitmap? ImageListImage {
+            get {
+                // Read through ToolBar, the single storage both it and ToolStrip.ImageList share.
+                if ((OwnerControl as ToolBar)?.ImageList is not { } list)
+                    return null;
+
+                var index = image_index;
+
+                if (index < 0 && image_key.Length > 0)
+                    index = list.Images.IndexOfKey (image_key);
+
+                return index >= 0 && index < list.Images.Count ? list.Images[index] : null;
+            }
+        }
+
+        // An item's preferred size is measured from its image, so a changed image is a layout change.
+        private void InvalidateImage ()
+        {
+            resolved_image = null;
+            resolved_image_source = null;
+
+            OwnerControl?.PerformLayout ();
+            OwnerControl?.Invalidate ();
+        }
 
         /// <summary>Gets the <see cref="ToolStrip"/> this item belongs to, or null when it is not on one.</summary>
         /// <remarks>
@@ -1335,7 +1428,7 @@ namespace Majorsilence.Forms
         public Control Control { get; }
 
         /// <summary>Gets or sets the size of the hosted control.</summary>
-        public new System.Drawing.Size Size {
+        public override System.Drawing.Size Size {
             get => Control.Size;
             set => Control.Size = value;
         }
@@ -1384,6 +1477,21 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>Hides the drop-down.</summary>
+        /// <remarks>
+        /// Owned drop-downs forward to the owner item's real close, exactly as <see cref="Visible"/>
+        /// does. This cannot be left to the inherited method: <c>MenuDropDown.Hide</c> is a <c>new</c>
+        /// method that hides the drop-down's own popup -- and an owned drop-down's shown menu is not its
+        /// own popup but the owner's, so <c>Close(...)</c> bound to it and quietly closed nothing.
+        /// </remarks>
+        public new void Hide ()
+        {
+            if (OwnerMenuItem is { } owner)
+                owner.HideDropDown ();
+            else
+                base.Hide ();
+        }
+
         // NOTE: Show (Point) and Show (Control, Point) are inherited from ContextMenu. Show (Point) used
         // to be redeclared here with an empty body, which shadowed the real one; both are now real.
     }
@@ -1391,7 +1499,15 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a button on a ToolStrip that displays a drop-down menu when clicked.
     /// </summary>
-    public partial class ToolStripDropDownButton : ToolStripItem
+    /// <remarks>
+    /// Derives from <see cref="ToolStripDropDownItem"/>, as WinForms does. It used to derive straight from
+    /// <see cref="ToolStripItem"/> and redeclare a drop-down surface of its own -- a <c>DropDownItems</c>
+    /// that returned the button's own <c>Items</c>, a <c>ShowDropDown</c> that did nothing, and three
+    /// events with empty accessors. The consequence was that <c>DropDown</c> itself did not exist on the
+    /// button at all, so code closing a menu through <c>button.DropDown.Close(...)</c> would not compile;
+    /// with the base in place, that surface is the real one and the shadowing members are gone.
+    /// </remarks>
+    public partial class ToolStripDropDownButton : ToolStripDropDownItem
     {
         /// <summary>Initializes a new instance of the ToolStripDropDownButton class.</summary>
         public ToolStripDropDownButton () { }
@@ -1401,21 +1517,6 @@ namespace Majorsilence.Forms
         {
             Text = text;
         }
-
-        /// <summary>Gets the collection of items shown in the drop-down.</summary>
-        public MenuItemCollection DropDownItems => Items;
-
-        /// <summary>Programmatically opens the drop-down. Stub in Majorsilence.Forms.</summary>
-        public new void ShowDropDown () { }
-
-        /// <summary>Raised before the drop-down is opened. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? DropDownOpening { add { } remove { } }
-
-        /// <summary>Raised after the drop-down is opened. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? DropDownOpened { add { } remove { } }
-
-        /// <summary>Raised after the drop-down is closed. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? DropDownClosed { add { } remove { } }
     }
 
     /// <summary>Represents a button with both a clickable portion and a drop-down arrow. Stub in Majorsilence.Forms.</summary>
@@ -1502,24 +1603,27 @@ namespace Majorsilence.Forms
             foreach (var item in dropDownItems)
                 Items.Add (item);
         }
+
+        /// <summary>Initializes a new instance with text, an image, and sub-items of any item type.</summary>
+        /// <remarks>
+        /// WinForms types the params array as <c>ToolStripItem[]</c>, not <c>ToolStripMenuItem[]</c>, so a
+        /// menu built with separators in it -- the common case -- goes through this overload. Only the
+        /// narrower one existed, which made <c>new ToolStripMenuItem(text, image, sep, item, ...)</c> fail
+        /// to resolve. The <c>EventHandler</c> overload above is still preferred for a two-argument call,
+        /// so this does not change what an existing call binds to.
+        /// </remarks>
+        public ToolStripMenuItem (string text, Majorsilence.Forms.Drawing.Image? image, params ToolStripItem[] dropDownItems)
+            : this (text, image?.ToSKBitmap ())
+        {
+            foreach (var item in dropDownItems)
+                Items.Add (item);
+        }
 #pragma warning restore CA1416
 
-        /// <summary>Gets the collection of sub-items for this menu item.</summary>
-        /// <remarks>A menu item's sub-items are its own <c>Items</c>, not a separate collection owned by
-        /// the drop-down -- which is why this overrides the base rather than inheriting it.</remarks>
-        public override MenuItemCollection DropDownItems => Items;
-
-        private ToolStripDropDown? drop_down;
-
-        /// <summary>
-        /// Gets the drop-down hosting this item's sub-items. As in WinForms, its <c>Items</c> are the
-        /// same collection as <see cref="DropDownItems"/> and its <c>Visible</c> reports whether the
-        /// sub-menu is currently open.
-        /// </summary>
-        public override ToolStripDropDown DropDown {
-            get => drop_down ??= new ToolStripDropDown { OwnerItem = this, IsAutoGenerated = true };
-            set => drop_down = value;
-        }
+        // DropDown and DropDownItems are inherited: the base now creates the drop-down with
+        // OwnerItem wired (which was this type's private trick) so every ToolStripDropDownItem gets the
+        // owned-view semantics, not just menu items. The duplicate field this type kept was itself a
+        // bug -- the base's HasDropDown/Pressed read the base's field, which this override never set.
 
         private bool _checked;
 
@@ -1595,28 +1699,54 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a combo box embedded in a MenuStrip.
     /// </summary>
-    public partial class ToolStripComboBox : ToolStripControlHost, IDisposable
+    public partial class ToolStripComboBox : ToolStripControlHost
     {
         private bool _disposed;
 
         /// <summary>Initializes a new instance of the ToolStripComboBox class.</summary>
-        public ToolStripComboBox () : base (new CompatComboBox ()) { }
+        public ToolStripComboBox () : base (new CompatComboBox ()) => WireSelectedIndexChanged ();
 
         /// <summary>Initializes a new instance of the ToolStripComboBox class with the specified name.</summary>
-        public ToolStripComboBox (string name) : base (new CompatComboBox (), name) { }
+        public ToolStripComboBox (string name) : base (new CompatComboBox (), name) => WireSelectedIndexChanged ();
 
         // The hosted control is the combo box; there is no second instance. It used to be a field
         // initialised inline, which -- once this type hosts its control -- would have been a
         // different combo from the one ToolStripControlHost lays out and paints.
         private CompatComboBox combo_box => (CompatComboBox)Control;
 
-        /// <inheritdoc/>
-        public void Dispose ()
+        private EventHandler? selected_index_changed;
+        private bool selected_index_wired;
+
+        // Wired from the constructors, once the base has created the hosted control. It has to happen
+        // there rather than on the first handler: a subclass that overrides OnSelectedIndexChanged without
+        // anyone attaching a handler -- a themed combo reacting to its own selection -- still has to be
+        // called. Guarded because both constructors run it and one may chain.
+        private void WireSelectedIndexChanged ()
         {
-            if (_disposed) return;
+            if (selected_index_wired)
+                return;
+
+            selected_index_wired = true;
+            combo_box.SelectedIndexChanged += (o, e) => OnSelectedIndexChanged (e);
+        }
+
+        /// <summary>Raises the <see cref="SelectedIndexChanged"/> event.</summary>
+        protected virtual void OnSelectedIndexChanged (EventArgs e) => selected_index_changed?.Invoke (this, e);
+
+        /// <inheritdoc/>
+        /// <remarks>Overrides the base item's virtual rather than declaring its own Dispose(): hiding it
+        /// meant disposing through a ToolStripItem-typed reference skipped the hosted combo entirely.</remarks>
+        protected override void Dispose (bool disposing)
+        {
+            if (_disposed)
+                return;
+
             _disposed = true;
-            combo_box.Dispose ();
-            GC.SuppressFinalize (this);
+
+            if (disposing)
+                combo_box.Dispose ();
+
+            base.Dispose (disposing);
         }
 
         /// <summary>Gets the hosted ComboBox control.</summary>
@@ -1638,9 +1768,15 @@ namespace Majorsilence.Forms
         public new ListBoxItemCollection Items => combo_box.Items;
 
         /// <summary>Raised when the selected index changes.</summary>
+        /// <remarks>
+        /// Handlers land on this item rather than straight on the hosted combo, so a subclass overriding
+        /// <see cref="OnSelectedIndexChanged"/> -- which is where WinForms puts the hook, and what themed
+        /// combo boxes override to react to a selection -- runs before them and can be skipped by not
+        /// calling base. The hosted combo's own event is forwarded from the constructor.
+        /// </remarks>
         public event EventHandler? SelectedIndexChanged {
-            add => combo_box.SelectedIndexChanged += value;
-            remove => combo_box.SelectedIndexChanged -= value;
+            add => selected_index_changed += value;
+            remove => selected_index_changed -= value;
         }
 
         // Validated is inherited from ToolStripControlHost, which forwards it to the hosted control.
@@ -2004,7 +2140,7 @@ namespace Majorsilence.Forms
     /// ToolStripDropDownMenu : ToolStripDropDown : ToolStrip, so ToolStrip members are reachable here.
     /// The Opening/Opened/Closing/Closed popup lifecycle comes from <see cref="ContextMenu"/>.
     /// </summary>
-    public class ContextMenuStrip : ToolStripDropDown
+    public partial class ContextMenuStrip : ToolStripDropDown
     {
         /// <summary>Initializes a new instance.</summary>
         public ContextMenuStrip () { }
@@ -2149,8 +2285,17 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the layout style. Stub in Majorsilence.Forms.</summary>
         public ToolStripLayoutStyle LayoutStyle { get; set; } = ToolStripLayoutStyle.HorizontalStackWithOverflow;
 
-        /// <summary>Gets or sets the ImageList associated with this ToolStrip. Stub in Majorsilence.Forms.</summary>
-        public new ImageList? ImageList { get; set; }
+        /// <summary>Gets or sets the ImageList this strip's items index into.</summary>
+        /// <remarks>
+        /// Deliberately the same storage as <see cref="ToolBar.ImageList"/> rather than a second field of
+        /// its own. As separate properties the two silently disagreed: designer code assigns through the
+        /// ToolStrip-typed variable it declared, while item image lookup reads the base one, so every
+        /// button resolved its ImageIndex against a null list and drew with no image.
+        /// </remarks>
+        public new ImageList? ImageList {
+            get => base.ImageList;
+            set => base.ImageList = value;
+        }
 
         /// <summary>Gets or sets whether the ToolStrip stretches to fill its container. Stub in Majorsilence.Forms.</summary>
         public bool Stretch { get; set; }
@@ -2288,15 +2433,22 @@ namespace Majorsilence.Forms
     {
         private int _selectedIndex = -1;
 
-        /// <summary>Gets or sets the collection of items displayed in the control.</summary>
-        public System.Collections.Specialized.StringCollection Items { get; } = new System.Collections.Specialized.StringCollection ();
+        /// <summary>Gets the collection of items displayed in the control.</summary>
+        /// <remarks>
+        /// Typed as the nested <see cref="DomainUpDownItemCollection"/>, which is what WinForms returns and
+        /// therefore what code re-exposing this property declares. It was a <c>StringCollection</c>, so
+        /// that re-exposure did not compile -- and the nested collection type sat unused beside it.
+        /// The items are objects rather than strings, as upstream: the control shows each item's
+        /// <c>ToString()</c>, so anything can go in.
+        /// </remarks>
+        public DomainUpDownItemCollection Items { get; } = new DomainUpDownItemCollection ();
 
         /// <summary>Gets or sets the index of the currently selected item.</summary>
         public int SelectedIndex {
             get => _selectedIndex;
             set {
                 _selectedIndex = value;
-                Text = (value >= 0 && value < Items.Count) ? Items[value] ?? string.Empty : string.Empty;
+                Text = value >= 0 && value < Items.Count ? Items[value]?.ToString () ?? string.Empty : string.Empty;
             }
         }
 
@@ -2304,9 +2456,13 @@ namespace Majorsilence.Forms
         public object? SelectedItem {
             get => _selectedIndex >= 0 && _selectedIndex < Items.Count ? Items[_selectedIndex] : null;
             set {
-                if (value is string s) {
-                    for (int i = 0; i < Items.Count; i++) {
-                        if (Items[i] == s) { SelectedIndex = i; return; }
+                for (var i = 0; i < Items.Count; i++) {
+                    // Compared by value, not by reference: the items are objects now, so the ArrayList
+                    // indexer hands back object and `==` would have become a reference comparison that
+                    // fails for two equal strings held in different instances.
+                    if (Equals (Items[i], value)) {
+                        SelectedIndex = i;
+                        return;
                     }
                 }
             }
@@ -3544,10 +3700,10 @@ namespace Majorsilence.Forms
     public class TreeNodeMouseClickEventArgs : MouseEventArgs
     {
         /// <summary>Gets the tree node that was clicked.</summary>
-        public TreeViewItem Node { get; }
+        public TreeNode Node { get; }
 
         /// <summary>Initializes a new instance.</summary>
-        public TreeNodeMouseClickEventArgs (TreeViewItem node, MouseButtons button, int clicks, int x, int y)
+        public TreeNodeMouseClickEventArgs (TreeNode node, MouseButtons button, int clicks, int x, int y)
             : base (button, clicks, x, y, System.Drawing.Point.Empty)
         {
             Node = node;
@@ -3558,10 +3714,10 @@ namespace Majorsilence.Forms
     public class TreeNodeMouseHoverEventArgs : EventArgs
     {
         /// <summary>Gets the tree node that the mouse is hovering over.</summary>
-        public TreeViewItem Node { get; }
+        public TreeNode Node { get; }
 
         /// <summary>Initializes a new instance.</summary>
-        public TreeNodeMouseHoverEventArgs (TreeViewItem node) => Node = node;
+        public TreeNodeMouseHoverEventArgs (TreeNode node) => Node = node;
     }
 
     /// <summary>Provides data for the TreeView.ItemDrag and ListView.ItemDrag events.</summary>

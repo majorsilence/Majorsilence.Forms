@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -32,12 +32,24 @@ namespace Majorsilence.Forms.Telerik
         // would cross the right edge wraps to the next row -- WinForms multiline tab behavior --
         // so every tab stays reachable no matter how many the strip holds. Headers are measured
         // with the strip's effective font (the same resolution painting uses).
+        // Control.ClientRectangle is device-scaled while Bounds is logical, so assigning one to the other
+        // multiplies a child's size by the display factor -- and it compounds once per nesting level:
+        // measured on a 2x display, a 400-logical dock produced a 1600-logical tab strip (dock -> container
+        // -> strip), which is why nothing wrapped and hit-testing missed every header.
+        internal static Rectangle LogicalClient (Control c)
+        {
+            var r = c.ClientRectangle;
+            return new Rectangle (
+                c.DeviceToLogicalUnits (r.X), c.DeviceToLogicalUnits (r.Y),
+                c.DeviceToLogicalUnits (r.Width), c.DeviceToLogicalUnits (r.Height));
+        }
+
         internal static List<(DockWindowBase win, Rectangle rect)> FlowHeaders (Control strip, List<DockWindowBase> ws, out int rowCount)
         {
             var result = new List<(DockWindowBase, Rectangle)> ();
             var font = strip.GetEffectiveFont ();
             var fontSize = strip.GetEffectiveFontSize ();
-            var avail = Math.Max (60, strip.ClientRectangle.Width);
+            var avail = Math.Max (60, LogicalClient (strip).Width);
 
             var x = 0;
             var row = 0;
@@ -67,7 +79,7 @@ namespace Majorsilence.Forms.Telerik
                 return;
 
             selected ??= ws[0];
-            var client = strip.ClientRectangle;
+            var client = LogicalClient (strip);
             var header = 0;
             if (ws.Count > 1) {
                 FlowHeaders (strip, ws, out var rows);
@@ -90,8 +102,7 @@ namespace Majorsilence.Forms.Telerik
              : w is ToolWindow tw && !string.IsNullOrEmpty (tw.Caption) ? tw.Caption
              : w.Name ?? string.Empty;
 
-        // Per-strip header hit state. Rects are stored in DEVICE units so hit-testing agrees with
-        // mouse coordinates on scaled displays.
+        // Per-strip header hit state. Rects are stored in LOGICAL units, matching MouseEventArgs.
         internal sealed class HeaderState
         {
             public readonly List<(DockWindowBase win, Rectangle rect)> Rects = new ();
@@ -135,7 +146,9 @@ namespace Majorsilence.Forms.Telerik
                     strip.Enabled ? strip.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor,
                     ContentAlignment.MiddleLeft, maxLines: 1);
 
-                state.Rects.Add ((w, r));
+                // Logical: MouseEventArgs coordinates are logical, so the hit rects have to match. The
+                // device rect above is only for painting onto the device-pixel canvas.
+                state.Rects.Add ((w, logical));
             }
         }
 
@@ -170,7 +183,7 @@ namespace Majorsilence.Forms.Telerik
                 .FirstOrDefault (c => c is DocumentTabStrip or ToolTabStrip or DocumentContainer or SplitPanel);
             if (primary is not null) {
                 primary.Visible = true;
-                primary.Bounds = container.ClientRectangle;
+                primary.Bounds = LogicalClient (container);
             }
         }
     }
@@ -254,7 +267,7 @@ namespace Majorsilence.Forms.Telerik
                     .FirstOrDefault (c => !ReferenceEquals (c, main) && c.Visible
                         && c is DocumentTabStrip or ToolTabStrip or DocumentContainer or SplitPanel);
                 if (strip is not null) {
-                    strip.Bounds = ClientRectangle;
+                    strip.Bounds = DockStrip.LogicalClient (this);
                     if (Controls.GetChildIndex (strip, throwException: false) > 0)
                         Controls.SetChildIndex (strip, 0);
                 }
@@ -264,7 +277,7 @@ namespace Majorsilence.Forms.Telerik
 
             main.Visible = MainDocumentContainerVisible;
             if (MainDocumentContainerVisible) {
-                main.Bounds = ClientRectangle;
+                main.Bounds = DockStrip.LogicalClient (this);
 
                 // This compat dock has no SplitPanel engine: sibling tool strips keep their
                 // designer bounds while the main container fills the WHOLE dock, so they always

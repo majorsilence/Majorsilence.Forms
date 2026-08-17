@@ -374,6 +374,23 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Initializes a new blank bitmap with the specified dimensions and pixel format.</summary>
         public Bitmap (int width, int height, PixelFormat format) : this (width, height) { }
 
+        /// <summary>
+        /// Initializes a new blank bitmap with the specified dimensions, taking its resolution from the
+        /// given device context.
+        /// </summary>
+        /// <remarks>
+        /// WinForms declares this as <c>Bitmap(int, int, Graphics)</c>, and this is the same constructor
+        /// reached through the interface <c>Graphics</c> implements -- a call written the WinForms way binds
+        /// to it, which is what matters, and <c>Graphics</c> lives in the assembly above this one so it
+        /// cannot be named here. The pattern it serves is the common one: measure a cell, make an
+        /// off-screen bitmap matching the surface you will blit it onto, draw into that, blit once.
+        ///
+        /// The resolution is not read off the context, because every surface here is at 96 DPI and scaling
+        /// is applied by the backend rather than baked into bitmaps. So the argument is accepted and the
+        /// bitmap is the requested size in pixels -- which is the size the caller asked for.
+        /// </remarks>
+        public Bitmap (int width, int height, IDeviceContext deviceContext) : this (width, height) { }
+
         /// <summary>Initializes a new bitmap as a copy of an existing image.</summary>
         public Bitmap (Image original)
         {

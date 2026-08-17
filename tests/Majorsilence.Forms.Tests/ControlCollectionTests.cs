@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
@@ -167,7 +168,8 @@ namespace Majorsilence.Forms.Tests
             var child = new Control ();
             owner.Controls.Add (child);
 
-            var result = owner.Controls.Remove (child);
+            // Remove returns void, as WinForms does; the bool answer lives on ICollection<Control>.
+            var result = ((ICollection<Control>) owner.Controls).Remove (child);
 
             Assert.True (result);
             Assert.Equal (0, owner.Controls.Count);
@@ -183,7 +185,7 @@ namespace Majorsilence.Forms.Tests
             var stranger = new Control ();
             owner.Controls.Add (child);
 
-            var result = owner.Controls.Remove (stranger);
+            var result = ((ICollection<Control>) owner.Controls).Remove (stranger);
 
             Assert.False (result);
             Assert.Equal (1, owner.Controls.Count);
@@ -199,7 +201,7 @@ namespace Majorsilence.Forms.Tests
 
             // Cast required only because a bare null is ambiguous between the Control and Form
             // overloads of Remove -- see the remarks on ControlCollection.Remove(Form).
-            var result = owner.Controls.Remove ((Control) null!);
+            var result = ((ICollection<Control>) owner.Controls).Remove (null!);
 
             Assert.False (result);
             Assert.Equal (1, owner.Controls.Count);

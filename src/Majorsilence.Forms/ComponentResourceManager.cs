@@ -225,13 +225,30 @@ namespace Majorsilence.Forms
             if (resourceName is null)
                 return;
 
-            using var stream = assembly.GetManifestResourceStream (resourceName);
-            if (stream is null)
-                return;
+            byte[] bytes;
+            using (var manifest = assembly.GetManifestResourceStream (resourceName))
+            {
+                if (manifest is null)
+                    return;
+
+                using var buffer = new MemoryStream ();
+                manifest.CopyTo (buffer);
+                bytes = buffer.ToArray ();
+            }
 
             System.Resources.Extensions.DeserializingResourceReader reader;
-            try { reader = new System.Resources.Extensions.DeserializingResourceReader (stream); }
-            catch { return; }   // not the preserialized format this reader expects -- leave empty.
+            try { reader = new System.Resources.Extensions.DeserializingResourceReader (new MemoryStream (bytes, writable: false)); }
+            catch
+            {
+                // Not the preserialized format this reader expects -- try to lift the payloads out of the
+                // container directly rather than giving up on the whole resource set.
+                RecoverRawEntries (bytes, _ => true);
+                return;
+            }
+
+            // Names whose value the reader would not produce. Collected rather than acted on inline
+            // because recovering them re-reads the container, which would disturb this enumerator.
+            var unreadable = new List<string> ();
 
             using (reader)
             {
@@ -244,13 +261,53 @@ namespace Majorsilence.Forms
                     if (!moved)
                         break;
 
+                    // Key is safe to read for every entry -- only Value deserializes, and only Value throws.
+                    string name;
+                    try { name = (string) enumerator.Key; }
+                    catch { continue; }
+
                     try
                     {
-                        var name = (string) enumerator.Key;
-                        _binaryEntries[name] = NormalizeDeserialized (enumerator.Value);
+                        var value = NormalizeDeserialized (enumerator.Value);
+                        _binaryEntries[name] = value;
+
+                        if (value is null)
+                            unreadable.Add (name);   // deserialized, but into nothing we could use.
                     }
-                    catch { /* this entry's type couldn't be resolved/deserialized -- skip it, keep going. */ }
+                    catch { unreadable.Add (name); }
                 }
+            }
+
+            if (unreadable.Count > 0)
+                RecoverRawEntries (bytes, unreadable.Contains);
+        }
+
+        // Second pass over the entries the reader above could not turn into a value: takes their payload
+        // bytes straight out of the container and decodes the shapes we support ourselves. The case that
+        // matters in practice is a designer resource the original tooling wrote with BinaryFormatter --
+        // ImageList.ImageStream, and images/icons saved the same way -- which the reader now refuses
+        // outright (BinaryFormatter was removed in .NET 9) even though the bytes are ordinary NRBF that
+        // NrbfResourceReader reads. Left unrecovered, an ImageList stays empty and every toolbar button
+        // that indexes into it draws with no image at all.
+        private void RecoverRawEntries (byte[] file, Func<string, bool> wanted)
+        {
+            foreach (var (name, entry) in RawResourcesReader.Read (file, wanted))
+            {
+                var value = entry.Format switch {
+                    // Already returns Majorsilence.Forms.Drawing types, so no NormalizeDeserialized here.
+                    RawResourcesReader.RawFormat.BinaryFormatter
+                        => NrbfResourceReader.TryReadObject (entry.Data),
+
+                    // Both store an image/icon as its original file bytes.
+                    RawResourcesReader.RawFormat.TypeConverterByteArray or
+                    RawResourcesReader.RawFormat.ActivatorStream
+                        => BuildImage (entry.TypeName, entry.Data),
+
+                    _ => null,
+                };
+
+                if (value is not null)
+                    _binaryEntries[name] = value;
             }
         }
 

@@ -55,6 +55,24 @@ public partial class Control
         }
 
         /// <summary>
+        ///  Adds a control as a child, the WinForms-shaped overload that returns nothing.
+        /// </summary>
+        /// <remarks>
+        ///  This library's own <see cref="Add{T}"/> returns the control it added, which reads well when
+        ///  building a tree inline. WinForms declares <c>void Add(Control?)</c> and a control library
+        ///  overrides it -- to refuse additions on a read-only collection, or to redirect them into an
+        ///  inner panel -- so the WinForms signature has to exist to be overridden. Overload resolution
+        ///  keeps the generic form for a statically-typed argument (<c>Controls.Add(new Label())</c> still
+        ///  returns the Label), so existing code is unaffected.
+        /// </remarks>
+        public virtual void Add (Control? value)
+        {
+            if (value is not null)
+                Add<Control> (value);
+        }
+
+
+        /// <summary>
         ///  Adds a <see cref="Form"/> as a child of this control, as WinForms does for a form whose
         ///  <see cref="Form.TopLevel"/> is false. The form is wrapped in a frame that composites it into
         ///  this control tree; it owns no on-screen window while hosted.
@@ -122,7 +140,9 @@ public partial class Control
             if (form?.PanelHost is not { } frame || frame.Parent != Owner)
                 return false;
 
-            return Remove (frame);
+            // The Form overload keeps its bool: it reports whether the form was hosted here at all, which
+            // the Control overload's WinForms signature has no way to say.
+            return RemoveCore (frame);
         }
 
         /// <summary>
@@ -327,13 +347,13 @@ public partial class Control
         {
             for (var i = 0; i < implicit_control_list.Count; i++) {
                 var c = implicit_control_list[i];
-                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.ScaledBounds.Contains (location))
+                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.Bounds.Contains (location))
                     return c;
             }
 
             for (var i = 0; i < control_list.Count; i++) {
                 var c = control_list[i];
-                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.ScaledBounds.Contains (location))
+                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.Bounds.Contains (location))
                     return c;
             }
 
@@ -535,7 +555,17 @@ public partial class Control
         ///  Removes control from this control. Inheriting controls should call
         ///  base.remove to ensure that the control is removed.
         /// </summary>
-        public virtual bool Remove (Control item)
+        /// <remarks>
+        ///  Returns nothing, as WinForms does, so a control library can override it -- a read-only
+        ///  collection overrides Add and Remove together to refuse both. Whether anything was removed is
+        ///  still available through <see cref="ICollection{T}.Remove"/>, which the collection implements
+        ///  explicitly because that interface requires a bool.
+        /// </remarks>
+        public virtual void Remove (Control? value) => RemoveCore (value);
+
+        bool ICollection<Control>.Remove (Control item) => RemoveCore (item);
+
+        private bool RemoveCore (Control? item)
         {
             // Sanity check parameter
             if (item is null)
@@ -571,7 +601,7 @@ public partial class Control
         /// </summary>
         public void RemoveAt (int index)
         {
-            Remove (this[index]);
+            RemoveCore (this[index]);
         }
 
         /// <summary>

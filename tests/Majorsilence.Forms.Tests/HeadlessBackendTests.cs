@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Headless;
+﻿using Majorsilence.Forms.Headless;
 using SkiaSharp;
 using Xunit;
 
@@ -27,9 +27,13 @@ public class HeadlessBackendTests
         Assert.NotNull (png);
         Assert.True (png.Length > 0);
 
+        // The requested size is logical; the bitmap comes back in device pixels, so on a scaled display
+        // it is proportionally larger. Asserting the raw numbers only held while scaling was 1.
+        var scale = form.Scaling;
+
         using var bmp = SKBitmap.Decode (png);
-        Assert.Equal (200, bmp.Width);
-        Assert.Equal (120, bmp.Height);
+        Assert.Equal ((int)(200 * scale), bmp.Width);
+        Assert.Equal ((int)(120 * scale), bmp.Height);
     }
 
     [Fact]
@@ -64,17 +68,26 @@ public class HeadlessBackendTests
         // relying on the paint clip to hide anything past the control's edge, not the text layout
         // engine to refuse drawing). Fixed by passing an unconstrained height into text layout and
         // letting canvas.Clip(bounds) do the only actual vertical clipping, as before.
-        var form = new Form ();
+        // UseSystemDecorations gives a clean client area, as in TextInput_ReachesFocusedTextBox: without
+        // it the in-client FormTitleBar covers the top ~34 logical px and therefore the whole label. This
+        // test then compared title-bar pixels against title-bar pixels and passed without ever looking at
+        // a glyph -- so the regression it names was not actually being guarded.
+        var form = new Form { UseSystemDecorations = true };
         var label = new Label { Text = "Fore Color:", AutoSize = false, Left = 4, Top = 4, Width = 100, Height = 13 };
         form.Controls.Add (label);
 
         var png = HeadlessRenderer.CapturePng (form, 200, 60);
 
+        // The label's bounds are logical; the captured bitmap is device pixels. Sample through the scale
+        // or a run at MF_HEADLESS_SCALE=2 reads the top-left quarter of the label and calls it the whole.
+        var scale = form.Scaling;
+        int Device (int logical) => (int)(logical * scale);
+
         using var bmp = SKBitmap.Decode (png);
-        var background = bmp.GetPixel (150, 40);   // far from the label -- the form's own background
+        var background = bmp.GetPixel (Device (150), Device (40));   // far from the label -- the form's own background
         var textPixelFound = false;
-        for (var y = label.Top; y < label.Top + label.Height && !textPixelFound; y++)
-            for (var x = label.Left; x < label.Left + label.Width; x++)
+        for (var y = Device (label.Top); y < Device (label.Top + label.Height) && !textPixelFound; y++)
+            for (var x = Device (label.Left); x < Device (label.Left + label.Width); x++)
                 if (bmp.GetPixel (x, y) != background) { textPixelFound = true; break; }
 
         Assert.True (textPixelFound, "Label text did not render within its own (short) bounds.");

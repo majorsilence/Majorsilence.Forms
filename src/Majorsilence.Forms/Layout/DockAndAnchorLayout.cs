@@ -245,9 +245,17 @@ internal sealed partial class DefaultLayout : LayoutEngine
         //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, "\t\tdisplayRect: " + container.DisplayRectangle.ToString());
 
         var displayRectangle = container.DisplayRectangle;
-        if (CommonProperties.GetAutoSize (container) && ((displayRectangle.Width == 0) || (displayRectangle.Height == 0))) {
-            // we haven't set ourselves to the preferred size yet. proceeding will
-            // just set all the control widths to zero. let's return here
+        if ((displayRectangle.Width <= 0) || (displayRectangle.Height <= 0)) {
+            // A degenerate display rectangle cannot be anchored against: applying the deltas to it
+            // collapses every anchored child to nothing. That was originally guarded only for AutoSize
+            // containers ("we haven't set ourselves to the preferred size yet"), but a fixed-size
+            // container can report a zero rectangle transiently too -- a themed form's root panel does,
+            // mid-construction -- and the collapse it caused was then made permanent: the blanket
+            // re-init on the next ResumeLayout saw the anchor-produced zero-width bounds, could not
+            // skip (the capture on record was against the empty rectangle), and re-captured the
+            // deltas from the collapsed bounds as if the application had chosen them. Skipping the
+            // pass entirely leaves the children at their last real bounds and the deltas untouched,
+            // so the next pass against a real rectangle places them correctly.
             return;
         }
 
@@ -583,6 +591,23 @@ internal sealed partial class DefaultLayout : LayoutEngine
             && !anchorInfo.CapturedParentDisplayRectangle.IsEmpty)
             return;
 
+        // The mirror-image defence: never OVERWRITE a snapshot taken against a real parent rectangle
+        // with one taken against a degenerate one. A container can report a zero-size DisplayRectangle
+        // transiently mid-construction (observed: a themed form's root panel during the re-parenting
+        // churn of its constructor, via ScrollableControl.Recalculate's blanket re-init). The anchor
+        // pass that runs at that moment shrinks this element to nothing -- so the guard above does not
+        // skip, the element's bounds having genuinely changed -- and capturing here would launder that
+        // collapse into "valid" deltas that keep the element at zero size forever. Keeping the good
+        // snapshot instead makes the collapse self-healing: as soon as the parent reports real bounds
+        // again, the next anchor pass re-stretches this element from the deltas that were true.
+        if (anchorInfo.HasCapturedElementBounds
+            && !anchorInfo.CapturedParentDisplayRectangle.IsEmpty
+            && element.Container is { } container) {
+            var currentParentRect = container.DisplayRectangle;
+            if (currentParentRect.Width <= 0 || currentParentRect.Height <= 0)
+                return;
+        }
+
         //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, "Update anchor info");
         Debug.Indent ();
         //Debug.WriteLineIf(CompModSwitches.RichLayout.TraceInfo, element.Container is null ? "No parent" : "Parent");
@@ -817,6 +842,37 @@ internal sealed partial class DefaultLayout : LayoutEngine
     private static void SetAnchorInfo (IArrangedElement element, AnchorInfo? value)
     {
         element.Properties.SetObject (s_layoutInfoProperty, value);
+    }
+
+    /// <summary>
+    /// Drops the "this snapshot is still current" marker so the next <see cref="InitLayoutCore"/> for
+    /// <paramref name="element"/> re-captures its anchor distances instead of taking the skip in
+    /// <see cref="UpdateAnchorInfo"/>.
+    /// </summary>
+    /// <remarks>
+    /// Only <see cref="Control.ResumeLayout(bool)"/>'s no-layout path calls this, and it has to: a
+    /// container that was resized WHILE its layout was suspended still holds anchor snapshots taken
+    /// against its previous DisplayRectangle. The skip in UpdateAnchorInfo cannot tell that case apart
+    /// from a genuinely redundant re-init, because the child's own Bounds have not moved and the stale
+    /// parent rectangle is not degenerate -- so it returns early and the old reference survives. The
+    /// next layout then "stretches" the child from a size the container no longer has.
+    ///
+    /// Designer code hits this constantly: InitializeComponent suspends the panel, adds children while
+    /// the panel is still its default 200x100, assigns the real Size, then calls ResumeLayout(False)
+    /// followed by PerformLayout(). Without this invalidation a child placed below y=100 anchors from a
+    /// negative distance-to-bottom and lands far outside the panel (observed: a button designed at
+    /// y=205 in an 851x238 panel ending up at y=343, off the visible area entirely).
+    ///
+    /// Not folded into UpdateAnchorInfo's guard as a "parent rectangle changed" test: during a normal
+    /// resize the parent rectangle changes too, and re-capturing there would cancel the very anchor
+    /// movement the layout is running.
+    /// </remarks>
+    internal static void InvalidateAnchorInfo (IArrangedElement element)
+    {
+        var anchorInfo = (AnchorInfo?)element.Properties.GetObject (s_layoutInfoProperty);
+
+        if (anchorInfo is not null)
+            anchorInfo.HasCapturedElementBounds = false;
     }
 
     private protected override void InitLayoutCore (IArrangedElement element, BoundsSpecified specified)

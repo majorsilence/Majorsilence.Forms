@@ -9,7 +9,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents the base class for all Controls.
     /// </summary>
-    public partial class Control : Component, ILayoutable, IArrangedElement, IDisposable, IWin32Window
+    public partial class Control : Component, ILayoutable, IArrangedElement, IDisposable, IWin32Window, IBindableComponent
     {
         /// <summary>Win32 HWND compatibility -- Majorsilence.Forms has no HWND, always IntPtr.Zero.
         /// Implemented so ported WinForms code like `MessageBox.Show(this, ...)` (passing a
@@ -35,6 +35,9 @@ namespace Majorsilence.Forms
         private int tab_index = -1;
         private string text = string.Empty;
         private byte layout_suspend_count;
+        // Set when our own size changes while layout is suspended; consumed by ResumeLayout to
+        // re-snapshot anchored children against the display rectangle they never saw.
+        private bool _resizedWhileLayoutSuspended;
 
         private SKBitmap? back_buffer;
         private Control? current_mouse_in;
@@ -166,18 +169,80 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating the control is currently getting system mouse events.
         /// </summary>
+        /// <remarks>
+        /// Capture is EXCLUSIVE, as it is in WinForms: taking it hands it over, and whoever held it
+        /// stops receiving mouse events and is told so through <see cref="OnMouseCaptureChanged"/>.
+        ///
+        /// This used to flag the control *and every ancestor* independently, with no notion of a single
+        /// holder, so handing capture over did nothing: the previous holder kept its flag and
+        /// <see cref="ControlCollection.FindCapturedChild"/> — which walks to the deepest capturing
+        /// control — kept routing every move straight back to it. That is precisely how WinForms code
+        /// takes over a drag it started: the control captures on mouse-down, then hands capture to the
+        /// form, after which moves arrive at the form instead. Left broken, DockPanelSuite's tab drag
+        /// re-entered BeginDrag on every single mouse move, each one building another full-screen drag
+        /// outline window, until ~30 of them covered the screen and the app looked hung.
+        ///
+        /// Ancestors are no longer flagged because the getter already reports true for them (a parent
+        /// aggregates its subtree through <see cref="ControlCollection.AnyCaptured"/>), so the routing
+        /// walk still finds the holder — while `is_captured` now means "this control IS the holder",
+        /// which is the question the mouse dispatch in RaiseMouseMove/RaiseMouseUp actually asks.
+        /// </remarks>
         public bool Capture {
             get => is_captured || Controls.AnyCaptured ();
             set {
-                var changed = is_captured != value;
+                if (value) {
+                    var previous = s_captureHolder;
 
-                is_captured = value;
+                    // Claim it first: releasing the previous holder runs this same setter, and it must
+                    // not clear the holder we are in the middle of installing.
+                    s_captureHolder = this;
 
-                if (changed)
-                    OnMouseCaptureChanged (EventArgs.Empty);
+                    if (previous is not null && !ReferenceEquals (previous, this))
+                        previous.Capture = false;
 
-                if (Parent != null)
-                    Parent.Capture = value;
+                    if (!is_captured) {
+                        is_captured = true;
+                        OnMouseCaptureChanged (EventArgs.Empty);
+                    }
+                } else {
+                    if (ReferenceEquals (s_captureHolder, this))
+                        s_captureHolder = null;
+
+                    if (is_captured) {
+                        is_captured = false;
+                        OnMouseCaptureChanged (EventArgs.Empty);
+                    }
+                }
+            }
+        }
+
+        // The single control currently holding capture. Static because capture is a property of the
+        // pointer, not of a window, and these apps run one UI thread -- the same assumption
+        // Application's message filter list is built on.
+        private static Control? s_captureHolder;
+
+        /// <summary>The control currently holding the mouse capture, or null. See <see cref="Capture"/>.</summary>
+        /// <remarks>
+        /// Self-healing: a control that was disposed while holding the capture releases it here rather
+        /// than swallowing every mouse event in the application for the rest of the session. Disposal
+        /// clears this too — this covers a holder torn down by some route that never ran Dispose.
+        /// </remarks>
+        internal static Control? CaptureHolder {
+            get {
+                if (s_captureHolder is { IsDisposed: true })
+                    s_captureHolder = null;
+
+                return s_captureHolder;
+            }
+        }
+
+        /// <summary>The top of this control's parent chain — the adapter of the window it lives in.</summary>
+        internal Control RootControl {
+            get {
+                var root = this;
+                while (root.Parent is { } parent)
+                    root = parent;
+                return root;
             }
         }
 
@@ -228,9 +293,24 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets the scaled size of the control.
+        /// Gets or sets the size of the control's client area.
         /// </summary>
-        public Size ClientSize => ClientRectangle.Size;
+        /// <remarks>
+        /// The setter grows <see cref="Size"/> by whatever the border currently takes, which is what makes
+        /// <c>ClientSize = contentSize</c> mean the same thing here as in WinForms: a caller that has
+        /// measured its content and wants exactly that much room inside the border gets it, rather than
+        /// losing the border's width off the inside. It was read-only before, so those assignments -- the
+        /// normal way a dialog sizes itself to its content -- did not compile.
+        /// </remarks>
+        public Size ClientSize {
+            get => ClientRectangle.Size;
+            set {
+                var client = ClientRectangle.Size;
+                var border = new Size (Width - client.Width, Height - client.Height);
+
+                Size = new Size (value.Width + border.Width, value.Height + border.Height);
+            }
+        }
 
         /// <summary>
         /// Gets a value indicating if the specified control is parented to this control or any of its children.
@@ -502,7 +582,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets whether this control currently has keyboard focus.
         /// </summary>
-        public bool Focused => Selected;
+        public virtual bool Focused => Selected;
 
         /// <summary>
         /// Releases the back buffer.
@@ -919,6 +999,26 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Converts a scaled (device) value back to an unscaled (logical) one.
+        /// </summary>
+        /// <remarks>
+        /// The inverse of <see cref="LogicalToDeviceUnits(int)"/>, for results that come back from
+        /// something measured at the device font size -- text metrics, mainly -- and then have to be
+        /// stored somewhere logical such as a control's Bounds.
+        /// </remarks>
+        public int DeviceToLogicalUnits (int value)
+        {
+            var dpi = DeviceDpi;
+            return dpi <= 0 || dpi == DpiHelper.LogicalDpi
+                ? value
+                : (int)Math.Round (value * DpiHelper.LogicalDpi / dpi);
+        }
+
+        /// <inheritdoc cref="DeviceToLogicalUnits(int)"/>
+        public Size DeviceToLogicalUnits (Size value)
+            => new Size (DeviceToLogicalUnits (value.Width), DeviceToLogicalUnits (value.Height));
+
+        /// <summary>
         /// Converts an unscaled Padding to a scaled Padding.
         /// </summary>
         public Padding LogicalToDeviceUnits (Padding value)
@@ -1028,12 +1128,12 @@ namespace Majorsilence.Forms
         /// <summary>
         ///  Raises the <see cref='ControlAdded'/> event.
         /// </summary>
-        protected virtual void OnControlAdded (ControlEventArgs e) => (Events[s_controlAddedEvent] as EventHandler<ControlEventArgs>)?.Invoke (this, e);
+        protected virtual void OnControlAdded (ControlEventArgs e) => (Events[s_controlAddedEvent] as ControlEventHandler)?.Invoke (this, e);
 
         /// <summary>
         ///  Raises the <see cref='ControlRemoved'/> event.
         /// </summary>
-        protected virtual void OnControlRemoved (ControlEventArgs e) => (Events[s_controlRemovedEvent] as EventHandler<ControlEventArgs>)?.Invoke (this, e);
+        protected virtual void OnControlRemoved (ControlEventArgs e) => (Events[s_controlRemovedEvent] as ControlEventHandler)?.Invoke (this, e);
 
         /// <summary>
         ///  Called when the control is first created.
@@ -1062,6 +1162,7 @@ namespace Majorsilence.Forms
         protected virtual void OnDoubleClick (MouseEventArgs e)
         {
             (Events[s_doubleClickEvent] as EventHandler)?.Invoke (this, e);
+            OnDoubleClick ((EventArgs)e);
             OnMouseDoubleClick (e);
         }
 
@@ -1317,9 +1418,20 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnPaintBackground (PaintEventArgs e)
         {
-            // The ControlAdapter itself should not have a background/border
-            if (this is ControlAdapter)
+            // The ControlAdapter itself should not have a background/border -- the window paints those
+            // (see WindowBase.RenderFrame) and repainting them here would cover what a Form.Paint
+            // handler just drew.
+            //
+            // Its background IMAGE is a different matter: Form.BackgroundImage forwards to the adapter,
+            // so returning before drawing it made that property stored-and-never-drawn. A splash screen
+            // built the usual way -- a borderless form whose whole content is BackgroundImage -- came up
+            // as a blank white rectangle over the application.
+            if (this is ControlAdapter) {
+                if (BackgroundImage is not null)
+                    PaintBackgroundImage (e);
+
                 return;
+            }
 
             // Transparent controls should not draw a background or border
             if (behaviors.HasFlag (ControlBehaviors.Transparent)) {
@@ -1562,12 +1674,17 @@ namespace Majorsilence.Forms
                 if (window is null)
                     return point;
 
-                var window_location = window.Location;
+                // The CLIENT origin, not the window's -- they differ by the title bar on a window with
+                // native chrome, and everything downstream (Cursor.Position, PointToClient, cross-window
+                // hit tests) has to agree on one screen space.
+                var window_location = window.ClientOriginOnScreen;
 
-                // For Mac, the desktop coordinates are measured at a different scale than
-                // our form coordinates, so we need to fix that. For other platforms, ratio is 1.
-                var desktop_ratio = window.DesktopScaling / window.Scaling;
-                point = new Point ((int)(point.X * desktop_ratio), (int)(point.Y * desktop_ratio));
+                // Logical in, desktop out: the accumulated offset is in logical units and the window's
+                // Location is in desktop ones, so scale by the real display factor. Deliberately
+                // DesktopScaling and not Scaling -- Scaling carries Application.UiScale, and zooming the
+                // app must not move where its windows think they are on the desktop.
+                var scale = window.DesktopScaling;
+                point = new Point ((int)Math.Round (point.X * scale), (int)Math.Round (point.Y * scale));
 
                 window_location.Offset (point);
 
@@ -1575,8 +1692,8 @@ namespace Majorsilence.Forms
             }
 
             // If this isn't the top, we need to add our location to the point
-            // and ask our parent to translate that
-            point.Offset (ScaledBounds.Location);
+            // and ask our parent to translate that. Logical, matching what callers pass in.
+            point.Offset (Bounds.Location);
 
             // If we aren't parented to a Form, this method is pretty meaningless
             return Parent?.PointToScreen (point) ?? point;
@@ -1613,6 +1730,13 @@ namespace Majorsilence.Forms
                 return;
             }
 
+            // A control that raises its own click -- Krypton's buttons route mouse-up through a view
+            // controller and call OnClick themselves -- turns the standard raise OFF with
+            // ControlStyles.StandardClick, exactly to prevent the double fire this guard prevents.
+            // Ignoring the style meant one click opened two of everything.
+            if (!GetStyle (ControlStyles.StandardClick))
+                return;
+
             // WinForms order: Click first, then the typed MouseClick.
             OnClick (e);
             OnMouseClick (e);
@@ -1635,7 +1759,7 @@ namespace Majorsilence.Forms
 
             if (child != null)
                 child.RaiseDoubleClick (TranslateMouseEvents (e, child));
-            else if (Enabled)
+            else if (Enabled && GetStyle (ControlStyles.StandardDoubleClick))   // see RaiseClick's guard
                 OnDoubleClick (e);
         }
 
@@ -2090,6 +2214,20 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gives the control focus.
         /// </summary>
+        /// <summary>
+        /// Selects this control, or -- when <paramref name="directed"/> -- the next selectable control
+        /// in tab order. The overridable WinForms routes every selection through; a container that
+        /// manages its own focus (a workspace deciding which of its cells takes it) overrides this.
+        /// </summary>
+        protected virtual void Select (bool directed, bool forward)
+        {
+            if (directed)
+                SelectNextControl (null, forward, tabStopOnly: true, nested: true, wrap: false);
+            else
+                Select ();
+        }
+
+        /// <summary>Selects this control, giving it focus.</summary>
         public void Select ()
         {
             if (Selected || !CanSelect)
@@ -2250,7 +2388,13 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets a value indicating a focus rectangle should be drawn on the selected control.
         /// </summary>
-        public bool ShowFocusCues => FindForm ()?.ShowFocusCues == true;
+        /// <remarks>
+        /// Protected-internal, not public: WinForms declares this protected, and themed control
+        /// libraries reach it by reflecting with BindingFlags.NonPublic -- against a public property
+        /// that lookup finds nothing and the caller dereferences null. Internal keeps this library's
+        /// own renderers, which read it across instances, compiling.
+        /// </remarks>
+        protected internal virtual bool ShowFocusCues => FindForm ()?.ShowFocusCues == true;
 
         /// <summary>
         /// Gets or sets the unscaled size of the control.
@@ -2433,7 +2577,7 @@ namespace Majorsilence.Forms
             if (control == null)
                 return e;
 
-            return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.ScaledLeft, e.Location.Y - control.ScaledTop, e.DeltaPoint, e.Location.X, e.Location.Y, e.Modifiers);
+            return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.Left, e.Location.Y - control.Top, e.DeltaPoint, e.Location.X, e.Location.Y, e.Modifiers);
         }
 
         /// <summary>
@@ -2499,6 +2643,11 @@ namespace Majorsilence.Forms
 
                 foreach (var c in Controls.GetAllControls (true))
                     c.Dispose (disposing);
+
+                // A disposed control must not keep the capture: it would go on being handed every mouse
+                // event in the application, with nothing left to deliver them to.
+                if (ReferenceEquals (s_captureHolder, this))
+                    s_captureHolder = null;
 
                 disposedValue = true;
                 _isDisposed = true;

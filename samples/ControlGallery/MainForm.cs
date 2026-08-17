@@ -81,7 +81,7 @@ namespace ControlGallery
             Image = ImageLoader.Get ("button.png");
         }
 
-        private void Tree_ItemSelected (object? sender, EventArgs<TreeViewItem> e)
+        private void Tree_ItemSelected (object? sender, EventArgs<TreeNode> e)
         {
             if (current_panel != null) {
                 Controls.Remove (current_panel);

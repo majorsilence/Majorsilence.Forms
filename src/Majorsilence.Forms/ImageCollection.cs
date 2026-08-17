@@ -276,6 +276,48 @@ public class ImageCollection : IDictionary<string, SKBitmap>
             Add (img);
     }
 
+    /// <summary>
+    /// Adds each frame of a horizontal image strip as a separate image.
+    /// </summary>
+    /// <remarks>
+    /// The canonical way a control library ships a set of glyphs: one wide bitmap holding N frames side by
+    /// side, sliced into <see cref="ImageList.ImageSize"/>-wide pieces. Really implemented -- the frames are
+    /// cut out and added individually -- because the alternative (adding the strip as one image) would draw
+    /// every glyph as the whole sheet, which is a visible fault rather than a missing feature.
+    /// </remarks>
+    /// <returns>The index of the first frame added.</returns>
+    /// <exception cref="ArgumentException">The strip's width is not a multiple of the image width.</exception>
+    public int AddStrip (Majorsilence.Forms.Drawing.Image image)
+    {
+        ArgumentNullException.ThrowIfNull (image);
+
+        var frameWidth = (int)ImageSize.Width;
+        var frameHeight = (int)ImageSize.Height;
+
+        using var strip = image.ToSKBitmap ();
+
+        if (strip is null)
+            return Count;
+
+        if (frameWidth <= 0 || strip.Width % frameWidth != 0)
+            throw new ArgumentException (
+                $"Strip width {strip.Width} is not a multiple of the image width {frameWidth}.", nameof (image));
+
+        var first = Count;
+
+        for (var x = 0; x < strip.Width; x += frameWidth) {
+            var frame = new SKBitmap (frameWidth, frameHeight);
+
+            using (var canvas = new SKCanvas (frame))
+                canvas.DrawBitmap (strip, new SKRect (x, 0, x + frameWidth, frameHeight),
+                                   new SKRect (0, 0, frameWidth, frameHeight));
+
+            Add (frame);
+        }
+
+        return first;
+    }
+
     /// <summary>Gets the zero-based index of the image with the specified key, or -1 if not found.</summary>
     public int IndexOfKey (string key)
     {

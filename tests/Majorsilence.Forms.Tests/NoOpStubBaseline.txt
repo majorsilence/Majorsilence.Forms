@@ -14,6 +14,7 @@ Majorsilence.Forms.Application.SetUnhandledExceptionMode/1
 Majorsilence.Forms.Application.SetUnhandledExceptionMode/2
 Majorsilence.Forms.Backends.IWindowBackend.SetCaptionRegions/1
 Majorsilence.Forms.Backends.IWindowBackend.SetExtendClientIntoTitleBar/2
+Majorsilence.Forms.Backends.IWindowBackend.SetShaped/1
 Majorsilence.Forms.Binding.ReadValue/0
 Majorsilence.Forms.Binding.WriteValue/0
 Majorsilence.Forms.BindingManagerBase.AddNew/0
@@ -31,7 +32,6 @@ Majorsilence.Forms.Clipboard.SetImage/1
 Majorsilence.Forms.ColumnHeader.AutoResize/1
 Majorsilence.Forms.ComboBox.SelectAll/0
 Majorsilence.Forms.Control.AccessibilityNotifyClients/2
-Majorsilence.Forms.Control.CreateHandle/0
 Majorsilence.Forms.Control.DrawToBitmap/2
 Majorsilence.Forms.Control.ScrollControlIntoView/1
 Majorsilence.Forms.Control.UpdateStyles/0
@@ -81,10 +81,15 @@ Majorsilence.Forms.Design.Behavior.BehaviorService.Invalidate/1
 Majorsilence.Forms.Design.Behavior.BehaviorService.SyncSelection/0
 Majorsilence.Forms.Design.ComponentDesigner.DoDefaultAction/0
 Majorsilence.Forms.Design.ComponentDesigner.InitializeNewComponent/1
+Majorsilence.Forms.Design.DesignerActionUIService.HideUI/1
+Majorsilence.Forms.Design.DesignerActionUIService.Refresh/1
+Majorsilence.Forms.Design.DesignerActionUIService.ShowUI/1
+Majorsilence.Forms.Design.UITypeEditor.PaintValue/1
 Majorsilence.Forms.Drawing.BufferedGraphicsContext.Invalidate/0
 Majorsilence.Forms.Drawing.Graphics.AddMetafileComment/1
 Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/3
 Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/5
+Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/6
 Majorsilence.Forms.Drawing.Graphics.Flush/0
 Majorsilence.Forms.Drawing.Graphics.Flush/1
 Majorsilence.Forms.Drawing.Graphics.MultiplyTransform/1
@@ -94,6 +99,7 @@ Majorsilence.Forms.Drawing.Graphics.ReleaseHdc/1
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdcInternal/1
 Majorsilence.Forms.ErrorProvider.UpdateBinding/0
 Majorsilence.Forms.GridItem.Select/0
+Majorsilence.Forms.GroupBoxRenderer.DrawParentBackground/3
 Majorsilence.Forms.Help.ShowHelp/2
 Majorsilence.Forms.Help.ShowHelp/3
 Majorsilence.Forms.Help.ShowHelp/4
@@ -104,6 +110,7 @@ Majorsilence.Forms.HelpProvider.SetShowHelp/2
 Majorsilence.Forms.ImageCollection.SetKeyName/2
 Majorsilence.Forms.ImageListStreamer.Dispose/0
 Majorsilence.Forms.ListViewItem.BeginEdit/0
+Majorsilence.Forms.Media.SoundPlayer.Load/0
 Majorsilence.Forms.NativeWindow.AssignHandle/1
 Majorsilence.Forms.NativeWindow.CreateHandle/1
 Majorsilence.Forms.NativeWindow.DestroyHandle/0
@@ -135,7 +142,6 @@ Majorsilence.Forms.TextBoxBase.ClearUndo/0
 Majorsilence.Forms.TextBoxBase.ScrollToCaret/0
 Majorsilence.Forms.TextBoxBase.Undo/0
 Majorsilence.Forms.TextRenderer.DrawText/5
-Majorsilence.Forms.ToolStripDropDownButton.ShowDropDown/0
 Majorsilence.Forms.ToolStripManager.LoadSettings/1
 Majorsilence.Forms.ToolStripManager.LoadSettings/2
 Majorsilence.Forms.ToolStripManager.SaveSettings/1
@@ -144,9 +150,11 @@ Majorsilence.Forms.ToolStripPanel.BeginInit/0
 Majorsilence.Forms.ToolTip.SetToolTip/2
 Majorsilence.Forms.TrackBar.BeginInit/0
 Majorsilence.Forms.TrackBar.EndInit/0
+Majorsilence.Forms.TreeNode.BeginEdit/0
+Majorsilence.Forms.TreeNode.EndEdit/1
 Majorsilence.Forms.TreeView.Sort/0
-Majorsilence.Forms.TreeViewItem.BeginEdit/0
-Majorsilence.Forms.TreeViewItem.EndEdit/1
+Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/2
+Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/3
 Majorsilence.Forms.WebBrowser.GoBack/0
 Majorsilence.Forms.WebBrowser.GoForward/0
 Majorsilence.Forms.WebBrowser.GoHome/0

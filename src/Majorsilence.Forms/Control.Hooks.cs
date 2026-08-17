@@ -164,7 +164,7 @@ public partial class Control
     protected virtual void OnMouseClick (MouseEventArgs e) => (Events[s_mouseClickEvent] as MouseEventHandler)?.Invoke (this, e);
 
     /// <summary>
-    /// Raises the <see cref="MouseDoubleClick"/> event. Called by <see cref="OnDoubleClick"/>.
+    /// Raises the <see cref="MouseDoubleClick"/> event. Called by <see cref="OnDoubleClick(MouseEventArgs)"/>.
     /// </summary>
     protected virtual void OnMouseDoubleClick (MouseEventArgs e) => (Events[s_mouseDoubleClickEvent] as MouseEventHandler)?.Invoke (this, e);
 
@@ -182,7 +182,7 @@ public partial class Control
     /// <summary>
     /// Raises the <see cref="PreviewKeyDown"/> event, called just before <see cref="OnKeyDown"/>.
     /// </summary>
-    protected virtual void OnPreviewKeyDown (PreviewKeyDownEventArgs e) => (Events[s_previewKeyDownEvent] as EventHandler<PreviewKeyDownEventArgs>)?.Invoke (this, e);
+    protected virtual void OnPreviewKeyDown (PreviewKeyDownEventArgs e) => (Events[s_previewKeyDownEvent] as PreviewKeyDownEventHandler)?.Invoke (this, e);
 
     #endregion
 

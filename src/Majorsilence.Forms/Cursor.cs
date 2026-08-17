@@ -23,6 +23,19 @@ namespace Majorsilence.Forms
         /// </remarks>
         public Cursor (IntPtr handle) : this (CursorType.Arrow) { }
 
+        /// <summary>Creates a cursor from a .cur stream.</summary>
+        /// <remarks>
+        /// Same contract as the handle constructor above: accepted for source compatibility, and the
+        /// cursor behaves as the default. The .cur/.ani formats are Win32 resource formats with no
+        /// cross-platform decoder here, and the callers seen so far (drag-feedback cursors) degrade to
+        /// exactly what the handle path already documents -- the standard pointer, a cosmetic loss.
+        /// </remarks>
+        public Cursor (System.IO.Stream stream) : this (CursorType.Arrow) { }
+
+        /// <summary>Creates a cursor from a .cur file.</summary>
+        /// <inheritdoc cref="Cursor(System.IO.Stream)"/>
+        public Cursor (string fileName) : this (CursorType.Arrow) { }
+
         /// <inheritdoc/>
         public void Dispose ()
         {

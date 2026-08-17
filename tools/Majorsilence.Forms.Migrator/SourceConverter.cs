@@ -209,6 +209,20 @@ internal static class SourceConverter
         //     Majorsilence.Forms one with a using-alias rather than rewriting every use site.
         text = AddAmbiguityAliases(text);
 
+        // 3c. Microsoft.Win32's SystemEvents (and its argument types) ship in the Windows-only
+        //     System.Drawing.Common; Majorsilence.Forms reimplements them. Only those names are redirected --
+        //     the rest of Microsoft.Win32 (Registry, SafeHandles) is left alone, which is why this is a
+        //     type-level rewrite rather than another entry in the namespace table.
+        text = RewriteWin32CompatTypes(text);
+
+        // 3d. Same shape for the System.ComponentModel.Design types that ship only in the Windows design
+        //     assemblies; the rest of that namespace is real BCL and stays.
+        text = RewriteDesignTimeTypes(text);
+
+        // 3e. And pin the handful of names both the BCL and the compat layer declare, so an unqualified use
+        //     keeps meaning the BCL type it meant before the migration rather than becoming ambiguous.
+        text = AddBclPreferenceAliases(text);
+
         // 4. Flag any namespace we deliberately refused to rewrite — but only when a reference actually
         //    resolves to something cross-platform-unavailable. Some types under these namespaces ship in
         //    the BCL (e.g. System.ComponentModel.Design.HelpKeywordAttribute, used by typed-DataSet
@@ -583,13 +597,23 @@ internal static class SourceConverter
     // Uses [ \t] rather than \s so it never swallows the line's own newline — VB has no `;` terminator,
     // and a greedy \s* would otherwise consume the break and misplace the inserted companion import.
     private static readonly Regex BareDrawingImport =
-        new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+System\.Drawing[ \t]*;?[ \t]*$", RegexOptions.Compiled);
+        new(@"(?m)^(?<indent>[ \t]*)(?<global>global[ \t]+)?(?<kw>using|Imports)[ \t]+System\.Drawing[ \t]*;?[ \t]*$",
+            RegexOptions.Compiled);
 
     private static string RewriteDrawingImports(string text, bool dualBuild = false)
     {
         var match = BareDrawingImport.Match(text);
         if (!match.Success)
             return text;
+
+        // A `global using` governs every file in the project, so this file's own usage says nothing about
+        // whether it is needed -- and dropping it would strip the primitives from all of them. Keep it and
+        // add the GDI+ companion, which is the pair that compiles: the Windows-only forwarded types in
+        // System.Drawing lose to the real Majorsilence.Forms.Drawing ones rather than conflicting.
+        // (Without this, a project that centralises its imports this way -- as Krypton's components do --
+        // migrated to source that still bound every Bitmap, Font and Graphics to System.Drawing.Common.)
+        if (match.Groups["global"].Success)
+            return AddGlobalDrawingCompanion(text, match);
 
         // The import is only needed for the primitives Majorsilence.Forms keeps in System.Drawing;
         // GDI+ types used unqualified need the Majorsilence.Forms.Drawing companion instead.
@@ -636,6 +660,136 @@ internal static class SourceConverter
         return RemoveImportLine(text, match, replacement, newline);
     }
 
+    /// <summary>
+    /// Redirects the <c>System.ComponentModel.Design</c> types that live in the Windows-only design
+    /// assemblies to their <c>Majorsilence.Forms.Design</c> replacements, leaving that namespace's real BCL
+    /// types alone. See <see cref="NamespaceMap.DesignTimeTypes"/>.
+    /// </summary>
+    /// <remarks>
+    /// Only the qualified form is rewritten. An unqualified use needs no alias: the names exist in exactly
+    /// one of the two namespaces each, so importing both leaves nothing ambiguous — unlike the
+    /// System.Drawing case, where the same name really does live in both.
+    /// </remarks>
+    private static string RewriteDesignTimeTypes(string text)
+    {
+        foreach (var type in NamespaceMap.DesignTimeTypes)
+            text = Regex.Replace(text, $@"(?<![\w.])System\.ComponentModel\.Design\.{Regex.Escape (type)}(?![\w])",
+                                 $"Majorsilence.Forms.Design.{type}");
+
+        return text;
+    }
+
+    /// <summary>
+    /// Pins a name that both a BCL namespace and a Majorsilence namespace declare to the BCL one the source
+    /// originally meant, with a using-alias. See <see cref="NamespaceMap.BclPreferredTypes"/>.
+    /// </summary>
+    private static string AddBclPreferenceAliases(string text)
+    {
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+
+        foreach (var (type, ns) in NamespaceMap.BclPreferredTypes)
+        {
+            if (DeclaresType(text, type))
+                continue;
+
+            // Already pinned (including a re-run over an already-migrated tree).
+            if (Regex.IsMatch(text, $@"(?m)^[ \t]*(global[ \t]+)?(using|Imports)[ \t]+{Regex.Escape (type)}[ \t]*="))
+                continue;
+
+            var import = Regex.Match(text,
+                $@"(?m)^(?<indent>[ \t]*)(?<global>global[ \t]+)?(?<kw>using|Imports)[ \t]+{Regex.Escape (ns)}[ \t]*;?[ \t]*$");
+            if (!import.Success)
+                continue;
+
+            // No ambiguity unless the Majorsilence side is imported too -- an alias then would be noise.
+            if (!Regex.IsMatch(text, @"(?m)^[ 	]*(global[ 	]+)?(using|Imports)[ 	]+Majorsilence\.Forms(\.Drawing)?[ 	]*;?[ 	]*$"))
+                continue;
+
+            var indent = import.Groups["indent"].Value;
+            var isGlobal = import.Groups["global"].Success;
+
+            // A file-scoped alias is only worth adding where the name is actually used; a global one has to
+            // be added regardless, because the file that declares a project's global usings is precisely
+            // the file that does not use them -- every ambiguous use site is somewhere else.
+            if (!isGlobal && !UsedUnqualified(text, type))
+                continue;
+
+            var line = import.Groups["kw"].Value == "Imports"
+                ? $"{indent}Imports {type} = {ns}.{type}"
+                : $"{indent}{(isGlobal ? "global " : "")}using {type} = {ns}.{type};";
+
+            text = text[..(import.Index + import.Length)] + newline + line + text[(import.Index + import.Length)..];
+        }
+
+        return text;
+    }
+
+    // Matches a `Microsoft.Win32` import, plain or global, C# or VB.
+    private static readonly Regex Win32Import =
+        new(@"(?m)^(?<indent>[ \t]*)(?<global>global[ \t]+)?(?<kw>using|Imports)[ \t]+Microsoft\.Win32[ \t]*;?[ \t]*$",
+            RegexOptions.Compiled);
+
+    /// <summary>
+    /// Redirects the <c>Microsoft.Win32</c> system-notification types Majorsilence.Forms reimplements —
+    /// <c>SystemEvents</c> and the arguments it raises — leaving the rest of that namespace alone.
+    /// </summary>
+    /// <remarks>
+    /// A themed control library subscribes to <c>SystemEvents.UserPreferenceChanged</c> to rebuild its
+    /// palette when the desktop switches between light and dark. The type lives in the Windows-only
+    /// <c>System.Drawing.Common</c>, so left as-is every use of it failed to resolve — one type accounted
+    /// for 136 of the errors in the Krypton port. An unqualified use gets an alias, as the System.Drawing
+    /// ambiguity pass does, because the import that brought it in has to stay for <c>Registry</c>.
+    /// </remarks>
+    private static string RewriteWin32CompatTypes(string text)
+    {
+        foreach (var type in NamespaceMap.Win32CompatTypes)
+            text = Regex.Replace(text, $@"(?<![\w.])Microsoft\.Win32\.{Regex.Escape (type)}(?![\w])",
+                                 $"Majorsilence.Forms.{type}");
+
+        var import = Win32Import.Match(text);
+        if (!import.Success)
+            return text;
+
+        var isGlobal = import.Groups["global"].Success;
+        var indent = import.Groups["indent"].Value;
+        var kw = import.Groups["kw"].Value;
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+
+        var aliases = new List<string>();
+
+        foreach (var type in NamespaceMap.Win32CompatTypes)
+        {
+            if (!UsedUnqualified(text, type) || DeclaresType(text, type))
+                continue;
+            if (Regex.IsMatch(text, $@"(?m)^[ \t]*(global[ \t]+)?(using|Imports)[ \t]+{Regex.Escape (type)}[ \t]*="))
+                continue;
+
+            aliases.Add(kw == "Imports"
+                ? $"{indent}Imports {type} = Majorsilence.Forms.{type}"
+                : $"{indent}{(isGlobal ? "global " : "")}using {type} = Majorsilence.Forms.{type};");
+        }
+
+        if (aliases.Count == 0)
+            return text;
+
+        return text[..(import.Index + import.Length)] + newline + string.Join(newline, aliases)
+            + text[(import.Index + import.Length)..];
+    }
+
+    // Adds `global using Majorsilence.Forms.Drawing;` beside a kept `global using System.Drawing;`.
+    private static string AddGlobalDrawingCompanion(string text, Match match)
+    {
+        var indent = match.Groups["indent"].Value;
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+
+        if (Regex.IsMatch(text,
+                $@"(?m)^[ \t]*global[ \t]+using[ \t]+{Regex.Escape (NamespaceMap.DrawingTarget)}[ \t]*;[ \t]*$"))
+            return text;
+
+        var companion = $"{indent}global using {NamespaceMap.DrawingTarget};";
+        return text[..(match.Index + match.Length)] + newline + companion + text[(match.Index + match.Length)..];
+    }
+
     // Emits `using SystemColors = Majorsilence.Forms.SystemColors;` (VB: `Imports SystemColors = …`) for
     // each name that a kept System.Drawing import would otherwise make ambiguous. One alias line fixes every
     // use site in the file, which suits a textual rewriter far better than qualifying each reference — and it
@@ -647,14 +801,17 @@ internal static class SourceConverter
         // pass replaces `using System.Drawing;` with the Majorsilence.Forms.Drawing companion in a file
         // that uses GDI+ types, which leaves a name like SystemBrushes -- reimplemented under
         // Majorsilence.Forms, not .Drawing -- with no candidate at all (CS0103) in a file that never
-        // needed to import the control namespace. Fall back to the last import line in that case.
+        // needed to import the control namespace. Fall back to the last import or alias line in that case,
+        // and to the file's namespace declaration when it has neither (a project that imports through
+        // global usings) -- the alias is needed there just the same, and nothing else marks file scope.
         var match = BareDrawingImport.Match(text);
-        var anchor = match.Success ? match : LastImportLine(text);
-        if (anchor is null)
+        var anchor = match.Success ? match : LastImportOrAliasLine(text);
+        var declaration = anchor is null ? NamespaceDeclaration.Match(text) : Match.Empty;
+        if (anchor is null && !declaration.Success)
             return text;
 
-        var kw = anchor.Groups["kw"].Success ? anchor.Groups["kw"].Value : "using";
-        var indent = anchor.Groups["indent"].Success ? anchor.Groups["indent"].Value : "";
+        var kw = anchor?.Groups["kw"].Success == true ? anchor.Groups["kw"].Value : "using";
+        var indent = anchor?.Groups["indent"].Success == true ? anchor.Groups["indent"].Value : "";
         var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
 
         var aliases = new List<string>();
@@ -680,6 +837,11 @@ internal static class SourceConverter
 
         if (aliases.Count == 0)
             return text;
+
+        // Above the namespace when that is all there is to go by; otherwise directly under the imports.
+        if (anchor is null)
+            return text[..declaration.Index] + string.Join(newline, aliases) + newline + newline
+                + text[declaration.Index..];
 
         return text[..(anchor.Index + anchor.Length)] + newline + string.Join(newline, aliases)
             + text[(anchor.Index + anchor.Length)..];
@@ -729,14 +891,33 @@ internal static class SourceConverter
 
     // Any top-level import line, C# or VB. A file-scoped `namespace X;` and any attribute or type
     // declaration come after these, so the last match is the end of the import block.
+    //
+    // The target has to look like a namespace or type name. `[^=]+` also matched a C# *using statement* --
+    // `using (someDisposable)` names no alias, so nothing excluded it -- and since alias directives carry an
+    // '=' and are skipped here, a file whose only plain-looking import was that statement anchored its new
+    // alias inside a method body, which does not compile. (Krypton's components import through global
+    // usings, so that is the normal shape of a file there, not a corner case.)
     private static readonly Regex ImportLine =
-        new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+[^\r\n=]+;?[ \t]*$", RegexOptions.Compiled);
+        new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+(static[ \t]+)?[A-Za-z_@][\w.]*[ \t]*;?[ \t]*$",
+            RegexOptions.Compiled);
+
+    // As above, but alias directives (`using X = A.B;`) count too. A project that imports through global
+    // usings has files whose only directives are the aliases this migration itself adds, and an alias is
+    // just as good an anchor: both sit at the top of the file, at file scope.
+    private static readonly Regex ImportOrAliasLine =
+        new(@"(?m)^(?<indent>[ \t]*)(?<kw>using|Imports)[ \t]+([A-Za-z_@][\w]*[ \t]*=[ \t]*)?(static[ \t]+)?[A-Za-z_@][\w.]*[ \t]*;?[ \t]*$",
+            RegexOptions.Compiled);
 
     // The last import line in the file, or null when it has none to hang an alias off.
-    private static Match? LastImportLine(string text)
+    private static Match? LastImportLine(string text) => LastMatch(ImportLine, text);
+
+    // The last import or alias line in the file, or null when it has neither.
+    private static Match? LastImportOrAliasLine(string text) => LastMatch(ImportOrAliasLine, text);
+
+    private static Match? LastMatch(Regex regex, string text)
     {
         Match? last = null;
-        foreach (Match m in ImportLine.Matches(text))
+        foreach (Match m in regex.Matches(text))
             last = m;
 
         return last;

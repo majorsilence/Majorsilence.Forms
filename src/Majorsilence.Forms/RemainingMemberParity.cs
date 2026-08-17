@@ -461,7 +461,9 @@ namespace Majorsilence.Forms
     public partial class ToolStripOverflowButton
     {
         /// <summary>Gets whether the overflow currently holds any items.</summary>
-        public virtual bool HasDropDownItems => DropDownItems.Count > 0;
+        /// <remarks>An override now that ToolStripDropDownButton derives from ToolStripDropDownItem, which
+        /// declares this virtual -- before, the button had no base to override and this declared its own.</remarks>
+        public override bool HasDropDownItems => DropDownItems.Count > 0;
     }
 
     public partial class ToolStripPanelRow
@@ -529,14 +531,22 @@ namespace Majorsilence.Forms
         /// <see cref="DataGridViewRowPaintBaseEventArgs.Graphics"/> is null -- the same shape as the
         /// other Paint* helpers on these args.</remarks>
         public void DrawFocus (Rectangle bounds, bool cellsPaintSelectionBackground)
-            => Graphics?.Canvas.DrawFocusRectangle (bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        {
+            // Two null checks, not one: the args carry no Graphics outside a paint pass, and a Graphics
+            // made for measurement rather than painting carries no canvas.
+            if (Graphics?.Canvas is { } canvas)
+                canvas.DrawFocusRectangle (bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        }
     }
 
     public partial class DataGridViewRowPrePaintEventArgs
     {
         /// <inheritdoc cref="DataGridViewRowPostPaintEventArgs.DrawFocus"/>
         public void DrawFocus (Rectangle bounds, bool cellsPaintSelectionBackground)
-            => Graphics?.Canvas.DrawFocusRectangle (bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        {
+            if (Graphics?.Canvas is { } canvas)
+                canvas.DrawFocusRectangle (bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        }
     }
 
     public partial class GridColumnStylesCollection

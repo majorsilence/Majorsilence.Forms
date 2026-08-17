@@ -38,9 +38,9 @@ namespace Majorsilence.Forms.Renderers
         }
 
         /// <summary>
-        /// Renders a TreeViewItem.
+        /// Renders a TreeNode.
         /// </summary>
-        protected virtual void RenderItem (TreeView control, TreeViewItem item, PaintEventArgs e)
+        protected virtual void RenderItem (TreeView control, TreeNode item, PaintEventArgs e)
         {
             // OwnerDrawAll hands over the whole node, background and focus cue included, so the
             // event has to come before anything is painted. OwnerDrawText keeps those and hands
@@ -94,7 +94,7 @@ namespace Majorsilence.Forms.Renderers
         /// <summary>
         /// Gets the bounds of the dropdown glyph.
         /// </summary>
-        public virtual Rectangle GetGlyphBounds (TreeView control, TreeViewItem item)
+        public virtual Rectangle GetGlyphBounds (TreeView control, TreeNode item)
         {
             if (!control.ShowDropdownGlyph)
                 return Rectangle.Empty;
@@ -110,7 +110,7 @@ namespace Majorsilence.Forms.Renderers
         /// <summary>
         /// Gets the bounds of the item image.
         /// </summary>
-        protected virtual Rectangle GetImageBounds (TreeView control, TreeViewItem item, PaintEventArgs e)
+        protected virtual Rectangle GetImageBounds (TreeView control, TreeNode item, PaintEventArgs e)
         {
             if (!control.ShowItemImages || item.ImageSK is null)
                 return Rectangle.Empty;
@@ -124,7 +124,7 @@ namespace Majorsilence.Forms.Renderers
         /// <summary>
         /// Gets the bounds of the item text.
         /// </summary>
-        protected virtual Rectangle GetTextBounds (TreeView control, TreeViewItem item, PaintEventArgs e)
+        protected virtual Rectangle GetTextBounds (TreeView control, TreeNode item, PaintEventArgs e)
         {
             var show_glyph = control.ShowDropdownGlyph;
             var show_image = control.ShowItemImages;
@@ -141,11 +141,11 @@ namespace Majorsilence.Forms.Renderers
         /// <summary>
         /// Gets the left start of the item bounds, accounting for indent level.
         /// </summary>
-        protected virtual int GetIndentStart (TreeView control, TreeViewItem item) => item.Bounds.Left + item.IndentLevel * control.LogicalToDeviceUnits (INDENT_SIZE) + 2;
+        protected virtual int GetIndentStart (TreeView control, TreeNode item) => item.Bounds.Left + item.IndentLevel * control.LogicalToDeviceUnits (INDENT_SIZE) + 2;
 
         /// <summary>
         /// Gets if the item should draw a dropdown glyph.
         /// </summary>
-        protected virtual bool GetShouldDrawDropdownGlyph (TreeView control, TreeViewItem item) => control.ShowDropdownGlyph && (item.HasChildren || (control.VirtualMode && item.items == null));
+        protected virtual bool GetShouldDrawDropdownGlyph (TreeView control, TreeNode item) => control.ShowDropdownGlyph && (item.HasChildren || (control.VirtualMode && item.items == null));
     }
 }

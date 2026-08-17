@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Drawing;
 
 namespace Majorsilence.Forms.Telerik
@@ -309,12 +309,12 @@ namespace Majorsilence.Forms.Telerik
         }
 
         // The strip's bounds in screen coordinates (used for cross-window drop hit-testing).
-        internal Rectangle ScreenBounds {
-            get {
-                var topLeft = PointToScreen (Point.Empty);
-                return new Rectangle (topLeft.X, topLeft.Y, Width, Height);
-            }
-        }
+        //
+        // Through RectangleToScreen, which scales the extents as well as the origin: pairing a converted
+        // top-left with the logical Width/Height produced a rectangle half its real size at scaling 2, so
+        // a tab released over the right-hand end of its OWN strip tested as "dropped outside" and was torn
+        // off into a new window instead of just reordering.
+        internal Rectangle ScreenBounds => RectangleToScreen (new Rectangle (Point.Empty, Size));
 
         // Fully qualified: Majorsilence.Forms.Telerik also declares a (Telerik-compat) TabStripItem;
         // this strip is UI chrome and always means the Majorsilence.Forms one.
@@ -343,8 +343,11 @@ namespace Majorsilence.Forms.Telerik
             Invalidate ();
         }
 
+        // Logical: tab Bounds are logical and TabAt hit-tests them against logical MouseEventArgs
+        // coordinates, but ClientRectangle is device-scaled -- laying out into it directly made every
+        // tab scale-times too wide, so a drag aimed at the third tab landed on the first.
         private void LayoutTabsNow () =>
-            StackLayoutEngine.HorizontalExpand.Layout (ClientRectangle, Tabs.Cast<ILayoutable> ());
+            StackLayoutEngine.HorizontalExpand.Layout (DockStrip.LogicalClient (this), Tabs.Cast<ILayoutable> ());
 
         private void SyncSelectionFromOwner ()
         {

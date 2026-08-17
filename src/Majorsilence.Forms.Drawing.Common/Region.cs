@@ -40,8 +40,22 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Initializes a new region from the specified graphics path.</summary>
         public Region (GraphicsPath path)
         {
+            ArgumentNullException.ThrowIfNull (path);
+
             region = new SKRegion ();
-            region.SetPath (path.ToSKPath ());
+
+            // Bounded clip for the same reason as Combine below: rasterizing against the whole coordinate
+            // space costs orders of magnitude more than the shape warrants, and a docking library builds
+            // one of these per drop guide per mouse move.
+            //
+            // NOT disposed: ToSKPath hands back the GraphicsPath's own SKPath rather than a copy, so
+            // disposing it here frees a path the caller still owns -- which crashed inside Skia on the
+            // next use of it (a native SIGSEGV mid-drag, since a drop guide's path is reused every move).
+            var skPath = path.ToSKPath ();
+            using var clip = new SKRegion ();
+            clip.SetRect (BoundsClip (skPath));
+
+            region.SetPath (skPath, clip);
         }
 
         private Region (SKRegion existing) => region = existing;
@@ -254,14 +268,38 @@ namespace Majorsilence.Forms.Drawing
         private void Combine (GraphicsPath path, SKRegionOperation op)
         {
             ArgumentNullException.ThrowIfNull (path);
+
             // SKRegion.Op(SKPath, ...) rasterizes the path against the region's own bounds, which for a
             // freshly-constructed (infinite) region is the whole coordinate space -- so go through an
             // explicit region built from the path instead, which is well-defined in every case.
+            // Not disposed -- ToSKPath returns the GraphicsPath's own path, not a copy (see the ctor).
+            var skPath = path.ToSKPath ();
             using var other = new SKRegion ();
             using var clip = new SKRegion ();
-            clip.SetRect (new SKRectI (-InfiniteExtent, -InfiniteExtent, InfiniteExtent, InfiniteExtent));
-            other.SetPath (path.ToSKPath (), clip);
+
+            // Clipped to the PATH'S OWN BOUNDS, not the infinite extent. SetPath is scanline-based, so its
+            // cost follows the clip it is handed: against ±2^28 it walks half a billion rows to rasterize
+            // a shape a hundred pixels across. A path cannot cover anything outside its own bounds, so the
+            // result is identical and the work becomes proportional to the shape.
+            //
+            // This is not a micro-optimisation. A docking library rebuilds its drop-guide region on every
+            // mouse move, and each of those cost tens to hundreds of milliseconds -- enough that macOS
+            // dropped most of the drag's pointer events (8 of 90 arrived in one measurement) and the drag
+            // appeared to hang until the mouse stopped.
+            clip.SetRect (BoundsClip (skPath));
+
+            other.SetPath (skPath, clip);
             region.Op (other, op);
+        }
+
+        // The path's bounds, rounded outwards and inflated a pixel so rounding cannot shave an edge.
+        private static SKRectI BoundsClip (SKPath path)
+        {
+            var b = path.Bounds;
+
+            return new SKRectI (
+                (int)Math.Floor (b.Left) - 1, (int)Math.Floor (b.Top) - 1,
+                (int)Math.Ceiling (b.Right) + 1, (int)Math.Ceiling (b.Bottom) + 1);
         }
 
         /// <summary>Gets the bounds of this region.</summary>

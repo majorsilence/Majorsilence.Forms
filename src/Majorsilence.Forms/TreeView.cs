@@ -11,16 +11,16 @@ namespace Majorsilence.Forms
     public partial class TreeView : Control
     {
         private TreeViewDrawMode draw_mode;
-        private readonly TreeViewItem root_item;
+        private readonly TreeNode root_item;
         private int top_index;
-        private TreeViewItem selected_item;
+        private TreeNode selected_item;
         private bool show_dropdown_glyph = true;
         private bool show_item_images = true;
         private bool virtual_mode;
         private readonly VerticalScrollBar vscrollbar;
 
         // Reused across paints to avoid per-frame List<> allocation.
-        private readonly List<TreeViewItem> _layoutItems = new ();
+        private readonly List<TreeNode> _layoutItems = new ();
 
         private static readonly object s_drawNode = new object ();
 
@@ -29,7 +29,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public TreeView ()
         {
-            root_item = new TreeViewItem (this) {
+            root_item = new TreeNode (this) {
                 Expanded = true
             };
 
@@ -81,12 +81,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raised when TreeView needs an owner drawn node painted.
         /// </summary>
-        public event EventHandler<TreeViewDrawEventArgs>? DrawNode {
+        /// <remarks>
+        /// Typed with WinForms' own <see cref="DrawTreeNodeEventHandler"/>. It used to be
+        /// <c>EventHandler&lt;TreeViewDrawEventArgs&gt;</c> -- this library's own args type -- so an
+        /// owner-draw handler written the WinForms way could not be attached at all.
+        /// </remarks>
+        public event DrawTreeNodeEventHandler? DrawNode {
             add => Events.AddHandler (s_drawNode, value);
             remove => Events.RemoveHandler (s_drawNode, value);
         }
 
-        internal void EnsureItemVisible (TreeViewItem item)
+        internal void EnsureItemVisible (TreeNode item)
         {
             // Make sure all parent are expanded so this node is shown
             var parent = item.Parent;
@@ -134,7 +139,7 @@ namespace Majorsilence.Forms
         /// Finds the index of the next item after startIndex that begins with the specified string. This search is case-insensitive.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage ("Globalization", "CA1309:Use ordinal string comparison", Justification = "This should be culture aware.")]
-        private TreeViewItem? FindString (string s, TreeViewItem startItem)
+        private TreeNode? FindString (string s, TreeNode startItem)
         {
             var all_items = GetVisibleItems ().ToList ();
             var start_index = all_items.IndexOf (startItem);
@@ -163,9 +168,9 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Returns the TreeViewItem at the specified location.
+        /// Returns the TreeNode at the specified location.
         /// </summary>
-        public TreeViewItem? GetItemAtLocation (Point location)
+        public TreeNode? GetItemAtLocation (Point location)
         {
             // Use the already-laid-out list from the most recent LayoutItems() call instead of
             // re-traversing the whole visible tree.
@@ -175,8 +180,8 @@ namespace Majorsilence.Forms
             return null;
         }
 
-        // Enumerates through every visible TreeViewItem. Note items may not be in the currently shown part.
-        internal IEnumerable<TreeViewItem> GetVisibleItems (bool skipOffscreen = false) => root_item.GetVisibleItems ().Skip (1 + (skipOffscreen ? top_index : 0));
+        // Enumerates through every visible TreeNode. Note items may not be in the currently shown part.
+        internal IEnumerable<TreeNode> GetVisibleItems (bool skipOffscreen = false) => root_item.GetVisibleItems ().Skip (1 + (skipOffscreen ? top_index : 0));
 
         /// <summary>
         /// Gets the collection of items contained by this TreeView.
@@ -186,10 +191,14 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raised when an item is selected.
         /// </summary>
-        public event EventHandler<EventArgs<TreeViewItem>>? ItemSelected;
+        public event EventHandler<EventArgs<TreeNode>>? ItemSelected;
 
         /// <summary>WinForms compatibility: raised after an item is selected (alias for ItemSelected).</summary>
-        public event EventHandler<TreeViewEventArgs>? AfterSelect;
+        /// <remarks>Typed with WinForms' <see cref="TreeViewEventHandler"/> rather than
+        /// <c>EventHandler&lt;TreeViewEventArgs&gt;</c>: the delegate types are not interchangeable, so
+        /// code forwarding this event on (<c>add =&gt; tree.AfterSelect += value;</c> with a
+        /// <c>TreeViewEventHandler</c> parameter) did not compile.</remarks>
+        public event TreeViewEventHandler? AfterSelect;
 
         /// <summary>WinForms compatibility: raised after an item is expanded.</summary>
         public event EventHandler<TreeViewEventArgs>? AfterExpand;
@@ -273,10 +282,10 @@ namespace Majorsilence.Forms
         public int Indent { get; set; } = 19;
 
         /// <summary>Returns the tree node at the specified client coordinates, or null if none.</summary>
-        public TreeViewItem? GetNodeAt (int x, int y) => GetNodeAt (new System.Drawing.Point (x, y));
+        public TreeNode? GetNodeAt (int x, int y) => GetNodeAt (new System.Drawing.Point (x, y));
 
         /// <summary>Returns the tree node at the specified client point, or null if none.</summary>
-        public TreeViewItem? GetNodeAt (System.Drawing.Point pt)
+        public TreeNode? GetNodeAt (System.Drawing.Point pt)
         {
             foreach (var item in GetAllItems ())
                 if (GetItemBounds (item).Contains (pt))
@@ -284,9 +293,9 @@ namespace Majorsilence.Forms
             return null;
         }
 
-        private IEnumerable<TreeViewItem> GetAllItems ()
+        private IEnumerable<TreeNode> GetAllItems ()
         {
-            var stack = new Stack<TreeViewItem> (Items);
+            var stack = new Stack<TreeNode> (Items);
             while (stack.Count > 0) {
                 var item = stack.Pop ();
                 yield return item;
@@ -296,7 +305,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private System.Drawing.Rectangle GetItemBounds (TreeViewItem item)
+        private System.Drawing.Rectangle GetItemBounds (TreeNode item)
         {
             // Approximate — items are stacked vertically
             var all = GetAllItems ().ToList ();
@@ -306,7 +315,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the selected tree node (WinForms compatibility alias for SelectedItem).</summary>
-        public TreeViewItem? SelectedNode {
+        public TreeNode? SelectedNode {
             get => SelectedItem;
             set { if (value is not null) SelectedItem = value; }
         }
@@ -315,7 +324,7 @@ namespace Majorsilence.Forms
         public TreeViewItemCollection Nodes => Items;
 
         /// <summary>Gets or sets the first visible node in the tree. Stub in Majorsilence.Forms.</summary>
-        public TreeViewItem? TopNode {
+        public TreeNode? TopNode {
             get => Items.FirstOrDefault ();
             set { }
         }
@@ -360,7 +369,7 @@ namespace Majorsilence.Forms
             Invalidate ();
         }
 
-        private static void ExpandRecursive (TreeViewItem item)
+        private static void ExpandRecursive (TreeNode item)
         {
             item.Expand ();
 
@@ -368,7 +377,7 @@ namespace Majorsilence.Forms
                 ExpandRecursive (child);
         }
 
-        private static void CollapseRecursive (TreeViewItem item)
+        private static void CollapseRecursive (TreeNode item)
         {
             foreach (var child in item.Items)
                 CollapseRecursive (child);
@@ -377,7 +386,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the item with the specified full path, or null if not found.</summary>
-        public TreeViewItem? FindNodeByFullPath (string fullPath)
+        public TreeNode? FindNodeByFullPath (string fullPath)
         {
             foreach (var item in Items) {
                 var found = FindNodeByFullPathRecursive (item, fullPath);
@@ -389,7 +398,7 @@ namespace Majorsilence.Forms
             return null;
         }
 
-        private static TreeViewItem? FindNodeByFullPathRecursive (TreeViewItem item, string fullPath)
+        private static TreeNode? FindNodeByFullPathRecursive (TreeNode item, string fullPath)
         {
             if (item.FullPath == fullPath)
                 return item;
@@ -406,12 +415,12 @@ namespace Majorsilence.Forms
 
         // The items laid out by the most recent LayoutItems() call.
         // Exposed internally so the renderer can use it without a separate tree traversal.
-        internal IReadOnlyList<TreeViewItem> LayoutedItems => _layoutItems;
+        internal IReadOnlyList<TreeNode> LayoutedItems => _layoutItems;
 
         // Runs a layout pass on all visible TreeViewItems.
         // Single tree traversal: simultaneously counts all visible items (for the scrollbar) and
         // collects the items on the current page (for layout and rendering).
-        private List<TreeViewItem> LayoutItems ()
+        private List<TreeNode> LayoutItems ()
         {
             _layoutItems.Clear ();
 
@@ -441,7 +450,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the BeforeExpand event. Returns true if expansion should proceed (was not cancelled).
         /// </summary>
-        public bool OnBeforeExpand (TreeViewItem node)
+        public bool OnBeforeExpand (TreeNode node)
         {
             if (node is not TreeNode treeNode)
                 return true;
@@ -477,7 +486,7 @@ namespace Majorsilence.Forms
 
             var element = item.GetElementAtLocation (e.Location);
 
-            if (element == TreeViewItem.TreeViewItemElement.Glyph) {
+            if (element == TreeNode.TreeViewItemElement.Glyph) {
                 var was_expanded = item.Expanded;
                 if (!was_expanded && !OnBeforeExpand (item))
                     return;
@@ -489,7 +498,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void RaiseExpandCollapseEvents (TreeViewItem item, bool wasExpanded)
+        private void RaiseExpandCollapseEvents (TreeNode item, bool wasExpanded)
         {
             // TreeViewEventArgs.Node is TreeNode-typed for WinForms compat; skip for plain items.
             if (item is not TreeNode node)
@@ -520,7 +529,7 @@ namespace Majorsilence.Forms
 
             var element = item.GetElementAtLocation (e.Location);
 
-            if (element != TreeViewItem.TreeViewItemElement.Glyph) {
+            if (element != TreeNode.TreeViewItemElement.Glyph) {
                 var was_expanded = item.Expanded;
                 item.Expanded = !item.Expanded;
                 RaiseExpandCollapseEvents (item, was_expanded);
@@ -530,12 +539,47 @@ namespace Majorsilence.Forms
         /// <summary>
         ///  Raises the <see cref='DrawNode'/> event.
         /// </summary>
-        protected internal virtual void OnDrawNode (TreeViewDrawEventArgs e) => (Events[s_drawNode] as EventHandler<TreeViewDrawEventArgs>)?.Invoke (this, e);
+        /// <remarks>
+        /// Takes this library's <see cref="TreeViewDrawEventArgs"/> (which carries the Skia canvas the
+        /// renderer is already painting into) and translates it into the WinForms-shaped
+        /// <see cref="DrawTreeNodeEventArgs"/> the event now carries. <c>DrawDefault</c> is copied back
+        /// afterwards, so a handler that sets it still suppresses the default painting -- that flag is the
+        /// entire point of the event, and losing it would make every owner-draw handler double-paint.
+        /// </remarks>
+        protected internal virtual void OnDrawNode (TreeViewDrawEventArgs e)
+        {
+            ArgumentNullException.ThrowIfNull (e);
+
+            if (Events[s_drawNode] is not DrawTreeNodeEventHandler handler)
+                return;
+
+            var state = TreeNodeStates.Default;
+
+            if (e.Item == SelectedItem)
+                state |= TreeNodeStates.Selected;
+
+            if (Focused && e.Item == SelectedItem)
+                state |= TreeNodeStates.Focused;
+
+            if (!Enabled)
+                state |= TreeNodeStates.Grayed;
+
+            var args = new DrawTreeNodeEventArgs (e.Graphics, e.Item, e.Item.Bounds, state) {
+                DrawDefault = e.DrawDefault,
+                TreeView = this,
+                Canvas = e.Canvas,
+                Scaling = e.Scaling,
+            };
+
+            handler (this, args);
+
+            e.DrawDefault = args.DrawDefault;
+        }
 
         /// <summary>
         /// Raises the ItemSelected event.
         /// </summary>
-        protected virtual void OnItemSelected (EventArgs<TreeViewItem> e)
+        protected virtual void OnItemSelected (EventArgs<TreeNode> e)
         {
             ItemSelected?.Invoke (this, e);
 
@@ -650,7 +694,7 @@ namespace Majorsilence.Forms
 
             // Left with no children or collapsed selects parent
             if (e.KeyCode == Keys.Left && !selected_item.Expanded) {
-                if (selected_item.Parent is TreeViewItem parent && parent != root_item)
+                if (selected_item.Parent is TreeNode parent && parent != root_item)
                     SelectedItem = parent;
 
                 e.Handled = true;
@@ -691,13 +735,13 @@ namespace Majorsilence.Forms
             RenderManager.Render (this, e);
         }
 
-        // The scaled height of each TreeViewItem.
+        // The scaled height of each TreeNode.
         internal int ScaledItemHeight => (root_item.Items.FirstOrDefault () ?? root_item).GetPreferredSize (Size.Empty).Height;
 
         /// <summary>
-        /// Gets or sets the currently selected TreeViewItem.
+        /// Gets or sets the currently selected TreeNode.
         /// </summary>
-        public TreeViewItem SelectedItem {
+        public TreeNode SelectedItem {
             get => selected_item;
             set {
                 // Don't allow user to unselect items
@@ -714,7 +758,7 @@ namespace Majorsilence.Forms
                 EnsureItemVisible (value);
                 Invalidate ();
 
-                OnItemSelected (new EventArgs<TreeViewItem> (value));
+                OnItemSelected (new EventArgs<TreeNode> (value));
             }
         }
 
@@ -793,7 +837,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets a value indicating if TreeViewItem nodes will be resolved when expanded.
+        /// Gets or sets a value indicating if TreeNode nodes will be resolved when expanded.
         /// </summary>
         public bool VirtualMode {
             get => virtual_mode;

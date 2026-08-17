@@ -103,10 +103,15 @@ namespace Majorsilence.Forms
     public partial class ComboBox
     {
         /// <summary>The items of a <see cref="ComboBox"/>.</summary>
-        public class ObjectCollection : ListBoxItemCollection
+        /// <remarks>
+        /// A combo box's items live in the list box it drops down, so this is that list's own collection
+        /// under the name WinForms gives it. It is not a second collection over the same items -- one would
+        /// diverge from the other on the first change -- which is why the constructor is the list-box one
+        /// inherited from the base and <see cref="ComboBox.Items"/> is the instance the popup was built with.
+        /// </remarks>
+        public class ObjectCollection : ListBox.ObjectCollection
         {
-            /// <summary>Initializes a new instance of the <see cref="ObjectCollection"/> class.</summary>
-            public ObjectCollection (ComboBox owner) : base (owner!.PopupListBox) { }
+            internal ObjectCollection (ListBox owner) : base (owner) { }
         }
 
         /// <summary>Exposes a child of a <see cref="ComboBox"/> -- its edit field or its list -- to

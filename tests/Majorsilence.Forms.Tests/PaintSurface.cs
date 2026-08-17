@@ -1,4 +1,4 @@
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Majorsilence.Forms.Tests;
 
@@ -18,7 +18,7 @@ internal static class PaintSurface
     /// Deliberately does NOT call Form.Show: adding to the form's control collection is enough to
     /// make the chain visible, and a shown window keeps the test host alive at the end of the run.
     /// </remarks>
-    public static SKBitmap RenderOnForm (Control control, float scaling = 1f)
+    public static SKBitmap RenderOnForm (Control control, float scaling = 0f)
     {
         var form = new Form { Width = control.Width + 80, Height = control.Height + 80 };
         form.Controls.Add (control);
@@ -26,8 +26,15 @@ internal static class PaintSurface
         return Render (control, scaling);
     }
 
-    public static SKBitmap Render (Control control, float scaling = 1f)
+    public static SKBitmap Render (Control control, float scaling = 0f)
     {
+        // 0 means "whatever the control really paints at". The control's own painting scales by
+        // Control.Scaling (its window's display factor), so a surface hardcoded to 1 put every child at
+        // scale x the intended offset on a 1x bitmap -- fine while the backend reported 1, wrong the
+        // moment it reports anything else. Callers that want a specific scale still pass one.
+        if (scaling <= 0f)
+            scaling = (float)control.Scaling;
+
         var info = new SKImageInfo (
             (int)(control.Width * scaling),
             (int)(control.Height * scaling),

@@ -98,7 +98,7 @@ public partial class Control
     /// <summary>
     ///  Raised when a new control is added.
     /// </summary>
-    public event EventHandler<ControlEventArgs>? ControlAdded {
+    public event ControlEventHandler? ControlAdded {
         add => Events.AddHandler (s_controlAddedEvent, value);
         remove => Events.RemoveHandler (s_controlAddedEvent, value);
     }
@@ -106,7 +106,7 @@ public partial class Control
     /// <summary>
     ///  Raised when a control is removed.
     /// </summary>
-    public event EventHandler<ControlEventArgs>? ControlRemoved {
+    public event ControlEventHandler? ControlRemoved {
         add => Events.AddHandler (s_controlRemovedEvent, value);
         remove => Events.RemoveHandler (s_controlRemovedEvent, value);
     }
@@ -524,7 +524,7 @@ public partial class Control
     }
 
     /// <summary>Raised before <see cref="KeyDown"/> so a key can be previewed.</summary>
-    public event EventHandler<PreviewKeyDownEventArgs>? PreviewKeyDown {
+    public event PreviewKeyDownEventHandler? PreviewKeyDown {
         add => Events.AddHandler (s_previewKeyDownEvent, value);
         remove => Events.RemoveHandler (s_previewKeyDownEvent, value);
     }
@@ -539,8 +539,15 @@ public partial class Control
     /// </remarks>
     protected virtual void OnChangeUICues (UICuesEventArgs e) => ChangeUICues?.Invoke (this, e);
 
-    /// <summary>Raised when the control's HelpRequested event fires. Stub in Majorsilence.Forms.</summary>
-    public event HelpEventHandler? HelpRequested { add { } remove { } }
+    /// <summary>Raised when the user asks for help on the control.</summary>
+    /// <remarks>
+    /// A real event now. It had empty accessors, which is worse than not existing: a handler could be
+    /// attached and was silently dropped, so a control that services help through this looked wired up and
+    /// was not. Nothing in this layer raises it -- there is no F1 or help-cursor plumbing -- but
+    /// <see cref="OnHelpRequested"/> is public enough to call, and a form servicing its own Help button
+    /// does exactly that.
+    /// </remarks>
+    public event HelpEventHandler? HelpRequested;
 
     /// <summary>Raised when component is being queried for help. Stub in Majorsilence.Forms.</summary>
     public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp { add { } remove { } }

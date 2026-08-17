@@ -52,8 +52,8 @@
 
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.Avalonia</PackageId>
-    <Description>Avalonia 12 platform backend for Majorsilence.Forms.</Description>
-    <PackageTags>Majorsilence;Forms;Avalonia;Backend;Cross;Platform</PackageTags>
+    <Description>Avalonia 12 platform backend for Majorsilence.Forms — the default desktop host, so a cross-platform WinForms app gets real native windows on Windows, macOS and Linux, plus Android, iOS and Browser (WebAssembly) through Avalonia's own targets.</Description>
+    <PackageTags>majorsilence-forms;winforms;cross-platform;avalonia;backend;desktop;linux;macos;wasm;skiasharp</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

@@ -64,6 +64,11 @@ namespace Majorsilence.Forms
 
             // After FormClosed, so ShowDialog returns to its caller only once the form is fully closed.
             (this as Form)?.CompleteClose ();
+
+            // Last of all: the handle is what a form's window ultimately is, so its destruction is the
+            // final notification a form sends. Code that tracks the set of live forms keys on this rather
+            // than on Closed, because it is the point after which the form can safely be forgotten.
+            OnHandleDestroyed (EventArgs.Empty);
         }
 
         // Set while a programmatic Close() is running so the backend's own closing callback doesn't
@@ -311,7 +316,13 @@ namespace Majorsilence.Forms
         /// the root control adapter so child controls inherit it.</summary>
         public virtual Majorsilence.Forms.Drawing.Font? Font {
             get => adapter?.Font;
-            set { if (adapter is not null && value is not null) adapter.Font = value; }
+            set {
+                if (adapter is null || value is null)
+                    return;
+
+                adapter.Font = value;
+                OnFontChanged (EventArgs.Empty);
+            }
         }
 
         /// <summary>Gets or sets the cursor shown over the window. Mirrors WinForms Form.Cursor.</summary>
@@ -371,6 +382,28 @@ namespace Majorsilence.Forms
                 OnResize (EventArgs.Empty);
             }
 
+            // A shaped window paints only inside its region. The region is in logical units and the
+            // canvas in physical ones, so the boundary path is scaled across rather than clipped raw.
+            var clipped = false;
+
+            if (Region is { } shape) {
+                var skRegion = shape.GetSKRegion ();
+
+                canvas.Save ();
+                clipped = true;
+
+                if (skRegion.IsEmpty) {
+                    // An empty region means "paint nothing" -- how a drag overlay is built before it has
+                    // any guides to show. Clipping to the empty PATH would not do it: Skia treats an
+                    // empty path as no clip at all, so the window painted in full.
+                    canvas.ClipRect (SkiaSharp.SKRect.Empty);
+                } else {
+                    using var path = skRegion.GetBoundaryPath ();
+                    path.Transform (SkiaSharp.SKMatrix.CreateScale ((float)scaling, (float)scaling));
+                    canvas.ClipPath (path, SkiaSharp.SKClipOperation.Intersect, antialias: true);
+                }
+            }
+
             var e = new PaintEventArgs (skInfo, canvas, scaling);
 
             OnPaintBackground (e);
@@ -395,6 +428,9 @@ namespace Majorsilence.Forms
 
             adapter.RaisePaintBackground (e);
             adapter.RaisePaint (e);
+
+            if (clipped)
+                canvas.Restore ();
 
             canvas.Flush ();
         }
@@ -528,13 +564,13 @@ namespace Majorsilence.Forms
         /// paint a background image. Previously the layout below was stored and ignored, so a form with
         /// a background image simply showed none.
         /// </remarks>
-        public Majorsilence.Forms.Drawing.Image? BackgroundImage {
+        public virtual Majorsilence.Forms.Drawing.Image? BackgroundImage {
             get => adapter.BackgroundImage;
             set => adapter.BackgroundImage = value;
         }
 
         /// <summary>Gets or sets how <see cref="BackgroundImage"/> is laid out.</summary>
-        public ImageLayout BackgroundImageLayout {
+        public virtual ImageLayout BackgroundImageLayout {
             get => adapter.BackgroundImageLayout;
             set => adapter.BackgroundImageLayout = value;
         }
@@ -595,7 +631,26 @@ namespace Majorsilence.Forms
         public event EventHandler? SizeChanged;
 
         /// <summary>Raises the SizeChanged event.</summary>
-        protected virtual void OnSizeChanged (EventArgs e) => SizeChanged?.Invoke (this, e);
+        protected virtual void OnSizeChanged (EventArgs e)
+        {
+            // A window that asked for ResizeRedraw wants its WHOLE surface repainted on every resize, not
+            // just the strip the OS uncovered -- which is what a form drawing its own border and caption
+            // needs, or the old border stays drawn along the edge that moved. Mirrors what Control.cs does
+            // for the ControlStyles.ResizeRedraw flag.
+            if (ResizeRedraw)
+                Invalidate ();
+
+            SizeChanged?.Invoke (this, e);
+
+            // The window's client area always changes with its size here (there is no style change that
+            // resizes the frame alone), so the two notifications are raised together -- code that docks a
+            // companion window against a form's client edge (a ribbon's floating windows, say) subscribes
+            // to this one.
+            ClientSizeChanged?.Invoke (this, e);
+        }
+
+        /// <summary>Raised when the size of the window's client area changes. Mirrors Control.ClientSizeChanged.</summary>
+        public event EventHandler? ClientSizeChanged;
 
         /// <summary>Raised when the window is resized. Mirrors WinForms Form.Resize (alias of SizeChanged).</summary>
         public event EventHandler? Resize {
@@ -625,6 +680,35 @@ namespace Majorsilence.Forms
             return Application.FilterMessage (ref m);
         }
 
+        /// <summary>
+        /// Where this window's CLIENT (0, 0) sits on the desktop, in screen pixels.
+        /// </summary>
+        /// <remarks>
+        /// Not the window's <see cref="Location"/>: on a window with a native title bar the two differ by
+        /// the height of that bar. Measured on a real window, the backend put client (0,0) at (1115, 62)
+        /// while the window sat at (1115, 30).
+        ///
+        /// Everything that crosses between a control and the desktop goes through here, so the whole
+        /// application agrees on one screen space. Using the window's own Location instead made
+        /// Control.MousePosition a title bar's worth off from true screen coordinates -- self-consistent
+        /// for the window the pointer was over, and wrong for every other window converting it. A drag
+        /// overlay hit-testing its drop guides against the cursor is exactly that case: the guides tested
+        /// ~32px above where they were drawn, so dropping on one never registered and a document could
+        /// not be docked by hand.
+        ///
+        /// Backends without chrome (headless) answer with the window location, which is what this did
+        /// before, so their coordinates are unchanged at any scale.
+        /// </remarks>
+        internal System.Drawing.Point ClientOriginOnScreen {
+            get {
+                try {
+                    return Backend.PointToScreen (System.Drawing.Point.Empty);
+                } catch (System.Exception) {
+                    return Location;   // no platform window yet
+                }
+            }
+        }
+
         // Keeps Cursor.Position/Control.MousePosition current.
         //
         // Converted through the ROOT ADAPTER, not through the window backend. The two disagree on where
@@ -637,21 +721,104 @@ namespace Majorsilence.Forms
         // Control.PointToScreen also consumes exactly the coordinates these handlers deliver, and is
         // the same path the controls reading Control.MousePosition use to convert it back with
         // PointToClient -- so the round trip is exact by construction rather than by coincidence.
-        private void TrackCursorPosition (int x, int y)
+        private void TrackCursorPosition (int logicalX, int logicalY)
         {
             try {
-                Cursor.TrackPosition (adapter.PointToScreen (new System.Drawing.Point (x, y)));
+                Cursor.TrackPosition (adapter.PointToScreen (new System.Drawing.Point (logicalX, logicalY)));
             } catch (System.Exception) {
                 // A backend that cannot map coordinates yet (no platform window) must not break input
                 // routing; the stale value is better than a thrown pointer event.
             }
         }
 
+        // The backends deliver device pixels. Everything public -- Bounds, MouseEventArgs, the lParam a
+        // message filter reads, PointToClient/PointToScreen -- is in logical units, so the conversion
+        // belongs here, once, at the boundary. Identity at scaling 1, which is why input that was routed
+        // in device space worked until a scaled display was simulated: a control then hit-tested device
+        // coordinates against its logical Bounds and matched the wrong child, or none.
+        private int DeviceToLogical (int value)
+        {
+            var scaling = Scaling;
+            return scaling is <= 0 or 1 ? value : (int)System.Math.Round (value / scaling);
+        }
+
+        /// <summary>
+        /// Whether the capture holder sits in a form that is <em>hosted inside this window</em> — its own
+        /// WindowBase, so this window's dispatch will not reach it, yet visually part of this window and
+        /// so entitled to this window's pointer input.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately narrower than "any other window". Capture in WinForms is per-thread and does hold
+        /// across unrelated top-level windows, but honouring that here would let one window's unreleased
+        /// capture swallow input to every other window in the process — a much worse failure than the one
+        /// being fixed, and one nothing in a hosted-form drag needs.
+        /// </remarks>
+        private bool HostsInAnotherWindow (Control holder)
+        {
+            var root = holder.RootControl;
+
+            // Walk out of each hosted form into the control that hosts it, up to this window's own tree.
+            for (var hops = 0; hops < 32; hops++) {
+                if (ReferenceEquals (root, adapter))
+                    return hops > 0;   // hops == 0 means it is already ours; normal dispatch handles it.
+
+                if (root is not ControlAdapter { ParentForm: Form hosted } || hosted.HostingControl is not { } frame)
+                    return false;
+
+                root = frame.RootControl;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Hands a mouse event to the control holding the capture when that control lives in a
+        /// <em>different</em> window, and reports whether it did.
+        /// </summary>
+        /// <remarks>
+        /// Capture belongs to the pointer, not to a window: while a control holds it, every mouse event
+        /// is that control's, even when the pointer is somewhere else entirely. This window's own
+        /// dispatch already routes to a holder inside its own tree, so only the cross-window case is
+        /// handled here.
+        ///
+        /// That case is how WinForms code takes over a drag one of its children began — the child
+        /// captures on mouse-down, then the library hands capture to a form. In a docking library that
+        /// form is the *document* being dragged, which is a separate window hosted inside the main one.
+        /// Left unrouted, the main window went on hit-testing as usual and delivered every move straight
+        /// back to the tab strip, which restarted the drag on each one: ~30 full-screen drag-outline
+        /// windows stacked up over the screen, and the app looked hung.
+        /// </remarks>
+        private bool RoutedToCaptureHolder (MouseButtons button, int clicks, Keys keys,
+                                            System.Action<Control, MouseEventArgs> raise)
+        {
+            var holder = Control.CaptureHolder;
+
+            if (holder is null || !HostsInAnotherWindow (holder))
+                return false;
+
+            System.Drawing.Point local;
+            try {
+                // Cursor.Position was just updated from this event, and is in screen units.
+                local = holder.PointToClient (Cursor.Position);
+            } catch (System.Exception) {
+                return false;   // can't map (no platform window yet) -- fall back to normal dispatch.
+            }
+
+            raise (holder, new MouseEventArgs (button, clicks, local.X, local.Y,
+                                               System.Drawing.Point.Empty, keyData: keys));
+            return true;
+        }
+
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
-            TrackCursorPosition (x, y);
+            int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
-            if (Filtered (WindowMessages.ButtonDownMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+            TrackCursorPosition (lx, ly);
+
+            if (Filtered (WindowMessages.ButtonDownMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
+                return;
+
+            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => c.RaiseMouseDown (e)))
                 return;
 
             // A press can be the first pointer event a window sees (click-through onto an inactive
@@ -661,18 +828,23 @@ namespace Majorsilence.Forms
             if (Resizeable && HandleMouseDown (x, y))
                 return;
 
-            var ev = new MouseEventArgs (button, 1, x, y, System.Drawing.Point.Empty, keyData: keys);
+            var ev = new MouseEventArgs (button, 1, lx, ly, System.Drawing.Point.Empty, keyData: keys);
             adapter.RaiseMouseDown (ev);
         }
 
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
-            TrackCursorPosition (x, y);
+            int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
-            if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+            TrackCursorPosition (lx, ly);
+
+            if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
                 return;
 
-            var ev = BuildMouseClickArgs (button, new System.Drawing.Point (x, y), keys);
+            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => { c.RaiseClick (e); c.RaiseMouseUp (e); }))
+                return;
+
+            var ev = BuildMouseClickArgs (button, new System.Drawing.Point (lx, ly), keys);
 
             if (ev.Clicks > 1)
                 adapter.RaiseDoubleClick (ev);
@@ -683,9 +855,14 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
         {
-            TrackCursorPosition (x, y);
+            int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
-            if (Filtered (WindowMessages.WM_MOUSEMOVE, System.IntPtr.Zero, WindowMessages.MakeMouseLParam (x, y)))
+            TrackCursorPosition (lx, ly);
+
+            if (Filtered (WindowMessages.WM_MOUSEMOVE, System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
+                return;
+
+            if (RoutedToCaptureHolder (buttons, 0, keys, static (c, e) => c.RaiseMouseMove (e)))
                 return;
 
             // Raise MouseEnter before the resize-border shortcut below returns: the window chrome is
@@ -695,7 +872,7 @@ namespace Majorsilence.Forms
             if (Resizeable && HandleMouseMove (x, y))
                 return;
 
-            var ev = new MouseEventArgs (buttons, 0, x, y, System.Drawing.Point.Empty, keyData: keys);
+            var ev = new MouseEventArgs (buttons, 0, lx, ly, System.Drawing.Point.Empty, keyData: keys);
             adapter.RaiseMouseMove (ev);
         }
 
@@ -961,6 +1138,35 @@ namespace Majorsilence.Forms
             return new System.Drawing.Rectangle (rect.X + origin.X, rect.Y + origin.Y, rect.Width, rect.Height);
         }
 
+        /// <summary>
+        /// Raised when the user starts dragging the window by its caption, before the window begins to
+        /// move. Setting <see cref="CaptionDragStartingEventArgs.Cancel"/> stops the move, leaving the
+        /// gesture to the application.
+        /// </summary>
+        /// <remarks>
+        /// The portable stand-in for intercepting <c>WM_NCLBUTTONDOWN</c> over <c>HTCAPTION</c>, which is
+        /// how WinForms code takes over a title-bar drag — a docking library does it so dragging a
+        /// floating window re-docks it instead of moving it around the desktop. There are no non-client
+        /// messages here, so without this the gesture was unreachable.
+        ///
+        /// Only raised for a caption this library draws. A window using the operating system's title bar
+        /// (<see cref="Form.UseSystemDecorations"/>, the default on macOS) never sees the press at all —
+        /// the OS moves the window itself — so a window that wants this must own its caption.
+        /// </remarks>
+        public event EventHandler<CaptionDragStartingEventArgs>? CaptionDragStarting;
+
+        /// <summary>Raises <see cref="CaptionDragStarting"/>.</summary>
+        protected virtual void OnCaptionDragStarting (CaptionDragStartingEventArgs e)
+            => CaptionDragStarting?.Invoke (this, e);
+
+        // Returns true when a handler claimed the gesture, in which case the window must not move.
+        internal bool RaiseCaptionDragStarting (System.Drawing.Point location)
+        {
+            var e = new CaptionDragStartingEventArgs (location);
+            OnCaptionDragStarting (e);
+            return e.Cancel;
+        }
+
         /// <summary>Gets or sets whether the window is resizable.</summary>
         public bool Resizeable { get; set; }
 
@@ -1037,6 +1243,20 @@ namespace Majorsilence.Forms
 
         internal virtual void SetWindowStartupLocation (WindowBase? owner = null) { }
 
+        /// <summary>
+        /// The window that actually presents this one on screen. Normally itself; a <see cref="Form"/>
+        /// hosted in someone else's control tree (an MDI child, or one placed via Controls.Add) returns
+        /// the top-level window it is hosted in.
+        /// </summary>
+        /// <remarks>
+        /// A hosted form's own <see cref="Backend"/> is constructed but never shown -- its content is
+        /// rendered into the host's frame instead. Operating on that unused backend is not the no-op it
+        /// looks like: <c>Backend.Activate ()</c> maps to the platform's "make key and order front",
+        /// which puts an empty window on screen. Anything reaching for a window to enable, activate or
+        /// measure must go through here rather than <c>Backend</c> directly.
+        /// </remarks>
+        internal virtual WindowBase PresentationWindow => this;
+
         // Lets a subclass (Form) divert Show() into being hosted inside another window — an MDI child is
         // placed in its parent's MDI client area rather than getting its own top-level OS window.
         internal virtual bool TryShowHosted () => false;
@@ -1059,8 +1279,14 @@ namespace Majorsilence.Forms
 
         internal void ShowDialog (WindowBase parent)
         {
-            SetWindowStartupLocation (parent);
-            parent.Backend.Enabled = false;
+            // Disable and measure against the window presenting the parent: when the parent is an MDI
+            // child it has no window of its own, and its unrealized backend reports a meaningless
+            // position (so CenterParent placed the dialog somewhere arbitrary) while leaving the real
+            // window it lives in still accepting input.
+            var parentWindow = parent.PresentationWindow;
+
+            SetWindowStartupLocation (parentWindow);
+            parentWindow.Backend.Enabled = false;
             Backend.Show ();
             EnsureShownBookkeeping ();
         }
@@ -1135,11 +1361,22 @@ namespace Majorsilence.Forms
             set {
                 if (visible == value)
                     return;
-                if (value)
-                    Show ();
-                else
-                    Hide ();
+                SetVisibleCore (value);
             }
+        }
+
+        /// <summary>Shows or hides the window.</summary>
+        /// <remarks>
+        /// The choke point every visibility change routes through, as in WinForms -- which is the entire
+        /// value of the member: a popup that suppresses being shown until it has content overrides this,
+        /// and an override only intercepts anything if <see cref="Visible"/> actually goes through it.
+        /// </remarks>
+        protected virtual void SetVisibleCore (bool value)
+        {
+            if (value)
+                Show ();
+            else
+                Hide ();
         }
 
         // ── WinForms layout/handle/color compatibility ───────────────────────────
@@ -1153,10 +1390,46 @@ namespace Majorsilence.Forms
         public void SuspendLayout () => adapter.SuspendLayout ();
 
         /// <summary>Resumes normal layout logic, optionally forcing an immediate layout.</summary>
-        public void ResumeLayout (bool performLayout = true) => adapter.ResumeLayout (performLayout);
+        public void ResumeLayout (bool performLayout = true)
+        {
+            adapter.ResumeLayout (performLayout);
+
+            if (performLayout)
+                RaiseLayoutForExplicitRequest ();
+        }
 
         /// <summary>Forces the window's controls to apply layout logic.</summary>
-        public void PerformLayout () => adapter.PerformLayout ();
+        public void PerformLayout ()
+        {
+            adapter.PerformLayout ();
+            RaiseLayoutForExplicitRequest ();
+        }
+
+        // The adapter forwards its layout pass to this window only once the window has been shown (see
+        // ControlAdapter.OnLayout, which explains why). An explicit PerformLayout/ResumeLayout from the
+        // consumer is a different thing entirely and has to reach the window's own OnLayout whether it is
+        // on screen yet or not: a window that decides its visibility there -- DockPanelSuite's
+        // FloatWindow sets `Visible = VisibleNestedPanes.Count > 0` in OnLayout, and constructs itself
+        // inside SuspendLayout/ResumeLayout precisely so that runs -- can never become visible otherwise.
+        // Left unraised, a document dragged out to float went into a window that was never shown, which
+        // read as the document simply vanishing.
+        private void RaiseLayoutForExplicitRequest ()
+        {
+            // Already forwarded by the adapter's own pass, and a re-entrant raise would let an OnLayout
+            // that triggers layout recurse without end.
+            if (shown || raising_layout)
+                return;
+
+            raising_layout = true;
+
+            try {
+                RaiseLayout (new LayoutEventArgs (adapter, null));
+            } finally {
+                raising_layout = false;
+            }
+        }
+
+        private bool raising_layout;
 
         // The rest of this block is the same story as SuspendLayout/ResumeLayout above: members a
         // WinForms Form inherits from Control, which a Majorsilence.Forms Form cannot because it is not
@@ -1303,7 +1576,31 @@ namespace Majorsilence.Forms
         /// <see cref="Control.Region"/> (also stored) — Majorsilence.Forms does not clip a window to
         /// a non-rectangular region yet.
         /// </summary>
-        public Majorsilence.Forms.Drawing.Region? Region { get; set; }
+        /// <remarks>
+        /// A window with a region is SHAPED: it paints only inside the region, and the rest of it reads
+        /// through to whatever is behind. Both halves are needed — clipping alone would only expose the
+        /// window's own opaque backdrop — so the backend is told to stop filling that backdrop (see
+        /// <see cref="Backends.IWindowBackend.SetShaped"/>) and <see cref="RenderFrame"/> clips to the
+        /// region.
+        ///
+        /// This is how a drag overlay draws just its guides: a full-screen, input-transparent window
+        /// whose region is a handful of small shapes. Stored and never read, it produced the opposite —
+        /// a screen-sized opaque rectangle over everything for the duration of a drag.
+        /// </remarks>
+        public Majorsilence.Forms.Drawing.Region? Region {
+            get => region;
+            set {
+                if (ReferenceEquals (region, value))
+                    return;
+
+                region = value;
+
+                Backend.SetShaped (value is not null);
+                Invalidate ();
+            }
+        }
+
+        private Majorsilence.Forms.Drawing.Region? region;
 
         /// <summary>
         /// Gets or sets the reading order of the window. Forwarded to the root control adapter, which
@@ -1311,7 +1608,7 @@ namespace Majorsilence.Forms
         /// <see cref="Majorsilence.Forms.RightToLeft.Inherit"/> resolve through this the same way they
         /// resolve through a parent Control in WinForms.
         /// </summary>
-        public RightToLeft RightToLeft {
+        public virtual RightToLeft RightToLeft {
             get => adapter is null ? RightToLeft.No : adapter.RightToLeft;
             set { if (adapter is not null) adapter.RightToLeft = value; }
         }

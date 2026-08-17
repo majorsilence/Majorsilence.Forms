@@ -92,7 +92,7 @@ namespace Majorsilence.Forms
         public void Increment (int value) => Increment ((int?)value);
     }
 
-    public partial class TreeViewItem
+    public partial class TreeNode
     {
         /// <summary>Collapses this node, and optionally only this node rather than its children too.</summary>
         public void Collapse (bool ignoreChildren)

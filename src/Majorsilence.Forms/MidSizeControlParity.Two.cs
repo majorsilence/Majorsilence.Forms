@@ -161,9 +161,9 @@ namespace Majorsilence.Forms
             if (!ClientRectangle.Contains (pt))
                 return new TreeViewHitTestInfo (null, TreeViewHitTestLocations.None);
 
-            // GetNodeAt returns the library's TreeViewItem; TreeNode is the WinForms-named subclass
+            // GetNodeAt returns the library's TreeNode; TreeNode is the WinForms-named subclass
             // that the string-based Nodes.Add overloads produce, so a tree built the WinForms way
-            // reports its node and one built through TreeViewItem reports the location only.
+            // reports its node and one built through TreeNode reports the location only.
             if (GetNodeAt (pt) is not { } item)
                 return new TreeViewHitTestInfo (null, TreeViewHitTestLocations.AboveClientArea);
 

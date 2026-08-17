@@ -82,17 +82,22 @@ namespace Majorsilence.Forms
 
             // Ordered most-derived first: Menu and MenuDropDown both derive from ToolStrip (and so from
             // ToolBar), so the ToolBar arm has to come last or it would swallow them.
+            // Every renderer below measures text at the DEVICE font size, because that is what produces
+            // correct glyph metrics, and returns a size in those units. Item bounds are logical, so the
+            // result is converted back here rather than in each renderer -- one place, and it cannot be
+            // forgotten by the next renderer added. Identity at scaling 1, which is why device-sized
+            // items looked right until a scaled display made them overflow the bar they sit in.
             if (owner is Menu menu && renderer is MenuRenderer menu_renderer)
-                return menu_renderer.GetPreferredItemSize (menu, this, proposedSize);
+                return owner.DeviceToLogicalUnits (menu_renderer.GetPreferredItemSize (menu, this, proposedSize));
 
             if (owner is MenuDropDown mdd && renderer is MenuDropDownRenderer mdd_renderer)
-                return mdd_renderer.GetPreferredItemSize (mdd, this, proposedSize);
+                return owner.DeviceToLogicalUnits (mdd_renderer.GetPreferredItemSize (mdd, this, proposedSize));
 
             if (owner is ToolBar tb && renderer is ToolBarRenderer tb_renderer)
-                return tb_renderer.GetPreferredItemSize (tb, this, proposedSize);
+                return owner.DeviceToLogicalUnits (tb_renderer.GetPreferredItemSize (tb, this, proposedSize));
 
             if (owner is Ribbon rb && renderer is RibbonRenderer rb_renderer)
-                return rb_renderer.GetPreferredItemSize (rb, this, proposedSize);
+                return owner.DeviceToLogicalUnits (rb_renderer.GetPreferredItemSize (rb, this, proposedSize));
 
             return proposedSize;
         }
@@ -149,8 +154,12 @@ namespace Majorsilence.Forms
         }
 #pragma warning restore CA1416
 
-        /// <summary>Gets the SKBitmap representation of the image (used by renderers).</summary>
-        internal SKBitmap? ImageSK => _imageSK;
+        /// <summary>
+        /// Gets the SKBitmap representation of the image (used by renderers, for both measuring and
+        /// drawing). Virtual so <see cref="ToolStripItem"/> can fall back to the image its
+        /// <see cref="ToolStripItem.ImageIndex"/> names in the owning strip's ImageList.
+        /// </summary>
+        internal virtual SKBitmap? ImageSK => _imageSK;
 
         /// <summary>Sets the image directly from an SKBitmap (internal use).</summary>
         internal void SetImageSK (SKBitmap? bmp) { _image = null; _imageSK = bmp; }
@@ -171,9 +180,34 @@ namespace Majorsilence.Forms
         public Padding Margin { get; set; } = Padding.Empty;
 
         /// <summary>
+        /// Gets whether this item is being used at design time.
+        /// </summary>
+        /// <remarks>
+        /// Always false, matching <see cref="Control.DesignMode"/>: there is no designer host here, so
+        /// every item is live. Menu items read this to skip design-time-only work, and false is the answer
+        /// that makes them do their normal runtime thing.
+        /// </remarks>
+        protected static bool DesignMode => false;
+
+        /// <summary>
         /// Raises the Click event.
         /// </summary>
-        protected internal virtual void OnClick (MouseEventArgs e)
+        /// <remarks>
+        /// The mouse-typed entry point, kept because this layer dispatches clicks with the originating
+        /// MouseEventArgs. It funnels into the <see cref="OnClick(EventArgs)"/> overload below rather than
+        /// raising Click itself, so an override of either one sees every click. The cast is load-bearing:
+        /// without it the call binds back to this method and recurses.
+        /// </remarks>
+        protected internal virtual void OnClick (MouseEventArgs e) => OnClick ((EventArgs)e);
+
+        /// <summary>
+        /// Raises the Click event.
+        /// </summary>
+        /// <remarks>
+        /// WinForms declares ToolStripItem.OnClick with this signature, and ported menu items override it
+        /// to intercept their own clicks -- so it has to be the one that actually raises Click.
+        /// </remarks>
+        protected virtual void OnClick (EventArgs e)
         {
             Click?.Invoke (this, e);
         }
@@ -266,7 +300,7 @@ namespace Majorsilence.Forms
         /// position indicator appeared to lag a keystroke behind. The owner is laid out as well as
         /// invalidated because an item's width is measured from its text.
         /// </remarks>
-        public string Text {
+        public virtual string Text {
             get => text;
             set {
                 if (text == value)

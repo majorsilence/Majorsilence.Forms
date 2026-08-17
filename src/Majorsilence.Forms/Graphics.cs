@@ -101,21 +101,33 @@ namespace Majorsilence.Forms.Drawing
             return MeasureString (text, face, (int)layoutArea.Width, (int)font.Size);
         }
 
-        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font and StringFormat (format is ignored).</summary>
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font and StringFormat.</summary>
+        /// <remarks>Only the format's <c>HotkeyPrefix</c> is honoured; trimming and flags are still ignored.</remarks>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
-            => MeasureString (text, font);
+            => MeasureString (WithoutHotkeyPrefix (text, format), font);
 
-        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to int width (StringFormat ignored).</summary>
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to int width.</summary>
+        /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.StringFormat)"/>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, int width, Majorsilence.Forms.Drawing.StringFormat? format)
         {
+            text = WithoutHotkeyPrefix (text, format);
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = TypefaceCache.Resolve (font);
             return MeasureString (text, face, width, (int)font.Size);
         }
 
-        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF (StringFormat ignored).</summary>
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF.</summary>
+        /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.StringFormat)"/>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea, Majorsilence.Forms.Drawing.StringFormat? format)
-            => MeasureString (text, font, layoutArea);
+            => MeasureString (WithoutHotkeyPrefix (text, format), font, layoutArea);
+
+        // The text that will actually be drawn, per the format's hotkey handling. Measuring the raw string
+        // would reserve room for ampersands that never render, so a button sized from its own caption comes
+        // out wider than its text -- and a centred caption sits off-centre by the same amount.
+        private static string WithoutHotkeyPrefix (string text, Majorsilence.Forms.Drawing.StringFormat? format) =>
+            format is null || format.HotkeyPrefix == Majorsilence.Forms.Drawing.Text.HotkeyPrefix.None
+                ? text
+                : Mnemonics.Strip (text);
 
         /// <summary>
         /// Returns one <see cref="Majorsilence.Forms.Drawing.Region"/> per character range previously
@@ -404,11 +416,27 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null)
                 return;
 
-            if (_clipBaseline is { } depth)
+            // Only unwind when the canvas is still at the depth where the baseline was armed. Skia's
+            // Restore pops MATRIX and clip together, for every frame above the target -- so firing a
+            // baseline recorded at some other nesting level does not merely replace a clip, it pops
+            // frames that belong to someone else. The paint pipeline saves around every child it
+            // paints, and a themed renderer replaces the clip from inside those frames (save old clip,
+            // clip to the rounded border path, draw, put the old clip back): a stale baseline from a
+            // sibling's paint would unwind the child's whole canvas state -- observed as text drawn
+            // with the translation popped and the clip resurrected from an icon's 32x32 glyph scope,
+            // i.e. quick-rejected into nothing. A baseline at a foreign depth is abandoned instead:
+            // within one scope (constant depth) replace still works, which is the GDI+ contract the
+            // save-old/set-new/restore-old idiom actually exercises.
+            if (_clipBaseline is { } depth && _canvas.SaveCount == _clipBaselineArmedAt)
                 _canvas.RestoreToCount (depth);
 
             _clipBaseline = _canvas.Save ();
+            _clipBaselineArmedAt = _canvas.SaveCount;
         }
+
+        // The canvas save-count right after the baseline save: the guard that tells "our save is the
+        // top of the stack" apart from "someone saved (or restored) around us since".
+        private int _clipBaselineArmedAt;
 
         /// <summary>Sets the clipping region to the given rectangle, replacing any current clip.</summary>
         public void SetClip (Rectangle rect) => SetClip ((RectangleF)rect);
@@ -419,9 +447,11 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null)
                 return;
 
-            if (_clipBaseline is { } depth) {
+            if (_clipBaseline is { } depth && _canvas.SaveCount == _clipBaselineArmedAt) {
                 _canvas.RestoreToCount (depth);
                 _clipBaseline = null;
+            } else {
+                _clipBaseline = null;   // stale baseline: abandon rather than pop foreign frames
             }
         }
 
@@ -968,7 +998,10 @@ namespace Majorsilence.Forms.Drawing
         {
             // Unlike SetClip this keeps the current clip, so it must not unwind to the baseline:
             // Skia's ClipRect already intersects.
-            _clipBaseline ??= _canvas?.Save ();
+            if (_clipBaseline is null && _canvas is not null) {
+                _clipBaseline = _canvas.Save ();
+                _clipBaselineArmedAt = _canvas.SaveCount;
+            }
             _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
         }
 
@@ -997,7 +1030,10 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Excludes a rectangle from the clipping region.</summary>
         public void ExcludeClip (Rectangle rect)
         {
-            _clipBaseline ??= _canvas?.Save ();
+            if (_clipBaseline is null && _canvas is not null) {
+                _clipBaseline = _canvas.Save ();
+                _clipBaselineArmedAt = _canvas.SaveCount;
+            }
             _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom),
                 SKClipOperation.Difference);
         }
@@ -1066,6 +1102,13 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Copies the contents of the screen to this Graphics surface. Stub in Majorsilence.Forms.</summary>
         public void CopyFromScreen (System.Drawing.Point upperLeftSource, System.Drawing.Point upperLeftDestination, Size blockRegionSize) { }
+
+        /// <summary>Copies the contents of the screen to this Graphics surface. Stub in Majorsilence.Forms.</summary>
+        /// <remarks>The raster-operation overload. Screen capture needs a platform screenshot API that no
+        /// backend exposes yet, so like its siblings above this leaves the surface untouched rather than
+        /// throwing -- a screenshot feature comes back blank instead of taking the app down.</remarks>
+        public void CopyFromScreen (int sourceX, int sourceY, int destinationX, int destinationY,
+            Size blockRegionSize, Majorsilence.Forms.Drawing.CopyPixelOperation copyPixelOperation) { }
 
         private static SKColor ToSKColor (System.Drawing.Color c) => new SKColor (c.R, c.G, c.B, c.A);
 
@@ -1471,12 +1514,63 @@ namespace Majorsilence.Forms.Drawing
                 return;
             }
 
+            // Hotkey prefixes are the format's business, as in GDI+: "&Cancel" has to render as "Cancel"
+            // with an underlined C, not with a literal ampersand. Krypton's AccurateText sets this on every
+            // piece of button, tab and menu text it draws, so leaving it unread showed the raw "&" suite-wide.
+            var display = text;
+            var mnemonic = -1;
+
+            if (format.HotkeyPrefix != Majorsilence.Forms.Drawing.Text.HotkeyPrefix.None) {
+                display = Mnemonics.Parse (text, out mnemonic);
+
+                if (format.HotkeyPrefix != Majorsilence.Forms.Drawing.Text.HotkeyPrefix.Show)
+                    mnemonic = -1;   // Hide: strip the prefix, but draw no underline.
+            }
+
+            // Measured on the DISPLAY text: sizing on the raw string would offset centred text by the
+            // width of an ampersand that never appears.
             var origin = AlignTextInBounds (
-                text, font, bounds,
+                display, font, bounds,
                 ToOffsetFactor (format.Alignment),
                 ToOffsetFactor (format.LineAlignment));
 
-            DrawStringClipped (text, font, brush, origin, bounds);
+            DrawStringClipped (display, font, brush, origin, bounds);
+
+            if (mnemonic >= 0 && mnemonic < display.Length)
+                DrawMnemonicUnderline (display, mnemonic, font, brush, origin, bounds);
+        }
+
+        /// <summary>
+        /// Underlines a single character of already-drawn text, the way GDI+ marks a hotkey.
+        /// </summary>
+        /// <remarks>
+        /// Drawn as a rule rather than with an underlined font: only one character is underlined, so
+        /// restyling the whole run would be wrong, and measuring the prefix is how its x position is found.
+        /// Clipped to the same bounds as the text so a mnemonic in overflowing text does not escape the box.
+        /// </remarks>
+        internal void DrawMnemonicUnderline (string display, int index,
+            Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush,
+            PointF origin, RectangleF clip)
+        {
+            if (_canvas is null)
+                return;
+
+            var before = MeasureString (display[..index], font).Width;
+            var width = MeasureString (display[index].ToString (), font).Width;
+
+            if (width <= 0)
+                return;
+
+            // Just below the baseline, which DrawString puts at origin.Y + font.Size.
+            var y = origin.Y + font.Size + 1f;
+
+            using var paint = brush.CreatePaint ();
+            paint.Style = SKPaintStyle.Fill;
+
+            _canvas.Save ();
+            _canvas.ClipRect (new SKRect (clip.Left, clip.Top, clip.Right, clip.Bottom));
+            _canvas.DrawRect (origin.X + before, y, width, 1f, paint);
+            _canvas.Restore ();
         }
 
         // Near -> 0 (no shift), Center -> half the slack, Far -> all of it.

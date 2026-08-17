@@ -108,7 +108,10 @@ namespace Majorsilence.Forms.Drawing.Common.Tests
             var font = new Font ("Arial", 10f);
 
             Assert.Throws<PlatformNotSupportedException> (() => bitmap.GetHbitmap ());
-            Assert.Throws<PlatformNotSupportedException> (() => region.GetHrgn (null));
+            // GetHrgn returns a null handle now instead of throwing: the callers seen in practice (a themed
+            // form's non-client invalidation) hand it straight to a Win32 call and delete it -- chrome
+            // bookkeeping with a natural neutral value, so a null handle beats an exception mid-paint.
+            Assert.Equal (IntPtr.Zero, region.GetHrgn (null));
             Assert.Throws<PlatformNotSupportedException> (() => font.ToHfont ());
         }
 

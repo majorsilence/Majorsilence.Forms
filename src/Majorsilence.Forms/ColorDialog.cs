@@ -6,7 +6,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a dialog box that allows the user to select a color from a palette.
     /// </summary>
-    public class ColorDialog : Form
+    public partial class ColorDialog : Form
     {
         private static readonly Color[] s_palette = {
             Color.Black, Color.DimGray, Color.Gray, Color.DarkGray, Color.Silver, Color.LightGray, Color.WhiteSmoke, Color.White,

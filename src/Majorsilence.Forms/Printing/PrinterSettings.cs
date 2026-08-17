@@ -43,7 +43,10 @@ namespace Majorsilence.Forms.Printing
         public int MaximumPage { get; set; }
 
         /// <summary>Gets or sets the number of copies to print.</summary>
-        public int Copies { get; set; } = 1;
+        /// <remarks>A <c>short</c>, as WinForms declares it -- it maps onto the Win32 print dialog's
+        /// <c>nCopies</c> field, which is 16-bit. It was an <c>int</c> here, so code passing it into a
+        /// print-dialog structure needed a cast it does not need upstream.</remarks>
+        public short Copies { get; set; } = 1;
 
         /// <summary>Gets or sets the maximum number of copies allowed.</summary>
         public int MaximumCopies { get; set; } = 9999;

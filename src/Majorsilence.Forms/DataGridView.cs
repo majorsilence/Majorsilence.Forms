@@ -240,19 +240,19 @@ namespace Majorsilence.Forms
         public event DataGridViewCellEventHandler? CellDoubleClick;
 
         /// <summary>Raised on a mouse click in a cell.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseClick;
+        public event DataGridViewCellMouseEventHandler? CellMouseClick;
 
         /// <summary>Raised on a mouse double-click in a cell.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseDoubleClick { add { } remove { } }
+        public event DataGridViewCellMouseEventHandler? CellMouseDoubleClick { add { } remove { } }
 
         /// <summary>Raised on a mouse down in a cell.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseDown { add { } remove { } }
+        public event DataGridViewCellMouseEventHandler? CellMouseDown { add { } remove { } }
 
         /// <summary>Raised on a mouse up in a cell.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseUp { add { } remove { } }
+        public event DataGridViewCellMouseEventHandler? CellMouseUp { add { } remove { } }
 
         /// <summary>Raised when the mouse moves over a cell.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? CellMouseMove { add { } remove { } }
+        public event DataGridViewCellMouseEventHandler? CellMouseMove { add { } remove { } }
 
         /// <summary>Raised when the mouse enters a cell.</summary>
         public event DataGridViewCellEventHandler? CellMouseEnter;
@@ -294,11 +294,11 @@ namespace Majorsilence.Forms
         // Real handler storage rather than `{ add { } remove { } }`, which discarded the handler: the
         // event looked wired up and nothing could ever be called, so neither a subscriber nor an
         // override of the On* hooks below was reachable.
-        private EventHandler<DataGridViewColumnEventArgs>? _columnAdded;
+        private DataGridViewColumnEventHandler? _columnAdded;
         private EventHandler<DataGridViewColumnEventArgs>? _columnRemoved;
 
         /// <summary>Raised when a column is added to the grid.</summary>
-        public event EventHandler<DataGridViewColumnEventArgs>? ColumnAdded {
+        public event DataGridViewColumnEventHandler? ColumnAdded {
             add => _columnAdded += value;
             remove => _columnAdded -= value;
         }
@@ -340,7 +340,7 @@ namespace Majorsilence.Forms
         internal void RaiseRowsRemoved (int rowIndex, int rowCount) => OnRowsRemoved (new DataGridViewRowsRemovedEventArgs (rowIndex, rowCount));
 
         /// <summary>Raised when the user clicks a row header.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? RowHeaderMouseClick { add { } remove { } }
+        public event DataGridViewCellMouseEventHandler? RowHeaderMouseClick { add { } remove { } }
 
         private DataGridViewCellEventHandler? _rowEnter;
         /// <summary>Raised when a row becomes the current row.</summary>
@@ -380,13 +380,13 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellStateChangedEventArgs>? CellStateChanged { add { } remove { } }
 
         /// <summary>Raised when a cell enters editing mode and the editing control is about to be shown. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<DataGridViewEditingControlShowingEventArgs>? EditingControlShowing;
+        public event DataGridViewEditingControlShowingEventHandler? EditingControlShowing;
 
         /// <summary>Raised when a column header cell is clicked.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? ColumnHeaderMouseClick;
+        public event DataGridViewCellMouseEventHandler? ColumnHeaderMouseClick;
 
         /// <summary>Raised when a column header cell is double-clicked.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? ColumnHeaderMouseDoubleClick { add { } remove { } }
+        public event DataGridViewCellMouseEventHandler? ColumnHeaderMouseDoubleClick { add { } remove { } }
 
         /// <summary>Raised when the width of a column changes.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnWidthChanged { add { } remove { } }
@@ -398,7 +398,7 @@ namespace Majorsilence.Forms
         public event DataGridViewRowEventHandler? RowHeightChanged { add { } remove { } }
 
         /// <summary>Raised when a row header cell is double-clicked.</summary>
-        public event EventHandler<DataGridViewCellMouseEventArgs>? RowHeaderMouseDoubleClick { add { } remove { } }
+        public event DataGridViewCellMouseEventHandler? RowHeaderMouseDoubleClick { add { } remove { } }
 
         /// <summary>Raised when the user is deleting a row. Fires before the row is deleted.</summary>
         public event DataGridViewRowEventHandler? UserAddedRow { add { } remove { } }
@@ -2906,8 +2906,16 @@ namespace Majorsilence.Forms
                 ? '"' + value.Replace ("\"", "\"\"") + '"'
                 : value;
 
-        /// <summary>Gets a row that serves as a template for new rows. Stub in Majorsilence.Forms.</summary>
-        public DataGridViewRow RowTemplate { get; } = new DataGridViewRow ();
+        /// <summary>Gets or sets the row that serves as a template for new rows.</summary>
+        /// <remarks>Settable because grids assign a configured prototype (often a derived row type) before
+        /// populating. Assigning null restores a plain default rather than leaving the property null,
+        /// which is what WinForms does.</remarks>
+        public DataGridViewRow RowTemplate {
+            get => row_template;
+            set => row_template = value ?? new DataGridViewRow ();
+        }
+
+        private DataGridViewRow row_template = new DataGridViewRow ();
 
         /// <summary>Gets the index of the row for new records, or -1 if AllowUserToAddRows is false.</summary>
         public int NewRowIndex => AllowUserToAddRows ? Rows.Count : -1;
@@ -3190,14 +3198,6 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>
-        /// Converts device units to logical units.
-        /// </summary>
-        internal int DeviceToLogicalUnits (int value)
-        {
-            var factor = Scaling;
-            return factor > 0 ? (int)(value / factor) : value;
-        }
     }
 
     /// <summary>

@@ -189,7 +189,7 @@ namespace Majorsilence.Forms
     /// Base class for toolbar and menu items that host a drop-down — <see cref="ToolStripMenuItem"/>,
     /// <see cref="ToolStripDropDownButton"/> and <see cref="ToolStripSplitButton"/>.
     /// </summary>
-    public abstract class ToolStripDropDownItem : ToolStripItem
+    public abstract partial class ToolStripDropDownItem : ToolStripItem
     {
         private ToolStripDropDown? dropDown;
 
@@ -206,18 +206,28 @@ namespace Majorsilence.Forms
         public event ToolStripItemClickedEventHandler? DropDownItemClicked;
 
         /// <summary>Gets or sets the drop-down shown by this item, creating one on first access.</summary>
+        /// <remarks>
+        /// Created with <c>OwnerItem = this</c>, which is the whole trick: an owned
+        /// <see cref="ToolStripDropDown"/> is a view onto its item -- its <c>Items</c> ARE the item's own
+        /// <see cref="MenuItem.Items"/>, and its <c>Visible</c>/<c>Close</c> forward to the item's real
+        /// open/close. It used to be created bare, so a menu built through
+        /// <see cref="DropDownItems"/> went into a collection the strip never rendered, and
+        /// <c>DropDown.Close(...)</c> closed an orphan while the shown menu stayed open -- both silently.
+        /// (<see cref="ToolStripMenuItem"/> always wired the owner; this moves that wiring to the base so
+        /// <see cref="ToolStripDropDownButton"/> and <see cref="ToolStripSplitButton"/> get it too.)
+        /// </remarks>
         public virtual ToolStripDropDown DropDown {
-            get => dropDown ??= new ToolStripDropDown ();
+            get => dropDown ??= CreateDefaultDropDown ();
             set => dropDown = value;
         }
 
         /// <summary>Gets the items in this item's drop-down.</summary>
         /// <remarks>
-        /// Typed as this layer's own menu-item collection rather than WinForms'
-        /// <c>ToolStripItemCollection</c>: the drop-down here is built from menu items, and returning
-        /// a different collection type would mean copying, so mutations through it would be lost.
+        /// The item's own <see cref="MenuItem.Items"/> -- the same collection <see cref="DropDown"/>'s
+        /// <c>Items</c> resolves to, as in WinForms, and returned directly so reading it does not force
+        /// the drop-down control into existence.
         /// </remarks>
-        public virtual MenuItemCollection DropDownItems => DropDown.Items;
+        public virtual MenuItemCollection DropDownItems => Items;
 
         /// <summary>Gets or sets the direction the drop-down opens in.</summary>
         public ToolStripDropDownDirection DropDownDirection { get; set; } = ToolStripDropDownDirection.Default;
@@ -226,25 +236,36 @@ namespace Majorsilence.Forms
         public bool HasDropDown => dropDown is not null;
 
         /// <summary>Gets whether this item's drop-down contains any items.</summary>
-        public virtual bool HasDropDownItems => dropDown is not null && dropDown.Items.Count > 0;
+        /// <remarks>Answers from the item's own items: it used to answer from the lazily-created
+        /// drop-down, so an item with sub-items reported false until something touched
+        /// <see cref="DropDown"/>.</remarks>
+        public virtual bool HasDropDownItems => Items.Count > 0;
 
         /// <summary>Gets whether the drop-down is currently shown.</summary>
-        public override bool Pressed => dropDown is not null && dropDown.Visible;
+        public override bool Pressed => IsDropDownOpened;
 
         /// <summary>Shows this item's drop-down.</summary>
+        /// <remarks>Routes through <see cref="MenuItem.ShowDropDown"/> -- the same native open the strip
+        /// uses for a click -- rather than showing the drop-down control as a free-standing popup.</remarks>
         public new void ShowDropDown ()
         {
+            // Opening is the cancellable point: a drop-down that populates itself lazily builds its
+            // items there and cancels when there is nothing to show, so the open must really be
+            // abandoned rather than merely notified.
+            if (HasDropDown && DropDown.RaiseOpeningCancelled ())
+                return;
+
             OnDropDownShow (EventArgs.Empty);
-            DropDown.Show ();
+            base.ShowDropDown ();
             OnDropDownOpened (EventArgs.Empty);
         }
 
         /// <summary>Hides this item's drop-down.</summary>
         public new void HideDropDown ()
         {
-            if (dropDown is null)
+            if (!IsDropDownOpened)
                 return;
-            dropDown.Hide ();
+            base.HideDropDown ();
             OnDropDownHide (EventArgs.Empty);
         }
 
@@ -255,7 +276,13 @@ namespace Majorsilence.Forms
         protected virtual void OnDropDownOpened (EventArgs e) => DropDownOpened?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="DropDownClosed"/> event.</summary>
-        protected virtual void OnDropDownHide (EventArgs e) => DropDownClosed?.Invoke (this, e);
+        /// <remarks>Defers to <see cref="OnDropDownClosed"/>, the name WinForms uses, so overriding
+        /// either one catches the close.</remarks>
+        protected virtual void OnDropDownHide (EventArgs e) => OnDropDownClosed (e);
+
+        // The actual raise, reached from OnDropDownClosed. Separate because that override lives in
+        // another partial and cannot see the event's backing field through a virtual call.
+        private protected void RaiseDropDownClosed (EventArgs e) => DropDownClosed?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="DropDownItemClicked"/> event.</summary>
         protected virtual void OnDropDownItemClicked (ToolStripItemClickedEventArgs e)

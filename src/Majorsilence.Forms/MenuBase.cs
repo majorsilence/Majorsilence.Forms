@@ -6,7 +6,11 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a base class for all Menu related controls.
     /// </summary>
-    public abstract class MenuBase : Control
+    // ScrollableControl rather than Control, matching WinForms' `ToolStrip : ScrollableControl`: every
+    // strip in this hierarchy is one there, and code that passes a ToolStrip where a ScrollableControl is
+    // expected relies on it. A pure insertion -- ScrollableControl derives from Control, so nothing that
+    // worked against the old base stops working.
+    public abstract class MenuBase : ScrollableControl
     {
         private readonly MenuItem root_item;
 
@@ -88,6 +92,25 @@ namespace Majorsilence.Forms
         // ToolStrip's constructor), so Menu/MenuDropDown re-expose this to keep `menu.Items` and
         // `contextMenu.Items` typed as MenuItemCollection the way they always were.
         internal MenuItemCollection RootItems => root_item.Items;
+
+        /// <summary>
+        /// The client area in LOGICAL units, for laying items out.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="Control.ClientRectangle"/> is device-scaled while item Bounds are logical, so
+        /// laying out directly into it stored device-sized geometry in logical fields: at scaling 2 a
+        /// 28px menu bar produced 56px-tall items that then reported as spilling out of the bar they
+        /// were laid into. Identity at scaling 1. (The wider mismatch between ClientRectangle's units
+        /// and Bounds' is tracked in BACKLOG.md -- 81 call sites, so not something to flip in passing.)
+        /// </remarks>
+        protected Rectangle LogicalClientRectangle {
+            get {
+                var r = ClientRectangle;
+                return new Rectangle (
+                    DeviceToLogicalUnits (r.X), DeviceToLogicalUnits (r.Y),
+                    DeviceToLogicalUnits (r.Width), DeviceToLogicalUnits (r.Height));
+            }
+        }
 
         /// <summary>
         /// Lays out the child menu items.

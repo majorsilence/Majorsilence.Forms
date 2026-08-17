@@ -3,7 +3,7 @@
   <PropertyGroup>
     <!-- .NET version to build for -->
     <_TargetFramework>net10.0</_TargetFramework>
-     <Version>26.0.30</Version>
+     <Version>26.0.31</Version>
     
     <!-- NuGet packaging info. Authors is set explicitly (it otherwise defaults to each project's
          assembly name) so every package under the Majorsilence.* id prefix reports the same author as
@@ -12,8 +12,11 @@
          and must not be used. -->
     <Authors>Majorsilence</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/majorsilence/Majorsilence.Forms</PackageProjectUrl>
-    
+    <!-- The documentation site, not the repo: nuget.org renders PackageProjectUrl as "Project
+         website" and separately renders the SourceLink-provided RepositoryUrl as the source
+         repository, so pointing this at GitHub duplicated one link and wasted the other. -->
+    <PackageProjectUrl>https://forms.majorsilence.com</PackageProjectUrl>
+
     <!-- SourceLink info -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>

@@ -40,6 +40,7 @@ namespace Majorsilence.Forms
         public void Dispose ()
         {
             Dispose (true);
+            RaiseDisposed ();
             GC.SuppressFinalize (this);
         }
 
@@ -98,7 +99,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the default cell style for this column.
         /// </summary>
-        public DataGridViewCellStyle DefaultCellStyle {
+        public virtual DataGridViewCellStyle DefaultCellStyle {
             get => default_cell_style;
             set => default_cell_style = value ?? new DataGridViewCellStyle ();
         }

@@ -23,7 +23,7 @@ namespace Majorsilence.Forms
         /// Gets or sets a value indicating the control is double-buffered. Majorsilence.Forms always renders
         /// each control into its own off-screen surface, so this is effectively always true.
         /// </summary>
-        public bool DoubleBuffered { get; set; } = true;
+        protected virtual bool DoubleBuffered { get; set; } = true;
 
         /// <summary>
         /// Forces the control to invalidate and immediately repaint.
@@ -58,25 +58,43 @@ namespace Majorsilence.Forms
             if (window is null)
                 return delta;
 
-            var desktop_ratio = window.DesktopScaling / window.Scaling;
+            var scale = window.DesktopScaling;
 
-            return desktop_ratio is 0 or 1
+            return scale is 0 or 1
                 ? delta
-                : new Point ((int)Math.Round (delta.X / desktop_ratio), (int)Math.Round (delta.Y / desktop_ratio));
+                : new Point ((int)Math.Round (delta.X / scale), (int)Math.Round (delta.Y / scale));
         }
 
         /// <summary>Converts a Rectangle from client to screen coordinates.</summary>
+        /// <remarks>
+        /// The size converts as well as the origin. <see cref="PointToScreen"/> multiplies logical
+        /// coordinates by the desktop factor, so pairing a converted origin with an unconverted
+        /// <c>Width</c>/<c>Height</c> yields a rectangle scale-times too small -- invisible at scaling 1
+        /// and wrong on every HiDPI display, in exactly the "is this point inside that control" test
+        /// this method exists to answer.
+        /// </remarks>
         public Rectangle RectangleToScreen (Rectangle rect)
         {
-            var origin = PointToScreen (Point.Empty);
-            return new Rectangle (rect.X + origin.X, rect.Y + origin.Y, rect.Width, rect.Height);
+            var origin = PointToScreen (rect.Location);
+            var scale = FindWindow ()?.DesktopScaling ?? 1;
+
+            return scale is 0 or 1
+                ? new Rectangle (origin, rect.Size)
+                : new Rectangle (origin,
+                    new Size ((int)Math.Round (rect.Width * scale), (int)Math.Round (rect.Height * scale)));
         }
 
         /// <summary>Converts a Rectangle from screen to client coordinates.</summary>
+        /// <remarks>The inverse of <see cref="RectangleToScreen"/>, size included.</remarks>
         public Rectangle RectangleToClient (Rectangle rect)
         {
-            var origin = PointToScreen (Point.Empty);
-            return new Rectangle (rect.X - origin.X, rect.Y - origin.Y, rect.Width, rect.Height);
+            var origin = PointToClient (rect.Location);
+            var scale = FindWindow ()?.DesktopScaling ?? 1;
+
+            return scale is 0 or 1
+                ? new Rectangle (origin, rect.Size)
+                : new Rectangle (origin,
+                    new Size ((int)Math.Round (rect.Width / scale), (int)Math.Round (rect.Height / scale)));
         }
 
         /// <summary>Raises the GotFocus event on behalf of another control.</summary>
@@ -128,11 +146,12 @@ namespace Majorsilence.Forms
         /// Gets or sets the background image displayed in the control.
         /// Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
         /// </summary>
-        public Majorsilence.Forms.Drawing.Image? BackgroundImage {
+        public virtual Majorsilence.Forms.Drawing.Image? BackgroundImage {
             get => background_image;
             set {
                 if (background_image != value) {
                     background_image = value;
+                    OnBackgroundImageChanged (EventArgs.Empty);
                     Invalidate ();
                 }
             }
@@ -141,11 +160,12 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the layout used to position the <see cref="BackgroundImage"/>.
         /// </summary>
-        public ImageLayout BackgroundImageLayout {
+        public virtual ImageLayout BackgroundImageLayout {
             get => background_image_layout;
             set {
                 if (background_image_layout != value) {
                     background_image_layout = value;
+                    OnBackgroundImageLayoutChanged (EventArgs.Empty);
                     Invalidate ();
                 }
             }
@@ -280,8 +300,15 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether a wait cursor is shown for this control and its children.</summary>
         public bool UseWaitCursor { get; set; }
 
-        /// <summary>Always returns true in Majorsilence.Forms — the control is always created.</summary>
-        public bool IsHandleCreated => true;
+        /// <summary>Gets whether the control has been created (this library's equivalent of the handle).</summary>
+        /// <remarks>
+        /// Answers from <see cref="Created"/> -- the moment <see cref="CreateControl"/> runs and
+        /// <c>HandleCreated</c> is raised -- rather than the constant true it used to be. The constant was
+        /// not harmless: WinForms code standardly writes <c>if (IsHandleCreated)</c> as its "am I fully
+        /// initialized yet?" guard inside layout paths, and answering true inside a constructor sent such
+        /// code into members its constructor had not assigned yet.
+        /// </remarks>
+        public bool IsHandleCreated => Created;
 
         /// <summary>Always returns false in Majorsilence.Forms — right-to-left mirroring is not supported.</summary>
         public bool IsMirrored => false;
@@ -290,7 +317,7 @@ namespace Majorsilence.Forms
         public IntPtr Handle => IntPtr.Zero;
 
         /// <summary>Forces the creation of the control handle. Stub in Majorsilence.Forms — handle is always ready.</summary>
-        public void CreateHandle () { }
+        protected virtual void CreateHandle () { }
 
         /// <summary>Applies updated ControlStyles flags. Stub in Majorsilence.Forms — styles are applied immediately.</summary>
         public void UpdateStyles () { }
@@ -357,7 +384,7 @@ namespace Majorsilence.Forms
         public string? AccessibleDescription { get; set; }
 
         /// <summary>Gets or sets whether the control accepts drag-and-drop data. Stub in Majorsilence.Forms.</summary>
-        public bool AllowDrop { get; set; }
+        public virtual bool AllowDrop { get; set; }
 
         /// <summary>Causes all validation in the control hierarchy to occur. Always returns true in Majorsilence.Forms.</summary>
         public bool Validate () => Validate (checkAutoValidate: false);
@@ -464,6 +491,14 @@ namespace Majorsilence.Forms
         public virtual BindingContext BindingContext {
             get => binding_context ?? Parent?.BindingContext ?? (binding_context = new BindingContext ());
             set => binding_context = value;
+        }
+
+        // IBindableComponent declares the property nullable; this control's own getter never returns
+        // null (it creates a context on demand), which is the stronger guarantee, so the interface is
+        // satisfied explicitly rather than weakening the public member.
+        BindingContext? IBindableComponent.BindingContext {
+            get => BindingContext;
+            set => BindingContext = value ?? new BindingContext ();
         }
 
         /// <summary>Gets the Form that the control is on, if any.</summary>

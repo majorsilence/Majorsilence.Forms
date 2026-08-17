@@ -71,7 +71,7 @@ namespace Majorsilence.Forms.Tests
         public void TreeNodeCollection_Add_returns_the_new_index ()
         {
             // Deliberately typed as the base collection. TreeView.Nodes is a TreeViewItemCollection,
-            // which declares its own Add (TreeViewItem) returning the item -- so through that type the
+            // which declares its own Add (TreeNode) returning the item -- so through that type the
             // WinForms-shaped overload is hidden by name. Changing that would alter the return type of
             // an overload callers already chain off, so the int-returning Add lives here, where a
             // TreeNodeCollection-typed reference finds it.

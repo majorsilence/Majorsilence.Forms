@@ -4,7 +4,7 @@
 //
 // Adapted from the dotnet/winforms unit tests (TreeNodeTests.cs / TreeNodeMouseClickEventArgsTests.cs
 // under src/test/unit/System.Windows.Forms/), rewritten for the Majorsilence.Forms WinForms-compat API
-// (TreeNode is a compat subclass of TreeViewItem). Original work Copyright (c) .NET Foundation and Contributors.
+// (TreeNode is a compat subclass of TreeNode). Original work Copyright (c) .NET Foundation and Contributors.
 
 using Xunit;
 
@@ -17,7 +17,7 @@ namespace Majorsilence.Forms.Tests
         {
             var node = new TreeNode ();
             Assert.Equal (string.Empty, node.Text);
-            Assert.IsAssignableFrom<TreeViewItem> (node);
+            Assert.IsAssignableFrom<TreeNode> (node);
         }
 
         [Fact]
@@ -47,7 +47,7 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void MouseClickEventArgs_SetsProperties ()
         {
-            var node = new TreeViewItem ("n");
+            var node = new TreeNode ("n");
             var e = new TreeNodeMouseClickEventArgs (node, MouseButtons.Right, 2, 10, 20);
 
             Assert.Same (node, e.Node);
@@ -60,7 +60,7 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void MouseHoverEventArgs_SetsNode ()
         {
-            var node = new TreeViewItem ("n");
+            var node = new TreeNode ("n");
             var e = new TreeNodeMouseHoverEventArgs (node);
             Assert.Same (node, e.Node);
         }

@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Majorsilence.Forms.Mcp</RootNamespace>
+    <AssemblyName>majorsilence-mcp</AssemblyName>
+    <!-- Ships to nuget.org as a .NET global tool: `dotnet tool install -g Majorsilence.Forms.Mcp`
+         then `majorsilence-mcp` with the port flag documented in README.md. ToolCommandName matches
+         AssemblyName so the generated
+         DotnetToolSettings.xml entry point and the documented command line stay the same. -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>majorsilence-mcp</ToolCommandName>
+    <!-- A tool package carries no lib/ref assets (everything lands under tools/); NU5128 is expected. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!-- MCP clients launch this as a child process on whatever machine the developer uses, which may
+         have a newer runtime than the one it was built against. Roll forward rather than fail to launch. -->
+    <RollForward>latestMajor</RollForward>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.Mcp</PackageId>
+    <Title>Majorsilence.Forms MCP Server</Title>
+    <Description>A Model Context Protocol (MCP) server that lets AI assistants drive a running Majorsilence.Forms application — read its control tree, click, type, and screenshot — over the app's built-in W3C WebDriver endpoint.</Description>
+    <PackageTags>Majorsilence;Forms;MCP;ModelContextProtocol;AI;Agent;Automation;Testing;dotnet-tool</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Deliberately no ProjectReference to Majorsilence.Forms: this tool talks to the app under test
+         over HTTP (WebDriverServer), out of process. That keeps it independent of which framework
+         version — or which backend — the app was built against, and means it never has to marshal onto
+         somebody else's UI thread. The app hosts Majorsilence.Forms.WebDriver; this only speaks to it. -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+</Project>

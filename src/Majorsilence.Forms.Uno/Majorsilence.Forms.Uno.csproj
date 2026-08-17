@@ -9,8 +9,8 @@
 
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.Uno</PackageId>
-    <Description>Uno Platform (Skia) platform backend for Majorsilence.Forms.</Description>
-    <PackageTags>Majorsilence;Forms;Uno;Skia;Backend;Cross;Platform</PackageTags>
+    <Description>Uno Platform (Skia) platform backend for Majorsilence.Forms — hosts a cross-platform WinForms app on Uno's desktop, iOS, Android and WebAssembly targets.</Description>
+    <PackageTags>majorsilence-forms;winforms;cross-platform;uno-platform;uno;winui;skiasharp;backend;wasm;mobile</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

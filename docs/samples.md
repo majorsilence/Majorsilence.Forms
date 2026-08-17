@@ -26,6 +26,7 @@ plain `dotnet build` / `dotnet test` at the repo root never needs their platform
 | [`PointOfSale`](#pointofsale) | A full client/server LOB app | Windows, macOS, Linux |
 | [`EmbeddingAvalonia` / `EmbeddingUno`](#embeddingavalonia--embeddinguno) | Majorsilence.Forms hosted *inside* a native app | Desktop |
 | [`WinFormsInterop`](#winformsinterop-windows-only) | Bi-directional `System.Windows.Forms` interop | Windows |
+| [`AutomationTarget`](#automationtarget) | An app that exposes its own automation endpoint | Windows, macOS, Linux |
 
 ### ControlGallery
 
@@ -157,6 +158,25 @@ Verified running on Windows, Ubuntu, and macOS.
 #### macOS
 
 ![Mac Explore Screenshot](explorer-osx.png "Mac Explore Screenshot")
+
+### AutomationTarget
+
+A deliberately small app that starts a `WebDriverServer` on itself, so there is something real to drive
+while learning the automation tooling — from the [MCP server](../tools/Majorsilence.Forms.Mcp), a Selenium
+client, or plain `curl`.
+
+```bash
+dotnet run --project samples/AutomationTarget -- --webdriver 4444
+```
+
+It prints the endpoint and the commands to drive it. `--webdriver <port>` picks the port (default 4444);
+`--no-webdriver` runs it as an ordinary app. Each control demonstrates one thing a client has to cope
+with — a control that refuses to be clicked, one that only becomes enabled once a checkbox is ticked, and
+one deliberately left unnamed — and every action is logged on screen and to stdout, so you can check a
+client's claims against what the app actually saw.
+
+See [`samples/AutomationTarget/README.md`](../samples/AutomationTarget/README.md) for the control-by-control
+breakdown, and [Automation & UI testing](automation.md) for the tooling itself.
 
 ### Outlaw
 

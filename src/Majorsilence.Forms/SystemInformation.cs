@@ -129,6 +129,72 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the maximum number of elements in a single menu.</summary>
         public static int MaxWindowTrackSize => int.MaxValue;
+
+        /// <summary>Gets whether the user has asked the system for a high-contrast appearance.</summary>
+        /// <remarks>
+        /// Always false. The accessibility preference this reports is an OS signal that no backend here
+        /// surfaces, and it cannot be inferred from the palette: a plain light theme is already black on
+        /// white, so contrast alone does not distinguish one. A caller that switches to a high-contrast
+        /// palette on this flag keeps the palette it has, which is the safe direction to be wrong in --
+        /// and <see cref="Theme.SetBuiltInTheme"/> is the way to select one deliberately.
+        /// </remarks>
+        public static bool HighContrast => false;
+
+        /// <summary>Gets how long a submenu waits before opening, in milliseconds.</summary>
+        /// <remarks>400, the Windows default. This is the delay a menu manager sleeps for before pushing
+        /// out the child of a hovered item, so the value has to be a plausible one rather than zero.</remarks>
+        public static int MenuShowDelay => 400;
+
+        /// <summary>Gets the amount a wheel must rotate to count as one detent.</summary>
+        /// <remarks>120, the <c>WHEEL_DELTA</c> constant. Wheel deltas arriving from the backend are
+        /// expressed in these units, so a control dividing by this reaches whole notches.</remarks>
+        public static int MouseWheelScrollDelta => 120;
+
+        /// <summary>Gets whether menus fade out when they close rather than vanishing.</summary>
+        /// <remarks>False, with <see cref="IsMenuAnimationEnabled"/>: menu open/close animation is an OS
+        /// effect this layer does not implement, and a caller that checks first skips the animation code
+        /// rather than running an animation that never appears.</remarks>
+        public static bool IsMenuFadeEnabled => false;
+
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool IsMenuAnimationEnabled => false;
+
+        /// <summary>Gets whether font smoothing is enabled.</summary>
+        /// <remarks>True: text here is drawn by SkiaSharp, which antialiases glyphs by default.</remarks>
+        public static bool IsFontSmoothingEnabled => true;
+
+        /// <summary>Gets whether the user's selection fades out rather than clearing.</summary>
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool IsSelectionFadeEnabled => false;
+
+        /// <summary>Gets whether tool tips animate into view.</summary>
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool IsToolTipAnimationEnabled => false;
+
+        /// <summary>Gets whether combo boxes animate their drop-down.</summary>
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool IsComboBoxAnimationEnabled => false;
+
+        /// <summary>Gets whether UI effects are enabled at all.</summary>
+        /// <inheritdoc cref="IsMenuFadeEnabled"/>
+        public static bool UIEffectsEnabled => false;
+
+        /// <summary>Gets whether the process is running in a context that can interact with a user.</summary>
+        /// <remarks>Answers from <see cref="Application.UserInteractive"/>, so the two cannot disagree.</remarks>
+        public static bool UserInteractive => Application.UserInteractive;
+
+        /// <summary>Gets the NetBIOS name of the local computer.</summary>
+        /// <remarks>Real data, from <see cref="Environment.MachineName"/> -- error reporters and About
+        /// boxes put this in front of the user, so a placeholder would be a visible lie.</remarks>
+        public static string ComputerName => Environment.MachineName;
+
+        /// <summary>Gets the user name of the person logged into the system.</summary>
+        /// <inheritdoc cref="ComputerName"/>
+        public static string UserName => Environment.UserName;
+
+        /// <summary>Gets the name of the domain the user belongs to.</summary>
+        /// <inheritdoc cref="ComputerName"/>
+        public static string UserDomainName => Environment.UserDomainName;
     }
 
     /// <summary>

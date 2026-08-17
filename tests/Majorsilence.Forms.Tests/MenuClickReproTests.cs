@@ -52,13 +52,21 @@ namespace Majorsilence.Forms.Tests
             // implicit, docked FormTitleBar above it) -- add both to get form-relative coordinates.
             var loc = new System.Drawing.Point (strip.Bounds.X + file.Bounds.X + 5, strip.Bounds.Y + file.Bounds.Y + 5);
 
-            form.HandlePointerPressed (MouseButtons.Left, loc.X, loc.Y, Keys.None);
-            form.HandlePointerReleased (MouseButtons.Left, loc.X, loc.Y, Keys.None);
+            // Through HeadlessRenderer, not the window's handlers directly: those take DEVICE pixels, so
+            // feeding them logical coordinates lands the click at 1/scale of where it was aimed -- at
+            // MF_HEADLESS_SCALE=2 that is up in the title bar rather than on the "File" item.
+            HeadlessRenderer.MouseDown (form, loc.X, loc.Y);
+            HeadlessRenderer.MouseUp (form, loc.X, loc.Y);
             Majorsilence.Forms.Backends.Platform.Backend.DoEvents ();
 
-            Assert.True (file.IsDropDownOpened, "A real click on a MenuStrip top-level item should open its drop down and leave it open.");
-
+            // Read the outcome, then close BEFORE asserting: a failing assert would otherwise leak this
+            // shown form in Application.OpenForms, where a later test's parameterless ShowDialog picks it
+            // as modal owner and pumps forever -- turning one red test into a run that hangs until the CI
+            // job times out.
+            var opened = file.IsDropDownOpened;
             form.Close ();
+
+            Assert.True (opened, "A real click on a MenuStrip top-level item should open its drop down and leave it open.");
         }
 
         [Fact]

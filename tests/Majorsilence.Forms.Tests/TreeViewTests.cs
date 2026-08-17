@@ -14,7 +14,7 @@ namespace Majorsilence.Forms.Tests
 {
     // Behavioral tests ported from the upstream WinForms TreeViewTests / TreeNodeTests /
     // TreeNodeCollectionTests, adapted to the Majorsilence.Forms API (no Handle/CreateParams/
-    // accessibility plumbing). Majorsilence.Forms models nodes as TreeViewItem (with a TreeNode
+    // accessibility plumbing). Majorsilence.Forms models nodes as TreeNode (with a TreeNode
     // compatibility subclass) and keeps an internal hidden root item, so a few WinForms
     // facts (e.g. a top-level node's Parent being null, or FullPath throwing when detached)
     // are intentionally different and are not asserted here. Everything tested below pins
@@ -82,7 +82,7 @@ namespace Majorsilence.Forms.Tests
         [InlineData ("text", "text")]
         public void TreeNode_Ctor_String (string? text, string expectedText)
         {
-            // Majorsilence.Forms' TreeViewItem does not normalize null to "" in the ctor, so guard.
+            // Majorsilence.Forms' TreeNode does not normalize null to "" in the ctor, so guard.
             var node = new TreeNode (text ?? string.Empty);
 
             Assert.Equal (expectedText, node.Text);
@@ -142,7 +142,7 @@ namespace Majorsilence.Forms.Tests
         public void TreeNodeCollection_Add_TreeViewItem_ReturnsSameInstance ()
         {
             using var treeView = new TreeView ();
-            var node = new TreeViewItem ("text");
+            var node = new TreeNode ("text");
 
             var result = treeView.Nodes.Add (node);
 
@@ -155,9 +155,9 @@ namespace Majorsilence.Forms.Tests
         public void TreeNodeCollection_AddRange_Success ()
         {
             using var treeView = new TreeView ();
-            var node1 = new TreeViewItem ("Node 1");
-            var node2 = new TreeViewItem ("Node 2");
-            var node3 = new TreeViewItem ("Node 3");
+            var node1 = new TreeNode ("Node 1");
+            var node2 = new TreeNode ("Node 2");
+            var node3 = new TreeNode ("Node 3");
 
             treeView.Nodes.AddRange (new[] { node1, node2, node3 });
 
@@ -174,10 +174,10 @@ namespace Majorsilence.Forms.Tests
             // constructor) used to throw ArgumentOutOfRangeException from ScrollBar.Value because
             // EnsureItemVisible computed a scroll target outside the scrollbar's range.
             using var treeView = new TreeView ();
-            var nodes = new TreeViewItem[20];
+            var nodes = new TreeNode[20];
 
             for (var i = 0; i < nodes.Length; i++) {
-                nodes[i] = new TreeViewItem ($"Node {i}");
+                nodes[i] = new TreeNode ($"Node {i}");
                 treeView.Nodes.Add (nodes[i]);
             }
 
@@ -194,7 +194,7 @@ namespace Majorsilence.Forms.Tests
             treeView.Nodes.Add ("Node 0");
             treeView.Nodes.Add ("Node 2");
 
-            var inserted = new TreeViewItem ("Node 1");
+            var inserted = new TreeNode ("Node 1");
             treeView.Nodes.Insert (1, inserted);
 
             Assert.Equal (3, treeView.Nodes.Count);
@@ -248,7 +248,7 @@ namespace Majorsilence.Forms.Tests
         {
             using var treeView = new TreeView ();
             var node = treeView.Nodes.Add ("Node 0");
-            var other = new TreeViewItem ("Other");
+            var other = new TreeNode ("Other");
 
             Assert.Contains (node, treeView.Nodes);
             Assert.DoesNotContain (other, treeView.Nodes);
@@ -263,7 +263,7 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (0, treeView.Nodes.IndexOf (node0));
             Assert.Equal (1, treeView.Nodes.IndexOf (node1));
-            Assert.Equal (-1, treeView.Nodes.IndexOf (new TreeViewItem ("x")));
+            Assert.Equal (-1, treeView.Nodes.IndexOf (new TreeNode ("x")));
         }
 
         [Theory]
@@ -283,7 +283,7 @@ namespace Majorsilence.Forms.Tests
             using var treeView = new TreeView ();
             treeView.Nodes.Add ("Node 0");
 
-            var replacement = new TreeViewItem ("New Node 0");
+            var replacement = new TreeNode ("New Node 0");
             treeView.Nodes[0] = replacement;
 
             Assert.Single (treeView.Nodes);
@@ -335,7 +335,7 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void TreeViewItem_GetNodeCount_CountsChildren ()
         {
-            var parent = new TreeViewItem ("Parent");
+            var parent = new TreeNode ("Parent");
             parent.Items.Add ("Child 1");
             var child2 = parent.Items.Add ("Child 2");
             child2.Items.Add ("GrandChild");
@@ -347,7 +347,7 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void HasChildren_ReturnsExpected ()
         {
-            var node = new TreeViewItem ("Node");
+            var node = new TreeNode ("Node");
             Assert.False (node.HasChildren);
 
             node.Items.Add ("Child");
@@ -430,7 +430,7 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void FirstNode_LastNode_ReturnExpected ()
         {
-            var parent = new TreeViewItem ("Parent");
+            var parent = new TreeNode ("Parent");
             Assert.Null (parent.FirstNode);
             Assert.Null (parent.LastNode);
 
@@ -525,7 +525,7 @@ namespace Majorsilence.Forms.Tests
             var node = treeView.Nodes.Add ("Node");
 
             var raised = 0;
-            TreeViewItem? selected = null;
+            TreeNode? selected = null;
             treeView.ItemSelected += (s, e) => { raised++; selected = e.Value; };
 
             treeView.SelectedItem = node;
@@ -580,7 +580,7 @@ namespace Majorsilence.Forms.Tests
         public void Tag_Set_GetReturnsExpected ()
         {
             var tag = new object ();
-            var node = new TreeViewItem ("Node") { Tag = tag };
+            var node = new TreeNode ("Node") { Tag = tag };
 
             Assert.Same (tag, node.Tag);
         }

@@ -198,17 +198,32 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseDrawItem (DrawItemEventArgs e) => OnDrawItem (e);
 
-        /// <summary>Raised before a tab page is selected. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<TabControlCancelEventArgs>? Selecting { add { } remove { } }
+        // Typed with WinForms' own delegates, not EventHandler<T>: the two are not interchangeable, so
+        // code that wires one of these the WinForms way (`new TabControlCancelEventHandler(...)`, or by
+        // forwarding an event of that delegate type) did not compile.
+        /// <summary>Raised before a tab page is selected. Cancelable.</summary>
+        public event TabControlCancelEventHandler? Selecting;
 
-        /// <summary>Raised after a tab page is selected. Stub in Majorsilence.Forms.</summary>
-        public new event EventHandler<TabControlEventArgs>? Selected { add { } remove { } }
+        /// <summary>Raised after a tab page is selected.</summary>
+        public new event TabControlEventHandler? Selected;
 
-        /// <summary>Raised before a tab page is deselected. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<TabControlCancelEventArgs>? Deselecting { add { } remove { } }
+        /// <summary>Raised before a tab page is deselected. Cancelable.</summary>
+        public event TabControlCancelEventHandler? Deselecting;
 
-        /// <summary>Raised after a tab page is deselected. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<TabControlEventArgs>? Deselected { add { } remove { } }
+        /// <summary>Raised after a tab page is deselected.</summary>
+        public event TabControlEventHandler? Deselected;
+
+        /// <summary>Raises the <see cref="Selecting"/> event.</summary>
+        protected virtual void OnSelecting (TabControlCancelEventArgs e) => Selecting?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="Deselecting"/> event.</summary>
+        protected virtual void OnDeselecting (TabControlCancelEventArgs e) => Deselecting?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="Selected"/> event.</summary>
+        protected virtual void OnSelected (TabControlEventArgs e) => Selected?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="Deselected"/> event.</summary>
+        protected virtual void OnDeselected (TabControlEventArgs e) => Deselected?.Invoke (this, e);
 
         /// <summary>Gets or sets the selected tab page (WinForms alias for SelectedTabPage).</summary>
         public TabPage? SelectedTab {
@@ -248,6 +263,31 @@ namespace Majorsilence.Forms
             if (old_selected == new_selected)
                 return;
 
+            var old_index = old_selected == null ? -1 : TabPages.IndexOf (old_selected);
+            var new_index = new_selected == null ? -1 : TabPages.IndexOf (new_selected);
+
+            // Deselecting/Selecting run before the swap and can cancel it, as WinForms specifies. Skipped
+            // while reverting a cancelled change (the strip raises this again on the way back) and before
+            // the handle exists, matching the SelectedIndexChanged suppression documented below.
+            if (Created && !reverting_tab_selection) {
+                var deselecting = new TabControlCancelEventArgs (old_selected, old_index, false, TabControlAction.Deselecting);
+                OnDeselecting (deselecting);
+
+                var selecting = new TabControlCancelEventArgs (new_selected, new_index, false, TabControlAction.Selecting);
+                if (!deselecting.Cancel)
+                    OnSelecting (selecting);
+
+                if (deselecting.Cancel || selecting.Cancel) {
+                    reverting_tab_selection = true;
+                    try {
+                        tab_strip.SelectedIndex = old_index;
+                    } finally {
+                        reverting_tab_selection = false;
+                    }
+                    return;
+                }
+            }
+
             if (old_selected != null)
                 old_selected.Visible = false;
 
@@ -259,8 +299,15 @@ namespace Majorsilence.Forms
             // SelectedIndexChanged handler mid-construction -- before the fields it touches are initialized --
             // which NullReferences (hit opening frmMaintainProperty, whose tab handler calls ShowTransLookup).
             // The visibility swap above still happens so the correct page shows; only the event waits.
-            if (Created)
+            if (Created) {
+                OnDeselected (new TabControlEventArgs (old_selected, old_index, TabControlAction.Deselected));
                 OnSelectedIndexChanged (EventArgs.Empty);
+                OnSelected (new TabControlEventArgs (new_selected, new_index, TabControlAction.Selected));
+            }
         }
+
+        // Set while restoring the strip after a cancelled Selecting/Deselecting, so the resulting second
+        // trip through this handler does not raise the cancelable pair again (and cancel its own revert).
+        private bool reverting_tab_selection;
     }
 }

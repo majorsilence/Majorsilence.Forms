@@ -23,6 +23,34 @@ namespace Majorsilence.Forms.Headless
         }
 
         /// <summary>
+        /// Whether the window currently owns a shown OS window — what <c>Form.TopLevel</c> decides.
+        /// </summary>
+        public static bool OwnsShownWindow (WindowBase window)
+        {
+            ArgumentNullException.ThrowIfNull (window);
+            return window.Backend is HeadlessWindowHost host && host.IsShown;
+        }
+
+        /// <summary>
+        /// How many times a window has been asked to start a caption move-drag since this was last
+        /// reset. Lets a test assert that a claimed caption gesture did not move the window.
+        /// </summary>
+        public static int MoveDragCount {
+            get => HeadlessWindowHost.MoveDragCount;
+            set => HeadlessWindowHost.MoveDragCount = value;
+        }
+
+        /// <summary>
+        /// Simulates a platform that draws chrome above/left of the client area (a native title bar), so
+        /// a window's client origin no longer coincides with its own <see cref="WindowBase.Location"/>.
+        /// Default is none. Reset it in a test's finally, as it is process-wide.
+        /// </summary>
+        public static System.Drawing.Size ChromeOffset {
+            get => HeadlessWindowHost.ChromeOffset;
+            set => HeadlessWindowHost.ChromeOffset = value;
+        }
+
+        /// <summary>
         /// Renders the given window to PNG bytes at the specified size. The window must have been
         /// created on the headless backend (call <see cref="Use"/> before constructing it).
         /// </summary>

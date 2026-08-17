@@ -161,6 +161,19 @@ per-row:
   base-class gap itself is unchanged: a `Form` still isn't a `Control`, so it can't go into a
   `Control.ControlCollection` or be found by a `Control`-typed walk of a tree, and any *other*
   `Control` member not listed in the `Form` row still has to be added one at a time.
+  *Updated 2026-08-14 — the divergence is now measured and gated rather than discovered one compiler
+  error at a time.* `ControlWindowParityTests` reflects over both surfaces and pins every `Control`
+  member the window side lacks in `tests/Majorsilence.Forms.Tests/ControlWindowParityBaseline.txt`
+  (200 entries today). Adding a member to `Control` without a `WindowBase`/`Form` counterpart now
+  fails that test by name, so the hole is caught here instead of in somebody's ported application.
+  Note the baseline is a *list of differences*, not a to-do list: `Dock`, `Anchor`, `Parent`,
+  `TabIndex`, `Left`/`Top`/`Right`/`Bottom` and the rest of the placement-inside-a-parent surface have
+  no meaning for a top-level window even upstream. The entries worth closing are the ones that
+  describe a window as readily as a control — which is how `DeviceDpi`, `CreateGraphics`,
+  `GetChildAtPoint`, `SetBounds`, `ResizeRedraw`, `OnHelpRequested`, `RecreateHandle` and
+  `HandleDestroyed` came off it. Going the other way (making `Form` a `Control`) would mean merging
+  `WindowBase` with the internal `ControlAdapter` that currently *is* the root control, which collides
+  on coordinate space, on `Visible`/`Enabled` semantics, and on layout ordering.
   *Updated 2026-07-30 — the `ToolStrip` half of this finding is fixed too.*
   `MenuStrip`, `ContextMenuStrip` and `StatusStrip` now genuinely derive from `ToolStrip`, matching
   upstream, so `Renderer`, `RenderMode`, `LayoutStyle`, `GripStyle`, `GripVisible`, `Stretch`,
@@ -399,6 +412,74 @@ host app references — the Telerik package itself has no backend dependency.
 | Avalonia / Linux (WebKitGTK/WPE present) | WebKitGTK | System PDF viewer **by policy** — WebKit has no built-in inline PDF viewer, so Linux always uses the system-viewer path even though the webview itself works | Full webview editor (native spellcheck depends on `enchant` dictionaries being installed) |
 | Uno backend, or Avalonia with the engine unavailable | — | System PDF viewer | `RichTextBox` fallback |
 | Headless backend | — (no `IWebViewFactory` at all) | Caches the document and paints a placeholder; never shells out to a system viewer (so CI/automated tests never spawn OS processes) | `RichTextBox` fallback |
+
+## Visual styles (`System.Windows.Forms.VisualStyles`)
+
+`VisualStyleRenderer` and `VisualStyleElement` exist so that code which draws a themed part — a status
+bar's resize grip, a themed arrow — compiles and runs, but there is **no msstyles theme engine** off
+Windows to draw with, so `VisualStyleRenderer.DrawBackground` is a no-op and
+`VisualStyleRenderer.IsSupported` / `IsElementDefined` report `false`. That pair is how WinForms code is
+already written to decide whether to theme or fall back to its own painting, so code that checks first
+takes its fallback path and never reaches the no-op. `VisualStyleElement` carries the element groups the
+compat layer has been asked for so far, under the upstream nested-class names.
+
+`VisualStyleInformation` describes the style in force, and there is none: `IsSupportedByOS` and
+`IsEnabledByUser` report `false` and the descriptive members (`ColorScheme`, `DisplayName`, `ThemeFilename`,
+…) return empty strings. Those are the two answers callers actually branch on — the upstream pattern is
+`if (VisualStyleInformation.IsEnabledByUser)` or a test of `ColorScheme` for emptiness, followed by a
+palette of the caller's own — so reporting "no theme" routes them to the path that renders correctly here.
+The two colour members are real: `TextControlBorder` and `ControlHighlightHot` answer from
+`SystemColors`, so a control outlining a box gets a border matching the palette actually in force.
+
+## Asking the OS about itself
+
+Three small areas where WinForms reaches Win32 and this layer answers from what it can genuinely see.
+
+**`OSFeature`** (and its `FeatureSupport` base) reports every optional feature **absent** —
+`GetVersionPresent` returns `null` and `IsPresent` returns `false`. For the two that are asked for in
+practice that is the true answer: per-pixel window alpha is not implemented (`Form.AllowTransparency`
+stores its value and does nothing with it) and there is no msstyles engine. It is also the useful
+direction to be wrong in, which is why the type is worth having rather than stubbing at the call site:
+code testing for layered windows does so to choose between an alpha-blended effect and a plain one, so
+`null` routes it to the one that actually draws.
+
+**`InputLanguage`** cannot enumerate keyboard layouts — that is a Win32 call with no cross-platform
+equivalent — so it answers from the culture instead. `CurrentInputLanguage` is the current culture
+(settable, and the setting is remembered, but it does not switch the OS layout);
+`InstalledInputLanguages` lists the current and installed-UI cultures, de-duplicated; `LayoutName` gives
+the culture's English name rather than inventing a layout identifier; and `Handle` is `IntPtr.Zero`,
+because there is no HKL. That is enough for what callers do with it — naming the language the user is
+working in.
+
+**`Majorsilence.Forms.Media.SystemSounds` and `SoundPlayer`** replace their `System.Media` namesakes,
+which live in a Windows-only assembly. Playback is **real** as of 2026-08: it routes through the
+operating system's own playback utility (`afplay` on macOS, `paplay`/`aplay` on Linux, PowerShell's
+`System.Media` on Windows — see `Media/NativeAudio.cs`). The child process gives the API its upstream
+semantics for free: `Stop` kills it, `PlaySync` waits for it, `PlayLooping` respawns it until stopped,
+and a `Stream` is materialised to a temporary .wav once and deleted on dispose. The trade is ~50–200ms
+of launch latency per play — these APIs serve alert sounds and short cues, which is also their upstream
+contract (SoundPlayer is WAV-only even in WinForms). What stays deliberately silent: platforms with no
+utility to spawn (mobile/browser, until a backend supplies a native path — `NativeAudio` is the seam),
+URL sound locations (no implicit fetching), and any failure at all (missing utility, dead audio daemon,
+unplayable file) — fire-and-forget APIs degrade to silence, never to an exception. `Load`/`LoadAsync`
+still complete immediately: the OS utility opens the file itself, so there is nothing to preload. The
+migrator redirects `System.Media` here, because the bare namespace resolves off Windows and every type
+reference in the file then fails as an unknown name — far more confusing than a missing namespace.
+
+## Design-time smart tags
+
+`DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list
+reaches for it after changing a property, so the smart-tag panel redraws with the new state. `Refresh`,
+`ShowUI` and `HideUI` are **no-ops** and `ShouldAutoShow` returns `false` — there is no panel to refresh.
+In practice the calls are never made at all: the service is requested through
+`GetService(typeof(DesignerActionUIService))`, which returns `null` here, so the surrounding `is` pattern
+fails and the body is skipped. The type has to resolve for that pattern to compile. The same boundary
+applies to `ControlDesigner.AutoResizeHandles` (stored; the handles it governs are drawn by a design
+surface, and there is none) and `ControlDesigner.EnableDesignMode`, which returns `false` — enabling
+design mode needs a design surface to enable it on, and a caller that checks the result correctly
+concludes the child is not designable. `CollectionEditor.DestroyInstance` is the exception: it really
+disposes, because an editor that creates a component, has it rejected and never disposes it leaks
+whatever that component held.
 
 ## VB Application Model
 

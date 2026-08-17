@@ -1459,6 +1459,26 @@ namespace Majorsilence.Forms
         public TreeNodeStates State { get; }
         /// <summary>Gets or sets the draw default.</summary>
         public bool DrawDefault { get; set; }
+
+        // Not upstream. These carry what owner-draw code here actually needs to paint with: the Skia
+        // canvas the tree is being drawn onto, and the scale to convert logical sizes at. WinForms passes
+        // only a Graphics because GDI+ carries its own transform; this library's renderers draw straight
+        // onto a canvas, and a handler that has to go through Graphics loses access to the text and
+        // measurement helpers the rest of the drawing code uses. They are populated when the event is
+        // raised from a paint pass, and null otherwise -- so guard Canvas before drawing with it.
+
+        /// <summary>Gets the tree the node belongs to, when raised from a paint pass.</summary>
+        public TreeView? TreeView { get; internal set; }
+
+        /// <summary>Gets the canvas the tree is being painted onto, when raised from a paint pass.</summary>
+        public SkiaSharp.SKCanvas? Canvas { get; internal set; }
+
+        /// <summary>Gets the scale factor between logical and device units.</summary>
+        /// <remarks>A double, matching <see cref="PaintEventArgs.Scaling"/>, which is where it comes from.</remarks>
+        public double Scaling { get; internal set; } = 1d;
+
+        /// <summary>Converts a logical size to device pixels at the current <see cref="Scaling"/>.</summary>
+        public int LogicalToDeviceUnits (int value) => (int)Math.Round (value * Scaling);
     }
 
     /// <summary>Provides data for the html element error event.</summary>
@@ -1771,13 +1791,26 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of the <see cref="ToolStripRenderEventArgs"/> class.</summary>
         public ToolStripRenderEventArgs (Graphics g, ToolStrip toolStrip, Rectangle affectedBounds, Color backColor)
         {
+            // Graphics used to be left at its default here, so every renderer reading e.Graphics got null
+            // from an argument the caller had supplied.
+            Graphics = g;
             ToolStrip = toolStrip;
             AffectedBounds = affectedBounds;
             BackColor = backColor;
         }
 
+        /// <summary>Initializes a new instance covering the whole strip.</summary>
+        /// <remarks>WinForms' two-argument overload: the affected bounds default to the strip's own extent
+        /// and the colour to the strip's back colour, which is what a renderer painting the entire
+        /// background wants and saves it computing both.</remarks>
+        public ToolStripRenderEventArgs (Graphics g, ToolStrip toolStrip)
+            : this (g, toolStrip, toolStrip is null ? Rectangle.Empty : new Rectangle (Point.Empty, toolStrip.Size),
+                    toolStrip?.BackColor ?? Color.Empty)
+        {
+        }
+
         /// <summary>Gets the graphics.</summary>
-        public Graphics Graphics { get; } = default!;
+        public Graphics Graphics { get; }
         /// <summary>Gets the affected bounds.</summary>
         public Rectangle AffectedBounds { get; }
         /// <summary>Gets the tool strip.</summary>

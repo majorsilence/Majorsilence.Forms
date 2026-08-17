@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Headless;
+﻿using Majorsilence.Forms.Headless;
 using Majorsilence.Forms.Telerik;
 using Xunit;
 
@@ -63,7 +63,17 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.CapturePng (form);
 
             Assert.False (emptyContainer.Visible, "an empty main container must hide");
-            Assert.Equal (dock.ClientRectangle, toolStrip.Bounds);
+
+            // The strip fills the dock's client area. Compared in LOGICAL units: Bounds is logical while
+            // ClientRectangle is device-scaled, so comparing them directly only held at scaling 1 -- and
+            // it was asserting the very mix-up that made docked children scale-times too large.
+            var client = new System.Drawing.Rectangle (
+                dock.DeviceToLogicalUnits (dock.ClientRectangle.X),
+                dock.DeviceToLogicalUnits (dock.ClientRectangle.Y),
+                dock.DeviceToLogicalUnits (dock.ClientRectangle.Width),
+                dock.DeviceToLogicalUnits (dock.ClientRectangle.Height));
+
+            Assert.Equal (client, toolStrip.Bounds);
             Assert.Equal (0, dock.Controls.GetChildIndex (toolStrip));
         }
     }

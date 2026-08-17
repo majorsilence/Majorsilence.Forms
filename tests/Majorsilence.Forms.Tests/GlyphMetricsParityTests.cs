@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Headless;
+﻿using Majorsilence.Forms.Headless;
 using Majorsilence.Forms.Renderers;
 using Xunit;
 
@@ -59,9 +59,14 @@ namespace Majorsilence.Forms.Tests
                     }
                 }
 
-            Assert.True (lastInkColumn >= 40,
-                $"trailing text ink expected past x=40 of the 60px control (last ink column: {lastInkColumn})");
-            Assert.True (lastInkColumn <= 58,
+            // The back buffer is in device pixels while the control is 60 logical wide, so the column
+            // thresholds scale with it -- the point of the test is where the ink falls proportionally
+            // within the control, not which absolute pixel it lands on.
+            var scale = radio.Width > 0 ? bmp.Width / (double)radio.Width : 1.0;
+
+            Assert.True (lastInkColumn >= 40 * scale,
+                $"trailing text ink expected past x={40 * scale} of the {bmp.Width}px buffer (last ink column: {lastInkColumn})");
+            Assert.True (lastInkColumn <= 58 * scale,
                 $"text must not run to the very edge (last ink column: {lastInkColumn})");
         }
     }

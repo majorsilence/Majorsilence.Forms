@@ -56,6 +56,7 @@ majorsilence-migrate MySolution.sln --dry-run --diff
 
 ## Links
 
+- [**Documentation**](https://forms.majorsilence.com) · [Migration guide](https://forms.majorsilence.com/migration/)
 - [Repository](https://github.com/majorsilence/Majorsilence.Forms)
 - [Migration guide](https://github.com/majorsilence/Majorsilence.Forms/blob/main/MIGRATION.md)
 - [Compatibility matrix](https://github.com/majorsilence/Majorsilence.Forms/blob/main/COMPATIBILITY_MATRIX.md) — what's real vs. approximated

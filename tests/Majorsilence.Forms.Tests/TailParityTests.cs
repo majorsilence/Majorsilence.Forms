@@ -87,10 +87,10 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void Cloning_a_node_copies_its_children_without_sharing_them ()
         {
-            var node = new TreeViewItem ("root") { Name = "key" };
-            node.Nodes.Add (new TreeViewItem ("child"));
+            var node = new TreeNode ("root") { Name = "key" };
+            node.Nodes.Add (new TreeNode ("child"));
 
-            var clone = (TreeViewItem)node.Clone ();
+            var clone = (TreeNode)node.Clone ();
 
             Assert.Equal ("root", clone.Text);
             Assert.Equal ("key", clone.Name);

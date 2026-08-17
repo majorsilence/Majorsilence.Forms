@@ -111,6 +111,17 @@ namespace Majorsilence.Forms
 
                 Invalidate ();
 
+                // WinForms reports the per-item changes first -- the deselection, then the selection, so
+                // a handler tracking selection sees the item it must let go of before the one it gains --
+                // and only then the index-level SelectedIndexChanged, once the selection has settled.
+                if (current_item is not null)
+                    OnItemSelectionChanged (new ListViewItemSelectionChangedEventArgs (
+                        current_item, Items.IndexOf (current_item), false));
+
+                if (value is not null)
+                    OnItemSelectionChanged (new ListViewItemSelectionChangedEventArgs (
+                        value, Items.IndexOf (value), true));
+
                 // The guard above ensures this only fires on an actual selection change (WinForms).
                 OnSelectedIndexChanged (EventArgs.Empty);
             }
@@ -169,7 +180,17 @@ namespace Majorsilence.Forms
         public event EventHandler<ItemCheckEventArgs>? ItemCheck { add { } remove { } }
 
         /// <summary>Raised when an item's selection state changes.</summary>
-        public event EventHandler? ItemSelectionChanged { add { } remove { } }
+        /// <remarks>
+        /// Real, and typed with WinForms' <see cref="ListViewItemSelectionChangedEventHandler"/>. It was a
+        /// plain <c>EventHandler</c> with empty accessors, so it carried none of the information the event
+        /// exists to carry -- which item, at which index, selected or deselected -- and dropped its
+        /// handlers besides. Raised from the <see cref="SelectedItem"/> setter.
+        /// </remarks>
+        public event ListViewItemSelectionChangedEventHandler? ItemSelectionChanged;
+
+        /// <summary>Raises the <see cref="ItemSelectionChanged"/> event.</summary>
+        protected virtual void OnItemSelectionChanged (ListViewItemSelectionChangedEventArgs e)
+            => ItemSelectionChanged?.Invoke (this, e);
 
         /// <summary>Raised when the selected indices change.</summary>
         public event EventHandler? SelectedIndexChanged;
@@ -376,6 +397,14 @@ namespace Majorsilence.Forms
         public ColumnHeader Add (string text, int width)
         {
             var h = new ColumnHeader { Text = text, Width = width, Index = Count };
+            Add (h);
+            return h;
+        }
+
+        /// <summary>Adds a column header with the specified text, width and alignment.</summary>
+        public ColumnHeader Add (string text, int width, HorizontalAlignment textAlign)
+        {
+            var h = new ColumnHeader { Text = text, Width = width, TextAlign = textAlign, Index = Count };
             Add (h);
             return h;
         }

@@ -157,8 +157,61 @@ namespace Majorsilence.Forms
             ForeColor = ForeColor,
             SelectionBackColor = SelectionBackColor,
             SelectionForeColor = SelectionForeColor,
-            Alignment = Alignment
+            Alignment = Alignment,
+            WrapMode = WrapMode,
+            Padding = Padding,
         };
+
+        /// <summary>
+        /// Gets or sets the padding around content when this style is used as a grid cell style.
+        /// </summary>
+        /// <remarks>Carried across both conversions alongside <see cref="Alignment"/> and
+        /// <see cref="WrapMode"/>. Grid cells read and restore this while they are sited, so it has to
+        /// round-trip rather than merely exist.</remarks>
+        public Padding Padding { get; set; } = Padding.Empty;
+
+        /// <summary>
+        /// Returns a copy of this style.
+        /// </summary>
+        /// <remarks>
+        /// Cells clone a style before mutating it so the change does not leak into the style they inherited
+        /// from. The copy is detached from the parent chain deliberately: it carries the values resolved at
+        /// the time of the call, which is what a caller mutating a clone expects.
+        /// </remarks>
+        public ControlStyle Clone () => new ControlStyle (null, _ => { }) {
+            BackColor = BackColor,
+            ForeColor = ForeColor,
+            SelectionBackColor = SelectionBackColor,
+            SelectionForeColor = SelectionForeColor,
+            Alignment = Alignment,
+            WrapMode = WrapMode,
+            Padding = Padding,
+            Font = Font,
+            FontSize = FontSize,
+            BackgroundColor = BackgroundColor,
+            ForegroundColor = ForegroundColor,
+        };
+
+        /// <summary>
+        /// Gets or sets how text wraps when this style is used as a grid cell style.
+        /// </summary>
+        /// <remarks>Stored for <see cref="DataGridViewCellStyle"/> compatibility and carried across both
+        /// conversions, the same as <see cref="Alignment"/>; the grid renderers apply their own wrapping.</remarks>
+        public DataGridViewTriState WrapMode { get; set; } = DataGridViewTriState.NotSet;
+
+        /// <summary>
+        /// Converts a ControlStyle to a <see cref="DataGridViewCellStyle"/>, so WinForms code that reads a
+        /// grid's cell-style property back into a DataGridViewCellStyle variable compiles.
+        /// </summary>
+        /// <remarks>
+        /// The companion to the conversion below, which has existed for a while: assigning a
+        /// DataGridViewCellStyle to one of the grid's ControlStyle-typed properties worked, and reading it
+        /// back did not — so a derived grid could not re-expose <c>DefaultCellStyle</c> with the WinForms
+        /// type, which is the first thing a themed grid does. Note it produces a copy, as the reverse
+        /// direction always has: mutating the result changes the copy, so assign it back to have it stick.
+        /// </remarks>
+        public static implicit operator DataGridViewCellStyle (ControlStyle style)
+            => style is null ? new DataGridViewCellStyle () : style.ToDataGridViewCellStyle ();
 
         /// <summary>
         /// Converts a DataGridViewCellStyle to a ControlStyle, so WinForms-style designer code
@@ -172,6 +225,9 @@ namespace Majorsilence.Forms
                 ForeColor = style.ForeColor,
                 SelectionBackColor = style.SelectionBackColor,
                 SelectionForeColor = style.SelectionForeColor,
+                Alignment = style.Alignment,
+                WrapMode = style.WrapMode,
+                Padding = style.Padding,
             };
             if (style.Font is { } font) {
                 result.Font = font.GetSKTypeface ();

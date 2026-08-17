@@ -1,3 +1,4 @@
+﻿using System;
 using System.Drawing;
 using SkiaSharp;
 using Xunit;
@@ -30,8 +31,16 @@ public class ChildPaintParityTests
 
     // Fraction of pixels inside the child's bounds that are NOT the parent's fill colour. The rect
     // is inset a little to absorb child border rounding.
-    private static double NonParentFillRatio (SKBitmap bmp, Rectangle childBounds)
+    // childBounds is in logical units and the bitmap is in device pixels, so the caller passes the
+    // control whose logical width the bitmap was rendered from and the factor is derived from the two.
+    private static double NonParentFillRatio (SKBitmap bmp, Rectangle childBounds, Control renderedFrom)
     {
+        var scale = renderedFrom.Width > 0 ? bmp.Width / (double)renderedFrom.Width : 1.0;
+
+        childBounds = new Rectangle (
+            (int)Math.Round (childBounds.X * scale), (int)Math.Round (childBounds.Y * scale),
+            (int)Math.Round (childBounds.Width * scale), (int)Math.Round (childBounds.Height * scale));
+
         var rect = Rectangle.Inflate (childBounds, -4, -4);
         var total = 0;
         var differing = 0;
@@ -65,7 +74,7 @@ public class ChildPaintParityTests
         var bounds = new Rectangle (child.Left, child.Top, child.Width, child.Height);
 
         // The button is grey-on-white with text; essentially none of it should be the parent's red.
-        Assert.True (NonParentFillRatio (bmp, bounds) > 0.9,
+        Assert.True (NonParentFillRatio (bmp, bounds, parent) > 0.9,
             $"child was overpainted by its parent (callBase: {callBase})");
     }
 
@@ -82,7 +91,7 @@ public class ChildPaintParityTests
 
         var bounds = new Rectangle (child.Left, child.Top, child.Width, child.Height);
 
-        Assert.True (NonParentFillRatio (bmp, bounds) > 0.9, "parent's own drawing covered the child");
+        Assert.True (NonParentFillRatio (bmp, bounds, parent) > 0.9, "parent's own drawing covered the child");
     }
 
     [Fact]

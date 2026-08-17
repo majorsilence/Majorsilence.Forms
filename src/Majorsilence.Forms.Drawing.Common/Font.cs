@@ -7,6 +7,15 @@ namespace Majorsilence.Forms.Drawing
     /// A lightweight, cross-platform font description backed by SkiaSharp (SKFont). Cross-platform
     /// replacement for <c>System.Drawing.Font</c> (which is Windows-only).
     /// </summary>
+    /// <remarks>
+    /// The TypeConverter is load-bearing beyond design time: settings storage asks the type system how to
+    /// turn a value into a string, and with no converter it falls back to XML serialization -- which needs a
+    /// parameterless constructor this type does not have, and cannot have (a font without a family or size
+    /// is not a font). A settings class with a Font-typed default therefore threw on first read until the
+    /// converter was findable. <see cref="FontConverter"/> already round-trips the designer's own
+    /// "Segoe UI, 9pt, style=Bold" format; it just was not attached to the type.
+    /// </remarks>
+    [System.ComponentModel.TypeConverter (typeof (FontConverter))]
     public sealed partial class Font : IDisposable, ICloneable
     {
         private SKTypeface? typeface;
@@ -44,6 +53,17 @@ namespace Majorsilence.Forms.Drawing
             : this (family?.Name ?? "Arial", size, style, unit)
         {
         }
+
+        /// <summary>Initializes a font from a family, size and unit, in the regular style.</summary>
+        /// <remarks>The unit-without-style overloads GDI+ offers. Without them a three-argument call
+        /// whose last argument is a GraphicsUnit binds to the bool-flags constructor instead and fails
+        /// to compile.</remarks>
+        public Font (FontFamily family, float size, GraphicsUnit unit)
+            : this (family, size, FontStyle.Regular, unit) { }
+
+        /// <inheritdoc cref="Font(FontFamily, float, GraphicsUnit)"/>
+        public Font (string familyName, float size, GraphicsUnit unit)
+            : this (familyName, size, FontStyle.Regular, unit) { }
 
         /// <summary>Initializes a new instance of the Font class based on an existing font and a new style.</summary>
         public Font (Font prototype, FontStyle newStyle)

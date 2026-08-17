@@ -86,6 +86,8 @@ WinForms until you're ready to switch.
 
 ## Links
 
+- [**Documentation**](https://forms.majorsilence.com) — getting started, training guide, FAQ
+- [Live browser demo](https://forms.majorsilence.com/gallery/) — the full control gallery, running in your browser
 - [Repository](https://github.com/majorsilence/Majorsilence.Forms)
 - [Getting started](https://github.com/majorsilence/Majorsilence.Forms/blob/main/docs/getting-started.md)
 - [Platform backends](https://github.com/majorsilence/Majorsilence.Forms/blob/main/docs/backends.md)

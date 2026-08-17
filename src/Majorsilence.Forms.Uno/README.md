@@ -50,6 +50,7 @@ Two behaviors are specific to this backend, because WinUI's gesture model differ
 
 ## Links
 
+- [**Documentation**](https://forms.majorsilence.com) · [Platform backends](https://forms.majorsilence.com/backends/)
 - [Repository](https://github.com/majorsilence/Majorsilence.Forms)
 - [Platform backends](https://github.com/majorsilence/Majorsilence.Forms/blob/main/docs/backends.md)
 - [`Gallery.Uno` sample](https://github.com/majorsilence/Majorsilence.Forms/tree/main/samples/Gallery.Uno)

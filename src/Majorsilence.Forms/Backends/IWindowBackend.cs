@@ -100,6 +100,13 @@ namespace Majorsilence.Forms.Backends
         void SetCaptionRegions (System.Collections.Generic.IReadOnlyList<Rectangle> captionRects) { }
 
         /// <summary>
+        /// Declares that the window is SHAPED — clipped to a <see cref="Majorsilence.Forms.Drawing.Region"/>
+        /// — so the backend must stop filling the window with an opaque backdrop and let whatever the
+        /// scene does not paint show through. Cleared when the region is removed.
+        /// </summary>
+        void SetShaped (bool shaped) { }
+
+        /// <summary>
         /// On platforms with a native title bar (macOS), extends the client/content area up into the
         /// title bar so the application can paint into it while the OS keeps drawing the native caption
         /// buttons (traffic lights), rounded corners and window shadow — Avalonia 12's

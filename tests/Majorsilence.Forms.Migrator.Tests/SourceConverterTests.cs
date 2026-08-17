@@ -89,6 +89,28 @@ public class SourceConverterTests
         Assert.Contains ("using Majorsilence.Forms.Printing;", result.Text);
     }
 
+    // System.Media holds SystemSounds, which lives in a Windows-only assembly -- but the namespace itself
+    // resolves off Windows, so an unmapped `using System.Media;` compiles and every SystemSounds reference
+    // in the file then fails as an unknown name. That is a far more confusing error than a missing
+    // namespace, which is why the redirect is worth pinning.
+    [Fact]
+    public void Maps_System_Media_to_Majorsilence_Forms_Media ()
+    {
+        var result = SourceConverter.Convert (
+            "using System.Media;\nclass C { void M () { SystemSounds.Hand.Play (); } }");
+
+        Assert.Contains ("using Majorsilence.Forms.Media;", result.Text);
+        Assert.DoesNotContain ("using System.Media;", result.Text);
+    }
+
+    [Fact]
+    public void Maps_a_global_System_Media_import_too ()
+    {
+        var result = SourceConverter.Convert ("global using System.Media;");
+
+        Assert.Contains ("global using Majorsilence.Forms.Media;", result.Text);
+    }
+
     [Fact]
     public void Removes_unused_bare_Drawing_import ()
     {

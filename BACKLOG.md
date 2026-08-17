@@ -1,26 +1,77 @@
 ﻿# Backlog
 
-## HiDPI: the full suite does not pass at simulated scale 2
+## HiDPI
 
-`MF_HEADLESS_SCALE=2` makes the headless backend report a scaled display. CI runs a scaling-focused
-subset at that scale (see `.github/workflows/dotnet.yml`); the **whole** suite does not pass there yet,
-which is why the gate is scoped rather than blanket.
+Covered in CI: the full suite runs under `MF_HEADLESS_SCALE=2` and passes
+(`.github/workflows/dotnet.yml`). Nothing outstanding here -- kept as a note on what the failures
+turned out to be, because the same mistake is easy to reintroduce.
 
-State as of this triage, after fixing the headless input contract (`HeadlessRenderer`'s coordinates are
-logical and are now converted to device pixels before injection -- previously passed straight through,
-so at scale 2 every injected click landed at half its intended position):
+The suite went from 22 failures at scale 2 to none. Almost all of it was **one confusion: logical versus
+device units**. `Bounds`, `MouseEventArgs` and `GetTabRect` are logical; `ClientRectangle`, back buffers
+and captured bitmaps are device pixels. The two are identical at scaling 1, so mixing them is invisible
+until a scaled display shows up -- and it was mixed in six places:
 
-| Cluster | Examples | Notes |
-|---|---|---|
-| Hit-testing under scale | `A_full_click_lands_on_the_clicked_tab`, `Second_row_tab_is_hit_testable`, `A_disabled_tab_header_is_not_selected`, `MenuStrip_LaysItemsOutLeftToRightAcrossTheBar` | These pass **logical** coordinates computed from `GetTabRect`/`Bounds`, so the injection is now correct and the failure is downstream: the library's own hit-testing does not agree with its layout at scale != 1. Most likely a real defect a HiDPI user would hit. |
-| Painting / capture | `ChildIsPainted_WhetherOrNotOverrideChainsToBase`, `ChildPaintsAboveParentsOwnDrawing`, `PaintEvent_DoesNotSuppressChildControls`, `RendersFormToPng_AtRequestedSize` | Capture size vs scale; needs deciding whether `CapturePng`'s width/height are logical or device. |
-| Text metrics | `Designer_sized_radio_text_is_not_clipped`, `Single_line_text_is_centred_vertically`, `DropDownList_TooShortForFont_KeepsCapsInsteadOfSlicingTop`, `Overflowing_headers_wrap_into_multiple_rows` | Some are genuine scale bugs; some assert scale-1 pixel geometry by construction and should assert proportionally instead. |
-| A hang | one test does not return at scale 2 | Not yet identified. Blocks running the full suite at scale 2 at all, so it is the first thing to find. |
+| Where | What it did |
+|---|---|
+| Input routing | Child lookup and per-control translation ran in device space, so `MouseEventArgs` reached controls in device pixels and hit tests against logical rectangles missed. |
+| `HeadlessRenderer` / `AutomationSession` | Injected logical coordinates straight into handlers that take device pixels, so every synthetic click landed at 1/scale of its target. |
+| Renderer preferred sizes | Measured text at the device font size and returned the result as a logical size, so strip items came out scale-times too wide. |
+| `TabStrip` / dock layout | Laid children out into the device `ClientRectangle` and stored the result in logical `Bounds` -- compounding once per nesting level (a 400-logical dock produced a 1600-logical tab strip). |
+| Dock header hit rects | Stored in device units while mouse coordinates are logical. |
+| Several tests | Sampled device-pixel bitmaps using logical control bounds, or asserted scale-1 pixel geometry outright. |
 
-Two things worth keeping in mind when picking this up. The clusters are not all the same kind of
-problem -- some are library defects, some are tests that hardcode scale-1 pixels and are simply wrong to
-assert that -- so each needs classifying before fixing. And the hang has to go first: until it does,
-there is no way to get a full failure list at scale 2, only the prefix before it stalls.
+Two things worth keeping:
+
+- **`Control.ClientRectangle` is device-scaled while `Bounds` is logical.** That asymmetry is the root of
+  most of the above and it is still there -- 81 call sites, 33 of them renderers that genuinely want
+  device pixels, so it was not something to flip in passing. `DeviceToLogicalUnits` and the local
+  `LogicalClient` helpers convert at each layout site instead. Worth revisiting as its own change.
+- **The scale-2 suite must run with `xunit.parallelizeTestCollections=false`.** It is not a scaling
+  problem: a test that opens a modal dialog picks its owner from the global `Application.OpenForms`, and
+  in parallel it can pick another test's window and wait on it forever. Run serially it finishes in
+  seconds. Fixing the isolation properly would let the gate drop the flag.
+
+## Wanted: `--dual-build` for VB
+
+**Status: wanted, not yet started.** `--dual-build` currently converts a VB project the normal
+fully-committed way and emits a warning explaining why (`MIGRATION.md`, "Incremental migration"). That
+leaves VB shops without the one workflow C# shops get for de-risking a migration: keep building against
+real WinForms while the Majorsilence side is brought up, flipping between them with one MSBuild
+property. A cut-over is a much harder sell than a switch, so this gap is a real adoption blocker rather
+than a convenience.
+
+**The language is not the obstacle.** The stated reason for not offering it -- that `MyType=Empty`
+switches off the whole VB "My" application framework and a preprocessor symbol can't toggle that -- is
+about the *My framework*, not about conditional compilation. Verified with the .NET 10 SDK: VB happily
+accepts conditional compilation directives around `Imports`, compiling either branch depending on the
+symbol:
+
+```vb
+#If MAJORSILENCE_FORMS Then
+Imports Majorsilence.Forms
+#Else
+Imports System.Windows.Forms
+#End If
+```
+
+So the import swap -- the entire C# implementation of `--dual-build` -- transfers directly. What does
+not transfer is everything the migrator does for VB *because* the My framework went away.
+
+**What it would take:**
+
+| Piece | What it involves |
+| --- | --- |
+| Conditional project properties | `MyType`, `UseWindowsForms`, the `-windows` TFM suffix and the WinForms-only package references all have to vary with the switch. These are MSBuild properties, so `Condition="'$(MAJORSILENCE_FORMS)' == 'true'"` is the obvious tool -- but whether `MyType` can be flipped this way in an SDK-style `.vbproj` (rather than being baked in by the VB targets) needs proving out first. This is the one genuine unknown. |
+| Conditional constructor injection | The implicit parameterless constructor `MyType=Empty` supplies is re-injected as an explicit `Sub New()` today. Against real WinForms that duplicates the compiler-supplied one, so it has to be wrapped in `#If MAJORSILENCE_FORMS Then` -- which is legal inside a class, so this is mechanical. |
+| Conditional `My.Resources` accessor | The generated `My Project\Resources.vb` module collides with the real `My.Resources` when building against WinForms. Either wrap the generated module in the same directive, or exclude the file with an MSBuild condition -- the latter is cleaner, since the file is generated wholesale. |
+| Remaining `My.*` usage | Unchanged from today: still warn-and-leave. Dual-build does not make `My.Forms`/`My.Settings` work on the Majorsilence side, and shouldn't pretend to. |
+| Docs | `MIGRATION.md` currently states dual-build is C#-only, and the training guide on the site repeats it (telling VB teams to plan a cut-over). Both need updating together with the code. |
+
+**Acceptance test:** a VB WinForms project with a form, a designer partial, a `Resources.resx` and at
+least one `My.Resources` use, converted with `--dual-build`, that builds *and runs* both with
+`MAJORSILENCE_FORMS=true` and without it, from the same source tree, with no manual edits in between.
+Anything less than "runs both ways" is not the feature -- the C# version's value is precisely that the
+old build keeps working untouched.
 
 ## Wanted soon: visual designer support
 
@@ -54,6 +105,26 @@ Related: the migrator no longer remaps `System.ComponentModel.Design` (it is par
 blanket remap hid `IDesignerHost`); `System.Windows.Forms.Design` and `System.Drawing.Design` still map
 to `Majorsilence.Forms.Design`.
 
+## Compiled `.resources`: the legacy (pre-extensions) layout
+
+`RawResourcesReader` (`src/Majorsilence.Forms/RawResourcesReader.cs`) recovers the raw payload of entries
+that `DeserializingResourceReader` refuses to hand back — a designer resource written through
+BinaryFormatter throws `PlatformNotSupportedException` outright on .NET 9+, which is what left every
+migrated `ImageList.ImageStream` null and every toolbar button image missing.
+
+It parses only the layout the **extensions** writer emits (the header names
+`System.Resources.Extensions.DeserializingResourceReader`), where each user payload is tagged with a
+`SerializationFormat` and length-prefixed — which is what makes a payload extractable on its own, and what
+any modern SDK build produces. A `.resources` written by the plain BCL `ResourceWriter` (a prebuilt
+.NET Framework-era assembly) stores BinaryFormatter graphs with neither tag nor length, so an entry's
+extent is only implied by where the next one starts. Reading those would mean sorting the data-section
+offsets and slicing between them; not done, and untested against a real such file, so those entries are
+still skipped rather than guessed at.
+
+Also unresolved from the same area: `RawFormat.TypeConverterString` payloads are not converted (a `Font`
+recorded that way still falls to the shim path), and `ToolBarButton.ImageIndex`/`ImageKey` remain stubs —
+the legacy `ToolBar.Buttons` collection is not rendered at all, unlike `Items`.
+
 ## Telerik compat layer: genuinely deferred items
 
 `Majorsilence.Forms.Telerik` (`src/Majorsilence.Forms/Telerik/*.cs`) now covers every heavyweight Telerik
@@ -71,3 +142,41 @@ merely unimplemented yet.
 
 Consumers whose code uses the calendar grid UI need to either rewrite that feature against the agenda
 view/`RadScheduler` data layer, or wait for month/week grid rendering to be picked up here.
+
+## Packaging gap: `Majorsilence.Forms.WebDriver` is built but never published
+
+**Status: nothing to build, a list to decide on.** The project carries a `PackageId`, a description, and
+a `PackageOutputPath`, but it appears in neither workflow's `PACKABLE_PROJECTS`
+(`.github/workflows/publish-nuget.yml`, `release.yml`), so it has never shipped. nuget.org has the core
+package plus Avalonia, Uno, Telerik, Headless, and Drawing.Common — no WebDriver.
+
+That is the one thing standing between the automation documentation and a reader who has not cloned the
+repo. `docs/automation.md` level 2 (Selenium), level 3 (FlaUI/WinAppDriver through the UIA bridge), and
+the MCP server in `tools/Majorsilence.Forms.Mcp` all require an *app* that references
+`Majorsilence.Forms.WebDriver` and starts a `WebDriverServer`. Today that means a `ProjectReference` into
+a clone, which is fine for this repo's own samples and tests and awkward for anyone else.
+
+`Majorsilence.Forms.WindowsUIAutomation` and `Majorsilence.Forms.WindowsFormsInterop` are in the same
+position: consumer-facing, packable, unlisted. (`DrawingShims` and `WinFormsEnumShims` are the
+`System.Drawing.Common` / `System.Windows.Forms` facade assemblies, so their absence looks deliberate —
+publishing packages under those identities is not something to do by accident.)
+
+A package id is permanent once pushed, so this is a deliberate call rather than a cleanup: decide which
+of the three are ready to carry a stable name, then add those to both lists.
+
+## Wanted: screenshots from a desktop-hosted window
+
+**Status: a real gap, found while driving `samples/AutomationTarget` over the MCP server.** The WebDriver
+endpoint's `GET /session/{id}/screenshot` renders through `HeadlessRenderer`, which refuses a window it
+does not host, so it only works when the app under test runs on the Headless backend. Against a normal
+desktop app on Avalonia it fails with `Window is not hosted on the Headless backend` — every other
+command (tree, find, click, keys, rect, attributes) works there.
+
+That is the one asymmetry between headless and desktop automation, and it is the first thing anyone hits
+when they point an assistant at a running app: the tree is readable but the window is not viewable.
+Avalonia can render a control tree to a `RenderTargetBitmap`, so the backend seam could grow a
+`CaptureWindow` that the endpoint prefers when the host provides one, falling back to `HeadlessRenderer`.
+
+Documented as a boundary in `docs/automation.md` (level 2 and the limits table) and in the MCP tool's
+README until then. `tools/Majorsilence.Forms.Mcp` translates the raw message into an actionable one,
+because on its own it reads like a bug rather than a limit.

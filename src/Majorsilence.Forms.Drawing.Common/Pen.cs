@@ -5,25 +5,7 @@ using SkiaSharp;
 
 namespace Majorsilence.Forms.Drawing
 {
-    /// <summary>
-    /// Specifies the dash style used when stroking lines and shapes.
-    /// </summary>
-    public enum DashStyle
-    {
-        /// <summary>A solid line.</summary>
-        Solid,
-        /// <summary>A line of dashes.</summary>
-        Dash,
-        /// <summary>A line of dots.</summary>
-        Dot,
-        /// <summary>A line of alternating dashes and dots.</summary>
-        DashDot,
-        /// <summary>A line of alternating dashes and double dots.</summary>
-        DashDotDot,
-        /// <summary>A user-defined dash pattern, supplied via <see cref="Pen.DashPattern"/>.</summary>
-        Custom
-    }
-
+    
     /// <summary>
     /// Defines the color, width, and dash style used to draw lines and outline shapes on a
     /// drawing surface. Cross-platform replacement for System.Drawing.Pen.
@@ -262,5 +244,27 @@ namespace Majorsilence.Forms.Drawing
 
             return paint;
         }
+    }
+}
+
+namespace Majorsilence.Forms.Drawing.Drawing2D
+{
+    /// <summary>
+    /// Specifies the dash style used when stroking lines and shapes.
+    /// </summary>
+    public enum DashStyle
+    {
+        /// <summary>A solid line.</summary>
+        Solid,
+        /// <summary>A line of dashes.</summary>
+        Dash,
+        /// <summary>A line of dots.</summary>
+        Dot,
+        /// <summary>A line of alternating dashes and dots.</summary>
+        DashDot,
+        /// <summary>A line of alternating dashes and double dots.</summary>
+        DashDotDot,
+        /// <summary>A user-defined dash pattern, supplied via <see cref="Pen.DashPattern"/>.</summary>
+        Custom
     }
 }
