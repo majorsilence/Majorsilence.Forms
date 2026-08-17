@@ -550,11 +550,19 @@ public class StripHierarchyTests
         using var menu = new ContextMenuStrip ();
 
         menu.Items.Add (new ToolStripMenuItem ("a strip item"));
-        menu.Items.Add ("a plain menu item");
+        menu.Items.Add ("added by text");
         menu.Items.Add (new MenuSeparatorItem ());
 
         Assert.Equal (3, menu.Items.Count);
-        Assert.Single (menu.Items.OfType<ToolStripItem> ());
+
+        // Add(string) builds a ToolStripMenuItem, as ToolStripItemCollection.Add(string) does in WinForms
+        // -- code assigns its result to a ToolStripItem, and returning a plain MenuItem compiled and then
+        // threw InvalidCastException at runtime. So two of the three are ToolStripItems here.
+        Assert.Equal (2, menu.Items.OfType<ToolStripItem> ().Count ());
+
+        // The point of the test survives: the collection still holds a plain MenuItem alongside them, which
+        // is why members like key lookup have to tolerate entries that are not ToolStripItems.
+        Assert.Single (menu.Items.Where (i => i is not ToolStripItem));
     }
 
     // Key lookup is a ToolStripItem concept (Name lives there), so a plain MenuItem must simply never

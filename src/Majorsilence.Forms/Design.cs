@@ -298,6 +298,15 @@ namespace Majorsilence.Forms.Design
 
         /// <summary>Gets whether this editor paints a preview of the value.</summary>
         public virtual bool GetPaintValueSupported (ITypeDescriptorContext? context) => false;
+
+        /// <summary>Paints a preview of the value into the supplied bounds.</summary>
+        /// <remarks>Design-time only; nothing calls it here. Editors override it to draw a swatch beside
+        /// the value in the property grid, so it has to exist for those overrides to compile.</remarks>
+        public virtual void PaintValue (PaintValueEventArgs e) { }
+
+        /// <inheritdoc cref="PaintValue(PaintValueEventArgs)"/>
+        public virtual void PaintValue (object? value, Majorsilence.Forms.Drawing.Graphics canvas, System.Drawing.Rectangle rectangle) =>
+            PaintValue (new PaintValueEventArgs (null, value, canvas, rectangle));
     }
 
     /// <summary>Edits a collection property in the property grid.</summary>
@@ -818,6 +827,111 @@ namespace Majorsilence.Forms.Design.Behavior
 
         /// <summary>Called when the pointer leaves the glyph.</summary>
         public virtual bool OnMouseLeave (Glyph? g) => false;
+    }
+
+    /// <summary>Which edge or axis of a control a <see cref="SnapLine"/> describes.</summary>
+    public enum SnapLineType
+    {
+        /// <summary>The control's top edge.</summary>
+        Top,
+        /// <summary>The control's bottom edge.</summary>
+        Bottom,
+        /// <summary>The control's left edge.</summary>
+        Left,
+        /// <summary>The control's right edge.</summary>
+        Right,
+        /// <summary>A horizontal line through the control.</summary>
+        Horizontal,
+        /// <summary>A vertical line through the control.</summary>
+        Vertical,
+        /// <summary>The baseline of the control's text.</summary>
+        Baseline,
+    }
+
+    /// <summary>How strongly a <see cref="SnapLine"/> attracts, when several are in range.</summary>
+    public enum SnapLinePriority
+    {
+        /// <summary>Lowest priority.</summary>
+        Low = 1,
+        /// <summary>Default priority.</summary>
+        Medium,
+        /// <summary>Above the default.</summary>
+        High,
+        /// <summary>Always snaps, whatever else is in range.</summary>
+        Always,
+    }
+
+    /// <summary>
+    /// One alignment line a control offers the designer, so a control dragged near it snaps into line.
+    /// </summary>
+    /// <remarks>
+    /// A control designer publishes these through <see cref="ControlDesigner.SnapLines"/> -- most
+    /// usefully the text baseline, which is what lets a label line up with the text inside the box beside
+    /// it rather than with its border. Inert here for the usual reason: the snapping is performed by a
+    /// design surface, and there is none (see this file's header). The type exists because a designer
+    /// builds and returns these, and that code has to compile.
+    /// </remarks>
+    public sealed class SnapLine
+    {
+        /// <summary>Initializes a snap line of the given type at offset zero.</summary>
+        public SnapLine (SnapLineType type) : this (type, 0, null, SnapLinePriority.Low) { }
+
+        /// <summary>Initializes a snap line at the given offset from the control's origin.</summary>
+        public SnapLine (SnapLineType type, int offset) : this (type, offset, null, SnapLinePriority.Low) { }
+
+        /// <summary>Initializes a snap line with a filter, so it only snaps against like-filtered lines.</summary>
+        public SnapLine (SnapLineType type, int offset, SnapLinePriority priority)
+            : this (type, offset, null, priority) { }
+
+        /// <summary>Initializes a new instance with a filter.</summary>
+        public SnapLine (SnapLineType type, int offset, string? filter)
+            : this (type, offset, filter, SnapLinePriority.Low) { }
+
+        /// <summary>Initializes a snap line with a filter and priority.</summary>
+        public SnapLine (SnapLineType type, int offset, string? filter, SnapLinePriority priority)
+        {
+            SnapLineType = type;
+            Offset = offset;
+            Filter = filter;
+            Priority = priority;
+        }
+
+        /// <summary>Gets which edge or axis this line describes.</summary>
+        public SnapLineType SnapLineType { get; }
+
+        /// <summary>Gets the distance from the control's origin, in pixels.</summary>
+        public int Offset { get; internal set; }
+
+        /// <summary>Gets the filter name; only lines with equal filters snap to each other.</summary>
+        public string? Filter { get; }
+
+        /// <summary>Gets how strongly this line attracts.</summary>
+        public SnapLinePriority Priority { get; }
+
+        /// <summary>Gets whether this line runs horizontally.</summary>
+        public bool IsHorizontal
+            => SnapLineType is SnapLineType.Top or SnapLineType.Bottom
+                or SnapLineType.Horizontal or SnapLineType.Baseline;
+
+        /// <summary>Gets whether this line runs vertically.</summary>
+        public bool IsVertical => !IsHorizontal;
+
+        /// <summary>Returns whether two lines describe the same axis.</summary>
+        public static bool ShouldSnap (SnapLine line1, SnapLine line2)
+            => line1 is not null && line2 is not null
+                && line1.IsHorizontal == line2.IsHorizontal
+                && string.Equals (line1.Filter, line2.Filter, StringComparison.Ordinal);
+
+        /// <summary>Moves the line by the given amount.</summary>
+        public static void AdjustOffset (SnapLine snapLine, int adjustment)
+        {
+            if (snapLine is not null)
+                snapLine.Offset += adjustment;
+        }
+
+        /// <inheritdoc/>
+        public override string ToString ()
+            => $"SnapLine: {{type = {SnapLineType}, offset = {Offset}, priority = {Priority}, filter = {Filter ?? "<null>"}}}";
     }
 
     /// <summary>Something a designer paints onto the design surface, above the control.</summary>

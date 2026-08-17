@@ -98,7 +98,7 @@ public partial class Control
     /// <summary>
     ///  Raised when a new control is added.
     /// </summary>
-    public event EventHandler<ControlEventArgs>? ControlAdded {
+    public event ControlEventHandler? ControlAdded {
         add => Events.AddHandler (s_controlAddedEvent, value);
         remove => Events.RemoveHandler (s_controlAddedEvent, value);
     }
@@ -106,7 +106,7 @@ public partial class Control
     /// <summary>
     ///  Raised when a control is removed.
     /// </summary>
-    public event EventHandler<ControlEventArgs>? ControlRemoved {
+    public event ControlEventHandler? ControlRemoved {
         add => Events.AddHandler (s_controlRemovedEvent, value);
         remove => Events.RemoveHandler (s_controlRemovedEvent, value);
     }

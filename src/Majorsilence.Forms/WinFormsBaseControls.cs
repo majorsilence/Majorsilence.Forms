@@ -276,7 +276,13 @@ namespace Majorsilence.Forms
         protected virtual void OnDropDownOpened (EventArgs e) => DropDownOpened?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="DropDownClosed"/> event.</summary>
-        protected virtual void OnDropDownHide (EventArgs e) => DropDownClosed?.Invoke (this, e);
+        /// <remarks>Defers to <see cref="OnDropDownClosed"/>, the name WinForms uses, so overriding
+        /// either one catches the close.</remarks>
+        protected virtual void OnDropDownHide (EventArgs e) => OnDropDownClosed (e);
+
+        // The actual raise, reached from OnDropDownClosed. Separate because that override lives in
+        // another partial and cannot see the event's backing field through a virtual call.
+        private protected void RaiseDropDownClosed (EventArgs e) => DropDownClosed?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="DropDownItemClicked"/> event.</summary>
         protected virtual void OnDropDownItemClicked (ToolStripItemClickedEventArgs e)

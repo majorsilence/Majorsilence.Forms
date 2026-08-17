@@ -6,7 +6,11 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a base class for all Menu related controls.
     /// </summary>
-    public abstract class MenuBase : Control
+    // ScrollableControl rather than Control, matching WinForms' `ToolStrip : ScrollableControl`: every
+    // strip in this hierarchy is one there, and code that passes a ToolStrip where a ScrollableControl is
+    // expected relies on it. A pure insertion -- ScrollableControl derives from Control, so nothing that
+    // worked against the old base stops working.
+    public abstract class MenuBase : ScrollableControl
     {
         private readonly MenuItem root_item;
 

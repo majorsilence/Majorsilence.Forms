@@ -113,11 +113,48 @@ namespace Majorsilence.Forms
             if (string.IsNullOrEmpty (text))
                 return;
 
+            var display = DisplayText (text, flags, out var mnemonic);
+
             var box = new RectangleF (bounds.X, bounds.Y, bounds.Width, bounds.Height);
-            var origin = g.AlignTextInBounds (text, font, box, HorizontalFactor (flags), VerticalFactor (flags));
+            var origin = g.AlignTextInBounds (display, font, box, HorizontalFactor (flags), VerticalFactor (flags));
+            var clip = flags.HasFlag (TextFormatFlags.NoClipping) ? (RectangleF?)null : box;
 
             using var brush = new Majorsilence.Forms.Drawing.SolidBrush (foreColor);
-            g.DrawStringClipped (text, font, brush, origin, flags.HasFlag (TextFormatFlags.NoClipping) ? null : box);
+
+            // PrefixOnly draws the underline and nothing else -- it is how a control paints in the accelerator
+            // cue after the fact, when the caption was already drawn without one.
+            if (!flags.HasFlag (TextFormatFlags.PrefixOnly))
+                g.DrawStringClipped (display, font, brush, origin, clip);
+
+            if (mnemonic >= 0 && mnemonic < display.Length)
+                g.DrawMnemonicUnderline (display, mnemonic, font, brush, origin, clip ?? box);
+        }
+
+        /// <summary>
+        /// Applies the flags' hotkey-prefix handling, returning the text to draw and the index within it of
+        /// the character to underline (-1 for none).
+        /// </summary>
+        /// <remarks>
+        /// Processing prefixes is the DEFAULT, as in WinForms: it is <see cref="TextFormatFlags.NoPrefix"/>
+        /// that turns it off, not a flag that turns it on. Krypton reaches this method for every piece of
+        /// solid-coloured text it draws and never sets any prefix flag, so "&amp;Open in explorer" was
+        /// rendering its ampersand literally on every button and check box in the suite. Callers with text
+        /// that genuinely contains an ampersand have to pass NoPrefix -- again matching WinForms, where the
+        /// same requirement applies.
+        /// </remarks>
+        private static string DisplayText (string text, TextFormatFlags flags, out int mnemonic)
+        {
+            mnemonic = -1;
+
+            if (flags.HasFlag (TextFormatFlags.NoPrefix))
+                return text;
+
+            var display = Mnemonics.Parse (text, out mnemonic);
+
+            if (flags.HasFlag (TextFormatFlags.HidePrefix))
+                mnemonic = -1;   // Prefix removed, but no accelerator cue drawn.
+
+            return display;
         }
 
         // TextFormatFlags.Left and .Top are both 0, so they are the absence of the other flags
@@ -220,6 +257,11 @@ namespace Majorsilence.Forms
         /// <summary>Measures text within the given bounds, honouring the single-line and wrapping flags.</summary>
         public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font, Size proposedSize, TextFormatFlags flags)
         {
+            // Measure what will be DRAWN: with prefix processing on (the default) the ampersand disappears,
+            // so measuring the raw string sizes a control for a character that never appears -- which both
+            // widens it and knocks centred text off-centre by the same amount.
+            text = DisplayText (text, flags, out _);
+
             // SingleLine means "do not wrap", so the proposed width must not constrain the answer.
             var constraint = flags.HasFlag (TextFormatFlags.SingleLine)
                 ? new Size (int.MaxValue, proposedSize.Height)

@@ -283,6 +283,15 @@ internal static class NamespaceMap
     public static readonly (string Type, string BclNamespace)[] BclPreferredTypes =
     [
         ("BackgroundWorker", "System.ComponentModel"),
+        // BackgroundWorker's own event args, for the same reason: a handler written against the
+        // BCL BackgroundWorker takes the BCL args, and having both in scope makes every one of
+        // them ambiguous (CS0104).
+        ("DoWorkEventArgs", "System.ComponentModel"),
+        ("RunWorkerCompletedEventArgs", "System.ComponentModel"),
+        ("ProgressChangedEventArgs", "System.ComponentModel"),
+        ("DoWorkEventHandler", "System.ComponentModel"),
+        ("RunWorkerCompletedEventHandler", "System.ComponentModel"),
+        ("ProgressChangedEventHandler", "System.ComponentModel"),
         ("PropertyTabScope", "System.ComponentModel"),
         ("ColorConverter", "System.Drawing"),
     ];

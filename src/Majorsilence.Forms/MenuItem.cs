@@ -180,9 +180,34 @@ namespace Majorsilence.Forms
         public Padding Margin { get; set; } = Padding.Empty;
 
         /// <summary>
+        /// Gets whether this item is being used at design time.
+        /// </summary>
+        /// <remarks>
+        /// Always false, matching <see cref="Control.DesignMode"/>: there is no designer host here, so
+        /// every item is live. Menu items read this to skip design-time-only work, and false is the answer
+        /// that makes them do their normal runtime thing.
+        /// </remarks>
+        protected static bool DesignMode => false;
+
+        /// <summary>
         /// Raises the Click event.
         /// </summary>
-        protected internal virtual void OnClick (MouseEventArgs e)
+        /// <remarks>
+        /// The mouse-typed entry point, kept because this layer dispatches clicks with the originating
+        /// MouseEventArgs. It funnels into the <see cref="OnClick(EventArgs)"/> overload below rather than
+        /// raising Click itself, so an override of either one sees every click. The cast is load-bearing:
+        /// without it the call binds back to this method and recurses.
+        /// </remarks>
+        protected internal virtual void OnClick (MouseEventArgs e) => OnClick ((EventArgs)e);
+
+        /// <summary>
+        /// Raises the Click event.
+        /// </summary>
+        /// <remarks>
+        /// WinForms declares ToolStripItem.OnClick with this signature, and ported menu items override it
+        /// to intercept their own clicks -- so it has to be the one that actually raises Click.
+        /// </remarks>
+        protected virtual void OnClick (EventArgs e)
         {
             Click?.Invoke (this, e);
         }

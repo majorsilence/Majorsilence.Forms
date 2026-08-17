@@ -148,6 +148,9 @@ internal static class ProjectConverter
 
         AddDesktopSdkReplacementPackages(root, projectDirectory, centralPackageManagement, options, ref changed, addedPackages);
 
+        AlignSharedPackageVersions(root, ref changed);
+        AddImplicitUsingReplacements(root, ref changed);
+
         if (dualBuild)
             AddDualBuildConstant(root, ref changed);
 
@@ -260,6 +263,53 @@ internal static class ProjectConverter
     // DefineConstants, so the #if MAJORSILENCE_FORMS blocks SourceConverter/RoslynSourceConverter write
     // into --dual-build source files actually take effect. Left unset (the property's default state), the
     // condition is false and every wrapped import falls through to its #else branch — real WinForms.
+    /// <summary>
+    /// The namespaces the WinForms SDK used to import implicitly, restated for the plain SDK.
+    /// </summary>
+    /// <remarks>
+    /// `&lt;UseWindowsForms&gt;true&lt;/UseWindowsForms&gt;` on the WindowsDesktop SDK adds System.Windows.Forms
+    /// and System.Drawing to a project's implicit usings. Conversion moves the project to
+    /// Microsoft.NET.Sdk, which does not -- so a project whose files never imported those namespaces
+    /// explicitly, relying entirely on the implicit ones, loses every WinForms and drawing type at once.
+    /// It shows up as hundreds of CS0246s on names as basic as Form and Color, in the projects that look
+    /// cleanest. Restated as Using items so ImplicitUsings keeps doing the same job it did before.
+    /// </remarks>
+    private static readonly string[] ImplicitUsingReplacements =
+    [
+        "Majorsilence.Forms",
+        "Majorsilence.Forms.Drawing",
+        // Still System.Drawing: this fork keeps Color, Point, Rectangle and Size as the BCL types rather
+        // than reintroducing its own, so the namespace the WinForms SDK imported is still the right one.
+        "System.Drawing",
+    ];
+
+    private static void AddImplicitUsingReplacements(XElement root, ref bool changed)
+    {
+        var ns = root.Name.Namespace;
+
+        // Only meaningful when the feature that provided them is on; a project with ImplicitUsings
+        // disabled imports everything explicitly and needs nothing here.
+        var enabled = root.Descendants(ns + "ImplicitUsings")
+            .Any(e => string.Equals(e.Value?.Trim(), "enable", StringComparison.OrdinalIgnoreCase));
+        if (!enabled)
+            return;
+
+        var existing = root.Descendants(ns + "Using")
+            .Select(e => e.Attribute("Include")?.Value)
+            .Where(v => v is not null)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var missing = ImplicitUsingReplacements.Where(u => !existing.Contains(u)).ToList();
+        if (missing.Count == 0)
+            return;
+
+        var group = AddTo(root, new XElement(ns + "ItemGroup"));
+        foreach (var import in missing)
+            group.Add(new XElement(ns + "Using", new XAttribute("Include", import)));
+
+        changed = true;
+    }
+
     private static void AddDualBuildConstant(XElement root, ref bool changed)
     {
         var ns = root.Name.Namespace;
@@ -278,6 +328,48 @@ internal static class ProjectConverter
     }
 
     /// <summary>
+    /// The minimum versions of packages Majorsilence.Forms itself depends on.
+    /// </summary>
+    /// <remarks>
+    /// A converted project that pins one of these LOWER than the library does is a NuGet downgrade
+    /// error (NU1605), not a warning -- the build simply stops. SkiaSharp is the one that bites,
+    /// because it is this library's renderer, so any project that also draws with Skia (a charting
+    /// suite, say) carries its own pin and that pin is usually older. Raising rather than removing
+    /// keeps the project's intent visible.
+    /// </remarks>
+    private static readonly (string Package, string MinimumVersion)[] SharedPackageFloors =
+    [
+        ("SkiaSharp", "3.119.4"),
+        ("SkiaSharp.NativeAssets.Linux", "3.119.4"),
+        ("HarfBuzzSharp", "8.3.1.1"),
+    ];
+
+    private static void AlignSharedPackageVersions(XElement root, ref bool changed)
+    {
+        foreach (var reference in root.Descendants().Where(e => e.Name.LocalName == "PackageReference").ToList())
+        {
+            var include = reference.Attribute("Include")?.Value;
+            var version = reference.Attribute("Version");
+            if (include is null || version is null)
+                continue;
+
+            foreach (var (package, floor) in SharedPackageFloors)
+            {
+                if (!string.Equals(include, package, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (System.Version.TryParse(version.Value, out var pinned)
+                    && System.Version.TryParse(floor, out var minimum)
+                    && pinned < minimum)
+                {
+                    version.Value = floor;
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Packages the Windows Desktop SDK supplied implicitly, which a converted project must now name.
     /// </summary>
     /// <remarks>
@@ -291,9 +383,13 @@ internal static class ProjectConverter
     /// Keyed off the source actually using the namespace, so a project without settings does not gain a
     /// dependency it never asked for.
     /// </remarks>
-    private static readonly (string Namespace, string Package)[] DesktopSdkReplacements =
+    private static readonly (string Namespace, string Package, string Version)[] DesktopSdkReplacements =
     [
-        ("System.Configuration", "System.Configuration.ConfigurationManager"),
+        ("System.Configuration", "System.Configuration.ConfigurationManager", "9.0.0"),
+        // Runtime code generation: in the framework on .NET Framework, a package on modern .NET. Pinned
+        // to the 10.x band because its usual companions (System.Management, for one) depend on 10.0.0,
+        // and a lower pin here is a downgrade error rather than a warning.
+        ("System.CodeDom", "System.CodeDom", "10.0.0"),
     ];
 
     private static void AddDesktopSdkReplacementPackages(XElement root, string projectDirectory,
@@ -302,7 +398,7 @@ internal static class ProjectConverter
         var ns = root.Name.Namespace;
         var itemGroup = new XElement(ns + "ItemGroup");
 
-        foreach (var (usedNamespace, package) in DesktopSdkReplacements)
+        foreach (var (usedNamespace, package, version) in DesktopSdkReplacements)
         {
             if (ReferenceAlreadyPresent(root, package))
                 continue;
@@ -312,7 +408,7 @@ internal static class ProjectConverter
 
             var packageRef = new XElement(ns + "PackageReference", new XAttribute("Include", package));
             if (!centralPackageManagement)
-                packageRef.Add(new XAttribute("Version", "9.0.0"));
+                packageRef.Add(new XAttribute("Version", version));
 
             itemGroup.Add(packageRef);
             addedPackages.Add(package);

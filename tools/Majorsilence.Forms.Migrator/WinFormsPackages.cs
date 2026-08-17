@@ -19,6 +19,16 @@ internal static class WinFormsPackages
         // (CS0433 "exists in both ... Version=95 ... and ... Version=110"), and the package drags
         // real System.Windows.Forms back in, so its types leak into signatures the migrated source
         // cannot satisfy (CS0012). Covers .Canary/.Nightly and the sibling suites.
+        // SkiaSharp's WinForms view host: a Windows-only control wrapper around the same Skia this
+        // library already renders with, so a converted project draws through Majorsilence.Forms
+        // instead. (Plain "SkiaSharp" stays -- it is cross-platform and is this library's own
+        // renderer; only the WinForms/WPF view hosts go.)
+        // Cyotek's WinForms control packages (ColorPicker, ImageBox, and the "Unofficial.*" repack).
+        // The ColorPicker has a migrated fork that is referenced as a project instead; the rest are
+        // Windows-only and have no cross-platform build.
+        "*Cyotek.Windows.Forms*",
+        "SkiaSharp.Views.WindowsForms*",
+        "SkiaSharp.Views.Desktop*",
         "Krypton.Toolkit*",
         "Krypton.Navigator*",
         "Krypton.Docking*",

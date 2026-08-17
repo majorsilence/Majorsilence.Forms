@@ -101,21 +101,33 @@ namespace Majorsilence.Forms.Drawing
             return MeasureString (text, face, (int)layoutArea.Width, (int)font.Size);
         }
 
-        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font and StringFormat (format is ignored).</summary>
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font and StringFormat.</summary>
+        /// <remarks>Only the format's <c>HotkeyPrefix</c> is honoured; trimming and flags are still ignored.</remarks>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
-            => MeasureString (text, font);
+            => MeasureString (WithoutHotkeyPrefix (text, format), font);
 
-        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to int width (StringFormat ignored).</summary>
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to int width.</summary>
+        /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.StringFormat)"/>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, int width, Majorsilence.Forms.Drawing.StringFormat? format)
         {
+            text = WithoutHotkeyPrefix (text, format);
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = TypefaceCache.Resolve (font);
             return MeasureString (text, face, width, (int)font.Size);
         }
 
-        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF (StringFormat ignored).</summary>
+        /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF.</summary>
+        /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.StringFormat)"/>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea, Majorsilence.Forms.Drawing.StringFormat? format)
-            => MeasureString (text, font, layoutArea);
+            => MeasureString (WithoutHotkeyPrefix (text, format), font, layoutArea);
+
+        // The text that will actually be drawn, per the format's hotkey handling. Measuring the raw string
+        // would reserve room for ampersands that never render, so a button sized from its own caption comes
+        // out wider than its text -- and a centred caption sits off-centre by the same amount.
+        private static string WithoutHotkeyPrefix (string text, Majorsilence.Forms.Drawing.StringFormat? format) =>
+            format is null || format.HotkeyPrefix == Majorsilence.Forms.Drawing.Text.HotkeyPrefix.None
+                ? text
+                : Mnemonics.Strip (text);
 
         /// <summary>
         /// Returns one <see cref="Majorsilence.Forms.Drawing.Region"/> per character range previously
@@ -1091,6 +1103,13 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Copies the contents of the screen to this Graphics surface. Stub in Majorsilence.Forms.</summary>
         public void CopyFromScreen (System.Drawing.Point upperLeftSource, System.Drawing.Point upperLeftDestination, Size blockRegionSize) { }
 
+        /// <summary>Copies the contents of the screen to this Graphics surface. Stub in Majorsilence.Forms.</summary>
+        /// <remarks>The raster-operation overload. Screen capture needs a platform screenshot API that no
+        /// backend exposes yet, so like its siblings above this leaves the surface untouched rather than
+        /// throwing -- a screenshot feature comes back blank instead of taking the app down.</remarks>
+        public void CopyFromScreen (int sourceX, int sourceY, int destinationX, int destinationY,
+            Size blockRegionSize, Majorsilence.Forms.Drawing.CopyPixelOperation copyPixelOperation) { }
+
         private static SKColor ToSKColor (System.Drawing.Color c) => new SKColor (c.R, c.G, c.B, c.A);
 
         /// <summary>
@@ -1495,12 +1514,63 @@ namespace Majorsilence.Forms.Drawing
                 return;
             }
 
+            // Hotkey prefixes are the format's business, as in GDI+: "&Cancel" has to render as "Cancel"
+            // with an underlined C, not with a literal ampersand. Krypton's AccurateText sets this on every
+            // piece of button, tab and menu text it draws, so leaving it unread showed the raw "&" suite-wide.
+            var display = text;
+            var mnemonic = -1;
+
+            if (format.HotkeyPrefix != Majorsilence.Forms.Drawing.Text.HotkeyPrefix.None) {
+                display = Mnemonics.Parse (text, out mnemonic);
+
+                if (format.HotkeyPrefix != Majorsilence.Forms.Drawing.Text.HotkeyPrefix.Show)
+                    mnemonic = -1;   // Hide: strip the prefix, but draw no underline.
+            }
+
+            // Measured on the DISPLAY text: sizing on the raw string would offset centred text by the
+            // width of an ampersand that never appears.
             var origin = AlignTextInBounds (
-                text, font, bounds,
+                display, font, bounds,
                 ToOffsetFactor (format.Alignment),
                 ToOffsetFactor (format.LineAlignment));
 
-            DrawStringClipped (text, font, brush, origin, bounds);
+            DrawStringClipped (display, font, brush, origin, bounds);
+
+            if (mnemonic >= 0 && mnemonic < display.Length)
+                DrawMnemonicUnderline (display, mnemonic, font, brush, origin, bounds);
+        }
+
+        /// <summary>
+        /// Underlines a single character of already-drawn text, the way GDI+ marks a hotkey.
+        /// </summary>
+        /// <remarks>
+        /// Drawn as a rule rather than with an underlined font: only one character is underlined, so
+        /// restyling the whole run would be wrong, and measuring the prefix is how its x position is found.
+        /// Clipped to the same bounds as the text so a mnemonic in overflowing text does not escape the box.
+        /// </remarks>
+        internal void DrawMnemonicUnderline (string display, int index,
+            Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush,
+            PointF origin, RectangleF clip)
+        {
+            if (_canvas is null)
+                return;
+
+            var before = MeasureString (display[..index], font).Width;
+            var width = MeasureString (display[index].ToString (), font).Width;
+
+            if (width <= 0)
+                return;
+
+            // Just below the baseline, which DrawString puts at origin.Y + font.Size.
+            var y = origin.Y + font.Size + 1f;
+
+            using var paint = brush.CreatePaint ();
+            paint.Style = SKPaintStyle.Fill;
+
+            _canvas.Save ();
+            _canvas.ClipRect (new SKRect (clip.Left, clip.Top, clip.Right, clip.Bottom));
+            _canvas.DrawRect (origin.X + before, y, width, 1f, paint);
+            _canvas.Restore ();
         }
 
         // Near -> 0 (no shift), Center -> half the slack, Far -> all of it.

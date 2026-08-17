@@ -401,6 +401,14 @@ namespace Majorsilence.Forms
             return h;
         }
 
+        /// <summary>Adds a column header with the specified text, width and alignment.</summary>
+        public ColumnHeader Add (string text, int width, HorizontalAlignment textAlign)
+        {
+            var h = new ColumnHeader { Text = text, Width = width, TextAlign = textAlign, Index = Count };
+            Add (h);
+            return h;
+        }
+
         /// <summary>Adds an array of column headers to the collection.</summary>
         /// <remarks>
         /// This is the shape the WinForms designer emits for a ListView with columns -- one

@@ -432,33 +432,11 @@ namespace Majorsilence.Forms
         public void Close (ToolStripDropDownCloseReason reason) => Hide ();
     }
 
-    public partial class ToolStrip
-    {
-        /// <summary>Gets or sets whether the strip scrolls when its items do not fit.</summary>
-        public virtual bool AutoScroll { get; set; }
-
-        /// <summary>Gets or sets the margin left around an item scrolled into view.</summary>
-        public Size AutoScrollMargin { get; set; }
-
-        /// <summary>Gets or sets the smallest logical size the strip scrolls over.</summary>
-        public Size AutoScrollMinSize { get; set; }
-
-        /// <summary>Gets or sets the current scroll offset.</summary>
-        public Point AutoScrollPosition { get; set; }
-
-        /// <summary>Gets the strip's horizontal scroll state.</summary>
-        public HScrollProperties HorizontalScroll => horizontal_scroll ??= new HScrollProperties ();
-
-        private HScrollProperties? horizontal_scroll;
-
-        /// <summary>Gets the strip's vertical scroll state.</summary>
-        public VScrollProperties VerticalScroll => vertical_scroll ??= new VScrollProperties ();
-
-        private VScrollProperties? vertical_scroll;
-
-        /// <summary>Sets the margin left around an item scrolled into view.</summary>
-        public void SetAutoScrollMargin (int x, int y) => AutoScrollMargin = new Size (x, y);
-    }
+    // ToolStrip used to declare its own AutoScroll/AutoScrollMargin/AutoScrollMinSize/AutoScrollPosition/
+    // SetAutoScrollMargin stubs, because it was not a ScrollableControl and had nowhere to inherit them
+    // from. It is one now (as it is in WinForms), so those are gone: the inherited members are the real
+    // implementations rather than auto-properties nothing reads. HorizontalScroll/VerticalScroll moved to
+    // ScrollableControl already declared HorizontalScroll/VerticalScroll, so those are inherited too.
 
     public static partial class ToolStripManager
     {

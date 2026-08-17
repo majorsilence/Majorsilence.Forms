@@ -159,6 +159,37 @@ namespace Majorsilence.Forms
             SelectionForeColor = SelectionForeColor,
             Alignment = Alignment,
             WrapMode = WrapMode,
+            Padding = Padding,
+        };
+
+        /// <summary>
+        /// Gets or sets the padding around content when this style is used as a grid cell style.
+        /// </summary>
+        /// <remarks>Carried across both conversions alongside <see cref="Alignment"/> and
+        /// <see cref="WrapMode"/>. Grid cells read and restore this while they are sited, so it has to
+        /// round-trip rather than merely exist.</remarks>
+        public Padding Padding { get; set; } = Padding.Empty;
+
+        /// <summary>
+        /// Returns a copy of this style.
+        /// </summary>
+        /// <remarks>
+        /// Cells clone a style before mutating it so the change does not leak into the style they inherited
+        /// from. The copy is detached from the parent chain deliberately: it carries the values resolved at
+        /// the time of the call, which is what a caller mutating a clone expects.
+        /// </remarks>
+        public ControlStyle Clone () => new ControlStyle (null, _ => { }) {
+            BackColor = BackColor,
+            ForeColor = ForeColor,
+            SelectionBackColor = SelectionBackColor,
+            SelectionForeColor = SelectionForeColor,
+            Alignment = Alignment,
+            WrapMode = WrapMode,
+            Padding = Padding,
+            Font = Font,
+            FontSize = FontSize,
+            BackgroundColor = BackgroundColor,
+            ForegroundColor = ForegroundColor,
         };
 
         /// <summary>
@@ -196,6 +227,7 @@ namespace Majorsilence.Forms
                 SelectionForeColor = style.SelectionForeColor,
                 Alignment = style.Alignment,
                 WrapMode = style.WrapMode,
+                Padding = style.Padding,
             };
             if (style.Font is { } font) {
                 result.Font = font.GetSKTypeface ();

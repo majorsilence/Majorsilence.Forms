@@ -1704,15 +1704,34 @@ namespace Majorsilence.Forms
         private bool _disposed;
 
         /// <summary>Initializes a new instance of the ToolStripComboBox class.</summary>
-        public ToolStripComboBox () : base (new CompatComboBox ()) { }
+        public ToolStripComboBox () : base (new CompatComboBox ()) => WireSelectedIndexChanged ();
 
         /// <summary>Initializes a new instance of the ToolStripComboBox class with the specified name.</summary>
-        public ToolStripComboBox (string name) : base (new CompatComboBox (), name) { }
+        public ToolStripComboBox (string name) : base (new CompatComboBox (), name) => WireSelectedIndexChanged ();
 
         // The hosted control is the combo box; there is no second instance. It used to be a field
         // initialised inline, which -- once this type hosts its control -- would have been a
         // different combo from the one ToolStripControlHost lays out and paints.
         private CompatComboBox combo_box => (CompatComboBox)Control;
+
+        private EventHandler? selected_index_changed;
+        private bool selected_index_wired;
+
+        // Wired from the constructors, once the base has created the hosted control. It has to happen
+        // there rather than on the first handler: a subclass that overrides OnSelectedIndexChanged without
+        // anyone attaching a handler -- a themed combo reacting to its own selection -- still has to be
+        // called. Guarded because both constructors run it and one may chain.
+        private void WireSelectedIndexChanged ()
+        {
+            if (selected_index_wired)
+                return;
+
+            selected_index_wired = true;
+            combo_box.SelectedIndexChanged += (o, e) => OnSelectedIndexChanged (e);
+        }
+
+        /// <summary>Raises the <see cref="SelectedIndexChanged"/> event.</summary>
+        protected virtual void OnSelectedIndexChanged (EventArgs e) => selected_index_changed?.Invoke (this, e);
 
         /// <inheritdoc/>
         /// <remarks>Overrides the base item's virtual rather than declaring its own Dispose(): hiding it
@@ -1749,9 +1768,15 @@ namespace Majorsilence.Forms
         public new ListBoxItemCollection Items => combo_box.Items;
 
         /// <summary>Raised when the selected index changes.</summary>
+        /// <remarks>
+        /// Handlers land on this item rather than straight on the hosted combo, so a subclass overriding
+        /// <see cref="OnSelectedIndexChanged"/> -- which is where WinForms puts the hook, and what themed
+        /// combo boxes override to react to a selection -- runs before them and can be skipped by not
+        /// calling base. The hosted combo's own event is forwarded from the constructor.
+        /// </remarks>
         public event EventHandler? SelectedIndexChanged {
-            add => combo_box.SelectedIndexChanged += value;
-            remove => combo_box.SelectedIndexChanged -= value;
+            add => selected_index_changed += value;
+            remove => selected_index_changed -= value;
         }
 
         // Validated is inherited from ToolStripControlHost, which forwards it to the hosted control.

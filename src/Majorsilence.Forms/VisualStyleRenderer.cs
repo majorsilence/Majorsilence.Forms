@@ -16,7 +16,7 @@ namespace Majorsilence.Forms.VisualStyles
     /// The nested groups mirror the upstream class names and carry the elements this library has been asked
     /// for so far; the parts are grouped the same way upstream, so more can be added without changing shape.
     /// </remarks>
-    public class VisualStyleElement
+    public partial class VisualStyleElement
     {
         private VisualStyleElement (string className, int part, int state)
         {

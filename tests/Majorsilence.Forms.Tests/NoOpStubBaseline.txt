@@ -84,10 +84,12 @@ Majorsilence.Forms.Design.ComponentDesigner.InitializeNewComponent/1
 Majorsilence.Forms.Design.DesignerActionUIService.HideUI/1
 Majorsilence.Forms.Design.DesignerActionUIService.Refresh/1
 Majorsilence.Forms.Design.DesignerActionUIService.ShowUI/1
+Majorsilence.Forms.Design.UITypeEditor.PaintValue/1
 Majorsilence.Forms.Drawing.BufferedGraphicsContext.Invalidate/0
 Majorsilence.Forms.Drawing.Graphics.AddMetafileComment/1
 Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/3
 Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/5
+Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/6
 Majorsilence.Forms.Drawing.Graphics.Flush/0
 Majorsilence.Forms.Drawing.Graphics.Flush/1
 Majorsilence.Forms.Drawing.Graphics.MultiplyTransform/1
@@ -97,6 +99,7 @@ Majorsilence.Forms.Drawing.Graphics.ReleaseHdc/1
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdcInternal/1
 Majorsilence.Forms.ErrorProvider.UpdateBinding/0
 Majorsilence.Forms.GridItem.Select/0
+Majorsilence.Forms.GroupBoxRenderer.DrawParentBackground/3
 Majorsilence.Forms.Help.ShowHelp/2
 Majorsilence.Forms.Help.ShowHelp/3
 Majorsilence.Forms.Help.ShowHelp/4

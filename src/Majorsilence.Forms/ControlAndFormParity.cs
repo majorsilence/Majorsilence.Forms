@@ -371,7 +371,14 @@ namespace Majorsilence.Forms
         public event EventHandler? BackgroundImageLayoutChanged;
 
         /// <summary>Raises the <see cref="BackgroundImageChanged"/> event.</summary>
-        protected virtual void OnBackgroundImageChanged (EventArgs e) => BackgroundImageChanged?.Invoke (this, e);
+        protected virtual void OnBackgroundImageChanged (EventArgs e)
+        {
+            BackgroundImageChanged?.Invoke (this, e);
+
+            // Children that fake transparency sample the parent's background, so they need to know.
+            foreach (var child in Controls)
+                child.RaiseParentBackgroundImageChanged ();
+        }
 
         /// <summary>Raises the <see cref="BackgroundImageLayoutChanged"/> event.</summary>
         protected virtual void OnBackgroundImageLayoutChanged (EventArgs e) => BackgroundImageLayoutChanged?.Invoke (this, e);

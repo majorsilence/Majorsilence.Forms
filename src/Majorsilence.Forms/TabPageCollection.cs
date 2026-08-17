@@ -7,6 +7,18 @@ namespace Majorsilence.Forms
     /// </summary>
     public class TabPageCollection : Collection<TabPage>
     {
+        /// <summary>Adds several tab pages at once.</summary>
+        /// <remarks>The shape the WinForms designer emits for a populated TabControl -- one
+        /// <c>TabPages.AddRange (new TabPage[] { ... })</c> per control -- so every migrated designer file
+        /// needs it. Without it the call binds to the LINQ-style extension method and fails to compile.</remarks>
+        public void AddRange (params TabPage[] pages)
+        {
+            ArgumentNullException.ThrowIfNull (pages);
+
+            foreach (var page in pages)
+                Add (page);
+        }
+
         /// <summary>Removes the tab page with the specified Name, if present. Mirrors WinForms.</summary>
         public void RemoveByKey (string key)
         {

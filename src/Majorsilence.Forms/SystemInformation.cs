@@ -182,6 +182,19 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether the process is running in a context that can interact with a user.</summary>
         /// <remarks>Answers from <see cref="Application.UserInteractive"/>, so the two cannot disagree.</remarks>
         public static bool UserInteractive => Application.UserInteractive;
+
+        /// <summary>Gets the NetBIOS name of the local computer.</summary>
+        /// <remarks>Real data, from <see cref="Environment.MachineName"/> -- error reporters and About
+        /// boxes put this in front of the user, so a placeholder would be a visible lie.</remarks>
+        public static string ComputerName => Environment.MachineName;
+
+        /// <summary>Gets the user name of the person logged into the system.</summary>
+        /// <inheritdoc cref="ComputerName"/>
+        public static string UserName => Environment.UserName;
+
+        /// <summary>Gets the name of the domain the user belongs to.</summary>
+        /// <inheritdoc cref="ComputerName"/>
+        public static string UserDomainName => Environment.UserDomainName;
     }
 
     /// <summary>

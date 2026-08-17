@@ -696,6 +696,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets the y-coordinate of the mouse relative to the cell.</summary>
         public int Y { get; }
 
+        /// <summary>Gets the position of the mouse relative to the cell.</summary>
+        public System.Drawing.Point Location => new System.Drawing.Point (X, Y);
+
         /// <summary>Gets which mouse button was pressed.</summary>
         public MouseButtons Button { get; }
 

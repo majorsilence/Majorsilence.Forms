@@ -327,8 +327,14 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the form is first shown (WinForms compatibility alias; raised together with Shown).</summary>
         public event EventHandler? Load;
 
-        /// <summary>Raised when the user begins to resize the form. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? ResizeBegin { add { } remove { } }
+        /// <summary>Raised when the user begins to resize the form.</summary>
+        /// <remarks>No backend reports the start of a user resize drag yet, so this does not fire on its
+        /// own; it is a real event rather than a discard so that ported code which overrides
+        /// <see cref="OnResizeBegin"/> compiles and runs once a backend can raise it.</remarks>
+        public event EventHandler? ResizeBegin;
+
+        /// <summary>Raises the <see cref="ResizeBegin"/> event.</summary>
+        protected virtual void OnResizeBegin (EventArgs e) => ResizeBegin?.Invoke (this, e);
 
         /// <summary>Raised when the user finishes resizing the form. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? ResizeEnd;
