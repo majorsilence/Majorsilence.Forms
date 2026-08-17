@@ -1,16 +1,44 @@
-# Majorsilence.Forms
+# Majorsilence.Forms — cross-platform WinForms for .NET
 
 **Take your WinForms apps cross-platform — without rewriting them.**
 
-Majorsilence.Forms is a WinForms-style UI framework that lets you move legacy *and* modern
-WinForms applications onto a modern, cross-platform stack. You keep the programming model you
-already know — `Form`s, controls, event handlers, even the `*.Designer.cs` files — and gain
-Windows, macOS, and Linux out of the box, with mobile and web within reach through
-[Uno Platform](https://platform.uno) or through [Avalonia](https://avaloniaui.net)'s own
-Android, iOS, and Browser (WASM) targets.
+[![NuGet](https://img.shields.io/nuget/v/Majorsilence.Forms.svg?logo=nuget&label=Majorsilence.Forms)](https://www.nuget.org/packages/Majorsilence.Forms)
+[![Downloads](https://img.shields.io/nuget/dt/Majorsilence.Forms.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/Majorsilence.Forms)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](license.md)
+[![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Wasm-informational)](https://forms.majorsilence.com/backends/)
+
+📖 **[Documentation](https://forms.majorsilence.com)** ·
+🚀 **[Getting started](https://forms.majorsilence.com/getting-started/)** ·
+🔀 **[Migrate an existing app](https://forms.majorsilence.com/migration/)** ·
+🌐 **[Live browser demo](https://forms.majorsilence.com/gallery/)** ·
+❓ **[FAQ](https://forms.majorsilence.com/faq/)**
+
+Majorsilence.Forms is a **WinForms compatibility layer** — a WinForms-style UI framework that lets
+you move legacy *and* modern Windows Forms applications onto a modern, cross-platform stack. You
+keep the programming model you already know — `Form`s, controls, event handlers, even the
+`*.Designer.cs` files — and gain Windows, macOS, and Linux out of the box, with mobile and web
+within reach through [Uno Platform](https://platform.uno) or through
+[Avalonia](https://avaloniaui.net)'s own Android, iOS, and Browser (WASM) targets.
 
 > ⚠️ **Beta stage.** The API is stabilizing and not every WinForms corner is covered yet.
 > Great for new cross-platform LOB apps and for migrating real apps today — just pin your version.
+
+<details>
+<summary><b>Looking for one specific thing?</b></summary>
+
+| If you searched for… | Read this |
+|---|---|
+| cross-platform WinForms, WinForms compatibility library | [Cross-platform WinForms, explained](https://forms.majorsilence.com/cross-platform-winforms/) |
+| run WinForms on Linux / Ubuntu, WinForms Mono replacement | [WinForms on Linux](https://forms.majorsilence.com/winforms-on-linux/) |
+| run WinForms on macOS / Mac, WinForms Apple Silicon | [WinForms on macOS](https://forms.majorsilence.com/winforms-on-macos/) |
+| WinForms alternative, MAUI vs Avalonia vs Uno | [WinForms alternatives compared](https://forms.majorsilence.com/winforms-alternatives/) |
+| migrate/convert/modernize a WinForms app | [`MIGRATION.md`](MIGRATION.md) · [migration guide](https://forms.majorsilence.com/migration/) |
+| is control *X* supported? | [`COMPATIBILITY_MATRIX.md`](COMPATIBILITY_MATRIX.md) |
+| WinForms UI testing, Selenium, headless CI | [Automation & UI testing](https://forms.majorsilence.com/automation/) |
+| `System.Drawing.Common` / GDI+ replacement | [`Majorsilence.Forms.Drawing.Common`](https://www.nuget.org/packages/Majorsilence.Forms.Drawing.Common) |
+
+</details>
 
 ## Why Majorsilence.Forms?
 
@@ -64,6 +92,16 @@ See [Platform backends](docs/backends.md) for the details and how to add your ow
   approximated, and what's deliberately out of scope, once your code compiles.
 
 ## Getting started
+
+The full documentation site is at **[forms.majorsilence.com](https://forms.majorsilence.com)** —
+including a [training guide](https://forms.majorsilence.com/training/) for teams (every example in
+both C# and VB.NET) and the [control gallery running live in your browser](https://forms.majorsilence.com/gallery/).
+
+```
+dotnet new install MajorsilenceForms.Templates
+dotnet new majorsilenceforms
+dotnet run
+```
 
 See [Getting Started](docs/getting-started.md) to scaffold your first Majorsilence.Forms app, and
 [Automation & UI testing](docs/automation.md) to drive it from tests — headlessly in CI, from Selenium

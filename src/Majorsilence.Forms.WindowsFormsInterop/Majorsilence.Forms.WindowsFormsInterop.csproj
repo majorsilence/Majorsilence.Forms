@@ -13,10 +13,16 @@
     <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
     <UseWindowsForms>true</UseWindowsForms>
     <PackageId>Majorsilence.Forms.WindowsFormsInterop</PackageId>
-    <Description>Windows-only bridge to host legacy System.Windows.Forms forms from a Majorsilence.Forms app during an incremental migration.</Description>
-    <PackageTags>Majorsilence;Forms;Winforms;Interop;Migration;Windows</PackageTags>
+    <Description>Windows-only bridge to host legacy System.Windows.Forms forms from a Majorsilence.Forms app, and the reverse — so a WinForms application can be migrated cross-platform one screen at a time instead of all at once.</Description>
+    <PackageTags>winforms;windows-forms;interop;migration;incremental-migration;majorsilence-forms;windows</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <!-- Only the Windows leg packs, so the README item is scoped the same way. -->
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
     <!-- Nothing to compile off Windows. -->

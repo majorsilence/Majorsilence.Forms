@@ -8,8 +8,8 @@
 
   <PropertyGroup>
     <PackageId>Majorsilence.Forms</PackageId>
-    <Description>Cross-platform spiritual successor to Winforms for .NET Core</Description>
-    <PackageTags>Majorsilence;Forms;Winforms;GUI;UI;Cross;Platform</PackageTags>
+    <Description>Cross-platform WinForms for .NET. A Windows Forms compatibility layer that runs your existing WinForms apps on Windows, macOS, Linux, mobile and the browser — the same Form, controls, event handlers and *.Designer.cs files, with no rewrite. Requires a backend package (Majorsilence.Forms.Avalonia for desktop).</Description>
+    <PackageTags>winforms;windows-forms;system-windows-forms;cross-platform;winforms-compatibility;winforms-alternative;migration;gui;ui;desktop;linux;macos;skiasharp;avalonia;uno;dotnet</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

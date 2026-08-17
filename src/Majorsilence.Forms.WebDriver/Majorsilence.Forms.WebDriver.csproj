@@ -8,9 +8,14 @@
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.WebDriver</PackageId>
     <Description>A W3C WebDriver (Selenium-compatible) HTTP server for automating Majorsilence.Forms apps — maps WebDriver commands onto the automation tree, neutral input injection, and offscreen screenshots.</Description>
-    <PackageTags>Majorsilence;Forms;WebDriver;Selenium;Automation;Testing</PackageTags>
+    <PackageTags>majorsilence-forms;winforms;webdriver;w3c-webdriver;selenium;ui-testing;ui-automation;test-automation;cross-platform</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />

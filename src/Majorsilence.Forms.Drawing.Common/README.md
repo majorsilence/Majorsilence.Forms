@@ -58,6 +58,7 @@ meaning on a Skia backend.
 
 ## Links
 
+- [**Documentation**](https://forms.majorsilence.com) · [Cross-platform WinForms, explained](https://forms.majorsilence.com/cross-platform-winforms/)
 - [Repository](https://github.com/majorsilence/Majorsilence.Forms)
 - [Compatibility matrix](https://github.com/majorsilence/Majorsilence.Forms/blob/main/COMPATIBILITY_MATRIX.md) — the `System.Drawing` / GDI+ section
 - [Migration guide](https://github.com/majorsilence/Majorsilence.Forms/blob/main/MIGRATION.md)

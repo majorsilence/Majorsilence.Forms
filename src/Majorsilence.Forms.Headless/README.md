@@ -66,6 +66,7 @@ the same app able to target Avalonia today and Uno tomorrow.
 
 ## Links
 
+- [**Documentation**](https://forms.majorsilence.com) · [Automation & UI testing](https://forms.majorsilence.com/automation/)
 - [Repository](https://github.com/majorsilence/Majorsilence.Forms)
 - [Platform backends](https://github.com/majorsilence/Majorsilence.Forms/blob/main/docs/backends.md)
 - [Getting started](https://github.com/majorsilence/Majorsilence.Forms/blob/main/docs/getting-started.md)

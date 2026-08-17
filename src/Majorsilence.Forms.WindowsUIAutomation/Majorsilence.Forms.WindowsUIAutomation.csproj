@@ -21,9 +21,15 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PackageId>Majorsilence.Forms.WindowsUIAutomation</PackageId>
     <Description>Windows-only UI Automation bridge so screen readers and magnifiers can drive a Majorsilence.Forms window.</Description>
-    <PackageTags>Majorsilence;Forms;Accessibility;UIAutomation;ScreenReader;Windows</PackageTags>
+    <PackageTags>majorsilence-forms;winforms;accessibility;a11y;uiautomation;ui-automation;screen-reader;narrator;windows</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <!-- Only the Windows leg packs, so the README item is scoped the same way. -->
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
     <!-- Nothing to compile off Windows. -->

@@ -58,6 +58,7 @@ See [Platform backends](https://github.com/majorsilence/Majorsilence.Forms/blob/
 
 ## Links
 
+- [**Documentation**](https://forms.majorsilence.com) · [Platform backends](https://forms.majorsilence.com/backends/)
 - [Repository](https://github.com/majorsilence/Majorsilence.Forms)
 - [Getting started](https://github.com/majorsilence/Majorsilence.Forms/blob/main/docs/getting-started.md)
 - [Platform backends](https://github.com/majorsilence/Majorsilence.Forms/blob/main/docs/backends.md) — the backend seam, and how to write your own
