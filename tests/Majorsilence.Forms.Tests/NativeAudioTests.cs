@@ -45,6 +45,23 @@ public class NativeAudioTests : IDisposable
     private (ProcessStartInfo Info, FakeSound Sound) LastLaunch { get { lock (launches) return launches[^1]; } }
     private int LaunchCount { get { lock (launches) return launches.Count; } }
 
+    /// <summary>
+    /// The file a launch will play. macOS and Linux pass it as its own argument, but Windows wraps it in
+    /// a PowerShell script, so there it is pulled back out of the single-quoted literal (undoing the
+    /// doubling that quotes the quote).
+    /// </summary>
+    private static string PlayedFile (ProcessStartInfo info)
+    {
+        var last = info.ArgumentList[^1];
+        if (!OperatingSystem.IsWindows ())
+            return last;
+
+        var open = last.IndexOf ('\'') + 1;
+        var close = last.LastIndexOf ('\'');
+        Assert.True (open > 0 && close > open, $"no quoted path in the launched script: {last}");
+        return last[open..close].Replace ("''", "'");
+    }
+
     [Fact]
     public void FileCommands_UseTheCurrentPlatformsOwnUtility ()
     {
@@ -64,6 +81,7 @@ public class NativeAudioTests : IDisposable
             // PlaySync in the CHILD, not Play: the child living for the duration of playback is what
             // gives Stop (kill) and PlaySync (wait) their meaning.
             Assert.Contains ("PlaySync", cmd.ArgumentList[^1], StringComparison.Ordinal);
+            Assert.Equal ("/tmp/x.wav", PlayedFile (cmd));   // the path survives into the script intact
         } else {
             Assert.Empty (commands);   // no utility to spawn: silent by design
         }
@@ -105,7 +123,7 @@ public class NativeAudioTests : IDisposable
             player.Play ();
 
             Assert.Equal (1, LaunchCount);
-            Assert.Contains (wav, LastLaunch.Info.ArgumentList);
+            Assert.Equal (wav, PlayedFile (LastLaunch.Info));
             Assert.False (LastLaunch.Sound.Disposed);
 
             var first = LastLaunch.Sound;
@@ -153,11 +171,11 @@ public class NativeAudioTests : IDisposable
             player.Play ();
 
             Assert.Equal (2, LaunchCount);
-            tempPath = LastLaunch.Info.ArgumentList.Last ();
+            tempPath = PlayedFile (LastLaunch.Info);
 
             // Same materialised file both times, holding the stream's bytes.
             lock (launches)
-                Assert.Equal (tempPath, launches[0].Info.ArgumentList.Last ());
+                Assert.Equal (tempPath, PlayedFile (launches[0].Info));
             Assert.Equal (payload, File.ReadAllBytes (tempPath));
         }
 
