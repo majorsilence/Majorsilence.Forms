@@ -562,7 +562,7 @@ public class StripHierarchyTests
 
         // The point of the test survives: the collection still holds a plain MenuItem alongside them, which
         // is why members like key lookup have to tolerate entries that are not ToolStripItems.
-        Assert.Single (menu.Items.Where (i => i is not ToolStripItem));
+        Assert.Single (menu.Items, i => i is not ToolStripItem);
     }
 
     // Key lookup is a ToolStripItem concept (Name lives there), so a plain MenuItem must simply never
