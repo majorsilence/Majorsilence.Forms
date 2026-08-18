@@ -2374,6 +2374,10 @@ namespace Majorsilence.Forms
                         OnVisibleChanged (EventArgs.Empty);
                 else
                     OnVisibleChanged (EventArgs.Empty);
+
+                // A visible top-level control lives in its own window; keep that window in step.
+                // No-op for ordinary controls -- see Control.TopLevel.cs.
+                UpdateTopLevelHost (value);
             }
         }
 
@@ -2643,6 +2647,11 @@ namespace Majorsilence.Forms
 
                 foreach (var c in Controls.GetAllControls (true))
                     c.Dispose (disposing);
+
+                // A disposed top-level control takes its window with it: Krypton dismisses a popup by
+                // disposing it, and the host outliving the control would leave an empty floating window.
+                if (disposing)
+                    TearDownTopLevelHost ();
 
                 // A disposed control must not keep the capture: it would go on being handed every mouse
                 // event in the application, with nothing left to deliver them to.

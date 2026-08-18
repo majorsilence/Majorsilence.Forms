@@ -129,7 +129,76 @@ claims, and neither is "the examples work". Drive the UI.
 Every form below constructs and runs; these are rendering faults, which no gate and no smoke harness can
 see. Ordered by how much of the suite each one affects.
 
-1. **KryptonRibbon lays out collapsed.** The whole ribbon renders at a fraction of its size: the tab strip
+1. **FIXED 2026-08-18 (root cause was library-wide, not the ribbon).** Chasing the ribbon found that
+   `Drawing.Font` handed its `Size` -- expressed in `Unit`, Point by default as in GDI+ -- straight to
+   SkiaSharp, which measures text in PIXELS. A 9pt font therefore rendered at 9px instead of 12px: **every
+   piece of text in the library was about a quarter too small, and so was every dimension derived from text
+   metrics.** `Font.PixelSize` now converts by unit, and the measure path uses it too -- it was passing
+   `(int)font.Size`, so measurement and drawing disagreed by that same quarter.
+
+   Two further inconsistencies surfaced while fixing it, both found by tests rather than by eye:
+   - Centred text sat ~3px right of centre, because `MeasureString` measured at the point size while
+     `DrawString` drew at the pixel size.
+   - Vertically centred text sat low, because the baseline was placed one **em** below the text's top edge
+     instead of one **ascent**. Close enough to look plausible, but it disagreed with the line height that
+     `MeasureString` reports.
+
+   Ribbon effect: tab strip 19px -> 21px, app tab 49x19 -> 54x21. Pinned by `FontPixelSizeTests`.
+
+   **Two things I got wrong on the way, worth recording.** First, the probe showed the ribbon at width 0 and
+   I called it definitive; in fact the root `ControlAdapter` is sized only inside `RenderFrame`, so it is
+   0x0 until something paints -- a headless artifact, though it does mean pre-paint layout of docked children
+   is wrong, which is worth fixing separately. Second, `Segoe UI` reporting a line height exactly equal to
+   its em size looked like a degenerate fallback; it is not. It resolves to Helvetica (2,252 glyphs, real
+   metrics) and Helvetica genuinely has ascent+descent of 1.0 em with zero leading. Font substitution is
+   fine. That is why the tab strip is 21px rather than the ~25px Segoe UI would give -- proportionally
+   correct for the substituted face, not a bug.
+
+   **The geometry was never "collapsed".** At a correct width the view tree is sane: ribbon 800x134, groups
+   area 799x85, group content 160x84 -- and a ~160px group is right for one tab with one small group. My
+   original reading of the screenshot was wrong.
+
+1. **FIXED 2026-08-18: Krypton's popup layer (the File-tab FailFast).** Clicking the ribbon's File tab
+   aborted the process on `Debug.Assert(popup.IsHandleCreated)` in `VisualPopupManager.StartTracking`.
+   Root cause: `VisualPopup` is a Control that floats itself via `PI.ShowWindow(Handle, SW_SHOWNOACTIVATE)`
+   -- a user32 call the shim no-ops against a fake handle -- so no popup in either suite ever appeared:
+   eight types derive from that one base (context menus, tooltips, app menu, collapsed-group popups, QAT
+   overflow, autocomplete), and 23 sites call PI.ShowWindow.
+
+   Per the standing directive the mechanism went into Majorsilence.Forms: **`Control.SetTopLevel(bool)` /
+   `GetTopLevel()`** (Control.TopLevel.cs), the WinForms contract ToolStripDropDown itself uses to float --
+   a visible top-level control is hosted in a `PopupWindow` at its own Bounds (screen coordinates), goes
+   live synchronously (`CreateControl`, because Krypton asserts IsHandleCreated immediately), hides with
+   the generic popup dismissal (host.VisibleChanged reflects back into the control's Visible), and takes
+   its window down on Dispose (Krypton dismisses popups by disposing them). Krypton's share is two lines
+   in the one base class, via the standard-toolkit bridge script: `SetTopLevel(true); Visible = true;`
+   replacing the ShowWindow call.
+
+   Trap for later: `Visible = true` alone cannot trigger hosting -- controls default to the visible STATE,
+   so the assignment is a no-op transition, and the Visible GETTER reads false for any parentless control.
+   SetTopLevel consults the state flag directly.
+
+   Still open in this area: `VisualPopupManager`'s dismissal runs on an `IMessageFilter` fed by Win32
+   messages, which nothing here pumps -- outside-click dismissal currently rides on the generic
+   popup-deactivation close instead, and stacked popups (submenu on popup) are untested. Pinned by
+   `TopLevelControlTests` (5 tests).
+
+   **Visually confirmed 2026-08-18.** Clicking File now opens the app menu popup instead of aborting.
+   It renders showing only a "Recent Documents" header and no command list -- confirmed via a headless
+   reflection probe to be correct, not a regression: `ShowAppButtonMenu`'s view tree has the command
+   column (`ViewLayoutMenuItemsPile` -> `ViewLayoutStack`) laid out at Width=0 with zero children,
+   because `KryptonRibbonExtendedExample` never populates `RibbonFileAppButton.AppButtonMenuItems` --
+   grepping the whole Examples project for `AppButtonMenuItems`/`AppMenu` turns up nothing. The Recent
+   Documents column, which the example also never adds entries to, correctly lays out at its configured
+   250px minimum width and shows just its header. Nothing to fix here without adding menu items to the
+   example, which is app content, not a port defect.
+
+1. **OPEN: remaining ribbon defects**, now that text size is no longer the cause -- button captions
+   overlapping their images, the gallery rendering as a thin vertical strip, and the app button drawn
+   overlapping the tab. Re-examine against a fresh screenshot before theorising: the font fix moves every
+   text-driven dimension, so some of these may already be gone.
+
+1. ~~**KryptonRibbon lays out collapsed.**~~ (superseded by the two entries above) The whole ribbon renders at a fraction of its size: the tab strip
    shows a floating "Tab" label, the group is squeezed into a ~150x80 box with its two buttons overlapping
    their captions, and the group caption sits below the group instead of inside it. The ribbon band is also
    painted the dark theme colour while the form below it is light, so the band's own background is being

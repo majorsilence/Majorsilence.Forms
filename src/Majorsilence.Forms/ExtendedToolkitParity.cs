@@ -134,6 +134,17 @@ namespace Majorsilence.Forms
         /// <remarks>A top-level window has no parent to sample a background from, so this only exists to
         /// keep the surface identical; overriding it on a Form is harmless but never called.</remarks>
         protected virtual void OnParentBackgroundImageChanged (EventArgs e) { }
+
+        /// <summary>Makes this window top-level or hosted. Mirrors Control.SetTopLevel; a Form already
+        /// expresses the same thing through <see cref="Form.TopLevel"/>, which this defers to.</summary>
+        protected internal virtual void SetTopLevel (bool value)
+        {
+            if (this is Form form)
+                form.TopLevel = value;
+        }
+
+        /// <summary>Gets whether this window is top-level. Mirrors Control.GetTopLevel.</summary>
+        protected internal bool GetTopLevel () => this is not Form form || form.TopLevel;
     }
 
     // WinForms controls are ISynchronizeInvoke, and components that marshal work back to the UI thread
