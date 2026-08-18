@@ -19,6 +19,7 @@ until a scaled display shows up -- and it was mixed in six places:
 | `TabStrip` / dock layout | Laid children out into the device `ClientRectangle` and stored the result in logical `Bounds` -- compounding once per nesting level (a 400-logical dock produced a 1600-logical tab strip). |
 | Dock header hit rects | Stored in device units while mouse coordinates are logical. |
 | Several tests | Sampled device-pixel bitmaps using logical control bounds, or asserted scale-1 pixel geometry outright. |
+| `Control.RectangleToScreen/ToClient` | Converted the origin through `PointToScreen` (which scales) but passed `Width`/`Height` through unscaled, so every converted rectangle was scale-times too small. Found later than the six above via `RadDocumentTabStrip.ScreenBounds`, where a tab dropped on its own strip's right half tested as "outside" and tore off instead of reordering. |
 
 Two things worth keeping:
 
@@ -156,8 +157,10 @@ the MCP server in `tools/Majorsilence.Forms.Mcp` all require an *app* that refer
 `Majorsilence.Forms.WebDriver` and starts a `WebDriverServer`. Today that means a `ProjectReference` into
 a clone, which is fine for this repo's own samples and tests and awkward for anyone else.
 
-`Majorsilence.Forms.WindowsUIAutomation` and `Majorsilence.Forms.WindowsFormsInterop` are in the same
-position: consumer-facing, packable, unlisted. (`DrawingShims` and `WinFormsEnumShims` are the
+`Majorsilence.Forms.WindowsUIAutomation`, `Majorsilence.Forms.WindowsFormsInterop` and
+`Majorsilence.Forms.WinForms` (the WinForms platform backend + `ToWinFormsControl()` embedding,
+added for control-granularity incremental migration) are in the same position: consumer-facing,
+packable, unlisted. (`DrawingShims` and `WinFormsEnumShims` are the
 `System.Drawing.Common` / `System.Windows.Forms` facade assemblies, so their absence looks deliberate —
 publishing packages under those identities is not something to do by accident.)
 

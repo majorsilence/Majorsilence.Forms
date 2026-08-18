@@ -24,7 +24,7 @@ plain `dotnet build` / `dotnet test` at the repo root never needs their platform
 | [`Explorer`](#explore) | A Windows Explorer clone | Windows, macOS, Linux |
 | [`Outlaw`](#outlaw) | An Outlook clone | Windows, macOS, Linux |
 | [`PointOfSale`](#pointofsale) | A full client/server LOB app | Windows, macOS, Linux |
-| [`EmbeddingAvalonia` / `EmbeddingUno`](#embeddingavalonia--embeddinguno) | Majorsilence.Forms hosted *inside* a native app | Desktop |
+| [`EmbeddingAvalonia` / `EmbeddingUno` / `EmbeddingWinForms`](#embeddingavalonia--embeddinguno--embeddingwinforms) | Majorsilence.Forms hosted *inside* a native app | Desktop (WinForms: Windows only) |
 | [`WinFormsInterop`](#winformsinterop-windows-only) | Bi-directional `System.Windows.Forms` interop | Windows |
 | [`AutomationTarget`](#automationtarget) | An app that exposes its own automation endpoint | Windows, macOS, Linux |
 
@@ -212,29 +212,33 @@ The API creates and seeds a local `pos.db` on first run. The default JWT signing
 `appsettings.json` is a placeholder, not a secret — override it in `appsettings.Development.json` or
 the environment.
 
-### EmbeddingAvalonia / EmbeddingUno
+### EmbeddingAvalonia / EmbeddingUno / EmbeddingWinForms
 
-The reverse hosting direction: an ordinary Avalonia or Uno application that uses Majorsilence.Forms
-objects as if they were its own native ones.
+The reverse hosting direction: an ordinary Avalonia, Uno, or classic WinForms application that uses
+Majorsilence.Forms objects as if they were its own native ones.
 
 ```bash
 dotnet run --project samples/EmbeddingAvalonia
 dotnet run --project samples/EmbeddingUno
+dotnet run --project samples/EmbeddingWinForms   # Windows only
 ```
 
 Each window puts native host controls and an embedded Majorsilence.Forms scene side by side, and
 demonstrates all three seams:
 
-- `ToAvaloniaControl()` / `ToUnoControl()` — a Majorsilence control hosted as a native one via
-  `MajorsilenceFormsPresenter`.
-- `ToAvaloniaWindow()` / `ToUnoWindow()` — a Majorsilence `Form`'s backend window handed back to the
-  host. Avalonia gets a genuine OS-level modal dialog ("Open as Avalonia dialog"); Uno has no owner
-  concept in this backend, so it gets an independent top-level window ("Open as Uno window") and
-  `Form.ShowDialog(parent)` is the way to get modal behaviour there.
+- `ToAvaloniaControl()` / `ToUnoControl()` / `ToWinFormsControl()` — a Majorsilence control hosted
+  as a native one via `MajorsilenceFormsPresenter`.
+- `ToAvaloniaWindow()` / `ToUnoWindow()` / `ToWinFormsForm()` — a Majorsilence `Form`'s backend
+  window handed back to the host. Avalonia and WinForms get a genuine OS-level modal dialog ("Open
+  as Avalonia dialog" / "Open as WinForms dialog"); Uno has no owner concept in this backend, so it
+  gets an independent top-level window ("Open as Uno window") and `Form.ShowDialog(parent)` is the
+  way to get modal behaviour there.
 - `NativeControlHost` — a native button hosted *inside* the Majorsilence scene, the other direction
   again. See [`native-interop.md`](native-interop.md).
 
-Both also toggle the host theme, so you can watch Majorsilence.Forms controls follow it.
+The Avalonia and Uno ones also toggle the host theme, so you can watch Majorsilence.Forms controls
+follow it. The WinForms one is Windows-only and exists as the port-one-control-at-a-time migration
+path — see [The WinForms backend](backends.md#the-winforms-backend).
 
 See [Embedding in a host app](backends.md#embedding-in-a-host-app) for the API details.
 

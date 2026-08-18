@@ -11,6 +11,7 @@ That host is abstracted behind a small seam so Majorsilence.Forms can run on mor
 | `Majorsilence.Forms.Avalonia` | Avalonia 12 (`AvaloniaPlatformBackend`) | Default desktop backend (Windows/macOS/Linux). Also multi-targets Browser/WASM, Android, and iOS through Avalonia's own platform packages, so it is a second path to mobile and web alongside Uno — see [The Avalonia backend](#the-avalonia-backend). |
 | `Majorsilence.Forms.Headless` | Dependency-free SkiaSharp (`HeadlessPlatformBackend`) | Offscreen rendering for tests/servers; the reference second backend. |
 | `Majorsilence.Forms.Uno` | Uno Platform / Skia (`UnoPlatformBackend`) | Builds against `Uno.WinUI 6.5.237` + `SkiaSharp.Views.Uno.WinUI`; presents via `SKXamlCanvas`. Runs through a Uno app head (`samples/Gallery.Uno`) — verified bootstrapping + rendering Majorsilence.Forms on macOS. |
+| `Majorsilence.Forms.WinForms` | System.Windows.Forms (`WinFormsPlatformBackend`) | Windows-only migration backend: real WinForms windows on the classic Win32 pump, presenting Skia through a GDI-backed control. Exists for incremental migration — embed MF controls in a WinForms app via `ToWinFormsControl()`, then swap to Avalonia/Uno when fully ported. See [The WinForms backend](#the-winforms-backend). |
 
 The **core `Majorsilence.Forms` assembly references no windowing toolkit** — only SkiaSharp. Backends are
 separate assemblies that depend on the core and reach into its internal render/input plumbing via
@@ -85,18 +86,22 @@ Avalonia.Controls.Control hostControl = myMfControl.ToAvaloniaControl ();
 
 // Uno (namespace Majorsilence.Forms.Uno)
 Microsoft.UI.Xaml.FrameworkElement hostControl = myMfControl.ToUnoControl ();
+
+// WinForms (namespace Majorsilence.Forms.WinForms)
+System.Windows.Forms.Control hostControl = myMfControl.ToWinFormsControl ();
 ```
 
-Drop the result into any native visual tree. This is exactly what `samples/EmbeddingAvalonia` and
-`samples/EmbeddingUno` do.
+Drop the result into any native visual tree. This is exactly what `samples/EmbeddingAvalonia`,
+`samples/EmbeddingUno` and `samples/EmbeddingWinForms` do.
 
 **MF Form → host window.** A `Form`'s backend window is created eagerly in the Form's own constructor
 (before `Show()` is ever called), and on both backends that object already *is* (Avalonia) or *wraps*
 (Uno) a real native window. `ToAvaloniaWindow()`/`ToUnoWindow()` hand that window back directly:
 
 ```csharp
-Avalonia.Controls.Window window = myForm.ToAvaloniaWindow ();   // Majorsilence.Forms.AvaloniaHostInterop
-Microsoft.UI.Xaml.Window  window = myForm.ToUnoWindow ();       // Majorsilence.Forms.Uno.UnoHostInterop
+Avalonia.Controls.Window  window = myForm.ToAvaloniaWindow ();   // Majorsilence.Forms.AvaloniaHostInterop
+Microsoft.UI.Xaml.Window  window = myForm.ToUnoWindow ();        // Majorsilence.Forms.Uno.UnoHostInterop
+System.Windows.Forms.Form form   = myForm.ToWinFormsForm ();     // Majorsilence.Forms.WinForms.WinFormsHostInterop
 ```
 
 The host owns showing it from here on — assign it as the app's main window, set `Owner`, call
@@ -106,7 +111,9 @@ which side triggered that.
 
 **Owner/modal-dialog relationships differ by backend.** A real `Avalonia.Controls.Window` supports
 native `.Owner` and `.ShowDialog(owner)`, so `ToAvaloniaWindow()` gives a host app a genuine OS-level
-modal relationship (see the "Open as Avalonia dialog" button in `samples/EmbeddingAvalonia`). Uno has
+modal relationship (see the "Open as Avalonia dialog" button in `samples/EmbeddingAvalonia`) — and
+the `System.Windows.Forms.Form` handed back by `ToWinFormsForm()` gives the same, through WinForms'
+own `Owner`/`ShowDialog(owner)` (see `samples/EmbeddingWinForms`'s "Open as WinForms dialog" button). Uno has
 no such concept in this backend today — `UnoWindowHost`'s own `ShowDialog` implementation already just
 shows the window and ignores any owner — so `ToUnoWindow()` only gives back an independent top-level
 window (see `samples/EmbeddingUno`'s "Open as Uno window" button). `Form.ShowDialog(parent)` (MF's own
@@ -117,8 +124,9 @@ Uno regardless of hosting style.
 
 `Majorsilence.Forms.Avalonia` is the default, and what a new desktop app gets with zero
 configuration. On Windows/macOS/Linux `MajorsilenceFormsWindowHost` *is* a real
-`Avalonia.Controls.Window`, which is why this is the only backend that implements
-`TryGetPlatformHandle` (`HWND`/`NSWindow`/`XID` — see [`native-interop.md`](native-interop.md)), and
+`Avalonia.Controls.Window`, which is why this is the only cross-platform backend that implements
+`TryGetPlatformHandle` (`HWND`/`NSWindow`/`XID` — see [`native-interop.md`](native-interop.md); the
+Windows-only WinForms backend returns its form's HWND too), and
 why `ToAvaloniaWindow()` gives a host app genuine OS-level `Owner`/`ShowDialog` semantics where the
 Uno equivalent cannot.
 
@@ -269,6 +277,44 @@ title-bar drag works on the **Win32 desktop head**. On the macOS head `Form` use
 no-ops (caught) — edge-resize may still work via the presenter, but title-bar drag is unavailable;
 use `UseSystemDecorations` there if you need OS window dragging.
 
+## The WinForms backend
+
+`Majorsilence.Forms.WinForms` implements the seam on classic `System.Windows.Forms` — Windows-only
+by definition, and built for one purpose: **incremental migration**. A WinForms app (or a WinForms
+control library's consumers) can adopt Majorsilence.Forms one control at a time, with everything
+running on real WinForms windows and the app's existing Win32 message pump; when the last piece is
+ported, swapping this backend for Avalonia or Uno takes the same code cross-platform.
+
+- `WinFormsPlatformBackend : IPlatformBackend` — drives a `System.Windows.Forms` message loop
+  (`Application.Run` when Majorsilence.Forms owns the app; the host's own loop when embedded), a
+  hidden marshaling control for `Post`/`Invoke`, `System.Windows.Forms.Timer`, the WinForms
+  clipboard, `Screen.AllScreens`, and a `DoEvents`-pumping `RunModalLoop`.
+- `WinFormsWindowHost : IWindowBackend` — a real `System.Windows.Forms.Form` filled by a
+  `SkiaHostControl`, which renders `owner.RenderFrame` into a SkiaSharp surface backed by a GDI
+  bitmap (the same present technique as SkiaSharp's own WinForms `SKControl`, done in-repo because
+  that package's types collide with the core assembly's `SkiaSharp.Views.Desktop` compatibility
+  shims). WinForms mouse/keyboard events are already in physical device pixels and the WinForms
+  `Keys`/`MouseButtons` enums are numerically identical to Majorsilence.Forms' own, so input
+  translation is a cast (`WinFormsKeyInterop`). Popups are borderless `WS_EX_NOACTIVATE` tool
+  windows; `BeginMoveDrag`/`BeginResizeDrag` use the classic `WM_NCLBUTTONDOWN` non-client-hit
+  trick; `TryGetPlatformHandle` returns the real HWND (untested against the Windows UI Automation
+  bridge so far, but the handle it needs is there).
+- `MajorsilenceFormsPresenter : System.Windows.Forms.Control` + `ToWinFormsControl()`/
+  `ToWinFormsForm()` — the embedding direction, mirroring the Avalonia/Uno presenters (see
+  [Embedding in a host app](#embedding-in-a-host-app)). The presenter installs the backend
+  automatically when none is configured, and implements `INativeControlHostBackend` so real
+  WinForms controls can sit inside the embedded scene.
+
+Verified interactively on Windows via `samples/EmbeddingWinForms`: rendering, mouse + keyboard
+input, combo-dropdown popups, `NativeControlHost` overlays, and `ToWinFormsForm()` native modal
+dialogs. Not implemented: gestures (WinForms has no gesture API — touch arrives as mouse), and
+`IWebViewFactory` (WebView-dependent compat controls fall back, as on Headless).
+
+Relationship to `Majorsilence.Forms.WindowsFormsInterop`: the interop package bridges **whole
+forms** between a WinForms app and Majorsilence.Forms-on-Avalonia sharing one message pump; this
+backend removes Avalonia from the picture and works at **control** granularity. They can coexist —
+the presenter leaves an already-configured backend alone.
+
 ## Gesture support
 
 `Control` has five new, purely-additive events for touch/pen input: `LongPress`, `Pinch` (pinch-to-
@@ -331,7 +377,7 @@ optional `IWebViewFactory` capability above).
 ## Hosting native elements
 
 `INativeControlHostBackend` is a third optional capability, alongside `IWebViewFactory` — implemented
-by the Avalonia and Uno backends, absent on Headless. It lets a `NativeControlHost` control reserve a
+by the Avalonia, Uno and WinForms backends, absent on Headless. It lets a `NativeControlHost` control reserve a
 rectangle that the backend fills with a real toolkit element (an Avalonia `Control`, an Uno
 `UIElement`) overlaid on top of the Skia surface, kept aligned to the placeholder's bounds, clip and
 visibility. See [`native-interop.md`](native-interop.md) for how to use it, its airspace limits, why

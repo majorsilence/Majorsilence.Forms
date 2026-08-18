@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The System.Windows.Forms platform backend: hosts Majorsilence.Forms on real WinForms windows
+       (rendered through SkiaSharp's SKControl), and provides the embedding direction — a
+       MajorsilenceFormsPresenter WinForms control plus ToWinFormsControl()/ToWinFormsForm(), the same
+       pair Majorsilence.Forms.Avalonia and Majorsilence.Forms.Uno provide for their hosts. WinForms only
+       exists on Windows, so off Windows this compiles to an empty placeholder assembly — that keeps the
+       full-solution `dotnet build` green on the Linux/macOS CI legs (which run Release with
+       TreatWarningsAsErrors). -->
+
+  <PropertyGroup>
+    <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PackageId>Majorsilence.Forms.WinForms</PackageId>
+    <Description>System.Windows.Forms platform backend for Majorsilence.Forms — run Majorsilence.Forms on real WinForms windows, or embed Majorsilence.Forms controls inside an existing WinForms application via MajorsilenceFormsPresenter/ToWinFormsControl(), so a WinForms app or control library can migrate one control at a time and switch to the cross-platform Avalonia or Uno host when ready.</Description>
+    <PackageTags>winforms;windows-forms;interop;migration;incremental-migration;majorsilence-forms;windows;skiasharp</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!-- Only the Windows leg packs, so the README item is scoped the same way. -->
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
+    <!-- Nothing to compile off Windows. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- No SkiaSharp.Views.WindowsForms: its SKControl/SKPaintSurfaceEventArgs collide with the core
+       assembly's SkiaSharp.Views.Desktop compatibility shims, and it drags in a legacy net461 OpenTK
+       (NU1701). SkiaHostControl presents through a GDI bitmap directly instead — same technique. -->
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
+
+</Project>
