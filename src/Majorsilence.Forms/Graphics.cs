@@ -102,9 +102,17 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font and StringFormat.</summary>
-        /// <remarks>Only the format's <c>HotkeyPrefix</c> is honoured; trimming and flags are still ignored.</remarks>
+        /// <remarks>
+        /// Honours <c>HotkeyPrefix</c> and <see cref="Majorsilence.Forms.Drawing.StringFormatFlags.DirectionVertical"/>
+        /// (which swaps the reported width and height, matching the rotated run
+        /// <see cref="DrawString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.Brush, RectangleF, Majorsilence.Forms.Drawing.StringFormat?)"/>
+        /// draws for it). Trimming is still ignored.
+        /// </remarks>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
-            => MeasureString (WithoutHotkeyPrefix (text, format), font);
+        {
+            var single = MeasureString (WithoutHotkeyPrefix (text, format), font);
+            return IsVertical (format) ? new SizeF (single.Height, single.Width) : single;
+        }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to int width.</summary>
         /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.StringFormat)"/>
@@ -112,6 +120,15 @@ namespace Majorsilence.Forms.Drawing
         {
             text = WithoutHotkeyPrefix (text, format);
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
+
+            // Vertical text here is a single rotated run, not multi-column CJK stacking (see
+            // DrawStringVertical), so there is no second column for it to wrap into -- the width
+            // constraint that drives wrapping for horizontal text does not apply.
+            if (IsVertical (format)) {
+                var single = MeasureString (text, font);
+                return new SizeF (single.Height, single.Width);
+            }
+
             var face = TypefaceCache.Resolve (font);
             return MeasureString (text, face, width, (int)Math.Round (font.PixelSize));
         }
@@ -119,7 +136,19 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF.</summary>
         /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.StringFormat)"/>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea, Majorsilence.Forms.Drawing.StringFormat? format)
-            => MeasureString (WithoutHotkeyPrefix (text, format), font, layoutArea);
+        {
+            var display = WithoutHotkeyPrefix (text, format);
+            if (IsVertical (format)) {
+                var single = MeasureString (display, font);
+                return new SizeF (single.Height, single.Width);
+            }
+            return MeasureString (display, font, layoutArea);
+        }
+
+        // Vertical here means "rotate the run 90 degrees", the way RDL's WritingMode="tb-rl" and every
+        // chart library render a sideways axis title -- see the remarks on DrawStringVertical.
+        private static bool IsVertical (Majorsilence.Forms.Drawing.StringFormat? format) =>
+            format is not null && format.FormatFlags.HasFlag (Majorsilence.Forms.Drawing.StringFormatFlags.DirectionVertical);
 
         // The text that will actually be drawn, per the format's hotkey handling. Measuring the raw string
         // would reserve room for ampersands that never render, so a button sized from its own caption comes
@@ -1511,12 +1540,18 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>
         /// Draws a string within the specified rectangle, honouring the format's Alignment and
-        /// LineAlignment. Trimming and FormatFlags are still ignored.
+        /// LineAlignment, and rotating for <see cref="Majorsilence.Forms.Drawing.StringFormatFlags.DirectionVertical"/>.
+        /// Trimming and the remaining FormatFlags are still ignored.
         /// </summary>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, Majorsilence.Forms.Drawing.StringFormat? format)
         {
             if (format is null) {
                 DrawString (text, font, brush, bounds);
+                return;
+            }
+
+            if (IsVertical (format)) {
+                DrawStringVertical (text, font, brush, bounds, format);
                 return;
             }
 
@@ -1544,6 +1579,48 @@ namespace Majorsilence.Forms.Drawing
 
             if (mnemonic >= 0 && mnemonic < display.Length)
                 DrawMnemonicUnderline (display, mnemonic, font, brush, origin, bounds);
+        }
+
+        /// <summary>
+        /// Draws <paramref name="text"/> rotated -90 degrees (counter-clockwise) to fill a tall,
+        /// narrow <paramref name="bounds"/> -- what RDL's <c>WritingMode="tb-rl"</c> calls for on
+        /// axis and category titles.
+        /// </summary>
+        /// <remarks>
+        /// This rotates the whole run as one line, the way SSRS and every chart library render a
+        /// sideways axis title (read by tilting your head left) -- not the glyph-by-glyph vertical
+        /// stacking real CJK typesetting uses, which is what plain <c>StringFormatFlags.DirectionVertical</c>
+        /// means on Windows GDI+. RDL only ever pairs the flag with a single short Latin run in a box
+        /// the report author already sized for a rotated line (see PageDrawing.DrawString), so that is
+        /// what this renders.
+        /// GDI+ also swaps which factor governs which axis for vertical text: <c>Alignment</c> positions
+        /// the run along its reading direction (here, bottom-to-top) and <c>LineAlignment</c> positions
+        /// it across the column's width.
+        /// </remarks>
+        private void DrawStringVertical (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, Majorsilence.Forms.Drawing.StringFormat format)
+        {
+            if (_canvas is null || string.IsNullOrEmpty (text))
+                return;
+
+            var display = format.HotkeyPrefix != Majorsilence.Forms.Drawing.Text.HotkeyPrefix.None
+                ? Mnemonics.Parse (text, out _)
+                : text;
+
+            // Unrotated: size.Width is the run's length (becomes the box's height once rotated),
+            // size.Height is its thickness (becomes the box's width).
+            var size = MeasureString (display, font);
+
+            var alongSlack = bounds.Height - size.Width;
+            var acrossSlack = bounds.Width - size.Height;
+
+            var pivotX = bounds.Left + acrossSlack * ToOffsetFactor (format.LineAlignment);
+            var pivotY = bounds.Bottom - alongSlack * ToOffsetFactor (format.Alignment);
+
+            _canvas.Save ();
+            _canvas.ClipRect (new SKRect (bounds.Left, bounds.Top, bounds.Right, bounds.Bottom));
+            _canvas.RotateDegrees (-90, pivotX, pivotY);
+            DrawString (display, font, brush, pivotX, pivotY);
+            _canvas.Restore ();
         }
 
         /// <summary>
