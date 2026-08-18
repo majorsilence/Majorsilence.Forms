@@ -374,13 +374,7 @@ namespace Majorsilence.Forms
             var physBorderRight = (int)(border.Right.GetWidth () * scaling);
             var physBorderBottom = (int)(border.Bottom.GetWidth () * scaling);
 
-            if (adapter.Left != borderLeft || adapter.Top != borderTop ||
-                adapter.Width != logicalW || adapter.Height != logicalH) {
-                adapter.SetBounds (borderLeft, borderTop, logicalW, logicalH);
-                adapter.PerformLayout ();
-                OnClientLayoutChanged ();
-                OnResize (EventArgs.Empty);
-            }
+            SyncAdapterBounds (logicalW, logicalH);
 
             // A shaped window paints only inside its region. The region is in logical units and the
             // canvas in physical ones, so the boundary path is scaled across rather than clipped raw.
@@ -434,6 +428,53 @@ namespace Majorsilence.Forms
 
             canvas.Flush ();
         }
+
+        /// <summary>
+        /// Gives the root adapter the window's own client bounds and lays the child controls out against
+        /// them, ahead of anything painting.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="RenderFrame"/> sizes the adapter from the surface it is handed, and for a long time
+        /// that was the only thing that sized it at all: until the first frame was painted the adapter
+        /// stayed 0x0, so every docked or anchored child laid out before then measured against nothing.
+        /// A <c>Load</c> handler reading a docked panel's Width got 0, an explicit <c>PerformLayout</c>
+        /// produced a layout the first paint then silently redid, and headless code -- which never paints
+        /// -- could not lay a window out at all without reaching in and sizing the adapter itself.
+        /// WinForms has no such window: a form's client rectangle is real as soon as it has a size, well
+        /// before anything is drawn.
+        /// </remarks>
+        internal void SyncAdapterBounds ()
+        {
+            // A form hosted inside another window (MDI child, panel host) draws through its host's
+            // RenderFrame at whatever size the host allots it, which is not this window's client size --
+            // there the hosting paint pass is the authority and this stands aside.
+            if (IsFrameHosted)
+                return;
+
+            SyncAdapterBounds (Backend.ClientSize.Width, Backend.ClientSize.Height);
+        }
+
+        // Both callers share the resize bookkeeping so the events fire exactly once per real size change,
+        // whichever path notices it first.
+        private void SyncAdapterBounds (int logicalW, int logicalH)
+        {
+            var border = CurrentStyle.Border;
+            var borderLeft = border.Left.GetWidth ();
+            var borderTop = border.Top.GetWidth ();
+
+            if (adapter.Left == borderLeft && adapter.Top == borderTop &&
+                adapter.Width == logicalW && adapter.Height == logicalH)
+                return;
+
+            adapter.SetBounds (borderLeft, borderTop, logicalW, logicalH);
+            adapter.PerformLayout ();
+            OnClientLayoutChanged ();
+            OnResize (EventArgs.Empty);
+        }
+
+        // Whether this window's content is drawn inside another window rather than into a surface of its
+        // own. Overridden by Form, which can be an MDI child or panel-hosted.
+        internal virtual bool IsFrameHosted => false;
 
         /// <summary>Raised when the window is deactivated.</summary>
         public event EventHandler? Deactivated;
@@ -1315,6 +1356,11 @@ namespace Majorsilence.Forms
             if (this is Form f)
                 Application.OpenForms.Add (f);
 
+            // A real client rectangle before Load, as in WinForms -- where the handle (and with it the
+            // client size) exists by the time Load is raised, so a handler that reads a docked child's
+            // Width gets its settled value. Nothing has painted yet at this point.
+            SyncAdapterBounds ();
+
             EnsureLoaded ();            // WinForms raises Load around the window's first display.
 
             // Assume active the moment we ask the backend to show one of our own windows, rather than
@@ -1329,6 +1375,11 @@ namespace Majorsilence.Forms
             if (!shown) {
                 shown = true;
                 OnShown (EventArgs.Empty);
+
+                // The pass above could not reach this window's own OnLayout: the adapter forwards its
+                // layout only once `shown` is set (see ControlAdapter.OnLayout, which explains why).
+                // Now that it is, run the pass the first painted frame used to be responsible for.
+                adapter.PerformLayout ();
             }
         }
 
@@ -1392,6 +1443,9 @@ namespace Majorsilence.Forms
         /// <summary>Resumes normal layout logic, optionally forcing an immediate layout.</summary>
         public void ResumeLayout (bool performLayout = true)
         {
+            if (performLayout)
+                SyncAdapterBounds ();
+
             adapter.ResumeLayout (performLayout);
 
             if (performLayout)
@@ -1401,6 +1455,9 @@ namespace Majorsilence.Forms
         /// <summary>Forces the window's controls to apply layout logic.</summary>
         public void PerformLayout ()
         {
+            // Before the pass, not after: laying out against a stale adapter is what made an explicit
+            // PerformLayout on a not-yet-painted window produce nothing usable.
+            SyncAdapterBounds ();
             adapter.PerformLayout ();
             RaiseLayoutForExplicitRequest ();
         }

@@ -147,8 +147,8 @@ see. Ordered by how much of the suite each one affects.
 
    **Two things I got wrong on the way, worth recording.** First, the probe showed the ribbon at width 0 and
    I called it definitive; in fact the root `ControlAdapter` is sized only inside `RenderFrame`, so it is
-   0x0 until something paints -- a headless artifact, though it does mean pre-paint layout of docked children
-   is wrong, which is worth fixing separately. Second, `Segoe UI` reporting a line height exactly equal to
+   0x0 until something paints -- a headless artifact, though it did mean pre-paint layout of docked children
+   was wrong (fixed separately, see below). Second, `Segoe UI` reporting a line height exactly equal to
    its em size looked like a degenerate fallback; it is not. It resolves to Helvetica (2,252 glyphs, real
    metrics) and Helvetica genuinely has ascent+descent of 1.0 em with zero leading. Font substitution is
    fine. That is why the tab strip is 21px rather than the ~25px Segoe UI would give -- proportionally
@@ -193,10 +193,57 @@ see. Ordered by how much of the suite each one affects.
    250px minimum width and shows just its header. Nothing to fix here without adding menu items to the
    example, which is app content, not a port defect.
 
-1. **OPEN: remaining ribbon defects**, now that text size is no longer the cause -- button captions
-   overlapping their images, the gallery rendering as a thin vertical strip, and the app button drawn
-   overlapping the tab. Re-examine against a fresh screenshot before theorising: the font fix moves every
-   text-driven dimension, so some of these may already be gone.
+1. **FIXED 2026-08-18: the root adapter was sized only by the paint pass.** Found while chasing the
+   ribbon (above) and split out because it is not a ribbon problem at all. `WindowBase.RenderFrame` was
+   the only thing that ever gave the root `ControlAdapter` its bounds, so until the first frame painted a
+   window's client area was 0x0 and every docked or anchored child laid out against nothing. Consequences:
+   a `Load` handler reading a docked panel's `Width` got 0, an explicit `PerformLayout` produced a layout
+   the first paint then silently redid, and headless code -- which never paints -- could not lay a window
+   out at all. The ribbon probe had to reflect in and call `adapter.SetBounds` itself to measure anything;
+   it no longer does, and reports the ribbon at 800x134 inside an 800x450 form straight after `Show()`.
+
+   WinForms has no such window: a form's client rectangle is real as soon as it has a size, well before
+   anything is drawn. Per the standing directive the fix is here, not in the port -- `SyncAdapterBounds`
+   (WindowBase.cs) is now shared by the paint path and three pre-paint ones: the show sequence (before
+   `Load`, as in WinForms), `PerformLayout`, and `ResumeLayout(true)`. The resize bookkeeping lives inside
+   it, so `OnClientLayoutChanged`/`OnResize` still fire exactly once per real size change -- just at
+   `Show()` now rather than at first paint.
+
+   Two things that constrain any future change here. The sizing pass at `Show()` runs before `shown` is
+   set, and `ControlAdapter.OnLayout` forwards to the window's own `OnLayout` only once it is -- so the
+   show sequence runs one further `adapter.PerformLayout ()` after setting it, which is the pass the first
+   painted frame used to be responsible for. A `Form` subclass that decides anything in `OnLayout`
+   (DockPanelSuite's `FloatWindow` sets its own `Visible` there) depends on that. And a frame-hosted form
+   -- MDI child or panel host -- is skipped (`IsFrameHosted`, now virtual on `WindowBase`): it draws
+   through its host's `RenderFrame` at whatever size the host allots, which is not its own client size.
+   Pinned by `PrePaintDockLayoutTests` (4 tests, all four failing before the fix).
+
+1. **CLOSED 2026-08-18: the three remaining ribbon defects were two font bugs and one piece of example
+   content.** Re-examined against a fresh render, as this entry said to. Two are simply gone, both
+   downstream of the font fix: button captions no longer overlap their images (they sit cleanly below
+   them), and the app button no longer overlaps the tab (`File` at 54x21 and `Tab` sit side by side).
+
+   The third -- "the gallery renders as a thin vertical strip" -- is not a defect. `KryptonGallery`
+   measures 22x65 with a preferred size of 22x45, which is its scroll-button column and nothing else,
+   because `KryptonRibbonExtendedExample.Designer.cs` sets `kryptonRibbonGroupGallery1.ImageList = null`.
+   Upstream does the same thing with that input: `ViewLayoutRibbonGalleryItems.SyncChildren` creates one
+   child per image and so creates none, and `GetPreferredSize` returns `Size.Empty` plus padding when it
+   has no children. Windows would draw the same 22px strip. Same shape of finding as the empty app menu
+   above: an unconfigured control rendered faithfully.
+
+   **How to look at the ribbon without the GUI.** The scratchpad probe now takes `SHOT=<path>` and writes
+   a PNG through `HeadlessRenderer.CapturePng` -- a real picture, no window server, no clicking through
+   the landing grid, and no CVDisplayLink to refuse to start. `DUMP_CONTROLS=1` walks the Controls
+   collection as well as the view tree, which is the only way to see a gallery or custom control: the view
+   tree stops at `ViewLayoutControl`, whose contents are a hosted child Control rather than more views.
+   Both of those found things the view dump alone could not.
+
+1. **OPEN (unverified, noticed in the fresh render): the ribbon draws its own 28px caption area.**
+   `ViewDrawRibbonCaptionArea` occupies y=0..28 with a `ViewLayoutRibbonQATMini` in it, which is what puts
+   the stray small chevron (`ViewDrawRibbonQATExtraButtonMini`, 13x22) at the top-left of the window. On
+   Windows the ribbon merges this strip into a `KryptonForm`'s title bar rather than stacking below it.
+   Establish what the form's own chrome does here before treating it as a defect -- the headless capture
+   excludes window chrome, so this may look correct on screen and only look odd in the PNG.
 
 1. ~~**KryptonRibbon lays out collapsed.**~~ (superseded by the two entries above) The whole ribbon renders at a fraction of its size: the tab strip
    shows a floating "Tab" label, the group is squeezed into a ~150x80 box with its two buttons overlapping
