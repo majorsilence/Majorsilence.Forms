@@ -90,7 +90,7 @@ namespace Majorsilence.Forms.Drawing
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = TypefaceCache.Resolve (font);
-            return MeasureString (text, face, (int)font.Size);
+            return MeasureString (text, face, (int)Math.Round (font.PixelSize));
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to a size.</summary>
@@ -98,7 +98,7 @@ namespace Majorsilence.Forms.Drawing
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = TypefaceCache.Resolve (font);
-            return MeasureString (text, face, (int)layoutArea.Width, (int)font.Size);
+            return MeasureString (text, face, (int)layoutArea.Width, (int)Math.Round (font.PixelSize));
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font and StringFormat.</summary>
@@ -113,7 +113,7 @@ namespace Majorsilence.Forms.Drawing
             text = WithoutHotkeyPrefix (text, format);
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = TypefaceCache.Resolve (font);
-            return MeasureString (text, face, width, (int)font.Size);
+            return MeasureString (text, face, width, (int)Math.Round (font.PixelSize));
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF.</summary>
@@ -1480,9 +1480,15 @@ namespace Majorsilence.Forms.Drawing
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
             var face = TypefaceCache.Resolve (font);
-            using var skFont = new SKFont (face, font.Size);
+            using var skFont = new SKFont (face, font.PixelSize);
             using var paint = brush.CreatePaint ();
-            _canvas.DrawText (text, x, y + font.Size, SKTextAlign.Left, skFont, paint);
+
+            // (x, y) is the TOP-LEFT of the text, as in GDI+, but Skia draws from the baseline -- so the
+            // baseline sits one ascent below the top, not one em. The two are close enough that the em was
+            // not obviously wrong, but it disagreed with the line height MeasureString reports, so text
+            // asked to centre vertically landed a few pixels low. Skia's ascent is negative (up from the
+            // baseline), hence the negation.
+            _canvas.DrawText (text, x, y - skFont.Metrics.Ascent, SKTextAlign.Left, skFont, paint);
         }
 
         /// <summary>Draws a string at the given PointF.</summary>
@@ -1561,8 +1567,8 @@ namespace Majorsilence.Forms.Drawing
             if (width <= 0)
                 return;
 
-            // Just below the baseline, which DrawString puts at origin.Y + font.Size.
-            var y = origin.Y + font.Size + 1f;
+            // Just below the baseline, which DrawString places one ascent below the text's top edge.
+            var y = origin.Y - font.GetSKFont ().Metrics.Ascent + 1f;
 
             using var paint = brush.CreatePaint ();
             paint.Style = SKPaintStyle.Fill;

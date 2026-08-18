@@ -157,6 +157,28 @@ namespace Majorsilence.Forms.Drawing
         // ContentAlignment/TextMeasurer and therefore stays in the Forms assembly, which this one cannot
         // reference. The overload ignored its argument anyway, so an extension is behaviourally identical.
 
+        /// <summary>
+        /// The em size in PIXELS, which is the unit SkiaSharp measures text in.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="Size"/> is expressed in <see cref="Unit"/> -- Point by default, as in GDI+ -- and
+        /// handing that number straight to SkiaSharp treats points as pixels. A 9pt font then rendered at
+        /// 9px instead of 12px: every piece of text in the library came out about a quarter too small, and
+        /// so did every dimension derived from text metrics. It showed up as a Krypton ribbon whose tab
+        /// strip was 19px instead of ~25 and whose button captions overlapped their images, because the
+        /// ribbon sizes both from the font's line height.
+        ///
+        /// 96 DPI throughout, matching the rest of this layer; World and Display follow GDI+ in meaning
+        /// "the surface's own unit", which here is a pixel.
+        /// </remarks>
+        internal float PixelSize => Unit switch {
+            GraphicsUnit.Point => Size * 96f / 72f,
+            GraphicsUnit.Inch => Size * 96f,
+            GraphicsUnit.Document => Size * 96f / 300f,
+            GraphicsUnit.Millimeter => Size * 96f / 25.4f,
+            _ => Size,   // Pixel, World, Display
+        };
+
         // Lazily resolves and caches the SkiaSharp font.
         internal SKFont GetSKFont ()
         {
@@ -180,7 +202,7 @@ namespace Majorsilence.Forms.Drawing
                 ownsTypeface = true;
             }
 
-            font = new SKFont (typeface, Size) {
+            font = new SKFont (typeface, PixelSize) {
                 Edging = SKFontEdging.SubpixelAntialias,
                 Subpixel = true
             };
