@@ -73,6 +73,7 @@ instead of starting over, this framework is for you.
    Swappable host backend
    ├─ Avalonia   → Windows · macOS · Linux  (default)  · also Android · iOS · Browser
    ├─ Uno         → desktop · iOS · Android · WebAssembly
+   ├─ WinForms    → Windows-only migration bridge: embed in an existing WinForms app, port in steps
    └─ Headless    → offscreen rendering for tests / CI
 ```
 
@@ -126,6 +127,7 @@ Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) fol
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
+- [`EmbeddingWinForms`](samples/EmbeddingWinForms) — Majorsilence.Forms controls embedded inside a classic WinForms app via the **WinForms backend** (`MajorsilenceFormsPresenter`/`ToWinFormsControl()`), the port-one-control-at-a-time migration path (Windows-only). See [Platform backends](docs/backends.md).
 - [`AutomationTarget`](samples/AutomationTarget) — a small app that exposes its own automation endpoint, so you have something real to drive from the [MCP server](tools/Majorsilence.Forms.Mcp), Selenium, or `curl`. See [Automation & UI testing](docs/automation.md).
 
 Run the gallery on the Avalonia backend:

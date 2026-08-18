@@ -9,6 +9,7 @@
     <Project Path="samples/ControlGallery/ControlGallery.csproj" />
     <Project Path="samples/EmbeddingAvalonia/EmbeddingAvalonia.csproj" />
     <Project Path="samples/EmbeddingUno/EmbeddingUno.csproj" />
+    <Project Path="samples/EmbeddingWinForms/EmbeddingWinForms.csproj" />
     <Project Path="samples/Explorer/Explore.csproj" />
     <Project Path="samples/Gallery.Avalonia/Gallery.Avalonia.csproj" />
     <Project Path="samples/Gallery.Uno/Gallery.Uno.csproj" />
@@ -26,6 +27,7 @@
     <Project Path="src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj" />
     <Project Path="src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj" />
     <Project Path="src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj" />
+    <Project Path="src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj" />
     <Project Path="src/Majorsilence.Forms.WinFormsEnumShims/Majorsilence.Forms.WinFormsEnumShims.csproj" />
     <Project Path="src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj" />
     <Project Path="src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj" />

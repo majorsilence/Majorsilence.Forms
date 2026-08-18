@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows-only (System.Windows.Forms host app). Off Windows this compiles to an empty
+       placeholder so the full-solution build stays green on the Linux/macOS CI legs. -->
+
+  <PropertyGroup>
+    <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(_TargetFramework)-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
+    <TargetFramework>$(_TargetFramework)</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinForms\Majorsilence.Forms.WinForms.csproj" />
+  </ItemGroup>
+
+</Project>
