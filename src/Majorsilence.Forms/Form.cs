@@ -37,7 +37,7 @@ namespace Majorsilence.Forms
         internal FormHost? PanelHost;
 
         // True while this form is drawn inside another control tree rather than its own OS window.
-        internal bool IsFrameHosted => MdiHost != null || PanelHost != null;
+        internal override bool IsFrameHosted => MdiHost != null || PanelHost != null;
 
         /// <summary>
         /// Initializes a new instance of the Form class.

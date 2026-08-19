@@ -34,7 +34,7 @@ public partial class Control
         //SizeLockedByOS          = 0x00010000,
         CausesValidation = 0x00020000,
         //CreatingHandle          = 0x00040000,
-        //TopLevel                = 0x00080000,
+        TopLevel = 0x00080000,
         //IsAccessible            = 0x00100000,
         //OwnCtlBrush             = 0x00200000,
         //ExceptionWhilePainting  = 0x00400000,

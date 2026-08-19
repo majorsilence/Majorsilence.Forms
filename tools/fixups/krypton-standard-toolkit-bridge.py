@@ -64,6 +64,25 @@ public static class MFFormBridge
 # (file, old, new, expected occurrences). Exact-string, whitespace and all, so a drifted upstream file
 # fails loudly here instead of silently half-patching.
 REPLACEMENTS = [
+    # -- Popup windows: show through the managed top-level mechanism, not ShowWindow. ----------------
+    # VisualPopup is a Control that shows itself as a floating window via PI.ShowWindow(Handle, ...),
+    # a user32 call with no Majorsilence.Forms counterpart -- the handle is fake and the shim no-ops, so
+    # every popup in the suite (context menus, tooltips, the ribbon's app menu, collapsed-group popups
+    # -- eight types derive from this one base) never appeared, and VisualPopupManager's
+    # `popup.IsHandleCreated` assert aborted the process the moment one was shown. SetTopLevel(true) is
+    # the managed spelling of the same operation: WinForms' own ToolStripDropDown floats itself this
+    # way, and Majorsilence.Forms hosts a visible top-level control in a popup window (see
+    # Control.TopLevel.cs there). Bounds were already set to the screen rect two lines up, which is
+    # exactly what the hosting reads.
+    ("Controls Visuals/VisualPopup.cs",
+     "        // Show the window without activating it (i.e. do not take focus)\n"
+     "        PI.ShowWindow(Handle, PI.ShowWindowCommands.SW_SHOWNOACTIVATE);",
+     "        // Show the window without activating it. There is no HWND for ShowWindow to act on here;\n"
+     "        // becoming a visible top-level control is the Majorsilence.Forms spelling of the same\n"
+     "        // operation (the control is hosted in its own popup window at the Bounds set above).\n"
+     "        SetTopLevel(true);\n"
+     "        Visible = true;", 1),
+
     # -- Form passed where a Control parameter is required: pass the form's root control. ------------
     ("Controls Visuals/ViewLayoutContext.cs",
      ": base(manager, form, form, null, renderer) =>",
