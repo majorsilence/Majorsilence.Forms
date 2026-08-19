@@ -1,10 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net10.0;netstandard2.0</TargetFrameworks>
     <IsPackable>true</IsPackable>
-    <IsAotCompatible>true</IsAotCompatible>
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <!-- AOT/trim analysis only applies to the .NET TFMs; netstandard2.0 targets .NET Framework /
+         old-style consumers where trimming and NativeAOT aren't a concern. -->
+    <IsAotCompatible Condition=" '$(TargetFramework)' != 'netstandard2.0' ">true</IsAotCompatible>
+    <EnableTrimAnalyzer Condition=" '$(TargetFramework)' != 'netstandard2.0' ">true</EnableTrimAnalyzer>
+    <!-- Keep C# language features identical across TFMs; the SDK otherwise defaults netstandard2.0
+         to C# 7.3, which would silently break nullable annotations, switch expressions, etc. used here. -->
+    <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageDescription>A cross-platform replacement for the Windows-only System.Drawing.Common (GDI+), which throws PlatformNotSupportedException off Windows as of .NET 7. SkiaSharp-based drawing primitives (Brush, Pen, Font, FontFamily, Image, Bitmap, Icon, Region, StringFormat, GraphicsPath, Matrix, Imaging codecs, etc.) implementing the GDI+ / System.Drawing surface that Majorsilence.Forms consumes. Value types (Color, Point, PointF, Size, SizeF, Rectangle, RectangleF) are deliberately NOT reimplemented -- the real cross-platform BCL System.Drawing.Primitives types are used instead. Originally developed as part of Majorsilence.Reporting.</PackageDescription>
     <Authors>Majorsilence</Authors>
@@ -20,6 +25,22 @@
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
   </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <!-- Span<T>/ReadOnlySpan<T> are part of the .NET TFMs' BCL but ship as a separate package
+         for netstandard2.0. -->
+    <PackageReference Include="System.Memory" />
+    <!-- Compiler-recognized types/attributes (Index, Range, CallerArgumentExpressionAttribute,
+         the trimming attributes, ...) that the .NET TFMs get from the runtime; source-generated
+         into this assembly only, never shipped as a real dependency. -->
+    <PackageReference Include="PolySharp" PrivateAssets="all" />
+  </ItemGroup>
+
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <!-- The trimming attributes (RequiresUnreferencedCode, UnconditionalSuppressMessage, ...) used
+         in this project's source are otherwise excluded by PolySharp's default polyfill set. -->
+    <PolySharpIncludeRuntimeSupportedAttributes>true</PolySharpIncludeRuntimeSupportedAttributes>
+  </PropertyGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Fonts/*.ttf" />

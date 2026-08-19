@@ -37,8 +37,8 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <exception cref="ArgumentException">The two arrays have different lengths.</exception>
         public GraphicsPath (PointF[] pts, byte[] types)
         {
-            ArgumentNullException.ThrowIfNull (pts);
-            ArgumentNullException.ThrowIfNull (types);
+            Guard.ThrowIfNull (pts);
+            Guard.ThrowIfNull (types);
 
             if (pts.Length != types.Length)
                 throw new ArgumentException ("pts and types must have the same length.", nameof (types));
@@ -64,7 +64,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
 
         private static PointF[] ToPointF (Point[] pts)
         {
-            ArgumentNullException.ThrowIfNull (pts);
+            Guard.ThrowIfNull (pts);
 
             var result = new PointF[pts.Length];
             for (var i = 0; i < pts.Length; i++)
@@ -299,7 +299,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
                 // tighter flatness genuinely produces a finer approximation.
                 void EmitCurve (Func<float, SKPoint> evaluate)
                 {
-                    var steps = Math.Clamp ((int)(1f / Math.Max (0.01f, flatness) * 8f), 4, 128);
+                    var steps = MathCompat.Clamp ((int)(1f / Math.Max (0.01f, flatness) * 8f), 4, 128);
                     for (var i = 1; i <= steps; i++)
                         flattened.LineTo (evaluate (i / (float)steps));
                 }
@@ -400,8 +400,8 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
 
             SKPoint Map (SKPoint p)
             {
-                var u = Math.Clamp ((p.X - srcRect.X) / srcRect.Width, 0f, 1f);
-                var v = Math.Clamp ((p.Y - srcRect.Y) / srcRect.Height, 0f, 1f);
+                var u = MathCompat.Clamp ((p.X - srcRect.X) / srcRect.Width, 0f, 1f);
+                var v = MathCompat.Clamp ((p.Y - srcRect.Y) / srcRect.Height, 0f, 1f);
                 var top = new PointF (topLeft.X + (topRight.X - topLeft.X) * u, topLeft.Y + (topRight.Y - topLeft.Y) * u);
                 var bottom = new PointF (bottomLeft.X + (bottomRight.X - bottomLeft.X) * u, bottomLeft.Y + (bottomRight.Y - bottomLeft.Y) * u);
                 return new SKPoint (top.X + (bottom.X - top.X) * v, top.Y + (bottom.Y - top.Y) * v);
@@ -483,7 +483,9 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             var take = Math.Min (numberOfSegments + 1, points.Length - offset);
             if (take < 2)
                 return;
-            AddCurve (points[offset..(offset + take)], tension);
+            var segment = new PointF[take];
+            Array.Copy (points, offset, segment, 0, take);
+            AddCurve (segment, tension);
         }
 
         /// <inheritdoc cref="AddCurve(PointF[], int, int, float)"/>
@@ -867,7 +869,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// </remarks>
         public Matrix (System.Drawing.Rectangle rect, System.Drawing.Point[] plgpts)
         {
-            ArgumentNullException.ThrowIfNull (plgpts);
+            Guard.ThrowIfNull (plgpts);
 
             if (plgpts.Length != 3)
                 throw new ArgumentException ("Exactly three destination points are required.", nameof (plgpts));

@@ -548,7 +548,7 @@ namespace Majorsilence.Forms.Drawing
         /// <inheritdoc cref="LockBits(System.Drawing.Rectangle, ImageLockMode)"/>
         public BitmapData LockBits (System.Drawing.Rectangle rect, ImageLockMode flags, PixelFormat format)
         {
-            ObjectDisposedException.ThrowIf (backing is null, this);
+            Guard.ThrowIfDisposed (backing is null, this);
             if (locked is not null)
                 throw new InvalidOperationException ("The bitmap region is already locked. Call UnlockBits first.");
 
@@ -558,7 +558,7 @@ namespace Majorsilence.Forms.Drawing
 
             var actual = BitmapDataMarshal.Normalize (format);
             var stride = BitmapDataMarshal.StrideFor (region.Width, actual);
-            var scan0 = BitmapDataMarshal.CopyOut (backing, region, actual, stride, out var byteCount);
+            var scan0 = BitmapDataMarshal.CopyOut (backing!, region, actual, stride, out var byteCount);
 
             locked = new BitmapData {
                 Scan0 = scan0,
@@ -606,7 +606,7 @@ namespace Majorsilence.Forms.Drawing
         /// </summary>
         public void UnlockBits (BitmapData bitmapData)
         {
-            ArgumentNullException.ThrowIfNull (bitmapData);
+            Guard.ThrowIfNull (bitmapData);
             if (!ReferenceEquals (bitmapData, locked))
                 throw new ArgumentException ("The BitmapData was not produced by a LockBits call on this bitmap.", nameof (bitmapData));
 

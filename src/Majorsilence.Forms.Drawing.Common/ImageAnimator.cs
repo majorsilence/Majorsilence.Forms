@@ -70,8 +70,8 @@ namespace Majorsilence.Forms.Drawing
             lock (Gate)
                 snapshot = [.. Animated];
 
-            foreach (var (image, state) in snapshot)
-                Advance (image, state);
+            foreach (var entry in snapshot)
+                Advance (entry.Key, entry.Value);
         }
 
         /// <summary>Advances the specified image by one frame.</summary>

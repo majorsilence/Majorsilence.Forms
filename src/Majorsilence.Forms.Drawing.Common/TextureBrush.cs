@@ -59,7 +59,11 @@ namespace Majorsilence.Forms.Drawing
             => transform.Rotate (angle, order);
 
         /// <summary>Creates an exact copy of this brush, including its texture transform.</summary>
+#if NETSTANDARD2_0
+        public override object Clone ()
+#else
         public override TextureBrush Clone ()
+#endif
         {
             var clone = new TextureBrush (Image!, WrapMode);
             clone.transform.Set (transform.Get ());

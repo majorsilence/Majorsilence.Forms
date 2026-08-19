@@ -40,7 +40,7 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Initializes a new region from the specified graphics path.</summary>
         public Region (GraphicsPath path)
         {
-            ArgumentNullException.ThrowIfNull (path);
+            Guard.ThrowIfNull (path);
 
             region = new SKRegion ();
 
@@ -234,7 +234,7 @@ namespace Majorsilence.Forms.Drawing
         /// </summary>
         public void Transform (Matrix matrix)
         {
-            ArgumentNullException.ThrowIfNull (matrix);
+            Guard.ThrowIfNull (matrix);
 
             using var path = region.GetBoundaryPath ();
             using var transformed = new SKPath (path);
@@ -261,13 +261,13 @@ namespace Majorsilence.Forms.Drawing
 
         private void Combine (Region other, SKRegionOperation op)
         {
-            ArgumentNullException.ThrowIfNull (other);
+            Guard.ThrowIfNull (other);
             region.Op (other.region, op);
         }
 
         private void Combine (GraphicsPath path, SKRegionOperation op)
         {
-            ArgumentNullException.ThrowIfNull (path);
+            Guard.ThrowIfNull (path);
 
             // SKRegion.Op(SKPath, ...) rasterizes the path against the region's own bounds, which for a
             // freshly-constructed (infinite) region is the whole coordinate space -- so go through an

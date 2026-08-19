@@ -237,7 +237,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <summary>Initializes a new EncoderParameter with the given encoder and value.</summary>
         public EncoderParameter (Encoder encoder, object value)
         {
-            ArgumentNullException.ThrowIfNull (encoder);
+            Guard.ThrowIfNull (encoder);
             Encoder = encoder;
             Value = value;
         }
@@ -410,7 +410,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <summary>Initializes a new TiffWriter that writes to the specified stream.</summary>
         public TiffWriter (Stream stream)
         {
-            ArgumentNullException.ThrowIfNull (stream);
+            Guard.ThrowIfNull (stream);
             _w = new BinaryWriter (stream, System.Text.Encoding.ASCII, leaveOpen: true);
             _w.Write ((byte)'I');  // little-endian marker
             _w.Write ((byte)'I');
@@ -426,8 +426,8 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <param name="dpiY">Vertical resolution in dots per inch.</param>
         public void WritePage (SKBitmap bitmap, bool color, float dpiX, float dpiY)
         {
-            ArgumentNullException.ThrowIfNull (bitmap);
-            ObjectDisposedException.ThrowIf (_disposed, this);
+            Guard.ThrowIfNull (bitmap);
+            Guard.ThrowIfDisposed (_disposed, this);
 
             int width = bitmap.Width;
             int height = bitmap.Height;
@@ -488,10 +488,10 @@ namespace Majorsilence.Forms.Drawing.Imaging
 
             // --- write XResolution and YResolution as RATIONAL (numerator/denominator LONGs) ---
             long xResOffset = stream.Position;
-            _w.Write ((uint)Math.Max (1, (uint)MathF.Round (dpiX)));
+            _w.Write ((uint)Math.Max (1, (uint)MathFCompat.Round (dpiX)));
             _w.Write ((uint)1);
             long yResOffset = stream.Position;
-            _w.Write ((uint)Math.Max (1, (uint)MathF.Round (dpiY)));
+            _w.Write ((uint)Math.Max (1, (uint)MathFCompat.Round (dpiY)));
             _w.Write ((uint)1);
 
             // --- patch the pending IFD offset to point here ---

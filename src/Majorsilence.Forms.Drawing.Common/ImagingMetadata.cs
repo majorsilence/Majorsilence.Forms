@@ -187,7 +187,9 @@ namespace Majorsilence.Forms.Drawing.Imaging
                 if (items.Any (x => x.Id == id))
                     continue;
 
-                items.Add (PropertyItem.Create (id, (short)type, data[valueOffset..(valueOffset + length)]));
+                var value = new byte[length];
+                Array.Copy (data, valueOffset, value, 0, length);
+                items.Add (PropertyItem.Create (id, (short)type, value));
             }
         }
 

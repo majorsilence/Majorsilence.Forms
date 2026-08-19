@@ -33,7 +33,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// </summary>
         public ColorMatrix (float[][] newColorMatrix) : this ()
         {
-            ArgumentNullException.ThrowIfNull (newColorMatrix);
+            Guard.ThrowIfNull (newColorMatrix);
             for (var row = 0; row < 5 && row < newColorMatrix.Length; row++) {
                 var source = newColorMatrix[row];
                 if (source is null)
@@ -232,7 +232,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// </summary>
         public void SetColorMatrix (ColorMatrix newColorMatrix, ColorMatrixFlag mode, ColorAdjustType type)
         {
-            ArgumentNullException.ThrowIfNull (newColorMatrix);
+            Guard.ThrowIfNull (newColorMatrix);
             colorMatrix = newColorMatrix;
             colorMatrixFlag = mode;
         }
@@ -312,7 +312,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <inheritdoc cref="SetRemapTable(ColorMap[])"/>
         public void SetRemapTable (ColorMap[] map, ColorAdjustType type)
         {
-            ArgumentNullException.ThrowIfNull (map);
+            Guard.ThrowIfNull (map);
             remapTable = map;
         }
 
@@ -330,7 +330,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// </summary>
         public void SetBrushRemapTable (ColorMap[] map)
         {
-            ArgumentNullException.ThrowIfNull (map);
+            Guard.ThrowIfNull (map);
             brushRemapTable = map;
         }
 
@@ -456,7 +456,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
             float Component (int column) =>
                 r * m[0, column] + g * m[1, column] + b * m[2, column] + a * m[3, column] + m[4, column];
 
-            static int ToByte (float value) => Math.Clamp ((int)MathF.Round (value * 255f), 0, 255);
+            static int ToByte (float value) => MathCompat.Clamp ((int)MathFCompat.Round (value * 255f), 0, 255);
 
             return Color.FromArgb (ToByte (Component (3)), ToByte (Component (0)), ToByte (Component (1)), ToByte (Component (2)));
         }
@@ -509,7 +509,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
                 var exponent = 1.0 / g;
                 for (var i = 0; i < 256; i++) {
                     identity[i] = (byte)i;
-                    table[i] = (byte)Math.Clamp (Math.Round (Math.Pow (i / 255.0, exponent) * 255.0), 0, 255);
+                    table[i] = (byte)MathCompat.Clamp (Math.Round (Math.Pow (i / 255.0, exponent) * 255.0), 0, 255);
                 }
                 gammaFilter = SKColorFilter.CreateTable (identity, table, table, table);
             }

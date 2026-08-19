@@ -110,7 +110,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             => transform.Rotate (angle, order);
 
         /// <inheritdoc/>
+#if NETSTANDARD2_0
+        public override object Clone ()
+#else
         public override PathGradientBrush Clone ()
+#endif
         {
             var clone = new PathGradientBrush (new GraphicsPath ()) {
                 CenterColor = CenterColor,

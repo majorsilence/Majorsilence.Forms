@@ -95,7 +95,11 @@ namespace Majorsilence.Forms.Drawing
         public Color Color { get; set; }
 
         /// <inheritdoc/>
+#if NETSTANDARD2_0
+        public override object Clone () => new SolidBrush (Color);
+#else
         public override SolidBrush Clone () => new (Color);
+#endif
 
         internal override SKPaint CreatePaint () => new SKPaint {
             Color = new SKColor (Color.R, Color.G, Color.B, Color.A),
@@ -258,7 +262,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             => transform.Rotate (angle, order);
 
         /// <inheritdoc/>
+#if NETSTANDARD2_0
+        public override object Clone ()
+#else
         public override LinearGradientBrush Clone ()
+#endif
         {
             var clone = new LinearGradientBrush (rect, color1, color2, angleDegrees) {
                 GammaCorrection = GammaCorrection,
@@ -416,7 +424,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         public Color ForegroundColor => foreColor;
 
         /// <inheritdoc/>
+#if NETSTANDARD2_0
+        public override object Clone () => new HatchBrush (HatchStyle, foreColor, BackgroundColor);
+#else
         public override HatchBrush Clone () => new (HatchStyle, foreColor, BackgroundColor);
+#endif
 
         internal override SKPaint CreatePaint ()
         {

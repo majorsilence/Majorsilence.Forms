@@ -242,7 +242,12 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets a brush for the color Purple.</summary>
         public static Brush Purple => Get (Color.Purple);
         /// <summary>Gets a brush for the color RebeccaPurple.</summary>
+#if NETSTANDARD2_0
+        // Missing from the netstandard2.0 facade's Color surface.
+        public static Brush RebeccaPurple => Get (Color.FromArgb (255, 102, 51, 153));
+#else
         public static Brush RebeccaPurple => Get (Color.RebeccaPurple);
+#endif
         /// <summary>Gets a brush for the color Red.</summary>
         public static Brush Red => Get (Color.Red);
         /// <summary>Gets a brush for the color RosyBrown.</summary>

@@ -25,6 +25,11 @@
     <PackageVersion Include="Avalonia.iOS" Version="12.1.0" />
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
+    <!-- Span<T>/ReadOnlySpan<T> polyfill for Majorsilence.Forms.Drawing.Common's netstandard2.0 row. -->
+    <PackageVersion Include="System.Memory" Version="4.6.3" />
+    <!-- Source-generated polyfills (System.Index/Range, CallerArgumentExpressionAttribute, the
+         trimming attributes, ...) for Majorsilence.Forms.Drawing.Common's netstandard2.0 row. -->
+    <PackageVersion Include="PolySharp" Version="1.16.0" />
     <!-- Force SkiaSharp.HarfBuzz + HarfBuzzSharp up to match SkiaSharp 3.119.4. RichTextKit 0.4.167
          transitively pins these to 2.88.7 / 2.8.2.3, which mismatches the SkiaSharp 3.x native libs
          (a latent crash, notably the HarfBuzzSharp.NativeAssets.Linux 2.8 vs managed 7.3 mismatch). -->

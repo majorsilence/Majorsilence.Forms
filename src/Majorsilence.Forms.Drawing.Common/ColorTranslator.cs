@@ -18,7 +18,11 @@ namespace Majorsilence.Forms.Drawing
             if (string.IsNullOrEmpty (html))
                 throw new ArgumentException ("Invalid HTML color code", nameof (html));
 
+#if NETSTANDARD2_0
+            var s = html.StartsWith ("#", StringComparison.Ordinal) ? html.Substring (1) : html;
+#else
             var s = html.StartsWith ('#') ? html.Substring (1) : html;
+#endif
 
             try
             {

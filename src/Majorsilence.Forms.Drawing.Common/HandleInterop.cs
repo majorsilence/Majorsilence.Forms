@@ -75,7 +75,7 @@ namespace Majorsilence.Forms.Drawing
         /// the result behaves correctly here rather than seeing a wrong icon.</remarks>
         public static Icon? ExtractAssociatedIcon (string filePath)
         {
-            ArgumentNullException.ThrowIfNull (filePath);
+            Guard.ThrowIfNull (filePath);
             return null;
         }
     }
@@ -106,7 +106,7 @@ namespace Majorsilence.Forms.Drawing
         /// there is no single blessed struct type to require.</remarks>
         public static Font FromLogFont (object lf)
         {
-            ArgumentNullException.ThrowIfNull (lf);
+            Guard.ThrowIfNull (lf);
 
             var name = ReadLogFont<string> (lf, "lfFaceName") ?? "Segoe UI";
 
@@ -139,7 +139,7 @@ namespace Majorsilence.Forms.Drawing
         /// <inheritdoc cref="FromLogFont(object)" path="/remarks"/>
         public void ToLogFont (object logFont)
         {
-            ArgumentNullException.ThrowIfNull (logFont);
+            Guard.ThrowIfNull (logFont);
 
             // Negative, matching GDI's convention for "this is the character height, not the cell
             // height" -- the sign is what tells a consumer which of the two it was given.
@@ -190,7 +190,7 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Initializes a new instance of the <see cref="Region"/> class from serialized data.</summary>
         public Region (RegionData rgnData) : this ()
         {
-            ArgumentNullException.ThrowIfNull (rgnData);
+            Guard.ThrowIfNull (rgnData);
             MakeEmpty ();
 
             foreach (var rect in RegionData.Decode (rgnData.Data))
@@ -237,10 +237,10 @@ namespace Majorsilence.Forms.Drawing
             var bytes = new byte[rects.Length * 16];
 
             for (var i = 0; i < rects.Length; i++) {
-                BitConverter.TryWriteBytes (bytes.AsSpan (i * 16), rects[i].X);
-                BitConverter.TryWriteBytes (bytes.AsSpan ((i * 16) + 4), rects[i].Y);
-                BitConverter.TryWriteBytes (bytes.AsSpan ((i * 16) + 8), rects[i].Width);
-                BitConverter.TryWriteBytes (bytes.AsSpan ((i * 16) + 12), rects[i].Height);
+                BitConverterCompat.TryWriteBytes (bytes.AsSpan (i * 16), rects[i].X);
+                BitConverterCompat.TryWriteBytes (bytes.AsSpan ((i * 16) + 4), rects[i].Y);
+                BitConverterCompat.TryWriteBytes (bytes.AsSpan ((i * 16) + 8), rects[i].Width);
+                BitConverterCompat.TryWriteBytes (bytes.AsSpan ((i * 16) + 12), rects[i].Height);
             }
 
             return bytes;
@@ -325,7 +325,7 @@ namespace Majorsilence.Forms.Drawing
         public Image? GetImage (Type? type, string? imgName, bool large)
         {
             if (!string.IsNullOrEmpty (file) && File.Exists (file))
-                return Resize (new Bitmap (file), large);
+                return Resize (new Bitmap (file!), large);
 
             var owner = declaring ?? type;
 
@@ -335,7 +335,7 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Loads a named bitmap out of a type's assembly resources.</summary>
         public static Image? GetImageFromResource (Type t, string? imageName, bool large)
         {
-            ArgumentNullException.ThrowIfNull (t);
+            Guard.ThrowIfNull (t);
 
             var assembly = t.Assembly;
             var name = imageName ?? t.Name;
