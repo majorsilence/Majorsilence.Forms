@@ -58,7 +58,7 @@ namespace Majorsilence.Forms.Drawing
             var styleAt = Array.FindIndex (parts, p => p.StartsWith ("style=", StringComparison.OrdinalIgnoreCase));
 
             if (styleAt >= 0) {
-                var names = string.Join (',', parts.Skip (styleAt)).AsSpan (6).ToString ();
+                var names = string.Join (",", parts.Skip (styleAt)).AsSpan (6).ToString ();
 
                 foreach (var name in names.Split ('|', ',')) {
                     if (Enum.TryParse<FontStyle> (name.Trim (), ignoreCase: true, out var parsed))
@@ -88,7 +88,7 @@ namespace Majorsilence.Forms.Drawing
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture,
             object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType != typeof (string) || value is not Font font)
                 return base.ConvertTo (context, culture, value, destinationType);
@@ -110,7 +110,7 @@ namespace Majorsilence.Forms.Drawing
         /// <inheritdoc/>
         public override object? CreateInstance (ITypeDescriptorContext? context, IDictionary propertyValues)
         {
-            ArgumentNullException.ThrowIfNull (propertyValues);
+            Guard.ThrowIfNull (propertyValues);
 
             var name = propertyValues["Name"] as string ?? "Segoe UI";
             var size = propertyValues["Size"] is float s ? s : 8.25f;
@@ -270,7 +270,7 @@ namespace Majorsilence.Forms.Drawing
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture,
             object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             return destinationType == typeof (string) && value is ImageFormat format
                 ? format.Name
@@ -323,7 +323,7 @@ namespace Majorsilence.Forms.Drawing
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture,
             object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType == typeof (string))
                 return value is Image image ? $"{image.Width}x{image.Height}" : "(none)";
@@ -378,7 +378,7 @@ namespace Majorsilence.Forms.Drawing
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture,
             object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType == typeof (string))
                 return value is Icon icon ? $"{icon.Width}x{icon.Height}" : "(none)";

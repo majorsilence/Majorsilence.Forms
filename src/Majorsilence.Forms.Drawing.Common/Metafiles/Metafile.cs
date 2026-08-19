@@ -29,7 +29,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <summary>Initializes a new instance of the <see cref="Metafile"/> class from a file.</summary>
         public Metafile (string filename)
         {
-            ArgumentNullException.ThrowIfNull (filename);
+            Guard.ThrowIfNull (filename);
 
             var bytes = File.ReadAllBytes (filename);
             header = GetMetafileHeader (new MemoryStream (bytes));
@@ -40,7 +40,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <summary>Initializes a new instance of the <see cref="Metafile"/> class from a stream.</summary>
         public Metafile (Stream stream)
         {
-            ArgumentNullException.ThrowIfNull (stream);
+            Guard.ThrowIfNull (stream);
 
             using var buffer = new MemoryStream ();
             stream.CopyTo (buffer);
@@ -75,8 +75,8 @@ namespace Majorsilence.Forms.Drawing.Imaging
                 var scale = isWmf && dpi > 96f ? 96f / dpi : 1f;
 
                 return new System.Drawing.Size (
-                    Math.Clamp ((int) Math.Round (bounds.Width * scale), 1, 8192),
-                    Math.Clamp ((int) Math.Round (bounds.Height * scale), 1, 8192));
+                    MathCompat.Clamp ((int) Math.Round (bounds.Width * scale), 1, 8192),
+                    MathCompat.Clamp ((int) Math.Round (bounds.Height * scale), 1, 8192));
             }
         }
 
@@ -92,7 +92,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
             if (width <= 0 || height <= 0 || records.Count == 0)
                 return;
 
-            var wanted = new SkiaSharp.SKSizeI (Math.Clamp (width, 1, 8192), Math.Clamp (height, 1, 8192));
+            var wanted = new SkiaSharp.SKSizeI (MathCompat.Clamp (width, 1, 8192), MathCompat.Clamp (height, 1, 8192));
 
             if (wanted == rasterisedAt)
                 return;
@@ -259,7 +259,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <summary>Reads a metafile's header from a file.</summary>
         public static MetafileHeader GetMetafileHeader (string fileName)
         {
-            ArgumentNullException.ThrowIfNull (fileName);
+            Guard.ThrowIfNull (fileName);
 
             using var stream = File.OpenRead (fileName);
             return GetMetafileHeader (stream);
@@ -270,7 +270,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// layouts, so the kind, size, bounds and resolution all come out of the bytes.</remarks>
         public static MetafileHeader GetMetafileHeader (Stream stream)
         {
-            ArgumentNullException.ThrowIfNull (stream);
+            Guard.ThrowIfNull (stream);
 
             var bytes = new byte[88];
             var read = stream.Read (bytes, 0, bytes.Length);

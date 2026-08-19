@@ -21,7 +21,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>Initializes a new Blend with the specified number of factor/position slots.</summary>
         public Blend (int count)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative (count);
+            Guard.ThrowIfNegative (count);
             Factors = new float[count];
             Positions = new float[count];
         }
@@ -45,7 +45,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>Initializes a new ColorBlend with the specified number of color/position slots.</summary>
         public ColorBlend (int count)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative (count);
+            Guard.ThrowIfNegative (count);
             Colors = new Color[count];
             Positions = new float[count];
         }
@@ -74,8 +74,8 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// </summary>
         public static Blend Triangular (float focus, float scale)
         {
-            focus = Math.Clamp (focus, 0f, 1f);
-            scale = Math.Clamp (scale, 0f, 1f);
+            focus = MathCompat.Clamp (focus, 0f, 1f);
+            scale = MathCompat.Clamp (scale, 0f, 1f);
 
             if (focus == 0f) {
                 return new Blend { Factors = new[] { scale, 0f }, Positions = new[] { 0f, 1f } };
@@ -97,8 +97,8 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// </summary>
         public static Blend SigmaBell (float focus, float scale)
         {
-            focus = Math.Clamp (focus, 0f, 1f);
-            scale = Math.Clamp (scale, 0f, 1f);
+            focus = MathCompat.Clamp (focus, 0f, 1f);
+            scale = MathCompat.Clamp (scale, 0f, 1f);
 
             var factors = new float[SigmaSamples];
             var positions = new float[SigmaSamples];
@@ -134,12 +134,12 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// </summary>
         private static float NormalizedCumulative (float t)
         {
-            t = Math.Clamp (t, 0f, 1f);
+            t = MathCompat.Clamp (t, 0f, 1f);
             const double sigma = 0.5 / 3.0;
             var lo = Cumulative (0.0, sigma);
             var hi = Cumulative (1.0, sigma);
             var value = (Cumulative (t, sigma) - lo) / (hi - lo);
-            return (float)Math.Clamp (value, 0.0, 1.0);
+            return (float)MathCompat.Clamp (value, 0.0, 1.0);
 
             static double Cumulative (double x, double s) => 0.5 * (1.0 + Erf ((x - 0.5) / (s * Math.Sqrt (2.0))));
         }
@@ -174,7 +174,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
 
             var colors = new Color[factors.Length];
             for (var i = 0; i < factors.Length; i++)
-                colors[i] = Lerp (start, end, Math.Clamp (factors[i], 0f, 1f));
+                colors[i] = Lerp (start, end, MathCompat.Clamp (factors[i], 0f, 1f));
 
             return (colors, (float[])positions.Clone ());
         }

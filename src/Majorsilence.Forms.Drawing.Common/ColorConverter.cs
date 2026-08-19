@@ -30,7 +30,11 @@ namespace Majorsilence.Forms.Drawing
             if (s.Length == 0)
                 return Color.Empty;
 
+#if NETSTANDARD2_0
+            if (s.StartsWith ("#", StringComparison.Ordinal))
+#else
             if (s.StartsWith ('#'))
+#endif
             {
                 var hex = s[1..];
                 if (uint.TryParse (hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var argb))
@@ -60,7 +64,13 @@ namespace Majorsilence.Forms.Drawing
             }
 
             var named = Color.FromName (s);
+#if NETSTANDARD2_0
+            // Color.IsKnownColor is missing from the netstandard2.0 facade; Transparent is the only
+            // known color FromName can return with A == 0, so special-case it by name instead.
+            return named.A != 0 || string.Equals (s, "Transparent", StringComparison.OrdinalIgnoreCase) ? named : Color.Empty;
+#else
             return named.IsKnownColor || named.A != 0 ? named : Color.Empty;
+#endif
         }
 
         /// <inheritdoc/>

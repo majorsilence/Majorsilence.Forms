@@ -246,8 +246,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Shows this item's drop-down.</summary>
         /// <remarks>Routes through <see cref="MenuItem.ShowDropDown"/> -- the same native open the strip
-        /// uses for a click -- rather than showing the drop-down control as a free-standing popup.</remarks>
-        public new void ShowDropDown ()
+        /// uses for a click -- rather than showing the drop-down control as a free-standing popup. An
+        /// OVERRIDE, not a `new`: every caller that opens a menu holds the item as a
+        /// <see cref="MenuItem"/>, so hiding the base method meant a click opened the menu without raising
+        /// either event or consulting the cancellable Opening.</remarks>
+        public override void ShowDropDown ()
         {
             // Opening is the cancellable point: a drop-down that populates itself lazily builds its
             // items there and cancels when there is nothing to show, so the open must really be
@@ -261,7 +264,8 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Hides this item's drop-down.</summary>
-        public new void HideDropDown ()
+        /// <remarks>An override rather than a `new`, for the reason given on <see cref="ShowDropDown"/>.</remarks>
+        public override void HideDropDown ()
         {
             if (!IsDropDownOpened)
                 return;

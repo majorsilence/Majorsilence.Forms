@@ -65,8 +65,8 @@ namespace Majorsilence.Forms.Drawing.Text
         /// </summary>
         public void AddFontFile (string filename)
         {
-            ObjectDisposedException.ThrowIf (disposed, this);
-            ArgumentNullException.ThrowIfNull (filename);
+            Guard.ThrowIfDisposed (disposed, this);
+            Guard.ThrowIfNull (filename);
             if (!File.Exists (filename))
                 throw new FileNotFoundException ("Font file not found.", filename);
 
@@ -87,10 +87,10 @@ namespace Majorsilence.Forms.Drawing.Text
         /// </summary>
         public void AddMemoryFont (IntPtr memory, int length)
         {
-            ObjectDisposedException.ThrowIf (disposed, this);
+            Guard.ThrowIfDisposed (disposed, this);
             if (memory == IntPtr.Zero)
                 throw new ArgumentNullException (nameof (memory));
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero (length);
+            Guard.ThrowIfNegativeOrZero (length);
 
             var bytes = new byte[length];
             Marshal.Copy (memory, bytes, 0, length);
@@ -104,8 +104,8 @@ namespace Majorsilence.Forms.Drawing.Text
         /// </summary>
         public void AddMemoryFont (byte[] fontData)
         {
-            ObjectDisposedException.ThrowIf (disposed, this);
-            ArgumentNullException.ThrowIfNull (fontData);
+            Guard.ThrowIfDisposed (disposed, this);
+            Guard.ThrowIfNull (fontData);
 
             // The SKData keeps the native buffer alive for the typeface's lifetime -- same pattern
             // FontSubstitution uses for the embedded fallback fonts.

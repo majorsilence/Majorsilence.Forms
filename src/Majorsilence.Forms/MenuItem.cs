@@ -121,7 +121,10 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Closes the menu item's drop down.
         /// </summary>
-        public void HideDropDown ()
+        /// <remarks>
+        /// Virtual for the same reason as <see cref="ShowDropDown"/>: see the note there.
+        /// </remarks>
+        public virtual void HideDropDown ()
         {
             selected = false;
             dropdown?.Hide ();
@@ -260,7 +263,12 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Sets the bounds of the menu item. This API is considered internal and is not intended for public use.
         /// </summary>
-        public void SetBounds (int x, int y, int width, int height, BoundsSpecified specified = BoundsSpecified.All)
+        /// <remarks>
+        /// Virtual because an item that hosts a real Control has to move that control whenever the strip
+        /// lays the item out -- see <see cref="ToolStripControlHost"/>. WinForms' ToolStripItem.SetBounds
+        /// is virtual for the same reason.
+        /// </remarks>
+        public virtual void SetBounds (int x, int y, int width, int height, BoundsSpecified specified = BoundsSpecified.All)
         {
             Bounds = new Rectangle (x, y, width, height);
         }
@@ -268,7 +276,16 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Shows this menu items drop down, if any.
         /// </summary>
-        public void ShowDropDown ()
+        /// <remarks>
+        /// Virtual because <see cref="ToolStripDropDownItem"/> refines it to raise
+        /// <c>DropDownOpening</c>/<c>DropDownOpened</c> and to honour a cancelled open. It used to hide
+        /// this method with `new`, and every caller that actually opens a menu -- the
+        /// <see cref="Selected"/> setter below, <c>MenuDropDown</c>'s selection tracking,
+        /// <c>ToolStripDropDown</c>'s Visible setter -- holds the item as a <see cref="MenuItem"/>, so
+        /// they all bound to THIS method and the events only ever fired for code that called
+        /// <c>ShowDropDown</c> on the derived type by hand. Opening a menu by clicking it raised nothing.
+        /// </remarks>
+        public virtual void ShowDropDown ()
         {
             if (HasItems && OwnerControl != null) {
                 dropdown = dropdown ??= new MenuDropDown (this);

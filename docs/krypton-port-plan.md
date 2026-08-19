@@ -223,6 +223,30 @@ see. Ordered by how much of the suite each one affects.
    downstream of the font fix: button captions no longer overlap their images (they sit cleanly below
    them), and the app button no longer overlaps the tab (`File` at 54x21 and `Tab` sit side by side).
 
+   **2026-08-19, after a GUI review raised the app button again: the closure stands, but not for the reason
+   originally given.** A demo session showed the app button as a round orb straddling the caption/ribbon
+   boundary, which looked like the old overlap defect. It is not. Krypton's Office2007 app button is a fixed
+   39x39 orb built from `_sizeTop = 39x22` and `_sizeBottom = 39x17` (`ViewDrawRibbonAppButton`) -- it is
+   DESIGNED to sit 22px in the caption and protrude 17px into the ribbon. Measured under that palette: the
+   caption area is `{0,0,800,28}`, the orb `{X=4,Y=6,W=39,H=39}`, and horizontal space is properly reserved
+   (`ViewLayoutRibbonAppButton` is 43px wide in both the caption and tabs areas, with the first tab starting
+   at x=49). So it overlaps no tab. The salmon-tinted selected tab is SparkleOrange being orange, not a
+   colour bug.
+
+   **The real lesson is about the harness, and it is worth internalising: the ribbon's SHAPE comes from
+   Krypton's application-global palette, and one example changes it for the whole process.**
+   `MessageBoxExample.Designer.cs` assigns `kryptonManager1.GlobalPaletteMode = PaletteMode.SparkleOrange`,
+   and `GlobalPaletteMode` is global by design in Krypton -- so a demo session that visits MessageBox sees
+   every later form in Sparkle, where `RibbonShape` resolves to `Office2007` (orb). A fresh headless process
+   gets Krypton's default, `GLOBAL_DEFAULT_PALETTE_MODE = Microsoft365Blue`, where the same ribbon resolves
+   to `Microsoft365` and draws a FLAT "File" tab on a light band instead. Two legitimately different
+   layouts. Neither is a port defect, and comparing a headless render against a demo screenshot without
+   fixing the palette compares two different things.
+
+   Both probes now take `PALETTE=<PaletteMode>`, which sets the global palette before the form is built;
+   `PALETTE=SparkleOrange` reproduces the demo session's ribbon exactly. **Use it whenever a headless render
+   is being compared against something seen in the demo.**
+
    The third -- "the gallery renders as a thin vertical strip" -- is not a defect. `KryptonGallery`
    measures 22x65 with a preferred size of 22x45, which is its scroll-button column and nothing else,
    because `KryptonRibbonExtendedExample.Designer.cs` sets `kryptonRibbonGroupGallery1.ImageList = null`.
@@ -238,12 +262,37 @@ see. Ordered by how much of the suite each one affects.
    tree stops at `ViewLayoutControl`, whose contents are a hosted child Control rather than more views.
    Both of those found things the view dump alone could not.
 
-1. **OPEN (unverified, noticed in the fresh render): the ribbon draws its own 28px caption area.**
-   `ViewDrawRibbonCaptionArea` occupies y=0..28 with a `ViewLayoutRibbonQATMini` in it, which is what puts
-   the stray small chevron (`ViewDrawRibbonQATExtraButtonMini`, 13x22) at the top-left of the window. On
-   Windows the ribbon merges this strip into a `KryptonForm`'s title bar rather than stacking below it.
-   Establish what the form's own chrome does here before treating it as a defect -- the headless capture
-   excludes window chrome, so this may look correct on screen and only look odd in the PNG.
+1. **DIAGNOSED 2026-08-19, not yet a fix: the ribbon's own 28px caption area is Krypton's documented
+   fallback for a caption it could not integrate into.** The strip is `ViewDrawRibbonCaptionArea` at
+   y=0..28, and the stray chevron in it is `ViewDrawRibbonQATExtraButtonMini` (13x22). The whole chain is
+   now pinned by reflection rather than guessed at:
+
+   - `UpdateVisible` is `Visible = !_integrated && (AppButtonVisible || QATLocation == Above ||
+     RibbonContexts.Count > 0)`. Measured: `QATLocation = Above` and `AppButtonVisible = True`, so the
+     strip shows; `QATButtons.Count = 0` and `RibbonContexts.Count = 0`, so it has nothing to put in it.
+     That is the whole of why a 28px band appears with one chevron in it. The caption area's own app
+     button is correctly hidden -- this ribbon shape draws the app button as the "File" TAB
+     (`ViewLayoutRibbonAppTab`, 54x21), which is what satisfies `AppButtonVisible`.
+   - `_integrated` is false, and NOT because the bridge failed: `CaptionArea.KryptonForm` resolves to the
+     example form and `PreventIntegration` is false. Integration needs
+     `_kryptonForm.RealWindowBorders.Top >= MIN_INTEGRATED_HEIGHT`, which is `FactorDpiY * 26` = 26.
+     `RealWindowBorders` measures **{0,0,0,0}**.
+   - It is zero because `CommonHelper.GetWindowBorders` derives it from
+     `PI.AdjustWindowRectEx(ref rect, style, false, exStyle)` -- a user32 call the shim no-ops, leaving the
+     rect at zeros. **Same class of defect as the `PI.ShowWindow` popup bug**: Krypton asking Win32 for a
+     geometric fact and silently getting nothing.
+
+   **Do not just make `RealWindowBorders` honest.** Integration makes the ribbon inject its app button and
+   QAT into the KryptonForm's caption via `_kryptonForm.InjectViewElement(...)`, and KryptonForm's own
+   chrome does not appear to render here at all -- the example form's only child control is the
+   `KryptonRibbon`, and a Majorsilence.Forms `Form` draws its own title bar rather than a Krypton view
+   tree (`Form : WindowBase`, so `VisualForm`'s Control-based chrome has nothing to paint into). Forcing
+   integration would then remove the strip AND lose the QAT with it -- worse than the fallback. So the
+   prerequisite is KryptonForm chrome under Majorsilence.Forms; answer that first, and treat the honest
+   `AdjustWindowRectEx` as the second step, not the first.
+
+   Worth noting the fallback is arguably correct today: on screen the strip sits under the real window
+   title bar, which duplicates a caption, but nothing is broken and nothing is unreadable.
 
 1. ~~**KryptonRibbon lays out collapsed.**~~ (superseded by the two entries above) The whole ribbon renders at a fraction of its size: the tab strip
    shows a floating "Tab" label, the group is squeezed into a ~150x80 box with its two buttons overlapping
@@ -252,18 +301,90 @@ see. Ordered by how much of the suite each one affects.
    filled but its content is not measured. Suspect the ribbon's measurement pass -- it is the one control
    family with its own multi-level layout engine, and a zero/degenerate size propagating down would produce
    exactly this. **Affects: KryptonRibbonExtendedExample, and Ribbon Extended in the Landing grid.**
-2. **Group-box captions and check-box labels are near-invisible.** On MessageBoxExample the group captions
-   ("Message Content Type Options", "Caption", "Icon", "Buttons", "Options") render as white text on a light
-   strip, and the check-box labels ("Show Optional CheckBox", "Is optional checkbox checked?",
-   "MessageBoxOptions.RightAlign") as light grey on light grey. Both are contrast, not layout -- the text is
-   in the right place. Note this is the same *shape* of finding as the earlier dark-theme investigation that
-   turned out to be upstream palette data, so establish whether the palette or the renderer picks the colour
-   before changing anything.
-3. **MessageBoxExample's top-left controls sit outside their group.** "Caption:", "Message Text:" and the
-   "Fill Text" button are drawn over the form background above the group box, with a stray horizontal rule
-   beside them, and the form is far wider than its content needs.
-4. **ToolStripItems has a mostly empty body** with "kryptonSlider1" as bare text bottom-left and a slider
-   drawn half off the form.
+2. **FIXED 2026-08-18: group-box captions and check-box labels were near-invisible -- and it was neither
+   the palette nor the renderer.** This entry said to establish which of those picked the colour before
+   changing anything; it was a third thing. Sampling the rendered pixels settled it in one step: inside a
+   check box the pixel was `F0F0F0` and one pixel outside it, in the same group panel, `636C87`. The light
+   strip was therefore an opaque fill the exact size of each control, not a text colour -- the palette's
+   light text was correct all along and was landing on it.
+
+   The fill came from `Control.PaintTransparentBackground`, which exists **only to be found by
+   reflection**: WinForms declares it private, and Krypton's `VisualControlBase` looks it up on
+   `typeof(Control)` and invokes it on every paint of every label, check box, radio button and group
+   caption. It was present here but stubbed to fill the nearest ancestor's `BackColor` -- which looks
+   equivalent and is not, because a Krypton container paints itself from its palette and leaves
+   `BackColor` at the `SystemColors.Control` default. It now samples the parent's already-painted PIXELS,
+   which works out to a blit: a child is drawn into its own buffer from inside its parent's
+   `PaintChildren`, after the parent has painted its own background into that buffer. No recursion, and it
+   reproduces palette-painted parents exactly.
+
+   Two pipeline properties this rests on, so changing either breaks it: the parent's background pass
+   overwrites the previous frame's blitted children (so what is sampled is never last frame's picture of
+   this same control), and a child is never repainted without its parent repainting first. Pinned by
+   `TransparentBackgroundPaintTests`, one of which performs Krypton's exact reflection lookup so a rename
+   or signature change fails a test instead of silently washing out every themed caption again.
+
+3. **FIXED 2026-08-18: single-line text boxes and numeric up/downs collapsed to a 2-3px rule.** This is
+   what the entry below called "a stray horizontal rule". `Control.GetPreferredSizeCore` reports the bounds
+   that were explicitly SET, so a text-entry control whose height had been laid out to zero went on
+   *asking* for zero -- a feedback loop, not a one-off bad measurement. Krypton's `KryptonTextBox` and
+   `KryptonNumericUpDown` host one of these and take their own height from it, so the pair settled at 2px
+   and 3px. A text-entry control's height comes from its font, and `PreferredHeight` already computed it
+   correctly with nothing consuming it; `TextBoxBase` and `NumericUpDown` now override
+   `GetPreferredSizeCore` to fill in a height of zero from it. Only zero is filled in, and not for a
+   multiline box -- a designer that sized the control still wins, which is what keeps this from resizing
+   layouts that were already right. Pinned by `PreferredHeightSizingTests`.
+
+3b. **CLOSED 2026-08-19: MessageBoxExample's "Show" button does nothing because the example does nothing.**
+   Raised by GUI review. `kbtnShow_Click` is empty -- every line of it is commented out, and it was already
+   that way before the migration (`git show aa808a44:.../MessageBoxExample.cs`), so the button is inert on
+   Windows too. Nothing to fix in Majorsilence.Forms or the port. Worth remembering when this example comes
+   up again: the one control most likely to be reached for is wired to nothing.
+
+4. **CLOSED 2026-08-18: MessageBoxExample's top-left controls are where the example puts them.** The stray
+   horizontal rule beside them was the collapsed text box above, and it is gone. The rest is the example's
+   own layout, confirmed in its designer file: `kryptonLabel1`/`kryptonLabel2` ("Caption:", "Message
+   Text:") are added to `kryptonPanel1` directly rather than to any group box, and `ClientSize` is
+   assigned `1585x437`, so the form really is that much wider than its content. Not a port defect.
+
+5. **FIXED 2026-08-18: ToolStripItems was empty because `ToolStripControlHost` never hosted anything.**
+   The type held a `Control` reference and forwarded properties to it, but never parented the control or
+   gave it a position, so the hosted control was never displayed and what appeared instead was the item's
+   Text drawn by the strip's renderer -- which is why a hosted slider read as the literal words
+   "kryptonSlider1" in the corner. `SetBounds` (now virtual on `MenuItem`, as `ToolStripItem.SetBounds` is
+   upstream) parents the control into the strip and moves it to the item's bounds. The renderers also stop
+   drawing an item's own background and text for a control host: with the hosted control's `BackColor` set
+   to `Transparent` -- which this example does -- the renderer's text showed straight through it, so the
+   slider came out with "kryptonSlider1" printed across its track. Affects every
+   `ToolStripControlHost`, `ToolStripTextBox` and `ToolStripComboBox` included. Pinned by
+   `ToolStripControlHostingTests`.
+
+   Also checked while here: `statusStrip1.Location` really is `(0, -1)` in the designer, so that is not
+   ours.
+
+6. **OPEN (diagnosed 2026-08-19): choosing Tools -> Colors dismisses the menu instead of dropping the
+   colour palette.** Found by GUI review. The hosting is NOT the problem and this is not a regression from
+   the hosting fix: with the Tools menu open, the item measures `{X=1,Y=45,W=162,H=20}` and the
+   `KryptonColorButton` it hosts is parented into the `MenuDropDown` at exactly those bounds and visible.
+   Nor is it the menu-item activation path -- `Control.RaiseClick` hands the click to
+   `Controls.FindVisibleChildAt` and returns, so with the hosted control covering that row
+   `MenuDropDown.OnMouseClick` never runs and its `Application.ClosePopups ()` is not reached. (A guard
+   there was written and then reverted for exactly that reason: it was dead code for this case. Do not
+   re-add it.)
+
+   What is left is the **stacked-popup case** already listed under the popup work below: the colour button
+   opening its own `VisualPopup` while the menu popup is up, with `VisualPopupManager`'s dismissal riding on
+   the generic deactivation close. Not proven -- `KryptonColorButton.PerformClick ()` does not dismiss the
+   menu headlessly, but it does not open the palette either, so the decisive step could not be driven
+   without a GUI. Next step is to find what actually shows that button's palette and call it with the menu
+   open.
+
+7. **OPEN (narrowed 2026-08-18): a Krypton button hosted in a tool strip draws wider than it measures.**
+   All that is left of the ToolStripItems entry above. `KryptonColorButton` in `toolStrip1` reports a
+   `PreferredSize` of 53x20 and is laid out at 53px, then draws an icon, the caption "Color" and a
+   drop-down arrow into it, so the caption clips to "Co". The hosting is correct now, so this is Krypton's
+   own content measurement for that control, reached through our text metrics -- start by comparing what
+   `GetPreferredSize` measures against what the renderer then draws, rather than at the strip.
 
 ### Stop clicking; construct every form headlessly
 
@@ -368,6 +489,15 @@ TestForm launches, themes and renders, but StartScreen's anchored children are i
 3. **Post-show programmatic `Form.Size` writes are silently ignored even for a plain Form** (Avalonia
    backend path). Independent bug; the probe demonstrates it.
 
+   **Narrowed 2026-08-19:** it does NOT reproduce on the headless backend -- `Form.Size`, `Form.ClientSize`
+   and `Form.Width` all read back correctly after `Show()` there. So the library-side path is fine
+   (including the `if (value == Size) return;` guard in `Form.Size`, which was the obvious suspect since
+   the setter writes `Backend.Size` while the getter reads `Backend.ClientSize`) and the bug is genuinely
+   in the Avalonia backend. Deliberately NOT fixed blind: that path cannot be exercised in this
+   environment, and the Avalonia host's `IWindowBackend.Size` setter assigns `Width`/`Height` while
+   `ClientSize` reads Avalonia's own `ClientSize`, so any change wants a real window to verify against.
+   Next step is a GUI run, not more reading.
+
 [FIXED 2026-08-14] The invisible button text was GraphicsPath figure semantics in
 Majorsilence.Forms.Drawing.Common: GDI+ connects segments appended to an open figure with implicit
 lines, and AddArc/AddLine/AddBezier didn't -- so a rounded border built the canonical GDI+ way (four
@@ -433,8 +563,15 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   see COMPATIBILITY_MATRIX "Majorsilence.Forms.Media"). Android/iOS/wasm stay silent until a backend
   supplies a native path -- `NativeAudio.LauncherOverride` is currently the only seam, promote it to a
   proper backend hook when the Uno backend grows audio.
-- **Drop-down open-path events:** `DropDownOpening/Opened` fire via `ShowDropDown()` but not when the
-  strip opens the menu from a click (`MenuItem.ShowDropDown` doesn't know about them).
+- **[FIXED 2026-08-19] Drop-down open-path events.** `ToolStripDropDownItem` declared `ShowDropDown` and
+  `HideDropDown` with `new` rather than `override`, so they hid `MenuItem`'s. Every caller that actually
+  opens a menu holds the item as a `MenuItem` -- the `Selected` setter, `MenuDropDown`'s selection
+  tracking, `ToolStripDropDown`'s `Visible` setter, `MenuBase` -- so they all bound to the base method:
+  opening a menu by clicking it raised neither `DropDownOpening` nor `DropDownOpened`, and never consulted
+  the cancellable `Opening`. The events only fired for code that called `ShowDropDown` on the derived type
+  by hand, which is why this looked like a missing raise rather than a dispatch bug. Both are virtual on
+  `MenuItem` now and overridden properly. Pinned by `DropDownOpenPathTests` (3 tests, all three failing
+  before).
 
 Gates for every task: Release build (analyzers), `MF_HEADLESS_SCALE=2 dotnet test`, ApiDiff `--check`,
 and the two baselines (regenerate deliberately, never to silence).

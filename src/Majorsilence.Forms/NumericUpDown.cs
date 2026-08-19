@@ -215,6 +215,33 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (120, 23);
 
+        /// <summary>
+        /// Gets the height the control needs to fit one line of text at the current font, as
+        /// <c>System.Windows.Forms.UpDownBase.PreferredHeight</c> does.
+        /// </summary>
+        public int PreferredHeight
+            => (int)Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height)
+                + Padding.Top + Padding.Bottom + 4;   // 4px matches the default border/inset
+
+        /// <summary>
+        /// The control's height is fixed by its font, so report that as the preferred one.
+        /// </summary>
+        /// <remarks>
+        /// Same defect and same fix as <see cref="TextBoxBase.GetPreferredSizeCore"/> -- see the long
+        /// comment there. The base reports only bounds that were explicitly SET, so an unsized
+        /// NumericUpDown reported a preferred height of zero and Krypton's <c>KryptonNumericUpDown</c>,
+        /// which takes its own height from the control it hosts, collapsed to a 3px sliver.
+        /// </remarks>
+        internal override Size GetPreferredSizeCore (Size proposedSize)
+        {
+            var preferred = base.GetPreferredSizeCore (proposedSize);
+
+            if (preferred.Height <= 0)
+                preferred.Height = PreferredHeight;
+
+            return preferred;
+        }
+
         /// <inheritdoc/>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
             (style) => style.Border.Width = 1);

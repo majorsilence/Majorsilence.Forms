@@ -144,6 +144,32 @@ namespace Majorsilence.Forms
         public virtual int PreferredHeight
             => (int)Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height) + Padding.Top + Padding.Bottom + 4;
 
+        /// <summary>
+        /// A single-line text box's height is fixed by its font, so report that as the preferred one.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="Control.GetPreferredSizeCore"/> reports the bounds that were explicitly SET, which
+        /// for a text box the designer left unsized is nothing at all -- so it reported a preferred height
+        /// of ZERO, and any container that sizes a child from its preferred size collapsed it. Krypton's
+        /// <c>KryptonTextBox</c> does exactly that: it hosts one of these and takes its own height from
+        /// the hosted control, so every unsized text box in a migrated form rendered as a 2px horizontal
+        /// rule -- the two border pixels with nothing between them. It reads as a stray horizontal line
+        /// next to a label rather than as a missing control, which is why it took a while to name.
+        ///
+        /// Only a height that was never specified is filled in, and only for a single-line box: a box the
+        /// designer did size keeps that size, and a multiline one is sized by its container, as in
+        /// WinForms where AutoSize governs a text box's height alone.
+        /// </remarks>
+        internal override System.Drawing.Size GetPreferredSizeCore (System.Drawing.Size proposedSize)
+        {
+            var preferred = base.GetPreferredSizeCore (proposedSize);
+
+            if (preferred.Height <= 0 && !Multiline)
+                preferred.Height = PreferredHeight;
+
+            return preferred;
+        }
+
         /// <summary>Gets or sets the lines of text in the control.</summary>
         public virtual string[] Lines {
             // WinForms returns an empty array (not a single empty string) when there is no text.

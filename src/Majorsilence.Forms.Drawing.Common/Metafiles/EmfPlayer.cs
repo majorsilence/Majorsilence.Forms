@@ -466,7 +466,7 @@ namespace Majorsilence.Forms.Drawing.Imaging.Metafiles
             if (end >= 0)
                 length = end - offset;
 
-            return length <= 0 ? string.Empty : System.Text.Encoding.Latin1.GetString (data, offset, length);
+            return length <= 0 ? string.Empty : EncodingCompat.Latin1.GetString (data, offset, length);
         }
     }
 }

@@ -242,7 +242,7 @@ namespace Majorsilence.Forms.Drawing.Imaging.Metafiles
                 if (count <= 0)
                     break;
 
-                var text = System.Text.Encoding.Latin1.GetString (r.Data, 2, Math.Min (count, r.Data.Length - 2));
+                var text = EncodingCompat.Latin1.GetString (r.Data, 2, Math.Min (count, r.Data.Length - 2));
                 var after = 2 + count + (count & 1);
 
                 DrawText (r.Int16 (after + 2), r.Int16 (after), text);
@@ -262,7 +262,7 @@ namespace Majorsilence.Forms.Drawing.Imaging.Metafiles
                 if (offset >= r.Data.Length)
                     break;
 
-                var text = System.Text.Encoding.Latin1.GetString (r.Data, offset, Math.Min (count, r.Data.Length - offset));
+                var text = EncodingCompat.Latin1.GetString (r.Data, offset, Math.Min (count, r.Data.Length - offset));
                 DrawText (r.Int16 (2), r.Int16 (0), text);
                 break;
             }
@@ -364,7 +364,7 @@ namespace Majorsilence.Forms.Drawing.Imaging.Metafiles
             // LOGFONT: height(0) width(2) escapement(4) orientation(6) weight(8) italic(10)
             // underline(11) strikeout(12) charset(13) ... faceName at 18, ANSI, up to 32 bytes.
             var height = Math.Abs (r.Int16 (0));
-            var name = System.Text.Encoding.Latin1.GetString (r.Data, Math.Min (18, r.Data.Length),
+            var name = EncodingCompat.Latin1.GetString (r.Data, Math.Min (18, r.Data.Length),
                 Math.Max (0, Math.Min (32, r.Data.Length - 18)));
             var end = name.IndexOf ('\0');
 
