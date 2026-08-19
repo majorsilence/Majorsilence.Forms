@@ -260,7 +260,12 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Sets the bounds of the menu item. This API is considered internal and is not intended for public use.
         /// </summary>
-        public void SetBounds (int x, int y, int width, int height, BoundsSpecified specified = BoundsSpecified.All)
+        /// <remarks>
+        /// Virtual because an item that hosts a real Control has to move that control whenever the strip
+        /// lays the item out -- see <see cref="ToolStripControlHost"/>. WinForms' ToolStripItem.SetBounds
+        /// is virtual for the same reason.
+        /// </remarks>
+        public virtual void SetBounds (int x, int y, int width, int height, BoundsSpecified specified = BoundsSpecified.All)
         {
             Bounds = new Rectangle (x, y, width, height);
         }

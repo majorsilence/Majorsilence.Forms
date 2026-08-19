@@ -22,6 +22,12 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderItem (ToolBar control, MenuItem item, PaintEventArgs e)
         {
+            // An item hosting a real control draws nothing of its own: the control is a child of the strip
+            // and paints itself over this rectangle. Painting the item's own background and text as well
+            // shows through any hosted control with a transparent background.
+            if (item is ToolStripControlHost)
+                return;
+
             // Background
             var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor : Theme.BackgroundColor;
             e.Canvas.FillRectangle (item.Bounds, background_color);

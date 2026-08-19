@@ -19,6 +19,34 @@ namespace Majorsilence.Forms
     {
         private AccessibleObject? accessibility_object;
 
+        /// <summary>
+        /// Puts the hosted control into the strip and moves it to wherever the strip laid this item out.
+        /// </summary>
+        /// <remarks>
+        /// The hosting was the missing half of this type: it held a <see cref="Control"/> reference and
+        /// forwarded properties to it, but never parented the control to anything or gave it a position, so
+        /// the control was never displayed at all. What appeared instead was the item's Text, drawn by the
+        /// strip's renderer -- a slider in a status strip came out as the literal words "kryptonSlider1" in
+        /// the corner, which reads as a stray label rather than as an unhosted control. Every
+        /// ToolStripControlHost was affected, ToolStripTextBox and ToolStripComboBox included.
+        /// </remarks>
+        public override void SetBounds (int x, int y, int width, int height,
+            BoundsSpecified specified = BoundsSpecified.All)
+        {
+            base.SetBounds (x, y, width, height, specified);
+
+            if (OwnerControl is not { } owner)
+                return;
+
+            if (!ReferenceEquals (Control.Parent, owner))
+                owner.Controls.Add (Control);
+
+            // The item's bounds are already in the strip's client coordinates, which is the space the
+            // hosted control lives in too, so they transfer across unchanged.
+            Control.Bounds = Bounds;
+            Control.Visible = Visible;
+        }
+
         /// <summary>Gets or sets whether the hosted control causes validation when it receives focus.</summary>
         public bool CausesValidation {
             get => Control.CausesValidation;

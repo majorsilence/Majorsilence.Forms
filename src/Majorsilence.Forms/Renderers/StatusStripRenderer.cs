@@ -20,7 +20,13 @@ namespace Majorsilence.Forms.Renderers
 
                 var item_bounds = item.Bounds;
 
-                if (item is ToolStripProgressBar pb) {
+                // An item hosting a real control draws nothing of its own -- the control is a child of the
+                // strip and paints itself over this rectangle. Drawing the item's Text as well shows
+                // through any hosted control with a transparent background: a hosted slider came out with
+                // the words "kryptonSlider1" printed across its track.
+                if (item is ToolStripControlHost) {
+                    // Fall through to the right-edge check below, as every other item does.
+                } else if (item is ToolStripProgressBar pb) {
                     var range = pb.Maximum - pb.Minimum;
 
                     if (range > 0) {
