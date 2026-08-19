@@ -610,6 +610,14 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// The control's existing back buffer, or null when it has none yet. Unlike
+        /// <see cref="GetBackBuffer"/> this never creates or replaces one, which is what a caller wanting
+        /// to READ the pixels already painted there needs (see
+        /// <c>PaintTransparentBackground</c>): rebuilding the buffer would discard them.
+        /// </summary>
+        internal SKBitmap? BackBufferPixels => back_buffer;
+
+        /// <summary>
         /// Gets or creates a back buffer for rendering the control.
         /// </summary>
         internal SKBitmap GetBackBuffer ()

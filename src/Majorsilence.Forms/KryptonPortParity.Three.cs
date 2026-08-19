@@ -136,26 +136,75 @@ namespace Majorsilence.Forms
     {
         /// <summary>Paints the parent's background behind this control, for simulated transparency.</summary>
         /// <remarks>
-        /// WinForms declares this internal, and themed control libraries call it by REFLECTION
+        /// <para>
+        /// WinForms declares this private, and themed control libraries call it by REFLECTION
         /// (<c>BindingFlags.NonPublic</c>) to paint their transparent-background controls -- so its
         /// absence surfaced as a null dereference on the reflected handle, not as a compile error.
-        /// The equivalent here is painting the nearest ancestor's opaque back colour: re-entering the
-        /// parent's whole paint routine, which is what WinForms does, is not needed by this library's
-        /// compositing, where the parent has already painted beneath us this frame.
+        /// Krypton's <c>VisualControlBase</c> invokes it on every paint of every label, check box, radio
+        /// button and group caption.
+        /// </para>
+        /// <para>
+        /// It samples the parent's already-painted PIXELS. Filling the nearest ancestor's
+        /// <c>BackColor</c> instead -- which is what this did first -- looks equivalent and is not: a
+        /// Krypton container paints itself from its palette and leaves <c>BackColor</c> at the
+        /// <c>SystemColors.Control</c> default, so every one of those controls came out as an F0F0F0
+        /// rectangle the exact size of itself, with the palette's light text on top of it. It read as
+        /// "the group captions and check-box labels are washed out" rather than as a background bug.
+        /// </para>
+        /// <para>
+        /// Sampling is possible because of the order this library paints in: a child is drawn into its own
+        /// buffer from inside its parent's <see cref="Control.PaintChildren"/>, which runs after the parent
+        /// has painted its own background and content into that buffer. So the pixels wanted are simply
+        /// the parent's, at this control's position, and nothing has to re-enter the parent's paint routine
+        /// or walk further up the chain.
+        /// </para>
+        /// <para>
+        /// That rests on two properties of the pipeline, so changing either breaks this. The parent's
+        /// background pass overwrites the previous frame's blitted children, so what is sampled is never
+        /// last frame's picture of this same control. And a child is never repainted without its parent
+        /// being repainted first -- <see cref="Control.PaintChildren"/> re-renders a child only while
+        /// rendering the parent, and reuses the whole subtree's buffers otherwise.
+        /// </para>
         /// </remarks>
         internal void PaintTransparentBackground (PaintEventArgs e, Rectangle rectangle, Region? transparentRegion)
         {
-            var color = BackColor;
+            if (Parent is not { } parent)
+                return;
 
-            for (var ancestor = Parent; ancestor is not null; ancestor = ancestor.Parent) {
-                if (ancestor.BackColor.A != 0) {
-                    color = ancestor.BackColor;
-                    break;
+            var scale = ScaleFactor;
+
+            e.Canvas.Save ();
+
+            try {
+                e.Canvas.ClipRect (new SkiaSharp.SKRect (
+                    rectangle.Left * scale.Width, rectangle.Top * scale.Height,
+                    rectangle.Right * scale.Width, rectangle.Bottom * scale.Height));
+
+                // Krypton passes null, but the parameter is part of the signature it reflects on.
+                if (transparentRegion?.GetSKRegion () is { IsEmpty: false } region) {
+                    using var path = region.GetBoundaryPath ();
+                    e.Canvas.ClipPath (path, SkiaSharp.SKClipOperation.Intersect, antialias: true);
                 }
-            }
 
-            using var brush = new SolidBrush (color);
-            e.Graphics.FillRectangle (brush, rectangle);
+                // The field, not GetBackBuffer (): that would REBUILD the parent's buffer if its size had
+                // changed, discarding the very pixels being sampled.
+                var behind = parent.BackBufferPixels;
+
+                if (behind is not null
+                    && behind.Width == parent.ScaledSize.Width
+                    && behind.Height == parent.ScaledSize.Height) {
+                    var offset = parent.ChildPaintOffset;
+                    e.Canvas.DrawBitmap (behind, -(offset.X + ScaledLeft), -(offset.Y + ScaledTop));
+                    return;
+                }
+
+                // Nothing to sample: the root ControlAdapter paints straight into the window surface
+                // rather than into a buffer. The parent's resolved background colour is then the best
+                // answer, and the correct one whenever that parent is a plain fill.
+                e.Canvas.Clear (parent.GetEffectiveBackgroundColor ());
+            } finally {
+                e.Canvas.Restore ();
+            }
         }
     }
 
