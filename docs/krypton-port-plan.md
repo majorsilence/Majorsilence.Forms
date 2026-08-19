@@ -252,18 +252,67 @@ see. Ordered by how much of the suite each one affects.
    filled but its content is not measured. Suspect the ribbon's measurement pass -- it is the one control
    family with its own multi-level layout engine, and a zero/degenerate size propagating down would produce
    exactly this. **Affects: KryptonRibbonExtendedExample, and Ribbon Extended in the Landing grid.**
-2. **Group-box captions and check-box labels are near-invisible.** On MessageBoxExample the group captions
-   ("Message Content Type Options", "Caption", "Icon", "Buttons", "Options") render as white text on a light
-   strip, and the check-box labels ("Show Optional CheckBox", "Is optional checkbox checked?",
-   "MessageBoxOptions.RightAlign") as light grey on light grey. Both are contrast, not layout -- the text is
-   in the right place. Note this is the same *shape* of finding as the earlier dark-theme investigation that
-   turned out to be upstream palette data, so establish whether the palette or the renderer picks the colour
-   before changing anything.
-3. **MessageBoxExample's top-left controls sit outside their group.** "Caption:", "Message Text:" and the
-   "Fill Text" button are drawn over the form background above the group box, with a stray horizontal rule
-   beside them, and the form is far wider than its content needs.
-4. **ToolStripItems has a mostly empty body** with "kryptonSlider1" as bare text bottom-left and a slider
-   drawn half off the form.
+2. **FIXED 2026-08-18: group-box captions and check-box labels were near-invisible -- and it was neither
+   the palette nor the renderer.** This entry said to establish which of those picked the colour before
+   changing anything; it was a third thing. Sampling the rendered pixels settled it in one step: inside a
+   check box the pixel was `F0F0F0` and one pixel outside it, in the same group panel, `636C87`. The light
+   strip was therefore an opaque fill the exact size of each control, not a text colour -- the palette's
+   light text was correct all along and was landing on it.
+
+   The fill came from `Control.PaintTransparentBackground`, which exists **only to be found by
+   reflection**: WinForms declares it private, and Krypton's `VisualControlBase` looks it up on
+   `typeof(Control)` and invokes it on every paint of every label, check box, radio button and group
+   caption. It was present here but stubbed to fill the nearest ancestor's `BackColor` -- which looks
+   equivalent and is not, because a Krypton container paints itself from its palette and leaves
+   `BackColor` at the `SystemColors.Control` default. It now samples the parent's already-painted PIXELS,
+   which works out to a blit: a child is drawn into its own buffer from inside its parent's
+   `PaintChildren`, after the parent has painted its own background into that buffer. No recursion, and it
+   reproduces palette-painted parents exactly.
+
+   Two pipeline properties this rests on, so changing either breaks it: the parent's background pass
+   overwrites the previous frame's blitted children (so what is sampled is never last frame's picture of
+   this same control), and a child is never repainted without its parent repainting first. Pinned by
+   `TransparentBackgroundPaintTests`, one of which performs Krypton's exact reflection lookup so a rename
+   or signature change fails a test instead of silently washing out every themed caption again.
+
+3. **FIXED 2026-08-18: single-line text boxes and numeric up/downs collapsed to a 2-3px rule.** This is
+   what the entry below called "a stray horizontal rule". `Control.GetPreferredSizeCore` reports the bounds
+   that were explicitly SET, so a text-entry control whose height had been laid out to zero went on
+   *asking* for zero -- a feedback loop, not a one-off bad measurement. Krypton's `KryptonTextBox` and
+   `KryptonNumericUpDown` host one of these and take their own height from it, so the pair settled at 2px
+   and 3px. A text-entry control's height comes from its font, and `PreferredHeight` already computed it
+   correctly with nothing consuming it; `TextBoxBase` and `NumericUpDown` now override
+   `GetPreferredSizeCore` to fill in a height of zero from it. Only zero is filled in, and not for a
+   multiline box -- a designer that sized the control still wins, which is what keeps this from resizing
+   layouts that were already right. Pinned by `PreferredHeightSizingTests`.
+
+4. **CLOSED 2026-08-18: MessageBoxExample's top-left controls are where the example puts them.** The stray
+   horizontal rule beside them was the collapsed text box above, and it is gone. The rest is the example's
+   own layout, confirmed in its designer file: `kryptonLabel1`/`kryptonLabel2` ("Caption:", "Message
+   Text:") are added to `kryptonPanel1` directly rather than to any group box, and `ClientSize` is
+   assigned `1585x437`, so the form really is that much wider than its content. Not a port defect.
+
+5. **FIXED 2026-08-18: ToolStripItems was empty because `ToolStripControlHost` never hosted anything.**
+   The type held a `Control` reference and forwarded properties to it, but never parented the control or
+   gave it a position, so the hosted control was never displayed and what appeared instead was the item's
+   Text drawn by the strip's renderer -- which is why a hosted slider read as the literal words
+   "kryptonSlider1" in the corner. `SetBounds` (now virtual on `MenuItem`, as `ToolStripItem.SetBounds` is
+   upstream) parents the control into the strip and moves it to the item's bounds. The renderers also stop
+   drawing an item's own background and text for a control host: with the hosted control's `BackColor` set
+   to `Transparent` -- which this example does -- the renderer's text showed straight through it, so the
+   slider came out with "kryptonSlider1" printed across its track. Affects every
+   `ToolStripControlHost`, `ToolStripTextBox` and `ToolStripComboBox` included. Pinned by
+   `ToolStripControlHostingTests`.
+
+   Also checked while here: `statusStrip1.Location` really is `(0, -1)` in the designer, so that is not
+   ours.
+
+6. **OPEN (narrowed 2026-08-18): a Krypton button hosted in a tool strip draws wider than it measures.**
+   All that is left of the ToolStripItems entry above. `KryptonColorButton` in `toolStrip1` reports a
+   `PreferredSize` of 53x20 and is laid out at 53px, then draws an icon, the caption "Color" and a
+   drop-down arrow into it, so the caption clips to "Co". The hosting is correct now, so this is Krypton's
+   own content measurement for that control, reached through our text metrics -- start by comparing what
+   `GetPreferredSize` measures against what the renderer then draws, rather than at the strip.
 
 ### Stop clicking; construct every form headlessly
 
