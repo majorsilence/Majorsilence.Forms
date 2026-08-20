@@ -1836,6 +1836,26 @@ namespace Majorsilence.Forms
                 OnKeyPress (e);
         }
 
+        // Whether this control belongs to the menu that is currently open -- itself, or anything nested
+        // inside it.
+        //
+        // The test used to be `(this as MenuBase)?.GetTopLevelMenu () != Application.ActiveMenu`, which
+        // exempts the menu CONTROL but nothing hosted in it. A ToolStripControlHost puts a real control
+        // inside the menu popup, and mouse-down routes to the deepest child -- so the hosted control ran
+        // this check, was not a MenuBase, and closed the very menu it was sitting in. Choosing a colour
+        // button in a menu dismissed the menu instead of dropping its palette.
+        private bool IsWithinActiveMenu ()
+        {
+            if (Application.ActiveMenu is null)
+                return false;
+
+            for (Control? c = this; c is not null; c = c.Parent)
+                if (c is MenuBase menu && menu.GetTopLevelMenu () == Application.ActiveMenu)
+                    return true;
+
+            return false;
+        }
+
         /// <summary>
         /// Finds the correct control and calls its OnMouseDown method.
         /// </summary>
@@ -1846,9 +1866,9 @@ namespace Majorsilence.Forms
             if (child != null)
                 child.RaiseMouseDown (TranslateMouseEvents (e, child));
             else {
-                // If we're clicking on a Control that isn't the active menu,
+                // If we're clicking on a Control that isn't part of the active menu,
                 // we need to close the active menu (if any)
-                if ((this as MenuBase)?.GetTopLevelMenu () != Application.ActiveMenu || Application.ActiveMenu is null)
+                if (!IsWithinActiveMenu ())
                     Application.ClosePopups (true, false);
 
                 // If we're clicking on a Control that isn't a child of the active PopupWindow,
