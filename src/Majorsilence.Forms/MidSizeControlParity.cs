@@ -497,40 +497,42 @@ namespace Majorsilence.Forms
         public ScrollableControl.DockPaddingEdges DockPadding { get; } = new ScrollableControl.DockPaddingEdges ();
 
         // WinForms redeclares these on this dialog purely to hide them from the designer; they are
-        // never raised there either, because the dialog is not meant to be re-styled.
+        // never raised there either, because the dialog is not meant to be re-styled. The ones that now
+        // shadow a WindowBase member say `new` for that reason, exactly as WinForms does -- hiding is the
+        // intent here, not an accident.
 #pragma warning disable CS0067
         /// <summary>Not raised: the dialog does not support restyling.</summary>
-        public event EventHandler? BackColorChanged;
+        public new event EventHandler? BackColorChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? BackgroundImageChanged;
+        public new event EventHandler? BackgroundImageChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? BackgroundImageLayoutChanged;
+        public new event EventHandler? BackgroundImageLayoutChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? CausesValidationChanged;
+        public new event EventHandler? CausesValidationChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
         public event EventHandler? ContextMenuStripChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? CursorChanged;
+        public new event EventHandler? CursorChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
         public event EventHandler? DockChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? ForeColorChanged;
+        public new event EventHandler? ForeColorChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
         public event EventHandler? ImeModeChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? PaddingChanged;
+        public new event EventHandler? PaddingChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? RightToLeftChanged;
+        public new event EventHandler? RightToLeftChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
         public new event EventHandler? TextChanged;

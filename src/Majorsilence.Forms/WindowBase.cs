@@ -942,6 +942,163 @@ namespace Majorsilence.Forms
             remove => adapter.Layout -= value;
         }
 
+        // ── Control events a WinForms Form inherits ───────────────────────────────
+        // Form is not a Control here, so none of these come for free, and `form.MouseClick += ...` on
+        // migrated code simply did not compile. Each forwards to the root ControlAdapter, which IS the
+        // window's client surface -- the same shape as DoubleClick and Layout above. Members that have no
+        // meaning for a top-level window (Dock, Anchor, TabIndex and friends) are deliberately still
+        // absent; see ControlWindowParityBaseline.txt, which records that split.
+
+        /// <summary>Raised when the window's client area is clicked. Mirrors <c>Control.MouseClick</c>; forwards to the root control adapter.</summary>
+        public event MouseEventHandler? MouseClick {
+            add => adapter.MouseClick += value;
+            remove => adapter.MouseClick -= value;
+        }
+
+        /// <summary>Raised when the window's client area is double-clicked. Mirrors <c>Control.MouseDoubleClick</c>; forwards to the root control adapter.</summary>
+        public event MouseEventHandler? MouseDoubleClick {
+            add => adapter.MouseDoubleClick += value;
+            remove => adapter.MouseDoubleClick -= value;
+        }
+
+        /// <summary>Raised when the mouse rests over the window's client area. Mirrors <c>Control.MouseHover</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? MouseHover {
+            add => adapter.MouseHover += value;
+            remove => adapter.MouseHover -= value;
+        }
+
+        /// <summary>Raised when the window's client area gains or loses mouse capture. Mirrors <c>Control.MouseCaptureChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? MouseCaptureChanged {
+            add => adapter.MouseCaptureChanged += value;
+            remove => adapter.MouseCaptureChanged -= value;
+        }
+
+        /// <summary>Raised when the background colour changes. Mirrors <c>Control.BackColorChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? BackColorChanged {
+            add => adapter.BackColorChanged += value;
+            remove => adapter.BackColorChanged -= value;
+        }
+
+        /// <summary>Raised when the foreground colour changes. Mirrors <c>Control.ForeColorChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? ForeColorChanged {
+            add => adapter.ForeColorChanged += value;
+            remove => adapter.ForeColorChanged -= value;
+        }
+
+        /// <summary>Raised when the cursor changes. Mirrors <c>Control.CursorChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? CursorChanged {
+            add => adapter.CursorChanged += value;
+            remove => adapter.CursorChanged -= value;
+        }
+
+        /// <summary>Raised when the padding changes. Mirrors <c>Control.PaddingChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? PaddingChanged {
+            add => adapter.PaddingChanged += value;
+            remove => adapter.PaddingChanged -= value;
+        }
+
+        /// <summary>Raised when the RightToLeft value changes. Mirrors <c>Control.RightToLeftChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? RightToLeftChanged {
+            add => adapter.RightToLeftChanged += value;
+            remove => adapter.RightToLeftChanged -= value;
+        }
+
+        /// <summary>Raised when the system colours change. Mirrors <c>Control.SystemColorsChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? SystemColorsChanged {
+            add => adapter.SystemColorsChanged += value;
+            remove => adapter.SystemColorsChanged -= value;
+        }
+
+        /// <summary>Raised when the binding context changes. Mirrors <c>Control.BindingContextChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? BindingContextChanged {
+            add => adapter.BindingContextChanged += value;
+            remove => adapter.BindingContextChanged -= value;
+        }
+
+        /// <summary>Raised when the CausesValidation value changes. Mirrors <c>Control.CausesValidationChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? CausesValidationChanged {
+            add => adapter.CausesValidationChanged += value;
+            remove => adapter.CausesValidationChanged -= value;
+        }
+
+        /// <summary>Raised when the background image changes. Mirrors <c>Control.BackgroundImageChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? BackgroundImageChanged {
+            add => adapter.BackgroundImageChanged += value;
+            remove => adapter.BackgroundImageChanged -= value;
+        }
+
+        /// <summary>Raised when the background image layout changes. Mirrors <c>Control.BackgroundImageLayoutChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? BackgroundImageLayoutChanged {
+            add => adapter.BackgroundImageLayoutChanged += value;
+            remove => adapter.BackgroundImageLayoutChanged -= value;
+        }
+
+        /// <summary>Raised when the region changes. Mirrors <c>Control.RegionChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? RegionChanged {
+            add => adapter.RegionChanged += value;
+            remove => adapter.RegionChanged -= value;
+        }
+
+        /// <summary>Raised when the control style changes. Mirrors <c>Control.StyleChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? StyleChanged {
+            add => adapter.StyleChanged += value;
+            remove => adapter.StyleChanged -= value;
+        }
+
+        /// <summary>Raised when a drag operation leaves the window. Mirrors <c>Control.DragLeave</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? DragLeave {
+            add => adapter.DragLeave += value;
+            remove => adapter.DragLeave -= value;
+        }
+
+        /// <summary>Raised when the window's client area is entered. Mirrors <c>Control.Enter</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? Enter {
+            add => adapter.Enter += value;
+            remove => adapter.Enter -= value;
+        }
+
+        /// <summary>Raised when validation of the client area finishes. Mirrors <c>Control.Validated</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? Validated {
+            add => adapter.Validated += value;
+            remove => adapter.Validated -= value;
+        }
+
+        /// <summary>Raised when part of the window is invalidated. Mirrors <c>Control.Invalidated</c>; forwards to the root control adapter.</summary>
+        public event EventHandler<InvalidateEventArgs>? Invalidated {
+            add => adapter.Invalidated += value;
+            remove => adapter.Invalidated -= value;
+        }
+
+        /// <summary>Raised when a drag operation is asked whether to continue. Mirrors <c>Control.QueryContinueDrag</c>; forwards to the root control adapter.</summary>
+        public event EventHandler<QueryContinueDragEventArgs>? QueryContinueDrag {
+            add => adapter.QueryContinueDrag += value;
+            remove => adapter.QueryContinueDrag -= value;
+        }
+
+        /// <summary>Raised when the focus or keyboard UI cues change. Mirrors <c>Control.ChangeUICues</c>; forwards to the root control adapter.</summary>
+        public event UICuesEventHandler? ChangeUICues {
+            add => adapter.ChangeUICues += value;
+            remove => adapter.ChangeUICues -= value;
+        }
+
+        /// <summary>Raised when a control is added to the window. Mirrors <c>Control.ControlAdded</c>; forwards to the root control adapter.</summary>
+        public event ControlEventHandler? ControlAdded {
+            add => adapter.ControlAdded += value;
+            remove => adapter.ControlAdded -= value;
+        }
+
+        /// <summary>Raised when a control is removed from the window. Mirrors <c>Control.ControlRemoved</c>; forwards to the root control adapter.</summary>
+        public event ControlEventHandler? ControlRemoved {
+            add => adapter.ControlRemoved += value;
+            remove => adapter.ControlRemoved -= value;
+        }
+
+        /// <summary>Raised when a key is previewed before being processed. Mirrors <c>Control.PreviewKeyDown</c>; forwards to the root control adapter.</summary>
+        public event PreviewKeyDownEventHandler? PreviewKeyDown {
+            add => adapter.PreviewKeyDown += value;
+            remove => adapter.PreviewKeyDown -= value;
+        }
+
         /// <summary>Raises the <see cref="MouseWheel"/> event.</summary>
         protected virtual void OnMouseWheel (MouseEventArgs e) => MouseWheel?.Invoke (this, e);
 
