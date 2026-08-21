@@ -119,18 +119,6 @@ FromScreenPoint/1
 
 
 
-# WORTH CLOSING -- designer/AmbientValue support. Every designer file calls the Reset* pattern.
-CompanyName
-DefaultFont
-DefaultForeColor
-ProductName
-ProductVersion
-ResetBackColor/0
-ResetCursor/0
-ResetFont/0
-ResetForeColor/0
-ResetRightToLeft/0
-ResetText/0
 
 # WORTH CLOSING -- validation and tab handling, which a Form drives for its children.
 BeginUpdate/0

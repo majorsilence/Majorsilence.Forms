@@ -679,6 +679,57 @@ namespace Majorsilence.Forms
         /// <summary>Resets <see cref="ImeMode"/> to its default. Part of the designer Reset* pattern.</summary>
         public void ResetImeMode () => ImeMode = DefaultImeMode;
 
+        // ── The rest of the designer Reset* pattern ──────────────────────────────
+        // Every designer file emits these, and each one has to clear the SAME storage the corresponding
+        // property writes, or "reset" leaves the explicit value in place and the property keeps reporting
+        // it. That is why these are not one-liners forwarded blindly: BackColor and ForeColor live on the
+        // window's own ControlStyle, Cursor in its own field, while Font and RightToLeft belong to the
+        // root adapter.
+
+        /// <summary>Clears any explicitly-set background colour so the window resolves it from the theme again.</summary>
+        public virtual void ResetBackColor ()
+        {
+            if (Style.BackgroundColor is null)
+                return;
+
+            Style.BackgroundColor = null;
+            Invalidate ();
+        }
+
+        /// <summary>Clears any explicitly-set foreground colour so the window resolves it from the theme again.</summary>
+        public virtual void ResetForeColor ()
+        {
+            if (Style.ForegroundColor is null)
+                return;
+
+            Style.ForegroundColor = null;
+            Invalidate ();
+        }
+
+        /// <summary>Clears any explicitly-set cursor, so the window shows the default arrow again.</summary>
+        public virtual void ResetCursor () => Cursor = null;
+
+        /// <summary>Clears any explicitly-set font, so the window and its children resolve it ambiently.</summary>
+        public virtual void ResetFont () => adapter.ResetFont ();
+
+        /// <summary>Resets the window's reading order so it follows the system default again.</summary>
+        public virtual void ResetRightToLeft () => RightToLeft = RightToLeft.Inherit;
+
+        /// <summary>Gets the default font a window and its children use. Matches <see cref="Control.DefaultFont"/>.</summary>
+        public static Majorsilence.Forms.Drawing.Font DefaultFont => Control.DefaultFont;
+
+        /// <summary>Gets the default foreground colour of a window. Matches <see cref="Control.DefaultForeColor"/>.</summary>
+        public static System.Drawing.Color DefaultForeColor => Control.DefaultForeColor;
+
+        /// <summary>Gets the company name from the application's assembly metadata.</summary>
+        public string CompanyName => Application.CompanyName ?? string.Empty;
+
+        /// <summary>Gets the product name from the application's assembly metadata.</summary>
+        public string ProductName => Application.ProductName ?? string.Empty;
+
+        /// <summary>Gets the product version from the application's assembly metadata.</summary>
+        public string ProductVersion => Application.ProductVersion ?? string.Empty;
+
         /// <summary>Gets or sets the unscaled location of the window. Mirrors WinForms Form.Location.</summary>
         public System.Drawing.Point Location {
             get => Backend.Location;

@@ -17,7 +17,10 @@ public class ProductEditForm : Form
     private readonly bool _isEdit;
 
     public string Sku => _skuBox.Text;
-    public string ProductName => _nameBox.Text;
+    // `new`: this is the product being edited, not the assembly metadata that Control/WindowBase's
+    // ProductName reports. WinForms has the same collision -- Control.ProductName is inherited by every
+    // Form there too -- so a migrated app hits this exact warning and answers it the same way.
+    public new string ProductName => _nameBox.Text;
     public string? Description => string.IsNullOrWhiteSpace(_descriptionBox.Text) ? null : _descriptionBox.Text;
     public decimal Price => _priceBox.Value;
     public int CategoryId => ((CategoryDto)_categoryBox.SelectedItem!).Id;

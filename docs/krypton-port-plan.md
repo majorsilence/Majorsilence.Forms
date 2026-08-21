@@ -726,6 +726,29 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   `DataBindings` does (it binds the hosted `PrintPreviewControl`). Net effect: this pass removed more
   shadows than it added.
 
+- **[FIXED 2026-08-21] The designer Reset* pattern on a window -- baseline 134 down to 123.**
+  `ResetBackColor`, `ResetForeColor`, `ResetCursor`, `ResetFont`, `ResetRightToLeft`, `ResetText`, plus
+  `DefaultFont`/`DefaultForeColor` and the `CompanyName`/`ProductName`/`ProductVersion` trio. Every
+  designer file emits these, so a form that customised any of them did not compile.
+
+  Not forwarding one-liners: each Reset has to clear the SAME storage its property writes, and the window's
+  storage is not uniform. `BackColor`/`ForeColor` live on the window's own `ControlStyle`, `Cursor` in its
+  own field, `Font`/`RightToLeft` on the root adapter -- and `Text` is declared on `Form`, not
+  `WindowBase`, so `ResetText` had to go there or it could not clear the value the property writes.
+  Pinned by `WindowResetPatternTests`, which asserts the value actually returns rather than that the method
+  exists.
+
+  Two things learned. `RightToLeft`'s getter RESOLVES `Inherit` through the parent chain, so a window
+  reports the ambient default rather than the word `Inherit` after a reset -- as WinForms does. My first
+  test asserted `Inherit` and was simply wrong; it now checks the explicit value is gone and children
+  follow the default again, which is the behaviour that matters.
+
+  And a **migration hazard worth telling users about**: adding `ProductName` to the window type broke the
+  PointOfSale sample, which has a domain `ProductName` on an edit form. That is faithful -- WinForms'
+  `Control.ProductName` is inherited by every Form there too, so a migrated app hits the same CS0108 and
+  answers it the same way, with `new`. The sample now does, with a comment saying why. Expect this for
+  `ProductName`, `CompanyName` and `Text`-adjacent names in real ports.
+
 - **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
   (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
   re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity
