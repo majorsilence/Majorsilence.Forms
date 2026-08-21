@@ -97,6 +97,14 @@ namespace Majorsilence.Forms
                 var member = dataMember ?? string.Empty;
                 var key = (dataSource ?? this, member);
 
+                // A source that owns a currency manager (a BindingSource) hands its own over, so its
+                // Position and the bound controls' current item are ONE thing. Building a second manager
+                // over it here gave them independent positions, and moving the BindingSource did not move
+                // what the bound control showed.
+                if (dataSource is ICurrencyManagerProvider provider
+                    && provider.GetRelatedCurrencyManager (member) is { } owned)
+                    return owned;
+
                 if (!managers.TryGetValue (key, out var manager)) {
                     // A list source gets a CurrencyManager with a position; anything else is a single
                     // object, which is what PropertyManager is for. This used to hand back a

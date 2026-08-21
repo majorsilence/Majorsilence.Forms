@@ -664,6 +664,26 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   null with `throwOnBindFailure: false`, which is how the write-back half stayed silently unwired through
   the first round of tests. Bind through an explicit `MethodInfo`.
 
+- **[FIXED 2026-08-21] BindingSource, once live bindings made its gaps observable.** Three real bugs, and
+  a lesson about this codebase. `CurrencyManager` returned `new CurrencyManager (_list)` on EVERY read, so
+  no two callers shared a current item -- and since `BindingContext` builds a manager for whatever a
+  control binds to, a control bound to a BindingSource tracked a private position and never followed
+  `BindingSource.Position`. It is now cached, synced with `Position` both ways behind a re-entrancy guard,
+  and handed out through `ICurrencyManagerProvider`, which `BindingContext` now honours. `AddNew` added a
+  literal `null` to the caller's own list; it now sources the item from `AddingNew`, the list's own
+  `AddNew`, or the element type's constructor, and makes it current. `Find` always returned -1; it now
+  delegates when the list can search and otherwise walks it -- a deliberate divergence from WinForms,
+  which throws, because "not found" was the worse answer. `EndEdit`/`CancelEdit` reach an
+  `IEditableObject`, and `Sort` parses the WinForms expression shape and applies it through the list.
+  9 tests in `BindingSourceRuntimeTests`.
+
+  **The lesson: grep every partial before adding a member here.** `BindingSource` is spread across
+  `BindingSource.cs` and `AppMenuBindingParity.cs`, and most of the sort/filter surface the compatibility
+  matrix listed as missing was already implemented in the second file -- better than the version being
+  written from the matrix's description. Roughly half of that work was thrown away on discovering it. The
+  matrix row is now corrected. Two of these types (`Binding`, `BindingSource`) have four or five partials
+  each; `grep -rn "class <Name>" src/` first, every time.
+
 - **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
   (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
   re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity

@@ -11,7 +11,7 @@ namespace Majorsilence.Forms
     /// bound controls can read the schema (column set) of the resolved list -- including the case where
     /// the source is a DataSet and DataMember names one of its tables.
     /// </summary>
-    public partial class BindingSource : Component, IList, ITypedList, IBindingList, ISupportInitialize, ISupportInitializeNotification
+    public partial class BindingSource : Component, IList, ITypedList, IBindingList, ICurrencyManagerProvider, ISupportInitialize, ISupportInitializeNotification
     {
         private IList _list = new List<object?> ();
         private object? _dataSource;
@@ -116,6 +116,9 @@ namespace Majorsilence.Forms
                 _ => new List<object?> ()
             };
 
+            // The old manager pointed at the old list, so drop it; the next reader builds one over the
+            // new list.
+            ForgetCurrencyManager ();
             Position = _list.Count > 0 ? 0 : -1;
 
             AttachToList ();
@@ -184,7 +187,13 @@ namespace Majorsilence.Forms
                     return;
 
                 position = value;
+
+                // Keep the shared CurrencyManager in step, so a control bound through it follows a
+                // programmatic Position move. Guarded, because the manager pushes back the other way.
+                PushPositionToCurrencyManager (value);
+
                 OnCurrentChanged (EventArgs.Empty);
+                OnCurrentItemChanged (EventArgs.Empty);
             }
         }
 
@@ -193,11 +202,81 @@ namespace Majorsilence.Forms
         /// <summary>Gets the current item at the current position.</summary>
         public object? Current => (Position >= 0 && Position < _list.Count) ? _list[Position] : null;
 
-        /// <summary>Gets or sets a filter expression (no-op stub — filtered data requires DataView).</summary>
-        public string? Filter { get; set; }
+        /// <summary>Gets or sets a filter expression, applied when the underlying list can filter.</summary>
+        /// <remarks>
+        /// Sorting and filtering are the UNDERLYING list's job, exactly as in WinForms: a
+        /// <c>DataView</c> or any <see cref="IBindingListView"/> applies them, a plain
+        /// <c>List&lt;T&gt;</c> cannot and reports so through <see cref="SupportsFiltering"/>. The value
+        /// is still stored when the list cannot apply it, so a designer that sets it round-trips.
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "A filter expression names members of the caller's own item type at runtime, so trimming cannot see them either way -- a trimmed app has to root the types it filters on. Same position as upstream.")]
+        public string? Filter {
+            get => _list is IBindingListView { SupportsFiltering: true } view ? view.Filter : filter;
+            set {
+                filter = value;
 
-        /// <summary>Gets or sets the sort expression (no-op stub).</summary>
-        public string? Sort { get; set; }
+                if (_list is IBindingListView { SupportsFiltering: true } view)
+                    view.Filter = value;
+            }
+        }
+
+        private string? filter;
+
+        /// <summary>Gets or sets the sort expression, applied when the underlying list can sort.</summary>
+        /// <inheritdoc cref="Filter" path="/remarks"/>
+        public string? Sort {
+            get => sort;
+            set {
+                sort = value;
+                ApplySortExpression (value);
+            }
+        }
+
+        private string? sort;
+
+        // ApplySort/RemoveSort record the expression they just carried out. Going through the Sort
+        // property would send it straight back through ApplySortExpression and sort the list twice.
+        internal void RecordSortExpression (string? value) => sort = value;
+
+        // "Name", "Name DESC", "Name ASC, Age DESC" -- the WinForms sort-expression shape. An advanced
+        // view takes the whole string; a plain IBindingList can only sort on one property, so it gets the
+        // first clause, which is what WinForms does too.
+        private void ApplySortExpression (string? expression)
+        {
+            if (_list is not IBindingList { SupportsSorting: true } list)
+                return;
+
+            if (string.IsNullOrWhiteSpace (expression)) {
+                list.RemoveSort ();
+                return;
+            }
+
+            var properties = ((ITypedList)this).GetItemProperties (null);
+            var clauses = new List<ListSortDescription> ();
+
+            foreach (var clause in expression.Split (',', StringSplitOptions.RemoveEmptyEntries)) {
+                var parts = clause.Trim ().Split (' ', StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length == 0 || properties[parts[0]] is not { } property)
+                    continue;
+
+                var descending = parts.Length > 1
+                    && parts[1].StartsWith ("DESC", StringComparison.OrdinalIgnoreCase);
+
+                clauses.Add (new ListSortDescription (property,
+                    descending ? ListSortDirection.Descending : ListSortDirection.Ascending));
+            }
+
+            if (clauses.Count == 0)
+                return;
+
+            // Several clauses need a view that can sort on more than one property; a plain IBindingList
+            // sorts on one, so it gets the first, which is what WinForms settles for too.
+            if (clauses.Count > 1 && _list is IBindingListView { SupportsAdvancedSorting: true } view)
+                view.ApplySort (new ListSortDescriptionCollection (clauses.ToArray ()));
+            else
+                list.ApplySort (clauses[0].PropertyDescriptor!, clauses[0].SortDirection);
+        }
 
         /// <summary>Raised when the current item changes.</summary>
         public event EventHandler? CurrentChanged;
@@ -232,6 +311,10 @@ namespace Majorsilence.Forms
         }
 
         private bool raise_list_changed_events = true;
+
+        // Position keeps the shared CurrencyManager in step; see the CurrencyManager override in
+        // AppMenuBindingParity.cs, which is where that manager is created and cached.
+        private bool syncing_position;
 
         /// <summary>Raised when the <see cref="DataSource"/> property changes.</summary>
         public event EventHandler? DataSourceChanged;
@@ -353,26 +436,127 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public IEnumerator GetEnumerator () => _list.GetEnumerator ();
 
-        /// <summary>Adds a new item to the underlying list. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Adds a new item to the underlying list and makes it current.</summary>
+        /// <remarks>
+        /// It used to add a literal <c>null</c> and return it, which put a null into the caller's own
+        /// collection and made the next bound read fail. The item now comes from an
+        /// <see cref="AddingNew"/> handler if one supplies it, then from the list itself if it can create
+        /// one, and otherwise from the element type's parameterless constructor.
+        /// </remarks>
 #pragma warning disable CA1711
-        public object? AddNew () { _list.Add (null); return null; }
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2067", Justification = "Data binding creates items of user-provided types by reflection, as it does upstream.")]
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072", Justification = "Data binding creates items of user-provided types by reflection, as it does upstream.")]
+        public object? AddNew ()
+        {
+            if (!AllowNew)
+                throw new InvalidOperationException ("AddNew is not allowed on this BindingSource.");
+
+            var args = new AddingNewEventArgs ();
+            OnAddingNew (args);
+
+            var item = args.NewObject;
+
+            if (item is null && _list is IBindingList { AllowNew: true } bindingList)
+                return Select (bindingList.AddNew ());
+
+            if (item is null && ListElementType () is { } elementType && elementType != typeof (object)) {
+                try {
+                    item = Activator.CreateInstance (elementType);
+                } catch (MissingMethodException) {
+                    // No parameterless constructor: the caller has to supply the item through AddingNew.
+                    throw new InvalidOperationException (
+                        $"Cannot create an instance of {elementType.Name}; handle AddingNew to supply one.");
+                }
+            }
+
+            if (item is null)
+                throw new InvalidOperationException (
+                    "Cannot determine the type of item to add; handle AddingNew to supply one.");
+
+            _list.Add (item);
+            OnListChanged (new ListChangedEventArgs (ListChangedType.ItemAdded, _list.Count - 1));
+
+            return Select (item);
+        }
 #pragma warning restore CA1711
 
-        /// <summary>Removes the current item from the list. Stub in Majorsilence.Forms.</summary>
-        public void RemoveCurrent () { if (Position >= 0 && Position < _list.Count) _list.RemoveAt (Position); }
+        // Makes a freshly added item current, which is what a caller adding a row then editing it expects.
+        private object? Select (object? item)
+        {
+            var index = _list.IndexOf (item);
 
-        /// <summary>Commits the pending edit. Stub in Majorsilence.Forms.</summary>
-        public void EndEdit () { }
+            if (index >= 0)
+                Position = index;
 
-        /// <summary>Cancels the pending edit. Stub in Majorsilence.Forms.</summary>
-        public void CancelEdit () { }
+            return item;
+        }
+
+        /// <summary>Removes the current item from the list.</summary>
+        public void RemoveCurrent ()
+        {
+            if (!AllowRemove)
+                throw new InvalidOperationException ("RemoveCurrent is not allowed on this BindingSource.");
+
+            if (Position >= 0 && Position < _list.Count) {
+                var removed = Position;
+                _list.RemoveAt (removed);
+                OnListChanged (new ListChangedEventArgs (ListChangedType.ItemDeleted, removed));
+            }
+        }
+
+        /// <summary>Commits any pending edit on the current item.</summary>
+        /// <remarks>Real for an item that implements <see cref="IEditableObject"/>, which is how a bound
+        /// row signals a transaction; a plain object has no pending edit to commit.</remarks>
+        public void EndEdit ()
+        {
+            if (Current is IEditableObject editable)
+                editable.EndEdit ();
+        }
+
+        /// <summary>Rolls back any pending edit on the current item.</summary>
+        /// <inheritdoc cref="EndEdit" path="/remarks"/>
+        public void CancelEdit ()
+        {
+            if (Current is IEditableObject editable)
+                editable.CancelEdit ();
+        }
 
         /// <summary>Tells bound controls to re-read the item at the given index.</summary>
         public void ResetItem (int itemIndex)
             => OnListChanged (new ListChangedEventArgs (ListChangedType.ItemChanged, itemIndex));
 
-        /// <summary>Returns the index of the item with the given property value. Stub in Majorsilence.Forms.</summary>
-        public int Find (string propertyName, object key) => -1;
+        /// <summary>Returns the index of the first item whose named property equals the given key.</summary>
+        /// <remarks>
+        /// Delegates to the underlying list when it can search. When it cannot, this walks the list
+        /// instead of throwing -- a DELIBERATE divergence: WinForms raises NotSupportedException for a
+        /// list that is not a searchable IBindingList, but the answer is cheap to compute and the
+        /// alternative here was the previous behaviour of silently returning -1 for everything, which
+        /// reads as "not found" and is worse than either.
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding resolves members by name over user-provided types.")]
+        public int Find (string propertyName, object key)
+        {
+            ArgumentException.ThrowIfNullOrEmpty (propertyName);
+
+            if (_list is IBindingList { SupportsSearching: true } searchable
+                && ((ITypedList)this).GetItemProperties (null)[propertyName] is { } descriptor)
+                return searchable.Find (descriptor, key);
+
+            for (var i = 0; i < _list.Count; i++) {
+                var item = _list[i];
+
+                if (item is null)
+                    continue;
+
+                var property = item.GetType ().GetProperty (propertyName,
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+
+                if (property is not null && Equals (property.GetValue (item), key))
+                    return i;
+            }
+
+            return -1;
+        }
 
         /// <summary>Finds the index of the item whose described property equals the given key.</summary>
         public int Find (PropertyDescriptor property, object key)
