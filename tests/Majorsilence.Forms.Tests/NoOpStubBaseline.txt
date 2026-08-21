@@ -166,5 +166,6 @@ Majorsilence.Forms.WebBrowser.ShowPrintPreviewDialog/0
 Majorsilence.Forms.WebBrowser.ShowPropertiesDialog/0
 Majorsilence.Forms.WebBrowser.ShowSaveAsDialog/0
 Majorsilence.Forms.WebBrowser.Stop/0
+Majorsilence.Forms.WindowBase.AccessibilityNotifyClients/2
 Majorsilence.Forms.WindowBase.UpdateStyles/0
 Majorsilence.Forms.WindowsFormsSynchronizationContext.Dispose/0

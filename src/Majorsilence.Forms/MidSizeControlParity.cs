@@ -479,8 +479,15 @@ namespace Majorsilence.Forms
 
         private PrintPreviewControl? print_preview_control;
 
-        /// <summary>Gets or sets the accessible role reported for the dialog.</summary>
-        public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Client;
+        // AccessibleRole is NOT redeclared here. WindowBase supplies it now, and this dialog only ever
+        // wanted a different default (Client rather than Default, as WinForms reports for it), which the
+        // constructor sets -- shadowing the inherited property to change a default would leave two
+        // properties where callers expect one.
+        /// <summary>Initializes a new instance.</summary>
+        public PrintPreviewDialog ()
+        {
+            AccessibleRole = AccessibleRole.Client;
+        }
 
         /// <summary>Gets or sets the input method editor mode.</summary>
         public ImeMode ImeMode { get; set; } = ImeMode.Inherit;
@@ -491,7 +498,10 @@ namespace Majorsilence.Forms
         public new bool UseWaitCursor { get; set; }
 
         /// <summary>Gets the data bindings for the dialog.</summary>
-        public ControlBindingsCollection DataBindings => data_bindings ??= new ControlBindingsCollection (PrintPreviewControl);
+        /// <remarks>`new` deliberately: these bind the hosted <see cref="PrintPreviewControl"/>, which is
+        /// what a caller binding this dialog means, and not the window's own properties that
+        /// <see cref="WindowBase.DataBindings"/> covers.</remarks>
+        public new ControlBindingsCollection DataBindings => data_bindings ??= new ControlBindingsCollection (PrintPreviewControl);
 
         private ControlBindingsCollection? data_bindings;
 

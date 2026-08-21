@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents the base class for windows, like Form and PopupWindow.
     /// </summary>
-    public abstract partial class WindowBase : Component
+    public abstract partial class WindowBase : Component, IBindableComponent
     {
         private const int DOUBLE_CLICK_TIME = 500;
         private const int DOUBLE_CLICK_MOVEMENT = 4;
@@ -1696,6 +1696,95 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets whether the window is in design mode. Always false, as on Control.</summary>
         public new bool DesignMode => false;
+
+        // ── Data binding ─────────────────────────────────────────────────────────
+        // NOTE ON WHAT THIS ACTUALLY DOES: binding is a COMPILE-compatibility surface in this library,
+        // not a working facility -- `Binding.WriteValue` is an empty stub, so no binding moves a value in
+        // either direction yet. These members exist so migrated code that sets up bindings on a Form
+        // compiles and runs; they are wired to the correct objects so that implementing Binding later
+        // makes them work rather than making them wrong.
+
+        /// <summary>Gets the data bindings for the window's own properties.</summary>
+        /// <remarks>
+        /// Bound to the WINDOW, not to its root adapter, because that is what the collection is for:
+        /// `form.DataBindings.Add ("Text", source, "Title")` is a statement about the window's title.
+        /// Handing back the adapter's collection would compile and quietly bind the adapter's Text --
+        /// a different property that nothing displays.
+        /// </remarks>
+        public ControlBindingsCollection DataBindings => data_bindings ??= new ControlBindingsCollection (this);
+
+        private ControlBindingsCollection? data_bindings;
+
+        /// <summary>Re-reads every bound property of the window from its data source.</summary>
+        public void ResetBindings ()
+        {
+            foreach (var binding in DataBindings)
+                binding.WriteValue ();
+        }
+
+        /// <summary>Gets or sets an arbitrary object shared with the window's children for binding.</summary>
+        /// <remarks>
+        /// Forwards to the root adapter, and here that IS the right object: the value's purpose is to be
+        /// inherited by descendants, and a child with none of its own reads its parent's -- a chain that
+        /// terminates at the adapter. Setting it on the adapter is therefore what makes every control on
+        /// the window see it.
+        /// </remarks>
+        public virtual object? DataContext {
+            get => adapter.DataContext;
+            set => adapter.DataContext = value;
+        }
+
+        /// <summary>Raised when <see cref="DataContext"/> changes.</summary>
+        public event EventHandler? DataContextChanged {
+            add => adapter.DataContextChanged += value;
+            remove => adapter.DataContextChanged -= value;
+        }
+
+        // The window's binding context. Form declares a public, non-nullable BindingContext of its own
+        // (as WinForms does on Form), so the interface member routes through this hook instead of a second
+        // property that would shadow it and then disagree with it.
+        internal virtual BindingContext? BindingContextCore {
+            get => binding_context ??= new BindingContext ();
+            set => binding_context = value;
+        }
+
+        private BindingContext? binding_context;
+
+        BindingContext? IBindableComponent.BindingContext {
+            get => BindingContextCore;
+            set => BindingContextCore = value;
+        }
+
+        // ── Accessibility ────────────────────────────────────────────────────────
+        // Window-owned rather than forwarded to the adapter: a screen reader addresses the WINDOW, and
+        // these describe it. Like Control's, they are currently a described surface rather than a live one
+        // -- nothing here is published to a platform accessibility API yet -- so they store and return what
+        // they are told, which is what lets migrated code that sets them compile and keep its intent.
+
+        /// <summary>Gets the accessible object that represents this window.</summary>
+        public AccessibleObject AccessibilityObject => accessibility_object ??= CreateAccessibilityInstance ();
+
+        private AccessibleObject? accessibility_object;
+
+        /// <summary>Creates the accessible object for this window.</summary>
+        protected virtual AccessibleObject CreateAccessibilityInstance () => new AccessibleObject ();
+
+        /// <summary>Notifies accessibility clients of a change. A no-op, as on Control.</summary>
+        public void AccessibilityNotifyClients (AccessibleEvents accEvent, int childID) { }
+
+        /// <summary>Gets or sets the description of the window's default action.</summary>
+        public string? AccessibleDefaultActionDescription { get; set; }
+
+        /// <summary>Gets or sets the accessible role of the window.</summary>
+        public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Default;
+
+        /// <summary>Gets or sets whether the window is visible to accessibility clients.</summary>
+        public bool IsAccessible { get; set; } = true;
+
+        /// <summary>Raised when an accessibility client requests help for the window.</summary>
+        /// <remarks>Never raised, as on Control: there is no accessibility client to ask. Present because
+        /// designer code binds it.</remarks>
+        public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp { add { } remove { } }
 
         // The adapter forwards its layout pass to this window only once the window has been shown (see
         // ControlAdapter.OnLayout, which explains why). An explicit PerformLayout/ResumeLayout from the

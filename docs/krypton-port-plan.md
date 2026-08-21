@@ -609,6 +609,42 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   Watch for `CS0108` when closing any further group: `PrintPreviewDialog` redeclares a lot of Control
   surface to hide it from the designer, so each addition can shadow one of those and Release treats the
   warning as an error. `UseWaitCursor` needed `new` for exactly that reason, as five events did before it.
+
+  **2026-08-21: data binding and accessibility closed -- 152 down to 141.**
+
+  Data binding (`DataBindings`, `DataContext`, `DataContextChanged`, `ResetBindings`). Worth knowing before
+  touching this: binding here is a COMPILE-compatibility surface, not a working facility --
+  `Binding.WriteValue` is an empty stub, so no binding moves a value in either direction. The members are
+  still wired to the correct objects so that implementing `Binding` later makes them work rather than
+  making them wrong, and the split is not obvious: `DataBindings` belongs to the WINDOW (`form.DataBindings
+  .Add ("Text", src, "Title")` is a statement about the window's title, and handing back the adapter's
+  collection would compile and bind the adapter's Text, which nothing displays), while `DataContext`
+  forwards to the adapter because its entire purpose is to be inherited by descendants and that chain
+  terminates there. `WindowBase` implements `IBindableComponent` for this, with the interface's
+  `BindingContext` routed through an internal `BindingContextCore` that `Form` overrides onto its existing
+  public property -- a second property would have shadowed it and then drifted from it.
+  `OnDataContextChanged/1` was moved to the already-forwarded On* group rather than added, since the event
+  is raised by the adapter and a window-side raiser would double it.
+
+  Accessibility (`AccessibilityObject`, `CreateAccessibilityInstance`, `AccessibleRole`,
+  `AccessibleDefaultActionDescription`, `IsAccessible`, `AccessibilityNotifyClients`,
+  `QueryAccessibilityHelp`). Window-owned rather than forwarded: a screen reader addresses the window.
+  Also a described surface rather than a live one -- nothing reaches a platform accessibility API yet -- so
+  `AccessibilityNotifyClients` is a deliberate no-op and had to be recorded in `NoOpStubBaseline.txt` and
+  `COMPATIBILITY_MATRIX.md`; `NoOpStubBaselineTests` catches a new empty public void method and will fail
+  until it is. Both facts are now in the matrix so the surface is not mistaken for a working one.
+
+  `PrintPreviewDialog` collided twice more (`DataBindings`, `AccessibleRole`). `DataBindings` genuinely
+  differs -- it binds the hosted `PrintPreviewControl`, which is what binding that dialog means -- so it
+  says `new`. `AccessibleRole` did not: it existed only to change the default to `Client`, so the property
+  was DELETED and the default moved into a constructor, leaving one property where callers expect one.
+  Prefer that shape over `new` whenever the shadow exists only to change a default.
+
+- **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
+  (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
+  re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity
+  work; it looks like shared state or parallelism across test assemblies. Worth pinning down before it
+  wastes someone's afternoon attributing it to their own change.
 - **Mobile/browser audio:** desktop audio is real now (`Media/NativeAudio.cs` spawns the OS player;
   see COMPATIBILITY_MATRIX "Majorsilence.Forms.Media"). Android/iOS/wasm stay silent until a backend
   supplies a native path -- `NativeAudio.LauncherOverride` is currently the only seam, promote it to a

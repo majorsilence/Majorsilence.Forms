@@ -116,21 +116,7 @@ Site
 # exists as Form.ActiveForm / WindowBase.GetChildAtPoint.
 FromScreenPoint/1
 
-# WORTH CLOSING -- data binding on a Form is ordinary WinForms practice.
-DataBindings
-DataContext
-DataContextChanged
-OnDataContextChanged/1
-ResetBindings/0
 
-# WORTH CLOSING -- accessibility. A window is exactly what a screen reader addresses first.
-AccessibilityNotifyClients/2
-AccessibilityObject
-AccessibleDefaultActionDescription
-AccessibleRole
-CreateAccessibilityInstance/0
-IsAccessible
-QueryAccessibilityHelp
 
 # WORTH CLOSING -- context menus and IME belong to a window as much as to a control.
 ContextMenu
@@ -189,6 +175,7 @@ RtlTranslateHorizontal/1
 RtlTranslateLeftRight/1
 
 # LOW VALUE -- On* raisers whose events are already forwarded above; add only if a subclass needs to override.
+OnDataContextChanged/1
 OnBackColorChanged/1
 OnBackgroundImageChanged/1
 OnBackgroundImageLayoutChanged/1
