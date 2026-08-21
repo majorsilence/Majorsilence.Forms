@@ -30,6 +30,11 @@ namespace Majorsilence.Forms
             // which is how CheckedListBox returns one that tracks check state alongside each item.
             Items = CreateItemCollection ();
 
+            source_tracker = new DataSourceBinding.ListSourceTracker (
+                RefreshDataSource,
+                position => SelectedIndex = position,
+                () => SelectedIndex);
+
             Items.CollectionChanged += (o, e) => UpdateVerticalScrollBar ();
 
             vscrollbar = new VerticalScrollBar {
@@ -191,9 +196,15 @@ namespace Majorsilence.Forms
             get => _dataSource;
             set {
                 _dataSource = value;
+                source_tracker.Attach (value);
                 RefreshDataSource ();
             }
         }
+
+        // Re-reads the source when it changes and keeps SelectedIndex and the source's current-item
+        // position in step. Without it the control kept whatever the list held at bind time -- which for
+        // designer code, where the data arrives after InitializeComponent, is nothing.
+        private readonly DataSourceBinding.ListSourceTracker source_tracker;
 
         /// <summary>Gets or sets the property to display from the data source.</summary>
         public override string DisplayMember {
@@ -519,6 +530,11 @@ namespace Majorsilence.Forms
 
                 if (Items.SelectedIndex != value || Items.SelectedIndexes.Count > 1) {
                     Items.SelectedIndex = value;
+
+                    // Move the bound source's current item with the selection, so a BindingSource driving
+                    // a detail view follows what the user picked here.
+                    source_tracker.OnSelectionChanged (value);
+
                     OnSelectedIndexChanged (EventArgs.Empty);
 
                     Invalidate ();

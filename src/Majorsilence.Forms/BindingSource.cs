@@ -410,10 +410,32 @@ namespace Majorsilence.Forms
         public object SyncRoot => _list.SyncRoot;
 
         /// <inheritdoc/>
-        public int Add (object? value) => _list.Add (value);
+        public int Add (object? value)
+        {
+            var index = _list.Add (value);
+            NotifySelfMutation (new ListChangedEventArgs (ListChangedType.ItemAdded, index));
+
+            return index;
+        }
+
+        // Raises ListChanged for a mutation made THROUGH this BindingSource, but only when the underlying
+        // list cannot announce it itself: an IBindingList (a DataView, say) raises its own, which
+        // AttachToList already forwards, and raising here as well would deliver it twice.
+        //
+        // Without this a BindingSource over a plain List<T> -- the commonest case there is -- swallowed
+        // every add and remove, so a bound control kept showing the list as it was when it bound.
+        private void NotifySelfMutation (ListChangedEventArgs e)
+        {
+            if (subscribed_list is null)
+                OnListChanged (e);
+        }
 
         /// <inheritdoc/>
-        public void Clear () => _list.Clear ();
+        public void Clear ()
+        {
+            _list.Clear ();
+            NotifySelfMutation (new ListChangedEventArgs (ListChangedType.Reset, -1));
+        }
 
         /// <inheritdoc/>
         public bool Contains (object? value) => _list.Contains (value);
@@ -422,13 +444,30 @@ namespace Majorsilence.Forms
         public int IndexOf (object? value) => _list.IndexOf (value);
 
         /// <inheritdoc/>
-        public void Insert (int index, object? value) => _list.Insert (index, value);
+        public void Insert (int index, object? value)
+        {
+            _list.Insert (index, value);
+            NotifySelfMutation (new ListChangedEventArgs (ListChangedType.ItemAdded, index));
+        }
 
         /// <inheritdoc/>
-        public void Remove (object? value) => _list.Remove (value);
+        public void Remove (object? value)
+        {
+            var index = _list.IndexOf (value);
+
+            if (index < 0)
+                return;
+
+            _list.RemoveAt (index);
+            NotifySelfMutation (new ListChangedEventArgs (ListChangedType.ItemDeleted, index));
+        }
 
         /// <inheritdoc/>
-        public void RemoveAt (int index) => _list.RemoveAt (index);
+        public void RemoveAt (int index)
+        {
+            _list.RemoveAt (index);
+            NotifySelfMutation (new ListChangedEventArgs (ListChangedType.ItemDeleted, index));
+        }
 
         /// <inheritdoc/>
         public void CopyTo (Array array, int index) => _list.CopyTo (array, index);
