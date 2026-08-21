@@ -640,6 +640,30 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   was DELETED and the default moved into a constructor, leaving one property where callers expect one.
   Prefer that shape over `new` whenever the shadow exists only to change a default.
 
+- **[IMPLEMENTED 2026-08-21] Data binding is live, not a stub.** Found while closing the data-binding
+  parity group: `Binding` held its property name and data source and did nothing with them --
+  `Format`/`Parse` were `add { } remove { }`, `ReadValue`/`WriteValue` were empty -- so every binding in
+  every migrated form compiled, ran, and moved no data. `BindingRuntime.cs` implements the mechanism:
+  initial pull on `Add`, source->control via `INotifyPropertyChanged` and `CurrencyManager` position
+  changes, control->source via the `<Property>Changed` convention honouring `DataSourceUpdateMode`, real
+  `Format`/`Parse`, `FormatString`/`NullValue`/`DataSourceNullValue`, and two-way type coercion.
+  17 tests in `BindingRuntimeTests`.
+
+  Three bugs it exposed, all of which had been invisible while nothing was live:
+  - `BindingContext` handed back a `CurrencyManager` over a NULL list for every scalar source, so
+    `Current` was always null and a binding to a plain object had nothing to read. Scalar sources now get
+    a `PropertyManager`, and `BindingManagerBase.Current`/`Count` became virtual so it can answer.
+  - `Binding`'s constructor accepted `formattingEnabled` and dropped it on the floor.
+  - `ControlBindingsCollection.Add(..., updateMode, ...)` added the binding and THEN set
+    `DataSourceUpdateMode`. Once adding became the thing that subscribes, that ordering meant every
+    binding created through the designer's favourite overload watched `Validated` instead of the
+    property's own changed event and never wrote back. The overload now configures before adding, and the
+    property re-subscribes if it is changed on a live binding.
+
+  Worth knowing: `Delegate.CreateDelegate`'s by-NAME overload does not find a private method and returns
+  null with `throwOnBindFailure: false`, which is how the write-back half stayed silently unwired through
+  the first round of tests. Bind through an explicit `MethodInfo`.
+
 - **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
   (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
   re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity

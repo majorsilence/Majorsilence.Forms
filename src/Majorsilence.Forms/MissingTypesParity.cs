@@ -816,15 +816,15 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>A binding manager for a single object rather than a list.</summary>
-    public class PropertyManager : BindingManagerBase
+    public partial class PropertyManager : BindingManagerBase
     {
         /// <summary>Initializes a new instance of the <see cref="PropertyManager"/> class.</summary>
         public PropertyManager () : base (null) { }
 
         /// <summary>Gets or sets the object being managed.</summary>
-        /// <remarks>Current and Count are not virtual on this layer's BindingManagerBase, so a
-        /// property manager reports its single object through DataSource rather than shadowing them
-        /// with a second, conflicting answer.</remarks>
+        /// <remarks>Also what <see cref="BindingManagerBase.Current"/> reports for a property manager --
+        /// see the override in BindingRuntime.cs. It used to report through this property alone, because
+        /// Current was not virtual and a second, conflicting answer would have been worse.</remarks>
         public object? DataSource { get; set; }
     }
 
