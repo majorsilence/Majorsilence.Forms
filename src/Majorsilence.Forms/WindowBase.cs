@@ -1619,6 +1619,84 @@ namespace Majorsilence.Forms
             RaiseLayoutForExplicitRequest ();
         }
 
+        /// <summary>Forces the window's controls to apply layout logic, naming what changed.</summary>
+        /// <remarks>The overload designer-generated and container code actually calls.</remarks>
+        public void PerformLayout (Control? affectedControl, string? affectedProperty)
+        {
+            SyncAdapterBounds ();
+            adapter.PerformLayout (affectedControl, affectedProperty);
+            RaiseLayoutForExplicitRequest ();
+        }
+
+        // ── Control state and geometry a WinForms Form inherits ──────────────────
+        // Form is not a Control here, so none of this comes for free. Each forwards to the root
+        // ControlAdapter, which IS the window's client surface, so the answers are about the same
+        // rectangle a WinForms Form would answer about. See ControlWindowParityBaseline.txt for the
+        // members deliberately still absent and why.
+
+        /// <summary>Gets whether the window has been created. Mirrors <c>Control.Created</c>.</summary>
+        /// <remarks>Answers from the same flag as <see cref="IsHandleCreated"/> -- there is no handle
+        /// here, and "has been shown" is the closest true statement.</remarks>
+        public bool Created => shown;
+
+        /// <summary>Forces the creation of the window's client surface. Mirrors <c>Control.CreateControl</c>.</summary>
+        public void CreateControl ()
+        {
+            adapter.CreateControl ();
+            OnCreateControl ();
+        }
+
+        /// <summary>Called when the window's client surface is created.</summary>
+        protected virtual void OnCreateControl () { }
+
+        /// <summary>Gets whether the given control is a child or deeper descendant of this window.</summary>
+        public bool Contains (Control control) => adapter.Contains (control);
+
+        /// <summary>Gets whether the window has any child controls.</summary>
+        public bool HasChildren => adapter.HasChildren;
+
+        /// <summary>Gets the size the window's contents would like to be.</summary>
+        public System.Drawing.Size PreferredSize => adapter.PreferredSize;
+
+        /// <summary>Gets the size the window's contents would like to be within the given bounds.</summary>
+        public virtual System.Drawing.Size GetPreferredSize (System.Drawing.Size proposedSize)
+            => adapter.GetPreferredSize (proposedSize);
+
+        /// <summary>Gets the innermost container control of the window's contents.</summary>
+        public IContainerControl? GetContainerControl () => adapter.GetContainerControl ();
+
+        /// <summary>Gets the value of the specified <see cref="ControlStyles"/> flag.</summary>
+        /// <remarks>The counterpart of <see cref="SetStyle"/>, which already forwarded here.</remarks>
+        public bool GetStyle (ControlStyles flag) => adapter.GetStyle (flag);
+
+        /// <summary>Gets or sets whether the wait cursor is shown for the window and its contents.</summary>
+        public bool UseWaitCursor {
+            get => adapter.UseWaitCursor;
+            set => adapter.UseWaitCursor = value;
+        }
+
+        /// <summary>Converts a logical DPI value to the window's device DPI.</summary>
+        public int LogicalToDeviceUnits (int value) => adapter.LogicalToDeviceUnits (value);
+
+        /// <summary>Converts a device DPI value to logical units.</summary>
+        public int DeviceToLogicalUnits (int value) => adapter.DeviceToLogicalUnits (value);
+
+        /// <summary>Scales a bitmap to the window's device DPI.</summary>
+        public void ScaleBitmapLogicalToDevice (ref Majorsilence.Forms.Drawing.Bitmap logicalBitmap)
+            => adapter.ScaleBitmapLogicalToDevice (ref logicalBitmap);
+
+        /// <summary>Invalidates a region of the window, optionally including its children.</summary>
+        public void Invalidate (System.Drawing.Rectangle rectangle, bool invalidateChildren) => Invalidate ();
+
+        /// <summary>Invalidates a region of the window, optionally including its children.</summary>
+        public void Invalidate (Majorsilence.Forms.Drawing.Region region, bool invalidateChildren) => Invalidate ();
+
+        /// <summary>Gets the container this window is a component of. Always null, as on Control.</summary>
+        public new System.ComponentModel.IContainer? Container => null;
+
+        /// <summary>Gets whether the window is in design mode. Always false, as on Control.</summary>
+        public new bool DesignMode => false;
+
         // The adapter forwards its layout pass to this window only once the window has been shown (see
         // ControlAdapter.OnLayout, which explains why). An explicit PerformLayout/ResumeLayout from the
         // consumer is a different thing entirely and has to reach the window's own OnLayout whether it is

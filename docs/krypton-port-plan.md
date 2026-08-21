@@ -362,22 +362,32 @@ see. Ordered by how much of the suite each one affects.
    Also checked while here: `statusStrip1.Location` really is `(0, -1)` in the designer, so that is not
    ours.
 
-6. **OPEN (diagnosed 2026-08-19): choosing Tools -> Colors dismisses the menu instead of dropping the
-   colour palette.** Found by GUI review. The hosting is NOT the problem and this is not a regression from
-   the hosting fix: with the Tools menu open, the item measures `{X=1,Y=45,W=162,H=20}` and the
-   `KryptonColorButton` it hosts is parented into the `MenuDropDown` at exactly those bounds and visible.
-   Nor is it the menu-item activation path -- `Control.RaiseClick` hands the click to
-   `Controls.FindVisibleChildAt` and returns, so with the hosted control covering that row
-   `MenuDropDown.OnMouseClick` never runs and its `Application.ClosePopups ()` is not reached. (A guard
-   there was written and then reverted for exactly that reason: it was dead code for this case. Do not
-   re-add it.)
+6. **FIXED 2026-08-19: choosing Tools -> Colors dismissed the menu instead of dropping the colour
+   palette.** Found by GUI review, and the diagnosis went through two wrong candidates before the right
+   one, both worth recording so they are not re-tried.
 
-   What is left is the **stacked-popup case** already listed under the popup work below: the colour button
-   opening its own `VisualPopup` while the menu popup is up, with `VisualPopupManager`'s dismissal riding on
-   the generic deactivation close. Not proven -- `KryptonColorButton.PerformClick ()` does not dismiss the
-   menu headlessly, but it does not open the palette either, so the decisive step could not be driven
-   without a GUI. Next step is to find what actually shows that button's palette and call it with the menu
-   open.
+   Not the hosting: with the menu open the item measures `{X=1,Y=45,W=162,H=20}` and the
+   `KryptonColorButton` is parented into the `MenuDropDown` at exactly those bounds, visible. Not
+   `MenuDropDown.OnMouseClick` either -- `Control.RaiseMouseDown`/`RaiseClick` hand the event to
+   `Controls.FindVisibleChildAt` and RETURN, so with the hosted control covering that row the menu's own
+   click handler never runs. (A guard was written there and then reverted for that reason: dead code for
+   this case. Do not re-add it.) And not stacked popups: driving `KryptonColorButton.PerformDropDown ()`
+   with the menu open leaves the menu up and `VisualPopupManager.CurrentPopup` set to the palette's
+   `VisualContextMenu`, so that machinery works.
+
+   The actual cause was in `Control.RaiseMouseDown`, in the branch that dismisses an open menu -- it
+   exempted the menu CONTROL and nothing hosted inside it:
+
+       if ((this as MenuBase)?.GetTopLevelMenu () != Application.ActiveMenu || Application.ActiveMenu is null)
+           Application.ClosePopups (true, false);
+
+   Because mouse-down routes to the deepest child, the hosted `KryptonColorButton` ran this check itself,
+   was not a `MenuBase`, and closed the very menu it was sitting in -- before its own handler could show the
+   palette. Replaced by `IsWithinActiveMenu ()`, which walks up the parent chain looking for the active
+   menu. Pinned by `MenuHostedControlClickTests`: one test that the hosted row no longer dismisses, one
+   that a press OUTSIDE the menu still does (the behaviour the old check existed for). Note those tests
+   must set `Application.ActiveMenu` themselves -- opening a drop-down via `Selected` does not, and without
+   it the whole dismissal path is inert and proves nothing in either direction.
 
 7. **OPEN (narrowed 2026-08-18): a Krypton button hosted in a tool strip draws wider than it measures.**
    All that is left of the ToolStripItems entry above. `KryptonColorButton` in `toolStrip1` reports a
@@ -489,14 +499,25 @@ TestForm launches, themes and renders, but StartScreen's anchored children are i
 3. **Post-show programmatic `Form.Size` writes are silently ignored even for a plain Form** (Avalonia
    backend path). Independent bug; the probe demonstrates it.
 
-   **Narrowed 2026-08-19:** it does NOT reproduce on the headless backend -- `Form.Size`, `Form.ClientSize`
-   and `Form.Width` all read back correctly after `Show()` there. So the library-side path is fine
-   (including the `if (value == Size) return;` guard in `Form.Size`, which was the obvious suspect since
-   the setter writes `Backend.Size` while the getter reads `Backend.ClientSize`) and the bug is genuinely
-   in the Avalonia backend. Deliberately NOT fixed blind: that path cannot be exercised in this
-   environment, and the Avalonia host's `IWindowBackend.Size` setter assigns `Width`/`Height` while
-   `ClientSize` reads Avalonia's own `ClientSize`, so any change wants a real window to verify against.
-   Next step is a GUI run, not more reading.
+   **FIXED 2026-08-19, and the description above was wrong.** The write was never ignored. A GUI probe
+   (`scratchpad/sizeprobe`: a real Avalonia window that resizes itself and logs every read-back) caught the
+   resize landing one tick late --
+
+       2. straight after Size=640x480   Size={400, 300}    <- stale
+       3. one tick later                Size={640, 480}    <- landed
+
+   -- so the defect is the SYNCHRONOUS read-back, not the resize. Assigning Avalonia's `Width`/`Height` is
+   a request it reconciles on its next layout pass, whereas WinForms resizes through `SetWindowPos` and
+   reads back the new size immediately. Ported code that sets a size and then uses `Width`/`Height` in the
+   same breath therefore computed against the previous one. It never reproduced headlessly because the
+   headless backend simply stores the value.
+
+   The Avalonia host's `IWindowBackend.Size` setter now records a `_pendingClientSize`, `ClientSize`
+   answers with it until the resize lands, and `OnSurfaceSizeChanged` clears it -- so a USER dragging the
+   window edge is still reported honestly instead of being masked by the last programmatic size. Verified
+   with the same probe: every read-back now reflects its write, and later ticks still agree with Avalonia.
+   No unit test, because this is backend behaviour the headless harness cannot express -- the probe is the
+   evidence, and it is worth keeping for the next backend-geometry question.
 
 [FIXED 2026-08-14] The invisible button text was GraphicsPath figure semantics in
 Majorsilence.Forms.Drawing.Common: GDI+ connects segments appended to an open figure with implicit
@@ -556,9 +577,38 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   papers over one consequence (pattern-arm order). Rebasing is the real fix; measure blast radius first.
 - **`ErrorProvider.ContainerControl`** cannot accept a Form (dropped by the script at one site). If more
   sites appear, consider what the provider actually needs from it here.
-- **Baseline triage:** `tests/.../ControlWindowParityBaseline.txt` (~190 entries) — classify each as
-  "belongs on a window" (add it; the Krypton port pulled ~10 off the list this way) or "genuinely N/A"
-  (annotate). The test names any new gap automatically.
+- **[TRIAGED 2026-08-19] Baseline triage:** `tests/.../ControlWindowParityBaseline.txt`. All 194 entries
+  are now grouped in the file itself by whether they should ever be closed -- six "N/A" groups (no parent to
+  dock against, no Win32 handle to recreate, MF-internal plumbing, layout-engine internals, child-scrolling,
+  child-selection) and eight "WORTH CLOSING" groups ordered by how likely ported code is to hit them
+  (state/geometry, data binding, accessibility, context menu + IME, designer Reset* pattern, validation,
+  gestures/drag-drop, static helpers). **25 entries came off the list in the same pass**: the Control EVENTS
+  a WinForms Form inherits (MouseClick, MouseDoubleClick, BackColorChanged, ControlAdded, PreviewKeyDown and
+  friends) now forward from `WindowBase` to the root `ControlAdapter`, the same shape as the existing
+  `DoubleClick`/`Layout` forwards -- `form.MouseClick += ...` did not previously compile. 169 remain.
+  Pinned by `WindowControlEventForwardingTests`, which checks the events actually ARRIVE: a forward wired to
+  the wrong object compiles and silently never fires. Caution: regenerating the baseline with
+  `MAJORSILENCE_WRITE_CONTROL_WINDOW_BASELINE=1` FLATTENS the grouping and loses the triage; edit by hand.
+
+  **2026-08-20: the first "worth closing" group is closed -- 169 down to 152.** State and geometry, the
+  group ranked most likely for ported code to hit: `Created`, `CreateControl`/`OnCreateControl`, `Contains`,
+  `HasChildren`, `PreferredSize`, `GetPreferredSize`, `GetContainerControl`, `GetStyle` (the counterpart of
+  the `SetStyle` that already forwarded, so the pair is finally usable), `UseWaitCursor`,
+  `LogicalToDeviceUnits`/`DeviceToLogicalUnits`, `ScaleBitmapLogicalToDevice`, `PerformLayout/2`,
+  `Invalidate/2`, plus `Container` and `DesignMode` as the constant answers Control gives. Pinned by
+  `WindowStateGeometryParityTests` (7 tests) which check the answers concern the right rectangle and the
+  right control tree -- the parity test only checks EXISTENCE, so a forward wired to the wrong object
+  satisfies it and still lies.
+
+  Two entries were moved to N/A groups rather than closed, with the reasoning recorded in the file:
+  `Site` (Control shadows `Component.Site`; doing that on a window would hide the real one the designer and
+  `IContainer` plumbing read through, to gain a property Control only answers nothing from) and
+  `FromScreenPoint/1` (a static CONTROL finder; the window equivalent already exists as `Form.ActiveForm` /
+  `GetChildAtPoint`).
+
+  Watch for `CS0108` when closing any further group: `PrintPreviewDialog` redeclares a lot of Control
+  surface to hide it from the designer, so each addition can shadow one of those and Release treats the
+  warning as an error. `UseWaitCursor` needed `new` for exactly that reason, as five events did before it.
 - **Mobile/browser audio:** desktop audio is real now (`Media/NativeAudio.cs` spawns the OS player;
   see COMPATIBILITY_MATRIX "Majorsilence.Forms.Media"). Android/iOS/wasm stay silent until a backend
   supplies a native path -- `NativeAudio.LauncherOverride` is currently the only seam, promote it to a

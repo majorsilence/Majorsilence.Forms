@@ -104,26 +104,17 @@ PreProcessMessage/1
 ProcessKeyEventArgs/1
 RecreatingHandle
 
-# WORTH CLOSING -- state and geometry a ported Form plausibly reads. Each is a small, self-contained add.
-Container
-Contains/1
-CreateControl/0
-Created
-DesignMode
-DeviceToLogicalUnits/1
-FromScreenPoint/1
-GetContainerControl/0
-GetPreferredSize/1
-GetStyle/1
-HasChildren
-Invalidate/2
-LogicalToDeviceUnits/1
-OnCreateControl/0
-PerformLayout/2
-PreferredSize
-ScaleBitmapLogicalToDevice/1
+# N/A -- hiding a Component member on a window would break the thing that member is for.
+# Control declares its own Container and Site, shadowing Component's. Doing the same on WindowBase would
+# hide the real Component.Site that the designer and IContainer plumbing read through, to gain a property
+# that Control only ever answers null/nothing from. Site is the one that matters: it is how a component
+# finds its container and its design-time services.
 Site
-UseWaitCursor
+
+# N/A -- a static Control finder. Control.FromScreenPoint answers "which CONTROL is at this screen point",
+# which is not a question a window type should also answer differently; the window equivalent already
+# exists as Form.ActiveForm / WindowBase.GetChildAtPoint.
+FromScreenPoint/1
 
 # WORTH CLOSING -- data binding on a Form is ordinary WinForms practice.
 DataBindings

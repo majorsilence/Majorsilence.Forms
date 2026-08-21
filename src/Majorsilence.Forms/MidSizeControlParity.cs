@@ -486,7 +486,9 @@ namespace Majorsilence.Forms
         public ImeMode ImeMode { get; set; } = ImeMode.Inherit;
 
         /// <summary>Gets or sets whether the dialog shows the wait cursor.</summary>
-        public bool UseWaitCursor { get; set; }
+        /// <remarks>`new` for the same reason as the shadowed events below: WinForms redeclares this on
+        /// the dialog, and it is a plain stored value here rather than the window's real wait cursor.</remarks>
+        public new bool UseWaitCursor { get; set; }
 
         /// <summary>Gets the data bindings for the dialog.</summary>
         public ControlBindingsCollection DataBindings => data_bindings ??= new ControlBindingsCollection (PrintPreviewControl);
