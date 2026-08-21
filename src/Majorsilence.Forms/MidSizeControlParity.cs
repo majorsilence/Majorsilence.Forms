@@ -487,10 +487,8 @@ namespace Majorsilence.Forms
         public PrintPreviewDialog ()
         {
             AccessibleRole = AccessibleRole.Client;
+            ImeMode = ImeMode.Inherit;
         }
-
-        /// <summary>Gets or sets the input method editor mode.</summary>
-        public ImeMode ImeMode { get; set; } = ImeMode.Inherit;
 
         /// <summary>Gets or sets whether the dialog shows the wait cursor.</summary>
         /// <remarks>`new` for the same reason as the shadowed events below: WinForms redeclares this on
@@ -512,6 +510,10 @@ namespace Majorsilence.Forms
         // never raised there either, because the dialog is not meant to be re-styled. The ones that now
         // shadow a WindowBase member say `new` for that reason, exactly as WinForms does -- hiding is the
         // intent here, not an accident.
+        //
+        // Ones that existed only because the window side LACKED the member are deleted rather than
+        // shadowed as that gap closes: an inert stub in front of a working forward is worse than nothing.
+        // ContextMenuStripChanged, ImeModeChanged, ImeMode and AccessibleRole went that way.
 #pragma warning disable CS0067
         /// <summary>Not raised: the dialog does not support restyling.</summary>
         public new event EventHandler? BackColorChanged;
@@ -526,9 +528,6 @@ namespace Majorsilence.Forms
         public new event EventHandler? CausesValidationChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? ContextMenuStripChanged;
-
-        /// <inheritdoc cref="BackColorChanged"/>
         public new event EventHandler? CursorChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
@@ -536,9 +535,6 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc cref="BackColorChanged"/>
         public new event EventHandler? ForeColorChanged;
-
-        /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? ImeModeChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
         public new event EventHandler? PaddingChanged;

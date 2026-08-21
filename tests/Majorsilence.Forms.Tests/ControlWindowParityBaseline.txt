@@ -118,17 +118,6 @@ FromScreenPoint/1
 
 
 
-# WORTH CLOSING -- context menus and IME belong to a window as much as to a control.
-ContextMenu
-ContextMenuChanged
-ContextMenuStripChanged
-DefaultImeMode
-ImeMode
-ImeModeChanged
-OnContextMenuChanged/1
-OnContextMenuStripChanged/1
-OnImeModeChanged/1
-ResetImeMode/0
 
 # WORTH CLOSING -- designer/AmbientValue support. Every designer file calls the Reset* pattern.
 CompanyName
@@ -175,6 +164,9 @@ RtlTranslateHorizontal/1
 RtlTranslateLeftRight/1
 
 # LOW VALUE -- On* raisers whose events are already forwarded above; add only if a subclass needs to override.
+OnContextMenuChanged/1
+OnContextMenuStripChanged/1
+OnImeModeChanged/1
 OnDataContextChanged/1
 OnBackColorChanged/1
 OnBackgroundImageChanged/1

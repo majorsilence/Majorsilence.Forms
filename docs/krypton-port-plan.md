@@ -684,6 +684,48 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   matrix row is now corrected. Two of these types (`Binding`, `BindingSource`) have four or five partials
   each; `grep -rn "class <Name>" src/` first, every time.
 
+- **[FIXED 2026-08-21] A list control read its data source once, at bind time.** The third layer of the
+  binding work, and the most commonly hit of the three. `ListBox`/`ComboBox` snapshotted the source in
+  `RefreshDataSource` when `DataSource` was assigned and never looked again -- which is precisely the wrong
+  moment, because designer code assigns `DataSource` in `InitializeComponent` and the form fills the data
+  afterwards. A control bound that way kept the empty list forever. `BindingSource.ListChanged` existed to
+  say when to look again and nothing was listening.
+
+  `DataSourceBinding.ListSourceTracker` now does both halves for both controls from one place: re-reads on
+  `ListChanged`, and keeps the control's selection and the source's current-item position in step in BOTH
+  directions (via `ICurrencyManagerProvider`, so it is the same shared manager the bindings use). That is
+  what makes master/detail work -- there is a test that picks a row in a `ListBox` and watches a
+  `TextBox` bound to the same `BindingSource` follow it.
+
+  It also exposed a plain bug one layer down: `BindingSource`'s own `IList` mutators (`Add`, `Insert`,
+  `Remove`, `RemoveAt`, `Clear`) never raised `ListChanged` at all. Over an `IBindingList` that went
+  unnoticed because the underlying list raises its own and `AttachToList` forwards it -- but over a plain
+  `List<T>`, the commonest case there is, every add and remove was swallowed. They now raise, guarded so an
+  `IBindingList` underneath does not deliver the same change twice. 6 tests in
+  `ListControlDataSourceTrackingTests`.
+
+- **[FIXED 2026-08-21] A form's own context menu never opened -- baseline 141 down to 134.** The context
+  menu + IME parity group, and it turned out to be a behaviour fix rather than a naming one.
+  `WindowBase.ContextMenuStrip` was a STORED value nothing read (its own doc comment said so), so a form
+  with a context menu assigned in the designer showed nothing on right-click while its child controls'
+  menus worked -- which reads as the form's menu being broken rather than missing. It now forwards to the
+  root adapter, which is both the right object and what makes it work: the adapter is the window's client
+  surface, a right-click on the form's background lands on it, and `Control.RaiseClick` already opens a
+  control's context menu there. `ContextMenu` (legacy), `ContextMenuChanged`, `ContextMenuStripChanged`,
+  `ImeMode`, `DefaultImeMode`, `ImeModeChanged` and `ResetImeMode` came with it. The three `On*` raisers
+  went to the already-forwarded group, as `OnDataContextChanged` did. Pinned by
+  `WindowContextMenuImeParityTests` -- 3 of its 6 tests fail if `ContextMenuStrip` goes back to being
+  stored, including one that right-clicks a form and checks the menu opens.
+
+  **The PrintPreviewDialog collision rule, now settled after five encounters.** Three more members
+  collided (`ImeMode`, `ContextMenuStripChanged`, `ImeModeChanged`). Two of them existed ONLY because the
+  window side lacked the member, and were never-raised stubs, so they were DELETED -- an inert stub in
+  front of a working forward is worse than nothing. `ImeMode` existed only to hold a different default
+  (`Inherit`), so it was deleted too and the default moved into the constructor, the same shape used for
+  `AccessibleRole`. Reach for `new` only when the dialog's member genuinely means something different, as
+  `DataBindings` does (it binds the hosted `PrintPreviewControl`). Net effect: this pass removed more
+  shadows than it added.
+
 - **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
   (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
   re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity

@@ -625,10 +625,59 @@ namespace Majorsilence.Forms
 #pragma warning restore CS0067
 
         /// <summary>
-        /// Gets or sets the context menu shown when the window itself is right-clicked. Stored for
-        /// designer compat; the compat window does not surface it yet (controls' own menus work).
+        /// Gets or sets the context menu shown when the window itself is right-clicked.
         /// </summary>
-        public ContextMenuStrip? ContextMenuStrip { get; set; }
+        /// <remarks>
+        /// Forwarded to the root adapter, which is both the right object and what makes this WORK: the
+        /// adapter is the window's client surface, so a right-click on the window's background lands on it,
+        /// and <see cref="Control.RaiseClick"/> already opens a control's own context menu there. This
+        /// used to be a stored value nothing read, so a form with a ContextMenuStrip assigned in the
+        /// designer showed nothing when right-clicked while its child controls' menus worked -- which
+        /// reads as the form's menu being broken rather than absent.
+        /// </remarks>
+        public ContextMenuStrip? ContextMenuStrip {
+            get => adapter.ContextMenuStrip;
+            set => adapter.ContextMenuStrip = value;
+        }
+
+        /// <summary>Gets or sets the legacy context menu shown when the window is right-clicked.</summary>
+        /// <inheritdoc cref="ContextMenuStrip" path="/remarks"/>
+        public virtual ContextMenu? ContextMenu {
+            get => adapter.ContextMenu;
+            set => adapter.ContextMenu = value;
+        }
+
+        /// <summary>Raised when <see cref="ContextMenu"/> changes.</summary>
+        public event EventHandler? ContextMenuChanged {
+            add => adapter.ContextMenuChanged += value;
+            remove => adapter.ContextMenuChanged -= value;
+        }
+
+        /// <summary>Raised when <see cref="ContextMenuStrip"/> changes.</summary>
+        public event EventHandler? ContextMenuStripChanged {
+            add => adapter.ContextMenuStripChanged += value;
+            remove => adapter.ContextMenuStripChanged -= value;
+        }
+
+        /// <summary>Gets or sets the input method editor mode for the window.</summary>
+        /// <remarks>Forwarded to the root adapter so the window's children inherit it through the same
+        /// chain they inherit a parent control's.</remarks>
+        public ImeMode ImeMode {
+            get => adapter.ImeMode;
+            set => adapter.ImeMode = value;
+        }
+
+        /// <summary>Gets the default IME mode for this window type, used by <see cref="ResetImeMode"/>.</summary>
+        protected virtual ImeMode DefaultImeMode => ImeMode.NoControl;
+
+        /// <summary>Raised when <see cref="ImeMode"/> changes.</summary>
+        public event EventHandler? ImeModeChanged {
+            add => adapter.ImeModeChanged += value;
+            remove => adapter.ImeModeChanged -= value;
+        }
+
+        /// <summary>Resets <see cref="ImeMode"/> to its default. Part of the designer Reset* pattern.</summary>
+        public void ResetImeMode () => ImeMode = DefaultImeMode;
 
         /// <summary>Gets or sets the unscaled location of the window. Mirrors WinForms Form.Location.</summary>
         public System.Drawing.Point Location {
