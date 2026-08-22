@@ -74,6 +74,13 @@ namespace ControlGallery
             tree.Items.Add ("TrackBar", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TreeView", ImageLoader.Get ("button.png"));
 
+            // Drawing stress tests: heavier, animated custom-paint scenes that exercise
+            // Majorsilence.Forms.Drawing (Graphics/Pen/Brush/Font) beyond the simple control panels above.
+            tree.Items.Add ("Game of Life", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Fractals", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Binary Rain", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("Sorting Visualizer", ImageLoader.Get ("button.png"));
+
             tree.ItemSelected += Tree_ItemSelected;
             Controls.Add (tree);
 
@@ -176,6 +183,7 @@ namespace ControlGallery
                 "RadioButton", "Ribbon", "ScrollableControl", "ScrollBar", "SplitContainer",
                 "StatusBar", "StatusStrip", "TabControl", "TableLayoutPanel", "TabStrip",
                 "TextBox", "TimePicker", "TitleBar", "ToolBar", "TrackBar", "TreeView",
+                "Game of Life", "Fractals", "Binary Rain", "Sorting Visualizer",
                 // Panels with side effects (open child windows / register events) are
                 // pre-warmed last; their PreWarm just renders static children into back buffers.
                 "Telerik: Controls", "Telerik: GridView", "Telerik: PageView",
@@ -290,6 +298,14 @@ namespace ControlGallery
                     return new TrackBarPanel ();
                 case "TreeView":
                     return new TreeViewPanel ();
+                case "Game of Life":
+                    return new GameOfLifePanel ();
+                case "Fractals":
+                    return new FractalsPanel ();
+                case "Binary Rain":
+                    return new BinaryRainPanel ();
+                case "Sorting Visualizer":
+                    return new SortingVisualizerPanel ();
             }
 
             return null;
