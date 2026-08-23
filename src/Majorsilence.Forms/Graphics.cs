@@ -575,7 +575,7 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null || brush is null || region is null)
                 return;
 
-            using var paint = CreateFillPaint (brush);
+            using var paint = RentFillPaint (brush);
             _canvas.DrawRegion (region.GetSKRegion (), paint);
         }
 
@@ -1155,6 +1155,58 @@ namespace Majorsilence.Forms.Drawing
             return paint;
         }
 
+        // Reused across every SolidBrush fill call (FillRectangle, FillPolygon, DrawString's brush --
+        // the overwhelming majority of fills) instead of allocating a fresh SKPaint via
+        // Brush.CreatePaint() each time, same rationale and measurement as GetStrokePaint above.
+        // Gradient/hatch/texture brushes are not handled here: their CreatePaint() builds an owned
+        // Shader per call, which isn't safe to pool without a wider audit, so they still go through
+        // CreateFillPaint's fresh-and-disposed path via RentFillPaint below.
+        [ThreadStatic]
+        private static SKPaint? t_fillPaint;
+
+        private static SKPaint GetSolidFillPaint (Majorsilence.Forms.Drawing.SolidBrush brush, bool antialias)
+        {
+            var paint = t_fillPaint ??= new SKPaint ();
+            paint.Color = ToSKColor (brush.Color);
+            paint.Style = SKPaintStyle.Fill;
+            paint.IsAntialias = antialias;
+            return paint;
+        }
+
+        // A `using`-able handle around a fill paint that may be the shared pooled instance (SolidBrush)
+        // or a fresh, Shader-owning one from CreateFillPaint (everything else) -- Dispose() only frees
+        // the fresh one, so callers can `using var paint = RentFillPaint (brush);` exactly as they did
+        // with CreateFillPaint and get the right disposal behaviour either way without knowing which.
+        private readonly struct FillPaintHandle : IDisposable
+        {
+            private readonly SKPaint paint;
+            private readonly bool ownsPaint;
+
+            public FillPaintHandle (SKPaint paint, bool ownsPaint)
+            {
+                this.paint = paint;
+                this.ownsPaint = ownsPaint;
+            }
+
+            public static implicit operator SKPaint (FillPaintHandle handle) => handle.paint;
+
+            public void Dispose ()
+            {
+                if (ownsPaint)
+                    paint.Dispose ();
+            }
+        }
+
+        private FillPaintHandle RentFillPaint (Majorsilence.Forms.Drawing.Brush brush)
+        {
+            if (brush is Majorsilence.Forms.Drawing.SolidBrush solid) {
+                var antialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None;
+                return new FillPaintHandle (GetSolidFillPaint (solid, antialias), ownsPaint: false);
+            }
+
+            return new FillPaintHandle (CreateFillPaint (brush), ownsPaint: true);
+        }
+
         private static float PenWidth (Majorsilence.Forms.Drawing.Pen pen) => pen.Width;
         private static SKColor PenColor (Majorsilence.Forms.Drawing.Pen pen) => ToSKColor (pen.Color);
 
@@ -1186,7 +1238,7 @@ namespace Majorsilence.Forms.Drawing
         public void FillRectangle (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = CreateFillPaint (brush);
+            using var paint = RentFillPaint (brush);
             _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -1194,7 +1246,7 @@ namespace Majorsilence.Forms.Drawing
         public void FillRectangle (Majorsilence.Forms.Drawing.Brush brush, RectangleF rect)
         {
             if (_canvas is null) return;
-            using var paint = CreateFillPaint (brush);
+            using var paint = RentFillPaint (brush);
             _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -1280,7 +1332,7 @@ namespace Majorsilence.Forms.Drawing
         public void FillPie (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect, float startAngle, float sweepAngle)
         {
             if (_canvas is null) return;
-            using var paint = CreateFillPaint (brush);
+            using var paint = RentFillPaint (brush);
             using var path = new SKPath ();
             path.MoveTo (rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f);
             path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
@@ -1407,7 +1459,7 @@ namespace Majorsilence.Forms.Drawing
         public void FillEllipse (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = CreateFillPaint (brush);
+            using var paint = RentFillPaint (brush);
             _canvas.DrawOval (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -1443,7 +1495,7 @@ namespace Majorsilence.Forms.Drawing
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
             path.Close ();
-            using var paint = CreateFillPaint (brush);
+            using var paint = RentFillPaint (brush);
             _canvas.DrawPath (path, paint);
         }
 
@@ -1479,7 +1531,7 @@ namespace Majorsilence.Forms.Drawing
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
             path.Close ();
-            using var paint = CreateFillPaint (brush);
+            using var paint = RentFillPaint (brush);
             _canvas.DrawPath (path, paint);
         }
 
@@ -1975,7 +2027,7 @@ namespace Majorsilence.Forms.Drawing
         {
             if (_canvas is null || path is null) return;
 
-            using var paint = CreateFillPaint (brush);
+            using var paint = RentFillPaint (brush);
 
             // As in DrawPath: fill the real path, so curves and the path's own fill mode survive.
             var skPath = path.ToSKPath ();
