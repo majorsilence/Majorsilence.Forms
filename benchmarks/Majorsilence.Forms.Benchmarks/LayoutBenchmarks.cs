@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Benchmarks;
 [MemoryDiagnoser]
 public class LayoutBenchmarks
 {
-    [Params (10, 100, 1000)]
+    [Params (10, 100, 1000, 5000, 10000)]
     public int ChildCount { get; set; }
 
     private Panel dockedContainer = null!;
