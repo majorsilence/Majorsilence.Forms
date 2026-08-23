@@ -1158,6 +1158,27 @@ namespace Majorsilence.Forms.Drawing
         private static float PenWidth (Majorsilence.Forms.Drawing.Pen pen) => pen.Width;
         private static SKColor PenColor (Majorsilence.Forms.Drawing.Pen pen) => ToSKColor (pen.Color);
 
+        // Reused across every simple stroke draw call (DrawLine, DrawRectangle, DrawEllipse, etc.) on
+        // this thread instead of allocating a fresh SKPaint each time. A benchmark
+        // (benchmarks/Majorsilence.Forms.Benchmarks/PaintConstructionBenchmarks.cs) measured SKPaint
+        // construction+disposal at ~12x the cost of just reassigning fields on an existing instance,
+        // and a full canvas.DrawRect call at ~27% faster with zero allocation when pooled this way.
+        // Safe to share because these call sites never nest (a paint is fully consumed by the single
+        // draw call that follows before the method returns) and Skia copies SKPaint's plain scalar
+        // fields into each draw command rather than holding a live reference to the object -- [ThreadStatic]
+        // keeps it correct if painting ever happens on more than one thread (e.g. parallel headless tests).
+        [ThreadStatic]
+        private static SKPaint? t_strokePaint;
+
+        private static SKPaint GetStrokePaint (Majorsilence.Forms.Drawing.Pen pen)
+        {
+            var paint = t_strokePaint ??= new SKPaint ();
+            paint.Color = PenColor (pen);
+            paint.Style = SKPaintStyle.Stroke;
+            paint.StrokeWidth = PenWidth (pen);
+            return paint;
+        }
+
         /// <summary>Clears the canvas with the given color.</summary>
         public void Clear (System.Drawing.Color color) => _canvas?.Clear (ToSKColor (color));
 
@@ -1189,7 +1210,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawRectangle (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -1201,7 +1222,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, Point p1, Point p2)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
         }
 
@@ -1213,7 +1234,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, PointF p1, PointF p2)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
         }
 
@@ -1233,7 +1254,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawArc (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect, float startAngle, float sweepAngle)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             using var path = new SKPath ();
             path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
             _canvas.DrawPath (path, paint);
@@ -1247,7 +1268,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawPie (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect, float startAngle, float sweepAngle)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f);
             path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
@@ -1275,7 +1296,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawBezier (Majorsilence.Forms.Drawing.Pen pen, PointF pt1, PointF pt2, PointF pt3, PointF pt4)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (pt1.X, pt1.Y);
             path.CubicTo (pt2.X, pt2.Y, pt3.X, pt3.Y, pt4.X, pt4.Y);
@@ -1306,7 +1327,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
             if (_canvas is null || points.Length < 2) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
@@ -1317,7 +1338,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
         {
             if (_canvas is null || points.Length < 2) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
@@ -1340,7 +1361,7 @@ namespace Majorsilence.Forms.Drawing
             if (last >= points.Length) last = points.Length - 1;
             if (offset < 0 || offset >= last) return;
 
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (points[offset].X, points[offset].Y);
 
@@ -1398,7 +1419,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawEllipse (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             _canvas.DrawOval (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -1434,7 +1455,7 @@ namespace Majorsilence.Forms.Drawing
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
             path.Close ();
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             _canvas.DrawPath (path, paint);
         }
 
@@ -1446,7 +1467,7 @@ namespace Majorsilence.Forms.Drawing
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
             path.Close ();
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             _canvas.DrawPath (path, paint);
         }
 
@@ -1466,7 +1487,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawLines (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
         {
             if (_canvas is null || points.Length < 2) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             for (int i = 1; i < points.Length; i++)
                 _canvas.DrawLine (points[i - 1].X, points[i - 1].Y, points[i].X, points[i].Y, paint);
         }
@@ -1475,7 +1496,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawLines (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
             if (_canvas is null || points.Length < 2) return;
-            using var paint = new SKPaint { Color = PenColor (pen), Style = SKPaintStyle.Stroke, StrokeWidth = PenWidth (pen) };
+            var paint = GetStrokePaint (pen);
             for (int i = 1; i < points.Length; i++)
                 _canvas.DrawLine (points[i - 1].X, points[i - 1].Y, points[i].X, points[i].Y, paint);
         }
