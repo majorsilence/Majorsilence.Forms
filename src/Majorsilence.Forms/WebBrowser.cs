@@ -9,11 +9,11 @@ namespace Majorsilence.Forms
     /// backend, missing runtime, or engine init failure), this control behaves exactly like the previous
     /// no-op stub: properties hold their last-set values and no rendering happens.
     ///
-    /// The public API shape matches System.Windows.Forms.WebBrowser exactly for drop-in compatibility;
-    /// it intentionally does not expose the richer async-script/message-channel capabilities of the
-    /// underlying <see cref="IWebViewHandle"/> — see <see cref="InvokeScript(string)"/> for why. Code
-    /// that needs those (the Telerik <c>RadPdfViewer</c>/<c>RadRichTextEditor</c> compat controls) should
-    /// compose <see cref="WebViewHost"/> directly instead of going through this WinForms-shaped surface.
+    /// The public API shape matches System.Windows.Forms.WebBrowser for drop-in compatibility, extended
+    /// with <see cref="ExecuteScriptAsync"/> and <see cref="WebMessageReceived"/> so callers can drive a
+    /// JS/host message bridge (e.g. a page calling <c>window.invokeCSharpAction(...)</c>) without composing
+    /// <see cref="WebViewHost"/> directly. <see cref="InvokeScript(string)"/> stays a stub — see its doc
+    /// comment for why the synchronous WinForms signature can't safely wrap the async engine call.
     /// </summary>
     public partial class WebBrowser : Control
     {
@@ -28,6 +28,7 @@ namespace Majorsilence.Forms
 
             if (_host.IsFunctional && _host.WebViewHandle is IWebViewHandle handle) {
                 handle.NavigationCompleted += OnNavigationCompleted;
+                handle.WebMessageReceived += OnWebMessageReceived;
             }
         }
 
@@ -128,8 +129,23 @@ namespace Majorsilence.Forms
         /// <summary>Invokes a script function with arguments. Stub in Majorsilence.Forms — returns null (see <see cref="InvokeScript(string)"/>).</summary>
         public object? InvokeScript (string scriptName, object[] args) => null;
 
+        /// <summary>
+        /// Runs the given script in the webview and returns its result asynchronously. Unlike
+        /// <see cref="InvokeScript(string)"/> this is a real, non-stubbed call into the underlying
+        /// <see cref="IWebViewHandle.ExecuteScriptAsync"/> — safe to await from the UI thread since it
+        /// does not block on the engine's own message pump. Returns <c>null</c> when no functional
+        /// webview backs this control.
+        /// </summary>
+        public Task<string?> ExecuteScriptAsync (string script) =>
+            _host.IsFunctional && _host.WebViewHandle is IWebViewHandle handle
+                ? handle.ExecuteScriptAsync (script)
+                : Task.FromResult<string?> (null);
+
         /// <summary>Raised when the document has finished loading.</summary>
         public event EventHandler<WebBrowserDocumentCompletedEventArgs>? DocumentCompleted;
+
+        /// <summary>Raised when the page posts a message back to the host (e.g. via <c>window.invokeCSharpAction</c>).</summary>
+        public event EventHandler<WebViewMessageEventArgs>? WebMessageReceived;
 
         /// <summary>Raised when a navigation has completed. Stub in Majorsilence.Forms.</summary>
         public event EventHandler<WebBrowserNavigatedEventArgs>? Navigated { add { } remove { } }
@@ -155,11 +171,16 @@ namespace Majorsilence.Forms
             DocumentCompleted?.Invoke (this, new WebBrowserDocumentCompletedEventArgs (e.Url ?? _url));
         }
 
+        private void OnWebMessageReceived (object? sender, WebViewMessageEventArgs e) =>
+            WebMessageReceived?.Invoke (this, e);
+
         /// <inheritdoc/>
         protected override void Dispose (bool disposing)
         {
-            if (disposing && _host.IsFunctional && _host.WebViewHandle is IWebViewHandle handle)
+            if (disposing && _host.IsFunctional && _host.WebViewHandle is IWebViewHandle handle) {
                 handle.NavigationCompleted -= OnNavigationCompleted;
+                handle.WebMessageReceived -= OnWebMessageReceived;
+            }
 
             base.Dispose (disposing);
         }
