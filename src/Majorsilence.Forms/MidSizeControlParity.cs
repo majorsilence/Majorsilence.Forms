@@ -479,17 +479,27 @@ namespace Majorsilence.Forms
 
         private PrintPreviewControl? print_preview_control;
 
-        /// <summary>Gets or sets the accessible role reported for the dialog.</summary>
-        public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Client;
-
-        /// <summary>Gets or sets the input method editor mode.</summary>
-        public ImeMode ImeMode { get; set; } = ImeMode.Inherit;
+        // AccessibleRole is NOT redeclared here. WindowBase supplies it now, and this dialog only ever
+        // wanted a different default (Client rather than Default, as WinForms reports for it), which the
+        // constructor sets -- shadowing the inherited property to change a default would leave two
+        // properties where callers expect one.
+        /// <summary>Initializes a new instance.</summary>
+        public PrintPreviewDialog ()
+        {
+            AccessibleRole = AccessibleRole.Client;
+            ImeMode = ImeMode.Inherit;
+        }
 
         /// <summary>Gets or sets whether the dialog shows the wait cursor.</summary>
-        public bool UseWaitCursor { get; set; }
+        /// <remarks>`new` for the same reason as the shadowed events below: WinForms redeclares this on
+        /// the dialog, and it is a plain stored value here rather than the window's real wait cursor.</remarks>
+        public new bool UseWaitCursor { get; set; }
 
         /// <summary>Gets the data bindings for the dialog.</summary>
-        public ControlBindingsCollection DataBindings => data_bindings ??= new ControlBindingsCollection (PrintPreviewControl);
+        /// <remarks>`new` deliberately: these bind the hosted <see cref="PrintPreviewControl"/>, which is
+        /// what a caller binding this dialog means, and not the window's own properties that
+        /// <see cref="WindowBase.DataBindings"/> covers.</remarks>
+        public new ControlBindingsCollection DataBindings => data_bindings ??= new ControlBindingsCollection (PrintPreviewControl);
 
         private ControlBindingsCollection? data_bindings;
 
@@ -497,40 +507,40 @@ namespace Majorsilence.Forms
         public ScrollableControl.DockPaddingEdges DockPadding { get; } = new ScrollableControl.DockPaddingEdges ();
 
         // WinForms redeclares these on this dialog purely to hide them from the designer; they are
-        // never raised there either, because the dialog is not meant to be re-styled.
+        // never raised there either, because the dialog is not meant to be re-styled. The ones that now
+        // shadow a WindowBase member say `new` for that reason, exactly as WinForms does -- hiding is the
+        // intent here, not an accident.
+        //
+        // Ones that existed only because the window side LACKED the member are deleted rather than
+        // shadowed as that gap closes: an inert stub in front of a working forward is worse than nothing.
+        // ContextMenuStripChanged, ImeModeChanged, ImeMode and AccessibleRole went that way.
 #pragma warning disable CS0067
         /// <summary>Not raised: the dialog does not support restyling.</summary>
-        public event EventHandler? BackColorChanged;
+        public new event EventHandler? BackColorChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? BackgroundImageChanged;
+        public new event EventHandler? BackgroundImageChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? BackgroundImageLayoutChanged;
+        public new event EventHandler? BackgroundImageLayoutChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? CausesValidationChanged;
+        public new event EventHandler? CausesValidationChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? ContextMenuStripChanged;
-
-        /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? CursorChanged;
+        public new event EventHandler? CursorChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
         public event EventHandler? DockChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? ForeColorChanged;
+        public new event EventHandler? ForeColorChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? ImeModeChanged;
+        public new event EventHandler? PaddingChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? PaddingChanged;
-
-        /// <inheritdoc cref="BackColorChanged"/>
-        public event EventHandler? RightToLeftChanged;
+        public new event EventHandler? RightToLeftChanged;
 
         /// <inheritdoc cref="BackColorChanged"/>
         public new event EventHandler? TextChanged;

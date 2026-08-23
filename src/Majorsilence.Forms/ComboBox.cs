@@ -24,6 +24,13 @@ namespace Majorsilence.Forms
         {
             popup_listbox = new PopupList { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true };
             popup_listbox.SelectedIndexChanged += ListBox_SelectedIndexChanged;
+
+            // The inner list holds the items but the DATA SOURCE belongs to the combo, so the combo does
+            // its own tracking; the inner list's own tracker never sees a source.
+            source_tracker = new DataSourceBinding.ListSourceTracker (
+                RefreshDataSource,
+                position => SelectedIndex = position,
+                () => SelectedIndex);
         }
 
         // The list a combo box drops down is a real ListBox, and the combo's items are that list's items.
@@ -141,9 +148,14 @@ namespace Majorsilence.Forms
             get => _dataSource;
             set {
                 _dataSource = value;
+                source_tracker.Attach (value);
                 RefreshDataSource ();
             }
         }
+
+        // See ListBox: re-reads the source when it changes and keeps the selection and the source's
+        // current-item position in step.
+        private readonly DataSourceBinding.ListSourceTracker source_tracker;
 
         /// <summary>Gets or sets the property to display from the data source.</summary>
         public override string DisplayMember {
@@ -227,6 +239,10 @@ namespace Majorsilence.Forms
         // When the selected item of the popup ListBox changes, update the ComboBox
         private void ListBox_SelectedIndexChanged (object? sender, EventArgs e)
         {
+            // Move the bound source's current item with the selection, so a BindingSource driving a
+            // detail view follows what the user picked here.
+            source_tracker.OnSelectionChanged (popup_listbox.SelectedIndex);
+
             if (popup_listbox.SelectedIndex > -1) {
                 // The drop-down is only open when the user is actively picking (mouse/keyboard); a
                 // programmatic SelectedIndex/SelectedItem/Text change runs with it closed. Capture that

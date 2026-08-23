@@ -15,8 +15,6 @@ Majorsilence.Forms.Application.SetUnhandledExceptionMode/2
 Majorsilence.Forms.Backends.IWindowBackend.SetCaptionRegions/1
 Majorsilence.Forms.Backends.IWindowBackend.SetExtendClientIntoTitleBar/2
 Majorsilence.Forms.Backends.IWindowBackend.SetShaped/1
-Majorsilence.Forms.Binding.ReadValue/0
-Majorsilence.Forms.Binding.WriteValue/0
 Majorsilence.Forms.BindingManagerBase.AddNew/0
 Majorsilence.Forms.BindingManagerBase.CancelCurrentEdit/0
 Majorsilence.Forms.BindingManagerBase.EndCurrentEdit/0
@@ -25,8 +23,6 @@ Majorsilence.Forms.BindingManagerBase.RemoveAt/1
 Majorsilence.Forms.BindingManagerBase.ResumeBinding/0
 Majorsilence.Forms.BindingManagerBase.SuspendBinding/0
 Majorsilence.Forms.BindingNavigator.BeginInit/0
-Majorsilence.Forms.BindingSource.CancelEdit/0
-Majorsilence.Forms.BindingSource.EndEdit/0
 Majorsilence.Forms.BindingSource.ResetAllowNew/0
 Majorsilence.Forms.Clipboard.SetImage/1
 Majorsilence.Forms.ColumnHeader.AutoResize/1
@@ -166,5 +162,6 @@ Majorsilence.Forms.WebBrowser.ShowPrintPreviewDialog/0
 Majorsilence.Forms.WebBrowser.ShowPropertiesDialog/0
 Majorsilence.Forms.WebBrowser.ShowSaveAsDialog/0
 Majorsilence.Forms.WebBrowser.Stop/0
+Majorsilence.Forms.WindowBase.AccessibilityNotifyClients/2
 Majorsilence.Forms.WindowBase.UpdateStyles/0
 Majorsilence.Forms.WindowsFormsSynchronizationContext.Dispose/0

@@ -23,10 +23,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the number of items in the bound list.</summary>
-        public int Count => list?.Count ?? 0;
+        /// <remarks>Virtual because a <see cref="PropertyManager"/> manages a single object rather than a
+        /// list and has to answer for it.</remarks>
+        public virtual int Count => list?.Count ?? 0;
 
         /// <summary>Gets the item at the current position, or null when the list is empty.</summary>
-        public object? Current => list is not null && position >= 0 && position < list.Count ? list[position] : null;
+        /// <inheritdoc cref="Count" path="/remarks"/>
+        public virtual object? Current => list is not null && position >= 0 && position < list.Count ? list[position] : null;
 
         /// <summary>Gets or sets the current position in the list (clamped to the valid range).</summary>
         public int Position {
@@ -94,8 +97,25 @@ namespace Majorsilence.Forms
                 var member = dataMember ?? string.Empty;
                 var key = (dataSource ?? this, member);
 
+                // A source that owns a currency manager (a BindingSource) hands its own over, so its
+                // Position and the bound controls' current item are ONE thing. Building a second manager
+                // over it here gave them independent positions, and moving the BindingSource did not move
+                // what the bound control showed.
+                if (dataSource is ICurrencyManagerProvider provider
+                    && provider.GetRelatedCurrencyManager (member) is { } owned)
+                    return owned;
+
                 if (!managers.TryGetValue (key, out var manager)) {
-                    manager = new CurrencyManager (ResolveList (dataSource, member));
+                    // A list source gets a CurrencyManager with a position; anything else is a single
+                    // object, which is what PropertyManager is for. This used to hand back a
+                    // CurrencyManager over a null list for every scalar source -- Current was always
+                    // null, so a binding to a plain object had nothing to read.
+                    var list = ResolveList (dataSource, member);
+
+                    manager = list is not null
+                        ? new CurrencyManager (list)
+                        : new PropertyManager { DataSource = dataSource };
+
                     managers[key] = manager;
                 }
 

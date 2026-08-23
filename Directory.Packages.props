@@ -93,5 +93,8 @@
          referenced for compilation, only opened as metadata, so its Windows-only runtime is irrelevant. -->
     <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="8.0.1" />
     <PackageVersion Include="Microsoft.WindowsDesktop.App.Ref" Version="10.0.10" />
+    <!-- benchmarks/Majorsilence.Forms.Benchmarks: micro-benchmarks for the Drawing/layout/paint
+         hotspots found while stress-testing the control gallery. Not shipped in any package. -->
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
 </Project>

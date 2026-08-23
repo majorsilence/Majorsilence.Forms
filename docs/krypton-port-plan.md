@@ -362,22 +362,32 @@ see. Ordered by how much of the suite each one affects.
    Also checked while here: `statusStrip1.Location` really is `(0, -1)` in the designer, so that is not
    ours.
 
-6. **OPEN (diagnosed 2026-08-19): choosing Tools -> Colors dismisses the menu instead of dropping the
-   colour palette.** Found by GUI review. The hosting is NOT the problem and this is not a regression from
-   the hosting fix: with the Tools menu open, the item measures `{X=1,Y=45,W=162,H=20}` and the
-   `KryptonColorButton` it hosts is parented into the `MenuDropDown` at exactly those bounds and visible.
-   Nor is it the menu-item activation path -- `Control.RaiseClick` hands the click to
-   `Controls.FindVisibleChildAt` and returns, so with the hosted control covering that row
-   `MenuDropDown.OnMouseClick` never runs and its `Application.ClosePopups ()` is not reached. (A guard
-   there was written and then reverted for exactly that reason: it was dead code for this case. Do not
-   re-add it.)
+6. **FIXED 2026-08-19: choosing Tools -> Colors dismissed the menu instead of dropping the colour
+   palette.** Found by GUI review, and the diagnosis went through two wrong candidates before the right
+   one, both worth recording so they are not re-tried.
 
-   What is left is the **stacked-popup case** already listed under the popup work below: the colour button
-   opening its own `VisualPopup` while the menu popup is up, with `VisualPopupManager`'s dismissal riding on
-   the generic deactivation close. Not proven -- `KryptonColorButton.PerformClick ()` does not dismiss the
-   menu headlessly, but it does not open the palette either, so the decisive step could not be driven
-   without a GUI. Next step is to find what actually shows that button's palette and call it with the menu
-   open.
+   Not the hosting: with the menu open the item measures `{X=1,Y=45,W=162,H=20}` and the
+   `KryptonColorButton` is parented into the `MenuDropDown` at exactly those bounds, visible. Not
+   `MenuDropDown.OnMouseClick` either -- `Control.RaiseMouseDown`/`RaiseClick` hand the event to
+   `Controls.FindVisibleChildAt` and RETURN, so with the hosted control covering that row the menu's own
+   click handler never runs. (A guard was written there and then reverted for that reason: dead code for
+   this case. Do not re-add it.) And not stacked popups: driving `KryptonColorButton.PerformDropDown ()`
+   with the menu open leaves the menu up and `VisualPopupManager.CurrentPopup` set to the palette's
+   `VisualContextMenu`, so that machinery works.
+
+   The actual cause was in `Control.RaiseMouseDown`, in the branch that dismisses an open menu -- it
+   exempted the menu CONTROL and nothing hosted inside it:
+
+       if ((this as MenuBase)?.GetTopLevelMenu () != Application.ActiveMenu || Application.ActiveMenu is null)
+           Application.ClosePopups (true, false);
+
+   Because mouse-down routes to the deepest child, the hosted `KryptonColorButton` ran this check itself,
+   was not a `MenuBase`, and closed the very menu it was sitting in -- before its own handler could show the
+   palette. Replaced by `IsWithinActiveMenu ()`, which walks up the parent chain looking for the active
+   menu. Pinned by `MenuHostedControlClickTests`: one test that the hosted row no longer dismisses, one
+   that a press OUTSIDE the menu still does (the behaviour the old check existed for). Note those tests
+   must set `Application.ActiveMenu` themselves -- opening a drop-down via `Selected` does not, and without
+   it the whole dismissal path is inert and proves nothing in either direction.
 
 7. **OPEN (narrowed 2026-08-18): a Krypton button hosted in a tool strip draws wider than it measures.**
    All that is left of the ToolStripItems entry above. `KryptonColorButton` in `toolStrip1` reports a
@@ -489,14 +499,25 @@ TestForm launches, themes and renders, but StartScreen's anchored children are i
 3. **Post-show programmatic `Form.Size` writes are silently ignored even for a plain Form** (Avalonia
    backend path). Independent bug; the probe demonstrates it.
 
-   **Narrowed 2026-08-19:** it does NOT reproduce on the headless backend -- `Form.Size`, `Form.ClientSize`
-   and `Form.Width` all read back correctly after `Show()` there. So the library-side path is fine
-   (including the `if (value == Size) return;` guard in `Form.Size`, which was the obvious suspect since
-   the setter writes `Backend.Size` while the getter reads `Backend.ClientSize`) and the bug is genuinely
-   in the Avalonia backend. Deliberately NOT fixed blind: that path cannot be exercised in this
-   environment, and the Avalonia host's `IWindowBackend.Size` setter assigns `Width`/`Height` while
-   `ClientSize` reads Avalonia's own `ClientSize`, so any change wants a real window to verify against.
-   Next step is a GUI run, not more reading.
+   **FIXED 2026-08-19, and the description above was wrong.** The write was never ignored. A GUI probe
+   (`scratchpad/sizeprobe`: a real Avalonia window that resizes itself and logs every read-back) caught the
+   resize landing one tick late --
+
+       2. straight after Size=640x480   Size={400, 300}    <- stale
+       3. one tick later                Size={640, 480}    <- landed
+
+   -- so the defect is the SYNCHRONOUS read-back, not the resize. Assigning Avalonia's `Width`/`Height` is
+   a request it reconciles on its next layout pass, whereas WinForms resizes through `SetWindowPos` and
+   reads back the new size immediately. Ported code that sets a size and then uses `Width`/`Height` in the
+   same breath therefore computed against the previous one. It never reproduced headlessly because the
+   headless backend simply stores the value.
+
+   The Avalonia host's `IWindowBackend.Size` setter now records a `_pendingClientSize`, `ClientSize`
+   answers with it until the resize lands, and `OnSurfaceSizeChanged` clears it -- so a USER dragging the
+   window edge is still reported honestly instead of being masked by the last programmatic size. Verified
+   with the same probe: every read-back now reflects its write, and later ticks still agree with Avalonia.
+   No unit test, because this is backend behaviour the headless harness cannot express -- the probe is the
+   evidence, and it is worth keeping for the next backend-geometry question.
 
 [FIXED 2026-08-14] The invisible button text was GraphicsPath figure semantics in
 Majorsilence.Forms.Drawing.Common: GDI+ connects segments appended to an open figure with implicit
@@ -556,9 +577,183 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   papers over one consequence (pattern-arm order). Rebasing is the real fix; measure blast radius first.
 - **`ErrorProvider.ContainerControl`** cannot accept a Form (dropped by the script at one site). If more
   sites appear, consider what the provider actually needs from it here.
-- **Baseline triage:** `tests/.../ControlWindowParityBaseline.txt` (~190 entries) — classify each as
-  "belongs on a window" (add it; the Krypton port pulled ~10 off the list this way) or "genuinely N/A"
-  (annotate). The test names any new gap automatically.
+- **[TRIAGED 2026-08-19] Baseline triage:** `tests/.../ControlWindowParityBaseline.txt`. All 194 entries
+  are now grouped in the file itself by whether they should ever be closed -- six "N/A" groups (no parent to
+  dock against, no Win32 handle to recreate, MF-internal plumbing, layout-engine internals, child-scrolling,
+  child-selection) and eight "WORTH CLOSING" groups ordered by how likely ported code is to hit them
+  (state/geometry, data binding, accessibility, context menu + IME, designer Reset* pattern, validation,
+  gestures/drag-drop, static helpers). **25 entries came off the list in the same pass**: the Control EVENTS
+  a WinForms Form inherits (MouseClick, MouseDoubleClick, BackColorChanged, ControlAdded, PreviewKeyDown and
+  friends) now forward from `WindowBase` to the root `ControlAdapter`, the same shape as the existing
+  `DoubleClick`/`Layout` forwards -- `form.MouseClick += ...` did not previously compile. 169 remain.
+  Pinned by `WindowControlEventForwardingTests`, which checks the events actually ARRIVE: a forward wired to
+  the wrong object compiles and silently never fires. Caution: regenerating the baseline with
+  `MAJORSILENCE_WRITE_CONTROL_WINDOW_BASELINE=1` FLATTENS the grouping and loses the triage; edit by hand.
+
+  **2026-08-20: the first "worth closing" group is closed -- 169 down to 152.** State and geometry, the
+  group ranked most likely for ported code to hit: `Created`, `CreateControl`/`OnCreateControl`, `Contains`,
+  `HasChildren`, `PreferredSize`, `GetPreferredSize`, `GetContainerControl`, `GetStyle` (the counterpart of
+  the `SetStyle` that already forwarded, so the pair is finally usable), `UseWaitCursor`,
+  `LogicalToDeviceUnits`/`DeviceToLogicalUnits`, `ScaleBitmapLogicalToDevice`, `PerformLayout/2`,
+  `Invalidate/2`, plus `Container` and `DesignMode` as the constant answers Control gives. Pinned by
+  `WindowStateGeometryParityTests` (7 tests) which check the answers concern the right rectangle and the
+  right control tree -- the parity test only checks EXISTENCE, so a forward wired to the wrong object
+  satisfies it and still lies.
+
+  Two entries were moved to N/A groups rather than closed, with the reasoning recorded in the file:
+  `Site` (Control shadows `Component.Site`; doing that on a window would hide the real one the designer and
+  `IContainer` plumbing read through, to gain a property Control only answers nothing from) and
+  `FromScreenPoint/1` (a static CONTROL finder; the window equivalent already exists as `Form.ActiveForm` /
+  `GetChildAtPoint`).
+
+  Watch for `CS0108` when closing any further group: `PrintPreviewDialog` redeclares a lot of Control
+  surface to hide it from the designer, so each addition can shadow one of those and Release treats the
+  warning as an error. `UseWaitCursor` needed `new` for exactly that reason, as five events did before it.
+
+  **2026-08-21: data binding and accessibility closed -- 152 down to 141.**
+
+  Data binding (`DataBindings`, `DataContext`, `DataContextChanged`, `ResetBindings`). Worth knowing before
+  touching this: binding here is a COMPILE-compatibility surface, not a working facility --
+  `Binding.WriteValue` is an empty stub, so no binding moves a value in either direction. The members are
+  still wired to the correct objects so that implementing `Binding` later makes them work rather than
+  making them wrong, and the split is not obvious: `DataBindings` belongs to the WINDOW (`form.DataBindings
+  .Add ("Text", src, "Title")` is a statement about the window's title, and handing back the adapter's
+  collection would compile and bind the adapter's Text, which nothing displays), while `DataContext`
+  forwards to the adapter because its entire purpose is to be inherited by descendants and that chain
+  terminates there. `WindowBase` implements `IBindableComponent` for this, with the interface's
+  `BindingContext` routed through an internal `BindingContextCore` that `Form` overrides onto its existing
+  public property -- a second property would have shadowed it and then drifted from it.
+  `OnDataContextChanged/1` was moved to the already-forwarded On* group rather than added, since the event
+  is raised by the adapter and a window-side raiser would double it.
+
+  Accessibility (`AccessibilityObject`, `CreateAccessibilityInstance`, `AccessibleRole`,
+  `AccessibleDefaultActionDescription`, `IsAccessible`, `AccessibilityNotifyClients`,
+  `QueryAccessibilityHelp`). Window-owned rather than forwarded: a screen reader addresses the window.
+  Also a described surface rather than a live one -- nothing reaches a platform accessibility API yet -- so
+  `AccessibilityNotifyClients` is a deliberate no-op and had to be recorded in `NoOpStubBaseline.txt` and
+  `COMPATIBILITY_MATRIX.md`; `NoOpStubBaselineTests` catches a new empty public void method and will fail
+  until it is. Both facts are now in the matrix so the surface is not mistaken for a working one.
+
+  `PrintPreviewDialog` collided twice more (`DataBindings`, `AccessibleRole`). `DataBindings` genuinely
+  differs -- it binds the hosted `PrintPreviewControl`, which is what binding that dialog means -- so it
+  says `new`. `AccessibleRole` did not: it existed only to change the default to `Client`, so the property
+  was DELETED and the default moved into a constructor, leaving one property where callers expect one.
+  Prefer that shape over `new` whenever the shadow exists only to change a default.
+
+- **[IMPLEMENTED 2026-08-21] Data binding is live, not a stub.** Found while closing the data-binding
+  parity group: `Binding` held its property name and data source and did nothing with them --
+  `Format`/`Parse` were `add { } remove { }`, `ReadValue`/`WriteValue` were empty -- so every binding in
+  every migrated form compiled, ran, and moved no data. `BindingRuntime.cs` implements the mechanism:
+  initial pull on `Add`, source->control via `INotifyPropertyChanged` and `CurrencyManager` position
+  changes, control->source via the `<Property>Changed` convention honouring `DataSourceUpdateMode`, real
+  `Format`/`Parse`, `FormatString`/`NullValue`/`DataSourceNullValue`, and two-way type coercion.
+  17 tests in `BindingRuntimeTests`.
+
+  Three bugs it exposed, all of which had been invisible while nothing was live:
+  - `BindingContext` handed back a `CurrencyManager` over a NULL list for every scalar source, so
+    `Current` was always null and a binding to a plain object had nothing to read. Scalar sources now get
+    a `PropertyManager`, and `BindingManagerBase.Current`/`Count` became virtual so it can answer.
+  - `Binding`'s constructor accepted `formattingEnabled` and dropped it on the floor.
+  - `ControlBindingsCollection.Add(..., updateMode, ...)` added the binding and THEN set
+    `DataSourceUpdateMode`. Once adding became the thing that subscribes, that ordering meant every
+    binding created through the designer's favourite overload watched `Validated` instead of the
+    property's own changed event and never wrote back. The overload now configures before adding, and the
+    property re-subscribes if it is changed on a live binding.
+
+  Worth knowing: `Delegate.CreateDelegate`'s by-NAME overload does not find a private method and returns
+  null with `throwOnBindFailure: false`, which is how the write-back half stayed silently unwired through
+  the first round of tests. Bind through an explicit `MethodInfo`.
+
+- **[FIXED 2026-08-21] BindingSource, once live bindings made its gaps observable.** Three real bugs, and
+  a lesson about this codebase. `CurrencyManager` returned `new CurrencyManager (_list)` on EVERY read, so
+  no two callers shared a current item -- and since `BindingContext` builds a manager for whatever a
+  control binds to, a control bound to a BindingSource tracked a private position and never followed
+  `BindingSource.Position`. It is now cached, synced with `Position` both ways behind a re-entrancy guard,
+  and handed out through `ICurrencyManagerProvider`, which `BindingContext` now honours. `AddNew` added a
+  literal `null` to the caller's own list; it now sources the item from `AddingNew`, the list's own
+  `AddNew`, or the element type's constructor, and makes it current. `Find` always returned -1; it now
+  delegates when the list can search and otherwise walks it -- a deliberate divergence from WinForms,
+  which throws, because "not found" was the worse answer. `EndEdit`/`CancelEdit` reach an
+  `IEditableObject`, and `Sort` parses the WinForms expression shape and applies it through the list.
+  9 tests in `BindingSourceRuntimeTests`.
+
+  **The lesson: grep every partial before adding a member here.** `BindingSource` is spread across
+  `BindingSource.cs` and `AppMenuBindingParity.cs`, and most of the sort/filter surface the compatibility
+  matrix listed as missing was already implemented in the second file -- better than the version being
+  written from the matrix's description. Roughly half of that work was thrown away on discovering it. The
+  matrix row is now corrected. Two of these types (`Binding`, `BindingSource`) have four or five partials
+  each; `grep -rn "class <Name>" src/` first, every time.
+
+- **[FIXED 2026-08-21] A list control read its data source once, at bind time.** The third layer of the
+  binding work, and the most commonly hit of the three. `ListBox`/`ComboBox` snapshotted the source in
+  `RefreshDataSource` when `DataSource` was assigned and never looked again -- which is precisely the wrong
+  moment, because designer code assigns `DataSource` in `InitializeComponent` and the form fills the data
+  afterwards. A control bound that way kept the empty list forever. `BindingSource.ListChanged` existed to
+  say when to look again and nothing was listening.
+
+  `DataSourceBinding.ListSourceTracker` now does both halves for both controls from one place: re-reads on
+  `ListChanged`, and keeps the control's selection and the source's current-item position in step in BOTH
+  directions (via `ICurrencyManagerProvider`, so it is the same shared manager the bindings use). That is
+  what makes master/detail work -- there is a test that picks a row in a `ListBox` and watches a
+  `TextBox` bound to the same `BindingSource` follow it.
+
+  It also exposed a plain bug one layer down: `BindingSource`'s own `IList` mutators (`Add`, `Insert`,
+  `Remove`, `RemoveAt`, `Clear`) never raised `ListChanged` at all. Over an `IBindingList` that went
+  unnoticed because the underlying list raises its own and `AttachToList` forwards it -- but over a plain
+  `List<T>`, the commonest case there is, every add and remove was swallowed. They now raise, guarded so an
+  `IBindingList` underneath does not deliver the same change twice. 6 tests in
+  `ListControlDataSourceTrackingTests`.
+
+- **[FIXED 2026-08-21] A form's own context menu never opened -- baseline 141 down to 134.** The context
+  menu + IME parity group, and it turned out to be a behaviour fix rather than a naming one.
+  `WindowBase.ContextMenuStrip` was a STORED value nothing read (its own doc comment said so), so a form
+  with a context menu assigned in the designer showed nothing on right-click while its child controls'
+  menus worked -- which reads as the form's menu being broken rather than missing. It now forwards to the
+  root adapter, which is both the right object and what makes it work: the adapter is the window's client
+  surface, a right-click on the form's background lands on it, and `Control.RaiseClick` already opens a
+  control's context menu there. `ContextMenu` (legacy), `ContextMenuChanged`, `ContextMenuStripChanged`,
+  `ImeMode`, `DefaultImeMode`, `ImeModeChanged` and `ResetImeMode` came with it. The three `On*` raisers
+  went to the already-forwarded group, as `OnDataContextChanged` did. Pinned by
+  `WindowContextMenuImeParityTests` -- 3 of its 6 tests fail if `ContextMenuStrip` goes back to being
+  stored, including one that right-clicks a form and checks the menu opens.
+
+  **The PrintPreviewDialog collision rule, now settled after five encounters.** Three more members
+  collided (`ImeMode`, `ContextMenuStripChanged`, `ImeModeChanged`). Two of them existed ONLY because the
+  window side lacked the member, and were never-raised stubs, so they were DELETED -- an inert stub in
+  front of a working forward is worse than nothing. `ImeMode` existed only to hold a different default
+  (`Inherit`), so it was deleted too and the default moved into the constructor, the same shape used for
+  `AccessibleRole`. Reach for `new` only when the dialog's member genuinely means something different, as
+  `DataBindings` does (it binds the hosted `PrintPreviewControl`). Net effect: this pass removed more
+  shadows than it added.
+
+- **[FIXED 2026-08-21] The designer Reset* pattern on a window -- baseline 134 down to 123.**
+  `ResetBackColor`, `ResetForeColor`, `ResetCursor`, `ResetFont`, `ResetRightToLeft`, `ResetText`, plus
+  `DefaultFont`/`DefaultForeColor` and the `CompanyName`/`ProductName`/`ProductVersion` trio. Every
+  designer file emits these, so a form that customised any of them did not compile.
+
+  Not forwarding one-liners: each Reset has to clear the SAME storage its property writes, and the window's
+  storage is not uniform. `BackColor`/`ForeColor` live on the window's own `ControlStyle`, `Cursor` in its
+  own field, `Font`/`RightToLeft` on the root adapter -- and `Text` is declared on `Form`, not
+  `WindowBase`, so `ResetText` had to go there or it could not clear the value the property writes.
+  Pinned by `WindowResetPatternTests`, which asserts the value actually returns rather than that the method
+  exists.
+
+  Two things learned. `RightToLeft`'s getter RESOLVES `Inherit` through the parent chain, so a window
+  reports the ambient default rather than the word `Inherit` after a reset -- as WinForms does. My first
+  test asserted `Inherit` and was simply wrong; it now checks the explicit value is gone and children
+  follow the default again, which is the behaviour that matters.
+
+  And a **migration hazard worth telling users about**: adding `ProductName` to the window type broke the
+  PointOfSale sample, which has a domain `ProductName` on an edit form. That is faithful -- WinForms'
+  `Control.ProductName` is inherited by every Form there too, so a migrated app hits the same CS0108 and
+  answers it the same way, with `new`. The sample now does, with a comment saying why. Expect this for
+  `ProductName`, `CompanyName` and `Text`-adjacent names in real ports.
+
+- **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
+  (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
+  re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity
+  work; it looks like shared state or parallelism across test assemblies. Worth pinning down before it
+  wastes someone's afternoon attributing it to their own change.
 - **Mobile/browser audio:** desktop audio is real now (`Media/NativeAudio.cs` spawns the OS player;
   see COMPATIBILITY_MATRIX "Majorsilence.Forms.Media"). Android/iOS/wasm stay silent until a backend
   supplies a native path -- `NativeAudio.LauncherOverride` is currently the only seam, promote it to a

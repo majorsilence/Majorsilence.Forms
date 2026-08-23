@@ -891,6 +891,14 @@ namespace Majorsilence.Forms
             set => binding_context = value;
         }
 
+        /// <inheritdoc/>
+        /// <remarks>Routed to this form's own <see cref="BindingContext"/> so the public property and the
+        /// <c>IBindableComponent</c> one cannot drift apart.</remarks>
+        internal override BindingContext? BindingContextCore {
+            get => BindingContext;
+            set => BindingContext = value ?? new BindingContext ();
+        }
+
         /// <summary>Gets or sets the border style of the form.</summary>
         /// <remarks>
         /// <para>
@@ -974,6 +982,11 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
+        /// <summary>Clears the form's title. Part of the designer Reset* pattern.</summary>
+        /// <remarks>Declared here rather than on <see cref="WindowBase"/> because <see cref="Text"/> is,
+        /// so this is the only place that can clear the same storage the property writes.</remarks>
+        public virtual void ResetText () => Text = string.Empty;
 
         /// <summary>Gets or sets the text for the form title bar.</summary>
         public string Text {

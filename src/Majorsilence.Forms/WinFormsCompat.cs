@@ -106,6 +106,7 @@ namespace Majorsilence.Forms
             PropertyName = propertyName;
             DataSource = dataSource;
             BindingMemberInfo = new BindingMemberInfo (dataMember ?? string.Empty);
+            FormattingEnabled = formattingEnabled;   // the parameter used to be accepted and dropped
         }
 
         /// <summary>Gets the control property name.</summary>
@@ -117,11 +118,24 @@ namespace Majorsilence.Forms
         /// <summary>Gets binding member information.</summary>
         public BindingMemberInfo BindingMemberInfo { get; }
 
-        /// <summary>Gets or sets the format string. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the format string applied to the value shown in the control.</summary>
         public string FormatString { get; set; } = string.Empty;
 
         /// <summary>Gets or sets when the data source is updated from the bound control.</summary>
-        public DataSourceUpdateMode DataSourceUpdateMode { get; set; } = DataSourceUpdateMode.OnValidation;
+        /// <remarks>Changing this on a live binding re-subscribes it: the mode decides WHICH event on the
+        /// component is watched, so it cannot just be stored once the binding is attached.</remarks>
+        public DataSourceUpdateMode DataSourceUpdateMode {
+            get => data_source_update_mode;
+            set {
+                if (data_source_update_mode == value)
+                    return;
+
+                data_source_update_mode = value;
+                ResubscribeToTarget ();
+            }
+        }
+
+        private DataSourceUpdateMode data_source_update_mode = DataSourceUpdateMode.OnValidation;
 
         /// <summary>Gets or sets the value substituted when the data source holds DBNull.</summary>
         public object? NullValue { get; set; }
@@ -129,14 +143,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the culture used when formatting the bound value.</summary>
         public IFormatProvider? FormatInfo { get; set; }
 
-        /// <summary>Raised when the control value is formatted. Stub in Majorsilence.Forms.</summary>
-        public event ConvertEventHandler? Format { add { } remove { } }
-
-        /// <summary>Raised when the data source value is parsed. Stub in Majorsilence.Forms.</summary>
-        public event ConvertEventHandler? Parse { add { } remove { } }
-
-        /// <summary>Pushes the current control value to the data source. No-op stub in Majorsilence.Forms.</summary>
-        public void WriteValue () { }
+        // Format/Parse, ReadValue/WriteValue and the whole live-binding mechanism are in
+        // BindingRuntime.cs. They used to be discarding stubs (`add { } remove { } }`, empty WriteValue),
+        // which meant every binding in every migrated form silently did nothing.
     }
 
     /// <summary>Provides data for Binding.Format and Binding.Parse events.</summary>
@@ -218,7 +227,7 @@ namespace Majorsilence.Forms
         public string BindingPath => BindingMember.Contains ('.') ? BindingMember.Substring (0, BindingMember.LastIndexOf ('.')) : string.Empty;
     }
 
-    /// <summary>Represents the collection of data bindings for a control. Stub in Majorsilence.Forms.</summary>
+    /// <summary>Represents the collection of data bindings for a control.</summary>
     public partial class ControlBindingsCollection : System.Collections.ObjectModel.Collection<Binding>
     {
         private readonly IBindableComponent _control;

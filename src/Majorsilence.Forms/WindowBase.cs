@@ -5,7 +5,7 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents the base class for windows, like Form and PopupWindow.
     /// </summary>
-    public abstract partial class WindowBase : Component
+    public abstract partial class WindowBase : Component, IBindableComponent
     {
         private const int DOUBLE_CLICK_TIME = 500;
         private const int DOUBLE_CLICK_MOVEMENT = 4;
@@ -625,10 +625,110 @@ namespace Majorsilence.Forms
 #pragma warning restore CS0067
 
         /// <summary>
-        /// Gets or sets the context menu shown when the window itself is right-clicked. Stored for
-        /// designer compat; the compat window does not surface it yet (controls' own menus work).
+        /// Gets or sets the context menu shown when the window itself is right-clicked.
         /// </summary>
-        public ContextMenuStrip? ContextMenuStrip { get; set; }
+        /// <remarks>
+        /// Forwarded to the root adapter, which is both the right object and what makes this WORK: the
+        /// adapter is the window's client surface, so a right-click on the window's background lands on it,
+        /// and <see cref="Control.RaiseClick"/> already opens a control's own context menu there. This
+        /// used to be a stored value nothing read, so a form with a ContextMenuStrip assigned in the
+        /// designer showed nothing when right-clicked while its child controls' menus worked -- which
+        /// reads as the form's menu being broken rather than absent.
+        /// </remarks>
+        public ContextMenuStrip? ContextMenuStrip {
+            get => adapter.ContextMenuStrip;
+            set => adapter.ContextMenuStrip = value;
+        }
+
+        /// <summary>Gets or sets the legacy context menu shown when the window is right-clicked.</summary>
+        /// <inheritdoc cref="ContextMenuStrip" path="/remarks"/>
+        public virtual ContextMenu? ContextMenu {
+            get => adapter.ContextMenu;
+            set => adapter.ContextMenu = value;
+        }
+
+        /// <summary>Raised when <see cref="ContextMenu"/> changes.</summary>
+        public event EventHandler? ContextMenuChanged {
+            add => adapter.ContextMenuChanged += value;
+            remove => adapter.ContextMenuChanged -= value;
+        }
+
+        /// <summary>Raised when <see cref="ContextMenuStrip"/> changes.</summary>
+        public event EventHandler? ContextMenuStripChanged {
+            add => adapter.ContextMenuStripChanged += value;
+            remove => adapter.ContextMenuStripChanged -= value;
+        }
+
+        /// <summary>Gets or sets the input method editor mode for the window.</summary>
+        /// <remarks>Forwarded to the root adapter so the window's children inherit it through the same
+        /// chain they inherit a parent control's.</remarks>
+        public ImeMode ImeMode {
+            get => adapter.ImeMode;
+            set => adapter.ImeMode = value;
+        }
+
+        /// <summary>Gets the default IME mode for this window type, used by <see cref="ResetImeMode"/>.</summary>
+        protected virtual ImeMode DefaultImeMode => ImeMode.NoControl;
+
+        /// <summary>Raised when <see cref="ImeMode"/> changes.</summary>
+        public event EventHandler? ImeModeChanged {
+            add => adapter.ImeModeChanged += value;
+            remove => adapter.ImeModeChanged -= value;
+        }
+
+        /// <summary>Resets <see cref="ImeMode"/> to its default. Part of the designer Reset* pattern.</summary>
+        public void ResetImeMode () => ImeMode = DefaultImeMode;
+
+        // ── The rest of the designer Reset* pattern ──────────────────────────────
+        // Every designer file emits these, and each one has to clear the SAME storage the corresponding
+        // property writes, or "reset" leaves the explicit value in place and the property keeps reporting
+        // it. That is why these are not one-liners forwarded blindly: BackColor and ForeColor live on the
+        // window's own ControlStyle, Cursor in its own field, while Font and RightToLeft belong to the
+        // root adapter.
+
+        /// <summary>Clears any explicitly-set background colour so the window resolves it from the theme again.</summary>
+        public virtual void ResetBackColor ()
+        {
+            if (Style.BackgroundColor is null)
+                return;
+
+            Style.BackgroundColor = null;
+            Invalidate ();
+        }
+
+        /// <summary>Clears any explicitly-set foreground colour so the window resolves it from the theme again.</summary>
+        public virtual void ResetForeColor ()
+        {
+            if (Style.ForegroundColor is null)
+                return;
+
+            Style.ForegroundColor = null;
+            Invalidate ();
+        }
+
+        /// <summary>Clears any explicitly-set cursor, so the window shows the default arrow again.</summary>
+        public virtual void ResetCursor () => Cursor = null;
+
+        /// <summary>Clears any explicitly-set font, so the window and its children resolve it ambiently.</summary>
+        public virtual void ResetFont () => adapter.ResetFont ();
+
+        /// <summary>Resets the window's reading order so it follows the system default again.</summary>
+        public virtual void ResetRightToLeft () => RightToLeft = RightToLeft.Inherit;
+
+        /// <summary>Gets the default font a window and its children use. Matches <see cref="Control.DefaultFont"/>.</summary>
+        public static Majorsilence.Forms.Drawing.Font DefaultFont => Control.DefaultFont;
+
+        /// <summary>Gets the default foreground colour of a window. Matches <see cref="Control.DefaultForeColor"/>.</summary>
+        public static System.Drawing.Color DefaultForeColor => Control.DefaultForeColor;
+
+        /// <summary>Gets the company name from the application's assembly metadata.</summary>
+        public string CompanyName => Application.CompanyName ?? string.Empty;
+
+        /// <summary>Gets the product name from the application's assembly metadata.</summary>
+        public string ProductName => Application.ProductName ?? string.Empty;
+
+        /// <summary>Gets the product version from the application's assembly metadata.</summary>
+        public string ProductVersion => Application.ProductVersion ?? string.Empty;
 
         /// <summary>Gets or sets the unscaled location of the window. Mirrors WinForms Form.Location.</summary>
         public System.Drawing.Point Location {
@@ -940,6 +1040,163 @@ namespace Majorsilence.Forms
         public event LayoutEventHandler? Layout {
             add => adapter.Layout += value;
             remove => adapter.Layout -= value;
+        }
+
+        // ── Control events a WinForms Form inherits ───────────────────────────────
+        // Form is not a Control here, so none of these come for free, and `form.MouseClick += ...` on
+        // migrated code simply did not compile. Each forwards to the root ControlAdapter, which IS the
+        // window's client surface -- the same shape as DoubleClick and Layout above. Members that have no
+        // meaning for a top-level window (Dock, Anchor, TabIndex and friends) are deliberately still
+        // absent; see ControlWindowParityBaseline.txt, which records that split.
+
+        /// <summary>Raised when the window's client area is clicked. Mirrors <c>Control.MouseClick</c>; forwards to the root control adapter.</summary>
+        public event MouseEventHandler? MouseClick {
+            add => adapter.MouseClick += value;
+            remove => adapter.MouseClick -= value;
+        }
+
+        /// <summary>Raised when the window's client area is double-clicked. Mirrors <c>Control.MouseDoubleClick</c>; forwards to the root control adapter.</summary>
+        public event MouseEventHandler? MouseDoubleClick {
+            add => adapter.MouseDoubleClick += value;
+            remove => adapter.MouseDoubleClick -= value;
+        }
+
+        /// <summary>Raised when the mouse rests over the window's client area. Mirrors <c>Control.MouseHover</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? MouseHover {
+            add => adapter.MouseHover += value;
+            remove => adapter.MouseHover -= value;
+        }
+
+        /// <summary>Raised when the window's client area gains or loses mouse capture. Mirrors <c>Control.MouseCaptureChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? MouseCaptureChanged {
+            add => adapter.MouseCaptureChanged += value;
+            remove => adapter.MouseCaptureChanged -= value;
+        }
+
+        /// <summary>Raised when the background colour changes. Mirrors <c>Control.BackColorChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? BackColorChanged {
+            add => adapter.BackColorChanged += value;
+            remove => adapter.BackColorChanged -= value;
+        }
+
+        /// <summary>Raised when the foreground colour changes. Mirrors <c>Control.ForeColorChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? ForeColorChanged {
+            add => adapter.ForeColorChanged += value;
+            remove => adapter.ForeColorChanged -= value;
+        }
+
+        /// <summary>Raised when the cursor changes. Mirrors <c>Control.CursorChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? CursorChanged {
+            add => adapter.CursorChanged += value;
+            remove => adapter.CursorChanged -= value;
+        }
+
+        /// <summary>Raised when the padding changes. Mirrors <c>Control.PaddingChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? PaddingChanged {
+            add => adapter.PaddingChanged += value;
+            remove => adapter.PaddingChanged -= value;
+        }
+
+        /// <summary>Raised when the RightToLeft value changes. Mirrors <c>Control.RightToLeftChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? RightToLeftChanged {
+            add => adapter.RightToLeftChanged += value;
+            remove => adapter.RightToLeftChanged -= value;
+        }
+
+        /// <summary>Raised when the system colours change. Mirrors <c>Control.SystemColorsChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? SystemColorsChanged {
+            add => adapter.SystemColorsChanged += value;
+            remove => adapter.SystemColorsChanged -= value;
+        }
+
+        /// <summary>Raised when the binding context changes. Mirrors <c>Control.BindingContextChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? BindingContextChanged {
+            add => adapter.BindingContextChanged += value;
+            remove => adapter.BindingContextChanged -= value;
+        }
+
+        /// <summary>Raised when the CausesValidation value changes. Mirrors <c>Control.CausesValidationChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? CausesValidationChanged {
+            add => adapter.CausesValidationChanged += value;
+            remove => adapter.CausesValidationChanged -= value;
+        }
+
+        /// <summary>Raised when the background image changes. Mirrors <c>Control.BackgroundImageChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? BackgroundImageChanged {
+            add => adapter.BackgroundImageChanged += value;
+            remove => adapter.BackgroundImageChanged -= value;
+        }
+
+        /// <summary>Raised when the background image layout changes. Mirrors <c>Control.BackgroundImageLayoutChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? BackgroundImageLayoutChanged {
+            add => adapter.BackgroundImageLayoutChanged += value;
+            remove => adapter.BackgroundImageLayoutChanged -= value;
+        }
+
+        /// <summary>Raised when the region changes. Mirrors <c>Control.RegionChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? RegionChanged {
+            add => adapter.RegionChanged += value;
+            remove => adapter.RegionChanged -= value;
+        }
+
+        /// <summary>Raised when the control style changes. Mirrors <c>Control.StyleChanged</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? StyleChanged {
+            add => adapter.StyleChanged += value;
+            remove => adapter.StyleChanged -= value;
+        }
+
+        /// <summary>Raised when a drag operation leaves the window. Mirrors <c>Control.DragLeave</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? DragLeave {
+            add => adapter.DragLeave += value;
+            remove => adapter.DragLeave -= value;
+        }
+
+        /// <summary>Raised when the window's client area is entered. Mirrors <c>Control.Enter</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? Enter {
+            add => adapter.Enter += value;
+            remove => adapter.Enter -= value;
+        }
+
+        /// <summary>Raised when validation of the client area finishes. Mirrors <c>Control.Validated</c>; forwards to the root control adapter.</summary>
+        public event EventHandler? Validated {
+            add => adapter.Validated += value;
+            remove => adapter.Validated -= value;
+        }
+
+        /// <summary>Raised when part of the window is invalidated. Mirrors <c>Control.Invalidated</c>; forwards to the root control adapter.</summary>
+        public event EventHandler<InvalidateEventArgs>? Invalidated {
+            add => adapter.Invalidated += value;
+            remove => adapter.Invalidated -= value;
+        }
+
+        /// <summary>Raised when a drag operation is asked whether to continue. Mirrors <c>Control.QueryContinueDrag</c>; forwards to the root control adapter.</summary>
+        public event EventHandler<QueryContinueDragEventArgs>? QueryContinueDrag {
+            add => adapter.QueryContinueDrag += value;
+            remove => adapter.QueryContinueDrag -= value;
+        }
+
+        /// <summary>Raised when the focus or keyboard UI cues change. Mirrors <c>Control.ChangeUICues</c>; forwards to the root control adapter.</summary>
+        public event UICuesEventHandler? ChangeUICues {
+            add => adapter.ChangeUICues += value;
+            remove => adapter.ChangeUICues -= value;
+        }
+
+        /// <summary>Raised when a control is added to the window. Mirrors <c>Control.ControlAdded</c>; forwards to the root control adapter.</summary>
+        public event ControlEventHandler? ControlAdded {
+            add => adapter.ControlAdded += value;
+            remove => adapter.ControlAdded -= value;
+        }
+
+        /// <summary>Raised when a control is removed from the window. Mirrors <c>Control.ControlRemoved</c>; forwards to the root control adapter.</summary>
+        public event ControlEventHandler? ControlRemoved {
+            add => adapter.ControlRemoved += value;
+            remove => adapter.ControlRemoved -= value;
+        }
+
+        /// <summary>Raised when a key is previewed before being processed. Mirrors <c>Control.PreviewKeyDown</c>; forwards to the root control adapter.</summary>
+        public event PreviewKeyDownEventHandler? PreviewKeyDown {
+            add => adapter.PreviewKeyDown += value;
+            remove => adapter.PreviewKeyDown -= value;
         }
 
         /// <summary>Raises the <see cref="MouseWheel"/> event.</summary>
@@ -1461,6 +1718,173 @@ namespace Majorsilence.Forms
             adapter.PerformLayout ();
             RaiseLayoutForExplicitRequest ();
         }
+
+        /// <summary>Forces the window's controls to apply layout logic, naming what changed.</summary>
+        /// <remarks>The overload designer-generated and container code actually calls.</remarks>
+        public void PerformLayout (Control? affectedControl, string? affectedProperty)
+        {
+            SyncAdapterBounds ();
+            adapter.PerformLayout (affectedControl, affectedProperty);
+            RaiseLayoutForExplicitRequest ();
+        }
+
+        // ── Control state and geometry a WinForms Form inherits ──────────────────
+        // Form is not a Control here, so none of this comes for free. Each forwards to the root
+        // ControlAdapter, which IS the window's client surface, so the answers are about the same
+        // rectangle a WinForms Form would answer about. See ControlWindowParityBaseline.txt for the
+        // members deliberately still absent and why.
+
+        /// <summary>Gets whether the window has been created. Mirrors <c>Control.Created</c>.</summary>
+        /// <remarks>Answers from the same flag as <see cref="IsHandleCreated"/> -- there is no handle
+        /// here, and "has been shown" is the closest true statement.</remarks>
+        public bool Created => shown;
+
+        /// <summary>Forces the creation of the window's client surface. Mirrors <c>Control.CreateControl</c>.</summary>
+        public void CreateControl ()
+        {
+            adapter.CreateControl ();
+            OnCreateControl ();
+        }
+
+        /// <summary>Called when the window's client surface is created.</summary>
+        protected virtual void OnCreateControl () { }
+
+        /// <summary>Gets whether the given control is a child or deeper descendant of this window.</summary>
+        public bool Contains (Control control) => adapter.Contains (control);
+
+        /// <summary>Gets whether the window has any child controls.</summary>
+        public bool HasChildren => adapter.HasChildren;
+
+        /// <summary>Gets the size the window's contents would like to be.</summary>
+        public System.Drawing.Size PreferredSize => adapter.PreferredSize;
+
+        /// <summary>Gets the size the window's contents would like to be within the given bounds.</summary>
+        public virtual System.Drawing.Size GetPreferredSize (System.Drawing.Size proposedSize)
+            => adapter.GetPreferredSize (proposedSize);
+
+        /// <summary>Gets the innermost container control of the window's contents.</summary>
+        public IContainerControl? GetContainerControl () => adapter.GetContainerControl ();
+
+        /// <summary>Gets the value of the specified <see cref="ControlStyles"/> flag.</summary>
+        /// <remarks>The counterpart of <see cref="SetStyle"/>, which already forwarded here.</remarks>
+        public bool GetStyle (ControlStyles flag) => adapter.GetStyle (flag);
+
+        /// <summary>Gets or sets whether the wait cursor is shown for the window and its contents.</summary>
+        public bool UseWaitCursor {
+            get => adapter.UseWaitCursor;
+            set => adapter.UseWaitCursor = value;
+        }
+
+        /// <summary>Converts a logical DPI value to the window's device DPI.</summary>
+        public int LogicalToDeviceUnits (int value) => adapter.LogicalToDeviceUnits (value);
+
+        /// <summary>Converts a device DPI value to logical units.</summary>
+        public int DeviceToLogicalUnits (int value) => adapter.DeviceToLogicalUnits (value);
+
+        /// <summary>Scales a bitmap to the window's device DPI.</summary>
+        public void ScaleBitmapLogicalToDevice (ref Majorsilence.Forms.Drawing.Bitmap logicalBitmap)
+            => adapter.ScaleBitmapLogicalToDevice (ref logicalBitmap);
+
+        /// <summary>Invalidates a region of the window, optionally including its children.</summary>
+        public void Invalidate (System.Drawing.Rectangle rectangle, bool invalidateChildren) => Invalidate ();
+
+        /// <summary>Invalidates a region of the window, optionally including its children.</summary>
+        public void Invalidate (Majorsilence.Forms.Drawing.Region region, bool invalidateChildren) => Invalidate ();
+
+        /// <summary>Gets the container this window is a component of. Always null, as on Control.</summary>
+        public new System.ComponentModel.IContainer? Container => null;
+
+        /// <summary>Gets whether the window is in design mode. Always false, as on Control.</summary>
+        public new bool DesignMode => false;
+
+        // ── Data binding ─────────────────────────────────────────────────────────
+        // NOTE ON WHAT THIS ACTUALLY DOES: binding is a COMPILE-compatibility surface in this library,
+        // not a working facility -- `Binding.WriteValue` is an empty stub, so no binding moves a value in
+        // either direction yet. These members exist so migrated code that sets up bindings on a Form
+        // compiles and runs; they are wired to the correct objects so that implementing Binding later
+        // makes them work rather than making them wrong.
+
+        /// <summary>Gets the data bindings for the window's own properties.</summary>
+        /// <remarks>
+        /// Bound to the WINDOW, not to its root adapter, because that is what the collection is for:
+        /// `form.DataBindings.Add ("Text", source, "Title")` is a statement about the window's title.
+        /// Handing back the adapter's collection would compile and quietly bind the adapter's Text --
+        /// a different property that nothing displays.
+        /// </remarks>
+        public ControlBindingsCollection DataBindings => data_bindings ??= new ControlBindingsCollection (this);
+
+        private ControlBindingsCollection? data_bindings;
+
+        /// <summary>Re-reads every bound property of the window from its data source.</summary>
+        public void ResetBindings ()
+        {
+            foreach (var binding in DataBindings)
+                binding.WriteValue ();
+        }
+
+        /// <summary>Gets or sets an arbitrary object shared with the window's children for binding.</summary>
+        /// <remarks>
+        /// Forwards to the root adapter, and here that IS the right object: the value's purpose is to be
+        /// inherited by descendants, and a child with none of its own reads its parent's -- a chain that
+        /// terminates at the adapter. Setting it on the adapter is therefore what makes every control on
+        /// the window see it.
+        /// </remarks>
+        public virtual object? DataContext {
+            get => adapter.DataContext;
+            set => adapter.DataContext = value;
+        }
+
+        /// <summary>Raised when <see cref="DataContext"/> changes.</summary>
+        public event EventHandler? DataContextChanged {
+            add => adapter.DataContextChanged += value;
+            remove => adapter.DataContextChanged -= value;
+        }
+
+        // The window's binding context. Form declares a public, non-nullable BindingContext of its own
+        // (as WinForms does on Form), so the interface member routes through this hook instead of a second
+        // property that would shadow it and then disagree with it.
+        internal virtual BindingContext? BindingContextCore {
+            get => binding_context ??= new BindingContext ();
+            set => binding_context = value;
+        }
+
+        private BindingContext? binding_context;
+
+        BindingContext? IBindableComponent.BindingContext {
+            get => BindingContextCore;
+            set => BindingContextCore = value;
+        }
+
+        // ── Accessibility ────────────────────────────────────────────────────────
+        // Window-owned rather than forwarded to the adapter: a screen reader addresses the WINDOW, and
+        // these describe it. Like Control's, they are currently a described surface rather than a live one
+        // -- nothing here is published to a platform accessibility API yet -- so they store and return what
+        // they are told, which is what lets migrated code that sets them compile and keep its intent.
+
+        /// <summary>Gets the accessible object that represents this window.</summary>
+        public AccessibleObject AccessibilityObject => accessibility_object ??= CreateAccessibilityInstance ();
+
+        private AccessibleObject? accessibility_object;
+
+        /// <summary>Creates the accessible object for this window.</summary>
+        protected virtual AccessibleObject CreateAccessibilityInstance () => new AccessibleObject ();
+
+        /// <summary>Notifies accessibility clients of a change. A no-op, as on Control.</summary>
+        public void AccessibilityNotifyClients (AccessibleEvents accEvent, int childID) { }
+
+        /// <summary>Gets or sets the description of the window's default action.</summary>
+        public string? AccessibleDefaultActionDescription { get; set; }
+
+        /// <summary>Gets or sets the accessible role of the window.</summary>
+        public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.Default;
+
+        /// <summary>Gets or sets whether the window is visible to accessibility clients.</summary>
+        public bool IsAccessible { get; set; } = true;
+
+        /// <summary>Raised when an accessibility client requests help for the window.</summary>
+        /// <remarks>Never raised, as on Control: there is no accessibility client to ask. Present because
+        /// designer code binds it.</remarks>
+        public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp { add { } remove { } }
 
         // The adapter forwards its layout pass to this window only once the window has been shown (see
         // ControlAdapter.OnLayout, which explains why). An explicit PerformLayout/ResumeLayout from the

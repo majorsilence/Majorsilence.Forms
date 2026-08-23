@@ -265,11 +265,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets the control this binding is attached to.</summary>
         public Control? Control => BindableComponent as Control;
 
-        /// <summary>Gets whether the binding is active.</summary>
-        public bool IsBinding => DataSource is not null;
-
-        /// <summary>Reads the value from the data source into the control.</summary>
-        public void ReadValue () { }
+        // IsBinding and ReadValue live in BindingRuntime.cs, with the rest of the live mechanism.
+        // IsBinding used to answer `DataSource is not null` -- true for a binding that had never been
+        // attached to anything and could not move a value -- and ReadValue was an empty method.
 
         /// <summary>Raised when a binding operation completes.</summary>
 #pragma warning disable CS0067

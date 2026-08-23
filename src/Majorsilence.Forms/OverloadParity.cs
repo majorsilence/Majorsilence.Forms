@@ -333,12 +333,18 @@ namespace Majorsilence.Forms
         public Binding Add (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled,
             DataSourceUpdateMode updateMode, object? nullValue, string? formatString, IFormatProvider? formatInfo)
         {
-            var binding = Add (propertyName, dataSource, dataMember, formattingEnabled);
+            // Configure BEFORE adding. Adding is what makes a binding live -- it resolves the target
+            // property and subscribes for changes -- and the subscription depends on
+            // DataSourceUpdateMode, so setting the mode afterwards left every binding created through
+            // this overload watching the wrong event and never writing back.
+            var binding = new Binding (propertyName, dataSource, dataMember, formattingEnabled) {
+                DataSourceUpdateMode = updateMode,
+                NullValue = nullValue,
+                FormatString = formatString ?? string.Empty,
+                FormatInfo = formatInfo,
+            };
 
-            binding.DataSourceUpdateMode = updateMode;
-            binding.NullValue = nullValue;
-            binding.FormatString = formatString ?? string.Empty;
-            binding.FormatInfo = formatInfo;
+            Add (binding);
 
             return binding;
         }

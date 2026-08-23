@@ -112,7 +112,14 @@ namespace Majorsilence.Forms
                 e.Cancel = true;
         }
 
-        private void OnSurfaceSizeChanged (object? sender, SizeChangedEventArgs e) => EnsureFramebuffer ();
+        private void OnSurfaceSizeChanged (object? sender, SizeChangedEventArgs e)
+        {
+            // Any real resize means Avalonia's own ClientSize is now the truth, whether it came from the
+            // programmatic write that set this or from the user dragging an edge.
+            _pendingClientSize = null;
+
+            EnsureFramebuffer ();
+        }
 
         // Creates or resizes the framebuffer so its PHYSICAL pixel size always matches the surface's
         // current logical size × the current render scaling. Called both on layout/size changes and
@@ -321,8 +328,24 @@ namespace Majorsilence.Forms
 
         System.Drawing.Size Backends.IWindowBackend.Size {
             get => new System.Drawing.Size ((int)Width, (int)Height);
-            set { Width = value.Width; Height = value.Height; }
+            set {
+                Width = value.Width;
+                Height = value.Height;
+
+                // Remember what was asked for until Avalonia catches up. Assigning Width/Height is a
+                // REQUEST: Avalonia reconciles ClientSize on its next layout pass, so a read-back in the
+                // same breath still saw the old size. WinForms resizes through SetWindowPos and reads back
+                // the new size immediately, so ported code that sets a size and then uses Width/Height --
+                // a very ordinary thing to do -- silently computed against the previous one. (This is the
+                // "post-show Form.Size writes are silently ignored" note in the port plan: the write was
+                // never ignored, only invisible for one tick.)
+                _pendingClientSize = value;
+            }
         }
+
+        // Set by the Size setter, cleared as soon as a real resize arrives (see OnSurfaceSizeChanged).
+        // Short-lived by construction: the write that sets it is itself what triggers the resize.
+        private System.Drawing.Size? _pendingClientSize;
 
         // Set once the window has actually opened; before that, Avalonia's ClientSize is a default the
         // platform invented, not anything this window was asked to be.
@@ -340,6 +363,13 @@ namespace Majorsilence.Forms
                 // against the phantom and then applied against the real size.
                 if (!_opened && !double.IsNaN (Width) && !double.IsNaN (Height) && Width > 0 && Height > 0)
                     return new System.Drawing.Size ((int)Width, (int)Height);
+
+                // A programmatic resize that Avalonia has not applied yet answers with what was asked
+                // for, so the read-back is synchronous as it is in WinForms. Only until the resize lands
+                // -- after that this reads reality again, which is what keeps a USER dragging the window
+                // edge from being reported as the last programmatic size.
+                if (_pendingClientSize is { } pending)
+                    return pending;
 
                 return new System.Drawing.Size ((int)ClientSize.Width, (int)ClientSize.Height);
             }
