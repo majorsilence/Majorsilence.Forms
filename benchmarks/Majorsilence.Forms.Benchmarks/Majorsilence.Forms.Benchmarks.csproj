@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Majorsilence.Forms.Benchmarks</AssemblyName>
+    <RootNamespace>Majorsilence.Forms.Benchmarks</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- CA1001: BenchmarkDotNet classes free their disposable fields from [GlobalCleanup], not
+         IDisposable; the analyzer doesn't know that pattern. -->
+    <NoWarn>$(NoWarn);CA1001</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+    <!-- Reuses the drawing-heavy gallery panels (Game of Life, Fractals, Binary Rain, Sorting
+         Visualizer) as realistic repaint-cost fixtures instead of re-inventing synthetic ones. -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\samples\ControlGallery\ControlGallery.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+</Project>

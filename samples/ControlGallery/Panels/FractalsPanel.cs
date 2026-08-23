@@ -1,10 +1,12 @@
 using System.Drawing;
+using System.Runtime.InteropServices;
 using Majorsilence.Forms;
+using Majorsilence.Forms.Drawing.Imaging;
 
 namespace ControlGallery.Panels
 {
     // A small fractal explorer covering three classic computer-science fractals: an escape-time
-    // Mandelbrot set (stresses Bitmap.SetPixel + Graphics.DrawImage with a large per-pixel render),
+    // Mandelbrot set (stresses Bitmap.LockBits + Graphics.DrawImage with a large per-pixel render),
     // a recursively subdivided Sierpinski triangle, and a recursively subdivided Koch snowflake
     // (both stress Graphics.FillPolygon/DrawLine with a deep recursive call count).
     public class FractalsPanel : BasePanel
@@ -140,8 +142,17 @@ namespace ControlGallery.Panels
                 var maxIter = Depth * 30;
                 using var bitmap = new Majorsilence.Forms.Drawing.Bitmap (Width, Height);
 
+                // A benchmark (benchmarks/Majorsilence.Forms.Benchmarks/BitmapFillBenchmarks.cs)
+                // measured this bulk LockBits write at roughly 20x Bitmap.SetPixel's per-pixel cost
+                // for a full-canvas fill (and a tenth of the allocation) -- SetPixel re-validates
+                // the surface on every call, which is exactly what made this panel's render take
+                // 1-2 seconds per click before this change.
+                var data = bitmap.LockBits (new Rectangle (0, 0, Width, Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+                var buffer = new byte[data.Stride * Height];
+
                 for (var py = 0; py < Height; py++) {
                     var y0 = centerY + ((py - (Height / 2.0)) / Width * viewWidth);
+                    var row = py * data.Stride;
 
                     for (var px = 0; px < Width; px++) {
                         var x0 = centerX + ((px - (Width / 2.0)) / Width * viewWidth);
@@ -156,9 +167,17 @@ namespace ControlGallery.Panels
                             iter++;
                         }
 
-                        bitmap.SetPixel (px, py, iter == maxIter ? Color.Black : IterationColor (iter, maxIter));
+                        var color = iter == maxIter ? Color.Black : IterationColor (iter, maxIter);
+                        var i = row + (px * 4);
+                        buffer[i + 0] = color.B;
+                        buffer[i + 1] = color.G;
+                        buffer[i + 2] = color.R;
+                        buffer[i + 3] = color.A;
                     }
                 }
+
+                Marshal.Copy (buffer, 0, data.Scan0, buffer.Length);
+                bitmap.UnlockBits (data);
 
                 g.DrawImage (bitmap, 0, 0);
             }

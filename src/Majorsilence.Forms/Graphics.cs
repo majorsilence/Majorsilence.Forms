@@ -1508,8 +1508,13 @@ namespace Majorsilence.Forms.Drawing
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y)
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
-            var face = TypefaceCache.Resolve (font);
-            using var skFont = new SKFont (face, font.PixelSize);
+
+            // font.GetSKFont() already lazily builds and caches exactly this SKFont (same typeface
+            // resolution TypefaceCache.Resolve used to redo here, same PixelSize); reusing it turns
+            // one allocation per DrawString call into zero, for anything that draws the same Font
+            // repeatedly (Binary Rain's per-glyph rain, any custom-painted label). It is owned by
+            // the Font, not this call, so it must not be disposed here.
+            var skFont = font.GetSKFont ();
             using var paint = brush.CreatePaint ();
 
             // (x, y) is the TOP-LEFT of the text, as in GDI+, but Skia draws from the baseline -- so the
