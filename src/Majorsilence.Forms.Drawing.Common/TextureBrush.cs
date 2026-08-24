@@ -24,6 +24,45 @@ namespace Majorsilence.Forms.Drawing
             WrapMode = wrapMode;
         }
 
+        /// <summary>Initializes a new TextureBrush using the specified image, cropped to <paramref name="dstRect"/>.</summary>
+        public TextureBrush (Image image, Rectangle dstRect) : this (image, dstRect, WrapMode.Tile) { }
+
+        /// <summary>
+        /// Initializes a new TextureBrush using the specified image, cropped to <paramref name="dstRect"/>,
+        /// with the given wrap mode.
+        /// </summary>
+        public TextureBrush (Image image, Rectangle dstRect, WrapMode wrapMode)
+        {
+            Image = image;
+            WrapMode = wrapMode;
+
+            var full = image?.GetSKBitmap ();
+            bitmap = full is null ? null : Crop (full, dstRect);
+        }
+
+        // GDI+ clamps the requested rectangle to the image bounds rather than throwing.
+        private static SKBitmap Crop (SKBitmap source, Rectangle rect)
+        {
+#if NETSTANDARD2_0
+            var x = Math.Max(0, Math.Min(rect.X, source.Width));
+            var y = Math.Max(0, Math.Min(rect.Y, source.Height));
+            var width = Math.Max(0, Math.Min(rect.Width, source.Width - x));
+            var height = Math.Max(0, Math.Min(rect.Height, source.Height - y));
+#else
+            var x = Math.Clamp(rect.X, 0, source.Width);
+            var y = Math.Clamp (rect.Y, 0, source.Height);
+            var width = Math.Clamp (rect.Width, 0, source.Width - x);
+            var height = Math.Clamp (rect.Height, 0, source.Height - y);
+#endif
+            if (x == 0 && y == 0 && width == source.Width && height == source.Height)
+                return source;
+
+            var cropped = new SKBitmap (System.Math.Max (width, 1), System.Math.Max (height, 1));
+            using var canvas = new SKCanvas (cropped);
+            canvas.DrawBitmap (source, new SKRect (x, y, x + width, y + height), new SKRect (0, 0, width, height));
+            return cropped;
+        }
+
         /// <summary>Gets the image this brush uses to fill shapes.</summary>
         public Image? Image { get; }
 

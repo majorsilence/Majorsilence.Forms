@@ -537,21 +537,23 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        ///  Raises the <see cref='DrawNode'/> event.
+        ///  Raises the <see cref='DrawNode'/> event from the renderer's paint pass.
         /// </summary>
         /// <remarks>
         /// Takes this library's <see cref="TreeViewDrawEventArgs"/> (which carries the Skia canvas the
         /// renderer is already painting into) and translates it into the WinForms-shaped
-        /// <see cref="DrawTreeNodeEventArgs"/> the event now carries. <c>DrawDefault</c> is copied back
-        /// afterwards, so a handler that sets it still suppresses the default painting -- that flag is the
-        /// entire point of the event, and losing it would make every owner-draw handler double-paint.
+        /// <see cref="DrawTreeNodeEventArgs"/> that <see cref="OnDrawNode(DrawTreeNodeEventArgs)"/> -- the
+        /// actual WinForms-shaped override point -- takes. <c>DrawDefault</c> is copied back afterwards,
+        /// so a handler that sets it still suppresses the default painting -- that flag is the entire
+        /// point of the event, and losing it would make every owner-draw handler double-paint. Named
+        /// distinctly from <c>OnDrawNode</c> itself (which upstream WinForms declares as
+        /// <c>protected virtual void OnDrawNode(DrawTreeNodeEventArgs e)</c>) so a ported control's own
+        /// override of that real hook is reachable, rather than being shadowed by a same-named method
+        /// taking this library's internal, Skia-carrying args type.
         /// </remarks>
-        protected internal virtual void OnDrawNode (TreeViewDrawEventArgs e)
+        protected internal virtual void RaiseDrawNode (TreeViewDrawEventArgs e)
         {
             ArgumentNullException.ThrowIfNull (e);
-
-            if (Events[s_drawNode] is not DrawTreeNodeEventHandler handler)
-                return;
 
             var state = TreeNodeStates.Default;
 
@@ -571,9 +573,18 @@ namespace Majorsilence.Forms
                 Scaling = e.Scaling,
             };
 
-            handler (this, args);
+            OnDrawNode (args);
 
             e.DrawDefault = args.DrawDefault;
+        }
+
+        /// <summary>Raises the <see cref="DrawNode"/> event. The real WinForms owner-draw override point.</summary>
+        protected virtual void OnDrawNode (DrawTreeNodeEventArgs e)
+        {
+            ArgumentNullException.ThrowIfNull (e);
+
+            if (Events[s_drawNode] is DrawTreeNodeEventHandler handler)
+                handler (this, e);
         }
 
         /// <summary>

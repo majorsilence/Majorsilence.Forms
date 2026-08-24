@@ -26,6 +26,8 @@ Bottom
 DockChanged
 DpiChangedAfterParent
 DpiChangedBeforeParent
+OnDpiChangedAfterParent/1
+OnDpiChangedBeforeParent/1
 FromChildHandle/1
 IsAncestorSiteInDesignMode
 OnDockChanged/1
@@ -41,6 +43,7 @@ Right
 ScrollControlIntoView/1
 TabOrder
 TopLevelControl
+UpdateZOrder/0
 
 # N/A -- child-of-a-container scrolling. The window's own scrolling belongs to its content, not to it.
 HScroll
@@ -125,6 +128,7 @@ BeginUpdate/0
 EndUpdate/0
 OnValidated/1
 OnValidating/1
+ProcessDialogChar/1
 ProcessTabKey/1
 Validate/1
 
@@ -168,7 +172,6 @@ OnDoubleClick/1
 OnForeColorChanged/1
 OnInvalidated/1
 OnMouseCaptureChanged/1
-OnMouseClick/1
 OnMouseDoubleClick/1
 OnMouseHover/1
 OnPaddingChanged/1

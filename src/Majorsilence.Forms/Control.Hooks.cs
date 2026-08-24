@@ -125,6 +125,15 @@ public partial class Control
     /// </summary>
     protected virtual void OnHandleDestroyed (EventArgs e) => (Events[s_handleDestroyedEvent] as EventHandler)?.Invoke (this, e);
 
+    /// <summary>
+    /// Destroys the handle associated with this control. Called once, from <see cref="Dispose(bool)"/>,
+    /// immediately before <see cref="OnHandleDestroyed"/>/<see cref="HandleDestroyed"/> fire -- ported
+    /// code commonly overrides it to release window-lifetime resources at that exact point. See
+    /// <see cref="Form.DestroyHandle"/> for the matching hook on the Form side (Form doesn't derive from
+    /// Control here, so it needed its own copy rather than inheriting this one).
+    /// </summary>
+    protected virtual void DestroyHandle () => OnHandleDestroyed (EventArgs.Empty);
+
     #endregion
 
     #region Focus / validation
@@ -205,10 +214,10 @@ public partial class Control
     protected virtual void OnDragLeave (EventArgs e) => (Events[s_dragLeaveEvent] as EventHandler)?.Invoke (this, e);
 
     /// <summary>Raises the <see cref="GiveFeedback"/> event.</summary>
-    protected virtual void OnGiveFeedback (GiveFeedbackEventArgs e) => (Events[s_giveFeedbackEvent] as EventHandler<GiveFeedbackEventArgs>)?.Invoke (this, e);
+    protected virtual void OnGiveFeedback (GiveFeedbackEventArgs e) => (Events[s_giveFeedbackEvent] as GiveFeedbackEventHandler)?.Invoke (this, e);
 
     /// <summary>Raises the <see cref="QueryContinueDrag"/> event.</summary>
-    protected virtual void OnQueryContinueDrag (QueryContinueDragEventArgs e) => (Events[s_queryContinueDragEvent] as EventHandler<QueryContinueDragEventArgs>)?.Invoke (this, e);
+    protected virtual void OnQueryContinueDrag (QueryContinueDragEventArgs e) => (Events[s_queryContinueDragEvent] as QueryContinueDragEventHandler)?.Invoke (this, e);
 
     #endregion
 

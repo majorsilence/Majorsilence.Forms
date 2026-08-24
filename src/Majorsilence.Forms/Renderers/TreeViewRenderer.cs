@@ -47,7 +47,7 @@ namespace Majorsilence.Forms.Renderers
             // over only the content -- hence the two checks rather than one.
             if (control.DrawMode == TreeViewDrawMode.OwnerDrawAll) {
                 var all = new TreeViewDrawEventArgs (control, item, e);
-                control.OnDrawNode (all);
+                control.RaiseDrawNode (all);
 
                 if (!all.DrawDefault)
                     return;
@@ -64,7 +64,7 @@ namespace Majorsilence.Forms.Renderers
 
             if (control.DrawMode == TreeViewDrawMode.OwnerDrawText) {
                 var dea = new TreeViewDrawEventArgs (control, item, e);
-                control.OnDrawNode (dea);
+                control.RaiseDrawNode (dea);
 
                 if (!dea.DrawDefault)
                     return;

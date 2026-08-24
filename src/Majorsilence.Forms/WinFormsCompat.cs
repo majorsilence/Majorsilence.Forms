@@ -44,6 +44,17 @@ namespace Majorsilence.Forms
         /// <summary>Gets the handle to the window. Always IntPtr.Zero in Majorsilence.Forms.</summary>
         public IntPtr Handle => IntPtr.Zero;
 
+        /// <summary>
+        /// Returns the NativeWindow associated with the specified handle. Every handle here is
+        /// IntPtr.Zero (see <see cref="Handle"/>), so there is no real registry to look up -- but
+        /// returning null, as upstream does for an unrecognized handle, would turn the common
+        /// subclassing idiom (<c>NativeWindow.FromHandle(h).DefWndProc(ref m)</c>, used to invoke the
+        /// default window procedure) into a guaranteed NullReferenceException instead of the no-op the
+        /// rest of this type already is for everything else. A fresh instance -- whose own members are
+        /// all equally inert -- keeps that idiom a no-op instead, per the stub policy.
+        /// </summary>
+        public static NativeWindow FromHandle (IntPtr handle) => new ();
+
         /// <summary>Assigns a handle to this NativeWindow. No-op stub in Majorsilence.Forms.</summary>
         public virtual void AssignHandle (IntPtr handle) { }
 
@@ -107,6 +118,15 @@ namespace Majorsilence.Forms
             DataSource = dataSource;
             BindingMemberInfo = new BindingMemberInfo (dataMember ?? string.Empty);
             FormattingEnabled = formattingEnabled;   // the parameter used to be accepted and dropped
+        }
+
+        /// <summary>Initializes a new Binding with an explicit <see cref="DataSourceUpdateMode"/> --
+        /// the shape designer-generated <c>DataBindings.Add</c> calls emit.</summary>
+        public Binding (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled,
+            DataSourceUpdateMode dataSourceUpdateMode)
+            : this (propertyName, dataSource, dataMember, formattingEnabled)
+        {
+            DataSourceUpdateMode = dataSourceUpdateMode;
         }
 
         /// <summary>Gets the control property name.</summary>
@@ -1055,7 +1075,7 @@ namespace Majorsilence.Forms
         public virtual Size Size { get; set; }
 
         /// <summary>Gets or sets the height of this item. Mirrors WinForms ToolStripItem.Height.</summary>
-        public int Height {
+        public new int Height {
             get => Size.Height;
             set => Size = new Size (Size.Width, value);
         }
@@ -2215,11 +2235,16 @@ namespace Majorsilence.Forms
                     if (item is not ToolStripItem stripItem)
                         return;
 
-                    stripItem.Click += (_, _) => ItemClicked?.Invoke (this, new ToolStripItemClickedEventArgs (stripItem));
+                    stripItem.Click += (_, _) => OnItemClicked (new ToolStripItemClickedEventArgs (stripItem));
                     Renderer?.InitializeItem (stripItem);
-                    ItemAdded?.Invoke (this, new ToolStripItemEventArgs (stripItem));
+                    OnItemAdded (new ToolStripItemEventArgs (stripItem));
                 },
-                ItemRemovedCallback = item => base_items.Remove (item),
+                ItemRemovedCallback = item => {
+                    base_items.Remove (item);
+
+                    if (item is ToolStripItem stripItem)
+                        OnItemRemoved (new ToolStripItemEventArgs (stripItem));
+                },
             };
         }
 
@@ -2228,6 +2253,15 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when an item in the ToolStrip is clicked.</summary>
         public event ToolStripItemClickedEventHandler? ItemClicked;
+
+        /// <summary>Raises the <see cref="ItemAdded"/> event.</summary>
+        protected virtual void OnItemAdded (ToolStripItemEventArgs e) => ItemAdded?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="ItemRemoved"/> event.</summary>
+        protected virtual void OnItemRemoved (ToolStripItemEventArgs e) => ItemRemoved?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="ItemClicked"/> event.</summary>
+        protected virtual void OnItemClicked (ToolStripItemClickedEventArgs e) => ItemClicked?.Invoke (this, e);
 
         /// <summary>Gets the collection of items in this ToolStrip.</summary>
         public new ToolStripItemCollection Items => _items;

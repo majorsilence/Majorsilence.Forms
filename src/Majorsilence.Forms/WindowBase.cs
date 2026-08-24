@@ -68,7 +68,13 @@ namespace Majorsilence.Forms
             // Last of all: the handle is what a form's window ultimately is, so its destruction is the
             // final notification a form sends. Code that tracks the set of live forms keys on this rather
             // than on Closed, because it is the point after which the form can safely be forgotten.
-            OnHandleDestroyed (EventArgs.Empty);
+            // Routed through Form.DestroyHandle (which itself calls OnHandleDestroyed) so an override of
+            // that WinForms-standard hook still runs; other WindowBase subtypes have no such override
+            // point, so they still just raise the event directly.
+            if (this is Form form)
+                form.RaiseDestroyHandle ();
+            else
+                OnHandleDestroyed (EventArgs.Empty);
         }
 
         // Set while a programmatic Close() is running so the backend's own closing callback doesn't
@@ -330,7 +336,25 @@ namespace Majorsilence.Forms
             get => current_cursor;
             set {
                 current_cursor = value;
-                Backend?.SetCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+
+                if (override_cursor is null)
+                    Backend?.SetCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+            }
+        }
+
+        private Cursor? override_cursor;
+
+        /// <summary>
+        /// Gets or sets a cursor that takes priority over <see cref="Cursor"/> while it is set, without
+        /// disturbing the configured value underneath. Mirrors <c>Control.OverrideCursor</c> -- see its
+        /// remarks for why a control (or, here, a window's own content) needs this rather than writing
+        /// and restoring <see cref="Cursor"/> itself.
+        /// </summary>
+        protected Cursor? OverrideCursor {
+            get => override_cursor;
+            set {
+                override_cursor = value;
+                Backend?.SetCursor ((value ?? current_cursor)?.CursorType ?? Backends.CursorType.Arrow);
             }
         }
 
@@ -590,6 +614,22 @@ namespace Majorsilence.Forms
             ArgumentNullException.ThrowIfNull (method);
             object? result = null;
             Majorsilence.Forms.Backends.Platform.Backend.Invoke (() => result = method.DynamicInvoke (args));
+            return result;
+        }
+
+        /// <summary>
+        /// Executes the specified delegate synchronously on the window's UI thread and returns its
+        /// result, typed. Mirrors <see cref="Control.Invoke{T}(Func{T})"/> -- Form isn't a Control here,
+        /// so it needs its own copy; ported code that overrides a Form/window-hierarchy method and calls
+        /// <c>Invoke(() => someTypedExpression)</c> otherwise silently binds to the void-returning
+        /// <see cref="Invoke(Action)"/> overload instead (the lambda converts to either), discarding the
+        /// value rather than failing to compile.
+        /// </summary>
+        public T Invoke<T> (Func<T> func)
+        {
+            ArgumentNullException.ThrowIfNull (func);
+            T result = default!;
+            Majorsilence.Forms.Backends.Platform.Backend.Invoke (() => result = func ());
             return result;
         }
 
@@ -1048,12 +1088,9 @@ namespace Majorsilence.Forms
         // window's client surface -- the same shape as DoubleClick and Layout above. Members that have no
         // meaning for a top-level window (Dock, Anchor, TabIndex and friends) are deliberately still
         // absent; see ControlWindowParityBaseline.txt, which records that split.
-
-        /// <summary>Raised when the window's client area is clicked. Mirrors <c>Control.MouseClick</c>; forwards to the root control adapter.</summary>
-        public event MouseEventHandler? MouseClick {
-            add => adapter.MouseClick += value;
-            remove => adapter.MouseClick -= value;
-        }
+        //
+        // MouseClick itself is declared on Form instead (with an OnMouseClick hook), not here -- see
+        // the comment above Form.MouseClick.
 
         /// <summary>Raised when the window's client area is double-clicked. Mirrors <c>Control.MouseDoubleClick</c>; forwards to the root control adapter.</summary>
         public event MouseEventHandler? MouseDoubleClick {
@@ -1164,13 +1201,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when part of the window is invalidated. Mirrors <c>Control.Invalidated</c>; forwards to the root control adapter.</summary>
-        public event EventHandler<InvalidateEventArgs>? Invalidated {
+        public event InvalidateEventHandler? Invalidated {
             add => adapter.Invalidated += value;
             remove => adapter.Invalidated -= value;
         }
 
         /// <summary>Raised when a drag operation is asked whether to continue. Mirrors <c>Control.QueryContinueDrag</c>; forwards to the root control adapter.</summary>
-        public event EventHandler<QueryContinueDragEventArgs>? QueryContinueDrag {
+        public event QueryContinueDragEventHandler? QueryContinueDrag {
             add => adapter.QueryContinueDrag += value;
             remove => adapter.QueryContinueDrag -= value;
         }
@@ -1501,7 +1538,7 @@ namespace Majorsilence.Forms
             => adapter.DoDragDrop (data, allowedEffects);
 
         /// <summary>Raised while a drag is over this window, to set the cursor. Forwards to the root adapter.</summary>
-        public event EventHandler<GiveFeedbackEventArgs>? GiveFeedback {
+        public event GiveFeedbackEventHandler? GiveFeedback {
             add => adapter.GiveFeedback += value;
             remove => adapter.GiveFeedback -= value;
         }

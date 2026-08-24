@@ -83,10 +83,10 @@ namespace Majorsilence.Forms
         public bool BeepOnError { get; set; }
 
         /// <summary>Raised when user input is rejected by the mask. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<MaskInputRejectedEventArgs>? MaskInputRejected { add { } remove { } }
+        public event MaskInputRejectedEventHandler? MaskInputRejected { add { } remove { } }
 
         /// <summary>Raised when type validation completes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<TypeValidationEventArgs>? TypeValidationCompleted { add { } remove { } }
+        public event TypeValidationEventHandler? TypeValidationCompleted { add { } remove { } }
     }
 
     /// <summary>Specifies how literal characters in the mask are included in the text.</summary>

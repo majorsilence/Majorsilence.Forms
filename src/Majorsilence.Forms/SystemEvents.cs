@@ -79,6 +79,18 @@ namespace Majorsilence.Forms
 
         private static UserPreferenceChangedEventHandler? Handlers;
 
+        /// <summary>
+        /// Raised when the display settings (resolution, monitor arrangement, ...) change, as
+        /// <c>Microsoft.Win32.SystemEvents.DisplaySettingsChanged</c> does on Windows.
+        /// </summary>
+        /// <remarks>
+        /// Declared so ported code that subscribes to reposition itself on a monitor change compiles
+        /// and doesn't leak a dangling subscription, but no backend here surfaces a real
+        /// display-change notification yet, so it is never raised. Unlike
+        /// <see cref="UserPreferenceChanged"/>, there is no equivalent backend signal to drive it from.
+        /// </remarks>
+        public static event EventHandler? DisplaySettingsChanged;
+
         // Attaching to the theme is deferred to the first subscriber so that merely referencing this class
         // does not start listening -- and so a process that never subscribes holds no theme handler.
         private static void Subscribe ()

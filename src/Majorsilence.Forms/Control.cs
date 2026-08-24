@@ -139,7 +139,15 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Moves this control to the front zorder.
         /// </summary>
-        public void BringToFront ()
+        public void BringToFront () => UpdateZOrder ();
+
+        /// <summary>
+        /// Updates this control's position in its parent's z-order to match its current index. WinForms
+        /// exposes this as the protected primitive <see cref="BringToFront"/> is built on, for a control
+        /// that needs to re-sync its z-order (e.g. after reparenting itself) without the rest of what a
+        /// public <c>BringToFront</c> call might imply on a derived type that overrides it.
+        /// </summary>
+        protected void UpdateZOrder ()
         {
             if (parent != null)
                 parent.Controls.SetChildIndex (this, 0);
@@ -413,6 +421,9 @@ namespace Majorsilence.Forms
                 if (GetState (States.UseWaitCursor))
                     return Cursors.Wait;
 
+                if (override_cursor is not null)
+                    return override_cursor;
+
                 if (Properties.GetObject (s_cursorProperty) is Cursor cursor)
                     return cursor;
 
@@ -423,6 +434,26 @@ namespace Majorsilence.Forms
 
                 if (old_cursor != value) {
                     Properties.SetObject (s_cursorProperty, value);
+                    OnCursorChanged (EventArgs.Empty);
+                }
+            }
+        }
+
+        private Cursor? override_cursor;
+
+        /// <summary>
+        /// Gets or sets a cursor that takes priority over <see cref="Cursor"/> while it is set, without
+        /// disturbing the configured value underneath. A control shows a different cursor over part of
+        /// its own surface this way -- <c>LinkLabel</c> is the built-in example, switching to a hand
+        /// cursor over link text and back to <c>null</c> off it -- rather than by writing and restoring
+        /// <see cref="Cursor"/> itself, which a caller watching <see cref="CursorChanged"/> would then
+        /// see fire for a value the control never really adopted.
+        /// </summary>
+        protected Cursor? OverrideCursor {
+            get => override_cursor;
+            set {
+                if (override_cursor != value) {
+                    override_cursor = value;
                     OnCursorChanged (EventArgs.Empty);
                 }
             }
@@ -1203,7 +1234,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the Invalidated event.
         /// </summary>
-        protected virtual void OnInvalidated (InvalidateEventArgs e) => (Events[s_invalidatedEvent] as EventHandler<InvalidateEventArgs>)?.Invoke (this, e);
+        protected virtual void OnInvalidated (InvalidateEventArgs e) => (Events[s_invalidatedEvent] as InvalidateEventHandler)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the Leave event and then the LostFocus event, then runs the WinForms validation
@@ -2669,7 +2700,7 @@ namespace Majorsilence.Forms
                 // Only on an explicit Dispose -- never from the finalizer, where running user
                 // handlers is not safe. Mirrors WinForms' handle teardown notification.
                 if (disposing && GetState (States.Created))
-                    OnHandleDestroyed (EventArgs.Empty);
+                    DestroyHandle ();
 
                 FreeBackBuffer ();
 

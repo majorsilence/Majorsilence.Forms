@@ -660,15 +660,24 @@ internal static class SourceConverter
         return RemoveImportLine(text, match, replacement, newline);
     }
 
+    // Matches a `System.ComponentModel.Design` import, plain or global, C# or VB.
+    private static readonly Regex DesignTimeImport =
+        new(@"(?m)^(?<indent>[ \t]*)(?<global>global[ \t]+)?(?<kw>using|Imports)[ \t]+System\.ComponentModel\.Design[ \t]*;?[ \t]*$",
+            RegexOptions.Compiled);
+
     /// <summary>
     /// Redirects the <c>System.ComponentModel.Design</c> types that live in the Windows-only design
     /// assemblies to their <c>Majorsilence.Forms.Design</c> replacements, leaving that namespace's real BCL
     /// types alone. See <see cref="NamespaceMap.DesignTimeTypes"/>.
     /// </summary>
     /// <remarks>
-    /// Only the qualified form is rewritten. An unqualified use needs no alias: the names exist in exactly
-    /// one of the two namespaces each, so importing both leaves nothing ambiguous — unlike the
-    /// System.Drawing case, where the same name really does live in both.
+    /// The fully-qualified form is a straight rewrite. An unqualified use needs a per-type using-alias
+    /// instead: real WinForms designer code commonly imports only the bare <c>System.ComponentModel.Design</c>
+    /// (every name in the set really is declared there upstream), which off Windows resolves to the
+    /// lightweight cross-platform slice of that namespace — one that doesn't include any of these types —
+    /// so the bare import must stay (other, real BCL members of it may still be in use) while each
+    /// redirected name gets pinned to its Majorsilence.Forms.Design replacement. Same shape as
+    /// <see cref="RewriteWin32CompatTypes"/> for a bare <c>Microsoft.Win32</c> import.
     /// </remarks>
     private static string RewriteDesignTimeTypes(string text)
     {
@@ -676,7 +685,40 @@ internal static class SourceConverter
             text = Regex.Replace(text, $@"(?<![\w.])System\.ComponentModel\.Design\.{Regex.Escape (type)}(?![\w])",
                                  $"Majorsilence.Forms.Design.{type}");
 
-        return text;
+        var import = DesignTimeImport.Match(text);
+        if (!import.Success)
+            return text;
+
+        // Already reachable through a rewritten System.Windows.Forms.Design / System.Drawing.Design import
+        // elsewhere in the same file (pass 1 already turned those into Majorsilence.Forms.Design) — nothing
+        // more to add.
+        if (Regex.IsMatch(text, @"(?m)^[ \t]*(global[ \t]+)?(using|Imports)[ \t]+Majorsilence\.Forms\.Design[ \t]*;?[ \t]*$"))
+            return text;
+
+        var isGlobal = import.Groups["global"].Success;
+        var indent = import.Groups["indent"].Value;
+        var kw = import.Groups["kw"].Value;
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+
+        var aliases = new List<string>();
+
+        foreach (var type in NamespaceMap.DesignTimeTypes)
+        {
+            if (!UsedUnqualified(text, type) || DeclaresType(text, type))
+                continue;
+            if (Regex.IsMatch(text, $@"(?m)^[ \t]*(global[ \t]+)?(using|Imports)[ \t]+{Regex.Escape (type)}[ \t]*="))
+                continue;
+
+            aliases.Add(kw == "Imports"
+                ? $"{indent}Imports {type} = Majorsilence.Forms.Design.{type}"
+                : $"{indent}{(isGlobal ? "global " : "")}using {type} = Majorsilence.Forms.Design.{type};");
+        }
+
+        if (aliases.Count == 0)
+            return text;
+
+        return text[..(import.Index + import.Length)] + newline + string.Join(newline, aliases)
+            + text[(import.Index + import.Length)..];
     }
 
     /// <summary>

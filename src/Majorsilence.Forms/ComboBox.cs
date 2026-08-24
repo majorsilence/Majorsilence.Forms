@@ -334,9 +334,18 @@ namespace Majorsilence.Forms
         protected virtual void OnSelectedIndexChanged (EventArgs e)
         {
             SelectedIndexChanged?.Invoke (this, e);
-            // SelectedValue is derived from SelectedIndex, so it changes whenever the index does.
+            // SelectedItem and SelectedValue are both derived from SelectedIndex, so they change
+            // whenever the index does -- matching WinForms' own OnSelectedIndexChanged, which raises
+            // both from the same place.
+            OnSelectedItemChanged (e);
             OnSelectedValueChanged (e);
         }
+
+        /// <summary>Raised when the selected item changes.</summary>
+        public event EventHandler? SelectedItemChanged;
+
+        /// <summary>Raises the <see cref="SelectedItemChanged"/> event.</summary>
+        protected virtual void OnSelectedItemChanged (EventArgs e) => SelectedItemChanged?.Invoke (this, e);
 
         /// <summary>Raises the SelectionChangeCommitted event.</summary>
         protected virtual void OnSelectionChangeCommitted (EventArgs e) => SelectionChangeCommitted?.Invoke (this, e);
@@ -535,13 +544,13 @@ namespace Majorsilence.Forms
         /// rendering does not yet call it, so an owner-drawn combo still paints normally — see the
         /// compatibility matrix.
         /// </remarks>
-        public event EventHandler<DrawItemEventArgs>? DrawItem;
+        public event DrawItemEventHandler? DrawItem;
 
         /// <summary>Raises the DrawItem event.</summary>
         protected virtual void OnDrawItem (DrawItemEventArgs e) => DrawItem?.Invoke (this, e);
 
         /// <summary>Raised when an owner-drawn element needs to be measured. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<MeasureItemEventArgs>? MeasureItem { add { } remove { } }
+        public event MeasureItemEventHandler? MeasureItem { add { } remove { } }
 
         /// <summary>Finds the first item starting with the given string (case-insensitive).</summary>
         public int FindString (string s, int startIndex = -1)

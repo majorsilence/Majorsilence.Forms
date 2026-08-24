@@ -302,7 +302,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating how text will be aligned within the Label.
         /// </summary>
-        public ContentAlignment TextAlign {
+        public virtual ContentAlignment TextAlign {
             get => Properties.GetEnum (s_propTextAlign, ContentAlignment.TopLeft);
             set {
                 SourceGenerated.EnumValidator.Validate (value);

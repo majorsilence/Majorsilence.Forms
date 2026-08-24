@@ -1795,15 +1795,25 @@ namespace Majorsilence.Forms.Drawing
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y, Majorsilence.Forms.Drawing.StringFormat? format)
             => DrawString (text, font, brush, x, y);
 
+        // The SKBitmap/SKColor overloads below (through DrawImage(SKBitmap, float, float, float, float))
+        // are Skia-native convenience helpers, not part of the GDI+ surface real WinForms code calls by
+        // name -- SKBitmap/SKColor mean nothing to ported code, which only ever has an Image/Pen/Brush to
+        // hand. Kept internal (not deleted; nothing in this assembly calls them either, but they cost
+        // nothing to keep for a future renderer fast path) rather than public: left public, they silently
+        // widened this method's public overload set, so a real WinForms call using target-typed `new(...)`
+        // -- `g.DrawRectangle(new(color), rect)`, `g.DrawLine(new(color), p1, p2)`, an image drawn through
+        // a bitmap variable -- became ambiguous (CS0121) between the real overload and one of these,
+        // despite nothing in the call ever mentioning Skia.
+
         /// <summary>Draws an SKBitmap image at the given rectangle.</summary>
-        public void DrawImage (SKBitmap image, Rectangle destRect)
+        internal void DrawImage (SKBitmap image, Rectangle destRect)
         {
             if (_canvas is null || image is null) return;
             _canvas.DrawBitmap (image, new SKRect (destRect.Left, destRect.Top, destRect.Right, destRect.Bottom));
         }
 
         /// <summary>Draws an SKBitmap image at the given position.</summary>
-        public void DrawImage (SKBitmap image, int x, int y)
+        internal void DrawImage (SKBitmap image, int x, int y)
         {
             if (_canvas is null || image is null) return;
             _canvas.DrawBitmap (image, new SKPoint (x, y));
@@ -1821,7 +1831,7 @@ namespace Majorsilence.Forms.Drawing
         // --- SKColor overloads (internal usage) ---
 
         /// <summary>Fills a rectangle with the given SKColor.</summary>
-        public void FillRectangle (SKColor color, Rectangle rect)
+        internal void FillRectangle (SKColor color, Rectangle rect)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Fill };
@@ -1829,7 +1839,7 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Draws a rectangle outline with the given SKColor.</summary>
-        public void DrawRectangle (SKColor color, Rectangle rect)
+        internal void DrawRectangle (SKColor color, Rectangle rect)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
@@ -1837,7 +1847,7 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Draws a line with the given SKColor.</summary>
-        public void DrawLine (SKColor color, Point p1, Point p2)
+        internal void DrawLine (SKColor color, Point p1, Point p2)
         {
             if (_canvas is null) return;
             using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
@@ -1864,16 +1874,16 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Draws an SKBitmap at its original size at the given position.</summary>
-        public void DrawImageUnscaled (SKBitmap image, int x, int y) => DrawImage (image, x, y);
+        internal void DrawImageUnscaled (SKBitmap image, int x, int y) => DrawImage (image, x, y);
 
         /// <summary>Draws an SKBitmap at its original size at the given point.</summary>
-        public void DrawImageUnscaled (SKBitmap image, Point point) => DrawImage (image, point.X, point.Y);
+        internal void DrawImageUnscaled (SKBitmap image, Point point) => DrawImage (image, point.X, point.Y);
 
         /// <summary>Draws an SKBitmap at its original size, clipped to the given rectangle.</summary>
-        public void DrawImageUnscaled (SKBitmap image, Rectangle rect) => DrawImage (image, rect);
+        internal void DrawImageUnscaled (SKBitmap image, Rectangle rect) => DrawImage (image, rect);
 
         /// <summary>Draws an SKBitmap clipped to the destination rectangle from a source rectangle.</summary>
-        public void DrawImage (SKBitmap image, Rectangle destRect, Rectangle srcRect, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
+        internal void DrawImage (SKBitmap image, Rectangle destRect, Rectangle srcRect, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
         {
             if (_canvas is null || image is null) return;
             var src = new SKRect (srcRect.Left, srcRect.Top, srcRect.Right, srcRect.Bottom);
@@ -1882,7 +1892,7 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Draws an SKBitmap scaled to fill the destination rectangle.</summary>
-        public void DrawImage (SKBitmap image, float x, float y, float width, float height)
+        internal void DrawImage (SKBitmap image, float x, float y, float width, float height)
             => DrawImage (image, new Rectangle ((int)x, (int)y, (int)width, (int)height));
 
         /// <summary>Draws a Majorsilence.Forms.Drawing.Image at the specified location.</summary>
