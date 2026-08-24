@@ -782,6 +782,60 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   pump behind it, exactly like `ProcessKeyMessage` and `ProcessKeyPreview` beside it, so a window-side
   override nothing ever calls would add nothing.
 
+### Three more control libraries: AntdUI, ReaLTaiizor, RibbonWinForms (2026-08-24)
+
+All three were already COMPILE-clean on their migration branches, so a build told us nothing. What found
+real defects was the same trick that worked on Krypton: construct every public parameterless
+`Control`-derived type on the headless backend and render it, in two phases (construct, then render --
+they fail for different reasons). Harness: `scratchpad/ctlsmoke`, `dotnet run -- AntdUI|ReaLTaiizor`,
+grouping failures by message so one shared root cause reads as one item.
+
+- **AntdUI: 74/75 -> 75/75.** `Helper.IsAdmin ()` called `WindowsIdentity.GetCurrent ()`, which THROWS
+  `PlatformNotSupportedException` off Windows, taking `UploadDragger` down. Guarded with
+  `OperatingSystem.IsWindows ()`, reporting not-elevated elsewhere -- the callers use it to decide whether
+  an elevation-only path applies (Windows refuses drag-and-drop from a non-elevated process into an
+  elevated one) and there is no such restriction to work around on other platforms.
+
+- **ReaLTaiizor: 326/334 -> 328/334.** One fix here, two there:
+  - **Majorsilence.Forms:** `Font.ToHfont ()` threw `PlatformNotSupportedException`, which killed
+    `PoisonTabControl` mid-paint. It now returns `IntPtr.Zero`, following `Region.GetHrgn`'s existing
+    precedent for exactly this: a caller asking for a handle can be told "there is none", and NULL is how
+    Win32 spells that, but a caller that throws dies outright. `FromHfont` still throws, deliberately --
+    it is asked to PRODUCE a font from a meaningless handle and has no honest answer.
+  - **ReaLTaiizor** `CrownNumeric` and `PoisonDataGridHelper`, both instances of one gap (below).
+
+- **RibbonWinForms** could not build at all: its `nuget.config` pointed at a local feed inside a dead
+  session scratchpad, pinned to 26.0.30 while the library is at 26.0.32. Re-pointed and bumped; all three
+  projects build at 0 errors. It will rot the same way -- the durable fix is 26.0.32 on nuget.org, or
+  `ProjectReference` as the other two use.
+
+**GAP, deliberately not closed: a control's own chrome is not in its `Controls` collection.** Two of the
+ReaLTaiizor failures were this one divergence, and it is worth stating because more consumers will hit it:
+
+- `NumericUpDown` -- WinForms owns two child controls (the edit box and the up/down buttons), and
+  `Controls[0]` is the documented way to reach the edit box and theme it. Ours draws itself and has no
+  children, so the idiom finds nothing.
+- `DataGridView` -- WinForms puts its scrollbars in `Controls` as ordinary children (as `VScrollBar` and
+  `HScrollBar`, which is what type-based searches look for). Ours creates them via
+  `ControlCollection.AddImplicitControl`, and the public enumerator yields only the explicit list, so a
+  scan of `grid.Controls` finds neither.
+
+Closing this means either making chrome explicit (changing paint order and hit-testing for every control
+that has chrome -- `GetControlsPaintOrder` deliberately puts implicit chrome behind explicit children) or
+including implicit controls in the public enumerator (so every app iterating `Controls` suddenly sees
+scrollbars). Both are design changes with real blast radius, not small fixes, so they want a deliberate
+decision rather than a smoke-test reflex. The consumers are guarded in the meantime, with comments
+pointing here.
+
+**Still open in ReaLTaiizor (6 of 334), five of them one shape:** raw Windows P/Invoke reached during
+construction or paint -- `user32!LoadCursor` (`NightLinkLabel`), `User32!SendMessage`
+(`MaterialTextBox`, `PoisonTabControl`), `kernel32!CreateTimerQueueTimer` (`MoonProgressBar`),
+`Gdi32!CreateRoundRectRgn` (`ParrotSuperButton`). The Krypton port solved this class with generated shim
+dylibs in the output directory, which works for an APP but not for a library whose consumers will not have
+them -- so these want managed fallbacks or `OperatingSystem.IsWindows ()` guards in ReaLTaiizor itself.
+The sixth is its own bug: `MaterialComboBox` looks up a font key `Roboto_Medium` that is not in its
+dictionary.
+
 - **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
   (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
   re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity
