@@ -841,19 +841,52 @@ added with `Controls.Add`, and they are `VScrollBar`/`HScrollBar` rather than th
 the concrete type is part of the contract. Pinned by `DataGridViewScrollBarChildrenTests`, including a test
 that a plain `Panel` still reports no children, so the blanket version cannot creep back in.
 
-**Still open: `NumericUpDown` has no children at all.** WinForms' `UpDownBase` owns an edit box and an
+**CLOSED 2026-08-24: `NumericUpDown` now has its buttons child.** WinForms' `UpDownBase` adds the
+up/down buttons FIRST, so `Controls[0]` is the buttons -- and that ordering is the contract, because
+themers hook `Controls[0].Paint` to draw their own arrows and call `Controls[0].PointToClient` to hit-test
+them.
+
+The child deliberately does not paint and does not hit-test on its own: it occupies the button strip,
+forwards the mouse to the owner's existing logic, and leaves the owner's renderer drawing the whole control
+as before. So the idiom works with no change to how a NumericUpDown looks, and a themer's Paint handler
+runs after the owner has painted (children paint last), which is where they want to draw anyway. Its
+bounds are derived in `OnLayout` rather than stored, so a resize moves it. `NumericUpDownChildControlTests`
+pins all of that -- including that clicking the buttons still changes the value, which is the part most
+likely to break, since the child now intercepts the click the owner used to receive.
+
+Not done: the EDIT child (`Controls[1]` in WinForms). This control has no text editing to move into one, so
+adding a second child would be a placeholder rather than a part.
+
+**Old note, for context:** WinForms' `UpDownBase` owns an edit box and an
 up/down buttons control, adds both to `Controls` (buttons first, so `Controls[0]` is the buttons -- which
 is what a themer hooks to draw its own arrows), and ours draws the whole control itself in 303 lines. That
 is a restructure of a working control rather than an addition, so it is the remaining half of this item.
 
-**Still open in ReaLTaiizor (6 of 334), five of them one shape:** raw Windows P/Invoke reached during
-construction or paint -- `user32!LoadCursor` (`NightLinkLabel`), `User32!SendMessage`
-(`MaterialTextBox`, `PoisonTabControl`), `kernel32!CreateTimerQueueTimer` (`MoonProgressBar`),
-`Gdi32!CreateRoundRectRgn` (`ParrotSuperButton`). The Krypton port solved this class with generated shim
-dylibs in the output directory, which works for an APP but not for a library whose consumers will not have
-them -- so these want managed fallbacks or `OperatingSystem.IsWindows ()` guards in ReaLTaiizor itself.
-The sixth is its own bug: `MaterialComboBox` looks up a font key `Roboto_Medium` that is not in its
-dictionary.
+**ReaLTaiizor: 334/334 as of 2026-08-24.** The Win32 P/Invokes were replaced with MANAGED equivalents
+rather than guarded, which turned out better than parity in most cases -- several of these were also bugs
+on Windows:
+
+- `Gdi32!CreateRoundRectRgn` (`ParrotSuperButton`, `MaterialSnackBar`) -> a region built from a
+  `GraphicsPath` (`ReaLTaiizor.Native.ManagedShapes`). The old call **leaked** the region handle it
+  allocated on every repaint that set a control's Region; a path owns no unmanaged handle at all.
+- `kernel32!CreateTimerQueueTimer` (`PrecisionTimerMoon`) -> `System.Threading.Timer`, same contract (due
+  time, period, pool-thread callback), public surface unchanged. The old `Delete` swallowed every failure
+  except ERROR_IO_PENDING and left `Enabled` true when it failed, so a timer that would not delete could
+  never be recreated.
+- `user32!LoadCursor (IDC_HAND)` (`NightLinkLabel`) -> `Cursors.Hand`. The line above it already used
+  `Cursors.Hand`.
+- `user32!SendMessage (WM_SETFONT)` (`PoisonTabControl`) -> nothing to do. Those messages push a font onto
+  a NATIVE control's HWND; the managed Font property IS the font here, so the handler just redraws.
+- `User32!SendMessage (EM_SETRECT)` (`MaterialTextBox`) -> `Padding`. EM_SETRECT sets a native edit
+  control's formatting rectangle, which is what Padding expresses on a managed TextBox.
+- `user32!GetWindow` (`PoisonTabControl.FindUpDown`) -> a no-op. It walked NATIVE child windows hunting for
+  the `msctls_updown32` common control to subclass; a self-drawing tab control has no native children, so
+  there is nothing to find and `bUpDown` stays false, which the rest of the class already handles.
+- Its own bug: `MaterialComboBox` looked up `RobotoFontFamilies["Roboto_Medium"]`. How a font's weights
+  group into families depends on the rasteriser -- GDI+ reports "Roboto Medium" as its own family, ours
+  resolves every Roboto weight to one "Roboto" family -- so the weight-specific keys are absent. A tolerant
+  resolver falls back to the base family, losing nothing, because every caller passes the weight separately
+  as a `FontStyle`.
 
 - **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
   (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
