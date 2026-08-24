@@ -820,12 +820,31 @@ ReaLTaiizor failures were this one divergence, and it is worth stating because m
   `ControlCollection.AddImplicitControl`, and the public enumerator yields only the explicit list, so a
   scan of `grid.Controls` finds neither.
 
-Closing this means either making chrome explicit (changing paint order and hit-testing for every control
-that has chrome -- `GetControlsPaintOrder` deliberately puts implicit chrome behind explicit children) or
-including implicit controls in the public enumerator (so every app iterating `Controls` suddenly sees
-scrollbars). Both are design changes with real blast radius, not small fixes, so they want a deliberate
-decision rather than a smoke-test reflex. The consumers are guarded in the meantime, with comments
-pointing here.
+**HALF CLOSED 2026-08-24, and the first attempt was wrong in an instructive way.** The obvious fix --
+have the public collection present implicit chrome alongside the explicit children -- was implemented
+(combined view, chrome first, every index-taking member translated between the two lists) and then
+REVERTED. It broke 27 tests, and they were right to break: `new Panel ().Controls` stopped being empty and
+started reporting a HorizontalScrollBar, a VerticalScrollBar and a SizeGrip. **In WinForms that collection
+IS empty** -- `ScrollableControl` does not put its scrollbars in `Controls` either. WinForms has no general
+"chrome is visible" rule; specific controls choose to add their internals as ordinary children, and the
+rest keep them private.
+
+(It also broke 467 tests before that, from one line: `Insert` computed the next tab index as
+`Count == 0 ? 0 : control_list.Max (...)`, which was safe only while `Count` and `control_list.Count` were
+the same number. Decoupling them made `Max` throw on any control that had chrome and no children yet.
+Worth remembering that `Count` is load-bearing in more places than it looks.)
+
+So the faithful fix is per-control, and `DataGridView` is done: its scrollbars are now ordinary children
+added with `Controls.Add`, and they are `VScrollBar`/`HScrollBar` rather than the
+`VerticalScrollBar`/`HorizontalScrollBar` bases -- the idiom in the wild is
+`item.GetType () == typeof (VScrollBar)`, and an exact-type comparison does not match a base instance, so
+the concrete type is part of the contract. Pinned by `DataGridViewScrollBarChildrenTests`, including a test
+that a plain `Panel` still reports no children, so the blanket version cannot creep back in.
+
+**Still open: `NumericUpDown` has no children at all.** WinForms' `UpDownBase` owns an edit box and an
+up/down buttons control, adds both to `Controls` (buttons first, so `Controls[0]` is the buttons -- which
+is what a themer hooks to draw its own arrows), and ours draws the whole control itself in 303 lines. That
+is a restructure of a working control rather than an addition, so it is the remaining half of this item.
 
 **Still open in ReaLTaiizor (6 of 334), five of them one shape:** raw Windows P/Invoke reached during
 construction or paint -- `user32!LoadCursor` (`NightLinkLabel`), `User32!SendMessage`
