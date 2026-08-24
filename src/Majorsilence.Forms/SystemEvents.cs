@@ -89,7 +89,12 @@ namespace Majorsilence.Forms
         /// display-change notification yet, so it is never raised. Unlike
         /// <see cref="UserPreferenceChanged"/>, there is no equivalent backend signal to drive it from.
         /// </remarks>
+        // Never raised on purpose (see above), which CS0067 objects to -- and Release treats that as an
+        // error. Suppressed rather than removed, exactly as the other declared-but-unraised compat events
+        // in this library are: dropping it would break the ported code that subscribes.
+#pragma warning disable CS0067
         public static event EventHandler? DisplaySettingsChanged;
+#pragma warning restore CS0067
 
         // Attaching to the theme is deferred to the first subscriber so that merely referencing this class
         // does not start listening -- and so a process that never subscribes holds no theme handler.
