@@ -749,6 +749,39 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   answers it the same way, with `new`. The sample now does, with a comment saying why. Expect this for
   `ProductName`, `CompanyName` and `Text`-adjacent names in real ports.
 
+- **[FIXED 2026-08-21] Validation on a window was three stubs stacked on each other -- baseline 123 down
+  to 119.** `WindowBase.Validate ()` returned true without raising anything, `Form.ValidateChildren ()`
+  returned true without validating anything, and `Form.Validating` was a discarding
+  `add { } remove { }` that threw handlers away. The practical effect: **a form gating a Save button on
+  `Validate ()` always saved.**
+
+  The `ValidateChildren` case is worth remembering as a shape. The parameterless overload was the stub
+  while `ValidateChildren (ValidationConstraints)` right beside it was real -- so the working overload was
+  the one almost nobody calls. When one overload of a pair is a stub, check which one the world actually
+  uses.
+
+  `Validate`/`Validate (bool)`/`Validating` now forward to the root adapter, which has a real validation
+  cycle, so the window's `Validating` and `Validated` come from the same object and a handler cannot see
+  one without the other. `ValidateChildren ()` delegates to the same core the constraints overload uses.
+  `BeginUpdate`/`EndUpdate` and a real `ProcessTabKey` (via `SelectNextControl`) came with the group; the
+  two `On*` raisers went to the already-forwarded list. Pinned by `WindowValidationParityTests`, which
+  checks a cancelled `Validating` really stops `Validated` and really makes `Validate ()` report false.
+
+- **[FIXED 2026-08-24] The Release build was red on HEAD, independently of any parity work.**
+  `SystemEvents.DisplaySettingsChanged` is declared and deliberately never raised -- no backend surfaces a
+  display-change notification -- which CS0067 objects to, and this repo treats warnings as errors in
+  Release. It needed the `#pragma warning disable CS0067` that every other declared-but-unraised compat
+  event here already carries. Worth knowing HOW this was established: the break reproduced with all local
+  work stashed, so it was upstream's, not the parity branch's. Check that before attributing a red build to
+  your own change -- and note a Debug build does not catch it, which is presumably how it got in.
+
+- **Baseline arithmetic, 2026-08-24:** 119 after the validation group, then 122 once upstream's
+  AntdUI-parity commit added Control members the window side lacks. The number goes UP when Control grows,
+  which is the file working as intended rather than regression. `ProcessDialogChar/1` arrived that way and
+  was filed under Win32 plumbing: it is a `protected virtual bool => false` override point with no message
+  pump behind it, exactly like `ProcessKeyMessage` and `ProcessKeyPreview` beside it, so a window-side
+  override nothing ever calls would add nothing.
+
 - **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
   (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
   re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity

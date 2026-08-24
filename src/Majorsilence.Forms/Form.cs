@@ -125,13 +125,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the form causes validation to be performed on any controls that require validation when it receives focus. Matches Control.CausesValidation.</summary>
         public bool CausesValidation { get; set; } = true;
 
-        /// <summary>
-        /// Raised when the form is validating. Stub in Majorsilence.Forms -- matches Control.
-        /// Validating's shape so ported code compiles, but there is no automatic focus-change
-        /// validation pipeline to fire it yet (add/remove bodies avoid a "never used" warning
-        /// for an event this type never raises itself).
-        /// </summary>
-        public event System.ComponentModel.CancelEventHandler? Validating { add { } remove { } }
+        // Validating is on WindowBase now, forwarded to the root adapter alongside Validated so the pair
+        // cannot come from different objects. It used to be a discarding stub here (`add { } remove { }`),
+        // so a handler attached to it was thrown away.
 
         /// <summary>Attempts to set focus to the form. Matches Control.Focus's shape (returns whether the focus request succeeded).</summary>
         public bool Focus ()
@@ -918,8 +914,14 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets how the form performs implicit validation when focus leaves a child control.</summary>
         public AutoValidate AutoValidate { get; set; } = AutoValidate.EnablePreventFocusChange;
 
-        /// <summary>Validates all selectable child controls. Always returns true (stub).</summary>
-        public bool ValidateChildren () => true;
+        /// <summary>Validates all selectable child controls, returning false if any handler cancelled.</summary>
+        /// <remarks>
+        /// This used to `return true` without validating anything -- while the
+        /// <see cref="ValidateChildren(ValidationConstraints)"/> overload right next to it was real. The
+        /// parameterless one is the one nearly everybody calls, so the working overload was the one nobody
+        /// reached. Both now run the same walk.
+        /// </remarks>
+        public bool ValidateChildren () => ValidateChildren (ValidationConstraints.Selectable);
 
         private BindingContext? binding_context;
 

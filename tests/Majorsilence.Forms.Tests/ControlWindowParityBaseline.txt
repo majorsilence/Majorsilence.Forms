@@ -97,6 +97,7 @@ ScaleCore/2
 SetAutoSizeMode/1
 
 # N/A -- Win32 handle/message plumbing with no analogue here.
+ProcessDialogChar/1
 CheckForIllegalCrossThreadCalls
 DrawToBitmap/2
 EndInvoke/1
@@ -123,14 +124,6 @@ FromScreenPoint/1
 
 
 
-# WORTH CLOSING -- validation and tab handling, which a Form drives for its children.
-BeginUpdate/0
-EndUpdate/0
-OnValidated/1
-OnValidating/1
-ProcessDialogChar/1
-ProcessTabKey/1
-Validate/1
 
 # WORTH CLOSING -- gestures and drag/drop the window surface can legitimately receive.
 DoDragDrop/5
@@ -156,6 +149,8 @@ RtlTranslateHorizontal/1
 RtlTranslateLeftRight/1
 
 # LOW VALUE -- On* raisers whose events are already forwarded above; add only if a subclass needs to override.
+OnValidated/1
+OnValidating/1
 OnContextMenuChanged/1
 OnContextMenuStripChanged/1
 OnImeModeChanged/1

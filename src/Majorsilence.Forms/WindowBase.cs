@@ -584,8 +584,8 @@ namespace Majorsilence.Forms
         /// <summary>Forces the window to repaint. Mirrors WinForms Control.Refresh.</summary>
         public void Refresh () => Invalidate ();
 
-        /// <summary>Validates the last invalidated control. Always true — the compat window has no implicit validation pipeline. Mirrors WinForms ContainerControl.Validate.</summary>
-        public bool Validate () => true;
+        // Validate lives with the rest of the validation members below. It used to `return true` here
+        // without raising anything, so a form that gated a Save button on Validate () always saved.
 
         /// <summary>Executes the specified delegate asynchronously on the window's UI thread.</summary>
         public void BeginInvoke (Action action)
@@ -769,6 +769,40 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the product version from the application's assembly metadata.</summary>
         public string ProductVersion => Application.ProductVersion ?? string.Empty;
+
+        // ── Validation and tab handling ──────────────────────────────────────────
+
+        /// <summary>Raised while the window is validating, so a handler can cancel it.</summary>
+        /// <remarks>Forwarded to the root adapter, as <see cref="Validated"/> is -- the pair has to come
+        /// from the same object or a handler can see one without the other. It was previously a
+        /// discarding stub on Form, so handlers attached to it were thrown away.</remarks>
+        public event System.ComponentModel.CancelEventHandler? Validating {
+            add => adapter.Validating += value;
+            remove => adapter.Validating -= value;
+        }
+
+        /// <summary>Runs the window's validation cycle, returning false when a handler cancelled it.</summary>
+        public bool Validate () => adapter.Validate ();
+
+        /// <summary>Runs the window's validation cycle, returning false when a handler cancelled it.</summary>
+        public bool Validate (bool checkAutoValidate) => adapter.Validate (checkAutoValidate);
+
+        /// <summary>Moves focus to the next or previous control that can take it.</summary>
+        /// <remarks>The hook a form overrides to take over Tab handling; it really moves focus rather
+        /// than reporting false, so an override that calls base gets the standard behaviour.</remarks>
+        protected virtual bool ProcessTabKey (bool forward)
+            => adapter.SelectNextControl (adapter.SelectedControl, forward,
+                tabStopOnly: true, nested: true, wrap: true);
+
+        /// <summary>Suspends redrawing and layout while a batch of changes is applied.</summary>
+        public void BeginUpdate () => SuspendLayout ();
+
+        /// <summary>Resumes redrawing and layout after <see cref="BeginUpdate"/>, and repaints once.</summary>
+        public void EndUpdate ()
+        {
+            ResumeLayout (false);
+            Invalidate ();
+        }
 
         /// <summary>Gets or sets the unscaled location of the window. Mirrors WinForms Form.Location.</summary>
         public System.Drawing.Point Location {
