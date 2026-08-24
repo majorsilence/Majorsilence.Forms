@@ -1587,6 +1587,31 @@ namespace Majorsilence.Forms.Drawing
             // one allocation per DrawString call into zero, for anything that draws the same Font
             // repeatedly (Binary Rain's per-glyph rain, any custom-painted label). It is owned by
             // the Font, not this call, so it must not be disposed here.
+            // A solid brush -- overwhelmingly the case -- goes through the same RichTextKit path the
+            // library's own renderers and MeasureString already use, because that path does FONT FALLBACK
+            // and a bare SKFont does not. Drawing straight to SKCanvas.DrawText renders any codepoint the
+            // chosen typeface lacks as tofu, while MeasureString (RichTextKit) measured it correctly --
+            // so a CJK or emoji string laid out at the right size and then drew as a row of boxes. Found
+            // with a Chinese control library, where every label was tofu.
+            //
+            // Routing both sides through one machinery is also what keeps them from disagreeing again.
+            if (brush is Majorsilence.Forms.Drawing.SolidBrush solid) {
+                // GDI+ DrawString(text, font, brush, x, y) is unbounded, so the layout width has to be
+                // effectively infinite -- but not int.MaxValue, which overflows RichTextKit's own
+                // arithmetic. This is far wider than any real surface and the clip inside DrawText keeps
+                // it honest.
+                const int Unbounded = 1 << 20;
+
+                _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (font.PixelSize),
+                    new Rectangle ((int)x, (int)y, Unbounded, Unbounded),
+                    solid.Color.ToSKColor (), ContentAlignment.TopLeft);
+
+                return;
+            }
+
+            // Gradient and texture brushes have no single colour to hand RichTextKit, so they keep the
+            // direct path -- and with it the no-fallback limitation, which is worth knowing but affects
+            // almost nothing: text painted with a gradient brush is rare, and Latin text is unaffected.
             var skFont = font.GetSKFont ();
             using var paint = brush.CreatePaint ();
 

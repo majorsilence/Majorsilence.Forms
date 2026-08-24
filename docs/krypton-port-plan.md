@@ -888,6 +888,34 @@ on Windows:
   resolver falls back to the base family, losing nothing, because every caller passes the weight separately
   as a `FontStyle`.
 
+- **[FIXED 2026-08-24] `Graphics.DrawString` did no font fallback, so all CJK text was tofu.** Found by
+  running AntdUI's demo -- a Chinese control library, where every label rendered as boxes. The library has
+  TWO text paths and they disagreed: `SKCanvas.DrawText` extension (RichTextKit, via `CachingFontMapper`)
+  falls back to a face that has the glyph, and is what the library's own renderers and `MeasureString`
+  use; `Graphics.DrawString` -- the GDI+-shaped API ported code calls -- drew straight to
+  `SKCanvas.DrawText` with a single `SKFont`, which renders any codepoint the typeface lacks as glyph 0.
+  So a string was MEASURED correctly (right width, right layout) and then drawn as a row of boxes, which
+  is why it looked like a font problem rather than a code-path problem.
+
+  `DrawString` now routes a solid brush through the same RichTextKit path, which fixes fallback and, more
+  importantly, stops the two sides being able to disagree again. Gradient and texture brushes keep the
+  direct path -- there is no single colour to hand RichTextKit -- and keep the limitation with it, which
+  matters little: gradient-brushed text is rare and Latin text is unaffected either way.
+
+  Pinned by `DrawStringFontFallbackTests`: one test that the two paths produce identical ink for a CJK
+  string, one that the glyphs are not identical repeated boxes (tofu is the same box every time, so a run
+  of different characters drawn as tofu is periodic), one that a gradient brush still draws. The first two
+  fail on the old code.
+
+  **How to look at this again:** `scratchpad/ctlsmoke --form Overview <out.png>` renders AntdUI's demo
+  headlessly. It pumps the backend and re-renders until the picture stops changing, because the page fills
+  itself after being shown and a single immediate capture gets an empty body.
+
+  **Still visibly wrong in that demo, not yet diagnosed:** the primary Button draws red vertical stripes
+  over its blue fill (reproduces headlessly, so it is real and not a compositing artifact); FloatButton's
+  icon is a black square; the header draws two strings on top of each other and ends in a black blob; a
+  section's count badge overlaps its label.
+
 - **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
   (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
   re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity
