@@ -2704,8 +2704,23 @@ namespace Majorsilence.Forms
 
                 FreeBackBuffer ();
 
-                foreach (var c in Controls.GetAllControls (true))
+                // Snapshot: each child now detaches itself from this collection as it is disposed
+                // (see the unparenting below), so iterating the live sequence would skip children.
+                foreach (var c in Controls.GetAllControls (true).ToArray ())
                     c.Dispose (disposing);
+
+                // WinForms detaches a control from its parent when it is disposed, and a great deal of
+                // ported code relies on it: the standard way to swap a page or panel is to dispose the
+                // old control and add the new one, without removing the old one explicitly. Leaving it
+                // parented meant the old control stayed in the collection and, if it was docked, went
+                // on filling its container -- so the first page opened was the only one that ever
+                // showed, and every later navigation appeared to do nothing.
+                //
+                // Explicit children only. Implicit chrome lives in a separate list that
+                // ControlCollection.Remove does not touch, and it is owned by the parent that created
+                // it -- it goes away with the parent rather than detaching itself.
+                if (disposing && !ImplicitControl && Parent is { } parent && parent.Controls.Contains (this))
+                    parent.Controls.Remove (this);
 
                 // A disposed top-level control takes its window with it: Krypton dismisses a popup by
                 // disposing it, and the host outliving the control would leave an empty floating window.

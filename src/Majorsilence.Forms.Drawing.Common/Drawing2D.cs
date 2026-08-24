@@ -215,11 +215,26 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
                 SKFontStyleWidth.Normal,
                 (fontStyle & FontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright));
 
-            using var font = new SKFont (typeface, emSize);
+            using var primaryFont = new SKFont (typeface, emSize);
             // GDI+ lays text out from the top-left; Skia draws from the baseline.
-            using var text = font.GetTextPath (s, new SKPoint (origin.X, origin.Y - font.Metrics.Ascent));
-            if (text is not null)
-                path.AddPath (text);
+            var baseline = origin.Y - primaryFont.Metrics.Ascent;
+            var x = origin.X;
+
+            // One SKFont renders every codepoint its typeface lacks as tofu, and outlines are no
+            // different -- so the string is split into runs each face can actually draw. This matters
+            // more than it looks: a library that renders all its text as filled glyph outlines (for
+            // sharper anti-aliasing) routes every label through here, so without fallback its entire
+            // UI came out as boxes for any non-Latin script.
+            foreach (var (runText, runFace) in FontSubstitution.SplitByCoverage (s, typeface)) {
+                using var runFont = ReferenceEquals (runFace, typeface) ? null : new SKFont (runFace, emSize);
+                var font = runFont ?? primaryFont;
+
+                using var text = font.GetTextPath (runText, new SKPoint (x, baseline));
+                if (text is not null)
+                    path.AddPath (text);
+
+                x += font.MeasureText (runText);
+            }
         }
 
         /// <inheritdoc cref="AddString(string, FontFamily, int, float, PointF, StringFormat)"/>

@@ -209,6 +209,16 @@ namespace Majorsilence.Forms
         /// <summary>Begins dragging the window to move it.</summary>
         public void BeginMoveDrag () => Backend.BeginMoveDrag ();
 
+        /// <summary>Begins dragging the given window edge to resize the window.</summary>
+        /// <remarks>
+        /// The counterpart of <see cref="BeginMoveDrag"/>, which was public while this was reachable
+        /// only from inside this class. Both exist so that a borderless form can implement its own
+        /// title bar and resize grips: on Windows that is done by faking a non-client mouse-down
+        /// (<c>ReleaseCapture</c> then <c>WM_NCLBUTTONDOWN</c>), which has no equivalent off Windows,
+        /// so ported code needs a managed way to ask for the same gesture.
+        /// </remarks>
+        public void BeginResizeDrag (Backends.WindowEdge edge) => Backend.BeginResizeDrag (edge);
+
         /// <summary>Gets or sets the bounds of the Window.</summary>
         public new System.Drawing.Rectangle Bounds {
             get => new System.Drawing.Rectangle (Location, Size);
@@ -1368,7 +1378,7 @@ namespace Majorsilence.Forms
                 EnsureLoaded ();
 
                 if (!shown) {
-                    shown = true;
+                    MarkHandleCreated ();
                     OnShown (EventArgs.Empty);
                 }
 
@@ -1387,7 +1397,7 @@ namespace Majorsilence.Forms
                 EnsureLoaded ();        // Load before the form is shown, matching WinForms.
 
                 if (!shown) {
-                    shown = true;
+                    MarkHandleCreated ();
                     OnShown (EventArgs.Empty);
                 }
 
@@ -1406,7 +1416,7 @@ namespace Majorsilence.Forms
             EnsureLoaded ();            // Load before the child is shown, matching WinForms.
 
             if (!shown) {
-                shown = true;
+                MarkHandleCreated ();
                 OnShown (EventArgs.Empty);
             }
 

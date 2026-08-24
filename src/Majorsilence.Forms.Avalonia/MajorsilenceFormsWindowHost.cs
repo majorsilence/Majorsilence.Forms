@@ -261,14 +261,27 @@ namespace Majorsilence.Forms
             base.OnPointerMoved (e);
         }
 
+        // See WheelDeltaAccumulator: Avalonia's wheel deltas are in lines, WinForms' are in
+        // multiples of 120, and the difference made scrolling roughly a hundredth of its proper speed.
+        private readonly Backends.WheelDeltaAccumulator _wheel = new ();
+
         protected override void OnPointerWheelChanged (AvPointerWheelChangedEventArgs e)
         {
+            var delta = _wheel.Add (e.Delta.X, e.Delta.Y);
+
+            // Nothing whole accumulated yet -- raising a zero-delta wheel event would be noise, and
+            // WinForms does not report one either.
+            if (delta.X == 0 && delta.Y == 0) {
+                base.OnPointerWheelChanged (e);
+                return;
+            }
+
             var pos = e.GetPosition (this);
             var props = e.GetCurrentPoint (this).Properties;
             _owner.HandlePointerWheel (
                 AvaloniaKeyInterop.ToMouseButtons (props),
                 (int)(pos.X * RenderScaling), (int)(pos.Y * RenderScaling),
-                new System.Drawing.Point ((int)e.Delta.X, (int)e.Delta.Y),
+                delta,
                 AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
             base.OnPointerWheelChanged (e);
         }

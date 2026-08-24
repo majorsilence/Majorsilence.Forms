@@ -1701,7 +1701,7 @@ namespace Majorsilence.Forms
                 IsActive = true;
 
             if (!shown) {
-                shown = true;
+                MarkHandleCreated ();
                 OnShown (EventArgs.Empty);
 
                 // The pass above could not reach this window's own OnLayout: the adapter forwards its

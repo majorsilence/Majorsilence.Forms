@@ -96,9 +96,30 @@ namespace Majorsilence.Forms
         protected virtual void OnControlRemoved (ControlEventArgs e) { }
 
         /// <summary>Called when the form's window handle has been created.</summary>
-        /// <remarks>Raised when the backend window is shown, which is this library's equivalent of the
-        /// handle coming into existence.</remarks>
+        /// <remarks>
+        /// Raised when the backend window is shown, which is this library's equivalent of the handle
+        /// coming into existence -- <see cref="IsHandleCreated"/> reports the same moment.
+        ///
+        /// This used to be an empty method that nothing ever called, while the <c>HandleCreated</c>
+        /// EVENT did fire (it is forwarded to the internal adapter). Overriding it therefore looked
+        /// right, compiled, and silently never ran -- and it is the standard place ported code does
+        /// its window-level setup once the window exists, so whatever that override was responsible
+        /// for simply never happened.
+        /// </remarks>
         protected virtual void OnHandleCreated (EventArgs e) { }
+
+        /// <summary>
+        /// Marks the window live and raises <see cref="OnHandleCreated"/>. Called from each place the
+        /// window transitions to shown, before <c>OnShown</c> -- the order WinForms uses.
+        /// </summary>
+        private protected void MarkHandleCreated ()
+        {
+            if (shown)
+                return;
+
+            shown = true;
+            OnHandleCreated (EventArgs.Empty);
+        }
 
         /// <summary>Called when the form's window handle has been destroyed.</summary>
         /// <inheritdoc cref="OnHandleCreated"/>
