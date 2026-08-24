@@ -28,15 +28,29 @@ namespace Majorsilence.Forms.Drawing
         private readonly Majorsilence.Forms.Drawing.Image? _sourceImage;
         private bool _disposed;
 
+        // The canvas matrix as it stood when this Graphics was created. GDI+ keeps the device origin
+        // (for a control, its client origin) OUT of Graphics.Transform -- that starts as identity and
+        // means "the world transform the caller has applied". Skia makes no such separation: whatever
+        // translation put the canvas at the control's origin is already in SKCanvas.TotalMatrix. So the
+        // world transform is tracked RELATIVE to this baseline. Without it, assigning Transform would
+        // wipe out the control's origin and move the drawing to the top-left of the whole surface.
+        private readonly SKMatrix _baseline = SKMatrix.Identity;
+
         internal Graphics (Control? control = null) { _control = control; }
 
-        internal Graphics (SKCanvas canvas, Control? control = null) { _canvas = canvas; _control = control; }
+        internal Graphics (SKCanvas canvas, Control? control = null)
+        {
+            _canvas = canvas;
+            _control = control;
+            _baseline = canvas.TotalMatrix;
+        }
 
         private Graphics (SKCanvas canvas, bool ownsCanvas, Majorsilence.Forms.Drawing.Image? sourceImage = null)
         {
             _canvas = canvas;
             _ownsCanvas = ownsCanvas;
             _sourceImage = sourceImage;
+            _baseline = canvas.TotalMatrix;
         }
 
         /// <summary>Creates a Graphics object for drawing on the specified Majorsilence.Forms.Drawing.Image.
@@ -67,10 +81,18 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Measures the string constrained to a maximum width.</summary>
+        /// <remarks>
+        /// A <paramref name="maxWidth"/> of zero or less means UNBOUNDED, not "wrap at zero". That is
+        /// GDI+'s convention, and callers rely on it: <c>Graphics.MeasureString (text, font)</c> is
+        /// itself specified as passing a layout area of <c>SizeF (0, 0)</c>, so any library that
+        /// funnels its measurement through one constrained overload passes 0 to mean "no limit".
+        /// Taking the 0 literally wrapped every string to one grapheme per line, which turned
+        /// auto-sized controls into tall narrow slivers rather than merely mis-measuring them.
+        /// </remarks>
         public SizeF MeasureString (string text, SKTypeface font, int maxWidth, int fontSize = -1)
         {
             if (string.IsNullOrEmpty (text)) return SizeF.Empty;
-            var proposed = new System.Drawing.Size (maxWidth, int.MaxValue);
+            var proposed = new System.Drawing.Size (maxWidth > 0 ? maxWidth : int.MaxValue, int.MaxValue);
             var sz = fontSize <= 0
                 ? TextMeasurer.MeasureText (text, font, Theme.FontSize, proposed)
                 : TextMeasurer.MeasureText (text, font, fontSize, proposed);
@@ -420,8 +442,12 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Translates the coordinate origin.</summary>
         public void TranslateTransform (float dx, float dy) => _canvas?.Translate (dx, dy);
 
-        /// <summary>Resets all transforms.</summary>
-        public void ResetTransform () => _canvas?.ResetMatrix ();
+        /// <summary>Resets the world transform to identity.</summary>
+        /// <remarks>
+        /// Restores the baseline rather than calling SKCanvas.ResetMatrix, which would reset to the
+        /// identity of the whole surface and so discard the control's own origin.
+        /// </remarks>
+        public void ResetTransform () => _canvas?.SetMatrix (_baseline);
 
         // --- Clipping ---
 
@@ -457,10 +483,35 @@ namespace Majorsilence.Forms.Drawing
             // within one scope (constant depth) replace still works, which is the GDI+ contract the
             // save-old/set-new/restore-old idiom actually exercises.
             if (_clipBaseline is { } depth && _canvas.SaveCount == _clipBaselineArmedAt)
-                _canvas.RestoreToCount (depth);
+                RestoreKeepingMatrix (depth);
 
             _clipBaseline = _canvas.Save ();
             _clipBaselineArmedAt = _canvas.SaveCount;
+        }
+
+        /// <summary>
+        /// Unwinds the canvas to <paramref name="depth"/> while leaving the current transform in place.
+        /// </summary>
+        /// <remarks>
+        /// Skia's Restore pops the MATRIX along with the clip, because both live in the same saved
+        /// frame. In System.Drawing they are independent: changing the clip must not move the drawing,
+        /// and <see cref="Transform"/> survives any number of SetClip calls. Since the clip is emulated
+        /// with save/restore frames, the matrix has to be carried across by hand.
+        ///
+        /// Without this, replacing a clip silently reset the world transform -- and the failure was
+        /// invisible in the common case, because code that clips usually is not also translating. Where
+        /// both were in play (an SVG renderer, which restores the clip after every single element while
+        /// a nested &lt;g transform&gt; is active) the first shape inside each group landed correctly and
+        /// every later sibling drew at the untransformed origin.
+        /// </remarks>
+        private void RestoreKeepingMatrix (int depth)
+        {
+            if (_canvas is null)
+                return;
+
+            var matrix = _canvas.TotalMatrix;
+            _canvas.RestoreToCount (depth);
+            _canvas.SetMatrix (matrix);
         }
 
         // The canvas save-count right after the baseline save: the guard that tells "our save is the
@@ -477,7 +528,7 @@ namespace Majorsilence.Forms.Drawing
                 return;
 
             if (_clipBaseline is { } depth && _canvas.SaveCount == _clipBaselineArmedAt) {
-                _canvas.RestoreToCount (depth);
+                RestoreKeepingMatrix (depth);
                 _clipBaseline = null;
             } else {
                 _clipBaseline = null;   // stale baseline: abandon rather than pop foreign frames
@@ -794,17 +845,44 @@ namespace Majorsilence.Forms.Drawing
         /// skew render correctly rather than being reduced to the bounding box.
         /// </remarks>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints)
+            => DrawImageParallelogram (image, destPoints, null, null);
+
+        /// <summary>
+        /// Shared implementation of the three-point (parallelogram) DrawImage family, honouring the
+        /// source rectangle and the color adjustments when given.
+        /// </summary>
+        /// <remarks>
+        /// The <paramref name="imageAttrs"/> part matters more than a color-remapping corner case
+        /// suggests: this is the overload GDI+ callers use to composite a layer at partial opacity,
+        /// by handing it an alpha-scaling <c>ColorMatrix</c>. While the attributes were dropped, such
+        /// a layer drew fully opaque -- so an element asking for <c>opacity="0"</c> rendered as a
+        /// solid block of its fill colour instead of vanishing.
+        /// </remarks>
+        private void DrawImageParallelogram (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints,
+            RectangleF? srcRect, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttrs)
         {
             if (_canvas is null || image?.GetSKBitmap () is not { } bitmap || destPoints is null || destPoints.Length < 3)
                 return;
 
-            // Map the image's own rectangle onto the parallelogram: the two edge vectors from the
+            // Lookup-style adjustments (transparent color key, remap table) cannot be expressed as a
+            // channel filter, so they are baked into a copy first; the matrix and gamma ride on the paint.
+            using var adjusted = imageAttrs?.ApplyPixelAdjustments (bitmap);
+            var source = adjusted ?? bitmap;
+
+            using var colorFilter = imageAttrs?.ToSKColorFilter ();
+            using var paint = colorFilter is null ? null : new SKPaint { ColorFilter = colorFilter, IsAntialias = true };
+
+            var src = srcRect is { Width: > 0, Height: > 0 } r
+                ? new SKRect (r.Left, r.Top, r.Right, r.Bottom)
+                : new SKRect (0, 0, source.Width, source.Height);
+
+            // Map the source rectangle onto the parallelogram: the two edge vectors from the
             // upper-left corner give the matrix columns directly.
             var origin = destPoints[0];
             var xAxis = new PointF (destPoints[1].X - origin.X, destPoints[1].Y - origin.Y);
             var yAxis = new PointF (destPoints[2].X - origin.X, destPoints[2].Y - origin.Y);
-            var width = Math.Max (1, image.Width);
-            var height = Math.Max (1, image.Height);
+            var width = Math.Max (1f, src.Width);
+            var height = Math.Max (1f, src.Height);
 
             var matrix = new SKMatrix (
                 xAxis.X / width, yAxis.X / height, origin.X,
@@ -813,34 +891,37 @@ namespace Majorsilence.Forms.Drawing
 
             _canvas.Save ();
             _canvas.Concat (matrix);
-            _canvas.DrawBitmap (bitmap, 0, 0);
+            _canvas.DrawBitmap (source, src, new SKRect (0, 0, width, height), paint);
             _canvas.Restore ();
         }
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[])"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints)
-            => DrawImage (image, Array.ConvertAll (destPoints ?? [], p => new PointF (p.X, p.Y)));
+            => DrawImage (image, ToPointF (destPoints));
+
+        private static PointF[] ToPointF (Point[]? points)
+            => Array.ConvertAll (points ?? [], p => new PointF (p.X, p.Y));
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[])"/>
-        /// <remarks>The source rectangle and unit are accepted for API compatibility; the whole image is drawn.</remarks>
+        /// <remarks>The unit is accepted for API compatibility; coordinates are treated as pixels.</remarks>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints, RectangleF srcRect,
             Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
-            => DrawImage (image, destPoints);
+            => DrawImageParallelogram (image, destPoints, srcRect, null);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints, RectangleF srcRect,
             Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr)
-            => DrawImage (image, destPoints);
+            => DrawImageParallelogram (image, destPoints, srcRect, imageAttr);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints, Rectangle srcRect,
             Majorsilence.Forms.Drawing.GraphicsUnit srcUnit)
-            => DrawImage (image, destPoints);
+            => DrawImageParallelogram (image, ToPointF (destPoints), srcRect, null);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints, Rectangle srcRect,
             Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr)
-            => DrawImage (image, destPoints);
+            => DrawImageParallelogram (image, ToPointF (destPoints), srcRect, imageAttr);
 
         // The abort-callback shapes. GDI+ polls the callback during a long draw; nothing here is
         // interruptible (a Skia bitmap draw is a single call), so the callback is accepted and never
@@ -850,25 +931,25 @@ namespace Majorsilence.Forms.Drawing
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints, RectangleF srcRect,
             Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr,
             DrawImageAbort? callback)
-            => DrawImage (image, destPoints);
+            => DrawImageParallelogram (image, destPoints, srcRect, imageAttr);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, PointF[] destPoints, RectangleF srcRect,
             Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr,
             DrawImageAbort? callback, int callbackData)
-            => DrawImage (image, destPoints);
+            => DrawImageParallelogram (image, destPoints, srcRect, imageAttr);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints, Rectangle srcRect,
             Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr,
             DrawImageAbort? callback)
-            => DrawImage (image, destPoints);
+            => DrawImageParallelogram (image, ToPointF (destPoints), srcRect, imageAttr);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, PointF[], RectangleF, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Point[] destPoints, Rectangle srcRect,
             Majorsilence.Forms.Drawing.GraphicsUnit srcUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr,
             DrawImageAbort? callback, int callbackData)
-            => DrawImage (image, destPoints);
+            => DrawImageParallelogram (image, ToPointF (destPoints), srcRect, imageAttr);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, int, int, int, int, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, int srcX, int srcY,
@@ -984,16 +1065,35 @@ namespace Majorsilence.Forms.Drawing
 
         /// <inheritdoc cref="ScaleTransform(float, float)"/>
         /// <remarks>
-        /// <paramref name="order"/> is accepted for API compatibility. The canvas composes transforms in
-        /// prepend order, which is System.Drawing's own default.
+        /// The canvas can only prepend, so an <see cref="Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder.Append"/>
+        /// request is composed through the world <see cref="Transform"/> instead. Prepend is
+        /// System.Drawing's default and stays on the direct canvas path.
         /// </remarks>
         public void ScaleTransform (float sx, float sy, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder order)
-            => ScaleTransform (sx, sy);
+        {
+            if (order == Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder.Prepend) {
+                ScaleTransform (sx, sy);
+                return;
+            }
+
+            using var m = new Majorsilence.Forms.Drawing.Drawing2D.Matrix ();
+            m.Scale (sx, sy);
+            MultiplyTransform (m, order);
+        }
 
         /// <inheritdoc cref="TranslateTransform(float, float)"/>
         /// <remarks>See <see cref="ScaleTransform(float, float, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder)"/> for the order parameter.</remarks>
         public void TranslateTransform (float dx, float dy, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder order)
-            => TranslateTransform (dx, dy);
+        {
+            if (order == Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder.Prepend) {
+                TranslateTransform (dx, dy);
+                return;
+            }
+
+            using var m = new Majorsilence.Forms.Drawing.Drawing2D.Matrix ();
+            m.Translate (dx, dy);
+            MultiplyTransform (m, order);
+        }
 
         /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font)"/>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, int width)
@@ -1083,11 +1183,22 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Returns whether the specified rectangle is within the clipping region. Always returns true in Majorsilence.Forms.</summary>
         public bool IsVisible (RectangleF rect) => true;
 
-        /// <summary>Applies a matrix transform to the current transform. Stub in Majorsilence.Forms.</summary>
-        public void MultiplyTransform (Majorsilence.Forms.Drawing.Drawing2D.Matrix matrix) { }
+        /// <summary>Applies a matrix transform to the current world transform.</summary>
+        public void MultiplyTransform (Majorsilence.Forms.Drawing.Drawing2D.Matrix matrix)
+            => MultiplyTransform (matrix, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder.Prepend);
 
-        /// <summary>Applies a matrix transform to the current transform. Stub in Majorsilence.Forms.</summary>
-        public void MultiplyTransform (Majorsilence.Forms.Drawing.Drawing2D.Matrix matrix, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder order) { }
+        /// <summary>Applies a matrix transform to the current world transform in the specified order.</summary>
+        public void MultiplyTransform (Majorsilence.Forms.Drawing.Drawing2D.Matrix matrix,
+            Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder order)
+        {
+            if (_canvas is null || matrix is null) return;
+
+            // Composed through Matrix rather than SKCanvas.Concat because Concat can only prepend;
+            // MatrixOrder.Append needs the incoming matrix on the other side.
+            var world = Transform;
+            world.Multiply (matrix, order);
+            Transform = world;
+        }
 
         // --- Drawing operations (Skia-backed when canvas is available) ---
 
@@ -2029,15 +2140,47 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Rotates the current transform by the specified angle in degrees.</summary>
         public void RotateTransform (float angle) => _canvas?.RotateDegrees (angle);
 
-        /// <summary>Applies a rotation in degrees around the specified point.</summary>
+        /// <summary>Applies a rotation in degrees, composed in the specified order.</summary>
+        /// <remarks>See <see cref="ScaleTransform(float, float, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder)"/>.</remarks>
         public void RotateTransform (float angle, Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder order)
-            => _canvas?.RotateDegrees (angle);
+        {
+            if (order == Majorsilence.Forms.Drawing.Drawing2D.MatrixOrder.Prepend) {
+                RotateTransform (angle);
+                return;
+            }
 
-        /// <summary>Gets or sets the current world transformation matrix. Stub — setting is ignored.</summary>
+            using var m = new Majorsilence.Forms.Drawing.Drawing2D.Matrix ();
+            m.Rotate (angle);
+            MultiplyTransform (m, order);
+        }
+
+        /// <summary>Gets or sets the current world transformation matrix.</summary>
+        /// <remarks>
+        /// Measured against <see cref="_baseline"/>, so this reports and accepts exactly the transform
+        /// the caller applied, the way GDI+ does -- see the field's remarks. Assigning REPLACES the
+        /// world transform rather than composing with it, which is also GDI+ behaviour and is what
+        /// makes the save/modify/restore pattern work:
+        /// <c>var saved = g.Transform; ...; g.Transform = saved;</c>
+        /// That pattern is how every SVG renderer applies a nested <c>&lt;g transform&gt;</c>, and
+        /// while the setter was a no-op such transforms silently vanished -- collapsing every
+        /// translated group onto the same spot instead of failing visibly.
+        /// </remarks>
 #pragma warning disable CA1416
         public Majorsilence.Forms.Drawing.Drawing2D.Matrix Transform {
-            get => new Majorsilence.Forms.Drawing.Drawing2D.Matrix ();
-            set { }
+            get {
+                if (_canvas is null || !_baseline.TryInvert (out var inverse))
+                    return new Majorsilence.Forms.Drawing.Drawing2D.Matrix ();
+
+                return new Majorsilence.Forms.Drawing.Drawing2D.Matrix (
+                    inverse.PreConcat (_canvas.TotalMatrix));
+            }
+            set {
+                if (_canvas is null) return;
+
+                _canvas.SetMatrix (value is null
+                    ? _baseline
+                    : _baseline.PreConcat (value.ToSKMatrix ()));
+            }
         }
 #pragma warning restore CA1416
 

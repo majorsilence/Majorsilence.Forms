@@ -88,8 +88,6 @@ Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/5
 Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/6
 Majorsilence.Forms.Drawing.Graphics.Flush/0
 Majorsilence.Forms.Drawing.Graphics.Flush/1
-Majorsilence.Forms.Drawing.Graphics.MultiplyTransform/1
-Majorsilence.Forms.Drawing.Graphics.MultiplyTransform/2
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdc/0
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdc/1
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdcInternal/1
