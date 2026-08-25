@@ -265,14 +265,17 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Executes the specified MethodInvoker delegate synchronously on the thread that owns the control.
-        /// </summary>
-        public void Invoke (MethodInvoker method) => Invoke ((Action)(() => method ()));
-
-        /// <summary>
         /// Executes the specified Delegate synchronously on the UI thread and returns the result.
         /// WinForms compat overload.
         /// </summary>
+        /// <remarks>
+        /// No dedicated <c>Invoke(MethodInvoker method)</c> overload exists alongside
+        /// <see cref="Invoke(Action)"/> -- <c>Action</c> and <c>MethodInvoker</c> are both bare
+        /// <c>void()</c> delegates, so having both made every <c>Invoke(() =&gt; ...)</c> call in
+        /// migrated code, by far the most common shape, ambiguous (CS0121). An explicitly-typed
+        /// <c>MethodInvoker</c> (<c>Invoke(new MethodInvoker(Method))</c>, or a designer-generated
+        /// <c>Invoke((MethodInvoker) (...))</c>) still works, routed through here.
+        /// </remarks>
         public object? Invoke (Delegate method)
         {
             if (method is Action a) { Invoke (a); return null; }
@@ -581,6 +584,14 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual bool ProcessDialogKey (Keys keyData) => false;
 
+        /// <summary>
+        /// Processes a dialog character, e.g. an Alt+letter mnemonic. Returns true if handled.
+        /// Majorsilence.Forms stub — like <see cref="ProcessDialogKey"/> and <see cref="ProcessKeyPreview"/>,
+        /// declared so ported overrides compile, but nothing in the framework's input pipeline calls it
+        /// (there is no ContainerControl-driven mnemonic walk here yet).
+        /// </summary>
+        protected virtual bool ProcessDialogChar (char charCode) => false;
+
         /// <summary>Processes a keyboard message. Returns true if the message was handled. Stub in Majorsilence.Forms.</summary>
         protected virtual bool ProcessKeyMessage (ref Message m) => false;
 
@@ -612,8 +623,15 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether this control is currently in design mode. Always false in Majorsilence.Forms.</summary>
         public new bool DesignMode => false;
 
-        /// <summary>Gets the site associated with this component. Stub in Majorsilence.Forms.</summary>
-        public new System.ComponentModel.ISite? Site { get; set; }
+        /// <summary>Gets the site associated with this component.</summary>
+        /// <remarks>
+        /// Real WinForms declares <c>Control.Site</c> as an <c>override</c> of the virtual
+        /// <c>Component.Site</c> (not a hide) specifically so a derived control can override it again —
+        /// this was <c>new</c> here, which broke that chain and made every such override (a control that
+        /// needs to react to being sited, e.g. to suppress runtime-only behavior in the designer) a
+        /// compile error (CS0506) instead of the no-op override real WinForms code expects to write.
+        /// </remarks>
+        public override System.ComponentModel.ISite? Site { get; set; }
 
     }
 

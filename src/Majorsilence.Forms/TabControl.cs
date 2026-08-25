@@ -179,7 +179,7 @@ namespace Majorsilence.Forms
         /// Raised for each tab when <see cref="DrawMode"/> is an owner-draw mode, letting the handler
         /// paint the tab itself.
         /// </summary>
-        public event EventHandler<DrawItemEventArgs>? DrawItem;
+        public event DrawItemEventHandler? DrawItem;
 
         /// <summary>
         /// Raises the DrawItem event.

@@ -94,11 +94,19 @@ namespace Majorsilence.Forms.Drawing
             => throw new PlatformNotSupportedException (
                 "Font.FromHfont needs a Win32 HFONT, which has no meaning outside Windows GDI. Construct the Font from a family name and size instead.");
 
-        /// <summary>Creates a GDI font handle for this font.</summary>
-        /// <exception cref="PlatformNotSupportedException">Always. See the note in HandleInterop.cs.</exception>
-        public IntPtr ToHfont ()
-            => throw new PlatformNotSupportedException (
-                "Font.ToHfont would have to return a Win32 HFONT the caller then deletes. There is no GDI object behind this font to hand out.");
+        /// <summary>Returns a GDI font handle for this font, or <see cref="IntPtr.Zero"/> -- there is none.</summary>
+        /// <remarks>
+        /// Zero rather than a throw, following <see cref="Region.GetHrgn"/> for the same reason: a caller
+        /// asking for a handle can be told "there isn't one", and NULL is how Win32 itself spells that,
+        /// but a caller that THROWS here dies outright. Found by a themed control library whose tab
+        /// control called this while painting -- the exception took the whole control down, where a null
+        /// handle merely means the platform call it was destined for does nothing (those calls are
+        /// no-op shims here anyway, and DeleteObject (NULL) is harmless).
+        ///
+        /// <see cref="FromHfont"/> still throws, and the asymmetry is deliberate: it is asked to PRODUCE a
+        /// font from a handle that means nothing here, and there is no honest answer to give.
+        /// </remarks>
+        public IntPtr ToHfont () => IntPtr.Zero;
 
         /// <summary>Creates a font from a LOGFONT structure.</summary>
         /// <remarks>Implemented for real: a LOGFONT is a data layout, not an API call. The fields are

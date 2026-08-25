@@ -48,6 +48,12 @@ namespace Majorsilence.Forms
         /// </summary>
         public Rectangle Bounds { get; private set; }
 
+        /// <summary>Gets the width of this menu item's bounding box.</summary>
+        public int Width => Bounds.Width;
+
+        /// <summary>Gets the height of this menu item's bounding box.</summary>
+        public int Height => Bounds.Height;
+
         /// <summary>
         /// Raised when the menu item is clicked. Carries <see cref="EventArgs"/>, as WinForms'
         /// <c>ToolStripItem.Click</c> does — designer code wires this up with a plain

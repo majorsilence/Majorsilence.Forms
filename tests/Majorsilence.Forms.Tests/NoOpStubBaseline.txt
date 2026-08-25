@@ -88,8 +88,6 @@ Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/5
 Majorsilence.Forms.Drawing.Graphics.CopyFromScreen/6
 Majorsilence.Forms.Drawing.Graphics.Flush/0
 Majorsilence.Forms.Drawing.Graphics.Flush/1
-Majorsilence.Forms.Drawing.Graphics.MultiplyTransform/1
-Majorsilence.Forms.Drawing.Graphics.MultiplyTransform/2
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdc/0
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdc/1
 Majorsilence.Forms.Drawing.Graphics.ReleaseHdcInternal/1
@@ -109,6 +107,7 @@ Majorsilence.Forms.ListViewItem.BeginEdit/0
 Majorsilence.Forms.Media.SoundPlayer.Load/0
 Majorsilence.Forms.NativeWindow.AssignHandle/1
 Majorsilence.Forms.NativeWindow.CreateHandle/1
+Majorsilence.Forms.NativeWindow.DefWndProc/1
 Majorsilence.Forms.NativeWindow.DestroyHandle/0
 Majorsilence.Forms.NativeWindow.ReleaseHandle/0
 Majorsilence.Forms.NumericUpDown.BeginInit/0

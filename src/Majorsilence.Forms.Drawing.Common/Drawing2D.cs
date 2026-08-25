@@ -209,17 +209,28 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             if (string.IsNullOrEmpty (s) || family is null || emSize <= 0)
                 return;
 
-            var fontStyle = (FontStyle)style;
-            var typeface = FontSubstitution.Resolve (family.Name, new SKFontStyle (
-                (fontStyle & FontStyle.Bold) != 0 ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
-                SKFontStyleWidth.Normal,
-                (fontStyle & FontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright));
+            var typeface = ResolveTypeface (family, style);
 
-            using var font = new SKFont (typeface, emSize);
+            using var primaryFont = new SKFont (typeface, emSize);
             // GDI+ lays text out from the top-left; Skia draws from the baseline.
-            using var text = font.GetTextPath (s, new SKPoint (origin.X, origin.Y - font.Metrics.Ascent));
-            if (text is not null)
-                path.AddPath (text);
+            var baseline = origin.Y - primaryFont.Metrics.Ascent;
+            var x = origin.X;
+
+            // One SKFont renders every codepoint its typeface lacks as tofu, and outlines are no
+            // different -- so the string is split into runs each face can actually draw. This matters
+            // more than it looks: a library that renders all its text as filled glyph outlines (for
+            // sharper anti-aliasing) routes every label through here, so without fallback its entire
+            // UI came out as boxes for any non-Latin script.
+            foreach (var (runText, runFace) in FontSubstitution.SplitByCoverage (s, typeface)) {
+                using var runFont = ReferenceEquals (runFace, typeface) ? null : new SKFont (runFace, emSize);
+                var font = runFont ?? primaryFont;
+
+                using var text = font.GetTextPath (runText, new SKPoint (x, baseline));
+                if (text is not null)
+                    path.AddPath (text);
+
+                x += font.MeasureText (runText);
+            }
         }
 
         /// <inheritdoc cref="AddString(string, FontFamily, int, float, PointF, StringFormat)"/>
@@ -227,13 +238,75 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             => AddString (s, family, style, emSize, new PointF (origin.X, origin.Y), format);
 
         /// <inheritdoc cref="AddString(string, FontFamily, int, float, PointF, StringFormat)"/>
-        /// <remarks>The text is laid out from the rectangle's top-left corner; it is not wrapped to fit.</remarks>
+        /// <remarks>
+        /// The text is aligned inside <paramref name="layoutRect"/> according to
+        /// <see cref="StringFormat.Alignment"/> and <see cref="StringFormat.LineAlignment"/>, as GDI+
+        /// does. It used to be laid out from the rectangle's top-left corner with the format ignored,
+        /// so every centred caption drawn through this path sat top-left of its box -- card titles
+        /// riding above their divider, button labels hugging the top-left corner. It is still not
+        /// wrapped to fit: a single line is laid out and aligned.
+        /// </remarks>
         public void AddString (string s, FontFamily family, int style, float emSize, RectangleF layoutRect, StringFormat? format)
-            => AddString (s, family, style, emSize, new PointF (layoutRect.X, layoutRect.Y), format);
+        {
+            if (string.IsNullOrEmpty (s) || family is null || emSize <= 0)
+                return;
+
+            AddString (s, family, style, emSize, AlignInRect (s, family, style, emSize, layoutRect, format), format);
+        }
 
         /// <inheritdoc cref="AddString(string, FontFamily, int, float, RectangleF, StringFormat)"/>
         public void AddString (string s, FontFamily family, int style, float emSize, Rectangle layoutRect, StringFormat? format)
-            => AddString (s, family, style, emSize, new PointF (layoutRect.X, layoutRect.Y), format);
+            => AddString (s, family, style, emSize, (RectangleF)layoutRect, format);
+
+        private static SKTypeface ResolveTypeface (FontFamily family, int style)
+        {
+            var fontStyle = (FontStyle)style;
+
+            return FontSubstitution.Resolve (family.Name, new SKFontStyle (
+                (fontStyle & FontStyle.Bold) != 0 ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
+                SKFontStyleWidth.Normal,
+                (fontStyle & FontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright));
+        }
+
+        /// <summary>
+        /// Top-left corner the text should be laid out from so that it sits where
+        /// <paramref name="format"/> asks within <paramref name="layoutRect"/>.
+        /// </summary>
+        private static PointF AlignInRect (string s, FontFamily family, int style, float emSize,
+            RectangleF layoutRect, StringFormat? format)
+        {
+            // A null format means GDI+'s defaults, which are Near/Near -- the rectangle's top-left.
+            var horizontal = OffsetFactor (format?.Alignment ?? StringAlignment.Near);
+            var vertical = OffsetFactor (format?.LineAlignment ?? StringAlignment.Near);
+
+            if (horizontal == 0f && vertical == 0f)
+                return new PointF (layoutRect.X, layoutRect.Y);
+
+            var typeface = ResolveTypeface (family, style);
+            using var font = new SKFont (typeface, emSize);
+
+            // Measured the same way AddString lays the text out -- run by run, with the same fallback
+            // faces -- so the alignment cannot disagree with what is actually drawn.
+            var width = 0f;
+
+            foreach (var (runText, runFace) in FontSubstitution.SplitByCoverage (s, typeface)) {
+                using var runFont = ReferenceEquals (runFace, typeface) ? null : new SKFont (runFace, emSize);
+                width += (runFont ?? font).MeasureText (runText);
+            }
+
+            // Ascent is negative (up from the baseline), so this is the full line height.
+            var height = font.Metrics.Descent - font.Metrics.Ascent;
+
+            return new PointF (
+                layoutRect.X + ((layoutRect.Width - width) * horizontal),
+                layoutRect.Y + ((layoutRect.Height - height) * vertical));
+        }
+
+        private static float OffsetFactor (StringAlignment alignment) => alignment switch {
+            StringAlignment.Center => 0.5f,
+            StringAlignment.Far => 1f,
+            _ => 0f,
+        };
 
         /// <summary>Replaces every curve in this path with a sequence of connected line segments.</summary>
         public void Flatten () => Flatten (null, 0.25f);

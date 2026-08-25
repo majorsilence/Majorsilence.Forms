@@ -216,8 +216,18 @@ namespace Majorsilence.Forms
         /// <summary>Raises the LinkClicked event.</summary>
         protected virtual void OnLinkClicked (LinkClickedEventArgs e) => LinkClicked?.Invoke (this, e);
 
-        /// <summary>Raised when the selection changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? SelectionChanged { add { } remove { } }
+        /// <summary>Raised when the selection changes.</summary>
+        /// <remarks>
+        /// A real event now, for the same reason as <see cref="LinkClicked"/>'s neighbors: empty
+        /// accessors let a handler attach and then silently drop it. Not yet raised by the caret/mouse
+        /// selection path -- <see cref="OnSelectionChanged"/> is public enough to call, which is what
+        /// lets a ported override of the real WinForms hook keep compiling instead of failing with
+        /// CS0115.
+        /// </remarks>
+        public event EventHandler? SelectionChanged;
+
+        /// <summary>Raises the <see cref="SelectionChanged"/> event.</summary>
+        protected virtual void OnSelectionChanged (EventArgs e) => SelectionChanged?.Invoke (this, e);
 
         private static string StripRtf (string rtf)
         {

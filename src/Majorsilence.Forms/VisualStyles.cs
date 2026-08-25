@@ -368,4 +368,15 @@ namespace Majorsilence.Forms.VisualStyles
                 TextRenderer.DrawText (g, text, font ?? SystemFonts.DefaultFont, textBounds, disabled ? StyleColors.GlyphDisabled : StyleColors.Glyph);
         }
     }
+
+    /// <summary>Specifies the vertical alignment of visual-styles text or content.</summary>
+    public enum VerticalAlignment
+    {
+        /// <summary>Aligned to the top.</summary>
+        Top = 0,
+        /// <summary>Centered.</summary>
+        Center = 1,
+        /// <summary>Aligned to the bottom.</summary>
+        Bottom = 2,
+    }
 }

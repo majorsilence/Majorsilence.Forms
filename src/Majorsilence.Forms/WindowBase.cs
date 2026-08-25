@@ -68,7 +68,13 @@ namespace Majorsilence.Forms
             // Last of all: the handle is what a form's window ultimately is, so its destruction is the
             // final notification a form sends. Code that tracks the set of live forms keys on this rather
             // than on Closed, because it is the point after which the form can safely be forgotten.
-            OnHandleDestroyed (EventArgs.Empty);
+            // Routed through Form.DestroyHandle (which itself calls OnHandleDestroyed) so an override of
+            // that WinForms-standard hook still runs; other WindowBase subtypes have no such override
+            // point, so they still just raise the event directly.
+            if (this is Form form)
+                form.RaiseDestroyHandle ();
+            else
+                OnHandleDestroyed (EventArgs.Empty);
         }
 
         // Set while a programmatic Close() is running so the backend's own closing callback doesn't
@@ -228,6 +234,8 @@ namespace Majorsilence.Forms
         /// </summary>
         protected override void Dispose (bool disposing)
         {
+            var wasDisposed = IsDisposed;
+
             Disposing = true;
             IsDisposed = true;
 
@@ -237,6 +245,33 @@ namespace Majorsilence.Forms
 
                 if (Application.ActivePopupWindow == this)
                     Application.ActivePopupWindow = null;
+
+                // WinForms destroys the window handle when a form is disposed, so the window leaves the
+                // screen whether or not anything called Close first -- and popups are routinely
+                // dismissed by disposing them. Without this the backend window stayed up with nothing
+                // painting into it, leaving a blank rectangle on screen after the popup had gone.
+                //
+                // FormClosing is deliberately not raised: disposing is not closing, and WinForms does
+                // not raise it either. _closingHandled suppresses the backend's own closing callback
+                // for the same reason Close() does.
+                // The window is gone, so it is no longer visible -- WinForms clears this when the
+                // handle is destroyed, and the paint pipeline reads it. Set before the backend call so
+                // it holds even for a backend whose Close is a no-op.
+                visible = false;
+                shown = false;
+
+                if (!wasDisposed && Backend is not null) {
+                    _closingHandled = true;
+
+                    try {
+                        Backend.Close ();
+                    } catch (Exception) {
+                        // A backend window that is already gone is the expected case here, not a
+                        // failure -- and throwing out of Dispose would strand the rest of the teardown.
+                    } finally {
+                        _closingHandled = false;
+                    }
+                }
             }
 
             base.Dispose (disposing);
@@ -330,7 +365,25 @@ namespace Majorsilence.Forms
             get => current_cursor;
             set {
                 current_cursor = value;
-                Backend?.SetCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+
+                if (override_cursor is null)
+                    Backend?.SetCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+            }
+        }
+
+        private Cursor? override_cursor;
+
+        /// <summary>
+        /// Gets or sets a cursor that takes priority over <see cref="Cursor"/> while it is set, without
+        /// disturbing the configured value underneath. Mirrors <c>Control.OverrideCursor</c> -- see its
+        /// remarks for why a control (or, here, a window's own content) needs this rather than writing
+        /// and restoring <see cref="Cursor"/> itself.
+        /// </summary>
+        protected Cursor? OverrideCursor {
+            get => override_cursor;
+            set {
+                override_cursor = value;
+                Backend?.SetCursor ((value ?? current_cursor)?.CursorType ?? Backends.CursorType.Arrow);
             }
         }
 
@@ -560,8 +613,8 @@ namespace Majorsilence.Forms
         /// <summary>Forces the window to repaint. Mirrors WinForms Control.Refresh.</summary>
         public void Refresh () => Invalidate ();
 
-        /// <summary>Validates the last invalidated control. Always true — the compat window has no implicit validation pipeline. Mirrors WinForms ContainerControl.Validate.</summary>
-        public bool Validate () => true;
+        // Validate lives with the rest of the validation members below. It used to `return true` here
+        // without raising anything, so a form that gated a Save button on Validate () always saved.
 
         /// <summary>Executes the specified delegate asynchronously on the window's UI thread.</summary>
         public void BeginInvoke (Action action)
@@ -590,6 +643,22 @@ namespace Majorsilence.Forms
             ArgumentNullException.ThrowIfNull (method);
             object? result = null;
             Majorsilence.Forms.Backends.Platform.Backend.Invoke (() => result = method.DynamicInvoke (args));
+            return result;
+        }
+
+        /// <summary>
+        /// Executes the specified delegate synchronously on the window's UI thread and returns its
+        /// result, typed. Mirrors <see cref="Control.Invoke{T}(Func{T})"/> -- Form isn't a Control here,
+        /// so it needs its own copy; ported code that overrides a Form/window-hierarchy method and calls
+        /// <c>Invoke(() => someTypedExpression)</c> otherwise silently binds to the void-returning
+        /// <see cref="Invoke(Action)"/> overload instead (the lambda converts to either), discarding the
+        /// value rather than failing to compile.
+        /// </summary>
+        public T Invoke<T> (Func<T> func)
+        {
+            ArgumentNullException.ThrowIfNull (func);
+            T result = default!;
+            Majorsilence.Forms.Backends.Platform.Backend.Invoke (() => result = func ());
             return result;
         }
 
@@ -729,6 +798,40 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the product version from the application's assembly metadata.</summary>
         public string ProductVersion => Application.ProductVersion ?? string.Empty;
+
+        // ── Validation and tab handling ──────────────────────────────────────────
+
+        /// <summary>Raised while the window is validating, so a handler can cancel it.</summary>
+        /// <remarks>Forwarded to the root adapter, as <see cref="Validated"/> is -- the pair has to come
+        /// from the same object or a handler can see one without the other. It was previously a
+        /// discarding stub on Form, so handlers attached to it were thrown away.</remarks>
+        public event System.ComponentModel.CancelEventHandler? Validating {
+            add => adapter.Validating += value;
+            remove => adapter.Validating -= value;
+        }
+
+        /// <summary>Runs the window's validation cycle, returning false when a handler cancelled it.</summary>
+        public bool Validate () => adapter.Validate ();
+
+        /// <summary>Runs the window's validation cycle, returning false when a handler cancelled it.</summary>
+        public bool Validate (bool checkAutoValidate) => adapter.Validate (checkAutoValidate);
+
+        /// <summary>Moves focus to the next or previous control that can take it.</summary>
+        /// <remarks>The hook a form overrides to take over Tab handling; it really moves focus rather
+        /// than reporting false, so an override that calls base gets the standard behaviour.</remarks>
+        protected virtual bool ProcessTabKey (bool forward)
+            => adapter.SelectNextControl (adapter.SelectedControl, forward,
+                tabStopOnly: true, nested: true, wrap: true);
+
+        /// <summary>Suspends redrawing and layout while a batch of changes is applied.</summary>
+        public void BeginUpdate () => SuspendLayout ();
+
+        /// <summary>Resumes redrawing and layout after <see cref="BeginUpdate"/>, and repaints once.</summary>
+        public void EndUpdate ()
+        {
+            ResumeLayout (false);
+            Invalidate ();
+        }
 
         /// <summary>Gets or sets the unscaled location of the window. Mirrors WinForms Form.Location.</summary>
         public System.Drawing.Point Location {
@@ -1048,12 +1151,9 @@ namespace Majorsilence.Forms
         // window's client surface -- the same shape as DoubleClick and Layout above. Members that have no
         // meaning for a top-level window (Dock, Anchor, TabIndex and friends) are deliberately still
         // absent; see ControlWindowParityBaseline.txt, which records that split.
-
-        /// <summary>Raised when the window's client area is clicked. Mirrors <c>Control.MouseClick</c>; forwards to the root control adapter.</summary>
-        public event MouseEventHandler? MouseClick {
-            add => adapter.MouseClick += value;
-            remove => adapter.MouseClick -= value;
-        }
+        //
+        // MouseClick itself is declared on Form instead (with an OnMouseClick hook), not here -- see
+        // the comment above Form.MouseClick.
 
         /// <summary>Raised when the window's client area is double-clicked. Mirrors <c>Control.MouseDoubleClick</c>; forwards to the root control adapter.</summary>
         public event MouseEventHandler? MouseDoubleClick {
@@ -1164,13 +1264,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when part of the window is invalidated. Mirrors <c>Control.Invalidated</c>; forwards to the root control adapter.</summary>
-        public event EventHandler<InvalidateEventArgs>? Invalidated {
+        public event InvalidateEventHandler? Invalidated {
             add => adapter.Invalidated += value;
             remove => adapter.Invalidated -= value;
         }
 
         /// <summary>Raised when a drag operation is asked whether to continue. Mirrors <c>Control.QueryContinueDrag</c>; forwards to the root control adapter.</summary>
-        public event EventHandler<QueryContinueDragEventArgs>? QueryContinueDrag {
+        public event QueryContinueDragEventHandler? QueryContinueDrag {
             add => adapter.QueryContinueDrag += value;
             remove => adapter.QueryContinueDrag -= value;
         }
@@ -1501,7 +1601,7 @@ namespace Majorsilence.Forms
             => adapter.DoDragDrop (data, allowedEffects);
 
         /// <summary>Raised while a drag is over this window, to set the cursor. Forwards to the root adapter.</summary>
-        public event EventHandler<GiveFeedbackEventArgs>? GiveFeedback {
+        public event GiveFeedbackEventHandler? GiveFeedback {
             add => adapter.GiveFeedback += value;
             remove => adapter.GiveFeedback -= value;
         }
@@ -1630,7 +1730,7 @@ namespace Majorsilence.Forms
                 IsActive = true;
 
             if (!shown) {
-                shown = true;
+                MarkHandleCreated ();
                 OnShown (EventArgs.Empty);
 
                 // The pass above could not reach this window's own OnLayout: the adapter forwards its

@@ -71,6 +71,7 @@ namespace Majorsilence.Forms
             adapter.MouseDown += (s, e) => OnMouseDown (e);
             adapter.MouseUp += (s, e) => OnMouseUp (e);
             adapter.MouseMove += (s, e) => OnMouseMove (e);
+            adapter.MouseClick += (s, e) => OnMouseClick (e);
             adapter.MouseLeave += (s, e) => Leave?.Invoke (this, e);
         }
 
@@ -97,6 +98,9 @@ namespace Majorsilence.Forms
         /// <summary>Raises the MouseMove event.</summary>
         protected virtual void OnMouseMove (MouseEventArgs e) => MouseMove?.Invoke (this, e);
 
+        /// <summary>Raises the MouseClick event.</summary>
+        protected virtual void OnMouseClick (MouseEventArgs e) => MouseClick?.Invoke (this, e);
+
         /// <summary>Raised when a mouse button is pressed over the form's own surface.</summary>
         public event MouseEventHandler? MouseDown;
 
@@ -106,19 +110,24 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the mouse moves over the form's own surface.</summary>
         public event MouseEventHandler? MouseMove;
 
+        /// <summary>
+        /// Raised when the form's own surface is clicked. Declared here (with an <c>On</c> hook,
+        /// like <see cref="Click"/> and the other mouse events above) rather than left in WindowBase's
+        /// generic event-forwarding block, because ported WinForms code overrides
+        /// <c>OnMouseClick</c> on a Form as a matter of course -- that only works if the method is a
+        /// real protected virtual declared here, not just an add/remove pair forwarding to the adapter.
+        /// </summary>
+        public event MouseEventHandler? MouseClick;
+
         /// <summary>Raised when the mouse leaves the form's own surface.</summary>
         public event EventHandler? Leave;
 
         /// <summary>Gets or sets whether the form causes validation to be performed on any controls that require validation when it receives focus. Matches Control.CausesValidation.</summary>
         public bool CausesValidation { get; set; } = true;
 
-        /// <summary>
-        /// Raised when the form is validating. Stub in Majorsilence.Forms -- matches Control.
-        /// Validating's shape so ported code compiles, but there is no automatic focus-change
-        /// validation pipeline to fire it yet (add/remove bodies avoid a "never used" warning
-        /// for an event this type never raises itself).
-        /// </summary>
-        public event System.ComponentModel.CancelEventHandler? Validating { add { } remove { } }
+        // Validating is on WindowBase now, forwarded to the root adapter alongside Validated so the pair
+        // cannot come from different objects. It used to be a discarding stub here (`add { } remove { }`),
+        // so a handler attached to it was thrown away.
 
         /// <summary>Attempts to set focus to the form. Matches Control.Focus's shape (returns whether the focus request succeeded).</summary>
         public bool Focus ()
@@ -199,6 +208,16 @@ namespace Majorsilence.Forms
 
         /// <summary>Begins dragging the window to move it.</summary>
         public void BeginMoveDrag () => Backend.BeginMoveDrag ();
+
+        /// <summary>Begins dragging the given window edge to resize the window.</summary>
+        /// <remarks>
+        /// The counterpart of <see cref="BeginMoveDrag"/>, which was public while this was reachable
+        /// only from inside this class. Both exist so that a borderless form can implement its own
+        /// title bar and resize grips: on Windows that is done by faking a non-client mouse-down
+        /// (<c>ReleaseCapture</c> then <c>WM_NCLBUTTONDOWN</c>), which has no equivalent off Windows,
+        /// so ported code needs a managed way to ask for the same gesture.
+        /// </remarks>
+        public void BeginResizeDrag (Backends.WindowEdge edge) => Backend.BeginResizeDrag (edge);
 
         /// <summary>Gets or sets the bounds of the Window.</summary>
         public new System.Drawing.Rectangle Bounds {
@@ -377,9 +396,10 @@ namespace Majorsilence.Forms
         /// backend does not notify this layer when a window moves between monitors of different scale.
         /// Its accessors used to be empty, which additionally meant handlers were silently discarded.
         /// </remarks>
-#pragma warning disable CS0067
         public event EventHandler<DpiChangedEventArgs>? DpiChanged;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="DpiChanged"/> event.</summary>
+        protected virtual void OnDpiChanged (DpiChangedEventArgs e) => DpiChanged?.Invoke (this, e);
 
         /// <summary>Raised when the input language changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler<InputLanguageChangedEventArgs>? InputLanguageChanged { add { } remove { } }
@@ -678,6 +698,24 @@ namespace Majorsilence.Forms
         protected virtual void OnFormClosing (FormClosingEventArgs e) => FormClosing?.Invoke (this, e);
 
         /// <summary>
+        /// Destroys the handle associated with this form. In real WinForms, inherited from Control and
+        /// called once as the window is torn down, immediately before <c>OnHandleDestroyed</c>/
+        /// <c>HandleDestroyed</c> fire -- ported code commonly overrides it to release window-lifetime
+        /// resources at that exact point. Form derives from WindowBase rather than Control here, so it
+        /// has to be declared afresh; <see cref="WindowBase.OnBackendClosed"/> calls it (in place of
+        /// raising <c>OnHandleDestroyed</c> directly) for every Form, right where WinForms' own
+        /// DestroyHandle would have fired it.
+        /// </summary>
+        protected virtual void DestroyHandle () => OnHandleDestroyed (EventArgs.Empty);
+
+        /// <summary>
+        /// Invokes <see cref="DestroyHandle"/> from <see cref="WindowBase.OnBackendClosed"/> -- a base
+        /// class cannot call a protected member through a derived-typed reference (same reason
+        /// <see cref="RaiseClosing"/> exists alongside <see cref="OnClosing"/>).
+        /// </summary>
+        internal void RaiseDestroyHandle () => DestroyHandle ();
+
+        /// <summary>
         /// Picks the form a modal dialog should be owned by: the first open form that is not the dialog
         /// itself and actually owns a window.
         /// </summary>
@@ -859,8 +897,18 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the client area size (equivalent to Size for Majorsilence.Forms).</summary>
         public System.Drawing.Size ClientSize {
             get => Size;
-            set => Size = value;
+            set => SetClientSizeCore (value.Width, value.Height);
         }
+
+        /// <summary>
+        /// Performs the work of setting the client size. The override point WinForms code reaches for
+        /// when a custom-chrome form needs to intercept a ClientSize assignment (e.g. to size itself
+        /// off the raw value in design mode, bypassing whatever border math a real Win32 client-area
+        /// distinction would otherwise apply). Majorsilence.Forms treats ClientSize as Size, so the
+        /// base implementation just forwards; a Windows-only override that adjusts for a non-client
+        /// border still compiles and runs here, it just has no border to adjust for.
+        /// </summary>
+        protected virtual void SetClientSizeCore (int x, int y) => Size = new System.Drawing.Size (x, y);
 
         /// <summary>Gets or sets the automatic scaling mode.</summary>
         /// <remarks>
@@ -876,8 +924,14 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets how the form performs implicit validation when focus leaves a child control.</summary>
         public AutoValidate AutoValidate { get; set; } = AutoValidate.EnablePreventFocusChange;
 
-        /// <summary>Validates all selectable child controls. Always returns true (stub).</summary>
-        public bool ValidateChildren () => true;
+        /// <summary>Validates all selectable child controls, returning false if any handler cancelled.</summary>
+        /// <remarks>
+        /// This used to `return true` without validating anything -- while the
+        /// <see cref="ValidateChildren(ValidationConstraints)"/> overload right next to it was real. The
+        /// parameterless one is the one nearly everybody calls, so the working overload was the one nobody
+        /// reached. Both now run the same walk.
+        /// </remarks>
+        public bool ValidateChildren () => ValidateChildren (ValidationConstraints.Selectable);
 
         private BindingContext? binding_context;
 
@@ -989,7 +1043,7 @@ namespace Majorsilence.Forms
         public virtual void ResetText () => Text = string.Empty;
 
         /// <summary>Gets or sets the text for the form title bar.</summary>
-        public string Text {
+        public virtual string Text {
             get => text;
             set {
                 if (text != value) {
@@ -1324,7 +1378,7 @@ namespace Majorsilence.Forms
                 EnsureLoaded ();
 
                 if (!shown) {
-                    shown = true;
+                    MarkHandleCreated ();
                     OnShown (EventArgs.Empty);
                 }
 
@@ -1343,7 +1397,7 @@ namespace Majorsilence.Forms
                 EnsureLoaded ();        // Load before the form is shown, matching WinForms.
 
                 if (!shown) {
-                    shown = true;
+                    MarkHandleCreated ();
                     OnShown (EventArgs.Empty);
                 }
 
@@ -1362,7 +1416,7 @@ namespace Majorsilence.Forms
             EnsureLoaded ();            // Load before the child is shown, matching WinForms.
 
             if (!shown) {
-                shown = true;
+                MarkHandleCreated ();
                 OnShown (EventArgs.Empty);
             }
 

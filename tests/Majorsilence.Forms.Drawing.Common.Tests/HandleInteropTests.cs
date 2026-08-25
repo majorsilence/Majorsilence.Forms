@@ -112,7 +112,12 @@ namespace Majorsilence.Forms.Drawing.Common.Tests
             // form's non-client invalidation) hand it straight to a Win32 call and delete it -- chrome
             // bookkeeping with a natural neutral value, so a null handle beats an exception mid-paint.
             Assert.Equal (IntPtr.Zero, region.GetHrgn (null));
-            Assert.Throws<PlatformNotSupportedException> (() => font.ToHfont ());
+
+            // ToHfont joined GetHrgn in answering with a null handle rather than throwing, for the same
+            // reason: a themed control library's tab control asked for one while PAINTING, and the
+            // exception took the control down where "there is no handle" merely makes the platform call
+            // it was destined for do nothing.
+            Assert.Equal (IntPtr.Zero, font.ToHfont ());
         }
 
         [Fact]

@@ -36,8 +36,12 @@ namespace Majorsilence.Forms
         private int editing_row_index = -1;
         private int editing_column_index = -1;
 
-        private readonly VerticalScrollBar vscrollbar;
-        private readonly HorizontalScrollBar hscrollbar;
+        // VScrollBar/HScrollBar, not the VerticalScrollBar/HorizontalScrollBar bases, because these are
+        // PUBLIC children (see the Controls.Add calls in the constructor) and WinForms' DataGridView uses
+        // exactly these types -- code that scans a grid's Controls for its scrollbars does so by type, and
+        // an exact-type comparison against VScrollBar does not match a VerticalScrollBar.
+        private readonly VScrollBar vscrollbar;
+        private readonly HScrollBar hscrollbar;
 
         /// <summary>
         /// Initializes a new instance of the DataGridView class.
@@ -47,7 +51,7 @@ namespace Majorsilence.Forms
             Columns = new DataGridViewColumnCollection (this);
             Rows = new DataGridViewRowCollection (this);
 
-            vscrollbar = new VerticalScrollBar {
+            vscrollbar = new VScrollBar {
                 Minimum = 0,
                 Maximum = 0,
                 SmallChange = 1,
@@ -62,7 +66,7 @@ namespace Majorsilence.Forms
                 Invalidate ();
             };
 
-            hscrollbar = new HorizontalScrollBar {
+            hscrollbar = new HScrollBar {
                 Minimum = 0,
                 Maximum = 0,
                 SmallChange = 10,
@@ -77,8 +81,16 @@ namespace Majorsilence.Forms
                 Invalidate ();
             };
 
-            Controls.AddImplicitControl (vscrollbar);
-            Controls.AddImplicitControl (hscrollbar);
+            // ORDINARY children, not implicit chrome. WinForms' DataGridView adds its scrollbars to
+            // Controls, and real code relies on that -- a themed control library scans `grid.Controls`
+            // for them to mirror their state onto its own skinned scrollbars, and found nothing here
+            // because implicit controls are invisible to the public collection.
+            //
+            // Note this is deliberately NOT a blanket change: ScrollableControl keeps its own scrollbars
+            // implicit, because in WinForms `new Panel ().Controls` is empty too. Only the controls that
+            // WinForms itself exposes internals for expose them here.
+            Controls.Add (vscrollbar);
+            Controls.Add (hscrollbar);
 
             // Seed the per-edge border styles from the coarse CellBorderStyle default (Single), then
             // repaint whenever an edge is hand-edited (which, as in WinForms, makes the coarse property

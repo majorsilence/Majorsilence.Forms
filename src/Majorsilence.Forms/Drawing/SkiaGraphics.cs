@@ -10,12 +10,16 @@ using ContentAlignment = Majorsilence.Forms.ContentAlignment;
 namespace Majorsilence.Forms.Drawing
 {
     /// <summary>
-    /// Represents an opaque snapshot of the drawing state of a <see cref="SkiaGraphics"/>.
+    /// Represents an opaque snapshot of the drawing state of a <see cref="SkiaGraphics"/>. Named
+    /// distinctly from <see cref="Drawing2D.GraphicsState"/> (the GDI+-parity type returned by
+    /// <see cref="Majorsilence.Forms.Drawing.Graphics"/>'s Save/Restore) so a file that imports both
+    /// <c>Majorsilence.Forms.Drawing</c> and <c>Majorsilence.Forms.Drawing.Drawing2D</c> -- the normal
+    /// shape of migrated WinForms code -- never sees an ambiguous bare "GraphicsState" reference.
     /// </summary>
-    public readonly struct GraphicsState
+    public readonly struct SkiaGraphicsState
     {
         internal int Count { get; }
-        internal GraphicsState (int count) => Count = count;
+        internal SkiaGraphicsState (int count) => Count = count;
     }
 
     /// <summary>
@@ -45,10 +49,10 @@ namespace Majorsilence.Forms.Drawing
         // --- State / transforms ---
 
         /// <summary>Saves the current graphics state and returns a token to restore it.</summary>
-        public GraphicsState Save () => new GraphicsState (canvas.Save ());
+        public SkiaGraphicsState Save () => new SkiaGraphicsState (canvas.Save ());
 
         /// <summary>Restores the graphics state to the specified saved token.</summary>
-        public void Restore (GraphicsState state) => canvas.RestoreToCount (state.Count);
+        public void Restore (SkiaGraphicsState state) => canvas.RestoreToCount (state.Count);
 
         /// <summary>Translates the coordinate system origin.</summary>
         public void TranslateTransform (float dx, float dy) => canvas.Translate (dx, dy);

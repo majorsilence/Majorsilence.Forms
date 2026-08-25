@@ -156,6 +156,10 @@ namespace Majorsilence.Forms
         /// matching public property of <paramref name="value"/> by reflection — the cross-platform
         /// equivalent of the framework's culture-aware property application.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("ReflectionAnalysis", "IL2072",
+            Justification = "value.GetType() is a live designer/runtime object (a Control subclass constructed by " +
+                "InitializeComponent) whose settable public properties are never trimmed in a WinForms-shaped app; " +
+                "there is no static annotation surface for GetType()'s return type to propagate through.")]
         public void ApplyResources (object value, string objectName)
         {
             ArgumentNullException.ThrowIfNull (value);
@@ -171,7 +175,7 @@ namespace Majorsilence.Forms
                 if (propertyName.Contains ('.'))
                     continue;
 
-                var property = type.GetProperty (propertyName,
+                var property = GetPropertyResolvingHiding (type, propertyName,
                     BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
                 if (property is null || !property.CanWrite)
                     continue;
@@ -182,6 +186,28 @@ namespace Majorsilence.Forms
                     catch { /* a property that rejects the value is non-fatal — keep applying the rest. */ }
                 }
             }
+        }
+
+        // Type.GetProperty(name) throws AmbiguousMatchException when a property is redeclared with
+        // `new` somewhere in the hierarchy (e.g. TabControl.Padding hiding Control.Padding) — both
+        // members share the name, and the single-property overload has no way to prefer one. Real
+        // WinForms designer serialization goes through TypeDescriptor, which resolves `new`-hiding
+        // correctly; this walks the hierarchy from the most-derived type down and returns the first
+        // declared match, matching that behavior without pulling in TypeDescriptor.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("ReflectionAnalysis", "IL2075",
+            Justification = "Type.BaseType has no DynamicallyAccessedMembers annotation to propagate through a " +
+                "hierarchy walk — a known analyzer gap, not a real trimming hazard here (see ApplyResources).")]
+        private static PropertyInfo? GetPropertyResolvingHiding (
+            [DynamicallyAccessedMembers (DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)] Type type,
+            string propertyName, BindingFlags flags)
+        {
+            for (var t = type; t is not null; t = t.BaseType) {
+                var property = t.GetProperty (propertyName, flags | BindingFlags.DeclaredOnly);
+                if (property is not null)
+                    return property;
+            }
+
+            return null;
         }
 
         // Yields (name, materialized value) for every entry starting with prefix, across both the

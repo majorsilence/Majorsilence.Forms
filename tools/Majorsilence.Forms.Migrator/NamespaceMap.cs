@@ -305,16 +305,28 @@ internal static class NamespaceMap
     /// </summary>
     /// <remarks>
     /// This is the smart-tag surface a control library declares one of per control
-    /// (<c>DesignerActionList</c> + items) plus the collection-editor dialog and the multi-line string
-    /// editor that properties are attributed with. <c>CollectionForm</c> is nested inside
-    /// <c>CollectionEditor</c> upstream and here too, so a qualified <c>System.ComponentModel.Design.CollectionForm</c>
-    /// is not a thing to rewrite — an unqualified use resolves through the <c>Majorsilence.Forms.Design</c> import.
+    /// (<c>DesignerActionList</c> + items) plus the collection-editor dialog, the multi-line string
+    /// editor, and <c>ComponentDesigner</c> itself — the base a custom <c>[Designer]</c> attribute
+    /// target typically derives from — that properties are attributed with. <c>CollectionForm</c> is
+    /// nested inside <c>CollectionEditor</c> both upstream and here, so it is deliberately not a
+    /// top-level entry here: a qualified <c>System.ComponentModel.Design.CollectionForm</c> is not a
+    /// thing real code writes (nothing declares it at that path, upstream or here), and an unqualified
+    /// use inside a type nested in — or deriving from — <c>CollectionEditor</c> already resolves
+    /// through ordinary C#/VB nested-type lookup once <c>CollectionEditor</c> itself is redirected;
+    /// adding it here would rewrite it to a nonexistent <c>Majorsilence.Forms.Design.CollectionForm</c>.
+    /// See <see cref="SourceConverter"/>'s <c>RewriteDesignTimeTypes</c> for both the fully-qualified
+    /// rewrite and the unqualified case: a file that imports only <c>System.ComponentModel.Design</c>
+    /// (real WinForms code, since every name here upstream really does live there) has no
+    /// <c>Majorsilence.Forms.Design</c> in scope at all, so an unqualified use gets a per-type
+    /// using-alias, the same way <see cref="Win32CompatTypes"/> does for a bare <c>Microsoft.Win32</c>
+    /// import.
     /// </remarks>
     public static readonly HashSet<string> DesignTimeTypes = new(StringComparer.Ordinal)
     {
         "CollectionEditor", "DesignerActionList", "DesignerActionListCollection", "DesignerActionItem",
         "DesignerActionItemCollection", "DesignerActionMethodItem", "DesignerActionPropertyItem",
         "DesignerActionHeaderItem", "DesignerActionTextItem", "MultilineStringEditor",
+        "ComponentDesigner",
     };
 
     /// <summary>

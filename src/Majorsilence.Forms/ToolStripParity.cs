@@ -129,7 +129,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the width of this item, in pixels.</summary>
-        public int Width {
+        public new int Width {
             get => Size.Width;
             set => Size = new Size (value, Size.Height);
         }
@@ -343,10 +343,11 @@ namespace Majorsilence.Forms
 
     public partial class ToolStrip
     {
-#pragma warning disable CS0067 // No framework trigger yet; see the file header.
         /// <summary>Occurs when an item is removed from this strip.</summary>
+        /// <remarks>Raised via <c>OnItemRemoved</c> (WinFormsCompat.cs) — wired, not a stub.</remarks>
         public event ToolStripItemEventHandler? ItemRemoved;
 
+#pragma warning disable CS0067 // No framework trigger yet; see the file header.
         /// <summary>Occurs when the layout of this strip completes.</summary>
         public event EventHandler? LayoutCompleted;
 

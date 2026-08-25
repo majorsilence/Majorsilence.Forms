@@ -562,6 +562,10 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the return value of the message.</summary>
         public IntPtr Result { get; set; }
 
+        /// <summary>Creates a new message.</summary>
+        public static Message Create (IntPtr hWnd, int msg, IntPtr wparam, IntPtr lparam) =>
+            new () { HWnd = hWnd, Msg = msg, WParam = wparam, LParam = lparam };
+
         /// <summary>
         /// Marshals <see cref="LParam"/> into an instance of <paramref name="cls"/>, as WinForms does
         /// for messages that pass a struct by pointer (WM_COPYDATA and friends).

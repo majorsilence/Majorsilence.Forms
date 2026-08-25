@@ -749,6 +749,173 @@ calls Invalidate from OnResize could re-enter; keep in mind when testing fix (1)
   answers it the same way, with `new`. The sample now does, with a comment saying why. Expect this for
   `ProductName`, `CompanyName` and `Text`-adjacent names in real ports.
 
+- **[FIXED 2026-08-21] Validation on a window was three stubs stacked on each other -- baseline 123 down
+  to 119.** `WindowBase.Validate ()` returned true without raising anything, `Form.ValidateChildren ()`
+  returned true without validating anything, and `Form.Validating` was a discarding
+  `add { } remove { }` that threw handlers away. The practical effect: **a form gating a Save button on
+  `Validate ()` always saved.**
+
+  The `ValidateChildren` case is worth remembering as a shape. The parameterless overload was the stub
+  while `ValidateChildren (ValidationConstraints)` right beside it was real -- so the working overload was
+  the one almost nobody calls. When one overload of a pair is a stub, check which one the world actually
+  uses.
+
+  `Validate`/`Validate (bool)`/`Validating` now forward to the root adapter, which has a real validation
+  cycle, so the window's `Validating` and `Validated` come from the same object and a handler cannot see
+  one without the other. `ValidateChildren ()` delegates to the same core the constraints overload uses.
+  `BeginUpdate`/`EndUpdate` and a real `ProcessTabKey` (via `SelectNextControl`) came with the group; the
+  two `On*` raisers went to the already-forwarded list. Pinned by `WindowValidationParityTests`, which
+  checks a cancelled `Validating` really stops `Validated` and really makes `Validate ()` report false.
+
+- **[FIXED 2026-08-24] The Release build was red on HEAD, independently of any parity work.**
+  `SystemEvents.DisplaySettingsChanged` is declared and deliberately never raised -- no backend surfaces a
+  display-change notification -- which CS0067 objects to, and this repo treats warnings as errors in
+  Release. It needed the `#pragma warning disable CS0067` that every other declared-but-unraised compat
+  event here already carries. Worth knowing HOW this was established: the break reproduced with all local
+  work stashed, so it was upstream's, not the parity branch's. Check that before attributing a red build to
+  your own change -- and note a Debug build does not catch it, which is presumably how it got in.
+
+- **Baseline arithmetic, 2026-08-24:** 119 after the validation group, then 122 once upstream's
+  AntdUI-parity commit added Control members the window side lacks. The number goes UP when Control grows,
+  which is the file working as intended rather than regression. `ProcessDialogChar/1` arrived that way and
+  was filed under Win32 plumbing: it is a `protected virtual bool => false` override point with no message
+  pump behind it, exactly like `ProcessKeyMessage` and `ProcessKeyPreview` beside it, so a window-side
+  override nothing ever calls would add nothing.
+
+### Three more control libraries: AntdUI, ReaLTaiizor, RibbonWinForms (2026-08-24)
+
+All three were already COMPILE-clean on their migration branches, so a build told us nothing. What found
+real defects was the same trick that worked on Krypton: construct every public parameterless
+`Control`-derived type on the headless backend and render it, in two phases (construct, then render --
+they fail for different reasons). Harness: `scratchpad/ctlsmoke`, `dotnet run -- AntdUI|ReaLTaiizor`,
+grouping failures by message so one shared root cause reads as one item.
+
+- **AntdUI: 74/75 -> 75/75.** `Helper.IsAdmin ()` called `WindowsIdentity.GetCurrent ()`, which THROWS
+  `PlatformNotSupportedException` off Windows, taking `UploadDragger` down. Guarded with
+  `OperatingSystem.IsWindows ()`, reporting not-elevated elsewhere -- the callers use it to decide whether
+  an elevation-only path applies (Windows refuses drag-and-drop from a non-elevated process into an
+  elevated one) and there is no such restriction to work around on other platforms.
+
+- **ReaLTaiizor: 326/334 -> 328/334.** One fix here, two there:
+  - **Majorsilence.Forms:** `Font.ToHfont ()` threw `PlatformNotSupportedException`, which killed
+    `PoisonTabControl` mid-paint. It now returns `IntPtr.Zero`, following `Region.GetHrgn`'s existing
+    precedent for exactly this: a caller asking for a handle can be told "there is none", and NULL is how
+    Win32 spells that, but a caller that throws dies outright. `FromHfont` still throws, deliberately --
+    it is asked to PRODUCE a font from a meaningless handle and has no honest answer.
+  - **ReaLTaiizor** `CrownNumeric` and `PoisonDataGridHelper`, both instances of one gap (below).
+
+- **RibbonWinForms** could not build at all: its `nuget.config` pointed at a local feed inside a dead
+  session scratchpad, pinned to 26.0.30 while the library is at 26.0.32. Re-pointed and bumped; all three
+  projects build at 0 errors. It will rot the same way -- the durable fix is 26.0.32 on nuget.org, or
+  `ProjectReference` as the other two use.
+
+**GAP, deliberately not closed: a control's own chrome is not in its `Controls` collection.** Two of the
+ReaLTaiizor failures were this one divergence, and it is worth stating because more consumers will hit it:
+
+- `NumericUpDown` -- WinForms owns two child controls (the edit box and the up/down buttons), and
+  `Controls[0]` is the documented way to reach the edit box and theme it. Ours draws itself and has no
+  children, so the idiom finds nothing.
+- `DataGridView` -- WinForms puts its scrollbars in `Controls` as ordinary children (as `VScrollBar` and
+  `HScrollBar`, which is what type-based searches look for). Ours creates them via
+  `ControlCollection.AddImplicitControl`, and the public enumerator yields only the explicit list, so a
+  scan of `grid.Controls` finds neither.
+
+**HALF CLOSED 2026-08-24, and the first attempt was wrong in an instructive way.** The obvious fix --
+have the public collection present implicit chrome alongside the explicit children -- was implemented
+(combined view, chrome first, every index-taking member translated between the two lists) and then
+REVERTED. It broke 27 tests, and they were right to break: `new Panel ().Controls` stopped being empty and
+started reporting a HorizontalScrollBar, a VerticalScrollBar and a SizeGrip. **In WinForms that collection
+IS empty** -- `ScrollableControl` does not put its scrollbars in `Controls` either. WinForms has no general
+"chrome is visible" rule; specific controls choose to add their internals as ordinary children, and the
+rest keep them private.
+
+(It also broke 467 tests before that, from one line: `Insert` computed the next tab index as
+`Count == 0 ? 0 : control_list.Max (...)`, which was safe only while `Count` and `control_list.Count` were
+the same number. Decoupling them made `Max` throw on any control that had chrome and no children yet.
+Worth remembering that `Count` is load-bearing in more places than it looks.)
+
+So the faithful fix is per-control, and `DataGridView` is done: its scrollbars are now ordinary children
+added with `Controls.Add`, and they are `VScrollBar`/`HScrollBar` rather than the
+`VerticalScrollBar`/`HorizontalScrollBar` bases -- the idiom in the wild is
+`item.GetType () == typeof (VScrollBar)`, and an exact-type comparison does not match a base instance, so
+the concrete type is part of the contract. Pinned by `DataGridViewScrollBarChildrenTests`, including a test
+that a plain `Panel` still reports no children, so the blanket version cannot creep back in.
+
+**CLOSED 2026-08-24: `NumericUpDown` now has its buttons child.** WinForms' `UpDownBase` adds the
+up/down buttons FIRST, so `Controls[0]` is the buttons -- and that ordering is the contract, because
+themers hook `Controls[0].Paint` to draw their own arrows and call `Controls[0].PointToClient` to hit-test
+them.
+
+The child deliberately does not paint and does not hit-test on its own: it occupies the button strip,
+forwards the mouse to the owner's existing logic, and leaves the owner's renderer drawing the whole control
+as before. So the idiom works with no change to how a NumericUpDown looks, and a themer's Paint handler
+runs after the owner has painted (children paint last), which is where they want to draw anyway. Its
+bounds are derived in `OnLayout` rather than stored, so a resize moves it. `NumericUpDownChildControlTests`
+pins all of that -- including that clicking the buttons still changes the value, which is the part most
+likely to break, since the child now intercepts the click the owner used to receive.
+
+Not done: the EDIT child (`Controls[1]` in WinForms). This control has no text editing to move into one, so
+adding a second child would be a placeholder rather than a part.
+
+**Old note, for context:** WinForms' `UpDownBase` owns an edit box and an
+up/down buttons control, adds both to `Controls` (buttons first, so `Controls[0]` is the buttons -- which
+is what a themer hooks to draw its own arrows), and ours draws the whole control itself in 303 lines. That
+is a restructure of a working control rather than an addition, so it is the remaining half of this item.
+
+**ReaLTaiizor: 334/334 as of 2026-08-24.** The Win32 P/Invokes were replaced with MANAGED equivalents
+rather than guarded, which turned out better than parity in most cases -- several of these were also bugs
+on Windows:
+
+- `Gdi32!CreateRoundRectRgn` (`ParrotSuperButton`, `MaterialSnackBar`) -> a region built from a
+  `GraphicsPath` (`ReaLTaiizor.Native.ManagedShapes`). The old call **leaked** the region handle it
+  allocated on every repaint that set a control's Region; a path owns no unmanaged handle at all.
+- `kernel32!CreateTimerQueueTimer` (`PrecisionTimerMoon`) -> `System.Threading.Timer`, same contract (due
+  time, period, pool-thread callback), public surface unchanged. The old `Delete` swallowed every failure
+  except ERROR_IO_PENDING and left `Enabled` true when it failed, so a timer that would not delete could
+  never be recreated.
+- `user32!LoadCursor (IDC_HAND)` (`NightLinkLabel`) -> `Cursors.Hand`. The line above it already used
+  `Cursors.Hand`.
+- `user32!SendMessage (WM_SETFONT)` (`PoisonTabControl`) -> nothing to do. Those messages push a font onto
+  a NATIVE control's HWND; the managed Font property IS the font here, so the handler just redraws.
+- `User32!SendMessage (EM_SETRECT)` (`MaterialTextBox`) -> `Padding`. EM_SETRECT sets a native edit
+  control's formatting rectangle, which is what Padding expresses on a managed TextBox.
+- `user32!GetWindow` (`PoisonTabControl.FindUpDown`) -> a no-op. It walked NATIVE child windows hunting for
+  the `msctls_updown32` common control to subclass; a self-drawing tab control has no native children, so
+  there is nothing to find and `bUpDown` stays false, which the rest of the class already handles.
+- Its own bug: `MaterialComboBox` looked up `RobotoFontFamilies["Roboto_Medium"]`. How a font's weights
+  group into families depends on the rasteriser -- GDI+ reports "Roboto Medium" as its own family, ours
+  resolves every Roboto weight to one "Roboto" family -- so the weight-specific keys are absent. A tolerant
+  resolver falls back to the base family, losing nothing, because every caller passes the weight separately
+  as a `FontStyle`.
+
+- **[FIXED 2026-08-24] `Graphics.DrawString` did no font fallback, so all CJK text was tofu.** Found by
+  running AntdUI's demo -- a Chinese control library, where every label rendered as boxes. The library has
+  TWO text paths and they disagreed: `SKCanvas.DrawText` extension (RichTextKit, via `CachingFontMapper`)
+  falls back to a face that has the glyph, and is what the library's own renderers and `MeasureString`
+  use; `Graphics.DrawString` -- the GDI+-shaped API ported code calls -- drew straight to
+  `SKCanvas.DrawText` with a single `SKFont`, which renders any codepoint the typeface lacks as glyph 0.
+  So a string was MEASURED correctly (right width, right layout) and then drawn as a row of boxes, which
+  is why it looked like a font problem rather than a code-path problem.
+
+  `DrawString` now routes a solid brush through the same RichTextKit path, which fixes fallback and, more
+  importantly, stops the two sides being able to disagree again. Gradient and texture brushes keep the
+  direct path -- there is no single colour to hand RichTextKit -- and keep the limitation with it, which
+  matters little: gradient-brushed text is rare and Latin text is unaffected either way.
+
+  Pinned by `DrawStringFontFallbackTests`: one test that the two paths produce identical ink for a CJK
+  string, one that the glyphs are not identical repeated boxes (tofu is the same box every time, so a run
+  of different characters drawn as tofu is periodic), one that a gradient brush still draws. The first two
+  fail on the old code.
+
+  **How to look at this again:** `scratchpad/ctlsmoke --form Overview <out.png>` renders AntdUI's demo
+  headlessly. It pumps the backend and re-renders until the picture stops changing, because the page fills
+  itself after being shown and a single immediate capture gets an empty body.
+
+  **Still visibly wrong in that demo, not yet diagnosed:** the primary Button draws red vertical stripes
+  over its blue fill (reproduces headlessly, so it is real and not a compositing artifact); FloatButton's
+  icon is a black square; the header draws two strings on top of each other and ends in a black blob; a
+  section's count badge overlaps its label.
+
 - **FLAKY, not investigated:** `ImageMetadataAndFrameTests.Image_codecs_are_fully_described`
   (Drawing.Common) failed once in a whole-solution `dotnet test` run on 2026-08-21 and then passed on
   re-run and twice in isolation, with and without the changes in flight. Unrelated to the window-parity

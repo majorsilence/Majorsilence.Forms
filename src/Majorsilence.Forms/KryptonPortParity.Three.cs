@@ -37,13 +37,16 @@ namespace Majorsilence.Forms
         /// Invokes the default window procedure for the message.
         /// </summary>
         /// <remarks>
-        /// Never called: there is no Win32 message pump here, the documented non-goal shared with
-        /// <see cref="WndProc"/>. It has to exist all the same, and its absence was actively confusing --
-        /// a subclassing window calling <c>DefWndProc</c> from inside its <c>WndProc</c> override would
-        /// bind to the <i>enclosing</i> control's inherited <c>Control.DefWndProc</c> instead, and fail
-        /// with a complaint about needing an object reference rather than about a missing member.
+        /// Never really does anything: there is no Win32 message pump here, the documented non-goal
+        /// shared with <see cref="WndProc"/>. It has to exist all the same, and its absence was actively
+        /// confusing -- a subclassing window calling <c>DefWndProc</c> from inside its <c>WndProc</c>
+        /// override would bind to the <i>enclosing</i> control's inherited <c>Control.DefWndProc</c>
+        /// instead, and fail with a complaint about needing an object reference rather than about a
+        /// missing member. Public, matching upstream exactly (not <c>protected</c>): the common
+        /// WM_SETREDRAW suspend/resume-drawing idiom calls it from outside any NativeWindow subclass, as
+        /// <c>NativeWindow.FromHandle(control.Handle).DefWndProc(ref msg)</c>.
         /// </remarks>
-        protected virtual void DefWndProc (ref Message m) { }
+        public virtual void DefWndProc (ref Message m) { }
     }
 
     public partial class NumericUpDown

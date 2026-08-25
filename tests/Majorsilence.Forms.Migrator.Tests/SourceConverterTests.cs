@@ -192,6 +192,48 @@ public class SourceConverterTests
     }
 
     [Fact]
+    public void Unqualified_design_time_type_under_bare_ComponentModel_Design_import_gets_an_alias ()
+    {
+        // Real WinForms designer code (a control's [Designer]-attributed ComponentDesigner subclass with
+        // a smart-tag ActionLists override) imports only System.ComponentModel.Design -- every one of
+        // these names really does live there upstream -- and uses the types unqualified. Off Windows that
+        // bare import resolves to the lightweight cross-platform slice of the namespace, which doesn't
+        // include any of them, so leaving the qualified-only rewrite in place left this the exact shape
+        // that failed to compile (CS0246) despite Majorsilence.Forms.Design implementing every type named.
+        var src = "using System.ComponentModel.Design;\n\n" +
+                  "internal class MyDesigner : ComponentDesigner\n" +
+                  "{\n" +
+                  "    public override DesignerActionListCollection ActionLists => null;\n" +
+                  "}\n";
+        var result = SourceConverter.Convert (src);
+
+        Assert.Contains ("using System.ComponentModel.Design;", result.Text); // stays -- other real BCL members may still be in use
+        Assert.Contains ("using ComponentDesigner = Majorsilence.Forms.Design.ComponentDesigner;", result.Text);
+        Assert.Contains ("using DesignerActionListCollection = Majorsilence.Forms.Design.DesignerActionListCollection;", result.Text);
+        // Not used unqualified anywhere in this file -- no alias noise for names the file doesn't reference.
+        Assert.DoesNotContain ("CollectionEditor = Majorsilence.Forms.Design.CollectionEditor", result.Text);
+    }
+
+    [Fact]
+    public void Design_time_alias_not_duplicated_when_Majorsilence_Forms_Design_already_imported ()
+    {
+        // A file that also imports System.Windows.Forms.Design (rewritten to Majorsilence.Forms.Design by
+        // the namespace-prefix pass that runs first) already has every one of these names in scope --
+        // adding a second, per-type alias on top would just be noise.
+        var src = "using System.Windows.Forms.Design;\n" +
+                  "using System.ComponentModel.Design;\n\n" +
+                  "internal class MyDesigner : ComponentDesigner\n" +
+                  "{\n" +
+                  "    public override DesignerActionListCollection ActionLists => null;\n" +
+                  "}\n";
+        var result = SourceConverter.Convert (src);
+
+        Assert.Contains ("using Majorsilence.Forms.Design;", result.Text);
+        Assert.DoesNotContain ("using ComponentDesigner =", result.Text);
+        Assert.DoesNotContain ("using DesignerActionListCollection =", result.Text);
+    }
+
+    [Fact]
     public void Does_not_rewrite_unrelated_namespace_suffix ()
     {
         var result = SourceConverter.Convert ("using MyApp.System.Drawing.Extensions;");

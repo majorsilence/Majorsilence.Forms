@@ -105,4 +105,10 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- So the wheel-delta conversion can be tested directly; it is the kind of unit arithmetic that
+         is easy to get subtly wrong and expensive to notice by hand. -->
+    <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+  </ItemGroup>
+
 </Project>

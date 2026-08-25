@@ -217,6 +217,15 @@ namespace Majorsilence.Forms
             /// <summary>Gets or sets an object with additional user data.</summary>
             public object? Tag { get; set; }
 
+            /// <summary>
+            /// Gets the sub-item's bounding rectangle. Stub: always <see cref="Rectangle.Empty"/> --
+            /// owner-draw <c>ListView</c> support (<c>DrawItem</c>/<c>DrawSubItem</c>/<c>DrawColumnHeader</c>,
+            /// see COMPATIBILITY_MATRIX.md) isn't wired up yet, so nothing computes a real per-cell layout
+            /// to report here. Exists so code reading it (typically from inside a <c>DrawSubItem</c>
+            /// handler that, today, never actually runs) compiles.
+            /// </summary>
+            public Rectangle Bounds { get; internal set; }
+
 #pragma warning disable CA1416
             /// <summary>Gets or sets the foreground color for this sub-item. Empty means use parent item color.</summary>
             public System.Drawing.Color ForeColor { get; set; } = System.Drawing.Color.Empty;

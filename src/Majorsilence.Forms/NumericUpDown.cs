@@ -19,6 +19,24 @@ namespace Majorsilence.Forms
         public NumericUpDown ()
         {
             SetControlBehavior (ControlBehaviors.InvalidateOnTextChanged);
+
+            // An ordinary child, and FIRST, so Controls[0] is the buttons -- the order WinForms' UpDownBase
+            // establishes and the order themers index against. See the UpDownButtons remarks.
+            up_down_buttons = new UpDownButtons (this);
+            Controls.Add (up_down_buttons);
+        }
+
+        private readonly UpDownButtons up_down_buttons;
+
+        /// <summary>Keeps the buttons child over the strip the renderer draws the buttons in.</summary>
+        /// <remarks>Its bounds are derived, not stored: the strip is a function of the control's size, so
+        /// anything that resizes the control has to move it, and a layout pass is the one place that
+        /// reliably runs for all of them.</remarks>
+        protected override void OnLayout (LayoutEventArgs e)
+        {
+            base.OnLayout (e);
+
+            up_down_buttons?.SetBounds (Width - ButtonWidth, 0, ButtonWidth, Height);
         }
 
         void System.ComponentModel.ISupportInitialize.BeginInit () { }
@@ -299,5 +317,57 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets whether the decrement button area is hot-tracked.</summary>
         internal bool DecrementAreaHot => decrement_area_hot;
+
+        /// <summary>The up/down buttons, as a real child control.</summary>
+        /// <remarks>
+        /// WinForms' <c>UpDownBase</c> owns two child controls -- the up/down buttons and an edit box --
+        /// and adds the BUTTONS first, so <c>Controls[0]</c> is the buttons. That is not an incidental
+        /// detail: it is the documented way to theme one of these, and real code hooks
+        /// <c>Controls[0].Paint</c> to draw its own arrows and calls <c>Controls[0].PointToClient</c> to
+        /// hit-test them. This control drew itself with no children at all, so that idiom found nothing
+        /// and threw before the control existed.
+        ///
+        /// This child deliberately does NOT paint and does NOT hit-test on its own. It occupies the button
+        /// strip, forwards the mouse to the owner's existing logic, and leaves the owner's renderer drawing
+        /// the whole control exactly as before -- so the idiom works with no change to how a
+        /// NumericUpDown looks or behaves. A themer's Paint handler runs after the owner has painted
+        /// (children paint last), which is where they want to draw anyway.
+        /// </remarks>
+        private sealed class UpDownButtons : Control
+        {
+            private readonly NumericUpDown owner;
+
+            internal UpDownButtons (NumericUpDown owner)
+            {
+                this.owner = owner;
+
+                // Transparent so the owner's rendering of the buttons shows through: this child exists to
+                // be addressable, not to take over drawing.
+                SetControlBehavior (ControlBehaviors.Transparent, true);
+                SetControlBehavior (ControlBehaviors.Selectable, false);
+            }
+
+            // The owner hit-tests in ITS coordinates, so translate before handing the event over.
+            private MouseEventArgs ToOwner (MouseEventArgs e)
+                => new MouseEventArgs (e.Button, e.Clicks, e.X + Left, e.Y + Top, e.Delta);
+
+            protected override void OnMouseClick (MouseEventArgs e)
+            {
+                owner.OnMouseClick (ToOwner (e));
+                base.OnMouseClick (e);
+            }
+
+            protected override void OnMouseMove (MouseEventArgs e)
+            {
+                owner.OnMouseMove (ToOwner (e));
+                base.OnMouseMove (e);
+            }
+
+            protected override void OnMouseLeave (EventArgs e)
+            {
+                owner.OnMouseLeave (e);
+                base.OnMouseLeave (e);
+            }
+        }
     }
 }

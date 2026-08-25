@@ -143,5 +143,75 @@ namespace Majorsilence.Forms.Drawing
         private static bool IsMatch(SKTypeface? typeface, string requestedFamily) =>
             typeface != null &&
             string.Equals(typeface.FamilyName, requestedFamily.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
+    
+        // Resolved fallback faces, keyed by codepoint. Font matching is a real lookup through the
+        // platform's font manager, and text is laid out on every paint -- doing it per character per
+        // frame is far too slow to leave uncached.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SKTypeface?> fallbackByCodepoint = new ();
+
+        /// <summary>
+        /// Splits <paramref name="text"/> into the longest possible runs that a single typeface can
+        /// actually render, substituting a face that has the glyph wherever
+        /// <paramref name="primary"/> does not.
+        /// </summary>
+        /// <remarks>
+        /// Needed by every path that works one <see cref="SKFont"/> at a time -- glyph outlines in
+        /// particular. A bare SKFont renders any codepoint its typeface lacks as tofu, so a string
+        /// mixing scripts (or any CJK/emoji text drawn with a Latin UI font) came out as a row of
+        /// boxes. Whitespace stays in the current run rather than forcing a split, which keeps runs
+        /// long and the advance widths consistent with how the text was measured.
+        /// </remarks>
+        public static List<(string Text, SKTypeface Typeface)> SplitByCoverage (string text, SKTypeface primary)
+        {
+            var runs = new List<(string, SKTypeface)> ();
+
+            if (string.IsNullOrEmpty (text) || primary is null)
+                return runs;
+
+            var builder = new System.Text.StringBuilder ();
+            var current = primary;
+
+            // Walked by codepoint rather than by char: a surrogate pair is one glyph, and asking
+            // whether a typeface covers half of one is meaningless. Hand-rolled because this assembly
+            // also targets netstandard2.0, where System.Text.Rune does not exist.
+            for (var i = 0; i < text.Length;) {
+                var isPair = char.IsHighSurrogate (text[i]) && i + 1 < text.Length && char.IsLowSurrogate (text[i + 1]);
+                var codepoint = isPair ? char.ConvertToUtf32 (text[i], text[i + 1]) : text[i];
+                var length = isPair ? 2 : 1;
+
+                var face = Covering (codepoint, primary);
+
+                // Whitespace and anything the run's face already covers extend the current run.
+                if (builder.Length > 0 && !ReferenceEquals (face, current)
+                    && !(length == 1 && char.IsWhiteSpace (text[i]))) {
+                    runs.Add ((builder.ToString (), current));
+                    builder.Clear ();
+                    current = face;
+                } else if (builder.Length == 0) {
+                    current = face;
+                }
+
+                builder.Append (text, i, length);
+                i += length;
+            }
+
+            if (builder.Length > 0)
+                runs.Add ((builder.ToString (), current));
+
+            return runs;
+        }
+
+        private static SKTypeface Covering (int codepoint, SKTypeface primary)
+        {
+            if (primary.ContainsGlyph (codepoint))
+                return primary;
+
+            var fallback = fallbackByCodepoint.GetOrAdd (codepoint,
+                cp => SKFontManager.Default.MatchCharacter (cp));
+
+            // No face on the system has it either: keep the primary so the caller still advances by a
+            // sensible width rather than dropping the character.
+            return fallback ?? primary;
+        }
+}
 }

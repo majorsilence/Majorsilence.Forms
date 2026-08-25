@@ -375,6 +375,34 @@ namespace Majorsilence.Forms.Drawing
         public Bitmap (int width, int height, PixelFormat format) : this (width, height) { }
 
         /// <summary>
+        /// Initializes a new bitmap from caller-owned, already-allocated pixel memory (typically pinned
+        /// managed memory or a native buffer), as <c>System.Drawing.Bitmap</c>'s scan0 constructor does.
+        /// </summary>
+        /// <remarks>
+        /// Wraps <paramref name="scan0"/> directly via <see cref="SKBitmap.InstallPixels(SKImageInfo, IntPtr, int)"/>
+        /// -- a live view, not a copy, exactly matching GDI+ semantics: subsequent writes into the
+        /// caller's buffer are visible the next time this bitmap is drawn, and the caller remains
+        /// responsible for keeping the memory alive and freeing it (this type never frees it). Only the
+        /// 32-bit formats are supported, since those are what a bitmap constructed this way is for --
+        /// direct scan0 pixel manipulation, which only exists for 4-bytes-per-pixel formats in practice
+        /// here; <see cref="PixelFormat.Format24bppRgb"/> would need Skia's odd-stride packed-888 path,
+        /// unused by any ported code so far.
+        /// </remarks>
+        public Bitmap (int width, int height, int stride, PixelFormat format, IntPtr scan0)
+        {
+            var (colorType, alphaType) = format switch {
+                PixelFormat.Format32bppArgb => (SKColorType.Bgra8888, SKAlphaType.Unpremul),
+                PixelFormat.Format32bppPArgb => (SKColorType.Bgra8888, SKAlphaType.Premul),
+                PixelFormat.Format32bppRgb => (SKColorType.Bgra8888, SKAlphaType.Opaque),
+                _ => throw new NotSupportedException ($"Bitmap(int, int, int, PixelFormat, IntPtr) does not support {format}; only the 32bpp formats are backed by a scan0 view.")
+            };
+
+            var info = new SKImageInfo (width, height, colorType, alphaType);
+            backing = new SKBitmap ();
+            backing.InstallPixels (info, scan0, stride);
+        }
+
+        /// <summary>
         /// Initializes a new blank bitmap with the specified dimensions, taking its resolution from the
         /// given device context.
         /// </summary>

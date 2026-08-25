@@ -155,7 +155,7 @@ public partial class Control
     /// <summary>
     /// Raised when the Control is invalidated.
     /// </summary>
-    public event EventHandler<InvalidateEventArgs>? Invalidated {
+    public event InvalidateEventHandler? Invalidated {
         add => Events.AddHandler (s_invalidatedEvent, value);
         remove => Events.RemoveHandler (s_invalidatedEvent, value);
     }
@@ -461,13 +461,13 @@ public partial class Control
     }
 
     /// <summary>Raised during a drag-and-drop to provide cursor feedback.</summary>
-    public event EventHandler<GiveFeedbackEventArgs>? GiveFeedback {
+    public event GiveFeedbackEventHandler? GiveFeedback {
         add => Events.AddHandler (s_giveFeedbackEvent, value);
         remove => Events.RemoveHandler (s_giveFeedbackEvent, value);
     }
 
     /// <summary>Raised to determine whether a drag-and-drop should continue.</summary>
-    public event EventHandler<QueryContinueDragEventArgs>? QueryContinueDrag {
+    public event QueryContinueDragEventHandler? QueryContinueDrag {
         add => Events.AddHandler (s_queryContinueDragEvent, value);
         remove => Events.RemoveHandler (s_queryContinueDragEvent, value);
     }
@@ -567,11 +567,25 @@ public partial class Control
     /// <summary>Raised when the user scrolls the control. Stub in Majorsilence.Forms.</summary>
     public event ScrollEventHandler? Scroll { add { } remove { } }
 
-    /// <summary>Raised when the DPI scaling of the control changes. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? DpiChangedAfterParent { add { } remove { } }
+    /// <summary>Raised when the DPI scaling of the control changes.</summary>
+    /// <remarks>
+    /// A real event now, for the same reason as <see cref="HelpRequested"/>: empty accessors let a
+    /// handler attach and then silently drop it. Nothing in this layer raises it yet -- there is no
+    /// per-backend DPI-change detection wired up -- but <see cref="OnDpiChangedAfterParent"/> is public
+    /// enough to call, which is what let a WinForms control ported as-is (its own override of the
+    /// hook) keep compiling instead of failing with CS0115.
+    /// </remarks>
+    public event EventHandler? DpiChangedAfterParent;
 
-    /// <summary>Raised before the DPI scaling of the control changes. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? DpiChangedBeforeParent { add { } remove { } }
+    /// <summary>Raised before the DPI scaling of the control changes.</summary>
+    /// <remarks>Real for the same reason as <see cref="DpiChangedAfterParent"/>; see its remarks.</remarks>
+    public event EventHandler? DpiChangedBeforeParent;
+
+    /// <summary>Raises the <see cref="DpiChangedAfterParent"/> event.</summary>
+    protected virtual void OnDpiChangedAfterParent (EventArgs e) => DpiChangedAfterParent?.Invoke (this, e);
+
+    /// <summary>Raises the <see cref="DpiChangedBeforeParent"/> event.</summary>
+    protected virtual void OnDpiChangedBeforeParent (EventArgs e) => DpiChangedBeforeParent?.Invoke (this, e);
 
     /// <summary>Raised when the data binding context changes. Stub in Majorsilence.Forms.</summary>
     public event EventHandler? BindingContextChanged { add { } remove { } }

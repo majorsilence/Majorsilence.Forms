@@ -739,10 +739,22 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when items are added. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<MeasureItemEventArgs>? MeasureItem { add { } remove { } }
+        public event MeasureItemEventHandler? MeasureItem { add { } remove { } }
 
-        /// <summary>Raised when an item needs to be drawn (OwnerDraw). Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<DrawItemEventArgs>? DrawItem { add { } remove { } }
+        /// <summary>Raised when an item needs to be drawn (OwnerDraw).</summary>
+        /// <remarks>
+        /// Real now, and typed with WinForms' own <see cref="DrawItemEventHandler"/> -- it was
+        /// <c>EventHandler&lt;DrawItemEventArgs&gt;</c> with empty accessors, which meant a handler
+        /// attached the WinForms way (<c>+= new DrawItemEventHandler(...)</c>) failed to compile at all,
+        /// and one attached some other way was silently dropped. Not yet raised by the renderer -- this
+        /// layer's own <c>ListBoxRenderer</c> always paints items itself -- so <see cref="DrawMode"/> is
+        /// still a stored value with no effect on what's drawn; only the WinForms-shaped override point
+        /// exists so ported owner-draw code compiles. <see cref="OnDrawItem"/> is public enough to call.
+        /// </remarks>
+        public event DrawItemEventHandler? DrawItem;
+
+        /// <summary>Raises the <see cref="DrawItem"/> event.</summary>
+        protected virtual void OnDrawItem (DrawItemEventArgs e) => DrawItem?.Invoke (this, e);
 
         /// <summary>Prevents the control from drawing until EndUpdate is called.</summary>
         public new void BeginUpdate () => SuspendLayout ();
