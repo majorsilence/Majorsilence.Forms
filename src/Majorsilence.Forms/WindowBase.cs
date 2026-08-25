@@ -234,6 +234,8 @@ namespace Majorsilence.Forms
         /// </summary>
         protected override void Dispose (bool disposing)
         {
+            var wasDisposed = IsDisposed;
+
             Disposing = true;
             IsDisposed = true;
 
@@ -243,6 +245,33 @@ namespace Majorsilence.Forms
 
                 if (Application.ActivePopupWindow == this)
                     Application.ActivePopupWindow = null;
+
+                // WinForms destroys the window handle when a form is disposed, so the window leaves the
+                // screen whether or not anything called Close first -- and popups are routinely
+                // dismissed by disposing them. Without this the backend window stayed up with nothing
+                // painting into it, leaving a blank rectangle on screen after the popup had gone.
+                //
+                // FormClosing is deliberately not raised: disposing is not closing, and WinForms does
+                // not raise it either. _closingHandled suppresses the backend's own closing callback
+                // for the same reason Close() does.
+                // The window is gone, so it is no longer visible -- WinForms clears this when the
+                // handle is destroyed, and the paint pipeline reads it. Set before the backend call so
+                // it holds even for a backend whose Close is a no-op.
+                visible = false;
+                shown = false;
+
+                if (!wasDisposed && Backend is not null) {
+                    _closingHandled = true;
+
+                    try {
+                        Backend.Close ();
+                    } catch (Exception) {
+                        // A backend window that is already gone is the expected case here, not a
+                        // failure -- and throwing out of Dispose would strand the rest of the teardown.
+                    } finally {
+                        _closingHandled = false;
+                    }
+                }
             }
 
             base.Dispose (disposing);

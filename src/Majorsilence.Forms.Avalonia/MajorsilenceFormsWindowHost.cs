@@ -147,32 +147,11 @@ namespace Majorsilence.Forms
                     new Vector (96 * scaling, 96 * scaling),
                     PixelFormat.Bgra8888,
                     AlphaFormat.Premul);
-                // A WriteableBitmap arrives with whatever was in that memory. The paint below is
-                // trusted to cover the whole surface, but if it ever does not -- a region outside the
-                // laid-out client area, a frame caught mid-resize -- the gap displays uninitialised
-                // heap as a dark band with ghosts of unrelated content in it. Cheap to rule out, and
-                // showing uninitialised memory is not defensible whatever the cause.
-                ClearFramebuffer (_framebuffer);
-
                 _surface.Source = _framebuffer;
                 IsDirty = true;
             }
 
             return _framebuffer is not null;
-        }
-
-        private static void ClearFramebuffer (WriteableBitmap framebuffer)
-        {
-            try {
-                using var fb = framebuffer.Lock ();
-                var info = new SKImageInfo (fb.Size.Width, fb.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-                using var surface = SKSurface.Create (info, fb.Address, fb.RowBytes);
-                surface?.Canvas.Clear (SKColors.Transparent);
-            } catch (Exception ex) {
-                // Never let this stop a frame from being drawn: an uncleared buffer is a cosmetic
-                // problem, a throw here would be a black window.
-                Console.Error.WriteLine ($"[MF] ClearFramebuffer error: {ex}");
-            }
         }
 
         private void StartRenderTimer ()
