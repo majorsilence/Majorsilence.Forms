@@ -70,20 +70,37 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.Use ();
 
             using var form = new Form { ClientSize = new Size (300, 200) };
-            var spinner = new NumericUpDown { Bounds = new Rectangle (0, 0, 120, 24), Value = 5 };
+
+            // Clear of the form's own caption. Windows and Linux draw fully custom chrome, so FormTitleBar
+            // is a real (implicit) child sitting across the top of the client area -- and implicit children
+            // win the hit-test, so anything placed under it never sees a click. macOS takes the native
+            // title bar instead (Form's ctor sets UseSystemDecorations there) and hides that child, which
+            // is why a spinner at y=0 clicked fine on a developer's Mac and not on the CI Windows runner
+            // that actually runs this suite.
+            var spinner = new NumericUpDown { Bounds = new Rectangle (10, 60, 120, 24), Value = 5 };
             form.Controls.Add (spinner);
             form.Show ();
             HeadlessRenderer.CapturePng (form);
 
             // The child now covers the strip, so the click lands on IT rather than on the spinner -- the
-            // forwarding is what keeps the buttons working, and is the thing most likely to break.
+            // forwarding is what keeps the buttons working, and is the thing most likely to break. Asserted
+            // rather than assumed: if the click missed the child, the spinner's own hit-testing would
+            // change the value anyway and the forwarding could rot unnoticed.
             var buttons = spinner.Controls[0];
-            HeadlessRenderer.Click (form, buttons.Left + buttons.Width / 2, 4);
+            var hits = 0;
+            buttons.MouseClick += (_, _) => hits++;
 
+            // Form coordinates: the strip's centre, in the top and then the bottom half of the spinner.
+            var x = spinner.Left + buttons.Left + (buttons.Width / 2);
+
+            HeadlessRenderer.Click (form, x, spinner.Top + 4);
+
+            Assert.Equal (1, hits);
             Assert.Equal (6m, spinner.Value);
 
-            HeadlessRenderer.Click (form, buttons.Left + buttons.Width / 2, 20);
+            HeadlessRenderer.Click (form, x, spinner.Top + 20);
 
+            Assert.Equal (2, hits);
             Assert.Equal (5m, spinner.Value);
         }
     }
