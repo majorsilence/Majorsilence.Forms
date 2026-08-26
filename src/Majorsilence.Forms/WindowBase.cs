@@ -1337,6 +1337,25 @@ namespace Majorsilence.Forms
         // the form sees (and may handle) the key before the focused control does.
         private bool FormSeesKeyFirst => this is not Form form || form.KeyPreview || adapter.SelectedControl is null;
 
+        /// <summary>
+        /// Runs the keyboard pre-processing chain for a key-down, starting at the focused control and
+        /// bubbling outward to this window.
+        /// </summary>
+        /// <returns>True when the key was consumed and no key event should follow.</returns>
+        /// <remarks>
+        /// The chain begins at the deepest focused control rather than at the window, because
+        /// <c>IsInputKey</c> is that control's decision to make: a multiline text box claims Enter, a
+        /// grid claims the arrows, and only a key nobody claims becomes a dialog key. Starting at the
+        /// window instead is what made <see cref="Form.AcceptButton"/> swallow Enter everywhere.
+        /// </remarks>
+        private bool PreProcessKey (Keys keys)
+        {
+            // The adapter is the root control, and it forwards into this window at the end of its own
+            // chain -- so starting there covers the no-focus case as well.
+            var start = adapter.SelectedControl ?? adapter;
+            return start.PreProcessKeyMessage (keys);
+        }
+
         /// <summary>Routes a key-down. Returns true if handled (the backend should suppress further native processing).</summary>
         internal bool HandleKeyDown (Keys keys)
         {
@@ -1346,27 +1365,14 @@ namespace Majorsilence.Forms
 
             var kd_e = new KeyEventArgs (keys);
 
-            // Form-level shortcuts: AcceptButton / CancelButton / modal Escape
-            if (this is Form form) {
-                var baseKey = keys & Keys.KeyCode;
-
-                if (baseKey == Keys.Return && form.AcceptButton != null) {
-                    form.AcceptButton.PerformClick ();
-                    return true;
-                }
-
-                if (baseKey == Keys.Escape) {
-                    if (form.CancelButton != null) {
-                        form.CancelButton.PerformClick ();
-                        return true;
-                    }
-
-                    if (form.dialog_task is not null) {
-                        form.DialogResult = DialogResult.Cancel;
-                        return true;
-                    }
-                }
-            }
+            // The WinForms pre-processing chain, in WinForms' order: ProcessCmdKey (shortcuts win over
+            // everything) -> IsInputKey (the focused control claiming the key for itself) ->
+            // ProcessDialogKey (Tab/Enter/Escape/arrows). It starts at the focused control and bubbles
+            // outward to this window, so AcceptButton and CancelButton are reached last -- which is the
+            // whole point. Running them first, as this method used to, meant Enter in a multiline text
+            // box submitted the dialog and Tab could never reach a control that wanted it.
+            if (PreProcessKey (keys))
+                return true;
 
             if (FormSeesKeyFirst) {
                 OnKeyDown (kd_e);

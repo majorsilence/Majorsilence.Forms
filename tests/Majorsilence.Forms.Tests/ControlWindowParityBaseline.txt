@@ -97,7 +97,6 @@ ScaleCore/2
 SetAutoSizeMode/1
 
 # N/A -- Win32 handle/message plumbing with no analogue here.
-ProcessDialogChar/1
 CheckForIllegalCrossThreadCalls
 DrawToBitmap/2
 EndInvoke/1

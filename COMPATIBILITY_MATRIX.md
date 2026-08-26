@@ -114,8 +114,8 @@ WinForms API (WinForms never had built-in spellcheck) — it exists to back
 > **That baseline is now at zero, and it is the smaller half of the problem.** Every WinForms member
 > upstream has, this layer declares. Whether the member *behaves* like WinForms is a separate question
 > that no reflection diff can ask, and a twelve-area source audit (2026-08-25) found **483 places
-> where it does not** — 41 of them severe enough to break or corrupt a common migrated app. A third of
-> this assembly's settable auto-properties (263 of 777) are read nowhere; 84 events accept a handler
+> where it does not** — 41 of them severe enough to break or corrupt a common migrated app. Two thirds of
+> this assembly's settable auto-properties (822 of 1254) are read nowhere; 80 events accept a handler
 > and discard it; the whole `ProcessCmdKey` keyboard chain is declared and never dispatched. Several
 > rows in the table below overstate as a result, and are corrected in the plan's own list. See
 > [`docs/behaviour-gap-plan.md`](docs/behaviour-gap-plan.md) and

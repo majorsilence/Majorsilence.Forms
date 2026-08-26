@@ -206,6 +206,75 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the form receives key events before child controls.</summary>
         public bool KeyPreview { get; set; }
 
+        /// <summary>
+        /// Activates <see cref="AcceptButton"/> on Enter and <see cref="CancelButton"/> on Escape, and
+        /// cancels a modal dialog on Escape when it has no cancel button.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is the last link in the pre-processing chain: it runs only once the focused control and
+        /// every container above it have declined the key. That ordering is the fix for a long-standing
+        /// divergence — these three behaviours used to be hard-coded at the very top of
+        /// <c>WindowBase.HandleKeyDown</c>, ahead of everything, so a multiline text box could never
+        /// see Enter and a control could never claim Escape.
+        /// </para>
+        /// <para>
+        /// The <c>Alt</c>/<c>Control</c> guard is upstream's (<c>Form.ProcessDialogKey</c>): Ctrl+Enter
+        /// and Alt+Enter are not the accept gesture, and treating them as one fires the default button
+        /// on shortcuts that were meant for something else.
+        /// </para>
+        /// </remarks>
+        /// <summary>
+        /// Gives the form's menu shortcuts first refusal on a key, before any control sees it.
+        /// </summary>
+        /// <remarks>
+        /// This is what makes <see cref="ToolStripMenuItem.ShortcutKeys"/> and the legacy
+        /// <c>MenuItem.Shortcut</c> work: both stored a value nothing ever consulted, so Ctrl+S on a
+        /// form with a wired-up Save menu item did nothing at all. Shortcuts are checked ahead of
+        /// <c>IsInputKey</c> deliberately — Ctrl+S must reach the menu even while a text box has focus,
+        /// which is the whole reason <c>ProcessCmdKey</c> runs first in WinForms' chain.
+        /// </remarks>
+        protected override bool ProcessCmdKey (ref Message msg, Keys keyData)
+            => KeyboardShortcuts.TryInvokeMenuShortcut (this, keyData)
+                || base.ProcessCmdKey (ref msg, keyData);
+
+        /// <summary>
+        /// Offers an access key (Alt+letter) to the form's menus and then to its controls.
+        /// </summary>
+        protected override bool ProcessDialogChar (char charCode)
+            => KeyboardShortcuts.TryInvokeMnemonic (this, charCode)
+                || base.ProcessDialogChar (charCode);
+
+        /// <inheritdoc cref="WindowBase.ProcessDialogKey(Keys)"/>
+        protected override bool ProcessDialogKey (Keys keyData)
+        {
+            if ((keyData & (Keys.Alt | Keys.Control)) == Keys.None) {
+                switch (keyData & Keys.KeyCode) {
+                    case Keys.Return:
+                        if (AcceptButton is { } accept) {
+                            accept.PerformClick ();
+                            return true;
+                        }
+                        break;
+
+                    case Keys.Escape:
+                        if (CancelButton is { } cancel) {
+                            cancel.PerformClick ();
+                            return true;
+                        }
+
+                        // No cancel button, but a modal dialog still closes on Escape.
+                        if (dialog_task is not null) {
+                            DialogResult = DialogResult.Cancel;
+                            return true;
+                        }
+                        break;
+                }
+            }
+
+            return base.ProcessDialogKey (keyData);
+        }
+
         /// <summary>Begins dragging the window to move it.</summary>
         public void BeginMoveDrag () => Backend.BeginMoveDrag ();
 

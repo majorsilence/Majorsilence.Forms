@@ -93,5 +93,38 @@ namespace Majorsilence.Forms
         {
             OnParentVisibleChanged (e);
         }
+
+        // ── The keyboard pre-processing chain crosses from Control to WindowBase here ─────────────
+        //
+        // Control's chain bubbles to Parent; the adapter has none, and it is the root control standing
+        // in for the window. Upstream the window IS a Control and the walk simply continues, so these
+        // four hand the key to WindowBase/Form -- which is where AcceptButton, CancelButton, menu
+        // shortcuts and KeyPreview live. Without them the chain would stop one level short of every
+        // form-level behaviour it exists to reach.
+        //
+        // Tab is handled here rather than on the window, mirroring ContainerControl: focus traversal
+        // is a property of the container that owns the focus chain, and the adapter is that container.
+
+        protected override bool ProcessCmdKey (ref Message msg, Keys keyData)
+            => ParentForm.RaiseProcessCmdKey (ref msg, keyData);
+
+        protected override bool ProcessDialogKey (Keys keyData)
+        {
+            if ((keyData & Keys.KeyCode) == Keys.Tab && (keyData & (Keys.Alt | Keys.Control)) == Keys.None) {
+                if (FindForm () is Form form)
+                    form.ShowFocusCues = true;
+
+                SelectNextControl (SelectedControl, (keyData & Keys.Shift) == Keys.None, true, true, true);
+                return true;
+            }
+
+            return ParentForm.RaiseProcessDialogKey (keyData);
+        }
+
+        protected override bool ProcessDialogChar (char charCode)
+            => ParentForm.RaiseProcessDialogChar (charCode);
+
+        protected override bool ProcessKeyPreview (ref Message m)
+            => ParentForm.RaiseProcessKeyPreview (ref m);
     }
 }

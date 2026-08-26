@@ -27,9 +27,14 @@ part was.
 
 | | Count | What it means |
 |---|---|---|
-| Public settable auto-properties read nowhere | **263 of 777 (34%)** | A third of the settable surface stores a value nothing consumes |
-| Events declared `add { } remove { }` | **84** | Compile, accept a handler, discard it |
-| `#pragma warning disable CS0067` sites | **89** | Declared, never raised |
+| Public settable auto-properties nothing reads | **822 of 1254 (65%)** | Two thirds of the settable surface stores a value no code here consumes |
+| Events declared `add { } remove { }` | **80** | Compile, accept a handler, discard it |
+| Field-backed events nothing raises | **130** | A handler is stored and never called |
+
+Those three are now measured by CI gates rather than by hand — see
+[Guardrails](#guardrails-to-build-first), which are built. The property figure is much larger than the
+source-level estimate this audit started from (263), because the gate asks the precise question the
+grep could not: is the value read *anywhere*, by a getter call or a field load.
 
 Per area:
 
@@ -156,21 +161,33 @@ That category is now measured. Reuse `NoOpStubBaselineTests.ScanEmptyBodiedPubli
 `PEReader`/`MetadataReader` approach and its baseline-file conventions (`MAJORSILENCE_WRITE_*`
 regeneration, a committed reviewable text file, added-entries fail / removed-entries prompt).
 
-| Gate | What it pins | How | Today |
-|---|---|---|---|
-| **Inert events** | Events whose `add`/`remove` accessors have an IL body of just `ret` — the `add { } remove { }` idiom, which compiles, accepts a handler and discards it | Same IL scan, but *only* `add_`/`remove_` accessors | **84** |
-| **Unraised events** | Field-backed events that are declared and never invoked — the `#pragma warning disable CS0067` set | Find each event's backing field; report events whose field is never loaded outside `add`/`remove` | **89 suppression sites** |
-| **Stored-only properties** | Public settable auto-properties whose `k__BackingField` is read only by their own getter — set, read back, consumed by nothing | Locate `<Name>k__BackingField`, scan all method bodies for `ldfld` of it | **263 of 777 (34%)** |
+**Status: built.** All three, plus the test helper, landed as Phase 0. They share one IL scanner
+(`tests/Majorsilence.Forms.Tests/StubSurfaceScanner.cs`) and follow `NoOpStubBaselineTests`'
+conventions exactly: a committed reviewable text file, `MAJORSILENCE_WRITE_*` regeneration,
+added-entries fail and removed-entries prompt.
 
-The third number is the headline of this audit and the one worth watching over time: **a third of the
-settable surface of the core assembly stores a value that nothing in the assembly ever reads.** A
-source-level approximation of that scan is in
-[`docs/behaviour-gap/stored-only-properties.txt`](behaviour-gap/stored-only-properties.txt).
+| Gate | What it pins | Baseline |
+|---|---|---|
+| **Inert events** | Events whose `add`/`remove` accessors have an IL body of just `ret` — the `add { } remove { }` idiom, which compiles, accepts a handler and discards it | **80** |
+| **Unraised events** | Field-backed events nothing ever loads in order to invoke — the `#pragma warning disable CS0067` set, found from IL so the pragma cannot hide one | **130** |
+| **Stored-only properties** | Public settable auto-properties nothing reads: neither the getter is called nor the backing field loaded outside it | **822 of 1254 (65%)** |
 
-All three counts include legitimate entries — `Tag` is app storage by definition, `FileDialog.ClientGuid`
-has no portable meaning — so the gates should ship with those accepted in the baseline and a comment
-saying why, exactly as the stub baseline does. The point is not to drive the numbers to zero; it is
-that adding to them becomes a conscious act.
+The third is the number worth watching over time. Note it is much larger than the 263 this audit's
+source-level grep estimated, because the gate asks the precise question — the grep only caught
+properties whose *name* appeared nowhere else, which misses every one that is mentioned in a comment
+or shares a name with a working member elsewhere.
+
+**One thing not to misread.** These gates answer "is the value ever read", which is narrower than "does
+this member work". A property read only by code that is itself inert counts as consumed:
+`ListView.View` is read by `ListViewParity.cs:599` and still ignored by the renderer;
+`TextBox.WordWrap` is read by a `ToolStripTextBox` forwarder that draws nothing;
+`TextBox.AcceptsReturn` is read inside a key handler nothing calls. Absence from a baseline is not a
+certificate. Catching that class needs transitive reachability and is a worthwhile follow-up; until
+then the finding files are where it lives, and these gates are the mechanical floor beneath them.
+
+All three baselines include legitimate entries — `Tag` is app storage by definition,
+`FileDialog.ClientGuid` has no portable meaning — so each is annotated in place rather than trimmed.
+The point is not to drive the numbers to zero; it is that adding to them becomes a conscious act.
 
 ## Scope and limits of this audit
 
@@ -284,7 +301,7 @@ Closes: `TSM-01` and the shadow family, `CTL-03`, `CTL-06`, `CTL-11`, `CTL-17`, 
 
 ### RC-7 — Stored-only properties: the WinForms name is a decoy
 
-**263 of 777** public settable auto-properties (34%) are read nowhere in the assembly. The recurring
+**822 of 1254** public settable auto-properties (65%) are read nowhere in the assembly. The recurring
 shape is worse than inertness: the renderer reads a *private twin* while the WinForms-named property
 sits beside it storing values nobody consumes — `column.DefaultCellStyleAlignment` vs
 `DefaultCellStyle.Alignment`; `column.SortOrder` vs `HeaderCell.SortGlyphDirection`;
@@ -408,7 +425,7 @@ Each item names the findings it closes. Read those first; they carry both sides'
 
 ---
 
-### Phase 0 — Make it measurable *(do first; nothing here changes behaviour)*
+### Phase 0 — Make it measurable *(do first; nothing here changes behaviour)* — **DONE**
 
 Three baseline gates and one test helper. Without these, phases 1–5 have no way to prove they shrank
 anything, and the regression channel that produced these findings stays open.
@@ -443,7 +460,7 @@ would happily pass.
 
 ---
 
-### Phase 1 — The keyboard chain (RC-1) *(highest leverage in the audit)*
+### Phase 1 — The keyboard chain (RC-1) *(highest leverage in the audit)* — **DONE**
 
 **W1.1 — Dispatch the pre-processing chain.**
 Give `WindowBase.HandleKeyDown` a real `PreProcessMessage` step that runs the WinForms order:
@@ -810,6 +827,82 @@ Known instances, by the item that will break them:
 
 The per-area finding files carry a **Tests today** line on every finding; treat that as the
 authoritative list and this table as the map of the big ones.
+
+## Progress
+
+| Phase | Status |
+|---|---|
+| 0 — Make it measurable | **Done.** Three baseline gates and the event recorder; 8 self-tests. |
+| 1 — The keyboard chain | **Done.** The chain is dispatched, controls can claim keys, menu shortcuts and access keys work; 25 tests. |
+| 2 — Focus, validation, `ActiveControl` | Not started. |
+| 3 — Form and application lifecycle | Not started. |
+| 4 — Data binding | Not started. |
+| 5 — Per-control behaviour | Not started. |
+| 6 — Mechanical sweeps | Not started. |
+
+Suite: **3912 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
+gate still reports zero for both surfaces.
+
+### What phase 0 found
+
+**The stored-only question was being asked wrongly, and the first answer was 1249.** The gate's first
+cut asked "is the backing field read anywhere other than the getter", which reports every
+properly-encapsulated property as inert — `form.AcceptButton != null` compiles to a `callvirt` on the
+getter, not a field load. `Form.AcceptButton` appearing in the output is what exposed it. A property
+is consumed if *either* its getter is called or its field is read elsewhere; with both checked the
+figure is **822 of 1254**. Worth remembering if these scans are ever extended: the encapsulated path
+is the easy one to forget, and forgetting it produces a confidently wrong number.
+
+**The source-level estimate was low by a factor of three.** The grep this audit started from found 263,
+because it only counted properties whose *name* appeared nowhere else in the source — which misses
+every one mentioned in a comment or sharing a name with a working member on another type.
+
+**Absence from a baseline is not a certificate, and three known-broken properties prove it.**
+`ListView.View`, `TextBox.WordWrap` and `TextBox.AcceptsReturn` are all read by something and all
+ignored where it matters — respectively by an image-list lookup while the renderer ignores the mode, by
+a `ToolStripTextBox` forwarder that draws nothing, and by a key handler nothing called. "Read by code
+that is itself inert" needs transitive reachability; the gates are the floor, not the ceiling. This is
+recorded in the test's own remarks so the next reader does not over-trust it.
+
+**Release and Debug IL differ enough to crash a naive walker.** `MetadataTokens.EntityHandle` throws
+for a table it does not model, and the optimiser emits shapes Debug does not, so the scan died on the
+Release assembly having passed on Debug. The gate now filters by table byte before converting — which
+also contains any future alignment slip, since a garbage operand rarely carries one of the six valid
+bytes. CI runs Release; a gate that only works in Debug is not a gate.
+
+### What phase 1 found
+
+**Confirmed: the chain had no callers at all.** `ProcessCmdKey`, `ProcessDialogKey`,
+`ProcessDialogChar`, `ProcessKeyPreview`, `ProcessMnemonic` and `IsInputKey` were `=> false` on both
+`Control` and `WindowBase`, and `grep` across the assembly found declarations and no invocations. The
+behaviours they gate were hard-coded instead: `AcceptButton`/`CancelButton` at the very top of
+`WindowBase.HandleKeyDown`, Tab inside `Control.RaiseKeyDown`. Both are now downstream of the chain,
+which is what lets a multiline text box see Enter and a control claim Tab.
+
+**Three stored-only properties became live, and the gate said so.** `ToolStripMenuItem.ShortcutKeys`,
+`ButtonBase.UseMnemonic` and `Form.MainMenuStrip` all moved out of the stored-only baseline as a direct
+result of this work — 822 → 818. That is the loop the guardrails exist to close: the number moves in
+the right direction and the movement is reviewed rather than asserted.
+
+**`TSM-01` is real, and a test found it independently.** `A_disabled_item_does_not_fire_its_shortcut`
+failed on the first run: `save.Enabled = false` writes `ToolStripItem`'s `new`-shadowed property while
+`KeyboardShortcuts` — like the renderers and `MenuBase`'s click dispatcher — reads `MenuItem.Enabled`
+and still sees true. The shortcut path reads both for now, with the workaround commented and pointed at
+W5.15; deleting the shadow is that item's job.
+
+**`Control.ModifierKeys` is stale global state.** It is a static auto-property written by every
+`KeyEventArgs` and `MouseEventArgs` constructor (`Control.Compat.cs:20`), so it reports whatever
+modifiers the last constructed args happened to carry — including from an unrelated window, or from a
+test running in parallel. It made one new test fail in Release and pass in Debug purely on scheduling.
+Not fixed here (it belongs with `SVC-09`, which already flags `Control.MouseButtons` as the same
+shape), but worth recording: **any code reading `ModifierKeys` outside a live key handler is reading a
+value that may be arbitrarily old.**
+
+**One test expectation was wrong, and upstream settled it.** "Ctrl+Tab moves focus out of a box that
+accepts tabs" reads as obviously right and is not: `ContainerControl.ProcessDialogKey` guards its Tab
+case on `(Alt | Control) == None`, so nobody claims Ctrl+Tab and focus stays put. The test now asserts
+that, with the reasoning in a comment. Second time in this repo's history that checking upstream
+overturned a plausible hand-written assertion rather than the code.
 
 ## Suggested execution order
 

@@ -1817,16 +1817,11 @@ namespace Majorsilence.Forms
                     return;
                 }
 
-                // Tab moves focus; handle here so it works even if no TextInput fires.
-                if ((e.KeyData & Keys.KeyCode) == Keys.Tab) {
-                    if (adapter.FindForm () is Form f)
-                        f.ShowFocusCues = true;
-
-                    SelectNextControl (adapter.SelectedControl, !e.Shift, true, true, true);
-                    e.Handled = true;
-                    return;
-                }
-
+                // Tab is NOT handled here any more: it is a dialog key, and the pre-processing chain
+                // (ControlAdapter.ProcessDialogKey) runs before this method is ever reached. Claiming
+                // it here meant a control that wants Tab as input -- a multiline text box with
+                // AcceptsTab, a grid moving between cells -- could never receive one, because focus
+                // moved before the control was asked.
                 adapter.SelectedControl?.RaiseKeyDown (e);
                 return;
             }
@@ -1849,15 +1844,10 @@ namespace Majorsilence.Forms
                     return;
                 }
 
-                // Tab
-                if (e.KeyChar == 9) {
-                    if (adapter.FindForm () is Form f)
-                        f.ShowFocusCues = true;
-
-                    SelectNextControl (adapter.SelectedControl, !e.Shift, true, true, true);
-                    e.Handled = true;
+                // Tab: see RaiseKeyDown. The key-down chain has already moved focus by the time a Tab
+                // character arrives, so handling it again here would advance focus twice per press.
+                if (e.KeyChar == 9)
                     return;
-                }
 
                 adapter.SelectedControl?.RaiseKeyPress (e);
                 return;

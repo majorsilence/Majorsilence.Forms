@@ -591,8 +591,29 @@ namespace Majorsilence.Forms
         /// </summary>
         public override bool WordWrap { get; set; } = true;
 
-        /// <summary>Gets or sets whether pressing Enter in a multiline TextBox creates a new line. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether pressing Enter in a multiline TextBox creates a new line.</summary>
+        /// <remarks>
+        /// Consulted by <see cref="IsInputKey"/>, which is what gives it effect: with this set, Enter
+        /// belongs to the text box and never reaches <see cref="Form.AcceptButton"/>. It was a
+        /// stored-only property for as long as Enter was intercepted at the top of the input path,
+        /// which meant every multiline box on a form with a default button submitted the form instead
+        /// of adding a line.
+        /// </remarks>
         public bool AcceptsReturn { get; set; }
+
+        /// <summary>
+        /// Claims Enter for the text box when it is multiline and <see cref="AcceptsReturn"/> is set.
+        /// </summary>
+        /// <remarks>Mirrors <c>TextBox.IsInputKey</c>; everything else defers to
+        /// <see cref="TextBoxBase.IsInputKey"/>.</remarks>
+        protected override bool IsInputKey (Keys keyData)
+        {
+            if (Multiline && (keyData & Keys.Alt) == Keys.None
+                && (keyData & Keys.KeyCode) == Keys.Return)
+                return AcceptsReturn;
+
+            return base.IsInputKey (keyData);
+        }
 
         /// <summary>Gets or sets the character casing applied to text. Stub in Majorsilence.Forms.</summary>
         public CharacterCasing CharacterCasing { get; set; } = CharacterCasing.Normal;

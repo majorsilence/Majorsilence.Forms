@@ -41,7 +41,33 @@ namespace Majorsilence.Forms
         public virtual TextImageRelation TextImageRelation { get; set; } = TextImageRelation.Overlay;
 
         /// <summary>Gets or sets whether the first character preceded by an ampersand is an access key.</summary>
+        /// <remarks>
+        /// Consulted by <see cref="ProcessMnemonic"/>. It was stored-only for as long as nothing
+        /// dispatched access keys, so <c>&amp;Save</c> underlined the S and Alt+S did nothing.
+        /// </remarks>
         public bool UseMnemonic { get; set; } = true;
+
+        /// <summary>
+        /// Clicks the button when <paramref name="charCode"/> is its access key.
+        /// </summary>
+        /// <remarks>
+        /// Mirrors <c>ButtonBase.ProcessMnemonic</c>: a button responds to its mnemonic by clicking,
+        /// which is why Alt+S on a <c>&amp;Save</c> button saves rather than merely focusing it.
+        /// <para>
+        /// Raises <see cref="Control.OnClick"/> directly rather than calling a <c>PerformClick</c> on
+        /// the base. <see cref="Button"/> and <see cref="RadioButton"/> each declare their own public
+        /// <c>PerformClick</c>, and both are exactly this call — introducing a base method of that name
+        /// would shadow two shipped members to no benefit.
+        /// </para>
+        /// </remarks>
+        protected override bool ProcessMnemonic (char charCode)
+        {
+            if (!UseMnemonic || !CanSelect || !IsMnemonic (charCode, Text ?? string.Empty))
+                return false;
+
+            OnClick (new MouseEventArgs (MouseButtons.Left, 1, 0, 0, System.Drawing.Point.Empty));
+            return true;
+        }
 
         /// <summary>
         /// Gets or sets whether text is rendered with the compatibility renderer. Stored and

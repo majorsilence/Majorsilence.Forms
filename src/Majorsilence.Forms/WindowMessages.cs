@@ -20,6 +20,13 @@ namespace Majorsilence.Forms
         /// <summary>A character was typed.</summary>
         public const int WM_CHAR = 0x0102;
 
+        /// <summary>A key was pressed with Alt held. Recognised by the pre-processing chain so an
+        /// <c>Alt</c>-modified shortcut reaches <c>ProcessCmdKey</c> the way it does upstream.</summary>
+        public const int WM_SYSKEYDOWN = 0x0104;
+
+        /// <summary>A character was typed with Alt held — how a mnemonic arrives upstream.</summary>
+        public const int WM_SYSCHAR = 0x0106;
+
         /// <summary>The pointer moved.</summary>
         public const int WM_MOUSEMOVE = 0x0200;
 
