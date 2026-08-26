@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Proof-of-concept Roslyn source generator: emits thin subclasses of Majorsilence.Forms'
+       Control/Component hierarchy into the real "System.Windows.Forms" namespace, so a consumer
+       (typically a distributed control library that cannot rewrite its own public API namespace)
+       can reference this package instead of System.Windows.Forms and keep unmodified `using
+       System.Windows.Forms;` source, including WinForms Designer.cs files.
+
+       Scope is deliberately narrow for this PoC: Component/Control/WindowBase-derived public,
+       non-sealed types only. Majorsilence.Forms.Drawing's sealed leaf types (Font, Pen, Brush, ...)
+       and events typed to Majorsilence-specific EventArgs are out of scope; see the feasibility
+       writeup this project exists to validate. -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <NoWarn>$(NoWarn);RS1036</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.WinFormsShims.Compat</PackageId>
+    <Description>PoC: source-generates a System.Windows.Forms-namespace compatibility surface backed by Majorsilence.Forms, for control libraries that cannot rewrite their own public API namespace.</Description>
+    <PackageTags>Majorsilence;Forms;Winforms;Migration;SourceGenerator;Compat</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <DevelopmentDependency>true</DevelopmentDependency>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ship the generator under analyzers/dotnet/cs so consumers pick it up automatically, per the
+         standard analyzer-package convention. -->
+    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
+</Project>
