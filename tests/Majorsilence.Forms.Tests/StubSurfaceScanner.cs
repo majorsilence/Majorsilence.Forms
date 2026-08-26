@@ -359,7 +359,11 @@ internal static class StubSurfaceScanner
     {
         var offset = 0;
 
-        while (offset < il.Length) {
+        // `offset >= 0` is not paranoia: a mis-sized opcode can make the arithmetic below overflow to
+        // a negative index, and `offset < il.Length` alone happily lets that through to an
+        // IndexOutOfRangeException. A gate that crashes on unfamiliar IL is worse than one that stops
+        // reading it, so every step out of bounds ends the walk instead.
+        while (offset >= 0 && offset < il.Length) {
             var opcode = (int) il[offset++];
 
             if (opcode == 0xFE) {
@@ -373,8 +377,15 @@ internal static class StubSurfaceScanner
             if (operand == OperandSwitch) {
                 if (offset + 4 > il.Length)
                     yield break;
+
                 var count = BitConverter.ToUInt32 (il, offset);
-                offset += 4 + (int) (count * 4);
+
+                // A plausible table cannot be longer than the bytes that remain; anything larger means
+                // the walk is already lost.
+                if (count > (uint) ((il.Length - offset - 4) / 4))
+                    yield break;
+
+                offset += 4 + ((int) count * 4);
                 continue;
             }
 
@@ -401,10 +412,17 @@ internal static class StubSurfaceScanner
     /// </summary>
     private static int OperandSize (int opcode) => opcode switch {
         // Single-byte opcodes with no operand.
+        //
+        // Two ranges here were wrong and both desynchronised the walk. `box` is 0x8C and takes a
+        // 4-byte type token, but sat inside the 0x82..0x8C conv.ovf.*.un run and was sized 0 -- so
+        // every boxing conversion shifted the walk four bytes and it read operands as opcodes from
+        // there on. Release IL boxes far more than Debug, which is why it surfaced as a crash there
+        // and not here. 0xDA..0xDC (sub.ovf, sub.ovf.un, endfinally) were missing entirely and ended
+        // the walk early.
         0x00 or 0x01 or (>= 0x02 and <= 0x0D) or 0x14 or (>= 0x15 and <= 0x1E) or 0x25 or 0x26 or 0x2A
             or (>= 0x46 and <= 0x57) or (>= 0x58 and <= 0x66) or (>= 0x67 and <= 0x6E) or 0x76 or 0x7A
-            or (>= 0x82 and <= 0x8C) or 0x8E or (>= 0x90 and <= 0xA2) or (>= 0xB3 and <= 0xBA)
-            or 0xC3 or (>= 0xD1 and <= 0xD9) or 0xDF or 0xE0 => 0,
+            or (>= 0x82 and <= 0x8B) or 0x8E or (>= 0x90 and <= 0xA2) or (>= 0xB3 and <= 0xBA)
+            or 0xC3 or (>= 0xD1 and <= 0xDC) or 0xDF or 0xE0 => 0,
 
         // One-byte operand.
         0x0E or 0x0F or 0x10 or 0x11 or 0x12 or 0x13 or 0x1F or 0x2B or 0x2C or 0x2D
@@ -414,7 +432,7 @@ internal static class StubSurfaceScanner
         0x20 or 0x22 or 0x27 or 0x28 or 0x29 or 0x38 or 0x39 or 0x3A or (>= 0x3B and <= 0x44)
             or 0x6F or 0x70 or 0x71 or 0x72 or 0x73 or 0x74 or 0x75 or 0x79
             or OpLdfld or OpLdflda or 0x7D or OpLdsfld or OpLdsflda or 0x80 or 0x81
-            or 0x8D or 0x8F or 0xA3 or 0xA4 or 0xA5 or 0xC2 or 0xC6 or 0xD0 or 0xDD => 4,
+            or 0x8C or 0x8D or 0x8F or 0xA3 or 0xA4 or 0xA5 or 0xC2 or 0xC6 or 0xD0 or 0xDD => 4,
 
         // Eight-byte operand.
         0x21 or 0x23 => 8,

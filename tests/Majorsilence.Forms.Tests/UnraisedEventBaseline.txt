@@ -51,7 +51,6 @@ Majorsilence.Forms.DataGridTableStyle.SelectionForeColorChanged
 Majorsilence.Forms.DataGridTextBox.KeyPress
 Majorsilence.Forms.DataGridTextBox.TextChanged
 Majorsilence.Forms.DataGridView.CellLeave
-Majorsilence.Forms.DataGridView.ColumnHeaderClick
 Majorsilence.Forms.DataGridView.CurrentCellDirtyStateChanged
 Majorsilence.Forms.DataGridView.Sorted
 Majorsilence.Forms.DataGridViewColumnCollection.CollectionChanged
@@ -97,7 +96,6 @@ Majorsilence.Forms.SystemEvents.DisplaySettingsChanged
 Majorsilence.Forms.TabControl.RightToLeftLayoutChanged
 Majorsilence.Forms.TaskDialogPage.HelpRequest
 Majorsilence.Forms.TaskDialogPage.LinkClicked
-Majorsilence.Forms.TaskDialogRadioButton.CheckedChanged
 Majorsilence.Forms.ToolBar.ButtonDropDown
 Majorsilence.Forms.ToolStrip.LayoutCompleted
 Majorsilence.Forms.ToolStrip.LayoutStyleChanged
@@ -135,4 +133,3 @@ Majorsilence.Forms.WebBrowser.EncryptionLevelChanged
 Majorsilence.Forms.WebBrowser.FileDownload
 Majorsilence.Forms.WebBrowser.NewWindow
 Majorsilence.Forms.WebBrowser.ProgressChanged
-Majorsilence.Forms.WindowBase.Paint

@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 818 of 1254 public settable auto-properties (65%).
+# 812 of 1252 public settable auto-properties (64%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -69,8 +69,6 @@ Majorsilence.Forms.ColumnWidthChangingEventArgs.NewWidth
 Majorsilence.Forms.ComboBox.DrawMode
 Majorsilence.Forms.ComboBox.HideSelection
 Majorsilence.Forms.CommonDialog.Tag
-Majorsilence.Forms.ContainerControl.ActiveControl
-Majorsilence.Forms.ContainerControl.AutoValidate
 Majorsilence.Forms.ContextMenuStrip.ShowCheckMargin
 Majorsilence.Forms.ContextMenuStrip.ShowImageMargin
 Majorsilence.Forms.Control.AccessibleDefaultActionDescription
@@ -329,7 +327,6 @@ Majorsilence.Forms.Form.AutoScaleBaseSize
 Majorsilence.Forms.Form.AutoScaleDimensions
 Majorsilence.Forms.Form.AutoScaleMode
 Majorsilence.Forms.Form.AutoSizeMode
-Majorsilence.Forms.Form.AutoValidate
 Majorsilence.Forms.Form.CausesValidation
 Majorsilence.Forms.Form.ControlBox
 Majorsilence.Forms.Form.FormScreenCaptureMode
@@ -623,9 +620,7 @@ Majorsilence.Forms.TabPage.ImageKey
 Majorsilence.Forms.TabPage.ToolTipText
 Majorsilence.Forms.TabPage.UseVisualStyleBackColor
 Majorsilence.Forms.TabStripItem.Tag
-Majorsilence.Forms.TaskDialogButton.Enabled
 Majorsilence.Forms.TaskDialogButton.ShowShieldIcon
-Majorsilence.Forms.TaskDialogButton.Visible
 Majorsilence.Forms.TaskDialogCommandLinkButton.DescriptionText
 Majorsilence.Forms.TaskDialogControl.Tag
 Majorsilence.Forms.TaskDialogExpander.CollapsedButtonText
@@ -807,7 +802,6 @@ Majorsilence.Forms.UpDownBase.InterceptArrowKeys
 Majorsilence.Forms.UpDownBase.ReadOnly
 Majorsilence.Forms.UpDownBase.TextAlign
 Majorsilence.Forms.UpDownBase.UpDownAlign
-Majorsilence.Forms.UserControl.ActiveControl
 Majorsilence.Forms.UserControl.AutoScaleDimensions
 Majorsilence.Forms.UserControl.AutoScaleMode
 Majorsilence.Forms.UserControl.AutoValidate

@@ -497,7 +497,7 @@ Enter → `AcceptButton` only after the focused control declines the key; Escape
 
 ---
 
-### Phase 2 — Focus, validation and `ActiveControl` (RC-2)
+### Phase 2 — Focus, validation and `ActiveControl` (RC-2) — **DONE**
 
 **W2.1 — Turn on the container-control subsystem.**
 Implement `IsFocusManagingContainerControl` properly and give `ControlAdapter` a real
@@ -834,14 +834,14 @@ authoritative list and this table as the map of the big ones.
 |---|---|
 | 0 — Make it measurable | **Done.** Three baseline gates and the event recorder; 8 self-tests. |
 | 1 — The keyboard chain | **Done.** The chain is dispatched, controls can claim keys, menu shortcuts and access keys work; 25 tests. |
-| 2 — Focus, validation, `ActiveControl` | Not started. |
+| 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | Not started. |
 | 4 — Data binding | Not started. |
 | 5 — Per-control behaviour | Not started. |
 | 6 — Mechanical sweeps | Not started. |
 
-Suite: **3912 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
-gate still reports zero for both surfaces.
+Suite: **3926 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
+gate still reports zero for both surfaces. The stored-only baseline is down from 822 to 812.
 
 ### What phase 0 found
 
@@ -869,6 +869,40 @@ for a table it does not model, and the optimiser emits shapes Debug does not, so
 Release assembly having passed on Debug. The gate now filters by table byte before converting — which
 also contains any future alignment slip, since a garbage operand rarely carries one of the six valid
 bytes. CI runs Release; a gate that only works in Debug is not a gate.
+
+### What phase 2 found
+
+**The focus sequence was inconsistent with itself.** `Control.Select ()` raised the *entering*
+control's Enter/GotFocus and only then told the adapter, whose setter deselected the leaving one — so a
+mouse click produced `B.Enter, B.GotFocus, A.Leave, A.LostFocus` while Tab, which went through a
+different path, produced the opposite. The same application saw two different orders depending on how
+focus moved. There is now one choke point (`ControlAdapter.ChangeFocus`) and both paths run through it.
+
+**Validation was attached to the one event where it cannot work.** It ran inside `OnLostFocus`, after
+focus had already moved, so `e.Cancel` had nothing left to prevent — the standard "cancel to keep focus
+in the invalid field" idiom did nothing at all, and neither the entering control's `CausesValidation`
+nor the container's `AutoValidate` was ever consulted. All three work now, and `AutoValidate` moved out
+of the stored-only baseline as a result.
+
+**`ActiveControl`'s getter is a stored field upstream, not a live search.** The first implementation
+derived it from "which descendant is focused", which is right when focus can move and wrong in the
+ordinary designer case of assigning `ActiveControl` before the container is on a shown form. The
+existing `UserControlTests.ActiveControl_Set_GetReturnsExpected` — one of the tests this plan expected
+to have to invert — caught it, and turned out to be asserting the correct contract all along. It passes
+unchanged.
+
+**`IContainerControl.ActiveControl` was declared non-nullable here and `Control?` upstream.** A small
+divergence, but it is what made `UserControl` unable to implement the interface, which is what made
+`GetContainerControl ()` return null, which is what made the whole subsystem unreachable.
+
+**A real bug in the phase 0 IL walker, found by phase 2's Release run.** `box` (0x8C) takes a 4-byte
+type token and had been sized 0, sitting inside the `conv.ovf.*.un` run — so every boxing conversion
+shifted the walk four bytes and it read operands as opcodes from there on. Release IL boxes far more
+than Debug, which is why it surfaced as an `IndexOutOfRangeException` there and silently truncated
+scans here. Two properties were being reported stored-only whose only read sat after a `box`
+(814 → 812). The walk now also refuses to step out of bounds rather than trusting the table, on the
+same principle the token filter already followed: a gate that crashes on unfamiliar IL is worse than
+one that stops reading it.
 
 ### What phase 1 found
 

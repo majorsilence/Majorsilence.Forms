@@ -71,22 +71,177 @@ namespace Majorsilence.Forms
         // consumed by AutomationObserver to feed UI Automation focus-changed events.
         internal event EventHandler<Control?>? SelectedControlChanged;
 
+        /// <summary>
+        /// The focused control, and the single choke point for changing it.
+        /// </summary>
+        /// <remarks>
+        /// Assigning here runs the whole WinForms focus sequence — see <see cref="ChangeFocus"/>. It
+        /// used to deselect the old control and then call <c>Select ()</c> on the new one, which called
+        /// back into this setter; the mutual recursion is why the event order differed between mouse
+        /// and keyboard focus changes.
+        /// </remarks>
         internal Control? SelectedControl {
             get => selected_control;
             set {
                 if (selected_control == value)
                     return;
 
-                selected_control?.Deselect ();
-
+                // The adapter is the root standing in for the window; it is never itself "focused".
                 if (value is ControlAdapter)
                     return;
 
-                // Note they could be setting this to null
-                selected_control = value;
-                SelectedControlChanged?.Invoke (this, selected_control);
-                selected_control?.Select ();
+                ChangeFocus (value);
             }
+        }
+
+        // Guards against a Validating or Enter handler moving focus again while we are still moving it.
+        // Upstream has the same problem and solves it the same way (ContainerControl's s_stateValidating).
+        private bool changing_focus;
+
+        /// <summary>
+        /// Moves focus from the current control to <paramref name="value"/>, running WinForms' sequence:
+        /// Leave up the leaving chain, the validation cycle between the two, then Enter down the
+        /// entering chain, and finally the LostFocus/GotFocus notifications.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Mirrors <c>ContainerControl.UpdateFocusedControl</c> and <c>EnterValidation</c>. The pieces
+        /// that matter, and that the previous implementation had wrong:
+        /// </para>
+        /// <list type="bullet">
+        /// <item>Leave and Enter walk the <em>ancestor path</em>, not just the two leaf controls, so a
+        /// Panel or UserControl hears focus entering and leaving it.</item>
+        /// <item>Validation runs while focus is still on the leaving control, so cancelling it can
+        /// actually keep focus there.</item>
+        /// <item>Validation is gated on the <em>entering</em> control's <c>CausesValidation</c> and on
+        /// the container's <c>AutoValidate</c>, both of which were previously ignored.</item>
+        /// </list>
+        /// </remarks>
+        private void ChangeFocus (Control? value)
+        {
+            // A handler that moves focus again re-enters here. Let the innermost move win rather than
+            // interleaving two half-finished sequences.
+            if (changing_focus) {
+                selected_control = value;
+                return;
+            }
+
+            var leaving = selected_control;
+            var entering = value;
+            var ancestor = CommonAncestor (leaving, entering);
+
+            changing_focus = true;
+
+            try {
+                // 1. Leave, bottom-up from the leaving control to (excluding) the common ancestor.
+                for (var c = leaving; c is not null && c != ancestor; c = c.Parent)
+                    c.RaiseLeaveOnly ();
+
+                // 2. The validation cycle, still focused on the leaving control so a cancel can hold it.
+                if (!RunValidation (leaving, entering, ancestor)) {
+                    // Cancelled: focus stays where it was. Re-enter the control we just left so its own
+                    // Enter/Leave pairing stays balanced for anything counting them.
+                    for (var c = leaving; c is not null && c != ancestor; c = c.Parent)
+                        c.RaiseEnterOnly ();
+
+                    return;
+                }
+
+                selected_control = entering;
+
+                leaving?.MarkDeselected ();
+                entering?.MarkSelected ();
+
+                // 3. The focus notifications and the Enter walk, top-down to the entering control.
+                leaving?.RaiseLostFocusOnly ();
+
+                foreach (var c in PathDownTo (entering, ancestor))
+                    c.RaiseEnterOnly ();
+
+                entering?.RaiseGotFocus ();
+
+                leaving?.Invalidate ();
+                entering?.Invalidate ();
+            } finally {
+                changing_focus = false;
+            }
+
+            SelectedControlChanged?.Invoke (this, selected_control);
+        }
+
+        /// <summary>
+        /// Runs Validating/Validated on the leaving control and its ancestors up to (excluding) the
+        /// common ancestor. Returns false when a handler cancelled and focus must stay put.
+        /// </summary>
+        private bool RunValidation (Control? leaving, Control? entering, Control? ancestor)
+        {
+            if (leaving is null)
+                return true;
+
+            // Upstream's EnterValidation gates: nothing to validate, the entered control opting out, or
+            // auto-validation switched off on the container.
+            if (entering is not null && !entering.CausesValidation)
+                return true;
+
+            var mode = AutoValidateFor (leaving);
+
+            if (mode == AutoValidate.Disable)
+                return true;
+
+            for (var c = leaving; c is not null && c != ancestor; c = c.Parent) {
+                if (!c.CausesValidation)
+                    continue;
+
+                if (c.RaiseValidation ())
+                    continue;
+
+                // A cancel only holds focus in EnablePreventFocusChange, which is the default. In
+                // EnableAllowFocusChange the validation still ran and still failed, but focus moves on.
+                return mode != AutoValidate.EnablePreventFocusChange;
+            }
+
+            return true;
+        }
+
+        // The effective AutoValidate for a control: the nearest container that declares one, else the
+        // window's.
+        private AutoValidate AutoValidateFor (Control control)
+        {
+            for (var c = control.Parent; c is not null; c = c.Parent) {
+                if (c is ContainerControl container)
+                    return container.AutoValidate;
+            }
+
+            return ParentForm is Form form ? form.AutoValidate : AutoValidate.EnablePreventFocusChange;
+        }
+
+        // The deepest control that contains both, or null when they share only this adapter.
+        private static Control? CommonAncestor (Control? first, Control? second)
+        {
+            if (first is null || second is null)
+                return null;
+
+            for (var a = first; a is not null; a = a.Parent) {
+                for (var b = second; b is not null; b = b.Parent) {
+                    if (ReferenceEquals (a, b))
+                        return a;
+                }
+            }
+
+            return null;
+        }
+
+        // The chain from just below `ancestor` down to `target`, outermost first, so Enter arrives on a
+        // container before the child inside it.
+        private static List<Control> PathDownTo (Control? target, Control? ancestor)
+        {
+            var path = new List<Control> ();
+
+            for (var c = target; c is not null && c != ancestor; c = c.Parent)
+                path.Add (c);
+
+            path.Reverse ();
+            return path;
         }
 
         internal void RaiseParentVisibleChanged (EventArgs e)
