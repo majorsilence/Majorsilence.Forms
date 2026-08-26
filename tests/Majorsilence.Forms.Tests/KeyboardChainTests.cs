@@ -209,6 +209,34 @@ public class KeyboardChainTests
     // ── Tab traversal, now a dialog key ──────────────────────────────────────────────────────────
 
     [Fact]
+    public void Tab_does_not_walk_onto_the_caption_buttons ()
+    {
+        // Regression, and a platform trap: CI runs the tests on Windows only, while this machine is
+        // macOS -- which is the one platform that uses SYSTEM decorations (Form's constructor sets
+        // UseSystemDecorations there). Everywhere else the library draws its own title bar whose
+        // Minimise/Maximise/Close are real Buttons, and Button is a tab stop by default, so Tab off the
+        // last control walked onto chrome. They are implicit children, so nothing in the form's own
+        // Controls reported focus and it looked as though focus had vanished.
+        //
+        // Forcing custom chrome here makes the test mean the same thing on every platform instead of
+        // passing vacuously on the one the author happens to be using.
+        HeadlessRenderer.Use ();
+        using var form = new Form { Size = new System.Drawing.Size (300, 200) };
+        form.UseSystemDecorations = false;
+        form.Show ();
+
+        var first = new TextBox { TabIndex = 0, Size = new System.Drawing.Size (80, 20) };
+        var second = new TextBox { TabIndex = 1, Size = new System.Drawing.Size (80, 20) };
+        form.Controls.Add (first);
+        form.Controls.Add (second);
+        first.Select ();
+
+        HeadlessRenderer.KeyDown (form, Keys.Tab);
+
+        Assert.True (second.Focused, "Tab must reach the next control, not the window's caption buttons");
+    }
+
+    [Fact]
     public void Tab_still_moves_focus_between_controls ()
     {
         using var form = (Form) ShowForm (new Form ());
