@@ -5,7 +5,6 @@
 # Shrinking this list is the goal. Wiring one up means raising it at the trigger point that
 # usually already exists (a property setter, OnMouseDown, OnKeyUp, EndEdit, ListChanged).
 # Regenerate with MAJORSILENCE_WRITE_INERT_EVENT_BASELINE=1.
-Majorsilence.Forms.Application.ApplicationExit
 Majorsilence.Forms.ComboBox.MeasureItem
 Majorsilence.Forms.Control.BindingContextChanged
 Majorsilence.Forms.Control.QueryAccessibilityHelp

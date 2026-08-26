@@ -45,14 +45,47 @@ namespace Majorsilence.Forms
 
         // ── Lifecycle callbacks (the platform backend invokes these; no platform types involved) ──
         /// <summary>Called by the backend after the window is closed.</summary>
+        // Set for the duration of OnBackendClosed. Several paths drive that method -- a programmatic
+        // Close, the window's own close button, MDI removal -- and since a non-modal form now disposes
+        // itself at the end of the sequence, and disposing tears the window down, the sequence can
+        // re-enter itself. Without this guard a single close raised Closed, FormClosed and
+        // HandleDestroyed twice and notified ApplicationContext twice.
+        private bool in_backend_closed;
+
         internal void OnBackendClosed ()
         {
+            if (in_backend_closed)
+                return;
+
+            in_backend_closed = true;
+
+            try {
+                RunBackendClosed ();
+            } finally {
+                in_backend_closed = false;
+            }
+        }
+
+        private void RunBackendClosed ()
+        {
+            // Captured before CompleteClose clears it.
+            var wasModal = (this as Form)?.IsModalDialog ?? false;
+
             // A form closed by its own close button never goes through Close(), so this is the only
             // place the bookkeeping Close() does can happen for it: leaving it out kept the form in
             // OpenForms for the life of the process and, for a modal one, left ShowDialog awaiting a
             // result that never arrived.
             if (this is Form closed)
                 Application.OpenForms.Remove (closed);
+
+            // A closed window is not visible. `visible` was cleared only by Hide() and Dispose(), so
+            // after Close() a form still reported Visible == true -- which broke the common
+            // "if (!find.Visible) find.Show (); else find.Activate ();" guard, and made a re-shown form
+            // skip EnsureShownBookkeeping entirely so it never re-joined OpenForms.
+            if (visible) {
+                visible = false;
+                OnVisibleChanged (EventArgs.Empty);
+            }
 
             OnClosed (EventArgs.Empty);
 
@@ -75,6 +108,29 @@ namespace Majorsilence.Forms
                 form.RaiseDestroyHandle ();
             else
                 OnHandleDestroyed (EventArgs.Empty);
+
+            // The handle is gone, so the window is back to its pre-show state: WinForms models the
+            // HANDLE as the unit of lifetime and destroys it on every close, which is what makes Load,
+            // Shown and FormClosed fire again on the next show. These flags modelled the INSTANCE as
+            // shown-once, so a dialog kept as a field and reopened raised neither Load nor Shown, and
+            // its second close raised no FormClosed -- a reused Options dialog showed stale data
+            // because the Load handler that repopulates it never ran again.
+            shown = false;
+            (this as Form)?.ResetLifecycleForReshow ();
+
+            // A non-modal form is disposed by its own close, as upstream's WmClose does; a modal one is
+            // not, because its caller still has to read DialogResult and may show it again. Without
+            // this the designer's `components` -- Timers, BindingSources, ToolTips -- were never
+            // disposed, so a Timer started by a closed form went on ticking against it, and Disposed
+            // handlers used for cleanup never ran.
+            //
+            // Decided here rather than in CompleteClose because Form.Close calls CompleteClose a
+            // second time after the backend sequence has already cleared dialog_task -- so asking
+            // "was this modal?" there answered no for a dialog and disposed it out from under the
+            // caller about to read its result. `wasModal` is captured at the top of this method,
+            // before anything clears it.
+            if (!wasModal && this is Form { IsDisposed: false } closing)
+                closing.Dispose ();
         }
 
         // Set while a programmatic Close() is running so the backend's own closing callback doesn't
@@ -586,6 +642,18 @@ namespace Majorsilence.Forms
                 Application.ActivePopupWindow = null;
 
             OnVisibleChanged (EventArgs.Empty);
+
+            // Hiding a modal dialog ends it. Upstream's modal loop tests CheckCloseDialog, which exits
+            // as soon as the form is not Visible and hands back Cancel. Here the loop only watched
+            // dialog_task, so a dialog written as `this.Hide ()` -- older code, and wizards that hide
+            // themselves before opening the next window -- left ShowDialog pumping forever with the
+            // owner still disabled, which presents as a hung application.
+            if (this is Form { dialog_task: not null } dialog) {
+                if (dialog.DialogResult == DialogResult.None)
+                    dialog.DialogResult = DialogResult.Cancel;
+
+                dialog.CompleteClose ();
+            }
         }
 
         /// <summary>Marks the entire window as needing to be redrawn.</summary>
@@ -1681,6 +1749,25 @@ namespace Majorsilence.Forms
             EnsureShownBookkeeping (activated: ShowsActivated);
         }
 
+        /// <summary>
+        /// Shows the window modally with no owner to disable — the first dialog of an application,
+        /// before any other window exists.
+        /// </summary>
+        /// <remarks>
+        /// There is no owner to disable, but the window must still be shown and the caller must still
+        /// block. This path used to fall back to a plain <c>Show ()</c> returning
+        /// <see cref="DialogResult.OK"/>, which broke the near-universal
+        /// <c>if (new LoginForm ().ShowDialog () != DialogResult.OK) return;</c> shape before
+        /// <c>Application.Run</c>: it saw OK instantly with nothing filled in and carried on into the
+        /// main form, leaving the login window floating.
+        /// </remarks>
+        internal void ShowDialogOwnerless ()
+        {
+            SetWindowStartupLocation (null);
+            Backend.Show ();
+            EnsureShownBookkeeping ();
+        }
+
         internal void ShowDialog (WindowBase parent)
         {
             // Disable and measure against the window presenting the parent: when the parent is an MDI
@@ -1724,6 +1811,28 @@ namespace Majorsilence.Forms
             // Width gets its settled value. Nothing has painted yet at this point.
             SyncAdapterBounds ();
 
+            // The handle exists BEFORE Load, as it does upstream: OnCreateControl runs after
+            // CreateHandle and is what raises OnLoad (Form.cs). This used to run after EnsureLoaded,
+            // so IsHandleCreated was false throughout Load -- and the common guard
+            // `if (!IsHandleCreated) return;` in a refresh routine shared with a timer silently skipped
+            // the whole handler. It also meant an OnHandleCreated override and a HandleCreated
+            // subscriber fired at two different moments.
+            //
+            // MarkHandleCreated is what sets `shown`, so the first-show test has to be taken before it
+            // rather than read off the flag afterwards.
+            var firstShow = !shown;
+
+            if (firstShow) {
+                MarkHandleCreated ();
+
+                // The HandleCreated EVENT is a different object from the OnHandleCreated method: the
+                // event is forwarded to the root adapter and raised by Control.CreateControl, while the
+                // method is raised by MarkHandleCreated above. Creating the adapter here keeps the two
+                // together -- an override and a subscription used to fire at two different moments,
+                // with the event landing after Load.
+                adapter.CreateControl ();
+            }
+
             EnsureLoaded ();            // WinForms raises Load around the window's first display.
 
             // Assume active the moment we ask the backend to show one of our own windows, rather than
@@ -1735,8 +1844,7 @@ namespace Majorsilence.Forms
             if (activated)
                 IsActive = true;
 
-            if (!shown) {
-                MarkHandleCreated ();
+            if (firstShow) {
                 OnShown (EventArgs.Empty);
 
                 // The pass above could not reach this window's own OnLayout: the adapter forwards its

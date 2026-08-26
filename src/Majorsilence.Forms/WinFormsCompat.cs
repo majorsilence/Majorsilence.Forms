@@ -912,11 +912,10 @@ namespace Majorsilence.Forms
             var parent = Application.ModalOwnerCandidates.FirstOrDefault ();
             var form = new MessageBoxForm (caption, text, buttons);
 
-            if (parent != null)
-                return form.ShowDialog (parent);
-
-            form.Show ();
-            return DialogResult.OK;
+            // With no open form this used to Show () and answer OK without waiting -- so a MessageBox
+            // put up before Application.Run (a startup error, a "continue?" prompt) was answered for
+            // the user. ShowDialog () is modal with or without an owner now.
+            return parent is not null ? form.ShowDialog (parent) : form.ShowDialog ();
         }
 
         // The long Show overloads. Only the arguments this layer can act on change anything: the help

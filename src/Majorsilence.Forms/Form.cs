@@ -379,7 +379,12 @@ namespace Majorsilence.Forms
                 // Dismissing a dialog without setting a result is a cancel, as in WinForms.
                 task.SetResult (dialog_result == DialogResult.None ? DialogResult.Cancel : dialog_result);
             }
+
+            Modal = false;
         }
+
+        /// <summary>Whether a modal <see cref="ShowDialog()"/> is currently running for this form.</summary>
+        internal bool IsModalDialog => dialog_task is not null;
 
         // Lets WindowBase run the closing sequence on a Form it holds a reference to.
         internal void RaiseClosing (CancelEventArgs e) => OnClosing (e);
@@ -409,6 +414,25 @@ namespace Majorsilence.Forms
 
             _formClosedFired = true;
             OnFormClosed (new FormClosedEventArgs ());
+        }
+
+        /// <summary>
+        /// Returns the form to its pre-show state after its window has been destroyed, so showing it
+        /// again is a fresh cycle.
+        /// </summary>
+        /// <remarks>
+        /// WinForms gets this for free by destroying the handle: <c>Load</c>, <c>Shown</c> and
+        /// <c>FormClosed</c> are gated on handle state, so every show/close pair raises all three. Here
+        /// they were gated on flags that were set once and never cleared, which made a form correct
+        /// only the first time it was used. Called from <c>OnBackendClosed</c> after the handle is
+        /// destroyed. <c>DialogResult</c> is deliberately NOT reset here — the caller of
+        /// <c>ShowDialog</c> reads it after the close, so it is cleared at the start of the next show
+        /// instead.
+        /// </remarks>
+        internal void ResetLifecycleForReshow ()
+        {
+            _loadFired = false;
+            _formClosedFired = false;
         }
 
 
@@ -556,7 +580,11 @@ namespace Majorsilence.Forms
             set {
                 dialog_result = value;
 
-                if (dialog_result != DialogResult.None && dialog_parent is not null)
+                // Closes for any modal dialog, not only one that has an owner window. The
+                // `dialog_parent is not null` test left an ownerless ShowDialog -- the first dialog of
+                // an application, before Application.Run -- unable to close itself by setting
+                // DialogResult, which is how every OK button does it.
+                if (dialog_result != DialogResult.None && (dialog_task is not null || dialog_parent is not null))
                     Close ();
             }
         }
@@ -801,12 +829,9 @@ namespace Majorsilence.Forms
         {
             var parent = FindModalOwner (this);
 
-            if (parent == null) {
-                Show ();
-                return DialogResult.OK;
-            }
-
-            return ShowDialog (parent);
+            return parent is null
+                ? RunModal (ShowDialogAsync (null))
+                : ShowDialog (parent);
         }
 
         /// <summary>Shows the form as a modal dialog with the specified owner window. Stub — ignores owner parameter.</summary>
@@ -883,19 +908,36 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Displays the window to the user modally, preventing interaction with other windows until closed.</summary>
-        public Task<DialogResult> ShowDialogAsync (Form parent)
+        public Task<DialogResult> ShowDialogAsync (Form? parent)
         {
             dialog_task = new TaskCompletionSource<DialogResult> ();
 
-            if (dialog_result != DialogResult.None) {
-                dialog_task.SetResult (dialog_result);
-                return dialog_task.Task;
-            }
+            // Clear the previous answer before showing, as upstream does (Form.ShowDialog sets
+            // _dialogResult = None up front). There used to be an "already decided, return it" check
+            // here instead, and because nothing ever cleared the field it fired on every reuse: a
+            // dialog kept as a field -- a Find or Options window, the common shape -- handed back last
+            // time's result without ever appearing on screen.
+            dialog_result = DialogResult.None;
+
+            // Modal for the duration, so `if (Modal) DialogResult = OK; else Close ();` -- how a form
+            // usable both as a dialog and as a window is written -- takes the right branch. It was a
+            // private-set property nothing ever assigned.
+            Modal = true;
 
             dialog_parent = parent;
 
-            // Call the base window-show-modally helper, NOT this Form.ShowDialog(Form) overload.
-            base.ShowDialog (parent);
+            // A Load handler that sets DialogResult closes the form during the call below, which
+            // completes dialog_task; RunModal then returns without pumping. That is upstream's
+            // "decided before it was ever shown" path, and it works here because the result is cleared
+            // above rather than carried over from the previous use.
+
+            // Call the base window-show-modally helpers, NOT this Form.ShowDialog(Form) overload.
+            // With no owner there is nothing to disable, but the dialog is still modal: the caller
+            // blocks on dialog_task either way.
+            if (parent is null)
+                ShowDialogOwnerless ();
+            else
+                base.ShowDialog (parent);
 
             return dialog_task.Task;
         }

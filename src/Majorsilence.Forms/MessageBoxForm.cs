@@ -55,32 +55,42 @@ namespace Majorsilence.Forms
             CalculateDialogSize ();
         }
 
+        /// <summary>The buttons each <see cref="MessageBoxButtons"/> set shows, in left-to-right order.</summary>
+        /// <remarks>
+        /// Four of the seven sets used to fall through to a lone OK button that returned
+        /// <see cref="DialogResult.OK"/>: <c>YesNoCancel</c>, <c>AbortRetryIgnore</c>,
+        /// <c>RetryCancel</c> and <c>CancelTryContinue</c>. A "Save changes? Yes / No / Cancel" prompt
+        /// therefore offered one button and told the caller Yes — silently taking the destructive
+        /// branch of a three-way decision. That is why this is a table rather than a switch: a set
+        /// nobody wrote a case for is now a compile-time hole, not a wrong answer at runtime.
+        /// </remarks>
+        private static (string Text, DialogResult Result)[] ButtonsFor (MessageBoxButtons buttons) => buttons switch {
+            MessageBoxButtons.OK => [("OK", DialogResult.OK)],
+            MessageBoxButtons.OKCancel => [("OK", DialogResult.OK), ("Cancel", DialogResult.Cancel)],
+            MessageBoxButtons.AbortRetryIgnore =>
+                [("Abort", DialogResult.Abort), ("Retry", DialogResult.Retry), ("Ignore", DialogResult.Ignore)],
+            MessageBoxButtons.YesNoCancel =>
+                [("Yes", DialogResult.Yes), ("No", DialogResult.No), ("Cancel", DialogResult.Cancel)],
+            MessageBoxButtons.YesNo => [("Yes", DialogResult.Yes), ("No", DialogResult.No)],
+            MessageBoxButtons.RetryCancel => [("Retry", DialogResult.Retry), ("Cancel", DialogResult.Cancel)],
+            MessageBoxButtons.CancelTryContinue =>
+                [("Cancel", DialogResult.Cancel), ("Try Again", DialogResult.TryAgain), ("Continue", DialogResult.Continue)],
+            _ => [("OK", DialogResult.OK)],
+        };
+
         private void AddButtons (MessageBoxButtons buttons)
         {
             button_panel.Controls.Clear ();
 
-            switch (buttons) {
-                case MessageBoxButtons.YesNo: {
-                    var no = button_panel.Controls.Add (new Button { Text = "No", Width = 80, Top = 8, Left = 10 });
-                    no.Click += (_, _) => DialogResult = DialogResult.No;
+            // Added in reading order; CenterButtons lays them out left to right in collection order, so
+            // the collection order is the visual order. The previous hand-written cases added the
+            // secondary button first, which put No before Yes and Cancel before OK.
+            var left = 10;
 
-                    var yes = button_panel.Controls.Add (new Button { Text = "Yes", Width = 80, Top = 8, Left = 100 });
-                    yes.Click += (_, _) => DialogResult = DialogResult.Yes;
-                    break;
-                }
-                case MessageBoxButtons.OKCancel: {
-                    var cancel = button_panel.Controls.Add (new Button { Text = "Cancel", Width = 80, Top = 8, Left = 10 });
-                    cancel.Click += (_, _) => DialogResult = DialogResult.Cancel;
-
-                    var ok = button_panel.Controls.Add (new Button { Text = "OK", Width = 80, Top = 8, Left = 100 });
-                    ok.Click += (_, _) => DialogResult = DialogResult.OK;
-                    break;
-                }
-                default: {
-                    var ok = button_panel.Controls.Add (new Button { Text = "OK", Width = 80, Top = 8, Left = 10 });
-                    ok.Click += (_, _) => DialogResult = DialogResult.OK;
-                    break;
-                }
+            foreach (var (text, result) in ButtonsFor (buttons)) {
+                var button = button_panel.Controls.Add (new Button { Text = text, Width = 80, Top = 8, Left = left });
+                button.Click += (_, _) => DialogResult = result;
+                left += 90;
             }
         }
 

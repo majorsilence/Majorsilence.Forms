@@ -518,7 +518,7 @@ control and its exclusive ancestors → `Validating`/`Validated` → `Enter` on 
 
 ---
 
-### Phase 3 — Form and application lifecycle (RC-3, RC-10)
+### Phase 3 — Form and application lifecycle (RC-3, RC-10) — **W3.1, W3.2, W3.4 DONE**
 
 **W3.1 — Make a form reusable.**
 Reset `_loadFired`, `_formClosedFired`, `shown`, `visible` and `dialog_result` when the window is
@@ -835,13 +835,14 @@ authoritative list and this table as the map of the big ones.
 | 0 — Make it measurable | **Done.** Three baseline gates and the event recorder; 8 self-tests. |
 | 1 — The keyboard chain | **Done.** The chain is dispatched, controls can claim keys, menu shortcuts and access keys work; 25 tests. |
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
-| 3 — Form and application lifecycle | Not started. |
+| 3 — Form and application lifecycle | **Partly done.** W3.1–W3.2 and W3.4 landed (reuse, real modal dialogs, `Application` lifecycle); 16 tests. W3.3 (owner graph), W3.5 (title bar) and W3.6 (`AutoScaleMode`) outstanding. |
 | 4 — Data binding | Not started. |
 | 5 — Per-control behaviour | Not started. |
 | 6 — Mechanical sweeps | Not started. |
 
-Suite: **3926 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
-gate still reports zero for both surfaces. The stored-only baseline is down from 822 to 812.
+Suite: **3942 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
+gate still reports zero for both surfaces. Baselines: inert events 80 → 79, unraised events 130 → 127,
+stored-only properties 822 → 812.
 
 ### What phase 0 found
 
@@ -869,6 +870,35 @@ for a table it does not model, and the optimiser emits shapes Debug does not, so
 Release assembly having passed on Debug. The gate now filters by table byte before converting — which
 also contains any future alignment slip, since a garbage operand rarely carries one of the six valid
 bytes. CI runs Release; a gate that only works in Debug is not a gate.
+
+### What phase 3 found
+
+**Making the ownerless dialog modal hung the test suite rather than failing it.** `RadGridExportTests`
+had a comment explaining, at length, that `MessageBox.Show` with no owner "falls back to a non-modal
+Show() and returns DialogResult.OK immediately" and leaks the form for the caller to clean up — the
+divergence written down as intended behaviour. With the fix the call correctly waits for an answer
+nobody gives. The test now dismisses the dialog through the UI queue and asserts `Cancel`, on a
+background thread with a join timeout so the next regression here fails in ten seconds instead of
+wedging CI. **A test that documents a bug is the most expensive kind to have**: it reads as
+justification rather than as a defect.
+
+**Disposing a form from its own close re-entered the close sequence.** `Form.Close` calls
+`CompleteClose` after the backend callback has already run it, so the "was this modal?" test answered
+differently the second time and disposed a dialog out from under the caller about to read its
+`DialogResult`. Two existing tests caught the first version — `Closed`/`FormClosed` fired twice, and
+`ApplicationContext.ExitThreadCore` was notified twice. The decision now lives in the re-entrancy-
+guarded backend path with `wasModal` captured before anything clears it.
+
+**`IsHandleCreated` and the `HandleCreated` event were two different moments.** The property is
+`shown`, set by `MarkHandleCreated`; the event is forwarded to the root adapter and raised by
+`Control.CreateControl`. Fixing the property's timing alone left the event still arriving after `Load`,
+so an override and a subscription still disagreed. Both are now before `Load`, as upstream.
+
+**`Application.Exit` and `OpenForms` are process-wide, which limits what can honestly be tested.** The
+suite runs collections in parallel, so a test that completed an `Exit` would close other tests' forms
+and fail them for the wrong reason. The `Exit` tests here end in a cancelled close — real coverage of
+the `OpenForms` walk and the cancel contract, no teardown — and `Restart` is not tested at all, because
+it relaunches the test host. Worth stating rather than quietly leaving a gap.
 
 ### What phase 2 found
 
