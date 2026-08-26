@@ -1,5 +1,18 @@
 ﻿# Backlog
 
+## Behavioural gaps: the stub audit
+
+**The big one.** Both API-surface gap plans are at zero — every WinForms and GDI+ member that upstream
+has, this layer now declares. What a name-level scanner cannot see is whether the member *does* what
+WinForms does, and a twelve-area source audit (2026-08-25) found **483 places where it does not**: 41
+P0, 223 P1. A third of the core's settable auto-properties (263 of 777) are read nowhere in the
+assembly; 84 events are declared `add { } remove { }` and discard their handler; the entire keyboard
+pre-processing chain (`ProcessCmdKey` and friends) is declared and never dispatched.
+
+Findings, root causes and a phased plan: [`docs/behaviour-gap-plan.md`](docs/behaviour-gap-plan.md).
+Per-area detail with both sides cited: [`docs/behaviour-gap/`](docs/behaviour-gap/).
+
+
 ## HiDPI
 
 Covered in CI: the full suite runs under `MF_HEADLESS_SCALE=2` and passes

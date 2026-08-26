@@ -1,0 +1,382 @@
+# Public settable auto-properties in Majorsilence.Forms whose name never appears anywhere in the
+# assembly outside their own declaration -- they are set by application code, read back, and
+# consumed by nothing. Generated 2026-08-25 by a source scan; see docs/behaviour-gap-plan.md.
+#
+# CAVEATS. This is a source-level approximation of the IL gate proposed in that plan, and it is
+# both over- and under-inclusive:
+#   - Over: some entries are legitimately inert. `Tag` is application storage by definition;
+#     FileDialog.ClientGuid and the Win32 shell extras have no portable meaning; a few are read
+#     only by application or designer code via reflection.
+#   - Under: it only sees auto-properties. A property with an explicit backing field that nothing
+#     reads looks identical to a working one here, so the real figure is higher.
+# The IL gate should replace this file; until then it is the working list.
+#
+# 263 of 777 public settable auto-properties (34%).
+
+
+[Application.cs]
+  SafeTopLevelCaptionFormat
+
+[BindingSource.cs]
+  AllowEdit
+
+[ButtonRenderer.cs]
+  RenderMatchingApplicationState
+
+[CheckedListBox.cs]
+  CheckOnClick
+  ThreeDCheckBoxes
+
+[Compat/DataGrid.cs]
+  FlatMode
+  ParentRowsBackColor
+  ParentRowsForeColor
+
+[Control.cs]
+  UseVisualStyleBackColor
+
+[ControlAndFormParity.cs]
+  AutoScale
+  AutoScrollOffset
+  FormScreenCaptureMode
+  MdiChildrenMinimizedAnchorBottom
+
+[DataGridView.cs]
+  FirstDisplayedScrollingColumnIndex
+  HorizontalScrollingOffset
+  SortedColumn
+  StandardTab
+
+[DataGridViewCompat.cs]
+  SortResult
+
+[DataGridViewFamilyParity.cs]
+  AutoComplete
+  DisplayStyleForCurrentCellOnly
+  DividerHeight
+  IndeterminateValue
+
+[DataGridViewParity.cs]
+  ShowCellErrors
+  ShowCellToolTips
+  ShowEditingIcon
+  ShowRowErrors
+
+[DateTimePicker.cs]
+  CalendarFont
+  CalendarForeColor
+  CalendarMonthBackground
+  CalendarTitleBackColor
+  CalendarTitleForeColor
+  ShowUpDown
+
+[Design.cs]
+  AllowAssociate
+  AutoResizeHandles
+  AutoShow
+  RelatedComponent
+  ShowItemInSourceView
+  StartLocation
+
+[Drawing/BufferedGraphics.cs]
+  MaximumBuffer
+
+[Form.cs]
+  AutoScaleBaseSize
+  ControlBox
+  HelpButton
+  MainMenuStrip
+  ShowIcon
+  TransparencyKey
+
+[Graphics.cs]
+  PageScale
+  PageUnit
+  RenderingOrigin
+  TextContrast
+
+[ImageList.cs]
+  TransparentColor
+
+[ListBox.cs]
+  ColumnWidth
+  HorizontalExtent
+  HorizontalScrollbar
+  MultiColumn
+  ScrollAlwaysVisible
+  UseTabStops
+
+[ListView.cs]
+  AllowColumnReorder
+  AutoArrange
+  GridLines
+  HeaderStyle
+  HoverSelection
+  LabelEdit
+  LabelWrap
+  ListViewItemSorter
+  ShowGroups
+  ShowItemToolTips
+  StateImageList
+  UseCompatibleStateImageBehavior
+  VirtualListSize
+
+[ListViewItem.cs]
+  IndentCount
+  StateImageIndex
+  UseItemStyleForSubItems
+
+[ListViewParity.cs]
+  AppearsAfterItem
+  BackgroundImageTiled
+  CollapsedState
+  FooterAlignment
+  GroupImageList
+  HotTracking
+  Subtitle
+  TaskLink
+  TileSize
+  TitleImageIndex
+  TitleImageKey
+
+[MaskedTextBox.cs]
+  BeepOnError
+  CutCopyMaskFormat
+  HidePromptOnLeave
+  TextMaskFormat
+
+[MidSizeControlParity.Two.cs]
+  AllowPromptAsInput
+  AutoWordSelection
+  LanguageOption
+  RejectInputOnFirstFailure
+  ResetOnPrompt
+  ResetOnSpace
+  RichTextShortcutsEnabled
+  RightMargin
+  SelectionTabs
+  ShowNodeToolTips
+  ShowSelectionMargin
+  SkipLiterals
+
+[MidSizeControlParity.cs]
+  AllowWebBrowserDrop
+  BrowsableAttributes
+  CanShowVisualStyleGlyphs
+  CategoryForeColor
+  CategorySplitterColor
+  CommandsActiveLinkColor
+  CommandsBackColor
+  CommandsBorderColor
+  CommandsDisabledLinkColor
+  CommandsForeColor
+  CommandsLinkColor
+  DisabledItemForeColor
+  DocumentStream
+  HelpBorderColor
+  IsOffline
+  LargeButtons
+  ObjectForScripting
+  ScrollChange
+  SelectedItemWithFocusBackColor
+  SelectedItemWithFocusForeColor
+  ViewBorderColor
+
+[MissingTypesParity.cs]
+  AutoInstall
+  UseSystemColors
+
+[MonthCalendar.cs]
+  ShowTodayCircle
+  ShowWeekNumbers
+  TitleBackColor
+  TitleForeColor
+  TrailingForeColor
+
+[NumericUpDown.cs]
+  Hexadecimal
+  InterceptArrowKeys
+  ThousandsSeparator
+  UpDownAlign
+  UserEdit
+
+[PictureBox.cs]
+  ErrorImage
+  InitialImage
+  WaitOnLoad
+
+[PrintDialog.cs]
+  AllowMargins
+  AllowOrientation
+  AllowPaper
+  AllowPrintToFile
+  AllowPrinter
+  AllowSelection
+  AllowSomePages
+  UseAntiAlias
+
+[Printing/PrintDocument.cs]
+  OriginAtMargins
+
+[PropertyGrid.cs]
+  CommandsVisibleIfAvailable
+  HelpBackColor
+  HelpForeColor
+  HelpVisible
+  ToolbarVisible
+
+[RemainingMemberParity.cs]
+  AdvancedBorderStyle
+  IsInEditOrNavigateMode
+  LiveSetting
+  NewTab
+  OldTab
+  ScaleScrollBarForDpiChange
+  ScriptsOnly
+  SortGlyphDirection
+  ValueIsIcon
+
+[RemainingParity.cs]
+  CheckWriteAccess
+  CountItemFormat
+  CursorOffset
+  ExpandedMode
+  MessageReplacementToken
+  SelectReadOnly
+  ShowPreview
+  UseDefaultDragImage
+
+[RichTextBox.cs]
+  BulletIndent
+  DetectUrls
+  EnableAutoDragDrop
+  SelectionAlignment
+  SelectionBold
+  SelectionBullet
+  SelectionCharOffset
+  SelectionFont
+  SelectionHangingIndent
+  SelectionIndent
+  SelectionItalic
+  SelectionProtected
+  SelectionRightIndent
+  SelectionUnderline
+  ZoomFactor
+
+[SkiaSharpViews.cs]
+  VSync
+
+[SplitContainer.cs]
+  IsSplitterFixed
+  Panel1MinSize
+  Panel2MinSize
+  SplitterIncrement
+
+[StatusBar.cs]
+  MinWidth
+  ShowPanels
+
+[SystemFeatures.cs]
+  LoadTimeout
+
+[TabControl.cs]
+  ItemSize
+  ShowToolTips
+
+[TailParity.Two.cs]
+  AutoZoom
+  CalendarTrailingForeColor
+  DropDownAlign
+  Wrap
+
+[TailParity.cs]
+  AutoClose
+  AutoUpgradeEnabled
+  ClientGuid
+  DropDownArrows
+  DropShadowEnabled
+  HotSpot
+  OkRequiresInteraction
+  RowMargin
+  ShowHiddenFiles
+  ShowPinnedPlaces
+  VisualStylesEnabled
+  Wrappable
+
+[TaskDialogParity.cs]
+  AllowCancel
+  CollapsedButtonText
+  EnableLinks
+  ExpandedButtonText
+  MarqueeSpeed
+  ShowShieldIcon
+  SizeToContent
+
+[ToolBar.cs]
+  ButtonSize
+  DropDownMenu
+  PartialPush
+
+[ToolStripHostParity.cs]
+  ControlAlign
+
+[ToolStripParity.cs]
+  AllowClickThrough
+  AllowItemReorder
+  AllowMerge
+  AutoToolTip
+  DefaultDropDownDirection
+  DoubleClickEnabled
+  GripMargin
+  ImageTransparentColor
+  OverflowButton
+  RightToLeftAutoMirrorImage
+
+[ToolTip.cs]
+  ShowAlways
+  StripAmpersands
+  ToolTipTitle
+  UseAnimation
+  UseFading
+
+[TreeView.cs]
+  PathSeparator
+  ShowLines
+  ShowPlusMinus
+  ShowRootLines
+  TreeViewNodeSorter
+
+[TreeViewItem.cs]
+  NodeFont
+
+[WebBrowser.cs]
+  IsWebBrowserContextMenuEnabled
+  ScriptErrorsSuppressed
+  ScrollBarsEnabled
+  WebBrowserShortcutsEnabled
+
+[WinFormsBaseControls.cs]
+  DropDownDirection
+
+[WinFormsCompat.cs]
+  BorderSides
+  CheckedBackColor
+  ClassStyle
+  DefaultDataSourceUpdateMode
+  ExStyle
+  GripVisible
+  HelpKeyword
+  HelpNamespace
+  HelpString
+  IsLink
+  ItemWidth
+  MouseDownBackColor
+  Param
+  RoundedEdges
+  ShortcutKeyDisplayString
+  ShowShortcutKeys
+
+[WinFormsEvents.cs]
+  BubbleEvent
+  DaysToBold
+  ToolTipSize
