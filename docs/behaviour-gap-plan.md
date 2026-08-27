@@ -518,7 +518,7 @@ control and its exclusive ancestors → `Validating`/`Validated` → `Enter` on 
 
 ---
 
-### Phase 3 — Form and application lifecycle (RC-3, RC-10) — **W3.1–W3.4 DONE**
+### Phase 3 — Form and application lifecycle (RC-3, RC-10) — **W3.1–W3.5 DONE**
 
 **W3.1 — Make a form reusable.**
 Reset `_loadFired`, `_formClosedFired`, `shown`, `visible` and `dialog_result` when the window is
@@ -548,34 +548,34 @@ cascade, and disabling *all* windows for a modal rather than only the owner.
 process dying; `Restart()` relaunching.
 *Closes:* `FRM-21`–`FRM-25`. *Files:* `Application.cs`, both backends' loops.
 
-**W3.5 — Take the title bar out of the client area.** *(attempted and reverted once — read this first)*
-`FormTitleBar` is a child of `Controls`, so `ClientSize`, `ClientRectangle`, `DisplayRectangle`,
-designer `Location`s, `SystemInformation.CaptionHeight` and `PointToClient` all disagree with WinForms
-by the caption height — every designer-built form is laid out one caption too low on Windows/Linux.
-*Closes:* `FRM-06` (P0), `FRM-39`. *Risk:* **high**, touches every form's geometry. Own branch, own
-review; `GestureTests`' title-bar offsets need updating with it.
+**W3.5 — Take the title bar out of the client area. — DONE**
+`FormTitleBar` was an implicit child of the collection `Form.Controls` hands out, and `ClientSize`
+reported the whole backend surface, caption included. There is now an implicit `FormClientArea`
+(a fill-docked `ScrollableControl`) beside it, and `Form.Controls`/`ContentRoot` hand out *its*
+collection — so `(0, 0)` is below the caption, `ClientSize`/`ClientRectangle` describe the usable
+region, and `SetClientSizeCore` adds the caption back when sizing the window. `SystemInformation.CaptionHeight`
+now reports the height actually drawn instead of a constant four pixels short of it.
 
-**What a first attempt cost, so the next one starts further along.** The approach tried was the
-finding's option (a) in container form: an implicit `FormClientArea` docked `Fill` inside the root
-adapter, alongside the title bar, with `Form.Controls` handing out *its* collection so `(0, 0)` means
-"below the caption" and every existing layout/hit-test/paint mechanism keeps working unchanged. That
-part is sound and got from 11 failures to 3.
+*Closed:* `FRM-06` (P0), `FRM-39`. 8 contract tests.
 
-Two things it needs that are not obvious up front:
+**Three things this cost, worth knowing before touching the same area:**
 
-- **`WindowBase` forwards far more to `adapter` than `Controls`.** Roughly a dozen members mean "the
-  client surface" rather than "the window": `Padding`, `Contains`, `HasChildren`, `ContextMenu(Strip)`,
-  `ImeMode`, the `BackColorChanged`/`ForeColorChanged`/`PaddingChanged`/`ControlAdded`/`ControlRemoved`
-  forwards, the `AutoScroll*` family, and `Form`'s own mouse-event forwards. An
-  `internal virtual Control ContentRoot => adapter` seam (overridden on `Form`) handles them in one
-  place; `AutoScroll*` needs a `ScrollableControl`-typed variant, and the client area must itself be a
-  `ScrollableControl` because that is the type whose `DisplayRectangle` is deflated by `Padding`.
-- **The blocker was paint depth, not layout.** `ChildPaintParityTests` fails with the extra level. The
-  adapter is `0x0` on a form that was sized but never shown (pre-existing — `SyncAdapterBounds` has not
-  run), and a control parented to a `0x0` adapter painted fine while the same control parented to a
-  `0x0` client area inside a `0x0` adapter does not. Something in the paint path is sensitive to
-  nesting depth or to a zero-sized intermediate; that is the thing to understand before trying again,
-  and it is worth fixing on its own terms regardless of this item.
+- **`WindowBase` forwards about a dozen members to `adapter` that mean "the client surface", not
+  "the window":** `Padding`, `Contains`, `HasChildren`, `ContextMenu(Strip)`, `ImeMode`, the
+  `BackColorChanged`/`ForeColorChanged`/`PaddingChanged`/`ControlAdded`/`ControlRemoved` forwards, the
+  `AutoScroll*` family, and `Form`'s own mouse-event forwards. An `internal virtual Control ContentRoot`
+  seam handles them in one place. The client area has to be a `ScrollableControl` because that is the
+  type whose `DisplayRectangle` is deflated by `Padding`.
+- **Do not suppress the container's painting with a transparent background colour.**
+  `GetEffectiveBackgroundColor` resolves ambient colour by walking the *parent chain*, so an explicit
+  transparent on the client area becomes the answer for every descendant: buttons and labels paint
+  transparent and whatever is behind them shows through, which reads exactly like a child being
+  overpainted by its parent. Override `OnPaintBackground` to do nothing instead. This was the entire
+  cause of a first attempt's failures, initially and wrongly diagnosed as paint sensitivity to nesting
+  depth — a probe showed a zero-sized intermediate paints its children perfectly well.
+- **Dock layout runs in z-order and the loop walks children backwards**, so the last child added is
+  docked first. The `Fill` client area therefore has to be added *before* the `Top` title bar, or it
+  claims the whole window before the caption takes its strip.
 
 **W3.6 — `AutoScaleMode` / `AutoScaleDimensions`.** Stored-only today. Every designer file emits them
 and expects font-ratio scaling. *Closes:* `FRM-17`. *Risk:* medium-high — interacts with W3.5 and RC-8.
@@ -857,12 +857,12 @@ authoritative list and this table as the map of the big ones.
 | 0 — Make it measurable | **Done.** Three baseline gates and the event recorder; 8 self-tests. |
 | 1 — The keyboard chain | **Done.** The chain is dispatched, controls can claim keys, menu shortcuts and access keys work; 25 tests. |
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
-| 3 — Form and application lifecycle | **Mostly done.** W3.1–W3.4 landed (reuse, real modal dialogs, the owner graph, `Application` lifecycle); 27 tests. W3.5 (title bar) attempted and reverted — see its entry. W3.6 (`AutoScaleMode`) outstanding, and blocked on W5.17. |
+| 3 — Form and application lifecycle | **W3.1–W3.5 done** (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) outstanding, and blocked on W5.17. |
 | 4 — Data binding | Not started. |
 | 5 — Per-control behaviour | Not started. |
 | 6 — Mechanical sweeps | Not started. |
 
-Suite: **3954 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
+Suite: **3962 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
 gate still reports zero for both surfaces. Baselines: inert events 80 → 79, unraised events 130 → 127,
 stored-only properties 822 → 812.
 
@@ -895,12 +895,14 @@ bytes. CI runs Release; a gate that only works in Debug is not a gate.
 
 ### What phase 3 found
 
-**W3.5 was attempted and reverted.** The title-bar item is the plan's own high-risk P0 and it lived up
-to it: the container approach is right and got most of the way, but it exposed a paint-path
-sensitivity to nesting depth that wanted understanding rather than more guessing. What the attempt
-learned is written into W3.5's entry above so the next attempt starts from it instead of rediscovering
-it. Reverting was cheap and the alternative — shipping a structural P0 with a known paint regression —
-was not a trade worth making.
+**W3.5 took two attempts, and the first diagnosis was wrong.** The title-bar item is the plan's own
+high-risk P0. The first attempt failed three paint tests and I read that as the extra nesting level
+upsetting the paint path; the second attempt began by writing a probe for exactly that, which passed —
+a zero-sized intermediate paints its children perfectly well. The real cause was one line of the first
+attempt's own setup: setting the client area's background to transparent, which ambient colour
+resolution then handed to every descendant. Reverting rather than pushing on was still right, but the
+lesson is narrower than "this area is dangerous": **the failing tests were describing a colour problem
+and I read them as a geometry problem.** Both attempts are written up in W3.5's entry.
 
 **Making the ownerless dialog modal hung the test suite rather than failing it.** `RadGridExportTests`
 had a comment explaining, at length, that `MessageBox.Show` with no owner "falls back to a non-modal

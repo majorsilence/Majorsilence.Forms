@@ -46,7 +46,16 @@ namespace Majorsilence.Forms
         {
             InitWindow (Majorsilence.Forms.Backends.Platform.Backend.CreateWindow (this, isPopup: false));
 
-            TitleBar = Controls.AddImplicitControl (new FormTitleBar ());
+            // Both are implicit children of the root adapter; `Controls` hands out the CLIENT area's
+            // collection, so the title bar is invisible to application code and takes no space from
+            // it -- which is what makes (0, 0) mean "below the caption", as it does in WinForms.
+            //
+            // The client area is added FIRST even though it sits second on screen. Dock layout runs in
+            // z-order and the loop walks children BACKWARDS (DockAndAnchorLayout: "we decided to use
+            // z-order as the docking order"), so the last child added is docked first. Adding the Fill
+            // last would have let it claim the whole window before the caption had taken its strip.
+            client_area = adapter.Controls.AddImplicitControl (new FormClientArea ());
+            TitleBar = adapter.Controls.AddImplicitControl (new FormTitleBar ());
 
             Resizeable = true;
             Backend.SetSystemDecorations (false);
@@ -67,12 +76,12 @@ namespace Majorsilence.Forms
             // MouseDown/MouseMove/Leave; Form itself just didn't expose them. Needed for
             // top-level windows that track the mouse over their own surface directly (e.g.
             // borderless popup pickers), the same way ported WinForms code commonly does on Form.
-            adapter.Click += (s, e) => OnClick (e);
-            adapter.MouseDown += (s, e) => OnMouseDown (e);
-            adapter.MouseUp += (s, e) => OnMouseUp (e);
-            adapter.MouseMove += (s, e) => OnMouseMove (e);
-            adapter.MouseClick += (s, e) => OnMouseClick (e);
-            adapter.MouseLeave += (s, e) => Leave?.Invoke (this, e);
+            client_area.Click += (s, e) => OnClick (e);
+            client_area.MouseDown += (s, e) => OnMouseDown (e);
+            client_area.MouseUp += (s, e) => OnMouseUp (e);
+            client_area.MouseMove += (s, e) => OnMouseMove (e);
+            client_area.MouseClick += (s, e) => OnMouseClick (e);
+            client_area.MouseLeave += (s, e) => Leave?.Invoke (this, e);
         }
 
         /// <summary>
@@ -1071,9 +1080,39 @@ namespace Majorsilence.Forms
         /// <summary>Gets the currently active form (the most recently focused open form).</summary>
         public static Form? ActiveForm => Application.OpenForms.LastOrDefault ();
 
-        /// <summary>Gets or sets the client area size (equivalent to Size for Majorsilence.Forms).</summary>
+        /// <summary>
+        /// The height the library's own title bar takes off the top of the window, or zero when the
+        /// caption is the OS's or there is none.
+        /// </summary>
+        /// <remarks>
+        /// The caption is non-client in WinForms terms, so it is exactly the difference between the
+        /// window's backend client size and the <see cref="ClientSize"/> the application sees.
+        /// </remarks>
+        internal int NonClientCaptionHeight => TitleBar is { Visible: true, NativeOverlay: false }
+            ? TitleBar.PreferredHeight
+            : 0;
+
+        /// <inheritdoc/>
+        private protected override System.Drawing.Size ClientAreaSize {
+            get {
+                var size = base.ClientAreaSize;
+                return new System.Drawing.Size (size.Width, Math.Max (0, size.Height - NonClientCaptionHeight));
+            }
+        }
+
+        /// <summary>Gets or sets the size of the form's client area — the region below the caption.</summary>
+        /// <remarks>
+        /// This reported the whole backend client size, caption included, and assigning it sized the
+        /// window to exactly that. Since the library draws its own title bar everywhere but macOS, a
+        /// designer form built as <c>ClientSize = (800, 450)</c> got 450 pixels of which the top
+        /// caption-height was behind the caption -- so the first row of controls was hidden and an
+        /// <c>Anchor = Bottom</c> row hung off the bottom of the window by the same amount.
+        /// </remarks>
         public System.Drawing.Size ClientSize {
-            get => Size;
+            get {
+                var size = Size;
+                return new System.Drawing.Size (size.Width, Math.Max (0, size.Height - NonClientCaptionHeight));
+            }
             set => SetClientSizeCore (value.Width, value.Height);
         }
 
@@ -1085,7 +1124,8 @@ namespace Majorsilence.Forms
         /// base implementation just forwards; a Windows-only override that adjusts for a non-client
         /// border still compiles and runs here, it just has no border to adjust for.
         /// </summary>
-        protected virtual void SetClientSizeCore (int x, int y) => Size = new System.Drawing.Size (x, y);
+        protected virtual void SetClientSizeCore (int x, int y)
+            => Size = new System.Drawing.Size (x, y + NonClientCaptionHeight);
 
         /// <summary>Gets or sets the automatic scaling mode.</summary>
         /// <remarks>
@@ -1675,6 +1715,65 @@ namespace Majorsilence.Forms
                 form.Owner = null;
             else
                 _ownedForms?.Remove (form);
+        }
+
+        private readonly FormClientArea client_area;
+
+        /// <summary>The controls inside the form's client area — everything below the title bar.</summary>
+        /// <remarks>
+        /// This used to hand out the root adapter's collection, which spans the whole window including
+        /// the title bar the library draws. Every designer form therefore lost its top caption-height
+        /// of usable area: a child at (0, 0) sat behind the caption, <c>ClientSize</c> counted space the
+        /// application could not use, and an <c>Anchor = Bottom</c> row was pushed off the window by the
+        /// same amount. Upstream's caption is non-client and (0, 0) is below it.
+        /// </remarks>
+        public override Control.ControlCollection Controls => client_area.Controls;
+
+        /// <inheritdoc/>
+        internal override Control ContentRoot => client_area;
+
+        /// <summary>
+        /// The form's client region: a fill-docked container holding everything the application puts
+        /// on the form.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A container rather than a coordinate offset because everything downstream — dock and anchor
+        /// layout, hit-testing, painting, focus traversal — already handles nesting. Offsetting the
+        /// adapter instead would have meant teaching each of those about a region that is not where the
+        /// control says it is.
+        /// </para>
+        /// <para>
+        /// A <see cref="ScrollableControl"/> specifically, matching the adapter it takes over from:
+        /// that is the type whose <c>DisplayRectangle</c> is deflated by <c>Padding</c>, so the form's
+        /// padding still insets docked children, and the one <c>AutoScroll</c> forwards to.
+        /// </para>
+        /// </remarks>
+        private sealed class FormClientArea : ScrollableControl
+        {
+            public FormClientArea ()
+            {
+                Dock = DockStyle.Fill;
+
+                // Chrome, not content: it must never take focus.
+                SetControlBehavior (ControlBehaviors.Selectable, false);
+                TabStop = false;
+            }
+
+            /// <summary>Paints nothing of its own.</summary>
+            /// <remarks>
+            /// The window paints the background and border (WindowBase.RenderFrame) and the form's own
+            /// Paint handler draws over that, so painting here would cover both.
+            /// <para>
+            /// Suppressed by overriding the paint rather than by setting this control's background to
+            /// transparent, which is the trap that sank the first attempt at this change: ambient
+            /// colour is resolved by walking the PARENT CHAIN, so an explicit transparent here became
+            /// the answer for every descendant. Buttons and labels then painted transparent and
+            /// whatever was behind them showed through, which reads exactly like a child being
+            /// overpainted by its parent.
+            /// </para>
+            /// </remarks>
+            protected override void OnPaintBackground (PaintEventArgs e) { }
         }
 
         /// <summary>Gets or sets the MenuStrip that is the main menu for the form.</summary>

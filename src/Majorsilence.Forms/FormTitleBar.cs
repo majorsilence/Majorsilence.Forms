@@ -156,10 +156,13 @@ namespace Majorsilence.Forms
                     + (minimize_button.Visible ? minimize_button.Width : 0);
 
         // The preferred title-bar height, used to size the extended (merged) title-bar region.
-        internal int PreferredHeight => DefaultSize.Height;
+        internal int PreferredHeight => CaptionHeight;
+
+        /// <summary>The height a form's caption is drawn at, and what SystemInformation reports.</summary>
+        internal const int CaptionHeight = 34;
 
         /// <inheritdoc/>
-        protected override Size DefaultSize => new Size (600, 34);
+        protected override Size DefaultSize => new Size (600, CaptionHeight);
 
         /// <inheritdoc/>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,

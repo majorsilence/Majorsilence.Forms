@@ -404,8 +404,31 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the window is closed.</summary>
         public event EventHandler? Closed;
 
+        /// <summary>
+        /// The control standing in for the window's CLIENT surface — what application code puts
+        /// controls on, and what the window-level members that describe the client area forward to.
+        /// </summary>
+        /// <remarks>
+        /// The root <c>adapter</c> spans the whole window, chrome included. On a <see cref="Form"/>
+        /// that chrome is a title bar this library draws itself, so the two differ, and it is the
+        /// client half that <c>Padding</c>, the ambient properties, the context menu and the forwarded
+        /// control events mean. Everything genuinely about the window as a whole — bounds, painting,
+        /// the input entry point, the focus root — stays on <c>adapter</c>.
+        /// </remarks>
+        internal virtual Control ContentRoot => adapter;
+
+        /// <summary>
+        /// <see cref="ContentRoot"/> as a <see cref="ScrollableControl"/>, for the <c>AutoScroll</c>
+        /// surface.
+        /// </summary>
+        internal ScrollableControl ContentScrollRoot => ContentRoot as ScrollableControl ?? adapter;
+
         /// <summary>Gets the collection of controls contained by the window.</summary>
-        public Control.ControlCollection Controls => adapter.Controls;
+        /// <remarks>
+        /// Virtual because <see cref="Form"/> separates client from non-client: the title bar it draws
+        /// must not appear in — or take space from — the collection application code sees.
+        /// </remarks>
+        public virtual Control.ControlCollection Controls => adapter.Controls;
 
         /// <summary>Gets or sets the window's default font. Mirrors WinForms Form.Font; forwarded to
         /// the root control adapter so child controls inherit it.</summary>
@@ -581,6 +604,11 @@ namespace Majorsilence.Forms
 
             adapter.SetBounds (borderLeft, borderTop, logicalW, logicalH);
             adapter.PerformLayout ();
+
+            // The adapter's pass places the chrome and the client area; the controls the application
+            // added live one level further in and need their own. A no-op when the two are the same.
+            if (!ReferenceEquals (ContentRoot, adapter))
+                ContentRoot.PerformLayout ();
             OnClientLayoutChanged ();
             OnResize (EventArgs.Empty);
         }
@@ -617,8 +645,15 @@ namespace Majorsilence.Forms
         /// is inherited for free on a WinForms Form; here Form derives from this type rather than from
         /// Control, so it has to be declared.
         /// </summary>
+        /// <remarks>
+        /// The client region, so on a <see cref="Form"/> drawing its own caption this excludes it —
+        /// the same region <see cref="Form.ClientSize"/> reports and the one a child at (0, 0) sits in.
+        /// </remarks>
         public System.Drawing.Rectangle ClientRectangle =>
-            new System.Drawing.Rectangle (System.Drawing.Point.Empty, Backend.ClientSize);
+            new System.Drawing.Rectangle (System.Drawing.Point.Empty, ClientAreaSize);
+
+        // Backend.ClientSize spans the whole window; Form narrows it to exclude the caption it draws.
+        private protected virtual System.Drawing.Size ClientAreaSize => Backend.ClientSize;
 
         internal virtual bool HandleMouseDown (int x, int y) => false;
 
@@ -777,35 +812,35 @@ namespace Majorsilence.Forms
         /// reads as the form's menu being broken rather than absent.
         /// </remarks>
         public ContextMenuStrip? ContextMenuStrip {
-            get => adapter.ContextMenuStrip;
-            set => adapter.ContextMenuStrip = value;
+            get => ContentRoot.ContextMenuStrip;
+            set => ContentRoot.ContextMenuStrip = value;
         }
 
         /// <summary>Gets or sets the legacy context menu shown when the window is right-clicked.</summary>
         /// <inheritdoc cref="ContextMenuStrip" path="/remarks"/>
         public virtual ContextMenu? ContextMenu {
-            get => adapter.ContextMenu;
-            set => adapter.ContextMenu = value;
+            get => ContentRoot.ContextMenu;
+            set => ContentRoot.ContextMenu = value;
         }
 
         /// <summary>Raised when <see cref="ContextMenu"/> changes.</summary>
         public event EventHandler? ContextMenuChanged {
-            add => adapter.ContextMenuChanged += value;
-            remove => adapter.ContextMenuChanged -= value;
+            add => ContentRoot.ContextMenuChanged += value;
+            remove => ContentRoot.ContextMenuChanged -= value;
         }
 
         /// <summary>Raised when <see cref="ContextMenuStrip"/> changes.</summary>
         public event EventHandler? ContextMenuStripChanged {
-            add => adapter.ContextMenuStripChanged += value;
-            remove => adapter.ContextMenuStripChanged -= value;
+            add => ContentRoot.ContextMenuStripChanged += value;
+            remove => ContentRoot.ContextMenuStripChanged -= value;
         }
 
         /// <summary>Gets or sets the input method editor mode for the window.</summary>
         /// <remarks>Forwarded to the root adapter so the window's children inherit it through the same
         /// chain they inherit a parent control's.</remarks>
         public ImeMode ImeMode {
-            get => adapter.ImeMode;
-            set => adapter.ImeMode = value;
+            get => ContentRoot.ImeMode;
+            set => ContentRoot.ImeMode = value;
         }
 
         /// <summary>Gets the default IME mode for this window type, used by <see cref="ResetImeMode"/>.</summary>
@@ -813,8 +848,8 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when <see cref="ImeMode"/> changes.</summary>
         public event EventHandler? ImeModeChanged {
-            add => adapter.ImeModeChanged += value;
-            remove => adapter.ImeModeChanged -= value;
+            add => ContentRoot.ImeModeChanged += value;
+            remove => ContentRoot.ImeModeChanged -= value;
         }
 
         /// <summary>Resets <see cref="ImeMode"/> to its default. Part of the designer Reset* pattern.</summary>
@@ -1247,14 +1282,14 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the background colour changes. Mirrors <c>Control.BackColorChanged</c>; forwards to the root control adapter.</summary>
         public event EventHandler? BackColorChanged {
-            add => adapter.BackColorChanged += value;
-            remove => adapter.BackColorChanged -= value;
+            add => ContentRoot.BackColorChanged += value;
+            remove => ContentRoot.BackColorChanged -= value;
         }
 
         /// <summary>Raised when the foreground colour changes. Mirrors <c>Control.ForeColorChanged</c>; forwards to the root control adapter.</summary>
         public event EventHandler? ForeColorChanged {
-            add => adapter.ForeColorChanged += value;
-            remove => adapter.ForeColorChanged -= value;
+            add => ContentRoot.ForeColorChanged += value;
+            remove => ContentRoot.ForeColorChanged -= value;
         }
 
         /// <summary>Raised when the cursor changes. Mirrors <c>Control.CursorChanged</c>; forwards to the root control adapter.</summary>
@@ -1265,8 +1300,8 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the padding changes. Mirrors <c>Control.PaddingChanged</c>; forwards to the root control adapter.</summary>
         public event EventHandler? PaddingChanged {
-            add => adapter.PaddingChanged += value;
-            remove => adapter.PaddingChanged -= value;
+            add => ContentRoot.PaddingChanged += value;
+            remove => ContentRoot.PaddingChanged -= value;
         }
 
         /// <summary>Raised when the RightToLeft value changes. Mirrors <c>Control.RightToLeftChanged</c>; forwards to the root control adapter.</summary>
@@ -1355,14 +1390,14 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when a control is added to the window. Mirrors <c>Control.ControlAdded</c>; forwards to the root control adapter.</summary>
         public event ControlEventHandler? ControlAdded {
-            add => adapter.ControlAdded += value;
-            remove => adapter.ControlAdded -= value;
+            add => ContentRoot.ControlAdded += value;
+            remove => ContentRoot.ControlAdded -= value;
         }
 
         /// <summary>Raised when a control is removed from the window. Mirrors <c>Control.ControlRemoved</c>; forwards to the root control adapter.</summary>
         public event ControlEventHandler? ControlRemoved {
-            add => adapter.ControlRemoved += value;
-            remove => adapter.ControlRemoved -= value;
+            add => ContentRoot.ControlRemoved += value;
+            remove => ContentRoot.ControlRemoved -= value;
         }
 
         /// <summary>Raised when a key is previewed before being processed. Mirrors <c>Control.PreviewKeyDown</c>; forwards to the root control adapter.</summary>
@@ -1977,6 +2012,10 @@ namespace Majorsilence.Forms
             // PerformLayout on a not-yet-painted window produce nothing usable.
             SyncAdapterBounds ();
             adapter.PerformLayout ();
+
+            if (!ReferenceEquals (ContentRoot, adapter))
+                ContentRoot.PerformLayout ();
+
             RaiseLayoutForExplicitRequest ();
         }
 
@@ -1986,6 +2025,9 @@ namespace Majorsilence.Forms
         {
             SyncAdapterBounds ();
             adapter.PerformLayout (affectedControl, affectedProperty);
+
+            if (!ReferenceEquals (ContentRoot, adapter))
+                ContentRoot.PerformLayout (affectedControl, affectedProperty);
             RaiseLayoutForExplicitRequest ();
         }
 
@@ -2011,10 +2053,10 @@ namespace Majorsilence.Forms
         protected virtual void OnCreateControl () { }
 
         /// <summary>Gets whether the given control is a child or deeper descendant of this window.</summary>
-        public bool Contains (Control control) => adapter.Contains (control);
+        public bool Contains (Control control) => ContentRoot.Contains (control);
 
         /// <summary>Gets whether the window has any child controls.</summary>
-        public bool HasChildren => adapter.HasChildren;
+        public bool HasChildren => ContentRoot.HasChildren;
 
         /// <summary>Gets the size the window's contents would like to be.</summary>
         public System.Drawing.Size PreferredSize => adapter.PreferredSize;
@@ -2309,8 +2351,8 @@ namespace Majorsilence.Forms
         /// docked and anchored child controls really are inset by it.
         /// </summary>
         public Padding Padding {
-            get => adapter is null ? Padding.Empty : adapter.Padding;
-            set { if (adapter is not null) adapter.Padding = value; }
+            get => adapter is null ? Padding.Empty : ContentRoot.Padding;
+            set { if (adapter is not null) ContentRoot.Padding = value; }
         }
 
         /// <summary>
@@ -2360,26 +2402,26 @@ namespace Majorsilence.Forms
         /// the root control adapter (a <see cref="ScrollableControl"/>), so this really scrolls.
         /// </summary>
         public bool AutoScroll {
-            get => adapter is not null && adapter.AutoScroll;
-            set { if (adapter is not null) adapter.AutoScroll = value; }
+            get => adapter is not null && ContentScrollRoot.AutoScroll;
+            set { if (adapter is not null) ContentScrollRoot.AutoScroll = value; }
         }
 
         /// <summary>Gets or sets the auto-scroll margin. Forwarded to the root control adapter.</summary>
         public System.Drawing.Size AutoScrollMargin {
-            get => adapter is null ? System.Drawing.Size.Empty : adapter.AutoScrollMargin;
-            set { if (adapter is not null) adapter.AutoScrollMargin = value; }
+            get => adapter is null ? System.Drawing.Size.Empty : ContentScrollRoot.AutoScrollMargin;
+            set { if (adapter is not null) ContentScrollRoot.AutoScrollMargin = value; }
         }
 
         /// <summary>Gets or sets the minimum size of the auto-scroll area. Forwarded to the root control adapter.</summary>
         public System.Drawing.Size AutoScrollMinSize {
-            get => adapter is null ? System.Drawing.Size.Empty : adapter.AutoScrollMinSize;
-            set { if (adapter is not null) adapter.AutoScrollMinSize = value; }
+            get => adapter is null ? System.Drawing.Size.Empty : ContentScrollRoot.AutoScrollMinSize;
+            set { if (adapter is not null) ContentScrollRoot.AutoScrollMinSize = value; }
         }
 
         /// <summary>Gets or sets the current scroll position. Forwarded to the root control adapter.</summary>
         public System.Drawing.Point AutoScrollPosition {
-            get => adapter is null ? System.Drawing.Point.Empty : adapter.AutoScrollPosition;
-            set { if (adapter is not null) adapter.AutoScrollPosition = value; }
+            get => adapter is null ? System.Drawing.Point.Empty : ContentScrollRoot.AutoScrollPosition;
+            set { if (adapter is not null) ContentScrollRoot.AutoScrollPosition = value; }
         }
 
         /// <summary>Sets the auto-scroll margin. Mirrors WinForms ScrollableControl.SetAutoScrollMargin.</summary>
