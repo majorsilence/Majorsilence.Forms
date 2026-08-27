@@ -172,5 +172,29 @@ namespace Majorsilence.Forms.Tests
             // The value is reflected back through the automation snapshot.
             Assert.Equal ("Hello", session.GetText (session.FindOrThrow (By.Id ("nameBox"))));
         }
-    }
+    
+        [Fact]
+        public void A_forms_controls_are_direct_children_of_the_window_in_the_tree ()
+        {
+            // The form's client area is an implementation detail of keeping the caption out of the
+            // client region (FRM-06); a UI Automation client must not have to navigate through it, and
+            // WinForms -- which has no such node -- does not make one. Regression for the Windows-only
+            // UiaTreeTests.SiblingNavigation_RoundTrips, which asserts exactly this and cannot run here.
+            Majorsilence.Forms.Headless.HeadlessRenderer.Use ();
+
+            using var form = new Form { Size = new System.Drawing.Size (300, 200) };
+            form.UseSystemDecorations = false;   // the shape CI tests
+            var button = new Button { Name = "okButton", Text = "OK", Size = new System.Drawing.Size (80, 24) };
+            form.Controls.Add (button);
+            form.Show ();
+
+            var root = AutomationProvider.BuildTree (form);
+
+            Assert.Contains (root.Children, c => c.AutomationId == "okButton");
+            Assert.DoesNotContain (root.Children, c => c.ControlType.Contains ("ClientArea"));
+
+            form.Close ();
+        }
+
+}
 }

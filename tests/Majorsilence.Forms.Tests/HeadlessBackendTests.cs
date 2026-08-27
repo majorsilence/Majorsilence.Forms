@@ -190,7 +190,11 @@ public class HeadlessBackendTests
         form.Controls.Add (button);
 
         HeadlessRenderer.CapturePng (form, 300, 200);   // force a layout pass
-        HeadlessRenderer.Click (form, 80, 40);           // centre of the button
+
+        // Window space, computed from the button rather than assumed: a form's children sit below the
+        // caption, so (80, 40) is not the button's centre on a platform that draws one.
+        var centre = WindowPoint.CentreOf (button);
+        HeadlessRenderer.Click (form, centre.X, centre.Y);
 
         Assert.Equal (1, clicks);
     }

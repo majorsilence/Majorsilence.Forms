@@ -81,7 +81,7 @@ public class FocusSequenceTests
         a.Select ();
         using var byMouse = EventRecorder.For (a, "Leave");
         byMouse.Also (b, "b", "Enter");
-        HeadlessRenderer.Click (form, b.Left + 5, b.Top + 5);
+        HeadlessInput.Click (form, WindowPoint.In (b, 5, 5));
 
         Assert.Equal (tabOrder, byMouse.Entries);
         Assert.Equal (["Leave", "b.Enter"], byMouse.Entries);

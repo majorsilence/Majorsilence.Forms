@@ -71,7 +71,7 @@ public class ControlFromScreenPointTests
         var (form, _, inner) = Nested ();
 
         using (form) {
-            HeadlessRenderer.MouseMove (form, inner.Left + 25 + 20, inner.Top + 15 + 20);
+            HeadlessInput.MouseMove (form, WindowPoint.In (inner, 20, 20));
 
             Assert.Same (inner, Control.FromScreenPoint (Control.MousePosition));
         }

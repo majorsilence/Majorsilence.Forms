@@ -65,7 +65,14 @@ namespace Majorsilence.Forms
             // Windows/Linux draw fully custom chrome. macOS uses the NATIVE title bar (traffic lights,
             // rounded corners, shadow). A form that wants to paint into the title bar opts in with
             // ExtendsContentIntoTitleBar = true (Avalonia 12 full-size content view) — see RadTabbedForm.
-            if (OperatingSystem.IsMacOS ())
+            // MF_FORCE_CUSTOM_CHROME=1 makes a macOS process take the Windows/Linux branch. macOS is the
+            // ONLY platform that uses system decorations, and CI runs the test suite on Windows only --
+            // so anything touching the caption (client-area geometry, hit-testing near the top of a
+            // form, tab order through the caption buttons) passes vacuously on a developer's Mac and
+            // fails in CI. This has cost two round trips already. Same shape as the backend's
+            // MF_HEADLESS_SCALE, and inert unless the variable is set.
+            if (OperatingSystem.IsMacOS ()
+                && Environment.GetEnvironmentVariable ("MF_FORCE_CUSTOM_CHROME") != "1")
                 UseSystemDecorations = true;
 
             Backend.Size = DefaultSize;
@@ -1759,6 +1766,9 @@ namespace Majorsilence.Forms
                 SetControlBehavior (ControlBehaviors.Selectable, false);
                 TabStop = false;
             }
+
+            /// <inheritdoc/>
+            internal override bool IsAutomationTransparent => true;
 
             /// <summary>Paints nothing of its own.</summary>
             /// <remarks>

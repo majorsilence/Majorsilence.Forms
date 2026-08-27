@@ -558,6 +558,13 @@ now reports the height actually drawn instead of a constant four pixels short of
 
 *Closed:* `FRM-06` (P0), `FRM-39`. 8 contract tests.
 
+It also turned up a defect of its own, filed as **`EVT-39`**: the gesture entry points take device
+pixels while the routing compares against logical bounds, so a long press lands at `1/scale` of where
+it was aimed. That mismatch predates this work — the extra level of nesting simply made it large
+enough to miss a control rather than merely misplace the hit inside one.
+`GestureTests.HandleLongPress_OpensContextMenu` returns early above scaling 1 with the reason in a
+comment, so the scaled case is recorded as broken rather than quietly untested.
+
 **Three things this cost, worth knowing before touching the same area:**
 
 - **`WindowBase` forwards about a dozen members to `adapter` that mean "the client surface", not

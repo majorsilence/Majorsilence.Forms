@@ -558,6 +558,21 @@ internal sealed partial class DefaultLayout : LayoutEngine
     ///  Updates the Anchor information based on the controls current bounds. This should only be called
     ///  when the parent control changes or the anchor mode changes.
     /// </summary>
+    /// <summary>
+    /// Whether a parent rectangle is one an anchor delta can meaningfully be measured against.
+    /// </summary>
+    /// <remarks>
+    /// Both guards below used to ask <c>Rectangle.IsEmpty</c>, which is true only when all four fields
+    /// are zero. A container mid-construction does not always oblige: a fill-docked child of a
+    /// zero-height parent that also has a docked title bar above it reports
+    /// <c>{X=0, Y=34, Width=0, Height=-34}</c> -- degenerate by any reasonable reading, and not
+    /// <c>IsEmpty</c>. Treating that as a real capture froze the garbage deltas taken against it, and an
+    /// anchored child then ballooned on the first real layout. The companion guard immediately below
+    /// already tested <c>Width &lt;= 0 || Height &lt;= 0</c>; this makes the pair consistent.
+    /// </remarks>
+    private static bool IsUsableParentRectangle (Rectangle rectangle)
+        => rectangle.Width > 0 && rectangle.Height > 0;
+
     private static void UpdateAnchorInfo (IArrangedElement element)
     {
         Debug.Assert (!HasCachedBounds (element.Container), "Do not call this method with an active cached bounds list.");
@@ -588,7 +603,7 @@ internal sealed partial class DefaultLayout : LayoutEngine
         // captured relative to a 0x0 rectangle instead). Once a real (non-degenerate) capture has
         // happened, later redundant re-inits are safe to skip exactly as intended above.
         if (anchorInfo.HasCapturedElementBounds && anchorInfo.CapturedElementBounds == element.Bounds
-            && !anchorInfo.CapturedParentDisplayRectangle.IsEmpty)
+            && IsUsableParentRectangle (anchorInfo.CapturedParentDisplayRectangle))
             return;
 
         // The mirror-image defence: never OVERWRITE a snapshot taken against a real parent rectangle
@@ -601,10 +616,10 @@ internal sealed partial class DefaultLayout : LayoutEngine
         // snapshot instead makes the collapse self-healing: as soon as the parent reports real bounds
         // again, the next anchor pass re-stretches this element from the deltas that were true.
         if (anchorInfo.HasCapturedElementBounds
-            && !anchorInfo.CapturedParentDisplayRectangle.IsEmpty
+            && IsUsableParentRectangle (anchorInfo.CapturedParentDisplayRectangle)
             && element.Container is { } container) {
             var currentParentRect = container.DisplayRectangle;
-            if (currentParentRect.Width <= 0 || currentParentRect.Height <= 0)
+            if (!IsUsableParentRectangle (currentParentRect))
                 return;
         }
 

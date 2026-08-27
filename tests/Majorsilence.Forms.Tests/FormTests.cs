@@ -575,11 +575,18 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void ClientSize_TracksSize ()
+        public void ClientSize_is_Size_less_the_caption_this_library_draws ()
         {
+            // Was `Assert.Equal (control.Size, control.ClientSize)`, which pinned the pre-FRM-06
+            // behaviour: the client area counted the strip the title bar occupies, so a form was a
+            // caption shorter than it claimed. The two are still equal where the OS draws the caption
+            // (macOS), which is why the expectation is computed rather than hard-coded.
             using var control = new Form { Size = new Size (640, 480) };
 
-            Assert.Equal (control.Size, control.ClientSize);
+            var caption = control.TitleBar.Visible ? control.TitleBar.PreferredHeight : 0;
+
+            Assert.Equal (control.Size.Width, control.ClientSize.Width);
+            Assert.Equal (control.Size.Height - caption, control.ClientSize.Height);
         }
 
         [Fact]

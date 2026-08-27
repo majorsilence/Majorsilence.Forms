@@ -30,7 +30,7 @@ namespace Majorsilence.Forms.Tests
             tabs.Click += (_, _) => clicks++;
 
             // Middle of the header strip, where the tab captions are drawn.
-            HeadlessRenderer.Click (form, tabs.Left + 30, tabs.Top + (tabs.TabStrip.Height / 2));
+            HeadlessInput.Click (form, WindowPoint.In (tabs, 30, tabs.TabStrip.Height / 2));
 
             Assert.True (clicks > 0, "TabControl.Click did not fire for a click on the tab header");
         }
@@ -42,7 +42,7 @@ namespace Majorsilence.Forms.Tests
             var clicks = 0;
             tabs.MouseClick += (_, _) => clicks++;
 
-            HeadlessRenderer.Click (form, tabs.Left + 30, tabs.Top + (tabs.TabStrip.Height / 2));
+            HeadlessInput.Click (form, WindowPoint.In (tabs, 30, tabs.TabStrip.Height / 2));
 
             Assert.True (clicks > 0, "TabControl.MouseClick did not fire for a click on the tab header");
         }
@@ -73,7 +73,7 @@ namespace Majorsilence.Forms.Tests
 
             var second = tabs.TabPages[1];
             var x = tabs.Left + tabs.GetTabRect (1).Left + 5;
-            HeadlessRenderer.Click (form, x, tabs.Top + (tabs.TabStrip.Height / 2));
+            HeadlessInput.Click (form, WindowPoint.In (tabs, x - tabs.Left, tabs.TabStrip.Height / 2));
 
             Assert.Equal (second.Text, seen);
         }

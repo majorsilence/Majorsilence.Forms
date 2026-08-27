@@ -15,7 +15,12 @@ namespace Majorsilence.Forms.Tests
         {
             using var form = new Form ();
 
-            if (OperatingSystem.IsMacOS ()) {
+            // MF_FORCE_CUSTOM_CHROME makes a macOS run take the Windows/Linux branch, so the suite can
+            // be exercised in the shape CI actually tests. See Form's constructor.
+            var systemDecorations = OperatingSystem.IsMacOS ()
+                && Environment.GetEnvironmentVariable ("MF_FORCE_CUSTOM_CHROME") != "1";
+
+            if (systemDecorations) {
                 // Plain macOS form: native title bar, no extension (clean client area).
                 Assert.True (form.UseSystemDecorations);
                 Assert.False (form.ExtendsContentIntoTitleBar);

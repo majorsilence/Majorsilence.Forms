@@ -774,6 +774,26 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   render; assert the red block starts at the client origin, not at pixel (0,0).
 - **Tests today:** none.
 
+### EVT-39 — `WindowBase.HandleLongPress` routes device pixels against logical bounds — Cat A — P1 — High
+- **Ours:** the gesture entry points take DEVICE pixels (a backend multiplies by render scaling before
+  calling them), but `Control.RaiseLongPress` routes by `Controls.FindVisibleChildAt (e.Location)`,
+  which tests `c.Bounds.Contains (location)` against LOGICAL bounds
+  (`src/Majorsilence.Forms/Control.cs:2129-2144`, `ControlCollection.cs:346-360`). The two coincide at
+  scaling 1 and diverge by the scale factor above it, compounding once per level of nesting.
+- **Upstream:** WinForms delivers gesture messages in client coordinates already matched to the
+  control's own space; there is no second unit in play.
+- **Impact:** on a HiDPI display a long press lands at `1/scale` of where the user touched, so a
+  context menu opens over the wrong control or not at all. Found when `Form` grew a client area between
+  the adapter and its children (W3.5): the extra level made the existing mismatch big enough to miss a
+  100x30 button, where before it merely misplaced the hit inside one.
+- **Fix:** convert once at the entry point, as the pointer path does — `HandleLongPress`/`HandlePinch`/
+  `HandleSwipe`/`HandleScrollGesture` should divide by `Scaling` before handing off, or the routing
+  should compare against `ScaledBounds`. Pick one and apply it to all four for consistency.
+- **Test:** `GestureTests.HandleLongPress_OpensContextMenu` already covers it and currently returns
+  early when `Scaling != 1`, with the reason in a comment — remove that guard as part of the fix.
+- **Tests today:** `GestureTests` (scaling 1 only, by the guard above).
+
+
 ## Low-priority / Win32-only (P3) — one line each
 - `Control.RegionChanged` — see EVT-29; there is no `Control.Region` property to change, so there is no trigger to wire.
 - `Form.InputLanguageChanged` / `InputLanguageChanging` (`src/Majorsilence.Forms/Form.cs:405`) — IME/keyboard-layout switching, WM_INPUTLANGCHANGE; no portable notification exists behind Skia/Avalonia.
