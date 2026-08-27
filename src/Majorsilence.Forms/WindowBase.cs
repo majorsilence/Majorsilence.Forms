@@ -71,6 +71,10 @@ namespace Majorsilence.Forms
             // Captured before CompleteClose clears it.
             var wasModal = (this as Form)?.IsModalDialog ?? false;
 
+            // A window takes what it owns with it. Before its own FormClosed, so an owner's cleanup
+            // handler sees its tool windows already gone rather than half-closed.
+            (this as Form)?.CloseOwnedForms ();
+
             // A form closed by its own close button never goes through Close(), so this is the only
             // place the bookkeeping Close() does can happen for it: leaving it out kept the form in
             // OpenForms for the life of the process and, for a modal one, left ShowDialog awaiting a
@@ -1777,9 +1781,52 @@ namespace Majorsilence.Forms
             var parentWindow = parent.PresentationWindow;
 
             SetWindowStartupLocation (parentWindow);
-            parentWindow.Backend.Enabled = false;
+            DisableWindowsForModalLoop ();
             Backend.Show ();
             EnsureShownBookkeeping ();
+        }
+
+        // The windows this dialog disabled, so CompleteClose can restore exactly those and leave alone
+        // any that were already disabled for another reason.
+        private List<WindowBase>? _disabledForModal;
+
+        /// <summary>
+        /// Disables every other top-level window for the duration of a modal dialog.
+        /// </summary>
+        /// <remarks>
+        /// Only the dialog's own owner used to be disabled, so with two forms open a dialog raised from
+        /// A left B fully interactive — B could open a second dialog, close A out from under the modal
+        /// loop, or call <c>Application.Exit</c> mid-modal. Typical in an MDI shell with floating tool
+        /// windows. Upstream disables the whole thread's window set
+        /// (<c>Application.ThreadContext.DisableWindowsForModalLoop</c>).
+        /// </remarks>
+        private void DisableWindowsForModalLoop ()
+        {
+            _disabledForModal = [];
+
+            foreach (var form in Application.OpenForms.Cast<Form> ().ToArray ()) {
+                var window = form.PresentationWindow;
+
+                // Not this dialog, and not a window already disabled by an outer modal loop -- nested
+                // dialogs must not re-enable each other's windows on the way out.
+                if (ReferenceEquals (window, this) || !window.Backend.Enabled)
+                    continue;
+
+                window.Backend.Enabled = false;
+                _disabledForModal.Add (window);
+            }
+        }
+
+        /// <summary>Re-enables the windows this dialog disabled.</summary>
+        internal void RestoreWindowsAfterModalLoop ()
+        {
+            if (_disabledForModal is null)
+                return;
+
+            foreach (var window in _disabledForModal)
+                window.Backend.Enabled = true;
+
+            _disabledForModal = null;
         }
 
         // Runs the WinForms-compat "window just became visible" bookkeeping exactly once: Load/Shown

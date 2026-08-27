@@ -194,12 +194,21 @@ namespace Majorsilence.Forms
             // an application shut down by Exit () ran none of that.
             //
             // Over a copy, because closing mutates OpenForms.
+            // ApplicationExitCall, not UserClosing: the "minimise to tray unless the app is really
+            // exiting" pattern reads CloseReason to tell those apart.
+            foreach (var form in OpenForms.Cast<Form> ().ToArray ())
+                form.PendingCloseReason = CloseReason.ApplicationExitCall;
+
             foreach (var form in OpenForms.Cast<Form> ().ToArray ()) {
                 var closing = new CancelEventArgs ();
                 form.RaiseClosing (closing);
 
                 if (closing.Cancel) {
                     is_exiting = false;
+
+                    foreach (var form2 in OpenForms.Cast<Form> ().ToArray ())
+                        form2.PendingCloseReason = CloseReason.UserClosing;
+
                     return;
                 }
             }

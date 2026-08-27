@@ -355,10 +355,13 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal void CompleteClose ()
         {
+            // Everything this dialog disabled, not just its owner -- see DisableWindowsForModalLoop.
+            RestoreWindowsAfterModalLoop ();
+
             if (dialog_parent is not null) {
-                // Re-enable and raise the window that presents the opener, not the opener's own backend:
-                // an MDI child's backend is an unshown window, and activating it made a blank duplicate
-                // of that form appear on screen every time a dialog it opened was dismissed.
+                // Raise the window that presents the opener, not the opener's own backend: an MDI
+                // child's backend is an unshown window, and activating it made a blank duplicate of
+                // that form appear on screen every time a dialog it opened was dismissed.
                 var parentWindow = dialog_parent.PresentationWindow;
 
                 parentWindow.Backend.Enabled = true;
@@ -413,7 +416,7 @@ namespace Majorsilence.Forms
                 return;
 
             _formClosedFired = true;
-            OnFormClosed (new FormClosedEventArgs ());
+            OnFormClosed (new FormClosedEventArgs (PendingCloseReason));
         }
 
         /// <summary>
@@ -433,6 +436,28 @@ namespace Majorsilence.Forms
         {
             _loadFired = false;
             _formClosedFired = false;
+            PendingCloseReason = CloseReason.UserClosing;
+        }
+
+        /// <summary>
+        /// Closes the forms this one owns, as upstream's <c>WmClose</c> does, telling each that its
+        /// owner is what closed it.
+        /// </summary>
+        /// <remarks>
+        /// Over a copy: closing a child clears its <see cref="Owner"/>, which mutates the list being
+        /// walked. Runs before this form's own close completes so an owned tool window cannot outlive
+        /// the window it belongs to -- which it previously did, because nothing walked the graph.
+        /// </remarks>
+        internal void CloseOwnedForms ()
+        {
+            if (_ownedForms is null || _ownedForms.Count == 0)
+                return;
+
+            foreach (var owned in _ownedForms.ToArray ()) {
+                owned.PendingCloseReason = CloseReason.FormOwnerClosing;
+                owned.Close ();
+                owned.Owner = null;
+            }
         }
 
 
@@ -768,6 +793,13 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the name of the form.</summary>
         public string Name { get; set; } = string.Empty;
+        // Why this form is closing, for the FormClosing/FormClosed args. Set by whichever path started
+        // the close and reset afterwards. It was hard-coded UserClosing everywhere, which matters now
+        // that Application.Exit and the owner cascade really do close forms: the standard "minimise to
+        // tray on UserClosing, actually exit on ApplicationExitCall" pattern reads this to tell the two
+        // apart, and would have hidden the window instead of exiting.
+        internal CloseReason PendingCloseReason { get; set; } = CloseReason.UserClosing;
+
 
         /// <summary>Raises the Closing event.</summary>
         /// <remarks>
@@ -779,7 +811,7 @@ namespace Majorsilence.Forms
         {
             Closing?.Invoke (this, e);
 
-            var form_closing_args = new FormClosingEventArgs { Cancel = e.Cancel };
+            var form_closing_args = new FormClosingEventArgs (PendingCloseReason, e.Cancel);
             OnFormClosing (form_closing_args);
 
             if (form_closing_args.Cancel)
@@ -834,11 +866,40 @@ namespace Majorsilence.Forms
                 : ShowDialog (parent);
         }
 
-        /// <summary>Shows the form as a modal dialog with the specified owner window. Stub — ignores owner parameter.</summary>
-        public DialogResult ShowDialog (IWin32Window owner) => ShowDialog ();
+        /// <summary>Shows the form as a modal dialog owned by the given window.</summary>
+        /// <remarks>
+        /// Both this and <see cref="Show(IWin32Window)"/> used to discard the argument entirely, so
+        /// <c>dialog.ShowDialog (this)</c> picked whatever <see cref="Application.OpenForms"/> happened
+        /// to yield first — the dialog centred on the wrong window and disabled the wrong one.
+        /// </remarks>
+        public DialogResult ShowDialog (IWin32Window owner)
+        {
+            var parent = OwnerFormOf (owner);
 
-        /// <summary>Shows the form, ignoring the owner parameter (Majorsilence.Forms has no Win32 parenting).</summary>
-        public void Show (IWin32Window owner) => Show ();
+            return parent is null ? ShowDialog () : ShowDialog (parent);
+        }
+
+        /// <summary>Shows the form owned by the given window.</summary>
+        /// <inheritdoc cref="ShowDialog(IWin32Window)" path="/remarks"/>
+        public void Show (IWin32Window owner)
+        {
+            if (OwnerFormOf (owner) is { } parent)
+                Owner = parent;
+
+            Show ();
+        }
+
+        /// <summary>
+        /// Resolves an <see cref="IWin32Window"/> to the form it belongs to — the window itself, or the
+        /// form hosting it when a control was passed.
+        /// </summary>
+        /// <remarks>There is no HWND to look up here, so the resolution is by object rather than by
+        /// handle; a caller passing something that is neither gets the ownerless behaviour.</remarks>
+        private static Form? OwnerFormOf (IWin32Window? owner) => owner switch {
+            Form form => form,
+            Control control => control.FindForm (),
+            _ => null,
+        };
 
         /// <summary>Implements IWin32Window: returns IntPtr.Zero (Majorsilence.Forms has no Win32 handle).</summary>
         IntPtr IWin32Window.Handle => IntPtr.Zero;
@@ -925,6 +986,11 @@ namespace Majorsilence.Forms
             Modal = true;
 
             dialog_parent = parent;
+
+            // A modal dialog is owned by the form it was shown against, as upstream's ShowDialog does.
+            // Without this the owner graph is empty for the commonest way of opening a dialog.
+            if (parent is not null)
+                Owner = parent;
 
             // A Load handler that sets DialogResult closes the form during the call below, which
             // completes dialog_task; RunModal then returns without pumping. That is upstream's
@@ -1547,8 +1613,43 @@ namespace Majorsilence.Forms
                 base.Invalidate ();
         }
 
+        private Form? _owner;
+
         /// <summary>Gets or sets the form that owns this form.</summary>
-        public Form? Owner { get; set; }
+        /// <remarks>
+        /// The setter maintains the other side of the relationship, as upstream's does: it removes this
+        /// form from the previous owner's <see cref="OwnedForms"/> and adds it to the new one's. It was
+        /// a bare auto-property, so <c>child.Owner = parent</c> left <c>parent.OwnedForms</c> empty and
+        /// nothing downstream — closing owned forms with their owner, keeping them above it — had a
+        /// graph to walk.
+        /// </remarks>
+        public Form? Owner {
+            get => _owner;
+            set {
+                if (ReferenceEquals (_owner, value))
+                    return;
+
+                // A form cannot own itself, and an ownership cycle would make the close cascade
+                // infinite. Upstream throws for both; refusing quietly here would hide a real mistake.
+                if (ReferenceEquals (value, this))
+                    throw new ArgumentException ("A form cannot own itself.", nameof (value));
+
+                for (var candidate = value; candidate is not null; candidate = candidate._owner) {
+                    if (ReferenceEquals (candidate, this))
+                        throw new ArgumentException ("Setting this owner would create a cycle.", nameof (value));
+                }
+
+                _owner?._ownedForms?.Remove (this);
+                _owner = value;
+
+                if (value is not null) {
+                    value._ownedForms ??= [];
+
+                    if (!value._ownedForms.Contains (this))
+                        value._ownedForms.Add (this);
+                }
+            }
+        }
 
         private List<Form>? _ownedForms;
 
@@ -1558,18 +1659,22 @@ namespace Majorsilence.Forms
         /// <summary>Adds an owned form to this form.</summary>
         public void AddOwnedForm (Form form)
         {
-            _ownedForms ??= [];
-            if (!_ownedForms.Contains (form))
-                _ownedForms.Add (form);
+            ArgumentNullException.ThrowIfNull (form);
+
+            // One direction only: the Owner setter is what maintains the list now, so doing it here as
+            // well would double-add.
             form.Owner = this;
         }
 
         /// <summary>Removes an owned form from this form.</summary>
         public void RemoveOwnedForm (Form form)
         {
-            _ownedForms?.Remove (form);
-            if (form.Owner == this)
+            ArgumentNullException.ThrowIfNull (form);
+
+            if (ReferenceEquals (form._owner, this))
                 form.Owner = null;
+            else
+                _ownedForms?.Remove (form);
         }
 
         /// <summary>Gets or sets the MenuStrip that is the main menu for the form.</summary>
