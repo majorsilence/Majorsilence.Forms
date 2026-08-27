@@ -188,7 +188,27 @@ namespace Majorsilence.Forms
 
             is_exiting = true;
 
+            // Close the open forms first, as upstream does: Exit walks OpenForms raising FormClosing
+            // (which a handler may cancel) and then FormClosed, so a form's "save your work?" prompt
+            // and its cleanup both run. This used to cancel the loop and leave every form unclosed, so
+            // an application shut down by Exit () ran none of that.
+            //
+            // Over a copy, because closing mutates OpenForms.
+            foreach (var form in OpenForms.Cast<Form> ().ToArray ()) {
+                var closing = new CancelEventArgs ();
+                form.RaiseClosing (closing);
+
+                if (closing.Cancel) {
+                    is_exiting = false;
+                    return;
+                }
+            }
+
+            foreach (var form in OpenForms.Cast<Form> ().ToArray ())
+                form.Close ();
+
             OnExit?.Invoke (null, EventArgs.Empty);
+            ApplicationExit?.Invoke (null, EventArgs.Empty);
 
             _mainLoopCancellationTokenSource?.Cancel ();
         }
@@ -458,8 +478,31 @@ namespace Majorsilence.Forms
         /// <summary>Processes all messages currently in the message queue.</summary>
         public static void DoEvents () => Platform.Backend.DoEvents ();
 
-        /// <summary>Restarts the application. No-op in Majorsilence.Forms — call Environment.Exit(0) and relaunch if needed.</summary>
-        public static void Restart () => Environment.Exit (0);
+        /// <summary>Restarts the application: relaunches the current executable and exits this instance.</summary>
+        /// <remarks>
+        /// This used to be <c>Environment.Exit (0)</c> — it quit without relaunching, so "restart to
+        /// apply your changes" simply closed the application. The new process is started before this
+        /// one shuts down, which is the order upstream uses.
+        /// </remarks>
+        public static void Restart ()
+        {
+            var executable = Environment.ProcessPath;
+
+            if (!string.IsNullOrEmpty (executable)) {
+                try {
+                    System.Diagnostics.Process.Start (new System.Diagnostics.ProcessStartInfo (executable) {
+                        UseShellExecute = true,
+                        WorkingDirectory = Environment.CurrentDirectory,
+                    });
+                } catch (System.ComponentModel.Win32Exception) {
+                    // Relaunch refused (policy, a deleted image). Still exit, as before: reporting a
+                    // failure here would be a behaviour change on a path that used to be silent.
+                }
+            }
+
+            Exit ();
+            Environment.Exit (0);
+        }
 
         /// <summary>Gets or sets the current input language. Stub in Majorsilence.Forms.</summary>
         public static System.Globalization.CultureInfo CurrentCulture {
@@ -477,10 +520,41 @@ namespace Majorsilence.Forms
         public static event System.Threading.ThreadExceptionEventHandler? ThreadException;
 
         /// <summary>Raised when the application is about to exit.</summary>
-        public static event EventHandler? ApplicationExit { add { } remove { } }
+        /// <remarks>Raised by <see cref="Exit()"/>. It was declared <c>add { } remove { }</c> — it
+        /// accepted a handler and threw it away, so the standard place to flush settings or a log on
+        /// shutdown ran nothing.</remarks>
+        public static event EventHandler? ApplicationExit;
 
         /// <summary>Raised when the application becomes idle.</summary>
+        /// <remarks>Raised by the message loop when it has no queued work left. Nothing used to raise
+        /// it, so the common "do deferred setup on first idle" idiom never ran.</remarks>
         public static event EventHandler? Idle;
+
+        /// <summary>Raises <see cref="Idle"/>. Called by the backend's message loop when it drains.</summary>
+        internal static void RaiseIdle () => Idle?.Invoke (null, EventArgs.Empty);
+
+        /// <summary>
+        /// Reports an unhandled exception from an event handler to <see cref="ThreadException"/>.
+        /// </summary>
+        /// <returns>True when a handler was attached and the exception was reported.</returns>
+        /// <remarks>
+        /// <see cref="ThreadException"/> is what WinForms applications rely on to show an error dialog
+        /// rather than dying. Nothing raised it, so an exception from a handler took the process down.
+        /// With no subscriber this returns false and the caller rethrows, matching
+        /// <see cref="UnhandledExceptionMode.Automatic"/>.
+        /// </remarks>
+        internal static bool RaiseThreadException (Exception exception)
+        {
+            var handler = ThreadException;
+
+            if (handler is null)
+                return false;
+
+            // The handler's sender is non-nullable; upstream reports the thread the exception came
+            // from, which is also the only useful thing to name here.
+            handler (System.Threading.Thread.CurrentThread, new System.Threading.ThreadExceptionEventArgs (exception));
+            return true;
+        }
 
         /// <summary>Sets the default exception handler for unhandled exceptions. Stub in Majorsilence.Forms.</summary>
         public static void SetUnhandledExceptionMode (UnhandledExceptionMode mode) { }

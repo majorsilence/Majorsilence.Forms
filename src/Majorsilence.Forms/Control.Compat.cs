@@ -561,49 +561,141 @@ namespace Majorsilence.Forms
         }
 #pragma warning restore CA1416
 
+        // ── The keyboard pre-processing chain ────────────────────────────────────────────────────
+        //
+        // These used to be `=> false` with no caller anywhere, so `override ProcessCmdKey` -- one of
+        // the most common customisations in a WinForms codebase -- compiled and silently never ran.
+        // They are now the real chain, driven by PreProcessKeyMessage below and reached from
+        // WindowBase.HandleKeyDown.
+        //
+        // Each bubbles to Parent exactly as upstream does (Control.cs: `_parent?.ProcessCmdKey(...)`),
+        // so a container can claim a key on behalf of its children. ControlAdapter -- the root control
+        // standing in for the window -- continues the walk into WindowBase/Form, which is where
+        // AcceptButton, CancelButton and menu shortcuts live.
+
         /// <summary>
-        /// Determines whether a key is an input key (versus a navigation key processed before KeyDown).
-        /// Override to accept additional keys. Majorsilence.Forms stub — returns false.
+        /// Whether the control consumes <paramref name="keyData"/> itself rather than letting it be
+        /// treated as a navigation key. A control that returns true here gets the key as
+        /// <see cref="Control.KeyDown"/> and dialog processing is skipped for it.
         /// </summary>
         protected virtual bool IsInputKey (Keys keyData) => false;
 
         /// <summary>
-        /// Determines whether a character is an input character. Majorsilence.Forms stub — returns false.
+        /// Whether the control consumes <paramref name="charCode"/> as text rather than as a dialog
+        /// character (a mnemonic).
         /// </summary>
         protected virtual bool IsInputChar (char charCode) => false;
 
         /// <summary>
-        /// Processes a command key. Override in a derived class to intercept keyboard shortcuts before key events are raised.
-        /// Returns true if the key was processed. Majorsilence.Forms stub — passes through to the base implementation.
+        /// Processes a command key before any key event is raised — the override point for keyboard
+        /// shortcuts. Bubbles to <see cref="Control.Parent"/>, so the outermost container sees it last.
         /// </summary>
-        protected virtual bool ProcessCmdKey (ref Message msg, Keys keyData) => false;
+        protected virtual bool ProcessCmdKey (ref Message msg, Keys keyData)
+        {
+            var parent = Parent;
+            return parent is not null && parent.ProcessCmdKey (ref msg, keyData);
+        }
 
         /// <summary>
-        /// Processes a dialog key. Override to handle keys like Enter/Escape in dialogs.
-        /// Returns true if the key was handled. Majorsilence.Forms stub.
+        /// Processes a dialog key — Tab, Enter, Escape, the arrows. Runs only after the focused control
+        /// has declined the key via <see cref="IsInputKey"/>. Bubbles to <see cref="Control.Parent"/>.
         /// </summary>
-        protected virtual bool ProcessDialogKey (Keys keyData) => false;
+        protected virtual bool ProcessDialogKey (Keys keyData) => Parent?.ProcessDialogKey (keyData) ?? false;
 
         /// <summary>
-        /// Processes a dialog character, e.g. an Alt+letter mnemonic. Returns true if handled.
-        /// Majorsilence.Forms stub — like <see cref="ProcessDialogKey"/> and <see cref="ProcessKeyPreview"/>,
-        /// declared so ported overrides compile, but nothing in the framework's input pipeline calls it
-        /// (there is no ContainerControl-driven mnemonic walk here yet).
+        /// Processes a dialog character — an Alt+letter mnemonic. Bubbles to <see cref="Control.Parent"/>.
         /// </summary>
-        protected virtual bool ProcessDialogChar (char charCode) => false;
+        protected virtual bool ProcessDialogChar (char charCode) => Parent?.ProcessDialogChar (charCode) ?? false;
 
-        /// <summary>Processes a keyboard message. Returns true if the message was handled. Stub in Majorsilence.Forms.</summary>
-        protected virtual bool ProcessKeyMessage (ref Message m) => false;
+        /// <summary>Processes a keyboard message. Returns true if the message was handled.</summary>
+        protected virtual bool ProcessKeyMessage (ref Message m)
+        {
+            var parent = Parent;
+            return parent is not null && parent.ProcessKeyPreview (ref m);
+        }
 
         /// <summary>
-        /// Previews a keyboard message. Returns true if the message was handled. Majorsilence.Forms stub.
+        /// Gives an ancestor first refusal on a keyboard message. Bubbles to <see cref="Control.Parent"/>;
+        /// <see cref="Form.KeyPreview"/> is what makes the window act on it.
         /// </summary>
-        protected virtual bool ProcessKeyPreview (ref Message m) => false;
+        protected virtual bool ProcessKeyPreview (ref Message m)
+        {
+            var parent = Parent;
+            return parent is not null && parent.ProcessKeyPreview (ref m);
+        }
 
         /// <summary>
-        /// Performs the mnemonic operation (Alt+key) for the control. Returns true if handled. Majorsilence.Forms stub.
+        /// Performs the mnemonic operation (Alt+key) for the control. The default implementation does
+        /// nothing and returns false; controls with a caption override it to click or take focus.
         /// </summary>
         protected virtual bool ProcessMnemonic (char charCode) => false;
+
+        // ProcessMnemonic is protected, and the mnemonic walk in KeyboardShortcuts visits arbitrary
+        // controls rather than descendants of one, so it needs an internal way in.
+        internal bool RaiseProcessMnemonic (char charCode) => ProcessMnemonic (charCode);
+
+        /// <summary>
+        /// Runs the pre-processing chain for a key-down, in WinForms' order, starting at this control:
+        /// <see cref="ProcessCmdKey"/> first (so a shortcut wins over everything), then
+        /// <see cref="IsInputKey"/> (the control claiming the key for itself), and only if it declines,
+        /// <see cref="ProcessDialogKey"/>.
+        /// </summary>
+        /// <returns>
+        /// True when the key was consumed and no <see cref="Control.KeyDown"/> should follow.
+        /// </returns>
+        /// <remarks>
+        /// Mirrors <c>Control.PreProcessMessage</c>'s WM_KEYDOWN branch. The order is the contract:
+        /// putting the dialog keys first is what made Enter in a multiline text box submit the dialog.
+        /// </remarks>
+        internal bool PreProcessKeyMessage (Keys keyData)
+        {
+            var msg = new Message {
+                Msg = WindowMessages.WM_KEYDOWN,
+                WParam = (IntPtr) (int) (keyData & Keys.KeyCode),
+            };
+
+            if (ProcessCmdKey (ref msg, keyData))
+                return true;
+
+            // Alt+letter is a mnemonic. Upstream this arrives as a separate WM_SYSCHAR and goes to
+            // ProcessDialogChar; the backends here deliver one Alt-modified key-down and no character,
+            // so the access key is resolved from the key code instead. Ahead of IsInputKey because
+            // TextBoxBase (like upstream) declines every Alt-modified key, and Alt+F must still open
+            // the File menu while a text box has focus.
+            if ((keyData & Keys.Alt) == Keys.Alt) {
+                var character = MnemonicCharacterOf (keyData);
+
+                if (character != '\0' && PreProcessKeyChar (character))
+                    return true;
+            }
+
+            if (IsInputKey (keyData))
+                return false;
+
+            return ProcessDialogKey (keyData);
+        }
+
+        // The printable character an Alt-modified key stands for. Letters and digits only: those are
+        // what an ampersand can mark in a caption.
+        private static char MnemonicCharacterOf (Keys keyData)
+        {
+            var code = keyData & Keys.KeyCode;
+
+            if (code is >= Keys.A and <= Keys.Z)
+                return (char) ('a' + (code - Keys.A));
+
+            if (code is >= Keys.D0 and <= Keys.D9)
+                return (char) ('0' + (code - Keys.D0));
+
+            return '\0';
+        }
+
+        /// <summary>
+        /// Runs the pre-processing chain for a character: a control that does not claim the character
+        /// as text gets it offered as a dialog character (a mnemonic).
+        /// </summary>
+        internal bool PreProcessKeyChar (char charCode)
+            => !IsInputChar (charCode) && ProcessDialogChar (charCode);
 
         /// <summary>Gets whether the control's Size includes scrollbar sizes. Stub in Majorsilence.Forms.</summary>
         public bool HScroll { get; set; }

@@ -1,4 +1,6 @@
+using System;
 using System.IO.Compression;
+using System.Linq;
 using Majorsilence.Forms.Telerik;
 using Xunit;
 
@@ -171,20 +173,52 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void RadMessageBox_Show_maps_RadMessageIcon_and_returns_a_result ()
         {
-            // Headless backend: MessageBox.Show with no open owner form falls back to a non-modal Show()
-            // and returns DialogResult.OK immediately (see Majorsilence.Forms.MessageBox.Show). That path
-            // never closes the form it creates (there's no user to click a button), so it leaks into the
-            // process-wide Application.OpenForms list unless the caller cleans up — do that here so this
-            // test doesn't poison Application.OpenForms for whatever test class runs after it.
+            // This test used to assert -- and document at length -- that MessageBox.Show with no open
+            // owner "falls back to a non-modal Show() and returns DialogResult.OK immediately",
+            // leaking the form into Application.OpenForms for the caller to clean up. That was the bug
+            // (SVC-01/FRM-01): a message box shown before the first form was answered OK on the user's
+            // behalf. It is modal now with or without an owner, so the dialog has to be dismissed the
+            // way a user would.
+            //
+            // Posting the dismissal onto the UI queue is how the other modal tests drive one: the
+            // callback runs when the nested loop drains the queue, i.e. while ShowDialog is blocked.
             var formsBefore = Application.OpenForms.Count;
-            var result = RadMessageBox.Show ("The export completed.", "Export to CSV", MessageBoxButtons.YesNo, RadMessageIcon.Question);
-            Assert.Equal (DialogResult.OK, result);
 
-            Assert.Equal (formsBefore + 1, Application.OpenForms.Count);
-            var leaked = Application.OpenForms[Application.OpenForms.Count - 1];
-            Assert.NotNull (leaked);
-            leaked.Close ();
+            Majorsilence.Forms.Backends.Platform.Backend.Post (() => {
+                var dialog = Application.OpenForms.Cast<Form> ().LastOrDefault (f => f is MessageBoxForm);
+                dialog?.Close ();
+            });
+
+            var result = RunWithTimeout (() =>
+                RadMessageBox.Show ("The export completed.", "Export to CSV", MessageBoxButtons.YesNo, RadMessageIcon.Question));
+
+            // Dismissed without choosing a button, which is a cancel -- the point being that it waited
+            // for an answer at all rather than inventing one.
+            Assert.Equal (DialogResult.Cancel, result);
             Assert.Equal (formsBefore, Application.OpenForms.Count);
+        }
+
+        // Runs a modal show on a background thread with a join timeout, so a regression that stops the
+        // dialog closing fails this test instead of hanging the whole suite. Same shape as
+        // FileDialogModalPumpTests.RunOnPumpingThread.
+        private static DialogResult RunWithTimeout (Func<DialogResult> show)
+        {
+            var result = DialogResult.None;
+            System.Exception? failure = null;
+
+            var thread = new System.Threading.Thread (() => {
+                try { result = show (); } catch (System.Exception ex) { failure = ex; }
+            }) { IsBackground = true };
+
+            thread.Start ();
+
+            Assert.True (thread.Join (System.TimeSpan.FromSeconds (10)),
+                "the modal message box never returned: nothing dismissed it");
+
+            if (failure is not null)
+                throw failure;
+
+            return result;
         }
 
         private static int CountLines (string text) => text.Split ('\n').Length;

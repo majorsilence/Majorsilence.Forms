@@ -247,11 +247,26 @@ public partial class Control
     // and the correct Parent ContainerControl is returned by GetContainerControl().
     internal virtual bool IsContainerControl => false;
 
+    /// <summary>
+    /// Whether <paramref name="ctl"/> is a container that manages focus for its children — the test
+    /// <see cref="GetContainerControl"/> walks the parent chain looking for.
+    /// </summary>
+    /// <remarks>
+    /// This returned a hard <c>false</c>, which switched off an entire subsystem rather than one
+    /// method: <c>GetContainerControl()</c> returned null for every control in the framework, so
+    /// <c>(GetContainerControl() as ContainerControl).Validate()</c> — a common idiom in third-party
+    /// control libraries — threw, and <c>SelectNextIfFocused</c> never moved focus off a control that
+    /// had just been hidden or disabled, leaving keyboard input routed at something invisible.
+    /// <para>
+    /// Upstream is <c>ctl.GetStyle(ControlStyles.ContainerControl) &amp;&amp; ctl is IContainerControl</c>.
+    /// The style half is kept, but membership is decided by the concrete container types as well:
+    /// <see cref="ContainerControl"/> and <see cref="UserControl"/> derive from <see cref="Panel"/>
+    /// here rather than from a shared container base, so neither carries the style by default.
+    /// </para>
+    /// </remarks>
     private static bool IsFocusManagingContainerControl (Control ctl)
-    {
-        // TODO probably
-        return false;// ((ctl._controlStyle & ControlStyles.ContainerControl) == ControlStyles.ContainerControl && ctl is IContainerControl);
-    }
+        => ctl is IContainerControl
+            || ctl.GetStyle (ControlStyles.ContainerControl);
 
     // Public because this is interesting for ControlDesigners.
     /// <summary>

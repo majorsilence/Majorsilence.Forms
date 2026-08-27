@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Throwaway validation project for the WinFormsShims.Compat PoC generator: NOT part of the
+       shipped solution surface, NOT packable. Holds an unmodified `using System.Windows.Forms;`
+       WinForms-style Form1.cs/Form1.Designer.cs pair and checks how much of it compiles against
+       Majorsilence.Forms + the generated compat namespace, with zero source changes. See the
+       feasibility plan this exists to validate. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\Majorsilence.Forms.WinFormsShims.Compat\Majorsilence.Forms.WinFormsShims.Compat.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

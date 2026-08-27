@@ -41,6 +41,12 @@ namespace Majorsilence.Forms.Headless
 
             while (_running && !token.IsCancellationRequested) {
                 DrainQueue ();
+
+                // The loop has nothing left to do, which is what Application.Idle means. Raised here
+                // rather than on every pass so a handler that queues work sees the queue drained
+                // first. Nothing used to raise it at all.
+                Majorsilence.Forms.Application.RaiseIdle ();
+
                 _signal.WaitOne (50);
             }
 
@@ -100,8 +106,17 @@ namespace Majorsilence.Forms.Headless
 
         private void DrainQueue ()
         {
-            while (_queue.TryDequeue (out var action))
-                action ();
+            while (_queue.TryDequeue (out var action)) {
+                // An exception from posted work used to escape the loop and take the process down.
+                // WinForms routes it to Application.ThreadException, which is what an application's
+                // "something went wrong" dialog hangs off; with no handler attached it still throws,
+                // matching UnhandledExceptionMode.Automatic.
+                try {
+                    action ();
+                } catch (Exception ex) when (Majorsilence.Forms.Application.RaiseThreadException (ex)) {
+                    // Reported to the handler; the loop keeps running, as upstream's does.
+                }
+            }
         }
 
         /// <summary>Stops the loop and releases the wait handle backing the message queue.</summary>

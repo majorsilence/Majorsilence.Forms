@@ -30,6 +30,7 @@
     <Project Path="src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj" />
     <Project Path="src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj" />
     <Project Path="src/Majorsilence.Forms.WinFormsEnumShims/Majorsilence.Forms.WinFormsEnumShims.csproj" />
+    <Project Path="src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj" />
     <Project Path="src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj" />
     <Project Path="src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj" />
   </Folder>

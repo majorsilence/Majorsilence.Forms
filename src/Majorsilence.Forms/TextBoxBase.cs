@@ -53,6 +53,53 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        /// Claims the keys a text box edits with, so the pre-processing chain does not treat them as
+        /// navigation.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is what makes <see cref="AcceptsTab"/> mean anything. Before the chain existed, Tab was
+        /// intercepted for focus traversal ahead of the focused control, so a multiline box with
+        /// <c>AcceptsTab</c> set could never receive one — the property stored a value nothing could
+        /// act on.
+        /// </para>
+        /// <para>
+        /// Mirrors <c>TextBoxBase.IsInputKey</c>: Alt-modified keys are never input; Tab only when
+        /// multiline, accepting tabs, and unmodified by Control; Escape falls through so a dialog can
+        /// still close from a single-line box; Backspace is input unless read-only; and the four
+        /// caret-movement keys are always the control's.
+        /// </para>
+        /// </remarks>
+        protected override bool IsInputKey (Keys keyData)
+        {
+            if ((keyData & Keys.Alt) == Keys.Alt)
+                return false;
+
+            switch (keyData & Keys.KeyCode) {
+                case Keys.Tab:
+                    return Multiline && AcceptsTab && (keyData & Keys.Control) == Keys.None;
+
+                case Keys.Escape:
+                    // A multiline box does not swallow Escape upstream either -- it lets the dialog
+                    // close -- so this deliberately falls through to the base rather than returning.
+                    if (Multiline)
+                        return false;
+                    break;
+
+                case Keys.Back:
+                    return !ReadOnly;
+
+                case Keys.PageUp:
+                case Keys.PageDown:
+                case Keys.Home:
+                case Keys.End:
+                    return true;
+            }
+
+            return base.IsInputKey (keyData);
+        }
+
         /// <summary>Gets or sets the border drawn around the control.</summary>
         /// <remarks>
         /// The value drives the painted border, not just the property: the type's default style asks

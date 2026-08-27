@@ -338,10 +338,26 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Runs this control's pre-processing for a keyboard message.</summary>
-        /// <remarks>Always false, and it has to be: there is no message pump here, so no message ever
-        /// reaches this. Present because <c>PreProcessMessage</c> is the documented override point for
-        /// a control that wants first refusal on a key, and such a control must still compile.</remarks>
-        public virtual bool PreProcessMessage (ref Message msg) => false;
+        /// <remarks>
+        /// Real as of the keyboard-chain work: a key-down runs <c>ProcessCmdKey</c> → <c>IsInputKey</c>
+        /// → <c>ProcessDialogKey</c> and a character runs <c>IsInputChar</c> → <c>ProcessDialogChar</c>,
+        /// matching <c>Control.PreProcessMessage</c>. This is also the path
+        /// <see cref="WindowBase.HandleKeyDown"/> drives, so an override here participates in real
+        /// input rather than only compiling. Messages other than the keyboard ones return false —
+        /// there is no message pump here to deliver them.
+        /// </remarks>
+        public virtual bool PreProcessMessage (ref Message msg)
+        {
+            var message = (int) msg.Msg;
+
+            if (message is WindowMessages.WM_KEYDOWN or WindowMessages.WM_SYSKEYDOWN)
+                return PreProcessKeyMessage ((Keys) (int) msg.WParam | ModifierKeys);
+
+            if (message is WindowMessages.WM_CHAR or WindowMessages.WM_SYSCHAR)
+                return PreProcessKeyChar ((char) (int) msg.WParam);
+
+            return false;
+        }
 
         /// <summary>Runs this control's pre-processing and reports what it did with the message.</summary>
         /// <inheritdoc cref="PreProcessMessage(ref Message)" path="/remarks"/>

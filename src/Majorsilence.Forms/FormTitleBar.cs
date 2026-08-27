@@ -296,6 +296,14 @@ namespace Majorsilence.Forms
                 Width = 46;
                 Dock = DockStyle.Right;
 
+                // Caption buttons are chrome, not content: in WinForms they live in the NON-CLIENT area
+                // and are unreachable by Tab. This derives from Button, which is a tab stop by default,
+                // so Tab from the last control walked onto Minimise/Maximise/Close and — because they
+                // are implicit children — appeared to lose focus entirely. ScrollBar's constructor does
+                // the same thing for the same reason, and this is only visible where the library draws
+                // its own chrome (everywhere except macOS, which uses system decorations).
+                TabStop = false;
+
                 Style.BackgroundColor = SKColors.Transparent;
                 Style.Border.Width = 0;
                 StyleHover.Border.Width = 0;

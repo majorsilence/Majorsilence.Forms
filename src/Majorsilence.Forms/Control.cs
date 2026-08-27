@@ -580,7 +580,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the ControlAdapter the control is parented to.
         /// </summary>
-        private ControlAdapter? FindAdapter ()
+        internal ControlAdapter? FindAdapter ()
         {
             if (this is ControlAdapter adapter)
                 return adapter;
@@ -1224,33 +1224,41 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the Enter event, then the GotFocus event (WinForms order).
         /// </summary>
+        /// <remarks>
+        /// Raises <see cref="GotFocus"/> only. <see cref="Control.Enter"/> is <em>not</em> raised here:
+        /// upstream it belongs to the container, which walks the ancestor path between the old and new
+        /// focused controls and raises Enter on each (<c>ContainerControl.UpdateFocusedControl</c>).
+        /// <see cref="ControlAdapter"/> does that walk. Raising Enter from here instead meant only the
+        /// leaf control ever heard it, so a Panel or UserControl that tracks focus entering it heard
+        /// nothing at all.
+        /// </remarks>
         protected virtual void OnGotFocus (EventArgs e)
-        {
-            OnEnter (e);
-
-            (Events[s_gotFocusEvent] as EventHandler)?.Invoke (this, e);
-        }
+            => (Events[s_gotFocusEvent] as EventHandler)?.Invoke (this, e);
 
         /// <summary>
         /// Raises the Invalidated event.
         /// </summary>
         protected virtual void OnInvalidated (InvalidateEventArgs e) => (Events[s_invalidatedEvent] as InvalidateEventHandler)?.Invoke (this, e);
 
-        /// <summary>
-        /// Raises the Leave event and then the LostFocus event, then runs the WinForms validation
-        /// cycle (Validating/Validated) as focus leaves the control.
-        /// </summary>
+        /// <summary>Raises the LostFocus event.</summary>
+        /// <remarks>
+        /// <para>
+        /// Raises <see cref="LostFocus"/> only. It used to raise <see cref="Control.Leave"/> first and
+        /// then run Validating/Validated inline, which put the validation cycle in the one place where
+        /// it cannot work: by the time a control has lost focus, <c>e.Cancel</c> has nothing left to
+        /// prevent. That is why "cancel to keep focus in the invalid field" — the standard WinForms
+        /// validation idiom — did nothing, and why the entering control's
+        /// <see cref="CausesValidation"/> and the container's <c>AutoValidate</c> were never consulted.
+        /// </para>
+        /// <para>
+        /// Both now belong to the container: <see cref="ControlAdapter"/> raises Leave on the way out,
+        /// runs validation between the two controls, and can abandon the focus change when a handler
+        /// cancels. Mirrors upstream, where <c>Control.OnLostFocus</c> is just the WM_KILLFOCUS
+        /// notification and <c>ContainerControl</c> owns the rest.
+        /// </para>
+        /// </remarks>
         protected virtual void OnLostFocus (EventArgs e)
-        {
-            OnLeave (e);
-
-            (Events[s_lostFocusEvent] as EventHandler)?.Invoke (this, e);
-
-            var validatingArgs = new System.ComponentModel.CancelEventArgs ();
-            OnValidating (validatingArgs);
-            if (!validatingArgs.Cancel)
-                OnValidated (EventArgs.Empty);
-        }
+            => (Events[s_lostFocusEvent] as EventHandler)?.Invoke (this, e);
 
         /// <summary>Raises the Validating event (WinForms validation cycle; fires on focus loss).</summary>
         protected virtual void OnValidating (System.ComponentModel.CancelEventArgs e) => Validating?.Invoke (this, e);
@@ -1262,8 +1270,54 @@ namespace Majorsilence.Forms
         // input focus. Used by the docking compat: selecting a document/tool tab must "enter" that window
         // so WinForms/Telerik code that loads a tab's data on the window's Enter event runs (e.g. a
         // customer form that fetches its Receivables grid when the Receivables document window is entered).
-        internal void RaiseEnter () => OnGotFocus (EventArgs.Empty);
-        internal void RaiseLeave () => OnLostFocus (EventArgs.Empty);
+        //
+        // Both halves are raised explicitly now that OnGotFocus/OnLostFocus are the focus notification
+        // alone -- the Enter/Leave half moved to the container's ancestor walk, and these callers want
+        // the pair.
+        internal void RaiseEnter ()
+        {
+            OnEnter (EventArgs.Empty);
+            OnGotFocus (EventArgs.Empty);
+        }
+
+        internal void RaiseLeave ()
+        {
+            OnLeave (EventArgs.Empty);
+            OnLostFocus (EventArgs.Empty);
+        }
+
+        // The container's focus walk drives these; Enter/Leave and the validation cycle are protected,
+        // so the adapter needs an internal way in.
+        internal void RaiseEnterOnly () => OnEnter (EventArgs.Empty);
+
+        internal void RaiseLeaveOnly () => OnLeave (EventArgs.Empty);
+
+        internal void RaiseGotFocus () => OnGotFocus (EventArgs.Empty);
+
+        // Routed through OnDeselected rather than OnLostFocus directly: ComboBox, TextBox and Menu
+        // override it to close a drop-down or drop a text selection, and that has to keep happening.
+        internal void RaiseLostFocusOnly () => OnDeselected (EventArgs.Empty);
+
+        // The Selected flag alone, without the notifications -- the adapter raises those itself, in
+        // order, and needs the flag to flip between the Leave half and the Enter half.
+        internal void MarkSelected () => Selected = true;
+
+        internal void MarkDeselected () => Selected = false;
+
+        /// <summary>
+        /// Runs this control's Validating/Validated pair, reporting whether a handler cancelled.
+        /// </summary>
+        internal bool RaiseValidation ()
+        {
+            var e = new System.ComponentModel.CancelEventArgs ();
+            OnValidating (e);
+
+            if (e.Cancel)
+                return false;
+
+            OnValidated (EventArgs.Empty);
+            return true;
+        }
 
         /// <summary>
         /// Raises the KeyDown event.
@@ -1817,16 +1871,11 @@ namespace Majorsilence.Forms
                     return;
                 }
 
-                // Tab moves focus; handle here so it works even if no TextInput fires.
-                if ((e.KeyData & Keys.KeyCode) == Keys.Tab) {
-                    if (adapter.FindForm () is Form f)
-                        f.ShowFocusCues = true;
-
-                    SelectNextControl (adapter.SelectedControl, !e.Shift, true, true, true);
-                    e.Handled = true;
-                    return;
-                }
-
+                // Tab is NOT handled here any more: it is a dialog key, and the pre-processing chain
+                // (ControlAdapter.ProcessDialogKey) runs before this method is ever reached. Claiming
+                // it here meant a control that wants Tab as input -- a multiline text box with
+                // AcceptsTab, a grid moving between cells -- could never receive one, because focus
+                // moved before the control was asked.
                 adapter.SelectedControl?.RaiseKeyDown (e);
                 return;
             }
@@ -1849,15 +1898,10 @@ namespace Majorsilence.Forms
                     return;
                 }
 
-                // Tab
-                if (e.KeyChar == 9) {
-                    if (adapter.FindForm () is Form f)
-                        f.ShowFocusCues = true;
-
-                    SelectNextControl (adapter.SelectedControl, !e.Shift, true, true, true);
-                    e.Handled = true;
+                // Tab: see RaiseKeyDown. The key-down chain has already moved focus by the time a Tab
+                // character arrives, so handling it again here would advance focus twice per press.
+                if (e.KeyChar == 9)
                     return;
-                }
 
                 adapter.SelectedControl?.RaiseKeyPress (e);
                 return;
@@ -2287,21 +2331,34 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Selects this control, giving it focus.</summary>
+        /// <remarks>
+        /// Hands the whole focus change to <see cref="ControlAdapter"/>, which owns the sequence: Leave
+        /// up the old chain, validation between the two, then Enter down the new chain. This method
+        /// used to set <c>Selected</c> and raise the new control's Enter/GotFocus <em>before</em>
+        /// telling the adapter, and the adapter's setter then deselected the old control — so a
+        /// mouse-driven focus change raised the entering control's events first and the leaving
+        /// control's second, the reverse of WinForms. Tab went through a different path and got the
+        /// order right, so the same application saw two different orders depending on how focus moved.
+        /// </remarks>
         public void Select ()
         {
             if (Selected || !CanSelect)
                 return;
 
-            Selected = true;
-
-            OnGotFocus (EventArgs.Empty);
-
             var adapter = FindAdapter ();
 
-            if (adapter != null)
-                adapter.SelectedControl = this;
+            if (adapter is null) {
+                // No container to sequence the change (an unparented control, or one on a window that
+                // has not been built yet). Take focus directly so the flag and the notification still
+                // agree with each other.
+                Selected = true;
+                RaiseEnterOnly ();
+                RaiseGotFocus ();
+                Invalidate ();
+                return;
+            }
 
-            Invalidate ();
+            adapter.SelectedControl = this;
         }
 
         /// <summary>
