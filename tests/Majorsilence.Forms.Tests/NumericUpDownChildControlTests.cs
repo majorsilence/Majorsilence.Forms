@@ -93,12 +93,12 @@ namespace Majorsilence.Forms.Tests
             // Form coordinates: the strip's centre, in the top and then the bottom half of the spinner.
             var x = spinner.Left + buttons.Left + (buttons.Width / 2);
 
-            HeadlessRenderer.Click (form, x, spinner.Top + 4);
+            HeadlessInput.Click (form, WindowPoint.In (spinner, x - spinner.Left, 4));
 
             Assert.Equal (1, hits);
             Assert.Equal (6m, spinner.Value);
 
-            HeadlessRenderer.Click (form, x, spinner.Top + 20);
+            HeadlessInput.Click (form, WindowPoint.In (spinner, x - spinner.Left, 20));
 
             Assert.Equal (2, hits);
             Assert.Equal (5m, spinner.Value);

@@ -45,6 +45,17 @@ namespace Majorsilence.Forms.Automation
                     continue;
 
                 var origin = new Point (parentOrigin.X + c.Bounds.X, parentOrigin.Y + c.Bounds.Y);
+
+                // A purely structural control contributes its children at its own position rather than
+                // a node of its own: a form's client area exists to keep the caption out of the client
+                // region, and a UI Automation client should see the form's controls as direct children
+                // of the window, exactly as it did before that container existed -- and as WinForms,
+                // which has no such node, presents them.
+                if (c.IsAutomationTransparent) {
+                    list.AddRange (BuildChildren (c, origin));
+                    continue;
+                }
+
                 list.Add (BuildNode (c, origin));
             }
 

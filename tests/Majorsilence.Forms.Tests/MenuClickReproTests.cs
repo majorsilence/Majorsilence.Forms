@@ -48,9 +48,9 @@ namespace Majorsilence.Forms.Tests
             form.Show ();
             HeadlessRenderer.CapturePng (form, 500, 200);
 
-            // file.Bounds is local to strip; strip.Bounds is local to the form (which also hosts an
-            // implicit, docked FormTitleBar above it) -- add both to get form-relative coordinates.
-            var loc = new System.Drawing.Point (strip.Bounds.X + file.Bounds.X + 5, strip.Bounds.Y + file.Bounds.Y + 5);
+            // file.Bounds is local to strip; WindowPoint walks the rest of the chain, including the
+            // form's client area, which is what puts the strip below the caption.
+            var loc = WindowPoint.In (strip, file.Bounds.X + 5, file.Bounds.Y + 5);
 
             // Through HeadlessRenderer, not the window's handlers directly: those take DEVICE pixels, so
             // feeding them logical coordinates lands the click at 1/scale of where it was aimed -- at

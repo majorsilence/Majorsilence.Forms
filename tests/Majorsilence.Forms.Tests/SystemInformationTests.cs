@@ -105,9 +105,16 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void CaptionHeight_Get_ReturnsExpected ()
+        public void CaptionHeight_matches_the_caption_this_library_actually_draws ()
         {
-            Assert.Equal (30, SystemInformation.CaptionHeight);
+            // Was pinned at the constant 30 while FormTitleBar drew at 34 (finding FRM-39), so layout
+            // code reserving room for a caption -- or positioning something just under one -- was out
+            // by four pixels. Asserted against a real form rather than against a number, so the two
+            // cannot drift apart again.
+            Majorsilence.Forms.Headless.HeadlessRenderer.Use ();
+            using var form = new Form ();
+
+            Assert.Equal (form.TitleBar.PreferredHeight, SystemInformation.CaptionHeight);
         }
 
         [Fact]

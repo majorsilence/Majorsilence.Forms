@@ -24,12 +24,13 @@ namespace Majorsilence.Forms.Tests
             return (form, tabs);
         }
 
-        // A point inside the header of the tab at <paramref name="index"/>, in form coordinates.
+        // A point inside the header of the tab at <paramref name="index"/>, in WINDOW coordinates --
+        // which is what the headless input helpers take, and which is no longer the same as summing the
+        // control's own offsets now that a form's children sit inside its client area (FRM-06).
         private static Point Header (TabControl tabs, int index)
         {
             var rect = tabs.GetTabRect (index);
-            return new Point (tabs.Left + rect.Left + (rect.Width / 2),
-                              tabs.Top + (tabs.TabStrip.Height / 2));
+            return WindowPoint.In (tabs, rect.Left + (rect.Width / 2), tabs.TabStrip.Height / 2);
         }
 
         [Fact]

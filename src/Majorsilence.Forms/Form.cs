@@ -46,7 +46,16 @@ namespace Majorsilence.Forms
         {
             InitWindow (Majorsilence.Forms.Backends.Platform.Backend.CreateWindow (this, isPopup: false));
 
-            TitleBar = Controls.AddImplicitControl (new FormTitleBar ());
+            // Both are implicit children of the root adapter; `Controls` hands out the CLIENT area's
+            // collection, so the title bar is invisible to application code and takes no space from
+            // it -- which is what makes (0, 0) mean "below the caption", as it does in WinForms.
+            //
+            // The client area is added FIRST even though it sits second on screen. Dock layout runs in
+            // z-order and the loop walks children BACKWARDS (DockAndAnchorLayout: "we decided to use
+            // z-order as the docking order"), so the last child added is docked first. Adding the Fill
+            // last would have let it claim the whole window before the caption had taken its strip.
+            client_area = adapter.Controls.AddImplicitControl (new FormClientArea ());
+            TitleBar = adapter.Controls.AddImplicitControl (new FormTitleBar ());
 
             Resizeable = true;
             Backend.SetSystemDecorations (false);
@@ -56,7 +65,14 @@ namespace Majorsilence.Forms
             // Windows/Linux draw fully custom chrome. macOS uses the NATIVE title bar (traffic lights,
             // rounded corners, shadow). A form that wants to paint into the title bar opts in with
             // ExtendsContentIntoTitleBar = true (Avalonia 12 full-size content view) — see RadTabbedForm.
-            if (OperatingSystem.IsMacOS ())
+            // MF_FORCE_CUSTOM_CHROME=1 makes a macOS process take the Windows/Linux branch. macOS is the
+            // ONLY platform that uses system decorations, and CI runs the test suite on Windows only --
+            // so anything touching the caption (client-area geometry, hit-testing near the top of a
+            // form, tab order through the caption buttons) passes vacuously on a developer's Mac and
+            // fails in CI. This has cost two round trips already. Same shape as the backend's
+            // MF_HEADLESS_SCALE, and inert unless the variable is set.
+            if (OperatingSystem.IsMacOS ()
+                && Environment.GetEnvironmentVariable ("MF_FORCE_CUSTOM_CHROME") != "1")
                 UseSystemDecorations = true;
 
             Backend.Size = DefaultSize;
@@ -67,12 +83,12 @@ namespace Majorsilence.Forms
             // MouseDown/MouseMove/Leave; Form itself just didn't expose them. Needed for
             // top-level windows that track the mouse over their own surface directly (e.g.
             // borderless popup pickers), the same way ported WinForms code commonly does on Form.
-            adapter.Click += (s, e) => OnClick (e);
-            adapter.MouseDown += (s, e) => OnMouseDown (e);
-            adapter.MouseUp += (s, e) => OnMouseUp (e);
-            adapter.MouseMove += (s, e) => OnMouseMove (e);
-            adapter.MouseClick += (s, e) => OnMouseClick (e);
-            adapter.MouseLeave += (s, e) => Leave?.Invoke (this, e);
+            client_area.Click += (s, e) => OnClick (e);
+            client_area.MouseDown += (s, e) => OnMouseDown (e);
+            client_area.MouseUp += (s, e) => OnMouseUp (e);
+            client_area.MouseMove += (s, e) => OnMouseMove (e);
+            client_area.MouseClick += (s, e) => OnMouseClick (e);
+            client_area.MouseLeave += (s, e) => Leave?.Invoke (this, e);
         }
 
         /// <summary>
@@ -355,10 +371,13 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal void CompleteClose ()
         {
+            // Everything this dialog disabled, not just its owner -- see DisableWindowsForModalLoop.
+            RestoreWindowsAfterModalLoop ();
+
             if (dialog_parent is not null) {
-                // Re-enable and raise the window that presents the opener, not the opener's own backend:
-                // an MDI child's backend is an unshown window, and activating it made a blank duplicate
-                // of that form appear on screen every time a dialog it opened was dismissed.
+                // Raise the window that presents the opener, not the opener's own backend: an MDI
+                // child's backend is an unshown window, and activating it made a blank duplicate of
+                // that form appear on screen every time a dialog it opened was dismissed.
                 var parentWindow = dialog_parent.PresentationWindow;
 
                 parentWindow.Backend.Enabled = true;
@@ -413,7 +432,7 @@ namespace Majorsilence.Forms
                 return;
 
             _formClosedFired = true;
-            OnFormClosed (new FormClosedEventArgs ());
+            OnFormClosed (new FormClosedEventArgs (PendingCloseReason));
         }
 
         /// <summary>
@@ -433,6 +452,28 @@ namespace Majorsilence.Forms
         {
             _loadFired = false;
             _formClosedFired = false;
+            PendingCloseReason = CloseReason.UserClosing;
+        }
+
+        /// <summary>
+        /// Closes the forms this one owns, as upstream's <c>WmClose</c> does, telling each that its
+        /// owner is what closed it.
+        /// </summary>
+        /// <remarks>
+        /// Over a copy: closing a child clears its <see cref="Owner"/>, which mutates the list being
+        /// walked. Runs before this form's own close completes so an owned tool window cannot outlive
+        /// the window it belongs to -- which it previously did, because nothing walked the graph.
+        /// </remarks>
+        internal void CloseOwnedForms ()
+        {
+            if (_ownedForms is null || _ownedForms.Count == 0)
+                return;
+
+            foreach (var owned in _ownedForms.ToArray ()) {
+                owned.PendingCloseReason = CloseReason.FormOwnerClosing;
+                owned.Close ();
+                owned.Owner = null;
+            }
         }
 
 
@@ -768,6 +809,13 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the name of the form.</summary>
         public string Name { get; set; } = string.Empty;
+        // Why this form is closing, for the FormClosing/FormClosed args. Set by whichever path started
+        // the close and reset afterwards. It was hard-coded UserClosing everywhere, which matters now
+        // that Application.Exit and the owner cascade really do close forms: the standard "minimise to
+        // tray on UserClosing, actually exit on ApplicationExitCall" pattern reads this to tell the two
+        // apart, and would have hidden the window instead of exiting.
+        internal CloseReason PendingCloseReason { get; set; } = CloseReason.UserClosing;
+
 
         /// <summary>Raises the Closing event.</summary>
         /// <remarks>
@@ -779,7 +827,7 @@ namespace Majorsilence.Forms
         {
             Closing?.Invoke (this, e);
 
-            var form_closing_args = new FormClosingEventArgs { Cancel = e.Cancel };
+            var form_closing_args = new FormClosingEventArgs (PendingCloseReason, e.Cancel);
             OnFormClosing (form_closing_args);
 
             if (form_closing_args.Cancel)
@@ -834,11 +882,40 @@ namespace Majorsilence.Forms
                 : ShowDialog (parent);
         }
 
-        /// <summary>Shows the form as a modal dialog with the specified owner window. Stub — ignores owner parameter.</summary>
-        public DialogResult ShowDialog (IWin32Window owner) => ShowDialog ();
+        /// <summary>Shows the form as a modal dialog owned by the given window.</summary>
+        /// <remarks>
+        /// Both this and <see cref="Show(IWin32Window)"/> used to discard the argument entirely, so
+        /// <c>dialog.ShowDialog (this)</c> picked whatever <see cref="Application.OpenForms"/> happened
+        /// to yield first — the dialog centred on the wrong window and disabled the wrong one.
+        /// </remarks>
+        public DialogResult ShowDialog (IWin32Window owner)
+        {
+            var parent = OwnerFormOf (owner);
 
-        /// <summary>Shows the form, ignoring the owner parameter (Majorsilence.Forms has no Win32 parenting).</summary>
-        public void Show (IWin32Window owner) => Show ();
+            return parent is null ? ShowDialog () : ShowDialog (parent);
+        }
+
+        /// <summary>Shows the form owned by the given window.</summary>
+        /// <inheritdoc cref="ShowDialog(IWin32Window)" path="/remarks"/>
+        public void Show (IWin32Window owner)
+        {
+            if (OwnerFormOf (owner) is { } parent)
+                Owner = parent;
+
+            Show ();
+        }
+
+        /// <summary>
+        /// Resolves an <see cref="IWin32Window"/> to the form it belongs to — the window itself, or the
+        /// form hosting it when a control was passed.
+        /// </summary>
+        /// <remarks>There is no HWND to look up here, so the resolution is by object rather than by
+        /// handle; a caller passing something that is neither gets the ownerless behaviour.</remarks>
+        private static Form? OwnerFormOf (IWin32Window? owner) => owner switch {
+            Form form => form,
+            Control control => control.FindForm (),
+            _ => null,
+        };
 
         /// <summary>Implements IWin32Window: returns IntPtr.Zero (Majorsilence.Forms has no Win32 handle).</summary>
         IntPtr IWin32Window.Handle => IntPtr.Zero;
@@ -926,6 +1003,11 @@ namespace Majorsilence.Forms
 
             dialog_parent = parent;
 
+            // A modal dialog is owned by the form it was shown against, as upstream's ShowDialog does.
+            // Without this the owner graph is empty for the commonest way of opening a dialog.
+            if (parent is not null)
+                Owner = parent;
+
             // A Load handler that sets DialogResult closes the form during the call below, which
             // completes dialog_task; RunModal then returns without pumping. That is upstream's
             // "decided before it was ever shown" path, and it works here because the result is cleared
@@ -1005,9 +1087,39 @@ namespace Majorsilence.Forms
         /// <summary>Gets the currently active form (the most recently focused open form).</summary>
         public static Form? ActiveForm => Application.OpenForms.LastOrDefault ();
 
-        /// <summary>Gets or sets the client area size (equivalent to Size for Majorsilence.Forms).</summary>
+        /// <summary>
+        /// The height the library's own title bar takes off the top of the window, or zero when the
+        /// caption is the OS's or there is none.
+        /// </summary>
+        /// <remarks>
+        /// The caption is non-client in WinForms terms, so it is exactly the difference between the
+        /// window's backend client size and the <see cref="ClientSize"/> the application sees.
+        /// </remarks>
+        internal int NonClientCaptionHeight => TitleBar is { Visible: true, NativeOverlay: false }
+            ? TitleBar.PreferredHeight
+            : 0;
+
+        /// <inheritdoc/>
+        private protected override System.Drawing.Size ClientAreaSize {
+            get {
+                var size = base.ClientAreaSize;
+                return new System.Drawing.Size (size.Width, Math.Max (0, size.Height - NonClientCaptionHeight));
+            }
+        }
+
+        /// <summary>Gets or sets the size of the form's client area — the region below the caption.</summary>
+        /// <remarks>
+        /// This reported the whole backend client size, caption included, and assigning it sized the
+        /// window to exactly that. Since the library draws its own title bar everywhere but macOS, a
+        /// designer form built as <c>ClientSize = (800, 450)</c> got 450 pixels of which the top
+        /// caption-height was behind the caption -- so the first row of controls was hidden and an
+        /// <c>Anchor = Bottom</c> row hung off the bottom of the window by the same amount.
+        /// </remarks>
         public System.Drawing.Size ClientSize {
-            get => Size;
+            get {
+                var size = Size;
+                return new System.Drawing.Size (size.Width, Math.Max (0, size.Height - NonClientCaptionHeight));
+            }
             set => SetClientSizeCore (value.Width, value.Height);
         }
 
@@ -1019,7 +1131,8 @@ namespace Majorsilence.Forms
         /// base implementation just forwards; a Windows-only override that adjusts for a non-client
         /// border still compiles and runs here, it just has no border to adjust for.
         /// </summary>
-        protected virtual void SetClientSizeCore (int x, int y) => Size = new System.Drawing.Size (x, y);
+        protected virtual void SetClientSizeCore (int x, int y)
+            => Size = new System.Drawing.Size (x, y + NonClientCaptionHeight);
 
         /// <summary>Gets or sets the automatic scaling mode.</summary>
         /// <remarks>
@@ -1547,8 +1660,43 @@ namespace Majorsilence.Forms
                 base.Invalidate ();
         }
 
+        private Form? _owner;
+
         /// <summary>Gets or sets the form that owns this form.</summary>
-        public Form? Owner { get; set; }
+        /// <remarks>
+        /// The setter maintains the other side of the relationship, as upstream's does: it removes this
+        /// form from the previous owner's <see cref="OwnedForms"/> and adds it to the new one's. It was
+        /// a bare auto-property, so <c>child.Owner = parent</c> left <c>parent.OwnedForms</c> empty and
+        /// nothing downstream — closing owned forms with their owner, keeping them above it — had a
+        /// graph to walk.
+        /// </remarks>
+        public Form? Owner {
+            get => _owner;
+            set {
+                if (ReferenceEquals (_owner, value))
+                    return;
+
+                // A form cannot own itself, and an ownership cycle would make the close cascade
+                // infinite. Upstream throws for both; refusing quietly here would hide a real mistake.
+                if (ReferenceEquals (value, this))
+                    throw new ArgumentException ("A form cannot own itself.", nameof (value));
+
+                for (var candidate = value; candidate is not null; candidate = candidate._owner) {
+                    if (ReferenceEquals (candidate, this))
+                        throw new ArgumentException ("Setting this owner would create a cycle.", nameof (value));
+                }
+
+                _owner?._ownedForms?.Remove (this);
+                _owner = value;
+
+                if (value is not null) {
+                    value._ownedForms ??= [];
+
+                    if (!value._ownedForms.Contains (this))
+                        value._ownedForms.Add (this);
+                }
+            }
+        }
 
         private List<Form>? _ownedForms;
 
@@ -1558,18 +1706,84 @@ namespace Majorsilence.Forms
         /// <summary>Adds an owned form to this form.</summary>
         public void AddOwnedForm (Form form)
         {
-            _ownedForms ??= [];
-            if (!_ownedForms.Contains (form))
-                _ownedForms.Add (form);
+            ArgumentNullException.ThrowIfNull (form);
+
+            // One direction only: the Owner setter is what maintains the list now, so doing it here as
+            // well would double-add.
             form.Owner = this;
         }
 
         /// <summary>Removes an owned form from this form.</summary>
         public void RemoveOwnedForm (Form form)
         {
-            _ownedForms?.Remove (form);
-            if (form.Owner == this)
+            ArgumentNullException.ThrowIfNull (form);
+
+            if (ReferenceEquals (form._owner, this))
                 form.Owner = null;
+            else
+                _ownedForms?.Remove (form);
+        }
+
+        private readonly FormClientArea client_area;
+
+        /// <summary>The controls inside the form's client area — everything below the title bar.</summary>
+        /// <remarks>
+        /// This used to hand out the root adapter's collection, which spans the whole window including
+        /// the title bar the library draws. Every designer form therefore lost its top caption-height
+        /// of usable area: a child at (0, 0) sat behind the caption, <c>ClientSize</c> counted space the
+        /// application could not use, and an <c>Anchor = Bottom</c> row was pushed off the window by the
+        /// same amount. Upstream's caption is non-client and (0, 0) is below it.
+        /// </remarks>
+        public override Control.ControlCollection Controls => client_area.Controls;
+
+        /// <inheritdoc/>
+        internal override Control ContentRoot => client_area;
+
+        /// <summary>
+        /// The form's client region: a fill-docked container holding everything the application puts
+        /// on the form.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A container rather than a coordinate offset because everything downstream — dock and anchor
+        /// layout, hit-testing, painting, focus traversal — already handles nesting. Offsetting the
+        /// adapter instead would have meant teaching each of those about a region that is not where the
+        /// control says it is.
+        /// </para>
+        /// <para>
+        /// A <see cref="ScrollableControl"/> specifically, matching the adapter it takes over from:
+        /// that is the type whose <c>DisplayRectangle</c> is deflated by <c>Padding</c>, so the form's
+        /// padding still insets docked children, and the one <c>AutoScroll</c> forwards to.
+        /// </para>
+        /// </remarks>
+        private sealed class FormClientArea : ScrollableControl
+        {
+            public FormClientArea ()
+            {
+                Dock = DockStyle.Fill;
+
+                // Chrome, not content: it must never take focus.
+                SetControlBehavior (ControlBehaviors.Selectable, false);
+                TabStop = false;
+            }
+
+            /// <inheritdoc/>
+            internal override bool IsAutomationTransparent => true;
+
+            /// <summary>Paints nothing of its own.</summary>
+            /// <remarks>
+            /// The window paints the background and border (WindowBase.RenderFrame) and the form's own
+            /// Paint handler draws over that, so painting here would cover both.
+            /// <para>
+            /// Suppressed by overriding the paint rather than by setting this control's background to
+            /// transparent, which is the trap that sank the first attempt at this change: ambient
+            /// colour is resolved by walking the PARENT CHAIN, so an explicit transparent here became
+            /// the answer for every descendant. Buttons and labels then painted transparent and
+            /// whatever was behind them showed through, which reads exactly like a child being
+            /// overpainted by its parent.
+            /// </para>
+            /// </remarks>
+            protected override void OnPaintBackground (PaintEventArgs e) { }
         }
 
         /// <summary>Gets or sets the MenuStrip that is the main menu for the form.</summary>

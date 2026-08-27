@@ -71,9 +71,12 @@ public class FormPaintEventTests
 
         // Assert the handler's fill actually landed somewhere first. Without it, "the button is not
         // red" would also hold when Paint never ran at all, and the test would pass vacuously.
-        Assert.Equal (HandlerFill, At (button.Left + button.Width + 20, button.Top));
+        // Window space: the captured bitmap spans the whole window, and the button lives inside the
+        // client area below the caption.
+        var beside = WindowPoint.In (button, button.Width + 20, 0);
+        var centre = WindowPoint.CentreOf (button);
 
-        Assert.NotEqual (HandlerFill, At (button.Left + button.Width / 2,
-                                          button.Top + button.Height / 2));
+        Assert.Equal (HandlerFill, At (beside.X, beside.Y));
+        Assert.NotEqual (HandlerFill, At (centre.X, centre.Y));
     }
 }

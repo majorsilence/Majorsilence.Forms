@@ -40,7 +40,13 @@ namespace Majorsilence.Forms
             new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.ItemFontSize);
 
         /// <summary>Gets the default height of a caption bar (title bar).</summary>
-        public static int CaptionHeight => 30;
+        /// <remarks>
+        /// The height of the caption this library actually draws (<c>FormTitleBar</c>), not a Windows
+        /// metric. It was the constant 30 while the title bar was 34, so layout code reserving this
+        /// much room for a custom caption -- or positioning something just below one -- was out by four
+        /// pixels, and a port drawing its own bar over the library's got a visible double band.
+        /// </remarks>
+        public static int CaptionHeight => FormTitleBar.CaptionHeight;
 
         /// <summary>Gets whether the drop shadow effect for windows is enabled.</summary>
         /// <remarks>

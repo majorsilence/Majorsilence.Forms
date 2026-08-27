@@ -1288,6 +1288,17 @@ namespace Majorsilence.Forms
 
         // The container's focus walk drives these; Enter/Leave and the validation cycle are protected,
         // so the adapter needs an internal way in.
+        /// <summary>
+        /// Whether this control is pure structure and should not appear as a node in the accessibility
+        /// tree — its children are spliced in at its own position instead.
+        /// </summary>
+        /// <remarks>
+        /// A form's client area is the case this exists for. It is an implementation detail of how the
+        /// caption is kept out of the client region, not something a screen reader should announce or a
+        /// UI Automation client should have to navigate through, and upstream has no counterpart node.
+        /// </remarks>
+        internal virtual bool IsAutomationTransparent => false;
+
         internal void RaiseEnterOnly () => OnEnter (EventArgs.Empty);
 
         internal void RaiseLeaveOnly () => OnLeave (EventArgs.Empty);
