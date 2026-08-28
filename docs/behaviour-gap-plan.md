@@ -755,6 +755,35 @@ looked like a partial improvement while leaving layout wrong. `DrawText` also ha
 in the same pass: fixing `MeasureText` alone would have made the pair disagree in a new way, since
 measurement started wrapping where drawing still did not.
 
+**The same unit bug was in three places, and only the third one was visible.** After the measuring
+fix the user reported that on-screen text still looked tiny, which was correct: `GFX-25` is written up
+as a *measurement* defect, but points-as-pixels had also been copied into the two paths that decide
+what actually gets drawn.
+
+1. `Control.Font`'s setter assigned `Style.FontSize = (int) value.SizeInPoints`, but `Style.FontSize`
+   is in pixels — `Theme.FontSize` is 14, a pixel size. Same in `ControlStyle`, `DataGridViewRenderer`
+   and `ControlAndFormParity` (which feeds `CurrentAutoScaleDimensions`, so it scaled every
+   designer-built form by a ratio derived from a number a quarter too small).
+2. `Control.GetEffectiveFontSize`'s fallback was `(int) SystemFonts.DefaultFontSize` — 8.25 **points**
+   truncated to **8**, handed to the renderers as a **pixel** size. This is the one users see, because
+   it is the path taken by every control that does not set a `Font`, which is nearly all of them:
+   unfonted text drew at 8px where the correct default is 11px. Ironically this fallback was itself a
+   fix for the opposite bug (unfonted controls picking up the 14px theme font); it corrected the
+   source of the number without correcting its unit, and overshot from too big to too small.
+
+That second one had a test asserting the wrong behaviour outright
+(`GetEffectiveFontSize_matches_SystemFonts_DefaultFontSize_when_unfonted`), which is why the fleet of
+existing tests stayed green while the application looked wrong. The test's intent — fall back to the
+ambient system font, not the theme font — was right; only its unit was wrong, and it now asserts the
+default font's pixel size and explicitly asserts *inequality* with the point size.
+
+**Lesson for the remaining work:** a unit defect is never in one place. `GFX-25` was filed against
+`MeasureText` and the audit did not connect it to the render path or to the ambient fallback, so the
+first fix was verifiable, green, and invisible to the user. The regression test that finally pinned
+it asserts that an unfonted control inks the *same height* as an explicitly-fonted one — a
+relationship between two paths rather than a number in one — which is the only shape of assertion
+that would have caught all three instances at once.
+
 **W5.18 — Pens lose everything but colour and width.**
 Every simple stroke call discards the `Pen`'s dash style, caps, join and brush — so dashed focus
 rectangles, grid lines and custom borders all draw solid. Plus: `SmoothingMode.Default` antialiases

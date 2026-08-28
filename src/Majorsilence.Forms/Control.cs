@@ -1608,9 +1608,19 @@ namespace Majorsilence.Forms
         internal SKTypeface GetEffectiveFont ()
             => CurrentStyle.TryGetFont () ?? Parent?.GetEffectiveFont () ?? Majorsilence.Forms.SystemFonts.DefaultTypeface;
 
-        /// <summary>Companion to <see cref="GetEffectiveFont"/> for the font size (logical units).</summary>
+        /// <summary>Companion to <see cref="GetEffectiveFont"/> for the font size (logical PIXELS).</summary>
+        /// <remarks>
+        /// The fallback is the default font's PIXEL size, not its point size. It used to be
+        /// <c>(int) SystemFonts.DefaultFontSize</c>, which is 8.25 POINTS truncated to 8, handed
+        /// straight to the renderers as a pixel size -- so every control that had no font of its own,
+        /// which is almost all of them, drew its text at 8px instead of 11px. That is the tiny-caption
+        /// look in a running application, and it is the same points-as-pixels confusion as GFX-25 in a
+        /// third place: the measuring call, the Control.Font setter, and this fallback.
+        /// </remarks>
         internal int GetEffectiveFontSize ()
-            => CurrentStyle.TryGetFontSize () ?? Parent?.GetEffectiveFontSize () ?? (int) Majorsilence.Forms.SystemFonts.DefaultFontSize;
+            => CurrentStyle.TryGetFontSize ()
+                ?? Parent?.GetEffectiveFontSize ()
+                ?? (int) System.Math.Round (Majorsilence.Forms.SystemFonts.DefaultFont.PixelSize);
 
         /// <summary>
         /// Called when the Parent property is changed.
@@ -2656,7 +2666,13 @@ namespace Majorsilence.Forms
                     Style.FontSize = null;
                 } else {
                     Style.Font = value.GetSKTypeface ();
-                    Style.FontSize = (int) value.SizeInPoints;
+
+                    // PixelSize, not SizeInPoints. Style.FontSize is in PIXELS -- Theme.FontSize is
+                    // 14, which is a pixel size -- so assigning the point size drew every control's
+                    // text about a quarter too small: 9px for the default 9pt font instead of 12px.
+                    // This is the same defect as GFX-25 on the measuring side, in the path that
+                    // actually renders, and it is what made captions look tiny in a running app.
+                    Style.FontSize = (int) System.Math.Round (value.PixelSize);
                 }
 
                 OnFontChanged (EventArgs.Empty);

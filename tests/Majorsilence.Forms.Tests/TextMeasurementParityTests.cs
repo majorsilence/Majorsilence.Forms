@@ -181,6 +181,135 @@ public class TextMeasurementParityTests
             "SingleLine must not wrap into extra lines");
     }
 
+    [Fact]
+    public void A_controls_rendered_text_is_the_size_its_font_asks_for ()
+    {
+        // Style.FontSize is in PIXELS -- Theme.FontSize is 14 -- but Control.Font's setter assigned it
+        // from SizeInPoints, so every control DREW its text about a quarter too small: 9px for the
+        // default 9pt font instead of 12px. Same defect as GFX-25 on the measuring side, in the path
+        // that actually renders, and the one visible in a running application as tiny captions.
+        //
+        // Measured against real ink rather than against the style, so it cannot pass by agreeing with
+        // the same wrong number twice.
+        Majorsilence.Forms.Headless.HeadlessRenderer.Use ();
+
+        using var form = new Form { Size = new Size (300, 120) };
+        var label = new Label {
+            Text = "Hxy",
+            Font = new Majorsilence.Forms.Drawing.Font ("Arial", 24f),
+            Location = new Point (10, 10),
+            Size = new Size (200, 60),
+            AutoSize = false,
+        };
+        form.Controls.Add (label);
+        form.Show ();
+
+        using var bitmap = SkiaSharp.SKBitmap.Decode (Majorsilence.Forms.Headless.HeadlessRenderer.CapturePng (form));
+
+        var top = -1;
+        var bottom = -1;
+
+        for (var y = 0; y < bitmap.Height; y++) {
+            for (var x = 10; x < 210 && x < bitmap.Width; x++) {
+                var pixel = bitmap.GetPixel (x, y);
+
+                if (pixel.Red < 128 && pixel.Green < 128 && pixel.Blue < 128) {
+                    if (top < 0) top = y;
+                    bottom = y;
+                    break;
+                }
+            }
+        }
+
+        Assert.True (top >= 0, "the label drew no text at all");
+
+        // "Hxy" at 24pt is 32px; cap-height plus descender is roughly two thirds of that. At the old
+        // point-sized 24px it would be about a quarter smaller, well under this floor.
+        var inkHeight = bottom - top + 1;
+
+        // 24pt is 32px at 96 DPI, and "Hxy" (cap height plus descender) inks 30px of that. Rendered
+        // at the point size instead it is 24px and inks 22px, so the threshold sits between the two
+        // measured values rather than being picked out of the air.
+        Assert.True (inkHeight >= 26,
+            $"24pt text drew only {inkHeight}px of ink, against 30px when it is sized correctly -- "
+            + "it is being rendered at the point size rather than the pixel size");
+
+        form.Close ();
+    }
+
+    [Fact]
+    public void A_control_with_no_font_of_its_own_draws_the_same_size_as_one_with_the_default_font ()
+    {
+        // Almost no control sets a Font, so almost every control took the fallback in
+        // Control.GetEffectiveFontSize -- and that fallback was (int) SystemFonts.DefaultFontSize,
+        // which is 8.25 POINTS truncated to 8, handed to the renderers as a PIXEL size. The result
+        // was that the overwhelmingly common case drew smaller than the rare explicitly-fonted one:
+        // 8px of ink against 10px. That is the tiny-text look in a running application, so the
+        // assertion is that the two paths agree rather than that either hits some absolute number.
+        Majorsilence.Forms.Headless.HeadlessRenderer.Use ();
+
+        using var form = new Form { Size = new Size (420, 220) };
+        var inherited = new Label { Text = "Hxy", Location = new Point (10, 10), Size = new Size (300, 30) };
+        var explicitly_fonted = new Label {
+            Text = "Hxy", Location = new Point (10, 60), Size = new Size (300, 30),
+            Font = new Majorsilence.Forms.Drawing.Font ("Arial", 8.25f),
+        };
+
+        form.Controls.Add (inherited);
+        form.Controls.Add (explicitly_fonted);
+        form.Show ();
+
+        using var bitmap = SkiaSharp.SKBitmap.Decode (Majorsilence.Forms.Headless.HeadlessRenderer.CapturePng (form));
+
+        // Each band comes from the label's own device-space rectangle rather than a hard-coded
+        // row range: the capture is in device pixels, and off macOS the custom title bar pushes
+        // both labels down by its height. That is exactly what WindowPoint exists to get right.
+        var inherited_ink = InkHeight (bitmap, DeviceBounds (inherited));
+        var explicit_ink = InkHeight (bitmap, DeviceBounds (explicitly_fonted));
+
+        Assert.True (inherited_ink > 0 && explicit_ink > 0,
+            $"nothing was drawn: inherited={inherited_ink} explicit={explicit_ink}");
+
+        Assert.True (System.Math.Abs (inherited_ink - explicit_ink) <= System.Math.Ceiling (form.Scaling),
+            $"a Label with no Font drew {inherited_ink}px of ink where the same Label with an "
+            + $"explicit 8.25pt font drew {explicit_ink}px -- the inherited path is resolving the "
+            + "default font's POINT size as a pixel size");
+
+        form.Close ();
+    }
+
+    // A control's own rectangle in the device-pixel, window-space coordinates a capture is in.
+    private static Rectangle DeviceBounds (Control control)
+    {
+        var topLeft = WindowPoint.DeviceIn (control, 0, 0);
+        var bottomRight = WindowPoint.DeviceIn (control, control.Width, control.Height);
+
+        return Rectangle.FromLTRB (topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y);
+    }
+
+    // The height in pixels of the dark ink inside a device-space band, or 0 when it is blank.
+    private static int InkHeight (SkiaSharp.SKBitmap bitmap, Rectangle band)
+    {
+        var top = -1;
+        var bottom = -1;
+
+        for (var y = band.Top; y < band.Bottom && y < bitmap.Height; y++) {
+            for (var x = band.Left; x < band.Right && x < bitmap.Width; x++) {
+                var pixel = bitmap.GetPixel (x, y);
+
+                if (pixel.Red < 128 && pixel.Green < 128 && pixel.Blue < 128) {
+                    if (top < 0)
+                        top = y;
+
+                    bottom = y;
+                    break;
+                }
+            }
+        }
+
+        return top < 0 ? 0 : bottom - top + 1;
+    }
+
     // The y of the lowest non-white pixel, or -1 when nothing was drawn.
     private static int BottommostInk (Majorsilence.Forms.Drawing.Bitmap bitmap)
     {

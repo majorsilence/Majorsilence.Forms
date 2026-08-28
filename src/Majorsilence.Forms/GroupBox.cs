@@ -26,7 +26,9 @@ namespace Majorsilence.Forms
         // GDI's Font.Height for common UI fonts is ~1.216x the em size in pixels (points at 96dpi).
         // Used for the caption band the way real WinForms uses FontHeight; the Font property itself
         // resolves ambiently through the parent chain.
-        internal int CaptionHeight => (int) Math.Ceiling (Font.SizeInPoints * 96f / 72f * 1.216f);
+        // PixelSize rather than the hand-rolled points-to-pixels conversion this used to do:
+        // identical for a Point-unit font, correct for the others too.
+        internal int CaptionHeight => (int) Math.Ceiling (Font.PixelSize * 1.216f);
 
         /// <summary>
         /// WinForms parity: the display rectangle -- what docked and anchored children fill --

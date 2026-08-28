@@ -392,7 +392,8 @@ namespace Majorsilence.Forms.Renderers
 
             if (handlerStyle.Font is { } font) {
                 merged.Font = font.GetSKTypeface ();
-                merged.FontSize = (int)font.SizeInPoints;
+                // Pixels, not points -- see the note on Control.Font's setter.
+                merged.FontSize = (int)System.Math.Round (font.PixelSize);
             }
 
             return merged;

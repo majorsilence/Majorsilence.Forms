@@ -30,11 +30,20 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void GetEffectiveFontSize_matches_SystemFonts_DefaultFontSize_when_unfonted ()
+        public void GetEffectiveFontSize_is_the_default_fonts_PIXEL_size_when_unfonted ()
         {
+            // This used to assert (int) SystemFonts.DefaultFontSize, i.e. 8. That number is in
+            // POINTS, but every caller of GetEffectiveFontSize feeds it to the renderers as a
+            // PIXEL size -- so the fix for "unfonted controls wrongly use the 14px theme font"
+            // overshot from too big to too small, and unfonted controls (which is nearly all of
+            // them) drew at 8px instead of 11px. The default font is still the right answer; the
+            // units were not.
             using var label = new Label ();
 
-            Assert.Equal ((int) Majorsilence.Forms.SystemFonts.DefaultFontSize, label.GetEffectiveFontSize ());
+            var expected = (int) System.Math.Round (Majorsilence.Forms.SystemFonts.DefaultFont.PixelSize);
+
+            Assert.Equal (expected, label.GetEffectiveFontSize ());
+            Assert.NotEqual ((int) Majorsilence.Forms.SystemFonts.DefaultFontSize, label.GetEffectiveFontSize ());
         }
 
         [Fact]
