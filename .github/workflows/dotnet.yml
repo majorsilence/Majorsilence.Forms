@@ -42,6 +42,15 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release
 
+      # The CJK font-fallback tests (DrawString / AddString / TextRenderer) assert that a
+      # non-Latin string renders as real glyphs rather than a row of identical tofu boxes. That
+      # can only work if a CJK face is actually installed for SkiaSharp to fall back TO — the
+      # Windows and macOS runners ship one, ubuntu-latest ships none, so those tests saw tofu and
+      # failed. This is the whole point of the Linux test job added alongside this matrix.
+      - name: Install CJK fonts (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+
       # ── Test matrix ────────────────────────────────────────────────────────────────────────
       #
       # Two things vary independently and both have bitten this repo, so both are gated on every
