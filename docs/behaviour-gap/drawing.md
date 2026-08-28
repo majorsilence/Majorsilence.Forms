@@ -203,6 +203,30 @@ The drawing area splits sharply in two. `Majorsilence.Forms.Drawing.Common` — 
 - **Fix:** `MeasureText(text, tf, (int)Math.Round(font.PixelSize))`. `PixelSize` is `internal` to the Drawing.Common assembly, which `Majorsilence.Forms` already sees (`Graphics.cs:1717` uses it), so this is a one-token change. Add an assertion test tying the two together.
 - **Test:** `Assert.Equal(TextRenderer.MeasureText("Hello", font).Width, (int)Math.Ceiling(g.MeasureString("Hello", font).Width), tolerance: padding)` for a 9pt font — today the ratio is ≈0.75.
 - **Tests today:** none. (`tests/Majorsilence.Forms.Tests/TextFormatFlagsTests.cs` covers flag handling, not size.)
+- **RESOLVED — and it was in three places, not one.** Fixing the measuring call left on-screen text
+  visibly unchanged, because the same points-as-pixels confusion had been copied into both paths that
+  decide the size text is *drawn* at:
+  - **The `Font` setter.** `Control.Font` assigned `Style.FontSize = (int) value.SizeInPoints`, and
+    `Style.FontSize` is pixels (`Theme.FontSize` is 14, a pixel size). Same in `ControlStyle`,
+    `Renderers/DataGridViewRenderer.cs` and `ControlAndFormParity.cs` — the last feeds
+    `CurrentAutoScaleDimensions`, so it scaled designer-built forms by a ratio built on a number a
+    quarter too small.
+  - **The ambient fallback, which is the one users actually see.**
+    `Control.GetEffectiveFontSize` ended in `?? (int) SystemFonts.DefaultFontSize` — 8.25 **points**
+    truncated to **8**, consumed by the renderers as a **pixel** size. Every control that sets no
+    `Font` takes this path, i.e. almost all of them, so almost all text drew at 8px against a correct
+    default of 11px. The perverse part: this fallback was itself the fix for unfonted controls
+    wrongly picking up the 14px theme font. It corrected where the number came from without
+    correcting its unit, and so overshot from too big to too small.
+- **Why the suite did not catch it:** `AmbientDefaultFontTests` asserted the buggy value outright
+  (`Assert.Equal((int) SystemFonts.DefaultFontSize, label.GetEffectiveFontSize())`). Its intent — fall
+  back to the system font, not the theme font — was right and is kept; it now asserts the default
+  font's **pixel** size and asserts inequality with the point size, so the two can never be conflated
+  again. The regression test that pins the user-visible symptom
+  (`TextMeasurementParityTests.A_control_with_no_font_of_its_own_draws_the_same_size_as_one_with_the_default_font`)
+  compares rendered ink between an unfonted and an explicitly-fonted control — a relationship between
+  two paths rather than an absolute number, which is the assertion shape that catches all three
+  instances at once.
 
 ### GFX-26 — `TextRenderer.MeasureText` adds none of the GDI padding — Cat A — P1 — High
 - **Ours:** the measured size is the raw glyph-run size, with nothing added and `TextFormatFlags.NoPadding` / `GlyphOverhangPadding` / `LeftAndRightPadding` never inspected (`src/Majorsilence.Forms/TextRenderer.cs:236-252`).

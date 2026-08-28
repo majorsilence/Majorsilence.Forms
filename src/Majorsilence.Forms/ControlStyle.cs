@@ -231,7 +231,9 @@ namespace Majorsilence.Forms
             };
             if (style.Font is { } font) {
                 result.Font = font.GetSKTypeface ();
-                result.FontSize = (int)font.SizeInPoints;
+
+                // Pixels, not points -- see the note on Control.Font's setter.
+                result.FontSize = (int)System.Math.Round (font.PixelSize);
             }
             return result;
         }

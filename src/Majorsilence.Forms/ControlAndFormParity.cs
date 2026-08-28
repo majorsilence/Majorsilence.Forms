@@ -563,7 +563,10 @@ namespace Majorsilence.Forms
             // WinForms measures a fixed reference string, so the ratio between two fonts is what the
             // caller ends up using; the absolute number only has to be consistent.
             var typeface = TypefaceCache.Resolve (font);
-            var size = TextMeasurer.MeasureText ("AaBbYyZz", typeface, (int)Math.Round (font.SizeInPoints));
+            // Pixels, not points -- see the note on Control.Font's setter. This one feeds
+            // CurrentAutoScaleDimensions, so a point-sized measurement here would scale every
+            // designer-built form by a ratio derived from a number a quarter too small.
+            var size = TextMeasurer.MeasureText ("AaBbYyZz", typeface, (int)Math.Round (font.PixelSize));
             return new SizeF (size.Width / 8f, size.Height);
         }
 

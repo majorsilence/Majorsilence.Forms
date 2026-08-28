@@ -185,6 +185,31 @@ this member work". A property read only by code that is itself inert counts as c
 certificate. Catching that class needs transitive reachability and is a worthwhile follow-up; until
 then the finding files are where it lives, and these gates are the mechanical floor beneath them.
 
+### The platform gate
+
+Two of this work's regressions reached CI because the suite ran on one platform. Worth stating as a
+guardrail in its own right, because it is not a baseline and no scanner catches it:
+
+- **macOS is the only platform that uses system decorations.** Every other one draws the library's own
+  title bar, so anything touching the caption — client-area geometry, hit-testing near the top of a
+  form, tab order through the caption buttons, the automation tree — behaves differently on the two
+  sides of that branch.
+- **The suite used to run on Windows only**, which is the chrome side. The no-caption path had no test
+  coverage at all, while being the shape most contributors develop against, and Linux had none either.
+  CI now runs both axes on every platform that can express them: Windows and Linux natively draw the
+  library's chrome, and macOS runs its own system decorations *and* the forced-chrome path, each at
+  scale 1 and 2 — eight runs.
+- **Every run is the solution minus the migrator suite.** That one takes over ten minutes because it
+  builds generated projects, against roughly eight seconds for the other 4,424 tests, and is
+  OS-agnostic — so it runs once, in the full Windows pass, and the matrix costs about a minute in
+  total.
+- **`MF_FORCE_CUSTOM_CHROME=1` covers the reverse case locally**, making a macOS process take the
+  Windows branch. The full local matrix is `{chrome, no-chrome} × {scale 1, scale 2}`, and it is worth
+  running all four before pushing anything that touches window geometry or input routing.
+- **The HiDPI gate now runs even when the plain test step fails.** It was skipped on two consecutive
+  PRs because a red first step hid it, and the HiDPI-only failure underneath (`EVT-39`) cost an extra
+  round trip each time. Independent gates should not mask each other.
+
 All three baselines include legitimate entries — `Tag` is app storage by definition,
 `FileDialog.ClientGuid` has no portable meaning — so each is annotated in place rather than trimmed.
 The point is not to drive the numbers to zero; it is that adding to them becomes a conscious act.
@@ -708,15 +733,56 @@ bypasses `ToolStrip`'s facade callbacks, so `ItemAdded`/`ItemRemoved`/`ItemClick
 `MenuStrip`/`ContextMenuStrip`; `Show(control, point)` treats a client point as screen.
 *Closes:* `TSM-03` (P0), and the facade group.
 
-**W5.17 — Text measurement is wrong at the root (drawing).**
+**W5.17 — Text measurement is wrong at the root (drawing). — DONE**
 `TextRenderer.MeasureText(string, Font)` measures at the font's **point size treated as pixels**, so
 every measurement is off by the point→pixel ratio; it also word-wraps by default where upstream does
 not, and adds none of the GDI padding upstream adds. `Graphics.DrawString` into a `RectangleF` never
 word-wraps at all. Layout code all over the framework and in migrated apps depends on these two.
-*Closes:* `GFX-25` (P0), `GFX-06` (P0), `GFX-26`, `GFX-27`, `GFX-28`, `GFX-14`.
-*Risk:* **high** — changes measured sizes everywhere, so it will move rendered layout in many tests.
-Land it early in the phase, not late, because per-control sizing work done before it will be tuned
-against wrong numbers.
+*Closed:* `GFX-25` (P0), `GFX-06` (P0), `GFX-26`, `GFX-27`, and the `WordBreak`/ellipsis half of
+`GFX-28`. `GFX-14` (`MeasureString`'s `charactersFitted`/`linesFilled` out-params) and
+`PathEllipsis`'s middle-truncation are not done — both are separable and neither blocks anything.
+6 tests, each verified to fail without its fix.
+
+**It changed nothing else, and that is the finding.** The expectation was that moving every measured
+string by a third would ripple through the suite. Not one existing test failed — because nothing tied
+measurement to drawing, which is exactly how a 25% error survived. The new tests assert the
+*relationship* (measure vs. draw, and measure vs. real ink) rather than either number, so neither half
+can drift alone again.
+
+**Corrections to the finding as written:** `MeasureText`'s wrap condition was inverted *and* the
+padding was missing, and both pushed the measurement the same way, so fixing only one would have
+looked like a partial improvement while leaving layout wrong. `DrawText` also had to learn `WordBreak`
+in the same pass: fixing `MeasureText` alone would have made the pair disagree in a new way, since
+measurement started wrapping where drawing still did not.
+
+**The same unit bug was in three places, and only the third one was visible.** After the measuring
+fix the user reported that on-screen text still looked tiny, which was correct: `GFX-25` is written up
+as a *measurement* defect, but points-as-pixels had also been copied into the two paths that decide
+what actually gets drawn.
+
+1. `Control.Font`'s setter assigned `Style.FontSize = (int) value.SizeInPoints`, but `Style.FontSize`
+   is in pixels — `Theme.FontSize` is 14, a pixel size. Same in `ControlStyle`, `DataGridViewRenderer`
+   and `ControlAndFormParity` (which feeds `CurrentAutoScaleDimensions`, so it scaled every
+   designer-built form by a ratio derived from a number a quarter too small).
+2. `Control.GetEffectiveFontSize`'s fallback was `(int) SystemFonts.DefaultFontSize` — 8.25 **points**
+   truncated to **8**, handed to the renderers as a **pixel** size. This is the one users see, because
+   it is the path taken by every control that does not set a `Font`, which is nearly all of them:
+   unfonted text drew at 8px where the correct default is 11px. Ironically this fallback was itself a
+   fix for the opposite bug (unfonted controls picking up the 14px theme font); it corrected the
+   source of the number without correcting its unit, and overshot from too big to too small.
+
+That second one had a test asserting the wrong behaviour outright
+(`GetEffectiveFontSize_matches_SystemFonts_DefaultFontSize_when_unfonted`), which is why the fleet of
+existing tests stayed green while the application looked wrong. The test's intent — fall back to the
+ambient system font, not the theme font — was right; only its unit was wrong, and it now asserts the
+default font's pixel size and explicitly asserts *inequality* with the point size.
+
+**Lesson for the remaining work:** a unit defect is never in one place. `GFX-25` was filed against
+`MeasureText` and the audit did not connect it to the render path or to the ambient fallback, so the
+first fix was verifiable, green, and invisible to the user. The regression test that finally pinned
+it asserts that an unfonted control inks the *same height* as an explicitly-fonted one — a
+relationship between two paths rather than a number in one — which is the only shape of assertion
+that would have caught all three instances at once.
 
 **W5.18 — Pens lose everything but colour and width.**
 Every simple stroke call discards the `Pen`'s dash style, caps, join and brush — so dashed focus
@@ -864,9 +930,9 @@ authoritative list and this table as the map of the big ones.
 | 0 — Make it measurable | **Done.** Three baseline gates and the event recorder; 8 self-tests. |
 | 1 — The keyboard chain | **Done.** The chain is dispatched, controls can claim keys, menu shortcuts and access keys work; 25 tests. |
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
-| 3 — Form and application lifecycle | **W3.1–W3.5 done** (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) outstanding, and blocked on W5.17. |
+| 3 — Form and application lifecycle | **W3.1–W3.5 done** (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) outstanding — **unblocked now that W5.17 has landed**. |
 | 4 — Data binding | Not started. |
-| 5 — Per-control behaviour | Not started. |
+| 5 — Per-control behaviour | **W5.17 done** (text measurement). The rest not started — but note W5.17 was the item everything else in this phase was waiting on. |
 | 6 — Mechanical sweeps | Not started. |
 
 Suite: **3962 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap

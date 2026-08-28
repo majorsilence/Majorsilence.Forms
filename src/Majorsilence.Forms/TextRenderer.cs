@@ -69,14 +69,25 @@ namespace Majorsilence.Forms
         public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font)
         {
             var tf = TypefaceCache.Resolve (font);
-            return MeasureText (text, tf, (int)font.SizeInPoints);
+
+            // PixelSize, not SizeInPoints: the size handed down here becomes RichTextKit's
+            // Style.FontSize, which is PIXELS. Passing the point size measured a 9pt font at 9px
+            // instead of 12px, so every measured string came out about a quarter too small in both
+            // axes -- and TextRenderer.MeasureText is the call WinForms layout is built on
+            // (Label.AutoSize, Button.GetPreferredSize, ToolStripItem sizing, column auto-fit,
+            // DataGridView cell preferred size). Worse, DrawText draws through Graphics.DrawString,
+            // which already used PixelSize, so measure and draw disagreed by a third and text was
+            // clipped on the right and bottom of anything sized from the measurement. Font.PixelSize's
+            // own remarks describe this bug being found and fixed for the Graphics path; this call was
+            // missed.
+            return MeasureText (text, tf, (int)Math.Round (font.PixelSize));
         }
 
         /// <summary>Measures text using a Majorsilence.Forms.Drawing.Font with size constraints.</summary>
         public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font, Size proposedSize)
         {
             var tf = TypefaceCache.Resolve (font);
-            return MeasureText (text, tf, proposedSize, (int)font.SizeInPoints);
+            return MeasureText (text, tf, proposedSize, (int)Math.Round (font.PixelSize));
         }
 
         // TextRenderer's whole public surface is declared in terms of IDeviceContext upstream, not
@@ -121,6 +132,30 @@ namespace Majorsilence.Forms
 
             using var brush = new Majorsilence.Forms.Drawing.SolidBrush (foreColor);
 
+            // WordBreak wraps and the ellipsis flags truncate; both need the block layout rather than
+            // the single-run path below, which draws one unbounded line. Kept as a separate branch so
+            // the ordinary case kept its existing alignment and mnemonic behaviour untouched.
+            //
+            // EndEllipsis is the one users see: it is what Label.AutoEllipsis, ToolStripItem, ListView
+            // and every truncating cell renderer ask for. Without it the text was hard-clipped
+            // mid-glyph, so truncated text was indistinguishable from text that merely ends oddly
+            // (finding GFX-28). PathEllipsis -- middle truncation that keeps the filename -- still
+            // falls through to end-truncation; doing it properly needs its own pass.
+            var wraps = flags.HasFlag (TextFormatFlags.WordBreak);
+            var ellipsis = flags.HasFlag (TextFormatFlags.EndEllipsis)
+                || flags.HasFlag (TextFormatFlags.WordEllipsis)
+                || flags.HasFlag (TextFormatFlags.PathEllipsis);
+
+            if ((wraps || ellipsis) && !flags.HasFlag (TextFormatFlags.PrefixOnly)) {
+                g.DrawTextBlock (display, font, foreColor, bounds, BlockAlignment (flags),
+                    maxLines: wraps ? null : 1, ellipsis: ellipsis);
+
+                if (mnemonic >= 0 && mnemonic < display.Length)
+                    g.DrawMnemonicUnderline (display, mnemonic, font, brush, origin, clip ?? box);
+
+                return;
+            }
+
             // PrefixOnly draws the underline and nothing else -- it is how a control paints in the accelerator
             // cue after the fact, when the caption was already drawn without one.
             if (!flags.HasFlag (TextFormatFlags.PrefixOnly))
@@ -160,6 +195,21 @@ namespace Majorsilence.Forms
         // TextFormatFlags.Left and .Top are both 0, so they are the absence of the other flags
         // rather than values to test for; HorizontalCenter/Right and VerticalCenter/Bottom are the
         // only bits that move anything.
+        // The six alignment bits as the ContentAlignment the block layout takes.
+        private static ContentAlignment BlockAlignment (TextFormatFlags flags)
+        {
+            var centre = flags.HasFlag (TextFormatFlags.HorizontalCenter);
+            var right = flags.HasFlag (TextFormatFlags.Right);
+
+            if (flags.HasFlag (TextFormatFlags.Bottom))
+                return centre ? ContentAlignment.BottomCenter : right ? ContentAlignment.BottomRight : ContentAlignment.BottomLeft;
+
+            if (flags.HasFlag (TextFormatFlags.VerticalCenter))
+                return centre ? ContentAlignment.MiddleCenter : right ? ContentAlignment.MiddleRight : ContentAlignment.MiddleLeft;
+
+            return centre ? ContentAlignment.TopCenter : right ? ContentAlignment.TopRight : ContentAlignment.TopLeft;
+        }
+
         private static float HorizontalFactor (TextFormatFlags flags)
             => flags.HasFlag (TextFormatFlags.HorizontalCenter) ? 0.5f
              : flags.HasFlag (TextFormatFlags.Right) ? 1f
@@ -262,12 +312,51 @@ namespace Majorsilence.Forms
             // widens it and knocks centred text off-centre by the same amount.
             text = DisplayText (text, flags, out _);
 
-            // SingleLine means "do not wrap", so the proposed width must not constrain the answer.
-            var constraint = flags.HasFlag (TextFormatFlags.SingleLine)
-                ? new Size (int.MaxValue, proposedSize.Height)
-                : proposedSize;
+            // Wrapping is OPT-IN, via WordBreak (or WordEllipsis, which wraps then ellipsises the last
+            // line) -- not opt-out via SingleLine. Upstream's default flag set is TextFormatFlags.Bottom
+            // and the underlying DrawTextEx only wraps when DT_WORDBREAK is present.
+            //
+            // This was inverted: the proposed width constrained the answer unless SingleLine was set, so
+            // the standard "how big is this in my column" call --
+            // MeasureText (text, font, new Size (columnWidth, 0)) -- wrapped and reported a tall
+            // multi-line box where WinForms reports one long line. Auto-fit column sizing, "does this
+            // need a tooltip" truncation checks and GetPreferredSize all got the wrong answer, and rows
+            // laid out at the wrong height.
+            var wraps = flags.HasFlag (TextFormatFlags.WordBreak)
+                || flags.HasFlag (TextFormatFlags.WordEllipsis);
 
-            return MeasureText (text, font, constraint);
+            var constraint = wraps
+                ? proposedSize
+                : new Size (int.MaxValue, proposedSize.Height);
+
+            var measured = MeasureText (text, font, constraint);
+
+            return new Size (measured.Width + HorizontalPadding (font, flags), measured.Height);
+        }
+
+        /// <summary>
+        /// The horizontal slack GDI adds around a measured string, which is why
+        /// <see cref="MeasureText(string, Majorsilence.Forms.Drawing.Font)"/> returns a wider result
+        /// than <c>Graphics.MeasureString</c> for the same text.
+        /// </summary>
+        /// <remarks>
+        /// Upstream hands <c>DrawTextEx</c> a <c>DRAWTEXTPARAMS</c> whose margins come from the padding
+        /// option: the default <see cref="TextFormatFlags.GlyphOverhangPadding"/> adds
+        /// <c>ceil(fontHeight / 6)</c> each side, <see cref="TextFormatFlags.LeftAndRightPadding"/>
+        /// doubles it, and only <see cref="TextFormatFlags.NoPadding"/> gives zero
+        /// (<c>TextExtensions.cs</c>). Layout code is calibrated against that slack -- roughly 6px for a
+        /// 15px font -- so without it AutoSize labels and buttons come out that much too narrow, italic
+        /// text has its last glyph shaved, and any control whose preferred size is MeasureText clips its
+        /// own caption. It stacks with the point-vs-pixel bug above, both in the same direction.
+        /// </remarks>
+        private static int HorizontalPadding (Majorsilence.Forms.Drawing.Font font, TextFormatFlags flags)
+        {
+            if (flags.HasFlag (TextFormatFlags.NoPadding))
+                return 0;
+
+            var margin = (int) Math.Ceiling (font.Height / 6f);
+
+            return flags.HasFlag (TextFormatFlags.LeftAndRightPadding) ? margin * 4 : margin * 2;
         }
 
         // WinForms' point-based DrawText measures the text and draws it in that box, rather than
