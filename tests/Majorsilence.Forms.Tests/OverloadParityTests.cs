@@ -223,16 +223,51 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void MeasureText_with_SingleLine_does_not_wrap_to_the_proposed_width ()
+        public void MeasureText_wraps_only_when_asked_to ()
         {
+            // Inverted until finding GFX-27: the proposed width used to constrain the answer unless
+            // SingleLine was set, and this test asserted that. Upstream is the other way round -- the
+            // default flag set is TextFormatFlags.Bottom and DrawTextEx only wraps for DT_WORDBREAK --
+            // so the standard "how big is this in my column" call reports one long line, not a tall
+            // multi-line box. Auto-fit column sizing and truncation checks depend on that.
             using var font = new Majorsilence.Forms.Drawing.Font ("Arial", 10f);
             const string Text = "a reasonably long sentence that would wrap";
 
-            var wrapped = TextRenderer.MeasureText (Text, font, new Size (40, int.MaxValue), TextFormatFlags.Left);
-            var single = TextRenderer.MeasureText (Text, font, new Size (40, int.MaxValue), TextFormatFlags.SingleLine);
+            var narrow = new Size (40, int.MaxValue);
 
-            Assert.True (single.Width > wrapped.Width);
-            Assert.True (single.Height < wrapped.Height);
+            var byDefault = TextRenderer.MeasureText (Text, font, narrow, TextFormatFlags.Left);
+            var singleLine = TextRenderer.MeasureText (Text, font, narrow, TextFormatFlags.SingleLine);
+            var wrapped = TextRenderer.MeasureText (Text, font, narrow, TextFormatFlags.WordBreak);
+
+            // Neither the default nor SingleLine wraps, so both report the full run on one line.
+            Assert.Equal (byDefault.Height, singleLine.Height);
+            Assert.True (byDefault.Width > narrow.Width,
+                "an unwrapped measurement is not limited by the proposed width");
+
+            // WordBreak is what asks for wrapping.
+            Assert.True (wrapped.Height > byDefault.Height, "WordBreak should wrap to several lines");
+            Assert.True (wrapped.Width < byDefault.Width);
+        }
+
+        [Fact]
+        public void MeasureText_adds_the_GDI_padding_unless_told_not_to ()
+        {
+            // The well-known reason TextRenderer.MeasureText is wider than Graphics.MeasureString:
+            // DrawTextEx is given margins of ceil(fontHeight / 6) each side by default, doubled for
+            // LeftAndRightPadding, zero for NoPadding. Layout code is calibrated against that slack
+            // (finding GFX-26), and without it AutoSize captions clip themselves.
+            using var font = new Majorsilence.Forms.Drawing.Font ("Arial", 10f);
+            var box = new Size (int.MaxValue, int.MaxValue);
+
+            var padded = TextRenderer.MeasureText ("W", font, box, TextFormatFlags.Left);
+            var unpadded = TextRenderer.MeasureText ("W", font, box, TextFormatFlags.NoPadding);
+            var doubled = TextRenderer.MeasureText ("W", font, box, TextFormatFlags.LeftAndRightPadding);
+
+            var margin = (int) System.Math.Ceiling (font.Height / 6f);
+
+            Assert.Equal (unpadded.Width + (margin * 2), padded.Width);
+            Assert.Equal (unpadded.Width + (margin * 4), doubled.Width);
+            Assert.Equal (unpadded.Height, padded.Height);
         }
 
         [Fact]

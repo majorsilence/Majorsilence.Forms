@@ -1742,10 +1742,30 @@ namespace Majorsilence.Forms.Drawing
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, Point point)
             => DrawString (text, font, brush, point.X, point.Y);
 
-        /// <summary>Draws a string within the specified rectangle.</summary>
+        /// <summary>Draws a string within the specified rectangle, word-wrapping to its width.</summary>
+        /// <remarks>
+        /// GDI+ draws this overload with <c>StringFormat.GenericDefault</c>, whose flags do NOT include
+        /// <c>NoWrap</c> -- so the text wraps inside the layout rectangle and is clipped vertically.
+        /// This used to clip to the rectangle and then call the unbounded point overload, so a
+        /// paragraph, a wrapped cell value, a tooltip body or a report text box drew as ONE clipped
+        /// line. It was made worse by <see cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, SizeF)"/>
+        /// wrapping correctly: an application that measured to size its box and then drew into it got a
+        /// tall empty box with a single line at the top (finding GFX-06).
+        /// </remarks>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds)
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
+
+            // The canvas extension lays out to the rectangle's width and clips to it, which is exactly
+            // the contract here. Solid brushes only, matching the point overload: a gradient or texture
+            // brush has no single colour to hand RichTextKit and keeps the direct path below.
+            if (brush is Majorsilence.Forms.Drawing.SolidBrush solid) {
+                _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (font.PixelSize),
+                    Rectangle.Round (bounds), solid.Color.ToSKColor (), ContentAlignment.TopLeft);
+
+                return;
+            }
+
             _canvas.Save ();
             _canvas.ClipRect (new SKRect (bounds.Left, bounds.Top, bounds.Right, bounds.Bottom));
             DrawString (text, font, brush, bounds.Left, bounds.Top);
@@ -1892,6 +1912,26 @@ namespace Majorsilence.Forms.Drawing
             return new PointF (
                 bounds.X + ((bounds.Width - size.Width) * xFactor),
                 bounds.Y + ((bounds.Height - size.Height) * yFactor));
+        }
+
+        /// <summary>
+        /// Draws text laid out as a block inside <paramref name="bounds"/> — wrapping to its width,
+        /// optionally limited to a number of lines and ellipsised when it does not fit.
+        /// </summary>
+        /// <remarks>
+        /// The single-run path (<c>DrawStringClipped</c>) cannot express either, so
+        /// <c>TextRenderer.DrawText</c> routes the <c>WordBreak</c> and ellipsis flags here.
+        /// RichTextKit already implements both; nothing was reaching them.
+        /// </remarks>
+        internal void DrawTextBlock (string text, Majorsilence.Forms.Drawing.Font font,
+            System.Drawing.Color color, Rectangle bounds, ContentAlignment alignment,
+            int? maxLines, bool ellipsis)
+        {
+            if (_canvas is null || string.IsNullOrEmpty (text))
+                return;
+
+            _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (font.PixelSize),
+                bounds, color.ToSKColor (), alignment, maxLines: maxLines, ellipsis: ellipsis);
         }
 
         /// <summary>

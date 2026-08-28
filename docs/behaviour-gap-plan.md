@@ -733,15 +733,27 @@ bypasses `ToolStrip`'s facade callbacks, so `ItemAdded`/`ItemRemoved`/`ItemClick
 `MenuStrip`/`ContextMenuStrip`; `Show(control, point)` treats a client point as screen.
 *Closes:* `TSM-03` (P0), and the facade group.
 
-**W5.17 — Text measurement is wrong at the root (drawing).**
+**W5.17 — Text measurement is wrong at the root (drawing). — DONE**
 `TextRenderer.MeasureText(string, Font)` measures at the font's **point size treated as pixels**, so
 every measurement is off by the point→pixel ratio; it also word-wraps by default where upstream does
 not, and adds none of the GDI padding upstream adds. `Graphics.DrawString` into a `RectangleF` never
 word-wraps at all. Layout code all over the framework and in migrated apps depends on these two.
-*Closes:* `GFX-25` (P0), `GFX-06` (P0), `GFX-26`, `GFX-27`, `GFX-28`, `GFX-14`.
-*Risk:* **high** — changes measured sizes everywhere, so it will move rendered layout in many tests.
-Land it early in the phase, not late, because per-control sizing work done before it will be tuned
-against wrong numbers.
+*Closed:* `GFX-25` (P0), `GFX-06` (P0), `GFX-26`, `GFX-27`, and the `WordBreak`/ellipsis half of
+`GFX-28`. `GFX-14` (`MeasureString`'s `charactersFitted`/`linesFilled` out-params) and
+`PathEllipsis`'s middle-truncation are not done — both are separable and neither blocks anything.
+6 tests, each verified to fail without its fix.
+
+**It changed nothing else, and that is the finding.** The expectation was that moving every measured
+string by a third would ripple through the suite. Not one existing test failed — because nothing tied
+measurement to drawing, which is exactly how a 25% error survived. The new tests assert the
+*relationship* (measure vs. draw, and measure vs. real ink) rather than either number, so neither half
+can drift alone again.
+
+**Corrections to the finding as written:** `MeasureText`'s wrap condition was inverted *and* the
+padding was missing, and both pushed the measurement the same way, so fixing only one would have
+looked like a partial improvement while leaving layout wrong. `DrawText` also had to learn `WordBreak`
+in the same pass: fixing `MeasureText` alone would have made the pair disagree in a new way, since
+measurement started wrapping where drawing still did not.
 
 **W5.18 — Pens lose everything but colour and width.**
 Every simple stroke call discards the `Pen`'s dash style, caps, join and brush — so dashed focus
@@ -889,9 +901,9 @@ authoritative list and this table as the map of the big ones.
 | 0 — Make it measurable | **Done.** Three baseline gates and the event recorder; 8 self-tests. |
 | 1 — The keyboard chain | **Done.** The chain is dispatched, controls can claim keys, menu shortcuts and access keys work; 25 tests. |
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
-| 3 — Form and application lifecycle | **W3.1–W3.5 done** (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) outstanding, and blocked on W5.17. |
+| 3 — Form and application lifecycle | **W3.1–W3.5 done** (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) outstanding — **unblocked now that W5.17 has landed**. |
 | 4 — Data binding | Not started. |
-| 5 — Per-control behaviour | Not started. |
+| 5 — Per-control behaviour | **W5.17 done** (text measurement). The rest not started — but note W5.17 was the item everything else in this phase was waiting on. |
 | 6 — Mechanical sweeps | Not started. |
 
 Suite: **3962 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
