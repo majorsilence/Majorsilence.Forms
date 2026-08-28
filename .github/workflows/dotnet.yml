@@ -42,27 +42,102 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release
 
-      # Tests run on Windows only (matching the original setup); the build step above
-      # already proves the suite compiles on Linux and macOS.
-      - name: Test
+      # ── Test matrix ────────────────────────────────────────────────────────────────────────
+      #
+      # Two things vary independently and both have bitten this repo, so both are gated on every
+      # platform that can express them:
+      #
+      #   CHROME. macOS is the ONLY platform that uses system decorations; every other one draws the
+      #   library's own title bar. Anything touching the caption -- client-area geometry, hit-testing
+      #   near the top of a form, tab order through the caption buttons, the automation tree -- takes a
+      #   different path on each side. MF_FORCE_CUSTOM_CHROME makes a macOS process take the other one,
+      #   so both are covered rather than whichever the runner happens to be.
+      #
+      #   SCALE. MF_HEADLESS_SCALE makes the headless backend report a scaled display, so the
+      #   logical->device conversions are exercised instead of being identity as they are at scale 1 --
+      #   which is how a coordinate bug sits undetected until it meets a real HiDPI screen.
+      #
+      # Every run below is the whole solution EXCEPT the migrator suite, which takes over ten minutes
+      # (it builds generated projects) against roughly eight seconds for everything else, and is
+      # OS-agnostic besides. It runs once, in the full Windows pass. Windows is also the only platform
+      # where the UI Automation project has anything to run.
+      #
+      # `!cancelled()` on each: without it a failure in one step skips the rest, so a single red gate
+      # hides every gate after it. That is not hypothetical -- the HiDPI gate was skipped on two
+      # consecutive PRs while the plain run was red, and the HiDPI-only failure underneath (EVT-39)
+      # cost a round trip each time to find.
+      #
+      # Collections run serially in the scaled runs: a test that opens a modal dialog picks its owner
+      # out of the global Application.OpenForms and in parallel can pick another test's window and
+      # block forever. That is a test-isolation problem rather than a product one, but it makes a
+      # parallel run hang, so these gates do not rely on it.
+
+      # The one full pass: migrator + UI Automation + everything else, on the platform that can run all
+      # of it. Custom chrome, scale 1.
+      - name: Test (Windows, full solution)
         if: runner.os == 'Windows'
         run: dotnet test --configuration Release --no-build
 
-      # HiDPI gate. MF_HEADLESS_SCALE makes the headless backend report a scaled display, so the
-      # logical->device conversions are actually exercised instead of being identity as they are at
-      # scale 1 -- which is how a coordinate bug can sit undetected until it meets a real HiDPI screen.
-      #
-      # The WHOLE suite, and it passes. Collections run serially here on purpose: a test that opens a
-      # modal dialog picks its owner out of the global Application.OpenForms, and in parallel it can pick
-      # another test's window and block forever. That is a test-isolation problem rather than a product
-      # one, but it makes a parallel run at any scale hang, so this gate does not rely on it.
-      - name: Test (HiDPI, simulated scale 2)
-        if: runner.os == 'Windows'
+      - name: Test (Windows, custom chrome, scale 2)
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
         env:
           MF_HEADLESS_SCALE: '2'
         run: >-
-          dotnet test tests/Majorsilence.Forms.Tests/Majorsilence.Forms.Tests.csproj
-          --configuration Release --no-build
+          dotnet test --configuration Release --no-build
+          --filter "FullyQualifiedName!~Migrator"
+          -- xunit.parallelizeTestCollections=false
+
+      # Linux draws the library's own chrome, like Windows, and had no test coverage at all before
+      # this -- the build step alone proved only that it compiles.
+      - name: Test (Linux, custom chrome, scale 1)
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        run: >-
+          dotnet test --configuration Release --no-build
+          --filter "FullyQualifiedName!~Migrator"
+
+      - name: Test (Linux, custom chrome, scale 2)
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        env:
+          MF_HEADLESS_SCALE: '2'
+        run: >-
+          dotnet test --configuration Release --no-build
+          --filter "FullyQualifiedName!~Migrator"
+          -- xunit.parallelizeTestCollections=false
+
+      # macOS runs both sides of the chrome branch: its own system decorations, and the custom chrome
+      # every other platform gets. The system-decorations path is the shape most contributors develop
+      # against and, before this, the one path nothing tested.
+      - name: Test (macOS, system decorations, scale 1)
+        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        run: >-
+          dotnet test --configuration Release --no-build
+          --filter "FullyQualifiedName!~Migrator"
+
+      - name: Test (macOS, system decorations, scale 2)
+        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        env:
+          MF_HEADLESS_SCALE: '2'
+        run: >-
+          dotnet test --configuration Release --no-build
+          --filter "FullyQualifiedName!~Migrator"
+          -- xunit.parallelizeTestCollections=false
+
+      - name: Test (macOS, custom chrome, scale 1)
+        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        env:
+          MF_FORCE_CUSTOM_CHROME: '1'
+        run: >-
+          dotnet test --configuration Release --no-build
+          --filter "FullyQualifiedName!~Migrator"
+
+      - name: Test (macOS, custom chrome, scale 2)
+        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        env:
+          MF_FORCE_CUSTOM_CHROME: '1'
+          MF_HEADLESS_SCALE: '2'
+        run: >-
+          dotnet test --configuration Release --no-build
+          --filter "FullyQualifiedName!~Migrator"
           -- xunit.parallelizeTestCollections=false
 
       # API gap gate. Compares both reimplemented surfaces -- Majorsilence.Forms.Drawing against
@@ -74,7 +149,7 @@ jobs:
       # regenerated. Linux only: the result is platform-independent, so running it three times adds
       # nothing. See docs/gdi-gap-plan.md and docs/winforms-gap-plan.md.
       - name: API gap check
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
         run: dotnet run --project tools/Majorsilence.Forms.ApiDiff --configuration Release --no-build -- --check
 
   # Wasm publish + boot smoke test gate.

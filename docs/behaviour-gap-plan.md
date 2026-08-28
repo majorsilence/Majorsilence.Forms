@@ -185,6 +185,31 @@ this member work". A property read only by code that is itself inert counts as c
 certificate. Catching that class needs transitive reachability and is a worthwhile follow-up; until
 then the finding files are where it lives, and these gates are the mechanical floor beneath them.
 
+### The platform gate
+
+Two of this work's regressions reached CI because the suite ran on one platform. Worth stating as a
+guardrail in its own right, because it is not a baseline and no scanner catches it:
+
+- **macOS is the only platform that uses system decorations.** Every other one draws the library's own
+  title bar, so anything touching the caption — client-area geometry, hit-testing near the top of a
+  form, tab order through the caption buttons, the automation tree — behaves differently on the two
+  sides of that branch.
+- **The suite used to run on Windows only**, which is the chrome side. The no-caption path had no test
+  coverage at all, while being the shape most contributors develop against, and Linux had none either.
+  CI now runs both axes on every platform that can express them: Windows and Linux natively draw the
+  library's chrome, and macOS runs its own system decorations *and* the forced-chrome path, each at
+  scale 1 and 2 — eight runs.
+- **Every run is the solution minus the migrator suite.** That one takes over ten minutes because it
+  builds generated projects, against roughly eight seconds for the other 4,424 tests, and is
+  OS-agnostic — so it runs once, in the full Windows pass, and the matrix costs about a minute in
+  total.
+- **`MF_FORCE_CUSTOM_CHROME=1` covers the reverse case locally**, making a macOS process take the
+  Windows branch. The full local matrix is `{chrome, no-chrome} × {scale 1, scale 2}`, and it is worth
+  running all four before pushing anything that touches window geometry or input routing.
+- **The HiDPI gate now runs even when the plain test step fails.** It was skipped on two consecutive
+  PRs because a red first step hid it, and the HiDPI-only failure underneath (`EVT-39`) cost an extra
+  round trip each time. Independent gates should not mask each other.
+
 All three baselines include legitimate entries — `Tag` is app storage by definition,
 `FileDialog.ClientGuid` has no portable meaning — so each is annotated in place rather than trimmed.
 The point is not to drive the numbers to zero; it is that adding to them becomes a conscious act.
