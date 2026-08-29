@@ -1869,7 +1869,19 @@ namespace Majorsilence.Forms
         /// the same path as <see cref="Focus"/>, which keeps a hosted form from acquiring a stray OS
         /// window of its own.
         /// </remarks>
-        public void Activate () => Focus ();
+        public void Activate ()
+        {
+            // A frame-hosted form (an MDI child, or one placed in a control tree) is activated
+            // *within its host* -- raise its frame to the front of the sibling z-order and make it
+            // the active MDI child -- which is exactly what BringToFront does for a hosted form
+            // (MdiClient.Activate). Focus() alone only moved keyboard focus, so an MDI shell's
+            // "activate this document" action -- e.g. clicking its tab in a document strip -- left
+            // the child sitting behind the others.
+            if (HostFrame is not null)
+                BringToFront ();
+
+            Focus ();
+        }
 
         /// <summary>Activates the form. Mirrors WinForms Control.Select as it applies to a Form.</summary>
         public void Select () => BringToFront ();

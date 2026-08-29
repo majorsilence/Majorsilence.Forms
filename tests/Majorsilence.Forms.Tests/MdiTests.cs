@@ -95,6 +95,25 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Calling_Activate_on_an_MDI_child_makes_it_the_active_child ()
+        {
+            // Regression: Form.Activate() was Focus() only, which for a frame-hosted child just
+            // moved keyboard focus -- the child stayed behind its siblings. ReportDesigner's
+            // document-tab strip calls child.Activate() to switch documents and nothing happened.
+            using var parent = new Form { IsMdiContainer = true };
+            using var a = Child ();
+            using var b = Child ();
+            a.MdiParent = parent; a.Show ();
+            b.MdiParent = parent; b.Show ();
+
+            Assert.Same (b, parent.ActiveMdiChild);
+
+            a.Activate ();
+
+            Assert.Same (a, parent.ActiveMdiChild);
+        }
+
+        [Fact]
         public void MdiChildActivate_event_fires_on_activation ()
         {
             using var parent = new Form { IsMdiContainer = true };
