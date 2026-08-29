@@ -14,6 +14,8 @@
 	<string>1</string>
 	<key>MinimumOSVersion</key>
 	<string>13.0</string>
+	<key>UILaunchScreen</key>
+	<dict/>
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>

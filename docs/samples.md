@@ -80,6 +80,11 @@ dotnet publish samples/Gallery.Wasm -c Release -o out
 Serve `out/wwwroot` with any static file server and open `index.html` — `dotnet run` does not serve a
 WebAssembly SDK project.
 
+CI publishes this bundle on every PR (the `wasm` job in `.github/workflows/dotnet.yml`, artifact
+`gallery-wasm`) and attaches it to each GitHub Release, so you can download and serve it without a
+toolchain. The live copy at [forms.majorsilence.com/gallery](https://forms.majorsilence.com/gallery/)
+is built from a separate repo.
+
 > **Known gap: the gallery's icons don't render in the browser.** There is no real filesystem in the
 > browser, and the `WasmFilesToIncludeInFileSystem` item in `Gallery.Wasm.csproj` that is meant to
 > preload the images into the in-memory one has no effect here: it is only consumed by the
@@ -110,6 +115,10 @@ dotnet workload install android
 dotnet build samples/Gallery.Android -p:EnableAndroidTarget=true -t:Run
 ```
 
+CI publishes a sideloadable APK + AAB on every PR (the `android` job in
+`.github/workflows/dotnet.yml`, artifact `gallery-android`) and attaches them to each GitHub Release.
+They are signed with the .NET Android debug key — fine for sideloading, not for the Play Store.
+
 Not in the solution — see the comment at the top of `samples/Gallery.Android/Gallery.Android.csproj`
 for why, and `samples/WinFormsInterop` for the same pattern applied to a different platform-specific
 sample. Android shares the browser's
@@ -118,11 +127,10 @@ and WebView limitations apply.
 
 ### Gallery.iOS (iOS-only, unverified)
 
-> ⚠️ Unlike every other sample in this repo, this one has never actually been compiled: the `ios`
-> workload only installs on macOS at all (there is no Linux/Windows path, unlike `android`), and no
-> Mac was available to build it with. It's written from Avalonia.iOS's decompiled API and standard
-> .NET-for-iOS conventions, not from a working build — expect a first-build shakeout on real hardware
-> or in CI's `ios` job before treating it as working.
+> ⚠️ iOS is the least-proven backend: it was written from Avalonia.iOS's decompiled API and standard
+> .NET-for-iOS conventions rather than a working build. CI's `ios` job (on `macos-latest`) now
+> publishes it for the simulator and boots it as a smoke check, but the job is `continue-on-error`
+> until it is reliably green — treat a failure there as expected teething, not a regression.
 
 Runs the same `ControlGallery` `MainForm` on the Avalonia backend's iOS target, hosted by a single
 `UIViewController`. Requires a Mac with the `ios` workload:
@@ -131,6 +139,10 @@ Runs the same `ControlGallery` `MainForm` on the Avalonia backend's iOS target, 
 dotnet workload install ios
 dotnet build samples/Gallery.iOS -p:EnableIOSTarget=true -t:Run
 ```
+
+CI publishes a zipped iOS-simulator `.app` on every PR when the build succeeds (the `ios` job,
+artifact `gallery-ios`) and attaches it to each GitHub Release. There is no signed device `.ipa` —
+that needs an Apple distribution certificate.
 
 Not in the solution, for the same reason as `Gallery.Android` — see the comment at the top of
 `samples/Gallery.iOS/Gallery.iOS.csproj`. iOS shares the same
