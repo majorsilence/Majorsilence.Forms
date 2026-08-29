@@ -151,19 +151,6 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Scales size by specified factor.
-        /// </summary>
-        internal static Size ScaleSize (Size startSize, float x, float y)
-        {
-            var size = startSize;
-
-            size.Width = (int)Math.Round ((float)size.Width * x);
-            size.Height = (int)Math.Round ((float)size.Height * y);
-
-            return size;
-        }
-
-        /// <summary>
         /// Shows the drop down at the specified location.
         /// </summary>
         public virtual void Show (Control parent, Point location)
@@ -178,7 +165,14 @@ namespace Majorsilence.Forms
             }
 
             LayoutItems ();
-            popup.Size = ScaleSize (new Size (width, height), 1 / (float)Scaling, 1 / (float)Scaling);
+
+            // width/height come from the items' preferred sizes, which are already logical (each is run
+            // through DeviceToLogicalUnits by MenuItem.GetPreferredSize). Window Size is logical too --
+            // ComboBox and ToolTip set their popups the same way. This line used to divide by Scaling,
+            // which at scale 1 was identity but at scale 2 handed the popup half the size its items
+            // were laid into: the click hit-test (which runs in logical space) then landed off the
+            // bottom-right item and the menu did nothing.
+            popup.Size = new Size (width, height);
 
             Invalidate ();
             popup.Show (location);

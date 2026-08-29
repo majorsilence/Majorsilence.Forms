@@ -325,15 +325,14 @@ namespace Majorsilence.Forms.Tests
             child.Show ();
             HeadlessRenderer.CapturePng (parent, 800, 600);
 
-            // The MDI client sits below the container's own chrome; offset the send point by where the
-            // client area starts within the window so the wheel lands on the child's interior.
-            var host = child.MdiHost!;
-            var clientOrigin = parent.MdiClientControl!.PointToScreen (Point.Empty);
-            var windowOrigin = parent.PointToScreen (Point.Empty);
-            var x = clientOrigin.X - windowOrigin.X + host.Left + MdiChildWindow.FrameBorder + 20;
-            var y = clientOrigin.Y - windowOrigin.Y + host.Top + MdiChildWindow.FrameBorder + MdiChildWindow.CaptionHeight + 20;
+            // A point inside the child's interior, in window space. WindowPoint walks the frame's real
+            // parent chain (MdiChildWindow -> MdiClient -> client area -> adapter), so it stays right
+            // under the container's chrome and at MF_HEADLESS_SCALE=2.
+            var interior = WindowPoint.In (child.MdiHost!,
+                MdiChildWindow.FrameBorder + 20,
+                MdiChildWindow.FrameBorder + MdiChildWindow.CaptionHeight + 20);
 
-            HeadlessRenderer.MouseWheel (parent, x, y, -120);
+            HeadlessRenderer.MouseWheel (parent, interior.X, interior.Y, -120);
 
             Assert.Equal (new[] { -120 }, deltas);
         }
