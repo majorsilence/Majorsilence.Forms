@@ -122,11 +122,18 @@ namespace Majorsilence.Forms
 
             if (clicked_item != null && !clicked_item.HasItems) {
 
-                if (!clicked_item.HasItems) {
+                // One physical release can be delivered to both this popup and the menu bar on X11
+                // (see MenuBase.TryBeginLeafClick); only the first delivery raises the click.
+                if (!TryBeginLeafClick (clicked_item))
+                    return;
+
+                try {
                     Application.ClosePopups ();
 
                     clicked_item.OnClick (e);
                     OnItemClicked (e, clicked_item);
+                } finally {
+                    EndLeafClick ();
                 }
             }
         }
