@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The WPF (System.Windows) platform backend: hosts Majorsilence.Forms on a real WPF Window
+       (Skia surface presented through a WriteableBitmap), plus the embedding direction — a
+       MajorsilenceFormsPresenter element and ToWpfElement()/ToWpfWindow(), the same pair
+       Majorsilence.Forms.Avalonia / .Uno / .WinForms provide for their hosts.
+
+       Windows-only by definition — WPF only runs on Windows. EnableWindowsTargeting lets net10.0-windows
+       + UseWPF *compile* on the Linux/macOS CI legs against the reference assemblies (it just can't
+       run there), so this is a real compile gate everywhere; the shipped package is produced by the
+       Windows CI leg (see release.yml's pack-windows job). -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- net10.0-windows defaults to C# 7.3 with the repo-wide Nullable=enable; force latest. -->
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.Wpf</PackageId>
+    <Description>WPF (System.Windows) platform backend for Majorsilence.Forms — run a cross-platform WinForms-style app on a real WPF Window, or embed Majorsilence.Forms controls in an existing WPF application via MajorsilenceFormsPresenter/ToWpfElement(), then switch to the Avalonia or Uno host once ported. Windows-only, like WPF itself.</Description>
+    <PackageTags>wpf;system-windows;presentation-foundation;interop;migration;majorsilence-forms;windows;skiasharp;backend</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
+
+  <!-- SkiaSharp comes transitively from Majorsilence.Forms; no SkiaSharp.Views.WPF (its SKElement /
+       WriteableBitmap present path is done directly here, mirroring the WinForms backend's
+       SkiaHostControl, to avoid that package's SkiaSharp.Views.Desktop shim collisions). -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+  </ItemGroup>
+
+</Project>

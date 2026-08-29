@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The ControlGallery running on the WPF backend. WPF only *runs* on Windows; EnableWindowsTargeting
+       lets it compile on the Linux/macOS CI legs (compile gate only). -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Wpf\Majorsilence.Forms.Wpf.csproj" />
+    <!-- Reuse the full ControlGallery MainForm/panels to render the whole gallery on WPF. -->
+    <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The gallery loads PNGs from an "Images" folder relative to the working dir. -->
+    <Content Include="..\ControlGallery\Images\**\*.png" Link="Images\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
