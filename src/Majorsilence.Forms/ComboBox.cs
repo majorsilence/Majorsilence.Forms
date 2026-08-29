@@ -212,17 +212,50 @@ namespace Majorsilence.Forms
                     if (FindWindow () is not WindowBase window)
                         throw new InvalidOperationException ("Cannot drop down a ComboBox that is not parented to a window");
 
-                    popup ??= new PopupWindow (window) {
-                        Size = new Size (Width, 102)
-                    };
+                    popup ??= new PopupWindow (window);
 
                     popup.Controls.Add (popup_listbox);
+                    popup.Size = ComputePopupSize ();
 
                     popup.Show (this, 1, Height);
 
                     OnDropDownOpened (EventArgs.Empty);
                 }
             }
+        }
+
+        // The drop-down list's size. Width: DropDownWidth when set, otherwise the widest item text
+        // (never narrower than the control, and capped so a stray long entry can't throw a list off
+        // the screen). Height: MaxDropDownItems rows, or fewer when there are fewer items. The old
+        // code hard-coded Size(Width, 102), which clipped every item longer than the control -- the
+        // font-family pickers in ReportDesigner showed "Times New Ro…".
+        internal Size ComputePopupSize ()
+        {
+            var itemHeight = popup_listbox.ItemHeight;
+            var rows = Math.Max (1, Math.Min (Items.Count, MaxDropDownItems));
+            var height = rows * itemHeight + 2;   // + the 1px popup border top and bottom
+
+            int width;
+            if (DropDownWidth > 0) {
+                width = DropDownWidth;
+            } else {
+                width = Width;
+                foreach (var item in Items) {
+                    var text = GetItemText (item);
+                    if (string.IsNullOrEmpty (text))
+                        continue;
+                    var w = (int)Math.Ceiling (TextMeasurer.MeasureText (text, popup_listbox).Width) + 6;
+                    if (w > width)
+                        width = w;
+                }
+
+                if (Items.Count > MaxDropDownItems)
+                    width += SystemInformation.VerticalScrollBarWidth;
+
+                width = Math.Min (width, Math.Max (Width * 3, 480));
+            }
+
+            return new Size (width, height);
         }
 
         // The nested ObjectCollection needs the list the items actually live on.

@@ -423,6 +423,39 @@ namespace Majorsilence.Forms.Tests
             control2.EndUpdate ();
         }
 
+        // Regression: the drop-down was hard-coded to the control's own width, so any item whose text
+        // was longer than the (often narrow) combo -- e.g. a font-family picker in a toolbar -- was
+        // clipped in the list. The drop-down now grows to the widest item.
+        [Fact]
+        public void DropDown_widens_to_fit_the_longest_item ()
+        {
+            using var control = new ComboBox { Width = 60 };
+            control.Items.Add ("Arial");
+            control.Items.Add ("A really quite long font family name that will not fit");
+
+            var size = control.ComputePopupSize ();
+
+            Assert.True (size.Width > 60, $"expected wider than the 60px control, got {size.Width}");
+        }
+
+        [Fact]
+        public void DropDown_never_narrower_than_the_control ()
+        {
+            using var control = new ComboBox { Width = 300 };
+            control.Items.Add ("x");
+
+            Assert.True (control.ComputePopupSize ().Width >= 300);
+        }
+
+        [Fact]
+        public void DropDownWidth_when_set_is_honored ()
+        {
+            using var control = new ComboBox { Width = 60, DropDownWidth = 250 };
+            control.Items.Add ("A really quite long font family name that will not fit");
+
+            Assert.Equal (250, control.ComputePopupSize ().Width);
+        }
+
         [Fact]
         public void SelectedText_NoSelection_ReturnsEmpty ()
         {
