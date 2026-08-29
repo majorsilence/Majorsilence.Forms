@@ -314,12 +314,12 @@ jobs:
       - name: Install ios workload
         run: dotnet workload install ios
 
-      # `publish` for the simulator RID so it also assembles the .app bundle. No codesign identity
-      # is configured, so only a simulator build is viable (a device .ipa needs an Apple cert).
+      # `dotnet build` (not publish) with a simulator RID assembles the runnable .app bundle. iOS
+      # `publish` refuses a simulator RID (it targets device archives, which need an Apple cert).
       # EnableIOSTarget=true opts Majorsilence.Forms.Avalonia's net10.0-ios TFM row back in (see that csproj).
-      - name: Publish Gallery.iOS (simulator)
+      - name: Build Gallery.iOS (simulator)
         run: >-
-          dotnet publish samples/Gallery.iOS/Gallery.iOS.csproj
+          dotnet build samples/Gallery.iOS/Gallery.iOS.csproj
           -p:EnableIOSTarget=true --configuration Release
           -p:RuntimeIdentifier=iossimulator-arm64
 
