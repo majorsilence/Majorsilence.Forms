@@ -20,8 +20,25 @@ namespace Majorsilence.Forms.Drawing
     {
         private SKTypeface? typeface;
         private SKFont? font;
-        // False when `typeface` came from PrivateFontCollection (which owns and disposes it).
+        // False when `typeface` is shared and this Font must not dispose it -- either it came from
+        // PrivateFontCollection (which owns it) or from the process-wide typeface cache below.
         private bool ownsTypeface = true;
+
+        // SKTypeface.FromFamilyName is a platform font-manager query (fontconfig on Linux) -- a few
+        // milliseconds per call even warm. Report rendering builds a fresh Font per text run, so a
+        // page of text was dozens of those round-trips (and a disposable SKTypeface each) on every
+        // repaint -- the "slight delay after each edit" on the designer surface. Typefaces are
+        // immutable and safe to share; cache them for the process lifetime keyed by the three things
+        // that pick a face.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Family, int Weight, int Slant), SKTypeface> s_typefaceCache = new ();
+
+        private static SKTypeface ResolveCachedTypeface (string family, SKFontStyle style)
+            => s_typefaceCache.GetOrAdd (
+                (family ?? string.Empty, (int) style.Weight, (int) style.Slant),
+                static key => SKTypeface.FromFamilyName (
+                    key.Family.Length == 0 ? null : key.Family,
+                    new SKFontStyle (key.Weight, (int) SKFontStyleWidth.Normal, (SKFontStyleSlant) key.Slant))
+                    ?? SKTypeface.Default);
 
         /// <summary>Initializes a new instance of the Font class.</summary>
         public Font (string familyName, float size, bool bold = false, bool italic = false)
@@ -198,8 +215,8 @@ namespace Majorsilence.Forms.Drawing
                 typeface = privateFace;
                 ownsTypeface = false;
             } else {
-                typeface = SKTypeface.FromFamilyName (FamilyName, style) ?? SKTypeface.Default;
-                ownsTypeface = true;
+                typeface = ResolveCachedTypeface (FamilyName, style);
+                ownsTypeface = false;   // shared from s_typefaceCache -- never disposed here
             }
 
             font = new SKFont (typeface, PixelSize) {
