@@ -92,7 +92,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public void SetToolTip (Control control, string caption)
         {
-            ArgumentNullException.ThrowIfNull (control);
+            Guard.ThrowIfNull (control);
 
             control.MouseEnter -= Control_MouseEnter;
             control.MouseLeave -= Control_MouseLeave;

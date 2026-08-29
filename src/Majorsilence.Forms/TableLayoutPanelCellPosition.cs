@@ -136,7 +136,7 @@ internal class TableLayoutPanelCellPositionTypeConverter : TypeConverter
 
     public override object CreateInstance (ITypeDescriptorContext? context, IDictionary propertyValues)
     {
-        ArgumentNullException.ThrowIfNull (propertyValues);
+        Guard.ThrowIfNull (propertyValues);
 
         try {
             return new TableLayoutPanelCellPosition (

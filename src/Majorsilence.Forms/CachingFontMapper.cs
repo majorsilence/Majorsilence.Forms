@@ -55,7 +55,13 @@ namespace Majorsilence.Forms
             }
 
             var key = new Key (style.FontFamily ?? string.Empty, style.FontWeight, style.FontWidth, style.FontItalic, ignoreFontVariants);
+#if NETSTANDARD2_0
+            // The GetOrAdd overload taking a factory-argument (to avoid a closure) is a .NET Core 2.1
+            // addition; the closure allocation on a cache miss is negligible.
+            return _cache.GetOrAdd (key, _ => _inner.TypefaceFromStyle (style, ignoreFontVariants));
+#else
             return _cache.GetOrAdd (key, static (_, ctx) => ctx.inner.TypefaceFromStyle (ctx.style, ctx.ignoreFontVariants), (inner: _inner, style, ignoreFontVariants));
+#endif
         }
 
         // Installs this mapper as RichTextKit's process-wide default. Idempotent -- safe to call

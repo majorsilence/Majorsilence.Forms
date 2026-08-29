@@ -52,6 +52,7 @@ env:
     src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
     src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
     src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj
+    src/Majorsilence.Forms.Wpf/Majorsilence.Forms.Wpf.csproj
     tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
   # Windows-only packages (net*-windows, UseWindowsForms/UseWPF). Off Windows these
   # projects compile to an empty IsPackable=false placeholder, so they must be packed

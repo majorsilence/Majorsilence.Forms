@@ -525,7 +525,7 @@ namespace Majorsilence.Forms
                 // SelectionLength = n;` pair rebuilds it from the new caret via the setter below.
                 document.SelectionStart = -1;
                 document.SelectionEnd = -1;
-                document.SetCursorToCharIndex (Math.Clamp (value, 0, TextLength));
+                document.SetCursorToCharIndex (MathCompat.Clamp (value, 0, TextLength));
                 Invalidate ();
             }
         }
@@ -550,7 +550,7 @@ namespace Majorsilence.Forms
                     document.SelectionEnd = -1;
                 } else {
                     document.SelectionStart = start;
-                    document.SelectionEnd = Math.Clamp (start + value, 0, TextLength);
+                    document.SelectionEnd = MathCompat.Clamp (start + value, 0, TextLength);
                 }
 
                 Invalidate ();

@@ -151,7 +151,7 @@ namespace Majorsilence.Forms
         public static double UiScale {
             get => ui_scale ??= ReadUiScaleFromEnvironment ();
             set {
-                ArgumentOutOfRangeException.ThrowIfLessThanOrEqual (value, 0);
+                Guard.ThrowIfLessThanOrEqual (value, 0);
 
                 if (ui_scale == value)
                     return;
@@ -509,7 +509,12 @@ namespace Majorsilence.Forms
         /// </remarks>
         public static void Restart ()
         {
+#if NETSTANDARD2_0
+            // Environment.ProcessPath is a .NET 6 addition.
+            var executable = System.Diagnostics.Process.GetCurrentProcess ().MainModule?.FileName;
+#else
             var executable = Environment.ProcessPath;
+#endif
 
             if (!string.IsNullOrEmpty (executable)) {
                 try {
@@ -673,7 +678,7 @@ namespace Majorsilence.Forms
         /// </returns>
         public readonly object? GetLParam (Type cls)
         {
-            ArgumentNullException.ThrowIfNull (cls);
+            Guard.ThrowIfNull (cls);
 
             return LParam == IntPtr.Zero
                 ? null

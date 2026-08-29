@@ -3,42 +3,67 @@
   <!-- The System.Windows.Forms platform backend: hosts Majorsilence.Forms on real WinForms windows
        (rendered through SkiaSharp's SKControl), and provides the embedding direction — a
        MajorsilenceFormsPresenter WinForms control plus ToWinFormsControl()/ToWinFormsForm(), the same
-       pair Majorsilence.Forms.Avalonia and Majorsilence.Forms.Uno provide for their hosts. WinForms only
-       exists on Windows, so off Windows this compiles to an empty placeholder assembly — that keeps the
-       full-solution `dotnet build` green on the Linux/macOS CI legs (which run Release with
-       TreatWarningsAsErrors). -->
+       pair Majorsilence.Forms.Avalonia and Majorsilence.Forms.Uno provide for their hosts.
+
+       Targets:
+         * net48                — classic .NET Framework 4.8 WinForms apps. Consumes the netstandard2.0
+                                  row of Majorsilence.Forms. Builds on any OS via the reference-assembly
+                                  package (WinForms *reference* assemblies are cross-platform; only
+                                  *running* needs Windows), so it is a real compile gate on every CI leg.
+         * net8.0-windows /
+           net10.0-windows      — modern .NET WinForms. Need the Windows Desktop targeting pack, which
+                                  only installs on Windows, so off Windows they compile to an empty
+                                  placeholder to keep the full-solution `dotnet build` green on the
+                                  Linux/macOS CI legs (Release + TreatWarningsAsErrors). -->
 
   <PropertyGroup>
     <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
-    <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
-    <UseWindowsForms>true</UseWindowsForms>
+    <TargetFrameworks Condition="'$(_IsWindowsBuild)' == 'true'">net48;net8.0-windows;net10.0-windows</TargetFrameworks>
+    <!-- Off Windows: net48 builds for real (reference assemblies); net8.0 stays an empty placeholder
+         so a modern-.NET off-Windows consumer still resolves *something*. -->
+    <TargetFrameworks Condition="'$(_IsWindowsBuild)' != 'true'">net48;net8.0</TargetFrameworks>
+    <!-- The SDK defaults net48 to C# 7.3, which rejects the repo-wide Nullable/records/etc. -->
+    <LangVersion>latest</LangVersion>
     <PackageId>Majorsilence.Forms.WinForms</PackageId>
     <Description>System.Windows.Forms platform backend for Majorsilence.Forms — run Majorsilence.Forms on real WinForms windows, or embed Majorsilence.Forms controls inside an existing WinForms application via MajorsilenceFormsPresenter/ToWinFormsControl(), so a WinForms app or control library can migrate one control at a time and switch to the cross-platform Avalonia or Uno host when ready.</Description>
-    <PackageTags>winforms;windows-forms;interop;migration;incremental-migration;majorsilence-forms;windows;skiasharp</PackageTags>
+    <PackageTags>winforms;windows-forms;interop;migration;incremental-migration;majorsilence-forms;windows;skiasharp;dotnet-framework</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
-  <!-- Only the Windows leg packs, so the README item is scoped the same way. -->
-  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+  <!-- On .NET Framework this just adds the System.Windows.Forms / System.Drawing references; on
+       modern .NET it also pulls the Windows Desktop pack (which is why those TFMs are Windows-only).
+       Not on the net8.0 off-Windows placeholder — it has nothing to compile and no -windows suffix. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net48' or '$(_IsWindowsBuild)' == 'true'">
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <!-- Off Windows this project is build-only (the shipped package is always produced by the Windows
+       CI leg, where all three TFMs are real — see release.yml's pack-windows job). -->
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- The net*-windows TFMs are placeholders off Windows (see the header): nothing to compile. -->
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true' and '$(TargetFramework)' != 'net48'">
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
-    <!-- Nothing to compile off Windows. -->
-    <TargetFramework>net8.0</TargetFramework>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <IsPackable>false</IsPackable>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
-  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <!-- .NET Framework 4.8 reference assemblies so net48 builds on any runner (the Windows CI leg
+         also has the real targeting pack; this keeps local Linux/macOS builds and restore hermetic). -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
+  </ItemGroup>
 
   <!-- No SkiaSharp.Views.WindowsForms: its SKControl/SKPaintSurfaceEventArgs collide with the core
        assembly's SkiaSharp.Views.Desktop compatibility shims, and it drags in a legacy net461 OpenTK
        (NU1701). SkiaHostControl presents through a GDI bitmap directly instead — same technique. -->
-  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true' or '$(TargetFramework)' == 'net48'">
     <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
   </ItemGroup>
 

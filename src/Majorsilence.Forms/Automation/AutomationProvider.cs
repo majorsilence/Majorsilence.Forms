@@ -13,7 +13,7 @@ namespace Majorsilence.Forms.Automation
         /// <summary>Builds a fresh snapshot of the window's automation tree, rooted at a synthetic window node.</summary>
         public static AutomationElement BuildTree (WindowBase window)
         {
-            System.ArgumentNullException.ThrowIfNull (window);
+            Guard.ThrowIfNull (window);
 
             var adapter = window.adapter;
             var origin = adapter.Bounds.Location;

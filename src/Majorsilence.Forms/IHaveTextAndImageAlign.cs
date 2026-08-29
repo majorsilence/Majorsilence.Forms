@@ -13,21 +13,32 @@ interface IHaveTextAndImageAlign
     ImageList? ImageList { get; set; }
     int ImageIndex { get; set; }
     string ImageKey { get; set; }
-    bool Multiline => false;
+    // Was a default interface member (=> false); every implementer (Button, CheckBox, RadioButton,
+    // Label) already provides it, and DIM isn't supported on the netstandard2.0 runtime.
+    bool Multiline { get; }
+}
 
-    public SKBitmap? GetImage ()
+// Was IHaveTextAndImageAlign.GetImage, a default interface member. Moved to an extension method so the
+// interface carries no method bodies -- the netstandard2.0 runtime (.NET Framework consumers) has no
+// default-interface-implementation support.
+static class HaveTextAndImageAlignExtensions
+{
+    public static SKBitmap? GetImage (this IHaveTextAndImageAlign? self)
     {
-        if (ImageSK is not null)
-            return ImageSK;
-
-        if (ImageList is null)
+        if (self is null)
             return null;
 
-        if (ImageIndex >= 0)
-            return ImageList.Images[ImageIndex];
+        if (self.ImageSK is not null)
+            return self.ImageSK;
 
-        if (ImageKey.Length > 0)
-            return ImageList.Images[ImageKey];
+        if (self.ImageList is null)
+            return null;
+
+        if (self.ImageIndex >= 0)
+            return self.ImageList.Images[self.ImageIndex];
+
+        if (self.ImageKey.Length > 0)
+            return self.ImageList.Images[self.ImageKey];
 
         return null;
     }

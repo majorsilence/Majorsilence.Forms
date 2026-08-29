@@ -25,7 +25,7 @@ public abstract class TableLayoutStyleCollection : IList
 
     int IList.Add (object? style)
     {
-        ArgumentNullException.ThrowIfNull (style);
+        Guard.ThrowIfNull (style);
 
         EnsureNotOwned ((TableLayoutStyle)style);
         ((TableLayoutStyle)style).Owner = Owner;
@@ -41,7 +41,7 @@ public abstract class TableLayoutStyleCollection : IList
 
     void IList.Insert (int index, object? style)
     {
-        ArgumentNullException.ThrowIfNull (style);
+        Guard.ThrowIfNull (style);
 
         EnsureNotOwned ((TableLayoutStyle)style);
         ((TableLayoutStyle)style).Owner = Owner;
@@ -52,7 +52,7 @@ public abstract class TableLayoutStyleCollection : IList
     object? IList.this[int index] {
         get => _innerList[index];
         set {
-            ArgumentNullException.ThrowIfNull (value);
+            Guard.ThrowIfNull (value);
 
             var style = (TableLayoutStyle)value;
             EnsureNotOwned (style);

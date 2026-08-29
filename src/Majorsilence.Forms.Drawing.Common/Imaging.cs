@@ -271,32 +271,37 @@ namespace Majorsilence.Forms.Drawing.Imaging
     /// </summary>
     public sealed class EncoderParameters : IDisposable
     {
-        private readonly List<EncoderParameter> _list;
-
         /// <summary>Initializes an empty EncoderParameters collection.</summary>
-        public EncoderParameters () => _list = new List<EncoderParameter> ();
+        public EncoderParameters () => Param = Array.Empty<EncoderParameter> ();
 
-        /// <summary>Initializes an EncoderParameters collection with the specified capacity.</summary>
-        public EncoderParameters (int count) => _list = new List<EncoderParameter> (count);
+        /// <summary>
+        /// Initializes an EncoderParameters collection with room for <paramref name="count"/>
+        /// parameters, exactly like <c>System.Drawing.Imaging.EncoderParameters</c>: the slots start
+        /// null and the caller fills them by index (<c>Param[0] = new EncoderParameter (...)</c>).
+        /// </summary>
+        public EncoderParameters (int count) => Param = new EncoderParameter[Math.Max (0, count)];
 
-        /// <summary>Gets or sets the parameter array (for WinForms compat — setting replaces all entries).</summary>
-        public EncoderParameter[] Param {
-            get => _list.ToArray ();
-            set {
-                _list.Clear ();
-                if (value is not null)
-                    _list.AddRange (value);
-            }
-        }
+        /// <summary>
+        /// The parameter array — a real array so <c>Param[i] = ...</c> works, matching WinForms. It is
+        /// sized by the count-taking constructor; the encoder ignores null slots.
+        /// </summary>
+        public EncoderParameter[] Param { get; set; }
 
-        /// <summary>Adds an encoder parameter to the collection.</summary>
+        /// <summary>Appends an encoder parameter, growing <see cref="Param"/> by one.</summary>
         public void Add (EncoderParameter param)
         {
-            if (param is not null) _list.Add (param);
+            if (param is null)
+                return;
+
+            var grown = new EncoderParameter[(Param?.Length ?? 0) + 1];
+            Param?.CopyTo (grown, 0);
+            grown[grown.Length - 1] = param;
+            Param = grown;
         }
 
-        /// <summary>Returns all encoder parameters as an array.</summary>
-        public EncoderParameter[] GetParameters () => _list.ToArray ();
+        /// <summary>Returns the non-null encoder parameters.</summary>
+        public EncoderParameter[] GetParameters () =>
+            Array.FindAll (Param ?? Array.Empty<EncoderParameter> (), p => p is not null);
 
         /// <inheritdoc/>
         public void Dispose () { }

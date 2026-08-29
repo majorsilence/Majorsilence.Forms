@@ -116,7 +116,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="AddRange(IDataGridColumnStyle[])"/>
         public void AddRange(DataGridColumnStyle[] columns)
         {
-            ArgumentNullException.ThrowIfNull(columns);
+            Guard.ThrowIfNull(columns);
             AddRange(columns.Cast<IDataGridColumnStyle>().ToArray());
         }
 
@@ -126,7 +126,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns whether a column style is mapped to the described property.</summary>
         public bool Contains(System.ComponentModel.PropertyDescriptor propertyDescriptor)
         {
-            ArgumentNullException.ThrowIfNull(propertyDescriptor);
+            Guard.ThrowIfNull(propertyDescriptor);
             return Contains(propertyDescriptor.Name);
         }
 

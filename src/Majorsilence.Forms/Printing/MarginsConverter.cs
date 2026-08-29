@@ -44,7 +44,7 @@ namespace Majorsilence.Forms.Printing
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture,
             object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType != typeof (string) || value is not Margins margins)
                 return base.ConvertTo (context, culture, value, destinationType);
@@ -61,7 +61,7 @@ namespace Majorsilence.Forms.Printing
         /// <inheritdoc/>
         public override object? CreateInstance (ITypeDescriptorContext? context, IDictionary propertyValues)
         {
-            ArgumentNullException.ThrowIfNull (propertyValues);
+            Guard.ThrowIfNull (propertyValues);
 
             return new Margins (
                 propertyValues["Left"] is int left ? left : 100,

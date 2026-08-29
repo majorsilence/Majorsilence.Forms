@@ -33,7 +33,7 @@ namespace Majorsilence.Forms.Automation
         /// <summary>Finds the first element matching the locator, or null.</summary>
         public AutomationElement? Find (By by)
         {
-            ArgumentNullException.ThrowIfNull (by);
+            Guard.ThrowIfNull (by);
             return by.Select (Root).FirstOrDefault ();
         }
 
@@ -44,14 +44,14 @@ namespace Majorsilence.Forms.Automation
         /// <summary>Finds all elements matching the locator.</summary>
         public IReadOnlyList<AutomationElement> FindAll (By by)
         {
-            ArgumentNullException.ThrowIfNull (by);
+            Guard.ThrowIfNull (by);
             return by.Select (Root).ToList ();
         }
 
         /// <summary>Clicks the element by synthesizing move → press → release at its center.</summary>
         public void Click (AutomationElement element)
         {
-            ArgumentNullException.ThrowIfNull (element);
+            Guard.ThrowIfNull (element);
 
             // ClickPoint comes from the element's logical Bounds; the pointer handlers take device
             // pixels. Identity at scaling 1, so this went unnoticed -- on a scaled display every
@@ -76,7 +76,7 @@ namespace Majorsilence.Forms.Automation
         /// <summary>Clicks the element to focus it, then sends the text as input.</summary>
         public void SendKeys (AutomationElement element, string text)
         {
-            ArgumentNullException.ThrowIfNull (element);
+            Guard.ThrowIfNull (element);
 
             Click (element);
 
@@ -90,7 +90,7 @@ namespace Majorsilence.Forms.Automation
         /// <summary>Clears the element's editable text (focuses it first). No-op for non-text controls.</summary>
         public void Clear (AutomationElement element)
         {
-            ArgumentNullException.ThrowIfNull (element);
+            Guard.ThrowIfNull (element);
 
             Click (element);
 
@@ -101,7 +101,7 @@ namespace Majorsilence.Forms.Automation
         /// <summary>Gets the element's value if it has one, otherwise its accessible name.</summary>
         public string GetText (AutomationElement element)
         {
-            ArgumentNullException.ThrowIfNull (element);
+            Guard.ThrowIfNull (element);
             return element.Value ?? element.Name;
         }
     }

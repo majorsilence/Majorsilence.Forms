@@ -37,6 +37,17 @@
     <!-- Safe reader for the legacy BinaryFormatter wire format (NRBF) — used to recover images from
          WinForms .resx binary.base64 resources without running BinaryFormatter. -->
     <PackageVersion Include="System.Formats.Nrbf" Version="9.0.0" />
+    <!-- In the .NET shared framework on net8.0/net10.0; needed only for Majorsilence.Forms' and
+         Majorsilence.Forms.Telerik's netstandard2.0 rows (a couple of JsonSerializer.Serialize
+         drag-and-drop call sites). Kept on the 9.0.x line to match System.Formats.Nrbf above. -->
+    <PackageVersion Include="System.Text.Json" Version="9.0.0" />
+    <!-- ValueTask / ValueTask<T> for the netstandard2.0 row (public InvokeAsync overloads mirror
+         WinForms .NET 9). In-box on the .NET TFMs. -->
+    <PackageVersion Include="System.Threading.Tasks.Extensions" Version="4.6.3" />
+    <!-- System.Reflection.Metadata.TypeName appears in ITypedDataObject.TryGetData's public signature;
+         in-box on net8.0/net10.0, a package for the netstandard2.0 row. Matches System.Formats.Nrbf's
+         own dependency. -->
+    <PackageVersion Include="System.Reflection.Metadata" Version="9.0.0" />
     <!-- Reads the standard SDK-compiled .resources binary format that ported WinForms projects
          embed (ComponentResourceManager.ApplyResources' real data source; see that class). The
          plain BCL System.Resources.ResourceReader can't read it when the project sets
@@ -44,6 +55,9 @@
          to avoid BinaryFormatter); only this package's DeserializingResourceReader can. -->
     <PackageVersion Include="System.Resources.Extensions" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <!-- .NET Framework reference assemblies so the net472 consumer smoke test
+         (tests/Majorsilence.Forms.NetFxSmoke) builds on Linux/macOS CI runners too. -->
+    <PackageVersion Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.201" />
     <!-- samples/ControlGallery's CommunityToolkit.Mvvm panel: source-generated ObservableObject/
          RelayCommand. Majorsilence.Forms.Control.DataBindings is a stub (see WinFormsCompat.cs), so the

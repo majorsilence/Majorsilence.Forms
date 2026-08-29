@@ -155,7 +155,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns a copy of the given bag.</summary>
         public static OwnerDrawPropertyBag Copy (OwnerDrawPropertyBag value)
         {
-            ArgumentNullException.ThrowIfNull (value);
+            Guard.ThrowIfNull (value);
 
             return new OwnerDrawPropertyBag {
                 BackColor = value.BackColor,
@@ -444,7 +444,7 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of the <see cref="ThreadExceptionDialog"/> class.</summary>
         public ThreadExceptionDialog (Exception t)
         {
-            ArgumentNullException.ThrowIfNull (t);
+            Guard.ThrowIfNull (t);
 
             Exception = t;
             Text = "Unhandled exception";
@@ -952,14 +952,14 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override void Post (System.Threading.SendOrPostCallback d, object? state)
         {
-            ArgumentNullException.ThrowIfNull (d);
+            Guard.ThrowIfNull (d);
             Backends.Platform.Backend.Post (() => d (state));
         }
 
         /// <inheritdoc/>
         public override void Send (System.Threading.SendOrPostCallback d, object? state)
         {
-            ArgumentNullException.ThrowIfNull (d);
+            Guard.ThrowIfNull (d);
             Backends.Platform.Backend.Invoke (() => d (state));
         }
 
@@ -981,7 +981,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns the stored value when it is of the requested type.</summary>
         public static bool TryGetData<T> (this IDataObject dataObject, out T? data)
         {
-            ArgumentNullException.ThrowIfNull (dataObject);
+            Guard.ThrowIfNull (dataObject);
 
             if (dataObject.GetData (typeof (T).FullName ?? typeof (T).Name) is T stored) {
                 data = stored;
@@ -995,7 +995,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="TryGetData{T}(IDataObject,out T)"/>
         public static bool TryGetData<T> (this IDataObject dataObject, string format, out T? data)
         {
-            ArgumentNullException.ThrowIfNull (dataObject);
+            Guard.ThrowIfNull (dataObject);
 
             if (dataObject.GetData (format) is T stored) {
                 data = stored;

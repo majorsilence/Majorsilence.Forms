@@ -71,7 +71,7 @@ namespace Majorsilence.Forms
             // form, tab order through the caption buttons) passes vacuously on a developer's Mac and
             // fails in CI. This has cost two round trips already. Same shape as the backend's
             // MF_HEADLESS_SCALE, and inert unless the variable is set.
-            if (OperatingSystem.IsMacOS ()
+            if (OperatingSystemCompat.IsMacOS ()
                 && Environment.GetEnvironmentVariable ("MF_FORCE_CUSTOM_CHROME") != "1")
                 UseSystemDecorations = true;
 
@@ -1750,7 +1750,7 @@ namespace Majorsilence.Forms
         /// <summary>Adds an owned form to this form.</summary>
         public void AddOwnedForm (Form form)
         {
-            ArgumentNullException.ThrowIfNull (form);
+            Guard.ThrowIfNull (form);
 
             // One direction only: the Owner setter is what maintains the list now, so doing it here as
             // well would double-add.
@@ -1760,7 +1760,7 @@ namespace Majorsilence.Forms
         /// <summary>Removes an owned form from this form.</summary>
         public void RemoveOwnedForm (Form form)
         {
-            ArgumentNullException.ThrowIfNull (form);
+            Guard.ThrowIfNull (form);
 
             if (ReferenceEquals (form._owner, this))
                 form.Owner = null;

@@ -11,8 +11,12 @@ file dialogs and clipboard — with the Skia surface presented through a GDI-bac
 WinForms counterpart of `Majorsilence.Forms.Avalonia` and `Majorsilence.Forms.Uno`, including their
 embedding direction (`MajorsilenceFormsPresenter`, `ToWinFormsControl()`, `ToWinFormsForm()`).
 
-Windows-only by definition — `System.Windows.Forms` does not exist on macOS or Linux. Off Windows it
-builds as an empty placeholder assembly so a cross-platform solution still compiles everywhere.
+Windows-only by definition — `System.Windows.Forms` does not exist on macOS or Linux. Off Windows the
+modern-.NET targets build as an empty placeholder assembly so a cross-platform solution still
+compiles everywhere.
+
+**Target frameworks:** `net48` (classic .NET Framework 4.8 — pairs with the `netstandard2.0` build of
+`Majorsilence.Forms`), plus `net8.0-windows` and `net10.0-windows` for modern .NET.
 
 ## Why: migration in steps, in both directions
 

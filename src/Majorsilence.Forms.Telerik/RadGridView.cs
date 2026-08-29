@@ -68,7 +68,12 @@ namespace Majorsilence.Forms.Telerik
         // Group keys already encountered (so that, when AutoExpandGroups is off, only *new* groups default collapsed).
         private readonly HashSet<string> _seenGroupKeys = new (StringComparer.Ordinal);
         // Master rows (by reference) whose child/detail view is currently expanded.
-        private readonly HashSet<DataGridViewRow> _expandedMasters = new (ReferenceEqualityComparer.Instance);
+        private readonly HashSet<DataGridViewRow> _expandedMasters = new (
+#if NETSTANDARD2_0
+            Majorsilence.Forms.ReferenceEqualityComparer<DataGridViewRow>.Instance);
+#else
+            ReferenceEqualityComparer.Instance);
+#endif
 
         // ── Interaction state (read by RadGridViewRenderer) ──
         private int _headerDragColumn = -1;
@@ -197,7 +202,7 @@ namespace Majorsilence.Forms.Telerik
         /// <inheritdoc/>
         protected override void OnRowValidating (DataGridViewCellCancelEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (e);
+            Guard.ThrowIfNull (e);
 
             // WinForms-typed subscribers first (they may cancel), then the Telerik-typed event.
             base.OnRowValidating (e);
@@ -1632,7 +1637,11 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Loads the layout from a stream (Telerik overload used for in-memory persistence).</summary>
         public void LoadLayout (Stream stream)
         {
+#if NETSTANDARD2_0
+            using var reader = new StreamReader (stream, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
+#else
             using var reader = new StreamReader (stream, System.Text.Encoding.UTF8, leaveOpen: true);
+#endif
             LoadLayoutFromString (reader.ReadToEnd ());
         }
 
@@ -2509,6 +2518,13 @@ namespace Majorsilence.Forms.Telerik
         // no-op members so that unconditional cast succeeds instead of throwing InvalidCastException
         // (found opening frmMaintainCustomer, whose grids' MasterTemplate is init-bracketed).
         // MasterGridViewTemplate inherits this.
+#if NETSTANDARD2_0
+        // Not a Control, so (unlike the Rad controls) it can't inherit the no-op ISupportInitialize
+        // from Majorsilence.Forms.Control; the netstandard2.0 runtime has no default interface members,
+        // so the no-ops are declared here directly.
+        void System.ComponentModel.ISupportInitialize.BeginInit () { }
+        void System.ComponentModel.ISupportInitialize.EndInit () { }
+#endif
 
         // Not readonly: detached instances (see the protected ctor) attach to a grid later via Attach().
         private RadGridView? _grid;

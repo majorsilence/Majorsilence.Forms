@@ -158,7 +158,7 @@ namespace Majorsilence.Forms
         /// <summary>Merges another menu's items into this one.</summary>
         public virtual void MergeMenu (Menu menuSrc)
         {
-            ArgumentNullException.ThrowIfNull (menuSrc);
+            Guard.ThrowIfNull (menuSrc);
 
             foreach (var item in menuSrc.Items)
                 Items.Add (item.CloneMenu ());
@@ -373,8 +373,8 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="Join(ToolStrip)"/>
         public void Join (ToolStrip toolStripToDrag, int row)
         {
-            ArgumentNullException.ThrowIfNull (toolStripToDrag);
-            ArgumentOutOfRangeException.ThrowIfNegative (row);
+            Guard.ThrowIfNull (toolStripToDrag);
+            Guard.ThrowIfNegative (row);
 
             while (rows.Count <= row)
                 rows.Add (new ToolStripPanelRow (this));

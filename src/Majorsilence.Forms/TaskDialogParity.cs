@@ -45,7 +45,7 @@ namespace Majorsilence.Forms
         public static TaskDialogButton ShowDialog (IWin32Window? owner, TaskDialogPage page,
             TaskDialogStartupLocation startupLocation = TaskDialogStartupLocation.CenterOwner)
         {
-            ArgumentNullException.ThrowIfNull (page);
+            Guard.ThrowIfNull (page);
 
             var chosen = page.Buttons.Count > 0 ? page.Buttons[0] : TaskDialogButton.OK;
 
@@ -648,7 +648,7 @@ namespace Majorsilence.Forms
         /// while shown sees the change on the next display rather than nothing at all.</remarks>
         public void Navigate (TaskDialogPage page)
         {
-            ArgumentNullException.ThrowIfNull (page);
+            Guard.ThrowIfNull (page);
 
             Caption = page.Caption;
             Heading = page.Heading;

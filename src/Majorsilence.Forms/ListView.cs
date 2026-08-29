@@ -417,7 +417,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         public void AddRange (params ColumnHeader[] values)
         {
-            ArgumentNullException.ThrowIfNull (values);
+            Guard.ThrowIfNull (values);
 
             foreach (var value in values)
                 Add (value);

@@ -736,7 +736,7 @@ namespace Majorsilence.Forms.Design
         /// <summary>Adds several lists.</summary>
         public void AddRange (DesignerActionList[] value)
         {
-            ArgumentNullException.ThrowIfNull (value);
+            Guard.ThrowIfNull (value);
 
             foreach (var list in value)
                 Add (list);
@@ -745,7 +745,7 @@ namespace Majorsilence.Forms.Design
         /// <summary>Adds the lists from another collection.</summary>
         public void AddRange (DesignerActionListCollection value)
         {
-            ArgumentNullException.ThrowIfNull (value);
+            Guard.ThrowIfNull (value);
 
             foreach (DesignerActionList list in value)
                 Add (list);
@@ -962,7 +962,7 @@ namespace Majorsilence.Forms.Design.Behavior
         /// <summary>Adds several glyphs at once.</summary>
         public void AddRange (IEnumerable<Glyph> glyphs)
         {
-            ArgumentNullException.ThrowIfNull (glyphs);
+            Guard.ThrowIfNull (glyphs);
 
             foreach (var glyph in glyphs)
                 Add (glyph);
@@ -991,7 +991,7 @@ namespace Majorsilence.Forms.Design.Behavior
         /// <summary>Adds several adorner layers at once.</summary>
         public void AddRange (IEnumerable<Adorner> adorners)
         {
-            ArgumentNullException.ThrowIfNull (adorners);
+            Guard.ThrowIfNull (adorners);
 
             foreach (var adorner in adorners)
                 Add (adorner);

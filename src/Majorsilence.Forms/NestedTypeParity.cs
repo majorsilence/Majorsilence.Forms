@@ -125,7 +125,7 @@ namespace Majorsilence.Forms
             /// HWNDs here, so the child is identified by its owner alone.</remarks>
             public ChildAccessibleObject (ComboBox owner, IntPtr handle)
             {
-                ArgumentNullException.ThrowIfNull (owner);
+                Guard.ThrowIfNull (owner);
                 this.owner = owner;
             }
 
@@ -149,7 +149,7 @@ namespace Majorsilence.Forms
             /// <summary>Initializes a new instance of the <see cref="SelectedObjectCollection"/> class.</summary>
             public SelectedObjectCollection (ListBox owner)
             {
-                ArgumentNullException.ThrowIfNull (owner);
+                Guard.ThrowIfNull (owner);
 
                 foreach (var item in owner.Items.SelectedItems)
                     Add (item);
@@ -179,7 +179,7 @@ namespace Majorsilence.Forms
             public ToolStripPanelRowCollection (ToolStripPanel owner, ToolStripPanelRow[] value)
                 : this (owner)
             {
-                ArgumentNullException.ThrowIfNull (value);
+                Guard.ThrowIfNull (value);
 
                 foreach (var row in value)
                     Add (row);
@@ -459,7 +459,7 @@ namespace Majorsilence.Forms
 
             /// <summary>Initializes a new instance of the <see cref="ToolStripItemAccessibleObject"/> class.</summary>
             public ToolStripItemAccessibleObject (ToolStripItem ownerItem) : base (ownerItem)
-                => ArgumentNullException.ThrowIfNull (ownerItem);
+                => Guard.ThrowIfNull (ownerItem);
 
             /// <summary>Gets the item this object describes.</summary>
             protected ToolStripItem OwnerItem => Owner;

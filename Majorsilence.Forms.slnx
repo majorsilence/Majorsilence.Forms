@@ -14,6 +14,7 @@
     <Project Path="samples/Gallery.Avalonia/Gallery.Avalonia.csproj" />
     <Project Path="samples/Gallery.Uno/Gallery.Uno.csproj" />
     <Project Path="samples/Gallery.Wasm/Gallery.Wasm.csproj" />
+    <Project Path="samples/Gallery.Wpf/Gallery.Wpf.csproj" />
     <Project Path="samples/Outlaw/Outlaw.csproj" />
     <Project Path="samples/PointOfSale/PointOfSale.Api/PointOfSale.Api.csproj" />
     <Project Path="samples/PointOfSale/PointOfSale.Client/PointOfSale.Client.csproj" />
@@ -31,6 +32,7 @@
     <Project Path="src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj" />
     <Project Path="src/Majorsilence.Forms.WinFormsEnumShims/Majorsilence.Forms.WinFormsEnumShims.csproj" />
     <Project Path="src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj" />
+    <Project Path="src/Majorsilence.Forms.Wpf/Majorsilence.Forms.Wpf.csproj" />
     <Project Path="src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj" />
     <Project Path="src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj" />
   </Folder>

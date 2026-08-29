@@ -161,6 +161,30 @@ jobs:
         if: ${{ !cancelled() && runner.os == 'Linux' }}
         run: dotnet run --project tools/Majorsilence.Forms.ApiDiff --configuration Release --no-build -- --check
 
+  # .NET Framework (net472) consumer smoke test.
+  #
+  # Majorsilence.Forms / Majorsilence.Forms.Telerik now also ship a netstandard2.0 target so classic
+  # .NET Framework 4.7.2+ apps can consume the core. tests/Majorsilence.Forms.NetFxSmoke is a net472
+  # project that references the core and exercises the netstandard2.0-only code paths -- most
+  # importantly ComponentResourceManager's AppDomain.AssemblyResolve fallback (the AssemblyLoadContext
+  # path on the .NET TFMs). It is deliberately NOT in Majorsilence.Forms.slnx: `dotnet test` on the
+  # solution would abort on the Linux/macOS legs (no mono host for net472). It only needs Windows.
+  netfx-smoke:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build + run the net472 consumer smoke test
+        run: dotnet test tests/Majorsilence.Forms.NetFxSmoke/Majorsilence.Forms.NetFxSmoke.csproj --configuration Release
+
   # Wasm publish + boot smoke test gate.
   #
   # samples/Gallery.Wasm is part of Majorsilence.Forms.slnx, so the `build` job above

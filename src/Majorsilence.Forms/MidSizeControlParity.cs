@@ -61,8 +61,8 @@ namespace Majorsilence.Forms
         /// <summary>Sets how many months are shown, as columns by rows.</summary>
         public void SetCalendarDimensions (int x, int y)
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero (x);
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero (y);
+            Guard.ThrowIfNegativeOrZero (x);
+            Guard.ThrowIfNegativeOrZero (y);
 
             // WinForms caps the total at 12 months by shrinking the larger dimension first, so a
             // caller asking for 5x5 gets something drawable rather than 25 months.
@@ -351,7 +351,7 @@ namespace Majorsilence.Forms
             [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("The tab type is constructed by reflection, as it is upstream.")]
             public void AddTabType (Type propertyTabType, PropertyTabScope tabScope)
             {
-                ArgumentNullException.ThrowIfNull (propertyTabType);
+                Guard.ThrowIfNull (propertyTabType);
 
                 if (Activator.CreateInstance (propertyTabType) is PropertyTab tab)
                     tabs.Add (tab);

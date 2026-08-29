@@ -313,7 +313,7 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void CopyStateTo (DataGridViewColumn target)
         {
-            ArgumentNullException.ThrowIfNull (target);
+            Guard.ThrowIfNull (target);
 
             target.header_text = header_text;
             target.width = width;

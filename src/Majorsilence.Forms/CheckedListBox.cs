@@ -61,7 +61,7 @@ namespace Majorsilence.Forms
             if (index < 0 || index >= base.Items.Count)
                 throw new ArgumentOutOfRangeException (nameof (index));
 
-            if (!Enum.IsDefined (value))
+            if (!EnumCompat.IsDefined (value))
                 throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (CheckState));
 
             var wrapper = GetWrapper (index);
@@ -139,7 +139,7 @@ namespace Majorsilence.Forms
         /// has to write the loop, which is not what the WinForms collection requires.</remarks>
         public void AddRange (params object[] items)
         {
-            ArgumentNullException.ThrowIfNull (items);
+            Guard.ThrowIfNull (items);
 
             foreach (var item in items)
                 _inner.Add (new CheckedListBoxItem (item, false));
@@ -148,7 +148,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="AddRange(object[])"/>
         public void AddRange (System.Collections.IEnumerable items)
         {
-            ArgumentNullException.ThrowIfNull (items);
+            Guard.ThrowIfNull (items);
 
             foreach (var item in items)
                 _inner.Add (new CheckedListBoxItem (item, false));

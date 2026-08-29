@@ -57,7 +57,7 @@ namespace Majorsilence.Forms.Drawing
         /// Drawing goes directly into the image's backing bitmap, matching System.Drawing semantics.</summary>
         public static Graphics FromImage (Majorsilence.Forms.Drawing.Image image)
         {
-            ArgumentNullException.ThrowIfNull (image);
+            Guard.ThrowIfNull (image);
             var backing = image.GetSKBitmap () ?? throw new ArgumentException ("Image has no backing bitmap.", nameof (image));
             return new Graphics (new SKCanvas (backing), ownsCanvas: true, sourceImage: image);
         }

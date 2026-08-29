@@ -47,7 +47,7 @@ namespace Majorsilence.Forms
 
         private static HandledMouseEventArgs Require (HandledMouseEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (e);
+            Guard.ThrowIfNull (e);
             return e;
         }
     }
@@ -60,7 +60,7 @@ namespace Majorsilence.Forms
             : base (DividerMouse.Button (e), DividerMouse.Clicks (e), DividerMouse.X (e),
                     DividerMouse.Y (e), DividerMouse.Delta (e), DividerMouse.Handled (e))
         {
-            ArgumentOutOfRangeException.ThrowIfLessThan (columnIndex, -1);
+            Guard.ThrowIfLessThan (columnIndex, -1);
             ColumnIndex = columnIndex;
         }
 
@@ -77,7 +77,7 @@ namespace Majorsilence.Forms
             : base (DividerMouse.Button (e), DividerMouse.Clicks (e), DividerMouse.X (e),
                     DividerMouse.Y (e), DividerMouse.Delta (e), DividerMouse.Handled (e))
         {
-            ArgumentOutOfRangeException.ThrowIfLessThan (rowIndex, -1);
+            Guard.ThrowIfLessThan (rowIndex, -1);
             RowIndex = rowIndex;
         }
 

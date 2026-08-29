@@ -404,7 +404,7 @@ namespace Majorsilence.Forms
             /// <summary>Copies this view into an array.</summary>
             public void CopyTo (Array array, int index)
             {
-                ArgumentNullException.ThrowIfNull (array);
+                Guard.ThrowIfNull (array);
 
                 foreach (var item in Matching)
                     array.SetValue (item, index++);
@@ -467,7 +467,7 @@ namespace Majorsilence.Forms
             /// <summary>Copies this view into an array.</summary>
             public void CopyTo (Array array, int index)
             {
-                ArgumentNullException.ThrowIfNull (array);
+                Guard.ThrowIfNull (array);
 
                 foreach (var value in Matching)
                     array.SetValue (value, index++);
@@ -559,7 +559,7 @@ namespace Majorsilence.Forms
         /// <summary>Adds several groups at once.</summary>
         public void AddRange (params ListViewGroup[] groups)
         {
-            ArgumentNullException.ThrowIfNull (groups);
+            Guard.ThrowIfNull (groups);
 
             foreach (var group in groups)
                 Add (group);
@@ -568,7 +568,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="AddRange(ListViewGroup[])"/>
         public void AddRange (ListViewGroupCollection groups)
         {
-            ArgumentNullException.ThrowIfNull (groups);
+            Guard.ThrowIfNull (groups);
 
             foreach (var group in groups)
                 Add (group);

@@ -48,7 +48,7 @@ namespace Majorsilence.Forms
         public static void DrawButton (Graphics g, Rectangle bounds, string? buttonText,
             Majorsilence.Forms.Drawing.Font? font, TextFormatFlags flags, bool focused, PushButtonState state)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             var pressed = state == PushButtonState.Pressed;
             var hot = state == PushButtonState.Hot;
@@ -84,7 +84,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         public static void DrawParentBackground (Graphics g, Rectangle bounds, Control childControl)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             var color = childControl?.BackColor ?? SystemColors.Control;
 

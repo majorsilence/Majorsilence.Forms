@@ -95,7 +95,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static string RegisterThemeFromStream (Stream stream)
         {
-            ArgumentNullException.ThrowIfNull (stream);
+            Guard.ThrowIfNull (stream);
 
             return RegisterThemeElement (ParseDocument (XDocument.Load (stream)));
         }

@@ -61,7 +61,7 @@ namespace Majorsilence.Forms
         /// blends it towards the background, which is what the disabled state looks like.</remarks>
         public static void DrawImageDisabled (Graphics graphics, Majorsilence.Forms.Drawing.Image image, int x, int y, Color background)
         {
-            ArgumentNullException.ThrowIfNull (graphics);
+            Guard.ThrowIfNull (graphics);
 
             if (image is null)
                 return;
@@ -181,7 +181,7 @@ namespace Majorsilence.Forms
         /// <summary>Stores a list of file paths.</summary>
         public void SetFileDropList (StringCollection filePaths)
         {
-            ArgumentNullException.ThrowIfNull (filePaths);
+            Guard.ThrowIfNull (filePaths);
 
             var paths = new string[filePaths.Count];
             filePaths.CopyTo (paths, 0);
@@ -242,7 +242,7 @@ namespace Majorsilence.Forms
         /// so the index is validated but does not change the answer.</remarks>
         public int GetItemHeight (int index)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative (index);
+            Guard.ThrowIfNegative (index);
             return ItemHeight;
         }
 
@@ -282,7 +282,7 @@ namespace Majorsilence.Forms
             /// <summary>Adds several values at once.</summary>
             public void AddRange (params int[] items)
             {
-                ArgumentNullException.ThrowIfNull (items);
+                Guard.ThrowIfNull (items);
                 values.AddRange (items);
             }
 

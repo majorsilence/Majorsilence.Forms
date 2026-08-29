@@ -44,13 +44,13 @@ namespace Majorsilence.Forms.Media
         /// </remarks>
         internal static ProcessStartInfo[] FileCommands (string path)
         {
-            if (OperatingSystem.IsMacOS ())
+            if (OperatingSystemCompat.IsMacOS ())
                 return [Command ("afplay", path)];
 
-            if (OperatingSystem.IsLinux ())
+            if (OperatingSystemCompat.IsLinux ())
                 return [Command ("paplay", path), Command ("aplay", path)];
 
-            if (OperatingSystem.IsWindows ())
+            if (OperatingSystemCompat.IsWindows ())
                 return [PowerShell ($"(New-Object System.Media.SoundPlayer('{EscapePs (path)}')).PlaySync()")];
 
             return [];
@@ -66,10 +66,10 @@ namespace Majorsilence.Forms.Media
         /// </remarks>
         internal static ProcessStartInfo[] SystemSoundCommands (string name)
         {
-            if (OperatingSystem.IsWindows ())
+            if (OperatingSystemCompat.IsWindows ())
                 return [PowerShell ($"[System.Media.SystemSounds]::{name}.Play(); Start-Sleep -Milliseconds 700")];
 
-            if (OperatingSystem.IsMacOS ()) {
+            if (OperatingSystemCompat.IsMacOS ()) {
                 var file = name switch {
                     nameof (SystemSounds.Asterisk) => "Glass",
                     nameof (SystemSounds.Exclamation) => "Sosumi",
@@ -80,7 +80,7 @@ namespace Majorsilence.Forms.Media
                 return [Command ("afplay", $"/System/Library/Sounds/{file}.aiff")];
             }
 
-            if (OperatingSystem.IsLinux ()) {
+            if (OperatingSystemCompat.IsLinux ()) {
                 var file = name switch {
                     nameof (SystemSounds.Asterisk) => "dialog-information",
                     nameof (SystemSounds.Exclamation) => "dialog-warning",
@@ -126,8 +126,22 @@ namespace Majorsilence.Forms.Media
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            info.ArgumentList.Add (argument);
+            AddArgument (info, argument);
             return info;
+        }
+
+        // ProcessStartInfo.ArgumentList is a .NET Core 2.1 addition; on netstandard2.0 the arguments
+        // are composed into the single Arguments string with the same Windows-style quoting.
+        private static void AddArgument (ProcessStartInfo info, string argument)
+        {
+#if NETSTANDARD2_0
+            var quoted = argument.Length > 0 && argument.IndexOf (' ') < 0 && argument.IndexOf ('"') < 0
+                ? argument
+                : "\"" + argument.Replace ("\"", "\\\"") + "\"";
+            info.Arguments = string.IsNullOrEmpty (info.Arguments) ? quoted : info.Arguments + " " + quoted;
+#else
+            info.ArgumentList.Add (argument);
+#endif
         }
 
         private static ProcessStartInfo PowerShell (string script)
@@ -138,10 +152,10 @@ namespace Majorsilence.Forms.Media
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            info.ArgumentList.Add ("-NoProfile");
-            info.ArgumentList.Add ("-NonInteractive");
-            info.ArgumentList.Add ("-Command");
-            info.ArgumentList.Add (script);
+            AddArgument (info, "-NoProfile");
+            AddArgument (info, "-NonInteractive");
+            AddArgument (info, "-Command");
+            AddArgument (info, script);
             return info;
         }
 
@@ -161,7 +175,11 @@ namespace Majorsilence.Forms.Media
             {
                 try {
                     if (!process.HasExited)
+#if NETSTANDARD2_0
+                        process.Kill ();
+#else
                         process.Kill (entireProcessTree: true);
+#endif
                 } catch { }
 
                 process.Dispose ();

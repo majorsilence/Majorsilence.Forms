@@ -38,8 +38,8 @@ namespace Majorsilence.Forms
                 if (_selectionStart == value)
                     return;
 
-                ArgumentOutOfRangeException.ThrowIfLessThan (value, _minDate);
-                ArgumentOutOfRangeException.ThrowIfGreaterThan (value, _maxDate);
+                Guard.ThrowIfLessThan (value, _minDate);
+                Guard.ThrowIfGreaterThan (value, _maxDate);
 
                 // If we've moved SelectionStart beyond SelectionEnd, move SelectionEnd forward.
                 if (_selectionEnd < value)
@@ -60,8 +60,8 @@ namespace Majorsilence.Forms
                 if (_selectionEnd == value)
                     return;
 
-                ArgumentOutOfRangeException.ThrowIfLessThan (value, _minDate);
-                ArgumentOutOfRangeException.ThrowIfGreaterThan (value, _maxDate);
+                Guard.ThrowIfLessThan (value, _minDate);
+                Guard.ThrowIfGreaterThan (value, _maxDate);
 
                 // If we've moved SelectionEnd before SelectionStart, move SelectionStart back.
                 if (_selectionStart > value)
@@ -88,8 +88,8 @@ namespace Majorsilence.Forms
                 if (value == _minDate)
                     return;
 
-                ArgumentOutOfRangeException.ThrowIfGreaterThan (value, EffectiveMaxDate (_maxDate));
-                ArgumentOutOfRangeException.ThrowIfLessThan (value, MinimumDateTime);
+                Guard.ThrowIfGreaterThan (value, EffectiveMaxDate (_maxDate));
+                Guard.ThrowIfLessThan (value, MinimumDateTime);
 
                 _minDate = value;
                 SetRange ();
@@ -103,7 +103,7 @@ namespace Majorsilence.Forms
                 if (value == _maxDate)
                     return;
 
-                ArgumentOutOfRangeException.ThrowIfLessThan (value, EffectiveMinDate (_minDate));
+                Guard.ThrowIfLessThan (value, EffectiveMinDate (_minDate));
 
                 _maxDate = value;
                 SetRange ();
@@ -117,7 +117,7 @@ namespace Majorsilence.Forms
         public int MaxSelectionCount {
             get => _maxSelectionCount;
             set {
-                ArgumentOutOfRangeException.ThrowIfLessThan (value, 1);
+                Guard.ThrowIfLessThan (value, 1);
 
                 _maxSelectionCount = value;
             }
@@ -143,8 +143,8 @@ namespace Majorsilence.Forms
             get => _todayDateSet ? _todaysDate : DateTime.Now.Date;
             set {
                 if (!_todayDateSet || DateTime.Compare (value, _todaysDate) != 0) {
-                    ArgumentOutOfRangeException.ThrowIfGreaterThan (value, _maxDate);
-                    ArgumentOutOfRangeException.ThrowIfLessThan (value, _minDate);
+                    Guard.ThrowIfGreaterThan (value, _maxDate);
+                    Guard.ThrowIfLessThan (value, _minDate);
 
                     _todaysDate = value.Date;
                     _todayDateSet = true;
@@ -186,8 +186,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public void SetDate (DateTime date)
         {
-            ArgumentOutOfRangeException.ThrowIfLessThan (date, _minDate);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan (date, _maxDate);
+            Guard.ThrowIfLessThan (date, _minDate);
+            Guard.ThrowIfGreaterThan (date, _maxDate);
 
             SetSelectionRange (date, date);
         }
@@ -195,10 +195,10 @@ namespace Majorsilence.Forms
         /// <summary>Sets the selection range to the given dates.</summary>
         public void SetSelectionRange (DateTime date1, DateTime date2)
         {
-            ArgumentOutOfRangeException.ThrowIfLessThan (date1, _minDate);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan (date1, _maxDate);
-            ArgumentOutOfRangeException.ThrowIfLessThan (date2, _minDate);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan (date2, _maxDate);
+            Guard.ThrowIfLessThan (date1, _minDate);
+            Guard.ThrowIfGreaterThan (date1, _maxDate);
+            Guard.ThrowIfLessThan (date2, _minDate);
+            Guard.ThrowIfGreaterThan (date2, _maxDate);
 
             // If date1 > date2, we just select date2 (compat).
             if (date1 > date2)

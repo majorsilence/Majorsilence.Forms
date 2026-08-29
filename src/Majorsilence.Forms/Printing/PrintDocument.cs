@@ -87,7 +87,7 @@ namespace Majorsilence.Forms.Printing
         /// </summary>
         public void PrintToPdf (Stream stream)
         {
-            ArgumentNullException.ThrowIfNull (stream);
+            Guard.ThrowIfNull (stream);
 
             var settings = DefaultPageSettings;
             var dpi = settings.Dpi <= 0 ? 96f : settings.Dpi;

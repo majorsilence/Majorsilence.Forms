@@ -10,7 +10,7 @@ internal static class ArgumentValidationExtensions
 {
     internal static T OrThrowIfNull<T> (this T? argument, [CallerArgumentExpression ("argument")] string? paramName = null)
     {
-        ArgumentNullException.ThrowIfNull (argument, paramName);
+        Guard.ThrowIfNull (argument, paramName);
         return argument;
     }
 

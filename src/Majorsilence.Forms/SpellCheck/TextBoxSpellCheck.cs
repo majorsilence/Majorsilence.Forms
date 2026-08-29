@@ -32,7 +32,7 @@ namespace Majorsilence.Forms.SpellCheck
         /// </summary>
         public static void SetSpellChecker (TextBox textBox, SpellChecker? checker)
         {
-            ArgumentNullException.ThrowIfNull (textBox);
+            Guard.ThrowIfNull (textBox);
 
             if (_attachments.Remove (textBox, out var existing)) {
                 textBox.TextChanged -= existing.TextChangedHandler;

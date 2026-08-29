@@ -2648,7 +2648,7 @@ namespace Majorsilence.Forms
                 for (var x = 0; x < normalImage.Width; x++) {
                     var c = source.GetPixel (x, y);
                     var grey = (int)Math.Round (c.R * 0.299 + c.G * 0.587 + c.B * 0.114);
-                    grey = Math.Clamp ((grey + 255) / 2, 0, 255);
+                    grey = MathCompat.Clamp ((grey + 255) / 2, 0, 255);
                     disabled.SetPixel (x, y, Color.FromArgb (c.A, grey, grey, grey));
                 }
             source.Dispose ();

@@ -498,7 +498,7 @@ namespace Majorsilence.Forms
         /// deserialises into a silently empty image list.</remarks>
         public void GetObjectData (System.Runtime.Serialization.SerializationInfo si,
             System.Runtime.Serialization.StreamingContext context)
-            => ArgumentNullException.ThrowIfNull (si);
+            => Guard.ThrowIfNull (si);
     }
 
     public partial class NumericUpDownAccelerationCollection
@@ -653,7 +653,7 @@ namespace Majorsilence.Forms
         /// <summary>Adds several cells at once.</summary>
         public virtual void AddRange (params DataGridViewCell[] dataGridViewCells)
         {
-            ArgumentNullException.ThrowIfNull (dataGridViewCells);
+            Guard.ThrowIfNull (dataGridViewCells);
 
             foreach (var cell in dataGridViewCells)
                 Add (cell);

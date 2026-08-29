@@ -19,7 +19,7 @@ namespace Majorsilence.Forms.WinForms
         /// </summary>
         public static WF.Control ToWinFormsControl (this MF.Control control)
         {
-            ArgumentNullException.ThrowIfNull (control);
+            Guard.ThrowIfNull (control);
             return new MajorsilenceFormsPresenter { Content = control };
         }
 
@@ -37,7 +37,7 @@ namespace Majorsilence.Forms.WinForms
         /// </exception>
         public static WF.Form ToWinFormsForm (this MF.Form form)
         {
-            ArgumentNullException.ThrowIfNull (form);
+            Guard.ThrowIfNull (form);
 
             if (form.Backend is not WinFormsWindowHost host)
                 throw new InvalidOperationException (

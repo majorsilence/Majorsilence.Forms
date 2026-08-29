@@ -35,7 +35,7 @@ namespace Majorsilence.Forms
         public int Position {
             get => position;
             set {
-                var clamped = Count == 0 ? -1 : Math.Clamp (value, 0, Count - 1);
+                var clamped = Count == 0 ? -1 : MathCompat.Clamp (value, 0, Count - 1);
 
                 if (clamped == position)
                     return;

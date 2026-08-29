@@ -1,9 +1,52 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net10.0;netstandard2.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <IsTrimmable>true</IsTrimmable>
+    <!-- Trimming/NativeAOT concepts don't apply to the netstandard2.0 consumers (.NET Framework 4.7.2+,
+         Mono, older Unity). -->
+    <IsTrimmable Condition=" '$(TargetFramework)' != 'netstandard2.0' ">true</IsTrimmable>
+    <!-- The SDK otherwise defaults the netstandard2.0 row to C# 7.3, which breaks the nullable
+         annotations, records, switch expressions, file-scoped namespaces, collection expressions,
+         etc. used throughout this project. Same reason Majorsilence.Forms.Drawing.Common sets it. -->
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <!-- Span<T>/ReadOnlySpan<T> are in-box on the .NET TFMs; a package for netstandard2.0. SkiaSharp's
+         own netstandard2.0 row depends on it too. -->
+    <PackageReference Include="System.Memory" />
+    <!-- Source-generates the compiler-required types/attributes missing from the netstandard2.0 BCL
+         (Index/Range, IsExternalInit for records/init, HashCode, CallerArgumentExpression, the
+         nullable-flow and trimming attributes). PrivateAssets=all: never a real dependency. -->
+    <PackageReference Include="PolySharp" PrivateAssets="all" />
+    <!-- JsonSerializer.Serialize + ValueTask + System.Reflection.Metadata.TypeName, in-box on the .NET
+         TFMs (see Directory.Packages.props). -->
+    <PackageReference Include="System.Text.Json" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" />
+    <PackageReference Include="System.Reflection.Metadata" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <!-- Interaction.cs is a Microsoft.VisualBasic (MsgBox/InputBox) migration convenience. Microsoft
+         .VisualBasic.Core is in-box on net8.0/net10.0; on netstandard2.0 / .NET Framework it would need
+         the Microsoft.VisualBasic package, whose assembly-identity clash with the .NET Framework GAC
+         copy is a known headache. VbInteraction has no other callers in the assembly, so it is simply
+         excluded from the netstandard2.0 surface (documented as a known gap). -->
+    <Compile Remove="Interaction.cs" />
+  </ItemGroup>
+
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <!-- The trimming attributes (RequiresUnreferencedCode, UnconditionalSuppressMessage, ...) used in
+         this project's source are otherwise outside PolySharp's default polyfill set. -->
+    <PolySharpIncludeRuntimeSupportedAttributes>true</PolySharpIncludeRuntimeSupportedAttributes>
+    <!-- netstandard2.0's reference assembly predates the nullable-flow annotations on the BCL, most
+         importantly NotNullWhen(false) on string.IsNullOrEmpty / IsNullOrWhiteSpace and
+         DoesNotReturnIf on Debug.Assert. Every hit is inside an existing IsNullOrEmpty / pattern
+         guard and compiles clean on net8.0/net10.0, where the annotations exist; these are the
+         same source files, nullable-checked for real on those TFMs. Suppressed only for the
+         netstandard2.0 row so its Release build (TreatWarningsAsErrors) is not blocked by the gap. -->
+    <NoWarn>$(NoWarn);CS8600;CS8601;CS8602;CS8603;CS8604;CS8767</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -91,6 +134,7 @@
     <InternalsVisibleTo Include="Majorsilence.Forms.Headless" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Uno" />
     <InternalsVisibleTo Include="Majorsilence.Forms.WinForms" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Wpf" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Telerik" />
   </ItemGroup>

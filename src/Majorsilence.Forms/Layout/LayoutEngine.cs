@@ -29,7 +29,7 @@ public abstract class LayoutEngine
     /// </summary>
     public virtual void InitLayout (object child, BoundsSpecified specified)
     {
-        ArgumentNullException.ThrowIfNull (child);
+        Guard.ThrowIfNull (child);
 
         InitLayoutCore (CastToArrangedElement (child), specified);
     }
@@ -43,7 +43,7 @@ public abstract class LayoutEngine
     /// </summary>
     public virtual bool Layout (object container, LayoutEventArgs layoutEventArgs)
     {
-        ArgumentNullException.ThrowIfNull (container);
+        Guard.ThrowIfNull (container);
         return LayoutCore (CastToArrangedElement (container), layoutEventArgs);
     }
 

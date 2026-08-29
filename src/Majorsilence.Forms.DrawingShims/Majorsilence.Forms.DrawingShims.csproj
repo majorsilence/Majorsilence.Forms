@@ -8,9 +8,12 @@
        so the real image can be decoded by SkiaSharp instead. -->
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <!-- netstandard2.0 so Majorsilence.Forms' netstandard2.0 row has a shim DLL to embed
+         (EmbedDrawingShims passes TargetFramework through). -->
+    <TargetFrameworks>net8.0;net10.0;netstandard2.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <IsTrimmable>true</IsTrimmable>
+    <IsTrimmable Condition=" '$(TargetFramework)' != 'netstandard2.0' ">true</IsTrimmable>
+    <LangVersion>latest</LangVersion>
     <!-- Deliberate, and the same trick Majorsilence.Forms.WinFormsEnumShims uses:
          AssemblyLoadContext.Resolving validates a supplied assembly's SIMPLE NAME against what was
          requested but not its version/public key token, so this assembly must be literally named

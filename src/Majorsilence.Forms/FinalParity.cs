@@ -77,7 +77,7 @@ namespace Majorsilence.Forms
             /// <summary>Adds several panels at once.</summary>
             public void AddRange (params StatusBarPanel[] panels)
             {
-                ArgumentNullException.ThrowIfNull (panels);
+                Guard.ThrowIfNull (panels);
 
                 foreach (var panel in panels)
                     Add (panel);

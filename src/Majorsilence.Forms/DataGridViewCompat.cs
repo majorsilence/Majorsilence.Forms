@@ -53,7 +53,7 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of the <see cref="DataGridViewCellStyle"/> class, copying values from the supplied style.</summary>
         public DataGridViewCellStyle (DataGridViewCellStyle dataGridViewCellStyle)
         {
-            ArgumentNullException.ThrowIfNull (dataGridViewCellStyle);
+            Guard.ThrowIfNull (dataGridViewCellStyle);
             ApplyStyle (dataGridViewCellStyle);
         }
 
@@ -138,7 +138,7 @@ namespace Majorsilence.Forms
         /// <summary>Copies the values from the supplied style into this style.</summary>
         public void ApplyStyle (DataGridViewCellStyle dataGridViewCellStyle)
         {
-            ArgumentNullException.ThrowIfNull (dataGridViewCellStyle);
+            Guard.ThrowIfNull (dataGridViewCellStyle);
 
             if (!dataGridViewCellStyle.BackColor.IsEmpty)
                 BackColor = dataGridViewCellStyle.BackColor;

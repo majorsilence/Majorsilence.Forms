@@ -30,7 +30,7 @@ namespace SkiaSharp.Views.Desktop
         /// <summary>Initializes a new instance with separate raw and logical sizes.</summary>
         public SKPaintSurfaceEventArgs (SKSurface surface, SKImageInfo info, SKImageInfo rawInfo)
         {
-            ArgumentNullException.ThrowIfNull (surface);
+            Guard.ThrowIfNull (surface);
             Surface = surface;
             Info = info;
             RawInfo = rawInfo;
@@ -64,7 +64,7 @@ namespace SkiaSharp.Views.Desktop
         /// <summary>Initializes a new instance with an explicit colour type.</summary>
         public SKPaintGLSurfaceEventArgs (SKSurface surface, GRBackendRenderTarget? renderTarget, SKColorType colorType)
         {
-            ArgumentNullException.ThrowIfNull (surface);
+            Guard.ThrowIfNull (surface);
             Surface = surface;
             BackendRenderTarget = renderTarget;
             ColorType = colorType;

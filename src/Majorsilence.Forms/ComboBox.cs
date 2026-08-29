@@ -128,7 +128,7 @@ namespace Majorsilence.Forms
         /// is not implemented, so the index is accepted and validated but does not change the answer.</remarks>
         public int GetItemHeight (int index)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative (index);
+            Guard.ThrowIfNegative (index);
             return ItemHeight;
         }
 

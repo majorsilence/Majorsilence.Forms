@@ -15,7 +15,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected void InvokePaint (Control c, PaintEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (c);
+            Guard.ThrowIfNull (c);
             c.OnPaint (e);
         }
 
@@ -23,7 +23,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="InvokePaint"/>
         protected void InvokePaintBackground (Control c, PaintEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (c);
+            Guard.ThrowIfNull (c);
             c.OnPaintBackground (e);
         }
     }
@@ -61,7 +61,7 @@ namespace Majorsilence.Forms
             Majorsilence.Forms.Drawing.Font? font, Color textColor, TextFormatFlags flags,
             VisualStyles.GroupBoxState state)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             // Theme.UIFont is a typeface, not a Font -- build the drawable default from it.
             var caption_font = font ?? new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, Theme.ItemFontSize);
@@ -160,7 +160,7 @@ namespace Majorsilence.Forms.Design
         public PaintValueEventArgs (System.ComponentModel.ITypeDescriptorContext? context, object? value,
             Graphics graphics, Rectangle bounds)
         {
-            ArgumentNullException.ThrowIfNull (graphics);
+            Guard.ThrowIfNull (graphics);
             Context = context;
             Value = value;
             Graphics = graphics;

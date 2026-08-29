@@ -50,7 +50,13 @@ namespace Majorsilence.Forms.WinForms
             if (!string.IsNullOrEmpty (request.Title))
                 dialog.Description = request.Title;
             if (!string.IsNullOrEmpty (request.InitialDirectory))
+#if NET48
+                // FolderBrowserDialog.InitialDirectory is .NET Core 3.0+; SelectedPath is the
+                // .NET Framework way to preselect a starting folder.
+                dialog.SelectedPath = request.InitialDirectory;
+#else
                 dialog.InitialDirectory = request.InitialDirectory;
+#endif
 
             return dialog.ShowDialog (owner) == WF.DialogResult.OK ? dialog.SelectedPath : null;
         }

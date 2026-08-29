@@ -273,6 +273,15 @@ namespace Majorsilence.Forms.WinForms
 
         public IntPtr TryGetPlatformHandle () => _form.IsHandleCreated ? _form.Handle : IntPtr.Zero;
 
+        // Optional IWindowBackend members with no meaning for the plain-WinForms host (the OS draws the
+        // caption, there is a hardware keyboard, no window shaping). Default interface members on the
+        // net8.0/net10.0 core; plain interface members on the netstandard2.0 core the net48 build
+        // consumes, so they are implemented here for all TFMs.
+        public void SetCaptionRegions (System.Collections.Generic.IReadOnlyList<Rectangle> captionRects) { }
+        public void SetShaped (bool shaped) { }
+        public void SetTextInputActive (bool active, TextInputKind kind) { }
+        public void SetExtendClientIntoTitleBar (bool extend, int titleBarHeight) { }
+
         // ── Coordinate conversion ────────────────────────────────────────────────
         // Screen coordinates are physical pixels; client coordinates are logical.
 

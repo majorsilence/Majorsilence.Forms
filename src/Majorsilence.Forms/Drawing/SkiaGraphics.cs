@@ -339,7 +339,7 @@ namespace Majorsilence.Forms.Drawing
         /// <remarks>The surface does not affect the result; the parameter exists for GDI+ source compatibility.</remarks>
         public static float GetHeight (this Font font, SkiaGraphics graphics)
         {
-            ArgumentNullException.ThrowIfNull (font);
+            Guard.ThrowIfNull (font);
             return font.GetHeight ();
         }
     }

@@ -44,7 +44,11 @@ namespace Majorsilence.Forms.WinForms
             // Best-effort process-wide WinForms configuration. These throw if another component (an
             // existing WinForms host app, or ApplicationConfiguration.Initialize()) already configured
             // them or a window handle exists — which is fine, that configuration wins.
+#if !NET48
+            // Application.SetHighDpiMode is .NET Core 3.0+. On .NET Framework 4.8 the equivalent is an
+            // app.manifest <dpiAwareness> entry, which is the host app's call, not the backend's.
             try { WF.Application.SetHighDpiMode (WF.HighDpiMode.PerMonitorV2); } catch { }
+#endif
             try { WF.Application.EnableVisualStyles (); } catch { }
             try { WF.Application.SetCompatibleTextRenderingDefault (false); } catch { }
 

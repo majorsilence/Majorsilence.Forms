@@ -5,7 +5,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Loader;
+#if !NETSTANDARD2_0
+using System.Runtime.Loader;   // AssemblyLoadContext; absent on .NET Framework / netstandard2.0
+#endif
 using System.Xml.Linq;
 
 namespace Majorsilence.Forms
@@ -59,7 +61,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public ComponentResourceManager (Type resourceSource)
         {
-            ArgumentNullException.ThrowIfNull (resourceSource);
+            Guard.ThrowIfNull (resourceSource);
 
             LoadCompiledResources (resourceSource);
 
@@ -79,8 +81,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public ComponentResourceManager (string baseName, Assembly assembly)
         {
-            ArgumentNullException.ThrowIfNull (baseName);
-            ArgumentNullException.ThrowIfNull (assembly);
+            Guard.ThrowIfNull (baseName);
+            Guard.ThrowIfNull (assembly);
 
             LoadCompiledResources (assembly, baseName);
         }
@@ -162,8 +164,8 @@ namespace Majorsilence.Forms
                 "there is no static annotation surface for GetType()'s return type to propagate through.")]
         public void ApplyResources (object value, string objectName)
         {
-            ArgumentNullException.ThrowIfNull (value);
-            ArgumentNullException.ThrowIfNull (objectName);
+            Guard.ThrowIfNull (value);
+            Guard.ThrowIfNull (objectName);
 
             var prefix = objectName + ".";
             var type = value.GetType ();
@@ -392,8 +394,15 @@ namespace Majorsilence.Forms
             try { shimAssembly = Assembly.Load (shimBytes); }
             catch { return; }
 
+#if NETSTANDARD2_0
+            // .NET Framework / netstandard2.0 has no AssemblyLoadContext; AppDomain.AssemblyResolve is
+            // the equivalent last-resort hook, and likewise fires only after normal probing fails.
+            AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
+                new AssemblyName (args.Name).Name == "System.Windows.Forms" ? shimAssembly : null;
+#else
             AssemblyLoadContext.Default.Resolving += (_, name) =>
                 name.Name == "System.Windows.Forms" ? shimAssembly : null;
+#endif
         }
 
         // The image counterpart of RegisterWinFormsEnumResolver. A compiled .resx stores an image
@@ -430,8 +439,13 @@ namespace Majorsilence.Forms
             try { shimAssembly = Assembly.Load (shimBytes); }
             catch { return; }
 
+#if NETSTANDARD2_0
+            AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
+                new AssemblyName (args.Name).Name == "System.Drawing.Common" ? shimAssembly : null;
+#else
             AssemblyLoadContext.Default.Resolving += (_, name) =>
                 name.Name == "System.Drawing.Common" ? shimAssembly : null;
+#endif
         }
 
         // Pulls the original file bytes back off a stand-in image produced by the embedded
@@ -722,9 +736,20 @@ namespace Majorsilence.Forms
             catch { return value; }
         }
 
+        // Comma-split + trim each entry. Replaces value.Split(',', StringSplitOptions.TrimEntries [|
+        // RemoveEmptyEntries]) -- the char overload of Split and StringSplitOptions.TrimEntries are both
+        // post-netstandard2.0 additions.
+        private static string[] SplitTrimmed (string value, bool removeEmpty = true)
+        {
+            var parts = value.Split (',').Select (p => p.Trim ());
+            if (removeEmpty)
+                parts = parts.Where (p => p.Length > 0);
+            return parts.ToArray ();
+        }
+
         private static (int, int)? ParsePoint (string value)
         {
-            var parts = value.Split (',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            var parts = SplitTrimmed (value);
             return parts.Length == 2
                    && int.TryParse (parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var a)
                    && int.TryParse (parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var b)
@@ -734,7 +759,7 @@ namespace Majorsilence.Forms
 
         private static System.Drawing.Color ParseColor (string value)
         {
-            var parts = value.Split (',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            var parts = SplitTrimmed (value);
             if (parts.Length is 3 or 4 && parts.All (p => byte.TryParse (p, out _)))
             {
                 var c = parts.Select (byte.Parse).ToArray ();
@@ -748,7 +773,7 @@ namespace Majorsilence.Forms
         private static Majorsilence.Forms.Drawing.Font ParseFont (string value)
         {
             // Format: "Family, 8.25pt[, style=Bold, Italic]".
-            var parts = value.Split (',', StringSplitOptions.TrimEntries);
+            var parts = SplitTrimmed (value, removeEmpty: false);
             var family = parts.Length > 0 ? parts[0] : "Microsoft Sans Serif";
             var size = 8.25f;
             if (parts.Length > 1)

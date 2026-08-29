@@ -52,7 +52,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns every item with the given name, optionally searching drop-downs.</summary>
         public ToolStripItem[] Find (string key, bool searchAllChildren)
         {
-            ArgumentException.ThrowIfNullOrEmpty (key);
+            Guard.ThrowIfNullOrEmpty (key);
 
             var found = new List<ToolStripItem> ();
             Collect (this, found);
@@ -92,7 +92,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="DeselectTab(int)"/>
         public void DeselectTab (TabPage tabPage)
         {
-            ArgumentNullException.ThrowIfNull (tabPage);
+            Guard.ThrowIfNull (tabPage);
             DeselectTab (TabPages.IndexOf (tabPage));
         }
 
@@ -111,8 +111,8 @@ namespace Majorsilence.Forms
         /// <summary>Returns the page at the given index.</summary>
         public Control GetControl (int index)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative (index);
-            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual (index, TabPages.Count);
+            Guard.ThrowIfNegative (index);
+            Guard.ThrowIfGreaterThanOrEqual (index, TabPages.Count);
 
             return TabPages[index];
         }
@@ -134,14 +134,14 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="Contains(object)"/>
         public bool Contains (object dataSource, string? dataMember)
         {
-            ArgumentNullException.ThrowIfNull (dataSource);
+            Guard.ThrowIfNull (dataSource);
             return managers.ContainsKey ((dataSource, dataMember ?? string.Empty));
         }
 
         /// <summary>Moves a binding to a different context.</summary>
         public static void UpdateBinding (BindingContext newBindingContext, Binding binding)
         {
-            ArgumentNullException.ThrowIfNull (binding);
+            Guard.ThrowIfNull (binding);
 
             binding.BindingManagerBase = binding.DataSource is null || newBindingContext is null
                 ? null

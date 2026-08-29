@@ -185,6 +185,14 @@ namespace Majorsilence.Forms.WinForms
         void IWindowBackend.BeginMoveDrag () { }
         void IWindowBackend.BeginResizeDrag (WindowEdge edge) { }
 
+        // Optional IWindowBackend members (no-ops for an embedded WinForms host): default interface
+        // members on the net8.0/net10.0 core, plain interface members on the netstandard2.0 core the
+        // net48 build consumes, so they are implemented explicitly here for all TFMs.
+        void IWindowBackend.SetCaptionRegions (System.Collections.Generic.IReadOnlyList<Rectangle> captionRects) { }
+        void IWindowBackend.SetShaped (bool shaped) { }
+        void IWindowBackend.SetTextInputActive (bool active, TextInputKind kind) { }
+        void IWindowBackend.SetExtendClientIntoTitleBar (bool extend, int titleBarHeight) { }
+
         void IWindowBackend.Invalidate ()
         {
             if (_skia.IsHandleCreated && _skia.InvokeRequired) {

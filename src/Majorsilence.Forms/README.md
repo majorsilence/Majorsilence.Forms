@@ -9,6 +9,16 @@ mobile and web reachable through the backends below.
 > ⚠️ **Beta.** The API is stabilizing and not every WinForms corner is covered yet. Great for new
 > cross-platform LOB apps and for migrating real apps today — just pin your version.
 
+## Target frameworks
+
+`Majorsilence.Forms` targets **`net8.0`**, **`net10.0`**, and **`netstandard2.0`**. The
+`netstandard2.0` target lets classic **.NET Framework 4.7.2+** (and Mono / older Unity) projects
+reference the controls, value types, layout, and `ComponentResourceManager` — useful during a
+staged migration. Note the shipping backends (Avalonia, Uno, WinForms, Headless) target `net8.0`+
+only, so *running* a windowed app still needs a modern runtime; the `netstandard2.0` surface is for
+consuming and gradually porting code. `VbInteraction` (the `Microsoft.VisualBasic` `MsgBox`/`InputBox`
+shim) is not included in the `netstandard2.0` build.
+
 ## This package needs a backend
 
 `Majorsilence.Forms` contains the controls and does all its own drawing with

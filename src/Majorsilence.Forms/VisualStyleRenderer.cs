@@ -80,7 +80,7 @@ namespace Majorsilence.Forms.VisualStyles
         /// <summary>Initializes the renderer for the given element.</summary>
         public VisualStyleRenderer (VisualStyleElement element)
         {
-            ArgumentNullException.ThrowIfNull (element);
+            Guard.ThrowIfNull (element);
 
             Class = element.ClassName;
             Part = element.Part;
@@ -113,7 +113,7 @@ namespace Majorsilence.Forms.VisualStyles
         /// <summary>Points the renderer at a different element.</summary>
         public void SetParameters (VisualStyleElement element)
         {
-            ArgumentNullException.ThrowIfNull (element);
+            Guard.ThrowIfNull (element);
 
             Class = element.ClassName;
             Part = element.Part;

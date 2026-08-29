@@ -27,7 +27,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public Timer (IContainer container)
         {
-            ArgumentNullException.ThrowIfNull (container);
+            Guard.ThrowIfNull (container);
 
             container.Add (this);
         }
@@ -72,7 +72,7 @@ namespace Majorsilence.Forms
         public int Interval {
             get => interval;
             set {
-                ArgumentOutOfRangeException.ThrowIfLessThan (value, 1);
+                Guard.ThrowIfLessThan (value, 1);
 
                 if (interval == value)
                     return;

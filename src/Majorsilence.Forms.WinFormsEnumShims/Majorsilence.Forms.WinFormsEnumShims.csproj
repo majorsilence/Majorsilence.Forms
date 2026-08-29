@@ -8,9 +8,12 @@
        themselves, deliberately matching System.Windows.Forms' real, longstanding public values. -->
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <!-- netstandard2.0 so Majorsilence.Forms' netstandard2.0 row has a shim DLL to embed
+         (EmbedWinFormsEnumShims passes TargetFramework through). -->
+    <TargetFrameworks>net8.0;net10.0;netstandard2.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <IsTrimmable>true</IsTrimmable>
+    <IsTrimmable Condition=" '$(TargetFramework)' != 'netstandard2.0' ">true</IsTrimmable>
+    <LangVersion>latest</LangVersion>
     <!-- Deliberate: AssemblyLoadContext.Resolving (see ComponentResourceManager) validates a
          supplied assembly's SIMPLE NAME against what was requested, but not its version/public key
          token, so this assembly must be literally named "System.Windows.Forms" for the resolver
