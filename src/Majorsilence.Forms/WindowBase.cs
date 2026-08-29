@@ -1817,7 +1817,13 @@ namespace Majorsilence.Forms
 
             SetWindowStartupLocation (parentWindow);
             DisableWindowsForModalLoop ();
-            Backend.Show ();
+            Backend.ShowActivated = ShowsActivated;
+
+            // Owned show (NOT a nested native modal loop -- that is RunModalLoop's job). The backend
+            // establishes the native owner link so the window manager keeps this dialog above its
+            // parent and raises it together with the parent; a plain Show() left it a detached
+            // top-level that alt-tab could bury behind the main window with no way back to it.
+            Backend.ShowDialog (parentWindow.Backend);
             EnsureShownBookkeeping ();
         }
 

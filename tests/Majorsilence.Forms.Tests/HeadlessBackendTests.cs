@@ -394,4 +394,27 @@ public class HeadlessBackendTests
 
         main.Close ();
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ShowDialog_ShowsTheWindowOwnedByItsParent ()
+    {
+        // Regression: found running the migrated ReportDesigner. The modal flow showed the dialog
+        // window through a plain Backend.Show () -- a detached top-level with no owner. On X11 that
+        // means no WM_TRANSIENT_FOR: alt-tabbing away and clicking the app back from the taskbar
+        // raised only the main window and left the (taskbar-skipping) dialog buried behind it, with
+        // no way to reach it -- the app looked hung. The flow now goes through
+        // Backend.ShowDialog (parentBackend) so the backend can establish the native owner link.
+        var main = new Form ();
+        main.Show ();
+
+        var dialog = new Form ();
+        var task = dialog.ShowDialogAsync (main);
+
+        var host = (Majorsilence.Forms.Headless.HeadlessWindowHost) dialog.Backend;
+        Assert.Same (main.Backend, host.LastDialogOwner);
+
+        dialog.DialogResult = DialogResult.OK;
+        await task;
+        main.Close ();
+    }
 }
