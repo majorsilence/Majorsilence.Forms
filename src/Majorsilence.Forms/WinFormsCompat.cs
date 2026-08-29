@@ -909,7 +909,11 @@ namespace Majorsilence.Forms
         /// <summary>Shows a message box with the specified text, caption, buttons, and icon.</summary>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
-            var parent = Application.ModalOwnerCandidates.FirstOrDefault ();
+            // Prefer the innermost currently-shown modal dialog over the earliest-opened window: an
+            // error box raised from code running inside an already-modal dialog must appear over
+            // that dialog, not behind it against the (input-blocked, likely out-of-view) main
+            // window -- which reads as a silent hang. See Application.ModalStack.
+            var parent = Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
             var form = new MessageBoxForm (caption, text, buttons);
 
             // With no open form this used to Show () and answer OK without waiting -- so a MessageBox
@@ -1000,7 +1004,9 @@ namespace Majorsilence.Forms
         /// <summary>Shows a message box with IWin32Window owner, text, caption, buttons, and icon.</summary>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
-            var form = owner as Form ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            // See the no-owner overload above for why ActiveModalForm is preferred when the passed
+            // owner does not itself resolve to a Form.
+            var form = owner as Form ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
             var msgForm = new MessageBoxForm (caption, text, buttons);
             return form is not null ? msgForm.ShowDialog (form) : msgForm.ShowDialog ();
         }

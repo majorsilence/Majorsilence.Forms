@@ -357,4 +357,41 @@ public class HeadlessBackendTests
         parent.Close ();
         Assert.Equal (baseline, Application.OpenForms.Count);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task NestedShowDialog_ActiveModalForm_TracksInnermostDialog ()
+    {
+        // Regression: found via a real migrated app (ReportDesigner) -- a MessageBox raised from
+        // code running inside an already-modal "New Report from Database" dialog parented itself to
+        // Application.ModalOwnerCandidates.FirstOrDefault (), i.e. the earliest-opened window (the
+        // main designer window sitting behind the dialog), not the dialog the user was looking at.
+        // The box rendered against the wrong window with no taskbar entry -- indistinguishable from
+        // the whole app silently hanging. Form.ShowDialog (), FileDialog.ShowDialog (), and the
+        // no-explicit-owner MessageBox.Show overloads now resolve their parent through
+        // Application.ActiveModalForm first; this pins the push/pop mechanism they share
+        // (Form.ShowDialogAsync / Form.CompleteClose).
+        var main = new Form ();
+        main.Show ();
+        Assert.Null (Application.ActiveModalForm);   // nothing modal yet
+
+        var wizard = new Form ();
+        var wizardTask = wizard.ShowDialogAsync (main);
+        Assert.False (wizardTask.IsCompleted);
+        Assert.Same (wizard, Application.ActiveModalForm);   // not main, despite main opening first
+
+        var errorBox = new Form ();
+        var errorTask = errorBox.ShowDialogAsync (Application.ActiveModalForm!);
+        Assert.False (errorTask.IsCompleted);
+        Assert.Same (errorBox, Application.ActiveModalForm);   // now nested one level deeper
+
+        errorBox.DialogResult = DialogResult.OK;   // close the innermost dialog first
+        Assert.True (errorTask.IsCompleted);
+        Assert.Same (wizard, Application.ActiveModalForm);   // reverts to the wizard, not main
+
+        wizard.DialogResult = DialogResult.OK;
+        Assert.True (wizardTask.IsCompleted);
+        Assert.Null (Application.ActiveModalForm);   // all modals closed, stack empty
+
+        main.Close ();
+    }
 }

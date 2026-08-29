@@ -399,6 +399,13 @@ namespace Majorsilence.Forms
                 task.SetResult (dialog_result == DialogResult.None ? DialogResult.Cancel : dialog_result);
             }
 
+            // Pop only if we are the innermost modal -- always true for correctly-nested show/close
+            // pairs, and this method is idempotent, so a second CompleteClose for the same dialog is
+            // a no-op here. Outside the dialog_parent block above because an ownerless modal is still
+            // pushed by ShowDialogAsync.
+            if (Application.ModalStack.Count > 0 && Application.ModalStack.Peek () == this)
+                Application.ModalStack.Pop ();
+
             Modal = false;
         }
 
@@ -872,10 +879,15 @@ namespace Majorsilence.Forms
         internal static Form? FindModalOwner (Form dialog) =>
             Application.ModalOwnerCandidates.FirstOrDefault (f => f != dialog);
 
-        /// <summary>Displays the window modally using the first open form as the parent.</summary>
+        /// <summary>Displays the window modally, owned by the innermost currently-shown modal dialog
+        /// if one is open, otherwise the first open form.</summary>
         public DialogResult ShowDialog ()
         {
-            var parent = FindModalOwner (this);
+            // A dialog opened from inside another modal dialog belongs to that dialog, not to the
+            // main window sitting behind it (which FindModalOwner would pick). Same reasoning as
+            // Application.ModalStack.
+            var parent = (Application.ActiveModalForm != this ? Application.ActiveModalForm : null)
+                ?? FindModalOwner (this);
 
             return parent is null
                 ? RunModal (ShowDialogAsync (null))
@@ -1002,6 +1014,7 @@ namespace Majorsilence.Forms
             Modal = true;
 
             dialog_parent = parent;
+            Application.ModalStack.Push (this);
 
             // A modal dialog is owned by the form it was shown against, as upstream's ShowDialog does.
             // Without this the owner graph is empty for the commonest way of opening a dialog.
