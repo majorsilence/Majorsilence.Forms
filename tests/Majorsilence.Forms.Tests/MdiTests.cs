@@ -95,6 +95,25 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Calling_Activate_on_an_MDI_child_makes_it_the_active_child ()
+        {
+            // Regression: Form.Activate() was Focus() only, which for a frame-hosted child just
+            // moved keyboard focus -- the child stayed behind its siblings. ReportDesigner's
+            // document-tab strip calls child.Activate() to switch documents and nothing happened.
+            using var parent = new Form { IsMdiContainer = true };
+            using var a = Child ();
+            using var b = Child ();
+            a.MdiParent = parent; a.Show ();
+            b.MdiParent = parent; b.Show ();
+
+            Assert.Same (b, parent.ActiveMdiChild);
+
+            a.Activate ();
+
+            Assert.Same (a, parent.ActiveMdiChild);
+        }
+
+        [Fact]
         public void MdiChildActivate_event_fires_on_activation ()
         {
             using var parent = new Form { IsMdiContainer = true };
@@ -284,6 +303,38 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal ("hi", parentBox.Text);
             Assert.Equal (string.Empty, childBox.Text);
+        }
+
+        // Regression: a hosted child owns no OS window, so the mouse-wheel walk in Control.RaiseMouseWheel
+        // reached the MdiChildWindow frame and stopped -- OnMouseDown/Move/Up forwarded into the child but
+        // nothing forwarded the wheel. Scrolling the mouse (or a two-finger trackpad gesture, which
+        // arrives as a wheel event) over an MDI child's content did nothing: found in ReportDesigner,
+        // where the preview/design surface would not scroll.
+        [Fact]
+        public void Mouse_wheel_reaches_the_active_child_content ()
+        {
+            using var parent = new Form { IsMdiContainer = true };
+            HeadlessRenderer.CapturePng (parent, 800, 600);
+
+            using var child = Child (300, 200);
+            var surface = new Panel { Dock = DockStyle.Fill };
+            var deltas = new System.Collections.Generic.List<int> ();
+            surface.MouseWheel += (_, e) => deltas.Add (e.Delta);
+            child.Controls.Add (surface);
+            child.MdiParent = parent;
+            child.Show ();
+            HeadlessRenderer.CapturePng (parent, 800, 600);
+
+            // A point inside the child's interior, in window space. WindowPoint walks the frame's real
+            // parent chain (MdiChildWindow -> MdiClient -> client area -> adapter), so it stays right
+            // under the container's chrome and at MF_HEADLESS_SCALE=2.
+            var interior = WindowPoint.In (child.MdiHost!,
+                MdiChildWindow.FrameBorder + 20,
+                MdiChildWindow.FrameBorder + MdiChildWindow.CaptionHeight + 20);
+
+            HeadlessRenderer.MouseWheel (parent, interior.X, interior.Y, -120);
+
+            Assert.Equal (new[] { -120 }, deltas);
         }
     }
 }

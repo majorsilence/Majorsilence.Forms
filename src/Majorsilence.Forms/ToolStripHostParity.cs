@@ -47,6 +47,28 @@ namespace Majorsilence.Forms
             Control.Visible = Visible;
         }
 
+        /// <summary>
+        /// The size the hosted editor wants: the size last assigned to <see cref="Size"/> (the resx value
+        /// for a designer-placed <see cref="ToolStripTextBox"/> / <see cref="ToolStripComboBox"/>), else
+        /// the hosted control's current size. The base <see cref="MenuItem.GetPreferredSize"/> measures
+        /// the item's <em>Text</em>, which a control host does not draw -- so it returned only its padding
+        /// and the strip squeezed the editor down to nothing.
+        /// </summary>
+        public override Size GetPreferredSize (Size proposedSize)
+        {
+            var want = PreferredSizeOverride;
+
+            if (want.Width <= 0)
+                want.Width = Control.Width > 0 ? Control.Width : 100;   // WinForms' default editor width
+            if (want.Height <= 0)
+                want.Height = Control.Height > 0 ? Control.Height : Control.PreferredSize.Height;
+
+            // The strip's layout engine adds Margin around whatever this returns, so it is not folded
+            // in here (that would double it) -- unlike the text-measuring renderers, which bake in
+            // Padding because a drawn item has no hosted control to carry its own.
+            return want;
+        }
+
         /// <summary>Gets or sets whether the hosted control causes validation when it receives focus.</summary>
         public bool CausesValidation {
             get => Control.CausesValidation;

@@ -399,8 +399,16 @@ namespace Majorsilence.Forms
 
         void Backends.IWindowBackend.ShowDialog (Backends.IWindowBackend? owner)
         {
+            // Show OWNED but not through Avalonia's own ShowDialog: modality here is the
+            // Majorsilence.Forms modal loop (WindowBase.ShowDialog + RunModalLoop), and Avalonia's
+            // ShowDialog would spin a second, nested dispatcher loop on top of it. Show(owner) still
+            // establishes the native owner relationship (WM_TRANSIENT_FOR / window-type dialog on
+            // X11), which is what keeps the dialog stacked above its parent and brought forward with
+            // it -- without it, alt-tabbing back to the app raised only the main window and buried
+            // the dialog behind it, with no taskbar entry: the app looked hung (found running the
+            // migrated ReportDesigner).
             if (owner is MajorsilenceFormsWindowHost ownerHost)
-                _ = ShowDialog (ownerHost);
+                Show (ownerHost);
             else
                 Show ();
         }

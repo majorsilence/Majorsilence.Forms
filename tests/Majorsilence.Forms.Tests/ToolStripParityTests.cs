@@ -200,5 +200,42 @@ namespace Majorsilence.Forms.Tests
             var item = new ToolStripButton ();
             Assert.Equal (DragDropEffects.None, item.DoDragDrop ("payload", DragDropEffects.Copy));
         }
+
+        [Fact]
+        public void CheckOnClick_button_toggles_Checked_before_raising_Click ()
+        {
+            // Regression: nothing acted on CheckOnClick, so a latching toolbar button never latched
+            // and every Click handler saw Checked == false. Found running ReportDesigner: the Text
+            // Box / Chart / Table insert-tool buttons (CheckOnClick = true; the handler reads
+            // button.Checked to arm the insert mode) did nothing.
+            var item = new ToolStripButton { CheckOnClick = true };
+            bool? checkedInHandler = null;
+            item.Click += (_, _) => checkedInHandler = item.Checked;
+
+            item.PerformClick ();
+            Assert.True (item.Checked);
+            Assert.Equal (true, checkedInHandler);   // handler saw the toggled state, WinForms order
+
+            item.PerformClick ();
+            Assert.False (item.Checked);
+        }
+
+        [Fact]
+        public void A_plain_button_does_not_latch_on_click ()
+        {
+            var item = new ToolStripButton ();   // CheckOnClick defaults false
+            item.PerformClick ();
+            Assert.False (item.Checked);
+        }
+
+        [Fact]
+        public void CheckOnClick_menu_item_toggles_Checked_on_click ()
+        {
+            var item = new ToolStripMenuItem { CheckOnClick = true };
+            item.PerformClick ();
+            Assert.True (item.Checked);
+            item.PerformClick ();
+            Assert.False (item.Checked);
+        }
     }
 }

@@ -99,6 +99,14 @@ namespace Majorsilence.Forms.Headless
             MouseUp (window, x, y, button);
         }
 
+        /// <summary>
+        /// Sends a mouse-wheel event (logical client coordinates) to the window. <paramref name="delta"/>
+        /// is in WinForms units (a notch is 120); positive scrolls up.
+        /// </summary>
+        public static void MouseWheel (WindowBase window, int x, int y, int delta)
+            => window.HandlePointerWheel (MouseButtons.None, ToDevice (window, x), ToDevice (window, y),
+                                          new System.Drawing.Point (0, delta), Keys.None);
+
         /// <summary>Sends a key-down event; returns whether the window handled it.</summary>
         public static bool KeyDown (WindowBase window, Keys keys) => window.HandleKeyDown (keys);
 

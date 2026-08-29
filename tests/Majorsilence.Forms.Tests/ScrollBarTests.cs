@@ -327,5 +327,61 @@ namespace Majorsilence.Forms.Tests
             Assert.Throws<ArgumentOutOfRangeException> (() => control.Value = 101);
             Assert.Equal (0, control.Value);
         }
+
+        // ---- User-initiated scroll raises Scroll (regression) ----
+        //
+        // Arrow/track/wheel raised no Scroll event at all, and thumb-drag raised it only after
+        // committing Value (so e.NewValue always equalled Value). Every migrated handler that
+        // scrolls its view from ScrollBar.Scroll -- RdlViewer's report pane, notably -- did nothing.
+
+        private sealed class TestVScrollBar : VerticalScrollBar
+        {
+            public TestVScrollBar () { Size = new Size (17, 200); }
+            public void Wheel (int delta) => OnMouseWheel (new MouseEventArgs (MouseButtons.None, 0, 8, 100, delta));
+            public void ClickTopArrow () => OnMouseDown (new MouseEventArgs (MouseButtons.Left, 1, 8, 2, 0));
+            public void ClickBottomArrow () => OnMouseDown (new MouseEventArgs (MouseButtons.Left, 1, 8, Height - 2, 0));
+        }
+
+        [Fact]
+        public void Wheel_raises_Scroll_with_the_proposed_value_before_Value_updates ()
+        {
+            using var control = new TestVScrollBar { Minimum = 0, Maximum = 100, SmallChange = 1, Value = 50 };
+
+            int seenNew = -1, seenValueAtEvent = -1, raised = 0;
+            control.Scroll += (_, e) => { raised++; seenNew = e.NewValue; seenValueAtEvent = control.Value; };
+
+            control.Wheel (-3);   // wheel down
+
+            Assert.Equal (1, raised);
+            Assert.Equal (50, seenValueAtEvent);   // Value not committed yet when Scroll fires
+            Assert.Equal (53, seenNew);            // proposed value handed to the handler
+            Assert.Equal (53, control.Value);      // committed after
+        }
+
+        [Fact]
+        public void Down_arrow_raises_Scroll_and_moves_by_SmallChange ()
+        {
+            using var control = new TestVScrollBar { Minimum = 0, Maximum = 100, SmallChange = 4, Value = 20 };
+
+            var raised = 0;
+            control.Scroll += (_, _) => raised++;
+
+            control.ClickBottomArrow ();
+
+            Assert.Equal (1, raised);
+            Assert.Equal (24, control.Value);
+        }
+
+        [Fact]
+        public void A_handler_can_veto_a_scroll_by_rewriting_NewValue ()
+        {
+            using var control = new TestVScrollBar { Minimum = 0, Maximum = 100, SmallChange = 10, Value = 50 };
+
+            control.Scroll += (_, e) => e.NewValue = 50;   // pin it
+
+            control.Wheel (-1);
+
+            Assert.Equal (50, control.Value);
+        }
     }
 }

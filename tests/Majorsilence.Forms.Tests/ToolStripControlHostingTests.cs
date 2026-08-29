@@ -67,5 +67,28 @@ namespace Majorsilence.Forms.Tests
 
             Assert.False (inkFound, "The strip drew the host item's Text inside the hosted control's area.");
         }
+
+        // Regression: the strip laid a hosted editor out from MenuItem.GetPreferredSize, which measures
+        // the item's Text -- empty for a control host -- so a ToolStripTextBox given a 250px width in the
+        // designer collapsed to roughly its padding. ReportDesigner's "fx" expression bar showed as a
+        // sliver a few characters wide.
+        [Fact]
+        public void A_hosted_editor_keeps_the_width_it_was_given ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { ClientSize = new Size (600, 200) };
+            var strip = new ToolStrip ();
+            var fx = new ToolStripTextBox { Size = new Size (250, 25) };
+            strip.Items.Add (new ToolStripLabel { Text = "fx" });
+            strip.Items.Add (fx);
+            form.Controls.Add (strip);
+
+            form.Show ();
+            HeadlessRenderer.CapturePng (form);
+
+            Assert.Equal (250, fx.Bounds.Width);
+            Assert.Equal (250, fx.TextBox.Width);
+        }
     }
 }

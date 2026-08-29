@@ -40,7 +40,16 @@ namespace Majorsilence.Forms.Headless
             _owner.OnBackendActivated ();
         }
 
-        public void ShowDialog (IWindowBackend? owner) => Show ();
+        // The owner backend the last modal show was given, so a test can confirm the modal path
+        // establishes an owner relationship (on the real backends that is the native WM_TRANSIENT_FOR
+        // link that keeps a dialog stacked above its parent).
+        public IWindowBackend? LastDialogOwner { get; private set; }
+
+        public void ShowDialog (IWindowBackend? owner)
+        {
+            LastDialogOwner = owner;
+            Show ();
+        }
 
         public void Hide () => IsShown = false;
 

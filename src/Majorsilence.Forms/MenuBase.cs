@@ -39,6 +39,60 @@ namespace Majorsilence.Forms
                 Application.ActiveMenu = this;
         }
 
+        // Guards against one physical click raising a menu leaf item's Click twice. On X11 a single
+        // button release can be delivered to BOTH the menu bar's window and the drop-down popup's
+        // window -- two separate MajorsilenceFormsWindowHost instances -- and each routes it through
+        // its OnMouseClick to the same leaf item. Found running the migrated ReportDesigner: one click
+        // on File > "New Report from Database" opened its modal dialog twice, stacked at the same
+        // spot, looking like a hang (dotnet-stack showed two nested modal loops, one entered from
+        // MenuBase.OnMouseClick and one from MenuDropDown.OnMouseClick).
+        //
+        // Two cases, both covered:
+        //  - the handler is modal (the reported one): the second delivery is dispatched by the modal
+        //    loop while the first handler is still on the stack, so _leafClickDepth > 0 stops it;
+        //  - the handler returns quickly: the second delivery lands right after, so the <50ms gap
+        //    since the last leaf click stops it. 50ms is far below a deliberate second click (a fast
+        //    mouse double-click is ~150ms) and far above the sub-millisecond duplicate-delivery gap.
+        [ThreadStatic] private static int _leafClickDepth;
+        [ThreadStatic] private static MenuItem? _lastLeafClickItem;
+        [ThreadStatic] private static long _lastLeafClickTicks;
+
+        // Returns false if raising this item's click now would be the duplicate delivery of one
+        // already handled, otherwise records a leaf click as started. A caller that gets true MUST
+        // pair it with EndLeafClick in a finally.
+        private protected static bool TryBeginLeafClick (MenuItem item)
+        {
+            var now = DateTime.UtcNow.Ticks;
+
+            // The modal case: the second delivery is dispatched by the first handler's own modal
+            // loop, so its click is still on the stack.
+            if (_leafClickDepth > 0 && ReferenceEquals (_lastLeafClickItem, item))
+                return false;
+
+            // The fast-return case: the second delivery lands immediately after the first handler
+            // returns. 50ms is well under a deliberate second click (a fast mouse double-click is
+            // ~150ms) and far over the sub-millisecond gap between the two deliveries of one release.
+            if (ReferenceEquals (_lastLeafClickItem, item) &&
+                _lastLeafClickTicks != 0 &&
+                now - _lastLeafClickTicks < TimeSpan.FromMilliseconds (50).Ticks)
+                return false;
+
+            _leafClickDepth++;
+            _lastLeafClickItem = item;
+            _lastLeafClickTicks = now;
+            return true;
+        }
+
+        private protected static void EndLeafClick ()
+        {
+            if (_leafClickDepth > 0)
+                _leafClickDepth--;
+
+            // A modal handler can sit here for seconds; the duplicate delivery is only queued behind
+            // it now, so measure the 50ms gap from when the handler returned, not when it started.
+            _lastLeafClickTicks = DateTime.UtcNow.Ticks;
+        }
+
         // Hides the Menu.
         internal virtual void Deactivate ()
         {
@@ -133,10 +187,22 @@ namespace Majorsilence.Forms
             // If we clicked an item, raise the Click events
             if (clicked_item != null) {
                 if (clicked_item.Enabled) {
-                    SelectedItem = clicked_item;
-                    clicked_item.OnClick (e);
-                    OnItemClicked (e, clicked_item);
-                    Activate ();
+                    // A leaf item's click can reach here twice for one physical release (see
+                    // TryBeginLeafClick); an item that opens a submenu is idempotent and not gated.
+                    var leaf = !clicked_item.HasItems;
+
+                    if (leaf && !TryBeginLeafClick (clicked_item))
+                        return;
+
+                    try {
+                        SelectedItem = clicked_item;
+                        clicked_item.OnClick (e);
+                        OnItemClicked (e, clicked_item);
+                        Activate ();
+                    } finally {
+                        if (leaf)
+                            EndLeafClick ();
+                    }
                 }
             } else {
                 Deactivate ();

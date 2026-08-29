@@ -357,4 +357,87 @@ public class HeadlessBackendTests
         parent.Close ();
         Assert.Equal (baseline, Application.OpenForms.Count);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task NestedShowDialog_ActiveModalForm_TracksInnermostDialog ()
+    {
+        // Regression: found via a real migrated app (ReportDesigner) -- a MessageBox raised from
+        // code running inside an already-modal "New Report from Database" dialog parented itself to
+        // Application.ModalOwnerCandidates.FirstOrDefault (), i.e. the earliest-opened window (the
+        // main designer window sitting behind the dialog), not the dialog the user was looking at.
+        // The box rendered against the wrong window with no taskbar entry -- indistinguishable from
+        // the whole app silently hanging. Form.ShowDialog (), FileDialog.ShowDialog (), and the
+        // no-explicit-owner MessageBox.Show overloads now resolve their parent through
+        // Application.ActiveModalForm first; this pins the push/pop mechanism they share
+        // (Form.ShowDialogAsync / Form.CompleteClose).
+        var main = new Form ();
+        main.Show ();
+        Assert.Null (Application.ActiveModalForm);   // nothing modal yet
+
+        var wizard = new Form ();
+        var wizardTask = wizard.ShowDialogAsync (main);
+        Assert.False (wizardTask.IsCompleted);
+        Assert.Same (wizard, Application.ActiveModalForm);   // not main, despite main opening first
+
+        var errorBox = new Form ();
+        var errorTask = errorBox.ShowDialogAsync (Application.ActiveModalForm!);
+        Assert.False (errorTask.IsCompleted);
+        Assert.Same (errorBox, Application.ActiveModalForm);   // now nested one level deeper
+
+        errorBox.DialogResult = DialogResult.OK;   // close the innermost dialog first
+        Assert.True (errorTask.IsCompleted);
+        Assert.Same (wizard, Application.ActiveModalForm);   // reverts to the wizard, not main
+
+        wizard.DialogResult = DialogResult.OK;
+        Assert.True (wizardTask.IsCompleted);
+        Assert.Null (Application.ActiveModalForm);   // all modals closed, stack empty
+
+        main.Close ();
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ShowDialog_ShowsTheWindowOwnedByItsParent ()
+    {
+        // Regression: found running the migrated ReportDesigner. The modal flow showed the dialog
+        // window through a plain Backend.Show () -- a detached top-level with no owner. On X11 that
+        // means no WM_TRANSIENT_FOR: alt-tabbing away and clicking the app back from the taskbar
+        // raised only the main window and left the (taskbar-skipping) dialog buried behind it, with
+        // no way to reach it -- the app looked hung. The flow now goes through
+        // Backend.ShowDialog (parentBackend) so the backend can establish the native owner link.
+        var main = new Form ();
+        main.Show ();
+
+        var dialog = new Form ();
+        var task = dialog.ShowDialogAsync (main);
+
+        var host = (Majorsilence.Forms.Headless.HeadlessWindowHost) dialog.Backend;
+        Assert.Same (main.Backend, host.LastDialogOwner);
+
+        dialog.DialogResult = DialogResult.OK;
+        await task;
+        main.Close ();
+    }
+
+    [Fact]
+    public void SettingLocationOrSizeAfterDispose_DoesNotRealizeTheWindowAgain ()
+    {
+        // Regression: found in ReportDesigner. A wait dialog's bounds-tracking timer kept firing
+        // after the dialog was closed and disposed; a queued `Bounds =` reached the backend and put
+        // the torn-down window back on screen -- a stack of dead black windows over a finished
+        // preview. A disposed window must not touch its backend.
+        var f = new Form ();
+        f.Show ();
+        Assert.Contains (f, Application.OpenForms);
+
+        f.Close ();
+        f.Dispose ();
+        Assert.DoesNotContain (f, Application.OpenForms);
+
+        // The stale-callback shape: setting geometry on the disposed form.
+        f.Location = new System.Drawing.Point (10, 10);
+        f.Size = new System.Drawing.Size (200, 200);
+        f.Bounds = new System.Drawing.Rectangle (0, 0, 300, 300);
+
+        Assert.DoesNotContain (f, Application.OpenForms);
+    }
 }

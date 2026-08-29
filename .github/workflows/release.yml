@@ -43,7 +43,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  # Projects that produce shipped NuGet packages.
+  # Cross-platform packages that produce shipped NuGet packages — packed on Linux.
   PACKABLE_PROJECTS: >-
     src/Majorsilence.Forms/Majorsilence.Forms.csproj
     src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
@@ -51,7 +51,15 @@ env:
     src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
     src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
     src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
+    src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj
     tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
+  # Windows-only packages (net*-windows, UseWindowsForms/UseWPF). Off Windows these
+  # projects compile to an empty IsPackable=false placeholder, so they must be packed
+  # on a windows-latest runner (see the pack-windows job).
+  PACKABLE_PROJECTS_WINDOWS: >-
+    src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj
+    src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
+    src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -138,6 +146,7 @@ jobs:
           done
 
       - name: List packages
+        shell: bash
         run: ls -lh "${{ github.workspace }}/nupkg"
 
       - name: Upload NuGet packages
@@ -151,6 +160,70 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: symbol-packages
+          path: nupkg/*.snupkg
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Pack the Windows-only NuGet packages. These target net*-windows with
+  # UseWindowsForms / UseWPF, so they only build on a Windows runner -- the Linux
+  # `pack` job above sees them as empty IsPackable=false placeholders.
+  # ---------------------------------------------------------------------------
+  pack-windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so SourceLink embeds correct commit info
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build version arg
+        id: args
+        shell: bash
+        run: |
+          if [ -n "${{ needs.version.outputs.version }}" ]; then
+            echo "version_arg=-p:Version=${{ needs.version.outputs.version }} -p:PackageVersion=${{ needs.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_arg=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack Windows-only NuGet packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          for proj in $PACKABLE_PROJECTS_WINDOWS; do
+            echo "::group::pack $proj"
+            dotnet pack "$proj" \
+              --configuration Release \
+              --output "${{ github.workspace }}/nupkg" \
+              ${{ steps.args.outputs.version_arg }}
+            echo "::endgroup::"
+          done
+
+      - name: List packages
+        # windows-latest defaults `run:` to PowerShell, where `ls` is Get-ChildItem and
+        # `-lh` is not a valid parameter, so this step failed even when the pack above it
+        # succeeded. Pin bash, the way the pack steps already do.
+        shell: bash
+        run: ls -lh "${{ github.workspace }}/nupkg"
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-windows
+          path: nupkg/*.nupkg
+          if-no-files-found: error
+
+      - name: Upload symbol packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: symbol-packages-windows
           path: nupkg/*.snupkg
           if-no-files-found: ignore
 
@@ -227,7 +300,7 @@ jobs:
   # draft GitHub Release. Nothing here touches nuget.org -- see publish-nuget.yml.
   # ---------------------------------------------------------------------------
   release:
-    needs: [version, pack, migrator]
+    needs: [version, pack, pack-windows, migrator]
     runs-on: ubuntu-latest
     if: needs.version.outputs.is_release == 'true'
     steps:

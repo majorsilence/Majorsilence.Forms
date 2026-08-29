@@ -399,6 +399,13 @@ namespace Majorsilence.Forms
                 task.SetResult (dialog_result == DialogResult.None ? DialogResult.Cancel : dialog_result);
             }
 
+            // Pop only if we are the innermost modal -- always true for correctly-nested show/close
+            // pairs, and this method is idempotent, so a second CompleteClose for the same dialog is
+            // a no-op here. Outside the dialog_parent block above because an ownerless modal is still
+            // pushed by ShowDialogAsync.
+            if (Application.ModalStack.Count > 0 && Application.ModalStack.Peek () == this)
+                Application.ModalStack.Pop ();
+
             Modal = false;
         }
 
@@ -686,6 +693,14 @@ namespace Majorsilence.Forms
                 return Backend.Location;
             }
             set {
+                // A disposed window has no business moving. Without this, a stale timer or async
+                // continuation that sets Location/Bounds after the form was closed and disposed
+                // reached Backend.Location, which on the Avalonia backend brought the torn-down
+                // window back on screen -- found in ReportDesigner, where a wait dialog's 50ms
+                // tracking timer resurrected the dialog it had just closed.
+                if (IsDisposed)
+                    return;
+
                 // Compared through the getter so the check covers all three hosting cases uniformly.
                 if (Location == value)
                     return;
@@ -872,10 +887,15 @@ namespace Majorsilence.Forms
         internal static Form? FindModalOwner (Form dialog) =>
             Application.ModalOwnerCandidates.FirstOrDefault (f => f != dialog);
 
-        /// <summary>Displays the window modally using the first open form as the parent.</summary>
+        /// <summary>Displays the window modally, owned by the innermost currently-shown modal dialog
+        /// if one is open, otherwise the first open form.</summary>
         public DialogResult ShowDialog ()
         {
-            var parent = FindModalOwner (this);
+            // A dialog opened from inside another modal dialog belongs to that dialog, not to the
+            // main window sitting behind it (which FindModalOwner would pick). Same reasoning as
+            // Application.ModalStack.
+            var parent = (Application.ActiveModalForm != this ? Application.ActiveModalForm : null)
+                ?? FindModalOwner (this);
 
             return parent is null
                 ? RunModal (ShowDialogAsync (null))
@@ -1002,6 +1022,7 @@ namespace Majorsilence.Forms
             Modal = true;
 
             dialog_parent = parent;
+            Application.ModalStack.Push (this);
 
             // A modal dialog is owned by the form it was shown against, as upstream's ShowDialog does.
             // Without this the owner graph is empty for the commonest way of opening a dialog.
@@ -1049,6 +1070,11 @@ namespace Majorsilence.Forms
                 return Backend.ClientSize;
             }
             set {
+                // See the Location setter: a disposed window must not reach the backend, or a stale
+                // timer / late continuation setting Size or Bounds resurrects a torn-down window.
+                if (IsDisposed)
+                    return;
+
                 // Clamp instead of throwing. WinForms hands the size to SetWindowPos, which treats a
                 // negative extent as zero, so laying a window out to a negative size is something
                 // WinForms code does and survives -- a docking pane whose available area has collapsed
@@ -1843,7 +1869,19 @@ namespace Majorsilence.Forms
         /// the same path as <see cref="Focus"/>, which keeps a hosted form from acquiring a stray OS
         /// window of its own.
         /// </remarks>
-        public void Activate () => Focus ();
+        public void Activate ()
+        {
+            // A frame-hosted form (an MDI child, or one placed in a control tree) is activated
+            // *within its host* -- raise its frame to the front of the sibling z-order and make it
+            // the active MDI child -- which is exactly what BringToFront does for a hosted form
+            // (MdiClient.Activate). Focus() alone only moved keyboard focus, so an MDI shell's
+            // "activate this document" action -- e.g. clicking its tab in a document strip -- left
+            // the child sitting behind the others.
+            if (HostFrame is not null)
+                BringToFront ();
+
+            Focus ();
+        }
 
         /// <summary>Activates the form. Mirrors WinForms Control.Select as it applies to a Form.</summary>
         public void Select () => BringToFront ();

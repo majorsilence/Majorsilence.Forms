@@ -21,7 +21,7 @@ namespace Majorsilence.Forms
         private enum Drag { None, Move, ResizeL, ResizeR, ResizeT, ResizeB, ResizeTL, ResizeTR, ResizeBL, ResizeBR }
 
         private Drag drag = Drag.None;
-        private Point drag_start;            // device px, MDI-client-relative (stable while the frame moves)
+        private Point drag_start;            // logical px, MDI-client-relative (stable while the frame moves)
         private Rectangle drag_origin;       // logical bounds at drag start
         private SKBitmap? content_buffer;
 
@@ -322,9 +322,11 @@ namespace Majorsilence.Forms
             // focus off that menu again.
             Client.GiveFocusToActiveChild ();
 
-            var scaling = FrameScaling;
-            var lx = (int) (e.X / scaling);
-            var ly = (int) (e.Y / scaling);
+            // e.X/e.Y arrive already in this frame's logical coordinates (the window converts device
+            // to logical once, at the boundary, and the child walk only subtracts logical offsets), so
+            // they compare directly against FrameBorder / CaptionHeight / Width / Height.
+            var lx = e.X;
+            var ly = e.Y;
 
             // Caption buttons first.
             switch (HitCaptionButton (lx, ly)) {
@@ -380,21 +382,29 @@ namespace Majorsilence.Forms
             ForwardToChild (e, c => c.HandlePointerReleased (e.Button, InteriorX (e), InteriorY (e), e.Modifiers));
         }
 
-        private double FrameScaling => FindForm ()?.Scaling ?? 1.0;
+        // A hosted child form is not a child Control, so the wheel walk in Control.RaiseMouseWheel
+        // reaches this frame and stops -- OnMouseDown/Move/Up forward to the child, but nothing
+        // forwarded the wheel, so scrolling the mouse (or two-finger trackpad) over an MDI child's
+        // content did nothing. Found in ReportDesigner: the preview/design surface would not scroll.
+        protected override void OnMouseWheel (MouseEventArgs e)
+        {
+            base.OnMouseWheel (e);
 
-        private int InteriorX (MouseEventArgs e) => e.X - (int) Math.Round (FrameBorder * FrameScaling);
-        private int InteriorY (MouseEventArgs e) => e.Y - (int) Math.Round ((FrameBorder + CaptionHeight) * FrameScaling);
+            ForwardToChild (e, c => c.HandlePointerWheel (e.Button, InteriorX (e), InteriorY (e), e.DeltaPoint, e.Modifiers));
+        }
+
+        // e.X/e.Y are in this frame's logical coordinates (see OnMouseDown); the child's client area
+        // starts one border in and one caption down.
+        private int InteriorX (MouseEventArgs e) => e.X - FrameBorder;
+        private int InteriorY (MouseEventArgs e) => e.Y - (FrameBorder + CaptionHeight);
 
         private void ForwardToChild (MouseEventArgs e, Action<Form> dispatch)
         {
             if (WindowState == FormWindowState.Minimized)
                 return;
 
-            var scaling = FrameScaling;
-            var lx = (int) (e.X / scaling);
-            var ly = (int) (e.Y / scaling);
             // Only the interior (below the caption, inside the border) maps to the child's client area.
-            if (lx < FrameBorder || lx >= Width - FrameBorder || ly < FrameBorder + CaptionHeight || ly >= Height - FrameBorder)
+            if (e.X < FrameBorder || e.X >= Width - FrameBorder || e.Y < FrameBorder + CaptionHeight || e.Y >= Height - FrameBorder)
                 return;
 
             dispatch (ChildForm);
@@ -420,11 +430,12 @@ namespace Majorsilence.Forms
 
         private void ApplyDrag (MouseEventArgs e)
         {
-            var scaling = FrameScaling;
             // Track against the MDI-client-relative position (ScreenLocation), not the frame-relative e.X/e.Y:
             // the frame moves as we drag it, so frame-relative deltas feed back on themselves and jitter.
-            var dx = (int) ((e.ScreenLocation.X - drag_start.X) / scaling);
-            var dy = (int) ((e.ScreenLocation.Y - drag_start.Y) / scaling);
+            // Both ScreenLocation and drag_start are logical MDI-client coordinates, as are drag_origin
+            // and MoveChild's arguments.
+            var dx = e.ScreenLocation.X - drag_start.X;
+            var dy = e.ScreenLocation.Y - drag_start.Y;
             var b = drag_origin;
             var min = MinChildSize;
 

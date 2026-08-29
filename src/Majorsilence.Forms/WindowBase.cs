@@ -1192,7 +1192,14 @@ namespace Majorsilence.Forms
             if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
                 return;
 
-            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => { c.RaiseClick (e); c.RaiseMouseUp (e); }))
+            // Mouse-up before Click, matching WinForms (WmMouseUp releases the capture and raises
+            // MouseUp, then raises Click). Raising Click first is a trap: a Click handler that opens a
+            // modal dialog blocks in the nested loop, so the MouseUp that would have dropped this
+            // control's mouse capture never runs -- and every pointer release inside the modal is
+            // then routed straight back to the still-captured control, re-firing its Click. Found
+            // running ReportDesigner: clicking the report-warnings button opened its dialog, and
+            // clicking OK on that dialog opened another copy instead of closing it.
+            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => { c.RaiseMouseUp (e); c.RaiseClick (e); }))
                 return;
 
             var ev = BuildMouseClickArgs (button, new System.Drawing.Point (lx, ly), keys);
@@ -1200,8 +1207,8 @@ namespace Majorsilence.Forms
             if (ev.Clicks > 1)
                 adapter.RaiseDoubleClick (ev);
 
-            adapter.RaiseClick (ev);
             adapter.RaiseMouseUp (ev);
+            adapter.RaiseClick (ev);
         }
 
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
@@ -1229,9 +1236,13 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerWheel (MouseButtons buttons, int x, int y, System.Drawing.Point delta, Keys keys)
         {
+            // Convert device pixels to logical units here, once, like the other pointer handlers --
+            // otherwise on a scaled display the wheel event hit-tests device coordinates against
+            // logical Bounds and reaches the wrong child, or none.
+            int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
             TrackPointerInside ();
 
-            var ev = new MouseEventArgs (buttons, 0, x, y, delta, keyData: keys);
+            var ev = new MouseEventArgs (buttons, 0, lx, ly, delta, keyData: keys);
             adapter.RaiseMouseWheel (ev);
 
             // WinForms delivers the wheel to the window itself as well, which is how a form scrolls or
@@ -1817,7 +1828,13 @@ namespace Majorsilence.Forms
 
             SetWindowStartupLocation (parentWindow);
             DisableWindowsForModalLoop ();
-            Backend.Show ();
+            Backend.ShowActivated = ShowsActivated;
+
+            // Owned show (NOT a nested native modal loop -- that is RunModalLoop's job). The backend
+            // establishes the native owner link so the window manager keeps this dialog above its
+            // parent and raises it together with the parent; a plain Show() left it a detached
+            // top-level that alt-tab could bury behind the main window with no way back to it.
+            Backend.ShowDialog (parentWindow.Backend);
             EnsureShownBookkeeping ();
         }
 

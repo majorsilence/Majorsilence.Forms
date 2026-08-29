@@ -2512,6 +2512,15 @@ namespace Majorsilence.Forms
                 else
                     OnVisibleChanged (EventArgs.Empty);
 
+                // A control that just became visible has to repaint. WinForms shows the window
+                // handle, which paints it; there is no handle here, so without this the newly
+                // revealed surface (and its children) stayed blank until some unrelated event
+                // happened to force a paint. Found running ReportDesigner: switching to the Preview
+                // tab showed nothing until Run Report was clicked. OnVisibleChanged above has
+                // already laid the subtree out, so bounds are real by the time this invalidates.
+                if (value && Parent is not null)
+                    Invalidate (true);
+
                 // A visible top-level control lives in its own window; keep that window in step.
                 // No-op for ordinary controls -- see Control.TopLevel.cs.
                 UpdateTopLevelHost (value);

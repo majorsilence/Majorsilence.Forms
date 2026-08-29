@@ -909,7 +909,11 @@ namespace Majorsilence.Forms
         /// <summary>Shows a message box with the specified text, caption, buttons, and icon.</summary>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
-            var parent = Application.ModalOwnerCandidates.FirstOrDefault ();
+            // Prefer the innermost currently-shown modal dialog over the earliest-opened window: an
+            // error box raised from code running inside an already-modal dialog must appear over
+            // that dialog, not behind it against the (input-blocked, likely out-of-view) main
+            // window -- which reads as a silent hang. See Application.ModalStack.
+            var parent = Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
             var form = new MessageBoxForm (caption, text, buttons);
 
             // With no open form this used to Show () and answer OK without waiting -- so a MessageBox
@@ -1000,7 +1004,9 @@ namespace Majorsilence.Forms
         /// <summary>Shows a message box with IWin32Window owner, text, caption, buttons, and icon.</summary>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
-            var form = owner as Form ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            // See the no-owner overload above for why ActiveModalForm is preferred when the passed
+            // owner does not itself resolve to a Form.
+            var form = owner as Form ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
             var msgForm = new MessageBoxForm (caption, text, buttons);
             return form is not null ? msgForm.ShowDialog (form) : msgForm.ShowDialog ();
         }
@@ -1328,6 +1334,21 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether clicking the button toggles its checked state.</summary>
         public bool CheckOnClick { get; set; }
+
+        /// <inheritdoc/>
+        protected override void OnClick (EventArgs e)
+        {
+            // WinForms toggles the check state BEFORE raising Click, so a handler that reads Checked
+            // to decide what the click means sees the new value. Nothing acted on CheckOnClick here,
+            // so a latching toolbar button never latched and every Click handler saw Checked ==
+            // false. Found running ReportDesigner: the Text Box / Chart / Table / ... insert-tool
+            // buttons (CheckOnClick = true, handler reads button.Checked to arm the insert mode)
+            // did nothing.
+            if (CheckOnClick)
+                Checked = !Checked;
+
+            base.OnClick (e);
+        }
     }
 
     /// <summary>
@@ -1456,10 +1477,22 @@ namespace Majorsilence.Forms
         public Control Control { get; }
 
         /// <summary>Gets or sets the size of the hosted control.</summary>
+        /// <remarks>
+        /// A set is remembered as the item's preferred size (<see cref="GetPreferredSize"/>): the strip's
+        /// layout then overwrites <c>Control.Size</c> with whatever box it hands the item, so without a
+        /// separate record a designer-set width (the resx for a ToolStripTextBox / ToolStripComboBox)
+        /// would be lost on the first layout pass and the editor would collapse to a sliver.
+        /// </remarks>
         public override System.Drawing.Size Size {
             get => Control.Size;
-            set => Control.Size = value;
+            set {
+                PreferredSizeOverride = value;
+                Control.Size = value;
+            }
         }
+
+        // The last size explicitly assigned to this host (via Size or the resx). Empty until one is.
+        private protected System.Drawing.Size PreferredSizeOverride { get; private set; }
 
         /// <summary>Raised when the hosted control's content changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? ContentChanged { add { } remove { } }
@@ -1668,6 +1701,17 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether clicking the item toggles its checked state.</summary>
         public bool CheckOnClick { get; set; }
+
+        /// <inheritdoc/>
+        protected override void OnClick (EventArgs e)
+        {
+            // See ToolStripButton.OnClick: WinForms toggles Checked before raising Click when
+            // CheckOnClick is set, and nothing did that here.
+            if (CheckOnClick)
+                Checked = !Checked;
+
+            base.OnClick (e);
+        }
 
         /// <summary>Gets or sets the shortcut key combination for this item. Stub in Majorsilence.Forms.</summary>
         public Keys ShortcutKeys { get; set; } = Keys.None;

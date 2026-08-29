@@ -179,11 +179,23 @@ namespace Majorsilence.Forms.Backends
                     if (cb is null)
                         return string.Empty;
                     var task = cb.TryGetTextAsync ();
-                    // The OS clipboard read is synchronous under Avalonia's async surface, so the task
-                    // is normally already complete. Pump a bounded number of dispatcher passes for the
-                    // rare case it isn't, then give up with empty rather than hanging.
-                    for (var i = 0; i < 100 && !task.IsCompleted; i++)
-                        Dispatcher.UIThread.RunJobs (DispatcherPriority.Input);
+
+                    // On X11 the clipboard read is a real round-trip with the owning application,
+                    // driven by SelectionNotify events on the platform message loop -- NOT the
+                    // dispatcher job queue, so RunJobs (DispatcherPriority.Input) spins 100 times
+                    // without ever completing it and Ctrl+V pasted nothing. Pump a real nested
+                    // dispatcher frame (same mechanism as the modal loop) so platform input is
+                    // processed, bounded by a timeout so a clipboard that never answers cannot hang.
+                    if (!task.IsCompleted) {
+                        var frame = new DispatcherFrame ();
+                        task.ContinueWith (_ => frame.Continue = false, TaskScheduler.Default);
+                        var timeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds (2) };
+                        timeout.Tick += (_, _) => { frame.Continue = false; timeout.Stop (); };
+                        timeout.Start ();
+                        Dispatcher.UIThread.PushFrame (frame);
+                        timeout.Stop ();
+                    }
+
                     return task.Status == TaskStatus.RanToCompletion ? (task.Result ?? string.Empty) : string.Empty;
                 }
 

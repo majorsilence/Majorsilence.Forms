@@ -178,22 +178,41 @@ namespace Majorsilence.Forms
 
             switch (GetElementAtLocation (e.Location)) {
                 case ScrollBarElement.DecrementArrow:
-                    Value = Math.Max (Value - SmallChange, Minimum);
+                    PerformScroll (ScrollEventType.SmallDecrement, Value - SmallChange);
                     break;
                 case ScrollBarElement.DecrementTrack:
-                    Value = Math.Max (Value - LargeChange, Minimum);
+                    PerformScroll (ScrollEventType.LargeDecrement, Value - LargeChange);
                     break;
                 case ScrollBarElement.Thumb:
                     thumb_pressed = true;
                     thumbclick_offset = (vertical ? e.Y : e.X) - thumb_drag_position;
                     break;
                 case ScrollBarElement.IncrementTrack:
-                    Value = Math.Min (Value + LargeChange, Maximum);
+                    PerformScroll (ScrollEventType.LargeIncrement, Value + LargeChange);
                     break;
                 case ScrollBarElement.IncrementArrow:
-                    Value = Math.Min (Value + SmallChange, Maximum);
+                    PerformScroll (ScrollEventType.SmallIncrement, Value + SmallChange);
                     break;
             }
+        }
+
+        // A user-initiated scroll (arrow, track, thumb, wheel). Raises Scroll with the proposed
+        // value while Value still holds the OLD one -- so a handler can read the delta and can veto
+        // by rewriting e.NewValue -- then commits it, matching WinForms. Before this, arrow/track/
+        // wheel raised no Scroll event at all and thumb-drag raised it only after committing (so
+        // e.NewValue always equalled Value), which broke every migrated handler that scrolls its
+        // view from ScrollBar.Scroll -- e.g. RdlViewer's report pane, whose scrollbar and wheel
+        // did nothing.
+        private void PerformScroll (ScrollEventType type, int proposedValue)
+        {
+            proposedValue = Math.Max (minimum, Math.Min (maximum, proposedValue));
+
+            var e = new ScrollEventArgs (type, current_value, proposedValue,
+                vertical ? ScrollOrientation.VerticalScroll : ScrollOrientation.HorizontalScroll);
+            OnScroll (e);
+
+            if (e.NewValue != current_value)
+                UpdateFromValue (e.NewValue);
         }
 
         /// <inheritdoc/>
@@ -202,8 +221,10 @@ namespace Majorsilence.Forms
             base.OnMouseMove (e);
 
             if (thumb_pressed) {
-                UpdateFromPoint ((vertical ? e.Y : e.X) - thumbclick_offset);
-                OnScroll (new ScrollEventArgs (ScrollEventType.ThumbTrack, Value));
+                var pixel = (vertical ? e.Y : e.X) - thumbclick_offset;
+                thumb_drag_position = ClampToTrack (pixel);
+                PerformScroll (ScrollEventType.ThumbTrack, ValueFromPixel (pixel));
+                Invalidate ();   // thumb follows the cursor even between discrete values
             }
         }
 
@@ -212,7 +233,10 @@ namespace Majorsilence.Forms
         {
             base.OnMouseUp (e);
 
-            thumb_pressed = false;
+            if (thumb_pressed) {
+                thumb_pressed = false;
+                PerformScroll (ScrollEventType.EndScroll, current_value);
+            }
         }
 
         /// <inheritdoc/>
@@ -224,7 +248,9 @@ namespace Majorsilence.Forms
                 return;
 
             if (e.Delta != 0)
-                UpdateFromValue (Value - (e.Delta * SmallChange));
+                PerformScroll (
+                    e.Delta > 0 ? ScrollEventType.SmallDecrement : ScrollEventType.SmallIncrement,
+                    Value - (e.Delta * SmallChange));
         }
 
         /// <inheritdoc/>
@@ -268,35 +294,26 @@ namespace Majorsilence.Forms
             UpdateFromValue (Value);
         }
 
-        // Updates ScrollBar value from a thumb drag position.
-        private void UpdateFromPoint (int pixel)
+        // Clamps a raw pixel coordinate to the drawable track.
+        private int ClampToTrack (int pixel)
         {
-            if (thumb_drag_position == pixel)
-                return;
+            var track = GetEffectiveTrackBounds ();
+            return vertical
+                ? Math.Max (track.Top, Math.Min (track.Bottom, pixel))
+                : Math.Max (track.Left, Math.Min (track.Right, pixel));
+        }
 
-            var effective_track_bounds = GetEffectiveTrackBounds ();
-
-            pixel = Math.Max (pixel, vertical ? effective_track_bounds.Top : effective_track_bounds.Left);
-            pixel = Math.Min (pixel, vertical ? effective_track_bounds.Bottom : effective_track_bounds.Right);
+        // The ScrollBar value a thumb-drag pixel position maps to.
+        private int ValueFromPixel (int pixel)
+        {
+            var track = GetEffectiveTrackBounds ();
+            pixel = ClampToTrack (pixel);
 
             var position_percent =
-                vertical ? (double)(pixel - effective_track_bounds.Top) / effective_track_bounds.Height
-                         : (double)(pixel - effective_track_bounds.Left) / effective_track_bounds.Width;
+                vertical ? (double)(pixel - track.Top) / track.Height
+                         : (double)(pixel - track.Left) / track.Width;
 
-            var value_position = (int)(position_percent * (PossibleValuesCount - 1));
-
-            var new_value = minimum + value_position;
-
-            thumb_drag_position = pixel;
-
-            if (current_value != new_value) {
-                current_value = new_value;
-                OnValueChanged (EventArgs.Empty);
-            }
-
-            // We need to invalidate even if the value didn't change, because the position
-            // changed, but each value may span multiple pixels
-            Invalidate ();
+            return minimum + (int)(position_percent * (PossibleValuesCount - 1));
         }
 
         // Updates thumb drag position from a ScrollBar value.
