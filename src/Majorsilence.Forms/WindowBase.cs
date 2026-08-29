@@ -41,7 +41,12 @@ namespace Majorsilence.Forms
         {
             Backend = backend;
             adapter = new ControlAdapter (this);
+            _softKeyboardObserver = new SoftKeyboardObserver (this);
         }
+
+        // Watches the focus choke-point and drives the backend's on-screen keyboard. One event
+        // subscription; the backend call is a no-op on desktop, so this costs effectively nothing there.
+        private SoftKeyboardObserver? _softKeyboardObserver;
 
         // ── Lifecycle callbacks (the platform backend invokes these; no platform types involved) ──
         /// <summary>Called by the backend after the window is closed.</summary>
@@ -300,6 +305,9 @@ namespace Majorsilence.Forms
             IsDisposed = true;
 
             if (disposing) {
+                _softKeyboardObserver?.Dispose ();
+                _softKeyboardObserver = null;
+
                 if (this is Form f)
                     Application.OpenForms.Remove (f);
 
@@ -654,6 +662,71 @@ namespace Majorsilence.Forms
 
         // Backend.ClientSize spans the whole window; Form narrows it to exclude the caption it draws.
         private protected virtual System.Drawing.Size ClientAreaSize => Backend.ClientSize;
+
+        /// <summary>
+        /// The device safe-area insets in logical pixels — the strips along the window edges covered by
+        /// a status bar, camera notch, rounded corner or home indicator. <see cref="Padding.Empty"/> on
+        /// desktop and in the browser; non-empty only on Android/iOS, where the backend pushes it in via
+        /// <see cref="HandleSafeAreaChanged"/>. <see cref="Form"/> deflates its client layout by this so
+        /// docked and anchored controls stay clear of the unsafe strips.
+        /// </summary>
+        public Padding SafeArea { get; private set; }
+
+        // ── Neutral single-view push handlers (backend-specific; called only by a backend that has a
+        // device safe area or an on-screen keyboard -- the Avalonia single-view host. Same pattern as
+        // the gesture handlers below: not part of the IWindowBackend/IPlatformBackend seam, so a backend
+        // that never calls them just never insets, with nothing to implement) ──
+
+        /// <summary>Called by the backend when the device safe-area insets change (rotation, keyboard, …).</summary>
+        internal void HandleSafeAreaChanged (Padding safeAreaLogical)
+        {
+            if (SafeArea == safeAreaLogical)
+                return;
+
+            SafeArea = safeAreaLogical;
+            OnSafeAreaChanged ();
+            SyncAdapterBounds ();
+        }
+
+        /// <summary>Lets <see cref="Form"/> react to a safe-area change before the relayout.</summary>
+        private protected virtual void OnSafeAreaChanged () { }
+
+        /// <summary>
+        /// Called by the backend when the on-screen keyboard opens or closes. <paramref name="occludedRectLogical"/>
+        /// is the window-relative rectangle the keyboard now covers, or <see cref="System.Drawing.Rectangle.Empty"/>
+        /// when it closed. Scrolls the focused control clear of the keyboard.
+        /// </summary>
+        internal void HandleInputPaneChanged (System.Drawing.Rectangle occludedRectLogical)
+        {
+            var focused = (this as Form)?.ActiveControl ?? adapter.SelectedControl;
+            if (focused is null)
+                return;
+
+            if (occludedRectLogical.IsEmpty)
+                focused.ScrollControlIntoView (null);
+            else
+                focused.ScrollControlIntoView (focused, occludedRectLogical.Height);
+        }
+
+        /// <summary>
+        /// The caret rectangle of the focused text control in logical window coordinates, or null when
+        /// no text control is focused. A single-view backend uses it to place the on-screen keyboard's
+        /// suggestion strip and to keep the caret visible above the keyboard.
+        /// </summary>
+        internal System.Drawing.Rectangle? TryGetCaretRectangleLogical ()
+        {
+            var focused = (this as Form)?.ActiveControl ?? adapter.SelectedControl;
+            if (focused is not TextBox tb)
+                return null;
+
+            // Accumulate logical offsets up to the adapter -- Control.PointToScreen's non-top branch
+            // without the desktop-scale conversion, since we want logical window coordinates.
+            var p = tb.GetPositionFromCharIndex (tb.SelectionStart);
+            for (Control? c = tb; c is not null and not ControlAdapter; c = c.Parent)
+                p.Offset (c.Bounds.Location);
+
+            return new System.Drawing.Rectangle (p.X, p.Y, 1, System.Math.Min (tb.Height, 22));
+        }
 
         internal virtual bool HandleMouseDown (int x, int y) => false;
 

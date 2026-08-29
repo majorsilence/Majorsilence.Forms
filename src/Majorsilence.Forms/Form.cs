@@ -54,7 +54,7 @@ namespace Majorsilence.Forms
             // z-order and the loop walks children BACKWARDS (DockAndAnchorLayout: "we decided to use
             // z-order as the docking order"), so the last child added is docked first. Adding the Fill
             // last would have let it claim the whole window before the caption had taken its strip.
-            client_area = adapter.Controls.AddImplicitControl (new FormClientArea ());
+            client_area = adapter.Controls.AddImplicitControl (new FormClientArea (this));
             TitleBar = adapter.Controls.AddImplicitControl (new FormTitleBar ());
 
             Resizeable = true;
@@ -511,6 +511,24 @@ namespace Majorsilence.Forms
         /// override to reserve space for their own chrome.
         /// </summary>
         protected virtual Padding DefaultPadding => Padding.Empty;
+
+        /// <summary>
+        /// The device safe-area insets in logical pixels — the strips along the window edges covered by
+        /// a status bar, camera notch, rounded corner or home indicator. <see cref="Padding.Empty"/>
+        /// everywhere except Android and iOS. The form already keeps its docked and anchored controls
+        /// clear of these strips; read this only to place free-floating chrome yourself (a full-bleed
+        /// background image behind the safe area, say).
+        /// </summary>
+        public Padding SafeAreaPadding => SafeArea;
+
+        /// <inheritdoc/>
+        private protected override void OnSafeAreaChanged ()
+        {
+            // The adapter bounds don't change when only the safe area does, so SyncAdapterBounds would
+            // early-out -- relayout the client area explicitly so docked/anchored children re-inset.
+            client_area.PerformLayout ();
+            Invalidate ();
+        }
 
         /// <summary>Raised when the form is activated by the backend.</summary>
         public new event EventHandler? Activated {
@@ -1784,8 +1802,11 @@ namespace Majorsilence.Forms
         /// </remarks>
         private sealed class FormClientArea : ScrollableControl
         {
-            public FormClientArea ()
+            private readonly Form _owner;
+
+            public FormClientArea (Form owner)
             {
+                _owner = owner;
                 Dock = DockStyle.Fill;
 
                 // Chrome, not content: it must never take focus.
@@ -1795,6 +1816,21 @@ namespace Majorsilence.Forms
 
             /// <inheritdoc/>
             internal override bool IsAutomationTransparent => true;
+
+            /// <summary>
+            /// The base <see cref="ScrollableControl"/> rectangle, further deflated by the window's
+            /// device <see cref="WindowBase.SafeArea"/> — so on Android/iOS every docked and anchored
+            /// child stays clear of the status bar / notch / home indicator with no app code change
+            /// (<c>DockAndAnchorLayout</c> lays out against this rectangle).
+            /// </summary>
+            public override System.Drawing.Rectangle DisplayRectangle {
+                get {
+                    var rect = base.DisplayRectangle;
+                    return _owner.SafeArea == Padding.Empty
+                        ? rect
+                        : LayoutUtils.DeflateRect (rect, _owner.SafeArea);
+                }
+            }
 
             /// <summary>Paints nothing of its own.</summary>
             /// <remarks>
