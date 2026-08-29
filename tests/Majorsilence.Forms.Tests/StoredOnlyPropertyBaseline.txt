@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 812 of 1251 public settable auto-properties (64%).
+# 810 of 1251 public settable auto-properties (64%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -685,7 +685,6 @@ Majorsilence.Forms.ToolStrip.TextDirection
 Majorsilence.Forms.ToolStripArrowRenderEventArgs.ArrowColor
 Majorsilence.Forms.ToolStripArrowRenderEventArgs.ArrowRectangle
 Majorsilence.Forms.ToolStripArrowRenderEventArgs.Direction
-Majorsilence.Forms.ToolStripButton.CheckOnClick
 Majorsilence.Forms.ToolStripButton.ImageTransparentColor
 Majorsilence.Forms.ToolStripContentPanel.RenderMode
 Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.Handled
@@ -741,7 +740,6 @@ Majorsilence.Forms.ToolStripLabel.VisitedLinkColor
 Majorsilence.Forms.ToolStripManager.RenderMode
 Majorsilence.Forms.ToolStripManager.Renderer
 Majorsilence.Forms.ToolStripManager.VisualStylesEnabled
-Majorsilence.Forms.ToolStripMenuItem.CheckOnClick
 Majorsilence.Forms.ToolStripMenuItem.MergeAction
 Majorsilence.Forms.ToolStripMenuItem.MergeIndex
 Majorsilence.Forms.ToolStripMenuItem.ShortcutKeyDisplayString

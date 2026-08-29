@@ -1334,6 +1334,21 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether clicking the button toggles its checked state.</summary>
         public bool CheckOnClick { get; set; }
+
+        /// <inheritdoc/>
+        protected override void OnClick (EventArgs e)
+        {
+            // WinForms toggles the check state BEFORE raising Click, so a handler that reads Checked
+            // to decide what the click means sees the new value. Nothing acted on CheckOnClick here,
+            // so a latching toolbar button never latched and every Click handler saw Checked ==
+            // false. Found running ReportDesigner: the Text Box / Chart / Table / ... insert-tool
+            // buttons (CheckOnClick = true, handler reads button.Checked to arm the insert mode)
+            // did nothing.
+            if (CheckOnClick)
+                Checked = !Checked;
+
+            base.OnClick (e);
+        }
     }
 
     /// <summary>
@@ -1674,6 +1689,17 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether clicking the item toggles its checked state.</summary>
         public bool CheckOnClick { get; set; }
+
+        /// <inheritdoc/>
+        protected override void OnClick (EventArgs e)
+        {
+            // See ToolStripButton.OnClick: WinForms toggles Checked before raising Click when
+            // CheckOnClick is set, and nothing did that here.
+            if (CheckOnClick)
+                Checked = !Checked;
+
+            base.OnClick (e);
+        }
 
         /// <summary>Gets or sets the shortcut key combination for this item. Stub in Majorsilence.Forms.</summary>
         public Keys ShortcutKeys { get; set; } = Keys.None;
