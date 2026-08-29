@@ -8,10 +8,18 @@ To install and run:
 ```
 dotnet new install Majorsilence.Forms.Templates
 dotnet new majorsilenceforms
-dotnet run
+dotnet run --project MajorsilenceFormsApp
 ```
 
-This will run create and run a basic Hello World Majorsilence.Forms application.
+This scaffolds a solution with a shared UI library and a desktop head (Windows/macOS/Linux on the
+Avalonia backend) showing a basic Hello World `MainForm`.
+
+Add mobile and browser heads over the same shared UI with switches:
+```
+dotnet new majorsilenceforms --IncludeAndroid --IncludeWasm --IncludeiOS
+```
+Each needs its workload (`android`, `wasm-tools`, `ios`); all default to off. See the
+[template README](../tools/Majorsilence.Forms.Templates/README.md).
 
 There isn't documentation available yet, but the API should be relatively familiar for developers with Windows.Forms
 experience.  A good resource is to look at the source code of our sample applications:
@@ -33,10 +41,12 @@ Ensure the following properties are set:
 </PropertyGroup>
 ```
 
-Add a NuGet reference to `Majorsilence.Forms`:
+Add a NuGet reference to `Majorsilence.Forms` and a backend (`Majorsilence.Forms.Avalonia` for
+desktop):
 ```
 <ItemGroup>
-    <PackageReference Include="Majorsilence.Forms" Version="26.0.23" />
+    <PackageReference Include="Majorsilence.Forms" Version="26.0.33" />
+    <PackageReference Include="Majorsilence.Forms.Avalonia" Version="26.0.33" />
 </ItemGroup>
 ```
 

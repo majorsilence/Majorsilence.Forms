@@ -452,8 +452,54 @@ namespace Majorsilence.Forms
         /// <summary>Scales the control and its children by the specified horizontal and vertical scaling factors.</summary>
         public void Scale (float dx, float dy) => ScaleCore (dx, dy);
 
-        /// <summary>Initiates scrolling the display of the control by the specified number of pixels.</summary>
-        public void ScrollControlIntoView (Control? activeControl) { }
+        /// <summary>
+        /// Scrolls the nearest auto-scrolling ancestor so <paramref name="activeControl"/> is visible.
+        /// Pass null to mean "this control".
+        /// </summary>
+        public void ScrollControlIntoView (Control? activeControl) => ScrollControlIntoView (activeControl ?? this, 0);
+
+        /// <summary>
+        /// Scrolls the nearest auto-scrolling ancestor so <paramref name="target"/> clears the visible
+        /// region, keeping <paramref name="bottomInset"/> logical pixels free at the bottom (used to lift
+        /// a focused field above an on-screen keyboard).
+        /// </summary>
+        internal void ScrollControlIntoView (Control target, int bottomInset)
+        {
+            if (target is null)
+                return;
+
+            // Nearest ancestor that actually scrolls.
+            ScrollableControl? scroller = null;
+            for (Control? c = target.Parent; c is not null; c = c.Parent) {
+                if (c is ScrollableControl { AutoScroll: true } sc) {
+                    scroller = sc;
+                    break;
+                }
+            }
+            if (scroller is null)
+                return;
+
+            // target's top/bottom relative to the scroller's content origin.
+            var top = 0;
+            for (Control? c = target; c is not null && !ReferenceEquals (c, scroller); c = c.Parent)
+                top += c.Top;
+
+            var viewportBottom = scroller.ClientRectangle.Height - bottomInset;
+            var current = scroller.AutoScrollPosition;      // WinForms-style negative offset
+            var offsetY = -current.Y;
+
+            var visibleTop = top - offsetY;
+            var visibleBottom = visibleTop + target.Height;
+
+            if (visibleBottom > viewportBottom)
+                offsetY += visibleBottom - viewportBottom;
+            else if (visibleTop < 0)
+                offsetY += visibleTop;
+
+            offsetY = System.Math.Max (0, offsetY);
+            if (offsetY != -current.Y)
+                scroller.AutoScrollPosition = new System.Drawing.Point (-current.X, offsetY);
+        }
 
         /// <summary>Returns the child control at the specified client coordinates, or null.
         /// WinForms z-order: index 0 is topmost, so the first match wins.</summary>

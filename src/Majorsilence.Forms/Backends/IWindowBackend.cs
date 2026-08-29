@@ -107,6 +107,15 @@ namespace Majorsilence.Forms.Backends
         void SetShaped (bool shaped) { }
 
         /// <summary>
+        /// Notifies the backend that text editing has started or stopped in the window — a
+        /// <see cref="Majorsilence.Forms.TextBoxBase"/> gained or lost focus. Single-view backends
+        /// (browser / Android / iOS) use this to raise or dismiss the platform's on-screen keyboard and
+        /// to pick a keyboard layout from <paramref name="kind"/>. Default no-op: a desktop backend has a
+        /// hardware keyboard and nothing to show.
+        /// </summary>
+        void SetTextInputActive (bool active, TextInputKind kind) { }
+
+        /// <summary>
         /// On platforms with a native title bar (macOS), extends the client/content area up into the
         /// title bar so the application can paint into it while the OS keeps drawing the native caption
         /// buttons (traffic lights), rounded corners and window shadow — Avalonia 12's

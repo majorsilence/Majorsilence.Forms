@@ -139,7 +139,7 @@ public class HostedSurfaceTests
     [Fact]
     public void Renders_Content ()
     {
-        var surface = new HostedSurface (new FakeHostBackend ());
+        using var surface = new HostedSurface (new FakeHostBackend ());
         var button = new Button { Text = "Embedded" };
         surface.Content = button;
 
@@ -153,7 +153,7 @@ public class HostedSurfaceTests
     {
         // With no content and the default transparent background, nothing should be painted — the host's
         // own background shows through.
-        var surface = new HostedSurface (new FakeHostBackend ());
+        using var surface = new HostedSurface (new FakeHostBackend ());
 
         var painted = NonTransparentPixelCount (surface, 200, 100);
         Assert.Equal (0, painted);
@@ -162,7 +162,7 @@ public class HostedSurfaceTests
     [Fact]
     public void Routes_Click_To_Content ()
     {
-        var surface = new HostedSurface (new FakeHostBackend ());
+        using var surface = new HostedSurface (new FakeHostBackend ());
         var clicked = false;
         var button = new Button { Text = "Click" };
         button.Click += (_, _) => clicked = true;
@@ -182,7 +182,7 @@ public class HostedSurfaceTests
     public void NativeControlHost_Attaches_And_Positions ()
     {
         var backend = new FakeHostBackend ();
-        var surface = new HostedSurface (backend);
+        using var surface = new HostedSurface (backend);
 
         var panel = new Panel ();
         var nativeObject = new object ();
@@ -223,7 +223,7 @@ public class HostedSurfaceTests
     [Fact]
     public void ThemeChange_Actually_Recolors_Embedded_Render ()
     {
-        var surface = new HostedSurface (new FakeHostBackend ());
+        using var surface = new HostedSurface (new FakeHostBackend ());
         surface.Content = new Panel ();   // fills the surface; paints Theme.ControlMidColor
 
         try {
@@ -247,7 +247,7 @@ public class HostedSurfaceTests
         // refreshed ControlStyle colors (e.g. a TextBox's cached ControlLowColor) — i.e. embedded surfaces
         // must be notified AFTER the Theme.ThemeChanged broadcast, not during it.
         var backend = new FakeHostBackend { SamplePoint = new Point (60, 20) };
-        var surface = new HostedSurface (backend);
+        using var surface = new HostedSurface (backend);
         backend.RenderTarget = surface;
 
         var panel = new Panel ();
@@ -274,7 +274,7 @@ public class HostedSurfaceTests
     [Fact]
     public void TextBox_Text_Recolors_On_Theme_Change_Without_Edit ()
     {
-        var surface = new HostedSurface (new FakeHostBackend ());
+        using var surface = new HostedSurface (new FakeHostBackend ());
         var tb = new TextBox { Text = "hello", Left = 5, Top = 5, Width = 120, Height = 28 };
         var panel = new Panel ();
         panel.Controls.Add (tb);
@@ -297,7 +297,7 @@ public class HostedSurfaceTests
     [Fact]
     public void ThemeChange_Repaints_Nested_Embedded_Controls ()
     {
-        var surface = new HostedSurface (new FakeHostBackend ());
+        using var surface = new HostedSurface (new FakeHostBackend ());
 
         var panel = new Panel ();
         var nested = new Label { Text = "nested", Left = 5, Top = 5, Width = 80, Height = 20 };
@@ -322,7 +322,7 @@ public class HostedSurfaceTests
     public void NativeControlHost_Clips_To_Ancestor_Viewport ()
     {
         var backend = new FakeHostBackend ();
-        var surface = new HostedSurface (backend);
+        using var surface = new HostedSurface (backend);
 
         var outer = new Panel ();
         surface.Content = outer;
@@ -349,7 +349,7 @@ public class HostedSurfaceTests
     [Fact]
     public void A_Hidden_Child_Does_Not_Leave_The_Tree_Permanently_Dirty ()
     {
-        var surface = new HostedSurface (new FakeHostBackend ());
+        using var surface = new HostedSurface (new FakeHostBackend ());
 
         var panel = new Panel ();
         var shown = new Label { Text = "shown", Left = 5, Top = 5, Width = 80, Height = 20 };

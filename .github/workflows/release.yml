@@ -296,11 +296,119 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
+  # Build the runnable sample heads (the ControlGallery on each mobile/web target)
+  # and attach them to the release so people can try the framework without a
+  # toolchain: a static WASM site, a sideloadable Android APK/AAB, an iOS
+  # simulator .app. None are code-signed for distribution.
+  # ---------------------------------------------------------------------------
+  sample-wasm:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Install wasm-tools workload
+        run: dotnet workload install wasm-tools
+      - name: Publish Gallery.Wasm
+        run: >-
+          dotnet publish samples/Gallery.Wasm/Gallery.Wasm.csproj
+          --configuration Release -p:CompressionEnabled=false
+          -o "${{ github.workspace }}/wasm-out"
+      - name: Zip the WASM site
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="${{ needs.version.outputs.version }}"
+          cd "${{ github.workspace }}/wasm-out/wwwroot"
+          zip -r "${{ github.workspace }}/gallery-wasm${V:+-$V}.zip" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sample-wasm
+          path: gallery-wasm*.zip
+          if-no-files-found: error
+
+  sample-android:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Install android workload
+        run: dotnet workload install android
+      - name: Publish Gallery.Android
+        run: >-
+          dotnet publish samples/Gallery.Android/Gallery.Android.csproj
+          -p:EnableAndroidTarget=true --configuration Release
+          "-p:AndroidPackageFormats=apk%3Baab"
+      - name: Collect APK/AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="${{ needs.version.outputs.version }}"
+          out="samples/Gallery.Android/bin/Release/net10.0-android"
+          mkdir -p android
+          cp "$out"/*-Signed.apk "android/gallery-android${V:+-$V}.apk"
+          cp "$out"/*-Signed.aab "android/gallery-android${V:+-$V}.aab"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sample-android
+          path: android/*
+          if-no-files-found: error
+
+  sample-ios:
+    needs: version
+    runs-on: macos-latest
+    # See the ios job in dotnet.yml: Gallery.iOS is not yet green. Do not fail the release for it.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Install ios workload
+        run: dotnet workload install ios
+      # `dotnet build` (not publish) with a simulator RID: iOS `publish` refuses a simulator RID.
+      - name: Build Gallery.iOS (simulator)
+        run: >-
+          dotnet build samples/Gallery.iOS/Gallery.iOS.csproj
+          -p:EnableIOSTarget=true --configuration Release
+          -p:RuntimeIdentifier=iossimulator-arm64
+      - name: Zip the simulator .app
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="${{ needs.version.outputs.version }}"
+          APP=$(find samples/Gallery.iOS/bin/Release -name 'Gallery.iOS.app' -type d | head -n1)
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "gallery-ios-simulator${V:+-$V}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sample-ios
+          path: gallery-ios-simulator*.zip
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
   # On a tag build (or manual dispatch with a version), collect everything into a
   # draft GitHub Release. Nothing here touches nuget.org -- see publish-nuget.yml.
   # ---------------------------------------------------------------------------
   release:
-    needs: [version, pack, pack-windows, migrator]
+    needs: [version, pack, pack-windows, migrator, sample-wasm, sample-android, sample-ios]
     runs-on: ubuntu-latest
     if: needs.version.outputs.is_release == 'true'
     steps:
@@ -319,7 +427,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          find artifacts -type f \( -name '*.nupkg' -o -name '*.snupkg' -o -name '*.zip' -o -name '*.tar.gz' \) \
+          find artifacts -type f \( -name '*.nupkg' -o -name '*.snupkg' -o -name '*.zip' -o -name '*.tar.gz' \
+            -o -name '*.apk' -o -name '*.aab' \) \
             -exec cp {} release/ \;
           ls -lh release
 

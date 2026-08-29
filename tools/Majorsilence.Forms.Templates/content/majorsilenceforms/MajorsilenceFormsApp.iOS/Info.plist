@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Gallery.iOS</string>
+	<string>MajorsilenceFormsApp</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.majorsilence.gallery</string>
+	<string>com.majorsilence.majorsilenceformsapp</string>
 	<key>CFBundleName</key>
-	<string>Gallery.iOS</string>
+	<string>MajorsilenceFormsApp</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>

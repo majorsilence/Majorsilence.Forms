@@ -266,6 +266,7 @@ namespace Majorsilence.Forms
             // This resets any modification the user made, which feels like the expected behavior.
 
             BeginUpdate ();
+            try {
 
             // TODO: BuiltInTheme.Default should detect the OS setting. Currently it just uses Light.
             switch (theme) {
@@ -398,7 +399,11 @@ namespace Majorsilence.Forms
             }
 
             RaiseThemeChanged ();
-            EndUpdate ();
+            } finally {
+                // Always balance BeginUpdate even if a ThemeChanged subscriber threw while resuming --
+                // a leaked suspend count silently suppresses every later theme broadcast in the process.
+                EndUpdate ();
+            }
         }
 
         private static void InvokeThemeChanged ()

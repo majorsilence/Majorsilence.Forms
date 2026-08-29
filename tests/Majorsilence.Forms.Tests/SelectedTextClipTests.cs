@@ -40,13 +40,21 @@ public class SelectedTextClipTests
     [Fact]
     public void DropDownList_TooShortForFont_KeepsCapsInsteadOfSlicingTop ()
     {
-        // A control deliberately far too short for its font forces the (previously negative) centering
-        // offset. Before the fix the visible window showed the dense MIDDLE band of the glyphs jammed
-        // against the top edge (caps sliced). After the fix the text is top-clamped, so the caps sit
-        // fully inside the control with clearance above them and only the bottom overflows (clipped).
+        // A control shorter than its font's line box forces the (previously negative) centering offset:
+        // a 24px font lays out to a ~28px line, so a 20px box still triggers the clamp branch in
+        // SkiaTextExtensions.VerticalTextOrigin. Before the fix the visible window showed the dense
+        // MIDDLE band of the glyphs jammed against the top edge (caps sliced); after it the text is
+        // top-clamped, so the caps sit fully inside the control with clearance above them and only the
+        // bottom overflows (clipped).
+        //
+        // The box is 20px, not the couple-of-pixels-tall extreme this test first used: below ~14px the
+        // clip window is so small that whether *any* glyph ink lands in it comes down to the exact
+        // metrics of whatever real font "Microsoft Sans Serif" resolves to on the host, which differs
+        // between CI Linux, CI macOS and a dev box -- the assertion then flaked without any behaviour
+        // change. A 20px window renders substantial ink on every font while still exercising the clamp.
         var form = new Form { UseSystemDecorations = true };
         var cbo = new ComboBox {
-            Left = 12, Top = 12, Width = 208, Height = 12,
+            Left = 12, Top = 12, Width = 208, Height = 20,
             DropDownStyle = ComboBoxStyle.DropDownList,
             Font = new Font ("Microsoft Sans Serif", 24f, FontStyle.Regular)
         };

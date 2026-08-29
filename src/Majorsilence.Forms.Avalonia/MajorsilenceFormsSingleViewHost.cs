@@ -2,7 +2,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Platform;
 using Avalonia.Input;
+using Avalonia.Input.TextInput;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -13,6 +15,7 @@ using Majorsilence.Forms.Backends;
 
 using System.Collections.Generic;
 
+using AvInputMethod = Avalonia.Input.InputMethod;
 using AvPoint = Avalonia.Point;
 using AvControl = Avalonia.Controls.Control;
 using AvCursor = Avalonia.Input.Cursor;
@@ -65,6 +68,12 @@ namespace Majorsilence.Forms
         private readonly Dictionary<NativeControlHost, AvControl> _overlays = new ();
         private readonly Image _surface;
 
+        // ── Soft keyboard + safe area (root host only) ──
+        private readonly MajorsilenceFormsTextInputClient _imClient;
+        private bool _textInputActive;
+        private IInsetsManager? _insets;
+        private IInputPane? _inputPane;
+
         internal MajorsilenceFormsSingleViewHost (WindowBase owner, bool isPopup)
         {
             _owner = owner;
@@ -100,6 +109,16 @@ namespace Majorsilence.Forms
             }
 
             AvaloniaGestureWiring.Attach (this, _owner, () => Scale);
+
+            // The on-screen keyboard: Avalonia asks the focused InputElement for a text-input client when
+            // it wants an IME. This host routes keys manually and always "has focus", so it answers that
+            // request itself -- returning the client only while a Majorsilence.Forms TextBox is focused
+            // (SetTextInputActive), which is what makes Android/iOS/browser show and hide the keyboard.
+            _imClient = new MajorsilenceFormsTextInputClient (this, _owner);
+            TextInputMethodClientRequested += (_, args) => {
+                if (_textInputActive)
+                    args.Client = _imClient;
+            };
         }
 
         /// <inheritdoc/>
@@ -107,6 +126,9 @@ namespace Majorsilence.Forms
         {
             base.OnAttachedToVisualTree (e);
             ScheduleRender ();
+
+            if (_isRoot)
+                WireSingleViewServices ();
         }
 
         /// <inheritdoc/>
@@ -115,7 +137,64 @@ namespace Majorsilence.Forms
             _renderPending = false;
             _framebuffer?.Dispose ();
             _framebuffer = null;
+
+            if (_insets is not null)
+                _insets.SafeAreaChanged -= OnSafeAreaChanged;
+            if (_inputPane is not null)
+                _inputPane.StateChanged -= OnInputPaneStateChanged;
+            _insets = null;
+            _inputPane = null;
+
             base.OnDetachedFromVisualTree (e);
+        }
+
+        // Wire the device safe-area insets and the on-screen keyboard occlusion into the core, once the
+        // host is in the visual tree and a TopLevel is reachable. Root host only -- there is one page.
+        private void WireSingleViewServices ()
+        {
+            var top = TopLevel.GetTopLevel (this);
+            if (top is null)
+                return;
+
+            _insets = top.InsetsManager;
+            if (_insets is not null) {
+                // We draw the whole page and inset the layout ourselves; ask the OS not to letterbox and
+                // don't let Avalonia also pad this control (it would double-count).
+                try { _insets.DisplayEdgeToEdgePreference = true; } catch { /* not settable on every platform */ }
+                TopLevel.SetAutoSafeAreaPadding (this, false);
+                _insets.SafeAreaChanged += OnSafeAreaChanged;
+                PushSafeArea (_insets.SafeAreaPadding);
+            }
+
+            _inputPane = top.InputPane;
+            if (_inputPane is not null)
+                _inputPane.StateChanged += OnInputPaneStateChanged;
+        }
+
+        private void OnSafeAreaChanged (object? sender, SafeAreaChangedArgs e) => PushSafeArea (e.SafeAreaPadding);
+
+        private void PushSafeArea (Thickness t)
+        {
+            // Thickness is in logical (DIP) units, matching the core's logical coordinate space.
+            _owner.HandleSafeAreaChanged (new Majorsilence.Forms.Padding (
+                (int) System.Math.Round (t.Left), (int) System.Math.Round (t.Top),
+                (int) System.Math.Round (t.Right), (int) System.Math.Round (t.Bottom)));
+        }
+
+        private void OnInputPaneStateChanged (object? sender, InputPaneStateEventArgs e)
+        {
+            var r = e.NewState == InputPaneState.Open ? e.EndRect : default;
+            // OccludedRect is in screen DIPs; translate its top edge into this control's local space so
+            // the core can measure how much of the form the keyboard now covers.
+            var localTop = r.Height > 0
+                ? (this.PointToClient (new PixelPoint ((int) r.X, (int) r.Y)).Y)
+                : 0;
+            var occludedHeight = r.Height > 0
+                ? System.Math.Max (0, (int) System.Math.Round (Bounds.Height - localTop))
+                : 0;
+            _owner.HandleInputPaneChanged (occludedHeight > 0
+                ? new System.Drawing.Rectangle (0, (int) System.Math.Round (Bounds.Height) - occludedHeight, (int) System.Math.Round (Bounds.Width), occludedHeight)
+                : System.Drawing.Rectangle.Empty);
         }
 
         private double Scale => TopLevel.GetTopLevel (this)?.RenderScaling ?? 1;
@@ -347,6 +426,36 @@ namespace Majorsilence.Forms
         void IWindowBackend.SetSystemDecorations (bool useSystemDecorations) { /* no chrome in the browser */ }
 
         void IWindowBackend.SetCursor (CursorType cursor) => Cursor = MapCursor (cursor);
+
+        void IWindowBackend.SetTextInputActive (bool active, TextInputKind kind)
+        {
+            _textInputActive = active;
+
+            // Describe the wanted keyboard to the platform.
+            TextInputOptions.SetMultiline (this, kind == TextInputKind.Multiline);
+            TextInputOptions.SetIsSensitive (this, kind == TextInputKind.Password);
+            TextInputOptions.SetContentType (this, kind switch {
+                TextInputKind.Password => TextInputContentType.Password,
+                TextInputKind.Email    => TextInputContentType.Email,
+                TextInputKind.Number   => TextInputContentType.Number,
+                TextInputKind.Url      => TextInputContentType.Url,
+                TextInputKind.Phone    => TextInputContentType.Number,
+                _                      => TextInputContentType.Normal,
+            });
+
+            AvInputMethod.SetIsInputMethodEnabled (this, active);
+
+            if (active) {
+                if (!IsFocused)
+                    Focus ();
+                _imClient.NotifyCursorMoved ();
+            }
+
+            // Ask Avalonia's text-input manager to re-query TextInputMethodClientRequested so it picks up
+            // (active) or drops (inactive) our client -- which is what raises/dismisses the keyboard.
+            RaiseEvent (new global::Avalonia.Interactivity.RoutedEventArgs (
+                AvInputMethod.TextInputMethodClientRequeryRequestedEvent));
+        }
 
         void IWindowBackend.SetIcon (byte[]? iconPng) { /* no window icon in the browser */ }
 

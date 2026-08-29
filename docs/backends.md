@@ -192,10 +192,25 @@ Activity's Looper, the OS run loop) drives the UI from then on, and `RunCore` mu
   them independently of window activation); only losing focus to something outside the app entirely
   is unhandled.
 
+**What does work there** (mobile parity, Avalonia backend):
+
+- **On-screen keyboard.** Focusing a `TextBox` raises the platform soft keyboard and dismisses it on
+  blur; `Multiline` and password boxes select the matching keyboard layout. The core drives this
+  through a new default-no-op seam member, `IWindowBackend.SetTextInputActive(bool, TextInputKind)`,
+  from a `SoftKeyboardObserver` watching the focus choke-point; the single-view host answers Avalonia's
+  `TextInputMethodClientRequested` while a box is focused. Committed text still arrives on the normal
+  `OnTextInput` → `WindowBase.HandleTextInput` path.
+- **Safe-area insets.** The host reads `TopLevel.InsetsManager.SafeAreaPadding` (and follows
+  `SafeAreaChanged` on rotation / keyboard) and pushes it in via `WindowBase.HandleSafeAreaChanged`.
+  `Form` deflates its client layout by it — `Form.SafeAreaPadding` — so every docked and anchored
+  control stays clear of the status bar, notch and home indicator with no app change. When the
+  keyboard opens, `WindowBase.HandleInputPaneChanged` scrolls the focused field above it.
+
 Maturity differs sharply across the three, and none is part of the headless CI build: the browser
 path runs the full gallery (`samples/Gallery.Wasm`) but is young, Android boots the gallery without
-having had real-device testing, and iOS has never been compiled at all. See
-[`samples.md`](samples.md) for how to build and run each.
+having had real-device testing, and iOS has never been compiled at all. The keyboard and safe-area
+wiring above is unit-tested on the Headless backend but has not yet been exercised on a real device.
+See [`samples.md`](samples.md) for how to build and run each.
 
 ## The Headless backend (reference)
 

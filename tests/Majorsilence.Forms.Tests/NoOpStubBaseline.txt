@@ -15,6 +15,7 @@ Majorsilence.Forms.Application.SetUnhandledExceptionMode/2
 Majorsilence.Forms.Backends.IWindowBackend.SetCaptionRegions/1
 Majorsilence.Forms.Backends.IWindowBackend.SetExtendClientIntoTitleBar/2
 Majorsilence.Forms.Backends.IWindowBackend.SetShaped/1
+Majorsilence.Forms.Backends.IWindowBackend.SetTextInputActive/2
 Majorsilence.Forms.BindingManagerBase.AddNew/0
 Majorsilence.Forms.BindingManagerBase.CancelCurrentEdit/0
 Majorsilence.Forms.BindingManagerBase.EndCurrentEdit/0
@@ -29,7 +30,6 @@ Majorsilence.Forms.ColumnHeader.AutoResize/1
 Majorsilence.Forms.ComboBox.SelectAll/0
 Majorsilence.Forms.Control.AccessibilityNotifyClients/2
 Majorsilence.Forms.Control.DrawToBitmap/2
-Majorsilence.Forms.Control.ScrollControlIntoView/1
 Majorsilence.Forms.Control.UpdateStyles/0
 Majorsilence.Forms.ControlPaint.DrawBorder/14
 Majorsilence.Forms.ControlPaint.DrawBorder/4

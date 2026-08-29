@@ -99,9 +99,9 @@ including a [training guide](https://forms.majorsilence.com/training/) for teams
 both C# and VB.NET) and the [control gallery running live in your browser](https://forms.majorsilence.com/gallery/).
 
 ```
-dotnet new install MajorsilenceForms.Templates
+dotnet new install Majorsilence.Forms.Templates
 dotnet new majorsilenceforms
-dotnet run
+dotnet run --project MajorsilenceFormsApp
 ```
 
 See [Getting Started](docs/getting-started.md) to scaffold your first Majorsilence.Forms app, and

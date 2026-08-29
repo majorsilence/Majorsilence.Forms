@@ -77,6 +77,19 @@ namespace Majorsilence.Forms.Headless
         public bool Topmost { get; set; }
         public void SetSystemDecorations (bool useSystemDecorations) { }
         public void SetCursor (CursorType cursor) { }
+
+        // Records the framework's most recent on-screen-keyboard request. Headless has no keyboard to
+        // show; this exists so a test can assert SoftKeyboardObserver drove the seam correctly.
+        public bool TextInputActive { get; private set; }
+        public TextInputKind LastTextInputKind { get; private set; }
+        public int TextInputActivationCount { get; private set; }
+        public void SetTextInputActive (bool active, TextInputKind kind)
+        {
+            TextInputActive = active;
+            LastTextInputKind = kind;
+            if (active)
+                TextInputActivationCount++;
+        }
         public void SetIcon (byte[]? iconPng) { }
         public Size MinimumSize { set { } }
         public Size MaximumSize { set { } }

@@ -106,6 +106,12 @@ jobs:
             8.0.x
             10.0.x
 
+      # Majorsilence.Forms.Avalonia is packed with EnableAndroidTarget=true so the published package
+      # includes its net10.0-android asset -- matching release.yml. Without this the nuget.org copy
+      # of the package silently shipped without Android support.
+      - name: Install android workload
+        run: dotnet workload install android
+
       - name: Pack NuGet packages
         shell: bash
         run: |
@@ -113,7 +119,11 @@ jobs:
           mkdir -p nupkg
           for proj in $PACKABLE_PROJECTS; do
             echo "::group::pack $proj"
-            dotnet pack "$proj" --configuration Release --output nupkg
+            extra_args=""
+            if [[ "$proj" == *Majorsilence.Forms.Avalonia.csproj ]]; then
+              extra_args="-p:EnableAndroidTarget=true"
+            fi
+            dotnet pack "$proj" --configuration Release --output nupkg $extra_args
             echo "::endgroup::"
           done
           ls -lh nupkg
