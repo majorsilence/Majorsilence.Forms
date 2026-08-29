@@ -399,6 +399,44 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Expand_LeafNode_DoesNotRaiseBeforeExpand ()
+        {
+            // Regression: found running the migrated ReportDesigner. DialogDatabase wires
+            // BeforeExpand to a column-loader that dereferences node.FirstNode; OnDoubleClick toggles
+            // Expanded on whatever node was hit (glyph or not), so double-clicking a leaf column node
+            // drove that handler in with FirstNode == null -> unhandled NullReferenceException, app
+            // down. WinForms raises BeforeExpand only for a node that has children to show.
+            using var treeView = new TreeView ();
+            var leaf = treeView.Nodes.Add ("Leaf");
+
+            var raised = 0;
+            treeView.BeforeExpand += (_, _) => raised++;
+
+            leaf.Expand ();
+            leaf.Expanded = true;   // the OnDoubleClick path
+
+            Assert.Equal (0, raised);
+        }
+
+        [Fact]
+        public void Expand_NodeWithChildren_RaisesBeforeExpandOnce ()
+        {
+            // The lazy-load case DialogDatabase depends on: a table node carries a single "" child as
+            // a placeholder so the glyph shows, and BeforeExpand fires to fill in the real columns.
+            using var treeView = new TreeView ();
+            var table = treeView.Nodes.Add ("Customers");
+            table.Nodes.Add ("");
+
+            var raised = 0;
+            treeView.BeforeExpand += (_, _) => raised++;
+
+            table.Expand ();
+
+            Assert.Equal (1, raised);
+            Assert.True (table.Expanded);
+        }
+
+        [Fact]
         public void ExpandAll_ExpandsEveryNodeWithChildren ()
         {
             using var treeView = new TreeView ();

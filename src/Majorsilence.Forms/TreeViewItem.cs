@@ -54,7 +54,10 @@ namespace Majorsilence.Forms
         internal TreeNode (TreeView treeView)
         {
             tree_view = treeView;
-            Expanded = true;
+            // Set the field, not the property: the invisible root is always expanded (the whole
+            // visible-node walk hangs off it), including before any child is added -- and Expand ()
+            // now returns early for a node with no children.
+            expanded = true;
         }
 
         /// <summary>
@@ -107,16 +110,25 @@ namespace Majorsilence.Forms
         /// </summary>
         public void Expand ()
         {
-            if (TreeView?.OnBeforeExpand (this) == false)
+            if (expanded)
                 return;
 
-            // If no nodes were added, don't actually expand
-            // Note this also calls Items, which creates the collection, denoting that an
-            // Expand has been called and we don't need to draw the dropdown glyph anymore
-            if (tree_view == null && Items.Count == 0) {
+            // WinForms raises BeforeExpand only for a node that actually has children to show --
+            // a leaf never fires it. Checking (and returning) before OnBeforeExpand also stops a
+            // handler that lazily fills a node from running for a node it was never meant to:
+            // DialogDatabase in the migrated ReportDesigner wires BeforeExpand to a column-loader
+            // that dereferences node.FirstNode, and double-clicking a leaf column node (OnDoubleClick
+            // toggles Expanded on whatever was hit, glyph or not) drove it in with FirstNode null --
+            // an unhandled NullReferenceException that took the app down.
+            // (Items is also what creates the collection, marking that an expand was attempted so the
+            // glyph stops being drawn -- keep touching it here.)
+            if (Items.Count == 0) {
                 Invalidate ();
                 return;
             }
+
+            if (TreeView?.OnBeforeExpand (this) == false)
+                return;
 
             expanded = true;
             Invalidate ();
