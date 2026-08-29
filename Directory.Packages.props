@@ -4,25 +4,25 @@
     <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Avalonia" Version="12.1.0" />
-    <PackageVersion Include="Avalonia.Desktop" Version="12.1.0" />
-    <PackageVersion Include="Avalonia.Skia" Version="12.1.0" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.0" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.0" />
+    <PackageVersion Include="Avalonia" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.1" />
     <!-- Official Avalonia webview control (native engines: WebView2/WKWebView/WebKitGTK-WPE — no Chromium
          bundle). Referenced only by Majorsilence.Forms.Avalonia; core/Headless/Uno take no dependency. -->
     <PackageVersion Include="Avalonia.Controls.WebView" Version="12.0.1" />
     <!-- Avalonia's WebAssembly/browser platform. Only referenced by Majorsilence.Forms.Avalonia's
          net10.0-browser TFM row (desktop TFMs use Avalonia.Desktop instead) and by samples/Gallery.Wasm. -->
-    <PackageVersion Include="Avalonia.Browser" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Browser" Version="12.1.1" />
     <!-- Avalonia's Android platform. Only referenced by Majorsilence.Forms.Avalonia's opt-in
          net10.0-android TFM row (see EnableAndroidTarget in that csproj) and by samples/Gallery.Android. -->
-    <PackageVersion Include="Avalonia.Android" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.Android" Version="12.1.1" />
     <!-- Avalonia's iOS platform. Only referenced by Majorsilence.Forms.Avalonia's opt-in
          net10.0-ios TFM row (see EnableIOSTarget in that csproj) and by samples/Gallery.iOS. Unlike
          the android workload, the ios workload only installs (and this can only build) on macOS,
          verified in CI's dedicated ios job (macos-latest), not on the main build job's runners. -->
-    <PackageVersion Include="Avalonia.iOS" Version="12.1.0" />
+    <PackageVersion Include="Avalonia.iOS" Version="12.1.1" />
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
     <!-- Span<T>/ReadOnlySpan<T> polyfill for Majorsilence.Forms.Drawing.Common's netstandard2.0 row. -->
