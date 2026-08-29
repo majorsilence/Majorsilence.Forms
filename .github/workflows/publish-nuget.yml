@@ -25,6 +25,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  # Cross-platform packages — packed on Linux in the `publish` job.
   PACKABLE_PROJECTS: >-
     src/Majorsilence.Forms/Majorsilence.Forms.csproj
     src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
@@ -32,12 +33,60 @@ env:
     src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
     src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
     src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
+    src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj
     tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
     tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
     tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
+  # Windows-only packages (net*-windows, UseWindowsForms/UseWPF). Off Windows these
+  # projects compile to an empty IsPackable=false placeholder, so they're packed on a
+  # windows-latest runner (see the pack-windows job) and pushed alongside the rest.
+  PACKABLE_PROJECTS_WINDOWS: >-
+    src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj
+    src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
+    src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
 
 jobs:
+  # Windows-only packages build only on a Windows runner; pack them here and hand the
+  # .nupkg/.snupkg files to the `publish` job as an artifact so the OIDC push stays in
+  # one place.
+  pack-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Pack Windows-only NuGet packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p nupkg
+          for proj in $PACKABLE_PROJECTS_WINDOWS; do
+            echo "::group::pack $proj"
+            dotnet pack "$proj" --configuration Release --output nupkg
+            echo "::endgroup::"
+          done
+          ls -lh nupkg
+
+      - name: Upload Windows-only packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-windows
+          path: |
+            nupkg/*.nupkg
+            nupkg/*.snupkg
+          if-no-files-found: error
+
   publish:
+    needs: pack-windows
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # required for NuGet/login's OIDC token exchange
@@ -68,6 +117,15 @@ jobs:
             echo "::endgroup::"
           done
           ls -lh nupkg
+
+      - name: Download Windows-only packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg-windows
+          path: nupkg
+
+      - name: List all packages to push
+        run: ls -lh nupkg
 
       # Exchanges this job's short-lived GitHub OIDC token for a ~1-hour nuget.org API
       # key, per the Trusted Publishing policy configured on nuget.org (see header comment).
