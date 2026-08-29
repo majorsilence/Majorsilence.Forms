@@ -304,5 +304,38 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal ("hi", parentBox.Text);
             Assert.Equal (string.Empty, childBox.Text);
         }
+
+        // Regression: a hosted child owns no OS window, so the mouse-wheel walk in Control.RaiseMouseWheel
+        // reached the MdiChildWindow frame and stopped -- OnMouseDown/Move/Up forwarded into the child but
+        // nothing forwarded the wheel. Scrolling the mouse (or a two-finger trackpad gesture, which
+        // arrives as a wheel event) over an MDI child's content did nothing: found in ReportDesigner,
+        // where the preview/design surface would not scroll.
+        [Fact]
+        public void Mouse_wheel_reaches_the_active_child_content ()
+        {
+            using var parent = new Form { IsMdiContainer = true };
+            HeadlessRenderer.CapturePng (parent, 800, 600);
+
+            using var child = Child (300, 200);
+            var surface = new Panel { Dock = DockStyle.Fill };
+            var deltas = new System.Collections.Generic.List<int> ();
+            surface.MouseWheel += (_, e) => deltas.Add (e.Delta);
+            child.Controls.Add (surface);
+            child.MdiParent = parent;
+            child.Show ();
+            HeadlessRenderer.CapturePng (parent, 800, 600);
+
+            // The MDI client sits below the container's own chrome; offset the send point by where the
+            // client area starts within the window so the wheel lands on the child's interior.
+            var host = child.MdiHost!;
+            var clientOrigin = parent.MdiClientControl!.PointToScreen (Point.Empty);
+            var windowOrigin = parent.PointToScreen (Point.Empty);
+            var x = clientOrigin.X - windowOrigin.X + host.Left + MdiChildWindow.FrameBorder + 20;
+            var y = clientOrigin.Y - windowOrigin.Y + host.Top + MdiChildWindow.FrameBorder + MdiChildWindow.CaptionHeight + 20;
+
+            HeadlessRenderer.MouseWheel (parent, x, y, -120);
+
+            Assert.Equal (new[] { -120 }, deltas);
+        }
     }
 }

@@ -380,6 +380,17 @@ namespace Majorsilence.Forms
             ForwardToChild (e, c => c.HandlePointerReleased (e.Button, InteriorX (e), InteriorY (e), e.Modifiers));
         }
 
+        // A hosted child form is not a child Control, so the wheel walk in Control.RaiseMouseWheel
+        // reaches this frame and stops -- OnMouseDown/Move/Up forward to the child, but nothing
+        // forwarded the wheel, so scrolling the mouse (or two-finger trackpad) over an MDI child's
+        // content did nothing. Found in ReportDesigner: the preview/design surface would not scroll.
+        protected override void OnMouseWheel (MouseEventArgs e)
+        {
+            base.OnMouseWheel (e);
+
+            ForwardToChild (e, c => c.HandlePointerWheel (e.Button, InteriorX (e), InteriorY (e), e.DeltaPoint, e.Modifiers));
+        }
+
         private double FrameScaling => FindForm ()?.Scaling ?? 1.0;
 
         private int InteriorX (MouseEventArgs e) => e.X - (int) Math.Round (FrameBorder * FrameScaling);

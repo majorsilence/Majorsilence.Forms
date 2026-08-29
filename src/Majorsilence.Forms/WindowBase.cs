@@ -1236,9 +1236,13 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerWheel (MouseButtons buttons, int x, int y, System.Drawing.Point delta, Keys keys)
         {
+            // Convert device pixels to logical units here, once, like the other pointer handlers --
+            // otherwise on a scaled display the wheel event hit-tests device coordinates against
+            // logical Bounds and reaches the wrong child, or none.
+            int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
             TrackPointerInside ();
 
-            var ev = new MouseEventArgs (buttons, 0, x, y, delta, keyData: keys);
+            var ev = new MouseEventArgs (buttons, 0, lx, ly, delta, keyData: keys);
             adapter.RaiseMouseWheel (ev);
 
             // WinForms delivers the wheel to the window itself as well, which is how a form scrolls or
