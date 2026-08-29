@@ -417,4 +417,27 @@ public class HeadlessBackendTests
         await task;
         main.Close ();
     }
+
+    [Fact]
+    public void SettingLocationOrSizeAfterDispose_DoesNotRealizeTheWindowAgain ()
+    {
+        // Regression: found in ReportDesigner. A wait dialog's bounds-tracking timer kept firing
+        // after the dialog was closed and disposed; a queued `Bounds =` reached the backend and put
+        // the torn-down window back on screen -- a stack of dead black windows over a finished
+        // preview. A disposed window must not touch its backend.
+        var f = new Form ();
+        f.Show ();
+        Assert.Contains (f, Application.OpenForms);
+
+        f.Close ();
+        f.Dispose ();
+        Assert.DoesNotContain (f, Application.OpenForms);
+
+        // The stale-callback shape: setting geometry on the disposed form.
+        f.Location = new System.Drawing.Point (10, 10);
+        f.Size = new System.Drawing.Size (200, 200);
+        f.Bounds = new System.Drawing.Rectangle (0, 0, 300, 300);
+
+        Assert.DoesNotContain (f, Application.OpenForms);
+    }
 }

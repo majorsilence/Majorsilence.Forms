@@ -693,6 +693,14 @@ namespace Majorsilence.Forms
                 return Backend.Location;
             }
             set {
+                // A disposed window has no business moving. Without this, a stale timer or async
+                // continuation that sets Location/Bounds after the form was closed and disposed
+                // reached Backend.Location, which on the Avalonia backend brought the torn-down
+                // window back on screen -- found in ReportDesigner, where a wait dialog's 50ms
+                // tracking timer resurrected the dialog it had just closed.
+                if (IsDisposed)
+                    return;
+
                 // Compared through the getter so the check covers all three hosting cases uniformly.
                 if (Location == value)
                     return;
@@ -1062,6 +1070,11 @@ namespace Majorsilence.Forms
                 return Backend.ClientSize;
             }
             set {
+                // See the Location setter: a disposed window must not reach the backend, or a stale
+                // timer / late continuation setting Size or Bounds resurrects a torn-down window.
+                if (IsDisposed)
+                    return;
+
                 // Clamp instead of throwing. WinForms hands the size to SetWindowPos, which treats a
                 // negative extent as zero, so laying a window out to a negative size is something
                 // WinForms code does and survives -- a docking pane whose available area has collapsed
