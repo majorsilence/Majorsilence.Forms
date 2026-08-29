@@ -146,6 +146,7 @@ jobs:
           done
 
       - name: List packages
+        shell: bash
         run: ls -lh "${{ github.workspace }}/nupkg"
 
       - name: Upload NuGet packages
@@ -206,6 +207,10 @@ jobs:
           done
 
       - name: List packages
+        # windows-latest defaults `run:` to PowerShell, where `ls` is Get-ChildItem and
+        # `-lh` is not a valid parameter, so this step failed even when the pack above it
+        # succeeded. Pin bash, the way the pack steps already do.
+        shell: bash
         run: ls -lh "${{ github.workspace }}/nupkg"
 
       - name: Upload NuGet packages
