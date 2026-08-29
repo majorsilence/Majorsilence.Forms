@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The shared UI: Forms, controls and Designer files, consumed by every app head. It references
+       only the Majorsilence.Forms core (no backend), so each head brings its own (the desktop head
+       Avalonia, likewise the mobile and web heads). Targets plain net10.0 so a desktop-only
+       developer needs no mobile workload to build it. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Majorsilence.Forms" Version="MSFORMS_PACKAGE_VERSION" />
+  </ItemGroup>
+
+</Project>

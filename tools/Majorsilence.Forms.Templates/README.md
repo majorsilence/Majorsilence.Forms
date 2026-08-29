@@ -1,54 +1,70 @@
 # Majorsilence.Forms.Templates
 
-`dotnet new` templates for scaffolding a
+`dotnet new` template for scaffolding a
 [Majorsilence.Forms](https://github.com/majorsilence/Majorsilence.Forms) application — a WinForms-style,
-cross-platform UI framework for .NET (Windows, macOS, Linux) that keeps `Form`s, controls, event
-handlers, and `*.Designer.cs` files.
+cross-platform UI framework for .NET that keeps `Form`s, controls, event handlers, and `*.Designer.cs`
+files.
 
 ```
 dotnet new install Majorsilence.Forms.Templates
 dotnet new majorsilenceforms
-dotnet run
+dotnet run --project MajorsilenceFormsApp
 ```
 
-That scaffolds a runnable app — a `WinExe` project referencing `Majorsilence.Forms` +
-`Majorsilence.Forms.Avalonia`, with a `MainForm` showing a single label — and opens a window.
+That scaffolds a **solution with two projects** — a shared UI library (`MajorsilenceFormsApp.Shared`,
+holding `MainForm` + `MainForm.Designer.cs`) and a desktop head (`MajorsilenceFormsApp`, a `WinExe` on
+the Avalonia backend for Windows/macOS/Linux).
 
-`dotnet new majorsilenceforms -n MyApp` (optionally with `-o <dir>`) scaffolds into a named
-project/namespace instead of using the current directory.
+`dotnet new majorsilenceforms -n MyApp` (optionally `-o <dir>`) scaffolds into a named
+project/namespace.
 
-## What it contains
+## Mobile and web heads
 
-One template, `majorsilenceforms` (`content/majorsilenceforms/`): a `WinExe` project referencing
-`Majorsilence.Forms` + `Majorsilence.Forms.Avalonia`, with an empty `Form` (`MainForm.cs` +
-`MainForm.Designer.cs`, following the same designer-partial-class split as the samples) showing a
-single "Hello, Majorsilence.Forms!" label, and a `Program.cs` calling `Application.Run`.
+Add head projects for the other Avalonia targets with switches — each is a thin head over the same
+`MajorsilenceFormsApp.Shared` UI:
 
-`sourceName` in `.template.config/template.json` is `MajorsilenceFormsApp` — the templating engine
-replaces that token (namespace, file names, project name) with whatever `-n`/the target directory
-name supplies.
+```
+dotnet new majorsilenceforms --IncludeAndroid --IncludeWasm --IncludeiOS
+```
+
+| Switch | Adds | Needs |
+|---|---|---|
+| `--IncludeAndroid` | `MajorsilenceFormsApp.Android` (`net10.0-android`) | `dotnet workload install android` |
+| `--IncludeWasm` | `MajorsilenceFormsApp.Wasm` (`net10.0-browser`) | `dotnet workload install wasm-tools` (for `publish`) |
+| `--IncludeiOS` | `MajorsilenceFormsApp.iOS` (`net10.0-ios`) | a Mac with `dotnet workload install ios` |
+
+All default to **off** so `dotnet new majorsilenceforms` + `dotnet build` works with no extra
+workload. Each included head is added to the `.slnx`. The iOS head is experimental — the
+`Majorsilence.Forms.Avalonia` package does not yet ship a `net10.0-ios` asset, so it may not restore
+against a released package.
+
+## Options
+
+| Option | Default | Purpose |
+|---|---|---|
+| `--msformsVersion <v>` | a recent release | `Majorsilence.Forms` / `Majorsilence.Forms.Avalonia` package version |
+| `--avaloniaVersion <v>` | `12.1.1` | Avalonia platform-package version the mobile/web heads reference |
 
 ## Maintenance
 
-The template's `.csproj` **pins exact `Majorsilence.Forms`/`Majorsilence.Forms.Avalonia` package
-versions** (unlike this repo's own projects, which use central package management against
-in-repo project versions) — a freshly scaffolded app is a standalone project outside this
-repo/solution, so it needs real, already-published NuGet versions to restore against. Bump those
-two `PackageReference` versions when cutting a new release, and re-verify end to end:
+The scaffolded projects **pin exact package versions** (a fresh app is a standalone project outside
+this repo, so it needs already-published NuGet versions). Bump the `defaultValue` of `msformsVersion`
+(and, if Avalonia moved, `avaloniaVersion`) in `.template.config/template.json` when cutting a release,
+then re-verify:
 
 ```bash
 dotnet pack tools/Majorsilence.Forms.Templates
-# An absolute path is required here: `dotnet new install` rejects a relative one with
-# "is not supported" (exit code 106), including the ./ form.
+# An absolute path is required: `dotnet new install` rejects a relative one (exit 106).
 dotnet new install "$PWD/nupkg/Majorsilence.Forms.Templates.<version>.nupkg"
-dotnet new majorsilenceforms -o /tmp/msf-template-smoke-test
-dotnet build /tmp/msf-template-smoke-test
+dotnet new majorsilenceforms -o /tmp/msf-smoke --IncludeAndroid --IncludeWasm
+dotnet build /tmp/msf-smoke/*.slnx
 dotnet new uninstall Majorsilence.Forms.Templates
 ```
 
-This package itself follows the repo's own `Directory.Build.props` version (so its version tracks
-Majorsilence.Forms releases), but that's independent from the pinned dependency versions inside
-the template content, which must be bumped by hand.
+CI (`.github/workflows/dotnet.yml`, `template` job) runs this on every PR.
+
+The template package's own version tracks the repo's `Directory.Build.props`; that is independent of
+the dependency versions inside the scaffolded content, which are the `template.json` defaults above.
 
 ## Links
 

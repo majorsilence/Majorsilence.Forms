@@ -1,0 +1,13 @@
+<Solution>
+  <Project Path="MajorsilenceFormsApp.Shared/MajorsilenceFormsApp.Shared.csproj" />
+  <Project Path="MajorsilenceFormsApp/MajorsilenceFormsApp.csproj" />
+  <!--#if (IncludeAndroid) -->
+  <Project Path="MajorsilenceFormsApp.Android/MajorsilenceFormsApp.Android.csproj" />
+  <!--#endif -->
+  <!--#if (IncludeiOS) -->
+  <Project Path="MajorsilenceFormsApp.iOS/MajorsilenceFormsApp.iOS.csproj" />
+  <!--#endif -->
+  <!--#if (IncludeWasm) -->
+  <Project Path="MajorsilenceFormsApp.Wasm/MajorsilenceFormsApp.Wasm.csproj" />
+  <!--#endif -->
+</Solution>

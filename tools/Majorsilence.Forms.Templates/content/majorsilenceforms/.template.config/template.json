@@ -1,7 +1,7 @@
 {
   "$schema": "http://json.schemastore.org/template",
   "author": "Majorsilence",
-  "classifications": [ "Desktop", "Cross-platform", "WinForms" ],
+  "classifications": [ "Desktop", "Mobile", "Web", "Cross-platform", "WinForms" ],
   "identity": "Majorsilence.Forms.ProjectTemplate",
   "name": "Majorsilence.Forms Application",
   "shortName": "majorsilenceforms",
@@ -12,21 +12,59 @@
   "sourceName": "MajorsilenceFormsApp",
   "preferNameDirectory": true,
   "symbols": {
-    "Framework": {
+    "IncludeAndroid": {
       "type": "parameter",
-      "datatype": "choice",
-      "choices": [
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Add an Android head project (needs the 'android' workload)."
+    },
+    "IncludeiOS": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Add an iOS head project (needs a Mac with the 'ios' workload)."
+    },
+    "IncludeWasm": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Add a browser / WebAssembly head project (needs the 'wasm-tools' workload)."
+    },
+    "msformsVersion": {
+      "type": "parameter",
+      "datatype": "string",
+      "defaultValue": "26.0.33",
+      "replaces": "MSFORMS_PACKAGE_VERSION",
+      "description": "The Majorsilence.Forms NuGet package version to reference."
+    },
+    "avaloniaVersion": {
+      "type": "parameter",
+      "datatype": "string",
+      "defaultValue": "12.1.1",
+      "replaces": "MSFORMS_AVALONIA_VERSION",
+      "description": "The Avalonia platform-package version the mobile/web heads reference."
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
         {
-          "choice": "net10.0",
-          "description": "Target net10.0"
+          "condition": "(!IncludeAndroid)",
+          "exclude": [ "MajorsilenceFormsApp.Android/**" ]
         },
         {
-          "choice": "net8.0",
-          "description": "Target net8.0"
+          "condition": "(!IncludeiOS)",
+          "exclude": [ "MajorsilenceFormsApp.iOS/**" ]
+        },
+        {
+          "condition": "(!IncludeWasm)",
+          "exclude": [ "MajorsilenceFormsApp.Wasm/**" ]
         }
-      ],
-      "defaultValue": "net10.0",
-      "replaces": "net10.0"
+      ]
     }
-  }
+  ],
+  "primaryOutputs": [
+    { "path": "MajorsilenceFormsApp/MajorsilenceFormsApp.csproj" }
+  ],
+  "defaultName": "MajorsilenceFormsApp"
 }

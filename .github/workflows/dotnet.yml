@@ -345,3 +345,42 @@ jobs:
           name: gallery-ios
           path: gallery-ios-simulator.zip
           if-no-files-found: error
+
+  # Template smoke: pack Majorsilence.Forms.Templates, install it, scaffold a project the two
+  # supported ways (desktop-only, and with the Android + WASM heads) and build them. This is the
+  # first automated coverage of `dotnet new majorsilenceforms` -- it previously had only a manual
+  # recipe in the template README. The scaffolded app restores the *published* Majorsilence.Forms
+  # packages from nuget.org (the version pinned in template.json), not this branch's build.
+  template:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install android + wasm workloads
+        run: dotnet workload install android wasm-tools
+
+      - name: Pack and install the template
+        run: |
+          set -euo pipefail
+          dotnet pack tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj -c Release -o "$RUNNER_TEMP/tpl-nupkg"
+          dotnet new install "$RUNNER_TEMP/tpl-nupkg/"Majorsilence.Forms.Templates.*.nupkg
+
+      - name: Scaffold + build the desktop-only default
+        run: |
+          set -euo pipefail
+          dotnet new majorsilenceforms -o "$RUNNER_TEMP/plain" -n Smoke.App
+          dotnet build "$RUNNER_TEMP/plain/Smoke.App.slnx"
+
+      - name: Scaffold + build with the Android and WASM heads
+        run: |
+          set -euo pipefail
+          dotnet new majorsilenceforms -o "$RUNNER_TEMP/mobile" -n Smoke.App --IncludeAndroid --IncludeWasm
+          dotnet build "$RUNNER_TEMP/mobile/Smoke.App.slnx"

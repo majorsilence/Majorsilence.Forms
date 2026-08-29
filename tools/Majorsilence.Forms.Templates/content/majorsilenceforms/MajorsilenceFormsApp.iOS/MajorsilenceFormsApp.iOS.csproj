@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The iOS head. Needs a Mac with the `ios` workload: `dotnet workload install ios`.
+       Note: as of this template's release the Majorsilence.Forms.Avalonia NuGet package does not yet
+       ship a net10.0-ios asset, so this head may not restore against a released package until it
+       does. It is excluded from the solution by default (`dotnet new majorsilenceforms --iOS` to
+       include it). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationId>com.majorsilence.majorsilenceformsapp</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- .NET for iOS runs ILLink during a plain Release build; a transitive Avalonia design-time
+         assembly is not trim-annotated and emits IL2104, which TreatWarningsAsErrors would make
+         fatal. This opts just the trimmer out of that policy. -->
+    <ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Majorsilence.Forms.Avalonia" Version="MSFORMS_PACKAGE_VERSION" />
+    <PackageReference Include="Avalonia.iOS" Version="MSFORMS_AVALONIA_VERSION" />
+    <ProjectReference Include="..\MajorsilenceFormsApp.Shared\MajorsilenceFormsApp.Shared.csproj" />
+  </ItemGroup>
+
+</Project>
