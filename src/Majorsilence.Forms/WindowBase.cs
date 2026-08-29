@@ -1192,7 +1192,14 @@ namespace Majorsilence.Forms
             if (Filtered (WindowMessages.ButtonUpMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
                 return;
 
-            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => { c.RaiseClick (e); c.RaiseMouseUp (e); }))
+            // Mouse-up before Click, matching WinForms (WmMouseUp releases the capture and raises
+            // MouseUp, then raises Click). Raising Click first is a trap: a Click handler that opens a
+            // modal dialog blocks in the nested loop, so the MouseUp that would have dropped this
+            // control's mouse capture never runs -- and every pointer release inside the modal is
+            // then routed straight back to the still-captured control, re-firing its Click. Found
+            // running ReportDesigner: clicking the report-warnings button opened its dialog, and
+            // clicking OK on that dialog opened another copy instead of closing it.
+            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => { c.RaiseMouseUp (e); c.RaiseClick (e); }))
                 return;
 
             var ev = BuildMouseClickArgs (button, new System.Drawing.Point (lx, ly), keys);
@@ -1200,8 +1207,8 @@ namespace Majorsilence.Forms
             if (ev.Clicks > 1)
                 adapter.RaiseDoubleClick (ev);
 
-            adapter.RaiseClick (ev);
             adapter.RaiseMouseUp (ev);
+            adapter.RaiseClick (ev);
         }
 
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)

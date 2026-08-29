@@ -22,5 +22,25 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (rect, got);
         }
+
+        [Fact]
+        public void BecomingVisible_invalidates_so_the_revealed_surface_repaints ()
+        {
+            // Regression: found running ReportDesigner. Switching to a tab showed nothing until an
+            // unrelated event forced a paint -- SetVisibleCore laid the newly-revealed subtree out
+            // but never invalidated it. WinForms shows the window handle, which paints it; there is
+            // no handle here, so it has to invalidate explicitly.
+            using var parent = new Panel { Size = new Size (200, 200) };
+            var child = new Panel { Size = new Size (100, 100), Visible = false };
+            parent.Controls.Add (child);
+            parent.CreateControl ();
+
+            var invalidations = 0;
+            child.Invalidated += (_, _) => invalidations++;
+
+            child.Visible = true;
+
+            Assert.True (invalidations > 0, "a control made visible must invalidate to repaint");
+        }
     }
 }

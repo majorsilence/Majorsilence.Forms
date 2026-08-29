@@ -126,5 +126,38 @@ namespace Majorsilence.Forms.Tests
                 Assert.Equal (10, form.Top);
             }
         }
+
+        [Fact]
+        public void A_click_handler_that_shows_a_modal_does_not_keep_the_mouse_captured ()
+        {
+            // Regression: found running ReportDesigner. A button captures on mouse-down; its Click
+            // handler opened a modal dialog and blocked in the nested loop, so the mouse-up that
+            // drops the capture never ran. Every release inside the modal was then routed straight
+            // back to the still-captured button, re-firing its Click -- clicking OK on the dialog
+            // opened another copy instead of closing it. Mouse-up (which releases capture) must run
+            // before Click, as WinForms does.
+            var (form, _, child) = Chrome ();
+            using (form) {
+                var clicks = 0;
+                child.Click += (_, _) =>
+                {
+                    clicks++;
+                    if (clicks == 1)
+                    {
+                        var dlg = new Form ();
+                        var t = dlg.ShowDialogAsync (form);
+                        Assert.False (child.Capture, "capture must be released before the Click handler runs");
+                        dlg.DialogResult = DialogResult.OK;
+                        _ = t;
+                    }
+                };
+
+                HeadlessRenderer.MouseDown (form, 220, 20);
+                HeadlessRenderer.MouseUp (form, 220, 20);
+
+                Assert.Equal (1, clicks);
+                Assert.False (child.Capture);
+            }
+        }
     }
 }
