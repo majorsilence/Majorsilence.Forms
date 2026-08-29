@@ -231,6 +231,15 @@ jobs:
           curl --retry 10 --retry-delay 1 --retry-connrefused -sf http://127.0.0.1:8834/index.html -o /dev/null
           node "$GITHUB_WORKSPACE/.github/scripts/wasm-smoke-test.mjs" http://127.0.0.1:8834/index.html
 
+      # The self-contained static site (index.html + _framework/). Handy for a reviewer to
+      # download and serve locally; release.yml builds its own copy for the GitHub Release.
+      - name: Upload WASM bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-wasm
+          path: samples/Gallery.Wasm/bin/Release/net10.0-browser/publish/wwwroot
+          if-no-files-found: error
+
   # Android compile gate.
   #
   # samples/Gallery.Android and Majorsilence.Forms.Avalonia's net10.0-android TFM row are both deliberately
@@ -256,10 +265,24 @@ jobs:
       - name: Install android workload
         run: dotnet workload install android
 
-      # EnableAndroidTarget=true opts Majorsilence.Forms.Avalonia's net10.0-android TFM row back in for
-      # this build only -- see the TargetFrameworks comment on that csproj.
-      - name: Build Gallery.Android
-        run: dotnet build samples/Gallery.Android/Gallery.Android.csproj -p:EnableAndroidTarget=true --configuration Release
+      # `publish` rather than `build` so it also runs aapt/zipalign/apksigner and produces the
+      # installable APK + AAB. With no release keystore configured these are signed with the .NET
+      # Android debug key -- sideloadable, not Play-Store uploadable. EnableAndroidTarget=true opts
+      # Majorsilence.Forms.Avalonia's net10.0-android TFM row back in (see that csproj).
+      - name: Publish Gallery.Android
+        run: >-
+          dotnet publish samples/Gallery.Android/Gallery.Android.csproj
+          -p:EnableAndroidTarget=true --configuration Release
+          "-p:AndroidPackageFormats=apk%3Baab"
+
+      - name: Upload Gallery.Android APK/AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-android
+          path: |
+            samples/Gallery.Android/bin/Release/net10.0-android/*-Signed.apk
+            samples/Gallery.Android/bin/Release/net10.0-android/*-Signed.aab
+          if-no-files-found: error
 
   # iOS compile gate.
   #
@@ -274,6 +297,9 @@ jobs:
   # added it, so treat a first failure here as expected teething, not a regression.
   ios:
     runs-on: macos-latest
+    # Gallery.iOS has never compiled anywhere yet (see its csproj header). Until Phase 4 of the
+    # mobile work gets it green, a failure here must not block PRs -- it is still informational.
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -288,7 +314,34 @@ jobs:
       - name: Install ios workload
         run: dotnet workload install ios
 
-      # EnableIOSTarget=true opts Majorsilence.Forms.Avalonia's net10.0-ios TFM row back in for this
-      # build only -- see the TargetFrameworks comment on that csproj.
-      - name: Build Gallery.iOS
-        run: dotnet build samples/Gallery.iOS/Gallery.iOS.csproj -p:EnableIOSTarget=true --configuration Release
+      # `publish` for the simulator RID so it also assembles the .app bundle. No codesign identity
+      # is configured, so only a simulator build is viable (a device .ipa needs an Apple cert).
+      # EnableIOSTarget=true opts Majorsilence.Forms.Avalonia's net10.0-ios TFM row back in (see that csproj).
+      - name: Publish Gallery.iOS (simulator)
+        run: >-
+          dotnet publish samples/Gallery.iOS/Gallery.iOS.csproj
+          -p:EnableIOSTarget=true --configuration Release
+          -p:RuntimeIdentifier=iossimulator-arm64
+
+      - name: Boot the app in a simulator (smoke)
+        continue-on-error: true
+        run: |
+          set -x
+          APP=$(find samples/Gallery.iOS/bin/Release -name 'Gallery.iOS.app' -type d | head -n1)
+          xcrun simctl boot "iPhone 16" || xcrun simctl boot "iPhone 15" || true
+          xcrun simctl install booted "$APP"
+          xcrun simctl launch --console-pty booted com.majorsilence.gallery &
+          sleep 15
+          xcrun simctl spawn booted log show --last 20s --predicate 'processImagePath CONTAINS "Gallery.iOS"' || true
+
+      - name: Zip the simulator .app
+        run: |
+          APP=$(find samples/Gallery.iOS/bin/Release -name 'Gallery.iOS.app' -type d | head -n1)
+          ditto -c -k --sequesterRsrc --keepParent "$APP" gallery-ios-simulator.zip
+
+      - name: Upload Gallery.iOS simulator build
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-ios
+          path: gallery-ios-simulator.zip
+          if-no-files-found: error
