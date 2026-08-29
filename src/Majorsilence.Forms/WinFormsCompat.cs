@@ -1477,10 +1477,22 @@ namespace Majorsilence.Forms
         public Control Control { get; }
 
         /// <summary>Gets or sets the size of the hosted control.</summary>
+        /// <remarks>
+        /// A set is remembered as the item's preferred size (<see cref="GetPreferredSize"/>): the strip's
+        /// layout then overwrites <c>Control.Size</c> with whatever box it hands the item, so without a
+        /// separate record a designer-set width (the resx for a ToolStripTextBox / ToolStripComboBox)
+        /// would be lost on the first layout pass and the editor would collapse to a sliver.
+        /// </remarks>
         public override System.Drawing.Size Size {
             get => Control.Size;
-            set => Control.Size = value;
+            set {
+                PreferredSizeOverride = value;
+                Control.Size = value;
+            }
         }
+
+        // The last size explicitly assigned to this host (via Size or the resx). Empty until one is.
+        private protected System.Drawing.Size PreferredSizeOverride { get; private set; }
 
         /// <summary>Raised when the hosted control's content changes. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? ContentChanged { add { } remove { } }
