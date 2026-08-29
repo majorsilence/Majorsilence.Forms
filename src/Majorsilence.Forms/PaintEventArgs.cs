@@ -25,7 +25,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public PaintEventArgs (Graphics graphics, System.Drawing.Rectangle clipRect)
         {
-            ArgumentNullException.ThrowIfNull (graphics);
+            Guard.ThrowIfNull (graphics);
 
             _graphics = graphics;
             Canvas = graphics.Canvas!;

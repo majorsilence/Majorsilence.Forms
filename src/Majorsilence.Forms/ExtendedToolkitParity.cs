@@ -119,14 +119,14 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="Control.InvokePaint"/>
         protected void InvokePaint (Control c, PaintEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (c);
+            Guard.ThrowIfNull (c);
             adapter.RaiseInvokePaint (c, e);
         }
 
         /// <inheritdoc cref="Control.InvokePaintBackground"/>
         protected void InvokePaintBackground (Control c, PaintEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (c);
+            Guard.ThrowIfNull (c);
             adapter.RaiseInvokePaintBackground (c, e);
         }
 

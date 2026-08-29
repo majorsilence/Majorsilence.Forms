@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net10.0;netstandard2.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Match Majorsilence.Forms: the SDK otherwise defaults the netstandard2.0 row to C# 7.3. -->
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.Telerik</PackageId>
@@ -19,6 +21,16 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <!-- Source-generated polyfills for the compiler-recognised attributes this project uses
+         (UnconditionalSuppressMessage, ...) that the .NET TFMs get from the runtime. -->
+    <PackageReference Include="PolySharp" PrivateAssets="all" />
+  </ItemGroup>
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <PolySharpIncludeRuntimeSupportedAttributes>true</PolySharpIncludeRuntimeSupportedAttributes>
+    <!-- Same netstandard2.0 nullable-annotation gap suppressed in Majorsilence.Forms.csproj. -->
+    <NoWarn>$(NoWarn);CS8600;CS8601;CS8602;CS8603;CS8604;CS8767</NoWarn>
+  </PropertyGroup>
   <ItemGroup>
     <!-- RadGridViewTests.cs reaches into GridSummaryRow (internal, on RadGridView.cs) to assert
          computed-aggregate values directly, the same pattern core uses for its own Tests InternalsVisibleTo. -->

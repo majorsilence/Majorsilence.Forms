@@ -71,7 +71,12 @@ namespace Majorsilence.Forms
         /// <summary>Loads from a stream into the control. Plain text only in Majorsilence.Forms.</summary>
         public void LoadFile (System.IO.Stream data, RichTextBoxStreamType fileType = RichTextBoxStreamType.PlainText)
         {
+#if NETSTANDARD2_0
+            // The (Stream, ..., leaveOpen) StreamReader ctor with defaulted encoding is a later addition.
+            using var reader = new System.IO.StreamReader (data, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
+#else
             using var reader = new System.IO.StreamReader (data, leaveOpen: true);
+#endif
             Text = reader.ReadToEnd ();
         }
 
@@ -84,7 +89,11 @@ namespace Majorsilence.Forms
         /// <summary>Saves the contents of the control to a stream. Plain text only in Majorsilence.Forms.</summary>
         public void SaveFile (System.IO.Stream data, RichTextBoxStreamType fileType = RichTextBoxStreamType.PlainText)
         {
+#if NETSTANDARD2_0
+            using var writer = new System.IO.StreamWriter (data, new System.Text.UTF8Encoding (encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: true);
+#else
             using var writer = new System.IO.StreamWriter (data, leaveOpen: true);
+#endif
             writer.Write (Text);
         }
 
@@ -129,7 +138,7 @@ namespace Majorsilence.Forms
                 int start = SelectionStart;
                 int length = Math.Max (SelectionLength, 0);
                 string current = Text;
-                Text = string.Concat (current.AsSpan (0, start), value, current.AsSpan (start + length));
+                Text = string.Concat (current.Substring (0, start), value, current.Substring (start + length));
                 SelectionStart = start + value.Length;
                 SelectionLength = 0;
             }
@@ -168,7 +177,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="Find(char[])"/>
         public int Find (char[] characterSet, int start, int end)
         {
-            ArgumentNullException.ThrowIfNull (characterSet);
+            Guard.ThrowIfNull (characterSet);
 
             var text = Text;
             var last = end < 0 ? text.Length : Math.Min (end, text.Length);

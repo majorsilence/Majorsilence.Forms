@@ -44,7 +44,7 @@ namespace Majorsilence.Forms.Telerik
         /// (macOS) renders PDF natively, but WebKitGTK/WPE WebKit (Linux) has no inline PDF viewer even
         /// when the webview itself works fine for HTML — so Linux always uses the system-viewer fallback.
         /// </summary>
-        public static bool CanRenderPdfInline => OperatingSystem.IsWindows () || OperatingSystem.IsMacOS ();
+        public static bool CanRenderPdfInline => OperatingSystemCompat.IsWindows () || OperatingSystemCompat.IsMacOS ();
 
         /// <summary>Gets whether a functional native webview capable of inline PDF rendering backs this control.</summary>
         public bool IsInlineRenderingActive => CanRenderPdfInline && _host.IsFunctional;

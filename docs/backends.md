@@ -17,6 +17,15 @@ The **core `Majorsilence.Forms` assembly references no windowing toolkit** — o
 separate assemblies that depend on the core and reach into its internal render/input plumbing via
 `[InternalsVisibleTo]`.
 
+**Target frameworks.** The core (`Majorsilence.Forms`, `Majorsilence.Forms.Drawing.Common`,
+`Majorsilence.Forms.Telerik`, and the two embedded shim assemblies) multi-targets `net8.0`, `net10.0`
+and `netstandard2.0`. Every backend in the table above targets `net8.0`+ only, so there is no
+`netstandard2.0` `IPlatformBackend` / `IWindowBackend` implementation — a .NET Framework app can
+reference the controls but cannot host a window without a modern runtime. On the `netstandard2.0`
+row the five optional no-op members of `IWindowBackend` (`SetShaped`, `SetTextInputActive`, …) are
+plain interface members rather than default implementations, and `Control` carries an explicit no-op
+`ISupportInitialize`; both differences are compiled out on `net8.0`/`net10.0`.
+
 ## The seam
 
 Two interfaces in `Majorsilence.Forms.Backends` define everything a host must provide.

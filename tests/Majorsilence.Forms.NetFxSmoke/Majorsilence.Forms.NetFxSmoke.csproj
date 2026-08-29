@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Consumer smoke test for the netstandard2.0 row of Majorsilence.Forms: proves the assembly
+       loads and runs on classic .NET Framework (net472), and specifically exercises the
+       netstandard2.0-only AppDomain.AssemblyResolve fallback in ComponentResourceManager (the
+       AssemblyLoadContext path on the .NET TFMs). Runs on the Windows CI leg; builds anywhere via
+       the reference-assemblies package. -->
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <!-- xunit.v3 requires an executable test host; on .NET Framework it isn't inferred. -->
+    <OutputType>Exe</OutputType>
+    <!-- net472 defaults to C# 7.3, which rejects the repo-wide Nullable=enable. -->
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <!-- Same as Majorsilence.Forms.Tests: these exercise the culture-agnostic GetObject(string)
+         designer path deliberately. -->
+    <NoWarn>$(NoWarn);CA1304;xUnit2013</NoWarn>
+    <!-- Match the fixture type's namespace so the compiled .resources manifest name lines up with
+         typeof(CompiledResourceFixture).FullName. -->
+    <RootNamespace>Majorsilence.Forms.Tests</RootNamespace>
+    <IsTrimmable>false</IsTrimmable>
+    <!-- Compile the fixture .resx the same way a migrated WinForms designer .resx is compiled. -->
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <!-- Only meaningful when actually run on Windows. -->
+    <RunSettingsFilePath></RunSettingsFilePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="System.Resources.Extensions" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ProjectReference (not a packed .nupkg): CI restores no local feed, and the net472 consumer
+         picks the netstandard2.0 output of this multi-targeted project the same way a real net472
+         app would pick the netstandard2.0 lib/ folder from the package. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reuse the main suite's compiled-resource fixture (a designer .resx that stores button1.Dock
+         as System.Windows.Forms.DockStyle and an image as System.Drawing.Bitmap —the two types the
+         embedded shims stand in for). -->
+    <Compile Include="..\Majorsilence.Forms.Tests\Fixtures\CompiledResourceFixture.cs" Link="Fixtures\CompiledResourceFixture.cs" />
+    <EmbeddedResource Include="..\Majorsilence.Forms.Tests\Fixtures\CompiledResourceFixture.resx" Link="Fixtures\CompiledResourceFixture.resx">
+      <LogicalName>Majorsilence.Forms.Tests.Fixtures.CompiledResourceFixture.resources</LogicalName>
+    </EmbeddedResource>
+    <None Include="..\Majorsilence.Forms.Tests\Fixtures\fixture-image.png" Link="Fixtures\fixture-image.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

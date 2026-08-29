@@ -119,7 +119,7 @@ namespace Majorsilence.Forms
 
                     stream.Position = namePosition;
 
-                    var nameByteCount = reader.Read7BitEncodedInt ();
+                    var nameByteCount = reader.Read7BitEncodedIntCompat ();
                     if (nameByteCount < 0 || nameByteCount > stream.Length - stream.Position)
                         continue;
 
@@ -132,12 +132,12 @@ namespace Majorsilence.Forms
 
                     stream.Position = dataPosition;
 
-                    var typeIndex = reader.Read7BitEncodedInt () - StartOfUserTypes;
+                    var typeIndex = reader.Read7BitEncodedIntCompat () - StartOfUserTypes;
                     if (typeIndex < 0 || typeIndex >= numTypes)
                         continue;   // a primitive (string/int/…) — the normal reader handled it already.
 
-                    var format = (RawFormat) reader.Read7BitEncodedInt ();
-                    var length = reader.Read7BitEncodedInt ();
+                    var format = (RawFormat) reader.Read7BitEncodedIntCompat ();
+                    var length = reader.Read7BitEncodedIntCompat ();
 
                     if (length < 0 || length > stream.Length - stream.Position)
                         continue;

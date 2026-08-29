@@ -209,7 +209,7 @@ namespace Majorsilence.Forms.Telerik
         /// </summary>
         public void Print (bool showDialog, RadPrintDocument document)
         {
-            ArgumentNullException.ThrowIfNull (document);
+            Guard.ThrowIfNull (document);
 
             document.AssociatedObject = this;
             var path = document.Print ();

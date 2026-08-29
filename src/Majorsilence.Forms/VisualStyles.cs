@@ -144,7 +144,7 @@ namespace Majorsilence.Forms.VisualStyles
         /// <summary>Draws an arrow button in the given state.</summary>
         public static void DrawArrowButton (Graphics g, Rectangle bounds, ScrollBarArrowButtonState state)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             var pressed = state is ScrollBarArrowButtonState.UpPressed or ScrollBarArrowButtonState.DownPressed
                 or ScrollBarArrowButtonState.LeftPressed or ScrollBarArrowButtonState.RightPressed;
@@ -187,7 +187,7 @@ namespace Majorsilence.Forms.VisualStyles
         /// <summary>Draws the grip lines on a vertical scroll bar's thumb.</summary>
         public static void DrawVerticalThumbGrip (Graphics g, Rectangle bounds, ScrollBarState state)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             var midY = bounds.Y + (bounds.Height / 2);
             var x1 = bounds.X + 3;
@@ -201,7 +201,7 @@ namespace Majorsilence.Forms.VisualStyles
         /// <summary>Draws the grip lines on a horizontal scroll bar's thumb.</summary>
         public static void DrawHorizontalThumbGrip (Graphics g, Rectangle bounds, ScrollBarState state)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             var midX = bounds.X + (bounds.Width / 2);
             var y1 = bounds.Y + 3;
@@ -220,7 +220,7 @@ namespace Majorsilence.Forms.VisualStyles
 
         private static void DrawTrack (Graphics g, Rectangle bounds)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             using var back = new SolidBrush (StyleColors.Field);
             g.FillRectangle (back, bounds);
@@ -228,7 +228,7 @@ namespace Majorsilence.Forms.VisualStyles
 
         private static void DrawThumb (Graphics g, Rectangle bounds, ScrollBarState state)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             using (var back = new SolidBrush (StyleColors.Surface (state == ScrollBarState.Hot, state == ScrollBarState.Pressed)))
                 g.FillRectangle (back, bounds);
@@ -302,7 +302,7 @@ namespace Majorsilence.Forms.VisualStyles
         public static void DrawCheckBox (Graphics g, Point glyphLocation, Rectangle textBounds, string? text,
             Majorsilence.Forms.Drawing.Font? font, bool focused, CheckBoxState state)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             var size = GetGlyphSize (g, state);
             var box = new Rectangle (glyphLocation, size);
@@ -345,7 +345,7 @@ namespace Majorsilence.Forms.VisualStyles
         public static void DrawRadioButton (Graphics g, Point glyphLocation, Rectangle textBounds, string? text,
             Majorsilence.Forms.Drawing.Font? font, bool focused, RadioButtonState state)
         {
-            ArgumentNullException.ThrowIfNull (g);
+            Guard.ThrowIfNull (g);
 
             var size = GetGlyphSize (g, state);
             var box = new Rectangle (glyphLocation, size);

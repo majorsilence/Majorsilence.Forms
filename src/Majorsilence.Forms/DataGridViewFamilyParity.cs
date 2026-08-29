@@ -117,7 +117,7 @@ namespace Majorsilence.Forms
         /// <summary>Builds this row's cells from the given grid's columns.</summary>
         public void CreateCells (DataGridView dataGridView)
         {
-            ArgumentNullException.ThrowIfNull (dataGridView);
+            Guard.ThrowIfNull (dataGridView);
 
             Cells.Clear ();
 
@@ -135,7 +135,7 @@ namespace Majorsilence.Forms
         /// <summary>Sets the values of this row's cells, in order.</summary>
         public bool SetValues (params object?[] values)
         {
-            ArgumentNullException.ThrowIfNull (values);
+            Guard.ThrowIfNull (values);
 
             for (var i = 0; i < Math.Min (values.Length, Cells.Count); i++)
                 Cells[i].Value = values[i];
@@ -173,8 +173,8 @@ namespace Majorsilence.Forms
             bool singleVerticalBorderAdded, bool singleHorizontalBorderAdded,
             bool isFirstDisplayedRow, bool isLastVisibleRow)
         {
-            ArgumentNullException.ThrowIfNull (dataGridViewAdvancedBorderStyleInput);
-            ArgumentNullException.ThrowIfNull (dataGridViewAdvancedBorderStylePlaceholder);
+            Guard.ThrowIfNull (dataGridViewAdvancedBorderStyleInput);
+            Guard.ThrowIfNull (dataGridViewAdvancedBorderStylePlaceholder);
 
             var result = dataGridViewAdvancedBorderStylePlaceholder;
 
@@ -392,7 +392,7 @@ namespace Majorsilence.Forms
             /// <summary>Adds several items at once.</summary>
             public void AddRange (params object[] items)
             {
-                ArgumentNullException.ThrowIfNull (items);
+                Guard.ThrowIfNull (items);
 
                 foreach (var item in items)
                     Add (item);

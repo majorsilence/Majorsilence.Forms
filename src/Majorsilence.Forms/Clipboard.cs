@@ -155,6 +155,10 @@ namespace Majorsilence.Forms
         /// <summary>Stores the specified data using the specified type as the format.</summary>
         void SetData (Type format, object? data);
 
+#if !NETSTANDARD2_0
+        // These DataFormat convenience overloads are default interface members on the .NET TFMs. The
+        // netstandard2.0 runtime has no DIM support, so for that TFM they move to extension methods
+        // (IDataObjectDataFormatExtensions below) -- same call sites, same behaviour.
         /// <summary>Gets the data in the specified DataFormat. Convenience overload -- delegates to GetData(string).</summary>
         object? GetData (DataFormat format) => GetData (format.Name);
         /// <summary>Gets the data in the specified DataFormat, optionally converting it. Convenience overload -- delegates to GetData(string, bool).</summary>
@@ -165,10 +169,31 @@ namespace Majorsilence.Forms
         bool GetDataPresent (DataFormat format, bool autoConvert) => GetDataPresent (format.Name, autoConvert);
         /// <summary>Stores the specified data in the specified DataFormat. Convenience overload -- delegates to SetData(string, object).</summary>
         void SetData (DataFormat format, object? data) => SetData (format.Name, data);
+#endif
 
         /// <summary>Stores the specified data and indicates whether the data can be converted to another format.</summary>
         void SetData (string format, bool autoConvert, object? data);
     }
+
+#if NETSTANDARD2_0
+    /// <summary>
+    /// netstandard2.0 stand-ins for <see cref="IDataObject"/>'s DataFormat convenience overloads, which
+    /// are default interface members on the .NET TFMs (unsupported on the netstandard2.0 runtime).
+    /// </summary>
+    public static class IDataObjectDataFormatExtensions
+    {
+        /// <inheritdoc cref="IDataObject.GetData(string)"/>
+        public static object? GetData (this IDataObject o, DataFormat format) => o.GetData (format.Name);
+        /// <inheritdoc cref="IDataObject.GetData(string,bool)"/>
+        public static object? GetData (this IDataObject o, DataFormat format, bool autoConvert) => o.GetData (format.Name, autoConvert);
+        /// <inheritdoc cref="IDataObject.GetDataPresent(string)"/>
+        public static bool GetDataPresent (this IDataObject o, DataFormat format) => o.GetDataPresent (format.Name);
+        /// <inheritdoc cref="IDataObject.GetDataPresent(string,bool)"/>
+        public static bool GetDataPresent (this IDataObject o, DataFormat format, bool autoConvert) => o.GetDataPresent (format.Name, autoConvert);
+        /// <inheritdoc cref="IDataObject.SetData(string,object)"/>
+        public static void SetData (this IDataObject o, DataFormat format, object? data) => o.SetData (format.Name, data);
+    }
+#endif
 
     /// <summary>Implements <see cref="IDataObject"/> for transferring data. Stub in Majorsilence.Forms.</summary>
     public partial class DataObject : IDataObject

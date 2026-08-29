@@ -199,7 +199,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     /// </summary>
     public int GetColumnSpan (object control)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         if (IsStub) {
             return _stub.GetColumnSpan (control);
@@ -214,7 +214,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     /// </summary>
     public void SetColumnSpan (object control, int value)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         if (value < 1)
             throw new ArgumentOutOfRangeException (nameof (value), value, string.Format (SR.InvalidArgument, nameof (value), value));
@@ -238,7 +238,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     /// </summary>
     public int GetRowSpan (object control)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         if (IsStub) {
             return _stub.GetRowSpan (control);
@@ -253,7 +253,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     /// </summary>
     public void SetRowSpan (object control, int value)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         if (value < 1)
             throw new ArgumentOutOfRangeException (nameof (value), value, string.Format (SR.InvalidArgument, nameof (value), value));
@@ -278,7 +278,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     [DefaultValue (-1)]
     public int GetRow (object control)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         if (IsStub) {
             return _stub.GetRow (control);
@@ -296,7 +296,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     /// </summary>
     public void SetRow (object control, int row)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         if (row < -1)
             throw new ArgumentOutOfRangeException (nameof (row), row, string.Format (SR.InvalidArgument, nameof (row), row));
@@ -310,7 +310,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     [DefaultValue (-1)]
     public TableLayoutPanelCellPosition GetCellPosition (object control)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         return new TableLayoutPanelCellPosition (GetColumn (control), GetRow (control));
     }
@@ -321,7 +321,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     [DefaultValue (-1)]
     public void SetCellPosition (object control, TableLayoutPanelCellPosition cellPosition)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         SetCellPosition (control, cellPosition.Row, cellPosition.Column, rowSpecified: true, colSpecified: true);
     }
@@ -332,7 +332,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     [DefaultValue (-1)]
     public int GetColumn (object control)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         if (IsStub) {
             return _stub.GetColumn (control);
@@ -350,7 +350,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     /// </summary>
     public void SetColumn (object control, int column)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         if (column < -1)
             throw new ArgumentOutOfRangeException (nameof (column), column, string.Format (SR.InvalidArgument, nameof (column), column));

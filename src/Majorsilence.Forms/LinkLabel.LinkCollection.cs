@@ -37,7 +37,7 @@ namespace Majorsilence.Forms
             public Link this[int index] {
                 get => items[index];
                 set {
-                    ArgumentNullException.ThrowIfNull (value);
+                    Guard.ThrowIfNull (value);
 
                     var previous = items[index];
                     if (!ReferenceEquals (previous, value))
@@ -60,7 +60,7 @@ namespace Majorsilence.Forms
             /// <param name="item">The link to add.</param>
             public void Add (Link item)
             {
-                ArgumentNullException.ThrowIfNull (item);
+                Guard.ThrowIfNull (item);
 
                 item.Owner = owner;
                 items.Add (item);
@@ -148,7 +148,7 @@ namespace Majorsilence.Forms
             /// <param name="item">The link to insert.</param>
             public void Insert (int index, Link item)
             {
-                ArgumentNullException.ThrowIfNull (item);
+                Guard.ThrowIfNull (item);
 
                 item.Owner = owner;
                 items.Insert (index, item);

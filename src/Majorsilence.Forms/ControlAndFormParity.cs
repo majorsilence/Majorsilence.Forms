@@ -211,14 +211,20 @@ namespace Majorsilence.Forms
             if (!cancellationToken.IsCancellationRequested)
                 return false;
 
+#if NETSTANDARD2_0
+            // TaskCompletionSource<T>.SetCanceled(CancellationToken) is a .NET 5 addition; the freshly
+            // created source here can't already be completed, so TrySetCanceled is equivalent.
+            completion.TrySetCanceled (cancellationToken);
+#else
             completion.SetCanceled (cancellationToken);
+#endif
             return true;
         }
 
         /// <summary>Runs the callback on the UI thread and returns a task that completes with it.</summary>
         public Task InvokeAsync (Action callback, CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull (callback);
+            Guard.ThrowIfNull (callback);
 
             var completion = new TaskCompletionSource ();
 
@@ -247,7 +253,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="InvokeAsync(Action,CancellationToken)"/>
         public Task<T> InvokeAsync<T> (Func<T> callback, CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull (callback);
+            Guard.ThrowIfNull (callback);
 
             var completion = new TaskCompletionSource<T> ();
 
@@ -273,7 +279,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="InvokeAsync(Action,CancellationToken)"/>
         public Task InvokeAsync (Func<CancellationToken, ValueTask> callback, CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull (callback);
+            Guard.ThrowIfNull (callback);
 
             var completion = new TaskCompletionSource ();
 
@@ -297,7 +303,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="InvokeAsync(Action,CancellationToken)"/>
         public Task<T> InvokeAsync<T> (Func<CancellationToken, ValueTask<T>> callback, CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull (callback);
+            Guard.ThrowIfNull (callback);
 
             var completion = new TaskCompletionSource<T> ();
 
@@ -558,7 +564,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns the size the form would scale to for the given font.</summary>
         public static SizeF GetAutoScaleSize (Majorsilence.Forms.Drawing.Font font)
         {
-            ArgumentNullException.ThrowIfNull (font);
+            Guard.ThrowIfNull (font);
 
             // WinForms measures a fixed reference string, so the ratio between two fonts is what the
             // caller ends up using; the absolute number only has to be consistent.

@@ -233,7 +233,7 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether the clipboard holds data this control could paste.</summary>
         public bool CanPaste (DataFormats.Format clipFormat)
         {
-            ArgumentNullException.ThrowIfNull (clipFormat);
+            Guard.ThrowIfNull (clipFormat);
             return !string.IsNullOrEmpty (Clipboard.GetText ());
         }
 

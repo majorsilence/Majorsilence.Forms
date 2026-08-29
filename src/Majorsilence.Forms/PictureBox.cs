@@ -142,7 +142,7 @@ namespace Majorsilence.Forms
         public PictureBoxSizeMode SizeMode {
             get => size_mode;
             set {
-                if (!Enum.IsDefined (value))
+                if (!EnumCompat.IsDefined (value))
                     throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (PictureBoxSizeMode));
 
                 if (size_mode != value) {

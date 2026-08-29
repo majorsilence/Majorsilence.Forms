@@ -869,8 +869,8 @@ namespace Majorsilence.Forms
             var dx = factor.Width;
             var dy = factor.Height;
 
-            var left = (int)Math.Round (bounds.X * dx, MidpointRounding.ToZero);
-            var top = (int)Math.Round (bounds.Y * dy, MidpointRounding.ToZero);
+            var left = (int)Math.Truncate (bounds.X * dx);
+            var top = (int)Math.Truncate (bounds.Y * dy);
 
             var sx = bounds.X;
             var sy = bounds.Y;
@@ -887,12 +887,12 @@ namespace Majorsilence.Forms
 
             // Don't just scale the Width/Height as it might round incorrectly
             if (specified.HasFlag (BoundsSpecified.Width)) {
-                var right = (int)Math.Round ((bounds.Right) * dx, MidpointRounding.ToZero);
+                var right = (int)Math.Truncate ((bounds.Right) * dx);
                 sw = right - left;
             }
 
             if (specified.HasFlag (BoundsSpecified.Height)) {
-                var bottom = (int)Math.Round ((bounds.Bottom) * dy, MidpointRounding.ToZero);
+                var bottom = (int)Math.Truncate ((bounds.Bottom) * dy);
                 sh = bottom - top;
             }
 

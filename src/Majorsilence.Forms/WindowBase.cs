@@ -799,28 +799,28 @@ namespace Majorsilence.Forms
         /// <summary>Executes the specified delegate asynchronously on the window's UI thread.</summary>
         public void BeginInvoke (Action action)
         {
-            ArgumentNullException.ThrowIfNull (action);
+            Guard.ThrowIfNull (action);
             Majorsilence.Forms.Backends.Platform.Backend.Post (action);
         }
 
         /// <summary>Executes the specified delegate asynchronously on the window's UI thread with the given arguments. Mirrors WinForms Control.BeginInvoke(Delegate, Object[]).</summary>
         public void BeginInvoke (Delegate method, params object?[]? args)
         {
-            ArgumentNullException.ThrowIfNull (method);
+            Guard.ThrowIfNull (method);
             Majorsilence.Forms.Backends.Platform.Backend.Post (() => method.DynamicInvoke (args));
         }
 
         /// <summary>Executes the specified delegate synchronously on the window's UI thread.</summary>
         public void Invoke (Action action)
         {
-            ArgumentNullException.ThrowIfNull (action);
+            Guard.ThrowIfNull (action);
             Majorsilence.Forms.Backends.Platform.Backend.Invoke (action);
         }
 
         /// <summary>Executes the specified delegate synchronously on the window's UI thread with the given arguments and returns its result. Mirrors WinForms Control.Invoke(Delegate, Object[]).</summary>
         public object? Invoke (Delegate method, params object?[]? args)
         {
-            ArgumentNullException.ThrowIfNull (method);
+            Guard.ThrowIfNull (method);
             object? result = null;
             Majorsilence.Forms.Backends.Platform.Backend.Invoke (() => result = method.DynamicInvoke (args));
             return result;
@@ -836,7 +836,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public T Invoke<T> (Func<T> func)
         {
-            ArgumentNullException.ThrowIfNull (func);
+            Guard.ThrowIfNull (func);
             T result = default!;
             Majorsilence.Forms.Backends.Platform.Backend.Invoke (() => result = func ());
             return result;

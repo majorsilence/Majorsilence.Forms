@@ -130,7 +130,7 @@ namespace Majorsilence.Forms
             // never assign a value outside [Minimum, Maximum] (ScrollBar.Value throws otherwise).
             UpdateVerticalScrollBar ();
 
-            target = Math.Clamp (target, vscrollbar.Minimum, vscrollbar.Maximum);
+            target = MathCompat.Clamp (target, vscrollbar.Minimum, vscrollbar.Maximum);
             top_index = target;
             vscrollbar.Value = target;
         }
@@ -553,7 +553,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected internal virtual void RaiseDrawNode (TreeViewDrawEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (e);
+            Guard.ThrowIfNull (e);
 
             var state = TreeNodeStates.Default;
 
@@ -581,7 +581,7 @@ namespace Majorsilence.Forms
         /// <summary>Raises the <see cref="DrawNode"/> event. The real WinForms owner-draw override point.</summary>
         protected virtual void OnDrawNode (DrawTreeNodeEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (e);
+            Guard.ThrowIfNull (e);
 
             if (Events[s_drawNode] is DrawTreeNodeEventHandler handler)
                 handler (this, e);
@@ -814,7 +814,14 @@ namespace Majorsilence.Forms
         public new void EndUpdate () { ResumeLayout (false); Invalidate (); }
 
         /// <inheritdoc/>
+#if NETSTANDARD2_0
+        // netstandard2.0 (the .NET Framework consumer surface) has no covariant-return support, so the
+        // override must keep the base ControlStyle return type; the instance is still a
+        // TreeViewControlStyle. Callers that need the derived members cast (see TreeViewRenderer).
+        public override ControlStyle Style { get; } = new TreeViewControlStyle (DefaultStyle);
+#else
         public override TreeViewControlStyle Style { get; } = new TreeViewControlStyle (DefaultStyle);
+#endif
 
         // Determines scrollbar visibility and values using a pre-computed visible child count.
         // Called from LayoutItems() after the single-pass traversal to avoid a second traversal.

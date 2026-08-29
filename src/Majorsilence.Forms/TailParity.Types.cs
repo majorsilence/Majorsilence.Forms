@@ -71,8 +71,11 @@ namespace Majorsilence.Forms
         /// <summary>Called when data is dropped, allowing the handler to complete later.</summary>
         void OnDragDropAsync (DragEventArgs e);
 
+#if !NETSTANDARD2_0
         /// <summary>Called when data is dropped, allowing the handler to complete later.</summary>
+        // Default interface member on the .NET TFMs; an extension method on netstandard2.0 (see below).
         void OnAsyncDragDrop (DragEventArgs e) => OnDragDropAsync (e);
+#endif
     }
 
     /// <summary>A data object whose stored values can be retrieved by type.</summary>
@@ -110,9 +113,28 @@ namespace Majorsilence.Forms
         /// <summary>Opens the named file for reading.</summary>
         System.IO.Stream? OpenFile (string path);
 
+#if !NETSTANDARD2_0
         /// <summary>Opens a file given relative to the application's source.</summary>
+        // Default interface member on the .NET TFMs; an extension method on netstandard2.0 (see below).
         System.IO.Stream? OpenFileFromSource (string relativePath) => OpenFile (relativePath);
+#endif
     }
+
+#if NETSTANDARD2_0
+    /// <summary>
+    /// netstandard2.0 stand-ins for the default interface members on <see cref="IAsyncDropTarget"/> and
+    /// <see cref="IFileReaderService"/> (default interface implementations aren't supported on the
+    /// netstandard2.0 runtime).
+    /// </summary>
+    public static class TailParityDefaultMemberExtensions
+    {
+        /// <inheritdoc cref="IAsyncDropTarget.OnDragDropAsync(DragEventArgs)"/>
+        public static void OnAsyncDragDrop (this IAsyncDropTarget target, DragEventArgs e) => target.OnDragDropAsync (e);
+
+        /// <summary>Opens a file given relative to the application's source.</summary>
+        public static System.IO.Stream? OpenFileFromSource (this IFileReaderService service, string relativePath) => service.OpenFile (relativePath);
+    }
+#endif
 
     /// <summary>The ambient property values a control inherits from its parent.</summary>
     public class AmbientProperties

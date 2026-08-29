@@ -289,7 +289,7 @@ public class ImageCollection : IDictionary<string, SKBitmap>
     /// <exception cref="ArgumentException">The strip's width is not a multiple of the image width.</exception>
     public int AddStrip (Majorsilence.Forms.Drawing.Image image)
     {
-        ArgumentNullException.ThrowIfNull (image);
+        Guard.ThrowIfNull (image);
 
         var frameWidth = (int)ImageSize.Width;
         var frameHeight = (int)ImageSize.Height;

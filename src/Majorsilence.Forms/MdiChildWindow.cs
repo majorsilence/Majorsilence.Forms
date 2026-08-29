@@ -152,7 +152,7 @@ namespace Majorsilence.Forms
         /// controls, rather than the trailing edge Windows uses. Defaults to the host platform;
         /// settable so a host can pin one convention and so tests can exercise both.
         /// </summary>
-        internal static bool CaptionButtonsOnLeft { get; set; } = OperatingSystem.IsMacOS ();
+        internal static bool CaptionButtonsOnLeft { get; set; } = OperatingSystemCompat.IsMacOS ();
 
         /// <summary>
         /// Whether the caption is drawn in the macOS idiom: light chrome with a hairline separator,

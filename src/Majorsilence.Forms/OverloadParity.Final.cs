@@ -102,9 +102,9 @@ namespace Majorsilence.Forms
         /// <summary>Inserts the given number of empty rows at the given index.</summary>
         public void Insert (int rowIndex, int count)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative (rowIndex);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan (rowIndex, Count);
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero (count);
+            Guard.ThrowIfNegative (rowIndex);
+            Guard.ThrowIfGreaterThan (rowIndex, Count);
+            Guard.ThrowIfNegativeOrZero (count);
 
             for (var i = 0; i < count; i++)
                 Insert (rowIndex + i, new DataGridViewRow ());
@@ -116,7 +116,7 @@ namespace Majorsilence.Forms
         /// <summary>Copies this collection into an array.</summary>
         public void CopyTo (Array dest, int index)
         {
-            ArgumentNullException.ThrowIfNull (dest);
+            Guard.ThrowIfNull (dest);
 
             foreach (var group in this)
                 dest.SetValue (group, index++);

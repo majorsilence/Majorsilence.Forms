@@ -25,7 +25,7 @@ internal partial class TableLayout : LayoutEngine
 
     private static void Sort (object[] array, IComparer comparer)
     {
-        ArgumentNullException.ThrowIfNull (array);
+        Guard.ThrowIfNull (array);
 
         if (array.Length > 1) {
             var sorter = new SorterObjectArray (array, comparer);

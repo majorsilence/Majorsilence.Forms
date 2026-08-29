@@ -76,7 +76,15 @@ namespace Majorsilence.Forms.Backends
         /// <see cref="System.IntPtr.Zero"/> as "unsupported" and no-op. Defaults to Zero so backends that
         /// can't expose a handle (headless) need not implement it.
         /// </summary>
+#if NETSTANDARD2_0
+        // Default interface members aren't supported on the netstandard2.0 runtime (.NET Framework
+        // consumers). No IWindowBackend implementation is compiled for that TFM -- every backend
+        // (Avalonia/Uno/WinForms/Headless) targets net8.0+ -- so a downlevel backend, if one is ever
+        // added, implements these five members explicitly.
+        System.IntPtr TryGetPlatformHandle ();
+#else
         System.IntPtr TryGetPlatformHandle () => System.IntPtr.Zero;
+#endif
 
         // ── Coordinate conversion ────────────────────────────────────────────────
         /// <summary>Converts a screen point to client coordinates.</summary>
@@ -97,14 +105,22 @@ namespace Majorsilence.Forms.Backends
         /// regions). An empty list clears them. Backends that use the interactive
         /// <see cref="BeginMoveDrag"/> path ignore this. Re-declared by the Form on layout/resize.
         /// </summary>
+#if NETSTANDARD2_0
+        void SetCaptionRegions (System.Collections.Generic.IReadOnlyList<Rectangle> captionRects);
+#else
         void SetCaptionRegions (System.Collections.Generic.IReadOnlyList<Rectangle> captionRects) { }
+#endif
 
         /// <summary>
         /// Declares that the window is SHAPED — clipped to a <see cref="Majorsilence.Forms.Drawing.Region"/>
         /// — so the backend must stop filling the window with an opaque backdrop and let whatever the
         /// scene does not paint show through. Cleared when the region is removed.
         /// </summary>
+#if NETSTANDARD2_0
+        void SetShaped (bool shaped);
+#else
         void SetShaped (bool shaped) { }
+#endif
 
         /// <summary>
         /// Notifies the backend that text editing has started or stopped in the window — a
@@ -113,7 +129,11 @@ namespace Majorsilence.Forms.Backends
         /// to pick a keyboard layout from <paramref name="kind"/>. Default no-op: a desktop backend has a
         /// hardware keyboard and nothing to show.
         /// </summary>
+#if NETSTANDARD2_0
+        void SetTextInputActive (bool active, TextInputKind kind);
+#else
         void SetTextInputActive (bool active, TextInputKind kind) { }
+#endif
 
         /// <summary>
         /// On platforms with a native title bar (macOS), extends the client/content area up into the
@@ -123,7 +143,11 @@ namespace Majorsilence.Forms.Backends
         /// is the logical height of the title-bar strip to reserve (0 = system default). No-op where
         /// unsupported.
         /// </summary>
+#if NETSTANDARD2_0
+        void SetExtendClientIntoTitleBar (bool extend, int titleBarHeight);
+#else
         void SetExtendClientIntoTitleBar (bool extend, int titleBarHeight) { }
+#endif
 
         // ── Rendering ────────────────────────────────────────────────────────────
         /// <summary>Marks the window as needing a repaint.</summary>

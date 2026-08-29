@@ -169,7 +169,7 @@ public partial class Control
         /// </summary>
         public virtual void AddRange (params Control[] controls)
         {
-            ArgumentNullException.ThrowIfNull (controls);
+            Guard.ThrowIfNull (controls);
 
             if (controls.Length > 0) {
                 Owner.SuspendLayout ();
@@ -630,7 +630,7 @@ public partial class Control
         internal virtual void SetChildIndexInternal (Control child, int newIndex)
         {
             // Sanity check parameters
-            ArgumentNullException.ThrowIfNull (child);
+            Guard.ThrowIfNull (child);
 
             var currentIndex = GetChildIndex (child);
 

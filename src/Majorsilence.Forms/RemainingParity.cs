@@ -175,7 +175,7 @@ namespace Majorsilence.Forms
         /// <summary>Adds several nodes at once.</summary>
         public virtual void AddRange (params TreeNode[] nodes)
         {
-            ArgumentNullException.ThrowIfNull (nodes);
+            Guard.ThrowIfNull (nodes);
 
             foreach (var node in nodes)
                 Add (node);
@@ -296,8 +296,8 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of the <see cref="NumericUpDownAcceleration"/> class.</summary>
         public NumericUpDownAcceleration (int seconds, decimal increment)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative (seconds);
-            ArgumentOutOfRangeException.ThrowIfNegative (increment);
+            Guard.ThrowIfNegative (seconds);
+            Guard.ThrowIfNegative (increment);
 
             Seconds = seconds;
             Increment = increment;
@@ -316,7 +316,7 @@ namespace Majorsilence.Forms
         /// <summary>Adds several accelerations at once.</summary>
         public void AddRange (params NumericUpDownAcceleration[] accelerations)
         {
-            ArgumentNullException.ThrowIfNull (accelerations);
+            Guard.ThrowIfNull (accelerations);
 
             foreach (var acceleration in accelerations)
                 Add (acceleration);
@@ -327,7 +327,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void InsertItem (int index, NumericUpDownAcceleration item)
         {
-            ArgumentNullException.ThrowIfNull (item);
+            Guard.ThrowIfNull (item);
 
             base.InsertItem (index, item);
             Sort ();

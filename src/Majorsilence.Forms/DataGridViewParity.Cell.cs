@@ -123,7 +123,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns whether the given key should put this cell into edit mode.</summary>
         public virtual bool KeyEntersEditMode (KeyEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (e);
+            Guard.ThrowIfNull (e);
 
             if (ReadOnly || e.Alt || e.Control)
                 return false;
@@ -146,7 +146,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="MeasureTextHeight(Graphics,string,Font,int,TextFormatFlags)"/>
         public static int MeasureTextHeight (Graphics graphics, string text, Font font, int maxWidth, TextFormatFlags flags, ref bool widthTruncated)
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero (maxWidth);
+            Guard.ThrowIfNegativeOrZero (maxWidth);
 
             var unconstrained = MeasureTextSize (graphics, text, font, flags);
             widthTruncated = unconstrained.Width > maxWidth;
@@ -158,7 +158,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns the width the given text needs at the given height.</summary>
         public static int MeasureTextWidth (Graphics graphics, string text, Font font, int maxHeight, TextFormatFlags flags)
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero (maxHeight);
+            Guard.ThrowIfNegativeOrZero (maxHeight);
 
             var size = MeasureTextSize (graphics, text, font, flags);
             return size.Width;
@@ -174,7 +174,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns the size the given text prefers, wrapped no wider than the given ratio.</summary>
         public static Size MeasureTextPreferredSize (Graphics graphics, string text, Font font, float maxRatio, TextFormatFlags flags)
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero (maxRatio);
+            Guard.ThrowIfNegativeOrZero (maxRatio);
 
             var single = MeasureTextSize (graphics, text, font, flags);
 
@@ -264,8 +264,8 @@ namespace Majorsilence.Forms
             bool singleVerticalBorderAdded, bool singleHorizontalBorderAdded,
             bool isFirstDisplayedColumn, bool isFirstDisplayedRow)
         {
-            ArgumentNullException.ThrowIfNull (dataGridViewAdvancedBorderStyleInput);
-            ArgumentNullException.ThrowIfNull (dataGridViewAdvancedBorderStylePlaceholder);
+            Guard.ThrowIfNull (dataGridViewAdvancedBorderStyleInput);
+            Guard.ThrowIfNull (dataGridViewAdvancedBorderStylePlaceholder);
 
             var result = dataGridViewAdvancedBorderStylePlaceholder;
 
@@ -327,7 +327,7 @@ namespace Majorsilence.Forms
         /// <summary>Adds several rows at once.</summary>
         public virtual void AddRange (params DataGridViewRow[] dataGridViewRows)
         {
-            ArgumentNullException.ThrowIfNull (dataGridViewRows);
+            Guard.ThrowIfNull (dataGridViewRows);
 
             foreach (var row in dataGridViewRows)
                 Add (row);
@@ -340,7 +340,7 @@ namespace Majorsilence.Forms
         public virtual int AddCopies (int indexSource, int count)
         {
             RequireIndex (indexSource, nameof (indexSource));
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero (count);
+            Guard.ThrowIfNegativeOrZero (count);
 
             var last = -1;
 
@@ -353,9 +353,9 @@ namespace Majorsilence.Forms
         /// <summary>Inserts several rows at once.</summary>
         public virtual void InsertRange (int rowIndex, params DataGridViewRow[] dataGridViewRows)
         {
-            ArgumentNullException.ThrowIfNull (dataGridViewRows);
-            ArgumentOutOfRangeException.ThrowIfNegative (rowIndex);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan (rowIndex, Count);
+            Guard.ThrowIfNull (dataGridViewRows);
+            Guard.ThrowIfNegative (rowIndex);
+            Guard.ThrowIfGreaterThan (rowIndex, Count);
 
             for (var i = 0; i < dataGridViewRows.Length; i++)
                 Insert (rowIndex + i, dataGridViewRows[i]);
@@ -369,9 +369,9 @@ namespace Majorsilence.Forms
         public virtual void InsertCopies (int indexSource, int indexDestination, int count)
         {
             RequireIndex (indexSource, nameof (indexSource));
-            ArgumentOutOfRangeException.ThrowIfNegative (indexDestination);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan (indexDestination, Count);
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero (count);
+            Guard.ThrowIfNegative (indexDestination);
+            Guard.ThrowIfGreaterThan (indexDestination, Count);
+            Guard.ThrowIfNegativeOrZero (count);
 
             for (var i = 0; i < count; i++)
                 Insert (indexDestination + i, CopyOf (indexSource));
@@ -428,7 +428,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="GetNextRow(int,DataGridViewElementStates)"/>
         public int GetNextRow (int indexStart, DataGridViewElementStates includeFilter, DataGridViewElementStates excludeFilter)
         {
-            ArgumentOutOfRangeException.ThrowIfLessThan (indexStart, -1);
+            Guard.ThrowIfLessThan (indexStart, -1);
 
             for (var i = indexStart + 1; i < Count; i++)
                 if (Matches (i, includeFilter, excludeFilter))
@@ -444,7 +444,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="GetPreviousRow(int,DataGridViewElementStates)"/>
         public int GetPreviousRow (int indexStart, DataGridViewElementStates includeFilter, DataGridViewElementStates excludeFilter)
         {
-            ArgumentOutOfRangeException.ThrowIfGreaterThan (indexStart, Count);
+            Guard.ThrowIfGreaterThan (indexStart, Count);
 
             for (var i = Math.Min (indexStart, Count) - 1; i >= 0; i--)
                 if (Matches (i, includeFilter, excludeFilter))
@@ -494,8 +494,8 @@ namespace Majorsilence.Forms
 
         private void RequireIndex (int index, string name)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative (index, name);
-            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual (index, Count, name);
+            Guard.ThrowIfNegative (index, name);
+            Guard.ThrowIfGreaterThanOrEqual (index, Count, name);
         }
     }
 }

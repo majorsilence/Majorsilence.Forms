@@ -27,7 +27,7 @@ namespace Majorsilence.Forms.Telerik
             // On macOS the base Form uses the native title bar; opt into extending our content up into it
             // (Avalonia 12 full-size content view) so the tab strip lives in the title bar like it does on
             // the custom-chrome platforms, instead of being docked below the OS title bar.
-            if (OperatingSystem.IsMacOS ())
+            if (OperatingSystemCompat.IsMacOS ())
                 ExtendsContentIntoTitleBar = true;
 
             // Always present the headers with our own drag-capable strip; the TabControl is used purely
@@ -259,7 +259,7 @@ namespace Majorsilence.Forms.Telerik
             if (oldIndex < 0)
                 return;
 
-            newIndex = Math.Clamp (newIndex, 0, _items.Count - 1);
+            newIndex = MathCompat.Clamp (newIndex, 0, _items.Count - 1);
             if (newIndex == oldIndex)
                 return;
 

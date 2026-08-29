@@ -13,7 +13,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public interface ISupportInitializeCompat : ISupportInitialize
     {
+#if !NETSTANDARD2_0
         void ISupportInitialize.BeginInit () { }
         void ISupportInitialize.EndInit () { }
+#endif
+        // netstandard2.0: no default interface members. Every implementer derives from
+        // Majorsilence.Forms.Control, which supplies the no-op ISupportInitialize implementation for
+        // that TFM (see Control.Compat.cs).
     }
 }

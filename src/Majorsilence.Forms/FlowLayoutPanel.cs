@@ -64,7 +64,7 @@ public class FlowLayoutPanel : Panel, IExtenderProvider
     [DisplayName ("FlowBreak")]
     public bool GetFlowBreak (Control control)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         return _flowLayoutSettings.GetFlowBreak (control);
     }
@@ -75,7 +75,7 @@ public class FlowLayoutPanel : Panel, IExtenderProvider
     [DisplayName ("FlowBreak")]
     public void SetFlowBreak (Control control, bool value)
     {
-        ArgumentNullException.ThrowIfNull (control);
+        Guard.ThrowIfNull (control);
 
         _flowLayoutSettings.SetFlowBreak (control, value);
     }

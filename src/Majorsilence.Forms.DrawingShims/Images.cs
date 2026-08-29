@@ -32,7 +32,12 @@ namespace System.Drawing
 
         internal static byte[] ReadAll (Stream stream)
         {
+#if NETSTANDARD2_0
+            if (stream is null)
+                throw new ArgumentNullException (nameof (stream));
+#else
             ArgumentNullException.ThrowIfNull (stream);
+#endif
 
             using var buffer = new MemoryStream ();
             stream.CopyTo (buffer);

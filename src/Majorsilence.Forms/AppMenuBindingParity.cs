@@ -219,7 +219,7 @@ namespace Majorsilence.Forms
         /// <summary>Copies the given item's state and submenu into this one.</summary>
         protected void CloneMenu (MenuItem itemSrc)
         {
-            ArgumentNullException.ThrowIfNull (itemSrc);
+            Guard.ThrowIfNull (itemSrc);
 
             Text = itemSrc.Text;
             Checked = itemSrc.Checked;
@@ -245,7 +245,7 @@ namespace Majorsilence.Forms
         /// <summary>Merges the given item's submenu into this one, honouring its merge type.</summary>
         public void MergeMenu (MenuItem itemSrc)
         {
-            ArgumentNullException.ThrowIfNull (itemSrc);
+            Guard.ThrowIfNull (itemSrc);
 
             switch (itemSrc.MergeType) {
                 case MenuMerge.Remove:
@@ -387,7 +387,7 @@ namespace Majorsilence.Forms
                             "porting from WinForms use named arguments; matching the interface would break them.")]
         public virtual void ApplySort (PropertyDescriptor property, ListSortDirection sort)
         {
-            ArgumentNullException.ThrowIfNull (property);
+            Guard.ThrowIfNull (property);
 
             if (_list is IBindingList { SupportsSorting: true } list)
                 list.ApplySort (property, sort);
@@ -398,7 +398,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="ApplySort(PropertyDescriptor,ListSortDirection)"/>
         public virtual void ApplySort (ListSortDescriptionCollection sorts)
         {
-            ArgumentNullException.ThrowIfNull (sorts);
+            Guard.ThrowIfNull (sorts);
 
             if (_list is IBindingListView { SupportsAdvancedSorting: true } view)
                 view.ApplySort (sorts);
@@ -411,14 +411,14 @@ namespace Majorsilence.Forms
         /// </remarks>
         public virtual void AddIndex (PropertyDescriptor property)
         {
-            ArgumentNullException.ThrowIfNull (property);
+            Guard.ThrowIfNull (property);
             (_list as IBindingList)?.AddIndex (property);
         }
 
         /// <summary>Releases a search index previously requested by <see cref="AddIndex"/>.</summary>
         public virtual void RemoveIndex (PropertyDescriptor property)
         {
-            ArgumentNullException.ThrowIfNull (property);
+            Guard.ThrowIfNull (property);
             (_list as IBindingList)?.RemoveIndex (property);
         }
 

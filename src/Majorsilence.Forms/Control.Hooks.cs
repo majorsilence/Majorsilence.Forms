@@ -230,7 +230,7 @@ public partial class Control
     /// </summary>
     protected virtual void OnPrint (PaintEventArgs e)
     {
-        ArgumentNullException.ThrowIfNull (e);
+        Guard.ThrowIfNull (e);
 
         OnPaintBackground (e);
         OnPaint (e);

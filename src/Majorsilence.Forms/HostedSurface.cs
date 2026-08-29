@@ -25,7 +25,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public HostedSurface (IWindowBackend backend)
         {
-            ArgumentNullException.ThrowIfNull (backend);
+            Guard.ThrowIfNull (backend);
 
             InitWindow (backend);
 

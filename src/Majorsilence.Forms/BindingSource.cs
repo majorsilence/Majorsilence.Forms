@@ -575,7 +575,7 @@ namespace Majorsilence.Forms
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding resolves members by name over user-provided types.")]
         public int Find (string propertyName, object key)
         {
-            ArgumentException.ThrowIfNullOrEmpty (propertyName);
+            Guard.ThrowIfNullOrEmpty (propertyName);
 
             if (_list is IBindingList { SupportsSearching: true } searchable
                 && ((ITypedList)this).GetItemProperties (null)[propertyName] is { } descriptor)
@@ -600,7 +600,7 @@ namespace Majorsilence.Forms
         /// <summary>Finds the index of the item whose described property equals the given key.</summary>
         public int Find (PropertyDescriptor property, object key)
         {
-            ArgumentNullException.ThrowIfNull (property);
+            Guard.ThrowIfNull (property);
             return Find (property.Name, key);
         }
 

@@ -57,7 +57,13 @@ namespace Majorsilence.Forms.Renderers
             var foreground_color = control.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
 
             if (is_selected)
+#if NETSTANDARD2_0
+                // Style's static return type is the base ControlStyle here (no covariant returns on
+                // netstandard2.0); the instance is a TreeViewControlStyle.
+                e.Canvas.FillRectangle (item.Bounds, ((TreeView.TreeViewControlStyle) control.Style).GetSelectedItemBackgroundColor ());
+#else
                 e.Canvas.FillRectangle (item.Bounds, control.Style.GetSelectedItemBackgroundColor ());
+#endif
 
             if (is_selected && control.Focused && control.ShowFocusCues)
                 e.Canvas.DrawFocusRectangle (item.Bounds, e.LogicalToDeviceUnits (1));

@@ -145,7 +145,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns the input language for the given culture, or null when it is not installed.</summary>
         public static InputLanguage? FromCulture (CultureInfo culture)
         {
-            ArgumentNullException.ThrowIfNull (culture);
+            Guard.ThrowIfNull (culture);
 
             foreach (InputLanguage language in InstalledInputLanguages) {
                 if (string.Equals (language.Culture.Name, culture.Name, StringComparison.OrdinalIgnoreCase))

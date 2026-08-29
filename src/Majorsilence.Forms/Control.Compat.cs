@@ -5,6 +5,20 @@ using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
+#if NETSTANDARD2_0
+    // Designer-generated InitializeComponent brackets some controls (notably every Telerik Rad control,
+    // via Majorsilence.Forms.Telerik.ISupportInitializeCompat) with ((ISupportInitialize)c).BeginInit()
+    // / EndInit(). On net8.0/net10.0 those no-ops come from a default interface member on
+    // ISupportInitializeCompat; the netstandard2.0 runtime has no DIM support, so Control supplies the
+    // no-op implementation here instead. Explicit implementation keeps BeginInit/EndInit off Control's
+    // public surface, and this whole block is netstandard2.0-only so the .NET TFMs' API is unchanged.
+    public partial class Control : System.ComponentModel.ISupportInitialize
+    {
+        void System.ComponentModel.ISupportInitialize.BeginInit () { }
+        void System.ComponentModel.ISupportInitialize.EndInit () { }
+    }
+#endif
+
     // WinForms-compatibility surface for Control: BackgroundImage, Invoke/BeginInvoke.
     public partial class Control
     {
@@ -227,7 +241,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public void BeginInvoke (Action action)
         {
-            ArgumentNullException.ThrowIfNull (action);
+            Guard.ThrowIfNull (action);
             Platform.Backend.Post (action);
         }
 
@@ -260,7 +274,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public void Invoke (Action action)
         {
-            ArgumentNullException.ThrowIfNull (action);
+            Guard.ThrowIfNull (action);
             Platform.Backend.Invoke (action);
         }
 
@@ -296,7 +310,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public T Invoke<T> (Func<T> func)
         {
-            ArgumentNullException.ThrowIfNull (func);
+            Guard.ThrowIfNull (func);
             return Platform.Backend.Invoke (func);
         }
 

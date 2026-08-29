@@ -13,7 +13,7 @@ namespace Majorsilence.Forms
         /// needs it. Without it the call binds to the LINQ-style extension method and fails to compile.</remarks>
         public void AddRange (params TabPage[] pages)
         {
-            ArgumentNullException.ThrowIfNull (pages);
+            Guard.ThrowIfNull (pages);
 
             foreach (var page in pages)
                 Add (page);

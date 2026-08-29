@@ -498,7 +498,7 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderCellBorders (DataGridViewAdvancedBorderStyle borderStyle, Rectangle bounds, PaintEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (borderStyle);
+            Guard.ThrowIfNull (borderStyle);
 
             if (borderStyle.Right != DataGridViewAdvancedCellBorderStyle.None)
                 e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, BorderColor (borderStyle.Right));
@@ -545,9 +545,9 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderImageCell (DataGridView control, DataGridViewImageColumn column,
             int rowIndex, int columnIndex, Rectangle bounds, PaintEventArgs e)
         {
-            ArgumentNullException.ThrowIfNull (control);
-            ArgumentNullException.ThrowIfNull (column);
-            ArgumentNullException.ThrowIfNull (e);
+            Guard.ThrowIfNull (control);
+            Guard.ThrowIfNull (column);
+            Guard.ThrowIfNull (e);
 
             object? raw = null;
 

@@ -128,7 +128,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public void AddRange (params DataGridViewColumn[] columns)
         {
-            ArgumentNullException.ThrowIfNull (columns);
+            Guard.ThrowIfNull (columns);
 
             foreach (var column in columns)
                 Add (column);

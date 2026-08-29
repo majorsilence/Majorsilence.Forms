@@ -38,7 +38,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             // -1 is WinForms' "no image", and it round-trips through the word rather than the number
             // so a property grid shows something a person can read.
@@ -81,7 +81,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             // The empty key is "no image", and it shows as the word for the same reason -1 does.
             if (destinationType == typeof (string) && value is string key && key.Length == 0)
@@ -138,7 +138,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType == typeof (string) && value is int index)
                 return index switch {
@@ -161,7 +161,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType == typeof (string) && value is null)
                 return "(default)";
@@ -192,13 +192,13 @@ namespace Majorsilence.Forms
                 .Trim ();
 
             var percent = double.Parse (trimmed, NumberStyles.Float, culture) / 100d;
-            return Math.Clamp (percent, 0d, 1d);
+            return MathCompat.Clamp (percent, 0d, 1d);
         }
 
         /// <inheritdoc/>
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType == typeof (string) && value is double opacity) {
                 culture ??= CultureInfo.CurrentCulture;
@@ -244,7 +244,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType == typeof (string) && value is SelectionRange range) {
                 culture ??= CultureInfo.CurrentCulture;
@@ -261,7 +261,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? CreateInstance (ITypeDescriptorContext? context, IDictionary propertyValues)
         {
-            ArgumentNullException.ThrowIfNull (propertyValues);
+            Guard.ThrowIfNull (propertyValues);
 
             var start = propertyValues[nameof (SelectionRange.Start)];
             var end = propertyValues[nameof (SelectionRange.End)];
@@ -306,7 +306,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType == typeof (string) && value is Cursor cursor)
                 return StandardCursors ()
@@ -364,7 +364,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (destinationType == typeof (string) && value is LinkLabel.Link link) {
                 culture ??= CultureInfo.CurrentCulture;
@@ -392,7 +392,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? CreateInstance (ITypeDescriptorContext? context, IDictionary propertyValues)
         {
-            ArgumentNullException.ThrowIfNull (propertyValues);
+            Guard.ThrowIfNull (propertyValues);
 
             return new Binding (
                 propertyValues[nameof (Binding.PropertyName)] as string ?? string.Empty,
@@ -471,7 +471,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override object? ConvertTo (ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
-            ArgumentNullException.ThrowIfNull (destinationType);
+            Guard.ThrowIfNull (destinationType);
 
             if (value is not Keys keys)
                 return base.ConvertTo (context, culture, value, destinationType);
@@ -480,14 +480,14 @@ namespace Majorsilence.Forms
                 return Parts (keys).Cast<Enum> ().ToArray ();
 
             if (destinationType == typeof (string))
-                return string.Join ('+', Parts (keys).Select (Format));
+                return string.Join ("+", Parts (keys).Select (Format));
 
             return base.ConvertTo (context, culture, value, destinationType);
         }
 
         /// <inheritdoc/>
         public override StandardValuesCollection GetStandardValues (ITypeDescriptorContext? context)
-            => new (Enum.GetValues<Keys> ().Distinct ().ToArray ());
+            => new (EnumCompat.GetValues<Keys> ().Distinct ().ToArray ());
 
         /// <inheritdoc/>
         public override bool GetStandardValuesSupported (ITypeDescriptorContext? context) => true;

@@ -14,7 +14,7 @@ namespace Majorsilence.Forms.Printing
         /// <summary>Initializes a new instance of the PrintPageEventArgs class.</summary>
         public PrintPageEventArgs (SkiaGraphics graphics, RectangleF marginBounds, RectangleF pageBounds, PageSettings pageSettings)
         {
-            ArgumentNullException.ThrowIfNull (graphics);
+            Guard.ThrowIfNull (graphics);
 
             SkiaGraphics = graphics;
             Graphics = new Graphics (graphics.Canvas);

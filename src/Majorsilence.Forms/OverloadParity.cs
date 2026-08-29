@@ -93,7 +93,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="FindItemWithText(string,bool,int)"/>
         public ListViewItem? FindItemWithText (string text, bool includeSubItemsInSearch, int startIndex, bool isPrefixSearch)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative (startIndex);
+            Guard.ThrowIfNegative (startIndex);
 
             if (string.IsNullOrEmpty (text))
                 return null;
@@ -142,14 +142,14 @@ namespace Majorsilence.Forms
         /// <summary>Repaints one cell.</summary>
         public void InvalidateCell (DataGridViewCell dataGridViewCell)
         {
-            ArgumentNullException.ThrowIfNull (dataGridViewCell);
+            Guard.ThrowIfNull (dataGridViewCell);
             InvalidateCell (dataGridViewCell.ColumnIndex, dataGridViewCell.RowIndex);
         }
 
         /// <summary>Sorts the rows using the given comparer.</summary>
         public void Sort (IComparer comparer)
         {
-            ArgumentNullException.ThrowIfNull (comparer);
+            Guard.ThrowIfNull (comparer);
 
             var sorted = Rows.OrderBy (static row => row, Comparer<DataGridViewRow>.Create (comparer.Compare)).ToList ();
 
@@ -212,7 +212,7 @@ namespace Majorsilence.Forms
         /// <summary>Adds an item and returns its index.</summary>
         public int Add (ToolStripItem value)
         {
-            ArgumentNullException.ThrowIfNull (value);
+            Guard.ThrowIfNull (value);
 
             Add ((MenuItem)value);
             return Count - 1;
@@ -227,7 +227,7 @@ namespace Majorsilence.Forms
         /// <summary>Inserts an item at the given index.</summary>
         public void Insert (int index, ToolStripItem value)
         {
-            ArgumentNullException.ThrowIfNull (value);
+            Guard.ThrowIfNull (value);
             Insert (index, (MenuItem)value);
         }
 
@@ -243,8 +243,8 @@ namespace Majorsilence.Forms
         /// </remarks>
         public void CopyTo (ToolStripItem[] array, int index)
         {
-            ArgumentNullException.ThrowIfNull (array);
-            ArgumentOutOfRangeException.ThrowIfNegative (index);
+            Guard.ThrowIfNull (array);
+            Guard.ThrowIfNegative (index);
 
             if (array.Length - index < Count)
                 throw new ArgumentException ("The destination array is too small.", nameof (array));
@@ -294,7 +294,7 @@ namespace Majorsilence.Forms
         /// <summary>Adds several items at once.</summary>
         public void AddRange (params ToolStripItem[] toolStripItems)
         {
-            ArgumentNullException.ThrowIfNull (toolStripItems);
+            Guard.ThrowIfNull (toolStripItems);
 
             foreach (var item in toolStripItems)
                 Add (item);
@@ -303,7 +303,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="AddRange(ToolStripItem[])"/>
         public void AddRange (ToolStripItemCollection toolStripItems)
         {
-            ArgumentNullException.ThrowIfNull (toolStripItems);
+            Guard.ThrowIfNull (toolStripItems);
 
             // Snapshot first: adding to this collection while enumerating the source would throw when
             // the two are the same instance.

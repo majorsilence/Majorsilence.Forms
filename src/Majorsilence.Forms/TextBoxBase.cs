@@ -228,15 +228,17 @@ namespace Majorsilence.Forms
         public virtual string SelectedText {
             get {
                 var text = Text;
-                var start = Math.Clamp (SelectionStart, 0, text.Length);
-                var length = Math.Clamp (SelectionLength, 0, text.Length - start);
+                var start = MathCompat.Clamp (SelectionStart, 0, text.Length);
+                var length = MathCompat.Clamp (SelectionLength, 0, text.Length - start);
                 return text.Substring (start, length);
             }
             set {
                 var text = Text;
-                var start = Math.Clamp (SelectionStart, 0, text.Length);
-                var length = Math.Clamp (SelectionLength, 0, text.Length - start);
-                Text = string.Concat (text.AsSpan (0, start), value ?? string.Empty, text.AsSpan (start + length));
+                var start = MathCompat.Clamp (SelectionStart, 0, text.Length);
+                var length = MathCompat.Clamp (SelectionLength, 0, text.Length - start);
+                // string.Concat(ReadOnlySpan<char>, ...) is a .NET Core 3.0 addition; Substring is fine
+                // here (selection text is small and this is a rare setter path).
+                Text = string.Concat (text.Substring (0, start), value ?? string.Empty, text.Substring (start + length));
             }
         }
 

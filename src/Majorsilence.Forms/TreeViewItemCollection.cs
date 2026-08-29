@@ -134,7 +134,7 @@ namespace Majorsilence.Forms
         /// <summary>Copies this collection into an array.</summary>
         public void CopyTo (Array dest, int index)
         {
-            ArgumentNullException.ThrowIfNull (dest);
+            Guard.ThrowIfNull (dest);
 
             foreach (var node in this)
                 dest.SetValue (node, index++);

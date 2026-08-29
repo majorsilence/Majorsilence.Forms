@@ -569,7 +569,7 @@ namespace Majorsilence.Forms
         public SelectionMode SelectionMode {
             get => selection_mode;
             set {
-                if (!Enum.IsDefined (value))
+                if (!EnumCompat.IsDefined (value))
                     throw new InvalidEnumArgumentException ($"Enum argument value '{value}' is not valid for SelectionMode");
 
                 if (selection_mode == value)

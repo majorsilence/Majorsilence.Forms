@@ -582,8 +582,8 @@ namespace Majorsilence.Forms
             bool isFirstDisplayedColumn,
             bool isLastVisibleColumn)
         {
-            ArgumentNullException.ThrowIfNull (dataGridViewAdvancedBorderStyleInput);
-            ArgumentNullException.ThrowIfNull (dataGridViewAdvancedBorderStylePlaceholder);
+            Guard.ThrowIfNull (dataGridViewAdvancedBorderStyleInput);
+            Guard.ThrowIfNull (dataGridViewAdvancedBorderStylePlaceholder);
 
             var result = dataGridViewAdvancedBorderStylePlaceholder;
 

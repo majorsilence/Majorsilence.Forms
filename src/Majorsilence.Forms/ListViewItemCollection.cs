@@ -20,7 +20,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public void AddRange (params ListViewItem[] items)
         {
-            ArgumentNullException.ThrowIfNull (items);
+            Guard.ThrowIfNull (items);
 
             foreach (var item in items)
                 Add (item);
