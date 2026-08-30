@@ -5,24 +5,45 @@
        MajorsilenceFormsPresenter element and ToWpfElement()/ToWpfWindow(), the same pair
        Majorsilence.Forms.Avalonia / .Uno / .WinForms provide for their hosts.
 
-       Windows-only by definition — WPF only runs on Windows. EnableWindowsTargeting lets net10.0-windows
-       + UseWPF *compile* on the Linux/macOS CI legs against the reference assemblies (it just can't
-       run there), so this is a real compile gate everywhere; the shipped package is produced by the
-       Windows CI leg (see release.yml's pack-windows job). -->
+       Targets:
+         * net48                — classic .NET Framework 4.8 WPF apps. Consumes the netstandard2.0
+                                  row of Majorsilence.Forms. Builds on any OS via the reference-assembly
+                                  package (the WPF reference assemblies ship in it too; only *running*
+                                  WPF needs Windows), so it is a real compile gate on every CI leg.
+         * net8.0-windows /
+           net10.0-windows      — modern .NET WPF. EnableWindowsTargeting lets net*-windows + UseWPF
+                                  *compile* on the Linux/macOS CI legs against the reference assemblies
+                                  (it just can't run there), so those are a real compile gate everywhere
+                                  too. The shipped package is produced by the Windows CI leg (see
+                                  release.yml's pack-windows job).
+
+       Windows-only at runtime by definition — WPF only runs on Windows. -->
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFrameworks>net48;net8.0-windows;net10.0-windows</TargetFrameworks>
     <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- net10.0-windows defaults to C# 7.3 with the repo-wide Nullable=enable; force latest. -->
+    <!-- The SDK otherwise defaults net48 / net*-windows to C# 7.3, which rejects the repo-wide
+         Nullable=enable and the switch expressions / patterns this project uses; force latest. -->
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <!-- .NET Framework 4.8 reference assemblies so net48 builds on any runner (this package carries
+         the WPF reference assemblies — PresentationCore/PresentationFramework/WindowsBase/System.Xaml —
+         so UseWPF resolves against them; the Windows CI leg also has the real targeting pack). -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
+    <!-- Microsoft.Win32.OpenFolderDialog is WPF .NET 8+; the net48 folder picker in WpfDialogs falls
+         back to the in-box System.Windows.Forms.FolderBrowserDialog (framework assembly, no package). -->
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
 
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.Wpf</PackageId>
     <Description>WPF (System.Windows) platform backend for Majorsilence.Forms — run a cross-platform WinForms-style app on a real WPF Window, or embed Majorsilence.Forms controls in an existing WPF application via MajorsilenceFormsPresenter/ToWpfElement(), then switch to the Avalonia or Uno host once ported. Windows-only, like WPF itself.</Description>
-    <PackageTags>wpf;system-windows;presentation-foundation;interop;migration;majorsilence-forms;windows;skiasharp;backend</PackageTags>
+    <PackageTags>wpf;system-windows;presentation-foundation;interop;migration;majorsilence-forms;windows;skiasharp;backend;dotnet-framework</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

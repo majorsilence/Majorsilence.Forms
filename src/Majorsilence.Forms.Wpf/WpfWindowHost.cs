@@ -354,8 +354,11 @@ namespace Majorsilence.Forms.Wpf
 
         public void BeginResizeDrag (WindowEdge edge)
         {
+#if !NET48
+            // net48 is Windows-only anyway; OperatingSystem.IsWindows is .NET Core 3.0+.
             if (!OperatingSystem.IsWindows ())
                 return;
+#endif
 
             var handle = TryGetPlatformHandle ();
             if (handle == IntPtr.Zero)

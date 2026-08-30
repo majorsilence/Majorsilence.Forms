@@ -78,9 +78,9 @@ namespace Majorsilence.Forms.Backends
         /// </summary>
 #if NETSTANDARD2_0
         // Default interface members aren't supported on the netstandard2.0 runtime (.NET Framework
-        // consumers). No IWindowBackend implementation is compiled for that TFM -- every backend
-        // (Avalonia/Uno/WinForms/Headless) targets net8.0+ -- so a downlevel backend, if one is ever
-        // added, implements these five members explicitly.
+        // consumers). The net48 rows of Majorsilence.Forms.WinForms and Majorsilence.Forms.Wpf consume
+        // that core build, and both implement these five members explicitly (as would any other
+        // downlevel backend); the Avalonia/Uno/Headless backends are net8.0+ only and get the defaults.
         System.IntPtr TryGetPlatformHandle ();
 #else
         System.IntPtr TryGetPlatformHandle () => System.IntPtr.Zero;

@@ -52,6 +52,23 @@ namespace Majorsilence.Forms.Wpf
 
         internal static string? ShowOpenFolderDialog (Window? owner, FolderDialogRequest request)
         {
+#if NET48
+            // Microsoft.Win32.OpenFolderDialog is WPF .NET 8+. On .NET Framework the classic
+            // folder picker is System.Windows.Forms.FolderBrowserDialog (in-box, no package).
+            using var dialog = new System.Windows.Forms.FolderBrowserDialog ();
+            if (!string.IsNullOrEmpty (request.Title))
+                dialog.Description = request.Title;
+            if (!string.IsNullOrEmpty (request.InitialDirectory))
+                dialog.SelectedPath = request.InitialDirectory;
+
+            var handle = owner is not null
+                ? new System.Windows.Interop.WindowInteropHelper (owner).Handle
+                : IntPtr.Zero;
+            var result = handle != IntPtr.Zero
+                ? dialog.ShowDialog (new Win32Window (handle))
+                : dialog.ShowDialog ();
+            return result == System.Windows.Forms.DialogResult.OK ? dialog.SelectedPath : null;
+#else
             var dialog = new Win32.OpenFolderDialog ();   // WPF (.NET 8+)
             if (!string.IsNullOrEmpty (request.Title))
                 dialog.Title = request.Title;
@@ -60,7 +77,18 @@ namespace Majorsilence.Forms.Wpf
 
             var ok = owner is not null ? dialog.ShowDialog (owner) : dialog.ShowDialog ();
             return ok == true ? dialog.FolderName : null;
+#endif
         }
+
+#if NET48
+        /// <summary>Adapts a WPF window handle to the WinForms <see cref="System.Windows.Forms.IWin32Window"/>
+        /// the .NET Framework <see cref="System.Windows.Forms.FolderBrowserDialog"/> takes as an owner.</summary>
+        private sealed class Win32Window : System.Windows.Forms.IWin32Window
+        {
+            public Win32Window (IntPtr handle) => Handle = handle;
+            public IntPtr Handle { get; }
+        }
+#endif
 
         // "Name|*.a;*.b|Name2|*.c" — the Win32 common-dialog filter format (same as WinForms).
         private static string BuildFilter (IReadOnlyList<FileDialogFilter> filters)

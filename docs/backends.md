@@ -20,17 +20,21 @@ separate assemblies that depend on the core and reach into its internal render/i
 
 **Target frameworks.** The core (`Majorsilence.Forms`, `Majorsilence.Forms.Drawing.Common`,
 `Majorsilence.Forms.Telerik`, and the two embedded shim assemblies) multi-targets `net8.0`, `net10.0`
-and `netstandard2.0`. `Majorsilence.Forms.WinForms` adds a `net48` row (paired with the core's
-`netstandard2.0` build) alongside its `net8.0-windows` / `net10.0-windows` targets, so a classic
-.NET Framework 4.8 WinForms app can use it as the host. `Majorsilence.Forms.Wpf` targets
-`net10.0-windows` (Windows-only, like WPF); `EnableWindowsTargeting` lets it *compile* on the
-Linux/macOS CI legs so it stays a real compile gate. The other backends (Avalonia, Uno, Headless)
-target `net8.0`+ only — there is no `netstandard2.0` `IPlatformBackend` implementation, so on a
-non-Windows .NET Framework runtime an app can reference the controls but not host a window. On the
-`netstandard2.0` row the five optional no-op members of `IWindowBackend` (`SetShaped`,
-`SetTextInputActive`, …) are plain interface members rather than default implementations, and
-`Control` carries an explicit no-op `ISupportInitialize`; both differences are compiled out on
-`net8.0`/`net10.0`. The `net48` WinForms backend therefore implements those five members explicitly.
+and `netstandard2.0`. `Majorsilence.Forms.WinForms` and `Majorsilence.Forms.Wpf` each add a `net48`
+row (paired with the core's `netstandard2.0` build) alongside their `net8.0-windows` /
+`net10.0-windows` targets, so a classic .NET Framework 4.8 WinForms or WPF app can use it as the
+host. The `net48` row of both builds for real on every OS via the
+`Microsoft.NETFramework.ReferenceAssemblies` package (the WinForms *and* WPF reference assemblies are
+cross-platform; only *running* needs Windows), so it is a compile gate on all CI legs. For the
+`net*-windows` rows the two backends differ: the WinForms one falls back to an empty placeholder off
+Windows, while the WPF one compiles them for real everywhere through `EnableWindowsTargeting`. The
+other backends (Avalonia, Uno, Headless) target `net8.0`+ only — there is no `netstandard2.0`
+`IPlatformBackend` implementation, so on a non-Windows .NET Framework runtime an app can reference
+the controls but not host a window. On the `netstandard2.0` row the five optional no-op members of `IWindowBackend`
+(`SetShaped`, `SetTextInputActive`, …) are plain interface members rather than default
+implementations, and `Control` carries an explicit no-op `ISupportInitialize`; both differences are
+compiled out on `net8.0`/`net10.0`. The `net48` WinForms and WPF backends therefore implement those
+five members explicitly.
 
 ## The seam
 

@@ -12,7 +12,10 @@ It is the WPF counterpart of `Majorsilence.Forms.Avalonia`, `Majorsilence.Forms.
 `Majorsilence.Forms.WinForms`, including their embedding direction (`MajorsilenceFormsPresenter`,
 `ToWpfElement()`, `ToWpfWindow()`).
 
-**Windows-only**, like WPF itself. Targets `net10.0-windows`.
+**Windows-only** at runtime, like WPF itself.
+
+**Target frameworks:** `net48` (classic .NET Framework 4.8 — pairs with the `netstandard2.0` build of
+`Majorsilence.Forms`), plus `net8.0-windows` and `net10.0-windows` for modern .NET.
 
 ## Install
 
