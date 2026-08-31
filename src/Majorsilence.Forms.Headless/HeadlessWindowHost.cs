@@ -125,7 +125,14 @@ namespace Majorsilence.Forms.Headless
         public void BeginResizeDrag (WindowEdge edge) { }
 
         // ── Rendering ── (headless renders on demand via Render(), so there is nothing to schedule)
-        public void Invalidate () { }
+
+        /// <summary>How many times the window has been asked to repaint. Nothing headless acts on an
+        /// invalidate, but whether one arrives at all is observable behaviour worth asserting: the
+        /// core marshals repaints to the UI thread, and a repaint posted with no message loop to drain
+        /// it never happens. Same shape as <see cref="MoveDragCount"/>.</summary>
+        public int InvalidateCount { get; private set; }
+
+        public void Invalidate () => InvalidateCount++;
 
         // ── Pickers (unavailable headless) ──
         public Task<string[]> ShowOpenFileDialog (OpenFileRequest request) => Task.FromResult (Array.Empty<string> ());

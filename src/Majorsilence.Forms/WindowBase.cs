@@ -777,7 +777,17 @@ namespace Majorsilence.Forms
             // awaiting its data). Calling the backend directly from there would no-op, leaving freshly
             // loaded content unpainted until the next input event. Marshal to the UI thread when needed;
             // Post is fire-and-forget, so this never blocks (and cannot deadlock sync-over-async code).
-            if (Majorsilence.Forms.Backends.Platform.Backend.CheckAccess ())
+            //
+            // HasMessageLoop is the second, load-bearing half, for the same reason it is in
+            // ControlAndFormParity.Dispatch: posting only enqueues, and the queue is drained by the
+            // message loop. With no loop running, posting drops the repaint on the floor for good --
+            // and silently, which is worse than repainting on the "wrong" thread. That is not a corner
+            // case: the backend's UI thread is pinned by whichever thread constructs the first window
+            // (WindowBase's constructor calls Platform.Backend.Initialize), so any host -- or test --
+            // that creates a window on one thread and invalidates from another before Application.Run
+            // lands here. It cost a red CI gate, where a theme change repainted nothing at all because
+            // the invalidate went into a queue nobody would ever drain.
+            if (Majorsilence.Forms.Backends.Platform.Backend.CheckAccess () || !Application.HasMessageLoop)
                 Backend.Invalidate ();
             else
                 Majorsilence.Forms.Backends.Platform.Backend.Post (Backend.Invalidate);
