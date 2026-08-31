@@ -212,9 +212,22 @@ namespace Majorsilence.Forms
 
             if (_framebuffer is null || _framebuffer.PixelSize.Width != physW || _framebuffer.PixelSize.Height != physH) {
                 _framebuffer?.Dispose ();
+
+                // 96 DPI, NOT 96 * scaling. The framebuffer holds physical pixels (physW/physH already
+                // include the scale), and PaintFrame presents it through _surface, an Image with
+                // Stretch.Fill that is sized to this host's *logical* Bounds. A plain 96 DPI bitmap is
+                // therefore taken as a logical-sized source of physW x physH and Stretch.Fill scales it
+                // down by 1/scaling into the logical-sized Image; Avalonia's compositor then scales that
+                // back up by RenderScaling, so a framebuffer pixel lands on a physical pixel 1:1.
+                // Tagging it 96 * scaling makes Avalonia treat the source as already logical-sized, the
+                // Stretch.Fill downscale drops out, and the whole scene renders magnified by `scaling`
+                // (invisible on the browser single-view host, where RenderScaling is 1; very visible on
+                // Android at ~2.6, where taps then landed several rows past the finger). MajorsilenceForms-
+                // WindowHost avoids this only because its Image stretches inside a Grid with no explicit
+                // size, making the source and destination logical sizes match.
                 _framebuffer = new WriteableBitmap (
                     new PixelSize (physW, physH),
-                    new Vector (96 * scaling, 96 * scaling),
+                    new Vector (96, 96),
                     PixelFormat.Bgra8888,
                     AlphaFormat.Premul);
                 _dirty = true;

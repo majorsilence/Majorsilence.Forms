@@ -480,6 +480,41 @@ namespace Majorsilence.Forms
                 vscrollbar.RaiseMouseWheel (e);
         }
 
+        private double _scrollGestureRemainder;
+
+        /// <summary>
+        /// Pans the visible range on a touch drag/flick. ListBox owns its own vertical scrollbar
+        /// rather than deriving from <see cref="ScrollableControl"/>, so the neutral scroll-gesture
+        /// event (drag, plus the recognizer's decaying inertia deltas after lift-off) is bridged to
+        /// that scrollbar here. Content follows the finger: dragging up reveals items further down.
+        /// </summary>
+        protected override void OnScrollGesture (ScrollGestureEventArgs e)
+        {
+            base.OnScrollGesture (e);
+
+            if (!vscrollbar.Visible)
+                return;
+
+            // This control scrolls itself; don't also pan a scrollable ancestor (RaiseScrollGesture).
+            e.Handled = true;
+
+            if (e.Delta.Y == 0)
+                return;
+
+            var itemHeight = Math.Max (1, ItemHeight);
+
+            // e.Delta is logical pixels; accumulate the sub-item remainder so a slow drag still moves.
+            _scrollGestureRemainder += (double) e.Delta.Y / itemHeight;
+            var steps = (int) _scrollGestureRemainder;
+            if (steps == 0)
+                return;
+            _scrollGestureRemainder -= steps;
+
+            var target = Math.Max (vscrollbar.Minimum, Math.Min (vscrollbar.Value - steps, vscrollbar.Maximum));
+            if (target != vscrollbar.Value)
+                vscrollbar.Value = target;
+        }
+
         /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
         {

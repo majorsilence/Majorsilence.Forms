@@ -124,6 +124,9 @@ namespace Majorsilence.Forms
             if (!auto_scroll)
                 return;
 
+            // This control owns the gesture now; don't let it also bubble to an outer scrollable.
+            e.Handled = true;
+
             // AutoScrollPosition's getter returns WinForms-style negative offsets; its setter takes
             // the (unsigned) magnitude and clamps to the scrollbar range itself -- but only after an
             // internal Math.Abs(), which would silently flip a magnitude that went negative back to

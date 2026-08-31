@@ -174,7 +174,11 @@ namespace Majorsilence.Forms
             if (!glyph_bounds.IsEmpty)
                 glyph_bounds.Inflate (4, 4);
 
-            if (glyph_bounds.Contains (location))
+            // location arrives logical (MouseEventArgs); glyph_bounds is device-pixel (built from the
+            // item's device Bounds). Convert before testing, as TreeView.GetItemAtLocation does.
+            var device = new Point (tv.LogicalToDeviceUnits (location.X), tv.LogicalToDeviceUnits (location.Y));
+
+            if (glyph_bounds.Contains (device))
                 return TreeViewItemElement.Glyph;
 
             return TreeViewItemElement.None;

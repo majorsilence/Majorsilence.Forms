@@ -34,22 +34,9 @@ public class GestureTests
             var button = new Button { ContextMenu = menu, Left = 10, Top = 10, Width = 100, Height = 30 };
             form.Controls.Add (button);
 
-            // KNOWN LIMITATION, scaled displays only. WindowBase.HandleLongPress routes by comparing
-            // the incoming point against control Bounds, and the two are not in the same units: the
-            // entry point takes device pixels (proven by the pinch/swipe/scroll tests either side of
-            // this one, which need WindowPoint.DeviceIn to land at MF_HEADLESS_SCALE=2) while Bounds
-            // are logical. At scaling 1 they coincide and the mix is invisible; above it the press
-            // misses by the scale factor, compounded once per level of nesting -- which is why this
-            // surfaced when the form grew a client area between the adapter and its children, and not
-            // before. It is the same logical-vs-device asymmetry BACKLOG.md calls the root of most
-            // HiDPI failures, in a path its earlier sweep did not reach.
-            //
-            // Asserted at scaling 1 rather than deleted or silently weakened: the routing contract is
-            // real and worth pinning, and this comment is the record that the scaled case is broken
-            // rather than untested.
-            if (button.Scaling != 1)
-                return;
-
+            // WindowBase.HandleLongPress (like the other Handle* gesture entry points) takes device
+            // pixels and converts them to logical at the boundary, exactly as HandlePointerPressed
+            // does -- so routing against logical Bounds holds at MF_HEADLESS_SCALE=2 too.
             var pressAt = WindowPoint.DeviceIn (button, 20, 15);
             form.HandleLongPress (pressAt.X, pressAt.Y);
 
@@ -117,7 +104,8 @@ public class GestureTests
 
             Assert.NotNull (received);
             Assert.Equal (SwipeDirection.Up, received!.Direction);
-            Assert.Equal (-500, received.VelocityY);
+            // Velocity, like the point, is device pixels/sec converted to logical at the boundary.
+            Assert.Equal (-500 / target.Scaling, received.VelocityY);
         } finally {
             form.Close ();
         }
@@ -145,11 +133,66 @@ public class GestureTests
             // RaiseScrollGesture's ancestor walk, not just the exact hit-tested leaf. Content follows
             // the finger, so an upward drag (negative deltaY) reveals content further down (increases
             // scroll magnitude); starting from the top, a downward drag would just clamp back to 0.
+            // The delta, like the point, is device pixels converted to logical at the boundary, so the
+            // panned distance is scale-relative: a 40px-device drag is DeviceToLogicalUnits(40) logical.
             var scrollAt = WindowPoint.DeviceIn (panel, 20, 20);
             form.HandleScrollGesture (scrollAt.X, scrollAt.Y, 0, -40);
 
             Assert.NotEqual (before, panel.AutoScrollPosition);
-            Assert.Equal (40, panel.VerticalScrollProperties.Value);
+            Assert.Equal (panel.DeviceToLogicalUnits (40), panel.VerticalScrollProperties.Value);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void HandleScrollGesture_ScrollsTreeView_ThatOwnsItsOwnScrollbar ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);   // force a layout pass so the scrollbar shows
+
+            ScrollGestureEventArgs? seen = null;
+            tree.ScrollGesture += (_, e) => seen = e;
+
+            Assert.Equal ("Node 0", tree.LayoutedItems[0].Text);
+
+            // An upward drag (content follows the finger) reveals nodes further down. Delta is device
+            // pixels; make it several rows' worth so the sub-row remainder is not what is under test.
+            var scrollAt = WindowPoint.DeviceIn (tree, 20, 20);
+            form.HandleScrollGesture (scrollAt.X, scrollAt.Y, 0, tree.LogicalToDeviceUnits (-400));
+
+            Assert.NotNull (seen);
+            HeadlessRenderer.CapturePng (form, 300, 200);   // repaint so LayoutedItems reflects the new scroll offset
+            Assert.NotEqual ("Node 0", tree.LayoutedItems[0].Text);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void HandleScrollGesture_ScrollsListBox_ThatOwnsItsOwnScrollbar ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var list = new ListBox { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                list.Items.Add ($"Item {i}");
+            form.Controls.Add (list);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            Assert.Equal (0, list.FirstVisibleIndex);
+
+            var scrollAt = WindowPoint.DeviceIn (list, 20, 20);
+            form.HandleScrollGesture (scrollAt.X, scrollAt.Y, 0, list.LogicalToDeviceUnits (-400));
+
+            Assert.True (list.FirstVisibleIndex > 0);
         } finally {
             form.Close ();
         }

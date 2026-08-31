@@ -2205,12 +2205,12 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Finds the correct control and calls its OnScrollGesture method. Unlike the other Raise*
-        /// gesture methods, once hit-testing bottoms out at a leaf control, this walks that control's
-        /// own ancestor chain (starting with itself) for the nearest <see cref="ScrollableControl"/>
-        /// and raises there instead — so dragging over e.g. a Label inside a scrollable Panel pans
-        /// the Panel, matching how touch-scrolling a list works regardless of which child is under
-        /// the finger. A leaf with no scrollable ancestor still raises on itself, for the raw event.
+        /// Finds the correct control and calls its OnScrollGesture method. Once hit-testing bottoms
+        /// out at a leaf control, the leaf gets first refusal (this is where <see cref="TreeView"/> and
+        /// <see cref="ListBox"/> pan their own scrollbar); if it does not mark the event
+        /// <see cref="ScrollGestureEventArgs.Handled"/>, the gesture then bubbles up the ancestor chain
+        /// to the nearest <see cref="ScrollableControl"/> that consumes it — so dragging over e.g. a
+        /// Label inside a scrollable Panel pans the Panel, whichever child is under the finger.
         /// </summary>
         internal void RaiseScrollGesture (ScrollGestureEventArgs e)
         {
@@ -2231,14 +2231,11 @@ namespace Majorsilence.Forms
             if (!Enabled)
                 return;
 
-            for (var target = this; target != null; target = target.Parent) {
-                if (target is ScrollableControl) {
-                    target.OnScrollGesture (e);
-                    return;
-                }
-            }
-
             OnScrollGesture (e);
+
+            for (var target = Parent; target != null && !e.Handled; target = target.Parent)
+                if (target is ScrollableControl)
+                    target.OnScrollGesture (e);
         }
 
         /// <summary>
@@ -2736,29 +2733,33 @@ namespace Majorsilence.Forms
             return new MouseEventArgs (e.Button, e.Clicks, e.Location.X - control.Left, e.Location.Y - control.Top, e.DeltaPoint, e.Location.X, e.Location.Y, e.Modifiers);
         }
 
+        // The gesture Translate* helpers subtract logical Left/Top, not ScaledLeft/ScaledTop: the
+        // gesture point is in logical units by the time it gets here (WindowBase.HandleXxx converts it
+        // at the boundary, same as MouseEventArgs), so this matches TranslateMouseEvents.
+
         /// <summary>
         /// Changes long-press events to control coordinates.
         /// </summary>
         private static LongPressEventArgs TranslateLongPressEvent (LongPressEventArgs e, Control control)
-            => new LongPressEventArgs (e.X - control.ScaledLeft, e.Y - control.ScaledTop);
+            => new LongPressEventArgs (e.X - control.Left, e.Y - control.Top);
 
         /// <summary>
         /// Changes pinch events to control coordinates.
         /// </summary>
         private static PinchGestureEventArgs TranslatePinchEvent (PinchGestureEventArgs e, Control control)
-            => new PinchGestureEventArgs (e.X - control.ScaledLeft, e.Y - control.ScaledTop, e.Scale, e.Angle, e.AngleDelta);
+            => new PinchGestureEventArgs (e.X - control.Left, e.Y - control.Top, e.Scale, e.Angle, e.AngleDelta);
 
         /// <summary>
         /// Changes swipe events to control coordinates.
         /// </summary>
         private static SwipeGestureEventArgs TranslateSwipeEvent (SwipeGestureEventArgs e, Control control)
-            => new SwipeGestureEventArgs (e.X - control.ScaledLeft, e.Y - control.ScaledTop, e.VelocityX, e.VelocityY, e.Direction);
+            => new SwipeGestureEventArgs (e.X - control.Left, e.Y - control.Top, e.VelocityX, e.VelocityY, e.Direction);
 
         /// <summary>
         /// Changes scroll-gesture events to control coordinates.
         /// </summary>
         private static ScrollGestureEventArgs TranslateScrollGestureEvent (ScrollGestureEventArgs e, Control control)
-            => new ScrollGestureEventArgs (e.X - control.ScaledLeft, e.Y - control.ScaledTop, e.Delta);
+            => new ScrollGestureEventArgs (e.X - control.Left, e.Y - control.Top, e.Delta);
 
         /// <summary>
         /// Gets or sets whether the control is displayed to the user.

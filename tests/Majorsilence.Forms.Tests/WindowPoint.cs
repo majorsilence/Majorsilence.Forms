@@ -51,9 +51,8 @@ internal static class WindowPoint
     /// <remarks>
     /// <c>WindowBase.HandleLongPress</c>, <c>HandlePinch</c>, <c>HandleSwipe</c> and
     /// <c>HandleScrollGesture</c> are the backend-facing callbacks and take device pixels, the way a
-    /// real backend delivers them. <c>HeadlessRenderer</c>'s mouse helpers convert for you and take
-    /// logical; these do not. Identical while the display factor is 1, which is what lets the mistake
-    /// hide until MF_HEADLESS_SCALE=2 runs.
+    /// real backend delivers them (they convert to logical at the boundary, as HandlePointerPressed
+    /// does). <c>HeadlessRenderer</c>'s mouse helpers convert for you and take logical; these do not.
     /// </remarks>
     internal static Point DeviceIn (Control control, int x, int y)
     {
