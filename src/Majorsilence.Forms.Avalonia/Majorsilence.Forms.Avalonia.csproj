@@ -25,6 +25,10 @@
          samples/Gallery.iOS, and EnableIOSTarget=true forces it directly. See Directory.Build.props. -->
     <TargetFrameworks Condition="'$(EnableIOSHead)' == 'true'">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Trim + AOT + single-file analyzers. This backend renders the Majorsilence scene into a Skia
+         framebuffer over a XAML-less Avalonia.Application, so it stays clear of Avalonia's own
+         reflection-heavy XAML paths and analyzes clean. See docs/backends.md "Trimming and NativeAOT". -->
+    <IsAotCompatible>true</IsAotCompatible>
     <!-- Every project file here lives in "namespace Majorsilence.Forms { }" and refers to the Avalonia
          package's types unqualified (bare "Avalonia.Whatever"). The default RootNamespace (derived from
          the assembly/project name) is "Majorsilence.Forms.Avalonia", which is fine normally, but the Android SDK

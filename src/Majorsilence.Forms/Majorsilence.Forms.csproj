@@ -4,8 +4,12 @@
     <TargetFrameworks>net8.0;net10.0;netstandard2.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Trimming/NativeAOT concepts don't apply to the netstandard2.0 consumers (.NET Framework 4.7.2+,
-         Mono, older Unity). -->
+         Mono, older Unity). On the .NET TFMs IsAotCompatible turns on the trim + AOT + single-file
+         analyzers (and implies IsTrimmable) so a new reflection/dynamic-code hazard fails the Release
+         build (TreatWarningsAsErrors) rather than silently breaking a trimmed or NativeAOT consumer.
+         See docs/backends.md "Trimming and NativeAOT". -->
     <IsTrimmable Condition=" '$(TargetFramework)' != 'netstandard2.0' ">true</IsTrimmable>
+    <IsAotCompatible Condition=" '$(TargetFramework)' != 'netstandard2.0' ">true</IsAotCompatible>
     <!-- The SDK otherwise defaults the netstandard2.0 row to C# 7.3, which breaks the nullable
          annotations, records, switch expressions, file-scoped namespaces, collection expressions,
          etc. used throughout this project. Same reason Majorsilence.Forms.Drawing.Common sets it. -->

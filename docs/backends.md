@@ -88,6 +88,28 @@ first window is created:
 Majorsilence.Forms.Backends.Platform.Backend = new Majorsilence.Forms.Headless.HeadlessPlatformBackend ();
 ```
 
+### Trimming and NativeAOT
+
+`Majorsilence.Forms`, `Majorsilence.Forms.Drawing.Common`, `Majorsilence.Forms.Avalonia` and
+`Majorsilence.Forms.Headless` build with `IsAotCompatible` on for their .NET target frameworks, so the
+trim, AOT and single-file analyzers run and — because Release also sets `TreatWarningsAsErrors` — a new
+`IL2xxx`/`IL3xxx` hazard fails the build rather than silently breaking a trimmed or NativeAOT consumer.
+The reflection that *is* left (a handful of clipboard/drag "as JSON" helpers, `Message.GetLParam(Type)`)
+carries `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]`, so a caller is warned at its own call
+site. The `Majorsilence.Forms.Backends.Platform` default-backend lookup uses `Type.GetType` with a
+**constant** string, which the IL trimmer follows, so a trimmed app that just references
+`Majorsilence.Forms.Avalonia` still resolves it. The netstandard2.0 rows are unanalysed — trimming and
+AOT are not concepts there (.NET Framework / Mono).
+
+The other backends (`Uno`, `WinForms`, `Wpf`, `Telerik`) are **not** analysed: Uno/WinUI, WinForms and
+WPF are themselves reflection-heavy and out of scope for an AOT guarantee.
+
+`tests/Majorsilence.Forms.AotSmoke` is a `PublishAot=true` console that renders a `Form` (Label +
+Button + TreeView) to a PNG on the Headless backend; CI's `aot-smoke` job publishes it for `linux-x64`
+and runs the native binary, so an ILC failure the analysers can't see (something in a dependency, a
+trimmed static constructor) shows up as a non-zero exit. Avalonia-on-desktop NativeAOT additionally
+depends on Avalonia's own trim story and is not covered here.
+
 ## Embedding in a host app
 
 Everything above assumes Majorsilence.Forms owns the top-level window and the backend is just the

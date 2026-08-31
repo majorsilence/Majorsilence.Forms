@@ -25,8 +25,16 @@ internal sealed class SourceGenerated
             if (Attribute.IsDefined (type, typeof (FlagsAttribute))) {
                 // Flags enum: the value must not contain any bit outside the union of defined members.
                 long mask = 0;
+#if NET8_0_OR_GREATER
+                // GetValuesAsUnderlyingType returns the boxed underlying values (int[]/long[]/...), so
+                // it needs no runtime-constructed TEnum[] -- unlike Enum.GetValues(Type), which is
+                // RequiresDynamicCode. The loop only reads the numeric value anyway.
+                foreach (var member in Enum.GetValuesAsUnderlyingType (type))
+                    mask |= Convert.ToInt64 (member);
+#else
                 foreach (var member in Enum.GetValues (type))
                     mask |= Convert.ToInt64 (member);
+#endif
 
                 var value = Convert.ToInt64 (e);
                 if ((value & ~mask) != 0)

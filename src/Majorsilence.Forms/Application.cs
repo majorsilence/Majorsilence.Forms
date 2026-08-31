@@ -433,10 +433,12 @@ namespace Majorsilence.Forms
         public static string StartupPath => startup_path ??= AppContext.BaseDirectory;
 
         /// <summary>Gets the path to the executable file that started the application.</summary>
+        // No Assembly.Location fallback: it is the empty string in a single-file app (IL3000), and the
+        // apphost path from MainModule.FileName is the closer match to WinForms' ExecutablePath anyway.
         public static string ExecutablePath =>
-            System.Diagnostics.Process.GetCurrentProcess ().MainModule?.FileName
-            ?? System.Reflection.Assembly.GetEntryAssembly ()?.Location
-            ?? StartupPath;
+            System.Diagnostics.Process.GetCurrentProcess ().MainModule?.FileName is { Length: > 0 } fileName
+                ? fileName
+                : StartupPath;
 
         /// <summary>Gets or sets whether the application is running in user-interactive mode. Stub in Majorsilence.Forms.</summary>
         public static bool UserInteractive => true;
@@ -676,6 +678,8 @@ namespace Majorsilence.Forms
         /// The marshalled instance, or null when <see cref="LParam"/> is zero — which is what a filter
         /// or WndProc override sees on the backends here, since nothing synthesises struct pointers.
         /// </returns>
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("Marshal.PtrToStructure needs the layout of the target type. On the backends here LParam is always zero, so this branch never runs.")]
+        [System.Diagnostics.CodeAnalysis.RequiresDynamicCode ("Marshal.PtrToStructure generates marshalling code at runtime. On the backends here LParam is always zero, so this branch never runs.")]
         public readonly object? GetLParam (Type cls)
         {
             Guard.ThrowIfNull (cls);
