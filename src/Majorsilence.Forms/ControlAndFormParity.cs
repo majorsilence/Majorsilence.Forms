@@ -327,11 +327,13 @@ namespace Majorsilence.Forms
         /// <remarks>Serialisation is what upstream added this for — it avoids the binary formatter.
         /// The drag itself still reports that none occurred, as <see cref="DoDragDrop(object,DragDropEffects)"/> does.</remarks>
         [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("The dragged type is serialised with reflection, as it is upstream.")]
+        [System.Diagnostics.CodeAnalysis.RequiresDynamicCode ("The dragged type is serialised with the reflection-based JSON serializer, as it is upstream.")]
         public DragDropEffects DoDragDropAsJson<T> (T data, DragDropEffects allowedEffects)
             => DoDragDrop (System.Text.Json.JsonSerializer.Serialize (data), allowedEffects);
 
         /// <inheritdoc cref="DoDragDropAsJson{T}(T,DragDropEffects)"/>
         [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("The dragged type is serialised with reflection, as it is upstream.")]
+        [System.Diagnostics.CodeAnalysis.RequiresDynamicCode ("The dragged type is serialised with the reflection-based JSON serializer, as it is upstream.")]
         public DragDropEffects DoDragDropAsJson<T> (T data, DragDropEffects allowedEffects,
             Majorsilence.Forms.Drawing.Bitmap? dragImage, Point cursorOffset, bool useDefaultDragImage)
             => DoDragDropAsJson (data, allowedEffects);

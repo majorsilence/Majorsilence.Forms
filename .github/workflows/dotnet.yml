@@ -264,6 +264,45 @@ jobs:
           path: samples/Gallery.Wasm/bin/Release/net10.0-browser/publish/wwwroot
           if-no-files-found: error
 
+  # NativeAOT smoke.
+  #
+  # IsAotCompatible on core + Drawing.Common + Avalonia + Headless makes the Release build fail on a
+  # new statically-visible trim/AOT hazard, but the analyzers can't prove a real ILC publish links
+  # and runs -- a reflection call deep in a dependency, or a trimmed static cctor that throws, only
+  # shows up here. tests/Majorsilence.Forms.AotSmoke is a plain console (PublishAot=true) that renders
+  # a Form with a Label/Button/TreeView to a PNG on the Headless backend; the published native binary
+  # exits non-zero if anything in that path breaks. Not in Majorsilence.Forms.slnx, same as the
+  # net472 NetFxSmoke -- built and published explicitly here.
+  #
+  # continue-on-error until it has a stable track record, then promote -- same staged rollout as the
+  # ios and android-smoke jobs. The always-on guard is the analyzer enforcement in the build job.
+  aot-smoke:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # ILC emits object files and hands them to clang; it is preinstalled on ubuntu-latest but name
+      # it as a dependency so a runner-image change that drops it fails loudly here.
+      - name: Verify the native toolchain
+        run: clang --version
+
+      - name: Publish the NativeAOT smoke (linux-x64)
+        run: >-
+          dotnet publish tests/Majorsilence.Forms.AotSmoke/Majorsilence.Forms.AotSmoke.csproj
+          -r linux-x64 --configuration Release
+
+      - name: Run the published native binary
+        run: tests/Majorsilence.Forms.AotSmoke/bin/Release/net10.0/linux-x64/publish/Majorsilence.Forms.AotSmoke
+
   # Android compile gate.
   #
   # samples/Gallery.Android IS a member of Majorsilence.Forms.slnx, but its net10.0-android TFM (and
