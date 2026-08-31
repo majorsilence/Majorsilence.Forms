@@ -355,9 +355,7 @@ jobs:
           target: default
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: |
-            APK=$(find apk -name '*-Signed.apk' | head -n1)
-            bash .github/scripts/android-smoke-test.sh "$APK" smoke-screenshot.png
+          script: bash .github/scripts/android-smoke-test.sh apk smoke-screenshot.png
 
       - name: Upload the smoke screenshot
         if: always()

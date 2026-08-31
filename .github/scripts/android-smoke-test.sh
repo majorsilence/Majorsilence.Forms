@@ -9,16 +9,27 @@
 # emulator, launches it, and fails if the process dies or logcat shows a fatal exception / ANR during
 # the first ~25 seconds.
 #
-# Usage: android-smoke-test.sh <path-to-apk> [screenshot-output-path]
+# Usage: android-smoke-test.sh <apk-or-dir> [screenshot-output-path]
+#   <apk-or-dir>  a *-Signed.apk file, or a directory to search for one (recursively).
 # Assumes `adb` is on PATH and exactly one emulator/device is attached (the emulator-runner action
-# guarantees this).
+# guarantees this). Kept to a single argument that resolves the APK itself, because the
+# emulator-runner action runs each `script:` line as its own shell -- a `$(...)` from one line does
+# not survive to the next.
 
 set -uo pipefail
 
-APK="${1:?usage: android-smoke-test.sh <apk> [screenshot.png]}"
+TARGET="${1:?usage: android-smoke-test.sh <apk-or-dir> [screenshot.png]}"
 SHOT="${2:-}"
 PKG="com.majorsilence.gallery"
 SETTLE_SECONDS=25
+
+if [ -d "$TARGET" ]; then
+  APK="$(find "$TARGET" -name '*-Signed.apk' | head -n1)"
+  [ -n "$APK" ] || { echo "FAIL: no *-Signed.apk under $TARGET" >&2; exit 1; }
+else
+  APK="$TARGET"
+fi
+[ -f "$APK" ] || { echo "FAIL: APK not found: $APK" >&2; exit 1; }
 
 fail() { echo "FAIL: $*" >&2; dump_diagnostics; exit 1; }
 
