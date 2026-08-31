@@ -316,6 +316,57 @@ jobs:
             samples/Gallery.Android/bin/Release/net10.0-android/*-Signed.aab
           if-no-files-found: error
 
+  # Android emulator smoke.
+  #
+  # The `android` job above only proves the APK packages. The startup crash that motivated putting the
+  # head in the solution (MainActivity needed an AppCompat theme) compiled and packaged fine and only
+  # died on launch -- exactly the class of regression a compile gate cannot see. This job installs the
+  # APK the `android` job uploaded onto a booted emulator, launches it, and fails if the process dies
+  # or logcat shows a fatal exception / ANR (see .github/scripts/android-smoke-test.sh).
+  #
+  # Separate job, not a step in `android`: it needs KVM + a full emulator boot (slow, occasionally
+  # flaky), and the compile gate should stay hard and fast. continue-on-error until it has a stable
+  # track record on this runner, then promote it -- same staged rollout as the ios job.
+  android-smoke:
+    needs: android
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the Gallery.Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: gallery-android
+          path: apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Boot an emulator and run the smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            APK=$(find apk -name '*-Signed.apk' | head -n1)
+            bash .github/scripts/android-smoke-test.sh "$APK" smoke-screenshot.png
+
+      - name: Upload the smoke screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-android-smoke-screenshot
+          path: smoke-screenshot.png
+          if-no-files-found: ignore
+
   # iOS compile gate.
   #
   # samples/Gallery.iOS IS a member of Majorsilence.Forms.slnx, but (like Gallery.Android) its
