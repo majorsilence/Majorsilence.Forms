@@ -172,10 +172,17 @@ namespace Majorsilence.Forms
         /// </summary>
         public TreeNode? GetItemAtLocation (Point location)
         {
+            // Mouse coordinates are logical (MouseEventArgs, like Bounds), while the laid-out node bounds
+            // come from LayoutItems() against ClientRectangle and the items' device-pixel GetPreferredSize
+            // and are therefore in device pixels. Comparing the two directly picks the node at index x scale
+            // -- on a phone at scale ~2.6 a tap on the second row selects one two or three rows down -- so
+            // the point is converted before it is tested. Mirrors ListBox.GetIndexAtLocation.
+            var device = new Point (LogicalToDeviceUnits (location.X), LogicalToDeviceUnits (location.Y));
+
             // Use the already-laid-out list from the most recent LayoutItems() call instead of
             // re-traversing the whole visible tree.
             for (var i = 0; i < _layoutItems.Count; i++)
-                if (_layoutItems[i].Bounds.Contains (location)) return _layoutItems[i];
+                if (_layoutItems[i].Bounds.Contains (device)) return _layoutItems[i];
 
             return null;
         }
@@ -734,6 +741,41 @@ namespace Majorsilence.Forms
 
             if (vscrollbar.Visible)
                 vscrollbar.RaiseMouseWheel (e);
+        }
+
+        private double _scrollGestureRemainder;
+
+        /// <summary>
+        /// Pans the visible range on a touch drag/flick. TreeView owns its own vertical scrollbar
+        /// rather than deriving from <see cref="ScrollableControl"/>, so the neutral scroll-gesture
+        /// event (drag, plus the recognizer's decaying inertia deltas after lift-off) is bridged to
+        /// that scrollbar here. Content follows the finger: dragging up reveals items further down.
+        /// </summary>
+        protected override void OnScrollGesture (ScrollGestureEventArgs e)
+        {
+            base.OnScrollGesture (e);
+
+            if (!vscrollbar.Visible)
+                return;
+
+            // This control scrolls itself; don't also pan a scrollable ancestor (RaiseScrollGesture).
+            e.Handled = true;
+
+            if (e.Delta.Y == 0)
+                return;
+
+            var itemHeight = System.Math.Max (1, DeviceToLogicalUnits (ScaledItemHeight));
+
+            // e.Delta is logical pixels; accumulate the sub-item remainder so a slow drag still moves.
+            _scrollGestureRemainder += (double) e.Delta.Y / itemHeight;
+            var steps = (int) _scrollGestureRemainder;
+            if (steps == 0)
+                return;
+            _scrollGestureRemainder -= steps;
+
+            var target = MathCompat.Clamp (vscrollbar.Value - steps, vscrollbar.Minimum, vscrollbar.Maximum);
+            if (target != vscrollbar.Value)
+                vscrollbar.Value = target;
         }
 
         /// <inheritdoc/>

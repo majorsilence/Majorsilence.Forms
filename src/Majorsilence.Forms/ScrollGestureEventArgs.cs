@@ -44,5 +44,13 @@ namespace Majorsilence.Forms
         ///  Gets the pixel delta since the previous <see cref='Control.ScrollGesture'/> event.
         /// </summary>
         public Point Delta { get; }
+
+        /// <summary>
+        ///  Set by a handler that has consumed the gesture (panned its own content) to stop it also
+        ///  bubbling to a scrollable ancestor. A control that owns its own scrollbar -- <see
+        ///  cref="TreeView"/>, <see cref="ListBox"/> -- sets this; <see cref="ScrollableControl"/> sets
+        ///  it when auto-scroll is on.
+        /// </summary>
+        public bool Handled { get; set; }
     }
 }

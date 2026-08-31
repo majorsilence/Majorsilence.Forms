@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Avalonia 12's AvaloniaMainActivity derives from androidx.appcompat.app.AppCompatActivity, whose
+     setContentView throws "You need to use a Theme.AppCompat theme (or descendant) with this activity"
+     unless the activity's theme descends from Theme.AppCompat. The old "@android:style/Theme.NoTitleBar"
+     on MainActivity is a plain framework theme, not an AppCompat one, so the app crashed on the very
+     first frame (on device and emulator alike). This is the AppCompat equivalent (no title bar, no
+     action bar) of what that plain framework theme was there for. -->
+<resources>
+  <style name="GalleryTheme" parent="Theme.AppCompat.NoActionBar">
+    <item name="windowActionBar">false</item>
+    <item name="windowNoTitle">true</item>
+  </style>
+</resources>

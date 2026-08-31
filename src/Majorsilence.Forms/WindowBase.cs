@@ -777,7 +777,17 @@ namespace Majorsilence.Forms
             // awaiting its data). Calling the backend directly from there would no-op, leaving freshly
             // loaded content unpainted until the next input event. Marshal to the UI thread when needed;
             // Post is fire-and-forget, so this never blocks (and cannot deadlock sync-over-async code).
-            if (Majorsilence.Forms.Backends.Platform.Backend.CheckAccess ())
+            //
+            // HasMessageLoop is the second, load-bearing half, for the same reason it is in
+            // ControlAndFormParity.Dispatch: posting only enqueues, and the queue is drained by the
+            // message loop. With no loop running, posting drops the repaint on the floor for good --
+            // and silently, which is worse than repainting on the "wrong" thread. That is not a corner
+            // case: the backend's UI thread is pinned by whichever thread constructs the first window
+            // (WindowBase's constructor calls Platform.Backend.Initialize), so any host -- or test --
+            // that creates a window on one thread and invalidates from another before Application.Run
+            // lands here. It cost a red CI gate, where a theme change repainted nothing at all because
+            // the invalidate went into a queue nobody would ever drain.
+            if (Majorsilence.Forms.Backends.Platform.Backend.CheckAccess () || !Application.HasMessageLoop)
                 Backend.Invalidate ();
             else
                 Majorsilence.Forms.Backends.Platform.Backend.Post (Backend.Invalidate);
@@ -1511,17 +1521,29 @@ namespace Majorsilence.Forms
         // part of IWindowBackend/IPlatformBackend, so a backend that doesn't call these simply never
         // raises gesture events, with no interface to implement and no effect on its own behavior) ──
 
+        // Backends deliver device pixels here, exactly like HandlePointerPressed and friends; the
+        // routing below hit-tests against logical Bounds and the Translate* helpers subtract logical
+        // offsets, so the point (and, for a scroll/swipe, the movement and velocity) is converted at
+        // this boundary once. Identity at scaling 1, which is why routing device coordinates against
+        // logical Bounds went unnoticed until Android (RenderScaling ~2.6) exercised these paths.
+
         internal void HandleLongPress (int x, int y)
-            => adapter.RaiseLongPress (new LongPressEventArgs (x, y));
+            => adapter.RaiseLongPress (new LongPressEventArgs (DeviceToLogical (x), DeviceToLogical (y)));
 
         internal void HandlePinch (int x, int y, double scale, double angle, double angleDelta)
-            => adapter.RaisePinch (new PinchGestureEventArgs (x, y, scale, angle, angleDelta));
+            => adapter.RaisePinch (new PinchGestureEventArgs (DeviceToLogical (x), DeviceToLogical (y), scale, angle, angleDelta));
 
         internal void HandleSwipe (int x, int y, double velocityX, double velocityY, SwipeDirection direction)
-            => adapter.RaiseSwipe (new SwipeGestureEventArgs (x, y, velocityX, velocityY, direction));
+            => adapter.RaiseSwipe (new SwipeGestureEventArgs (
+                DeviceToLogical (x), DeviceToLogical (y),
+                velocityX / DeviceScaleOrOne, velocityY / DeviceScaleOrOne, direction));
 
         internal void HandleScrollGesture (int x, int y, int deltaX, int deltaY)
-            => adapter.RaiseScrollGesture (new ScrollGestureEventArgs (x, y, new System.Drawing.Point (deltaX, deltaY)));
+            => adapter.RaiseScrollGesture (new ScrollGestureEventArgs (
+                DeviceToLogical (x), DeviceToLogical (y),
+                new System.Drawing.Point (DeviceToLogical (deltaX), DeviceToLogical (deltaY))));
+
+        private double DeviceScaleOrOne => Scaling is <= 0 or 1 ? 1 : Scaling;
 
         // WinForms parity: without KeyPreview a form's own key events fire only when no child
         // control has focus; keys otherwise go straight to the focused control. With KeyPreview

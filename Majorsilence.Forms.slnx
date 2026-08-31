@@ -11,7 +11,9 @@
     <Project Path="samples/EmbeddingUno/EmbeddingUno.csproj" />
     <Project Path="samples/EmbeddingWinForms/EmbeddingWinForms.csproj" />
     <Project Path="samples/Explorer/Explore.csproj" />
+    <Project Path="samples/Gallery.Android/Gallery.Android.csproj" />
     <Project Path="samples/Gallery.Avalonia/Gallery.Avalonia.csproj" />
+    <Project Path="samples/Gallery.iOS/Gallery.iOS.csproj" />
     <Project Path="samples/Gallery.Uno/Gallery.Uno.csproj" />
     <Project Path="samples/Gallery.Wasm/Gallery.Wasm.csproj" />
     <Project Path="samples/Gallery.Wpf/Gallery.Wpf.csproj" />

@@ -266,13 +266,20 @@ jobs:
 
   # Android compile gate.
   #
-  # samples/Gallery.Android and Majorsilence.Forms.Avalonia's net10.0-android TFM row are both deliberately
-  # kept out of Majorsilence.Forms.slnx / out of that row's default TargetFrameworks (see the comments on
-  # those two csproj files) specifically so the `build` job above -- which has no `android` workload
-  # installed -- never touches net10.0-android. Unlike wasm-tools, the android workload's reference
-  # assemblies are required just to *compile* against net10.0-android, not only to publish, so this job
-  # (unlike the wasm one) has to install the workload before even a plain `dotnet build` will succeed.
-  # No device/emulator here, so this only proves the APK builds, not that it boots.
+  # samples/Gallery.Android IS a member of Majorsilence.Forms.slnx, but its net10.0-android TFM (and
+  # Majorsilence.Forms.Avalonia's matching row) only switches on with EnableAndroidHead -- which
+  # Directory.Build.props derives automatically when the `android` workload is installed, and which
+  # the `build` job above (no workload) therefore never triggers: there the head compiles as an empty
+  # net10.0 stub. Unlike wasm-tools, the android workload's reference assemblies are required just to
+  # *compile* against net10.0-android, not only to publish, so this job installs the workload and asks
+  # for the row explicitly. No device/emulator here, so this only proves the APK builds, not that it
+  # boots.
+  #
+  # -p:EnableAndroidTarget=true, not the EnableMobileHeads umbrella, and the difference is load-bearing
+  # in both directions. The umbrella also covers ios, whose workload is not installed here; and it is
+  # self-gated on the workload being *detected*, so if that detection ever missed, this job would
+  # quietly publish the empty stub and pass having built nothing. EnableAndroidTarget is the ungated
+  # force: no workload, no build, loudly (NETSDK1147).
   android:
     runs-on: ubuntu-latest
 
@@ -291,8 +298,9 @@ jobs:
 
       # `publish` rather than `build` so it also runs aapt/zipalign/apksigner and produces the
       # installable APK + AAB. With no release keystore configured these are signed with the .NET
-      # Android debug key -- sideloadable, not Play-Store uploadable. EnableAndroidTarget=true opts
-      # Majorsilence.Forms.Avalonia's net10.0-android TFM row back in (see that csproj).
+      # Android debug key -- sideloadable, not Play-Store uploadable. EnableAndroidTarget=true switches
+      # Gallery.Android from its empty-stub build to the real net10.0-android head (and opts
+      # Majorsilence.Forms.Avalonia's net10.0-android TFM row back in); see Directory.Build.props.
       - name: Publish Gallery.Android
         run: >-
           dotnet publish samples/Gallery.Android/Gallery.Android.csproj
@@ -310,15 +318,18 @@ jobs:
 
   # iOS compile gate.
   #
-  # samples/Gallery.iOS and Majorsilence.Forms.Avalonia's net10.0-ios TFM row are both deliberately kept
-  # out of Majorsilence.Forms.slnx / out of that row's default TargetFrameworks, same as the Android row
-  # above and for the same compile-time-reference-assembly reason -- except here there is no cross-OS
-  # path at all: the `ios` workload only installs on macOS (Apple's toolchain, not just a nice-to-have,
-  # is a hard requirement), unlike `android`, which installs and builds on any OS. This is therefore the
-  # only job in this workflow that has to run on macos-latest instead of ubuntu-latest. No
-  # simulator/device here, so this only proves the app builds, not that it boots -- and unlike every
-  # other platform-specific job in this repo, this one has never actually run yet as of the change that
-  # added it, so treat a first failure here as expected teething, not a regression.
+  # samples/Gallery.iOS IS a member of Majorsilence.Forms.slnx, but (like Gallery.Android) its
+  # net10.0-ios TFM only switches on with EnableIOSHead, which additionally requires the host OS to be
+  # macOS: the `ios` workload only installs on macOS (Apple's toolchain is a hard requirement),
+  # unlike `android`, which installs and builds on any OS. Everywhere else the head compiles as an empty
+  # net10.0 stub, so this is the only job in this workflow that has to run on macos-latest instead of
+  # ubuntu-latest. No simulator/device here, so this only proves the app builds, not that it boots, and
+  # unlike every other platform-specific job in this repo this one has never actually run yet as of the
+  # change that added it, so treat a first failure here as expected teething, not a regression.
+  #
+  # -p:EnableIOSTarget=true names the one platform this runner has a workload for. Passing the
+  # EnableMobileHeads umbrella instead is what broke this job: it switched the net10.0-android row on
+  # too, and the build died with NETSDK1147 asking for the `android` workload nobody installed here.
   ios:
     runs-on: macos-latest
     # Gallery.iOS has never compiled anywhere yet (see its csproj header). Until Phase 4 of the
@@ -340,7 +351,9 @@ jobs:
 
       # `dotnet build` (not publish) with a simulator RID assembles the runnable .app bundle. iOS
       # `publish` refuses a simulator RID (it targets device archives, which need an Apple cert).
-      # EnableIOSTarget=true opts Majorsilence.Forms.Avalonia's net10.0-ios TFM row back in (see that csproj).
+      # EnableIOSTarget=true switches Gallery.iOS from its empty-stub build to the real net10.0-ios
+      # head, and opts Majorsilence.Forms.Avalonia's net10.0-ios TFM row -- and only that row -- back
+      # in. See Directory.Build.props.
       - name: Build Gallery.iOS (simulator)
         run: >-
           dotnet build samples/Gallery.iOS/Gallery.iOS.csproj

@@ -348,6 +348,9 @@ jobs:
             10.0.x
       - name: Install android workload
         run: dotnet workload install android
+      # -p:EnableAndroidTarget=true, not the EnableMobileHeads umbrella: see the android job in
+      # dotnet.yml. The umbrella also drags in ios and is self-gated on workload detection; this is the
+      # ungated force for the one platform this runner installed.
       - name: Publish Gallery.Android
         run: >-
           dotnet publish samples/Gallery.Android/Gallery.Android.csproj
@@ -386,6 +389,8 @@ jobs:
       - name: Install ios workload
         run: dotnet workload install ios
       # `dotnet build` (not publish) with a simulator RID: iOS `publish` refuses a simulator RID.
+      # -p:EnableIOSTarget=true names the one platform this runner has a workload for; the
+      # EnableMobileHeads umbrella would pull the net10.0-android row in too and fail with NETSDK1147.
       - name: Build Gallery.iOS (simulator)
         run: >-
           dotnet build samples/Gallery.iOS/Gallery.iOS.csproj

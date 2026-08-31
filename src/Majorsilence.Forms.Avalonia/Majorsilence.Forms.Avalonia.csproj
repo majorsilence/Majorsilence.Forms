@@ -9,18 +9,21 @@
          row above: unlike wasm-tools (only needed for `dotnet publish`), the `android` workload's
          reference assemblies (Activity/Bundle/etc.) are required just to *compile* against net10.0-android,
          so unconditionally listing it would break `dotnet build` for every contributor and CI leg that
-         hasn't installed that workload. samples/Gallery.Android opts in by passing
-         EnableAndroidTarget=true as a global property on its ProjectReference to this project (see that
-         csproj); CI only sets it in the dedicated android job that installs the workload first (see
-         .github/workflows/dotnet.yml). -->
-    <TargetFrameworks Condition="'$(EnableAndroidTarget)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
+         hasn't installed that workload. EnableAndroidHead (repo-root Directory.Build.props) is what
+         resolves that: the EnableMobileHeads umbrella narrowed to hosts that actually have the android
+         workload, plus the ungated EnableAndroidTarget=true force release.yml packs with. It switches
+         on samples/Gallery.Android at the same time.
+
+         Deliberately NOT EnableMobileHeads: android and ios take different workloads, so keying both
+         rows on the umbrella made -p:EnableMobileHeads=true on an ios-only macOS host (CI's ios job)
+         demand the android workload and fail with NETSDK1147. -->
+    <TargetFrameworks Condition="'$(EnableAndroidHead)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
     <!-- net10.0-ios is opt-in for the same reason net10.0-android is: the ios workload's reference
          assemblies are required just to *compile*. Unlike the android workload, the ios workload is
          only installable on macOS (there is no Linux/Windows path at all, since Apple's toolchain is a
-         hard requirement), so this row can only ever be built there. samples/Gallery.iOS opts in via
-         EnableIOSTarget=true on its ProjectReference; CI's dedicated ios job (macos-latest) sets it
-         after installing the workload, see .github/workflows/dotnet.yml. -->
-    <TargetFrameworks Condition="'$(EnableIOSTarget)' == 'true'">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
+         hard requirement), so EnableIOSHead gates on the host OS being macOS too; it also switches on
+         samples/Gallery.iOS, and EnableIOSTarget=true forces it directly. See Directory.Build.props. -->
+    <TargetFrameworks Condition="'$(EnableIOSHead)' == 'true'">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Every project file here lives in "namespace Majorsilence.Forms { }" and refers to the Avalonia
          package's types unqualified (bare "Avalonia.Whatever"). The default RootNamespace (derived from

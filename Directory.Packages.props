@@ -16,10 +16,10 @@
          net10.0-browser TFM row (desktop TFMs use Avalonia.Desktop instead) and by samples/Gallery.Wasm. -->
     <PackageVersion Include="Avalonia.Browser" Version="12.1.1" />
     <!-- Avalonia's Android platform. Only referenced by Majorsilence.Forms.Avalonia's opt-in
-         net10.0-android TFM row (see EnableAndroidTarget in that csproj) and by samples/Gallery.Android. -->
+         net10.0-android TFM row (see EnableAndroidHead in Directory.Build.props) and by samples/Gallery.Android. -->
     <PackageVersion Include="Avalonia.Android" Version="12.1.1" />
     <!-- Avalonia's iOS platform. Only referenced by Majorsilence.Forms.Avalonia's opt-in
-         net10.0-ios TFM row (see EnableIOSTarget in that csproj) and by samples/Gallery.iOS. Unlike
+         net10.0-ios TFM row (see EnableIOSHead in Directory.Build.props) and by samples/Gallery.iOS. Unlike
          the android workload, the ios workload only installs (and this can only build) on macOS,
          verified in CI's dedicated ios job (macos-latest), not on the main build job's runners. -->
     <PackageVersion Include="Avalonia.iOS" Version="12.1.1" />

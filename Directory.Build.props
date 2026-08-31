@@ -47,4 +47,61 @@
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <!--
+    EnableMobileHeads gates the platform-specific gallery heads (samples/Gallery.Android,
+    samples/Gallery.iOS) and Majorsilence.Forms.Avalonia's matching net10.0-android and net10.0-ios TFM
+    rows. Those are members of Majorsilence.Forms.slnx, but a net10.0-android or net10.0-ios TFM needs
+    its workload's reference assemblies even to compile (unlike wasm-tools, which is only needed to
+    publish), so they can only build where the workload is installed.
+
+    Default: auto-on when the `android` workload's SDK pack is on disk (Visual Studio's ".NET
+    Multi-platform App UI development" install puts it there; so does CI's dedicated mobile job). Off
+    otherwise, so CI's plain `dotnet build` matrix and contributors without the workload still build the
+    whole solution, with the heads compiling as tiny empty net10.0 stub libraries and the Avalonia
+    mobile rows dropping out. Override with `-p:EnableMobileHeads=true` or `-p:EnableMobileHeads=false`.
+
+    IT IS AN UMBRELLA, NOT A SWITCH: android and ios need DIFFERENT workloads, and a host commonly has
+    one without the other, so nothing downstream may key on EnableMobileHeads directly. It resolves
+    here into the two per-platform properties below, and the csprojs use only those. Forcing the
+    umbrella on used to switch both rows on together, so CI's ios job (macos-latest, `ios` workload
+    installed, `android` deliberately not) failed with NETSDK1147 ("the following workloads must be
+    installed: android") on a net10.0-android row it never asked for.
+
+    Each of EnableAndroidTarget / EnableIOSTarget stays an ungated hard force for its own platform:
+    that is the "I know this workload is here" escape hatch (release.yml packs Majorsilence.Forms.Avalonia
+    with EnableAndroidTarget=true), and asking for a row whose workload is missing should fail loudly
+    rather than quietly build a stub.
+
+    $(NetCoreRoot) is not populated this early in evaluation, but $(MSBuildToolsPath)
+    (the dotnet/sdk/<version> folder) is; its grandparent is the dotnet root that holds packs/.
+  -->
+  <PropertyGroup>
+    <_DotNetRoot>$([System.IO.Path]::GetFullPath('$(MSBuildToolsPath)/../..'))</_DotNetRoot>
+    <_AndroidWorkloadInstalled Condition="
+        Exists('$(_DotNetRoot)/packs/Microsoft.Android.Sdk.Windows') or
+        Exists('$(_DotNetRoot)/packs/Microsoft.Android.Sdk.Darwin') or
+        Exists('$(_DotNetRoot)/packs/Microsoft.Android.Sdk.Linux')">true</_AndroidWorkloadInstalled>
+
+    <EnableMobileHeads Condition="'$(EnableMobileHeads)' == '' and '$(_AndroidWorkloadInstalled)' == 'true'">true</EnableMobileHeads>
+    <EnableMobileHeads Condition="'$(EnableMobileHeads)' == ''">false</EnableMobileHeads>
+
+    <!-- samples/Gallery.Android + Majorsilence.Forms.Avalonia's net10.0-android row. The umbrella only
+         reaches this row where the android workload is actually present, which is what keeps a
+         macOS/ios-only host (CI's ios job) from being handed a TFM it cannot compile. -->
+    <EnableAndroidHead Condition="'$(EnableAndroidHead)' == '' and (
+        '$(EnableAndroidTarget)' == 'true' or
+        ('$(EnableMobileHeads)' == 'true' and '$(_AndroidWorkloadInstalled)' == 'true'))">true</EnableAndroidHead>
+    <EnableAndroidHead Condition="'$(EnableAndroidHead)' == ''">false</EnableAndroidHead>
+
+    <!-- samples/Gallery.iOS + Majorsilence.Forms.Avalonia's net10.0-ios row. Gated on the host being
+         macOS rather than on a detected pack: the ios workload installs nowhere else (Apple's
+         toolchain is a hard requirement, unlike `android`, which installs on any OS), and its SDK pack
+         directory is version-stamped (Microsoft.iOS.Sdk.net10.0_26.5), so there is no fixed path to
+         probe the way there is for android. -->
+    <EnableIOSHead Condition="'$(EnableIOSHead)' == '' and (
+        '$(EnableIOSTarget)' == 'true' or
+        ('$(EnableMobileHeads)' == 'true' and $([MSBuild]::IsOSPlatform('OSX'))))">true</EnableIOSHead>
+    <EnableIOSHead Condition="'$(EnableIOSHead)' == ''">false</EnableIOSHead>
+  </PropertyGroup>
 </Project>
