@@ -102,8 +102,10 @@ namespace Majorsilence.Forms
         /// Gets whether webview-less compat controls (e.g. <c>RadPdfViewer</c>) may fall back to
         /// spawning the OS's default viewer via <c>Process.Start</c> for content they can't render
         /// inline. Defaults to <c>false</c> on the Headless backend (so automated/CI runs never spawn
-        /// external viewer processes); defaults to <c>true</c> elsewhere. Override in either direction
-        /// with the <c>Majorsilence.Forms.WebView.AllowSystemViewerFallback</c> AppContext switch — see
+        /// external viewer processes) and on Android/iOS/browser (<c>Process.Start</c> with
+        /// <c>UseShellExecute</c> has nothing to service there); defaults to <c>true</c> elsewhere.
+        /// Override in either direction with the
+        /// <c>Majorsilence.Forms.WebView.AllowSystemViewerFallback</c> AppContext switch — see
         /// <see cref="AllowSystemViewerFallbackSwitchName"/>.
         /// </summary>
         public static bool AllowSystemViewerFallback {
@@ -112,8 +114,9 @@ namespace Majorsilence.Forms
                     return isEnabled;
 
                 // No explicit override: default false on Headless (Name == "Headless") so CI/tests never
-                // spawn OS viewer processes; default true on every other backend (Avalonia, Uno, ...).
-                return Platform.Backend.Name != "Headless";
+                // spawn OS viewer processes, and false on the platforms where a shell-execute Process.Start
+                // does nothing anyway (Android, iOS, browser/WASM); default true everywhere else.
+                return Platform.Backend.Name != "Headless" && !OperatingSystemCompat.IsMobileOrBrowser ();
             }
         }
     }

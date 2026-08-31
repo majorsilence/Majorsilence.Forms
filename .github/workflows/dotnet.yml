@@ -323,17 +323,17 @@ jobs:
   # macOS: the `ios` workload only installs on macOS (Apple's toolchain is a hard requirement),
   # unlike `android`, which installs and builds on any OS. Everywhere else the head compiles as an empty
   # net10.0 stub, so this is the only job in this workflow that has to run on macos-latest instead of
-  # ubuntu-latest. No simulator/device here, so this only proves the app builds, not that it boots, and
-  # unlike every other platform-specific job in this repo this one has never actually run yet as of the
-  # change that added it, so treat a first failure here as expected teething, not a regression.
+  # ubuntu-latest. The build step compiles the real net10.0-ios head; the follow-up step also launches
+  # the .app in a simulator and dumps its log (a smoke check, not an assertion).
   #
   # -p:EnableIOSTarget=true names the one platform this runner has a workload for. Passing the
   # EnableMobileHeads umbrella instead is what broke this job: it switched the net10.0-android row on
   # too, and the build died with NETSDK1147 asking for the `android` workload nobody installed here.
   ios:
     runs-on: macos-latest
-    # Gallery.iOS has never compiled anywhere yet (see its csproj header). Until Phase 4 of the
-    # mobile work gets it green, a failure here must not block PRs -- it is still informational.
+    # The head compiles and the simulator smoke step passes as of the android/ios flag split, but this
+    # has only a couple of green runs behind it on a flaky runner (macOS + simulator boot). Kept
+    # informational until it is proven stable across several PRs, then promote to a hard gate.
     continue-on-error: true
 
     steps:

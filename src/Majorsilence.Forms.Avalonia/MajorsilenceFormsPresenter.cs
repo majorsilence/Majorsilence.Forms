@@ -161,9 +161,17 @@ namespace Majorsilence.Forms
 
             if (_framebuffer is null || _framebuffer.PixelSize.Width != physW || _framebuffer.PixelSize.Height != physH) {
                 _framebuffer?.Dispose ();
+
+                // 96 DPI, NOT 96 * scaling -- same reason as MajorsilenceFormsSingleViewHost. physW/physH
+                // are already physical pixels; PaintFrame presents this through _surface, a Stretch.Fill
+                // Image sized to the presenter's *logical* Bounds. A plain 96 DPI bitmap is taken as a
+                // logical-sized physW x physH source, Stretch.Fill scales it down 1/scaling into the
+                // logical-sized Image, and the compositor scales that back up by RenderScaling -- net
+                // 1:1. Tagging it 96 * scaling drops the Stretch.Fill downscale and magnifies the whole
+                // embedded scene by `scaling` (invisible at 100% display scale, wrong at 125/150/200%).
                 _framebuffer = new WriteableBitmap (
                     new PixelSize (physW, physH),
-                    new Vector (96 * scaling, 96 * scaling),
+                    new Vector (96, 96),
                     PixelFormat.Bgra8888,
                     AlphaFormat.Premul);
                 _dirty = true;

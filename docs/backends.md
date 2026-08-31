@@ -201,19 +201,22 @@ Majorsilence.Forms.Application.RunIOS (() => new MainForm ());                 /
 None of them block or run a main loop: the host's own event loop (the tab's JS event loop, the
 Activity's Looper, the OS run loop) drives the UI from then on, and `RunCore` must not be called.
 
-**What doesn't work there**, inherent to having no window manager rather than pending work:
+**What doesn't work there**, mostly inherent to having no window manager rather than pending work:
 
-- **No window chrome.** `Title`, `Topmost`, `SetSystemDecorations`, `SetIcon`, `MinimumSize`/
-  `MaximumSize`, `CanResize`, `ShowInTaskbar`, and `WindowState` are all no-ops — `WindowState` always
-  reads `Normal`, so maximize/minimize do nothing. `BeginMoveDrag`/`BeginResizeDrag` have no window
-  manager to drag against.
+- **No window chrome.** `Topmost`, `SetSystemDecorations`, `SetIcon`, `MinimumSize`/`MaximumSize`,
+  `CanResize`, `ShowInTaskbar`, and `WindowState` are all no-ops — `WindowState` always reads `Normal`,
+  so maximize/minimize do nothing. `BeginMoveDrag`/`BeginResizeDrag` have no window manager to drag
+  against. `Title` is also a no-op today, but that one is pending work, not inherent — the browser tab
+  (`document.title`) and the Android task label can both carry it.
 - **`ShowDialog` isn't OS-modal**, because there is no modal window concept. It still *behaves*
   modally: the parent-disable and blocking wait that make it modal live above the seam, in
   `WindowBase.ShowDialog` + `RunModalLoop`.
 - **No WebView.** `AvaloniaWebViewHandle.cs` is excluded from the compile for every single-view TFM
-  (no WebView2/WKWebView/WebKitGTK there), and the backend's WebView members report unsupported, so
-  compat controls that need one — `RadPdfViewer`, `RadRichTextEditor` — fall back to their
-  plain-viewer/`RichTextBox` paths. See `COMPATIBILITY_MATRIX.md`.
+  and the backend's WebView members report unsupported, so compat controls that need one —
+  `RadPdfViewer`, `RadRichTextEditor` — fall back to their plain-viewer/`RichTextBox` paths. Browser/
+  WASM has no native webview at all; Android and iOS do (`android.webkit.WebView` / `WKWebView`), so
+  wiring `Avalonia.Controls.WebView` up for those two rows is deferred work rather than a hard limit.
+  See `COMPATIBILITY_MATRIX.md`.
 - **Outside-click popup dismissal via window deactivation doesn't fire**, since a Canvas has no such
   concept. Clicking elsewhere *inside* the app still dismisses popups (`Control.RaiseMouseDown` closes
   them independently of window activation); only losing focus to something outside the app entirely
@@ -233,10 +236,18 @@ Activity's Looper, the OS run loop) drives the UI from then on, and `RunCore` mu
   control stays clear of the status bar, notch and home indicator with no app change. When the
   keyboard opens, `WindowBase.HandleInputPaneChanged` scrolls the focused field above it.
 
-Maturity differs sharply across the three, and none is part of the headless CI build: the browser
-path runs the full gallery (`samples/Gallery.Wasm`) but is young, Android boots the gallery without
-having had real-device testing, and iOS has never been compiled at all. The keyboard and safe-area
-wiring above is unit-tested on the Headless backend but has not yet been exercised on a real device.
+Maturity differs sharply across the three. All three compile in CI — the browser row on every build,
+Android and iOS by dedicated `-p:EnableAndroidTarget=true` / `-p:EnableIOSTarget=true` jobs — but the
+headless test suite exercises the shared core, not a real head.
+
+- **Browser** runs the full gallery (`samples/Gallery.Wasm`), but the path is young.
+- **Android** has had initial real-device testing: the gallery boots (an AppCompat-theme startup
+  crash was found and fixed on-device), and tap hit-testing, render scaling, and touch scroll / flick
+  gestures are confirmed working on hardware. The on-screen keyboard, safe-area insets, and rotation
+  are unit-tested on the Headless backend but not yet exercised on a device.
+- **iOS** compiles, and CI launches it in a simulator as a smoke check, but nobody has run it
+  interactively on a simulator or device.
+
 See [`samples.md`](samples.md) for how to build and run each.
 
 ## The Headless backend (reference)
@@ -364,10 +375,20 @@ zoom and two-finger rotate together — see `PinchGestureEventArgs.Scale`/`Angle
 `Swipe`, and `ScrollGesture` (continuous drag-to-pan, still firing with a decaying delta during the
 platform's own momentum/inertia phase after the contact lifts — this is the whole flick/momentum-
 scrolling implementation, no deceleration physics written here). None of them fire for the mouse.
-`ScrollableControl` already applies `ScrollGesture` to `AutoScrollPosition` automatically (content
-follows the finger), so existing `Panel`/`ListBox`/`TreeView`/etc. subclasses gained touch panning
-with no app code changes; `LongPress`'s default handler opens `ContextMenu` if one is set, mirroring
-the existing right-click behavior in `Control.OnClick`.
+
+`ScrollableControl` applies `ScrollGesture` to `AutoScrollPosition` automatically (content follows the
+finger), so `Panel` and its other subclasses pan with no app code. `ListBox` and `TreeView` are *not*
+`ScrollableControl` subclasses — they drive their own scrollbar — so each has an explicit
+`OnScrollGesture` that pans that scrollbar the same way. Routing gives the hit-tested leaf first
+refusal and only bubbles the gesture to a scrollable ancestor when the leaf leaves
+`ScrollGestureEventArgs.Handled` clear, so a drag that starts over a non-scrolling child still pans
+the list. `LongPress`'s default handler opens `ContextMenu` if one is set, mirroring the existing
+right-click behavior in `Control.OnClick`.
+
+`WindowBase.HandleLongPress`/`HandlePinch`/`HandleSwipe`/`HandleScrollGesture` take device pixels from
+the backend and convert the point (and a scroll delta / swipe velocity) to logical units at that
+boundary, exactly as `HandlePointerPressed` does — routing then hit-tests against logical `Bounds`
+consistently at any render scaling, which matters on Android (`RenderScaling` ~2.6).
 
 Both the **Avalonia** and **Uno** backends implement this, via a per-backend `*GestureWiring` helper
 attaching the platform's own gesture facilities to each host control (`MajorsilenceFormsWindowHost`,
