@@ -351,7 +351,7 @@ jobs:
       - name: Publish Gallery.Android
         run: >-
           dotnet publish samples/Gallery.Android/Gallery.Android.csproj
-          -p:EnableAndroidTarget=true --configuration Release
+          -p:EnableMobileHeads=true --configuration Release
           "-p:AndroidPackageFormats=apk%3Baab"
       - name: Collect APK/AAB
         shell: bash
@@ -389,7 +389,7 @@ jobs:
       - name: Build Gallery.iOS (simulator)
         run: >-
           dotnet build samples/Gallery.iOS/Gallery.iOS.csproj
-          -p:EnableIOSTarget=true --configuration Release
+          -p:EnableMobileHeads=true --configuration Release
           -p:RuntimeIdentifier=iossimulator-arm64
       - name: Zip the simulator .app
         shell: bash

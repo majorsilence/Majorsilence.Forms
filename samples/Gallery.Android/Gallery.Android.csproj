@@ -1,14 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Android head for the control gallery, hosted by Avalonia. NOT added to Majorsilence.Forms.slnx: a
-       net10.0-android TFM requires the `android` workload's reference assemblies just to *compile*
-       (unlike wasm-tools, which is only needed to `publish`), so keeping it out of the solution keeps
-       CI's default `dotnet build` (and every contributor's) working without that workload installed. See
-       .github/workflows/dotnet.yml for the dedicated job that builds this with the workload present, and
-       samples/WinFormsInterop for the same pattern applied to a different platform-specific sample.
-       Build/run on a device or emulator: `dotnet build -t:Run` from this directory. -->
+  <!-- Android head for the control gallery, hosted by Avalonia.
+
+       This IS a member of Majorsilence.Forms.slnx, but only builds as a real Android app when the
+       `android` workload is installed. A net10.0-android TFM needs that workload's reference assemblies
+       just to compile (unlike wasm-tools, which is only needed to publish), so unconditionally targeting
+       it would break CI's default `dotnet build` matrix and every contributor who hasn't installed the
+       workload.
+
+       The repo-root Directory.Build.props sets EnableMobileHeads=true when it detects the workload on
+       disk (Visual Studio's ".NET Multi-platform App UI development" install does this; so does CI's
+       dedicated android job). When it is off, this compiles in about a second as an empty net10.0
+       library, with none of the Android sources or packages below, so solution-wide builds keep working
+       everywhere. Force it with `-p:EnableMobileHeads=true`.
+
+       Build/run on a device or emulator (workload installed): `dotnet build -t:Run` from this directory. -->
+
   <PropertyGroup>
-    <TargetFramework>net10.0-android</TargetFramework>
+    <TargetFramework Condition="'$(EnableMobileHeads)' == 'true'">net10.0-android</TargetFramework>
+    <TargetFramework Condition="'$(EnableMobileHeads)' != 'true'">net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- Real Android app: workload present. -->
+  <PropertyGroup Condition="'$(EnableMobileHeads)' == 'true'">
     <OutputType>Exe</OutputType>
     <ApplicationId>com.majorsilence.gallery</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
@@ -16,26 +30,33 @@
     <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(EnableMobileHeads)' == 'true'">
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
-    <!-- EnableAndroidTarget opts this reference into Majorsilence.Forms.Avalonia's otherwise-excluded
-         net10.0-android TFM row; see the TargetFrameworks comment on that csproj for why it's opt-in. -->
-    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj">
-      <AdditionalProperties>EnableAndroidTarget=true</AdditionalProperties>
-    </ProjectReference>
+    <!-- EnableMobileHeads (a repo-wide property) also opts Majorsilence.Forms.Avalonia's net10.0-android
+         TFM row in, so this reference resolves to it; see that csproj's TargetFrameworks comment. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
     <!-- Reuse the full ControlGallery MainForm/panels to render the whole gallery on Avalonia-on-Android. -->
     <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Avalonia.Android" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(EnableMobileHeads)' == 'true'">
     <!-- ImageLoader.cs (backend-agnostic, plain File.Open under a relative "Images" folder) has no
          concept of APK assets, so these are bundled as Android assets and extracted to app-private
          storage at startup instead; see GalleryApplication.ExtractImageAssets in App.cs. -->
     <AndroidAsset Include="..\ControlGallery\Images\**\*.png" Link="Images\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- Stub build: no workload. An empty library, referenced by nothing. -->
+  <PropertyGroup Condition="'$(EnableMobileHeads)' != 'true'">
+    <OutputType>Library</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(EnableMobileHeads)' != 'true'">
+    <!-- These use Android.* / Avalonia.Android, which do not exist without the workload. -->
+    <Compile Remove="MainActivity.cs" />
+    <Compile Remove="App.cs" />
   </ItemGroup>
 
 </Project>

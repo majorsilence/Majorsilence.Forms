@@ -10,8 +10,12 @@ You need the .NET 10 SDK (<https://dotnet.microsoft.com/download>); the repo tar
 `_TargetFramework` in `Directory.Build.props`. In an IDE, open `Majorsilence.Forms.slnx`, set the
 sample as the startup project, and launch it.
 
-`Gallery.Android` and `Gallery.iOS` are deliberately left out of `Majorsilence.Forms.slnx`, so a
-plain `dotnet build` / `dotnet test` at the repo root never needs their platform workload.
+`Gallery.Android` and `Gallery.iOS` are in `Majorsilence.Forms.slnx`, but compile as empty stub
+libraries unless the matching workload is installed: `Directory.Build.props` sets
+`EnableMobileHeads=true` when it detects the `android` workload on disk (Visual Studio's ".NET
+Multi-platform App UI development" install does this), and only then do they build as real
+`net10.0-android` / `net10.0-ios` apps. So a plain `dotnet build` / `dotnet test` at the repo root
+still works without any platform workload. Force it with `-p:EnableMobileHeads=true`.
 
 | Sample | What it shows | Platforms |
 |---|---|---|
@@ -112,16 +116,20 @@ Activity. Requires the `android` workload:
 
 ```bash
 dotnet workload install android
-dotnet build samples/Gallery.Android -p:EnableAndroidTarget=true -t:Run
+dotnet build samples/Gallery.Android -t:Run
 ```
+
+Once the `android` workload is installed, `Directory.Build.props` detects it and switches this
+project from its stub build to the real `net10.0-android` head automatically (so Visual Studio just
+works — set it as the startup project and press F5 against an emulator). Pass
+`-p:EnableMobileHeads=true` to force it, e.g. on a machine where the auto-detection misfires.
 
 CI publishes a sideloadable APK + AAB on every PR (the `android` job in
 `.github/workflows/dotnet.yml`, artifact `gallery-android`) and attaches them to each GitHub Release.
 They are signed with the .NET Android debug key — fine for sideloading, not for the Play Store.
 
-Not in the solution — see the comment at the top of `samples/Gallery.Android/Gallery.Android.csproj`
-for why, and `samples/WinFormsInterop` for the same pattern applied to a different platform-specific
-sample. Android shares the browser's
+In the solution but stubbed out without the workload — see the comment at the top of
+`samples/Gallery.Android/Gallery.Android.csproj` for how. Android shares the browser's
 [single-view host](backends.md#single-view-platforms-browser-android-ios), so the same window-chrome
 and WebView limitations apply.
 
@@ -137,15 +145,19 @@ Runs the same `ControlGallery` `MainForm` on the Avalonia backend's iOS target, 
 
 ```bash
 dotnet workload install ios
-dotnet build samples/Gallery.iOS -p:EnableIOSTarget=true -t:Run
+dotnet build samples/Gallery.iOS -t:Run
 ```
+
+As with `Gallery.Android`, `Directory.Build.props` switches this from a stub to the real
+`net10.0-ios` head automatically once a mobile workload is present — but only on macOS, since the
+`ios` workload exists nowhere else. Force it with `-p:EnableMobileHeads=true` (still a no-op off macOS).
 
 CI publishes a zipped iOS-simulator `.app` on every PR when the build succeeds (the `ios` job,
 artifact `gallery-ios`) and attaches it to each GitHub Release. There is no signed device `.ipa` —
 that needs an Apple distribution certificate.
 
-Not in the solution, for the same reason as `Gallery.Android` — see the comment at the top of
-`samples/Gallery.iOS/Gallery.iOS.csproj`. iOS shares the same
+In the solution but stubbed out except on macOS with the workload, for the same reason as
+`Gallery.Android` — see the comment at the top of `samples/Gallery.iOS/Gallery.iOS.csproj`. iOS shares the same
 [single-view host](backends.md#single-view-platforms-browser-android-ios) as browser and Android.
 
 ### Explore

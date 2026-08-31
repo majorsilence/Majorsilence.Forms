@@ -9,18 +9,17 @@
          row above: unlike wasm-tools (only needed for `dotnet publish`), the `android` workload's
          reference assemblies (Activity/Bundle/etc.) are required just to *compile* against net10.0-android,
          so unconditionally listing it would break `dotnet build` for every contributor and CI leg that
-         hasn't installed that workload. samples/Gallery.Android opts in by passing
-         EnableAndroidTarget=true as a global property on its ProjectReference to this project (see that
-         csproj); CI only sets it in the dedicated android job that installs the workload first (see
-         .github/workflows/dotnet.yml). -->
-    <TargetFrameworks Condition="'$(EnableAndroidTarget)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
+         hasn't installed that workload. It switches on with the repo-wide EnableMobileHeads property
+         (see Directory.Build.props: auto-detected from the installed workload, or forced with
+         -p:EnableMobileHeads=true), which also switches on samples/Gallery.Android; or directly via
+         EnableAndroidTarget=true (release.yml packs the library that way). -->
+    <TargetFrameworks Condition="'$(EnableAndroidTarget)' == 'true' or '$(EnableMobileHeads)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
     <!-- net10.0-ios is opt-in for the same reason net10.0-android is: the ios workload's reference
          assemblies are required just to *compile*. Unlike the android workload, the ios workload is
          only installable on macOS (there is no Linux/Windows path at all, since Apple's toolchain is a
-         hard requirement), so this row can only ever be built there. samples/Gallery.iOS opts in via
-         EnableIOSTarget=true on its ProjectReference; CI's dedicated ios job (macos-latest) sets it
-         after installing the workload, see .github/workflows/dotnet.yml. -->
-    <TargetFrameworks Condition="'$(EnableIOSTarget)' == 'true'">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
+         hard requirement), so this row is gated on the host OS being macOS too. Switches on with
+         EnableMobileHeads (which also switches on samples/Gallery.iOS) or directly via EnableIOSTarget=true. -->
+    <TargetFrameworks Condition="'$(EnableIOSTarget)' == 'true' or ('$(EnableMobileHeads)' == 'true' and $([MSBuild]::IsOSPlatform('OSX')))">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Every project file here lives in "namespace Majorsilence.Forms { }" and refers to the Avalonia
          package's types unqualified (bare "Avalonia.Whatever"). The default RootNamespace (derived from

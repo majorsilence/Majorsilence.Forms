@@ -47,4 +47,31 @@
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <!--
+    EnableMobileHeads gates the platform-specific gallery heads (samples/Gallery.Android,
+    samples/Gallery.iOS) and Majorsilence.Forms.Avalonia's matching net10.0-android and net10.0-ios TFM
+    rows. Those are members of Majorsilence.Forms.slnx, but a net10.0-android or net10.0-ios TFM needs
+    its workload's reference assemblies even to compile (unlike wasm-tools, which is only needed to
+    publish), so they can only build where the workload is installed.
+
+    Default: auto-on when the `android` workload's SDK pack is on disk (Visual Studio's ".NET
+    Multi-platform App UI development" install puts it there; so does CI's dedicated mobile job). Off
+    otherwise, so CI's plain `dotnet build` matrix and contributors without the workload still build the
+    whole solution, with the heads compiling as tiny empty net10.0 stub libraries and the Avalonia
+    mobile rows dropping out. Override with `-p:EnableMobileHeads=true` or `-p:EnableMobileHeads=false`.
+
+    $(NetCoreRoot) is not populated this early in evaluation, but $(MSBuildToolsPath)
+    (the dotnet/sdk/<version> folder) is; its grandparent is the dotnet root that holds packs/.
+  -->
+  <PropertyGroup>
+    <_DotNetRoot>$([System.IO.Path]::GetFullPath('$(MSBuildToolsPath)/../..'))</_DotNetRoot>
+    <_AndroidWorkloadInstalled Condition="
+        Exists('$(_DotNetRoot)/packs/Microsoft.Android.Sdk.Windows') or
+        Exists('$(_DotNetRoot)/packs/Microsoft.Android.Sdk.Darwin') or
+        Exists('$(_DotNetRoot)/packs/Microsoft.Android.Sdk.Linux')">true</_AndroidWorkloadInstalled>
+
+    <EnableMobileHeads Condition="'$(EnableMobileHeads)' == '' and '$(_AndroidWorkloadInstalled)' == 'true'">true</EnableMobileHeads>
+    <EnableMobileHeads Condition="'$(EnableMobileHeads)' == ''">false</EnableMobileHeads>
+  </PropertyGroup>
 </Project>

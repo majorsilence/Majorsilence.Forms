@@ -162,8 +162,10 @@ The browser row is unconditional because wasm-tools is only needed to *publish*.
 opt-in because their workloads' reference assemblies are needed just to **compile** that row, so
 listing them unconditionally would break `dotnet build` for every contributor without the workload
 installed. `samples/Gallery.Android` and `samples/Gallery.iOS` set the property on their
-`ProjectReference`; CI sets it only in the dedicated jobs that install the workload first. The iOS
-workload additionally only installs on macOS at all.
+`ProjectReference` — but only in the ItemGroup that their own `EnableMobileHeads` gate switches on, so
+without a mobile workload the heads (and this row) drop out entirely rather than fail to compile. CI's
+dedicated mobile jobs set `EnableMobileHeads=true` after installing the workload. The iOS workload
+additionally only installs on macOS at all.
 
 ### Single-view platforms (browser, Android, iOS)
 
