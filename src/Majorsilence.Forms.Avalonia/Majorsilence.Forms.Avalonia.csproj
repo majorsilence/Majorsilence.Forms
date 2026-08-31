@@ -74,9 +74,10 @@
     <PackageReference Include="Avalonia.Skia" />
   </ItemGroup>
 
-  <!-- Desktop (Windows/macOS/Linux): native windowing + the real native-engine webview control. None
-       of the single-view platforms build this (no OS window manager, no WebView2/WKWebView/WebKitGTK
-       there). -->
+  <!-- Desktop (Windows/macOS/Linux): native windowing + the real native-engine webview control. The
+       single-view platforms don't build this: none has an OS window manager, browser/WASM has no
+       native webview at all, and while Android and iOS do have one, Avalonia.Controls.WebView is not
+       wired up for those rows here yet (see the Compile Remove below). -->
   <ItemGroup Condition="'$(IsSingleView)' != 'true'">
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Controls.WebView" />
