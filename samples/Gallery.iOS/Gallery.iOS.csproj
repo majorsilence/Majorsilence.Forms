@@ -6,11 +6,15 @@
        `ios` workload installed. A net10.0-ios TFM needs that workload's reference assemblies just to
        compile, and Apple's toolchain (a hard requirement for the workload) only exists on macOS.
 
-       The repo-root Directory.Build.props sets EnableMobileHeads=true when it detects a mobile workload;
-       this project additionally requires the host OS to be macOS (_IOSHeadEnabled below). Everywhere
-       else, including CI's default `dotnet build` matrix and Windows/Linux contributors, this compiles
-       as an empty net10.0 library so solution-wide builds keep working. CI's dedicated ios job
-       (macos-latest) sets -p:EnableMobileHeads=true for the real build.
+       The repo-root Directory.Build.props resolves EnableIOSHead: the EnableMobileHeads umbrella
+       narrowed to a macOS host, or forced outright with -p:EnableIOSTarget=true. Everywhere else,
+       including CI's default `dotnet build` matrix and Windows/Linux contributors, this compiles as an
+       empty net10.0 library so solution-wide builds keep working. CI's dedicated ios job (macos-latest)
+       sets -p:EnableMobileHeads=true for the real build.
+
+       Keyed on EnableIOSHead rather than EnableMobileHeads because the umbrella covers android too, and
+       the two need different workloads: this job installs `ios` only, and pulling the net10.0-android
+       row in alongside it failed the build with NETSDK1147.
 
        IMPORTANT: unlike every other sample in this repo, none of this project's real source files (Main.cs,
        AppDelegate.cs, Info.plist) have been compiled or run, since there is no macOS/Xcode host available
@@ -23,14 +27,12 @@
        `dotnet build -t:Run` from this directory. -->
 
   <PropertyGroup>
-    <_IOSHeadEnabled Condition="'$(EnableMobileHeads)' == 'true' and $([MSBuild]::IsOSPlatform('OSX'))">true</_IOSHeadEnabled>
-
-    <TargetFramework Condition="'$(_IOSHeadEnabled)' == 'true'">net10.0-ios</TargetFramework>
-    <TargetFramework Condition="'$(_IOSHeadEnabled)' != 'true'">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(EnableIOSHead)' == 'true'">net10.0-ios</TargetFramework>
+    <TargetFramework Condition="'$(EnableIOSHead)' != 'true'">net10.0</TargetFramework>
   </PropertyGroup>
 
   <!-- Real iOS app: macOS plus the ios workload. -->
-  <PropertyGroup Condition="'$(_IOSHeadEnabled)' == 'true'">
+  <PropertyGroup Condition="'$(EnableIOSHead)' == 'true'">
     <OutputType>Exe</OutputType>
     <ApplicationId>com.majorsilence.gallery</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
@@ -40,11 +42,11 @@
     <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(_IOSHeadEnabled)' == 'true'">
+  <ItemGroup Condition="'$(EnableIOSHead)' == 'true'">
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
-    <!-- EnableMobileHeads (a repo-wide property) on macOS also opts Majorsilence.Forms.Avalonia's
-         net10.0-ios TFM row in, so this reference resolves to it; see that csproj's TargetFrameworks
-         comment. -->
+    <!-- EnableIOSHead (a repo-wide property) also opts Majorsilence.Forms.Avalonia's net10.0-ios TFM
+         row in, and only that row, so this reference resolves to it; see that csproj's
+         TargetFrameworks comment. -->
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
     <!-- Reuse the full ControlGallery MainForm/panels to render the whole gallery on Avalonia-on-iOS. -->
     <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
@@ -67,11 +69,11 @@
        SuppressTrimAnalysisWarnings to true for UseWpf/UseWindowsForms projects, i.e. it already treats
        trim analysis as non actionable noise for desktop UI frameworks, which is exactly this case.
        See https://aka.ms/il2104. -->
-  <PropertyGroup Condition="'$(_IOSHeadEnabled)' == 'true'">
+  <PropertyGroup Condition="'$(EnableIOSHead)' == 'true'">
     <ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(_IOSHeadEnabled)' == 'true'">
+  <ItemGroup Condition="'$(EnableIOSHead)' == 'true'">
     <!-- ImageLoader.cs (backend-agnostic, plain File.Open under a relative "Images" folder) just needs
          the process's current directory to be the folder containing "Images" at runtime. Unlike
          Android's APK assets, BundleResource items land directly on the filesystem inside the app
@@ -81,12 +83,12 @@
   </ItemGroup>
 
   <!-- Stub build: not macOS, or no workload. An empty library, referenced by nothing. -->
-  <PropertyGroup Condition="'$(_IOSHeadEnabled)' != 'true'">
+  <PropertyGroup Condition="'$(EnableIOSHead)' != 'true'">
     <OutputType>Library</OutputType>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(_IOSHeadEnabled)' != 'true'">
+  <ItemGroup Condition="'$(EnableIOSHead)' != 'true'">
     <!-- These use ObjCRuntime / UIKit / Avalonia.iOS, which do not exist without the workload. -->
     <Compile Remove="Main.cs" />
     <Compile Remove="AppDelegate.cs" />

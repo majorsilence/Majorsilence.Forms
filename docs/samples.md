@@ -17,6 +17,12 @@ Multi-platform App UI development" install does this), and only then do they bui
 `net10.0-android` / `net10.0-ios` apps. So a plain `dotnet build` / `dotnet test` at the repo root
 still works without any platform workload. Force it with `-p:EnableMobileHeads=true`.
 
+`EnableMobileHeads` is an umbrella, not a switch: it resolves into `EnableAndroidHead` (which also
+requires the android workload to be present) and `EnableIOSHead` (which also requires macOS), and the
+projects key on those. To ask for exactly one platform — which is what you want on a machine or CI
+runner that has only one of the two workloads — pass `-p:EnableAndroidTarget=true` or
+`-p:EnableIOSTarget=true` instead.
+
 | Sample | What it shows | Platforms |
 |---|---|---|
 | [`ControlGallery`](#controlgallery) | Every built-in control (a library — see the heads below) | — |
@@ -122,7 +128,8 @@ dotnet build samples/Gallery.Android -t:Run
 Once the `android` workload is installed, `Directory.Build.props` detects it and switches this
 project from its stub build to the real `net10.0-android` head automatically (so Visual Studio just
 works — set it as the startup project and press F5 against an emulator). Pass
-`-p:EnableMobileHeads=true` to force it, e.g. on a machine where the auto-detection misfires.
+`-p:EnableAndroidTarget=true` to force it, e.g. on a machine where the auto-detection misfires; that
+one is ungated, so a missing workload fails the build rather than silently reverting to the stub.
 
 CI publishes a sideloadable APK + AAB on every PR (the `android` job in
 `.github/workflows/dotnet.yml`, artifact `gallery-android`) and attaches them to each GitHub Release.
@@ -150,7 +157,9 @@ dotnet build samples/Gallery.iOS -t:Run
 
 As with `Gallery.Android`, `Directory.Build.props` switches this from a stub to the real
 `net10.0-ios` head automatically once a mobile workload is present — but only on macOS, since the
-`ios` workload exists nowhere else. Force it with `-p:EnableMobileHeads=true` (still a no-op off macOS).
+`ios` workload exists nowhere else. Force it with `-p:EnableIOSTarget=true`; prefer that over the
+`EnableMobileHeads` umbrella, which on a Mac without the `android` workload would also ask for the
+`net10.0-android` row and fail.
 
 CI publishes a zipped iOS-simulator `.app` on every PR when the build succeeds (the `ios` job,
 artifact `gallery-ios`) and attaches it to each GitHub Release. There is no signed device `.ipa` —

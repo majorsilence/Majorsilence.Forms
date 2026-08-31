@@ -155,17 +155,23 @@ It is not desktop-only. The project multi-targets:
 |---|---|---|
 | `net8.0`, `net10.0` | Always | `Avalonia.Desktop` + `Avalonia.Controls.WebView` |
 | `net10.0-browser` | Always | `Avalonia.Browser` |
-| `net10.0-android` | Opt-in: `EnableAndroidTarget=true` | `Avalonia.Android` |
-| `net10.0-ios` | Opt-in: `EnableIOSTarget=true` | `Avalonia.iOS` |
+| `net10.0-android` | Opt-in: `EnableAndroidHead` (forced by `EnableAndroidTarget=true`) | `Avalonia.Android` |
+| `net10.0-ios` | Opt-in: `EnableIOSHead` (forced by `EnableIOSTarget=true`) | `Avalonia.iOS` |
 
 The browser row is unconditional because wasm-tools is only needed to *publish*. Android and iOS are
 opt-in because their workloads' reference assemblies are needed just to **compile** that row, so
 listing them unconditionally would break `dotnet build` for every contributor without the workload
 installed. `samples/Gallery.Android` and `samples/Gallery.iOS` set the property on their
-`ProjectReference` — but only in the ItemGroup that their own `EnableMobileHeads` gate switches on, so
-without a mobile workload the heads (and this row) drop out entirely rather than fail to compile. CI's
-dedicated mobile jobs set `EnableMobileHeads=true` after installing the workload. The iOS workload
-additionally only installs on macOS at all.
+`ProjectReference` — but only in the ItemGroup that their own head gate switches on, so without a
+mobile workload the heads (and this row) drop out entirely rather than fail to compile.
+
+The two gates are deliberately separate. `EnableMobileHeads` is only an umbrella that
+`Directory.Build.props` resolves into `EnableAndroidHead` and `EnableIOSHead`; nothing keys on it
+directly, because android and iOS need *different* workloads and a host commonly has one without the
+other. CI's dedicated mobile jobs therefore name their own platform — `-p:EnableAndroidTarget=true`
+and `-p:EnableIOSTarget=true` — which is both narrower (no cross-platform row dragged in) and stricter
+(an ungated force, so a missing workload fails loudly instead of quietly building a stub). The iOS
+workload additionally only installs on macOS at all.
 
 ### Single-view platforms (browser, Android, iOS)
 
