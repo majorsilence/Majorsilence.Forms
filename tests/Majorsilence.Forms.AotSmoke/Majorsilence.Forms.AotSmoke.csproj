@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- NativeAOT consumer smoke test. The trim/AOT analyzers (IsAotCompatible on core + Drawing.Common
+       + Avalonia + Headless) prove the *source* has no statically-visible reflection/dynamic-code
+       hazard; they cannot prove a real ILC publish links and runs. This does: `dotnet publish` with
+       PublishAot=true produces a self-contained native binary that installs the Headless backend,
+       builds a Form with several controls, renders it to a PNG and checks the bytes are a real,
+       non-blank image. If ILC drops something the scene needs, or a trimmed cctor throws, this exits
+       non-zero. Run by the `aot-smoke` job in .github/workflows/dotnet.yml.
+
+       Not an xunit project: the xunit runner is not itself AOT-friendly, and the whole point is to
+       exercise the published native image, so this is a plain console with an exit code. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <PublishAot>true</PublishAot>
+    <!-- One line per trim/AOT warning so a real one is not hidden behind an "N warnings" summary.
+         Not treated as errors: a benign warning from a native dependency should not fail the job. The
+         actual gate is the published binary's exit code (it renders a real scene and checks the PNG). -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <!-- This project is deliberately excluded from `dotnet test`; it has no tests to discover. -->
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+  </ItemGroup>
+
+</Project>

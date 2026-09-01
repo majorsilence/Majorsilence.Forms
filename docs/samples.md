@@ -114,8 +114,11 @@ what doesn't work there (no WebView, no window chrome, popup-dismissal gap).
 
 ### Gallery.Android (Android-only, work in progress)
 
-> ⚠️ Android/mobile support is early: it builds and boots the gallery, but hasn't seen the same real-device
-> testing or control coverage as the desktop/browser backends. Expect rough edges.
+> ⚠️ Android/mobile support is early. It has had an initial real-device pass — the gallery boots (an
+> AppCompat-theme startup crash was found and fixed there), and tap hit-testing, render scaling and
+> touch scroll/flick are confirmed working — but the on-screen keyboard, safe-area insets, rotation
+> and full control coverage have not had the same testing as the desktop/browser backends. Expect
+> rough edges.
 
 Runs the same `ControlGallery` `MainForm` on the Avalonia backend's Android target, hosted by a single
 Activity. Requires the `android` workload:
@@ -143,9 +146,10 @@ and WebView limitations apply.
 ### Gallery.iOS (iOS-only, unverified)
 
 > ⚠️ iOS is the least-proven backend: it was written from Avalonia.iOS's decompiled API and standard
-> .NET-for-iOS conventions rather than a working build. CI's `ios` job (on `macos-latest`) now
-> publishes it for the simulator and boots it as a smoke check, but the job is `continue-on-error`
-> until it is reliably green — treat a failure there as expected teething, not a regression.
+> .NET-for-iOS conventions. CI's `ios` job (on `macos-latest`) compiles the real head and launches it
+> in a simulator as a smoke check — both green since the android/ios flag split — but the job is still
+> `continue-on-error` (only a couple of green runs on a flaky runner), and nobody has run it
+> interactively on a device. Treat rough edges as expected, not as a regression.
 
 Runs the same `ControlGallery` `MainForm` on the Avalonia backend's iOS target, hosted by a single
 `UIViewController`. Requires a Mac with the `ios` workload:

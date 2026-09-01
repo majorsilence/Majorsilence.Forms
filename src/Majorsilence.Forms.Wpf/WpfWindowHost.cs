@@ -391,6 +391,7 @@ namespace Majorsilence.Forms.Wpf
         public void SetShaped (bool shaped) { }
         public void SetTextInputActive (bool active, TextInputKind kind) { }
         public void SetExtendClientIntoTitleBar (bool extend, int titleBarHeight) { }
+        public bool IsSingleView => false;
 
         // ── Rendering ────────────────────────────────────────────────────────────
 

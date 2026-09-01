@@ -31,7 +31,9 @@ namespace Majorsilence.Forms.Renderers
             var visible_item_count = control.ScaledHeight / control.ScaledItemHeight;
             var items = control.LayoutedItems;
 
-            for (var i = 0; i < items.Count && i <= visible_item_count; i++)
+            // +1: with a sub-row touch-scroll offset, item[0] is partly above the top and one more
+            // row than usual peeks in at the bottom. The Clip above trims both.
+            for (var i = 0; i < items.Count && i <= visible_item_count + 1; i++)
                 RenderItem (control, items[i], e);
 
             e.Canvas.Restore ();
