@@ -379,6 +379,11 @@ worst of them.
 
 ## `COMPATIBILITY_MATRIX.md` corrections
 
+**Applied 2026-08-31 as `W6.5`** — 16 edits, each verified against the current source before it was
+written, not transcribed from this list. See "What W6.5 found" below: two entries in the table were
+themselves wrong by the time they were applied, and the audit had missed three overstatements worse
+than any it listed.
+
 The matrix is the document migrating developers and AI assistants read to decide whether a control is
 safe to use, so a row that overstates is a defect in its own right. The audit found these; correcting
 them is cheap and should not wait for the code fixes.
@@ -398,6 +403,12 @@ them is cheap and should not wait for the code fixes.
 Add a row, too, for the thing the matrix has no entry for at all: **`override ProcessCmdKey` never
 runs** (RC-1). It is one of the most common WinForms customisations and its silent absence deserves to
 be stated where people look.
+
+> **Inverted when applied (2026-08-31).** Phase 1 landed between this list being written and its being
+> applied, so the row that went into the matrix says the chain *works* — with the date it started
+> working and the one key still unbound (Ctrl+Z, `TXT-13`). The instruction was right about the row
+> being missing and wrong about what it should say; a correction list is only current on the day it is
+> written.
 
 ## What was verified as correct
 
@@ -543,7 +554,7 @@ control and its exclusive ancestors → `Validating`/`Validated` → `Enter` on 
 
 ---
 
-### Phase 3 — Form and application lifecycle (RC-3, RC-10) — **W3.1–W3.5 DONE**
+### Phase 3 — Form and application lifecycle (RC-3, RC-10) — **DONE**
 
 **W3.1 — Make a form reusable.**
 Reset `_loadFired`, `_formClosedFired`, `shown`, `visible` and `dialog_result` when the window is
@@ -609,8 +620,13 @@ comment, so the scaled case is recorded as broken rather than quietly untested.
   docked first. The `Fill` client area therefore has to be added *before* the `Top` title bar, or it
   claims the whole window before the caption takes its strip.
 
-**W3.6 — `AutoScaleMode` / `AutoScaleDimensions`.** Stored-only today. Every designer file emits them
-and expects font-ratio scaling. *Closes:* `FRM-17`. *Risk:* medium-high — interacts with W3.5 and RC-8.
+**W3.6 — `AutoScaleMode` / `AutoScaleDimensions`. — DONE (2026-08-31)**
+Stored-only before this; every designer file emits them and expects font-ratio scaling. `Font` mode now
+scales a container and its children once, by `CurrentAutoScaleDimensions / AutoScaleDimensions`, through
+one shared `AutoScaleEngine` — `Form`, `ContainerControl` and `UserControl` are siblings here, not one
+hierarchy, so the metric and the no-op rules had nowhere else to live in common. `Dpi` mode is
+deliberately inert (see below). 11 tests; stored-only baseline 810 → 806.
+*Closed:* `FRM-17`. *Risk as rated:* medium-high, and RC-8 was indeed where the design decision fell.
 
 ---
 
@@ -845,7 +861,13 @@ the legacy `Splitter` does not resize its docked sibling — its entire purpose.
 order; `ImageList` + `TabPage.ImageIndex`; `Alignment`/`ItemSize`/`SizeMode` stored-only.
 *Closes:* `LAY-12`–`LAY-15`.
 
-**W5.24 — Scaling and preferred size: connect the engine that already works.**
+**W5.24 — Scaling and preferred size: connect the engine that already works. — DONE (2026-08-31)**
+All four disconnections closed in one pass: `Panel.GetPreferredSizeCore` delegating to the engine,
+`Scale` dispatching through `ScaleControl` (which now scales padding, margin, min/max and anchor info),
+`ButtonBase.GetPreferredSizeCore` measuring caption + image + glyph, and `GroupBox.AutoSize` becoming the
+real one. 14 tests, 13 of them verified to fail without their fix; stored-only baseline 806 → 805.
+*Closed:* `LAY-25` (P0), `LAY-21` (P0), `LAY-34`, `LAY-26`.
+
 The single most encouraging result in the audit is a *non*-finding: normalised diffs of `Layout/`
 against upstream's `DefaultLayout`, `FlowLayout`, `TableLayout`, `CommonProperties` and `LayoutUtils`
 show only naming differences, `#if DEBUG` blocks and the opt-in AnchorLayoutV2 path. **The layout
@@ -930,14 +952,47 @@ authoritative list and this table as the map of the big ones.
 | 0 — Make it measurable | **Done.** Three baseline gates and the event recorder; 8 self-tests. |
 | 1 — The keyboard chain | **Done.** The chain is dispatched, controls can claim keys, menu shortcuts and access keys work; 25 tests. |
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
-| 3 — Form and application lifecycle | **W3.1–W3.5 done** (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) outstanding — **unblocked now that W5.17 has landed**. |
+| 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | Not started. |
-| 5 — Per-control behaviour | **W5.17 done** (text measurement). The rest not started — but note W5.17 was the item everything else in this phase was waiting on. |
-| 6 — Mechanical sweeps | Not started. |
+| 5 — Per-control behaviour | **W5.17 done** (text measurement) and **W5.24 done** (layout/preferred-size wiring, 2026-08-31). The rest not started. |
+| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **3962 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
-gate still reports zero for both surfaces. Baselines: inert events 80 → 79, unraised events 130 → 127,
-stored-only properties 822 → 812.
+Suite: **4034 passing, 0 failing**, in Debug and Release, with system decorations and with
+`MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate still reports
+zero for both surfaces. Baselines: inert events 80 → 79, unraised events 130 → 127, stored-only
+properties 822 → 805.
+
+### What W6.5 found
+
+**Two of the nine listed corrections were stale, in opposite directions.** The `ProcessCmdKey` entry had
+been overtaken by Phase 1 and had to be inverted (above). The `ListBox` entry claimed `PreferredHeight`
+"exists now" — it does (`MidSizeControlParity.Three.cs:238`), but a source grep said otherwise for a
+while, because the grep was truncated with `| head -5`. What settled it was the generated
+`Majorsilence.Forms.xml` doc file: `grep 'P:Majorsilence.Forms.ListBox.PreferredHeight'` over the
+built surface is a direct answer where a source grep is an inference. **Check member existence against
+the built surface, and never truncate a grep you intend to draw a negative conclusion from** — the API
+gap gate reporting zero was the second signal that the negative was wrong, and it was right.
+
+**The audit's own list missed three rows worse than any on it.** All three claim a control works when
+what exists is storage:
+
+- `DateTimePicker`/`MonthCalendar` were listed as "Partial", missing bolded dates and `DropDownAlign` —
+  theming gaps on a control whose `OnPaint` draws **one line of text** (`MonthCalendar.cs:255-263`).
+  There is no date-picking UI in the framework at all, and the matrix implied there was.
+- `ErrorProvider` sat in an "Implemented ... minor gaps only" row while nothing it is given ever
+  renders (`SMP-51`).
+- `MaskedTextBox` was "Partial", missing `InsertKeyMode` and friends, while the mask is not enforced and
+  `MaskCompleted` is `=> true` (`TXT-03`).
+
+The pattern is that the audit generated its corrections from the *findings* it had filed, and the matrix
+row for a control it had filed a P0 against went unchecked. Reading the matrix top to bottom against the
+findings — the opposite direction — is what surfaced these. Worth doing that direction once more when
+Phases 4 and 5 land.
+
+**Rows were added, not just edited.** Three things had no row anywhere: the keyboard chain (now that it
+works, it is a capability worth stating), `ToolStrip.OverflowButton` returning null, and
+`ToolStripManager.Merge` returning `false`. A matrix that only ever edits existing rows drifts toward
+describing the layer's original shape rather than its current one.
 
 ### What phase 0 found
 
@@ -1003,6 +1058,72 @@ suite runs collections in parallel, so a test that completed an `Exit` would clo
 and fail them for the wrong reason. The `Exit` tests here end in a cancelled close — real coverage of
 the `OpenForms` walk and the cancel contract, no teardown — and `Restart` is not tested at all, because
 it relaunches the test host. Worth stating rather than quietly leaving a gap.
+
+### What W5.24 found
+
+**The audit's most encouraging non-finding held up: the engines really are a faithful port.** All four
+fixes are wiring, and none of them needed a line of layout arithmetic written. `Panel` went from a
+34-line hand-rolled child-bounds scan to a two-line delegation, and `FlowLayoutPanel` and
+`TableLayoutPanel` were fixed by deleting that scan rather than by anything done to them.
+
+**A suggested test in the finding was wrong, and being wrong was informative.** `LAY-25` says a padded
+panel with one 50x50 child at `(0, 0)` should report `(70, 70)`. It reports 60, correctly: the engine
+subtracts the container's padding offset from the anchored preferred size, and upstream's `DefaultLayout`
+does the same, because an anchored child's bounds already start inside the padding. 70 is right for a
+child at the display-rectangle origin `(10, 10)`, which is where layout actually puts one. Transcribing
+the finding's number would have produced a "fix" that made the assertion pass and the behaviour wrong.
+
+**Four of the fourteen tests first passed against a deliberately broken build.** After writing them I
+short-circuited each fix in turn to check the tests could see it. Ten failed; four did not — each because
+it asserted an absolute floor that the *unfixed* behaviour also cleared: a wrapping panel's height "at
+least 60" is satisfied by the panel's own default height, and a check box being "wider than a button"
+holds because their default sizes already differ. Rewritten as relationships (narrow *versus* wide,
+the glyph column as a *difference*, a bigger caption font *versus* a smaller one) they now fail as they
+should. The remaining one — `MaximumSize` clamping `PreferredSize` — is a shape guard rather than a
+proof, because any core override picks the clamping up; it is labelled as such in the test.
+**A test written after the fix is not a test until it has been shown to fail without it**, and an
+absolute threshold is the shape that hides this.
+
+**`ScaleControl`'s min/max ordering is load-bearing, not decoration.** Lift the constraints, scale the
+bounds, put the scaled constraints back. A control sitting at its `MinimumSize` — a designer-set button
+often is — cannot otherwise grow: the scaled bounds are computed and then clamped straight back to the
+value they were meant to outgrow. That is the kind of detail that reads like ceremony in upstream's
+source until a test asserts it.
+
+### What W3.6 found
+
+**The one-shot flag has to be armed by the property, not consumed by the first layout.** The first
+version scaled on the first layout and cleared a `_performed` flag there. It silently did nothing, and
+the reason is the order `InitializeComponent` uses: `Controls.Add` *itself* triggers a layout, so the
+flag was spent before `AutoScaleDimensions` had been assigned — the ratio arrived one layout too late,
+every time. Upstream arms on the assignment instead (`ContainerControl`'s `stateScalingNeededOnLayout`),
+which is not an implementation detail but the whole reason the mechanism works against designer code.
+Two of the eleven tests caught it; the one that passed did so for the wrong reason (a font assignment
+re-armed the flag), which is a good argument for writing the container tests in both orders.
+
+**`Dpi` mode is inert on purpose, and that is an RC-8 consequence rather than a shortcut.** Upstream's
+logical coordinates *are* device pixels, so scaling by `dpi/96` is what makes a form the right physical
+size. Here `Bounds` are logical and the backend already applies the display's factor on the way to the
+screen — `Control.DeviceDpi` is derived from that same factor — so applying the ratio again scales every
+form twice on any HiDPI display. `CurrentAutoScaleDimensions` still reports the device DPI honestly; only
+the scaling declines to act, in one place (`AutoScaleEngine.TryGetFactor`) with the reason next to it, and
+a test pins both halves so it cannot be "fixed" by accident.
+
+**A form has to scale before its window opens, not during show bookkeeping.** The finding's own fix note
+said to call it from `EnsureShownBookkeeping`, which runs *after* `Backend.Show ()` — and a post-show
+`Form.Size` write is a known backend gap, so the children would have scaled inside a window that stayed
+its original size and clipped them. Hence a new `WindowBase.PrepareForFirstShow` hook ahead of
+`SetWindowStartupLocation` on all three show paths. Worth knowing for any other item that needs to change
+window geometry: there was no pre-show seam before this.
+
+**The absolute number matters here, unusually.** Most metrics only need to be self-consistent, but
+designer files carry dimensions measured by GDI on Windows — (6, 13) for the old Tahoma 8.25pt default,
+(7, 15) for Segoe UI 9pt — so a metric off by a unit factor rescales every migrated form by that factor.
+`ContainerControl.CurrentAutoScaleDimensions` was `Font.Size * 2f`, a made-up number that happened to
+land in range. It is now a measured average glyph width at the font's **pixel** size, which puts a
+default font at about (6.5, 11); the test asserts a *range* around the Windows values rather than a
+literal, because the two ways this can fail (points-as-pixels, device-as-logical) are both factor-sized
+and a range catches them while a literal would just be another transcription.
 
 ### What phase 2 found
 

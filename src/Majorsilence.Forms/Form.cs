@@ -1180,14 +1180,83 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the automatic scaling mode.</summary>
         /// <remarks>
-        /// Stored and returned, but it does not drive layout: the platform backend owns DPI scaling,
-        /// so there is no designer-time-to-runtime font/DPI rescale to perform. Every WinForms designer
-        /// file assigns this, hence the round-trip rather than throwing.
+        /// <para>
+        /// Real as of 2026-08-31 (<c>W3.6</c>, finding <c>FRM-17</c>). It used to be stored and
+        /// returned with a remark saying the backend owns DPI scaling and there was therefore nothing
+        /// to do -- which conflated the two modes. The backend does own DPI, but it does not own the
+        /// FONT: every designer file records the dimensions of the font it was laid out with
+        /// (<c>AutoScaleDimensions = new SizeF(6F, 13F)</c> and the like), and this library's default
+        /// font is a different family at a different size. Without the font ratio, a form drawn for
+        /// 6px-per-character was laid out at nearer 7 with no compensation -- clipped labels,
+        /// ellipsized buttons, table columns too narrow. That is the exact breakage AutoScale exists
+        /// to prevent, and the reason every designer file sets it.
+        /// </para>
+        /// <para>
+        /// <see cref="AutoScaleMode.Font"/> scales once, before the window is shown, by
+        /// <see cref="CurrentAutoScaleDimensions"/> over <see cref="AutoScaleDimensions"/>.
+        /// <see cref="AutoScaleMode.Dpi"/> is deliberately inert -- see
+        /// <see cref="AutoScaleEngine.TryGetFactor"/> for why applying a DPI ratio here would scale
+        /// every form twice on a HiDPI display.
+        /// </para>
         /// </remarks>
         public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Font;
 
-        /// <inheritdoc cref="AutoScaleMode"/>
+        /// <summary>Gets or sets the dimensions the designer laid this form out at.</summary>
+        /// <remarks>Empty means "not recorded", and nothing scales -- so a form built in code is
+        /// untouched, and only a form carrying a designer's own numbers is corrected.</remarks>
         public System.Drawing.SizeF AutoScaleDimensions { get; set; }
+
+        /// <summary>Gets the scale the form is currently laid out at.</summary>
+        /// <inheritdoc cref="ContainerControl.CurrentAutoScaleDimensions" path="/remarks"/>
+        public System.Drawing.SizeF CurrentAutoScaleDimensions
+            => AutoScaleEngine.CurrentDimensions (AutoScaleMode, Font, (int)(Scaling * 96));
+
+        /// <summary>
+        /// Scales the form and its children to the difference between the recorded and current
+        /// dimensions, and records the new dimensions so a second call is a no-op.
+        /// </summary>
+        public void PerformAutoScale ()
+        {
+            var current = CurrentAutoScaleDimensions;
+
+            if (!AutoScaleEngine.TryGetFactor (AutoScaleMode, AutoScaleDimensions, current, out var factor))
+                return;
+
+            var root = ContentRoot;
+
+            root.SuspendLayout ();
+
+            try {
+                // Explicit children only. The implicit list is this library's own chrome -- the title
+                // bar and the scrollbars -- which is sized from its own metrics on every layout and
+                // would be scaled twice, or scaled and then reset, depending on the order.
+                foreach (var child in root.Controls.GetAllControls (includeImplicit: false))
+                    child.Scale (factor);
+
+                // The client area, not Size: the caption is non-client and is not part of what the
+                // designer measured. SetClientSizeCore adds it back.
+                var client = ClientSize;
+
+                ClientSize = new System.Drawing.Size (
+                    (int)System.Math.Round (client.Width * factor.Width),
+                    (int)System.Math.Round (client.Height * factor.Height));
+            } finally {
+                root.ResumeLayout ();
+            }
+
+            AutoScaleDimensions = current;
+        }
+
+        /// <inheritdoc/>
+        internal override void PrepareForFirstShow ()
+        {
+            base.PrepareForFirstShow ();
+
+            // Before the backend window opens, which is both faithful and necessary. Upstream scales on
+            // the form's first layout, ahead of any handler that measures anything; here it also has to
+            // precede Backend.Show () because the window takes its size from the form as it opens.
+            PerformAutoScale ();
+        }
 
         /// <summary>Gets or sets how the form performs implicit validation when focus leaves a child control.</summary>
         public AutoValidate AutoValidate { get; set; } = AutoValidate.EnablePreventFocusChange;

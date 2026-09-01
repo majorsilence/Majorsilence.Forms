@@ -1882,12 +1882,33 @@ namespace Majorsilence.Forms
         // ShowWithoutActivation hook; see that property.
         internal virtual bool ShowsActivated => true;
 
+        /// <summary>
+        /// Last chance to change the window's own geometry, before the backend opens it.
+        /// </summary>
+        /// <remarks>
+        /// Every Show path runs this exactly once, on the first show only. It exists because
+        /// <c>Form.AutoScaleMode</c> resizes the form and its children, and the backend takes the
+        /// window's size from the form as it opens -- so this work cannot wait for
+        /// <see cref="EnsureShownBookkeeping"/>, which runs after <c>Backend.Show ()</c> has already
+        /// presented the window at the unscaled size.
+        /// </remarks>
+        internal virtual void PrepareForFirstShow () { }
+
+        // `shown` is set from MarkHandleCreated during EnsureShownBookkeeping, so it is still false here
+        // on the first show and true on every later one.
+        private void PrepareForFirstShowIfNeeded ()
+        {
+            if (!shown)
+                PrepareForFirstShow ();
+        }
+
         /// <summary>Displays the window to the user.</summary>
         public void Show ()
         {
             if (TryShowHosted ())
                 return;
 
+            PrepareForFirstShowIfNeeded ();
             SetWindowStartupLocation ();
             Backend.ShowActivated = ShowsActivated;
             Backend.Show ();
@@ -1908,6 +1929,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal void ShowDialogOwnerless ()
         {
+            PrepareForFirstShowIfNeeded ();
             SetWindowStartupLocation (null);
             Backend.Show ();
             EnsureShownBookkeeping ();
@@ -1921,6 +1943,7 @@ namespace Majorsilence.Forms
             // window it lives in still accepting input.
             var parentWindow = parent.PresentationWindow;
 
+            PrepareForFirstShowIfNeeded ();
             SetWindowStartupLocation (parentWindow);
             DisableWindowsForModalLoop ();
             Backend.ShowActivated = ShowsActivated;

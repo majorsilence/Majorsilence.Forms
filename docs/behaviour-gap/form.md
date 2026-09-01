@@ -146,6 +146,15 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Tests today:** `FormHandleCreatedTests.OnHandleCreated_precedes_OnShown` (does not check Load), `FormLoadShownOrderTests`.
 
 ### FRM-17 — `Form.AutoScaleMode` / `AutoScaleDimensions` stored-only (no font/DPI autoscale) — Cat C — P1 — High
+- **CLOSED 2026-08-31 (`W3.6`)** for `AutoScaleMode.Font`, on `Form`, `ContainerControl` and
+  `UserControl`, through one shared `AutoScaleEngine` (`src/Majorsilence.Forms/AutoScale.cs`); 11 tests
+  in `AutoScaleTests.cs`. Three corrections to the fix as written above: the scale has to run from a new
+  pre-show hook rather than `EnsureShownBookkeeping` (which is after `Backend.Show ()`, where a
+  `Form.Size` write is a backend no-op); the one-shot flag has to be armed by the
+  `AutoScaleMode`/`AutoScaleDimensions`/`Font` setters rather than consumed by the first layout, because
+  `Controls.Add` triggers a layout before the designer assigns the dimensions; and `AutoScaleMode.Dpi` is
+  deliberately left inert, because `Bounds` here are logical and the backend already applies the display
+  factor, so a dpi ratio would scale every form twice. See "What W3.6 found" in the plan.
 - **Ours:** Both are auto-properties on `Form` (`Form.cs:919-922`); `PerformAutoScale`/`CurrentAutoScaleDimensions` exist only on `ContainerControl` (`RemainingMemberParity.cs:138-158`, and its "Font" width formula `Font.Size * 2f` is not the upstream average-char-width metric). Nothing on the Form path reads `AutoScaleDimensions`. Same for `UserControl` (`UserControl.cs:24-27, 73-76`).
 - **Upstream:** `ContainerControl.OnLayout` → `PerformNeededAutoScaleOnLayout` scales all children by `CurrentAutoScaleDimensions / AutoScaleDimensions` on first layout, where the current dimensions are the live font's `tmAveCharWidth`/`tmHeight` (`ContainerControl.cs:884-888, 306-330, 700-740, 931`).
 - **Impact:** Every designer file records `AutoScaleDimensions = new SizeF(6F, 13F)` (Segoe UI 9pt @96dpi). The default font here is a different family and size (`SystemFonts.cs:21, 51`: 9pt / 8.25pt DejaVu/SF/Segoe fallback) with a different average glyph width, so text laid out for 6px/char is now measured at ~7px/char with no compensating scale: truncated labels, buttons whose captions ellipsize, TableLayout columns too narrow — the classic "WinForms on a different font" breakage that AutoScale exists to prevent. Also no scaling when `Application.SetDefaultFont` changes the default.
