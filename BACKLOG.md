@@ -21,8 +21,11 @@ failed to reach them -- `Panel`'s preferred size, `Control.Scale`, the button fa
 Phase 4 (data binding) landed 2026-09-01: the `CurrencyManager` is a live object, `DataRowView`
 columns bind, conversion failures stay out of the data, and the `BindingNavigator` is buttons rather
 than scenery.
-**What is left is phases 5 and 6:** the per-control families (`W5.*`, of which `W5.17` and `W5.24` are
-done), and the mechanical sweeps (`W6.1`-`W6.4`; `W6.5` was done 2026-08-31).
+`W5.6` followed on 2026-09-01: `ListView.View` is real, so `Details` -- the most common ListView shape
+in a LOB app, and the audit's largest single visual divergence -- renders its header, columns and
+subitems instead of a grid of icon tiles.
+**What is left is phases 5 and 6:** the rest of the per-control families (`W5.*`, of which `W5.6`,
+`W5.17` and `W5.24` are done), and the mechanical sweeps (`W6.1`-`W6.4`; `W6.5` was done 2026-08-31).
 
 Findings, root causes and a phased plan: [`docs/behaviour-gap-plan.md`](docs/behaviour-gap-plan.md).
 Per-area detail with both sides cited: [`docs/behaviour-gap/`](docs/behaviour-gap/).

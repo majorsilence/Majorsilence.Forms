@@ -37,14 +37,7 @@ Majorsilence.Forms.FontDialog.Apply
 Majorsilence.Forms.Form.InputLanguageChanged
 Majorsilence.Forms.Form.InputLanguageChanging
 Majorsilence.Forms.ListBox.MeasureItem
-Majorsilence.Forms.ListView.AfterLabelEdit
-Majorsilence.Forms.ListView.BeforeLabelEdit
 Majorsilence.Forms.ListView.CacheVirtualItems
-Majorsilence.Forms.ListView.ColumnClick
-Majorsilence.Forms.ListView.ItemActivate
-Majorsilence.Forms.ListView.ItemCheck
-Majorsilence.Forms.ListView.ItemChecked
-Majorsilence.Forms.ListView.ItemDrag
 Majorsilence.Forms.ListView.RetrieveVirtualItem
 Majorsilence.Forms.MaskedTextBox.MaskInputRejected
 Majorsilence.Forms.MaskedTextBox.TypeValidationCompleted

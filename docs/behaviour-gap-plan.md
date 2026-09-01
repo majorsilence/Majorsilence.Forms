@@ -710,11 +710,20 @@ instead of its private twins (`DefaultCellStyle.Alignment`, `HeaderCell.SortGlyp
 points; keyboard handled on `KeyUp` instead of `KeyDown`; Enter/Delete/Ctrl+C/Home/End/Tab.
 *Closes:* `DGV-29`, `DGV-30`, `DGV-25`, `DGV-26`.
 
-**W5.6 — `ListView` is not a list view.** `View` is stored-only, so every item renders as a 70px
-large-icon tile whatever the mode — `Details` (the overwhelmingly common choice) does not exist. Plus
-vertical scrolling, `EnsureVisible`/`TopItem`, and the dropped `ColumnClick`/`ItemActivate`/`ItemCheck`
-handlers. *Closes:* `LST-01` (P0), `LST-17`, `LST-18`, `LST-19`, `LST-12`.
-*This is the largest single visual divergence in the audit.*
+**W5.6 — `ListView` is not a list view. — DONE (2026-09-01)**
+`View` now selects the layout and the rendering: `Details` draws a header band from `Columns` and one
+row per item with a cell per column (honouring `Width` including the `-1`/`-2` autosize sentinels,
+`TextAlign`, `GridLines`, `FullRowSelect` and `CheckBoxes`), `List`/`SmallIcon` draw single-line rows,
+`LargeIcon`/`Tile` keep the tiles. `SubItem.Bounds` is real. An implicit `VerticalScrollBar` (the
+`ListBox` pattern) backs `EnsureVisible`, `TopItem`, `CountPerPage` and the wheel. `ListViewItem.Selected`
+and `.Checked` announce through the parent, so programmatic selection updates dependent UI and
+`MultiSelect = false` means something; Ctrl/Shift extend a selection. The seven discarding events are
+real with `On*` raisers. `Sort` sorts. 16 tests, 15 verified to fail without their fix.
+*Closed:* `LST-01` (P0), `LST-12`, `LST-17`, `LST-18`, `LST-19`, and the `ListView` half of `LST-20`
+(the mouse is converted to device units at the hit-test boundary, as `ListBox` does).
+*Not covered:* label editing (`BeforeLabelEdit`/`AfterLabelEdit` are raisable but nothing edits in
+place), `ItemDrag` (raisable, no drag recogniser), `VirtualMode`, groups, and owner-draw
+(`DrawItem`/`DrawSubItem`).
 
 **W5.7 — `CheckedListBox` has no checkboxes.** No glyph is drawn and no click toggles one; the control
 is a `ListBox` with unreachable bookkeeping. *Closes:* `LST-02` (P0), `LST-16`.
@@ -967,13 +976,39 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.17 done** (text measurement) and **W5.24 done** (layout/preferred-size wiring, 2026-08-31). The rest not started. |
+| 5 — Per-control behaviour | **W5.17** (text measurement), **W5.24** (layout/preferred-size wiring) and **W5.6** (`ListView`, 2026-09-01) done. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4061 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4077 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate still reports
-zero for both surfaces. Baselines: inert events 80 → 79, unraised events 130 → 120, stored-only
-properties 822 → 796, no-op stubs down 5 more (the manager's edit/suspend surface).
+zero for both surfaces. Baselines: inert events 80 → 72, unraised events 130 → 120, stored-only
+properties 822 → 788, no-op stubs down 5 more (the manager's edit/suspend surface).
+
+### What W5.6 found
+
+**Making the item the choke point double-reported the selection.** `ListViewItem.Selected` now
+announces through the parent (LST-17), but `ListView.SelectedItem`'s setter still raised
+`ItemSelectionChanged`/`SelectedIndexChanged` itself — so every change was reported twice, and
+`KryptonPortParityTests.ListView_ItemSelectionChanged_ReportsDeselectionThenSelection` caught it
+immediately. The fix is a batch depth: the per-item setters report their own
+`ItemSelectionChanged` as they happen, and one settled `SelectedIndexChanged` follows the pair. Worth
+knowing generally — when a property becomes the single notification point, every caller that used to
+notify on its behalf has to stop.
+
+**The pixel test passed against a deliberately broken renderer, and so did two others.** "Some ink in
+the second column's x-range" is satisfied by TILE rendering, because tiles are laid across the full
+width — the exact shape of vacuous assertion W5.24 catalogued, found again by the same neutralize-and-
+rerun pass. It now uses two things only Details can produce: the header band's fill colour (tiles draw
+no header, so that pixel stays the list's background) and subitem ink past a deliberately wide first
+column, with only two items so no tile reaches that far. `CountPerPage` was likewise asserted against a
+floor that the old `Height / 70` also cleared, and is now anchored to the row height the control lays
+out with.
+
+**`TopItem` was the half of LST-19 that a scrollbar does not fix by itself.** It returned `Items[0]`
+unconditionally, so a scrolled list still claimed its first item was on top — and the test noticed
+while everything else about scrolling already worked. Its setter also had to change meaning: upstream
+scrolls the assigned item TO THE TOP, where this called `EnsureVisible`, which only guarantees
+visibility.
 
 ### What phase 4 found
 
