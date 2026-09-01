@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 810 of 1251 public settable auto-properties (64%).
+# 805 of 1248 public settable auto-properties (64%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -324,8 +324,6 @@ Majorsilence.Forms.Form.AllowDrop
 Majorsilence.Forms.Form.AllowTransparency
 Majorsilence.Forms.Form.AutoScale
 Majorsilence.Forms.Form.AutoScaleBaseSize
-Majorsilence.Forms.Form.AutoScaleDimensions
-Majorsilence.Forms.Form.AutoScaleMode
 Majorsilence.Forms.Form.AutoSizeMode
 Majorsilence.Forms.Form.CausesValidation
 Majorsilence.Forms.Form.ControlBox
@@ -347,7 +345,6 @@ Majorsilence.Forms.GridItem.Parent
 Majorsilence.Forms.GridItem.PropertyDescriptor
 Majorsilence.Forms.GridItem.Tag
 Majorsilence.Forms.GridItem.Value
-Majorsilence.Forms.GroupBox.AutoSize
 Majorsilence.Forms.GroupBox.FlatStyle
 Majorsilence.Forms.GroupBox.UseCompatibleTextRendering
 Majorsilence.Forms.GroupBoxRenderer.RenderMatchingApplicationState
@@ -800,8 +797,6 @@ Majorsilence.Forms.UpDownBase.InterceptArrowKeys
 Majorsilence.Forms.UpDownBase.ReadOnly
 Majorsilence.Forms.UpDownBase.TextAlign
 Majorsilence.Forms.UpDownBase.UpDownAlign
-Majorsilence.Forms.UserControl.AutoScaleDimensions
-Majorsilence.Forms.UserControl.AutoScaleMode
 Majorsilence.Forms.UserControl.AutoValidate
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Part

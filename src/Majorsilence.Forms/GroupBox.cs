@@ -64,8 +64,46 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether compatible text rendering is used. Stub in Majorsilence.Forms.</summary>
         public bool UseCompatibleTextRendering { get; set; } = true;
 
-        /// <summary>Gets or sets whether the group box is auto-sized. Stub in Majorsilence.Forms.</summary>
-        public new bool AutoSize { get; set; }
+        /// <summary>Gets or sets whether the group box sizes itself to its contents.</summary>
+        /// <remarks>
+        /// This was <c>public new bool AutoSize { get; set; }</c> until 2026-08-31 -- a stored-only
+        /// shadow (finding <c>LAY-26</c>). Setting it never reached the layout state
+        /// <c>CommonProperties.GetAutoSize</c> reads, so nothing ever resized the group box, and
+        /// <c>((Control)gb).AutoSize</c> disagreed with <c>gb.AutoSize</c> while
+        /// <see cref="AutoSizeMode"/> -- which did go through the real plumbing -- read the other half
+        /// of a feature that could not work. Upstream re-declares it only to restore the designer
+        /// attributes, which is what this now does.
+        /// </remarks>
+        public override bool AutoSize {
+            get => base.AutoSize;
+            set => base.AutoSize = value;
+        }
+
+        /// <summary>
+        /// Measures the group box: its children through its own layout engine, plus the caption band
+        /// and the insets <see cref="DisplayRectangle"/> applies.
+        /// </summary>
+        /// <remarks>The inset has to be the same one <see cref="DisplayRectangle"/> uses, or an
+        /// auto-sized group box reports a size its own children do not fit inside -- the caption band
+        /// is the part that is easy to leave out, and it is font-dependent.</remarks>
+        internal override Size GetPreferredSizeCore (Size proposedSize)
+        {
+            var inset = new Size (
+                Padding.Horizontal,
+                CaptionHeight + Padding.Vertical);
+
+            var content = LayoutEngine.GetPreferredSize (this, proposedSize - inset) + inset;
+
+            // A caption wider than the contents is what sets the width of an otherwise-empty group.
+            if (Text.HasValue ()) {
+                var measured = TextMeasurer.MeasureText (
+                    Text, GetEffectiveFont (), GetEffectiveFontSize (), TextMeasurer.MaxSize);
+
+                content.Width = Math.Max (content.Width, (int)Math.Ceiling (measured.Width) + Padding.Horizontal);
+            }
+
+            return content;
+        }
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);

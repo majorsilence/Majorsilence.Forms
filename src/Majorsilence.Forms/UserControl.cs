@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using Majorsilence.Forms.Layout;
 
 namespace Majorsilence.Forms
 {
@@ -25,11 +26,80 @@ namespace Majorsilence.Forms
 
         // AutoSizeMode is inherited from Panel (same Get/SetAutoSizeMode mechanism).
 
-        /// <summary>Gets or sets how the control should scale when its parent changes DPI.</summary>
-        public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Font;
+        private AutoScaleMode _autoScaleMode = AutoScaleMode.Font;
+        private System.Drawing.SizeF _autoScaleDimensions;
 
-        /// <summary>Gets or sets the auto-scale dimensions (no-op stub).</summary>
-        public System.Drawing.SizeF AutoScaleDimensions { get; set; }
+        /// <summary>Gets or sets the auto-scale mode.</summary>
+        /// <inheritdoc cref="ContainerControl.AutoScaleMode" path="/remarks"/>
+        public AutoScaleMode AutoScaleMode {
+            get => _autoScaleMode;
+            set {
+                _autoScaleMode = value;
+                ArmAutoScale ();
+            }
+        }
+
+        /// <summary>Gets or sets the dimensions the designer laid this control out at.</summary>
+        /// <inheritdoc cref="ContainerControl.AutoScaleDimensions" path="/remarks"/>
+        public System.Drawing.SizeF AutoScaleDimensions {
+            get => _autoScaleDimensions;
+            set {
+                _autoScaleDimensions = value;
+                ArmAutoScale ();
+            }
+        }
+
+        /// <summary>Gets the scale the control is currently laid out at.</summary>
+        /// <inheritdoc cref="ContainerControl.CurrentAutoScaleDimensions" path="/remarks"/>
+        public System.Drawing.SizeF CurrentAutoScaleDimensions
+            => AutoScaleEngine.CurrentDimensions (AutoScaleMode, Font, DeviceDpi);
+
+        /// <summary>Scales the control to the difference between its recorded and current dimensions.</summary>
+        public void PerformAutoScale ()
+        {
+            var recorded = _autoScaleDimensions;
+            AutoScaleEngine.Perform (this, AutoScaleMode, ref recorded);
+
+            // The field, not the property: the property setter re-arms, which would leave this needing
+            // to run again after every successful run.
+            _autoScaleDimensions = recorded;
+            _autoScaleNeeded = false;
+        }
+
+        // Armed by an assignment to AutoScaleMode, AutoScaleDimensions or Font -- not cleared by the
+        // first layout that happens to come along. Upstream does the same (ContainerControl's
+        // stateScalingNeededOnLayout), and the reason is the order InitializeComponent uses: controls
+        // are added first and the recorded dimensions assigned after, so a flag consumed by the first
+        // layout is consumed before there is anything to scale by. That produced exactly one silent
+        // no-op here before this was written the upstream way.
+        private bool _autoScaleNeeded;
+
+        private void ArmAutoScale () => _autoScaleNeeded = true;
+
+        /// <inheritdoc/>
+        protected override void OnLayout (LayoutEventArgs e)
+        {
+            base.OnLayout (e);
+
+            if (!_autoScaleNeeded)
+                return;
+
+            // Cleared before the scale, not after: Scale writes bounds, which raises layout again, and
+            // re-entering here would apply the same factor repeatedly.
+            _autoScaleNeeded = false;
+            PerformAutoScale ();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnFontChanged (System.EventArgs e)
+        {
+            base.OnFontChanged (e);
+
+            // A font assigned after construction -- Application.SetDefaultFont included, which is the
+            // second half of FRM-17 -- makes the recorded dimensions stale. PerformAutoScale has
+            // already stored the previous font's dimensions, so the next pass scales by the difference.
+            ArmAutoScale ();
+        }
 
         /// <summary>Gets or sets how the UserControl validates its children. Stub in Majorsilence.Forms.</summary>
         public AutoValidate AutoValidate { get; set; } = AutoValidate.EnablePreventFocusChange;
@@ -111,11 +181,44 @@ namespace Majorsilence.Forms
         /// even when a handler cancels.</remarks>
         public AutoValidate AutoValidate { get; set; } = AutoValidate.EnablePreventFocusChange;
 
-        /// <summary>Gets or sets the auto-scale mode. Stub in Majorsilence.Forms.</summary>
-        public AutoScaleMode AutoScaleMode { get; set; } = AutoScaleMode.Font;
+        private AutoScaleMode _autoScaleMode = AutoScaleMode.Font;
+        private System.Drawing.SizeF _autoScaleDimensions;
 
-        /// <summary>Gets or sets the auto-scale dimensions. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.SizeF AutoScaleDimensions { get; set; }
+        /// <summary>Gets or sets the auto-scale mode.</summary>
+        /// <remarks>Real as of 2026-08-31 (<c>W3.6</c>): with <see cref="AutoScaleMode.Font"/> and a
+        /// recorded <see cref="AutoScaleDimensions"/>, the container scales its children on first
+        /// layout by the ratio between the recorded dimensions and the current font's.
+        /// <see cref="AutoScaleMode.Dpi"/> is deliberately inert -- see
+        /// <see cref="AutoScaleEngine.TryGetFactor"/> for why scaling by DPI here would double-count
+        /// the backend's own display scale.</remarks>
+        public AutoScaleMode AutoScaleMode {
+            get => _autoScaleMode;
+            set {
+                _autoScaleMode = value;
+                ArmAutoScale ();
+            }
+        }
+
+        /// <summary>Gets or sets the dimensions the designer laid this container out at.</summary>
+        /// <remarks>Empty means "not recorded", and nothing scales -- the normal case for a container
+        /// built in code. A designer file assigns it, which is what gives the ratio a denominator.</remarks>
+        public System.Drawing.SizeF AutoScaleDimensions {
+            get => _autoScaleDimensions;
+            set {
+                _autoScaleDimensions = value;
+                ArmAutoScale ();
+            }
+        }
+
+        // Armed by an assignment to AutoScaleMode, AutoScaleDimensions or Font -- not consumed by
+        // whichever layout happens to run first. Upstream arms the same way (ContainerControl's
+        // stateScalingNeededOnLayout), and InitializeComponent is the reason: it adds the controls
+        // first and assigns the recorded dimensions afterwards, so a flag cleared by the first layout
+        // is spent before there is any ratio to scale by. That is not hypothetical -- written the other
+        // way round, this silently did nothing and the test caught it.
+        private bool _autoScaleNeeded;
+
+        private void ArmAutoScale () => _autoScaleNeeded = true;
 
         /// <summary>Validates all child controls by triggering their Validating/Validated events.</summary>
         /// <remarks>

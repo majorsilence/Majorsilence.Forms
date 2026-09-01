@@ -181,6 +181,11 @@ events in a different order from Windows. Counts: 2 P0, 18 P1, 17 P2 (37 finding
 - **Tests today:** none
 
 ### LAY-21 — `Control.Scale(SizeF)` / `Control.ScaleControl(SizeF, BoundsSpecified)` — Cat B — P0 — High
+- **CLOSED 2026-08-31 (`W5.24`).** `Scale` wraps a `LayoutTransaction` and `ScaleCore` now dispatches
+  through `ScaleControl`, which scales `Padding`, `Margin`, `MinimumSize`, `MaximumSize` and calls
+  `DefaultLayout.ScaleAnchorInfo`. Min/max are lifted before the bounds are scaled and restored after,
+  as upstream does -- a control sitting at its `MinimumSize` cannot otherwise grow, and a test pins
+  that ordering.
 - **Ours:** `public void Scale(SizeF factor) => ScaleCore(factor.Width, factor.Height);` (`src/Majorsilence.Forms/Control.cs:2207`). `ScaleCore` (`Control.cs:2212-2231`) scales **bounds only** and recurses into children by calling `c.ScaleCore(...)` directly. `ScaleControl(SizeF, BoundsSpecified)` exists (`src/Majorsilence.Forms/Control.Hooks.cs:366`) but a repo-wide grep finds **no caller** — it is dead code. `DefaultLayout.ScaleAnchorInfo` (`src/Majorsilence.Forms/Layout/DockAndAnchorLayout.cs:759`) is likewise never called. There is no `ScaleChildren` property.
 - **Upstream:** `Scale(SizeF)` wraps a `LayoutTransaction`, calls `ScaleControl(factor, factor)`, then recurses through `ScaleChildren`/`ChildControls` (`src/System.Windows.Forms/System/Windows/Forms/Control.cs`, `Scale(SizeF factor)`); `ScaleControl` scales `Padding`, `Margin`, `MinimumSize`, `MaximumSize` and the window adornments, then applies the scaled bounds (`Control.cs`, `protected virtual void ScaleControl(SizeF, BoundsSpecified)`), and calls `DefaultLayout.ScaleAnchorInfo` so anchored children keep their edge distances.
 - **Impact:** At any non-96 DPI (or `AutoScaleMode.Font` with a different system font), Padding, Margin, MinimumSize and MaximumSize keep their 96-DPI pixel values while bounds grow — FlowLayoutPanel/TableLayoutPanel gaps and control insets end up ~2/3 too small at 150%, `MinimumSize` clamps at the wrong pixel value, and anchored children snap to unscaled distances. Custom controls that override `ScaleControl` (the documented WinForms DPI hook) are never called at all — silently, since the override compiles.
@@ -213,6 +218,14 @@ events in a different order from Windows. Counts: 2 P0, 18 P1, 17 P2 (37 finding
 - **Tests today:** none
 
 ### LAY-25 — `Panel.GetPreferredSize(Size)` replaces the layout engine — Cat A — P0 — High
+- **CLOSED 2026-08-31 (`W5.24`).** The public override is gone; `Panel.GetPreferredSizeCore` delegates to
+  `LayoutEngine.GetPreferredSize`, so `FlowLayoutPanel` and `TableLayoutPanel` reach their own ported
+  engines and the constraints and cache in `Control.GetPreferredSize` apply. **The suggested test above
+  is wrong as written:** a child forced to `(0, 0)` measures 60, not 70, because the engine subtracts the
+  container's padding offset from the anchored preferred size (upstream's `DefaultLayout` does this too --
+  an anchored child's bounds already begin inside the padding). Place the child at the display-rectangle
+  origin `(10, 10)` and 70 is right. There is no `SizeFromClientSize` here either: a panel's `BorderStyle`
+  paints inside the client rectangle, so `Padding` is the whole inset.
 - **Ours:** `Panel` overrides the **public** `GetPreferredSize(Size proposedSize)` with a hand-rolled scan of `Controls` that unions child `Bounds.Right`/`Bounds.Bottom` plus margins, keyed off `Dock`/`Anchor` (`src/Majorsilence.Forms/Panel.cs:40-59`). It ignores `proposedSize` entirely, ignores `Padding`, never touches `LayoutEngine`, and — because it overrides the public method rather than `GetPreferredSizeCore` — bypasses `Control.GetPreferredSize`'s `ApplySizeConstraints` (MinimumSize/MaximumSize clamping) and the preferred-size cache (`src/Majorsilence.Forms/Control.Layout.cs:112-146`). `FlowLayoutPanel` and `TableLayoutPanel` both derive from `Panel` and do **not** override it, so they inherit this too.
 - **Upstream:** `internal override Size GetPreferredSizeCore(Size proposedSize) { Size borderSize = SizeFromClientSize(Size.Empty); Size totalPadding = borderSize + Padding.Size; return LayoutEngine.GetPreferredSize(this, proposedSize - totalPadding) + totalPadding; }` (`src/System.Windows.Forms/System/Windows/Forms/Panels/Panel.cs:146-154`) — it delegates to the container's own layout engine (`FlowLayout.GetPreferredSize` / `TableLayout.GetPreferredSize` / `DefaultLayout.GetPreferredSize`) and adds padding and border.
 - **Impact:** P0 for AutoSize containers. An `AutoSize` `TableLayoutPanel` or `FlowLayoutPanel` never asks its own engine what size it needs, so it sizes to the union of where its children *currently* are — which before the first correct layout is the designer's stale positions, and after a content change is the previous size. Concretely: a `FlowLayoutPanel` with `AutoSize = true, WrapContents = true` cannot compute a wrapped height for a proposed width (the argument is discarded), so it reports one row. An `AutoSize` `Panel` ignores its `Padding` (content flush to the edge) and its `MinimumSize`/`MaximumSize` are not applied to `PreferredSize`.
@@ -221,6 +234,9 @@ events in a different order from Windows. Counts: 2 P0, 18 P1, 17 P2 (37 finding
 - **Tests today:** none
 
 ### LAY-26 — `GroupBox.AutoSize` — Cat E — P1 — High
+- **CLOSED 2026-08-31 (`W5.24`).** `public override bool AutoSize` forwarding to base, plus a
+  `GetPreferredSizeCore` that adds the caption band and padding to the engine's answer and widens to the
+  caption text when that is the wider of the two.
 - **Ours:** `public new bool AutoSize { get; set; }` (`src/Majorsilence.Forms/GroupBox.cs:66`) — a stored-only shadow of `Control.AutoSize`. Setting it never sets the layout state bit that `CommonProperties.GetAutoSize` reads, so `LayoutAutoSizedControls` never resizes the group box, and `((Control)gb).AutoSize` reports a different value than `gb.AutoSize`. `GroupBox.AutoSizeMode` (`src/Majorsilence.Forms/RemainingMemberParity.cs:265`) *does* go through `GetAutoSizeMode`/`SetAutoSizeMode`, so the two halves of the feature read different state. GroupBox also has no `GetPreferredSizeCore` override.
 - **Upstream:** `public override bool AutoSize { get => base.AutoSize; set => base.AutoSize = value; }` — the re-declaration is purely to re-expose `[Browsable]` (`src/System.Windows.Forms/System/Windows/Forms/Controls/GroupBox/GroupBox.cs:59-63`), and `GroupBox` overrides `GetPreferredSizeCore` so it can size to its caption + children.
 - **Impact:** `groupBox1.AutoSize = true` — common on dynamically-populated option groups — does nothing, and the group box stays at its designer size, clipping content. Silent.
@@ -285,6 +301,12 @@ events in a different order from Windows. Counts: 2 P0, 18 P1, 17 P2 (37 finding
 - **Tests today:** none
 
 ### LAY-34 — `AutoSize` on `Button` / `CheckBox` / `RadioButton` / `LinkLabel` never measures content — Cat B — P1 — High
+- **CLOSED 2026-08-31 (`W5.24`)** for `ButtonBase` and its three subclasses, in one override on the base:
+  text through `TextMeasurer` at the effective font (as `Label` does), the image placed per
+  `TextImageRelation`, the check/radio glyph column taken from the renderer's own `GlyphSize`/
+  `GlyphTextPadding`, plus `Padding` and the border. `LinkLabel` derives from `Label`, which already
+  measured. Not covered: a top- or bottom-centred `GlyphAlign` wants its allowance on the vertical axis;
+  the glyph is measured as a column beside the text, which is what the default alignment produces.
 - **Ours:** `ButtonBase` (`src/Majorsilence.Forms/WinFormsBaseControls.cs:26`) and its subclasses `Button`, `CheckBox`, `RadioButton` have **no** `GetPreferredSizeCore` override anywhere in the repo, so they fall through to `Control.GetPreferredSizeCore` → `CommonProperties.GetSpecifiedBounds(this).Size` (`src/Majorsilence.Forms/Control.Layout.cs:151-154`) — i.e. the size the designer last set. All the `AutoSizeMode` plumbing and `LayoutTransaction.DoLayoutIf(AutoSize, ...)` calls exist (`src/Majorsilence.Forms/Button.cs:50,60-78`, `RadioButton.cs:53,63-80`) and drive a layout that then computes the *current* size. `Label` is the only one that measures (`src/Majorsilence.Forms/Label.cs:74`).
 - **Upstream:** `ButtonBase.GetPreferredSizeCore` (`src/System.Windows.Forms/System/Windows/Forms/Controls/Buttons/ButtonBase.cs:1012`), `Button.GetPreferredSizeCore` (`Buttons/Button.cs:84`), `CheckBox.GetPreferredSizeCore` (`Buttons/CheckBox.cs:289`), `RadioButton.GetPreferredSizeCore` (`Buttons/RadioButton.cs:264`) all measure text + image + glyph + padding through the button adapter.
 - **Impact:** `button1.AutoSize = true` — the standard way to make a localised button fit its caption — never resizes the button. Combined with `AutoSizeMode.GrowAndShrink` it still does nothing. The same buttons inside an AutoSize `FlowLayoutPanel`/`TableLayoutPanel` then propagate the wrong size up the tree, so whole rows come out the designer's width regardless of the translated text. Silent: `AutoSize` reads back `true`.

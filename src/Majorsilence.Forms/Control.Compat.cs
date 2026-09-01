@@ -464,7 +464,7 @@ namespace Majorsilence.Forms
         public void Update () => Invalidate ();
 
         /// <summary>Scales the control and its children by the specified horizontal and vertical scaling factors.</summary>
-        public void Scale (float dx, float dy) => ScaleCore (dx, dy);
+        public void Scale (float dx, float dy) => Scale (new System.Drawing.SizeF (dx, dy));
 
         /// <summary>
         /// Scrolls the nearest auto-scrolling ancestor so <paramref name="activeControl"/> is visible.

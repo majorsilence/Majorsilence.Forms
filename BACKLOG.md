@@ -5,9 +5,22 @@
 **The big one.** Both API-surface gap plans are at zero — every WinForms and GDI+ member that upstream
 has, this layer now declares. What a name-level scanner cannot see is whether the member *does* what
 WinForms does, and a twelve-area source audit (2026-08-25) found **483 places where it does not**: 41
-P0, 223 P1. Two thirds of the core's settable auto-properties (822 of 1254) are read nowhere in the
-assembly; 80 events are declared `add { } remove { }` and discard their handler; the entire keyboard
-pre-processing chain (`ProcessCmdKey` and friends) is declared and never dispatched.
+P0, 223 P1.
+
+**Phases 0-3 have since landed** (2026-08-26 -> 08-28), which changes the headline numbers rather than
+retiring them: the keyboard pre-processing chain (`ProcessCmdKey` and friends) is now dispatched, focus
+and validation run through one choke point, forms are reusable and their dialogs real, the title bar is
+out of the client area, and text is measured at the size it is drawn at. The hollowness baselines moved
+with it -- inert events 84 -> 79, unraised events 130 -> 127, stored-only properties 822 -> 812 of 1254.
+Phase 3 finished on 2026-08-31 with `W3.6`: `AutoScaleMode.Font` now really scales a container and
+its children by the ratio between the designer-recorded font dimensions and the current font's, which
+is the correction every migrated designer file was written expecting.
+`W5.24` landed the same day: the layout engines were already a faithful port, and the four places that
+failed to reach them -- `Panel`'s preferred size, `Control.Scale`, the button family's preferred size and
+`GroupBox.AutoSize` -- now do.
+**What is left is phases 4-6:** data binding (`W4.*`, the heaviest remaining P0 cluster), the rest of the
+per-control families (`W5.*`, of which `W5.17` and `W5.24` are done), and the mechanical sweeps
+(`W6.1`-`W6.4`; `W6.5` was done 2026-08-31).
 
 Findings, root causes and a phased plan: [`docs/behaviour-gap-plan.md`](docs/behaviour-gap-plan.md).
 Per-area detail with both sides cited: [`docs/behaviour-gap/`](docs/behaviour-gap/).
@@ -157,28 +170,45 @@ merely unimplemented yet.
 Consumers whose code uses the calendar grid UI need to either rewrite that feature against the agenda
 view/`RadScheduler` data layer, or wait for month/week grid rendering to be picked up here.
 
-## Packaging gap: `Majorsilence.Forms.WebDriver` is built but never published
+## Packaging: what ships, and the two remaining decisions
 
-**Status: nothing to build, a list to decide on.** The project carries a `PackageId`, a description, and
-a `PackageOutputPath`, but it appears in neither workflow's `PACKABLE_PROJECTS`
-(`.github/workflows/publish-nuget.yml`, `release.yml`), so it has never shipped. nuget.org has the core
-package plus Avalonia, Uno, Telerik, Headless, and Drawing.Common — no WebDriver.
+**Mostly resolved (2026-08-27).** The gap this section used to describe -- `Majorsilence.Forms.WebDriver`
+carrying a `PackageId`, a description and a `PackageOutputPath` while appearing in no publish list -- is
+closed: `e65d30c` added it to both workflows, and the Windows-only trio (`WinForms`,
+`WindowsFormsInterop`, `WindowsUIAutomation`) went with it via the windows-latest pack job.
 
-That is the one thing standing between the automation documentation and a reader who has not cloned the
-repo. `docs/automation.md` level 2 (Selenium), level 3 (FlaUI/WinAppDriver through the UIA bridge), and
-the MCP server in `tools/Majorsilence.Forms.Mcp` all require an *app* that references
-`Majorsilence.Forms.WebDriver` and starts a `WebDriverServer`. Today that means a `ProjectReference` into
-a clone, which is fine for this repo's own samples and tests and awkward for anyone else.
+Read the two workflows knowing which does what, or the lists look contradictory: **`release.yml` packs,
+publishes the migrator binaries, uploads artifacts and creates a *draft* GitHub release; it never holds
+nuget.org credentials. `publish-nuget.yml` is what actually pushes, and only when a human clicks Publish
+on that draft.** So `publish-nuget.yml`'s `PACKABLE_PROJECTS` / `PACKABLE_PROJECTS_WINDOWS` is the
+authoritative answer to "what goes to nuget.org": core, Avalonia, Headless, Uno, Telerik, Drawing.Common,
+WebDriver, Wpf, Templates, Migrator and Mcp, plus the three Windows-only packages.
 
-`Majorsilence.Forms.WindowsUIAutomation`, `Majorsilence.Forms.WindowsFormsInterop` and
-`Majorsilence.Forms.WinForms` (the WinForms platform backend + `ToWinFormsControl()` embedding,
-added for control-granularity incremental migration) are in the same position: consumer-facing,
-packable, unlisted. (`DrawingShims` and `WinFormsEnumShims` are the
-`System.Drawing.Common` / `System.Windows.Forms` facade assemblies, so their absence looks deliberate —
-publishing packages under those identities is not something to do by accident.)
+**Decision 1 -- the two shim facades stay unpublished, deliberately.** `Majorsilence.Forms.DrawingShims`
+and `Majorsilence.Forms.WinFormsEnumShims` set `AssemblyName` to `System.Drawing.Common` and
+`System.Windows.Forms` respectively. Both have a `PackageId`, so packing them is a one-line change; what
+makes it a decision rather than an oversight is that they ship assemblies under **in-box identities**. A
+consumer who installs one gets a `System.Windows.Forms.dll` out of a third-party package, colliding with
+or outranking the real one in ways that are very hard to diagnose from the outside. Keep them
+`ProjectReference`-only unless a concrete consumer turns up that cannot work any other way.
 
-A package id is permanent once pushed, so this is a deliberate call rather than a cleanup: decide which
-of the three are ready to carry a stable name, then add those to both lists.
+**Decision 2 -- `Majorsilence.Forms.WinFormsShims.Compat` is a PoC that already has a `PackageId`.** It
+source-generates a `System.Windows.Forms`-namespace surface backed by this layer, for control libraries
+that cannot rewrite their own public API namespace, and it packs itself as an analyzer
+(`analyzers/dotnet/cs`). It is in neither publish list. A package id is permanent once pushed, so the
+question to answer first is whether the PoC is the shape this feature keeps; until then, unpublished is
+the right default.
+
+**One real gap left, and it is in the smoke test rather than the publish.** `Migrator` and `Mcp` are in
+`publish-nuget.yml`'s list but **not** in `release.yml`'s -- and `release.yml` is the workflow that runs
+on pull requests and main pushes. Their `dotnet pack` therefore runs for the first time *during* the
+nuget.org publish, after a human has clicked Publish, with no draft artifact to inspect and no earlier
+run to have caught a packaging error. (`release.yml` does `dotnet publish` the Migrator as a
+self-contained single-file binary, which is a different operation and would not catch a bad `.nupkg`.)
+Adding both to `release.yml`'s `PACKABLE_PROJECTS` is the whole fix.
+
+**Not answerable from this repo:** whether each of these is actually *on* nuget.org today. The workflows
+describe what the next published release would push, not what previous releases did.
 
 ## Wanted: screenshots from a desktop-hosted window
 
