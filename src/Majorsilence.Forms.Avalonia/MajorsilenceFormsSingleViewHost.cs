@@ -17,6 +17,7 @@ using System.Collections.Generic;
 
 using AvInputMethod = Avalonia.Input.InputMethod;
 using AvPoint = Avalonia.Point;
+using AvVector = Avalonia.Vector;
 using AvControl = Avalonia.Controls.Control;
 using AvCursor = Avalonia.Input.Cursor;
 using AvPointerPressedEventArgs = Avalonia.Input.PointerPressedEventArgs;
@@ -85,6 +86,23 @@ namespace Majorsilence.Forms
         private bool _touchScrolling;      // past the start-distance slop -> we own this gesture
         private const double TouchScrollStartDistance = 8;   // logical px
 
+        // Momentum: the drag tracks the finger 1:1, then keeps gliding after lift-off with a decaying
+        // velocity -- the native Android/iOS feel. Avalonia's recognizer would do this itself (its
+        // IsScrollInertiaEnabled), but it isn't firing, so the fling is synthesised here too.
+        private readonly DispatcherTimer _flingTimer;
+        private AvVector _touchVelocity;   // device px/s, smoothed over the last few moves
+        private bool _touchVelocityValid;
+        private long _touchLastMoveTs;     // Stopwatch ticks
+        private AvVector _flingVelocity;   // device px/s, decays each tick
+        private AvPoint _flingOrigin;      // last finger position -- where the continued scroll hit-tests
+        private long _flingLastTs, _flingStartTs;
+        private double _flingAccumX, _flingAccumY;   // sub-pixel carry so the glide tail stays smooth
+        private bool _flingCaughtByPress;  // a press landed on a live fling -> swallow its tap
+        private const double FlingMinStartSpeed = 120;   // device px/s; a slower lift is not a flick
+        private const double FlingStopSpeed = 18;        // device px/s; the glide ends here
+        private const double FlingRetentionPerSecond = 0.04;   // fraction of speed kept after 1s (tau ~ 0.31s)
+        private const double FlingMaxSeconds = 2.0;
+
         internal MajorsilenceFormsSingleViewHost (WindowBase owner, bool isPopup)
         {
             _owner = owner;
@@ -105,7 +123,7 @@ namespace Majorsilence.Forms
             // relative to construction) moment the single-view TopLevel actually assigns this control a
             // real size -- unlike a one-shot render scheduled from OnAttachedToVisualTree, which can fire
             // before that first real layout pass has run and then never gets asked again.
-            LayoutUpdated += (_, _) => ScheduleRender ();
+            LayoutUpdated += (_, _) => { ScheduleRender (); RefreshSafeArea (); };
 
             if (_isRoot) {
                 MainHost = this;
@@ -122,6 +140,9 @@ namespace Majorsilence.Forms
             // The onRecognizerScroll callback latches _recognizerLive so the raw-pointer scroll
             // synthesis in OnPointerMoved stops the moment Avalonia's own recognizer proves it works.
             AvaloniaGestureWiring.Attach (this, _owner, () => Scale, onRecognizerScroll: () => _recognizerLive = true);
+
+            _flingTimer = new DispatcherTimer (DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds (16) };
+            _flingTimer.Tick += (_, _) => FlingTick ();
 
             // The on-screen keyboard: Avalonia asks the focused InputElement for a text-input client when
             // it wants an IME. This host routes keys manually and always "has focus", so it answers that
@@ -148,6 +169,7 @@ namespace Majorsilence.Forms
         protected override void OnDetachedFromVisualTree (VisualTreeAttachmentEventArgs e)
         {
             _renderPending = false;
+            StopFling ();
             _framebuffer?.Dispose ();
             _framebuffer = null;
 
@@ -176,7 +198,7 @@ namespace Majorsilence.Forms
                 try { _insets.DisplayEdgeToEdgePreference = true; } catch { /* not settable on every platform */ }
                 TopLevel.SetAutoSafeAreaPadding (this, false);
                 _insets.SafeAreaChanged += OnSafeAreaChanged;
-                PushSafeArea (_insets.SafeAreaPadding);
+                RefreshSafeArea ();   // corrected again from LayoutUpdated once RenderScaling is known
             }
 
             _inputPane = top.InputPane;
@@ -186,12 +208,36 @@ namespace Majorsilence.Forms
 
         private void OnSafeAreaChanged (object? sender, SafeAreaChangedArgs e) => PushSafeArea (e.SafeAreaPadding);
 
+        private Majorsilence.Forms.Padding _lastSafeArea = new (-1, -1, -1, -1);
+
+        // Re-reads and re-pushes the current safe area. Called on every layout pass as well as on the OS
+        // event: Avalonia derives SafeAreaPadding by dividing the raw window insets by RenderScaling, and
+        // the first event/read can land before RenderScaling is known (it reads 1), yielding a value in
+        // physical pixels that is ~scale times too large. PushSafeArea drops those until layout settles.
+        private void RefreshSafeArea ()
+        {
+            if (_isRoot && _insets is not null)
+                PushSafeArea (_insets.SafeAreaPadding);
+        }
+
         private void PushSafeArea (Thickness t)
         {
-            // Thickness is in logical (DIP) units, matching the core's logical coordinate space.
-            _owner.HandleSafeAreaChanged (new Majorsilence.Forms.Padding (
+            // SafeAreaPadding is already in logical (DIP) units -- Avalonia's Android InsetsManager
+            // divides the native WindowInsets by RenderScaling for us. But that division is a no-op
+            // (scale == 1) until the single-view TopLevel has completed its first real layout, so an
+            // early non-zero reading is really physical pixels and must be ignored; the LayoutUpdated
+            // re-read will deliver the correct value once RenderScaling settles.
+            if (t != default && Scale <= 1)
+                return;
+
+            var p = new Majorsilence.Forms.Padding (
                 (int) System.Math.Round (t.Left), (int) System.Math.Round (t.Top),
-                (int) System.Math.Round (t.Right), (int) System.Math.Round (t.Bottom)));
+                (int) System.Math.Round (t.Right), (int) System.Math.Round (t.Bottom));
+
+            if (p == _lastSafeArea)
+                return;
+            _lastSafeArea = p;
+            _owner.HandleSafeAreaChanged (p);
         }
 
         private void OnInputPaneStateChanged (object? sender, InputPaneStateEventArgs e)
@@ -314,10 +360,21 @@ namespace Majorsilence.Forms
                 (int)(pos.X * Scale), (int)(pos.Y * Scale),
                 AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
 
+            // A press lands: end any glide still running. If one was, this press only stops it -- it
+            // must not also tap/select (native behaviour: the first touch catches the fling).
+            _flingCaughtByPress = _flingTimer.IsEnabled;
+            StopFling ();
+
             if (!_recognizerLive && e.Pointer.Type is PointerType.Touch or PointerType.Pen) {
                 _touchAnchor = pos;
                 _touchLast = pos;
-                _touchScrolling = false;
+                _touchScrolling = _flingCaughtByPress;
+                _touchVelocity = default;
+                _touchVelocityValid = false;
+                _touchLastMoveTs = 0;
+
+                if (_flingCaughtByPress)
+                    _owner.HandlePointerReleased (MouseButtons.Left, -1_000_000, -1_000_000, Keys.None);
             }
 
             base.OnPointerPressed (e);
@@ -335,6 +392,8 @@ namespace Majorsilence.Forms
                     AvaloniaKeyInterop.ReleasedButton (props.PointerUpdateKind),
                     (int)(pos.X * Scale), (int)(pos.Y * Scale),
                     AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
+            } else {
+                MaybeStartFling ();
             }
 
             _touchAnchor = null;
@@ -344,6 +403,9 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerCaptureLost (PointerCaptureLostEventArgs e)
         {
+            if (_touchScrolling)
+                MaybeStartFling ();
+
             _touchAnchor = null;
             _touchScrolling = false;
             base.OnPointerCaptureLost (e);
@@ -393,15 +455,90 @@ namespace Majorsilence.Forms
 
             // delta measured in device pixels; leave _touchLast where it is until a whole pixel has
             // accumulated, so a slow drag isn't lost to int truncation frame by frame.
-            var dx = (int)((pos.X - _touchLast.X) * Scale);
-            var dy = (int)((pos.Y - _touchLast.Y) * Scale);
+            var moveLogX = pos.X - _touchLast.X;
+            var moveLogY = pos.Y - _touchLast.Y;
+            var dx = (int)(moveLogX * Scale);
+            var dy = (int)(moveLogY * Scale);
             if (dx == 0 && dy == 0)
                 return true;
+
+            // Smooth the finger speed (device px/s) over the last few moves so a fling launches with
+            // the release-moment velocity rather than a single noisy sample.
+            var now = System.Diagnostics.Stopwatch.GetTimestamp ();
+            if (_touchLastMoveTs != 0) {
+                var dt = (now - _touchLastMoveTs) / (double) System.Diagnostics.Stopwatch.Frequency;
+                if (dt is > 0.0008 and < 0.2) {
+                    var inst = new AvVector (moveLogX * Scale / dt, moveLogY * Scale / dt);
+                    _touchVelocity = _touchVelocityValid ? _touchVelocity * 0.55 + inst * 0.45 : inst;
+                    _touchVelocityValid = true;
+                }
+            }
+            _touchLastMoveTs = now;
             _touchLast = pos;
 
             // An upward drag is negative, matching Avalonia's own recognizer -- content follows the finger.
             _owner.HandleScrollGesture ((int)(pos.X * Scale), (int)(pos.Y * Scale), dx, dy);
             return true;
+        }
+
+        // Launches the post-lift glide if the finger was still moving fast enough at release.
+        private void MaybeStartFling ()
+        {
+            if (_recognizerLive || !_touchVelocityValid)
+                return;
+
+            // A stale last sample (finger paused before lifting) means no throw.
+            var age = (System.Diagnostics.Stopwatch.GetTimestamp () - _touchLastMoveTs)
+                      / (double) System.Diagnostics.Stopwatch.Frequency;
+            if (age > 0.08 || _touchVelocity.Length < FlingMinStartSpeed)
+                return;
+
+            _flingVelocity = _touchVelocity;
+            _flingOrigin = _touchLast;
+            _flingAccumX = _flingAccumY = 0;
+            _flingLastTs = _flingStartTs = System.Diagnostics.Stopwatch.GetTimestamp ();
+            _flingTimer.Start ();
+        }
+
+        private void StopFling ()
+        {
+            _flingTimer.Stop ();
+            _flingVelocity = default;
+        }
+
+        // One frame of inertial scroll: move by velocity*dt (device px, sub-pixel carried), then decay
+        // the velocity exponentially and stop once it is slow or the glide has run its limit.
+        private void FlingTick ()
+        {
+            if (_recognizerLive || _touchAnchor is not null) {   // a new touch is down -> the press handler owns it
+                StopFling ();
+                return;
+            }
+
+            var now = System.Diagnostics.Stopwatch.GetTimestamp ();
+            var freq = (double) System.Diagnostics.Stopwatch.Frequency;
+            var dt = (now - _flingLastTs) / freq;
+            _flingLastTs = now;
+            if (dt <= 0)
+                return;
+            if (dt > 0.05)   // a hitch shouldn't fling the content a long way in one step
+                dt = 0.05;
+
+            _flingAccumX += _flingVelocity.X * dt;
+            _flingAccumY += _flingVelocity.Y * dt;
+            _flingVelocity *= System.Math.Pow (FlingRetentionPerSecond, dt);
+
+            var stepX = (int) _flingAccumX;
+            var stepY = (int) _flingAccumY;
+            _flingAccumX -= stepX;
+            _flingAccumY -= stepY;
+
+            if (stepX != 0 || stepY != 0)
+                _owner.HandleScrollGesture (
+                    (int)(_flingOrigin.X * Scale), (int)(_flingOrigin.Y * Scale), stepX, stepY);
+
+            if (_flingVelocity.Length < FlingStopSpeed || (now - _flingStartTs) / freq > FlingMaxSeconds)
+                StopFling ();
         }
 
         protected override void OnPointerWheelChanged (AvPointerWheelChangedEventArgs e)
@@ -478,6 +615,8 @@ namespace Majorsilence.Forms
             => new System.Drawing.Size ((int)Bounds.Width, (int)Bounds.Height);
 
         double IWindowBackend.Scaling => Scale <= 0 ? 1 : Scale;
+
+        bool IWindowBackend.IsSingleView => true;
 
         void IWindowBackend.Show ()
         {
