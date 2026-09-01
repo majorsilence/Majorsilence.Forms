@@ -74,6 +74,17 @@ namespace Majorsilence.Forms
         private IInsetsManager? _insets;
         private IInputPane? _inputPane;
 
+        // ── Touch scroll ──
+        // Avalonia's ScrollGestureRecognizer is registered (AvaloniaGestureWiring) but on Android it
+        // often never fires, so scrolling is also synthesised from the raw touch pointer stream in the
+        // OnPointer* overrides below. _recognizerLive latches true the first time the real recognizer
+        // delivers an event, permanently disabling the synthesis so the two never both scroll.
+        private bool _recognizerLive;
+        private AvPoint? _touchAnchor;     // press position; null once released / capture lost
+        private AvPoint _touchLast;
+        private bool _touchScrolling;      // past the start-distance slop -> we own this gesture
+        private const double TouchScrollStartDistance = 8;   // logical px
+
         internal MajorsilenceFormsSingleViewHost (WindowBase owner, bool isPopup)
         {
             _owner = owner;
@@ -108,7 +119,9 @@ namespace Majorsilence.Forms
                     lifetime.MainView = this;
             }
 
-            AvaloniaGestureWiring.Attach (this, _owner, () => Scale);
+            // The onRecognizerScroll callback latches _recognizerLive so the raw-pointer scroll
+            // synthesis in OnPointerMoved stops the moment Avalonia's own recognizer proves it works.
+            AvaloniaGestureWiring.Attach (this, _owner, () => Scale, onRecognizerScroll: () => _recognizerLive = true);
 
             // The on-screen keyboard: Avalonia asks the focused InputElement for a text-input client when
             // it wants an IME. This host routes keys manually and always "has focus", so it answers that
@@ -300,29 +313,95 @@ namespace Majorsilence.Forms
                 AvaloniaKeyInterop.PressedButton (props.PointerUpdateKind),
                 (int)(pos.X * Scale), (int)(pos.Y * Scale),
                 AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
+
+            if (!_recognizerLive && e.Pointer.Type is PointerType.Touch or PointerType.Pen) {
+                _touchAnchor = pos;
+                _touchLast = pos;
+                _touchScrolling = false;
+            }
+
             base.OnPointerPressed (e);
         }
 
         protected override void OnPointerReleased (AvPointerReleasedEventArgs e)
         {
-            var pos = e.GetPosition (this);
-            var props = e.GetCurrentPoint (this).Properties;
-            _owner.HandlePointerReleased (
-                AvaloniaKeyInterop.ReleasedButton (props.PointerUpdateKind),
-                (int)(pos.X * Scale), (int)(pos.Y * Scale),
-                AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
+            // A synthesised scroll already cancelled the press (SynthesiseTouchScroll), so the real
+            // release must not fire a second MouseUp/Click -- that is what would select an item at the
+            // end of a swipe.
+            if (!_touchScrolling) {
+                var pos = e.GetPosition (this);
+                var props = e.GetCurrentPoint (this).Properties;
+                _owner.HandlePointerReleased (
+                    AvaloniaKeyInterop.ReleasedButton (props.PointerUpdateKind),
+                    (int)(pos.X * Scale), (int)(pos.Y * Scale),
+                    AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
+            }
+
+            _touchAnchor = null;
+            _touchScrolling = false;
             base.OnPointerReleased (e);
+        }
+
+        protected override void OnPointerCaptureLost (PointerCaptureLostEventArgs e)
+        {
+            _touchAnchor = null;
+            _touchScrolling = false;
+            base.OnPointerCaptureLost (e);
         }
 
         protected override void OnPointerMoved (AvPointerEventArgs e)
         {
             var pos = e.GetPosition (this);
-            var props = e.GetCurrentPoint (this).Properties;
-            _owner.HandlePointerMoved (
-                AvaloniaKeyInterop.ToMouseButtons (props),
-                (int)(pos.X * Scale), (int)(pos.Y * Scale),
-                AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
+
+            // Forward the move as a mouse move only when it is NOT a touch scroll -- otherwise a swipe
+            // also drags a selection / updates hover under the finger.
+            if (!SynthesiseTouchScroll (e, pos)) {
+                var props = e.GetCurrentPoint (this).Properties;
+                _owner.HandlePointerMoved (
+                    AvaloniaKeyInterop.ToMouseButtons (props),
+                    (int)(pos.X * Scale), (int)(pos.Y * Scale),
+                    AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
+            }
+
             base.OnPointerMoved (e);
+        }
+
+        // Turns a raw touch/pen drag into the neutral scroll-gesture pipeline (HandleScrollGesture ->
+        // RaiseScrollGesture -> the leaf's OnScrollGesture -> its scrollbar). Returns true once the
+        // drag has been claimed as a scroll, so the caller stops forwarding the move as a mouse move.
+        // Disabled the moment Avalonia's own ScrollGestureRecognizer proves it works (_recognizerLive).
+        private bool SynthesiseTouchScroll (AvPointerEventArgs e, AvPoint pos)
+        {
+            if (_recognizerLive || _touchAnchor is null || e.Pointer.Type is not (PointerType.Touch or PointerType.Pen))
+                return false;
+
+            if (!_touchScrolling) {
+                var moved = pos - _touchAnchor.Value;
+                if (System.Math.Abs (moved.X) < TouchScrollStartDistance && System.Math.Abs (moved.Y) < TouchScrollStartDistance)
+                    return false;
+
+                _touchScrolling = true;
+                // Measure the first delta from the anchor, not from here, so the distance already
+                // travelled to cross the slop still scrolls.
+                _touchLast = _touchAnchor.Value;
+
+                // Cancel the tap this drag started as: a MouseUp/Click far outside every control (no
+                // real screen is a million pixels wide) drops the leaf's mouse capture without
+                // hit-testing onto -- and selecting -- anything.
+                _owner.HandlePointerReleased (MouseButtons.Left, -1_000_000, -1_000_000, Keys.None);
+            }
+
+            // delta measured in device pixels; leave _touchLast where it is until a whole pixel has
+            // accumulated, so a slow drag isn't lost to int truncation frame by frame.
+            var dx = (int)((pos.X - _touchLast.X) * Scale);
+            var dy = (int)((pos.Y - _touchLast.Y) * Scale);
+            if (dx == 0 && dy == 0)
+                return true;
+            _touchLast = pos;
+
+            // An upward drag is negative, matching Avalonia's own recognizer -- content follows the finger.
+            _owner.HandleScrollGesture ((int)(pos.X * Scale), (int)(pos.Y * Scale), dx, dy);
+            return true;
         }
 
         protected override void OnPointerWheelChanged (AvPointerWheelChangedEventArgs e)
