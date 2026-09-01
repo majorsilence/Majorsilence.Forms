@@ -188,21 +188,49 @@ public class LayoutWiringTests
         Assert.True (large.PreferredSize.Height > small.PreferredSize.Height);
     }
 
-    [Fact]
-    public void A_check_box_reserves_room_for_its_glyph ()
+    // Both regimes of the height calculation, on every platform: with a small font the 13px glyph is
+    // the taller of the two, with a large one the text is. The default font differs per platform --
+    // 11px text on macOS, 13px on Windows and Linux -- so a test that exercises only the ambient font
+    // exercises only whichever regime that platform lands in.
+    [Theory]
+    [InlineData (null)]
+    [InlineData (24f)]
+    public void A_check_box_reserves_room_for_its_glyph (float? fontSize)
     {
+        Majorsilence.Forms.Drawing.Font? font =
+            fontSize is null ? null : new Majorsilence.Forms.Drawing.Font ("Arial", fontSize.Value);
+
         using var button = new Button { Text = "Enabled" };
         using var check = new CheckBox { Text = "Enabled" };
         using var radio = new RadioButton { Text = "Enabled" };
 
-        // The glyph column is the renderer's own GlyphSize (13) + GlyphTextPadding (5) + the pixel
-        // TextImageLayoutEngine adds. Asserting the DIFFERENCE, not just "wider": the default sizes of
-        // these controls differ anyway, so a plain inequality holds even when nothing is measured.
+        if (font is not null)
+            button.Font = check.Font = radio.Font = font;
+
+        // The glyph column is the renderer's own GlyphSize + GlyphTextPadding + the pixel
+        // TextImageLayoutEngine adds, less the border a Button has and a CheckBox does not. Asserting
+        // the DIFFERENCE, not just "wider": the default sizes of these controls differ anyway, so a
+        // plain inequality holds even when nothing is measured. The text width cancels, which is what
+        // makes the difference font-independent.
         var glyphColumn = check.PreferredSize.Width - button.PreferredSize.Width;
 
-        Assert.InRange (glyphColumn, 15, 25);
+        Assert.InRange (glyphColumn, 13, 25);
         Assert.Equal (glyphColumn, radio.PreferredSize.Width - button.PreferredSize.Width);
-        Assert.Equal (button.PreferredSize.Height, check.PreferredSize.Height);
+
+        // The invariant worth pinning about height: a check box leaves room for its glyph. This used
+        // to assert that a check box and a button were the same height, which held only on macOS --
+        // there the default font's 11px text plus a button's 1px top and bottom border happens to
+        // equal the 13px glyph, so both came out 13. On Windows and Linux the same font is 13px, the
+        // button becomes 15 and the assertion failed. A button has a border and a check box does not,
+        // so their heights were never required to match: the assertion encoded a coincidence.
+        var glyphSize = Renderers.RenderManager.GetRenderer<Renderers.Renderer> (check)
+            is Renderers.IRenderGlyph glyphRenderer ? glyphRenderer.GlyphSize : 0;
+
+        Assert.True (glyphSize > 0, "a check box's renderer should report a glyph size");
+        Assert.True (check.PreferredSize.Height >= glyphSize,
+            $"a check box must leave room for its {glyphSize}px glyph; got {check.PreferredSize}");
+        Assert.True (check.PreferredSize.Height >= button.PreferredSize.Height - button.Padding.Vertical - 2,
+            $"a check box must leave room for its caption; got {check.PreferredSize} vs {button.PreferredSize}");
     }
 
     [Fact]
