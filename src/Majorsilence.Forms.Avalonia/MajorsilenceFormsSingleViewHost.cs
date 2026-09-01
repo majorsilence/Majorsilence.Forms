@@ -17,6 +17,7 @@ using System.Collections.Generic;
 
 using AvInputMethod = Avalonia.Input.InputMethod;
 using AvPoint = Avalonia.Point;
+using AvVector = Avalonia.Vector;
 using AvControl = Avalonia.Controls.Control;
 using AvCursor = Avalonia.Input.Cursor;
 using AvPointerPressedEventArgs = Avalonia.Input.PointerPressedEventArgs;
@@ -85,6 +86,23 @@ namespace Majorsilence.Forms
         private bool _touchScrolling;      // past the start-distance slop -> we own this gesture
         private const double TouchScrollStartDistance = 8;   // logical px
 
+        // Momentum: the drag tracks the finger 1:1, then keeps gliding after lift-off with a decaying
+        // velocity -- the native Android/iOS feel. Avalonia's recognizer would do this itself (its
+        // IsScrollInertiaEnabled), but it isn't firing, so the fling is synthesised here too.
+        private readonly DispatcherTimer _flingTimer;
+        private AvVector _touchVelocity;   // device px/s, smoothed over the last few moves
+        private bool _touchVelocityValid;
+        private long _touchLastMoveTs;     // Stopwatch ticks
+        private AvVector _flingVelocity;   // device px/s, decays each tick
+        private AvPoint _flingOrigin;      // last finger position -- where the continued scroll hit-tests
+        private long _flingLastTs, _flingStartTs;
+        private double _flingAccumX, _flingAccumY;   // sub-pixel carry so the glide tail stays smooth
+        private bool _flingCaughtByPress;  // a press landed on a live fling -> swallow its tap
+        private const double FlingMinStartSpeed = 120;   // device px/s; a slower lift is not a flick
+        private const double FlingStopSpeed = 18;        // device px/s; the glide ends here
+        private const double FlingRetentionPerSecond = 0.04;   // fraction of speed kept after 1s (tau ~ 0.31s)
+        private const double FlingMaxSeconds = 2.0;
+
         internal MajorsilenceFormsSingleViewHost (WindowBase owner, bool isPopup)
         {
             _owner = owner;
@@ -123,6 +141,9 @@ namespace Majorsilence.Forms
             // synthesis in OnPointerMoved stops the moment Avalonia's own recognizer proves it works.
             AvaloniaGestureWiring.Attach (this, _owner, () => Scale, onRecognizerScroll: () => _recognizerLive = true);
 
+            _flingTimer = new DispatcherTimer (DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds (16) };
+            _flingTimer.Tick += (_, _) => FlingTick ();
+
             // The on-screen keyboard: Avalonia asks the focused InputElement for a text-input client when
             // it wants an IME. This host routes keys manually and always "has focus", so it answers that
             // request itself -- returning the client only while a Majorsilence.Forms TextBox is focused
@@ -148,6 +169,7 @@ namespace Majorsilence.Forms
         protected override void OnDetachedFromVisualTree (VisualTreeAttachmentEventArgs e)
         {
             _renderPending = false;
+            StopFling ();
             _framebuffer?.Dispose ();
             _framebuffer = null;
 
@@ -338,10 +360,21 @@ namespace Majorsilence.Forms
                 (int)(pos.X * Scale), (int)(pos.Y * Scale),
                 AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
 
+            // A press lands: end any glide still running. If one was, this press only stops it -- it
+            // must not also tap/select (native behaviour: the first touch catches the fling).
+            _flingCaughtByPress = _flingTimer.IsEnabled;
+            StopFling ();
+
             if (!_recognizerLive && e.Pointer.Type is PointerType.Touch or PointerType.Pen) {
                 _touchAnchor = pos;
                 _touchLast = pos;
-                _touchScrolling = false;
+                _touchScrolling = _flingCaughtByPress;
+                _touchVelocity = default;
+                _touchVelocityValid = false;
+                _touchLastMoveTs = 0;
+
+                if (_flingCaughtByPress)
+                    _owner.HandlePointerReleased (MouseButtons.Left, -1_000_000, -1_000_000, Keys.None);
             }
 
             base.OnPointerPressed (e);
@@ -359,6 +392,8 @@ namespace Majorsilence.Forms
                     AvaloniaKeyInterop.ReleasedButton (props.PointerUpdateKind),
                     (int)(pos.X * Scale), (int)(pos.Y * Scale),
                     AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
+            } else {
+                MaybeStartFling ();
             }
 
             _touchAnchor = null;
@@ -368,6 +403,9 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerCaptureLost (PointerCaptureLostEventArgs e)
         {
+            if (_touchScrolling)
+                MaybeStartFling ();
+
             _touchAnchor = null;
             _touchScrolling = false;
             base.OnPointerCaptureLost (e);
@@ -417,15 +455,90 @@ namespace Majorsilence.Forms
 
             // delta measured in device pixels; leave _touchLast where it is until a whole pixel has
             // accumulated, so a slow drag isn't lost to int truncation frame by frame.
-            var dx = (int)((pos.X - _touchLast.X) * Scale);
-            var dy = (int)((pos.Y - _touchLast.Y) * Scale);
+            var moveLogX = pos.X - _touchLast.X;
+            var moveLogY = pos.Y - _touchLast.Y;
+            var dx = (int)(moveLogX * Scale);
+            var dy = (int)(moveLogY * Scale);
             if (dx == 0 && dy == 0)
                 return true;
+
+            // Smooth the finger speed (device px/s) over the last few moves so a fling launches with
+            // the release-moment velocity rather than a single noisy sample.
+            var now = System.Diagnostics.Stopwatch.GetTimestamp ();
+            if (_touchLastMoveTs != 0) {
+                var dt = (now - _touchLastMoveTs) / (double) System.Diagnostics.Stopwatch.Frequency;
+                if (dt is > 0.0008 and < 0.2) {
+                    var inst = new AvVector (moveLogX * Scale / dt, moveLogY * Scale / dt);
+                    _touchVelocity = _touchVelocityValid ? _touchVelocity * 0.55 + inst * 0.45 : inst;
+                    _touchVelocityValid = true;
+                }
+            }
+            _touchLastMoveTs = now;
             _touchLast = pos;
 
             // An upward drag is negative, matching Avalonia's own recognizer -- content follows the finger.
             _owner.HandleScrollGesture ((int)(pos.X * Scale), (int)(pos.Y * Scale), dx, dy);
             return true;
+        }
+
+        // Launches the post-lift glide if the finger was still moving fast enough at release.
+        private void MaybeStartFling ()
+        {
+            if (_recognizerLive || !_touchVelocityValid)
+                return;
+
+            // A stale last sample (finger paused before lifting) means no throw.
+            var age = (System.Diagnostics.Stopwatch.GetTimestamp () - _touchLastMoveTs)
+                      / (double) System.Diagnostics.Stopwatch.Frequency;
+            if (age > 0.08 || _touchVelocity.Length < FlingMinStartSpeed)
+                return;
+
+            _flingVelocity = _touchVelocity;
+            _flingOrigin = _touchLast;
+            _flingAccumX = _flingAccumY = 0;
+            _flingLastTs = _flingStartTs = System.Diagnostics.Stopwatch.GetTimestamp ();
+            _flingTimer.Start ();
+        }
+
+        private void StopFling ()
+        {
+            _flingTimer.Stop ();
+            _flingVelocity = default;
+        }
+
+        // One frame of inertial scroll: move by velocity*dt (device px, sub-pixel carried), then decay
+        // the velocity exponentially and stop once it is slow or the glide has run its limit.
+        private void FlingTick ()
+        {
+            if (_recognizerLive || _touchAnchor is not null) {   // a new touch is down -> the press handler owns it
+                StopFling ();
+                return;
+            }
+
+            var now = System.Diagnostics.Stopwatch.GetTimestamp ();
+            var freq = (double) System.Diagnostics.Stopwatch.Frequency;
+            var dt = (now - _flingLastTs) / freq;
+            _flingLastTs = now;
+            if (dt <= 0)
+                return;
+            if (dt > 0.05)   // a hitch shouldn't fling the content a long way in one step
+                dt = 0.05;
+
+            _flingAccumX += _flingVelocity.X * dt;
+            _flingAccumY += _flingVelocity.Y * dt;
+            _flingVelocity *= System.Math.Pow (FlingRetentionPerSecond, dt);
+
+            var stepX = (int) _flingAccumX;
+            var stepY = (int) _flingAccumY;
+            _flingAccumX -= stepX;
+            _flingAccumY -= stepY;
+
+            if (stepX != 0 || stepY != 0)
+                _owner.HandleScrollGesture (
+                    (int)(_flingOrigin.X * Scale), (int)(_flingOrigin.Y * Scale), stepX, stepY);
+
+            if (_flingVelocity.Length < FlingStopSpeed || (now - _flingStartTs) / freq > FlingMaxSeconds)
+                StopFling ();
         }
 
         protected override void OnPointerWheelChanged (AvPointerWheelChangedEventArgs e)

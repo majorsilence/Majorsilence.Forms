@@ -211,19 +211,20 @@ public class GestureTests
             HeadlessRenderer.CapturePng (form, 300, 200);
 
             var rowH = tree.ScaledItemHeight;
+            var quarterRow = -rowH / 4;
             var at = WindowPoint.DeviceIn (tree, 20, 20);
 
-            // A drag of a third of a row: too small to advance top_index, but the rendered stack must
-            // still shift up by that many pixels -- item[0] is Node 0 with a negative Bounds.Y.
-            form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 3);
+            // A drag of a quarter of a row: too small to advance top_index, but the rendered stack
+            // must still shift up by that many pixels -- item[0] is Node 0 with a negative Bounds.Y.
+            form.HandleScrollGesture (at.X, at.Y, 0, quarterRow);
             HeadlessRenderer.CapturePng (form, 300, 200);
             Assert.Equal ("Node 0", tree.LayoutedItems[0].Text);
             Assert.True (tree.LayoutedItems[0].Bounds.Y < 0, "sub-row drag should push item[0] above the client top");
 
-            // Two more thirds crosses the row boundary: now anchored to Node 1, and the leftover
-            // remainder keeps it just above the top rather than snapping flush.
-            form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 3);
-            form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 3);
+            // Four more quarter-row drags -> 1.25 rows travelled: the top is now anchored to Node 1,
+            // proving the sub-row remainder rolls over rather than being dropped between events.
+            for (var i = 0; i < 4; i++)
+                form.HandleScrollGesture (at.X, at.Y, 0, quarterRow);
             HeadlessRenderer.CapturePng (form, 300, 200);
             Assert.Equal ("Node 1", tree.LayoutedItems[0].Text);
         } finally {
@@ -247,7 +248,7 @@ public class GestureTests
             var at = WindowPoint.DeviceIn (list, 20, 20);
 
             // Sub-row drag: FirstVisibleIndex unchanged, but item 0's rectangle is lifted above the top.
-            form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 3);
+            form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 4);
             Assert.Equal (0, list.FirstVisibleIndex);
             Assert.True (list.GetItemRectangle (0).Y < list.ClientRectangle.Top,
                 "sub-row drag should lift item 0 above the client top");

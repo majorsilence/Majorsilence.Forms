@@ -1538,10 +1538,26 @@ namespace Majorsilence.Forms
                 DeviceToLogical (x), DeviceToLogical (y),
                 velocityX / DeviceScaleOrOne, velocityY / DeviceScaleOrOne, direction));
 
+        private double _scrollGestureRemainderX, _scrollGestureRemainderY;
+
         internal void HandleScrollGesture (int x, int y, int deltaX, int deltaY)
-            => adapter.RaiseScrollGesture (new ScrollGestureEventArgs (
-                DeviceToLogical (x), DeviceToLogical (y),
-                new System.Drawing.Point (DeviceToLogical (deltaX), DeviceToLogical (deltaY))));
+        {
+            // The delta arrives in device pixels and a touch drag delivers it a few pixels at a time,
+            // so rounding each fragment to a whole logical pixel on its own loses a large fraction of a
+            // slow drag (and drops a 1px-device move entirely on a HiDPI screen). Carry the sub-pixel
+            // remainder between events instead: the running sum then tracks the finger to within a
+            // pixel. The carry is self-bounded to (-1, 1) and needs no reset between gestures.
+            var scaling = DeviceScaleOrOne;
+            _scrollGestureRemainderX += deltaX / scaling;
+            _scrollGestureRemainderY += deltaY / scaling;
+            var ldx = (int) _scrollGestureRemainderX;
+            var ldy = (int) _scrollGestureRemainderY;
+            _scrollGestureRemainderX -= ldx;
+            _scrollGestureRemainderY -= ldy;
+
+            adapter.RaiseScrollGesture (new ScrollGestureEventArgs (
+                DeviceToLogical (x), DeviceToLogical (y), new System.Drawing.Point (ldx, ldy)));
+        }
 
         private double DeviceScaleOrOne => Scaling is <= 0 or 1 ? 1 : Scaling;
 
