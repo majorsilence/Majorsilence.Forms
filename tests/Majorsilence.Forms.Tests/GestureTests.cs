@@ -199,6 +199,68 @@ public class GestureTests
     }
 
     [Fact]
+    public void ScrollGesture_TreeView_TracksTheDragSubRow_ThenRollsOverAWholeRow ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            var rowH = tree.ScaledItemHeight;
+            var at = WindowPoint.DeviceIn (tree, 20, 20);
+
+            // A drag of a third of a row: too small to advance top_index, but the rendered stack must
+            // still shift up by that many pixels -- item[0] is Node 0 with a negative Bounds.Y.
+            form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 3);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+            Assert.Equal ("Node 0", tree.LayoutedItems[0].Text);
+            Assert.True (tree.LayoutedItems[0].Bounds.Y < 0, "sub-row drag should push item[0] above the client top");
+
+            // Two more thirds crosses the row boundary: now anchored to Node 1, and the leftover
+            // remainder keeps it just above the top rather than snapping flush.
+            form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 3);
+            form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 3);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+            Assert.Equal ("Node 1", tree.LayoutedItems[0].Text);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_ListBox_TracksTheDragSubRow_AndAThumbScrollSnapsFlush ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var list = new ListBox { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                list.Items.Add ($"Item {i}");
+            form.Controls.Add (list);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            var rowH = list.ScaledItemHeight;
+            var at = WindowPoint.DeviceIn (list, 20, 20);
+
+            // Sub-row drag: FirstVisibleIndex unchanged, but item 0's rectangle is lifted above the top.
+            form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 3);
+            Assert.Equal (0, list.FirstVisibleIndex);
+            Assert.True (list.GetItemRectangle (0).Y < list.ClientRectangle.Top,
+                "sub-row drag should lift item 0 above the client top");
+
+            // A whole-row programmatic scroll clears the sub-row remainder -- the anchored row sits flush.
+            list.FirstVisibleIndex = 4;
+            Assert.Equal (list.ClientRectangle.Top, list.GetItemRectangle (4).Y);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
     public void ExistingMouseClickPipeline_IsUnaffectedByGestureAdditions ()
     {
         var form = new Form ();

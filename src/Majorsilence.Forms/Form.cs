@@ -60,6 +60,12 @@ namespace Majorsilence.Forms
             Resizeable = true;
             Backend.SetSystemDecorations (false);
 
+            // Single-view host (browser / Android / iOS): there is no OS window to caption, move or
+            // close, so the form fills the whole view. The client area still insets itself by the
+            // device safe area (Form.SafeArea), so content stays clear of the status bar / notch.
+            if (Backend.IsSingleView)
+                TitleBar.Visible = false;
+
             // The native-close (Closing) hook is delivered via WindowBase.OnBackendClosing → OnClosing.
 
             // Windows/Linux draw fully custom chrome. macOS uses the NATIVE title bar (traffic lights,
@@ -1371,8 +1377,9 @@ namespace Majorsilence.Forms
             var extend = use_system_decorations && extends_content_into_title_bar && !IsBorderless;
 
             // The custom title bar is shown for fully-custom chrome, or when merged into a native bar --
-            // but never on a borderless form, which asked for no caption from anyone.
-            TitleBar.Visible = !IsBorderless && (!use_system_decorations || extend);
+            // but never on a borderless form (asked for no caption from anyone) and never on a
+            // single-view host (no window to caption; the form fills the view -- see the constructor).
+            TitleBar.Visible = !IsBorderless && !Backend.IsSingleView && (!use_system_decorations || extend);
             // In the merged case the OS draws the caption buttons, so the title bar runs in overlay mode.
             TitleBar.NativeOverlay = extend;
 

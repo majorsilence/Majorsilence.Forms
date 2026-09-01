@@ -105,7 +105,7 @@ namespace Majorsilence.Forms
             // relative to construction) moment the single-view TopLevel actually assigns this control a
             // real size -- unlike a one-shot render scheduled from OnAttachedToVisualTree, which can fire
             // before that first real layout pass has run and then never gets asked again.
-            LayoutUpdated += (_, _) => ScheduleRender ();
+            LayoutUpdated += (_, _) => { ScheduleRender (); RefreshSafeArea (); };
 
             if (_isRoot) {
                 MainHost = this;
@@ -176,7 +176,7 @@ namespace Majorsilence.Forms
                 try { _insets.DisplayEdgeToEdgePreference = true; } catch { /* not settable on every platform */ }
                 TopLevel.SetAutoSafeAreaPadding (this, false);
                 _insets.SafeAreaChanged += OnSafeAreaChanged;
-                PushSafeArea (_insets.SafeAreaPadding);
+                RefreshSafeArea ();   // corrected again from LayoutUpdated once RenderScaling is known
             }
 
             _inputPane = top.InputPane;
@@ -186,12 +186,36 @@ namespace Majorsilence.Forms
 
         private void OnSafeAreaChanged (object? sender, SafeAreaChangedArgs e) => PushSafeArea (e.SafeAreaPadding);
 
+        private Majorsilence.Forms.Padding _lastSafeArea = new (-1, -1, -1, -1);
+
+        // Re-reads and re-pushes the current safe area. Called on every layout pass as well as on the OS
+        // event: Avalonia derives SafeAreaPadding by dividing the raw window insets by RenderScaling, and
+        // the first event/read can land before RenderScaling is known (it reads 1), yielding a value in
+        // physical pixels that is ~scale times too large. PushSafeArea drops those until layout settles.
+        private void RefreshSafeArea ()
+        {
+            if (_isRoot && _insets is not null)
+                PushSafeArea (_insets.SafeAreaPadding);
+        }
+
         private void PushSafeArea (Thickness t)
         {
-            // Thickness is in logical (DIP) units, matching the core's logical coordinate space.
-            _owner.HandleSafeAreaChanged (new Majorsilence.Forms.Padding (
+            // SafeAreaPadding is already in logical (DIP) units -- Avalonia's Android InsetsManager
+            // divides the native WindowInsets by RenderScaling for us. But that division is a no-op
+            // (scale == 1) until the single-view TopLevel has completed its first real layout, so an
+            // early non-zero reading is really physical pixels and must be ignored; the LayoutUpdated
+            // re-read will deliver the correct value once RenderScaling settles.
+            if (t != default && Scale <= 1)
+                return;
+
+            var p = new Majorsilence.Forms.Padding (
                 (int) System.Math.Round (t.Left), (int) System.Math.Round (t.Top),
-                (int) System.Math.Round (t.Right), (int) System.Math.Round (t.Bottom)));
+                (int) System.Math.Round (t.Right), (int) System.Math.Round (t.Bottom));
+
+            if (p == _lastSafeArea)
+                return;
+            _lastSafeArea = p;
+            _owner.HandleSafeAreaChanged (p);
         }
 
         private void OnInputPaneStateChanged (object? sender, InputPaneStateEventArgs e)
@@ -478,6 +502,8 @@ namespace Majorsilence.Forms
             => new System.Drawing.Size ((int)Bounds.Width, (int)Bounds.Height);
 
         double IWindowBackend.Scaling => Scale <= 0 ? 1 : Scale;
+
+        bool IWindowBackend.IsSingleView => true;
 
         void IWindowBackend.Show ()
         {
