@@ -29,7 +29,9 @@ namespace Majorsilence.Forms
             // its own tracking; the inner list's own tracker never sees a source.
             source_tracker = new DataSourceBinding.ListSourceTracker (
                 RefreshDataSource,
-                position => SelectedIndex = position,
+                // See the matching lambda in ListBox: an early position for items not yet reloaded is
+                // dropped here and re-applied by the reload.
+                position => { if (position < Items.Count) SelectedIndex = position; },
                 () => SelectedIndex);
         }
 

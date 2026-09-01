@@ -630,39 +630,52 @@ deliberately inert (see below). 11 tests; stored-only baseline 810 → 806.
 
 ---
 
-### Phase 4 — Data binding (RC-4)
+### Phase 4 — Data binding (RC-4) — **DONE (2026-09-01)**
 
-**W4.1 — Make the `CurrencyManager` a live object.**
-Cache it per (source, member) and keep it; subscribe it to `IBindingList.ListChanged` and
-`INotifyPropertyChanged`; have `Binding` register itself in `manager.Bindings` so the manager can
-`PullData`/`PushData`. Stop rebuilding it at `EndInit`.
-*Closes:* `BND-01` (P0), `BND-02` (P0), `BND-10`, `BND-14`, `BND-16`, `BND-19`, `BND-28`.
-*Files:* `BindingSource.cs`, `BindingContext.cs`, `BindingRuntime.cs`, `AppMenuBindingParity.cs`.
-*Risk:* medium-high — it is the centre of the binding runtime. This is the item that makes the
-designer's own ordering (`BeginInit` → `DataBindings.Add` → `EndInit` → fill in `Load`) work at all.
+**W4.1 — Make the `CurrencyManager` a live object. — DONE**
+One manager for the life of the `BindingSource`, built over the BindingSource ITSELF — upstream's own
+design (`new CurrencyManager(this)`), and simpler than the item as written: the BindingSource is an
+`IBindingList`, so one subscription to its `ListChanged` carries every re-resolve, self-mutation and
+forwarded inner-list change, and nothing is ever rebuilt at `EndInit` because nothing needs to be.
+Bindings register in `manager.Bindings`; position clamps in the manager (BND-21 came along); events
+run upstream's order (BND-20); suspend is real. Also closed here: `BND-28` (`UpdateBinding` re-homes
+membership, subscriptions and value), `BND-31` (`PropertyManager.Position` is 0).
+*Closed:* `BND-01` (P0), `BND-02` (P0), `BND-10`, `BND-14`, `BND-16`, `BND-19`, `BND-20`, `BND-21`,
+`BND-28`, `BND-31`.
 
-**W4.2 — `TypeDescriptor`, not reflection.** Resolve source members, target properties and
-`ListBindingHelper.GetProperty` through `TypeDescriptor` so `DataRowView` columns, `ICustomTypeDescriptor`
-and dynamic sources are visible. *Closes:* `BND-03` (P0), `BND-30`.
+**W4.2 — `TypeDescriptor`, not reflection. — DONE** Source members and target properties resolve
+through `TypeDescriptor.GetProperties(...).Find(name, ignoreCase: true)` — a `PropertyDescriptor`
+answers for POCOs too, so there is no fallback path to keep in step. `DataRowView` columns (the whole
+typed-DataSet form) bind and write back. *Closed:* `BND-03` (P0), `BND-30`.
 
-**W4.3 — The validation/edit half.** Write on `Validating` (not `Validated`/`LostFocus`) so a binding
-can be cancelled; implement `EndCurrentEdit`/`CancelCurrentEdit`; call `IEditableObject.BeginEdit` when
-an item becomes current so `CancelEdit` can roll back; honour `ICancelAddNew`.
-*Closes:* `BND-07`, `BND-08`, `BND-09`. *Depends on:* W2.2.
+**W4.3 — The validation/edit half. — DONE** OnValidation bindings write inside `Validating` and
+cancel it when the write fails; `EndCurrentEdit`/`CancelCurrentEdit` pull/push every registered
+binding and drive `IEditableObject`/`ICancelAddNew` (which `BindingSource` now forwards to its inner
+list, as upstream — without that the manager's `CancelNew` could never reach the `BindingList`
+underneath); `BeginEdit` opens on the item that becomes current, which is what lets `CancelEdit`
+revert a `DataRowView`. *Closed:* `BND-07`, `BND-08`, `BND-09`.
 
-**W4.4 — Report conversion failure instead of writing `default(T)`.** `Coerce` returning null conflates
-"could not convert" with "convert to null", so a half-typed number writes `0` into the source. Give it
-a distinguishable failure, surface it through `BindingComplete` and `DataError`.
-*Closes:* `BND-13`, `BND-18`. *Tests to invert:*
-`BindingRuntimeTests.A_half_typed_number_does_not_throw_and_leaves_the_source_alone`.
+**W4.4 — Report conversion failure instead of writing `default(T)`. — DONE** `TryCoerce` carries the
+failure as a return value; a failed write leaves the source alone, resets the control to the source's
+value (upstream's recovery), and reports through `BindingComplete` on the binding, its manager, and
+the `BindingSource` when `FormattingEnabled`. The empty-string rules landed with it (BND-24's write
+half): `""` into a string member is `""`, `DataSourceNullValue` (now defaulting to `DBNull`) stands in
+only under `FormattingEnabled`. The named test was inverted — its NAME said "leaves the source alone"
+while its assertion said `Assert.Equal (0, ...)`. *Closed:* `BND-13`, `BND-18`, `BND-23`, most of `BND-24`.
 
-**W4.5 — `ResolveList`'s catch-all.** `Type`, scalar objects and non-`DataSet` `DataMember` paths all
-fall into `_ => new List<object?>()` and come back as a silent empty list. Implement `Type` →
-`BindingList<T>`, scalar → single-item list, and `DataMember` master/detail re-targeting.
-*Closes:* `BND-04`, `BND-05`, `BND-06`. *Tests to invert:* `BindingSourceTests.DataSource_SetNonList_IsEmpty`.
+**W4.5 — `ResolveList`'s catch-all. — DONE** `Type` → a typed `BindingList<T>` with a real schema,
+scalar → wrapped in a one-item typed list, `DataMember` over a non-DataSet source → the member of the
+parent's CURRENT item, re-resolved on the parent's `CurrentChanged` — and validated against the item
+type, so a member that exists on nothing throws as upstream does instead of silently binding the wrong
+list. `GetRelatedCurrencyManager(member)` returns a cached child `BindingSource`'s manager. The named
+test was inverted, plus `Ctor_Object_String_RoundTripsDataSourceAndMember`, which asserted a bogus
+member was ignored. *Closed:* `BND-04`, `BND-05`, `BND-06`.
 
-**W4.6 — `BindingNavigator`.** Wire the standard items to the `BindingSource`; stop `EndInit` from
-`Items.Clear()`-ing the designer's own items. *Closes:* `BND-11`, `BND-12`.
+**W4.6 — `BindingNavigator`. — DONE** Item setters hook `Click` to the move they are named for (so
+designer code that assigns its own buttons gets working navigation), the `BindingSource` setter
+subscribes what keeps the display current, `RefreshItemsCore` renders position/count/enabled-state,
+and `EndInit` refreshes instead of destroying — `AddStandardItems` no longer clears, and builds only
+into an empty strip. *Closed:* `BND-11`, `BND-12`.
 
 ---
 
@@ -953,14 +966,53 @@ authoritative list and this table as the map of the big ones.
 | 1 — The keyboard chain | **Done.** The chain is dispatched, controls can claim keys, menu shortcuts and access keys work; 25 tests. |
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
-| 4 — Data binding | Not started. |
+| 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
 | 5 — Per-control behaviour | **W5.17 done** (text measurement) and **W5.24 done** (layout/preferred-size wiring, 2026-08-31). The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4034 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4061 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate still reports
-zero for both surfaces. Baselines: inert events 80 → 79, unraised events 130 → 127, stored-only
-properties 822 → 805.
+zero for both surfaces. Baselines: inert events 80 → 79, unraised events 130 → 120, stored-only
+properties 822 → 796, no-op stubs down 5 more (the manager's edit/suspend surface).
+
+### What phase 4 found
+
+**Upstream's design was simpler than the plan's fix.** W4.1 says to give the manager a `SetList` and
+have `ResolveList` call it. Upstream does something better: the manager wraps the `BindingSource`
+ITSELF (`new CurrencyManager(this)`), whose identity survives every re-resolve — so there is nothing
+to swap, and the one `ListChanged` subscription carries re-resolves, self-mutations and forwarded
+inner-list changes alike. Adopting that deleted the whole compensation layer the old design needed:
+`ForgetCurrencyManager`, `SyncPosition`, `PushPositionToCurrencyManager`, and a second
+independently-stored position that could disagree with the manager's (BND-21 closed itself).
+
+**A listening manager made a latent bug live.** `RemoveCurrent` and `AddNew` raised `ListChanged`
+directly instead of through `NotifySelfMutation`, so a mutation on an `IBindingList` inner list was
+announced twice — harmless while nothing counted the announcements, position-corrupting the moment the
+manager did. Adding a subscriber to an event is not a read-only change; it promotes every double-raise
+from waste to defect.
+
+**Subscription order is architecture.** The manager subscribes to the BindingSource in its
+constructor, before any control can — so its `PositionChanged` for a first-item add reaches a bound
+`ListBox` before that control has reloaded its items, and the naive `SelectedIndex = position` threw
+on an empty collection. Upstream reloads and positions in ONE handler; the fix here mirrors that (the
+control drops an early out-of-range selection, and the reload re-applies the manager's position).
+Found by two existing tests, which is what the suite is for.
+
+**Four tests pinned divergences, and one pinned it in its name.**
+`A_half_typed_number_does_not_throw_and_leaves_the_source_alone` asserted `Assert.Equal (0,
+person.Age)` — the source demonstrably NOT left alone. Like W5.17's font test, the intent was right
+and the assertion asserted the bug; both were kept with the assertion corrected. The other three:
+out-of-range `Position` "parks" (upstream clamps), `CurrencyManager.List` is the inner list (upstream:
+the BindingSource), a bogus `DataMember` is ignored (upstream throws).
+
+**All 26 new tests were proven against neutralized fixes, in six batches** — every one failed in at
+least one batch. Three needed a batch of their own (suspend, `ReadValue`'s force semantics,
+`PropertyManager.Position`), which is the W5.24 lesson holding: a test that has never failed proves
+nothing yet.
+
+**Deliberately not done here** (out of the phase's item list, still open in the findings file):
+`BND-15` (BindingContext re-homing on parenting — wide blast radius, every unparented binding),
+`BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`.
 
 ### What W6.5 found
 

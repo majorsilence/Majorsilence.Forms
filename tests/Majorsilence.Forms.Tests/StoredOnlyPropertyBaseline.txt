@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 805 of 1248 public settable auto-properties (64%).
+# 796 of 1239 public settable auto-properties (64%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -38,15 +38,6 @@ Majorsilence.Forms.Backends.SaveFileRequest.Title
 Majorsilence.Forms.BindingCompleteEventArgs.BindingCompleteState
 Majorsilence.Forms.BindingCompleteEventArgs.ErrorText
 Majorsilence.Forms.BindingCompleteEventArgs.Exception
-Majorsilence.Forms.BindingManagerBase.IsBindingSuspended
-Majorsilence.Forms.BindingNavigator.AddNewItem
-Majorsilence.Forms.BindingNavigator.BindingSource
-Majorsilence.Forms.BindingNavigator.CountItemFormat
-Majorsilence.Forms.BindingNavigator.DeleteItem
-Majorsilence.Forms.BindingNavigator.MoveFirstItem
-Majorsilence.Forms.BindingNavigator.MoveLastItem
-Majorsilence.Forms.BindingNavigator.MoveNextItem
-Majorsilence.Forms.BindingNavigator.MovePreviousItem
 Majorsilence.Forms.BindingSource.AllowEdit
 Majorsilence.Forms.BindingSource.IsInitialized
 Majorsilence.Forms.Button.UseCompatibleTextRendering

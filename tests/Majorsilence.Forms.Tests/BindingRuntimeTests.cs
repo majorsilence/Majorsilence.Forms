@@ -154,6 +154,11 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void A_half_typed_number_does_not_throw_and_leaves_the_source_alone ()
         {
+            // Inverted with W4.4 (BND-13). The name always said "leaves the source alone"; the
+            // assertion said `Assert.Equal (0, person.Age)` -- the failed parse was coerced to null
+            // and null into an int property is 0, so a half-typed number SILENTLY ZEROED the record.
+            // The intent of the test was right and is kept; the write now fails, leaves the source
+            // holding what it held, and does not throw mid-edit.
             HeadlessRenderer.Use ();
 
             var person = new Person { Age = 7 };
@@ -162,7 +167,7 @@ namespace Majorsilence.Forms.Tests
 
             box.Text = "4-";   // a normal transient state while typing, not an error
 
-            Assert.Equal (0, person.Age);   // coerced to default rather than throwing mid-edit
+            Assert.Equal (7, person.Age);   // untouched, not zeroed
         }
 
         [Fact]

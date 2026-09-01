@@ -209,7 +209,13 @@ namespace Majorsilence.Forms.Tests
             var source = new BindingSource { DataSource = rows };
 
             Assert.Equal (2, source.List.Count);
-            Assert.Same (source.List, source.CurrencyManager.List);
+
+            // Inverted with W4.1 (BND-01): the manager now wraps the BindingSource itself, exactly as
+            // upstream (`new CurrencyManager(this)`), because the BindingSource is the list identity
+            // that survives a DataSource re-resolve. Asserting it wrapped the INNER list pinned the
+            // design that orphaned every binding attached before the data arrived.
+            Assert.Same (source, source.CurrencyManager.List);
+            Assert.Equal (2, source.CurrencyManager.List!.Count);
         }
 
         [Fact]

@@ -229,12 +229,19 @@ namespace Majorsilence.Forms
         public string CountItemFormat { get; set; } = "of {0}";
 
         /// <summary>Adds the standard navigation items to the strip.</summary>
-        /// <remarks>WinForms builds move-first, move-previous, a position box, move-next, move-last,
-        /// add and delete. The same set is created here, named as upstream names them so that
-        /// designer code assigning to MoveFirstItem and friends finds them.</remarks>
+        /// <remarks>
+        /// WinForms builds move-first, move-previous, a position box, move-next, move-last, add and
+        /// delete, named as upstream names them so designer code assigning to MoveFirstItem and
+        /// friends finds them. It does NOT remove existing items (BND-12) -- upstream's own remark --
+        /// because InitializeComponent adds the designer's items (custom Save buttons included) and
+        /// wires their handlers BEFORE EndInit runs: clearing here replaced all of them with unwired
+        /// copies, so the Save button vanished and its Click handler held an orphan. A navigator that
+        /// already has items keeps them, and the standard set is only built into an empty strip.
+        /// </remarks>
         public virtual void AddStandardItems ()
         {
-            Items.Clear ();
+            if (Items.Count > 0)
+                return;
 
             MoveFirstItem = Add ("bindingNavigatorMoveFirstItem", "Move first");
             MovePreviousItem = Add ("bindingNavigatorMovePreviousItem", "Move previous");
@@ -247,7 +254,7 @@ namespace Majorsilence.Forms
             AddNewItem = Add ("bindingNavigatorAddNewItem", "Add new");
             DeleteItem = Add ("bindingNavigatorDeleteItem", "Delete");
 
-            RefreshItems?.Invoke (this, EventArgs.Empty);
+            RefreshItemsCore ();
 
             ToolStripButton Add (string name, string text)
             {
@@ -261,10 +268,43 @@ namespace Majorsilence.Forms
         public void BeginInit () { }
 
         /// <summary>Signals that initialization has finished.</summary>
-        public void EndInit () => AddStandardItems ();
+        /// <remarks>A refresh, nothing more (BND-12): this used to call
+        /// <see cref="AddStandardItems"/>, which cleared and rebuilt the strip, destroying the very
+        /// items InitializeComponent had just assembled.</remarks>
+        public void EndInit () => RefreshItemsCore ();
 
-        /// <summary>Raised when the navigator rebuilds its items.</summary>
+        /// <summary>Raised when the navigator refreshes its items from the source.</summary>
         public event EventHandler? RefreshItems;
+
+        // What the navigator SHOWS: position as 1-based text, the count through CountItemFormat, and
+        // each button enabled only when its move can do anything (BND-11).
+        internal void RefreshItemsCore ()
+        {
+            var source = BindingSource;
+            var count = source?.Count ?? 0;
+            var position = source?.Position ?? -1;
+
+            if (PositionItem is not null)
+                PositionItem.Text = (position + 1).ToString (System.Globalization.CultureInfo.CurrentCulture);
+
+            if (CountItem is not null)
+                CountItem.Text = string.Format (System.Globalization.CultureInfo.CurrentCulture, CountItemFormat, count);
+
+            SetEnabled (MoveFirstItem, position > 0);
+            SetEnabled (MovePreviousItem, position > 0);
+            SetEnabled (MoveNextItem, position < count - 1);
+            SetEnabled (MoveLastItem, position < count - 1);
+            SetEnabled (AddNewItem, source?.AllowNew ?? false);
+            SetEnabled (DeleteItem, (source?.AllowRemove ?? false) && count > 0);
+
+            RefreshItems?.Invoke (this, EventArgs.Empty);
+
+            static void SetEnabled (ToolStripButton? item, bool enabled)
+            {
+                if (item is not null)
+                    item.Enabled = enabled;
+            }
+        }
     }
 
     public partial class ToolStripPanel

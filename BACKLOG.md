@@ -18,9 +18,11 @@ is the correction every migrated designer file was written expecting.
 `W5.24` landed the same day: the layout engines were already a faithful port, and the four places that
 failed to reach them -- `Panel`'s preferred size, `Control.Scale`, the button family's preferred size and
 `GroupBox.AutoSize` -- now do.
-**What is left is phases 4-6:** data binding (`W4.*`, the heaviest remaining P0 cluster), the rest of the
-per-control families (`W5.*`, of which `W5.17` and `W5.24` are done), and the mechanical sweeps
-(`W6.1`-`W6.4`; `W6.5` was done 2026-08-31).
+Phase 4 (data binding) landed 2026-09-01: the `CurrencyManager` is a live object, `DataRowView`
+columns bind, conversion failures stay out of the data, and the `BindingNavigator` is buttons rather
+than scenery.
+**What is left is phases 5 and 6:** the per-control families (`W5.*`, of which `W5.17` and `W5.24` are
+done), and the mechanical sweeps (`W6.1`-`W6.4`; `W6.5` was done 2026-08-31).
 
 Findings, root causes and a phased plan: [`docs/behaviour-gap-plan.md`](docs/behaviour-gap-plan.md).
 Per-area detail with both sides cited: [`docs/behaviour-gap/`](docs/behaviour-gap/).
