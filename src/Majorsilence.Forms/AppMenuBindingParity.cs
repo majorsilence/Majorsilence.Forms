@@ -291,47 +291,33 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the currency manager that owns this source's current-item position.</summary>
         /// <remarks>
-        /// Cached and kept in step with <see cref="Position"/>. It used to build a NEW manager on every
-        /// read, so no two callers shared a position and nothing this manager did was visible through the
-        /// BindingSource -- and because <see cref="BindingSource"/> is an <c>ICurrencyManagerProvider</c>,
-        /// this is the manager a bound control drives its current item from. A fresh one per read meant
-        /// moving <see cref="Position"/> did not move what the bound control displayed.
+        /// ONE manager for the life of the BindingSource, created in the constructor over the
+        /// BindingSource itself -- which is upstream's design (<c>new CurrencyManager(this)</c>), and
+        /// what W4.1 adopted (BND-01). The BindingSource is the stable list identity: DataSource can be
+        /// re-resolved underneath it, but the manager's subscription to <see cref="ListChanged"/> is
+        /// how it finds out, so a binding that captured this manager before the data arrived stays
+        /// attached to the right object forever. The two earlier designs both failed at exactly that:
+        /// a new manager per READ meant no two callers shared a position, and a new manager per
+        /// RESOLVE meant every already-attached binding was orphaned by <c>EndInit</c>.
         /// </remarks>
         public virtual CurrencyManager CurrencyManager => currency_manager ??= CreateCurrencyManager ();
 
         private CurrencyManager? currency_manager;
 
-        // Dropped when the list is re-resolved, so the next read builds one over the new list.
-        internal void ForgetCurrencyManager () => currency_manager = null;
-
         private CurrencyManager CreateCurrencyManager ()
         {
-            var manager = new CurrencyManager (_list) { Position = Position };
+            var manager = new CurrencyManager (this);
 
-            manager.PositionChanged += (_, _) => SyncPosition (() => Position = manager.Position);
+            // The BindingSource's own events are the manager's, re-announced: the manager owns the
+            // position, so it is the one that knows when these happen. The subscription order the
+            // manager raises in (CurrentChanged, CurrentItemChanged, then PositionChanged) is
+            // upstream's, and PositionChanged used to have no caller at all (BND-10).
+            manager.CurrentChanged += (_, _) => OnCurrentChanged (EventArgs.Empty);
+            manager.CurrentItemChanged += (_, _) => OnCurrentItemChanged (EventArgs.Empty);
+            manager.PositionChanged += (_, _) => OnPositionChanged (EventArgs.Empty);
+            manager.BindingComplete += (_, e) => BindingComplete?.Invoke (this, e);
 
             return manager;
-        }
-
-        // Position and the manager drive each other, so each side sets the other with the guard held.
-        internal void SyncPosition (Action assignment)
-        {
-            if (syncing_position)
-                return;
-
-            syncing_position = true;
-
-            try {
-                assignment ();
-            } finally {
-                syncing_position = false;
-            }
-        }
-
-        internal void PushPositionToCurrencyManager (int value)
-        {
-            if (currency_manager is not null)
-                SyncPosition (() => currency_manager.Position = value);
         }
 
         /// <summary>Gets whether the list can raise change notifications.</summary>
@@ -366,7 +352,14 @@ namespace Majorsilence.Forms
         public bool IsBindingSuspended => binding_suspended;
 
         /// <summary>Stops the bound controls being updated from the source.</summary>
-        public void SuspendBinding () => binding_suspended = true;
+        /// <remarks>Suspends the manager too (BND-19): the flag here mutes this source's
+        /// <see cref="ListChanged"/>, and the manager's flag is what stops simple bindings reading and
+        /// writing -- without it, a control edit during the suspension still wrote back.</remarks>
+        public void SuspendBinding ()
+        {
+            binding_suspended = true;
+            CurrencyManager.SuspendBinding ();
+        }
 
         /// <summary>Resumes updating the bound controls, and refreshes them.</summary>
         public void ResumeBinding ()
@@ -375,6 +368,7 @@ namespace Majorsilence.Forms
                 return;
 
             binding_suspended = false;
+            CurrencyManager.ResumeBinding ();
             ResetBindings (metaDataChanged: false);
         }
 
@@ -452,8 +446,26 @@ namespace Majorsilence.Forms
             => ((ITypedList)this).GetListName (listAccessors);
 
         /// <summary>Returns the currency manager for a related list.</summary>
+        /// <remarks>
+        /// A named member gets the manager of a real child <see cref="BindingSource"/> over that member
+        /// -- one that re-targets when this source's current item moves, and is cached so every caller
+        /// asking for "Orders" shares one position. It used to be a fresh manager over THIS source's
+        /// own list positioned at 0, which is neither related nor current (BND-06).
+        /// </remarks>
         public virtual CurrencyManager GetRelatedCurrencyManager (string? dataMember)
-            => string.IsNullOrEmpty (dataMember) ? CurrencyManager : new CurrencyManager (_list);
+        {
+            if (string.IsNullOrEmpty (dataMember))
+                return CurrencyManager;
+
+            related_sources ??= new Dictionary<string, BindingSource> (StringComparer.Ordinal);
+
+            if (!related_sources.TryGetValue (dataMember, out var related))
+                related_sources[dataMember] = related = new BindingSource (this, dataMember);
+
+            return related.CurrencyManager;
+        }
+
+        private Dictionary<string, BindingSource>? related_sources;
 
         /// <summary>Raised when a new item is about to be added.</summary>
         public event AddingNewEventHandler? AddingNew;
@@ -464,12 +476,12 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a property of the current item changes.</summary>
         public event EventHandler? CurrentItemChanged;
 
-        // Declared and raisable; the binding pipeline here does not report completion or errors
-        // through them yet.
-#pragma warning disable CS0067
-        /// <summary>Raised when a binding operation completes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when a binding operation over this source completes; forwarded from the
+        /// currency manager (BND-18).</summary>
         public event BindingCompleteEventHandler? BindingComplete;
 
+        // A raisable seam; errors are reported through BindingComplete rather than here.
+#pragma warning disable CS0067
         /// <summary>Raised when a data error occurs. Not raised by this layer yet.</summary>
         public event BindingManagerDataErrorEventHandler? DataError;
 #pragma warning restore CS0067

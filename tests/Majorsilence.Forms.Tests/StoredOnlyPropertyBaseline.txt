@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 805 of 1248 public settable auto-properties (64%).
+# 788 of 1235 public settable auto-properties (63%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -38,15 +38,6 @@ Majorsilence.Forms.Backends.SaveFileRequest.Title
 Majorsilence.Forms.BindingCompleteEventArgs.BindingCompleteState
 Majorsilence.Forms.BindingCompleteEventArgs.ErrorText
 Majorsilence.Forms.BindingCompleteEventArgs.Exception
-Majorsilence.Forms.BindingManagerBase.IsBindingSuspended
-Majorsilence.Forms.BindingNavigator.AddNewItem
-Majorsilence.Forms.BindingNavigator.BindingSource
-Majorsilence.Forms.BindingNavigator.CountItemFormat
-Majorsilence.Forms.BindingNavigator.DeleteItem
-Majorsilence.Forms.BindingNavigator.MoveFirstItem
-Majorsilence.Forms.BindingNavigator.MoveLastItem
-Majorsilence.Forms.BindingNavigator.MoveNextItem
-Majorsilence.Forms.BindingNavigator.MovePreviousItem
 Majorsilence.Forms.BindingSource.AllowEdit
 Majorsilence.Forms.BindingSource.IsInitialized
 Majorsilence.Forms.Button.UseCompatibleTextRendering
@@ -381,24 +372,16 @@ Majorsilence.Forms.ListView.AllowColumnReorder
 Majorsilence.Forms.ListView.AutoArrange
 Majorsilence.Forms.ListView.BackgroundImageTiled
 Majorsilence.Forms.ListView.BorderStyle
-Majorsilence.Forms.ListView.CheckBoxes
-Majorsilence.Forms.ListView.FullRowSelect
-Majorsilence.Forms.ListView.GridLines
 Majorsilence.Forms.ListView.GroupImageList
-Majorsilence.Forms.ListView.HeaderStyle
 Majorsilence.Forms.ListView.HideSelection
 Majorsilence.Forms.ListView.HotTracking
 Majorsilence.Forms.ListView.HoverSelection
 Majorsilence.Forms.ListView.LabelEdit
 Majorsilence.Forms.ListView.LabelWrap
-Majorsilence.Forms.ListView.ListViewItemSorter
-Majorsilence.Forms.ListView.MultiSelect
 Majorsilence.Forms.ListView.OwnerDraw
 Majorsilence.Forms.ListView.RightToLeftLayout
-Majorsilence.Forms.ListView.Scrollable
 Majorsilence.Forms.ListView.ShowGroups
 Majorsilence.Forms.ListView.ShowItemToolTips
-Majorsilence.Forms.ListView.Sorting
 Majorsilence.Forms.ListView.StateImageList
 Majorsilence.Forms.ListView.TileSize
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior

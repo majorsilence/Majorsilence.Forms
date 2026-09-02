@@ -17,12 +17,7 @@ Majorsilence.Forms.Backends.IWindowBackend.SetExtendClientIntoTitleBar/2
 Majorsilence.Forms.Backends.IWindowBackend.SetShaped/1
 Majorsilence.Forms.Backends.IWindowBackend.SetTextInputActive/2
 Majorsilence.Forms.BindingManagerBase.AddNew/0
-Majorsilence.Forms.BindingManagerBase.CancelCurrentEdit/0
-Majorsilence.Forms.BindingManagerBase.EndCurrentEdit/0
-Majorsilence.Forms.BindingManagerBase.Refresh/0
 Majorsilence.Forms.BindingManagerBase.RemoveAt/1
-Majorsilence.Forms.BindingManagerBase.ResumeBinding/0
-Majorsilence.Forms.BindingManagerBase.SuspendBinding/0
 Majorsilence.Forms.BindingNavigator.BeginInit/0
 Majorsilence.Forms.BindingSource.ResetAllowNew/0
 Majorsilence.Forms.Clipboard.SetImage/1

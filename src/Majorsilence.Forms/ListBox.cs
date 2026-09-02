@@ -32,7 +32,10 @@ namespace Majorsilence.Forms
 
             source_tracker = new DataSourceBinding.ListSourceTracker (
                 RefreshDataSource,
-                position => SelectedIndex = position,
+                // Dropping an index the items cannot hold yet is deliberate: the source's manager
+                // announces its position before this control has reloaded, and the reload re-applies
+                // it once the items exist (see ListSourceTracker.OnListChanged).
+                position => { if (position < Items.Count) SelectedIndex = position; },
                 () => SelectedIndex);
 
             Items.CollectionChanged += (o, e) => UpdateVerticalScrollBar ();

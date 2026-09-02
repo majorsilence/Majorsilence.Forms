@@ -6,19 +6,12 @@
 # Shrinking this list is the goal, and it is usually a one-line fix: the audit found that
 # most of these have a trigger point that already exists in the framework.
 # Regenerate with MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1.
-Majorsilence.Forms.Binding.BindingComplete
 Majorsilence.Forms.BindingContext.CollectionChanged
-Majorsilence.Forms.BindingManagerBase.BindingComplete
-Majorsilence.Forms.BindingManagerBase.CurrentItemChanged
 Majorsilence.Forms.BindingManagerBase.DataError
-Majorsilence.Forms.BindingSource.BindingComplete
 Majorsilence.Forms.BindingSource.DataError
 Majorsilence.Forms.ButtonBase.CommandCanExecuteChanged
 Majorsilence.Forms.ButtonBase.CommandChanged
 Majorsilence.Forms.ButtonBase.CommandParameterChanged
-Majorsilence.Forms.CurrencyManager.ItemChanged
-Majorsilence.Forms.CurrencyManager.ListChanged
-Majorsilence.Forms.CurrencyManager.MetaDataChanged
 Majorsilence.Forms.DataGrid.BackButtonClick
 Majorsilence.Forms.DataGrid.BackgroundColorChanged
 Majorsilence.Forms.DataGrid.BorderStyleChanged

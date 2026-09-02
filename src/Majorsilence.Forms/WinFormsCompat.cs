@@ -2477,7 +2477,11 @@ namespace Majorsilence.Forms
         }
     }
 
-    /// <summary>Provides navigation UI for a BindingSource. Stub in Majorsilence.Forms.</summary>
+    /// <summary>Provides navigation UI for a BindingSource.</summary>
+    /// <remarks>Wired as of W4.6 (BND-11): the item properties and <see cref="BindingSource"/> were
+    /// stored-only, so every navigator on a migrated form was a row of dead buttons showing "0" and
+    /// a literal "of {0}". Assigning an item hooks its Click to the move it is named for; assigning
+    /// the source subscribes the events that keep the position and count display current.</remarks>
     public partial class BindingNavigator : ToolStrip
     {
         /// <summary>Initializes a new BindingNavigator.</summary>
@@ -2486,32 +2490,128 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new BindingNavigator, optionally adding it to a container.</summary>
         public BindingNavigator (System.ComponentModel.IContainer container) { container.Add (this); }
 
-        /// <summary>Gets or sets the BindingSource this navigator is bound to. Stub in Majorsilence.Forms.</summary>
-        public BindingSource? BindingSource { get; set; }
+        /// <summary>Gets or sets the BindingSource this navigator drives and displays.</summary>
+        public BindingSource? BindingSource {
+            get => binding_source;
+            set {
+                if (ReferenceEquals (binding_source, value))
+                    return;
 
-        /// <summary>Stub move-first button.</summary>
-        public ToolStripButton? MoveFirstItem { get; set; }
+                if (binding_source is not null) {
+                    binding_source.PositionChanged -= OnSourceChanged;
+                    binding_source.CurrentChanged -= OnSourceChanged;
+                    binding_source.ListChanged -= OnSourceListChanged;
+                }
 
-        /// <summary>Stub move-previous button.</summary>
-        public ToolStripButton? MovePreviousItem { get; set; }
+                binding_source = value;
 
-        /// <summary>Stub move-next button.</summary>
-        public ToolStripButton? MoveNextItem { get; set; }
+                if (binding_source is not null) {
+                    binding_source.PositionChanged += OnSourceChanged;
+                    binding_source.CurrentChanged += OnSourceChanged;
+                    binding_source.ListChanged += OnSourceListChanged;
+                }
 
-        /// <summary>Stub move-last button.</summary>
-        public ToolStripButton? MoveLastItem { get; set; }
+                RefreshItemsCore ();
+            }
+        }
 
-        /// <summary>Stub add-new button.</summary>
-        public ToolStripButton? AddNewItem { get; set; }
+        private BindingSource? binding_source;
 
-        /// <summary>Stub delete button.</summary>
-        public ToolStripButton? DeleteItem { get; set; }
+        private void OnSourceChanged (object? sender, EventArgs e) => RefreshItemsCore ();
 
-        /// <summary>Stub position text box.</summary>
-        public ToolStripTextBox? PositionItem { get; set; }
+        private void OnSourceListChanged (object? sender, System.ComponentModel.ListChangedEventArgs e)
+            => RefreshItemsCore ();
 
-        /// <summary>Stub count label.</summary>
-        public ToolStripLabel? CountItem { get; set; }
+        // Each item property unhooks the old item and hooks the new one to its action, so designer
+        // code that builds its own buttons and ASSIGNS them (the InitializeComponent shape) gets
+        // working navigation without calling AddStandardItems.
+        private ToolStripButton? SwapItem (ToolStripButton? oldItem, ToolStripButton? newItem, EventHandler onClick)
+        {
+            if (oldItem is not null)
+                oldItem.Click -= onClick;
+
+            if (newItem is not null)
+                newItem.Click += onClick;
+
+            RefreshItemsCore ();
+
+            return newItem;
+        }
+
+        /// <summary>Gets or sets the move-first button.</summary>
+        public ToolStripButton? MoveFirstItem {
+            get => move_first;
+            set => move_first = SwapItem (move_first, value, OnMoveFirst);
+        }
+
+        /// <summary>Gets or sets the move-previous button.</summary>
+        public ToolStripButton? MovePreviousItem {
+            get => move_previous;
+            set => move_previous = SwapItem (move_previous, value, OnMovePrevious);
+        }
+
+        /// <summary>Gets or sets the move-next button.</summary>
+        public ToolStripButton? MoveNextItem {
+            get => move_next;
+            set => move_next = SwapItem (move_next, value, OnMoveNext);
+        }
+
+        /// <summary>Gets or sets the move-last button.</summary>
+        public ToolStripButton? MoveLastItem {
+            get => move_last;
+            set => move_last = SwapItem (move_last, value, OnMoveLast);
+        }
+
+        /// <summary>Gets or sets the add-new button.</summary>
+        public ToolStripButton? AddNewItem {
+            get => add_new;
+            set => add_new = SwapItem (add_new, value, OnAddNew);
+        }
+
+        /// <summary>Gets or sets the delete button.</summary>
+        public ToolStripButton? DeleteItem {
+            get => delete_item;
+            set => delete_item = SwapItem (delete_item, value, OnDelete);
+        }
+
+        /// <summary>Gets or sets the position text box.</summary>
+        public ToolStripTextBox? PositionItem {
+            get => position_item;
+            set {
+                position_item = value;
+                RefreshItemsCore ();
+            }
+        }
+
+        /// <summary>Gets or sets the count label.</summary>
+        public ToolStripLabel? CountItem {
+            get => count_item;
+            set {
+                count_item = value;
+                RefreshItemsCore ();
+            }
+        }
+
+        private ToolStripButton? move_first;
+        private ToolStripButton? move_previous;
+        private ToolStripButton? move_next;
+        private ToolStripButton? move_last;
+        private ToolStripButton? add_new;
+        private ToolStripButton? delete_item;
+        private ToolStripTextBox? position_item;
+        private ToolStripLabel? count_item;
+
+        private void OnMoveFirst (object? sender, EventArgs e) => binding_source?.MoveFirst ();
+        private void OnMovePrevious (object? sender, EventArgs e) => binding_source?.MovePrevious ();
+        private void OnMoveNext (object? sender, EventArgs e) => binding_source?.MoveNext ();
+        private void OnMoveLast (object? sender, EventArgs e) => binding_source?.MoveLast ();
+        private void OnAddNew (object? sender, EventArgs e) => binding_source?.AddNew ();
+
+        private void OnDelete (object? sender, EventArgs e)
+        {
+            if (binding_source is { Count: > 0 })
+                binding_source.RemoveCurrent ();
+        }
     }
 
     /// <summary>Represents a control that allows the user to select a string from a collection by scrolling. Stub in Majorsilence.Forms.</summary>

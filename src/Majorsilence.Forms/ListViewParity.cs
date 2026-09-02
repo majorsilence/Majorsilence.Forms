@@ -72,8 +72,27 @@ namespace Majorsilence.Forms
         /// <remarks>This used to be declared as a <c>bool</c>, which cannot mean anything: WinForms
         /// returns the item that is scrolled to the top.</remarks>
         public ListViewItem? TopItem {
-            get => Items.Count > 0 ? Items[0] : null;
-            set => value?.EnsureVisible ();
+            get {
+                if (Items.Count == 0)
+                    return null;
+
+                // The first item actually SHOWING, which is what upstream reports. It was `Items[0]`
+                // unconditionally, so a scrolled list still claimed its first item was on top and the
+                // standard "am I at the top?" check was always true (LST-19).
+                var index = Math.Min (TopIndex * ItemsPerLine, Items.Count - 1);
+
+                return Items[Math.Max (0, index)];
+            }
+            set {
+                if (value is null)
+                    return;
+
+                var index = Items.IndexOf (value);
+
+                // Upstream scrolls the assigned item TO THE TOP rather than merely into view.
+                if (index >= 0)
+                    ScrollToLine (index / Math.Max (1, ItemsPerLine));
+            }
         }
 
         /// <summary>Removes every item and column from the control.</summary>

@@ -8,6 +8,25 @@ Counts: **P0: 5 · P1: 23 · P2: 13 · P3: listed in one line each.**
 
 ## Findings
 
+## Status (2026-09-01, W5.6 — the ListView cluster)
+
+**Closed:** LST-01 (P0), LST-12, LST-17, LST-18, LST-19, and the `ListView` half of LST-20 (the mouse
+is converted to device units at each hit-test boundary, the way `ListBox` already did). 16 tests in
+`ListViewDetailsViewTests.cs`, 15 of them verified to fail with their fix neutralized; the 16th is
+labelled in-test as a guard rather than a proof.
+
+**Still open in this file:** LST-02 (`CheckedListBox`), LST-03–LST-11, LST-13–LST-16, LST-21–LST-26,
+and the `TreeView` half of LST-20.
+
+**Not covered by W5.6, and still true of `ListView`:** in-place label editing (`BeforeLabelEdit` and
+`AfterLabelEdit` are raisable but nothing edits), `ItemDrag` (raisable, no drag recogniser),
+`VirtualMode`, groups, and owner-draw (`DrawItem`/`DrawSubItem`/`DrawColumnHeader`).
+
+**A correction to LST-19 as written:** its fix note lists `EnsureVisible`/`TopItem` together, but they
+are two different behaviours and only one of them falls out of adding a scrollbar. `TopItem`'s GETTER
+was `Items[0]` unconditionally, and its SETTER must scroll the item to the top rather than merely into
+view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` promises.
+
 ### LST-01 — `ListView.View` (Details/List/SmallIcon/Tile) — Cat B — P0 — High
 - **Ours:** `View` is an auto-property (`src/Majorsilence.Forms/ListView.cs:131`). `LayoutItems` always lays items out as 70×70 tiles (`ListView.cs:44-62`) and `ListViewRenderer.RenderItem` always paints a large icon with centred text beneath (`src/Majorsilence.Forms/Renderers/ListViewRenderer.cs:20-45`). Nothing reads `Columns`, `ColumnHeader.Width`/`TextAlign`, `SubItems[i>0]`, `FullRowSelect`, `GridLines`, `HeaderStyle` or `CheckBoxes` at paint time (grep of `Renderers/` for `View.Details|Columns|GridLines|FullRowSelect` finds only DataGridView). `ColumnHeader.Width = -1/-2` (autosize) is stored verbatim (`ListView.cs:344`).
 - **Upstream:** `View` selects the native LVS_* style; Details draws a header and one row per item with subitems in column cells (`src/System.Windows.Forms/System/Windows/Forms/Controls/ListView/ListView.cs:1803`); `ColumnHeader.Width` of -1/-2 autosizes to content/header (`ColumnHeader.cs:384-408`, via `SetColumnWidth`).

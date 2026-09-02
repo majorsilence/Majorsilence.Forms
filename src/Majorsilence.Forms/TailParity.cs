@@ -254,7 +254,11 @@ namespace Majorsilence.Forms
         public ControlUpdateMode ControlUpdateMode { get; set; } = ControlUpdateMode.OnPropertyChanged;
 
         /// <summary>Gets or sets the value written to the source when the control is empty.</summary>
-        public object? DataSourceNullValue { get; set; }
+        /// <remarks>Defaults to <see cref="DBNull.Value"/>, as upstream does for value-type members
+        /// (BND-24): a cleared bound box over a DataRowView column writes a database null, not a CLR
+        /// null that the column rejects. Only consulted when <see cref="FormattingEnabled"/> is set;
+        /// the legacy path writes what the control holds.</remarks>
+        public object? DataSourceNullValue { get; set; } = DBNull.Value;
 
         /// <summary>Gets or sets the binding manager driving this binding.</summary>
         public BindingManagerBase? BindingManagerBase { get; set; }
@@ -269,10 +273,17 @@ namespace Majorsilence.Forms
         // IsBinding used to answer `DataSource is not null` -- true for a binding that had never been
         // attached to anything and could not move a value -- and ReadValue was an empty method.
 
-        /// <summary>Raised when a binding operation completes.</summary>
-#pragma warning disable CS0067
+        /// <summary>Raised when a binding operation completes, carrying success or the exception.</summary>
+        /// <remarks>Raised as of W4.4 (BND-18) on every push and pull of a binding whose
+        /// <see cref="FormattingEnabled"/> is set -- which is the documented place a conversion error
+        /// surfaces. Errors used to be swallowed (or, worse, coerced to zero and written).</remarks>
         public event BindingCompleteEventHandler? BindingComplete;
-#pragma warning restore CS0067
+
+        internal void RaiseBindingComplete (BindingCompleteEventArgs e)
+        {
+            BindingComplete?.Invoke (this, e);
+            BindingManagerBase?.RaiseBindingComplete (e);
+        }
     }
 
     public partial class BindingManagerBase
@@ -294,18 +305,21 @@ namespace Majorsilence.Forms
         /// <summary>Returns the properties of the items in the bound list.</summary>
         public virtual PropertyDescriptorCollection GetItemProperties () => PropertyDescriptorCollection.Empty;
 
-        // Raisable seams for a derived manager; this layer's binding pipeline does not report
-        // completion or errors through them yet.
-#pragma warning disable CS0067
-        /// <summary>Raised when a binding operation completes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when a binding operation on one of this manager's bindings completes.</summary>
         public event BindingCompleteEventHandler? BindingComplete;
 
-        /// <summary>Raised when the current item changes. Not raised by this layer yet.</summary>
-        public event EventHandler? CurrentItemChanged;
+        internal void RaiseBindingComplete (BindingCompleteEventArgs e) => BindingComplete?.Invoke (this, e);
 
+        // A raisable seam; this layer reports errors through BindingComplete rather than here.
+#pragma warning disable CS0067
         /// <summary>Raised when a data error occurs. Not raised by this layer yet.</summary>
         public event BindingManagerDataErrorEventHandler? DataError;
 #pragma warning restore CS0067
+
+        /// <summary>Raised when the current item changes, or changes in place.</summary>
+        public event EventHandler? CurrentItemChanged;
+
+        internal void RaiseCurrentItemChanged () => CurrentItemChanged?.Invoke (this, EventArgs.Empty);
     }
 
     public partial class Cursor
