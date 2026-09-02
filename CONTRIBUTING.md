@@ -197,4 +197,11 @@ against, with the reasoning.
   other work also touches, it is better to land one honest commit than to split it into an attribution
   that does not survive a rebase.
 
+## Code of conduct
+
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md) (Contributor Covenant 2.1).
+Conduct concerns go to the maintainers **privately** — a private report on the repository (GitHub →
+*Security* → *Advisories* → *Report a vulnerability*, which despite the name is a private channel), or
+GitHub's own [report abuse](https://github.com/contact/report-abuse) flow. Not a public issue.
+
 For bugs and feature requests, open an issue.
