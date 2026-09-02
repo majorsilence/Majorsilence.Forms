@@ -66,7 +66,6 @@ Majorsilence.Forms.ListControl.FormatInfoChanged
 Majorsilence.Forms.ListControl.FormatStringChanged
 Majorsilence.Forms.ListControl.FormattingEnabledChanged
 Majorsilence.Forms.MaskedTextBox.IsOverwriteModeChanged
-Majorsilence.Forms.MaskedTextBox.MaskChanged
 Majorsilence.Forms.MenuItem.DrawItem
 Majorsilence.Forms.MenuItem.MeasureItem
 Majorsilence.Forms.PrintPreviewDialog.BackColorChanged
