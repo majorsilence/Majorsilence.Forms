@@ -216,15 +216,26 @@ namespace Majorsilence.Forms.Tests
         // ── W4.5: ResolveList's former catch-all ────────────────────────────────────────────────
 
         [Fact]
-        public void DataSource_of_a_Type_yields_a_typed_empty_list_with_schema ()   // BND-04
+        public void DataSource_of_a_Type_yields_an_empty_list_with_the_types_schema ()   // BND-04
         {
             // What the designer emits for every object data source.
             var source = new BindingSource { DataSource = typeof (Person) };
 
-            Assert.IsType<BindingList<Person>> (source.List);
+            // The three things that actually have to be true: the list notifies (so a grid bound to it
+            // tracks additions), it reports the TYPE's schema while still empty (so the grid builds its
+            // columns before any data arrives), and AddNew creates the declared type.
+            Assert.IsAssignableFrom<IBindingList> (source.List);
+            Assert.Empty (source);
             Assert.Contains ("Name",
                 ((ITypedList)source).GetItemProperties (null).Cast<PropertyDescriptor> ().Select (p => p.Name));
             Assert.IsType<Person> (source.AddNew ());
+
+            // Deliberately NOT asserting BindingList<Person>, which is upstream's runtime type: reaching
+            // it needs typeof (BindingList<>).MakeGenericType (t), which carries RequiresDynamicCode and
+            // fails the AOT analyzer this library is held to (IL3050). A closed BindingList<object?> plus
+            // a recorded element type gives every behaviour above with no reflection at all. See
+            // BindingSource.CreateBindingListOf.
+            Assert.IsAssignableFrom<BindingList<object?>> (source.List);
         }
 
         [Fact]

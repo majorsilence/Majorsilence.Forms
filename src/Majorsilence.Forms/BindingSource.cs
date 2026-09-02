@@ -124,6 +124,13 @@ namespace Majorsilence.Forms
                 // it used to mean the customers list itself, unchanging (BND-06).
                 src = ResolveDataMember (src, _dataMember);
 
+            declared_element_type = src switch {
+                Type type when !typeof (IList).IsAssignableFrom (type) => type,
+                not null and not IList and not System.ComponentModel.IListSource and not string
+                    and not System.Collections.IEnumerable => src.GetType (),
+                _ => null,
+            };
+
             _list = src switch {
                 IList list => list,
                 System.ComponentModel.IListSource listSource => listSource.GetList (),
@@ -171,18 +178,49 @@ namespace Majorsilence.Forms
         private static IList CreateEmptyListOf (Type type)
             => typeof (IList).IsAssignableFrom (type)
                 ? (IList)Activator.CreateInstance (type)!
-                : (IList)Activator.CreateInstance (typeof (BindingList<>).MakeGenericType (type))!;
+                : CreateBindingListOf (type);
 
-        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2076", Justification = "Data binding creates lists of caller-supplied element types at runtime, as upstream.")]
-        private static IList WrapScalar (object item)
+        private static BindingList<object?> WrapScalar (object item)
         {
             // A typed BindingList rather than List<object?>, so the schema (ITypedList) still reports
             // the object's real properties -- the wrap must not cost the columns.
-            var list = (IList)Activator.CreateInstance (typeof (BindingList<>).MakeGenericType (item.GetType ()))!;
+            var list = CreateBindingListOf (item.GetType ());
             list.Add (item);
 
             return list;
         }
+
+        /// <summary>A change-notifying list to hold items of <paramref name="elementType"/>.</summary>
+        /// <remarks>
+        /// <para>
+        /// A CLOSED <c>BindingList&lt;object?&gt;</c>, deliberately, where upstream builds
+        /// <c>BindingList&lt;T&gt;</c>. Upstream reaches its typed list through
+        /// <c>typeof (BindingList&lt;&gt;).MakeGenericType (t)</c>, which carries
+        /// <c>RequiresDynamicCode</c>: the AOT compiler cannot see an instantiation named only at
+        /// runtime, so under NativeAOT there may be no native code to run (IL3050). This library is
+        /// AOT-clean and states so, and neither escape was acceptable -- suppressing IL3050 would claim
+        /// a guarantee the code cannot make, and <c>[RequiresDynamicCode]</c> would propagate out
+        /// through <see cref="DataSource"/>'s setter onto public API and every consumer of it.
+        /// </para>
+        /// <para>
+        /// A closed instantiation needs no reflection at all, and costs only the list's STATIC element
+        /// type -- which is not where any behaviour lives here. The element type is recorded in
+        /// <see cref="declared_element_type"/>, so <c>ITypedList</c> still reports the right schema (a
+        /// grid builds its columns before any data arrives) and <see cref="AddNew"/> still creates the
+        /// right type. Change notification is kept, which a plain <c>List&lt;object?&gt;</c> would have
+        /// lost: this is still an <c>IBindingList</c>, so an add made directly to
+        /// <see cref="List"/> still reaches the bound controls.
+        /// </para>
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "BindingList<T> raises ListChanged with PropertyDescriptors, which is the mechanism data binding IS -- the same standing position as the rest of this file: a trimmed app has to root the types it binds.")]
+        private static BindingList<object?> CreateBindingListOf (Type elementType) => new BindingList<object?> ();
+
+        // The element type the DATA SOURCE declared, as opposed to one recoverable from the list. A
+        // `DataSource = typeof (Customer)` or a scalar source knows its element type at the moment it is
+        // assigned, and an empty untyped list -- which is what the AOT fallback in CreateBindingListOf
+        // produces -- has neither an element to inspect nor a generic argument to read. Recording it
+        // keeps the schema and AddNew right in both cases.
+        private Type? declared_element_type;
 
         // The parent whose current item this source's DataMember is read from, held so the
         // subscription can be dropped when DataSource changes.
@@ -283,7 +321,9 @@ namespace Majorsilence.Forms
                 break;
             }
 
-            return _list.Count > 0 ? _list[0]?.GetType () : null;
+            // The declared type before the first item's: an empty list still has a schema when the
+            // source named its type, and that is exactly the case a grid binds to before data arrives.
+            return declared_element_type ?? (_list.Count > 0 ? _list[0]?.GetType () : null);
         }
 
         /// <summary>Gets or sets the zero-based index of the current item, clamped to the valid range.</summary>
@@ -591,7 +631,11 @@ namespace Majorsilence.Forms
 
             var item = args.NewObject;
 
-            if (item is null && _list is IBindingList { AllowNew: true } bindingList)
+            // A list this BindingSource built for a declared element type must not create through the
+            // list's own AddNew: the backing list is object-typed (see CreateBindingListOf), so its
+            // AddNew would hand back a bare object where the caller asked for a Customer. The declared
+            // type below is the one to construct from.
+            if (item is null && declared_element_type is null && _list is IBindingList { AllowNew: true } bindingList)
                 return Select (bindingList.AddNew ());
 
             if (item is null && ListElementType () is { } elementType && elementType != typeof (object)) {
