@@ -864,7 +864,13 @@ namespace Majorsilence.Forms
             }
 
             // 2. A .resx on disk beside the assembly or under the app base directory.
-            var dirs = new[] { Path.GetDirectoryName (assembly.Location), AppContext.BaseDirectory }
+            // Assembly.Location is the empty string for a single-file app (IL3000) -- harmless here, the
+            // IsNullOrEmpty filter on the next line drops it and AppContext.BaseDirectory still applies.
+            [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("SingleFile", "IL3000",
+                Justification = "An empty Location is filtered out immediately below; BaseDirectory covers the single-file case.")]
+            static string? AssemblyDir (Assembly a) => Path.GetDirectoryName (a.Location);
+
+            var dirs = new[] { AssemblyDir (assembly), AppContext.BaseDirectory }
                 .Where (d => !string.IsNullOrEmpty (d))
                 .Distinct ();
             var candidates = new[] { type.FullName + ".resx", type.Name + ".resx" }

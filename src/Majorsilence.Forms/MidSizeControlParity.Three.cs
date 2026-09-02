@@ -192,11 +192,13 @@ namespace Majorsilence.Forms
         /// <remarks>Upstream added this so a data object can carry arbitrary values without the
         /// binary formatter.</remarks>
         [RequiresUnreferencedCode ("The stored type is serialised with reflection, as it is upstream.")]
+        [RequiresDynamicCode ("The stored type is serialised with the reflection-based JSON serializer, as it is upstream.")]
         public void SetDataAsJson<T> (string format, T data)
             => SetData (format, System.Text.Json.JsonSerializer.Serialize (data));
 
         /// <inheritdoc cref="SetDataAsJson{T}(string,T)"/>
         [RequiresUnreferencedCode ("The stored type is serialised with reflection, as it is upstream.")]
+        [RequiresDynamicCode ("The stored type is serialised with the reflection-based JSON serializer, as it is upstream.")]
         public void SetDataAsJson<T> (T data) => SetDataAsJson (typeof (T).FullName ?? typeof (T).Name, data);
 
         /// <summary>Returns the stored value when it is of the requested type.</summary>

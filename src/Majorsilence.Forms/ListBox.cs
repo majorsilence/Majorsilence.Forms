@@ -158,7 +158,9 @@ namespace Majorsilence.Forms
 
             index -= top_index;
 
-            var top = index * ScaledItemHeight + client.Top;
+            // Subtract the sub-row touch-scroll offset so a fluid drag moves items by the pixel;
+            // item[top_index] is then partly above client.Top and the renderer clips it there.
+            var top = index * ScaledItemHeight + client.Top - (int) Math.Round (_scrollOffsetPx);
             return new Rectangle (client.Left, top, client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0), Math.Min (ScaledItemHeight, client.Bottom - top));
         }
 
@@ -483,13 +485,18 @@ namespace Majorsilence.Forms
                 vscrollbar.RaiseMouseWheel (e);
         }
 
-        private double _scrollGestureRemainder;
+        // Fine-grained scroll: how far item[top_index] is pushed up above the client top, in device
+        // pixels (0 .. ScaledItemHeight). top_index is the coarse row index and the vscrollbar tracks
+        // it; this is the sub-row remainder that lets a touch drag track the finger by the pixel
+        // instead of jumping a whole row at a time. Always 0 for wheel / thumb / keyboard scrolling.
+        private double _scrollOffsetPx;
+        private bool _settingScrollbarFromGesture;
 
         /// <summary>
-        /// Pans the visible range on a touch drag/flick. ListBox owns its own vertical scrollbar
-        /// rather than deriving from <see cref="ScrollableControl"/>, so the neutral scroll-gesture
-        /// event (drag, plus the recognizer's decaying inertia deltas after lift-off) is bridged to
-        /// that scrollbar here. Content follows the finger: dragging up reveals items further down.
+        /// Pans the visible range on a touch drag/flick, pixel by pixel. ListBox owns its own vertical
+        /// scrollbar rather than deriving from <see cref="ScrollableControl"/>, so the neutral
+        /// scroll-gesture event (drag, plus the recognizer's decaying inertia deltas after lift-off) is
+        /// bridged here. Content follows the finger: dragging up reveals items further down.
         /// </summary>
         protected override void OnScrollGesture (ScrollGestureEventArgs e)
         {
@@ -504,18 +511,31 @@ namespace Majorsilence.Forms
             if (e.Delta.Y == 0)
                 return;
 
-            var itemHeight = Math.Max (1, ItemHeight);
+            // e.Delta.Y is logical pixels (converted at the WindowBase boundary); scroll in device
+            // pixels to line up with ScaledItemHeight and the device-space item rectangles.
+            ScrollByDevicePixels (e.Delta.Y * ScaleFactor.Height);
+        }
 
-            // e.Delta is logical pixels; accumulate the sub-item remainder so a slow drag still moves.
-            _scrollGestureRemainder += (double) e.Delta.Y / itemHeight;
-            var steps = (int) _scrollGestureRemainder;
-            if (steps == 0)
-                return;
-            _scrollGestureRemainder -= steps;
+        // Scrolls by a device-pixel amount, rolling the sub-row offset over into top_index. Matches
+        // the gesture-delta sign: a negative delta (upward drag) increases the scroll position.
+        private void ScrollByDevicePixels (double deltaPx)
+        {
+            var itemH = Math.Max (1, ScaledItemHeight);
+            var maxPosPx = Math.Max (0, vscrollbar.Maximum) * (double) itemH;
 
-            var target = Math.Max (vscrollbar.Minimum, Math.Min (vscrollbar.Value - steps, vscrollbar.Maximum));
-            if (target != vscrollbar.Value)
-                vscrollbar.Value = target;
+            var posPx = Math.Max (0, Math.Min (top_index * (double) itemH + _scrollOffsetPx - deltaPx, maxPosPx));
+
+            var newTop = (int) (posPx / itemH);
+            _scrollOffsetPx = posPx - newTop * (double) itemH;
+
+            if (newTop != top_index) {
+                _settingScrollbarFromGesture = true;
+                try { vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (newTop, vscrollbar.Maximum)); }
+                finally { _settingScrollbarFromGesture = false; }
+                top_index = newTop;
+            }
+
+            Invalidate ();
         }
 
         /// <inheritdoc/>
@@ -716,6 +736,7 @@ namespace Majorsilence.Forms
             get => top_index;
             set {
                 top_index = Math.Max (0, Math.Min (value, Items.Count - 1));
+                _scrollOffsetPx = 0;
                 Invalidate ();
             }
         }
@@ -815,6 +836,7 @@ namespace Majorsilence.Forms
                 vscrollbar.LargeChange = Math.Max (0, VisibleItemCount);
             } else {
                 vscrollbar.Visible = ScrollbarAlwaysVisible;
+                _scrollOffsetPx = 0;
             }
         }
 
@@ -822,6 +844,11 @@ namespace Majorsilence.Forms
         private void VerticalScrollBar_ValueChanged (object? sender, EventArgs e)
         {
             top_index = Math.Max (vscrollbar.Value, 0);
+
+            // A thumb drag, wheel notch or programmatic scroll snaps to a whole row; only a touch
+            // drag (which sets the value through ScrollByDevicePixels) keeps a sub-row offset.
+            if (!_settingScrollbarFromGesture)
+                _scrollOffsetPx = 0;
 
             Invalidate ();
         }

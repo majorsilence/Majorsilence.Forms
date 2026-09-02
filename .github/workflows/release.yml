@@ -374,7 +374,8 @@ jobs:
   sample-ios:
     needs: version
     runs-on: macos-latest
-    # See the ios job in dotnet.yml: Gallery.iOS is not yet green. Do not fail the release for it.
+    # See the ios job in dotnet.yml: the head compiles, but iOS has only a couple of green runs and
+    # nobody has run it on a device. Do not fail the release for it until it is proven stable.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4

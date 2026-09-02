@@ -594,6 +594,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Puts a value on the clipboard, serialised as JSON.</summary>
         [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("The stored type is serialised with reflection, as it is upstream.")]
+        [System.Diagnostics.CodeAnalysis.RequiresDynamicCode ("The stored type is serialised with the reflection-based JSON serializer, as it is upstream.")]
         public static void SetDataAsJson<T> (string format, T data) => Current.SetDataAsJson (format, data);
 
         /// <summary>Returns the clipboard's value when it is of the requested type.</summary>

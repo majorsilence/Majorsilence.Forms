@@ -452,6 +452,7 @@ host app references — the Telerik package itself has no backend dependency.
 | Avalonia / macOS | WKWebView | Inline PDF (native WebKit PDF rendering) | Full webview editor |
 | Avalonia / Linux (WebKitGTK/WPE present) | WebKitGTK | System PDF viewer **by policy** — WebKit has no built-in inline PDF viewer, so Linux always uses the system-viewer path even though the webview itself works | Full webview editor (native spellcheck depends on `enchant` dictionaries being installed) |
 | Uno backend, or Avalonia with the engine unavailable | — | System PDF viewer | `RichTextBox` fallback |
+| Avalonia / browser, Android, iOS (single-view) | — (`AvaloniaWebViewHandle` is excluded from these TFMs) | Placeholder label (`AllowSystemViewerFallback` defaults off here — `Process.Start`/`UseShellExecute` has nothing to service on these platforms) | `RichTextBox` fallback |
 | Headless backend | — (no `IWebViewFactory` at all) | Caches the document and paints a placeholder; never shells out to a system viewer (so CI/automated tests never spawn OS processes) | `RichTextBox` fallback |
 
 ## Visual styles (`System.Windows.Forms.VisualStyles`)

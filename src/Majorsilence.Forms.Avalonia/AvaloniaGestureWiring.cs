@@ -16,10 +16,17 @@ namespace Majorsilence.Forms
     /// IsMouseEnabled defaults false, and Holding only fires for a mouse press if IsHoldWithMouseEnabled
     /// is explicitly turned on (also default off). So attaching this unconditionally on every Avalonia
     /// target (desktop, Android, browser) is safe: on a pure-mouse machine none of it ever activates.
+    ///
+    /// On Android (Avalonia 12) the ScrollGestureRecognizer
+    /// frequently never fires even though the touch stream reaches <c>OnPointerMoved</c>, so
+    /// <c>MajorsilenceFormsSingleViewHost</c> also synthesises scrolling from raw pointer moves and
+    /// passes an <c>onRecognizerScroll</c> callback to switch that fallback off once the real
+    /// recognizer proves it works.
     /// </summary>
     internal static class AvaloniaGestureWiring
     {
-        internal static void Attach (Avalonia.Controls.Control host, WindowBase owner, System.Func<double> scale)
+        internal static void Attach (Avalonia.Controls.Control host, WindowBase owner, System.Func<double> scale,
+            System.Action? onRecognizerScroll = null)
         {
             // Neither ScrollGestureEventArgs nor SwipeGestureEventArgs carry a position (only Pinch's
             // ScaleOrigin does), but the neutral pipeline needs one -- RaiseScrollGesture hit-tests by
@@ -50,9 +57,12 @@ namespace Majorsilence.Forms
                 e.Velocity.X * scale (), e.Velocity.Y * scale (),
                 AvaloniaKeyInterop.ToSwipeDirection (e.SwipeDirection));
 
-            host.ScrollGesture += (_, e) => owner.HandleScrollGesture (
-                (int)(lastPosition.X * scale ()), (int)(lastPosition.Y * scale ()),
-                (int)(e.Delta.X * scale ()), (int)(e.Delta.Y * scale ()));
+            host.ScrollGesture += (_, e) => {
+                onRecognizerScroll?.Invoke ();
+                owner.HandleScrollGesture (
+                    (int)(lastPosition.X * scale ()), (int)(lastPosition.Y * scale ()),
+                    (int)(e.Delta.X * scale ()), (int)(e.Delta.Y * scale ()));
+            };
 
             host.Holding += (_, e) => {
                 if (e.HoldingState == HoldingState.Completed)
