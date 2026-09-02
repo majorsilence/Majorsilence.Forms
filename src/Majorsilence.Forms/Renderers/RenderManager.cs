@@ -16,6 +16,7 @@
             SetRenderer<FormTitleBar> (new FormTitleBarRenderer ());
             SetRenderer<Label> (new LabelRenderer ());
             SetRenderer<LinkLabel> (new LinkLabelRenderer ());
+            SetRenderer<CheckedListBox> (new CheckedListBoxRenderer ());
             SetRenderer<ListBox> (new ListBoxRenderer ());
             SetRenderer<ListView> (new ListViewRenderer ());
             SetRenderer<Menu> (new MenuRenderer ());

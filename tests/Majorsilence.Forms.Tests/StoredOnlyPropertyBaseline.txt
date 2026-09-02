@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 788 of 1235 public settable auto-properties (63%).
+# 787 of 1235 public settable auto-properties (63%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -46,7 +46,6 @@ Majorsilence.Forms.ButtonBase.CommandParameter
 Majorsilence.Forms.ButtonBase.UseCompatibleTextRendering
 Majorsilence.Forms.ButtonRenderer.RenderMatchingApplicationState
 Majorsilence.Forms.CheckBox.Appearance
-Majorsilence.Forms.CheckedListBox.CheckOnClick
 Majorsilence.Forms.CheckedListBox.ThreeDCheckBoxes
 Majorsilence.Forms.CheckedListBox.UseCompatibleTextRendering
 Majorsilence.Forms.ColorDialog.AllowFullOpen

@@ -8,6 +8,23 @@ Counts: **P0: 5 · P1: 23 · P2: 13 · P3: listed in one line each.**
 
 ## Findings
 
+## Status (2026-09-02, W5.7 + W5.8 — CheckedListBox and list selection)
+
+**Closed:** LST-02 (P0), LST-03 (P0), LST-04 (P0), LST-06, LST-09, LST-16. 14 tests in
+`ListSelectionAndCheckTests.cs`, 13 verified to fail with their fix neutralized (the 14th is labelled
+in-test as a guard); one test inverted — `SetSelected_OutOfRange_Ignored`, which pinned a swallow that
+upstream turns into a throw.
+
+**A correction to LST-04:** its list of silent mutation points is the shape of the problem, not a
+complete inventory, so the fix wraps the whole mouse and keyboard handlers in `ChangeSelection` and
+compares a snapshot of the selected set rather than wrapping the enumerated call sites. That also
+turned up a latent bug the finding does not mention: `AddSelectedIndex` added unconditionally, so
+re-selecting an already-selected index duplicated it in `SelectedIndexes` — visible through
+`SelectedIndices`, and accumulating across Shift+arrow keystrokes.
+
+**Still open in this file:** LST-05, LST-07, LST-08, LST-10, LST-11, LST-13, LST-14, LST-15,
+LST-21–LST-26, and the `TreeView` half of LST-20.
+
 ## Status (2026-09-01, W5.6 — the ListView cluster)
 
 **Closed:** LST-01 (P0), LST-12, LST-17, LST-18, LST-19, and the `ListView` half of LST-20 (the mouse
