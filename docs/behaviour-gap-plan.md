@@ -725,13 +725,24 @@ real with `On*` raisers. `Sort` sorts. 16 tests, 15 verified to fail without the
 place), `ItemDrag` (raisable, no drag recogniser), `VirtualMode`, groups, and owner-draw
 (`DrawItem`/`DrawSubItem`).
 
-**W5.7 — `CheckedListBox` has no checkboxes.** No glyph is drawn and no click toggles one; the control
-is a `ListBox` with unreachable bookkeeping. *Closes:* `LST-02` (P0), `LST-16`.
+**W5.7 — `CheckedListBox` has no checkboxes. — DONE (2026-09-02)**
+A `CheckedListBoxRenderer` (deriving from `ListBoxRenderer`, so the row background, selection, hover
+and focus rectangle stay in one place) draws the glyph through the same `ControlPaint.DrawCheckBox` a
+`CheckBox` uses. Toggling follows upstream: a click in the glyph, any click when `CheckOnClick`, the
+second click of an already-selected row, or Space — all routed through `SetItemCheckState`, so the
+cancellable `ItemCheck` applies to user input too. `SelectedItem` unwraps the internal item wrapper.
+*Closed:* `LST-02` (P0), `LST-16`.
 
-**W5.8 — Selection events on list controls.** Every selection path except the `SelectedIndex` setter
-— `SelectedItem =`, `SetSelected`, `ClearSelected`, multi-select mouse and keyboard — mutates through
-the collection's internal setters and never raises `SelectedIndexChanged`.
-*Closes:* `LST-03` (P0), `LST-04` (P0), `LST-06`, `LST-09`.
+**W5.8 — Selection events on list controls. — DONE (2026-09-02)**
+One `ChangeSelection` choke point on `ListBox`: it snapshots the selected set, applies the mutation,
+and announces once if the set changed. `SetSelected`, `ClearSelected`, the `SelectionMode` setter and
+the whole mouse and keyboard handlers go through it — the handlers wrapped wholesale rather than
+branch by branch, with a batch depth so a branch that also assigns `SelectedIndex` reports once, not
+twice. `SelectedItem` assigns the public (raising) `SelectedIndex`; `SetSelected` throws for an
+out-of-range index and for a `None` list, as upstream. On `ComboBox`, `SelectedIndex = -1` now
+announces, and a selection change writes `base.Text`, so `TextChanged` fires for a combo at all.
+*Closed:* `LST-03` (P0), `LST-04` (P0), `LST-06`, `LST-09`. One test inverted
+(`SetSelected_OutOfRange_Ignored`, which pinned the swallow).
 
 **W5.9 — `TreeView`.** `SelectedNode` returning a synthetic root instead of null; `GetNodeAt`/`HitTest`
 built on a fake layout that disagrees with the mouse's; images, checkboxes, `NodeFont`/colours,
@@ -976,13 +987,47 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.17** (text measurement), **W5.24** (layout/preferred-size wiring) and **W5.6** (`ListView`, 2026-09-01) done. The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4077 passing, 0 failing**, in Debug and Release, with system decorations and with
-`MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate still reports
-zero for both surfaces. Baselines: inert events 80 → 72, unraised events 130 → 120, stored-only
-properties 822 → 788, no-op stubs down 5 more (the manager's edit/suspend surface).
+Suite: **4093 passing, 0 failing**, in Debug and Release, with system decorations and with
+`MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
+for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
+80 → 72, unraised events 130 → 120, stored-only properties 822 → 787.
+
+### What W5.7 and W5.8 found
+
+**The double-report trap, predicted and avoided.** W5.6's lesson was that when one member becomes the
+notification choke point, every caller that used to notify on its behalf has to stop. Here the input
+handlers are wrapped wholesale in `ChangeSelection`, and several of their branches assign
+`SelectedIndex`, which raises on its own. A batch depth — the same shape W5.6 ended up with — makes a
+click report exactly once, and asserting *once* rather than *at least once* is what would catch a
+regression.
+
+**Wrapping handlers beat wrapping call sites.** `LST-04` lists eight silent mutation points across the
+mouse and keyboard paths, and that list is the shape of the problem rather than a complete inventory.
+`ChangeSelection` compares a snapshot of the selected set instead, so wrapping the two handler bodies
+covers every branch including ones nobody enumerated, and a branch that changes nothing announces
+nothing.
+
+**A test found a latent duplicate.** `AddSelectedIndex` added unconditionally, so selecting an
+already-selected index put it in the list twice — `SelectedIndices` reported the same row twice, and
+the Shift+arrow extension paths (which call it per keystroke) accumulated duplicates. Nothing had
+noticed because nothing compared the selected set before and after; the "re-selecting announces
+nothing" test failed on the duplicate, not on the announcement.
+
+**Two pixel assertions, two wrong reasons.** The glyph test first compared "ink in the glyph column"
+between a `CheckedListBox` and a plain `ListBox` — and the plain one has ink there twice over: item
+text is inset by 4px, and the control paints a 1px border down its left edge. An empty item label
+removes the first, sampling the glyph's own rectangle removes the second. That is three items running
+where a region-based pixel assertion needed narrowing; the pattern is that "ink exists here" is almost
+never the claim worth making.
+
+**A framework constraint worth knowing:** `RenderManager.SetRenderer<T>` requires the renderer's
+declared `Type` to equal `T`, so a renderer deriving from another renderer must override `Type` to
+register for the subclass. Without it, registration throws inside the static constructor, which
+surfaces as `TypeInitializationException` from whatever control happens to paint first — nowhere near
+the actual mistake.
 
 ### What W5.6 found
 

@@ -1,13 +1,21 @@
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
 using System.Linq;
 
 namespace Majorsilence.Forms
 {
     /// <summary>
-    /// WinForms compatibility: represents a ListBox in which a check box is displayed to the left of each item.
-    /// In Majorsilence.Forms, this is implemented as a ListBox with checkbox rendering (visual only stub).
+    /// Represents a ListBox in which a check box is displayed to the left of each item.
     /// </summary>
+    /// <remarks>
+    /// Functional as of W5.7 (finding LST-02, P0). This called itself a "visual only stub" and was not
+    /// even that: no glyph was drawn (<c>RenderManager</c> routed it to the plain
+    /// <c>ListBoxRenderer</c>), and nothing toggled a check, so a migrated permissions or options
+    /// dialog showed an ordinary list the user could not tick and <see cref="CheckedItems"/> stayed
+    /// empty unless code pre-checked it. A click on the glyph now toggles, so does Space, and so does a
+    /// click anywhere on the row when <see cref="CheckOnClick"/> is set.
+    /// </remarks>
     public partial class CheckedListBox : ListBox
     {
         private CheckedObjectCollection? _checkedItems;
@@ -85,6 +93,96 @@ namespace Majorsilence.Forms
                     if (GetItemChecked (i)) yield return i;
             }
         }
+
+        /// <summary>The width the glyph column takes, in device pixels.</summary>
+        internal int ScaledGlyphColumnWidth => LogicalToDeviceUnits (GlyphSize + GlyphInset * 2);
+
+        private const int GlyphSize = 13;
+        private const int GlyphInset = 2;
+
+        /// <summary>The glyph rectangle for a row, in device pixels.</summary>
+        internal Rectangle GlyphBounds (Rectangle row)
+        {
+            var size = LogicalToDeviceUnits (GlyphSize);
+
+            return new Rectangle (row.Left + LogicalToDeviceUnits (GlyphInset),
+                row.Top + Math.Max (0, (row.Height - size) / 2), size, size);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnMouseDown (MouseEventArgs e)
+        {
+            base.OnMouseDown (e);
+
+            if (!Enabled || !e.Button.HasFlag (MouseButtons.Left))
+                return;
+
+            var index = GetIndexAtLocation (e.Location);
+
+            if (index < 0 || index >= Items.Count)
+                return;
+
+            // Upstream toggles on a click in the glyph, on any click when CheckOnClick, and on the
+            // second click of an already-selected row. The glyph test is in device units, like the
+            // bounds it compares against -- the mouse arrives logical.
+            var device = new Point (LogicalToDeviceUnits (e.Location.X), LogicalToDeviceUnits (e.Location.Y));
+            var on_glyph = GlyphBounds (GetItemRectangle (index)).Contains (device);
+
+            if (on_glyph || CheckOnClick || was_selected_before_click == index)
+                SetItemChecked (index, !GetItemChecked (index));
+
+            was_selected_before_click = index;
+        }
+
+        // Which row was already selected when the click arrived, so the "second click of a selected
+        // row toggles" rule can be applied. Recorded after the base has moved the selection.
+        private int was_selected_before_click = -1;
+
+        /// <inheritdoc/>
+        protected override void OnKeyUp (KeyEventArgs e)
+        {
+            base.OnKeyUp (e);
+
+            // Space toggles the focused row, as upstream's OnKeyPress does. The base class uses Space
+            // for MultiSimple selection toggling; here the check state is what Space means.
+            if (e.KeyCode != Keys.Space || !Enabled)
+                return;
+
+            // base.Items, not the new Items: this class shadows the property with the wrapping
+            // collection, which has no focus notion -- the focused row is the base list box's.
+            var index = base.Items.FocusedIndex >= 0 ? base.Items.FocusedIndex : SelectedIndex;
+
+            if (index >= 0 && index < Items.Count) {
+                SetItemChecked (index, !GetItemChecked (index));
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>Gets or sets the selected item, unwrapped.</summary>
+        /// <remarks>
+        /// Items are stored in <see cref="CheckedListBoxItem"/> wrappers so there is somewhere to keep
+        /// the check state, and the base class read straight through them: <c>SelectedItem</c> handed
+        /// back the wrapper, so <c>(Role)clb.SelectedItem</c> threw <c>InvalidCastException</c>, and
+        /// <c>clb.SelectedItem = role</c> looked the value up among wrappers, found nothing, and was
+        /// silently ignored (LST-16).
+        /// </remarks>
+        public override object? SelectedItem {
+            get => Unwrap (base.SelectedItem);
+            set {
+                if (value is null) {
+                    base.SelectedItem = null;
+                    return;
+                }
+
+                // Through the unwrapping indexer, so the caller's own object is what gets matched.
+                var index = Items.IndexOf (value);
+
+                if (index != -1)
+                    SelectedIndex = index;
+            }
+        }
+
+        private static object? Unwrap (object? item) => item is CheckedListBoxItem wrapper ? wrapper.Value : item;
 
         /// <summary>Raises the <see cref="ItemCheck"/> event.</summary>
         protected virtual void OnItemCheck (ItemCheckEventArgs e) => ItemCheck?.Invoke (this, e);

@@ -256,7 +256,11 @@ namespace Majorsilence.Forms
         private int NeededHeightForItems => ScaledItemHeight * Items.Count;
 
         /// <inheritdoc/>
-        protected override void OnKeyUp (KeyEventArgs e)
+        protected override void OnKeyUp (KeyEventArgs e) => ChangeSelection (() => KeyUpCore (e));
+
+        // Wrapped by ChangeSelection so every branch below -- Space toggles, Shift+arrow extension, the
+        // add/remove pairs -- announces its change, without each one having to remember to (LST-04).
+        private void KeyUpCore (KeyEventArgs e)
         {
             // In "None" mode, the focus goes up and down
             // In "MultiSimple" mode, the focus goes up and down, and space selects or deselects
@@ -398,7 +402,11 @@ namespace Majorsilence.Forms
             base.OnKeyUp (e);
         }
 
-        private void OnMouseButtonLogic (MouseEventArgs e)
+        private void OnMouseButtonLogic (MouseEventArgs e) => ChangeSelection (() => MouseButtonLogicCore (e));
+
+        // See KeyUpCore: Ctrl-click and MultiSimple toggles went through the collection's internal
+        // setters and reported nothing (LST-04).
+        private void MouseButtonLogicCore (MouseEventArgs e)
         {
 
             if (!Enabled || !e.Button.HasFlag (MouseButtons.Left))
@@ -589,11 +597,15 @@ namespace Majorsilence.Forms
                 if (Items.SelectedIndex != value || Items.SelectedIndexes.Count > 1) {
                     Items.SelectedIndex = value;
 
-                    // Move the bound source's current item with the selection, so a BindingSource driving
-                    // a detail view follows what the user picked here.
-                    source_tracker.OnSelectionChanged (value);
+                    // Inside a ChangeSelection batch the announcement is that batch's job, so an input
+                    // handler that lands here reports its change once rather than twice.
+                    if (selection_batch == 0) {
+                        // Move the bound source's current item with the selection, so a BindingSource
+                        // driving a detail view follows what the user picked here.
+                        source_tracker.OnSelectionChanged (value);
 
-                    OnSelectedIndexChanged (EventArgs.Empty);
+                        OnSelectedIndexChanged (EventArgs.Empty);
+                    }
 
                     Invalidate ();
                 }
@@ -608,9 +620,29 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the currently selected item, if any.  If there are multiple selected items, the first selected item will be returned.
         /// </summary>
-        public object? SelectedItem {
+        public virtual object? SelectedItem {
             get => Items.SelectedItem;
-            set => Items.SelectedItem = value;
+            set {
+                // Through the PUBLIC SelectedIndex, which raises. This used to assign the collection's
+                // INTERNAL setter, so `cbo.SelectedItem = customer` -- the commonest way LOB code
+                // selects programmatically -- moved the selection silently and never ran the
+                // SelectedIndexChanged handler that loads the detail panel (LST-03, P0).
+                if (value is null) {
+                    if (SelectionMode != SelectionMode.None)
+                        SelectedIndex = -1;
+
+                    return;
+                }
+
+                var index = Items.IndexOf (value);
+
+                // An item that is not in the list leaves the selection alone, as upstream does -- a
+                // designer sets SelectedValue before the items are populated, and a bound editor writes
+                // back a value the current filter excluded. Throwing turned both into a crash inside
+                // InitializeComponent.
+                if (index != -1 && SelectionMode != SelectionMode.None)
+                    SelectedIndex = index;
+            }
         }
 
         /// <summary>
@@ -635,10 +667,14 @@ namespace Majorsilence.Forms
 
                 selection_mode = value;
 
-                if (selection_mode == SelectionMode.None)
-                    Items.SelectedIndex = -1;
-                else if (selection_mode == SelectionMode.One)
-                    Items.SelectedIndex = Items.SelectedIndex;  // Yes this does something  ;)
+                // Both of these drop items from the selection -- None clears it, One collapses a
+                // multi-selection to its first item -- and both did so silently (LST-04).
+                ChangeSelection (() => {
+                    if (selection_mode == SelectionMode.None)
+                        Items.SelectedIndex = -1;
+                    else if (selection_mode == SelectionMode.One)
+                        Items.SelectedIndex = Items.SelectedIndex;  // Yes this does something  ;)
+                });
             }
         }
 
@@ -742,22 +778,82 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Deselects all items in the ListBox.</summary>
-        public void ClearSelected ()
-        {
-            Items.SelectedIndexes.Clear ();
-            Invalidate ();
-        }
+        public void ClearSelected () => ChangeSelection (() => Items.SelectedIndexes.Clear ());
 
         /// <summary>Selects or deselects the item at the specified index.</summary>
+        /// <remarks>Announces the change, and rejects what upstream rejects: an out-of-range index and
+        /// a <see cref="SelectionMode.None"/> list both threw there and were swallowed here, which
+        /// turned a caller's off-by-one into a selection that silently did not happen
+        /// (<c>LST-04</c>).</remarks>
         public void SetSelected (int index, bool value)
         {
-            if (index < 0 || index >= Items.Count) return;
-            if (value) Items.AddSelectedIndex (index, false);
-            else Items.RemoveSelectedIndex (index);
+            if (SelectionMode == SelectionMode.None)
+                throw new InvalidOperationException (
+                    "Cannot call SetSelected when SelectionMode is SelectionMode.None.");
+
+            if (index < 0 || index >= Items.Count)
+                throw new ArgumentOutOfRangeException (nameof (index));
+
+            ChangeSelection (() => {
+                if (value)
+                    Items.AddSelectedIndex (index, single: SelectionMode == SelectionMode.One);
+                else
+                    Items.RemoveSelectedIndex (index);
+            });
         }
 
         /// <summary>Returns whether the item at the specified index is selected.</summary>
         public bool GetSelected (int index) => Items.SelectedIndexes.Contains (index);
+
+        /// <summary>
+        /// Applies a selection change and announces it exactly once, if it changed anything.
+        /// </summary>
+        /// <remarks>
+        /// The one place a multi-selection change is reported (finding <c>LST-04</c>, P0). Every path
+        /// except the <see cref="SelectedIndex"/> setter -- <see cref="SetSelected"/>,
+        /// <see cref="ClearSelected"/>, Ctrl-click and Space toggles, Shift+arrow extension -- mutated
+        /// the collection's internal index list and raised nothing, so in a multi-select list the
+        /// "N items selected" label, the enabled state of Delete/Move, and any
+        /// <c>SelectedItems</c>-driven detail view never updated from user input.
+        /// <para>
+        /// Compared by snapshot rather than by trusting the caller: several of these paths are no-ops in
+        /// practice (re-selecting what is already selected), and WinForms raises only on a real change.
+        /// </para>
+        /// </remarks>
+        private int selection_batch;
+
+        internal void ChangeSelection (Action mutate)
+        {
+            var before = Items.SelectedIndexes.ToList ();
+
+            // Depth, not a flag: these wrap whole input handlers, and a handler branch that assigns
+            // SelectedIndex would otherwise report the change twice -- once from that setter and once
+            // from here. Exactly the double-report W5.6 hit when ListViewItem.Selected became the
+            // choke point while ListView.SelectedItem still raised on its own.
+            selection_batch++;
+
+            try {
+                mutate ();
+            } finally {
+                selection_batch--;
+            }
+
+            var after = Items.SelectedIndexes;
+            var changed = before.Count != after.Count || before.Any (i => !after.Contains (i));
+
+            if (!changed) {
+                Invalidate ();
+                return;
+            }
+
+            // The bound source's current item follows the selection, as it does from the
+            // SelectedIndex setter -- otherwise a BindingSource driving a detail view tracks
+            // single-clicks but not Ctrl-clicks.
+            source_tracker.OnSelectionChanged (Items.SelectedIndex);
+
+            OnSelectedIndexChanged (EventArgs.Empty);
+            Invalidate ();
+        }
 
         /// <summary>Returns the collection of indices of all currently selected items.</summary>
         public SelectedIndexCollection SelectedIndices => new (Items.SelectedIndexes);
