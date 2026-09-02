@@ -146,6 +146,10 @@ For build and run details, see [Samples](docs/samples.md).
 
 ## Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide — the four test configurations CI runs, the
+baseline gates, the trimming/NativeAOT conventions, and how to tell a test that passes from a test that
+proves something.
+
 Contributions are welcome — fork the repo, push to a branch, and open a pull request against
 `main`. AI-assisted changes are welcome too: whether you wrote the code by hand or with an AI
 coding assistant, the bar is the same — it builds, the test suite passes, and it fits the existing
