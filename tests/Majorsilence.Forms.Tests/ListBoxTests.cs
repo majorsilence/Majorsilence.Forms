@@ -365,14 +365,21 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void SetSelected_OutOfRange_Ignored ()
+        public void SetSelected_OutOfRange_Throws ()
         {
+            // Inverted with W5.8 (LST-04). This asserted that an out-of-range index was silently
+            // IGNORED; upstream throws. Swallowing it turns a caller's off-by-one into a selection that
+            // simply did not happen, with nothing to catch and nothing logged -- and the same applied to
+            // calling SetSelected on a SelectionMode.None list.
             using var control = new ListBox ();
             control.Items.Add ("a");
 
-            control.SetSelected (5, true);
-
+            Assert.Throws<ArgumentOutOfRangeException> (() => control.SetSelected (5, true));
             Assert.Empty (control.SelectedIndices);
+
+            control.SelectionMode = SelectionMode.None;
+
+            Assert.Throws<InvalidOperationException> (() => control.SetSelected (0, true));
         }
 
         // ----- SelectedIndexChanged event -----

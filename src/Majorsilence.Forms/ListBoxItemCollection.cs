@@ -69,7 +69,12 @@ namespace Majorsilence.Forms
 
             focused_index = Math.Max (index, 0);
 
-            if (index != -1)
+            // Not already present: this used to Add unconditionally, so selecting an already-selected
+            // index put it in the list TWICE -- SelectedIndices then reported the same row twice, and
+            // the Shift+arrow extension paths (which call this per keystroke) could accumulate
+            // duplicates. Found by a test asserting that re-selecting announces nothing: the duplicate
+            // made the selection set look changed when it was not.
+            if (index != -1 && !SelectedIndexes.Contains (index))
                 SelectedIndexes.Add (index);
 
             owner.Invalidate ();
