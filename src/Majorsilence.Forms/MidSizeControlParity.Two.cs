@@ -305,13 +305,16 @@ namespace Majorsilence.Forms
             }
         }
 
-        // Both describe state this layer does not change after construction.
+        // IsOverwriteMode describes state this layer does not change after construction.
 #pragma warning disable CS0067
         /// <summary>Raised when <see cref="IsOverwriteMode"/> changes. Not raised by this layer yet.</summary>
         public event EventHandler? IsOverwriteModeChanged;
-
-        /// <summary>Raised when the mask changes. Not raised by this layer yet.</summary>
-        public event EventHandler? MaskChanged;
 #pragma warning restore CS0067
+
+        /// <summary>Raised when <see cref="Mask"/> changes.</summary>
+        public event EventHandler? MaskChanged;
+
+        /// <summary>Raises the <see cref="MaskChanged"/> event.</summary>
+        protected virtual void OnMaskChanged (EventArgs e) => MaskChanged?.Invoke (this, e);
     }
 }
