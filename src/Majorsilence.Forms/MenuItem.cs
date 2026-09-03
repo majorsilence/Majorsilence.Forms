@@ -64,14 +64,46 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating whether the menu item is enabled.
         /// </summary>
-        public bool Enabled {
+        /// <remarks>
+        /// Virtual so <see cref="ToolStripItem"/> can announce a change instead of shadowing this with
+        /// a second store. It used to hide it with <c>public new bool Enabled</c>, and every consumer
+        /// -- the click gate, the hover gate and all four renderers -- holds items as
+        /// <see cref="MenuItem"/> and read THIS one, which stayed true: so
+        /// <c>saveToolStripMenuItem.Enabled = false</c>, the commonest menu operation there is, left
+        /// the item painted normally, highlighted on hover, and clickable (finding <c>TSM-01</c>, P0).
+        /// </remarks>
+        public virtual bool Enabled {
             get => enabled && (OwnerControl?.Enabled ?? true);
             set {
-                if (enabled != value) {
-                    enabled = value;
-                    OwnerControl?.Invalidate ();
-                }
+                // Compared against the FIELD, not the property: the getter folds in the owner's own
+                // Enabled, so a disabled strip would make every assignment here look like a no-op.
+                if (enabled == value)
+                    return;
+
+                enabled = value;
+                OnEnabledChanged (EventArgs.Empty);
+                OwnerControl?.Invalidate ();
             }
+        }
+
+        /// <summary>Called when <see cref="Enabled"/> changes, before the owner is invalidated.</summary>
+        /// <remarks>A hook rather than an event: this type has no <c>EnabledChanged</c>, and
+        /// <see cref="ToolStripItem"/> -- which does -- overrides this to raise it.</remarks>
+        protected virtual void OnEnabledChanged (EventArgs e) { }
+
+        /// <summary>Re-lays out and repaints the owning strip after a change that affects the item's box.</summary>
+        /// <remarks>
+        /// The <see cref="Control.Invalidate()"/> is the half that moves the item: strips lay their items
+        /// out in <c>OnPaint</c> (see <c>MenuBase.OnPaint</c>), so scheduling a repaint IS scheduling an
+        /// item layout. <see cref="Control.PerformLayout()"/> is for the strip's own size, which is
+        /// measured from its items (<c>ToolStripPanelRowLayout.GetPreferredSizeCore</c>) and so can
+        /// change when one of them does. A stored value that reaches neither is invisible until
+        /// something unrelated repaints the strip (finding <c>TSM-31</c>).
+        /// </remarks>
+        protected void InvalidateItemLayout ()
+        {
+            OwnerControl?.PerformLayout ();
+            OwnerControl?.Invalidate ();
         }
 
         /// <summary>
@@ -337,7 +369,21 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets whether the item has a check mark. WinForms compat — use sub-classes for implementation.</summary>
-        public bool Checked { get; set; }
+        /// <remarks>Virtual, and the single store for the check state: <c>ToolStripMenuItem</c> and
+        /// <c>ToolStripButton</c> each shadowed it with a private field of their own, so the renderers
+        /// -- which read this -- could never see a checked item (finding <c>TSM-06</c>).</remarks>
+        public virtual bool Checked {
+            get => is_checked;
+            set {
+                if (is_checked == value)
+                    return;
+
+                is_checked = value;
+                OwnerControl?.Invalidate ();
+            }
+        }
+
+        private bool is_checked;
 
         /// <summary>Gets or sets whether this is the default item. Stub in Majorsilence.Forms.</summary>
         public bool DefaultItem { get; set; }
@@ -361,7 +407,27 @@ namespace Majorsilence.Forms
         /// Gets or sets whether the menu item is visible. Hidden items are skipped during layout,
         /// hit-testing, and rendering by <see cref="Menu"/>/<see cref="MenuDropDown"/> (WinForms compat).
         /// </summary>
-        public bool Visible { get; set; } = true;
+        /// <remarks>Virtual, and it re-lays the strip out: a hidden item used to keep its box on a
+        /// <see cref="ToolBar"/> -- painted, but skipped by hit-testing, so it became a dead visible
+        /// button -- and on a menu it disappeared only after some unrelated repaint
+        /// (finding <c>TSM-04</c>).</remarks>
+        public virtual bool Visible {
+            get => visible;
+            set {
+                if (visible == value)
+                    return;
+
+                visible = value;
+                OnVisibleChanged (EventArgs.Empty);
+                InvalidateItemLayout ();
+            }
+        }
+
+        private bool visible = true;
+
+        /// <summary>Called when <see cref="Visible"/> changes.</summary>
+        /// <inheritdoc cref="OnEnabledChanged" path="/remarks"/>
+        protected virtual void OnVisibleChanged (EventArgs e) { }
 
         /// <summary>Whether the item is displayed. WinForms alias of <see cref="Visible"/>.</summary>
         /// <remarks>

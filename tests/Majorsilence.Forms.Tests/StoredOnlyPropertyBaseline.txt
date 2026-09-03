@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 762 of 1217 public settable auto-properties (62%).
+# 759 of 1210 public settable auto-properties (62%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -680,7 +680,6 @@ Majorsilence.Forms.ToolStripItem.AllowDrop
 Majorsilence.Forms.ToolStripItem.Anchor
 Majorsilence.Forms.ToolStripItem.AutoToolTip
 Majorsilence.Forms.ToolStripItem.CommandParameter
-Majorsilence.Forms.ToolStripItem.DisplayStyle
 Majorsilence.Forms.ToolStripItem.Dock
 Majorsilence.Forms.ToolStripItem.DoubleClickEnabled
 Majorsilence.Forms.ToolStripItem.Font
@@ -692,7 +691,6 @@ Majorsilence.Forms.ToolStripItem.MergeIndex
 Majorsilence.Forms.ToolStripItem.Overflow
 Majorsilence.Forms.ToolStripItem.RightToLeft
 Majorsilence.Forms.ToolStripItem.RightToLeftAutoMirrorImage
-Majorsilence.Forms.ToolStripItem.Tag
 Majorsilence.Forms.ToolStripItem.TextDirection
 Majorsilence.Forms.ToolStripItem.ToolTipText
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.Text
@@ -723,7 +721,6 @@ Majorsilence.Forms.ToolStripPanelRow.Margin
 Majorsilence.Forms.ToolStripProfessionalRenderer.ColorTable
 Majorsilence.Forms.ToolStripProfessionalRenderer.RoundedEdges
 Majorsilence.Forms.ToolStripSplitButton.DefaultItem
-Majorsilence.Forms.ToolStripStatusLabel.Alignment
 Majorsilence.Forms.ToolStripStatusLabel.BorderSides
 Majorsilence.Forms.ToolStripStatusLabel.BorderStyle
 Majorsilence.Forms.ToolStripStatusLabel.LiveSetting

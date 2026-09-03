@@ -8,6 +8,31 @@ Counts: **P0: 3**, **P1: 18**, **P2: 17**, P3 list separately. Upstream's legacy
 
 The matrix-documented stored-only group is recorded once here and not repeated per finding: `ToolStrip.Renderer` (Initialize hooks run, painting unchanged), `RenderMode`, `LayoutStyle`, `GripStyle`/`GripVisible`/`GripMargin`, `Stretch`, `CanOverflow`, `ToolStripManager.Renderer`/`RenderMode`, `MenuStrip.MdiWindowListItem`, `BindingNavigator.*Item` (`src/Majorsilence.Forms/WinFormsCompat.cs:2252-2345`, `2914-2940`).
 
+## Status (2026-09-03, W5.15 — item storage and appearance)
+
+**Closed:** TSM-01 (P0), TSM-04, TSM-06, TSM-31, and the part of TSM-30 whose triggers this item
+touches (`EnabledChanged`, `VisibleChanged`, `AvailableChanged`, `DisplayStyleChanged`). 14 tests in
+`ToolStripItemStateTests.cs`, 11 verified to fail with their fix neutralized; 3 are labelled in-test as
+guards. The menu-lifecycle half of TSM-30 (`MenuActivate`/`MenuDeactivate`, `ContextMenu.Popup`/
+`Collapse`, `MenuItem.Popup`) is left for W5.16 with the rest of the menu facade work.
+
+**An addition to TSM-01, and it matters more than the finding as written.**
+`MenuDropDown.OnMouseClick` -- the path a context menu or any sub-menu takes -- gates only on
+`clicked_item != null && !clicked_item.HasItems` and **never checked `Enabled`**. The gate the finding
+cites (`MenuBase.cs:135`) is on the menu-bar path, which a drop-down never reaches. So deleting the
+`new Enabled` shadow fixes a disabled item on a `MenuStrip` and leaves it clickable everywhere disabled
+items actually live. Both are fixed; the gate is what the test proves.
+
+**A correction to TSM-31's mechanism.** Strips lay their items out in `OnPaint` (`MenuBase.OnPaint`),
+not during a layout pass, so `PerformLayout` on a strip leaves every item with empty bounds and it is
+`Invalidate` that re-lays them out. `InvalidateItemLayout` does both -- the layout call is for the
+strip's *own* size, which `ToolStripPanelRowLayout.GetPreferredSizeCore` measures from its items.
+
+**Noted while here, not a finding in this file yet:** `MenuBase.GetItemAtLocation` compares the point
+it is given against `item.Bounds` with no conversion, while `Bounds` are device pixels and a real
+`MouseEventArgs` carries logical ones -- the same defect class as `LST-20` was for `ListView` and
+`TreeView`. It is invisible at scale 1, which is why the suite does not show it.
+
 ## Findings
 
 ### TSM-01 — `ToolStripItem.Enabled` — Cat A — P0 — High

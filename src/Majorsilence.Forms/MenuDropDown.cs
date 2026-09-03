@@ -120,7 +120,12 @@ namespace Majorsilence.Forms
         {
             var clicked_item = GetItemAtLocation (e.Location);
 
-            if (clicked_item != null && !clicked_item.HasItems) {
+            // The Enabled gate has to be here too. MenuBase.OnMouseClick has one, but a drop-down --
+            // a context menu, or any sub-menu, which is where disabled items overwhelmingly live --
+            // is routed through THIS override and never reaches it. Removing the `new Enabled` shadow
+            // (TSM-01) was therefore not on its own enough to stop a disabled item from firing Click:
+            // found by driving a click through a real MenuDropDown rather than by reading the setter.
+            if (clicked_item != null && !clicked_item.HasItems && clicked_item.Enabled) {
 
                 // One physical release can be delivered to both this popup and the menu bar on X11
                 // (see MenuBase.TryBeginLeafClick); only the first delivery raises the click.

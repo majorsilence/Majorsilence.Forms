@@ -875,10 +875,25 @@ carries the style flags but not a per-run family or size, which the span type ca
 follow typing, Backspace/Delete and `AppendText` — the seams this control owns — but not `Undo`,
 `Paste` or a programmatic `SelectedText` assignment, which move text without telling it.
 
-**W5.15 — `ToolStrip` item storage and appearance.** Remove the `new` shadows so `Enabled`, `Checked`,
-`Tag`, `Height`, `Alignment` and the mouse events reach the members the renderer and hit-test actually
-read; then make the renderers consume `DisplayStyle`, `Checked`, `ForeColor`/`Font`, `Alignment`,
-`Spring`, `ToolTipText`. *Closes:* `TSM-01` (P0), `TSM-04`, `TSM-06`, `TSM-30`, `TSM-31`.
+**W5.15 — `ToolStrip` item storage and appearance. — DONE (2026-09-03)**
+The shadows are gone: `Enabled` and `Tag` on `ToolStripItem`, `Checked` on both `ToolStripMenuItem`
+and `ToolStripButton`, and `Alignment` on `ToolStripStatusLabel` each kept a store of their own that
+nothing else read. `MenuItem` owns all of them now — the properties the click gate, the hover gate and
+all four renderers actually read — and `MenuItem.Enabled`/`Visible` are virtual with hooks that
+`ToolStripItem` overrides to raise `EnabledChanged`, `VisibleChanged` and `AvailableChanged`.
+`Available` delegates to `Visible` instead of keeping a parallel flag. A hidden item is excluded from
+`ToolBar`'s layout and its renderer, as `Menu`, `MenuDropDown` and `StatusStrip` already did, so it
+stops being a dead-but-painted button. A checked menu item draws a glyph in the image gutter and a
+checked `ToolStripButton` draws with the pressed background. `Size`/`Height`, `DisplayStyle` and the
+other item-box setters run `InvalidateItemLayout`, which is what makes an assignment reach the box the
+renderer draws — item layout happens in `OnPaint`, so invalidating *is* re-laying out.
+*Closed:* `TSM-01` (P0), `TSM-04`, `TSM-06`, `TSM-31`, and the part of `TSM-30` whose triggers this
+item touches (`EnabledChanged`, `VisibleChanged`, `AvailableChanged`, `DisplayStyleChanged`). The
+menu-lifecycle half of `TSM-30` — `MenuActivate`/`MenuDeactivate`, `ContextMenu.Popup`/`Collapse`,
+`MenuItem.Popup` — is left for **W5.16**, which is where the menu facade and lifecycle work lives.
+14 tests, 11 verified to fail with their fix neutralized and 3 labelled in-test as guards.
+*Also fixed, and not in any finding:* `MenuDropDown.OnMouseClick` had **no `Enabled` gate at all**, so
+removing the shadow was not on its own enough — see below.
 
 **W5.16 — Strip facade and coordinates.** `Menu`/`MenuDropDown` re-exposing `Items => RootItems`
 bypasses `ToolStrip`'s facade callbacks, so `ItemAdded`/`ItemRemoved`/`ItemClicked` are dead on
@@ -1090,14 +1105,47 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left.** The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left.** The rest not started — next is **W5.16** (strip facade and `Show` coordinates, `TSM-03` P0). |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4195 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4209 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
-80 → 66, unraised events 130 → 119, stored-only properties 822 → 762, no-op stubs
+80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.15 found
+
+**Removing the shadow was not enough, and only a real click showed it.** `MenuDropDown.OnMouseClick`
+— the path a context menu or any sub-menu actually takes — gates on `clicked_item != null &&
+!clicked_item.HasItems` and **never checked `Enabled`**. `MenuBase.OnMouseClick` does check it, which
+is the gate `TSM-01` names, but drop-downs never reach it. So the P0 as written (delete the `new`
+property) fixes the menu bar and leaves the case where disabled items overwhelmingly live. Found by
+driving a click through a real `MenuDropDown`; reading the setter could not have shown it.
+
+**Three ways the same pixel test can pass by measuring nothing.** The checked-glyph test needed all
+three fixed before it meant anything: `PaintSurface` sizes its bitmap from `control.Scaling`, which is
+**0** for an unhosted control, so the default surface is 0×0; adding a `MenuDropDown` to a `Form`
+resets its `Width` to 0, so `RenderOnForm` produces the same nothing; and counting "pixels that differ
+from `Theme.ControlLowColor`" counts the row background too, because that is not the colour the
+renderer paints there. It counts the glyph's own colour now, on an unparented control, at an explicit
+scale — with an assertion that the bitmap is the size it should be, so the next person cannot be fooled
+the same way.
+
+**A test can pass against the shadow for exactly the reason the finding warns about.** `TSM-01` notes
+that the existing parity test asserts `CanSelect`, "which reads the shadow, so it passes for the wrong
+reason" — and the first version of my click test did the same thing, because `CanSelect` is declared on
+`ToolStripItem` and binds to whichever `Enabled` is in scope there. Then the fixed version passed for a
+*different* wrong reason: it clicked one item twice, and `MenuBase.TryBeginLeafClick` de-duplicates
+repeat clicks on the same item within 50ms, so the second click never reached the gate. Two items, one
+click each.
+
+**Item layout is a paint-time operation, which changes what "reaches layout" means.** Strips lay their
+items out in `OnPaint` (`MenuBase.OnPaint`), not in a layout pass, so `PerformLayout` on a strip leaves
+every item with empty bounds and `Invalidate` is the call that actually re-lays out. Any test that
+wants item bounds has to render, and `TSM-31`'s fix is the invalidation rather than the layout call —
+the `PerformLayout` in `InvalidateItemLayout` is there for the strip's *own* size, which is measured
+from its items.
 
 ### What W5.14 found
 

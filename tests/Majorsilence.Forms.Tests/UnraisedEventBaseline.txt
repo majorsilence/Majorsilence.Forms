@@ -96,12 +96,10 @@ Majorsilence.Forms.ToolStripContentPanel.Load
 Majorsilence.Forms.ToolStripItem.BackColorChanged
 Majorsilence.Forms.ToolStripItem.CommandCanExecuteChanged
 Majorsilence.Forms.ToolStripItem.CommandParameterChanged
-Majorsilence.Forms.ToolStripItem.DisplayStyleChanged
 Majorsilence.Forms.ToolStripItem.DragDrop
 Majorsilence.Forms.ToolStripItem.DragEnter
 Majorsilence.Forms.ToolStripItem.DragLeave
 Majorsilence.Forms.ToolStripItem.DragOver
-Majorsilence.Forms.ToolStripItem.EnabledChanged
 Majorsilence.Forms.ToolStripItem.ForeColorChanged
 Majorsilence.Forms.ToolStripItem.GiveFeedback
 Majorsilence.Forms.ToolStripItem.LocationChanged
@@ -111,7 +109,6 @@ Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp
 Majorsilence.Forms.ToolStripItem.QueryContinueDrag
 Majorsilence.Forms.ToolStripItem.RightToLeftChanged
 Majorsilence.Forms.ToolStripItem.TextChanged
-Majorsilence.Forms.ToolStripItem.VisibleChanged
 Majorsilence.Forms.ToolStripManager.RendererChanged
 Majorsilence.Forms.ToolStripProgressBar.KeyDown
 Majorsilence.Forms.ToolStripProgressBar.KeyPress
