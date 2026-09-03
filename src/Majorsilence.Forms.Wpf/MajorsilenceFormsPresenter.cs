@@ -196,6 +196,7 @@ namespace Majorsilence.Forms.Wpf
         void IWindowBackend.SetShaped (bool shaped) { }
         void IWindowBackend.SetTextInputActive (bool active, TextInputKind kind) { }
         void IWindowBackend.SetExtendClientIntoTitleBar (bool extend, int titleBarHeight) { }
+        bool IWindowBackend.IsSingleView => false;
 
         void IWindowBackend.Invalidate () => _skia.RequestRender ();
 

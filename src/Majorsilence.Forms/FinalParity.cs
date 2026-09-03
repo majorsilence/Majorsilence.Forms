@@ -301,19 +301,17 @@ namespace Majorsilence.Forms
 
     public partial class CurrencyManager
     {
-        // The list notifications. This manager reads a snapshot of the bound list rather than
-        // subscribing to it, so nothing here observes a change to raise them from; a derived manager
-        // that does subscribe can raise them.
-#pragma warning disable CS0067
-        /// <summary>Raised when the current item changes. Not raised by this layer yet.</summary>
+        // Raised from AfterListChanged in BindingContext.cs, now that the manager subscribes to its
+        // list (W4.1) instead of reading a snapshot of it.
+
+        /// <summary>Raised when an item in the bound list changes.</summary>
         public event EventHandler? ItemChanged;
 
-        /// <summary>Raised when the bound list changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when the bound list changes.</summary>
         public event ListChangedEventHandler? ListChanged;
 
-        /// <summary>Raised when the list's schema changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when the list's schema changes.</summary>
         public event EventHandler? MetaDataChanged;
-#pragma warning restore CS0067
     }
 
     public partial class DataGridViewTextBoxEditingControl

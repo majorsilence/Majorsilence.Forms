@@ -29,7 +29,9 @@ namespace Majorsilence.Forms
             // its own tracking; the inner list's own tracker never sees a source.
             source_tracker = new DataSourceBinding.ListSourceTracker (
                 RefreshDataSource,
-                position => SelectedIndex = position,
+                // See the matching lambda in ListBox: an early position for items not yet reloaded is
+                // dropped here and re-applied by the reload.
+                position => { if (position < Items.Count) SelectedIndex = position; },
                 () => SelectedIndex);
         }
 
@@ -276,22 +278,33 @@ namespace Majorsilence.Forms
             // detail view follows what the user picked here.
             source_tracker.OnSelectionChanged (popup_listbox.SelectedIndex);
 
-            if (popup_listbox.SelectedIndex > -1) {
-                // The drop-down is only open when the user is actively picking (mouse/keyboard); a
-                // programmatic SelectedIndex/SelectedItem/Text change runs with it closed. Capture that
-                // before closing so SelectionChangeCommitted fires only for user commits (WinForms).
-                var userDriven = DroppedDown;
+            var index = popup_listbox.SelectedIndex;
 
-                if (!suppress_popup_close)
-                    DroppedDown = false;
+            // Only the popup-closing and commit logic is index-conditional. The raise used to be too
+            // (`if (index > -1)`), so clearing the selection announced nothing: a "Clear filter" button
+            // setting SelectedIndex = -1 left every dependent control showing the old choice, and the
+            // bound source was never moved off it (LST-06).
+            // The drop-down is only open when the user is actively picking (mouse/keyboard); a
+            // programmatic SelectedIndex/SelectedItem/Text change runs with it closed. Captured before
+            // closing so SelectionChangeCommitted fires only for user commits (WinForms).
+            var userDriven = index > -1 && DroppedDown;
 
-                Invalidate ();
+            if (index > -1 && !suppress_popup_close)
+                DroppedDown = false;
 
-                OnSelectedIndexChanged (e);
+            Invalidate ();
 
-                if (userDriven)
-                    OnSelectionChangeCommitted (e);
-            }
+            // The combo's Text IS its selection, and Control.Text is the only thing that raises
+            // TextChanged -- which nothing wrote, so TextChanged never fired for a combo at all. That
+            // is what validation, dirty-tracking and a Binding on Text all listen to (LST-09).
+            // Assigned through base.Text: this class's own Text setter would resolve the string back to
+            // an index and recurse.
+            base.Text = index >= 0 ? GetItemText (SelectedItem) : string.Empty;
+
+            OnSelectedIndexChanged (e);
+
+            if (userDriven)
+                OnSelectionChangeCommitted (e);
         }
 
         /// <inheritdoc/>

@@ -37,26 +37,35 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
 
-        /// <inheritdoc/>
-        public override Size GetPreferredSize (Size proposedSize)
+        /// <summary>
+        /// Asks this panel's own layout engine what size it needs, as upstream's
+        /// <c>Panel.GetPreferredSizeCore</c> does.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This used to override the **public** <see cref="Control.GetPreferredSize"/> with a
+        /// hand-rolled union of where the children currently sat (finding <c>LAY-25</c>, P0). Three
+        /// things followed from that, all silent. It never consulted <see cref="Control.LayoutEngine"/>,
+        /// so an <c>AutoSize</c> <see cref="FlowLayoutPanel"/> or <see cref="TableLayoutPanel"/> --
+        /// both of which inherit this and have correctly-ported engines -- sized to the children's
+        /// *stale* positions instead of asking the engine that was about to move them. It discarded
+        /// <c>proposedSize</c>, so a wrapping <c>FlowLayoutPanel</c> could not compute a height for a
+        /// given width and reported a single row. And because it overrode the public method rather than
+        /// the core, it bypassed <c>ApplySizeConstraints</c> and the preferred-size cache, so
+        /// <see cref="Control.MinimumSize"/>/<see cref="Control.MaximumSize"/> were not applied to
+        /// <c>PreferredSize</c> at all.
+        /// </para>
+        /// <para>
+        /// Upstream subtracts <c>SizeFromClientSize (Size.Empty)</c> as well, for the non-client
+        /// border a Win32 panel has. There is no analogue here: a panel's <see cref="BorderStyle"/> is
+        /// painted inside the client rectangle, so <see cref="Control.Padding"/> is the whole inset.
+        /// </para>
+        /// </remarks>
+        internal override Size GetPreferredSizeCore (Size proposedSize)
         {
-            var size = Size.Empty;
+            var totalPadding = Padding.Size;
 
-            foreach (var child in Controls) {
-                if (child.Dock == DockStyle.Fill) {
-                    if (child.Bounds.Right > size.Width)
-                        size.Width = child.Bounds.Right;
-                } else if (child.Dock != DockStyle.Top && child.Dock != DockStyle.Bottom && (child.Anchor & AnchorStyles.Right) == 0 && (child.Bounds.Right + child.Margin.Right) > size.Width)
-                    size.Width = child.Bounds.Right + child.Margin.Right;
-
-                if (child.Dock == DockStyle.Fill) {
-                    if (child.Bounds.Bottom > size.Height)
-                        size.Height = child.Bounds.Bottom;
-                } else if (child.Dock != DockStyle.Left && child.Dock != DockStyle.Right && (child.Anchor & AnchorStyles.Bottom) == 0 && (child.Bounds.Bottom + child.Margin.Bottom) > size.Height)
-                    size.Height = child.Bounds.Bottom + child.Margin.Bottom;
-            }
-
-            return size;
+            return LayoutEngine.GetPreferredSize (this, proposedSize - totalPadding) + totalPadding;
         }
 
         /// <inheritdoc/>

@@ -134,27 +134,55 @@ namespace Majorsilence.Forms
         /// <remarks>Derived from the current font, matching AutoScaleMode.Font; the Dpi mode reports
         /// the device's own dots per inch. Both are read from the live control rather than from the
         /// designer-recorded <see cref="AutoScaleDimensions"/>, which is what makes the ratio
-        /// between the two meaningful.</remarks>
-        public SizeF CurrentAutoScaleDimensions => AutoScaleMode switch {
-            AutoScaleMode.Font => new SizeF (Font.Size * 2f, Font.Height),
-            AutoScaleMode.Dpi => new SizeF (DeviceDpi, DeviceDpi),
-            _ => SizeF.Empty,
-        };
+        /// between the two meaningful. The font metric was <c>Font.Size * 2f</c> until 2026-08-31 --
+        /// a made-up number that happened to be in range, where this is a measured average glyph
+        /// width (see <see cref="AutoScaleEngine"/>).</remarks>
+        public SizeF CurrentAutoScaleDimensions
+            => AutoScaleEngine.CurrentDimensions (AutoScaleMode, Font, DeviceDpi);
 
         /// <summary>Scales the container to the difference between its recorded and current dimensions.</summary>
         public void PerformAutoScale ()
         {
-            if (AutoScaleMode is AutoScaleMode.None or AutoScaleMode.Inherit)
+            var recorded = _autoScaleDimensions;
+            AutoScaleEngine.Perform (this, AutoScaleMode, ref recorded);
+
+            // The field, not the property: assigning the property re-arms, which would leave every
+            // successful scale asking to be run again.
+            _autoScaleDimensions = recorded;
+            _autoScaleNeeded = false;
+        }
+
+        // Upstream scales on the container's layout (ContainerControl.OnLayout ->
+        // PerformNeededAutoScaleOnLayout), by which point the designer's bounds are in place and the
+        // ambient font has resolved, and no handler has measured anything yet.
+        /// <inheritdoc/>
+        protected override void OnLayout (LayoutEventArgs e)
+        {
+            base.OnLayout (e);
+            PerformNeededAutoScale ();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnFontChanged (EventArgs e)
+        {
+            base.OnFontChanged (e);
+
+            // A font assigned after construction -- Application.SetDefaultFont included, which is the
+            // second half of FRM-17 -- makes the recorded dimensions stale. PerformAutoScale has
+            // already written the previous font's dimensions, so the next pass scales by the difference
+            // rather than by the designer's original ratio a second time.
+            ArmAutoScale ();
+        }
+
+        internal void PerformNeededAutoScale ()
+        {
+            if (!_autoScaleNeeded)
                 return;
 
-            var current = CurrentAutoScaleDimensions;
-            var recorded = AutoScaleDimensions;
-
-            if (recorded.Width == 0 || recorded.Height == 0 || current.Width == 0 || current.Height == 0)
-                return;
-
-            Scale (new SizeF (current.Width / recorded.Width, current.Height / recorded.Height));
-            AutoScaleDimensions = current;
+            // Cleared before the scale, not after: Scale writes bounds, which raises layout again, and
+            // re-entering here would apply the same factor repeatedly.
+            _autoScaleNeeded = false;
+            PerformAutoScale ();
         }
     }
 

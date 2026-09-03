@@ -360,15 +360,66 @@ public partial class Control
     #region Scaling
 
     /// <summary>
-    /// Scales the control's bounds by the given factor. Only the components named by
-    /// <paramref name="specified"/> are scaled; the rest keep their current value.
+    /// Scales this control -- its bounds, and everything else measured in the same pixels -- by the
+    /// given factor. Only the bounds components named by <paramref name="specified"/> are scaled.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the documented WinForms hook a custom control overrides to take part in DPI or font
+    /// scaling, and until 2026-08-31 nothing called it (finding <c>LAY-21</c>, P0): <c>Scale</c> went
+    /// straight to <c>ScaleCore</c>, which scaled bounds and recursed. So an override compiled, read
+    /// correctly, and never ran -- and <see cref="Control.Padding"/>, <see cref="Control.Margin"/>,
+    /// <see cref="Control.MinimumSize"/> and <see cref="Control.MaximumSize"/> kept their unscaled
+    /// values while the bounds around them grew. At 150% that leaves a FlowLayoutPanel's gaps and
+    /// every control's inset about a third too small, and clamps <c>MinimumSize</c> at the wrong pixel
+    /// count.
+    /// </para>
+    /// <para>
+    /// Min/max are cleared before the bounds are scaled and re-applied afterwards, as upstream does,
+    /// and the order is load-bearing: a control sitting at its <see cref="Control.MinimumSize"/>
+    /// cannot grow while the old clamp is still in force, so the scaled bounds would be computed and
+    /// then squashed back to the unscaled limit.
+    /// </para>
+    /// </remarks>
     protected virtual void ScaleControl (SizeF factor, BoundsSpecified specified)
     {
+        var min = MinimumSize;
+        var max = MaximumSize;
+
+        MinimumSize = Size.Empty;
+        MaximumSize = Size.Empty;
+
         var scaled = GetScaledBounds (Bounds, factor, specified);
 
+        // Padding and Margin live in the same pixel space as Bounds, so they move with them.
+        Padding = ScalePadding (Padding, factor);
+        Margin = ScalePadding (Margin, factor);
+
         SetBounds (scaled.X, scaled.Y, scaled.Width, scaled.Height, BoundsSpecified.All);
+
+        if (!min.IsEmpty)
+            MinimumSize = ScaleSize (min, factor);
+
+        if (!max.IsEmpty)
+            MaximumSize = ScaleSize (max, factor);
+
+        // Anchored children hold their distances to each edge in recorded anchor info. Scaling the
+        // bounds without scaling that leaves them snapping back to 96-DPI distances -- which is why
+        // DefaultLayout.ScaleAnchorInfo exists upstream, and why it had no caller here.
+        Majorsilence.Forms.Layout.DefaultLayout.ScaleAnchorInfo (this, factor);
     }
+
+    private static Padding ScalePadding (Padding padding, SizeF factor)
+        => new Padding (
+            (int)System.Math.Round (padding.Left * factor.Width),
+            (int)System.Math.Round (padding.Top * factor.Height),
+            (int)System.Math.Round (padding.Right * factor.Width),
+            (int)System.Math.Round (padding.Bottom * factor.Height));
+
+    private static Size ScaleSize (Size size, SizeF factor)
+        => new Size (
+            (int)System.Math.Round (size.Width * factor.Width),
+            (int)System.Math.Round (size.Height * factor.Height));
 
     /// <summary>
     /// Replaces <paramref name="logicalBitmap"/> with a copy scaled from logical (96 DPI) units to

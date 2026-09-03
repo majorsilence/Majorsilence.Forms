@@ -113,10 +113,52 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets a value indicating if the item is currently selected.
         /// </summary>
-        public bool Selected { get; set; }
+        /// <remarks>
+        /// Announces through the parent as of W5.6 (LST-17). It was an auto-property, so
+        /// <c>listView.Items[i].Selected = true</c> -- the standard way to select programmatically --
+        /// flipped a field and updated nothing: no <c>SelectedIndexChanged</c>, no
+        /// <c>ItemSelectionChanged</c>, no repaint, and with <c>MultiSelect = false</c> every item so
+        /// assigned stayed selected at once.
+        /// </remarks>
+        public bool Selected {
+            get => selected;
+            set {
+                if (selected == value)
+                    return;
+
+                selected = value;
+                Parent?.OnItemSelectedChanged (this, value);
+            }
+        }
+
+        private bool selected;
+
+        // Assigns without announcing: used by the parent while it deselects the others for a
+        // single-select change it is already reporting.
+        internal void SetSelectedInternal (bool value) => selected = value;
 
         /// <summary>Gets or sets whether the item is checked.</summary>
-        public bool Checked { get; set; }
+        /// <remarks>Routed through the parent's cancellable <c>ItemCheck</c> and then
+        /// <c>ItemChecked</c>, as upstream (LST-18) -- a check-box list whose Apply button is enabled
+        /// from <c>ItemChecked</c> was previously dead.</remarks>
+        public bool Checked {
+            get => checked_state;
+            set {
+                if (checked_state == value)
+                    return;
+
+                // The handler may rewrite the new value, which is what makes ItemCheck a veto.
+                var accepted = Parent?.RaiseItemCheck (this, value) ?? value;
+
+                if (checked_state == accepted)
+                    return;
+
+                checked_state = accepted;
+                Parent?.RaiseItemChecked (this);
+            }
+        }
+
+        private bool checked_state;
 
         /// <summary>Gets or sets the foreground color.</summary>
         public Color ForeColor { get; set; } = Color.Empty;

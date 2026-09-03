@@ -379,6 +379,11 @@ worst of them.
 
 ## `COMPATIBILITY_MATRIX.md` corrections
 
+**Applied 2026-08-31 as `W6.5`** — 16 edits, each verified against the current source before it was
+written, not transcribed from this list. See "What W6.5 found" below: two entries in the table were
+themselves wrong by the time they were applied, and the audit had missed three overstatements worse
+than any it listed.
+
 The matrix is the document migrating developers and AI assistants read to decide whether a control is
 safe to use, so a row that overstates is a defect in its own right. The audit found these; correcting
 them is cheap and should not wait for the code fixes.
@@ -398,6 +403,12 @@ them is cheap and should not wait for the code fixes.
 Add a row, too, for the thing the matrix has no entry for at all: **`override ProcessCmdKey` never
 runs** (RC-1). It is one of the most common WinForms customisations and its silent absence deserves to
 be stated where people look.
+
+> **Inverted when applied (2026-08-31).** Phase 1 landed between this list being written and its being
+> applied, so the row that went into the matrix says the chain *works* — with the date it started
+> working and the one key still unbound (Ctrl+Z, `TXT-13`). The instruction was right about the row
+> being missing and wrong about what it should say; a correction list is only current on the day it is
+> written.
 
 ## What was verified as correct
 
@@ -543,7 +554,7 @@ control and its exclusive ancestors → `Validating`/`Validated` → `Enter` on 
 
 ---
 
-### Phase 3 — Form and application lifecycle (RC-3, RC-10) — **W3.1–W3.5 DONE**
+### Phase 3 — Form and application lifecycle (RC-3, RC-10) — **DONE**
 
 **W3.1 — Make a form reusable.**
 Reset `_loadFired`, `_formClosedFired`, `shown`, `visible` and `dialog_result` when the window is
@@ -609,44 +620,62 @@ comment, so the scaled case is recorded as broken rather than quietly untested.
   docked first. The `Fill` client area therefore has to be added *before* the `Top` title bar, or it
   claims the whole window before the caption takes its strip.
 
-**W3.6 — `AutoScaleMode` / `AutoScaleDimensions`.** Stored-only today. Every designer file emits them
-and expects font-ratio scaling. *Closes:* `FRM-17`. *Risk:* medium-high — interacts with W3.5 and RC-8.
+**W3.6 — `AutoScaleMode` / `AutoScaleDimensions`. — DONE (2026-08-31)**
+Stored-only before this; every designer file emits them and expects font-ratio scaling. `Font` mode now
+scales a container and its children once, by `CurrentAutoScaleDimensions / AutoScaleDimensions`, through
+one shared `AutoScaleEngine` — `Form`, `ContainerControl` and `UserControl` are siblings here, not one
+hierarchy, so the metric and the no-op rules had nowhere else to live in common. `Dpi` mode is
+deliberately inert (see below). 11 tests; stored-only baseline 810 → 806.
+*Closed:* `FRM-17`. *Risk as rated:* medium-high, and RC-8 was indeed where the design decision fell.
 
 ---
 
-### Phase 4 — Data binding (RC-4)
+### Phase 4 — Data binding (RC-4) — **DONE (2026-09-01)**
 
-**W4.1 — Make the `CurrencyManager` a live object.**
-Cache it per (source, member) and keep it; subscribe it to `IBindingList.ListChanged` and
-`INotifyPropertyChanged`; have `Binding` register itself in `manager.Bindings` so the manager can
-`PullData`/`PushData`. Stop rebuilding it at `EndInit`.
-*Closes:* `BND-01` (P0), `BND-02` (P0), `BND-10`, `BND-14`, `BND-16`, `BND-19`, `BND-28`.
-*Files:* `BindingSource.cs`, `BindingContext.cs`, `BindingRuntime.cs`, `AppMenuBindingParity.cs`.
-*Risk:* medium-high — it is the centre of the binding runtime. This is the item that makes the
-designer's own ordering (`BeginInit` → `DataBindings.Add` → `EndInit` → fill in `Load`) work at all.
+**W4.1 — Make the `CurrencyManager` a live object. — DONE**
+One manager for the life of the `BindingSource`, built over the BindingSource ITSELF — upstream's own
+design (`new CurrencyManager(this)`), and simpler than the item as written: the BindingSource is an
+`IBindingList`, so one subscription to its `ListChanged` carries every re-resolve, self-mutation and
+forwarded inner-list change, and nothing is ever rebuilt at `EndInit` because nothing needs to be.
+Bindings register in `manager.Bindings`; position clamps in the manager (BND-21 came along); events
+run upstream's order (BND-20); suspend is real. Also closed here: `BND-28` (`UpdateBinding` re-homes
+membership, subscriptions and value), `BND-31` (`PropertyManager.Position` is 0).
+*Closed:* `BND-01` (P0), `BND-02` (P0), `BND-10`, `BND-14`, `BND-16`, `BND-19`, `BND-20`, `BND-21`,
+`BND-28`, `BND-31`.
 
-**W4.2 — `TypeDescriptor`, not reflection.** Resolve source members, target properties and
-`ListBindingHelper.GetProperty` through `TypeDescriptor` so `DataRowView` columns, `ICustomTypeDescriptor`
-and dynamic sources are visible. *Closes:* `BND-03` (P0), `BND-30`.
+**W4.2 — `TypeDescriptor`, not reflection. — DONE** Source members and target properties resolve
+through `TypeDescriptor.GetProperties(...).Find(name, ignoreCase: true)` — a `PropertyDescriptor`
+answers for POCOs too, so there is no fallback path to keep in step. `DataRowView` columns (the whole
+typed-DataSet form) bind and write back. *Closed:* `BND-03` (P0), `BND-30`.
 
-**W4.3 — The validation/edit half.** Write on `Validating` (not `Validated`/`LostFocus`) so a binding
-can be cancelled; implement `EndCurrentEdit`/`CancelCurrentEdit`; call `IEditableObject.BeginEdit` when
-an item becomes current so `CancelEdit` can roll back; honour `ICancelAddNew`.
-*Closes:* `BND-07`, `BND-08`, `BND-09`. *Depends on:* W2.2.
+**W4.3 — The validation/edit half. — DONE** OnValidation bindings write inside `Validating` and
+cancel it when the write fails; `EndCurrentEdit`/`CancelCurrentEdit` pull/push every registered
+binding and drive `IEditableObject`/`ICancelAddNew` (which `BindingSource` now forwards to its inner
+list, as upstream — without that the manager's `CancelNew` could never reach the `BindingList`
+underneath); `BeginEdit` opens on the item that becomes current, which is what lets `CancelEdit`
+revert a `DataRowView`. *Closed:* `BND-07`, `BND-08`, `BND-09`.
 
-**W4.4 — Report conversion failure instead of writing `default(T)`.** `Coerce` returning null conflates
-"could not convert" with "convert to null", so a half-typed number writes `0` into the source. Give it
-a distinguishable failure, surface it through `BindingComplete` and `DataError`.
-*Closes:* `BND-13`, `BND-18`. *Tests to invert:*
-`BindingRuntimeTests.A_half_typed_number_does_not_throw_and_leaves_the_source_alone`.
+**W4.4 — Report conversion failure instead of writing `default(T)`. — DONE** `TryCoerce` carries the
+failure as a return value; a failed write leaves the source alone, resets the control to the source's
+value (upstream's recovery), and reports through `BindingComplete` on the binding, its manager, and
+the `BindingSource` when `FormattingEnabled`. The empty-string rules landed with it (BND-24's write
+half): `""` into a string member is `""`, `DataSourceNullValue` (now defaulting to `DBNull`) stands in
+only under `FormattingEnabled`. The named test was inverted — its NAME said "leaves the source alone"
+while its assertion said `Assert.Equal (0, ...)`. *Closed:* `BND-13`, `BND-18`, `BND-23`, most of `BND-24`.
 
-**W4.5 — `ResolveList`'s catch-all.** `Type`, scalar objects and non-`DataSet` `DataMember` paths all
-fall into `_ => new List<object?>()` and come back as a silent empty list. Implement `Type` →
-`BindingList<T>`, scalar → single-item list, and `DataMember` master/detail re-targeting.
-*Closes:* `BND-04`, `BND-05`, `BND-06`. *Tests to invert:* `BindingSourceTests.DataSource_SetNonList_IsEmpty`.
+**W4.5 — `ResolveList`'s catch-all. — DONE** `Type` → a typed `BindingList<T>` with a real schema,
+scalar → wrapped in a one-item typed list, `DataMember` over a non-DataSet source → the member of the
+parent's CURRENT item, re-resolved on the parent's `CurrentChanged` — and validated against the item
+type, so a member that exists on nothing throws as upstream does instead of silently binding the wrong
+list. `GetRelatedCurrencyManager(member)` returns a cached child `BindingSource`'s manager. The named
+test was inverted, plus `Ctor_Object_String_RoundTripsDataSourceAndMember`, which asserted a bogus
+member was ignored. *Closed:* `BND-04`, `BND-05`, `BND-06`.
 
-**W4.6 — `BindingNavigator`.** Wire the standard items to the `BindingSource`; stop `EndInit` from
-`Items.Clear()`-ing the designer's own items. *Closes:* `BND-11`, `BND-12`.
+**W4.6 — `BindingNavigator`. — DONE** Item setters hook `Click` to the move they are named for (so
+designer code that assigns its own buttons gets working navigation), the `BindingSource` setter
+subscribes what keeps the display current, `RefreshItemsCore` renders position/count/enabled-state,
+and `EndInit` refreshes instead of destroying — `AddStandardItems` no longer clears, and builds only
+into an empty strip. *Closed:* `BND-11`, `BND-12`.
 
 ---
 
@@ -681,19 +710,39 @@ instead of its private twins (`DefaultCellStyle.Alignment`, `HeaderCell.SortGlyp
 points; keyboard handled on `KeyUp` instead of `KeyDown`; Enter/Delete/Ctrl+C/Home/End/Tab.
 *Closes:* `DGV-29`, `DGV-30`, `DGV-25`, `DGV-26`.
 
-**W5.6 — `ListView` is not a list view.** `View` is stored-only, so every item renders as a 70px
-large-icon tile whatever the mode — `Details` (the overwhelmingly common choice) does not exist. Plus
-vertical scrolling, `EnsureVisible`/`TopItem`, and the dropped `ColumnClick`/`ItemActivate`/`ItemCheck`
-handlers. *Closes:* `LST-01` (P0), `LST-17`, `LST-18`, `LST-19`, `LST-12`.
-*This is the largest single visual divergence in the audit.*
+**W5.6 — `ListView` is not a list view. — DONE (2026-09-01)**
+`View` now selects the layout and the rendering: `Details` draws a header band from `Columns` and one
+row per item with a cell per column (honouring `Width` including the `-1`/`-2` autosize sentinels,
+`TextAlign`, `GridLines`, `FullRowSelect` and `CheckBoxes`), `List`/`SmallIcon` draw single-line rows,
+`LargeIcon`/`Tile` keep the tiles. `SubItem.Bounds` is real. An implicit `VerticalScrollBar` (the
+`ListBox` pattern) backs `EnsureVisible`, `TopItem`, `CountPerPage` and the wheel. `ListViewItem.Selected`
+and `.Checked` announce through the parent, so programmatic selection updates dependent UI and
+`MultiSelect = false` means something; Ctrl/Shift extend a selection. The seven discarding events are
+real with `On*` raisers. `Sort` sorts. 16 tests, 15 verified to fail without their fix.
+*Closed:* `LST-01` (P0), `LST-12`, `LST-17`, `LST-18`, `LST-19`, and the `ListView` half of `LST-20`
+(the mouse is converted to device units at the hit-test boundary, as `ListBox` does).
+*Not covered:* label editing (`BeforeLabelEdit`/`AfterLabelEdit` are raisable but nothing edits in
+place), `ItemDrag` (raisable, no drag recogniser), `VirtualMode`, groups, and owner-draw
+(`DrawItem`/`DrawSubItem`).
 
-**W5.7 — `CheckedListBox` has no checkboxes.** No glyph is drawn and no click toggles one; the control
-is a `ListBox` with unreachable bookkeeping. *Closes:* `LST-02` (P0), `LST-16`.
+**W5.7 — `CheckedListBox` has no checkboxes. — DONE (2026-09-02)**
+A `CheckedListBoxRenderer` (deriving from `ListBoxRenderer`, so the row background, selection, hover
+and focus rectangle stay in one place) draws the glyph through the same `ControlPaint.DrawCheckBox` a
+`CheckBox` uses. Toggling follows upstream: a click in the glyph, any click when `CheckOnClick`, the
+second click of an already-selected row, or Space — all routed through `SetItemCheckState`, so the
+cancellable `ItemCheck` applies to user input too. `SelectedItem` unwraps the internal item wrapper.
+*Closed:* `LST-02` (P0), `LST-16`.
 
-**W5.8 — Selection events on list controls.** Every selection path except the `SelectedIndex` setter
-— `SelectedItem =`, `SetSelected`, `ClearSelected`, multi-select mouse and keyboard — mutates through
-the collection's internal setters and never raises `SelectedIndexChanged`.
-*Closes:* `LST-03` (P0), `LST-04` (P0), `LST-06`, `LST-09`.
+**W5.8 — Selection events on list controls. — DONE (2026-09-02)**
+One `ChangeSelection` choke point on `ListBox`: it snapshots the selected set, applies the mutation,
+and announces once if the set changed. `SetSelected`, `ClearSelected`, the `SelectionMode` setter and
+the whole mouse and keyboard handlers go through it — the handlers wrapped wholesale rather than
+branch by branch, with a batch depth so a branch that also assigns `SelectedIndex` reports once, not
+twice. `SelectedItem` assigns the public (raising) `SelectedIndex`; `SetSelected` throws for an
+out-of-range index and for a `None` list, as upstream. On `ComboBox`, `SelectedIndex = -1` now
+announces, and a selection change writes `base.Text`, so `TextChanged` fires for a combo at all.
+*Closed:* `LST-03` (P0), `LST-04` (P0), `LST-06`, `LST-09`. One test inverted
+(`SetSelected_OutOfRange_Ignored`, which pinned the swallow).
 
 **W5.9 — `TreeView`.** `SelectedNode` returning a synthetic root instead of null; `GetNodeAt`/`HitTest`
 built on a fake layout that disagrees with the mouse's; images, checkboxes, `NodeFont`/colours,
@@ -714,10 +763,20 @@ and both `SelectedText` setters assign `Text`, which resets caret to 0, scrolls 
 clears `Modified` — so a log window shows its oldest line after every append.
 *Closes:* `TXT-02` (P0), `TXT-35`.
 
-**W5.13 — `MaskedTextBox` mask engine.** The mask is never enforced; `Text` is raw input and
-`MaskCompleted`/`MaskFull` return `true` unconditionally, so mask validation always passes. Use
-`System.ComponentModel.MaskedTextProvider`. *Closes:* `TXT-03` (P0), `TXT-19`, `TXT-18`.
-*Tests to invert:* `MaskedTextBoxTests.MaskCompletedAndMaskFull_AlwaysTrue`, `Text_SetUnaffectedByMask`.
+**W5.13 — `MaskedTextBox` mask engine. — DONE (2026-09-02)**
+One live `System.ComponentModel.MaskedTextProvider` owns the field: typing goes through
+`provider.Replace` (not insert — a mask has fixed positions), Backspace blanks a position back to its
+prompt rather than shortening the field, `Text` reports the provider's value under `TextMaskFormat`
+and assigning runs through `provider.Set`, and `MaskCompleted`/`MaskFull` answer from the provider. The
+document holds `ToDisplayString ()`, so the prompt characters finally appear. `MaskInputRejected` fires
+per rejected character; `OnValidating` runs type validation and raises `TypeValidationCompleted`,
+propagating its `Cancel`; `MaskChanged` has a raiser; `UseSystemPasswordChar` forwards to the
+`TextBox` that implements it instead of shadowing it. An empty mask means no provider and plain
+`TextBox` behaviour, as upstream's null-mask path.
+*Closed:* `TXT-03` (P0), `TXT-18`, `TXT-19`. Both named tests inverted.
+*Needed two new seams on `TextBox`* — `InsertTypedCharacter` and `DeleteAtCaret` — because
+`TextBox.OnKeyPress` raises the event and inserts in one method, so a subclass could not filter the
+character without also suppressing the event.
 
 **W5.14 — `RichTextBox` document model.** `Rtf` returns a stale stored string, so saving after editing
 writes the old content; `Find` is case-sensitive by default and never selects; the whole `Selection*`
@@ -845,7 +904,13 @@ the legacy `Splitter` does not resize its docked sibling — its entire purpose.
 order; `ImageList` + `TabPage.ImageIndex`; `Alignment`/`ItemSize`/`SizeMode` stored-only.
 *Closes:* `LAY-12`–`LAY-15`.
 
-**W5.24 — Scaling and preferred size: connect the engine that already works.**
+**W5.24 — Scaling and preferred size: connect the engine that already works. — DONE (2026-08-31)**
+All four disconnections closed in one pass: `Panel.GetPreferredSizeCore` delegating to the engine,
+`Scale` dispatching through `ScaleControl` (which now scales padding, margin, min/max and anchor info),
+`ButtonBase.GetPreferredSizeCore` measuring caption + image + glyph, and `GroupBox.AutoSize` becoming the
+real one. 14 tests, 13 of them verified to fail without their fix; stored-only baseline 806 → 805.
+*Closed:* `LAY-25` (P0), `LAY-21` (P0), `LAY-34`, `LAY-26`.
+
 The single most encouraging result in the audit is a *non*-finding: normalised diffs of `Layout/`
 against upstream's `DefaultLayout`, `FlowLayout`, `TableLayout`, `CommonProperties` and `LayoutUtils`
 show only naming differences, `#if DEBUG` blocks and the opt-in AnchorLayoutV2 path. **The layout
@@ -930,14 +995,173 @@ authoritative list and this table as the map of the big ones.
 | 0 — Make it measurable | **Done.** Three baseline gates and the event recorder; 8 self-tests. |
 | 1 — The keyboard chain | **Done.** The chain is dispatched, controls can claim keys, menu shortcuts and access keys work; 25 tests. |
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
-| 3 — Form and application lifecycle | **W3.1–W3.5 done** (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) outstanding — **unblocked now that W5.17 has landed**. |
-| 4 — Data binding | Not started. |
-| 5 — Per-control behaviour | **W5.17 done** (text measurement). The rest not started — but note W5.17 was the item everything else in this phase was waiting on. |
-| 6 — Mechanical sweeps | Not started. |
+| 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
+| 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
+| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **3962 passing, 0 failing**, in Debug and Release and under `MF_HEADLESS_SCALE=2`. The API gap
-gate still reports zero for both surfaces. Baselines: inert events 80 → 79, unraised events 130 → 127,
-stored-only properties 822 → 812.
+Suite: **4104 passing, 0 failing**, in Debug and Release, with system decorations and with
+`MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
+for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
+80 → 70, unraised events 130 → 119, stored-only properties 822 → 781.
+
+### What W5.13 found
+
+**The engine was already in the BCL, and the finding said so.** `System.ComponentModel.MaskedTextProvider`
+is cross-platform and is what upstream uses, so nothing here reimplements mask semantics — the work was
+wiring, and the one design decision worth recording is that typing uses `Replace` rather than
+`InsertAt`: a mask has fixed positions, so a character overwrites the one at the caret instead of
+pushing the field along, and Backspace blanks a position back to its prompt instead of shortening it.
+
+**`TextBox.OnKeyPress` could not be subclassed for this.** It raises the `KeyPress` event and inserts
+into the document in the same method, so a derived box cannot filter the character without also
+suppressing the event (there is no way to reach `Control.OnKeyPress` past the override). Two narrow
+virtual seams — `InsertTypedCharacter` and `DeleteAtCaret` — fix that, and they are the natural place
+for any future filtering box. Worth knowing before attempting `TXT-05`'s `CharacterCasing`, which
+wants the same seam.
+
+**`Text` and the displayed string are deliberately different here**, which has no Win32 analogue: in
+WinForms the edit control's text *is* the display. Here the document is the display buffer holding
+`ToDisplayString ()` (prompts and literals), while `Text` reports the provider's value under
+`TextMaskFormat`. Conflating them is what made a masked box look like a plain `TextBox` — no prompt
+characters ever appeared — so `DisplayedMaskText` exists to say which one a caller means.
+
+**A defensive flag that nothing read failed the Release build**, which is the correct outcome: I added
+an `applying_mask` guard against an echo that cannot happen (input arrives through the seam, not
+through a document-changed callback). Warnings-as-errors in Release caught CS0414. That is the same
+defect class this whole plan is about, and it is worth noting that the Debug gate passed it — the
+four-configuration rule earned its keep again.
+
+### What W5.7 and W5.8 found
+
+**The double-report trap, predicted and avoided.** W5.6's lesson was that when one member becomes the
+notification choke point, every caller that used to notify on its behalf has to stop. Here the input
+handlers are wrapped wholesale in `ChangeSelection`, and several of their branches assign
+`SelectedIndex`, which raises on its own. A batch depth — the same shape W5.6 ended up with — makes a
+click report exactly once, and asserting *once* rather than *at least once* is what would catch a
+regression.
+
+**Wrapping handlers beat wrapping call sites.** `LST-04` lists eight silent mutation points across the
+mouse and keyboard paths, and that list is the shape of the problem rather than a complete inventory.
+`ChangeSelection` compares a snapshot of the selected set instead, so wrapping the two handler bodies
+covers every branch including ones nobody enumerated, and a branch that changes nothing announces
+nothing.
+
+**A test found a latent duplicate.** `AddSelectedIndex` added unconditionally, so selecting an
+already-selected index put it in the list twice — `SelectedIndices` reported the same row twice, and
+the Shift+arrow extension paths (which call it per keystroke) accumulated duplicates. Nothing had
+noticed because nothing compared the selected set before and after; the "re-selecting announces
+nothing" test failed on the duplicate, not on the announcement.
+
+**Two pixel assertions, two wrong reasons.** The glyph test first compared "ink in the glyph column"
+between a `CheckedListBox` and a plain `ListBox` — and the plain one has ink there twice over: item
+text is inset by 4px, and the control paints a 1px border down its left edge. An empty item label
+removes the first, sampling the glyph's own rectangle removes the second. That is three items running
+where a region-based pixel assertion needed narrowing; the pattern is that "ink exists here" is almost
+never the claim worth making.
+
+**A framework constraint worth knowing:** `RenderManager.SetRenderer<T>` requires the renderer's
+declared `Type` to equal `T`, so a renderer deriving from another renderer must override `Type` to
+register for the subclass. Without it, registration throws inside the static constructor, which
+surfaces as `TypeInitializationException` from whatever control happens to paint first — nowhere near
+the actual mistake.
+
+### What W5.6 found
+
+**Making the item the choke point double-reported the selection.** `ListViewItem.Selected` now
+announces through the parent (LST-17), but `ListView.SelectedItem`'s setter still raised
+`ItemSelectionChanged`/`SelectedIndexChanged` itself — so every change was reported twice, and
+`KryptonPortParityTests.ListView_ItemSelectionChanged_ReportsDeselectionThenSelection` caught it
+immediately. The fix is a batch depth: the per-item setters report their own
+`ItemSelectionChanged` as they happen, and one settled `SelectedIndexChanged` follows the pair. Worth
+knowing generally — when a property becomes the single notification point, every caller that used to
+notify on its behalf has to stop.
+
+**The pixel test passed against a deliberately broken renderer, and so did two others.** "Some ink in
+the second column's x-range" is satisfied by TILE rendering, because tiles are laid across the full
+width — the exact shape of vacuous assertion W5.24 catalogued, found again by the same neutralize-and-
+rerun pass. It now uses two things only Details can produce: the header band's fill colour (tiles draw
+no header, so that pixel stays the list's background) and subitem ink past a deliberately wide first
+column, with only two items so no tile reaches that far. `CountPerPage` was likewise asserted against a
+floor that the old `Height / 70` also cleared, and is now anchored to the row height the control lays
+out with.
+
+**`TopItem` was the half of LST-19 that a scrollbar does not fix by itself.** It returned `Items[0]`
+unconditionally, so a scrolled list still claimed its first item was on top — and the test noticed
+while everything else about scrolling already worked. Its setter also had to change meaning: upstream
+scrolls the assigned item TO THE TOP, where this called `EnsureVisible`, which only guarantees
+visibility.
+
+### What phase 4 found
+
+**Upstream's design was simpler than the plan's fix.** W4.1 says to give the manager a `SetList` and
+have `ResolveList` call it. Upstream does something better: the manager wraps the `BindingSource`
+ITSELF (`new CurrencyManager(this)`), whose identity survives every re-resolve — so there is nothing
+to swap, and the one `ListChanged` subscription carries re-resolves, self-mutations and forwarded
+inner-list changes alike. Adopting that deleted the whole compensation layer the old design needed:
+`ForgetCurrencyManager`, `SyncPosition`, `PushPositionToCurrencyManager`, and a second
+independently-stored position that could disagree with the manager's (BND-21 closed itself).
+
+**A listening manager made a latent bug live.** `RemoveCurrent` and `AddNew` raised `ListChanged`
+directly instead of through `NotifySelfMutation`, so a mutation on an `IBindingList` inner list was
+announced twice — harmless while nothing counted the announcements, position-corrupting the moment the
+manager did. Adding a subscriber to an event is not a read-only change; it promotes every double-raise
+from waste to defect.
+
+**Subscription order is architecture.** The manager subscribes to the BindingSource in its
+constructor, before any control can — so its `PositionChanged` for a first-item add reaches a bound
+`ListBox` before that control has reloaded its items, and the naive `SelectedIndex = position` threw
+on an empty collection. Upstream reloads and positions in ONE handler; the fix here mirrors that (the
+control drops an early out-of-range selection, and the reload re-applies the manager's position).
+Found by two existing tests, which is what the suite is for.
+
+**Four tests pinned divergences, and one pinned it in its name.**
+`A_half_typed_number_does_not_throw_and_leaves_the_source_alone` asserted `Assert.Equal (0,
+person.Age)` — the source demonstrably NOT left alone. Like W5.17's font test, the intent was right
+and the assertion asserted the bug; both were kept with the assertion corrected. The other three:
+out-of-range `Position` "parks" (upstream clamps), `CurrencyManager.List` is the inner list (upstream:
+the BindingSource), a bogus `DataMember` is ignored (upstream throws).
+
+**All 26 new tests were proven against neutralized fixes, in six batches** — every one failed in at
+least one batch. Three needed a batch of their own (suspend, `ReadValue`'s force semantics,
+`PropertyManager.Position`), which is the W5.24 lesson holding: a test that has never failed proves
+nothing yet.
+
+**Deliberately not done here** (out of the phase's item list, still open in the findings file):
+`BND-15` (BindingContext re-homing on parenting — wide blast radius, every unparented binding),
+`BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`.
+
+### What W6.5 found
+
+**Two of the nine listed corrections were stale, in opposite directions.** The `ProcessCmdKey` entry had
+been overtaken by Phase 1 and had to be inverted (above). The `ListBox` entry claimed `PreferredHeight`
+"exists now" — it does (`MidSizeControlParity.Three.cs:238`), but a source grep said otherwise for a
+while, because the grep was truncated with `| head -5`. What settled it was the generated
+`Majorsilence.Forms.xml` doc file: `grep 'P:Majorsilence.Forms.ListBox.PreferredHeight'` over the
+built surface is a direct answer where a source grep is an inference. **Check member existence against
+the built surface, and never truncate a grep you intend to draw a negative conclusion from** — the API
+gap gate reporting zero was the second signal that the negative was wrong, and it was right.
+
+**The audit's own list missed three rows worse than any on it.** All three claim a control works when
+what exists is storage:
+
+- `DateTimePicker`/`MonthCalendar` were listed as "Partial", missing bolded dates and `DropDownAlign` —
+  theming gaps on a control whose `OnPaint` draws **one line of text** (`MonthCalendar.cs:255-263`).
+  There is no date-picking UI in the framework at all, and the matrix implied there was.
+- `ErrorProvider` sat in an "Implemented ... minor gaps only" row while nothing it is given ever
+  renders (`SMP-51`).
+- `MaskedTextBox` was "Partial", missing `InsertKeyMode` and friends, while the mask is not enforced and
+  `MaskCompleted` is `=> true` (`TXT-03`).
+
+The pattern is that the audit generated its corrections from the *findings* it had filed, and the matrix
+row for a control it had filed a P0 against went unchecked. Reading the matrix top to bottom against the
+findings — the opposite direction — is what surfaced these. Worth doing that direction once more when
+Phases 4 and 5 land.
+
+**Rows were added, not just edited.** Three things had no row anywhere: the keyboard chain (now that it
+works, it is a capability worth stating), `ToolStrip.OverflowButton` returning null, and
+`ToolStripManager.Merge` returning `false`. A matrix that only ever edits existing rows drifts toward
+describing the layer's original shape rather than its current one.
 
 ### What phase 0 found
 
@@ -1003,6 +1227,72 @@ suite runs collections in parallel, so a test that completed an `Exit` would clo
 and fail them for the wrong reason. The `Exit` tests here end in a cancelled close — real coverage of
 the `OpenForms` walk and the cancel contract, no teardown — and `Restart` is not tested at all, because
 it relaunches the test host. Worth stating rather than quietly leaving a gap.
+
+### What W5.24 found
+
+**The audit's most encouraging non-finding held up: the engines really are a faithful port.** All four
+fixes are wiring, and none of them needed a line of layout arithmetic written. `Panel` went from a
+34-line hand-rolled child-bounds scan to a two-line delegation, and `FlowLayoutPanel` and
+`TableLayoutPanel` were fixed by deleting that scan rather than by anything done to them.
+
+**A suggested test in the finding was wrong, and being wrong was informative.** `LAY-25` says a padded
+panel with one 50x50 child at `(0, 0)` should report `(70, 70)`. It reports 60, correctly: the engine
+subtracts the container's padding offset from the anchored preferred size, and upstream's `DefaultLayout`
+does the same, because an anchored child's bounds already start inside the padding. 70 is right for a
+child at the display-rectangle origin `(10, 10)`, which is where layout actually puts one. Transcribing
+the finding's number would have produced a "fix" that made the assertion pass and the behaviour wrong.
+
+**Four of the fourteen tests first passed against a deliberately broken build.** After writing them I
+short-circuited each fix in turn to check the tests could see it. Ten failed; four did not — each because
+it asserted an absolute floor that the *unfixed* behaviour also cleared: a wrapping panel's height "at
+least 60" is satisfied by the panel's own default height, and a check box being "wider than a button"
+holds because their default sizes already differ. Rewritten as relationships (narrow *versus* wide,
+the glyph column as a *difference*, a bigger caption font *versus* a smaller one) they now fail as they
+should. The remaining one — `MaximumSize` clamping `PreferredSize` — is a shape guard rather than a
+proof, because any core override picks the clamping up; it is labelled as such in the test.
+**A test written after the fix is not a test until it has been shown to fail without it**, and an
+absolute threshold is the shape that hides this.
+
+**`ScaleControl`'s min/max ordering is load-bearing, not decoration.** Lift the constraints, scale the
+bounds, put the scaled constraints back. A control sitting at its `MinimumSize` — a designer-set button
+often is — cannot otherwise grow: the scaled bounds are computed and then clamped straight back to the
+value they were meant to outgrow. That is the kind of detail that reads like ceremony in upstream's
+source until a test asserts it.
+
+### What W3.6 found
+
+**The one-shot flag has to be armed by the property, not consumed by the first layout.** The first
+version scaled on the first layout and cleared a `_performed` flag there. It silently did nothing, and
+the reason is the order `InitializeComponent` uses: `Controls.Add` *itself* triggers a layout, so the
+flag was spent before `AutoScaleDimensions` had been assigned — the ratio arrived one layout too late,
+every time. Upstream arms on the assignment instead (`ContainerControl`'s `stateScalingNeededOnLayout`),
+which is not an implementation detail but the whole reason the mechanism works against designer code.
+Two of the eleven tests caught it; the one that passed did so for the wrong reason (a font assignment
+re-armed the flag), which is a good argument for writing the container tests in both orders.
+
+**`Dpi` mode is inert on purpose, and that is an RC-8 consequence rather than a shortcut.** Upstream's
+logical coordinates *are* device pixels, so scaling by `dpi/96` is what makes a form the right physical
+size. Here `Bounds` are logical and the backend already applies the display's factor on the way to the
+screen — `Control.DeviceDpi` is derived from that same factor — so applying the ratio again scales every
+form twice on any HiDPI display. `CurrentAutoScaleDimensions` still reports the device DPI honestly; only
+the scaling declines to act, in one place (`AutoScaleEngine.TryGetFactor`) with the reason next to it, and
+a test pins both halves so it cannot be "fixed" by accident.
+
+**A form has to scale before its window opens, not during show bookkeeping.** The finding's own fix note
+said to call it from `EnsureShownBookkeeping`, which runs *after* `Backend.Show ()` — and a post-show
+`Form.Size` write is a known backend gap, so the children would have scaled inside a window that stayed
+its original size and clipped them. Hence a new `WindowBase.PrepareForFirstShow` hook ahead of
+`SetWindowStartupLocation` on all three show paths. Worth knowing for any other item that needs to change
+window geometry: there was no pre-show seam before this.
+
+**The absolute number matters here, unusually.** Most metrics only need to be self-consistent, but
+designer files carry dimensions measured by GDI on Windows — (6, 13) for the old Tahoma 8.25pt default,
+(7, 15) for Segoe UI 9pt — so a metric off by a unit factor rescales every migrated form by that factor.
+`ContainerControl.CurrentAutoScaleDimensions` was `Font.Size * 2f`, a made-up number that happened to
+land in range. It is now a measured average glyph width at the font's **pixel** size, which puts a
+default font at about (6.5, 11); the test asserts a *range* around the Windows values rather than a
+literal, because the two ways this can fail (points-as-pixels, device-as-logical) are both factor-sized
+and a range catches them while a literal would just be another transcription.
 
 ### What phase 2 found
 

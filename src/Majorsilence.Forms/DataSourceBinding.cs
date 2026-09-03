@@ -92,7 +92,17 @@ namespace Majorsilence.Forms
                 Guard (() => manager.Position = index);
             }
 
-            private void OnListChanged (object? sender, ListChangedEventArgs e) => Guard (reload);
+            private void OnListChanged (object? sender, ListChangedEventArgs e) => Guard (() => {
+                reload ();
+
+                // Re-apply the source's position AFTER the items exist. The manager subscribes to the
+                // BindingSource before any control does, so its PositionChanged for a first-item add
+                // arrives while this control's items are still empty -- the control drops that early
+                // selection (it has nothing to select yet), and this is where it catches up. Upstream's
+                // ListControl reloads and positions in the same handler for the same reason.
+                if (manager is not null && manager.Position != currentSelection ())
+                    selectPosition (manager.Position);
+            });
 
             private void OnPositionChanged (object? sender, EventArgs e)
             {

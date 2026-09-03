@@ -18,6 +18,31 @@ with no wiring, and its `EndInit` destroys the designer's items.
 
 Count: **P0 × 3, P1 × 14, P2 × 12, P3 × 6** (35 findings).
 
+## Status (2026-09-01, Phase 4 / W4.1–W4.6)
+
+**Closed:** BND-01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 16, 18, 19, 20, 21, 23, 28,
+30, 31, and BND-24's write half (`""` into a string member is `""`; `DataSourceNullValue` defaults to
+`DBNull` and stands in only under `FormattingEnabled`). 26 tests in `BindingLiveRuntimeTests.cs`, each
+verified to fail with its fix neutralized; 4 pre-existing tests inverted (named in the plan).
+
+**Still open:** BND-15 (BindingContext re-homing on parenting — the widest-blast-radius item here,
+deliberately not part of Phase 4's item list), BND-17, BND-22, BND-25, BND-26, BND-27, BND-29, BND-32,
+BND-33, BND-34, BND-35.
+
+**Corrections to the findings, learned while closing them:**
+
+- **BND-01's fix as written is not what landed.** "Give the manager a `SetList`" keeps the manager's
+  list swappable; upstream instead builds the manager over the `BindingSource` itself, whose identity
+  never changes — no swap exists, and `ListChanged` is the only channel needed. The landed design is
+  upstream's.
+- **BND-02's fix note ("have `BindingSource` route its self-mutations through the same path") had a
+  precondition the finding did not name:** `RemoveCurrent` and `AddNew` raised `ListChanged` directly
+  rather than through `NotifySelfMutation`, double-announcing on `IBindingList` inners. Latent until a
+  manager subscribed; then it walked the position twice per delete.
+- **BND-06's "re-resolve on parent CurrentChanged" needs the member validated against the item TYPE**,
+  not read off the current instance — an empty parent has no instance but does have a schema, and an
+  invalid member should throw (upstream) rather than resolve to null and bind an empty list.
+
 ## Findings
 
 ### BND-01 — `BindingSource.DataSource`/`EndInit` orphan every attached Binding (CurrencyManager rebuilt) — Cat A — P0 — High

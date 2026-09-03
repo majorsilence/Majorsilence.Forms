@@ -2264,25 +2264,29 @@ namespace Majorsilence.Forms
         public int Right => _x + _width;
 
         /// <summary>
-        /// Scales the control by the specified factor.
+        /// Scales the control and its children by the specified factor.
         /// </summary>
-        public void Scale (SizeF factor) => ScaleCore (factor.Width, factor.Height);
+        /// <remarks>One layout transaction around the whole walk, as upstream has: the children are
+        /// being moved and resized together, and laying out after each one both wastes work and lets a
+        /// half-scaled tree be measured.</remarks>
+        public void Scale (SizeF factor)
+        {
+            using (new Majorsilence.Forms.Layout.LayoutTransaction (this, this, Majorsilence.Forms.Layout.PropertyNames.Bounds))
+                ScaleCore (factor.Width, factor.Height);
+        }
 
         /// <summary>
         /// Scales the control by the specified factor.
         /// </summary>
+        /// <remarks>The bounds arithmetic that used to live here now sits in
+        /// <see cref="ScaleControl"/>, which is the member WinForms documents for this and the one an
+        /// app overrides -- see the remarks there (finding <c>LAY-21</c>).</remarks>
         protected virtual void ScaleCore (float dx, float dy)
         {
             SuspendLayout ();
 
             try {
-                var sx = (int)Math.Round (Left * dx);
-                var sy = (int)Math.Round (Top * dy);
-
-                var sw = (int)(Math.Round ((Left + Width) * dx)) - sx;
-                var sh = (int)(Math.Round ((Top + Height) * dy)) - sy;
-
-                SetBounds (sx, sy, sw, sh, BoundsSpecified.All);
+                ScaleControl (new SizeF (dx, dy), BoundsSpecified.All);
 
                 foreach (var c in Controls.GetAllControls ())
                     c.ScaleCore (dx, dy);

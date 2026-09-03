@@ -149,6 +149,18 @@ namespace Majorsilence.Forms.Backends
         void SetExtendClientIntoTitleBar (bool extend, int titleBarHeight) { }
 #endif
 
+        /// <summary>
+        /// True when this backend hosts the whole application in a single embedded view with no OS
+        /// window manager -- Avalonia's browser / Android / iOS single-view host. A <see cref="Form"/>
+        /// drops its own title bar in that case (there is no window to caption, move or close) and
+        /// fills the safe area instead. False for every real-window backend.
+        /// </summary>
+#if NETSTANDARD2_0
+        bool IsSingleView { get; }
+#else
+        bool IsSingleView => false;
+#endif
+
         // ── Rendering ────────────────────────────────────────────────────────────
         /// <summary>Marks the window as needing a repaint.</summary>
         void Invalidate ();

@@ -28,6 +28,115 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether an ellipsis is shown when the text overflows.</summary>
         public virtual bool AutoEllipsis { get; set; }
 
+        // The same bearing allowance Label makes: GDI text carries roughly two pixels of side bearing
+        // that the renderer reproduces, and a preferred width that does not leave room for it clips the
+        // caption's last glyph.
+        private const int TextBearingInset = 2;
+
+        /// <summary>
+        /// Measures what this button wants to be: its caption under the font it will actually be drawn
+        /// with, plus the image, the check/radio glyph, padding and the border.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// There was no override here at all until 2026-08-31 (finding <c>LAY-34</c>), so
+        /// <see cref="Control.GetPreferredSizeCore"/> answered with the size the designer last set --
+        /// which made <c>AutoSize = true</c> on a button do nothing at all, silently, while reading
+        /// back <c>true</c>. That is the standard way to make a localised caption fit, and the same
+        /// wrong size then propagated up through any <c>AutoSize</c> <see cref="FlowLayoutPanel"/> or
+        /// <see cref="TableLayoutPanel"/> the button sat in.
+        /// </para>
+        /// <para>
+        /// Every quantity here is taken from what the renderer draws rather than from a table of
+        /// numbers: the font from <c>GetEffectiveFont</c>, the image gap from the renderer's
+        /// <c>ImageTextMargin</c>, the glyph box and its gap from the renderer's <c>GlyphSize</c> and
+        /// <c>GlyphTextPadding</c>, and the border from the style. Measuring with anything else is how
+        /// a control ends up sized for text it is not showing -- the failure W5.17 catalogues.
+        /// </para>
+        /// <para>
+        /// One simplification: the glyph is measured as a column beside the text, which is what
+        /// <c>GlyphAlign</c>'s default (and near-universal) left/right alignment produces. A top- or
+        /// bottom-centred glyph would want that allowance on the vertical axis instead.
+        /// </para>
+        /// </remarks>
+        internal override Size GetPreferredSizeCore (Size proposedSize)
+        {
+            var text = Text;
+            var image = (this as IHaveTextAndImageAlign).GetImage ();
+            var glyph = GlyphAllowance ();
+
+            if (!text.HasValue () && image is null && glyph.IsEmpty)
+                return base.GetPreferredSizeCore (proposedSize);
+
+            var width = 0;
+            var height = 0;
+
+            if (text.HasValue ()) {
+                var constraint = proposedSize.Width > 0 && proposedSize.Width < int.MaxValue
+                    ? new Size (proposedSize.Width, int.MaxValue)
+                    : TextMeasurer.MaxSize;
+
+                var measured = TextMeasurer.MeasureText (
+                    text, GetEffectiveFont (), GetEffectiveFontSize (), constraint);
+
+                width = (int)Math.Ceiling (measured.Width) + TextBearingInset * 2;
+                height = (int)Math.Ceiling (measured.Height);
+            }
+
+            if (image is not null) {
+                var gap = Renderers.RenderManager.GetRenderer<Renderers.Renderer> (this)
+                    is Renderers.IRenderTextAndImage textAndImage ? textAndImage.ImageTextMargin : 0;
+
+                switch (TextImageRelation) {
+                    case TextImageRelation.ImageBeforeText:
+                    case TextImageRelation.TextBeforeImage:
+                        width += image.Width + gap;
+                        height = Math.Max (height, image.Height);
+                        break;
+                    case TextImageRelation.ImageAboveText:
+                    case TextImageRelation.TextAboveImage:
+                        width = Math.Max (width, image.Width);
+                        height += image.Height + gap;
+                        break;
+                    default:
+                        // Overlay: the two share the same space, so neither adds to the other.
+                        width = Math.Max (width, image.Width);
+                        height = Math.Max (height, image.Height);
+                        break;
+                }
+            }
+
+            width += glyph.Width;
+            height = Math.Max (height, glyph.Height);
+
+            var border = BorderInset ();
+
+            return new Size (
+                width + Padding.Horizontal + border.Horizontal,
+                height + Padding.Vertical + border.Vertical);
+        }
+
+        // The column TextImageLayoutEngine reserves for a check or radio glyph, in logical units:
+        // the box, the gap to the text, and the single pixel that engine adds.
+        private Size GlyphAllowance ()
+        {
+            if (this is not IHaveGlyph)
+                return Size.Empty;
+
+            if (Renderers.RenderManager.GetRenderer<Renderers.Renderer> (this) is not Renderers.IRenderGlyph renderer
+                || renderer.GlyphSize <= 0)
+                return Size.Empty;
+
+            return new Size (renderer.GlyphSize + renderer.GlyphTextPadding + 1, renderer.GlyphSize);
+        }
+
+        private Padding BorderInset ()
+            => new Padding (
+                Style.Border.Left.GetWidth (),
+                Style.Border.Top.GetWidth (),
+                Style.Border.Right.GetWidth (),
+                Style.Border.Bottom.GetWidth ());
+
         /// <summary>Gets or sets the flat-style appearance of this control.</summary>
         public virtual FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
 

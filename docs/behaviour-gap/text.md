@@ -3,6 +3,22 @@
 ## Summary
 The area is a single real engine (`TextBoxDocument`, a RichTextKit-backed plain-text buffer with caret, anchor/end selection, single-level undo and a cached `TextBlock`) with `TextBox` as its only consumer; `TextBoxBase` re-derives everything from `Text`+selection, and `RichTextBox`/`MaskedTextBox` are `TextBox` subclasses that add stored-only properties. The core editing loop (typing, Backspace/Delete, arrows, Home/End, Shift-select, Ctrl+C/X/V/A, programmatic `Text`/`Select`/`SelectedText`, `TextChanged`, `Modified`, `Undo`) is genuinely implemented and mostly right. The dominant failure patterns are (1) the input pipeline ignores the app's own `KeyPress.Handled`/`KeyDown.SuppressKeyPress`, so every "digits-only" text box in a migrated LOB app stops filtering; (2) high-traffic verbs are routed through the `Text` setter (`AppendText`, `SelectedText` on `RichTextBox`), which resets caret/scroll/undo/`Modified` to the "fresh assignment" state; (3) ~15 behaviour-changing properties are stored and never read (`WordWrap`, `CharacterCasing`, `AcceptsReturn`, `AcceptsTab`, `ShortcutsEnabled`, `ScrollBars`, `HideSelection`, every `RichTextBox.Selection*`, the whole `MaskedTextBox.Mask` family); (4) two arithmetic paths throw on ordinary input (`MaxLength` shorter than existing text, caret moved into placeholder text). `RichTextBox.Rtf`/`Find`/`LoadFile` and `MaskedTextBox` return answers that look valid but are not (stale RTF, case-sensitive Find that never selects, `MaskCompleted == true` always). Count: **P0 × 4, P1 × 17, P2 × 14**, plus a P3 list. Existing tests cover the getters/setters well and in three places pin the divergent behaviour as expected (`MaskCompletedAndMaskFull_AlwaysTrue`, `Text_SetUnaffectedByMask`, `MaxLength_DefaultsToZero`).
 
+## Status (2026-09-02, W5.13 — the mask engine)
+
+**Closed:** TXT-03 (P0), TXT-18, TXT-19. 11 tests in `MaskedTextBoxMaskEngineTests.cs`, 10 verified to
+fail with their fix neutralized (the 11th is labelled in-test as a guard); both tests TXT-03 named for
+inversion were inverted.
+
+**A correction to TXT-03's fix note:** it says to override `OnKeyPress`/`HandleKeyDown`. Neither is
+overridable for this purpose — `TextBox.OnKeyPress` raises the event and inserts in one method, and
+`HandleKeyDown` is private — so the fix adds two virtual seams to `TextBox`
+(`InsertTypedCharacter`, `DeleteAtCaret`) and overrides those instead. Any future input-filtering box
+(`CharacterCasing`, TXT-05) wants the same seams.
+
+**Still open in this file:** TXT-01, TXT-02, TXT-04–TXT-17, TXT-20 onward — including the
+`RichTextBox` document model (TXT-04, P0) and `AppendText` routing through the `Text` setter (TXT-02,
+P0).
+
 ## Findings
 
 ### TXT-01 — `TextBox.OnKeyPress` / `OnKeyDown` ignore the app's `Handled` / `SuppressKeyPress` — Cat A — P0 — High

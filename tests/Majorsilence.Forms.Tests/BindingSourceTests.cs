@@ -44,12 +44,24 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void Ctor_Object_String_RoundTripsDataSourceAndMember ()
         {
-            var data = new List<object?> { 1, 2, 3 };
-            using var source = new BindingSource (data, "member");
+            // Adjusted with W4.5 (BND-06). This used to bind "member" -- a name no int has -- and
+            // assert it was silently IGNORED (Count stayed 3). A DataMember now means what it means
+            // upstream: the named member of the current item, so a valid one round-trips and resolves...
+            var data = new List<Node> { new () { Children = { 1, 2 } } };
+            using var source = new BindingSource (data, nameof (Node.Children));
 
             Assert.Same (data, source.DataSource);
-            Assert.Equal ("member", source.DataMember);
-            Assert.Equal (3, source.Count);
+            Assert.Equal ("Children", source.DataMember);
+            Assert.Equal (2, source.Count);
+
+            // ...and one that exists on nothing throws, as upstream does, instead of quietly binding
+            // the wrong list.
+            Assert.Throws<ArgumentException> (() => new BindingSource (new List<object?> { 1 }, "member"));
+        }
+
+        private sealed class Node
+        {
+            public List<object?> Children { get; } = new ();
         }
 
         [Fact]
@@ -106,12 +118,19 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void DataSource_SetNonList_IsEmpty ()
+        public void DataSource_scalar_wraps_the_object_in_a_one_item_list ()
         {
-            using var source = new BindingSource { DataSource = new object () };
+            // Inverted with W4.5 (BND-05). This used to assert a scalar source resolved to an EMPTY
+            // list -- upstream wraps it ("if its some random non-list object, just wrap it in a
+            // list"), which is what makes `viewModelBindingSource.DataSource = new CustomerViewModel()`
+            // -- the standard MVP shape, and what the designer emits for a single-object source --
+            // bind at all.
+            var model = new object ();
+            using var source = new BindingSource { DataSource = model };
 
-            Assert.Equal (0, source.Count);
-            Assert.Equal (-1, source.Position);
+            Assert.Equal (1, source.Count);
+            Assert.Equal (0, source.Position);
+            Assert.Same (model, source.Current);
         }
 
         [Fact]
@@ -348,16 +367,22 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void Current_PositionOutOfRange_IsNull ()
+        public void Position_out_of_range_clamps_to_the_nearest_valid_index ()
         {
+            // Inverted with W4.1 (BND-21). This used to assert that an out-of-range Position "parked"
+            // and Current went null -- a divergence: upstream's CurrencyManager clamps, so
+            // `bs.Position = bs.Count` (the common off-by-one after AddNew) lands on the last row
+            // instead of blanking every bound control.
             using var source = new BindingSource ();
             source.Add ("a");
 
             source.Position = 5;
-            Assert.Null (source.Current);
+            Assert.Equal (0, source.Position);
+            Assert.Equal ("a", source.Current);
 
             source.Position = -1;
-            Assert.Null (source.Current);
+            Assert.Equal (0, source.Position);
+            Assert.Equal ("a", source.Current);
         }
 
         [Fact]

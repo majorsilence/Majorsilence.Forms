@@ -32,7 +32,10 @@ namespace Majorsilence.Forms
 
             source_tracker = new DataSourceBinding.ListSourceTracker (
                 RefreshDataSource,
-                position => SelectedIndex = position,
+                // Dropping an index the items cannot hold yet is deliberate: the source's manager
+                // announces its position before this control has reloaded, and the reload re-applies
+                // it once the items exist (see ListSourceTracker.OnListChanged).
+                position => { if (position < Items.Count) SelectedIndex = position; },
                 () => SelectedIndex);
 
             Items.CollectionChanged += (o, e) => UpdateVerticalScrollBar ();
@@ -155,7 +158,9 @@ namespace Majorsilence.Forms
 
             index -= top_index;
 
-            var top = index * ScaledItemHeight + client.Top;
+            // Subtract the sub-row touch-scroll offset so a fluid drag moves items by the pixel;
+            // item[top_index] is then partly above client.Top and the renderer clips it there.
+            var top = index * ScaledItemHeight + client.Top - (int) Math.Round (_scrollOffsetPx);
             return new Rectangle (client.Left, top, client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0), Math.Min (ScaledItemHeight, client.Bottom - top));
         }
 
@@ -251,7 +256,11 @@ namespace Majorsilence.Forms
         private int NeededHeightForItems => ScaledItemHeight * Items.Count;
 
         /// <inheritdoc/>
-        protected override void OnKeyUp (KeyEventArgs e)
+        protected override void OnKeyUp (KeyEventArgs e) => ChangeSelection (() => KeyUpCore (e));
+
+        // Wrapped by ChangeSelection so every branch below -- Space toggles, Shift+arrow extension, the
+        // add/remove pairs -- announces its change, without each one having to remember to (LST-04).
+        private void KeyUpCore (KeyEventArgs e)
         {
             // In "None" mode, the focus goes up and down
             // In "MultiSimple" mode, the focus goes up and down, and space selects or deselects
@@ -393,7 +402,11 @@ namespace Majorsilence.Forms
             base.OnKeyUp (e);
         }
 
-        private void OnMouseButtonLogic (MouseEventArgs e)
+        private void OnMouseButtonLogic (MouseEventArgs e) => ChangeSelection (() => MouseButtonLogicCore (e));
+
+        // See KeyUpCore: Ctrl-click and MultiSimple toggles went through the collection's internal
+        // setters and reported nothing (LST-04).
+        private void MouseButtonLogicCore (MouseEventArgs e)
         {
 
             if (!Enabled || !e.Button.HasFlag (MouseButtons.Left))
@@ -480,13 +493,18 @@ namespace Majorsilence.Forms
                 vscrollbar.RaiseMouseWheel (e);
         }
 
-        private double _scrollGestureRemainder;
+        // Fine-grained scroll: how far item[top_index] is pushed up above the client top, in device
+        // pixels (0 .. ScaledItemHeight). top_index is the coarse row index and the vscrollbar tracks
+        // it; this is the sub-row remainder that lets a touch drag track the finger by the pixel
+        // instead of jumping a whole row at a time. Always 0 for wheel / thumb / keyboard scrolling.
+        private double _scrollOffsetPx;
+        private bool _settingScrollbarFromGesture;
 
         /// <summary>
-        /// Pans the visible range on a touch drag/flick. ListBox owns its own vertical scrollbar
-        /// rather than deriving from <see cref="ScrollableControl"/>, so the neutral scroll-gesture
-        /// event (drag, plus the recognizer's decaying inertia deltas after lift-off) is bridged to
-        /// that scrollbar here. Content follows the finger: dragging up reveals items further down.
+        /// Pans the visible range on a touch drag/flick, pixel by pixel. ListBox owns its own vertical
+        /// scrollbar rather than deriving from <see cref="ScrollableControl"/>, so the neutral
+        /// scroll-gesture event (drag, plus the recognizer's decaying inertia deltas after lift-off) is
+        /// bridged here. Content follows the finger: dragging up reveals items further down.
         /// </summary>
         protected override void OnScrollGesture (ScrollGestureEventArgs e)
         {
@@ -501,18 +519,31 @@ namespace Majorsilence.Forms
             if (e.Delta.Y == 0)
                 return;
 
-            var itemHeight = Math.Max (1, ItemHeight);
+            // e.Delta.Y is logical pixels (converted at the WindowBase boundary); scroll in device
+            // pixels to line up with ScaledItemHeight and the device-space item rectangles.
+            ScrollByDevicePixels (e.Delta.Y * ScaleFactor.Height);
+        }
 
-            // e.Delta is logical pixels; accumulate the sub-item remainder so a slow drag still moves.
-            _scrollGestureRemainder += (double) e.Delta.Y / itemHeight;
-            var steps = (int) _scrollGestureRemainder;
-            if (steps == 0)
-                return;
-            _scrollGestureRemainder -= steps;
+        // Scrolls by a device-pixel amount, rolling the sub-row offset over into top_index. Matches
+        // the gesture-delta sign: a negative delta (upward drag) increases the scroll position.
+        private void ScrollByDevicePixels (double deltaPx)
+        {
+            var itemH = Math.Max (1, ScaledItemHeight);
+            var maxPosPx = Math.Max (0, vscrollbar.Maximum) * (double) itemH;
 
-            var target = Math.Max (vscrollbar.Minimum, Math.Min (vscrollbar.Value - steps, vscrollbar.Maximum));
-            if (target != vscrollbar.Value)
-                vscrollbar.Value = target;
+            var posPx = Math.Max (0, Math.Min (top_index * (double) itemH + _scrollOffsetPx - deltaPx, maxPosPx));
+
+            var newTop = (int) (posPx / itemH);
+            _scrollOffsetPx = posPx - newTop * (double) itemH;
+
+            if (newTop != top_index) {
+                _settingScrollbarFromGesture = true;
+                try { vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (newTop, vscrollbar.Maximum)); }
+                finally { _settingScrollbarFromGesture = false; }
+                top_index = newTop;
+            }
+
+            Invalidate ();
         }
 
         /// <inheritdoc/>
@@ -566,11 +597,15 @@ namespace Majorsilence.Forms
                 if (Items.SelectedIndex != value || Items.SelectedIndexes.Count > 1) {
                     Items.SelectedIndex = value;
 
-                    // Move the bound source's current item with the selection, so a BindingSource driving
-                    // a detail view follows what the user picked here.
-                    source_tracker.OnSelectionChanged (value);
+                    // Inside a ChangeSelection batch the announcement is that batch's job, so an input
+                    // handler that lands here reports its change once rather than twice.
+                    if (selection_batch == 0) {
+                        // Move the bound source's current item with the selection, so a BindingSource
+                        // driving a detail view follows what the user picked here.
+                        source_tracker.OnSelectionChanged (value);
 
-                    OnSelectedIndexChanged (EventArgs.Empty);
+                        OnSelectedIndexChanged (EventArgs.Empty);
+                    }
 
                     Invalidate ();
                 }
@@ -585,9 +620,29 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the currently selected item, if any.  If there are multiple selected items, the first selected item will be returned.
         /// </summary>
-        public object? SelectedItem {
+        public virtual object? SelectedItem {
             get => Items.SelectedItem;
-            set => Items.SelectedItem = value;
+            set {
+                // Through the PUBLIC SelectedIndex, which raises. This used to assign the collection's
+                // INTERNAL setter, so `cbo.SelectedItem = customer` -- the commonest way LOB code
+                // selects programmatically -- moved the selection silently and never ran the
+                // SelectedIndexChanged handler that loads the detail panel (LST-03, P0).
+                if (value is null) {
+                    if (SelectionMode != SelectionMode.None)
+                        SelectedIndex = -1;
+
+                    return;
+                }
+
+                var index = Items.IndexOf (value);
+
+                // An item that is not in the list leaves the selection alone, as upstream does -- a
+                // designer sets SelectedValue before the items are populated, and a bound editor writes
+                // back a value the current filter excluded. Throwing turned both into a crash inside
+                // InitializeComponent.
+                if (index != -1 && SelectionMode != SelectionMode.None)
+                    SelectedIndex = index;
+            }
         }
 
         /// <summary>
@@ -612,10 +667,14 @@ namespace Majorsilence.Forms
 
                 selection_mode = value;
 
-                if (selection_mode == SelectionMode.None)
-                    Items.SelectedIndex = -1;
-                else if (selection_mode == SelectionMode.One)
-                    Items.SelectedIndex = Items.SelectedIndex;  // Yes this does something  ;)
+                // Both of these drop items from the selection -- None clears it, One collapses a
+                // multi-selection to its first item -- and both did so silently (LST-04).
+                ChangeSelection (() => {
+                    if (selection_mode == SelectionMode.None)
+                        Items.SelectedIndex = -1;
+                    else if (selection_mode == SelectionMode.One)
+                        Items.SelectedIndex = Items.SelectedIndex;  // Yes this does something  ;)
+                });
             }
         }
 
@@ -713,27 +772,88 @@ namespace Majorsilence.Forms
             get => top_index;
             set {
                 top_index = Math.Max (0, Math.Min (value, Items.Count - 1));
+                _scrollOffsetPx = 0;
                 Invalidate ();
             }
         }
 
         /// <summary>Deselects all items in the ListBox.</summary>
-        public void ClearSelected ()
-        {
-            Items.SelectedIndexes.Clear ();
-            Invalidate ();
-        }
+        public void ClearSelected () => ChangeSelection (() => Items.SelectedIndexes.Clear ());
 
         /// <summary>Selects or deselects the item at the specified index.</summary>
+        /// <remarks>Announces the change, and rejects what upstream rejects: an out-of-range index and
+        /// a <see cref="SelectionMode.None"/> list both threw there and were swallowed here, which
+        /// turned a caller's off-by-one into a selection that silently did not happen
+        /// (<c>LST-04</c>).</remarks>
         public void SetSelected (int index, bool value)
         {
-            if (index < 0 || index >= Items.Count) return;
-            if (value) Items.AddSelectedIndex (index, false);
-            else Items.RemoveSelectedIndex (index);
+            if (SelectionMode == SelectionMode.None)
+                throw new InvalidOperationException (
+                    "Cannot call SetSelected when SelectionMode is SelectionMode.None.");
+
+            if (index < 0 || index >= Items.Count)
+                throw new ArgumentOutOfRangeException (nameof (index));
+
+            ChangeSelection (() => {
+                if (value)
+                    Items.AddSelectedIndex (index, single: SelectionMode == SelectionMode.One);
+                else
+                    Items.RemoveSelectedIndex (index);
+            });
         }
 
         /// <summary>Returns whether the item at the specified index is selected.</summary>
         public bool GetSelected (int index) => Items.SelectedIndexes.Contains (index);
+
+        /// <summary>
+        /// Applies a selection change and announces it exactly once, if it changed anything.
+        /// </summary>
+        /// <remarks>
+        /// The one place a multi-selection change is reported (finding <c>LST-04</c>, P0). Every path
+        /// except the <see cref="SelectedIndex"/> setter -- <see cref="SetSelected"/>,
+        /// <see cref="ClearSelected"/>, Ctrl-click and Space toggles, Shift+arrow extension -- mutated
+        /// the collection's internal index list and raised nothing, so in a multi-select list the
+        /// "N items selected" label, the enabled state of Delete/Move, and any
+        /// <c>SelectedItems</c>-driven detail view never updated from user input.
+        /// <para>
+        /// Compared by snapshot rather than by trusting the caller: several of these paths are no-ops in
+        /// practice (re-selecting what is already selected), and WinForms raises only on a real change.
+        /// </para>
+        /// </remarks>
+        private int selection_batch;
+
+        internal void ChangeSelection (Action mutate)
+        {
+            var before = Items.SelectedIndexes.ToList ();
+
+            // Depth, not a flag: these wrap whole input handlers, and a handler branch that assigns
+            // SelectedIndex would otherwise report the change twice -- once from that setter and once
+            // from here. Exactly the double-report W5.6 hit when ListViewItem.Selected became the
+            // choke point while ListView.SelectedItem still raised on its own.
+            selection_batch++;
+
+            try {
+                mutate ();
+            } finally {
+                selection_batch--;
+            }
+
+            var after = Items.SelectedIndexes;
+            var changed = before.Count != after.Count || before.Any (i => !after.Contains (i));
+
+            if (!changed) {
+                Invalidate ();
+                return;
+            }
+
+            // The bound source's current item follows the selection, as it does from the
+            // SelectedIndex setter -- otherwise a BindingSource driving a detail view tracks
+            // single-clicks but not Ctrl-clicks.
+            source_tracker.OnSelectionChanged (Items.SelectedIndex);
+
+            OnSelectedIndexChanged (EventArgs.Empty);
+            Invalidate ();
+        }
 
         /// <summary>Returns the collection of indices of all currently selected items.</summary>
         public SelectedIndexCollection SelectedIndices => new (Items.SelectedIndexes);
@@ -812,6 +932,7 @@ namespace Majorsilence.Forms
                 vscrollbar.LargeChange = Math.Max (0, VisibleItemCount);
             } else {
                 vscrollbar.Visible = ScrollbarAlwaysVisible;
+                _scrollOffsetPx = 0;
             }
         }
 
@@ -819,6 +940,11 @@ namespace Majorsilence.Forms
         private void VerticalScrollBar_ValueChanged (object? sender, EventArgs e)
         {
             top_index = Math.Max (vscrollbar.Value, 0);
+
+            // A thumb drag, wheel notch or programmatic scroll snaps to a whole row; only a touch
+            // drag (which sets the value through ScrollByDevicePixels) keeps a sub-row offset.
+            if (!_settingScrollbarFromGesture)
+                _scrollOffsetPx = 0;
 
             Invalidate ();
         }

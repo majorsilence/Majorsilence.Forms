@@ -139,13 +139,18 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Moves a binding to a different context.</summary>
+        /// <remarks>A real re-homing as of W4.1 (BND-28): membership moves between the managers'
+        /// <c>Bindings</c>, the event subscriptions move with it, and the control re-reads from the
+        /// new manager's current item. It used to swap only the property -- and it keyed the lookup
+        /// on <c>BindingMember</c> where Attach keys on <c>BindingPath</c>, so the binding reported a
+        /// manager no other binding shared while still listening to the old one.</remarks>
         public static void UpdateBinding (BindingContext newBindingContext, Binding binding)
         {
             Guard.ThrowIfNull (binding);
 
-            binding.BindingManagerBase = binding.DataSource is null || newBindingContext is null
+            binding.Rehome (binding.DataSource is null || newBindingContext is null
                 ? null
-                : newBindingContext[binding.DataSource, binding.BindingMemberInfo.BindingMember];
+                : newBindingContext[binding.DataSource, binding.BindingMemberInfo.BindingPath]);
         }
 
         /// <summary>Raised when a binding manager is added or removed.</summary>

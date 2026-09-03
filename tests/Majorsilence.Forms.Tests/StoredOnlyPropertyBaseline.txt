@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 810 of 1251 public settable auto-properties (64%).
+# 781 of 1230 public settable auto-properties (63%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -38,15 +38,6 @@ Majorsilence.Forms.Backends.SaveFileRequest.Title
 Majorsilence.Forms.BindingCompleteEventArgs.BindingCompleteState
 Majorsilence.Forms.BindingCompleteEventArgs.ErrorText
 Majorsilence.Forms.BindingCompleteEventArgs.Exception
-Majorsilence.Forms.BindingManagerBase.IsBindingSuspended
-Majorsilence.Forms.BindingNavigator.AddNewItem
-Majorsilence.Forms.BindingNavigator.BindingSource
-Majorsilence.Forms.BindingNavigator.CountItemFormat
-Majorsilence.Forms.BindingNavigator.DeleteItem
-Majorsilence.Forms.BindingNavigator.MoveFirstItem
-Majorsilence.Forms.BindingNavigator.MoveLastItem
-Majorsilence.Forms.BindingNavigator.MoveNextItem
-Majorsilence.Forms.BindingNavigator.MovePreviousItem
 Majorsilence.Forms.BindingSource.AllowEdit
 Majorsilence.Forms.BindingSource.IsInitialized
 Majorsilence.Forms.Button.UseCompatibleTextRendering
@@ -55,7 +46,6 @@ Majorsilence.Forms.ButtonBase.CommandParameter
 Majorsilence.Forms.ButtonBase.UseCompatibleTextRendering
 Majorsilence.Forms.ButtonRenderer.RenderMatchingApplicationState
 Majorsilence.Forms.CheckBox.Appearance
-Majorsilence.Forms.CheckedListBox.CheckOnClick
 Majorsilence.Forms.CheckedListBox.ThreeDCheckBoxes
 Majorsilence.Forms.CheckedListBox.UseCompatibleTextRendering
 Majorsilence.Forms.ColorDialog.AllowFullOpen
@@ -324,8 +314,6 @@ Majorsilence.Forms.Form.AllowDrop
 Majorsilence.Forms.Form.AllowTransparency
 Majorsilence.Forms.Form.AutoScale
 Majorsilence.Forms.Form.AutoScaleBaseSize
-Majorsilence.Forms.Form.AutoScaleDimensions
-Majorsilence.Forms.Form.AutoScaleMode
 Majorsilence.Forms.Form.AutoSizeMode
 Majorsilence.Forms.Form.CausesValidation
 Majorsilence.Forms.Form.ControlBox
@@ -347,7 +335,6 @@ Majorsilence.Forms.GridItem.Parent
 Majorsilence.Forms.GridItem.PropertyDescriptor
 Majorsilence.Forms.GridItem.Tag
 Majorsilence.Forms.GridItem.Value
-Majorsilence.Forms.GroupBox.AutoSize
 Majorsilence.Forms.GroupBox.FlatStyle
 Majorsilence.Forms.GroupBox.UseCompatibleTextRendering
 Majorsilence.Forms.GroupBoxRenderer.RenderMatchingApplicationState
@@ -384,24 +371,16 @@ Majorsilence.Forms.ListView.AllowColumnReorder
 Majorsilence.Forms.ListView.AutoArrange
 Majorsilence.Forms.ListView.BackgroundImageTiled
 Majorsilence.Forms.ListView.BorderStyle
-Majorsilence.Forms.ListView.CheckBoxes
-Majorsilence.Forms.ListView.FullRowSelect
-Majorsilence.Forms.ListView.GridLines
 Majorsilence.Forms.ListView.GroupImageList
-Majorsilence.Forms.ListView.HeaderStyle
 Majorsilence.Forms.ListView.HideSelection
 Majorsilence.Forms.ListView.HotTracking
 Majorsilence.Forms.ListView.HoverSelection
 Majorsilence.Forms.ListView.LabelEdit
 Majorsilence.Forms.ListView.LabelWrap
-Majorsilence.Forms.ListView.ListViewItemSorter
-Majorsilence.Forms.ListView.MultiSelect
 Majorsilence.Forms.ListView.OwnerDraw
 Majorsilence.Forms.ListView.RightToLeftLayout
-Majorsilence.Forms.ListView.Scrollable
 Majorsilence.Forms.ListView.ShowGroups
 Majorsilence.Forms.ListView.ShowItemToolTips
-Majorsilence.Forms.ListView.Sorting
 Majorsilence.Forms.ListView.StateImageList
 Majorsilence.Forms.ListView.TileSize
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior
@@ -434,11 +413,6 @@ Majorsilence.Forms.MaskedTextBox.BeepOnError
 Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat
 Majorsilence.Forms.MaskedTextBox.HidePromptOnLeave
 Majorsilence.Forms.MaskedTextBox.RejectInputOnFirstFailure
-Majorsilence.Forms.MaskedTextBox.ResetOnPrompt
-Majorsilence.Forms.MaskedTextBox.ResetOnSpace
-Majorsilence.Forms.MaskedTextBox.SkipLiterals
-Majorsilence.Forms.MaskedTextBox.TextMaskFormat
-Majorsilence.Forms.MaskedTextBox.UseSystemPasswordChar
 Majorsilence.Forms.MeasureItemEventArgs.ItemHeight
 Majorsilence.Forms.MeasureItemEventArgs.ItemWidth
 Majorsilence.Forms.Media.SoundPlayer.LoadTimeout
@@ -794,14 +768,11 @@ Majorsilence.Forms.TreeView.ShowRootLines
 Majorsilence.Forms.TreeView.Sorted
 Majorsilence.Forms.TreeView.StateImageList
 Majorsilence.Forms.TreeView.TreeViewNodeSorter
-Majorsilence.Forms.TypeValidationEventArgs.Cancel
 Majorsilence.Forms.UpDownBase.ChangingText
 Majorsilence.Forms.UpDownBase.InterceptArrowKeys
 Majorsilence.Forms.UpDownBase.ReadOnly
 Majorsilence.Forms.UpDownBase.TextAlign
 Majorsilence.Forms.UpDownBase.UpDownAlign
-Majorsilence.Forms.UserControl.AutoScaleDimensions
-Majorsilence.Forms.UserControl.AutoScaleMode
 Majorsilence.Forms.UserControl.AutoValidate
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Part
