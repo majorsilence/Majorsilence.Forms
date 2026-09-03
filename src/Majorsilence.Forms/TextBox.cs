@@ -613,12 +613,26 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Appends text to the current text of the TextBox.
         /// </summary>
+        /// <remarks>
+        /// Appends through the document rather than through <c>Text +=</c> (finding <c>TXT-02</c>, P0).
+        /// The <see cref="Text"/> setter resets the caret to 0, clears the undo buffer and sets
+        /// <see cref="TextBoxBase.Modified"/> false by design, so every
+        /// <c>log.AppendText (line + Environment.NewLine)</c> jumped to the oldest line -- and the
+        /// <see cref="ScrollToCaret"/> that usually follows went to the top too, because the caret was
+        /// at 0. It also re-laid out the whole document per append. Neither ReadOnly nor MaxLength
+        /// applies: upstream brackets its EM_REPLACESEL with EM_LIMITTEXT 0 because an append is not
+        /// user input.
+        /// </remarks>
+        /// <inheritdoc/>
         public override void AppendText (string text)
         {
             if (string.IsNullOrEmpty (text))
                 return;
 
-            Text += text;
+            document.ReplaceRange (TextLength, 0, text, ignoreLimits: true);
+
+            // The caret is now at the end, so this brings the NEW text into view rather than the top.
+            ScrollToCaret ();
         }
 
         /// <summary>

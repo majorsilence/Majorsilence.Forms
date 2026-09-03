@@ -55,12 +55,9 @@ namespace Majorsilence.Forms
             set => base.SelectionLength = value;
         }
 
-        /// <summary>Appends the specified text to the current contents of the text box.</summary>
-        public new void AppendText (string text)
-        {
-            Text += text;
-            SelectionStart = Text.Length;
-        }
+        // `public new void AppendText` used to live here, assigning Text and then patching the caret
+        // back -- which only happened when it was called through a RichTextBox-typed reference, and
+        // never scrolled. TextBox.AppendText is correct now, so the shadow is gone (TXT-02).
 
         /// <summary>Loads the contents of a file into the control. Plain text only in Majorsilence.Forms.</summary>
         public void LoadFile (string path, RichTextBoxStreamType fileType = RichTextBoxStreamType.PlainText)
@@ -130,19 +127,11 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the background color of the selected text. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Color SelectionBackColor { get; set; } = System.Drawing.Color.Empty;
 
-        /// <summary>Gets or sets the selected text. Setting it replaces the current selection (or inserts at the caret if nothing is selected).</summary>
-        public new string SelectedText {
-            get => SelectionLength > 0 && SelectionStart >= 0 ? Text.Substring (SelectionStart, Math.Min (SelectionLength, Text.Length - SelectionStart)) : string.Empty;
-            set {
-                value ??= string.Empty;
-                int start = SelectionStart;
-                int length = Math.Max (SelectionLength, 0);
-                string current = Text;
-                Text = string.Concat (current.Substring (0, start), value, current.Substring (start + length));
-                SelectionStart = start + value.Length;
-                SelectionLength = 0;
-            }
-        }
+        // `public new string SelectedText` used to live here, rebuilding the whole string and
+        // assigning Text -- so replacing a selection in a long document scrolled to the top, cleared
+        // undo and raised TextChanged for the entire document, and did all that only when called
+        // through a RichTextBox-typed reference. The inherited TextBox.SelectedText goes through the
+        // document instead (TXT-35).
 
         /// <summary>Gets or sets the zoom factor. Stub in Majorsilence.Forms (always 1.0).</summary>
         public float ZoomFactor { get; set; } = 1.0f;
