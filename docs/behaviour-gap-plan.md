@@ -849,9 +849,31 @@ propagating its `Cancel`; `MaskChanged` has a raiser; `UseSystemPasswordChar` fo
 `TextBox.OnKeyPress` raises the event and inserts in one method, so a subclass could not filter the
 character without also suppressing the event.
 
-**W5.14 — `RichTextBox` document model.** `Rtf` returns a stale stored string, so saving after editing
-writes the old content; `Find` is case-sensitive by default and never selects; the whole `Selection*`
-formatting family is stored-only. *Closes:* `TXT-04` (P0), `TXT-14`–`TXT-17`.
+**W5.14 — `RichTextBox` document model. — DONE (2026-09-03)**
+`Rtf`'s getter renders the current document instead of returning a string only its own setter ever
+wrote, which is the P0: `note.Body = rtb.Rtf` stored an empty document for everything the user had
+typed, or stale RTF from the last programmatic assignment, overwriting the edits. The reader was
+compounding it — `\par` and `\tab` vanished, `\'e9` came through as the literal `'e9`, `\u233?` was
+dropped, and only text at group depth 1 survived, so anything a real writer wrapped in `{...}`
+disappeared — and then the getter saved that back. Reader and writer are now a matched pair over plain
+text, with metadata groups (`fonttbl`, `colortbl`, `info`, `{\*\...}` and the rest) skipped by name
+rather than by depth. `LoadFile`/`SaveFile` default to `RichText` as upstream, and honour the
+`fileType` they used to ignore. One `FindCore` gives the four string overloads case-insensitive search
+by default, `MatchCase`, `WholeWord`, `Reverse` and `NoHighlight`, `end == -1` meaning "to the end",
+`ArgumentOutOfRangeException` for a range it cannot search, and — the part that makes the standard
+highlight loop work — it selects the hit and scrolls it into view. The `Selection*` family keeps
+per-run character formatting: colour, background, bold, italic and underline, applied to the selection
+or held as the insertion-point format for what is typed or appended next, read back from the run under
+the caret, and painted through the existing `Colorizer` hook.
+*Closed:* `TXT-04` (P0), `TXT-14`, `TXT-15`, `TXT-16`, `TXT-17`. 27 tests, 22 verified to fail with
+their fix neutralized and 5 labelled in-test as guards; 2 existing tests inverted
+(`RichTextBoxTests.Rtf_SetNullOrEmpty_EmptiesText` and the `SelectionColor` half of `Ctor_Default`,
+both of which pinned the stubs). Deliberate limits, all documented in the code: character formatting
+is **not serialised** into the generated RTF (that needs a colour table and per-run control words this
+writer does not emit, so a save keeps the text and the paragraphs and loses the colours); `SelectionFont`
+carries the style flags but not a per-run family or size, which the span type cannot express; and runs
+follow typing, Backspace/Delete and `AppendText` — the seams this control owns — but not `Undo`,
+`Paste` or a programmatic `SelectedText` assignment, which move text without telling it.
 
 **W5.15 — `ToolStrip` item storage and appearance.** Remove the `new` shadows so `Enabled`, `Checked`,
 `Tag`, `Height`, `Alignment` and the mouse events reach the members the renderer and hit-test actually
@@ -1068,14 +1090,42 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left.** The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4168 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4195 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
-80 → 66, unraised events 130 → 119, stored-only properties 822 → 768, no-op stubs
+80 → 66, unraised events 130 → 119, stored-only properties 822 → 762, no-op stubs
 156 → 154.
+
+### What W5.14 found
+
+**Two upstream defaults that look like one.** `SelectionColor` and `SelectionBackColor` both start out
+"unset", and upstream answers them differently: the foreground reads `CFE_AUTOCOLOR` and reports the
+control's `ForeColor` — a real colour, because one is always painted — while the background reads
+`CFE_AUTOBACKCOLOR` and reports `Color.Empty`, because "no background" and "a background that happens
+to match the control" are different things to a caller about to save the document. The existing
+`Ctor_Default` test asserted `Empty` for both, which is what a stub returns; getting this right meant
+inverting half of it and leaving the other half alone.
+
+**A test that pinned the stub, and a test that pinned the accident.** `Rtf_SetNullOrEmpty_EmptiesText`
+asserted `Rtf == string.Empty` after clearing — true only while the getter returned its own stored
+string; an empty document is still a document. And two of the four `Find` range-validation rows passed
+before the fix, but incidentally: the old code threw out of `Substring`, not out of an argument check.
+Both are recorded in the tests rather than quietly satisfied.
+
+**Reading only depth-1 text hid a second bug behind the first.** The old reader kept text at group
+depth 1, which dropped the document's real content — and also dropped `colortbl` and `info` contents,
+so the "metadata is skipped" test passes against it. The new reader keeps text at every depth and skips
+metadata destinations *by name*, which is the only version of that behaviour that is deliberate rather
+than a side effect.
+
+**The seams from W5.13 paid for themselves a second time.** `InsertTypedCharacter` and `DeleteAtCaret`,
+added so `MaskedTextBox` could filter input, are exactly the hooks per-run formatting needs to keep its
+runs over the right characters as the user types and deletes. Nothing new was needed in `TextBox` for
+this item at all — and the honest limit falls out of the same fact: `Undo` and `Paste` do not pass
+through a seam, so they are the paths where a run can end up over the wrong text.
 
 ### What W5.12 found
 
