@@ -37,7 +37,22 @@ namespace Majorsilence.Forms
 
             if (IsTopLevelMenu)
                 Application.ActiveMenu = this;
+
+            OnActivated ();
         }
+
+        /// <summary>Called when the menu becomes the active one.</summary>
+        /// <remarks>
+        /// A hook rather than an event: the WinForms-named events live on the derived strips
+        /// (<c>MenuStrip.MenuActivate</c>, <c>ContextMenu.Popup</c>), and this is the moment they
+        /// describe. They were declared and never raised even though this trigger existed
+        /// (finding <c>TSM-30</c>) -- <c>ContextMenu.Popup</c> in particular is *the* legacy hook for
+        /// enabling and disabling items just before the menu appears.
+        /// </remarks>
+        protected virtual void OnActivated () { }
+
+        /// <inheritdoc cref="OnActivated"/>
+        protected virtual void OnDeactivated () { }
 
         // Guards against one physical click raising a menu leaf item's Click twice. On X11 a single
         // button release can be delivered to BOTH the menu bar's window and the drop-down popup's
@@ -96,10 +111,17 @@ namespace Majorsilence.Forms
         // Hides the Menu.
         internal virtual void Deactivate ()
         {
+            var was_activated = IsActivated;
+
             IsActivated = false;
             SelectedItem = null;
 
             root_item.HideDropDown ();
+
+            // Only when it had actually been open: Deactivate runs on several paths that can find the
+            // menu already closed, and a Collapse for a menu that never appeared is noise.
+            if (was_activated)
+                OnDeactivated ();
 
             if (IsTopLevelMenu)
                 Application.ActiveMenu = null;

@@ -31,7 +31,7 @@ namespace Majorsilence.Forms
         /// <summary>Occurs when the foreground color changes.</summary>
         public event EventHandler? ForeColorChanged;
 
-        /// <summary>Occurs when <see cref="Enabled"/> changes.</summary>
+        /// <summary>Occurs when <see cref="MenuItem.Enabled"/> changes.</summary>
         public event EventHandler? EnabledChanged;
 
         /// <summary>Occurs when the item's text changes.</summary>
@@ -110,22 +110,19 @@ namespace Majorsilence.Forms
         public event EventHandler? CommandParameterChanged;
 #pragma warning restore CS0067
 
-        private bool available = true;
+        // `private bool available` went with the second store it backed: Available reads Visible now.
         private System.Windows.Input.ICommand? command;
 
         /// <summary>
         /// Gets or sets whether this item is available to be shown on its parent. Real: it is the
         /// backing state <see cref="MenuItem.Visible"/> reflects.
         /// </summary>
+        /// <remarks>Delegates to <see cref="MenuItem.Visible"/> rather than keeping a second flag: the
+        /// AvailableChanged and VisibleChanged raises both hang off that setter's hook now, and raising
+        /// here as well announced an availability change twice per assignment.</remarks>
         public override bool Available {
-            get => available;
-            set {
-                if (available == value)
-                    return;
-                available = value;
-                Visible = value;
-                OnAvailableChanged (EventArgs.Empty);
-            }
+            get => Visible;
+            set => Visible = value;
         }
 
         /// <summary>Gets or sets the width of this item, in pixels.</summary>

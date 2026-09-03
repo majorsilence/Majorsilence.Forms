@@ -1076,29 +1076,82 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the name of this item.</summary>
         public string Name { get; set; } = string.Empty;
 
-        /// <summary>Gets or sets the size of this item (informational only).</summary>
-        public virtual Size Size { get; set; }
+        /// <summary>Gets or sets the requested size of this item.</summary>
+        /// <remarks>Honoured by <see cref="GetPreferredSize"/> when <see cref="AutoSize"/> is off,
+        /// which is what upstream does with it; with AutoSize on it is advisory, as there.</remarks>
+        public virtual Size Size {
+            get => item_size;
+            set {
+                if (item_size == value)
+                    return;
+
+                item_size = value;
+                InvalidateItemLayout ();
+            }
+        }
+
+        private Size item_size;
 
         /// <summary>Gets or sets the height of this item. Mirrors WinForms ToolStripItem.Height.</summary>
+        /// <remarks>
+        /// Reports the REQUESTED height, symmetric with <see cref="Width"/>. Upstream's getter reads
+        /// <c>Bounds</c>, because there <c>Size</c> writes into the same rectangle layout uses; here the
+        /// two are separate stores, and reporting the laid-out height would answer 0 for an item that
+        /// has never been on a strip. What was actually missing is in the setter's path: assigning it
+        /// now runs a layout pass, so the size reaches the box the renderer draws (<c>TSM-31</c>).
+        /// </remarks>
         public new int Height {
             get => Size.Height;
             set => Size = new Size (Size.Width, value);
         }
 
+        // The AutoSize=false rule that consumes Size already lives on the override in
+        // ToolStripPanelRowLayout.cs. What was missing is above: assigning Size (or Height) never ran
+        // a layout pass, so the rule had nothing to re-measure and the new size appeared only after
+        // some unrelated repaint (TSM-31).
+
         /// <summary>Gets or sets the tooltip text shown for this item.</summary>
         public string ToolTipText { get; set; } = string.Empty;
 
         /// <summary>Gets or sets the display style for the item.</summary>
-        public ToolStripItemDisplayStyle DisplayStyle { get; set; } = ToolStripItemDisplayStyle.ImageAndText;
+        public ToolStripItemDisplayStyle DisplayStyle {
+            get => display_style;
+            set {
+                if (display_style == value)
+                    return;
+
+                display_style = value;
+                DisplayStyleChanged?.Invoke (this, EventArgs.Empty);
+                InvalidateItemLayout ();
+            }
+        }
+
+        private ToolStripItemDisplayStyle display_style = ToolStripItemDisplayStyle.ImageAndText;
 
         /// <summary>Gets or sets the alignment of the item within the strip.</summary>
         public ToolStripItemAlignment Alignment { get; set; } = ToolStripItemAlignment.Left;
 
-        /// <summary>Gets or sets whether the item is available (enabled).</summary>
-        public new bool Enabled { get; set; } = true;
+        // `public new bool Enabled` and `public new object? Tag` used to live here, each with a store
+        // of its own that nothing else read (TSM-01, P0). MenuItem owns both now; this class adds the
+        // EnabledChanged raise through the hook below.
 
-        /// <summary>Gets or sets an object tag associated with this item.</summary>
-        public new object? Tag { get; set; }
+        /// <inheritdoc/>
+        protected override void OnEnabledChanged (EventArgs e)
+        {
+            base.OnEnabledChanged (e);
+
+            EnabledChanged?.Invoke (this, e);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnVisibleChanged (EventArgs e)
+        {
+            base.OnVisibleChanged (e);
+
+            // Upstream's SetVisibleCore raises both, and application code listens for either.
+            VisibleChanged?.Invoke (this, e);
+            AvailableChanged?.Invoke (this, e);
+        }
 
         /// <summary>
         /// Gets or sets the image displayed on this item. Accepts <see cref="Majorsilence.Forms.Drawing.Image"/> for WinForms compatibility.
@@ -1316,16 +1369,19 @@ namespace Majorsilence.Forms
             : this (text, image?.ToSKBitmap (), onClick) { }
 #pragma warning restore CA1416
 
-        private bool _checked;
-
         /// <summary>Gets or sets whether the button is in the checked (pressed) state.</summary>
-        public new bool Checked {
-            get => _checked;
+        /// <remarks>Stored by <see cref="MenuItem.Checked"/> -- the property the renderer reads -- where
+        /// this used to keep a private field of its own, so a toggle button never looked pressed
+        /// (finding <c>TSM-06</c>).</remarks>
+        public override bool Checked {
+            get => base.Checked;
             set {
-                if (_checked == value) return;
-                _checked = value;
+                if (base.Checked == value)
+                    return;
+
+                base.Checked = value;
                 OnCheckedChanged (EventArgs.Empty);
-                CheckStateChanged?.Invoke(this, EventArgs.Empty);
+                CheckStateChanged?.Invoke (this, EventArgs.Empty);
             }
         }
 
@@ -1686,15 +1742,15 @@ namespace Majorsilence.Forms
         // owned-view semantics, not just menu items. The duplicate field this type kept was itself a
         // bug -- the base's HasDropDown/Pressed read the base's field, which this override never set.
 
-        private bool _checked;
-
         /// <summary>Gets or sets whether the item appears with a check mark. Raises CheckedChanged on change.</summary>
-        public new bool Checked {
-            get => _checked;
+        /// <inheritdoc cref="ToolStripButton.Checked" path="/remarks"/>
+        public override bool Checked {
+            get => base.Checked;
             set {
-                if (_checked == value)
+                if (base.Checked == value)
                     return;
-                _checked = value;
+
+                base.Checked = value;
                 CheckedChanged?.Invoke (this, EventArgs.Empty);
             }
         }
@@ -2111,8 +2167,9 @@ namespace Majorsilence.Forms
             set => Size = new Size (value, Size.Height);
         }
 
-        /// <summary>Gets or sets how the label is aligned within the strip.</summary>
-        public new ToolStripItemAlignment Alignment { get; set; }
+        // `public new ToolStripItemAlignment Alignment` used to live here -- a second store for the
+        // property ToolStripItem already declares, so a label aligned right through this one stayed
+        // left as far as anything reading the item was concerned.
 
         /// <summary>Gets or sets whether the item stretches to fill remaining strip space.</summary>
         public bool Spring { get; set; }
@@ -2268,27 +2325,56 @@ namespace Majorsilence.Forms
         {
             var base_items = base.Items;
 
+            // The callbacks only forward now. The notifications used to live here, which is why they
+            // were dead on MenuStrip and ContextMenuStrip: Menu.Items and MenuDropDown.Items re-expose
+            // the base MenuItemCollection directly, so `contextMenuStrip.Items.Add (...)` never came
+            // through this facade at all (TSM-08). They hang off the collection every path shares
+            // instead -- see NotifyItemAdded, called from MenuItemCollection.InsertItem.
             return new ToolStripItemCollection {
-                ItemAddedCallback = item => {
-                    base_items.Add (item);
-
-                    // ItemClicked/ItemAdded and the renderer hook are all typed on ToolStripItem
-                    // upstream. A collection may also hold plain MenuItems and separators, which still
-                    // belong in the strip -- they just have no ToolStripItem-shaped event to raise.
-                    if (item is not ToolStripItem stripItem)
-                        return;
-
-                    stripItem.Click += (_, _) => OnItemClicked (new ToolStripItemClickedEventArgs (stripItem));
-                    Renderer?.InitializeItem (stripItem);
-                    OnItemAdded (new ToolStripItemEventArgs (stripItem));
-                },
-                ItemRemovedCallback = item => {
-                    base_items.Remove (item);
-
-                    if (item is ToolStripItem stripItem)
-                        OnItemRemoved (new ToolStripItemEventArgs (stripItem));
-                },
+                ItemAddedCallback = item => base_items.Add (item),
+                ItemRemovedCallback = item => base_items.Remove (item),
             };
+        }
+
+        /// <summary>
+        /// Called by <see cref="MenuItemCollection"/> when an item joins this strip, whichever
+        /// collection it was added through.
+        /// </summary>
+        /// <remarks>
+        /// ItemAdded, ItemClicked and the renderer's item hook are all typed on
+        /// <see cref="ToolStripItem"/> upstream; a strip may also hold plain <see cref="MenuItem"/>s
+        /// and separators, which belong in it but have no ToolStripItem-shaped event to raise.
+        /// </remarks>
+        internal void NotifyItemAdded (MenuItem item)
+        {
+            if (item is not ToolStripItem stripItem)
+                return;
+
+            // A method group rather than a lambda, so removal below actually removes it: an item that
+            // is taken out and put back would otherwise raise ItemClicked once per add.
+            stripItem.Click -= RelayItemClicked;
+            stripItem.Click += RelayItemClicked;
+
+            Renderer?.InitializeItem (stripItem);
+            OnItemAdded (new ToolStripItemEventArgs (stripItem));
+        }
+
+        /// <inheritdoc cref="NotifyItemAdded"/>
+        internal void NotifyItemRemoved (MenuItem item)
+        {
+            if (item is not ToolStripItem stripItem)
+                return;
+
+            stripItem.Click -= RelayItemClicked;
+            OnItemRemoved (new ToolStripItemEventArgs (stripItem));
+        }
+
+        // Raised from the item's own Click, so one handler on the strip sees programmatic PerformClick
+        // as well as a real click -- upstream routes both through HandleClick.
+        private void RelayItemClicked (object? sender, EventArgs e)
+        {
+            if (sender is ToolStripItem stripItem)
+                OnItemClicked (new ToolStripItemClickedEventArgs (stripItem));
         }
 
         /// <summary>Raised when an item is added to the ToolStrip.</summary>

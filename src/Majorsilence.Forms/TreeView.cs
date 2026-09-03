@@ -648,7 +648,7 @@ namespace Majorsilence.Forms
                 OnNodeMouseClick (new TreeNodeMouseClickEventArgs (item, e.Button, e.Clicks, e.X, e.Y));
 
                 if (item.ContextMenu != null) {
-                    item.ContextMenu.Show (this, PointToScreen (e.Location));
+                    item.ContextMenu.Show (this, e.Location);   // client coordinates now: see TSM-03
                     return;
                 }
 

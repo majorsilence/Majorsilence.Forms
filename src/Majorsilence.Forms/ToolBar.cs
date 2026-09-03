@@ -74,7 +74,12 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void LayoutItems ()
         {
-            StackLayoutEngine.HorizontalExpand.Layout (LogicalClientRectangle, Items.Cast<ILayoutable> ());
+            // Hidden items are excluded, as Menu, MenuDropDown and StatusStrip all already do. Laying
+            // them out left a button that was painted but skipped by hit-testing -- a dead, visible
+            // button -- which is what permission-based toolbar trimming produced (TSM-04).
+            StackLayoutEngine.HorizontalExpand.Layout (
+                LogicalClientRectangle,
+                Items.Cast<MenuItem> ().Where (i => i.Visible).Cast<ILayoutable> ());
         }
 
         /// <inheritdoc/>

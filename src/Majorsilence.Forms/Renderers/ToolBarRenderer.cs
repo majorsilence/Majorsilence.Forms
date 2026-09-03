@@ -10,11 +10,17 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (ToolBar control, PaintEventArgs e)
         {
-            foreach (var item in control.Items)
+            foreach (var item in control.Items) {
+                // See ToolBar.LayoutItems: a hidden item has no box, so painting it drew it at
+                // whatever bounds it last had (TSM-04).
+                if (!item.Visible)
+                    continue;
+
                 if (item is MenuSeparatorItem msi)
                     RenderMenuSeparatorItem (control, msi, e);
                 else
                     RenderItem (control, item, e);
+            }
         }
 
         /// <summary>
@@ -28,8 +34,12 @@ namespace Majorsilence.Forms.Renderers
             if (item is ToolStripControlHost)
                 return;
 
-            // Background
-            var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor : Theme.BackgroundColor;
+            // Background. A checked ToolStripButton draws with the pressed background, which is the
+            // only way the user can see which mode a toggle button is in (TSM-06); hover still wins so
+            // the item reacts under the pointer.
+            var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor
+                                 : item.Checked ? Theme.ControlHighlightLowColor
+                                 : Theme.BackgroundColor;
             e.Canvas.FillRectangle (item.Bounds, background_color);
 
             var font_color = item.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;

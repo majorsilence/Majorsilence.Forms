@@ -8,6 +8,60 @@ Counts: **P0: 3**, **P1: 18**, **P2: 17**, P3 list separately. Upstream's legacy
 
 The matrix-documented stored-only group is recorded once here and not repeated per finding: `ToolStrip.Renderer` (Initialize hooks run, painting unchanged), `RenderMode`, `LayoutStyle`, `GripStyle`/`GripVisible`/`GripMargin`, `Stretch`, `CanOverflow`, `ToolStripManager.Renderer`/`RenderMode`, `MenuStrip.MdiWindowListItem`, `BindingNavigator.*Item` (`src/Majorsilence.Forms/WinFormsCompat.cs:2252-2345`, `2914-2940`).
 
+## Status (2026-09-03, W5.16 — strip facade and Show coordinates)
+
+**Closed:** TSM-03 (P0), TSM-08, and the menu-lifecycle remainder of TSM-30 (`MenuActivate`,
+`MenuDeactivate`, `ContextMenu.Popup`/`Collapse`, `MenuItem.Popup`). 12 tests in
+`StripFacadeAndCoordinatesTests.cs`, 11 verified to fail with their fix neutralized; 1 is labelled
+in-test as a guard. **This file is down to one P0** -- TSM-02, the keyboard shortcut pipeline.
+
+**A refinement of TSM-08's fix.** The finding suggests overriding `MenuBase.OnItemClicked` in
+`ToolStrip` and removing the per-item `Click +=` hook to avoid a double-fire. That would have cost the
+`PerformClick` case: upstream routes both a real click and `PerformClick` through `HandleClick`, so
+`ItemClicked` has to fire for both, and `MenuBase.OnItemClicked` only runs on the mouse path. Instead
+the notifications moved *out* of the items facade and onto `MenuItemCollection.InsertItem`/`RemoveItem`
+-- the one insertion path every strip type shares, since the facade forwards into it -- so a `MenuStrip`
+and a `ContextMenuStrip` behave exactly like a plain `ToolStrip` with no second code path. The relay is
+a method group rather than a lambda so it can be detached: an item removed and re-added would otherwise
+report every click twice.
+
+**Where Collapse belongs.** `ContextMenu` is never "activated" in `MenuBase`'s sense -- that state
+comes from interacting with a menu *bar* -- so hanging `Collapse` off the activation hook raised it
+never. It is raised from `Deactivate` against a `shown` flag set by `ShowCore`, which is the honest
+signal for "this menu is on screen", so it fires once per dismissal and not at all for a menu that was
+never displayed.
+
+**Why the unraised-event baseline did not move.** None of the five events were in it: each already had
+an `OnXxx` raiser containing `Xxx?.Invoke`, which the scanner counts as a raise site whether or not
+anything calls it. That is what makes TSM-30's category ("existing triggers") invisible to that gate.
+
+## Status (2026-09-03, W5.15 — item storage and appearance)
+
+**Closed:** TSM-01 (P0), TSM-04, TSM-06, TSM-14, TSM-31, and the part of TSM-30 whose triggers this
+item touches (`EnabledChanged`, `VisibleChanged`, `AvailableChanged`, `DisplayStyleChanged`). 14 tests in
+`ToolStripItemStateTests.cs`, 11 verified to fail with their fix neutralized; 3 are labelled in-test as
+guards. The menu-lifecycle half of TSM-30 (`MenuActivate`/`MenuDeactivate`, `ContextMenu.Popup`/
+`Collapse`, `MenuItem.Popup`) is left for W5.16 with the rest of the menu facade work.
+
+**TSM-14 is a precondition for TSM-01's fix, not a separate improvement.**
+`MenuDropDown.OnMouseClick` gates only on `clicked_item != null && !clicked_item.HasItems`; the
+`Enabled` check the P0 relies on lives in `MenuBase.OnMouseClick`, which a drop-down never reaches. So
+deleting the `new Enabled` shadow fixes a disabled item on a `MenuStrip` and leaves it clickable in
+every context menu and sub-menu, which is where disabled items overwhelmingly live. Both are fixed
+here, and TSM-14's "do not close popups for a disabled click" falls out of the same gate. Worth noting
+for the next item: TSM-14 is not named in W5.15's plan text, and the work would have been incomplete
+without it.
+
+**A correction to TSM-31's mechanism.** Strips lay their items out in `OnPaint` (`MenuBase.OnPaint`),
+not during a layout pass, so `PerformLayout` on a strip leaves every item with empty bounds and it is
+`Invalidate` that re-lays them out. `InvalidateItemLayout` does both -- the layout call is for the
+strip's *own* size, which `ToolStripPanelRowLayout.GetPreferredSizeCore` measures from its items.
+
+**Noted while here, not a finding in this file yet:** `MenuBase.GetItemAtLocation` compares the point
+it is given against `item.Bounds` with no conversion, while `Bounds` are device pixels and a real
+`MouseEventArgs` carries logical ones -- the same defect class as `LST-20` was for `ListView` and
+`TreeView`. It is invisible at scale 1, which is why the suite does not show it.
+
 ## Findings
 
 ### TSM-01 — `ToolStripItem.Enabled` — Cat A — P0 — High

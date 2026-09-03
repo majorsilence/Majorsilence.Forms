@@ -371,6 +371,24 @@ namespace Majorsilence.Forms
         /// <summary>Raises the <see cref="MenuActivate"/> event.</summary>
         protected virtual void OnMenuActivate (EventArgs e) => MenuActivate?.Invoke (this, e);
 
+        /// <inheritdoc/>
+        /// <remarks>MenuBase already tracked activation; these two were declared and never raised from
+        /// it (finding <c>TSM-30</c>).</remarks>
+        protected override void OnActivated ()
+        {
+            base.OnActivated ();
+
+            OnMenuActivate (EventArgs.Empty);
+        }
+
+        /// <inheritdoc cref="OnActivated"/>
+        protected override void OnDeactivated ()
+        {
+            base.OnDeactivated ();
+
+            OnMenuDeactivate (EventArgs.Empty);
+        }
+
         /// <summary>Raises the <see cref="MenuDeactivate"/> event.</summary>
         protected virtual void OnMenuDeactivate (EventArgs e) => MenuDeactivate?.Invoke (this, e);
     }

@@ -32,8 +32,25 @@ namespace Majorsilence.Forms.Renderers
             var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor : Theme.ControlLowColor;
             e.Canvas.FillRectangle (item.Bounds, background_color);
 
-            // Image
-            if (item.ImageSK != null) {
+            // A check mark goes in the image gutter, which is the 28px inset the text starts after.
+            // Nothing drew one before, so a checked menu item was indistinguishable from an unchecked
+            // one -- the user could not see the mode they were in (TSM-06). An item with both a check
+            // and an image gets the check: that is the state, where the image is decoration.
+            if (item.Checked) {
+                var glyph = e.LogicalToDeviceUnits (12);
+                var centred = DrawingExtensions.CenterSquare (item.Bounds, glyph);
+                var glyph_rect = new Rectangle (item.Bounds.Left + e.LogicalToDeviceUnits (8), centred.Top, glyph, glyph);
+
+                // ControlPaint.DrawMenuGlyph is one of the Graphics-based WinForms-compat stubs and
+                // paints nothing; the check box and radio painters are the real ones this framework
+                // draws every other check with. Upstream's menu tick has no box around it, which is a
+                // cosmetic difference from what a Win32 menu draws and the same glyph the rest of this
+                // toolkit uses for the same meaning.
+                if (item is ToolStripMenuItem { RadioCheck: true })
+                    ControlPaint.DrawRadioButton (e, glyph_rect.Location, CheckState.Checked, !item.Enabled);
+                else
+                    ControlPaint.DrawCheckBox (e, glyph_rect, CheckState.Checked, !item.Enabled);
+            } else if (item.ImageSK != null) {
                 var image_size = e.LogicalToDeviceUnits (16);
                 var image_bounds = DrawingExtensions.CenterSquare (item.Bounds, image_size);
                 var image_rect = new Rectangle (item.Bounds.Left + e.LogicalToDeviceUnits (6), image_bounds.Top, image_size, image_size);
