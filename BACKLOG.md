@@ -196,12 +196,32 @@ consumer who installs one gets a `System.Windows.Forms.dll` out of a third-party
 or outranking the real one in ways that are very hard to diagnose from the outside. Keep them
 `ProjectReference`-only unless a concrete consumer turns up that cannot work any other way.
 
-**Decision 2 -- `Majorsilence.Forms.WinFormsShims.Compat` is a PoC that already has a `PackageId`.** It
+**Decision 2 -- resolved 2026-09-03: `Majorsilence.Forms.WinFormsShims.Compat` ships.** It
 source-generates a `System.Windows.Forms`-namespace surface backed by this layer, for control libraries
 that cannot rewrite their own public API namespace, and it packs itself as an analyzer
-(`analyzers/dotnet/cs`). It is in neither publish list. A package id is permanent once pushed, so the
-question to answer first is whether the PoC is the shape this feature keeps; until then, unpublished is
-the right default.
+(`analyzers/dotnet/cs`). It is now in both publish lists. The reservation recorded here -- a package id
+is permanent once pushed, so is the PoC the shape this feature keeps? -- was answered by deciding to
+publish it for evaluation against real code, with the scope limits stated in the package's own README
+(public non-sealed `Component`/`Control`/`WindowBase` types only; `Majorsilence.Forms.Drawing`'s sealed
+leaf types and Majorsilence-specific `EventArgs` are out of scope).
+
+Two things had to change before a publish list could have any effect:
+
+- **It could not be packed at all.** An analyzer package carries no `lib`/`ref` assets, so NU5128 fires,
+  and Release turns warnings into errors -- `dotnet pack` failed outright. It now carries the same
+  `NoWarn` the Migrator does, for the same reason.
+- **It declared no dependency on `Majorsilence.Forms`.** The generated types derive from that
+  assembly's `Control`/`Component` hierarchy, so installing only the analyzer produces thousands of
+  compile errors. A `ProjectReference` (packaging, not compilation -- the generator's own code does not
+  use the assembly) makes `dotnet pack` emit the dependency at the matching version. `DevelopmentDependency`
+  was removed with it: that flag makes the consuming reference private, which would have suppressed the
+  very dependency being added, and a consumer puts the generated types in its own public API, so the
+  runtime reference has to flow onward.
+
+`Majorsilence.Forms.WinFormsShims.Compat.PoCTest` -- the unmodified `using System.Windows.Forms;`
+sample the generator is validated against -- was added to the solution so CI builds it. It compiles
+clean today, which makes it a genuine end-to-end check on a package that is now published rather than
+a throwaway.
 
 **Half of one gap left, and it is in the smoke test rather than the publish.** `Migrator` and `Mcp` were
 both in `publish-nuget.yml`'s list but **not** in `release.yml`'s -- and `release.yml` is the workflow
@@ -213,8 +233,8 @@ no earlier run to have caught a packaging error.
 single-file binaries it used to publish there were dropped in favour of the tool package being the only
 shipped form -- and that removed release.yml's only reference to the project, so the package had to take
 its place. Note that the old `dotnet publish --self-contained` was a different operation that would
-never have caught a bad `.nupkg` anyway. **`Mcp` is still missing from `release.yml`**; adding that one
-line is the rest of the fix.
+never have caught a bad `.nupkg` anyway. `WinFormsShims.Compat` went into both lists the same day (see
+Decision 2). **`Mcp` is still missing from `release.yml`**; adding that one line is the rest of the fix.
 
 **Not answerable from this repo:** whether each of these is actually *on* nuget.org today. The workflows
 describe what the next published release would push, not what previous releases did.
