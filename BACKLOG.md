@@ -183,8 +183,7 @@ closed: `e65d30c` added it to both workflows, and the Windows-only trio (`WinFor
 `WindowsFormsInterop`, `WindowsUIAutomation`) went with it via the windows-latest pack job.
 
 Read the two workflows knowing which does what, or the lists look contradictory: **`release.yml` packs,
-publishes the migrator binaries, uploads artifacts and creates a *draft* GitHub release; it never holds
-nuget.org credentials. `publish-nuget.yml` is what actually pushes, and only when a human clicks Publish
+uploads artifacts and creates a *draft* GitHub release; it never holds nuget.org credentials. `publish-nuget.yml` is what actually pushes, and only when a human clicks Publish
 on that draft.** So `publish-nuget.yml`'s `PACKABLE_PROJECTS` / `PACKABLE_PROJECTS_WINDOWS` is the
 authoritative answer to "what goes to nuget.org": core, Avalonia, Headless, Uno, Telerik, Drawing.Common,
 WebDriver, Wpf, Templates, Migrator and Mcp, plus the three Windows-only packages.
@@ -204,13 +203,18 @@ that cannot rewrite their own public API namespace, and it packs itself as an an
 question to answer first is whether the PoC is the shape this feature keeps; until then, unpublished is
 the right default.
 
-**One real gap left, and it is in the smoke test rather than the publish.** `Migrator` and `Mcp` are in
-`publish-nuget.yml`'s list but **not** in `release.yml`'s -- and `release.yml` is the workflow that runs
-on pull requests and main pushes. Their `dotnet pack` therefore runs for the first time *during* the
-nuget.org publish, after a human has clicked Publish, with no draft artifact to inspect and no earlier
-run to have caught a packaging error. (`release.yml` does `dotnet publish` the Migrator as a
-self-contained single-file binary, which is a different operation and would not catch a bad `.nupkg`.)
-Adding both to `release.yml`'s `PACKABLE_PROJECTS` is the whole fix.
+**Half of one gap left, and it is in the smoke test rather than the publish.** `Migrator` and `Mcp` were
+both in `publish-nuget.yml`'s list but **not** in `release.yml`'s -- and `release.yml` is the workflow
+that runs on pull requests and main pushes. Their `dotnet pack` therefore ran for the first time
+*during* the nuget.org publish, after a human had clicked Publish, with no draft artifact to inspect and
+no earlier run to have caught a packaging error.
+
+`Migrator` is now in `release.yml`'s `PACKABLE_PROJECTS` (2026-09-03), because the standalone
+single-file binaries it used to publish there were dropped in favour of the tool package being the only
+shipped form -- and that removed release.yml's only reference to the project, so the package had to take
+its place. Note that the old `dotnet publish --self-contained` was a different operation that would
+never have caught a bad `.nupkg` anyway. **`Mcp` is still missing from `release.yml`**; adding that one
+line is the rest of the fix.
 
 **Not answerable from this repo:** whether each of these is actually *on* nuget.org today. The workflows
 describe what the next published release would push, not what previous releases did.
