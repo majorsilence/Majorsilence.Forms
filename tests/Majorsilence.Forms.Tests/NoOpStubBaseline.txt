@@ -22,7 +22,6 @@ Majorsilence.Forms.BindingNavigator.BeginInit/0
 Majorsilence.Forms.BindingSource.ResetAllowNew/0
 Majorsilence.Forms.Clipboard.SetImage/1
 Majorsilence.Forms.ColumnHeader.AutoResize/1
-Majorsilence.Forms.ComboBox.SelectAll/0
 Majorsilence.Forms.Control.AccessibilityNotifyClients/2
 Majorsilence.Forms.Control.DrawToBitmap/2
 Majorsilence.Forms.Control.UpdateStyles/0

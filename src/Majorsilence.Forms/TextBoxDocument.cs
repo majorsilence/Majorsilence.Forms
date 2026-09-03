@@ -18,7 +18,7 @@ namespace Majorsilence.Forms
         private bool read_only;
         private int selection_start = -1;
         private int selection_end = -1;
-        private int max_length = int.MaxValue;
+        private int max_length;     // 0 == no limit, the WinForms convention; see MaxLength
         private bool multiline;
         private char? password_char;
         private int width = -1;
@@ -284,7 +284,7 @@ namespace Majorsilence.Forms
 
             str = StripInvalidCharacters (str);
 
-            if (text.Length + str.Length > max_length)
+            if (max_length > 0 && text.Length + str.Length > max_length)
                 str = str.Substring (0, max_length - text.Length);
 
             text = text.Insert (cursor_index, str);
@@ -333,10 +333,13 @@ namespace Majorsilence.Forms
 
         public bool IsTextSelected => selection_start >= 0 && selection_end >= 0 && SelectionLength != 0;
 
+        // 0 means "no limit", the WinForms convention. Stored AS GIVEN, because a caller that sets
+        // int.MaxValue has to read int.MaxValue back: representing "unlimited" as int.MaxValue made the
+        // two indistinguishable, so `MaxLength = int.MaxValue` reported 0 -- "no limit" -- instead of
+        // the value that was set. Surfaced by ComboBox.MaxLength forwarding here (W5.10).
         public int MaxLength {
-            // 0 means "no limit" (WinForms convention), stored internally as int.MaxValue.
-            get => max_length == int.MaxValue ? 0 : max_length;
-            set => max_length = value <= 0 ? int.MaxValue : value;
+            get => max_length;
+            set => max_length = value < 0 ? 0 : value;
         }
 
         private int? MaxLines => multiline ? (int?)null : 1;
