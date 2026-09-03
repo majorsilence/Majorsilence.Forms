@@ -71,10 +71,21 @@ namespace Majorsilence.Forms
         public void Collapse ()
         {
             // Don't let the root_item be collapsed
-            if (expanded && tree_view is null) {
-                expanded = false;
-                Invalidate ();
-            }
+            if (!expanded || tree_view is not null)
+                return;
+
+            // BeforeCollapse was never raised from anywhere, and AfterCollapse only from a glyph
+            // click -- so a programmatic Collapse ()/CollapseAll () announced nothing, and code that
+            // frees child nodes in AfterCollapse never ran (LST-23).
+            var tree = TreeView;
+
+            if (tree?.RaiseBeforeCollapse (this) == false)
+                return;
+
+            expanded = false;
+            Invalidate ();
+
+            tree?.RaiseAfterExpandCollapse (this, expanded: false);
         }
 
         /// <summary>Toggles the expanded/collapsed state of this item.</summary>
@@ -132,6 +143,10 @@ namespace Majorsilence.Forms
 
             expanded = true;
             Invalidate ();
+
+            // AfterExpand used to fire only from a glyph click, so a lazy-loading tree populated in
+            // BeforeExpand had no matching completion hook on the programmatic path (LST-23).
+            TreeView?.RaiseAfterExpandCollapse (this, expanded: true);
         }
 
         /// <summary>
@@ -189,6 +204,13 @@ namespace Majorsilence.Forms
         /// </summary>
         public virtual Size GetPreferredSize (Size proposedSize)
         {
+            // The tree's ItemHeight wins when it has been set: the row layout asks each NODE for its
+            // height, so honouring the property only in TreeView.ScaledItemHeight left the drawn rows
+            // at the measured height and the scroll maths disagreeing with them (LST-26). 20 is the
+            // default, so a caller has to mean it.
+            if (TreeView is { ItemHeight: > 0 } tree && tree.ItemHeight != 20)
+                return new Size (0, LogicalToDeviceUnits (tree.ItemHeight));
+
             var font_size = LogicalToDeviceUnits (Theme.FontSize);
             var padding = LogicalToDeviceUnits (10);
 
@@ -332,7 +354,31 @@ namespace Majorsilence.Forms
         public string Name { get; set; } = string.Empty;
 
         /// <summary>Gets or sets whether the item is checked (when TreeView.CheckBoxes is true).</summary>
-        public bool Checked { get; set; }
+        public bool Checked {
+            get => checked_state;
+            set => SetChecked (value, TreeViewAction.Unknown);
+        }
+
+        private bool checked_state;
+
+        // Ask, set, report -- the shape upstream's TreeNode.Checked has. It was an auto-property, so
+        // BeforeCheck could not veto and the cascading-check code every permission tree hangs off
+        // AfterCheck never ran (LST-24).
+        internal void SetChecked (bool value, TreeViewAction action)
+        {
+            if (checked_state == value)
+                return;
+
+            var tree = TreeView;
+
+            if (tree?.RaiseBeforeCheck (this, action) == false)
+                return;
+
+            checked_state = value;
+            Invalidate ();
+
+            tree?.RaiseAfterCheck (this, action);
+        }
 
         /// <summary>Gets or sets the foreground color override for this item. Empty means use default.</summary>
         public System.Drawing.Color ForeColor { get; set; } = System.Drawing.Color.Empty;

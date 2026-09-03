@@ -142,7 +142,6 @@ Majorsilence.Forms.TrackBar.BeginInit/0
 Majorsilence.Forms.TrackBar.EndInit/0
 Majorsilence.Forms.TreeNode.BeginEdit/0
 Majorsilence.Forms.TreeNode.EndEdit/1
-Majorsilence.Forms.TreeView.Sort/0
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/2
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/3
 Majorsilence.Forms.WebBrowser.GoBack/0

@@ -8,6 +8,32 @@ Counts: **P0: 5 · P1: 23 · P2: 13 · P3: listed in one line each.**
 
 ## Findings
 
+## Status (2026-09-02, W5.9 — the TreeView cluster)
+
+**Closed:** LST-05 (P0), LST-11, LST-21, LST-22, LST-23, LST-24, LST-25, the `TreeView` half of
+LST-20, and LST-26 except `ShowLines`/`ShowRootLines`/`LineColor`. 18 tests in
+`TreeViewBehaviourTests.cs`, each verified to fail with its fix neutralized.
+
+**A correction to LST-21's suggested test.** "Three root nodes; assert `GetNodeAt (RowCentre (1)) ==
+Nodes[1]` and equals `GetItemAtLocation` for the same point" passes against the code it is meant to
+catch. The equality half is true by construction once `GetNodeAt` delegates, and index 1 of three
+nodes is the fixed point of the reverse-order traversal the old code used — while at row 1 the stored
+`ItemHeight` (20) and the real row height (~24) still round into the same row. Four nodes and the last
+row discriminate; three and the middle one never could.
+
+**A correction to LST-26's fix.** Making `ItemHeight` scale and invalidate does not reach layout:
+`StackLayoutEngine` asks each `TreeNode` for its preferred size and never consults the tree's
+`ItemHeight`. `TreeNode.GetPreferredSize` is the site.
+
+**Also found, not in any finding:** `TreeViewItemCollection` has no `Move`, so `Sort ()` reorders with
+`RemoveAt` + `Insert`; and `TreeNode.Checked` had no cancellable path at all, not merely an unraised
+event, so the check state needed a `SetChecked (value, action)` choke point rather than a raise bolted
+onto the existing setter.
+
+**Still open in this file:** LST-07, LST-08, LST-10, LST-13, LST-14, LST-15, and the
+`ShowLines`/`ShowRootLines`/`LineColor` remainder of LST-26. LST-20 is now closed on both halves --
+W5.6 converted `ListView`'s hit-test, and `GetNodeAt`'s delegation inherits `TreeView`'s.
+
 ## Status (2026-09-02, W5.7 + W5.8 — CheckedListBox and list selection)
 
 **Closed:** LST-02 (P0), LST-03 (P0), LST-04 (P0), LST-06, LST-09, LST-16. 14 tests in

@@ -246,6 +246,11 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void ClearItems ()
         {
+            // Nodes.Clear () used to leave the tree reporting a stale SelectedNode -- one no longer in
+            // the tree at all (LST-05).
+            foreach (var item in this)
+                ForgetIfSelected (item);
+
             foreach (var item in this)
                 item.Parent = null;
 
@@ -254,10 +259,27 @@ namespace Majorsilence.Forms
             owner.Invalidate ();
         }
 
+        // Clears the tree's selection when the node being removed IS the selection, or contains it.
+        private void ForgetIfSelected (TreeNode removed)
+        {
+            var tree = owner.TreeView;
+
+            if (tree?.SelectedNode is not { } selected)
+                return;
+
+            for (var node = selected; node is not null; node = node.Parent)
+                if (ReferenceEquals (node, removed)) {
+                    tree.ClearSelectedNode ();
+                    return;
+                }
+        }
+
         /// <inheritdoc/>
         protected override void RemoveItem (int index)
         {
             var item = this[index];
+
+            ForgetIfSelected (item);
 
             base.RemoveItem (index);
 

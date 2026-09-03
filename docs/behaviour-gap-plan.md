@@ -744,10 +744,29 @@ announces, and a selection change writes `base.Text`, so `TextChanged` fires for
 *Closed:* `LST-03` (P0), `LST-04` (P0), `LST-06`, `LST-09`. One test inverted
 (`SetSelected_OutOfRange_Ignored`, which pinned the swallow).
 
-**W5.9 — `TreeView`.** `SelectedNode` returning a synthetic root instead of null; `GetNodeAt`/`HitTest`
-built on a fake layout that disagrees with the mouse's; images, checkboxes, `NodeFont`/colours,
-`Sorted`, `Indent`, `ItemHeight` all stored-only; the `BeforeSelect`/`BeforeCheck`/`BeforeCollapse`
-family discarded. *Closes:* `LST-05` (P0), `LST-11`, `LST-21`–`LST-26`.
+**W5.9 — `TreeView`. — DONE (2026-09-02)**
+`SelectedNode` filters the hidden synthetic root and a node whose `TreeView` is no longer this one, so
+it is null on a fresh tree, after `SelectedNode = null`, and after the selected node is removed or the
+collection cleared (`TreeViewItemCollection.ForgetIfSelected` from both `ClearItems` and `RemoveItem`).
+`GetNodeAt` delegates to the control's own `GetItemAtLocation` — the fake reverse-order traversal and
+the rectangles synthesised from the stored `ItemHeight` are gone, and the delegation inherits that
+method's device-pixel conversion, which closes the `TreeView` half of `LST-20` as well. One
+`SelectItem (node, TreeViewAction)` choke point runs `BeforeSelect` → assign → `AfterSelect`, and the
+nine keyboard sites pass `ByKeyboard` where every path used to report `ByMouse`. `Checked` routes
+through `SetChecked (value, action)` so `BeforeCheck` can cancel and `AfterCheck` reports the action;
+Space toggles it; the renderer draws the box through `ControlPaint.DrawCheckBox` and the layout
+reserves `ScaledCheckWidth` for it. `Collapse ()` raises `BeforeCollapse`/`AfterCollapse` and
+`Expand ()` raises `AfterExpand`, so programmatic expansion is announced like a clicked one. The
+renderer resolves a node's image from `Image`, then `ImageKey`/`SelectedImageKey`, then
+`ImageIndex`/`SelectedImageIndex` against the `ImageList`, and honours per-node `ForeColor`,
+`BackColor` and `NodeFont`. `Sorted = true` sorts on assignment, `TreeViewNodeSorter` sorts on
+assignment, and `Sort ()` is a real recursive sort. `ItemHeight` reaches layout through
+`TreeNode.GetPreferredSize` (layout asks each node, not the tree), `Indent` drives the renderer's
+indent step, and `ShowPlusMinus` aliases the existing `ShowDropdownGlyph`.
+*Closed:* `LST-05` (P0), `LST-11`, `LST-21`, `LST-22`, `LST-23`, `LST-24`, `LST-25`, and the
+`TreeView` half of `LST-20`. `LST-26` is closed except `ShowLines`/`ShowRootLines`/`LineColor`, which
+need connector-line drawing the renderer has never had — separable, and nothing else waits on it.
+18 tests, each verified to fail without its fix.
 
 **W5.10 — `ComboBox` editable region.** `DropDownStyle.DropDown` is the default and there is no text
 region at all — no `SelectionStart/Length/SelectedText`, no `MaxLength`, no autocomplete.
@@ -997,13 +1016,36 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4104 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4122 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
-80 → 70, unraised events 130 → 119, stored-only properties 822 → 781.
+80 → 66, unraised events 130 → 119, stored-only properties 822 → 769, no-op stubs
+156 → 155.
+
+### What W5.9 found
+
+**Three tests passed against the broken code before they were made to discriminate.** The hit-test
+test is the instructive one. `GetNodeAt` is now a delegation to `GetItemAtLocation`, so asserting the
+two agree is true by construction — it proves nothing. Asserting the *named node* instead still passed
+against the restored old algorithm, twice over: with three nodes, index 1 is the fixed point of the
+sibling reversal the old traversal performed, and at row 1 the stored height (20) and the measured row
+height (~24) have not yet diverged far enough to land in a different row. Both defects only show
+further down a longer list, so the test now uses four nodes and probes the last row — and it fails
+against the old algorithm. A defect that is off-by-a-reversal or off-by-a-scale-factor is invisible at
+the point where the two agree; choose the probe where they cannot.
+
+**`ItemHeight` never reached layout, and the property was not the reason.** Making the setter
+invalidate and having the tree scale the value changed nothing, because `StackLayoutEngine` asks each
+*node* for its preferred size — the tree's own `ItemHeight` is never consulted during layout. The fix
+belongs in `TreeNode.GetPreferredSize`, which had to reach back up to its tree. Wiring a stored-only
+property means finding the code that actually decides the outcome, not the code that shares its name.
+
+**A helper that wrote files only after every edit succeeded silently dropped four good edits.** A late
+anchor miss aborted the batch after reporting the earlier pairs "ok", leaving `OnBeforeCollapse`
+referenced and undefined. Validate every anchor before mutating anything.
 
 ### What W5.13 found
 

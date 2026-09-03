@@ -214,17 +214,58 @@ namespace Majorsilence.Forms
         /// <summary>WinForms compatibility: raised after an item is collapsed.</summary>
         public event EventHandler<TreeViewEventArgs>? AfterCollapse;
 
-        /// <summary>WinForms compatibility: raised before an item is selected.</summary>
-        public event EventHandler<TreeViewCancelEventArgs>? BeforeSelect { add { } remove { } }
+        /// <summary>Raised before an item is selected; set <c>Cancel</c> to prevent it.</summary>
+        /// <remarks>Real as of W5.9 (<c>LST-23</c>). These four were declared
+        /// <c>add { } remove { }</c>, so the "unsaved changes, really switch?" prompt every editor
+        /// tree hangs off <see cref="BeforeSelect"/> silently never ran.</remarks>
+        public event EventHandler<TreeViewCancelEventArgs>? BeforeSelect;
 
-        /// <summary>WinForms compatibility: raised before an item is collapsed.</summary>
-        public event EventHandler<TreeViewCancelEventArgs>? BeforeCollapse { add { } remove { } }
+        /// <summary>Raises the <see cref="BeforeSelect"/> event, returning false when cancelled.</summary>
+        protected virtual bool OnBeforeSelect (TreeViewCancelEventArgs e)
+        {
+            BeforeSelect?.Invoke (this, e);
 
-        /// <summary>WinForms compatibility: raised after an item's check state changes.</summary>
-        public event EventHandler<TreeViewEventArgs>? AfterCheck { add { } remove { } }
+            return !e.Cancel;
+        }
 
-        /// <summary>WinForms compatibility: raised before an item's check state changes.</summary>
-        public event EventHandler<TreeViewCancelEventArgs>? BeforeCheck { add { } remove { } }
+        /// <summary>Raised before an item is collapsed; set <c>Cancel</c> to prevent it.</summary>
+        public event EventHandler<TreeViewCancelEventArgs>? BeforeCollapse;
+
+        /// <summary>Raises the <see cref="BeforeCollapse"/> event, returning false when cancelled.</summary>
+        protected virtual bool OnBeforeCollapse (TreeViewCancelEventArgs e)
+        {
+            BeforeCollapse?.Invoke (this, e);
+
+            return !e.Cancel;
+        }
+
+        /// <summary>Raised after an item's check state changes.</summary>
+        public event EventHandler<TreeViewEventArgs>? AfterCheck;
+
+        /// <summary>Raises the <see cref="AfterCheck"/> event.</summary>
+        protected virtual void OnAfterCheck (TreeViewEventArgs e) => AfterCheck?.Invoke (this, e);
+
+        /// <summary>Raised before an item's check state changes; set <c>Cancel</c> to prevent it.</summary>
+        public event EventHandler<TreeViewCancelEventArgs>? BeforeCheck;
+
+        /// <summary>Raises the <see cref="BeforeCheck"/> event, returning false when cancelled.</summary>
+        protected virtual bool OnBeforeCheck (TreeViewCancelEventArgs e)
+        {
+            BeforeCheck?.Invoke (this, e);
+
+            return !e.Cancel;
+        }
+
+        // Called by TreeNode.Checked's setter: asks first, then reports, and answers whether the
+        // change may proceed (LST-24).
+        internal bool RaiseBeforeCheck (TreeNode node, TreeViewAction action)
+            => OnBeforeCheck (new TreeViewCancelEventArgs (node, false, action));
+
+        internal void RaiseAfterCheck (TreeNode node, TreeViewAction action)
+        {
+            OnAfterCheck (new TreeViewEventArgs (node, action));
+            Invalidate ();
+        }
 
         /// <summary>WinForms compatibility: raised after a node label is edited.</summary>
         public event EventHandler<NodeLabelEditEventArgs>? AfterLabelEdit { add { } remove { } }
@@ -254,6 +295,10 @@ namespace Majorsilence.Forms
         public bool HideSelection { get; set; }
 
         /// <summary>Gets or sets the height of each tree node row in pixels.</summary>
+        /// <remarks>Drives the row height when set to a positive value (<c>LST-26</c>): it was stored
+        /// and the renderer measured every row from the node's own preferred size, so taller rows for
+        /// touch were silently ignored -- and <c>VisibleCount</c> divided by this while the drawing
+        /// divided by the measured height, so the two disagreed.</remarks>
         public int ItemHeight { get; set; } = 20;
 
         /// <summary>Gets or sets whether in-place label editing is enabled. Stub in Majorsilence.Forms.</summary>
@@ -266,7 +311,13 @@ namespace Majorsilence.Forms
         public bool ShowLines { get; set; } = true;
 
         /// <summary>Gets or sets whether expand/collapse buttons are shown. Stub in Majorsilence.Forms.</summary>
-        public bool ShowPlusMinus { get; set; } = true;
+        /// <remarks>The same knob as <see cref="ShowDropdownGlyph"/>, which is this library's own name
+        /// for it -- they were separate properties for one piece of state, so a designer setting the
+        /// WinForms one changed nothing (<c>LST-26</c>).</remarks>
+        public bool ShowPlusMinus {
+            get => ShowDropdownGlyph;
+            set => ShowDropdownGlyph = value;
+        }
 
         /// <summary>Gets or sets whether root-level tree lines are drawn. Stub in Majorsilence.Forms.</summary>
         public bool ShowRootLines { get; set; } = true;
@@ -293,39 +344,55 @@ namespace Majorsilence.Forms
         public TreeNode? GetNodeAt (int x, int y) => GetNodeAt (new System.Drawing.Point (x, y));
 
         /// <summary>Returns the tree node at the specified client point, or null if none.</summary>
+        /// <remarks>
+        /// The same answer the control itself uses (finding <c>LST-21</c>). It used to walk a
+        /// <c>Stack</c>-based traversal that yielded siblings in REVERSE order and compare against
+        /// rectangles synthesised from the stored <see cref="ItemHeight"/>, ignoring the scroll
+        /// position and the client origin -- so <c>tree.GetNodeAt (e.X, e.Y)</c> in a MouseDown
+        /// handler (the canonical right-click-select and drag-drop pattern) returned a different node
+        /// from the one the tree had just selected on that very click.
+        /// </remarks>
         public TreeNode? GetNodeAt (System.Drawing.Point pt)
         {
-            foreach (var item in GetAllItems ())
-                if (GetItemBounds (item).Contains (pt))
-                    return item;
-            return null;
+            // A caller can hit-test before the first paint, when the laid-out list is still empty.
+            if (_layoutItems.Count == 0)
+                LayoutItems ();
+
+            return GetItemAtLocation (pt);
         }
 
-        private IEnumerable<TreeNode> GetAllItems ()
-        {
-            var stack = new Stack<TreeNode> (Items);
-            while (stack.Count > 0) {
-                var item = stack.Pop ();
-                yield return item;
-                if (item.IsExpanded)
-                    foreach (var child in item.Items)
-                        stack.Push (child);
+        /// <summary>Gets or sets the selected tree node, or null when nothing is selected.</summary>
+        /// <remarks>
+        /// Null-correct as of W5.9 (finding <c>LST-05</c>, P0). This used to return
+        /// <see cref="SelectedItem"/> unfiltered, and that is seeded with the hidden synthetic root --
+        /// so with nothing selected it handed back a non-null node whose <c>Text</c> was <c>""</c> and
+        /// whose <c>Nodes</c> were the tree's own top-level nodes. Every
+        /// <c>if (tree.SelectedNode == null) return;</c> guard failed to fire, callers read
+        /// <c>SelectedNode.Tag</c> (null) and carried on, and <c>SelectedNode.Nodes.Add (...)</c> added
+        /// a top-level node. Assigning null was ignored outright, so the standard way to clear a
+        /// selection did nothing.
+        /// </remarks>
+        public TreeNode? SelectedNode {
+            get => selected_item == root_item || selected_item.TreeView != this ? null : selected_item;
+            set {
+                if (value is null) {
+                    ClearSelectedNode ();
+                    return;
+                }
+
+                SelectedItem = value;
             }
         }
 
-        private System.Drawing.Rectangle GetItemBounds (TreeNode item)
+        // Back to the synthetic root, which is this control's representation of "nothing selected".
+        // No AfterSelect: upstream's TVN_SELCHANGED with a null handle skips OnAfterSelect too.
+        internal void ClearSelectedNode ()
         {
-            // Approximate — items are stacked vertically
-            var all = GetAllItems ().ToList ();
-            var index = all.IndexOf (item);
-            if (index < 0) return System.Drawing.Rectangle.Empty;
-            return new System.Drawing.Rectangle (0, index * ItemHeight, Width, ItemHeight);
-        }
+            if (selected_item == root_item)
+                return;
 
-        /// <summary>Gets or sets the selected tree node (WinForms compatibility alias for SelectedItem).</summary>
-        public TreeNode? SelectedNode {
-            get => SelectedItem;
-            set { if (value is not null) SelectedItem = value; }
+            selected_item = root_item;
+            Invalidate ();
         }
 
         /// <summary>Gets the root tree nodes (WinForms compatibility alias for Items).</summary>
@@ -338,10 +405,84 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the object used to sort tree nodes. Stub in Majorsilence.Forms.</summary>
-        public System.Collections.IComparer? TreeViewNodeSorter { get; set; }
+        public System.Collections.IComparer? TreeViewNodeSorter {
+            get => node_sorter;
+            set {
+                if (ReferenceEquals (node_sorter, value))
+                    return;
+
+                node_sorter = value;
+                Sort ();
+            }
+        }
+
+        private System.Collections.IComparer? node_sorter;
 
         /// <summary>Sorts all nodes in the tree using the default string comparison. Stub in Majorsilence.Forms.</summary>
-        public void Sort () { }
+        /// <summary>Sorts every level of the tree, by <see cref="TreeViewNodeSorter"/> if one is set,
+        /// else by node text.</summary>
+        /// <remarks>
+        /// Real as of W5.9 (<c>LST-11</c>). It was an empty method and <see cref="Sorted"/> was a
+        /// stored flag, so a folder or category tree appeared in load order however the designer had
+        /// set it up, and the canonical <c>TreeViewNodeSorter = comparer; Sort ();</c> pair did
+        /// nothing.
+        /// </remarks>
+        public void Sort () => SortNodes (root_item);
+
+        private void SortNodes (TreeNode parent)
+        {
+            var comparer = node_sorter ?? (Sorted ? TextComparer.Instance : null);
+
+            if (comparer is null)
+                return;
+
+            SortLevel (parent, comparer);
+
+            foreach (var child in parent.Items)
+                SortNodes (child);
+
+            Invalidate ();
+        }
+
+        // Re-inserting rather than sorting in place: the collection maintains each node's Parent as
+        // items move, and OrderBy is a stable sort where List.Sort is not -- two nodes comparing equal
+        // must not swap on every re-sort.
+        private static void SortLevel (TreeNode parent, System.Collections.IComparer comparer)
+        {
+            if (parent.Items.Count < 2)
+                return;
+
+            var ordered = parent.Items.OrderBy (n => n, new ComparerAdapter (comparer)).ToList ();
+
+            // Remove-then-insert rather than a Move the collection does not have: RemoveItem clears
+            // each node's Parent and InsertItem restores it, so the nodes stay correctly owned.
+            for (var i = 0; i < ordered.Count; i++) {
+                var current = parent.Items.IndexOf (ordered[i]);
+
+                if (current == i)
+                    continue;
+
+                parent.Items.RemoveAt (current);
+                parent.Items.Insert (i, ordered[i]);
+            }
+        }
+
+        private sealed class ComparerAdapter : IComparer<TreeNode>
+        {
+            private readonly System.Collections.IComparer inner;
+
+            internal ComparerAdapter (System.Collections.IComparer inner) => this.inner = inner;
+
+            public int Compare (TreeNode? x, TreeNode? y) => inner.Compare (x, y);
+        }
+
+        private sealed class TextComparer : System.Collections.IComparer
+        {
+            internal static readonly TextComparer Instance = new TextComparer ();
+
+            public int Compare (object? x, object? y)
+                => string.Compare ((x as TreeNode)?.Text, (y as TreeNode)?.Text, StringComparison.CurrentCulture);
+        }
 
         /// <summary>Returns the number of tree nodes in the collection, optionally including subnodes.</summary>
         public int GetNodeCount (bool includeSubTrees)
@@ -428,7 +569,9 @@ namespace Majorsilence.Forms
         // Runs a layout pass on all visible TreeViewItems.
         // Single tree traversal: simultaneously counts all visible items (for the scrollbar) and
         // collects the items on the current page (for layout and rendering).
-        private List<TreeNode> LayoutItems ()
+        // Internal, not private: GetNodeAt has to be able to lay out before the first paint, and a
+        // test asserting node bounds needs the same.
+        internal List<TreeNode> LayoutItems ()
         {
             _layoutItems.Clear ();
 
@@ -459,9 +602,23 @@ namespace Majorsilence.Forms
             return _layoutItems;
         }
 
+        // Called from TreeNode.Collapse, so a programmatic collapse is announced like a clicked one.
+        internal bool RaiseBeforeCollapse (TreeNode node)
+            => OnBeforeCollapse (new TreeViewCancelEventArgs (node, false, TreeViewAction.Collapse));
+
+        internal void RaiseAfterExpandCollapse (TreeNode node, bool expanded)
+        {
+            if (expanded)
+                AfterExpand?.Invoke (this, new TreeViewEventArgs (node, TreeViewAction.Expand));
+            else
+                AfterCollapse?.Invoke (this, new TreeViewEventArgs (node, TreeViewAction.Collapse));
+        }
+
         /// <summary>
-        /// Raises the BeforeExpand event. Returns true if expansion should proceed (was not cancelled).
+        /// Raises the <see cref="BeforeExpand"/> event.
         /// </summary>
+        /// <param name="node">The node about to expand.</param>
+        /// <returns><see langword="true"/> if expansion should proceed; <see langword="false"/> if a handler cancelled it.</returns>
         public bool OnBeforeExpand (TreeNode node)
         {
             if (node is not TreeNode treeNode)
@@ -482,8 +639,14 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            // If an item with a ContextMenu was right-clicked, show its ContextMenu
+            // Any button reports the click, before the context-menu shortcut takes over: the standard
+            // `NodeMouseClick += (s, e) => { if (e.Button == Right) { tree.SelectedNode = e.Node;
+            // menu.Show (...); } }` never ran, because the right button returned above the only raise
+            // (finding LST-22). Right-click deliberately does not change the selection -- upstream's
+            // does not either -- so the handler above is what decides whether it should.
             if (e.Button == MouseButtons.Right) {
+                OnNodeMouseClick (new TreeNodeMouseClickEventArgs (item, e.Button, e.Clicks, e.X, e.Y));
+
                 if (item.ContextMenu != null) {
                     item.ContextMenu.Show (this, PointToScreen (e.Location));
                     return;
@@ -496,6 +659,17 @@ namespace Majorsilence.Forms
 
             base.OnMouseClick (e);
 
+            // The check box is its own hit target, ahead of the glyph and the label: clicking it
+            // toggles and does not move the selection (LST-24).
+            if (CheckBoxes) {
+                var device = new Point (LogicalToDeviceUnits (e.Location.X), LogicalToDeviceUnits (e.Location.Y));
+
+                if (CheckBounds (item).Contains (device)) {
+                    item.SetChecked (!item.Checked, TreeViewAction.ByMouse);
+                    return;
+                }
+            }
+
             var element = item.GetElementAtLocation (e.Location);
 
             if (element == TreeNode.TreeViewItemElement.Glyph) {
@@ -505,9 +679,38 @@ namespace Majorsilence.Forms
                 item.Expanded = !item.Expanded;
                 RaiseExpandCollapseEvents (item, was_expanded);
             } else {
-                SelectedItem = item;
-                NodeMouseClick?.Invoke (this, new TreeNodeMouseClickEventArgs (item, e.Button, e.Clicks, e.X, e.Y));
+                SelectItem (item, TreeViewAction.ByMouse);
+                OnNodeMouseClick (new TreeNodeMouseClickEventArgs (item, e.Button, e.Clicks, e.X, e.Y));
             }
+        }
+
+        /// <summary>Raises the <see cref="NodeMouseClick"/> event.</summary>
+        protected virtual void OnNodeMouseClick (TreeNodeMouseClickEventArgs e) => NodeMouseClick?.Invoke (this, e);
+
+        /// <summary>The width the check box column takes, in device pixels; zero when hidden.</summary>
+        internal int ScaledCheckWidth => CheckBoxes ? LogicalToDeviceUnits (CheckGlyphSize + 4) : 0;
+
+        private const int CheckGlyphSize = 13;
+
+        /// <summary>The check box rectangle for a node, in device pixels.</summary>
+        internal System.Drawing.Rectangle CheckBounds (TreeNode node)
+        {
+            if (!CheckBoxes)
+                return System.Drawing.Rectangle.Empty;
+
+            var size = LogicalToDeviceUnits (CheckGlyphSize);
+            var left = CheckColumnLeft (node);
+
+            return new System.Drawing.Rectangle (left, node.Bounds.Top + System.Math.Max (0, (node.Bounds.Height - size) / 2), size, size);
+        }
+
+        // The check box sits after the indent and the glyph, before the image -- which is where
+        // upstream's state image goes.
+        internal int CheckColumnLeft (TreeNode node)
+        {
+            var indent = node.Bounds.Left + node.IndentLevel * LogicalToDeviceUnits (Indent) + 2;
+
+            return ShowPlusMinus ? indent + LogicalToDeviceUnits (CheckGlyphSize) : indent;
         }
 
         private void RaiseExpandCollapseEvents (TreeNode item, bool wasExpanded)
@@ -602,13 +805,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the ItemSelected event.
         /// </summary>
-        protected virtual void OnItemSelected (EventArgs<TreeNode> e)
+        protected virtual void OnItemSelected (EventArgs<TreeNode> e) => OnItemSelected (e, TreeViewAction.Unknown);
+
+        // The action-carrying overload. Kept separate so the public virtual above stays the shape a
+        // derived control may already override.
+        private void OnItemSelected (EventArgs<TreeNode> e, TreeViewAction action)
         {
             ItemSelected?.Invoke (this, e);
 
             // TreeViewEventArgs.Node is TreeNode-typed for WinForms compat; skip for plain items.
             if (e.Value is TreeNode node)
-                AfterSelect?.Invoke (this, new TreeViewEventArgs (node, TreeViewAction.ByMouse));
+                AfterSelect?.Invoke (this, new TreeViewEventArgs (node, action));
         }
 
         /// <inheritdoc/>
@@ -621,7 +828,7 @@ namespace Majorsilence.Forms
                 var index = all.IndexOf (selected_item);
 
                 if (index + 1 < all.Count)
-                    SelectedItem = all[index + 1];
+                    SelectItem (all[index + 1], TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
                 return;
@@ -633,7 +840,7 @@ namespace Majorsilence.Forms
                 var index = all.IndexOf (selected_item);
 
                 if (index > 0)
-                    SelectedItem = all[index - 1];
+                    SelectItem (all[index - 1], TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
                 return;
@@ -646,7 +853,7 @@ namespace Majorsilence.Forms
                 if (all.Count == 0)
                     return;
 
-                SelectedItem = all.Last ();
+                SelectItem (all.Last (), TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
                 return;
@@ -659,7 +866,7 @@ namespace Majorsilence.Forms
                 if (all.Count == 0)
                     return;
 
-                SelectedItem = all.First ();
+                SelectItem (all.First (), TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
                 return;
@@ -675,7 +882,7 @@ namespace Majorsilence.Forms
                 var index = all.IndexOf (selected_item);
                 var new_index = Math.Min (index + VisibleItemCount - 1, all.Count - 1);
 
-                SelectedItem = all[new_index];
+                SelectItem (all[new_index], TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
                 return;
@@ -691,7 +898,7 @@ namespace Majorsilence.Forms
                 var index = all.IndexOf (selected_item);
                 var new_index = Math.Max (index - (VisibleItemCount - 1), 0);
 
-                SelectedItem = all[new_index];
+                SelectItem (all[new_index], TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
                 return;
@@ -702,7 +909,7 @@ namespace Majorsilence.Forms
                 selected_item.Expand ();
 
                 if (selected_item.HasChildren)
-                    SelectedItem = selected_item.Items.First ();
+                    SelectItem (selected_item.Items.First (), TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
                 return;
@@ -718,7 +925,7 @@ namespace Majorsilence.Forms
             // Left with no children or collapsed selects parent
             if (e.KeyCode == Keys.Left && !selected_item.Expanded) {
                 if (selected_item.Parent is TreeNode parent && parent != root_item)
-                    SelectedItem = parent;
+                    SelectItem (parent, TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
                 return;
@@ -729,13 +936,19 @@ namespace Majorsilence.Forms
                 var item = FindString (((char)e.KeyCode).ToString (), selected_item);
 
                 if (item != null) {
-                    SelectedItem = item;
+                    SelectItem (item, TreeViewAction.ByKeyboard);
                     e.Handled = true;
                     return;
                 }
             }
 
-            // TODO: If checkboxes, space toggles checkbox
+            // Space toggles the selected node's check box, as upstream does (LST-24).
+            if (e.KeyCode == Keys.Space && CheckBoxes && SelectedNode is { } selected) {
+                selected.SetChecked (!selected.Checked, TreeViewAction.ByKeyboard);
+                e.Handled = true;
+                return;
+            }
+
             base.OnKeyDown (e);
         }
 
@@ -812,30 +1025,45 @@ namespace Majorsilence.Forms
         }
 
         // The scaled height of each TreeNode.
-        internal int ScaledItemHeight => (root_item.Items.FirstOrDefault () ?? root_item).GetPreferredSize (Size.Empty).Height;
+        internal int ScaledItemHeight
+            // An explicitly-set ItemHeight wins over the measured one, which is what the property is
+            // for; 20 is the default, so a caller has to mean it (LST-26).
+            => ItemHeight > 0 && ItemHeight != 20
+                ? LogicalToDeviceUnits (ItemHeight)
+                : (root_item.Items.FirstOrDefault () ?? root_item).GetPreferredSize (Size.Empty).Height;
 
         /// <summary>
         /// Gets or sets the currently selected TreeNode.
         /// </summary>
         public TreeNode SelectedItem {
             get => selected_item;
-            set {
-                // Don't allow user to unselect items
-                if (value is null)
-                    return;
+            set => SelectItem (value, TreeViewAction.Unknown);
+        }
 
-                var current_selection = selected_item;
+        // The one place the selection moves, so BeforeSelect can veto it and both events carry the
+        // action that actually caused it. AfterSelect used to report ByMouse for everything, keyboard
+        // and programmatic included (LST-23).
+        internal void SelectItem (TreeNode? value, TreeViewAction action)
+        {
+            // Don't allow user to unselect items through here; SelectedNode = null is the documented
+            // way to clear a selection and goes through ClearSelectedNode.
+            if (value is null)
+                return;
 
-                if (current_selection == value)
-                    return;
+            var current_selection = selected_item;
 
-                selected_item = value;
+            if (current_selection == value)
+                return;
 
-                EnsureItemVisible (value);
-                Invalidate ();
+            if (!OnBeforeSelect (new TreeViewCancelEventArgs (value, false, action)))
+                return;
 
-                OnItemSelected (new EventArgs<TreeNode> (value));
-            }
+            selected_item = value;
+
+            EnsureItemVisible (value);
+            Invalidate ();
+
+            OnItemSelected (new EventArgs<TreeNode> (value), action);
         }
 
         /// <inheritdoc/>

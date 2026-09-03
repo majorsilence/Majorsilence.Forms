@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 781 of 1230 public settable auto-properties (63%).
+# 769 of 1226 public settable auto-properties (62%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -740,34 +740,22 @@ Majorsilence.Forms.ToolTip.ToolTipIcon
 Majorsilence.Forms.ToolTip.ToolTipTitle
 Majorsilence.Forms.ToolTip.UseAnimation
 Majorsilence.Forms.ToolTip.UseFading
-Majorsilence.Forms.TreeNode.BackColor
-Majorsilence.Forms.TreeNode.Checked
-Majorsilence.Forms.TreeNode.ForeColor
-Majorsilence.Forms.TreeNode.NodeFont
 Majorsilence.Forms.TreeNode.StateImageIndex
 Majorsilence.Forms.TreeNode.ToolTipText
 Majorsilence.Forms.TreeView.BorderStyle
-Majorsilence.Forms.TreeView.CheckBoxes
 Majorsilence.Forms.TreeView.FullRowSelect
 Majorsilence.Forms.TreeView.HideSelection
 Majorsilence.Forms.TreeView.HotTracking
-Majorsilence.Forms.TreeView.ImageIndex
 Majorsilence.Forms.TreeView.ImageKey
-Majorsilence.Forms.TreeView.ImageList
-Majorsilence.Forms.TreeView.Indent
 Majorsilence.Forms.TreeView.LabelEdit
 Majorsilence.Forms.TreeView.LineColor
 Majorsilence.Forms.TreeView.PathSeparator
 Majorsilence.Forms.TreeView.Scrollable
-Majorsilence.Forms.TreeView.SelectedImageIndex
 Majorsilence.Forms.TreeView.SelectedImageKey
 Majorsilence.Forms.TreeView.ShowLines
 Majorsilence.Forms.TreeView.ShowNodeToolTips
-Majorsilence.Forms.TreeView.ShowPlusMinus
 Majorsilence.Forms.TreeView.ShowRootLines
-Majorsilence.Forms.TreeView.Sorted
 Majorsilence.Forms.TreeView.StateImageList
-Majorsilence.Forms.TreeView.TreeViewNodeSorter
 Majorsilence.Forms.UpDownBase.ChangingText
 Majorsilence.Forms.UpDownBase.InterceptArrowKeys
 Majorsilence.Forms.UpDownBase.ReadOnly
