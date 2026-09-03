@@ -77,14 +77,45 @@ namespace Majorsilence.Forms
 
         // ── Touch scroll ──
         // Avalonia's ScrollGestureRecognizer is registered (AvaloniaGestureWiring) but on Android it
-        // often never fires, so scrolling is also synthesised from the raw touch pointer stream in the
-        // OnPointer* overrides below. _recognizerLive latches true the first time the real recognizer
-        // delivers an event, permanently disabling the synthesis so the two never both scroll.
-        private bool _recognizerLive;
+        // fires unreliably -- often not at all, and sometimes just a single stray event mid-gesture --
+        // so scrolling is also synthesised from the raw touch pointer stream in the OnPointer* overrides
+        // below. The synthesis backs off only while the real recognizer is *actively* delivering events
+        // (_recognizerLive): a short time window rather than a permanent latch, because latching on the
+        // first stray event left scrolling dead for the rest of the session on devices where the
+        // recognizer never fires again.
+        private long _recognizerScrollTs;   // Stopwatch ticks of the last real recognizer scroll event
+        private bool _recognizerLive =>
+            _recognizerScrollTs != 0 &&
+            System.Diagnostics.Stopwatch.GetTimestamp () - _recognizerScrollTs < System.Diagnostics.Stopwatch.Frequency * 3 / 10;
         private AvPoint? _touchAnchor;     // press position; null once released / capture lost
         private AvPoint _touchLast;
         private bool _touchScrolling;      // past the start-distance slop -> we own this gesture
         private const double TouchScrollStartDistance = 8;   // logical px
+
+        // Digitizer-chop bridging. On Android the touch stream for one continuous swipe arrives as a
+        // burst of ~90Hz moves, then PointerCaptureLost, then NOTHING for ~300-1300ms, then a fresh
+        // press further along the swipe path -- over and over (the software renderer keeps the UI thread
+        // busy enough that Android periodically cancels the gesture; a dedicated render thread would
+        // avoid it -- see the paint-throttle and DispatcherPriority notes below). Left alone that is a
+        // stutter of tiny disconnected drags with no momentum.
+        //
+        // Bridging stitches it back together: on a lost capture the scroll is NOT ended -- the content
+        // coasts through the blind gap (DeferTouchGestureEnd), and a press that lands within
+        // _bridgeTimer's window and roughly on the swipe path is treated as the SAME gesture (coast
+        // stopped, drag resumed, its position corrected, its tap swallowed). Only when the window
+        // elapses with no such press is the gesture really over (FinaliseTouchGesture).
+        private readonly DispatcherTimer _bridgeTimer;
+        private bool _touchReleasePending; // contact lost mid-scroll; waiting to see if a press bridges it
+        private AvPoint _touchReleasePos;
+        private long _touchReleaseTs;      // Stopwatch ticks
+        private AvPoint _gestureAnchorPt;  // where THIS swipe first touched down -- stays over the scrollable
+                                           // content, so the coast/fling hit-tests there even when the finger
+                                           // has since flown to a screen edge
+        private const double BridgeWindowSeconds = 1.4;      // after a capture loss -- covers the re-acquisition gap
+        private const double RealLiftFinaliseSeconds = 0.12; // after a genuine pointer-up -- momentum starts almost at once
+        private const double BridgeAcrossAxis = 110;     // logical px; re-press drift across the swipe axis
+        private const double BridgeAlongAxis = 900;      // logical px; the finger travels far along it while blind
+        private const double CoastMinSpeed = 40;         // device px/s; below this a lost contact just stops
 
         // Momentum: the drag tracks the finger 1:1, then keeps gliding after lift-off with a decaying
         // velocity -- the native Android/iOS feel. Avalonia's recognizer would do this itself (its
@@ -94,13 +125,19 @@ namespace Majorsilence.Forms
         private bool _touchVelocityValid;
         private long _touchLastMoveTs;     // Stopwatch ticks
         private AvVector _flingVelocity;   // device px/s, decays each tick
-        private AvPoint _flingOrigin;      // last finger position -- where the continued scroll hit-tests
+        private AvPoint _flingOrigin;      // the gesture's start anchor -- where the coast/fling hit-tests
         private long _flingLastTs, _flingStartTs;
         private double _flingAccumX, _flingAccumY;   // sub-pixel carry so the glide tail stays smooth
+        private int _flingSentX, _flingSentY;        // device px the glide has scrolled since the contact was lost
+        private double _flingRetention;              // active decay: gentle while coasting a blind gap, sharp after
+        private bool _coasting;                      // the glide is filling a digitizer blind gap, not a post-lift fling
         private bool _flingCaughtByPress;  // a press landed on a live fling -> swallow its tap
-        private const double FlingMinStartSpeed = 120;   // device px/s; a slower lift is not a flick
         private const double FlingStopSpeed = 18;        // device px/s; the glide ends here
-        private const double FlingRetentionPerSecond = 0.04;   // fraction of speed kept after 1s (tau ~ 0.31s)
+        private const double FlingRetentionPerSecond = 0.04;   // post-lift decay -- keeps 4% after 1s (tau ~ 0.31s)
+        private const double CoastRetentionFast = 0.6;   // blind-gap decay for a real swipe -- near-constant, the finger keeps going
+        private const double CoastRetentionSlow = 0.08;  // blind-gap decay for a slow drag -- dies in ~250ms, re-press correction carries it
+        private const double CoastFastSpeed = 320;       // device px/s; at/above this the finger is really swiping (fast decay profile)
+        private const double CoastToFlingSpeed = 120;    // device px/s; a gap that ends this slow just stops, no post-lift fling
         private const double FlingMaxSeconds = 2.0;
 
         internal MajorsilenceFormsSingleViewHost (WindowBase owner, bool isPopup)
@@ -137,12 +174,19 @@ namespace Majorsilence.Forms
                     lifetime.MainView = this;
             }
 
-            // The onRecognizerScroll callback latches _recognizerLive so the raw-pointer scroll
-            // synthesis in OnPointerMoved stops the moment Avalonia's own recognizer proves it works.
-            AvaloniaGestureWiring.Attach (this, _owner, () => Scale, onRecognizerScroll: () => _recognizerLive = true);
+            // The onRecognizerScroll callback timestamps the last real recognizer event; while those keep
+            // arriving the raw-pointer synthesis in OnPointerMoved stands down (see _recognizerLive).
+            AvaloniaGestureWiring.Attach (this, _owner, () => Scale,
+                onRecognizerScroll: () => _recognizerScrollTs = System.Diagnostics.Stopwatch.GetTimestamp ());
 
-            _flingTimer = new DispatcherTimer (DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds (16) };
+            // Background, not Render: Avalonia's Render priority sits ABOVE Input, so a fling/paint tick
+            // posted there preempts the touch-event queue -- Android then sees input going un-ACKed and
+            // cancels the in-progress gesture. Below Input, the pointer burst drains first.
+            _flingTimer = new DispatcherTimer (DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds (16) };
             _flingTimer.Tick += (_, _) => FlingTick ();
+
+            _bridgeTimer = new DispatcherTimer (DispatcherPriority.Input) { Interval = TimeSpan.FromSeconds (BridgeWindowSeconds) };
+            _bridgeTimer.Tick += (_, _) => FinaliseTouchGesture ();
 
             // The on-screen keyboard: Avalonia asks the focused InputElement for a text-input client when
             // it wants an IME. This host routes keys manually and always "has focus", so it answers that
@@ -170,6 +214,8 @@ namespace Majorsilence.Forms
         {
             _renderPending = false;
             StopFling ();
+            _bridgeTimer.Stop ();
+            _touchReleasePending = false;
             _framebuffer?.Dispose ();
             _framebuffer = null;
 
@@ -300,11 +346,19 @@ namespace Majorsilence.Forms
             if (_renderPending)
                 return;
             _renderPending = true;
+            // Background, NOT Render: see the _flingTimer comment in the constructor. Render priority is
+            // above Input, so the software framebuffer paint scheduled there was preempting the touch
+            // queue and Android was cancelling the in-progress gesture.
             Dispatcher.UIThread.Post (() => {
                 _renderPending = false;
                 PaintFrame ();
-            }, DispatcherPriority.Render);
+            }, DispatcherPriority.Background);
         }
+
+        private long _lastPaintTs;                            // Stopwatch ticks of the last completed paint
+        private const double TouchPaintMinIntervalMs = 32;    // cap the full-scene software raster to ~30fps
+                                                              // while a finger is down / the fling coasts, so
+                                                              // the UI thread keeps slack to service touch
 
         private void PaintFrame ()
         {
@@ -316,6 +370,22 @@ namespace Majorsilence.Forms
 
             if (!_dirty && !_owner.adapter.NeedsPaint)
                 return;
+
+            // Throttle repaints during a touch drag / blind-gap coast: rasterising the full scene every
+            // input frame pins the UI thread and Android cancels the gesture. A dropped frame here is
+            // invisible; a cancelled gesture is the stutter.
+            if (_touchAnchor is not null || _touchReleasePending) {
+                var sinceMs = (System.Diagnostics.Stopwatch.GetTimestamp () - _lastPaintTs) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+                if (sinceMs < TouchPaintMinIntervalMs) {
+                    if (!_renderPending) {
+                        _renderPending = true;
+                        DispatcherTimer.RunOnce (() => { _renderPending = false; ScheduleRender (); },
+                            TimeSpan.FromMilliseconds (TouchPaintMinIntervalMs - sinceMs), DispatcherPriority.Background);
+                    }
+                    return;
+                }
+            }
+            _lastPaintTs = System.Diagnostics.Stopwatch.GetTimestamp ();
 
             _dirty = false;
 
@@ -354,6 +424,23 @@ namespace Majorsilence.Forms
             Focus ();
 
             var pos = e.GetPosition (this);
+            var isTouch = e.Pointer.Type is PointerType.Touch or PointerType.Pen;
+            var now = System.Diagnostics.Stopwatch.GetTimestamp ();
+
+            // Is this press really the same swipe the digitizer just chopped? Only bridge a contact that
+            // was already scrolling -- a plain tap that never crossed the slop finalises as a tap, so
+            // tap-to-select is untouched. A press that lands while the blind-gap coast is still running
+            // is a continuation almost by definition; otherwise it must be soon after, and roughly on
+            // the swipe path (far along the axis is fine -- the finger moved while the digitizer slept).
+            var bridging = false;
+            if (_touchReleasePending) {
+                var gap = (now - _touchReleaseTs) / (double) System.Diagnostics.Stopwatch.Frequency;
+                bridging = isTouch && !_recognizerLive
+                           && (_coasting || (gap < BridgeWindowSeconds && BridgeReachable (pos - _touchReleasePos)));
+                _touchReleasePending = false;
+                _bridgeTimer.Stop ();
+            }
+
             var props = e.GetCurrentPoint (this).Properties;
             _owner.HandlePointerPressed (
                 AvaloniaKeyInterop.PressedButton (props.PointerUpdateKind),
@@ -363,17 +450,35 @@ namespace Majorsilence.Forms
             // A press lands: end any glide still running. If one was, this press only stops it -- it
             // must not also tap/select (native behaviour: the first touch catches the fling).
             _flingCaughtByPress = _flingTimer.IsEnabled;
+            var coastSent = new System.Drawing.Point (_flingSentX, _flingSentY);
             StopFling ();
 
-            if (!_recognizerLive && e.Pointer.Type is PointerType.Touch or PointerType.Pen) {
+            if (!_recognizerLive && isTouch) {
                 _touchAnchor = pos;
                 _touchLast = pos;
-                _touchScrolling = _flingCaughtByPress;
-                _touchVelocity = default;
-                _touchVelocityValid = false;
-                _touchLastMoveTs = 0;
+                _touchLastMoveTs = 0;   // next move keeps the carried velocity rather than one across the seam
 
-                if (_flingCaughtByPress)
+                if (bridging) {
+                    _touchScrolling = true;   // stay in the scroll we were already doing
+                    // _gestureAnchorPt unchanged -- still the first touch-down of this swipe
+
+                    // The coast glide only *approximated* the finger's travel through the blind gap.
+                    // Now the real end position is known: scroll by whatever it under- or over-shot, so
+                    // the content lands exactly where a continuous drag would have put it.
+                    var corrX = (int)((pos.X - _touchReleasePos.X) * Scale) - coastSent.X;
+                    var corrY = (int)((pos.Y - _touchReleasePos.Y) * Scale) - coastSent.Y;
+                    if (corrX != 0 || corrY != 0)
+                        _owner.HandleScrollGesture ((int)(pos.X * Scale), (int)(pos.Y * Scale), corrX, corrY);
+                } else {
+                    _touchScrolling = _flingCaughtByPress;
+                    _touchVelocity = default;
+                    _touchVelocityValid = false;
+                    _gestureAnchorPt = pos;   // a brand-new swipe starts here
+                    _flingSentX = _flingSentY = 0;
+                }
+
+                // A bridging press, or one that just caught a fling, must not also select.
+                if (bridging || _flingCaughtByPress)
                     _owner.HandlePointerReleased (MouseButtons.Left, -1_000_000, -1_000_000, Keys.None);
             }
 
@@ -382,33 +487,101 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerReleased (AvPointerReleasedEventArgs e)
         {
+            var pos = e.GetPosition (this);
+
             // A synthesised scroll already cancelled the press (SynthesiseTouchScroll), so the real
             // release must not fire a second MouseUp/Click -- that is what would select an item at the
             // end of a swipe.
             if (!_touchScrolling) {
-                var pos = e.GetPosition (this);
                 var props = e.GetCurrentPoint (this).Properties;
                 _owner.HandlePointerReleased (
                     AvaloniaKeyInterop.ReleasedButton (props.PointerUpdateKind),
                     (int)(pos.X * Scale), (int)(pos.Y * Scale),
                     AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
             } else {
-                MaybeStartFling ();
+                // A real pointer-up: the finger genuinely lifted, so only a brief window to absorb a
+                // stray re-press -- momentum should start almost immediately.
+                DeferTouchGestureEnd (pos, ambiguous: false);
             }
 
             _touchAnchor = null;
-            _touchScrolling = false;
+            _touchScrolling = false;   // restored by a bridging press, if one comes
             base.OnPointerReleased (e);
         }
 
         protected override void OnPointerCaptureLost (PointerCaptureLostEventArgs e)
         {
+            // Capture loss mid-scroll is ambiguous: on Android it is mostly the digitizer dropping and
+            // re-acquiring contact within one swipe, not a real lift -- so keep the gesture alive for
+            // the full bridge window to catch the re-press.
             if (_touchScrolling)
-                MaybeStartFling ();
+                DeferTouchGestureEnd (_touchLast, ambiguous: true);
 
             _touchAnchor = null;
             _touchScrolling = false;
             base.OnPointerCaptureLost (e);
+        }
+
+        // True if a re-press at this offset from the lost contact is still the same swipe: generous
+        // along the swipe axis (the finger travelled while the digitizer was blind), tight across it.
+        private bool BridgeReachable (AvVector jump)
+        {
+            var alongY = System.Math.Abs (_touchVelocity.Y) >= System.Math.Abs (_touchVelocity.X);
+            var along = alongY ? System.Math.Abs (jump.Y) : System.Math.Abs (jump.X);
+            var across = alongY ? System.Math.Abs (jump.X) : System.Math.Abs (jump.Y);
+            return across < BridgeAcrossAxis && along < BridgeAlongAxis;
+        }
+
+        // A touch scroll has (maybe) ended. Don't commit yet: on Android a lost capture is usually the
+        // digitizer dropping contact mid-swipe, and a fresh press lands within ~1s further along the
+        // path. The content coasts through that blind gap at the last measured finger speed -- for a
+        // fast swipe near-constant, for a slow drag decaying quickly (its speed sample is too noisy to
+        // trust, and the re-press position correction carries it instead). A bridging press resumes the
+        // drag; if _bridgeTimer fires first, FinaliseTouchGesture turns the coast into a normal
+        // post-lift fling (or stops it). <paramref name="ambiguous"/> is false for a real pointer-up
+        // (short window, momentum starts almost at once) and true for a capture loss.
+        private void DeferTouchGestureEnd (AvPoint pos, bool ambiguous)
+        {
+            _touchReleasePending = true;
+            _touchReleasePos = pos;
+            _touchReleaseTs = System.Diagnostics.Stopwatch.GetTimestamp ();
+            _bridgeTimer.Stop ();
+            _bridgeTimer.Interval = TimeSpan.FromSeconds (ambiguous ? BridgeWindowSeconds : RealLiftFinaliseSeconds);
+            _bridgeTimer.Start ();
+
+            if (_recognizerLive || !_touchVelocityValid || _touchVelocity.Length < CoastMinSpeed) {
+                StopFling ();
+                return;
+            }
+
+            var fast = _touchVelocity.Length >= CoastFastSpeed;
+            _coasting = true;
+            _flingVelocity = _touchVelocity;
+            _flingRetention = fast ? CoastRetentionFast : CoastRetentionSlow;
+            _flingOrigin = _gestureAnchorPt;
+            _flingAccumX = _flingAccumY = 0;
+            _flingSentX = _flingSentY = 0;
+            _flingLastTs = _flingStartTs = _touchReleaseTs;
+            _flingTimer.Start ();
+        }
+
+        // The bridge window elapsed with no re-press: the finger really did lift. Hand the coast over
+        // to the sharp post-lift decay (or stop it if it has already slowed to a crawl).
+        private void FinaliseTouchGesture ()
+        {
+            _bridgeTimer.Stop ();
+            if (!_touchReleasePending)
+                return;
+            _touchReleasePending = false;
+            _touchVelocityValid = false;
+            _coasting = false;
+
+            if (_flingTimer.IsEnabled && _flingVelocity.Length >= CoastToFlingSpeed) {
+                _flingRetention = FlingRetentionPerSecond;
+                _flingStartTs = System.Diagnostics.Stopwatch.GetTimestamp ();
+            } else {
+                StopFling ();
+            }
         }
 
         protected override void OnPointerMoved (AvPointerEventArgs e)
@@ -481,33 +654,20 @@ namespace Majorsilence.Forms
             return true;
         }
 
-        // Launches the post-lift glide if the finger was still moving fast enough at release.
-        private void MaybeStartFling ()
-        {
-            if (_recognizerLive || !_touchVelocityValid)
-                return;
-
-            // A stale last sample (finger paused before lifting) means no throw.
-            var age = (System.Diagnostics.Stopwatch.GetTimestamp () - _touchLastMoveTs)
-                      / (double) System.Diagnostics.Stopwatch.Frequency;
-            if (age > 0.08 || _touchVelocity.Length < FlingMinStartSpeed)
-                return;
-
-            _flingVelocity = _touchVelocity;
-            _flingOrigin = _touchLast;
-            _flingAccumX = _flingAccumY = 0;
-            _flingLastTs = _flingStartTs = System.Diagnostics.Stopwatch.GetTimestamp ();
-            _flingTimer.Start ();
-        }
-
         private void StopFling ()
         {
             _flingTimer.Stop ();
             _flingVelocity = default;
+            _coasting = false;
+            // _flingSentX/Y is NOT cleared here: a coast that self-stops mid-gap has still scrolled the
+            // content, and the next bridging press must subtract that from its position correction.
+            // It is zeroed when a fresh coast starts (DeferTouchGestureEnd) or a new swipe begins.
         }
 
         // One frame of inertial scroll: move by velocity*dt (device px, sub-pixel carried), then decay
-        // the velocity exponentially and stop once it is slow or the glide has run its limit.
+        // the velocity by _flingRetention and stop once it is slow or the glide has run its limit.
+        // _flingRetention is gentle (CoastRetention*) while coasting a digitizer blind gap and sharp
+        // (FlingRetentionPerSecond) once the finger has genuinely lifted.
         private void FlingTick ()
         {
             if (_recognizerLive || _touchAnchor is not null) {   // a new touch is down -> the press handler owns it
@@ -526,18 +686,24 @@ namespace Majorsilence.Forms
 
             _flingAccumX += _flingVelocity.X * dt;
             _flingAccumY += _flingVelocity.Y * dt;
-            _flingVelocity *= System.Math.Pow (FlingRetentionPerSecond, dt);
+            _flingVelocity *= System.Math.Pow (_flingRetention, dt);
 
             var stepX = (int) _flingAccumX;
             var stepY = (int) _flingAccumY;
             _flingAccumX -= stepX;
             _flingAccumY -= stepY;
 
-            if (stepX != 0 || stepY != 0)
+            if (stepX != 0 || stepY != 0) {
+                _flingSentX += stepX;
+                _flingSentY += stepY;
                 _owner.HandleScrollGesture (
                     (int)(_flingOrigin.X * Scale), (int)(_flingOrigin.Y * Scale), stepX, stepY);
+            }
 
-            if (_flingVelocity.Length < FlingStopSpeed || (now - _flingStartTs) / freq > FlingMaxSeconds)
+            // While coasting a blind gap the glide must not self-terminate on the MaxSeconds limit --
+            // the bridge timer owns that decision. Only a truly-lifted (sharp-decay) glide times out.
+            var timedOut = _flingRetention <= FlingRetentionPerSecond && (now - _flingStartTs) / freq > FlingMaxSeconds;
+            if (_flingVelocity.Length < FlingStopSpeed || timedOut)
                 StopFling ();
         }
 
