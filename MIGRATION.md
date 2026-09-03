@@ -19,9 +19,14 @@ Update with `dotnet tool update -g Majorsilence.Forms.Migrator`. Prefer a per-re
 `dotnet tool install Majorsilence.Forms.Migrator` inside a repo with a tool manifest
 (`dotnet new tool-manifest`) and run it as `dotnet majorsilence-migrate`.
 
-Two alternatives, if you'd rather not install a tool: each GitHub release also attaches a
-self-contained single-file binary per platform (no .NET runtime needed), and from a clone of this
-repo you can always run `dotnet run --project tools/Majorsilence.Forms.Migrator -- <input>`.
+The tool package is the only shipped form. Releases used to attach a self-contained single-file
+binary per platform as well; they no longer do -- one artifact, installed the way every other .NET
+tool is. If you'd rather not install anything, run it from a clone of this repo with
+`dotnet run --project tools/Majorsilence.Forms.Migrator -- <input>`.
+
+The tool needs a .NET runtime on the machine (the package targets `net10.0` and sets
+`RollForward=latestMajor`, so a newer-only runtime will still run it), which the self-contained
+binary did not.
 
 ## Design: a textual rewriter, not a Roslyn transform — on purpose
 
