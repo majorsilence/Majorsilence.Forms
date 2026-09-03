@@ -272,6 +272,69 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void InvalidateTextBlock () => cached_text_block = null;
 
+        /// <summary>
+        /// Replaces <c>[start, start + length)</c> with <paramref name="value"/> as ONE document edit,
+        /// leaving the caret after the inserted text.
+        /// </summary>
+        /// <remarks>
+        /// The primitive every text-mutating verb should use instead of assigning <see cref="Text"/>.
+        /// That setter is DEFINED to reset the caret to 0, clear the undo buffer and drop Modified,
+        /// which is right for a programmatic assignment and wrong for an append or a replace: routing
+        /// AppendText through it made a log window scroll to its oldest line on every append, and a
+        /// following ScrollToCaret went to the top as well, because the caret was at 0 (TXT-02, P0).
+        /// <para>
+        /// <paramref name="ignoreLimits"/> is EM_REPLACESEL's behaviour, which upstream's AppendText
+        /// brackets with EM_LIMITTEXT 0: an append is not user input, so neither ReadOnly nor MaxLength
+        /// applies to it.
+        /// </para>
+        /// </remarks>
+        internal bool ReplaceRange (int start, int length, string value, bool ignoreLimits = false, bool captureUndo = true)
+        {
+            if (read_only && !ignoreLimits)
+                return false;
+
+            start = MathCompat.Clamp (start, 0, text.Length);
+            length = MathCompat.Clamp (length, 0, text.Length - start);
+            value = ApplyCasing (StripInvalidCharacters (value ?? string.Empty));
+
+            if (!ignoreLimits && max_length > 0) {
+                // The replaced run frees room, so the limit applies to what the text will BE.
+                var room = max_length - (text.Length - length);
+
+                if (room <= 0)
+                    return false;
+
+                if (value.Length > room)
+                    value = value.Substring (0, room);
+            }
+
+            if (length == 0 && value.Length == 0)
+                return false;
+
+            if (captureUndo)
+                CaptureUndo (EditKind.Insert);
+
+            // One undo step for the whole replacement, as Win32 reverses a replace-selection in one.
+            suppress_undo_capture = true;
+
+            try {
+                text = text.Remove (start, length).Insert (start, value);
+            } finally {
+                suppress_undo_capture = false;
+            }
+
+            cached_text_block = null;
+
+            // The caret ends AFTER the new text and the selection collapses -- EM_REPLACESEL again.
+            Deselect ();
+            SetCursorToCharIndex (start + value.Length);
+
+            // Notifies exactly once, and only because the content changed; see Invalidate.
+            Invalidate ();
+
+            return true;
+        }
+
         public bool InsertText (string str)
         {
             if (read_only)

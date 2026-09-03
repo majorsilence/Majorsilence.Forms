@@ -817,10 +817,22 @@ already documents. Left-aligned, which is what a log or code view uses, does not
 15 tests (13 methods), 12 verified to fail with their fix neutralized and 3 labelled in-test as
 guards.
 
-**W5.12 — Stop routing mutations through the `Text` setter.** `AppendText`, `RichTextBox.AppendText`
-and both `SelectedText` setters assign `Text`, which resets caret to 0, scrolls to top, clears undo and
-clears `Modified` — so a log window shows its oldest line after every append.
-*Closes:* `TXT-02` (P0), `TXT-35`.
+**W5.12 — Stop routing mutations through the `Text` setter. — DONE (2026-09-03)**
+`TextBoxDocument.ReplaceRange (start, length, value, ignoreLimits, captureUndo)` is the primitive the
+findings' systemic note asked for: one document edit, caret after the inserted text, selection
+collapsed, undo captured as a single step, and `TextChanged` raised exactly once through the existing
+`Invalidate` contract. `TextBox.AppendText` goes through it with `ignoreLimits: true` — upstream
+brackets its `EM_REPLACESEL` with `EM_LIMITTEXT 0`, because an append is not user input, so neither
+`ReadOnly` nor `MaxLength` applies — and then calls `ScrollToCaret`, which now brings the *new* text
+into view because the caret is at the end. The two `new` shadows on `RichTextBox` (`AppendText` and
+`SelectedText`) are deleted, so the same object no longer behaves differently depending on the static
+type of the reference it is called through.
+*Closed:* `TXT-02` (P0), `TXT-35`. 12 tests, 8 verified to fail with their fix neutralized and 4
+labelled in-test as guards. One correction to the finding: it suggests asserting `Modified` is
+*unchanged* by an append, but `EM_REPLACESEL` sets the edit control's modify flag — the defect was the
+direction, since routing through the `Text` setter forced `Modified` **false** and made a dirty
+document look clean. `TextBox.SelectedText` still uses `InsertText` rather than `ReplaceRange`; it was
+already document-based and correct, and moving it is `TXT-20`'s scope.
 
 **W5.13 — `MaskedTextBox` mask engine. — DONE (2026-09-02)**
 One live `System.ComponentModel.MaskedTextProvider` owns the field: typing goes through
@@ -1056,14 +1068,34 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4156 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4168 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 768, no-op stubs
 156 → 154.
+
+### What W5.12 found
+
+**Comparing the visible result was not enough to tell two implementations apart.** The test that a
+`RichTextBox` replaces a selection the same way through either reference passed against the `new`
+shadow: the shadow rebuilt the same string and then patched the caret to the same index, so the text
+and the caret agreed while everything around them differed. It only discriminated once it compared
+`CanUndo` and `Modified` — the state the `Text` setter quietly resets. When a finding is about *how*
+something is done rather than *what* comes out, the assertion has to name the side effects.
+
+**The finding's suggested assertion was wrong in a way worth keeping.** `TXT-02` says to assert
+`Modified` is unchanged by an append. Upstream appends with `EM_REPLACESEL`, which sets the modify
+flag, so `Modified` becomes true — the defect was the *direction*: the `Text` setter forced it false,
+which is worse than either, because an append made a dirty document look saved. The test now asserts
+upstream's behaviour and says why beside it.
+
+**Two of the twelve tests could not fail against the old code for the same reason.** `AppendText`
+ignoring `ReadOnly` and `MaxLength` was already true, because the document's `Text` setter never
+checked either. The old path was right about the limits and wrong about everything else, which is a
+useful reminder that "the old code was broken" is a claim per behaviour, not per method.
 
 ### What W5.11 found
 

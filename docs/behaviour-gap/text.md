@@ -3,6 +3,27 @@
 ## Summary
 The area is a single real engine (`TextBoxDocument`, a RichTextKit-backed plain-text buffer with caret, anchor/end selection, single-level undo and a cached `TextBlock`) with `TextBox` as its only consumer; `TextBoxBase` re-derives everything from `Text`+selection, and `RichTextBox`/`MaskedTextBox` are `TextBox` subclasses that add stored-only properties. The core editing loop (typing, Backspace/Delete, arrows, Home/End, Shift-select, Ctrl+C/X/V/A, programmatic `Text`/`Select`/`SelectedText`, `TextChanged`, `Modified`, `Undo`) is genuinely implemented and mostly right. The dominant failure patterns are (1) the input pipeline ignores the app's own `KeyPress.Handled`/`KeyDown.SuppressKeyPress`, so every "digits-only" text box in a migrated LOB app stops filtering; (2) high-traffic verbs are routed through the `Text` setter (`AppendText`, `SelectedText` on `RichTextBox`), which resets caret/scroll/undo/`Modified` to the "fresh assignment" state; (3) ~15 behaviour-changing properties are stored and never read (`WordWrap`, `CharacterCasing`, `AcceptsReturn`, `AcceptsTab`, `ShortcutsEnabled`, `ScrollBars`, `HideSelection`, every `RichTextBox.Selection*`, the whole `MaskedTextBox.Mask` family); (4) two arithmetic paths throw on ordinary input (`MaxLength` shorter than existing text, caret moved into placeholder text). `RichTextBox.Rtf`/`Find`/`LoadFile` and `MaskedTextBox` return answers that look valid but are not (stale RTF, case-sensitive Find that never selects, `MaskCompleted == true` always). Count: **P0 × 4, P1 × 17, P2 × 14**, plus a P3 list. Existing tests cover the getters/setters well and in three places pin the divergent behaviour as expected (`MaskCompletedAndMaskFull_AlwaysTrue`, `Text_SetUnaffectedByMask`, `MaxLength_DefaultsToZero`).
 
+## Status (2026-09-03, W5.12 — mutations off the Text setter)
+
+**Closed:** TXT-02 (P0), TXT-35. 12 tests in `AppendTextRoutingTests.cs`, 8 verified to fail with their
+fix neutralized; 4 are labelled in-test as guards.
+
+`TextBoxDocument.ReplaceRange (start, length, value, ignoreLimits, captureUndo)` is the primitive this
+file's "Systemic patterns" section asked for, and `TextBox.AppendText` is its first caller. The two
+`new` shadows on `RichTextBox` (`AppendText`, `SelectedText`) are deleted.
+
+**A correction to TXT-02's suggested test.** It says to assert `Modified` is unchanged by an append.
+Upstream's `EM_REPLACESEL` sets the modify flag, so an append DOES mark the control modified; the
+defect was that routing through the `Text` setter forced `Modified` false, making a dirty document look
+saved. The test asserts upstream's direction instead.
+
+**Not moved, deliberately:** `TextBox.SelectedText` still calls `InsertText` rather than
+`ReplaceRange`. It was already document-based and behaves correctly; switching it over belongs with
+TXT-20, which is about `SelectedText`/`Paste` ignoring `ReadOnly` and `MaxLength` as upstream does.
+
+**Still open in this file:** TXT-04 (P0), TXT-13–TXT-17, TXT-20, and the rest of the `RichTextBox`
+cluster.
+
 ## Status (2026-09-03, W5.11 — TextBox's stored-only behaviour and two crashes)
 
 **Closed:** TXT-05, TXT-06, TXT-07, TXT-11, TXT-12, TXT-22, TXT-26. 15 tests (13 methods) in
