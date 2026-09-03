@@ -124,6 +124,20 @@ namespace Majorsilence.Forms
         private const double BridgeAlongAxis = 900;      // logical px; the finger travels far along it while blind
         private const double CoastMinSpeed = 40;         // device px/s; below this a lost contact just stops
 
+        // When a bridging press reveals the coast over- or under-shot the finger's real travel, the
+        // difference is not applied as one jump -- it is bled into the following few frames (synth
+        // moves and, if the segment ends first, the next coast) so the correction reads as a quick
+        // ease rather than a stutter.
+        private double _catchupX, _catchupY;             // device px still to be eased in
+        private const double CatchupBleedPerFrame = 0.45;
+
+        // The digitizer only reports the finger during ~10% of a chopped swipe, and the velocity
+        // measured over one 20-50ms burst is wildly noisy (peak-of-swing speed, or a decelerating
+        // tail). The blind-gap displacement over its duration -- learned when the next press bridges --
+        // is a far better estimate of the finger's true speed, so once we have one we coast at it.
+        private AvVector _gapVel;                        // device px/s, measured from the last bridged gap
+        private bool _gapVelValid;
+
         // Momentum: the drag tracks the finger 1:1, then keeps gliding after lift-off with a decaying
         // velocity -- the native Android/iOS feel. Avalonia's recognizer would do this itself (its
         // IsScrollInertiaEnabled), but it isn't firing, so the fling is synthesised here too.
@@ -141,7 +155,9 @@ namespace Majorsilence.Forms
         private bool _flingCaughtByPress;  // a press landed on a live fling -> swallow its tap
         private const double FlingStopSpeed = 18;        // device px/s; the glide ends here
         private const double FlingRetentionPerSecond = 0.04;   // post-lift decay -- keeps 4% after 1s (tau ~ 0.31s)
-        private const double CoastRetentionFast = 0.6;   // blind-gap decay for a real swipe -- near-constant, the finger keeps going
+        private const double CoastRetentionTracked = 0.8; // blind-gap decay when coasting at the measured gap
+                                                          // velocity -- near constant, the estimate is trustworthy
+        private const double CoastRetentionFast = 0.45;  // blind-gap decay off a noisy burst velocity -- conservative
         private const double CoastRetentionSlow = 0.08;  // blind-gap decay for a slow drag -- dies in ~250ms, re-press correction carries it
         private const double CoastFastSpeed = 320;       // device px/s; at/above this the finger is really swiping (fast decay profile)
         private const double CoastToFlingSpeed = 120;    // device px/s; a gap that ends this slow just stops, no post-lift fling
@@ -348,10 +364,11 @@ namespace Majorsilence.Forms
             if (!resized && !_dirty && !_owner.adapter.NeedsPaint)
                 return;
 
-            // Throttle during a touch drag / blind-gap coast: the record walk still rasterises dirty
-            // control back-buffers on the UI thread. A dropped frame here is invisible; a cancelled
-            // gesture is the stutter.
-            if (_touchAnchor is not null || _touchReleasePending) {
+            // Throttle only while a finger is actually down: the record walk rasterises dirty control
+            // back-buffers on the UI thread, and a 90Hz move stream needs the slack. A blind-gap coast
+            // or a post-lift fling has no input to protect, so it renders at full rate for a smoother
+            // glide.
+            if (_touchAnchor is not null) {
                 var sinceMs = (System.Diagnostics.Stopwatch.GetTimestamp () - _lastPaintTs) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
                 if (sinceMs < TouchPaintMinIntervalMs) {
                     if (!_renderPending) {
@@ -498,25 +515,32 @@ namespace Majorsilence.Forms
             if (!_recognizerLive && isTouch) {
                 _touchAnchor = pos;
                 _touchLast = pos;
-                _touchLastMoveTs = 0;   // next move keeps the carried velocity rather than one across the seam
+                _touchLastMoveTs = now;   // time from the press, so the segment's first move still yields a velocity
 
                 if (bridging) {
                     _touchScrolling = true;   // stay in the scroll we were already doing
                     // _gestureAnchorPt unchanged -- still the first touch-down of this swipe
 
-                    // The coast glide only *approximated* the finger's travel through the blind gap.
-                    // Now the real end position is known: scroll by whatever it under- or over-shot, so
-                    // the content lands exactly where a continuous drag would have put it.
-                    var corrX = (int)((pos.X - _touchReleasePos.X) * Scale) - coastSent.X;
-                    var corrY = (int)((pos.Y - _touchReleasePos.Y) * Scale) - coastSent.Y;
-                    if (corrX != 0 || corrY != 0)
-                        _owner.HandleScrollGesture ((int)(pos.X * Scale), (int)(pos.Y * Scale), corrX, corrY);
+                    // Learn the finger's true speed from how far it travelled during the blind gap.
+                    var gapSecs = (now - _touchReleaseTs) / (double) System.Diagnostics.Stopwatch.Frequency;
+                    if (gapSecs is > 0.12 and < 2.0) {
+                        _gapVel = new AvVector ((pos.X - _touchReleasePos.X) * Scale / gapSecs,
+                                                (pos.Y - _touchReleasePos.Y) * Scale / gapSecs);
+                        _gapVelValid = true;
+                    }
+
+                    // Whatever the coast over- or under-shot the finger's real travel, queue it as a
+                    // catch-up that eases into the next few frames rather than a single jump.
+                    _catchupX += (int)((pos.X - _touchReleasePos.X) * Scale) - coastSent.X;
+                    _catchupY += (int)((pos.Y - _touchReleasePos.Y) * Scale) - coastSent.Y;
                 } else {
                     _touchScrolling = _flingCaughtByPress;
                     _touchVelocity = default;
                     _touchVelocityValid = false;
+                    _gapVelValid = false;
                     _gestureAnchorPt = pos;   // a brand-new swipe starts here
                     _flingSentX = _flingSentY = 0;
+                    _catchupX = _catchupY = 0;
                 }
 
                 // A bridging press, or one that just caught a fling, must not also select.
@@ -568,7 +592,8 @@ namespace Majorsilence.Forms
         // along the swipe axis (the finger travelled while the digitizer was blind), tight across it.
         private bool BridgeReachable (AvVector jump)
         {
-            var alongY = System.Math.Abs (_touchVelocity.Y) >= System.Math.Abs (_touchVelocity.X);
+            var axis = _gapVelValid ? _gapVel : _touchVelocity;
+            var alongY = System.Math.Abs (axis.Y) >= System.Math.Abs (axis.X);
             var along = alongY ? System.Math.Abs (jump.Y) : System.Math.Abs (jump.X);
             var across = alongY ? System.Math.Abs (jump.X) : System.Math.Abs (jump.Y);
             return across < BridgeAcrossAxis && along < BridgeAlongAxis;
@@ -576,12 +601,16 @@ namespace Majorsilence.Forms
 
         // A touch scroll has (maybe) ended. Don't commit yet: on Android a lost capture is usually the
         // digitizer dropping contact mid-swipe, and a fresh press lands within ~1s further along the
-        // path. The content coasts through that blind gap at the last measured finger speed -- for a
-        // fast swipe near-constant, for a slow drag decaying quickly (its speed sample is too noisy to
-        // trust, and the re-press position correction carries it instead). A bridging press resumes the
-        // drag; if _bridgeTimer fires first, FinaliseTouchGesture turns the coast into a normal
-        // post-lift fling (or stops it). <paramref name="ambiguous"/> is false for a real pointer-up
-        // (short window, momentum starts almost at once) and true for a capture loss.
+        // path. The content coasts through that blind gap so it keeps moving; a bridging press then
+        // resumes the drag (correcting any drift via the catch-up), and if _bridgeTimer fires first
+        // FinaliseTouchGesture turns the coast into a normal post-lift fling (or stops it).
+        // <paramref name="ambiguous"/> is false for a real pointer-up (short window, momentum starts
+        // almost at once) and true for a capture loss.
+        //
+        // Coast velocity: prefer _gapVel (the previous blind gap's measured average -- accurate, and
+        // the finger's speed barely changes across a swipe) with a near-constant decay; fall back to
+        // the last burst's noisy instantaneous velocity, decayed harder, when there is no gap history
+        // yet (the first chop of a swipe).
         private void DeferTouchGestureEnd (AvPoint pos, bool ambiguous)
         {
             _touchReleasePending = true;
@@ -591,15 +620,23 @@ namespace Majorsilence.Forms
             _bridgeTimer.Interval = TimeSpan.FromSeconds (ambiguous ? BridgeWindowSeconds : RealLiftFinaliseSeconds);
             _bridgeTimer.Start ();
 
-            if (_recognizerLive || !_touchVelocityValid || _touchVelocity.Length < CoastMinSpeed) {
+            AvVector coastVel;
+            double retention;
+            if (_gapVelValid && _gapVel.Length >= CoastMinSpeed) {
+                // Blend toward the fresh sample so a finger that is slowing as it lifts still eases off.
+                coastVel = _touchVelocityValid ? _gapVel * 0.7 + _touchVelocity * 0.3 : _gapVel;
+                retention = CoastRetentionTracked;
+            } else if (_touchVelocityValid && _touchVelocity.Length >= CoastMinSpeed) {
+                coastVel = _touchVelocity;
+                retention = _touchVelocity.Length >= CoastFastSpeed ? CoastRetentionFast : CoastRetentionSlow;
+            } else {
                 StopFling ();
                 return;
             }
 
-            var fast = _touchVelocity.Length >= CoastFastSpeed;
             _coasting = true;
-            _flingVelocity = _touchVelocity;
-            _flingRetention = fast ? CoastRetentionFast : CoastRetentionSlow;
+            _flingVelocity = coastVel;
+            _flingRetention = retention;
             _flingOrigin = _gestureAnchorPt;
             _flingAccumX = _flingAccumY = 0;
             _flingSentX = _flingSentY = 0;
@@ -692,8 +729,24 @@ namespace Majorsilence.Forms
             _touchLast = pos;
 
             // An upward drag is negative, matching Avalonia's own recognizer -- content follows the finger.
+            dx += BleedCatchup (ref _catchupX);
+            dy += BleedCatchup (ref _catchupY);
             _owner.HandleScrollGesture ((int)(pos.X * Scale), (int)(pos.Y * Scale), dx, dy);
             return true;
+        }
+
+        // Peels a fraction (plus a whole pixel of nudge) off a pending catch-up remainder each frame,
+        // so a large correction eases in over ~4-5 frames instead of landing as one jump.
+        private static int BleedCatchup (ref double remainder)
+        {
+            if (System.Math.Abs (remainder) < 1)
+                return 0;
+            var step = remainder * CatchupBleedPerFrame + System.Math.Sign (remainder);
+            if (System.Math.Abs (step) > System.Math.Abs (remainder))
+                step = remainder;
+            var whole = (int) step;
+            remainder -= whole;
+            return whole;
         }
 
         private void StopFling ()
@@ -735,9 +788,15 @@ namespace Majorsilence.Forms
             _flingAccumX -= stepX;
             _flingAccumY -= stepY;
 
+            // The glide moves the content; the catch-up (if any survived the last contact segment)
+            // eases in on top. _flingSent tracks only the glide, so the next bridge correction stays
+            // honest.
+            _flingSentX += stepX;
+            _flingSentY += stepY;
+            stepX += BleedCatchup (ref _catchupX);
+            stepY += BleedCatchup (ref _catchupY);
+
             if (stepX != 0 || stepY != 0) {
-                _flingSentX += stepX;
-                _flingSentY += stepY;
                 _owner.HandleScrollGesture (
                     (int)(_flingOrigin.X * Scale), (int)(_flingOrigin.Y * Scale), stepX, stepY);
             }
