@@ -44,8 +44,23 @@ namespace Majorsilence.Forms
         /// <summary>Gets the collection of menu items (WinForms compat alias for Items).</summary>
         public MenuItemCollection MenuItems => Items;
 
-        /// <inheritdoc/>
-        public override void Show (Control parent, Point location) => ShowCore (parent, parent, location);
+
+        /// <summary>Displays the context menu at a point in <paramref name="parent"/>'s CLIENT coordinates.</summary>
+        /// <remarks>
+        /// The point is client-relative, as <c>ToolStripDropDown.Show (Control, Point)</c> is upstream:
+        /// it does <c>_displayLocation = control.PointToScreen (position)</c>. This overload used to
+        /// pass the point straight through as screen coordinates, so the canonical
+        /// <c>contextMenuStrip1.Show (button1, new Point (0, button1.Height))</c> -- a menu under a
+        /// button -- and <c>Show (grid, e.Location)</c> from a mouse handler both opened the menu at
+        /// the top-left of the SCREEN (finding <c>TSM-03</c>, P0). <see cref="Show(Point)"/> is the
+        /// screen-space overload and is unchanged.
+        /// </remarks>
+        public override void Show (Control parent, Point location)
+        {
+            Guard.ThrowIfNull (parent);
+
+            ShowCore (parent, parent, parent.PointToScreen (location));
+        }
 
         /// <summary>
         /// Displays the context menu at the specified screen coordinates, anchored to the window that
@@ -88,11 +103,17 @@ namespace Majorsilence.Forms
             SourceControl = source;
             Application.ActiveMenu ??= this;
 
+            // Popup first, then Opening: the legacy event is documented as the place to enable and
+            // disable items before the menu is measured, so it has to run before anything can cancel
+            // (TSM-30). Neither was raised from here before.
+            OnPopup (EventArgs.Empty);
+
             var cancelArgs = new System.ComponentModel.CancelEventArgs ();
             OnOpening (cancelArgs);
 
             if (!cancelArgs.Cancel) {
                 base.Show (anchor, location);
+                shown = true;
                 OnOpened (EventArgs.Empty);
             }
         }
@@ -115,13 +136,30 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// Collapse is raised here rather than from <c>MenuBase.OnDeactivated</c>, because a context
+        /// menu is never "activated" in MenuBase's sense: that state comes from interacting with a menu
+        /// BAR, while a context menu is shown outright. <c>shown</c> is the honest signal for "this menu
+        /// is on screen", so Collapse happens once per dismissal and never for a menu that was not
+        /// showing (finding <c>TSM-30</c>).
+        /// </remarks>
         internal override void Deactivate ()
         {
+            var was_shown = shown;
+
+            shown = false;
+
             // Fires Closing before the menu hides and Closed after -- matching WinForms ordering. This is
             // the single guaranteed teardown path (focus loss / outside click / ClosePopups).
             OnClosing (new ToolStripDropDownClosingEventArgs (ToolStripDropDownCloseReason.AppFocusChange));
             base.Deactivate ();
             OnClosed (new ToolStripDropDownClosedEventArgs (ToolStripDropDownCloseReason.AppFocusChange));
+
+            // After Closed, which is the modern pair; Collapse is the legacy name for the same moment.
+            if (was_shown)
+                OnCollapse (EventArgs.Empty);
         }
+
+        private bool shown;
     }
 }

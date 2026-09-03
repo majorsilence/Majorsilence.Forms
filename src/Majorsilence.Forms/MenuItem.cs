@@ -326,6 +326,10 @@ namespace Majorsilence.Forms
         public virtual void ShowDropDown ()
         {
             if (HasItems && OwnerControl != null) {
+                // The legacy per-item counterpart of ContextMenu.Popup: raised before the sub-menu is
+                // built, which is where an application fills or enables its contents (TSM-30).
+                Popup?.Invoke (this, EventArgs.Empty);
+
                 dropdown = dropdown ??= new MenuDropDown (this);
 
                 var dropdown_location = Point.Empty;

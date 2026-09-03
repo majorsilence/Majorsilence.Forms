@@ -1148,8 +1148,11 @@ namespace Majorsilence.Forms
         {
             (Events[s_longPressEvent] as EventHandler<LongPressEventArgs>)?.Invoke (this, e);
 
+            // e.Location unconverted: Show (Control, Point) takes client coordinates now, as upstream
+            // does. Every internal caller used to pre-convert, which is exactly what showed the API was
+            // screen-space by accident (TSM-03).
             if (ContextMenu != null)
-                ContextMenu.Show (this, PointToScreen (e.Location));
+                ContextMenu.Show (this, e.Location);
         }
 
         /// <summary>
@@ -1840,7 +1843,7 @@ namespace Majorsilence.Forms
             // click, so this runs before either event. It lives here rather than in OnClick now that
             // OnClick takes EventArgs and has no button to test.
             if (e.Button == MouseButtons.Right && ContextMenu != null) {
-                ContextMenu.Show (this, PointToScreen (e.Location));
+                ContextMenu.Show (this, e.Location);   // client coordinates now: see TSM-03
                 return;
             }
 

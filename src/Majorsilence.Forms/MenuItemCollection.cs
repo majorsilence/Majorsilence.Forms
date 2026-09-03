@@ -92,6 +92,12 @@ namespace Majorsilence.Forms
             base.InsertItem (index, item);
 
             item.Parent = owner;
+
+            // After Parent is set, because that is what gives the item an OwnerControl to find. This is
+            // the one insertion path every strip type shares -- ToolStrip's facade forwards into it --
+            // so hanging the notifications here is what makes ItemAdded and ItemClicked work on a
+            // MenuStrip and a ContextMenuStrip, which bypass the facade entirely (TSM-08).
+            (item.OwnerControl as ToolStrip)?.NotifyItemAdded (item);
         }
 
         /// <inheritdoc/>
@@ -99,9 +105,14 @@ namespace Majorsilence.Forms
         {
             var item = this[index];
 
+            // Captured before the removal, which is what detaches the item from its strip.
+            var strip = item.OwnerControl as ToolStrip;
+
             base.RemoveItem (index);
 
             item.Parent = null;
+
+            strip?.NotifyItemRemoved (item);
         }
 
         /// <inheritdoc/>

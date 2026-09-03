@@ -2325,27 +2325,56 @@ namespace Majorsilence.Forms
         {
             var base_items = base.Items;
 
+            // The callbacks only forward now. The notifications used to live here, which is why they
+            // were dead on MenuStrip and ContextMenuStrip: Menu.Items and MenuDropDown.Items re-expose
+            // the base MenuItemCollection directly, so `contextMenuStrip.Items.Add (...)` never came
+            // through this facade at all (TSM-08). They hang off the collection every path shares
+            // instead -- see NotifyItemAdded, called from MenuItemCollection.InsertItem.
             return new ToolStripItemCollection {
-                ItemAddedCallback = item => {
-                    base_items.Add (item);
-
-                    // ItemClicked/ItemAdded and the renderer hook are all typed on ToolStripItem
-                    // upstream. A collection may also hold plain MenuItems and separators, which still
-                    // belong in the strip -- they just have no ToolStripItem-shaped event to raise.
-                    if (item is not ToolStripItem stripItem)
-                        return;
-
-                    stripItem.Click += (_, _) => OnItemClicked (new ToolStripItemClickedEventArgs (stripItem));
-                    Renderer?.InitializeItem (stripItem);
-                    OnItemAdded (new ToolStripItemEventArgs (stripItem));
-                },
-                ItemRemovedCallback = item => {
-                    base_items.Remove (item);
-
-                    if (item is ToolStripItem stripItem)
-                        OnItemRemoved (new ToolStripItemEventArgs (stripItem));
-                },
+                ItemAddedCallback = item => base_items.Add (item),
+                ItemRemovedCallback = item => base_items.Remove (item),
             };
+        }
+
+        /// <summary>
+        /// Called by <see cref="MenuItemCollection"/> when an item joins this strip, whichever
+        /// collection it was added through.
+        /// </summary>
+        /// <remarks>
+        /// ItemAdded, ItemClicked and the renderer's item hook are all typed on
+        /// <see cref="ToolStripItem"/> upstream; a strip may also hold plain <see cref="MenuItem"/>s
+        /// and separators, which belong in it but have no ToolStripItem-shaped event to raise.
+        /// </remarks>
+        internal void NotifyItemAdded (MenuItem item)
+        {
+            if (item is not ToolStripItem stripItem)
+                return;
+
+            // A method group rather than a lambda, so removal below actually removes it: an item that
+            // is taken out and put back would otherwise raise ItemClicked once per add.
+            stripItem.Click -= RelayItemClicked;
+            stripItem.Click += RelayItemClicked;
+
+            Renderer?.InitializeItem (stripItem);
+            OnItemAdded (new ToolStripItemEventArgs (stripItem));
+        }
+
+        /// <inheritdoc cref="NotifyItemAdded"/>
+        internal void NotifyItemRemoved (MenuItem item)
+        {
+            if (item is not ToolStripItem stripItem)
+                return;
+
+            stripItem.Click -= RelayItemClicked;
+            OnItemRemoved (new ToolStripItemEventArgs (stripItem));
+        }
+
+        // Raised from the item's own Click, so one handler on the strip sees programmatic PerformClick
+        // as well as a real click -- upstream routes both through HandleClick.
+        private void RelayItemClicked (object? sender, EventArgs e)
+        {
+            if (sender is ToolStripItem stripItem)
+                OnItemClicked (new ToolStripItemClickedEventArgs (stripItem));
         }
 
         /// <summary>Raised when an item is added to the ToolStrip.</summary>

@@ -887,18 +887,32 @@ stops being a dead-but-painted button. A checked menu item draws a glyph in the 
 checked `ToolStripButton` draws with the pressed background. `Size`/`Height`, `DisplayStyle` and the
 other item-box setters run `InvalidateItemLayout`, which is what makes an assignment reach the box the
 renderer draws — item layout happens in `OnPaint`, so invalidating *is* re-laying out.
-*Closed:* `TSM-01` (P0), `TSM-04`, `TSM-06`, `TSM-31`, and the part of `TSM-30` whose triggers this
-item touches (`EnabledChanged`, `VisibleChanged`, `AvailableChanged`, `DisplayStyleChanged`). The
-menu-lifecycle half of `TSM-30` — `MenuActivate`/`MenuDeactivate`, `ContextMenu.Popup`/`Collapse`,
-`MenuItem.Popup` — is left for **W5.16**, which is where the menu facade and lifecycle work lives.
-14 tests, 11 verified to fail with their fix neutralized and 3 labelled in-test as guards.
-*Also fixed, and not in any finding:* `MenuDropDown.OnMouseClick` had **no `Enabled` gate at all**, so
-removing the shadow was not on its own enough — see below.
+*Closed:* `TSM-01` (P0), `TSM-04`, `TSM-06`, `TSM-14`, `TSM-31`, and the part of `TSM-30` whose
+triggers this item touches (`EnabledChanged`, `VisibleChanged`, `AvailableChanged`,
+`DisplayStyleChanged`). The menu-lifecycle half of `TSM-30` — `MenuActivate`/`MenuDeactivate`,
+`ContextMenu.Popup`/`Collapse`, `MenuItem.Popup` — is left for **W5.16**, which is where the menu
+facade and lifecycle work lives. 14 tests, 11 verified to fail with their fix neutralized and 3
+labelled in-test as guards.
 
-**W5.16 — Strip facade and coordinates.** `Menu`/`MenuDropDown` re-exposing `Items => RootItems`
-bypasses `ToolStrip`'s facade callbacks, so `ItemAdded`/`ItemRemoved`/`ItemClicked` are dead on
-`MenuStrip`/`ContextMenuStrip`; `Show(control, point)` treats a client point as screen.
-*Closes:* `TSM-03` (P0), and the facade group.
+**W5.16 — Strip facade and coordinates. — DONE (2026-09-03)**
+`ContextMenu.Show (Control, Point)` converts with `parent.PointToScreen (location)`, so the point is
+client-relative as `ToolStripDropDown.Show` is upstream: the canonical
+`contextMenuStrip1.Show (button1, new Point (0, button1.Height))` opens under the button instead of at
+the top-left of the screen, and `Show (grid, e.Location)` from a mouse handler lands under the pointer
+(`TSM-03`, P0). `Show (Point)` stays screen-space, and the three internal callers that were
+pre-converting with `PointToScreen` — the compensation that showed the API was wrong — now pass the
+point through.
+The strip notifications moved out of `ToolStrip`'s items facade and onto `MenuItemCollection`, the one
+insertion path every strip type shares: `ItemAdded`, `ItemRemoved`, `ItemClicked` and the renderer's
+item hook now fire on a `MenuStrip` and a `ContextMenuStrip`, which re-expose the underlying collection
+and never went through the facade at all. `ItemClicked` is relayed from the item's own `Click` through a
+method group rather than a lambda, so an item removed and re-added reports once rather than twice.
+The menu-lifecycle events deferred from W5.15 are raised: `MenuStrip.MenuActivate`/`MenuDeactivate`
+from `MenuBase`'s activation (new `OnActivated`/`OnDeactivated` hooks), `ContextMenu.Popup` before
+`Opening` — the legacy hook for enabling items just before display — and `Collapse` once per dismissal,
+tracked by whether the menu was actually on screen.
+*Closed:* `TSM-03` (P0), `TSM-08`, and the menu-lifecycle remainder of `TSM-30`. 12 tests, 11 verified
+to fail with their fix neutralized and 1 labelled in-test as a guard.
 
 **W5.17 — Text measurement is wrong at the root (drawing). — DONE**
 `TextRenderer.MeasureText(string, Font)` measures at the font's **point size treated as pixels**, so
@@ -1105,23 +1119,52 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left.** The rest not started — next is **W5.16** (strip facade and `Show` coordinates, `TSM-03` P0). |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and the ToolStrip cluster is down to one** (`TSM-02`, keyboard shortcuts). The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4209 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4221 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
 
+### What W5.16 found
+
+**A third way a baseline reads clean over broken code.** None of the five events this item started
+raising — `MenuActivate`, `MenuDeactivate`, `ContextMenu.Popup`, `Collapse`, `MenuItem.Popup` — were
+ever in `UnraisedEventBaseline.txt`, so the file did not move when they came to life. Each already had
+an `OnXxx` raiser containing `Xxx?.Invoke`, and that is a raise site as far as the scanner is
+concerned; that nothing ever *called* the raiser is invisible to it. `TSM-30`'s own title says as much
+("declared-never-raised events with existing triggers"). With W5.10's ring of stub properties reading
+each other and W5.11's property read only by inert code, that is three distinct mechanisms, one per
+gate. Each gate is a floor.
+
+**The compensation in the callers was the evidence.** Every internal caller of
+`ContextMenu.Show (Control, Point)` passed `PointToScreen (e.Location)`. That is not a bug in the
+callers — it is what a screen-space API requires — and it is exactly why the finding could state with
+confidence that the *public* API was wrong: application code following the WinForms documentation
+passes a client point and gets no conversion. Fixing the overload meant fixing the callers in the same
+change, and a caller that "helpfully" pre-converts is worth reading as a sign the API underneath it
+disagrees with its own documentation.
+
+**A test I labelled a guard turned out to be proof.** The plain-`ToolStrip` regression test looked like
+it could not fail — that path already worked — but the notifications moved *out* of the facade it used,
+so neutralizing the new plumbing breaks it too. The lesson runs the other way from the usual one: a
+label claiming a test cannot discriminate deserves the same neutralize-and-rerun check as a claim that
+it can. The genuine guard here is the screen-space `Show (Point)` overload, which is untouched and
+would have broken had the conversion gone into `ShowCore`.
+
 ### What W5.15 found
 
-**Removing the shadow was not enough, and only a real click showed it.** `MenuDropDown.OnMouseClick`
+**Removing the shadow was not enough, and the audit already knew why.** `MenuDropDown.OnMouseClick`
 — the path a context menu or any sub-menu actually takes — gates on `clicked_item != null &&
-!clicked_item.HasItems` and **never checked `Enabled`**. `MenuBase.OnMouseClick` does check it, which
-is the gate `TSM-01` names, but drop-downs never reach it. So the P0 as written (delete the `new`
-property) fixes the menu bar and leaves the case where disabled items overwhelmingly live. Found by
-driving a click through a real `MenuDropDown`; reading the setter could not have shown it.
+!clicked_item.HasItems` and never checked `Enabled`. `MenuBase.OnMouseClick` does check it, which is
+the gate `TSM-01` names, but drop-downs never reach it, so the P0 as written (delete the `new`
+property) fixes the menu bar and leaves the case where disabled items overwhelmingly live. The test
+found this by driving a click through a real `MenuDropDown` — and `TSM-14` turns out to describe it
+exactly, "compounds TSM-01" in its own words. Two lessons: a Cat A finding can be a *precondition* for
+another one's fix rather than an independent item, and the plan's per-item finding list is a starting
+point rather than a boundary. This item's text named five findings; the work closed six.
 
 **Three ways the same pixel test can pass by measuring nothing.** The checked-glyph test needed all
 three fixed before it meant anything: `PaintSurface` sizes its bitmap from `control.Scaling`, which is
