@@ -768,9 +768,31 @@ indent step, and `ShowPlusMinus` aliases the existing `ShowDropdownGlyph`.
 need connector-line drawing the renderer has never had — separable, and nothing else waits on it.
 18 tests, each verified to fail without its fix.
 
-**W5.10 — `ComboBox` editable region.** `DropDownStyle.DropDown` is the default and there is no text
-region at all — no `SelectionStart/Length/SelectedText`, no `MaxLength`, no autocomplete.
-*Closes:* `LST-07`, `LST-08`.
+**W5.10 — `ComboBox` editable region. — DONE (2026-09-03)**
+The region is a real child `TextBox`, added as an implicit control, so the caret, selection, undo,
+clipboard and mouse text-selection are the ones `TextBox` already implements rather than a second,
+thinner copy. It is the combo that stays the tab stop (implicit children are skipped by tab order),
+and it is built for every style and merely hidden for `DropDownList` — one instance means `MaxLength`
+and the selection survive a style switch. `SelectionStart`, `SelectionLength`, `SelectedText`,
+`MaxLength`, `Select` and `SelectAll` all forward to it; they were stored ints that only read each
+other. Typing raises `TextUpdate` then `TextChanged`, in that order because upstream's
+`CBN_EDITUPDATE` precedes `CBN_EDITCHANGE`. Enter commits the typed text through the `Text` setter, so
+a typed `"item3"` selects item 3. `Text` itself follows upstream (`LST-08`): the getter answers
+`Control.Text`, every selection path writes it through one `SetTextCore`, a null assignment clears the
+selection, and a value matching no item keeps the text without touching the index.
+`AutoCompleteMode.Append` (and the append half of `SuggestAppend`) completes inline against
+`AutoCompleteSource.ListItems` or `CustomSource` and selects the remainder, so the next keystroke
+replaces it.
+*Closed:* `LST-08`, and `LST-07` except two pieces. **`Suggest`'s filtered drop-down is absent by
+construction**: this control's items *are* the popup `ListBox`'s items, so narrowing what the popup
+shows would mean deleting the combo's own items and putting them back — it needs a separate
+presentation list, which is its own change. **`Simple`'s always-visible inline list** is not laid out
+either (a `Simple` combo is editable, but its list still drops down); that means re-parenting the
+popup list into the control and is likewise separable. The OS-backed `AutoCompleteSource` values
+(`FileSystem`, `HistoryList`, …) complete nothing and have no portable meaning here.
+19 tests, 16 verified to fail with their fix neutralized and 3 labelled in-test as guards.
+Also fixed, because forwarding surfaced it: `TextBoxDocument.MaxLength` stored "no limit" **as**
+`int.MaxValue`, so an explicit `MaxLength = int.MaxValue` read back as 0 — no limit at all.
 
 **W5.11 — `TextBox` stored-only behaviour.** `WordWrap`, `CharacterCasing`, `ScrollBars`,
 `HideSelection`, `ShortcutsEnabled` each have exactly one obvious consumer. Plus the two crash paths:
@@ -1016,14 +1038,34 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4122 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4141 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 769, no-op stubs
-156 → 155.
+156 → 154.
+
+### What W5.10 found
+
+**The stored-only scanner cannot see properties that read each other.** `LST-07` says
+`SelectionStart`, `SelectionLength`, `MaxLength` and the `AutoComplete*` family were stored and
+consumed by nothing, and it is right — but none of them appear in `StoredOnlyPropertyBaseline.txt`,
+because `SelectedText`'s getter read `SelectionStart` and `SelectionLength`. A ring of stub properties
+citing one another looks consumed to a scanner that asks only "is this getter called anywhere". The
+baseline is a floor, not a ceiling: it under-reports exactly the clusters that were stubbed together.
+
+**Two independent guards, and either one alone makes the test pass.** The test that a `DropDownList`
+combo refuses typed text survived neutralizing the style check in `OnKeyPress` — because the sync from
+the edit region back to `Control.Text` checks the style too. It only failed when both were removed.
+Neutralize-and-rerun proves a test discriminates against *the change you made*; where a behaviour is
+defended twice, removing one defence proves nothing, and the test needs both removed to be honest.
+
+**A short-circuit that could never be true.** Enter committed nothing, because the commit was guarded
+with `edit.Text != base.Text` — and the edit region's own `TextChanged` has already written
+`base.Text` by then, so the two are always equal at that point. It read like an obvious cheap
+early-out and was dead code. The test caught it immediately; a reviewer would very likely not have.
 
 ### What W5.9 found
 

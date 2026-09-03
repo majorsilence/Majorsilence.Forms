@@ -12,7 +12,11 @@ namespace Majorsilence.Forms
     {
         private PopupWindow? popup;
         private readonly ListBox popup_listbox;
+        private readonly ComboBoxEdit edit;
         private bool suppress_popup_close;
+        // Guards the two-way sync between the edit region's text and this control's Text. Either side
+        // assigning the other raises TextChanged, which would come straight back.
+        private bool syncing_edit_text;
         private object? _dataSource;
         private string _displayMember = string.Empty;
         private string _valueMember = string.Empty;
@@ -33,7 +37,81 @@ namespace Majorsilence.Forms
                 // dropped here and re-applied by the reload.
                 position => { if (position < Items.Count) SelectedIndex = position; },
                 () => SelectedIndex);
+
+            // The editable region is a real child TextBox, the way WinForms hosts a real edit control
+            // inside a combo -- so the caret, selection, undo, clipboard and mouse text selection are
+            // the ones TextBox already implements instead of a second, thinner copy of them (LST-07).
+            // It is an IMPLICIT child: invisible to the public Controls collection, and skipped by tab
+            // order, because the combo itself is the tab stop as upstream. It is built here for every
+            // style and merely hidden for DropDownList, rather than created and destroyed as the style
+            // changes -- implicit children are meant to be added in constructors (see
+            // ControlCollection.AddImplicitControl), and a single instance means MaxLength and the
+            // selection survive a style switch.
+            edit = Controls.AddImplicitControl (new ComboBoxEdit (this));
+            edit.Visible = IsEditable;
+            edit.TextChanged += EditTextChanged;
         }
+
+        // The combo's edit region. A TextBox subclass rather than a plain one because two things have
+        // to be intercepted: the keys the LIST owns even while the caret is in here, and the moment a
+        // character lands, which is when autocompletion runs.
+        private sealed class ComboBoxEdit : TextBox
+        {
+            private readonly ComboBox owner;
+
+            internal ComboBoxEdit (ComboBox owner)
+            {
+                this.owner = owner;
+
+                // The combo paints the frame; a second border inside it reads as a box in a box.
+                Style.Border.Width = 0;
+            }
+
+            /// <inheritdoc/>
+            protected override void OnKeyDown (KeyEventArgs e)
+            {
+                // In a WinForms DropDown combo, Up/Down move the SELECTION, not the caret, and
+                // Enter/Escape belong to the drop-down. TextBox's own key handling would consume all
+                // of them for caret movement and report them handled, so they never reach the combo --
+                // which acts on them in its OnKeyUp, where its list navigation already lives.
+                if (IsListKey (e))
+                    return;
+
+                base.OnKeyDown (e);
+            }
+
+            /// <inheritdoc/>
+            protected override void OnKeyUp (KeyEventArgs e)
+            {
+                base.OnKeyUp (e);
+
+                if (!e.Handled)
+                    owner.RaiseKeyUp (e);
+            }
+
+            // Alt+arrow toggles the drop-down; the rest navigate or commit it.
+            private static bool IsListKey (KeyEventArgs e)
+                => e.Alt ? e.KeyCode.In (Keys.Up, Keys.Down)
+                         : e.KeyCode.In (Keys.Up, Keys.Down, Keys.PageUp, Keys.PageDown, Keys.Escape, Keys.Enter);
+
+            /// <inheritdoc/>
+            protected override bool InsertTypedCharacter (KeyPressEventArgs e)
+            {
+                var inserted = base.InsertTypedCharacter (e);
+
+                if (inserted)
+                    owner.CompleteTypedText ();
+
+                return inserted;
+            }
+        }
+
+        /// <summary>Whether the combo has an editable text region: every style except DropDownList.</summary>
+        internal bool IsEditable => drop_down_style != ComboBoxStyle.DropDownList;
+
+        // The renderer needs to know whether the child is painting the text, and the tests need to
+        // reach the region the caret lives in.
+        internal TextBox EditRegion => edit;
 
         // The list a combo box drops down is a real ListBox, and the combo's items are that list's items.
         // This subclass exists only so the collection they live in is a ComboBox.ObjectCollection -- the
@@ -98,6 +176,13 @@ namespace Majorsilence.Forms
                     return;
 
                 drop_down_style = value;
+
+                // DropDownList is the one style with no text region. Showing or hiding the child is
+                // the whole difference between a combo you can type into and one you cannot -- which
+                // is why the two styles used to look and behave identically (LST-07).
+                edit.Visible = IsEditable;
+                PerformLayout ();
+
                 DropDownStyleChanged?.Invoke (this, EventArgs.Empty);
                 Invalidate ();
             }
@@ -120,6 +205,45 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the flat-style appearance of the combo box.</summary>
         public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
+
+        /// <summary>The logical width the drop-down glyph strip occupies on the right.</summary>
+        /// <remarks>Lives on the control, not the renderer, because the edit region's bounds and the
+        /// painted text area have to agree exactly -- two definitions of the same 15 pixels is how a
+        /// caret ends up drawn under the glyph. <c>ComboBoxRenderer.GLYPH_SIZE</c> is this value.</remarks>
+        internal const int DropDownGlyphWidth = 15;
+
+        /// <summary>The text area, in DEVICE pixels: what the renderer paints into.</summary>
+        internal Rectangle EditAreaDeviceBounds {
+            get {
+                var area = PaddedClientRectangle;
+                area.Width -= LogicalToDeviceUnits (DropDownGlyphWidth);
+
+                return area;
+            }
+        }
+
+        /// <summary>The same area in LOGICAL units: what the child edit control's Bounds need.</summary>
+        /// <remarks>Child bounds are logical while <see cref="Control.PaddedClientRectangle"/> is device --
+        /// the same conversion <c>DataGridView</c> does when it positions a cell editor.</remarks>
+        internal Rectangle EditAreaLogicalBounds {
+            get {
+                var area = EditAreaDeviceBounds;
+
+                return new Rectangle (DeviceToLogicalUnits (area.Left), DeviceToLogicalUnits (area.Top),
+                                      DeviceToLogicalUnits (area.Width), DeviceToLogicalUnits (area.Height));
+            }
+        }
+
+        /// <summary>Keeps the edit region over the area the renderer treats as the text area.</summary>
+        /// <remarks>Derived rather than stored, for the reason <c>NumericUpDown.OnLayout</c> gives: the
+        /// area is a function of the control's size, so every resize has to move it and a layout pass
+        /// is the one place that reliably runs for all of them.</remarks>
+        protected override void OnLayout (LayoutEventArgs e)
+        {
+            base.OnLayout (e);
+
+            edit.Bounds = EditAreaLogicalBounds;
+        }
 
         /// <summary>Gets the height one line of the combo box needs at the current font.</summary>
         public int PreferredHeight
@@ -297,9 +421,10 @@ namespace Majorsilence.Forms
             // The combo's Text IS its selection, and Control.Text is the only thing that raises
             // TextChanged -- which nothing wrote, so TextChanged never fired for a combo at all. That
             // is what validation, dirty-tracking and a Binding on Text all listen to (LST-09).
-            // Assigned through base.Text: this class's own Text setter would resolve the string back to
-            // an index and recurse.
-            base.Text = index >= 0 ? GetItemText (SelectedItem) : string.Empty;
+            // Assigned through SetTextCore, not base.Text: the edit region has to show the newly
+            // selected item too, and not through this class's own Text setter, which would resolve the
+            // string back to an index and recurse.
+            SetTextCore (index >= 0 ? GetItemText (SelectedItem) : string.Empty);
 
             OnSelectedIndexChanged (e);
 
@@ -337,9 +462,47 @@ namespace Majorsilence.Forms
             OnDropDown (e);     // the WinForms-named event; see DropDown
         }
 
+        /// <summary>Puts a typed character into the edit region.</summary>
+        /// <remarks>
+        /// The combo is the tab stop and the edit region is implicit, so a keyboard-focused combo -- and
+        /// any caller raising input at the control, which is how WinForms code and the tests both treat
+        /// a combo -- delivers characters here rather than to the child. Real focus inside the child,
+        /// after a click in the text area, bypasses this: key input goes straight to the focused
+        /// control (see <c>Control.RaiseKeyPress</c>), so there is no double insert.
+        /// </remarks>
+        protected override void OnKeyPress (KeyPressEventArgs e)
+        {
+            base.OnKeyPress (e);
+
+            if (IsEditable && !edit.Selected)
+                edit.RaiseKeyPress (e);
+        }
+
+        /// <inheritdoc cref="OnKeyPress" path="/remarks"/>
+        protected override void OnKeyDown (KeyEventArgs e)
+        {
+            base.OnKeyDown (e);
+
+            // Editing keys only. Up/Down/Enter/Escape stay with the LIST -- they are acted on in
+            // OnKeyUp below -- which is why this cannot simply forward everything.
+            if (IsEditable && !edit.Selected && !e.Handled
+                && e.KeyCode.In (Keys.Back, Keys.Delete, Keys.Left, Keys.Right, Keys.Home, Keys.End))
+                edit.RaiseKeyDown (e);
+        }
+
         /// <inheritdoc/>
         protected override void OnKeyUp (KeyEventArgs e)
         {
+            // Enter commits what was typed: resolving it against the items is the Text setter's job, so
+            // a typed "item3" selects item 3 instead of leaving the control text-only (LST-07). Before
+            // the branches below, which close the drop-down and return.
+            //
+            // Unconditional, deliberately. Guarding it with `edit.Text != base.Text` looks like an
+            // obvious short-circuit and is dead code: the edit region's TextChanged has already
+            // written base.Text, so the two are always equal here and the commit never ran.
+            if (e.KeyCode == Keys.Enter && IsEditable)
+                Text = edit.Text;
+
             // Alt+Up/Down toggles the dropdown
             if (e.Alt && e.KeyCode.In (Keys.Up, Keys.Down)) {
                 DroppedDown = !DroppedDown;
@@ -467,25 +630,42 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the selection is hidden when the control loses focus. Stub in Majorsilence.Forms.</summary>
         public bool HideSelection { get; set; } = true;
 
-        /// <summary>Gets or sets the starting position of text selected in the editable portion. Stub in Majorsilence.Forms.</summary>
-        public int SelectionStart { get; set; }
+        // The four members below forward to the edit region unconditionally, including for
+        // DropDownList where it is hidden. That is deliberate: one store means a style switch carries
+        // MaxLength and the selection with it, and it is the edit region's own document that defines
+        // what these mean (see TextBox.SelectionStart's remarks on the caret-vs-anchor question).
+        // They were stored ints that nothing read, so SelectAll left SelectionLength at 0 (LST-07).
 
-        /// <summary>Gets or sets the number of characters selected in the editable portion. Stub in Majorsilence.Forms.</summary>
-        public int SelectionLength { get; set; }
-
-        /// <summary>Gets or sets the text in the editable portion of the ComboBox.</summary>
-        public string SelectedText {
-            get => SelectionLength > 0 && SelectionStart >= 0 ? Text.Substring (SelectionStart, Math.Min (SelectionLength, Text.Length - SelectionStart)) : string.Empty;
-            set { }
+        /// <summary>Gets or sets the starting position of text selected in the editable portion.</summary>
+        public int SelectionStart {
+            get => edit.SelectionStart;
+            set => edit.SelectionStart = value;
         }
 
-        /// <summary>Gets or sets the maximum number of characters that can be entered in the editable portion. Stub in Majorsilence.Forms.</summary>
-        public int MaxLength { get; set; }
+        /// <summary>Gets or sets the number of characters selected in the editable portion.</summary>
+        public int SelectionLength {
+            get => edit.SelectionLength;
+            set => edit.SelectionLength = value;
+        }
+
+        /// <summary>Gets or sets the text in the editable portion of the ComboBox.</summary>
+        /// <remarks>Setting it replaces the selection, or inserts at the caret when nothing is
+        /// selected, as <c>TextBoxBase.SelectedText</c> does.</remarks>
+        public string SelectedText {
+            get => edit.SelectedText;
+            set => edit.SelectedText = value ?? string.Empty;
+        }
+
+        /// <summary>Gets or sets the maximum number of characters that can be entered in the editable portion.</summary>
+        public int MaxLength {
+            get => edit.MaxLength;
+            set => edit.MaxLength = value;
+        }
 
         /// <summary>Gets or sets whether the height of the ComboBox is limited to prevent partial items. Stub in Majorsilence.Forms.</summary>
         public bool IntegralHeight { get; set; } = true;
 
-        /// <summary>Selects a range of text in the editable portion of the ComboBox. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Selects a range of text in the editable portion of the ComboBox.</summary>
         public void Select (int start, int length) { SelectionStart = start; SelectionLength = length; }
 
         /// <summary>Gets or sets the height in pixels of the drop-down portion. Stub in Majorsilence.Forms.</summary>
@@ -494,11 +674,78 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the height of each item in the combo box. Stub in Majorsilence.Forms.</summary>
         public int ItemHeight { get; set; } = 15;
 
-        /// <summary>Gets or sets the auto-complete mode. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the auto-complete mode.</summary>
+        /// <remarks><see cref="AutoCompleteMode.Append"/> and the append half of
+        /// <see cref="AutoCompleteMode.SuggestAppend"/> complete inline as you type. The filtered
+        /// drop-down of <see cref="AutoCompleteMode.Suggest"/> is not implemented -- see
+        /// <see cref="CompleteTypedText"/> for why it cannot be, as this control is built.</remarks>
         public AutoCompleteMode AutoCompleteMode { get; set; } = AutoCompleteMode.None;
 
-        /// <summary>Gets or sets the source of auto-complete strings. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the source of auto-complete strings.</summary>
+        /// <remarks><see cref="AutoCompleteSource.ListItems"/> and
+        /// <see cref="AutoCompleteSource.CustomSource"/> are honoured. The rest name operating-system
+        /// stores (the file system, the shell's URL history) that have no portable meaning here, and
+        /// complete nothing.</remarks>
         public AutoCompleteSource AutoCompleteSource { get; set; } = AutoCompleteSource.None;
+
+        // Completes the entry inline and selects the part the user did not type, so the next keystroke
+        // replaces it -- AutoCompleteMode.Append. Called from the edit region the moment a character
+        // lands, not from its TextChanged, so a programmatic assignment never triggers completion.
+        //
+        // Suggest's filtered drop-down is absent by construction, not by omission: this control's items
+        // ARE the popup ListBox's items (see the Items property), so narrowing what the popup shows
+        // would mean deleting the combo's own items and putting them back. That needs a separate
+        // presentation list, which is its own change.
+        private void CompleteTypedText ()
+        {
+            if (AutoCompleteMode != AutoCompleteMode.Append && AutoCompleteMode != AutoCompleteMode.SuggestAppend)
+                return;
+
+            var typed = edit.Text;
+
+            if (typed.Length == 0)
+                return;
+
+            var completion = FindCompletion (typed);
+
+            // A completion no longer than what was typed adds nothing -- and selecting a zero-length
+            // remainder would silently clear the caret's selection.
+            if (completion is null || completion.Length <= typed.Length)
+                return;
+
+            syncing_edit_text = true;
+
+            try {
+                edit.Text = completion;
+            } finally {
+                syncing_edit_text = false;
+            }
+
+            base.Text = completion;
+
+            // TextBox.Text resets the caret to 0, so the selection is applied after the assignment.
+            edit.SelectionStart = typed.Length;
+            edit.SelectionLength = completion.Length - typed.Length;
+        }
+
+        // The first entry in the configured source that starts with what was typed, or null.
+        private string? FindCompletion (string typed)
+        {
+            if (AutoCompleteSource == AutoCompleteSource.ListItems) {
+                var idx = FindString (typed);
+
+                return idx >= 0 ? GetItemText (Items[idx]) : null;
+            }
+
+            if (AutoCompleteSource != AutoCompleteSource.CustomSource)
+                return null;
+
+            foreach (string? candidate in AutoCompleteCustomSource)
+                if (candidate is not null && candidate.StartsWith (typed, StringComparison.CurrentCultureIgnoreCase))
+                    return candidate;
+
+            return null;
+        }
 
         /// <summary>Gets or sets the custom source for auto-complete strings. Stub in Majorsilence.Forms.</summary>
         public AutoCompleteStringCollection AutoCompleteCustomSource { get; set; } = new AutoCompleteStringCollection ();
@@ -565,18 +812,66 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// Mirrors WinForms (finding <c>LST-08</c>). The getter used to return the selected item's text
+        /// whenever anything was selected, so <c>Text = "custom"</c> on a combo with a selection stored
+        /// the string and then read back the item -- restoring a saved free-text value silently showed
+        /// the previously selected entry. It reports <c>base.Text</c> now, and every path that changes
+        /// the selection writes it (see <see cref="SetTextCore"/>), so the two cannot drift.
+        /// A null assignment clears the selection, which is the documented WinForms idiom for it; a
+        /// value that matches no item keeps the text and leaves the selection alone.
+        /// </remarks>
         public override string Text {
-            get {
-                if (SelectedIndex >= 0)
-                    return GetItemText (SelectedItem);
-                return base.Text;
-            }
+            get => base.Text;
             set {
-                int idx = FindStringExact (value);
+                SetTextCore (value ?? string.Empty);
+
+                if (value is null) {
+                    SelectedIndex = -1;
+                    return;
+                }
+
+                var idx = FindStringExact (value);
+
                 if (idx >= 0)
                     SelectedIndex = idx;
-                else
-                    base.Text = value;
+            }
+        }
+
+        // The one place this control's text is written. Keeps the edit region and Control.Text in step
+        // -- Control.Text is what raises TextChanged, and the edit region is what the user sees.
+        private void SetTextCore (string value)
+        {
+            if (!syncing_edit_text) {
+                syncing_edit_text = true;
+
+                try {
+                    edit.Text = value;
+                } finally {
+                    syncing_edit_text = false;
+                }
+            }
+
+            base.Text = value;
+        }
+
+        // The edit region changed under the user's fingers.
+        private void EditTextChanged (object? sender, EventArgs e)
+        {
+            if (syncing_edit_text || !IsEditable)
+                return;
+
+            // TextUpdate FIRST: upstream raises it from CBN_EDITUPDATE, which Windows sends before the
+            // CBN_EDITCHANGE that becomes TextChanged. Assigning base.Text below is what raises
+            // TextChanged, so doing this first is what puts them in the upstream order.
+            OnTextUpdate (EventArgs.Empty);
+
+            syncing_edit_text = true;
+
+            try {
+                base.Text = edit.Text;
+            } finally {
+                syncing_edit_text = false;
             }
         }
 

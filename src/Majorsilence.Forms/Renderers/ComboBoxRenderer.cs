@@ -10,7 +10,10 @@ namespace Majorsilence.Forms.Renderers
         /// <summary>
         /// Size of the drop down glyph.
         /// </summary>
-        protected const int GLYPH_SIZE = 15;
+        /// <remarks>The control owns this measurement now (<c>ComboBox.DropDownGlyphWidth</c>): the
+        /// edit region's bounds and the painted text area must agree exactly, and two definitions of
+        /// the same 15 pixels is how a caret ends up under the glyph.</remarks>
+        protected const int GLYPH_SIZE = ComboBox.DropDownGlyphWidth;
 
         /// <inheritdoc/>
         protected override void Render (ComboBox control, PaintEventArgs e)
@@ -23,8 +26,9 @@ namespace Majorsilence.Forms.Renderers
                 e.Canvas.DrawFocusRectangle (focus_bounds, unit_3);
             }
 
-            // Draw the text of the selected item
-            if (control.Items.SelectedItem != null)
+            // Draw the text of the selected item -- unless the control has an editable region, in which
+            // case the child TextBox is painting it, and painting it here too double-draws it (LST-07).
+            if (!control.IsEditable && control.Items.SelectedItem != null)
                 e.Canvas.DrawText (control.GetItemText (control.Items.SelectedItem), text_area, control, ContentAlignment.MiddleLeft, maxLines: 1);
 
             // Draw the drop down glyph
@@ -47,12 +51,6 @@ namespace Majorsilence.Forms.Renderers
         /// Gets the bounding box of the area to draw the ComboBox text.
         /// </summary>
         protected Rectangle GetTextArea (ComboBox control, PaintEventArgs e)
-        {
-            var area = control.PaddedClientRectangle;
-
-            area.Width -= e.LogicalToDeviceUnits (GLYPH_SIZE);
-
-            return area;
-        }
+            => control.EditAreaDeviceBounds;
     }
 }

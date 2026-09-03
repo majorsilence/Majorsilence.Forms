@@ -463,9 +463,12 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (string.Empty, control.SelectedText);
 
-            // Setting SelectedText is a no-op stub in Majorsilence.Forms.
+            // Setting it with nothing selected inserts at the caret, as TextBoxBase.SelectedText does
+            // (W5.10 -- it used to be a no-op stub, and this test said so). The getter still answers
+            // empty afterwards, because an insert leaves no selection behind.
             control.SelectedText = "Test";
             Assert.Equal (string.Empty, control.SelectedText);
+            Assert.Equal ("Test", control.Text);
         }
     }
 }

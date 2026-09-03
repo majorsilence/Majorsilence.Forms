@@ -8,6 +8,32 @@ Counts: **P0: 5 · P1: 23 · P2: 13 · P3: listed in one line each.**
 
 ## Findings
 
+## Status (2026-09-03, W5.10 — the ComboBox edit region)
+
+**Closed:** LST-08, and LST-07 apart from `Suggest`'s filtered drop-down, `Simple`'s inline list and
+the OS-backed `AutoCompleteSource` values. 19 tests in `ComboBoxEditRegionTests.cs`, 16 verified to
+fail with their fix neutralized; 3 are labelled in-test as guards, because no previous version of the
+control could fail them. One existing test corrected: `ComboBoxTests.SelectedText_NoSelection_ReturnsEmpty`
+said in a comment that the setter was a no-op stub, and now asserts the insert it really performs.
+
+**A correction to LST-07's inventory.** It lists the stored members accurately, but they are *not* in
+`StoredOnlyPropertyBaseline.txt` and never were: `SelectedText`'s getter read `SelectionStart` and
+`SelectionLength`, which is enough to count as consumed. A ring of stubs citing one another is
+invisible to that gate, so this file's own reading of the source found what the baseline could not.
+
+**Why `Suggest` is not merely unfinished.** The combo's items *are* the popup `ListBox`'s items --
+`Items` is a cast of `popup_listbox.Items` -- so filtering what the drop-down shows would mean
+deleting the control's own items and restoring them afterwards. A filtered drop-down needs a separate
+presentation list, which is a change to how this control stores items, not an addition to it. The same
+applies to `Simple`: its always-visible list means re-parenting the popup list into the control.
+
+**Also fixed, outside this file's findings.** `TextBoxDocument.MaxLength` represented "no limit" *as*
+`int.MaxValue`, so setting `int.MaxValue` explicitly read back as 0 -- no limit. Forwarding
+`ComboBox.MaxLength` to the document is what surfaced it; the defect is `TextBox`'s.
+
+**Still open in this file:** LST-10, LST-13, LST-14, LST-15, the `Suggest`/`Simple` remainder of
+LST-07, and the `ShowLines`/`ShowRootLines`/`LineColor` remainder of LST-26.
+
 ## Status (2026-09-02, W5.9 — the TreeView cluster)
 
 **Closed:** LST-05 (P0), LST-11, LST-21, LST-22, LST-23, LST-24, LST-25, the `TreeView` half of
