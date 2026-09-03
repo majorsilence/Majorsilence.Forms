@@ -62,12 +62,8 @@ Majorsilence.Forms.ToolBar.ButtonClick
 Majorsilence.Forms.ToolStripControlHost.ContentChanged
 Majorsilence.Forms.ToolStripLabel.MouseEnter
 Majorsilence.Forms.ToolStripLabel.MouseLeave
-Majorsilence.Forms.TreeView.AfterCheck
 Majorsilence.Forms.TreeView.AfterLabelEdit
-Majorsilence.Forms.TreeView.BeforeCheck
-Majorsilence.Forms.TreeView.BeforeCollapse
 Majorsilence.Forms.TreeView.BeforeLabelEdit
-Majorsilence.Forms.TreeView.BeforeSelect
 Majorsilence.Forms.TreeView.ItemDrag
 Majorsilence.Forms.TreeView.NodeMouseHover
 Majorsilence.Forms.WebBrowser.CanGoBackChanged

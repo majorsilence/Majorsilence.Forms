@@ -124,7 +124,22 @@ namespace Majorsilence.Forms
         public bool ShowNodeToolTips { get; set; }
 
         /// <summary>Gets or sets whether nodes are kept in alphabetical order.</summary>
-        public bool Sorted { get; set; }
+        public bool Sorted {
+            get => sorted;
+            set {
+                if (sorted == value)
+                    return;
+
+                sorted = value;
+
+                // Sorts on assignment, as upstream does -- the designer serialises `Sorted = true` and
+                // expected the nodes already added to reorder (LST-11).
+                if (sorted)
+                    Sort ();
+            }
+        }
+
+        private bool sorted;
 
         /// <summary>Gets or sets whether the control lays out right to left when RightToLeft is set.</summary>
         public virtual bool RightToLeftLayout {
