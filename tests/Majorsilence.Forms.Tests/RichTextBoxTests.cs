@@ -36,7 +36,12 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (1.0f, control.ZoomFactor);
             Assert.Equal (RichTextBoxScrollBars.Both, control.ScrollBars);
             Assert.Equal (Color.Empty, control.SelectionBackColor);
-            Assert.Equal (Color.Empty, control.SelectionColor);
+
+            // INVERTED by W5.14 (TXT-17): this asserted Color.Empty, the old stub's default. An
+            // unformatted run has no colour of its own, and upstream reads CFE_AUTOCOLOR and answers
+            // the control's ForeColor for it -- a real colour, because one is what gets painted. The
+            // BACKGROUND above keeps Empty, which is upstream's answer for CFE_AUTOBACKCOLOR.
+            Assert.Equal (control.ForeColor, control.SelectionColor);
             Assert.Equal (string.Empty, control.Text);
             Assert.Equal (0, control.TextLength);
             Assert.Equal (string.Empty, control.SelectedText);
@@ -166,7 +171,13 @@ namespace Majorsilence.Forms.Tests
 
             control.Rtf = value!;
             Assert.Equal (string.Empty, control.Text);
-            Assert.Equal (string.Empty, control.Rtf);
+
+            // INVERTED by W5.14 (TXT-04): this asserted `Rtf == string.Empty`, which pinned the stale
+            // stored string the getter used to return. The getter renders the current text now, and an
+            // empty document is still a document -- upstream's getter streams out `{\rtf1...}` for an
+            // empty control too.
+            Assert.StartsWith (@"{\rtf1", control.Rtf);
+            Assert.Equal (string.Empty, new RichTextBox { Rtf = control.Rtf }.Text);
         }
 
         // With a selection start established first, SelectionLength and SelectedText round-trip

@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 768 of 1221 public settable auto-properties (62%).
+# 762 of 1217 public settable auto-properties (62%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -528,19 +528,13 @@ Majorsilence.Forms.RichTextBox.RichTextShortcutsEnabled
 Majorsilence.Forms.RichTextBox.RightMargin
 Majorsilence.Forms.RichTextBox.ScrollBars
 Majorsilence.Forms.RichTextBox.SelectionAlignment
-Majorsilence.Forms.RichTextBox.SelectionBackColor
-Majorsilence.Forms.RichTextBox.SelectionBold
 Majorsilence.Forms.RichTextBox.SelectionBullet
 Majorsilence.Forms.RichTextBox.SelectionCharOffset
-Majorsilence.Forms.RichTextBox.SelectionColor
-Majorsilence.Forms.RichTextBox.SelectionFont
 Majorsilence.Forms.RichTextBox.SelectionHangingIndent
 Majorsilence.Forms.RichTextBox.SelectionIndent
-Majorsilence.Forms.RichTextBox.SelectionItalic
 Majorsilence.Forms.RichTextBox.SelectionProtected
 Majorsilence.Forms.RichTextBox.SelectionRightIndent
 Majorsilence.Forms.RichTextBox.SelectionTabs
-Majorsilence.Forms.RichTextBox.SelectionUnderline
 Majorsilence.Forms.RichTextBox.ShowSelectionMargin
 Majorsilence.Forms.RichTextBox.ZoomFactor
 Majorsilence.Forms.SaveFileDialog.CheckWriteAccess

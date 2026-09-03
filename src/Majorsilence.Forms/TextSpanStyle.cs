@@ -8,5 +8,11 @@ namespace Majorsilence.Forms
     /// non-overlapping and given in left-to-right order; gaps between spans render in the
     /// control's normal foreground color.
     /// </summary>
-    public readonly record struct TextSpanStyle (int Start, int Length, SKColor Color, bool Bold = false, bool Underline = false);
+    /// <remarks>
+    /// <paramref name="BackColor"/> left at its default (a fully transparent colour) means "do not
+    /// paint a background", which is how an unset value is told apart from a deliberate one --
+    /// <see cref="RichTextBox.SelectionBackColor"/> relies on that.
+    /// </remarks>
+    public readonly record struct TextSpanStyle (int Start, int Length, SKColor Color, bool Bold = false, bool Underline = false,
+                                                 bool Italic = false, SKColor BackColor = default);
 }

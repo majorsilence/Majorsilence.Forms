@@ -254,6 +254,11 @@ namespace Majorsilence.Forms
                     TextColor = span.Color,
                     FontWeight = span.Bold ? (int)SkiaSharp.SKFontStyleWeight.Bold : font.FontWeight,
                     Underline = span.Underline ? UnderlineStyle.Solid : UnderlineStyle.None,
+                    // Italic and a run background are what RichTextBox.SelectionItalic and
+                    // SelectionBackColor need to reach the paint (TXT-17); a transparent BackColor is
+                    // the "unset" value and paints nothing.
+                    FontItalic = span.Italic,
+                    BackgroundColor = span.BackColor,
                 };
                 tb.AddText (text.AsSpan (span.Start, span.Length), spanStyle);
                 next = span.Start + span.Length;
