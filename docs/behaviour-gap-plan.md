@@ -794,10 +794,28 @@ popup list into the control and is likewise separable. The OS-backed `AutoComple
 Also fixed, because forwarding surfaced it: `TextBoxDocument.MaxLength` stored "no limit" **as**
 `int.MaxValue`, so an explicit `MaxLength = int.MaxValue` read back as 0 — no limit at all.
 
-**W5.11 — `TextBox` stored-only behaviour.** `WordWrap`, `CharacterCasing`, `ScrollBars`,
-`HideSelection`, `ShortcutsEnabled` each have exactly one obvious consumer. Plus the two crash paths:
-typing when existing text exceeds `MaxLength`, and the caret walking into `PlaceholderText`.
-*Closes:* `TXT-05`, `TXT-06`, `TXT-07`, `TXT-11`, `TXT-12`, `TXT-22`, `TXT-26`.
+**W5.11 — `TextBox` stored-only behaviour. — DONE (2026-09-03)**
+Both crash paths first. `MaxLength` limits input and does not truncate text already present, so the
+insert clamp computes the *room left* and refuses input when there is none — it used to compute a
+negative substring length and throw out of the keystroke, which is what `Text = <database value>`
+followed by `MaxLength = 10` (the designer's own order) did to an application. And the caret is now
+clamped to the real text in `SetCursorToCharIndex`, with `MoveCursor` returning early on empty text:
+the laid-out block is the *placeholder* while the text is empty, so End in an empty search box put the
+caret inside `"Search"` and the next character threw.
+`CharacterCasing` converts typed, pasted and programmatically assigned text in the document, under the
+thread culture as upstream's `ES_UPPERCASE` does. `ShortcutsEnabled = false` refuses Ctrl+C/X/V/A and
+leaves the key for the form. `WordWrap` reaches the layout: a multiline box with wrapping off lays out
+unbounded and scrolls sideways, and `ScrollControl.HorizontalScrollBar` (new, symmetric with the
+vertical one that was always reachable) carries it. `ScrollBars` now decides whether a bar appears at
+all, and `HideSelection` decides whether the selection is *painted* — the selection itself survives
+focus loss, because `OnDeselected` no longer destroys it.
+*Closed:* `TXT-05`, `TXT-06`, `TXT-07`, `TXT-11`, `TXT-12`, `TXT-22`, `TXT-26`. One deliberate
+deviation: with `WordWrap = false`, a **centre- or right-aligned** multiline box still wraps, because
+the layout engine needs a real right edge to align against — the same trade-off the single-line path
+already documents. Left-aligned, which is what a log or code view uses, does not wrap.
+`RichTextBox.ScrollBars` keeps its own `new` shadow and stays stored-only; that belongs to W5.14.
+15 tests (13 methods), 12 verified to fail with their fix neutralized and 3 labelled in-test as
+guards.
 
 **W5.12 — Stop routing mutations through the `Text` setter.** `AppendText`, `RichTextBox.AppendText`
 and both `SelectedText` setters assign `Text`, which resets caret to 0, scrolls to top, clears undo and
@@ -1038,14 +1056,40 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4141 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4156 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
-80 → 66, unraised events 130 → 119, stored-only properties 822 → 769, no-op stubs
+80 → 66, unraised events 130 → 119, stored-only properties 822 → 768, no-op stubs
 156 → 154.
+
+### What W5.11 found
+
+**The baseline's own warning had gone stale, and that is the warning.** `StoredOnlyPropertyBaseline.txt`
+carries a note saying absence from the file does not mean a property works, and cited `ListView.View`,
+`TextBox.WordWrap` and `TextBox.AcceptsReturn` as "absent and all broken". All three have since been
+fixed — by W5.6, by this item, and by Phase 1 — so the caveat was illustrated entirely by counter-
+examples. It now cites `ComboBox.IntegralHeight` and `ComboBox.DropDownHeight`, which are absent
+because their only readers are `ToolStripComboBox`'s pass-through wrappers: inert code reading inert
+code. Coming after W5.10, where the same gate under-reported because stub properties read *each
+other*, that is two distinct mechanisms by which this baseline reads clean over broken members. It is
+a floor.
+
+**The finding's impact line was backwards, and the mechanism explains why.** `TXT-26` says boxes
+designed as `ScrollBars.None` grow a scrollbar. The opposite was true: no `TextBox` could ever show
+one. `ScrollControl.ScrollBars` already shows and hides both bars correctly, and
+`public new ScrollBars ScrollBars { get; set; }` on `TextBox` shadowed it — so `UpdateScrollBars`
+dutifully set `Enabled` on a bar that nothing had ever made `Visible`. Deleting the shadow *is* the
+fix, and it is the same defect class as the `ToolStrip` shadows in `TSM-01`. Worth remembering when
+reading a Cat C finding: "stored-only" sometimes means "a working implementation is being hidden",
+which is a two-line fix rather than a feature.
+
+**A test helper named after an existing member, twice in three items.** `Deselectable.Deselect` hid
+`Control.Deselect` and failed the Release build on CS0108 — exactly what `ClickableTree.Click` did in
+W5.9. Warnings-as-errors in Release catches it every time and Debug never does, which is the
+four-configuration rule earning its keep for the third item running.
 
 ### What W5.10 found
 

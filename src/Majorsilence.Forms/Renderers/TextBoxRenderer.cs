@@ -131,7 +131,13 @@ namespace Majorsilence.Forms.Renderers
         /// <summary>
         /// Gets the TextBox's text seleection.
         /// </summary>
-        protected TextSelection GetTextSelection (TextBox control) => control.document.GetTextSelection ();
+        /// <remarks>An unfocused box with <see cref="TextBoxBase.HideSelection"/> set paints no
+        /// highlight, while keeping the selection itself (finding <c>TXT-07</c>) -- that property is
+        /// the absence of ES_NOHIDESEL, which controls the painting and nothing else. An editor that
+        /// sets <c>HideSelection = false</c> to keep the highlight visible now gets it.</remarks>
+        protected TextSelection GetTextSelection (TextBox control)
+            => !control.Selected && control.HideSelection ? TextSelection.Empty
+                                                          : control.document.GetTextSelection ();
 
         /// <summary>
         /// Updates the TextBox's scroll bars.

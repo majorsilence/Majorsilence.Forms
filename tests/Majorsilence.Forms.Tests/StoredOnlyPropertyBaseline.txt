@@ -4,16 +4,20 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 769 of 1223 public settable auto-properties (62%).
+# 768 of 1221 public settable auto-properties (62%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
 # say so beside the entry rather than removing it.
 #
 # Absence from this file does NOT mean the property works: a property read only by code
-# that is itself inert counts as consumed here. ListView.View, TextBox.WordWrap and
-# TextBox.AcceptsReturn are all absent and all broken -- see StoredOnlyPropertyBaselineTests
-# for why, and docs/behaviour-gap/ for that class of finding.
+# that is itself inert counts as consumed here. ComboBox.IntegralHeight and
+# ComboBox.DropDownHeight are both absent and neither does anything -- their only readers
+# are ToolStripComboBox's pass-through wrappers, which forward and nothing more. The three
+# examples this note used to give (ListView.View, TextBox.WordWrap, TextBox.AcceptsReturn)
+# have since been fixed by W5.6, W5.11 and Phase 1, which is the other half of the point:
+# an entry's absence here says nothing either way. See StoredOnlyPropertyBaselineTests for
+# why, and docs/behaviour-gap/ for that class of finding.
 #
 # Auto-properties only: a property with hand-written accessors is invisible here, so the
 # real figure is higher.
@@ -613,7 +617,6 @@ Majorsilence.Forms.TaskDialogProgressBar.Minimum
 Majorsilence.Forms.TaskDialogProgressBar.State
 Majorsilence.Forms.TaskDialogProgressBar.Value
 Majorsilence.Forms.TaskDialogRadioButton.Enabled
-Majorsilence.Forms.TextBox.ScrollBars
 Majorsilence.Forms.TimePicker.MaxValue
 Majorsilence.Forms.TimePicker.MinValue
 Majorsilence.Forms.Timer.Tag

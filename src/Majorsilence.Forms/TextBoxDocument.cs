@@ -202,9 +202,17 @@ namespace Majorsilence.Forms
             // aligned inside int.MaxValue every glyph lands off the end of the world and the control
             // paints blank -- so bound it to the visible width. MaxLines is 1 here, so bounding the
             // width cannot introduce wrapping.
-            var max_size = multiline ? new Size (width, int.MaxValue)
-                         : alignment == TextAlignment.Left ? TextMeasurer.MaxSize
-                         : new Size (Math.Max (width, 1), int.MaxValue);
+            // Unbounded width is what lets long lines scroll sideways instead of wrapping. Centre and
+            // right alignment need a real right edge to measure from -- aligned inside int.MaxValue
+            // every glyph lands off the end of the world and the control paints blank -- so those stay
+            // bounded to the visible width even when wrapping is off. For a multiline box that means
+            // non-left-aligned text still wraps with WordWrap = false; left-aligned, which is what a
+            // log view or a code view uses, does not (TXT-11).
+            var unbounded = alignment == TextAlignment.Left ? TextMeasurer.MaxSize
+                          : new Size (Math.Max (width, 1), int.MaxValue);
+            var max_size = multiline && !textbox.WordWrap ? unbounded
+                         : multiline ? new Size (width, int.MaxValue)
+                         : unbounded;
             var color = !Enabled ? Theme.ForegroundDisabledColor :
                         Text.HasValue () ? textbox.GetEffectiveForegroundColor () :
                                 placeholder_font_color;
@@ -284,8 +292,26 @@ namespace Majorsilence.Forms
 
             str = StripInvalidCharacters (str);
 
-            if (max_length > 0 && text.Length + str.Length > max_length)
-                str = str.Substring (0, max_length - text.Length);
+            // MaxLength limits USER INPUT and does not affect text already present -- upstream's
+            // EM_LIMITTEXT says so explicitly -- so input at or past the limit is simply rejected.
+            // Computing the substring length as `max_length - text.Length` went NEGATIVE the moment the
+            // existing text was longer than the limit, and threw ArgumentOutOfRangeException out of
+            // OnKeyPress: `Text = <value from the database>` followed by `MaxLength = 10` (or the
+            // designer setting the limit before binding fills the box -- the normal order) crashed the
+            // application on the next keystroke (TXT-05).
+            if (max_length > 0) {
+                var room = max_length - text.Length;
+
+                if (room <= 0)
+                    return false;
+
+                if (str.Length > room)
+                    str = str.Substring (0, room);
+            }
+
+            // TXT-12: upstream applies ES_UPPERCASE/ES_LOWERCASE in the edit control itself, so typed,
+            // pasted and programmatically assigned text is all converted.
+            str = ApplyCasing (str);
 
             text = text.Insert (cursor_index, str);
             cached_text_block = null;
@@ -348,6 +374,11 @@ namespace Majorsilence.Forms
         {
             if (!select)
                 Deselect ();
+
+            // Nothing to move through, and the block the movement would be derived from is the
+            // placeholder rather than the content (TXT-06).
+            if (text.Length == 0)
+                return false;
 
             var new_index = -1;
             var block = GetTextBlock ();
@@ -528,12 +559,33 @@ namespace Majorsilence.Forms
 
         public bool SetCursorToCharIndex (int index)
         {
+            // Clamped to the REAL text. The laid-out block is the placeholder while the text is empty
+            // (see DisplayText), so Right/End/Down in an empty box with PlaceholderText = "Search"
+            // moved the caret to index 1..6 -- inside a string that is not the content -- and the next
+            // insert did text.Insert (6, "a") on an empty string and threw (TXT-06).
+            index = MathCompat.Clamp (index, 0, text.Length);
+
             if (cursor_index == index)
                 return false;
 
             cursor_index = index;
 
             return true;
+        }
+
+        // TXT-12. The culture is the thread's, as upstream: ES_UPPERCASE is a Win32 edit-control flag
+        // and CharUpper follows the current locale, so a Turkish user's dotless-i behaves as it does in
+        // WinForms rather than invariantly.
+        internal string ApplyCasing (string value)
+        {
+            if (value.Length == 0)
+                return value;
+
+            return textbox.CharacterCasing switch {
+                CharacterCasing.Upper => value.ToUpper (System.Globalization.CultureInfo.CurrentCulture),
+                CharacterCasing.Lower => value.ToLower (System.Globalization.CultureInfo.CurrentCulture),
+                _ => value,
+            };
         }
 
         private string StripInvalidCharacters (string text)
@@ -553,6 +605,11 @@ namespace Majorsilence.Forms
                 // Backstop for the same WinForms coercion TextBox.Text applies: DisplayText and
                 // StripInvalidCharacters both dereference this field, so it must never hold null.
                 value ??= string.Empty;
+
+                // Programmatic assignment is cased too: upstream's flag is on the edit control, so it
+                // converts WM_SETTEXT the same as typing. A code field marked Upper therefore reads
+                // back upper case whether the user typed it or the binding filled it (TXT-12).
+                value = ApplyCasing (value);
 
                 if (text != value) {
                     // WM_SETTEXT resets the Win32 edit control's undo buffer, so a programmatic
