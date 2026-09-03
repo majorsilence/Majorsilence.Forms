@@ -86,5 +86,13 @@ namespace Majorsilence.Forms
         /// Gets the control's vertical scrollbar.
         /// </summary>
         public VerticalScrollBar VerticalScrollBar => vscrollbar;
+
+        /// <summary>
+        /// Gets the control's horizontal scrollbar.
+        /// </summary>
+        /// <remarks>Symmetric with <see cref="VerticalScrollBar"/>, which a derived control has always
+        /// been able to reach. <see cref="TextBox"/> needs this one to scroll a non-wrapping multiline
+        /// box sideways (finding <c>TXT-11</c>).</remarks>
+        public HorizontalScrollBar HorizontalScrollBar => hscrollbar;
     }
 }

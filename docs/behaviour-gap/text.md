@@ -3,6 +3,31 @@
 ## Summary
 The area is a single real engine (`TextBoxDocument`, a RichTextKit-backed plain-text buffer with caret, anchor/end selection, single-level undo and a cached `TextBlock`) with `TextBox` as its only consumer; `TextBoxBase` re-derives everything from `Text`+selection, and `RichTextBox`/`MaskedTextBox` are `TextBox` subclasses that add stored-only properties. The core editing loop (typing, Backspace/Delete, arrows, Home/End, Shift-select, Ctrl+C/X/V/A, programmatic `Text`/`Select`/`SelectedText`, `TextChanged`, `Modified`, `Undo`) is genuinely implemented and mostly right. The dominant failure patterns are (1) the input pipeline ignores the app's own `KeyPress.Handled`/`KeyDown.SuppressKeyPress`, so every "digits-only" text box in a migrated LOB app stops filtering; (2) high-traffic verbs are routed through the `Text` setter (`AppendText`, `SelectedText` on `RichTextBox`), which resets caret/scroll/undo/`Modified` to the "fresh assignment" state; (3) ~15 behaviour-changing properties are stored and never read (`WordWrap`, `CharacterCasing`, `AcceptsReturn`, `AcceptsTab`, `ShortcutsEnabled`, `ScrollBars`, `HideSelection`, every `RichTextBox.Selection*`, the whole `MaskedTextBox.Mask` family); (4) two arithmetic paths throw on ordinary input (`MaxLength` shorter than existing text, caret moved into placeholder text). `RichTextBox.Rtf`/`Find`/`LoadFile` and `MaskedTextBox` return answers that look valid but are not (stale RTF, case-sensitive Find that never selects, `MaskCompleted == true` always). Count: **P0 × 4, P1 × 17, P2 × 14**, plus a P3 list. Existing tests cover the getters/setters well and in three places pin the divergent behaviour as expected (`MaskCompletedAndMaskFull_AlwaysTrue`, `Text_SetUnaffectedByMask`, `MaxLength_DefaultsToZero`).
 
+## Status (2026-09-03, W5.11 — TextBox's stored-only behaviour and two crashes)
+
+**Closed:** TXT-05, TXT-06, TXT-07, TXT-11, TXT-12, TXT-22, TXT-26. 15 tests (13 methods) in
+`TextBoxStoredBehaviourTests.cs`, 12 verified to fail with their fix neutralized; 3 are labelled
+in-test as guards.
+
+**A correction to TXT-26's impact.** It says boxes designed as `ScrollBars.None` grow a scrollbar. The
+reverse was true: **no** `TextBox` ever displayed one. `ScrollControl.ScrollBars` already shows and
+hides both bars, and `public new ScrollBars ScrollBars { get; set; }` on `TextBox` shadowed it, so
+`UpdateScrollBars` set `Enabled` on a bar nothing had made `Visible`. Deleting the shadow is the fix --
+the same defect class as the `ToolStrip` `new`-shadows in TSM-01, not a missing feature.
+
+**A deliberate deviation on TXT-11.** With `WordWrap = false`, a centre- or right-aligned multiline box
+still wraps: the layout engine needs a real right edge to align against, and aligning inside
+`int.MaxValue` puts every glyph off the end of the world and paints the control blank -- the same
+trade-off the single-line path already carries and documents. Left-aligned text, which is what a log
+viewer or a code view uses, does not wrap.
+
+**Also in scope but left alone:** `RichTextBox.ScrollBars` has its own `new` shadow and remains
+stored-only. It belongs to W5.14 with the rest of that control, and fixing it here would have meant
+touching the RichTextBox document model this item does not otherwise go near.
+
+**Still open in this file:** TXT-02 (P0), TXT-04 (P0), TXT-13–TXT-17, TXT-35, and the rest of the
+`RichTextBox` cluster.
+
 ## Status (2026-09-02, W5.13 — the mask engine)
 
 **Closed:** TXT-03 (P0), TXT-18, TXT-19. 11 tests in `MaskedTextBoxMaskEngineTests.cs`, 10 verified to

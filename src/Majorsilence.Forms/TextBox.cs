@@ -46,6 +46,9 @@ namespace Majorsilence.Forms
 
             VerticalScrollBar.Enabled = false;
             VerticalScrollBar.ValueChanged += (o, e) => DoScroll (0, (o as VerticalScrollBar)!.Value - scroll_y);
+
+            HorizontalScrollBar.Enabled = false;
+            HorizontalScrollBar.ValueChanged += (o, e) => DoScroll ((o as HorizontalScrollBar)!.Value - scroll_x, 0);
         }
 
         /// <inheritdoc/>
@@ -210,26 +213,29 @@ namespace Majorsilence.Forms
 
                         need_refresh = document.InsertText ("\n");
                         return true;
+                    // TXT-22: upstream's ProcessCmdKey eats the whole shortcut list when
+                    // ShortcutsEnabled is false, which is what a kiosk or exam-style field sets to keep
+                    // text off the clipboard. These four acted regardless.
                     case Keys.C:
-                        if (e.Control)
+                        if (e.Control && ShortcutsEnabled)
                             Copy ();
 
-                        return e.Control;
+                        return e.Control && ShortcutsEnabled;
                     case Keys.X:
-                        if (e.Control)
+                        if (e.Control && ShortcutsEnabled)
                             Cut ();
 
-                        return e.Control;
+                        return e.Control && ShortcutsEnabled;
                     case Keys.V:
-                        if (e.Control)
+                        if (e.Control && ShortcutsEnabled)
                             Paste ();
 
-                        return e.Control;
+                        return e.Control && ShortcutsEnabled;
                     case Keys.A:
-                        if (e.Control)
+                        if (e.Control && ShortcutsEnabled)
                             document.SelectAll ();
 
-                        return e.Control;
+                        return e.Control && ShortcutsEnabled;
 
                 }
             } finally {
@@ -270,11 +276,22 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// Does NOT clear the selection. It used to, and every focus move runs through here (see
+        /// <c>ControlAdapter.SelectedControl</c>), so anything that acted on the box's selection after
+        /// focus left it -- an Edit menu, a Find dialog, an "insert field" button beside the box, all of
+        /// which take focus themselves -- read <c>SelectionLength == 0</c> and inserted at the wrong
+        /// place or copied nothing (<c>TXT-07</c>). Upstream keeps the selection and only stops
+        /// PAINTING it while unfocused, which is what <see cref="TextBoxBase.HideSelection"/> means and
+        /// what the renderer now implements.
+        /// </remarks>
         protected override void OnDeselected (EventArgs e)
         {
             base.OnDeselected (e);
 
-            document.Deselect ();
+            // Still repaint: with HideSelection set (the default) the highlight has to disappear even
+            // though the selection itself survives.
+            Invalidate ();
         }
 
         /// <inheritdoc/>
@@ -428,10 +445,12 @@ namespace Majorsilence.Forms
             set => document.PasswordCharacter = value == '\0' ? null : value;
         }
 
-        /// <summary>
-        /// Gets or sets which scroll bars appear (informational; Majorsilence.Forms shows scroll bars automatically).
-        /// </summary>
-        public new ScrollBars ScrollBars { get; set; }
+        // TXT-26: `public new ScrollBars ScrollBars { get; set; }` used to live here -- a stored value
+        // nothing read, shadowing ScrollControl.ScrollBars, whose setter shows and hides the two bars.
+        // The shadow is why NO TextBox ever displayed a scrollbar: UpdateScrollBars enabled the vertical
+        // one, but nothing ever made it visible, because the base setter could not be reached. The
+        // finding's own impact line has it backwards -- boxes did not grow unwanted bars, they could
+        // never get one. Removing the shadow is the whole fix; the base property is inherited as is.
 
         /// <summary>
         /// Inserts any text on the clipboard into the TextBox.
@@ -605,7 +624,26 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets whether text wraps to the next line when the edge is reached.
         /// </summary>
-        public override bool WordWrap { get; set; } = true;
+        /// <remarks>
+        /// The base keeps the value; this override owns the consequences. It used to be an auto-property
+        /// on both types, so multiline text wrapped whatever it was set to -- a log viewer or a
+        /// fixed-width report preview that turns wrapping off to keep its columns aligned had them
+        /// broken mid-token (<c>TXT-11</c>).
+        /// </remarks>
+        public override bool WordWrap {
+            get => base.WordWrap;
+            set {
+                if (base.WordWrap == value)
+                    return;
+
+                base.WordWrap = value;
+
+                // The laid-out block is what wraps, and whether a horizontal bar is wanted depends on
+                // this too.
+                document.InvalidateTextBlock ();
+                Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets whether pressing Enter in a multiline TextBox creates a new line.</summary>
         /// <remarks>
@@ -788,9 +826,14 @@ namespace Majorsilence.Forms
         // Enables and recalculates scrollbars as needed.
         internal void UpdateScrollBars (TextBlock block)
         {
-            // TODO: Horizontal scrollbar not supported
-            // Something about the document changed, so we need to update the scrollbars
-            if ((int)block.MeasuredHeight - PaddedClientRectangle.Height > 0) {
+            UpdateHorizontalScrollBar (block);
+
+            // Something about the document changed, so we need to update the scrollbars. Whether a bar
+            // is WANTED is ScrollBars' answer (TXT-26); whether it is NEEDED is the content's. None
+            // still scrolls with the caret -- ScrollToCaret works off DoScroll, not off a bar.
+            var wanted = ScrollBars == ScrollBars.Vertical || ScrollBars == ScrollBars.Both;
+
+            if (wanted && (int)block.MeasuredHeight - PaddedClientRectangle.Height > 0) {
                 VerticalScrollBar.Enabled = true;
                 VerticalScrollBar.Maximum = (int)block.MeasuredHeight - PaddedClientRectangle.Height;
                 VerticalScrollBar.LargeChange = PaddedClientRectangle.Height;
@@ -801,10 +844,37 @@ namespace Majorsilence.Forms
                 if (VerticalScrollBar.Value != new_value)
                     VerticalScrollBar.Value = new_value;
             } else {
-                if (scroll_y > 0)
+                // Only pull the content back into view when there is no room to scroll into. A box the
+                // caller simply did not ask for a bar on still scrolls with its caret.
+                if (scroll_y > 0 && (int)block.MeasuredHeight - PaddedClientRectangle.Height <= 0)
                     DoScroll (0, -scroll_y);
 
                 VerticalScrollBar.Enabled = false;
+            }
+        }
+
+        // A horizontal bar is only ever meaningful with wrapping off: with WordWrap on there is nothing
+        // to the right to scroll to (TXT-11, TXT-26).
+        private void UpdateHorizontalScrollBar (TextBlock block)
+        {
+            var wanted = (ScrollBars == ScrollBars.Horizontal || ScrollBars == ScrollBars.Both) && !WordWrap;
+            var overflow = (int)block.MeasuredWidth - PaddedClientRectangle.Width;
+
+            if (wanted && overflow > 0) {
+                HorizontalScrollBar.Enabled = true;
+                HorizontalScrollBar.Maximum = overflow;
+                HorizontalScrollBar.LargeChange = PaddedClientRectangle.Width;
+                HorizontalScrollBar.SmallChange = CurrentFontSize * 3;
+
+                var new_value = Math.Min (scroll_x, HorizontalScrollBar.Maximum);
+
+                if (HorizontalScrollBar.Value != new_value)
+                    HorizontalScrollBar.Value = new_value;
+            } else {
+                if (scroll_x > 0 && overflow <= 0)
+                    DoScroll (-scroll_x, 0);
+
+                HorizontalScrollBar.Enabled = false;
             }
         }
     }
