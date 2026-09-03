@@ -17,7 +17,12 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <IsRoslynComponent>true</IsRoslynComponent>
-    <NoWarn>$(NoWarn);RS1036</NoWarn>
+    <!-- An analyzer package carries no lib/ref assets: everything ships under analyzers/dotnet/cs, so
+         the dependency group's netstandard2.0 has no matching lib folder. NU5128 says so, and Release
+         turns warnings into errors, which is why `dotnet pack` on this project failed outright: no
+         amount of adding it to a publish list would have shipped it. Same suppression, for the same
+         reason, as Majorsilence.Forms.Migrator's. -->
+    <NoWarn>$(NoWarn);RS1036;NU5128</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -25,8 +30,26 @@
     <Description>PoC: source-generates a System.Windows.Forms-namespace compatibility surface backed by Majorsilence.Forms, for control libraries that cannot rewrite their own public API namespace.</Description>
     <PackageTags>Majorsilence;Forms;Winforms;Migration;SourceGenerator;Compat</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
-    <DevelopmentDependency>true</DevelopmentDependency>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- Deliberately NOT DevelopmentDependency. That flag makes the consuming PackageReference
+         private, which suppresses everything flowing out of this package, including its dependency on
+         Majorsilence.Forms, the assembly the generated types derive from. A consumer of this generator
+         puts those generated types in its OWN public API, so the runtime reference has to flow to its
+         consumers as well. -->
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The reason this is here is packaging, not compilation: the generator emits source that
+         subclasses Majorsilence.Forms' Control/Component types, so a consumer installing only the
+         analyzer gets a few thousand compile errors. `dotnet pack` turns this ProjectReference into a
+         nuspec dependency on the Majorsilence.Forms package at the same version, which is what makes
+         installing this one sufficient. The generator's own code does not use the assembly. -->
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />

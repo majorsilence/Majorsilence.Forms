@@ -38,6 +38,7 @@ env:
     tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
     tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
     tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
+    src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
   # Windows-only packages (net*-windows, UseWindowsForms/UseWPF). Off Windows these
   # projects compile to an empty IsPackable=false placeholder, so they're packed on a
   # windows-latest runner (see the pack-windows job) and pushed alongside the rest.
