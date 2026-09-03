@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 775 of 1231 public settable auto-properties (62%).
+# 769 of 1226 public settable auto-properties (62%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -413,11 +413,6 @@ Majorsilence.Forms.MaskedTextBox.BeepOnError
 Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat
 Majorsilence.Forms.MaskedTextBox.HidePromptOnLeave
 Majorsilence.Forms.MaskedTextBox.RejectInputOnFirstFailure
-Majorsilence.Forms.MaskedTextBox.ResetOnPrompt
-Majorsilence.Forms.MaskedTextBox.ResetOnSpace
-Majorsilence.Forms.MaskedTextBox.SkipLiterals
-Majorsilence.Forms.MaskedTextBox.TextMaskFormat
-Majorsilence.Forms.MaskedTextBox.UseSystemPasswordChar
 Majorsilence.Forms.MeasureItemEventArgs.ItemHeight
 Majorsilence.Forms.MeasureItemEventArgs.ItemWidth
 Majorsilence.Forms.Media.SoundPlayer.LoadTimeout
@@ -761,7 +756,6 @@ Majorsilence.Forms.TreeView.ShowLines
 Majorsilence.Forms.TreeView.ShowNodeToolTips
 Majorsilence.Forms.TreeView.ShowRootLines
 Majorsilence.Forms.TreeView.StateImageList
-Majorsilence.Forms.TypeValidationEventArgs.Cancel
 Majorsilence.Forms.UpDownBase.ChangingText
 Majorsilence.Forms.UpDownBase.InterceptArrowKeys
 Majorsilence.Forms.UpDownBase.ReadOnly

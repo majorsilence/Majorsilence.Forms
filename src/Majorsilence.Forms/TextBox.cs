@@ -194,10 +194,10 @@ namespace Majorsilence.Forms
                         need_refresh = document.MoveCursor (ArrowDirection.Down, e.Shift, e.Control, false);
                         return true;
                     case Keys.Delete:
-                        need_refresh = document.DeleteText (true, e.Control);
+                        need_refresh = DeleteAtCaret (forward: true, wholeWord: e.Control);
                         return true;
                     case Keys.Back:
-                        need_refresh = document.DeleteText (false, e.Control);
+                        need_refresh = DeleteAtCaret (forward: false, wholeWord: e.Control);
                         return true;
                     case Keys.Return:
                         // Enter has to insert the newline from the key-down path. OnKeyPress has a
@@ -306,10 +306,26 @@ namespace Majorsilence.Forms
 
             // Printable characters (except backspace)
             if (e.KeyChar >= 32 && e.KeyChar != 127) {
-                if (document.InsertText (e.Text))
+                if (InsertTypedCharacter (e))
                     ScrollToCaret ();
             }
         }
+
+        /// <summary>
+        /// Puts a typed character into the document, and reports whether anything changed.
+        /// </summary>
+        /// <remarks>The one place typed text reaches the document, so a derived box can filter it
+        /// instead of receiving it after the fact: <see cref="MaskedTextBox"/> routes the character
+        /// through its <c>MaskedTextProvider</c> here, which it cannot do from
+        /// <see cref="OnKeyPress"/> (that would have to skip this class's own insert).</remarks>
+        protected virtual bool InsertTypedCharacter (KeyPressEventArgs e) => document.InsertText (e.Text);
+
+        /// <summary>
+        /// Deletes at the caret -- forwards for Delete, backwards for Backspace -- and reports whether
+        /// anything changed.
+        /// </summary>
+        /// <inheritdoc cref="InsertTypedCharacter" path="/remarks"/>
+        protected virtual bool DeleteAtCaret (bool forward, bool wholeWord) => document.DeleteText (forward, wholeWord);
 
         /// <inheritdoc/>
         protected override void OnMouseDown (MouseEventArgs e)

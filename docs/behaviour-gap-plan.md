@@ -782,10 +782,20 @@ and both `SelectedText` setters assign `Text`, which resets caret to 0, scrolls 
 clears `Modified` — so a log window shows its oldest line after every append.
 *Closes:* `TXT-02` (P0), `TXT-35`.
 
-**W5.13 — `MaskedTextBox` mask engine.** The mask is never enforced; `Text` is raw input and
-`MaskCompleted`/`MaskFull` return `true` unconditionally, so mask validation always passes. Use
-`System.ComponentModel.MaskedTextProvider`. *Closes:* `TXT-03` (P0), `TXT-19`, `TXT-18`.
-*Tests to invert:* `MaskedTextBoxTests.MaskCompletedAndMaskFull_AlwaysTrue`, `Text_SetUnaffectedByMask`.
+**W5.13 — `MaskedTextBox` mask engine. — DONE (2026-09-02)**
+One live `System.ComponentModel.MaskedTextProvider` owns the field: typing goes through
+`provider.Replace` (not insert — a mask has fixed positions), Backspace blanks a position back to its
+prompt rather than shortening the field, `Text` reports the provider's value under `TextMaskFormat`
+and assigning runs through `provider.Set`, and `MaskCompleted`/`MaskFull` answer from the provider. The
+document holds `ToDisplayString ()`, so the prompt characters finally appear. `MaskInputRejected` fires
+per rejected character; `OnValidating` runs type validation and raises `TypeValidationCompleted`,
+propagating its `Cancel`; `MaskChanged` has a raiser; `UseSystemPasswordChar` forwards to the
+`TextBox` that implements it instead of shadowing it. An empty mask means no provider and plain
+`TextBox` behaviour, as upstream's null-mask path.
+*Closed:* `TXT-03` (P0), `TXT-18`, `TXT-19`. Both named tests inverted.
+*Needed two new seams on `TextBox`* — `InsertTypedCharacter` and `DeleteAtCaret` — because
+`TextBox.OnKeyPress` raises the event and inserts in one method, so a subclass could not filter the
+character without also suppressing the event.
 
 **W5.14 — `RichTextBox` document model.** `Rtf` returns a stale stored string, so saving after editing
 writes the old content; `Find` is case-sensitive by default and never selects; the whole `Selection*`
@@ -1006,13 +1016,14 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.13** (`MaskedTextBox`), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4111 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4122 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
-80 → 68, unraised events 130 → 120, stored-only properties 822 → 775, no-op stubs 156 → 155.
+80 → 66, unraised events 130 → 119, stored-only properties 822 → 769, no-op stubs
+156 → 155.
 
 ### What W5.9 found
 
@@ -1035,6 +1046,33 @@ property means finding the code that actually decides the outcome, not the code 
 **A helper that wrote files only after every edit succeeded silently dropped four good edits.** A late
 anchor miss aborted the batch after reporting the earlier pairs "ok", leaving `OnBeforeCollapse`
 referenced and undefined. Validate every anchor before mutating anything.
+
+### What W5.13 found
+
+**The engine was already in the BCL, and the finding said so.** `System.ComponentModel.MaskedTextProvider`
+is cross-platform and is what upstream uses, so nothing here reimplements mask semantics — the work was
+wiring, and the one design decision worth recording is that typing uses `Replace` rather than
+`InsertAt`: a mask has fixed positions, so a character overwrites the one at the caret instead of
+pushing the field along, and Backspace blanks a position back to its prompt instead of shortening it.
+
+**`TextBox.OnKeyPress` could not be subclassed for this.** It raises the `KeyPress` event and inserts
+into the document in the same method, so a derived box cannot filter the character without also
+suppressing the event (there is no way to reach `Control.OnKeyPress` past the override). Two narrow
+virtual seams — `InsertTypedCharacter` and `DeleteAtCaret` — fix that, and they are the natural place
+for any future filtering box. Worth knowing before attempting `TXT-05`'s `CharacterCasing`, which
+wants the same seam.
+
+**`Text` and the displayed string are deliberately different here**, which has no Win32 analogue: in
+WinForms the edit control's text *is* the display. Here the document is the display buffer holding
+`ToDisplayString ()` (prompts and literals), while `Text` reports the provider's value under
+`TextMaskFormat`. Conflating them is what made a masked box look like a plain `TextBox` — no prompt
+characters ever appeared — so `DisplayedMaskText` exists to say which one a caller means.
+
+**A defensive flag that nothing read failed the Release build**, which is the correct outcome: I added
+an `applying_mask` guard against an echo that cannot happen (input arrives through the seam, not
+through a document-changed callback). Warnings-as-errors in Release caught CS0414. That is the same
+defect class this whole plan is about, and it is worth noting that the Debug gate passed it — the
+four-configuration rule earned its keep again.
 
 ### What W5.7 and W5.8 found
 

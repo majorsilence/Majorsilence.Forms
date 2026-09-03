@@ -39,8 +39,6 @@ Majorsilence.Forms.Form.InputLanguageChanging
 Majorsilence.Forms.ListBox.MeasureItem
 Majorsilence.Forms.ListView.CacheVirtualItems
 Majorsilence.Forms.ListView.RetrieveVirtualItem
-Majorsilence.Forms.MaskedTextBox.MaskInputRejected
-Majorsilence.Forms.MaskedTextBox.TypeValidationCompleted
 Majorsilence.Forms.MonthCalendar.DateSelected
 Majorsilence.Forms.NotifyIcon.BalloonTipClicked
 Majorsilence.Forms.NotifyIcon.BalloonTipClosed

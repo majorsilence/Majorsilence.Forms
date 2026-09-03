@@ -84,16 +84,30 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void Text_SetUnaffectedByMask ()
+        public void Text_IsFormattedByTheMask ()
         {
-            // Majorsilence.Forms does not enforce the mask, so text is stored verbatim.
+            // Inverted with W5.13 (TXT-03). This asserted that the mask did NOT affect the text, which
+            // was the whole defect: a phone/SSN field accepted anything and the value an app parsed no
+            // longer carried the mask's literal separators.
             using var control = new MaskedTextBox { Mask = "000-000" };
 
-            control.Text = "1234567";
-            Assert.Equal ("1234567", control.Text);
+            control.Text = "123456";
 
-            control.Text = "123-45";
-            Assert.Equal ("123-45", control.Text);
+            // The default TextMaskFormat is IncludeLiterals, so the separator is part of the value.
+            Assert.Equal ("123-456", control.Text);
+
+            // Input that does not fit the mask is rejected rather than stored verbatim. Asserting the
+            // rejection rather than the resulting string: what an empty masked field renders for
+            // unfilled positions is the BCL provider's business (it pads with spaces when literals are
+            // included), and pinning that string here would be transcribing its implementation.
+            var rejected = 0;
+            control.MaskInputRejected += (_, _) => rejected++;
+
+            control.Text = "abc";
+
+            Assert.DoesNotContain ("a", control.Text);
+            Assert.False (control.MaskCompleted);
+            Assert.Equal (1, rejected);
         }
 
         [Theory]
@@ -254,14 +268,17 @@ namespace Majorsilence.Forms.Tests
         [InlineData ("")]
         [InlineData ("00000")]
         [InlineData ("(000) 000-0000")]
-        public void MaskCompletedAndMaskFull_AlwaysTrue (string mask)
+        public void MaskCompletedAndMaskFull_ReflectWhatIsFilledIn (string mask)
         {
-            // Majorsilence.Forms does not enforce the mask, so these stubs are always true
-            // regardless of mask/text completeness.
+            // Inverted with W5.13 (TXT-03). These were `=> true` unconditionally, so mask validation
+            // always passed and the documented `if (!mtb.MaskCompleted) { error }` guard was dead code.
             using var control = new MaskedTextBox { Mask = mask, Text = "1" };
 
-            Assert.True (control.MaskCompleted);
-            Assert.True (control.MaskFull);
+            var maskless = string.IsNullOrEmpty (mask);
+
+            // A box with no mask has nothing to complete, so it answers true -- as upstream does.
+            Assert.Equal (maskless, control.MaskCompleted);
+            Assert.Equal (maskless, control.MaskFull);
         }
 
         [Fact]
