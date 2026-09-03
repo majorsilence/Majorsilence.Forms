@@ -8,6 +8,8 @@ using Avalonia.Input.TextInput;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Rendering.SceneGraph;
+using Avalonia.Skia;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using SkiaSharp;
@@ -51,7 +53,7 @@ namespace Majorsilence.Forms
     /// closes popups whenever a click lands outside the active popup's own control tree, independent of
     /// window activation) -- only losing focus to something outside the app entirely is unhandled.
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_framebuffer is disposed in IWindowBackend.Close/DetachedFromVisualTree; there is no owning Window to dispose through here.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_scene SKPictures are disposed in IWindowBackend.Close/DetachedFromVisualTree; there is no owning Window to dispose through here.")]
     internal sealed class MajorsilenceFormsSingleViewHost : Canvas, IWindowBackend, INativeControlHostBackend
     {
         internal static MajorsilenceFormsSingleViewHost? MainHost { get; private set; }
@@ -61,13 +63,18 @@ namespace Majorsilence.Forms
         private System.Drawing.Point _location;
         private System.Drawing.Size _size;
 
-        private WriteableBitmap? _framebuffer;
+        // The Majorsilence scene is recorded to an immutable SKPicture on the UI thread (RecordFrame)
+        // and played back on Avalonia's render thread (SceneView -> SceneDrawOp, GPU-accelerated) --
+        // rather than software-rasterised into a WriteableBitmap on the UI thread, which starved
+        // Android's input channel and made it cancel touch gestures mid-swipe. Retired pictures are left
+        // to the GC / SKPicture finalizer rather than Dispose()d, since a render-thread playback of a
+        // just-replaced picture could still be in flight; each is a small op list, not a full framebuffer.
+        private readonly SceneView _sceneView;
         private bool _dirty = true;
         private bool _renderPending;
         private bool _painting;
         private bool _invalidatePending;
         private readonly Dictionary<NativeControlHost, AvControl> _overlays = new ();
-        private readonly Image _surface;
 
         // ── Soft keyboard + safe area (root host only) ──
         private readonly MajorsilenceFormsTextInputClient _imClient;
@@ -148,13 +155,10 @@ namespace Majorsilence.Forms
             Focusable = true;
             Background = Brushes.Transparent;
 
-            _surface = new Image {
-                Stretch = Stretch.Fill,
-                IsHitTestVisible = false
-            };
-            Canvas.SetLeft (_surface, 0);
-            Canvas.SetTop (_surface, 0);
-            Children.Add (_surface);
+            _sceneView = new SceneView ();
+            Canvas.SetLeft (_sceneView, 0);
+            Canvas.SetTop (_sceneView, 0);
+            Children.Add (_sceneView);   // bottom child; native-control overlays are added above it
 
             // LayoutUpdated fires after every completed layout pass, so it catches the (asynchronous,
             // relative to construction) moment the single-view TopLevel actually assigns this control a
@@ -216,8 +220,6 @@ namespace Majorsilence.Forms
             StopFling ();
             _bridgeTimer.Stop ();
             _touchReleasePending = false;
-            _framebuffer?.Dispose ();
-            _framebuffer = null;
 
             if (_insets is not null)
                 _insets.SafeAreaChanged -= OnSafeAreaChanged;
@@ -304,76 +306,51 @@ namespace Majorsilence.Forms
 
         private double Scale => TopLevel.GetTopLevel (this)?.RenderScaling ?? 1;
 
-        // ── Rendering (identical strategy to MajorsilenceFormsPresenter/MajorsilenceFormsWindowHost:
-        // paint the Majorsilence scene into a WriteableBitmap framebuffer, present via a bottom Image
-        // child) ──
-
-        private bool EnsureFramebuffer ()
-        {
-            var scaling = Scale <= 0 ? 1 : Scale;
-
-            var physW = Math.Max (1, (int)Math.Round (Bounds.Width * scaling));
-            var physH = Math.Max (1, (int)Math.Round (Bounds.Height * scaling));
-
-            if (_framebuffer is null || _framebuffer.PixelSize.Width != physW || _framebuffer.PixelSize.Height != physH) {
-                _framebuffer?.Dispose ();
-
-                // 96 DPI, NOT 96 * scaling. The framebuffer holds physical pixels (physW/physH already
-                // include the scale), and PaintFrame presents it through _surface, an Image with
-                // Stretch.Fill that is sized to this host's *logical* Bounds. A plain 96 DPI bitmap is
-                // therefore taken as a logical-sized source of physW x physH and Stretch.Fill scales it
-                // down by 1/scaling into the logical-sized Image; Avalonia's compositor then scales that
-                // back up by RenderScaling, so a framebuffer pixel lands on a physical pixel 1:1.
-                // Tagging it 96 * scaling makes Avalonia treat the source as already logical-sized, the
-                // Stretch.Fill downscale drops out, and the whole scene renders magnified by `scaling`
-                // (invisible on the browser single-view host, where RenderScaling is 1; very visible on
-                // Android at ~2.6, where taps then landed several rows past the finger). MajorsilenceForms-
-                // WindowHost avoids this only because its Image stretches inside a Grid with no explicit
-                // size, making the source and destination logical sizes match.
-                _framebuffer = new WriteableBitmap (
-                    new PixelSize (physW, physH),
-                    new Vector (96, 96),
-                    PixelFormat.Bgra8888,
-                    AlphaFormat.Premul);
-                _dirty = true;
-            }
-
-            return _framebuffer is not null;
-        }
+        // ── Rendering ────────────────────────────────────────────────────────────────────────────────
+        // RecordFrame() walks the Majorsilence scene on the UI thread and captures it as an immutable
+        // SKPicture (cheap -- it emits draw ops, it does not rasterise; the per-control SKBitmap
+        // back-buffers in Control.PaintChildren are still filled here, but the full-scene composite and
+        // present are only *recorded*). SceneDrawOp then plays that picture back on Avalonia's render
+        // thread, GPU-accelerated, via Render(DrawingContext). This replaces a per-frame UI-thread
+        // software raster into a WriteableBitmap, which kept the thread busy enough that Android
+        // cancelled touch gestures mid-swipe.
 
         private void ScheduleRender ()
         {
             if (_renderPending)
                 return;
             _renderPending = true;
-            // Background, NOT Render: see the _flingTimer comment in the constructor. Render priority is
-            // above Input, so the software framebuffer paint scheduled there was preempting the touch
-            // queue and Android was cancelling the in-progress gesture.
+            // Background, below Input: the record walk still costs UI-thread time (per-control raster in
+            // Control.PaintChildren), and Avalonia's Render priority is above Input, so scheduling it
+            // there preempted the touch queue and Android cancelled the in-progress gesture.
             Dispatcher.UIThread.Post (() => {
                 _renderPending = false;
-                PaintFrame ();
+                RecordFrame ();
             }, DispatcherPriority.Background);
         }
 
-        private long _lastPaintTs;                            // Stopwatch ticks of the last completed paint
-        private const double TouchPaintMinIntervalMs = 32;    // cap the full-scene software raster to ~30fps
-                                                              // while a finger is down / the fling coasts, so
-                                                              // the UI thread keeps slack to service touch
+        private long _lastPaintTs;                            // Stopwatch ticks of the last completed record
+        private PixelSize _lastPhys;                          // physical scene size at the last record
+        private const double TouchPaintMinIntervalMs = 32;    // cap the record walk to ~30fps while a finger
+                                                              // is down / the fling coasts, so the UI thread
+                                                              // keeps slack to service touch
 
-        private void PaintFrame ()
+        private void RecordFrame ()
         {
             if (Bounds.Width <= 0 || Bounds.Height <= 0)
                 return;
 
-            if (!EnsureFramebuffer () || _framebuffer is null)
+            var scaling = Scale <= 0 ? 1 : Scale;
+            var physW = Math.Max (1, (int)Math.Round (Bounds.Width * scaling));
+            var physH = Math.Max (1, (int)Math.Round (Bounds.Height * scaling));
+            var resized = physW != _lastPhys.Width || physH != _lastPhys.Height;
+
+            if (!resized && !_dirty && !_owner.adapter.NeedsPaint)
                 return;
 
-            if (!_dirty && !_owner.adapter.NeedsPaint)
-                return;
-
-            // Throttle repaints during a touch drag / blind-gap coast: rasterising the full scene every
-            // input frame pins the UI thread and Android cancels the gesture. A dropped frame here is
-            // invisible; a cancelled gesture is the stutter.
+            // Throttle during a touch drag / blind-gap coast: the record walk still rasterises dirty
+            // control back-buffers on the UI thread. A dropped frame here is invisible; a cancelled
+            // gesture is the stutter.
             if (_touchAnchor is not null || _touchReleasePending) {
                 var sinceMs = (System.Diagnostics.Stopwatch.GetTimestamp () - _lastPaintTs) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
                 if (sinceMs < TouchPaintMinIntervalMs) {
@@ -388,33 +365,98 @@ namespace Majorsilence.Forms
             _lastPaintTs = System.Diagnostics.Stopwatch.GetTimestamp ();
 
             _dirty = false;
-
-            _painting = true;
             _invalidatePending = false;
+
+            SKPicture? picture = null;
+            _painting = true;
             try {
-                using var fb = _framebuffer.Lock ();
-                var info = new SKImageInfo (fb.Size.Width, fb.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-                using var surface = SKSurface.Create (info, fb.Address, fb.RowBytes);
-
-                if (surface is null)
-                    return;
-
-                surface.Canvas.Clear (SKColors.Transparent);
-
-                _owner.RenderFrame (surface.Canvas, fb.Size.Width, fb.Size.Height, Scale);
+                using var recorder = new SKPictureRecorder ();
+                var canvas = recorder.BeginRecording (new SKRect (0, 0, physW, physH));
+                canvas.Clear (SKColors.Transparent);
+                _owner.RenderFrame (canvas, physW, physH, scaling);
+                picture = recorder.EndRecording ();
             } catch (Exception ex) {
-                Console.Error.WriteLine ($"[CF] BrowserHost PaintFrame error: {ex.Message}");
+                Console.Error.WriteLine ($"[CF] SingleViewHost RecordFrame error: {ex.Message}");
             } finally {
                 _painting = false;
             }
 
-            _surface.Width = Bounds.Width;
-            _surface.Height = Bounds.Height;
-            _surface.Source = _framebuffer;
-            _surface.InvalidateVisual ();
+            if (picture is not null) {
+                _lastPhys = new PixelSize (physW, physH);
+                _sceneView.Width = Bounds.Width;
+                _sceneView.Height = Bounds.Height;
+                _sceneView.Present (picture, scaling);   // the previous picture is now garbage (see field comment)
+            }
 
             if (_invalidatePending)
                 ScheduleRender ();
+        }
+
+        // Panel.Render is sealed, so the scene can't be drawn by the host Canvas itself. This bottom
+        // child -- a plain Control whose Render is not sealed -- plays the recorded picture on the
+        // render thread; the native-control overlays are Canvas children above it, unchanged.
+        private sealed class SceneView : AvControl
+        {
+            private SKPicture? _picture;
+            private double _pictureScale = 1;
+
+            public SceneView () => IsHitTestVisible = false;
+
+            public void Present (SKPicture picture, double pictureScale)
+            {
+                _picture = picture;
+                _pictureScale = pictureScale;
+                InvalidateVisual ();
+            }
+
+            public override void Render (DrawingContext context)
+            {
+                base.Render (context);
+                var picture = _picture;
+                if (picture is not null && Bounds is { Width: > 0, Height: > 0 })
+                    context.Custom (new SceneDrawOp (new Rect (Bounds.Size), picture, _pictureScale));
+            }
+        }
+
+        // Plays a recorded scene picture into Avalonia's render-thread Skia canvas. The picture is in
+        // physical pixels; the leased canvas already carries the layout + DPI transform (logical units),
+        // so it is scaled down by 1/pictureScale before playback.
+        private sealed class SceneDrawOp : ICustomDrawOperation
+        {
+            private readonly SKPicture _picture;
+            private readonly float _inverseScale;
+
+            public SceneDrawOp (Rect bounds, SKPicture picture, double pictureScale)
+            {
+                Bounds = bounds;
+                _picture = picture;
+                _inverseScale = pictureScale > 0 ? (float)(1.0 / pictureScale) : 1f;
+            }
+
+            public Rect Bounds { get; }
+
+            // Input is handled by the host Canvas, not the draw op.
+            public bool HitTest (Point p) => false;
+
+            // A fresh op every frame; never equal, so Avalonia always re-renders.
+            public bool Equals (ICustomDrawOperation? other) => false;
+
+            public void Dispose () { /* the host owns the picture's lifetime */ }
+
+            public void Render (ImmediateDrawingContext context)
+            {
+                var lease = context.TryGetFeature<ISkiaSharpApiLeaseFeature> ()?.Lease ();
+                if (lease is null)
+                    return;   // non-Skia backend: nothing we can do here
+
+                using (lease) {
+                    var canvas = lease.SkCanvas;
+                    canvas.Save ();
+                    canvas.Scale (_inverseScale, _inverseScale);
+                    canvas.DrawPicture (_picture);
+                    canvas.Restore ();
+                }
+            }
         }
 
         // ── Input forwarding (Avalonia → Majorsilence.Forms; positions scaled to physical pixels) ───────
@@ -802,8 +844,6 @@ namespace Majorsilence.Forms
         {
             if (!_isRoot)
                 MainHost?.Children.Remove (this);
-            _framebuffer?.Dispose ();
-            _framebuffer = null;
         }
 
         void IWindowBackend.Activate () => Focus ();
