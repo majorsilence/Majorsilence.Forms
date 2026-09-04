@@ -418,8 +418,23 @@ namespace Majorsilence.Forms.Drawing
                 _canvas.RestoreToCount (container.Count);
         }
 
-        /// <summary>Gets or sets the smoothing mode. Stub in Majorsilence.Forms (always anti-aliased).</summary>
+        /// <summary>Gets or sets the smoothing mode, which decides whether shapes are anti-aliased.</summary>
         public SmoothingMode SmoothingMode { get; set; } = SmoothingMode.Default;
+
+        /// <summary>
+        /// Whether the current <see cref="SmoothingMode"/> asks for anti-aliasing.
+        /// </summary>
+        /// <remarks>
+        /// GFX-07: GDI+ anti-aliases for <c>AntiAlias</c> and <c>HighQuality</c> only; <c>Default</c>,
+        /// <c>HighSpeed</c> and <c>None</c> all draw hard edges. The paint builders used to test
+        /// <c>SmoothingMode != None</c>, and since the property's default value is <c>Default</c> (0)
+        /// that meant every fill was anti-aliased unless the caller explicitly asked for None, so a
+        /// row of adjacent filled rectangles (a grid, a gradient ramp) grew half-intensity seams. One
+        /// property read shared by all four paint builders keeps the fill and stroke sides from
+        /// drifting apart again, which is how GFX-23's stroke paint ended up with the opposite bug.
+        /// </remarks>
+        private bool Antialias
+            => SmoothingMode is SmoothingMode.AntiAlias or SmoothingMode.HighQuality;
 
         /// <summary>Gets or sets the interpolation mode. Stub in Majorsilence.Forms.</summary>
         public InterpolationMode InterpolationMode { get; set; } = InterpolationMode.Default;
@@ -433,8 +448,20 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets or sets the pixel offset mode. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Forms.Drawing.Drawing2D.PixelOffsetMode PixelOffsetMode { get; set; } = Majorsilence.Forms.Drawing.Drawing2D.PixelOffsetMode.Default;
 
-        /// <summary>Gets or sets the compositing mode. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets how drawn pixels are combined with the ones already on the surface.</summary>
         public Majorsilence.Forms.Drawing.Drawing2D.CompositingMode CompositingMode { get; set; } = Majorsilence.Forms.Drawing.Drawing2D.CompositingMode.SourceOver;
+
+        /// <summary>The Skia blend mode the current <see cref="CompositingMode"/> asks for.</summary>
+        /// <remarks>
+        /// GFX-08 (in part): <c>SourceCopy</c> is how a caller stamps a pre-composited layer, or clears
+        /// a surface to a transparent colour; it must REPLACE the destination pixels, alpha included.
+        /// The property was stored and never read, so those draws alpha-blended instead and a
+        /// "transparent" stamp left the old pixels showing through.
+        /// </remarks>
+        private SKBlendMode BlendMode
+            => CompositingMode == Majorsilence.Forms.Drawing.Drawing2D.CompositingMode.SourceCopy
+                ? SKBlendMode.Src
+                : SKBlendMode.SrcOver;
 
         /// <summary>Applies a scale transform.</summary>
         public void ScaleTransform (float sx, float sy) => _canvas?.Scale (sx, sy);
@@ -518,6 +545,91 @@ namespace Majorsilence.Forms.Drawing
         // top of the stack" apart from "someone saved (or restored) around us since".
         private int _clipBaselineArmedAt;
 
+        /// <summary>
+        /// The clip as a region, mirroring what was applied to the canvas. Null until the first clip
+        /// operation goes through this Graphics.
+        /// </summary>
+        /// <remarks>
+        /// GFX-13: Skia reports its live clip only as a bounding rectangle
+        /// (<c>SKCanvas.LocalClipBounds</c>), so the region-shaped answer <see cref="Clip"/> owes its
+        /// caller (and the region arithmetic <c>CombineMode.Union</c>/<c>Xor</c>/<c>Complement</c>
+        /// need) has to be tracked alongside it. Without this the save/restore idiom
+        /// <c>var saved = g.Clip; g.SetClip(x); ...; g.Clip = saved;</c> restored only the bounding box
+        /// of a non-rectangular clip, quietly widening it so later drawing leaked out.
+        /// </remarks>
+        private Majorsilence.Forms.Drawing.Region? _clipRegion;
+
+        /// <summary>Replaces the tracked clip region, disposing the one it supersedes.</summary>
+        private void SetClipShadow (Majorsilence.Forms.Drawing.Region? region)
+        {
+            if (ReferenceEquals (_clipRegion, region))
+                return;
+
+            _clipRegion?.Dispose ();
+            _clipRegion = region;
+        }
+
+        /// <summary>
+        /// The current clip as a fresh region the caller owns: the tracked one when this Graphics has
+        /// clipped before, otherwise the canvas' own clip bounds (which is all Skia can report).
+        /// </summary>
+        private Majorsilence.Forms.Drawing.Region CurrentClipRegion ()
+        {
+            if (_clipRegion is not null)
+                return _clipRegion.Clone ();
+
+            if (_canvas is { } canvas && !canvas.LocalClipBounds.IsEmpty) {
+                var b = canvas.LocalClipBounds;
+
+                // A canvas with no device bounds (a recording canvas) reports a clip near float's
+                // limits, which would round into a garbage SKRectI and overflow the moment two of
+                // them were combined. That is the unclipped case, so answer it as GDI+ does: infinite.
+                if (IsModest (b.Left) && IsModest (b.Top) && IsModest (b.Right) && IsModest (b.Bottom))
+                    return new Majorsilence.Forms.Drawing.Region (
+                        new RectangleF (b.Left, b.Top, b.Width, b.Height));
+            }
+
+            return new Majorsilence.Forms.Drawing.Region ();
+
+            // Not float.IsFinite: this assembly also targets netstandard2.0, which does not have it.
+            static bool IsModest (float value)
+                => !float.IsNaN (value) && !float.IsInfinity (value) && Math.Abs (value) <= 1 << 24;
+        }
+
+        /// <summary>
+        /// Arms the clip baseline without unwinding, for the operations that narrow the existing clip
+        /// (<see cref="IntersectClip(RectangleF)"/>, <see cref="ExcludeClip(Rectangle)"/>) rather than
+        /// replacing it, because Skia's clip already intersects, so those must not restore first.
+        /// </summary>
+        private void ArmClipBaseline ()
+        {
+            if (_clipBaseline is null && _canvas is not null) {
+                _clipBaseline = _canvas.Save ();
+                _clipBaselineArmedAt = _canvas.SaveCount;
+            }
+        }
+
+        /// <summary>
+        /// Replaces the clip with <paramref name="region"/> exactly, taking ownership of it.
+        /// </summary>
+        private void ReplaceClip (Majorsilence.Forms.Drawing.Region region)
+        {
+            if (_canvas is null) {
+                region.Dispose ();
+                return;
+            }
+
+            if (region.IsInfinite (this)) {
+                ResetClip ();       // also drops the tracked region
+                region.Dispose ();
+                return;
+            }
+
+            RestoreClipBaseline ();
+            _canvas.ClipRegion (region.GetSKRegion (), SKClipOperation.Intersect);
+            SetClipShadow (region);
+        }
+
         /// <summary>Sets the clipping region to the given rectangle, replacing any current clip.</summary>
         public void SetClip (Rectangle rect) => SetClip ((RectangleF)rect);
 
@@ -526,6 +638,8 @@ namespace Majorsilence.Forms.Drawing
         {
             if (_canvas is null)
                 return;
+
+            SetClipShadow (null);
 
             if (_clipBaseline is { } depth && _canvas.SaveCount == _clipBaselineArmedAt) {
                 RestoreKeepingMatrix (depth);
@@ -541,15 +655,17 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Translates the clipping region by the specified amounts.</summary>
         /// <remarks>
         /// Moves the clip alone. It used to translate the canvas, which moved every subsequent drawing
-        /// operation along with it.
+        /// operation along with it. The shape is carried across as a region rather than as its bounding
+        /// rectangle, so translating a rounded-rect or L-shaped clip keeps its shape (GFX-13).
         /// </remarks>
         public void TranslateClip (float dx, float dy)
         {
             if (_canvas is null)
                 return;
 
-            var bounds = _canvas.LocalClipBounds;
-            SetClip (new RectangleF (bounds.Left + dx, bounds.Top + dy, bounds.Width, bounds.Height));
+            var moved = CurrentClipRegion ();
+            moved.Translate (dx, dy);
+            ReplaceClip (moved);
         }
 
         /// <inheritdoc cref="TranslateClip(float, float)"/>
@@ -951,29 +1067,34 @@ namespace Majorsilence.Forms.Drawing
             DrawImageAbort? callback, int callbackData)
             => DrawImageParallelogram (image, ToPointF (destPoints), srcRect, imageAttr);
 
+        // GFX-15: these four forwarded to the srcUnit overload and dropped imageAttr on the floor, while
+        // their no-callback siblings honoured it -- so whether a transparent colour key, a disabled
+        // ColorMatrix or a watermark's opacity applied at all depended on which arguments the caller
+        // passed. The callback itself is still ignored (it exists to let a caller abort a long
+        // GDI+ draw; a Skia DrawBitmap is not interruptible), but the attributes now go through.
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, int, int, int, int, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, int srcX, int srcY,
             int srcWidth, int srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
             Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr, DrawImageAbort? callback)
-            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit);
+            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit, imageAttr);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, int, int, int, int, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, int srcX, int srcY,
             int srcWidth, int srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
             Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr, DrawImageAbort? callback, IntPtr callbackData)
-            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit);
+            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit, imageAttr);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, float, float, float, float, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, float srcX, float srcY,
             float srcWidth, float srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
             Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr, DrawImageAbort? callback)
-            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit);
+            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit, imageAttr);
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, float, float, float, float, Majorsilence.Forms.Drawing.GraphicsUnit)"/>
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, Rectangle destRect, float srcX, float srcY,
             float srcWidth, float srcHeight, Majorsilence.Forms.Drawing.GraphicsUnit srcUnit,
             Majorsilence.Forms.Drawing.Imaging.ImageAttributes? imageAttr, DrawImageAbort? callback, IntPtr callbackData)
-            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit);
+            => DrawImage (image, destRect, srcX, srcY, srcWidth, srcHeight, srcUnit, imageAttr);
 
         /// <inheritdoc cref="DrawImageUnscaled(Majorsilence.Forms.Drawing.Image, int, int)"/>
         public void DrawImageUnscaled (Majorsilence.Forms.Drawing.Image image, Point point)
@@ -991,58 +1112,147 @@ namespace Majorsilence.Forms.Drawing
             => SetClip ((RectangleF)rect, combineMode);
 
         /// <inheritdoc cref="SetClip(RectangleF)"/>
-        /// <remarks>
-        /// Honours Replace, Intersect and Exclude. Union, Xor and Complement have no Skia equivalent and
-        /// fall back to Replace.
-        /// </remarks>
+        /// <remarks>Every <c>CombineMode</c> is honoured; see <see cref="CombineClip"/>.</remarks>
         public void SetClip (RectangleF rect, Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
         {
             switch (combineMode) {
+            // The two Skia expresses natively, kept off the region path so a fractional rectangle is
+            // not rounded to whole pixels on the way through SKRegion's integer scanlines.
+            case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Replace:
+                SetClip (rect);
+                break;
             case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Intersect:
                 IntersectClip (rect);
                 break;
-            case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Exclude:
-                ExcludeClip (Rectangle.Round (rect));
+            default: {
+                using var incoming = new Majorsilence.Forms.Drawing.Region (rect);
+                CombineClip (incoming, combineMode);
                 break;
-            default:
-                SetClip (rect);
-                break;
+            }
             }
         }
 
         /// <inheritdoc cref="SetClip(Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath)"/>
+        /// <remarks>
+        /// The combine mode used to be discarded, so every mode behaved as Replace (GFX-13).
+        /// </remarks>
         public void SetClip (Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath path,
             Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
-            => SetClip (path);
+        {
+            if (path is null)
+                return;
+
+            if (combineMode == Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Replace) {
+                SetClip (path);     // the path-shaped fast path: no region rasterisation needed
+                return;
+            }
+
+            using var incoming = new Majorsilence.Forms.Drawing.Region (path);
+            CombineClip (incoming, combineMode);
+        }
 
         /// <inheritdoc cref="SetClip(Majorsilence.Forms.Drawing.Region)"/>
         public void SetClip (Majorsilence.Forms.Drawing.Region region,
             Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
         {
             if (region is not null)
-                SetClip (region.GetBounds (this), combineMode);
+                CombineClip (region, combineMode);
+        }
+
+        /// <summary>
+        /// Combines <paramref name="incoming"/> into the current clip under
+        /// <paramref name="combineMode"/>, honouring all six modes.
+        /// </summary>
+        /// <remarks>
+        /// GFX-12/GFX-13: Intersect and Exclude go straight onto the canvas, which is what Skia's clip
+        /// stack does natively. The other three (Union, Xor and Complement), which *widen* the clip and
+        /// so cannot be expressed as a Skia clip operation at all, are computed on the region tracked
+        /// by <see cref="_clipRegion"/> and then applied as a replace. They used to silently fall back
+        /// to Replace, which is a different shape whenever the current clip was not already contained in
+        /// the incoming one.
+        /// </remarks>
+        private void CombineClip (Majorsilence.Forms.Drawing.Region incoming,
+            Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
+        {
+            if (_canvas is null)
+                return;
+
+            switch (combineMode) {
+            case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Intersect:
+                IntersectClip (incoming);
+                break;
+            case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Exclude:
+                ExcludeClip (incoming);
+                break;
+            case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Union: {
+                var combined = CurrentClipRegion ();
+                combined.Union (incoming);
+                ReplaceClip (combined);
+                break;
+            }
+            case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Xor: {
+                var combined = CurrentClipRegion ();
+                combined.Xor (incoming);
+                ReplaceClip (combined);
+                break;
+            }
+            case Majorsilence.Forms.Drawing.Drawing2D.CombineMode.Complement: {
+                // Complement is "the incoming region minus the current clip", i.e. Exclude with the
+                // operands the other way round -- which is what Region.Complement computes.
+                var combined = CurrentClipRegion ();
+                combined.Complement (incoming);
+                ReplaceClip (combined);
+                break;
+            }
+            default:
+                SetClip (incoming);
+                break;
+            }
         }
 
         /// <summary>Sets this Graphics' clip to that of another Graphics.</summary>
         /// <remarks>
-        /// Applies the source's current clip bounds. Skia exposes the clip as a bounding rectangle
-        /// rather than as a transferable region object, so a non-rectangular source clip is applied as
-        /// its bounds.
+        /// The source's clip is carried across as a region when it tracks one, so a non-rectangular
+        /// clip survives the copy (GFX-13); otherwise all Skia can report for it is its bounds.
         /// </remarks>
         public void SetClip (Graphics graphics)
         {
             if (graphics?._canvas is null)
                 return;
-            var bounds = graphics._canvas.LocalClipBounds;
-            SetClip (new RectangleF (bounds.Left, bounds.Top, bounds.Width, bounds.Height));
+
+            ReplaceClip (graphics.CurrentClipRegion ());
         }
 
         /// <inheritdoc cref="SetClip(Graphics)"/>
+        /// <remarks>The combine mode used to be discarded, so every mode behaved as Replace (GFX-13).</remarks>
         public void SetClip (Graphics graphics, Majorsilence.Forms.Drawing.Drawing2D.CombineMode combineMode)
-            => SetClip (graphics);
+        {
+            if (graphics?._canvas is null)
+                return;
 
-        /// <inheritdoc cref="IntersectClip(Rectangle)"/>
-        public void IntersectClip (Majorsilence.Forms.Drawing.Region region) => SetClip (region);
+            using var incoming = graphics.CurrentClipRegion ();
+            CombineClip (incoming, combineMode);
+        }
+
+        /// <summary>Narrows the clipping region to its intersection with the given region.</summary>
+        /// <remarks>
+        /// GFX-12: this used to forward to <see cref="SetClip(Majorsilence.Forms.Drawing.Region)"/>,
+        /// which *replaces*, so intersecting with a region larger than the current clip WIDENED it,
+        /// and painting that was meant to be confined to a cell or a viewport escaped over its
+        /// siblings. Like the rectangle overloads it can now only ever narrow.
+        /// </remarks>
+        public void IntersectClip (Majorsilence.Forms.Drawing.Region region)
+        {
+            if (_canvas is null || region is null)
+                return;
+
+            ArmClipBaseline ();
+            _canvas.ClipRegion (region.GetSKRegion (), SKClipOperation.Intersect);
+
+            var narrowed = CurrentClipRegion ();
+            narrowed.Intersect (region);
+            SetClipShadow (narrowed);
+        }
 
         /// <summary>Returns whether the specified point is inside the visible clip region.</summary>
         public bool IsVisible (PointF point) => IsVisible (new RectangleF (point.X, point.Y, 1, 1));
@@ -1125,13 +1335,17 @@ namespace Majorsilence.Forms.Drawing
         /// <inheritdoc cref="IntersectClip(Rectangle)"/>
         public void IntersectClip (RectangleF rect)
         {
+            if (_canvas is null)
+                return;
+
             // Unlike SetClip this keeps the current clip, so it must not unwind to the baseline:
             // Skia's ClipRect already intersects.
-            if (_clipBaseline is null && _canvas is not null) {
-                _clipBaseline = _canvas.Save ();
-                _clipBaselineArmedAt = _canvas.SaveCount;
-            }
-            _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+            ArmClipBaseline ();
+            _canvas.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+
+            var narrowed = CurrentClipRegion ();
+            narrowed.Intersect (rect);
+            SetClipShadow (narrowed);
         }
 
         /// <summary>Gets or sets the clipping region.</summary>
@@ -1144,12 +1358,10 @@ namespace Majorsilence.Forms.Drawing
         /// and then simply stopped.
         /// </remarks>
         public Majorsilence.Forms.Drawing.Region Clip {
-            // Read live from the canvas rather than cached, so that a clip applied between two reads is
-            // reflected -- a stale snapshot here would restore the wrong clip.
-            get => _canvas is { } c && !c.LocalClipBounds.IsEmpty
-                ? new Majorsilence.Forms.Drawing.Region (Rectangle.Round (new RectangleF (
-                    c.LocalClipBounds.Left, c.LocalClipBounds.Top, c.LocalClipBounds.Width, c.LocalClipBounds.Height)))
-                : new Majorsilence.Forms.Drawing.Region ();
+            // A copy of the tracked region (GFX-13) so the caller can hold and re-apply it, falling
+            // back to the canvas' clip bounds when nothing has clipped through this Graphics yet --
+            // which is also the only thing Skia itself can report.
+            get => CurrentClipRegion ();
             set {
                 if (value is not null)
                     SetClip (value);
@@ -1159,19 +1371,35 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Excludes a rectangle from the clipping region.</summary>
         public void ExcludeClip (Rectangle rect)
         {
-            if (_clipBaseline is null && _canvas is not null) {
-                _clipBaseline = _canvas.Save ();
-                _clipBaselineArmedAt = _canvas.SaveCount;
-            }
-            _canvas?.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom),
+            if (_canvas is null)
+                return;
+
+            ArmClipBaseline ();
+            _canvas.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom),
                 SKClipOperation.Difference);
+
+            var narrowed = CurrentClipRegion ();
+            narrowed.Exclude (rect);
+            SetClipShadow (narrowed);
         }
 
-        /// <summary>Excludes a region from the clipping region, as its bounding rectangle.</summary>
+        /// <summary>Excludes a region from the clipping region.</summary>
+        /// <remarks>
+        /// GFX-13: the region used to be reduced to its bounding rectangle, so excluding an L-shaped or
+        /// multi-rectangle region (how "punch a hole for the child control" transparent painting is
+        /// written) blanked out the whole bounding box instead of just the region.
+        /// </remarks>
         public void ExcludeClip (Majorsilence.Forms.Drawing.Region region)
         {
-            if (region is not null)
-                ExcludeClip (Rectangle.Round (region.GetBounds (this)));
+            if (_canvas is null || region is null)
+                return;
+
+            ArmClipBaseline ();
+            _canvas.ClipRegion (region.GetSKRegion (), SKClipOperation.Difference);
+
+            var narrowed = CurrentClipRegion ();
+            narrowed.Exclude (region);
+            SetClipShadow (narrowed);
         }
 
         /// <summary>Returns whether the specified point is within the clipping region. Always returns true in Majorsilence.Forms.</summary>
@@ -1262,44 +1490,48 @@ namespace Majorsilence.Forms.Drawing
         private SKPaint CreateFillPaint (Majorsilence.Forms.Drawing.Brush brush)
         {
             var paint = brush.CreatePaint ();
-            paint.IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None;
+            paint.IsAntialias = Antialias;
+            paint.BlendMode = BlendMode;
             return paint;
         }
 
         // Reused across every SolidBrush fill call (FillRectangle, FillPolygon, DrawString's brush --
         // the overwhelming majority of fills) instead of allocating a fresh SKPaint via
-        // Brush.CreatePaint() each time, same rationale and measurement as GetStrokePaint above.
+        // Brush.CreatePaint() each time, same rationale and measurement as the stroke paint pool above.
         // Gradient/hatch/texture brushes are not handled here: their CreatePaint() builds an owned
         // Shader per call, which isn't safe to pool without a wider audit, so they still go through
         // CreateFillPaint's fresh-and-disposed path via RentFillPaint below.
         [ThreadStatic]
         private static SKPaint? t_fillPaint;
 
-        private static SKPaint GetSolidFillPaint (Majorsilence.Forms.Drawing.SolidBrush brush, bool antialias)
+        private static SKPaint GetSolidFillPaint (Majorsilence.Forms.Drawing.SolidBrush brush, bool antialias,
+            SKBlendMode blendMode)
         {
             var paint = t_fillPaint ??= new SKPaint ();
             paint.Color = ToSKColor (brush.Color);
             paint.Style = SKPaintStyle.Fill;
             paint.IsAntialias = antialias;
+            paint.BlendMode = blendMode;
             return paint;
         }
 
-        // A `using`-able handle around a fill paint that may be the shared pooled instance (SolidBrush)
-        // or a fresh, Shader-owning one from CreateFillPaint (everything else) -- Dispose() only frees
-        // the fresh one, so callers can `using var paint = RentFillPaint (brush);` exactly as they did
-        // with CreateFillPaint and get the right disposal behaviour either way without knowing which.
-        private readonly struct FillPaintHandle : IDisposable
+        // A `using`-able handle around a paint that may be the shared pooled instance (a SolidBrush
+        // fill, or a plain pen's stroke) or a fresh, effect/shader-owning one built from the brush or
+        // pen itself -- Dispose() only frees the fresh one, so callers can
+        // `using var paint = RentFillPaint (brush);` / `RentStrokePaint (pen)` and get the right
+        // disposal behaviour either way without knowing which they got.
+        private readonly struct PaintHandle : IDisposable
         {
             private readonly SKPaint paint;
             private readonly bool ownsPaint;
 
-            public FillPaintHandle (SKPaint paint, bool ownsPaint)
+            public PaintHandle (SKPaint paint, bool ownsPaint)
             {
                 this.paint = paint;
                 this.ownsPaint = ownsPaint;
             }
 
-            public static implicit operator SKPaint (FillPaintHandle handle) => handle.paint;
+            public static implicit operator SKPaint (PaintHandle handle) => handle.paint;
 
             public void Dispose ()
             {
@@ -1308,14 +1540,12 @@ namespace Majorsilence.Forms.Drawing
             }
         }
 
-        private FillPaintHandle RentFillPaint (Majorsilence.Forms.Drawing.Brush brush)
+        private PaintHandle RentFillPaint (Majorsilence.Forms.Drawing.Brush brush)
         {
-            if (brush is Majorsilence.Forms.Drawing.SolidBrush solid) {
-                var antialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None;
-                return new FillPaintHandle (GetSolidFillPaint (solid, antialias), ownsPaint: false);
-            }
+            if (brush is Majorsilence.Forms.Drawing.SolidBrush solid)
+                return new PaintHandle (GetSolidFillPaint (solid, Antialias, BlendMode), ownsPaint: false);
 
-            return new FillPaintHandle (CreateFillPaint (brush), ownsPaint: true);
+            return new PaintHandle (CreateFillPaint (brush), ownsPaint: true);
         }
 
         private static float PenWidth (Majorsilence.Forms.Drawing.Pen pen) => pen.Width;
@@ -1333,13 +1563,51 @@ namespace Majorsilence.Forms.Drawing
         [ThreadStatic]
         private static SKPaint? t_strokePaint;
 
-        private static SKPaint GetStrokePaint (Majorsilence.Forms.Drawing.Pen pen)
+        /// <summary>
+        /// Whether <paramref name="pen"/> is expressible by the pooled stroke paint, i.e. it leaves
+        /// every property the pool cannot carry at its System.Drawing default.
+        /// </summary>
+        /// <remarks>
+        /// GFX-23: the pool only ever reassigns colour, width, miter and anti-aliasing on one shared
+        /// <c>SKPaint</c>. A dash effect, a non-miter join, a cap, a custom cap or a stroking brush all
+        /// need state that would have to be built (and then cleared again) per call, so a pen carrying
+        /// any of them takes <see cref="Majorsilence.Forms.Drawing.Pen.CreatePaint"/> instead: the
+        /// builder that already produced the full property set for <see cref="DrawPath"/> alone. A
+        /// plain pen (overwhelmingly the common case, and the one the pool was measured against)
+        /// still takes the pooled path with no allocation.
+        /// </remarks>
+        private static bool IsPooledPen (Majorsilence.Forms.Drawing.Pen pen)
+            => pen.DashStyle == Majorsilence.Forms.Drawing.Drawing2D.DashStyle.Solid
+                && pen.LineJoin == Majorsilence.Forms.Drawing.Drawing2D.LineJoin.Miter
+                && pen.StartCap == Majorsilence.Forms.Drawing.Drawing2D.LineCap.Flat
+                && pen.EndCap == Majorsilence.Forms.Drawing.Drawing2D.LineCap.Flat
+                && pen.CustomStartCap is null
+                && pen.CustomEndCap is null
+                && pen.Brush is null or Majorsilence.Forms.Drawing.SolidBrush;
+
+        /// <summary>
+        /// Rents the stroke paint for <paramref name="pen"/>: the pooled instance for a plain pen, a
+        /// fresh full-fidelity one for anything else. See <see cref="IsPooledPen"/> (GFX-23).
+        /// </summary>
+        private PaintHandle RentStrokePaint (Majorsilence.Forms.Drawing.Pen pen)
         {
+            if (!IsPooledPen (pen)) {
+                var built = pen.CreatePaint ();
+                built.IsAntialias = Antialias;
+                built.BlendMode = BlendMode;
+                return new PaintHandle (built, ownsPaint: true);
+            }
+
             var paint = t_strokePaint ??= new SKPaint ();
             paint.Color = PenColor (pen);
             paint.Style = SKPaintStyle.Stroke;
             paint.StrokeWidth = PenWidth (pen);
-            return paint;
+            // Skia defaults StrokeMiter to 4, System.Drawing's Pen.MiterLimit to 10, so a mitred corner
+            // on a thick pen was being bevelled off here while DrawPath kept it (GFX-23).
+            paint.StrokeMiter = pen.MiterLimit;
+            paint.IsAntialias = Antialias;
+            paint.BlendMode = BlendMode;
+            return new PaintHandle (paint, ownsPaint: false);
         }
 
         /// <summary>Clears the canvas with the given color.</summary>
@@ -1373,7 +1641,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawRectangle (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect)
         {
             if (_canvas is null) return;
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -1385,7 +1653,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, Point p1, Point p2)
         {
             if (_canvas is null) return;
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
         }
 
@@ -1397,7 +1665,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, PointF p1, PointF p2)
         {
             if (_canvas is null) return;
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
         }
 
@@ -1417,7 +1685,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawArc (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect, float startAngle, float sweepAngle)
         {
             if (_canvas is null) return;
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             using var path = new SKPath ();
             path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
             _canvas.DrawPath (path, paint);
@@ -1431,7 +1699,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawPie (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect, float startAngle, float sweepAngle)
         {
             if (_canvas is null) return;
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f);
             path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
@@ -1459,7 +1727,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawBezier (Majorsilence.Forms.Drawing.Pen pen, PointF pt1, PointF pt2, PointF pt3, PointF pt4)
         {
             if (_canvas is null) return;
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (pt1.X, pt1.Y);
             path.CubicTo (pt2.X, pt2.Y, pt3.X, pt3.Y, pt4.X, pt4.Y);
@@ -1471,26 +1739,32 @@ namespace Majorsilence.Forms.Drawing
             => DrawBezier (pen, new PointF (pt1.X, pt1.Y), new PointF (pt2.X, pt2.Y), new PointF (pt3.X, pt3.Y), new PointF (pt4.X, pt4.Y));
 
         /// <summary>Draws multiple cubic Bezier curves.</summary>
+        /// <remarks>
+        /// One path for the whole run, for the reason given on
+        /// <see cref="DrawLines(Majorsilence.Forms.Drawing.Pen, PointF[])"/>: a per-curve draw call
+        /// restarts the pen's dash pattern at every join (GFX-23).
+        /// </remarks>
         public void DrawBeziers (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
-            if (_canvas is null || points.Length < 4) return;
+            if (_canvas is null || points is null || points.Length < 4) return;
+            using var paint = RentStrokePaint (pen);
+            using var path = new SKPath ();
+            path.MoveTo (points[0].X, points[0].Y);
             for (int i = 0; i + 3 < points.Length; i += 3)
-                DrawBezier (pen, points[i], points[i + 1], points[i + 2], points[i + 3]);
+                path.CubicTo (points[i + 1].X, points[i + 1].Y, points[i + 2].X, points[i + 2].Y,
+                    points[i + 3].X, points[i + 3].Y);
+            _canvas.DrawPath (path, paint);
         }
 
         /// <summary>Draws multiple cubic Bezier curves using integer Point coordinates.</summary>
         public void DrawBeziers (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
-        {
-            if (_canvas is null || points.Length < 4) return;
-            for (int i = 0; i + 3 < points.Length; i += 3)
-                DrawBezier (pen, points[i], points[i + 1], points[i + 2], points[i + 3]);
-        }
+            => DrawBeziers (pen, ToPointF (points));
 
         /// <summary>Draws a cardinal spline curve through the specified points.</summary>
         public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
             if (_canvas is null || points.Length < 2) return;
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
@@ -1501,7 +1775,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawCurve (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
         {
             if (_canvas is null || points.Length < 2) return;
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
@@ -1524,7 +1798,7 @@ namespace Majorsilence.Forms.Drawing
             if (last >= points.Length) last = points.Length - 1;
             if (offset < 0 || offset >= last) return;
 
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             using var path = new SKPath ();
             path.MoveTo (points[offset].X, points[offset].Y);
 
@@ -1582,7 +1856,7 @@ namespace Majorsilence.Forms.Drawing
         public void DrawEllipse (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect)
         {
             if (_canvas is null) return;
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             _canvas.DrawOval (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
         }
 
@@ -1614,11 +1888,11 @@ namespace Majorsilence.Forms.Drawing
         public void DrawPolygon (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
         {
             if (_canvas is null || points.Length < 2) return;
-            var path = new SKPath ();
+            using var path = new SKPath ();
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
             path.Close ();
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             _canvas.DrawPath (path, paint);
         }
 
@@ -1626,11 +1900,11 @@ namespace Majorsilence.Forms.Drawing
         public void DrawPolygon (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
             if (_canvas is null || points.Length < 2) return;
-            var path = new SKPath ();
+            using var path = new SKPath ();
             path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++) path.LineTo (points[i].X, points[i].Y);
             path.Close ();
-            var paint = GetStrokePaint (pen);
+            using var paint = RentStrokePaint (pen);
             _canvas.DrawPath (path, paint);
         }
 
@@ -1648,20 +1922,25 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Draws an open polyline.</summary>
         public void DrawLines (Majorsilence.Forms.Drawing.Pen pen, Point[] points)
-        {
-            if (_canvas is null || points.Length < 2) return;
-            var paint = GetStrokePaint (pen);
-            for (int i = 1; i < points.Length; i++)
-                _canvas.DrawLine (points[i - 1].X, points[i - 1].Y, points[i].X, points[i].Y, paint);
-        }
+            => DrawLines (pen, ToPointF (points));
 
         /// <summary>Draws an open polyline using floating-point coordinates.</summary>
+        /// <remarks>
+        /// Drawn as one path rather than a loop of independent <c>DrawLine</c> calls, because both the
+        /// pen's <c>LineJoin</c> and the phase of its dash pattern are properties of the polyline as a
+        /// whole: segment-at-a-time stroking gives every joint two flat butt ends instead of a mitred
+        /// or rounded join, and restarts the dash at every vertex so the dashes visibly bunch up
+        /// (GFX-23).
+        /// </remarks>
         public void DrawLines (Majorsilence.Forms.Drawing.Pen pen, PointF[] points)
         {
-            if (_canvas is null || points.Length < 2) return;
-            var paint = GetStrokePaint (pen);
+            if (_canvas is null || points is null || points.Length < 2) return;
+            using var paint = RentStrokePaint (pen);
+            using var path = new SKPath ();
+            path.MoveTo (points[0].X, points[0].Y);
             for (int i = 1; i < points.Length; i++)
-                _canvas.DrawLine (points[i - 1].X, points[i - 1].Y, points[i].X, points[i].Y, paint);
+                path.LineTo (points[i].X, points[i].Y);
+            _canvas.DrawPath (path, paint);
         }
 
         /// <summary>Draws a series of rectangles.</summary>
@@ -2232,10 +2511,10 @@ namespace Majorsilence.Forms.Drawing
 
             // Stroke the path itself rather than a polyline rebuilt from PathPoints: replaying only the
             // points turns every curve into straight segments, which is very visible for a path built
-            // by AddString or AddEllipse. Using the pen's own paint also picks up its dash pattern,
-            // caps, join and brush, which the hand-rolled SKPaint here previously discarded.
-            using var paint = pen.CreatePaint ();
-            paint.IsAntialias = SmoothingMode != Majorsilence.Forms.Drawing.Drawing2D.SmoothingMode.None;
+            // by AddString or AddEllipse. The rented paint picks up the pen's dash pattern, caps, join
+            // and brush -- this method used to be the ONLY one that did, which is GFX-23; it now shares
+            // the same builder as every other stroke call, so the two cannot drift apart again.
+            using var paint = RentStrokePaint (pen);
 
             _canvas.DrawPath (path.ToSKPath (), paint);
         }
@@ -2258,22 +2537,28 @@ namespace Majorsilence.Forms.Drawing
 #pragma warning restore CA1416
 
         /// <summary>Sets the clipping region to a Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath, replacing any current clip.</summary>
+        /// <remarks>
+        /// GFX-24: this used to rebuild the path as a polyline through <c>PathPoints</c>, so every curve
+        /// was replaced by straight segments between its Bezier *control* points; for a rounded
+        /// rectangle or an ellipse that is not an approximation of the outline but a different, larger
+        /// shape. The rounded-corner idiom (build a rounded-rect path, clip to it, paint) therefore
+        /// clipped to an octagon and content bled past the intended outline. It clips to the real path
+        /// now, the same <c>ToSKPath</c> geometry <see cref="DrawPath"/> and <see cref="FillPath"/> use.
+        /// </remarks>
 #pragma warning disable CA1416
         public void SetClip (Majorsilence.Forms.Drawing.Drawing2D.GraphicsPath path)
         {
             if (_canvas is null || path is null) return;
 
-            using var skPath = new SKPath ();
-            foreach (var point in path.PathPoints) {
-                if (skPath.PointCount == 0)
-                    skPath.MoveTo (point.X, point.Y);
-                else
-                    skPath.LineTo (point.X, point.Y);
-            }
+            // Not disposed: ToSKPath hands back the GraphicsPath's own SKPath rather than a copy.
+            var skPath = path.ToSKPath ();
+            skPath.FillType = path.FillMode == Majorsilence.Forms.Drawing.Drawing2D.FillMode.Winding
+                ? SKPathFillType.Winding
+                : SKPathFillType.EvenOdd;
 
-            skPath.Close ();
             RestoreClipBaseline ();
-            _canvas.ClipPath (skPath);
+            _canvas.ClipPath (skPath, SKClipOperation.Intersect, antialias: Antialias);
+            SetClipShadow (new Majorsilence.Forms.Drawing.Region (path));
         }
 #pragma warning restore CA1416
 
@@ -2285,12 +2570,15 @@ namespace Majorsilence.Forms.Drawing
 
             RestoreClipBaseline ();
             _canvas.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
+            SetClipShadow (new Majorsilence.Forms.Drawing.Region (rect));
         }
 
         /// <summary>Sets the clipping region to an existing region, replacing any current clip.</summary>
         /// <remarks>
-        /// A non-rectangular region is applied as its bounding rectangle: Skia clips to rectangles and
-        /// paths, and <see cref="Majorsilence.Forms.Drawing.Region"/> does not expose its geometry.
+        /// GFX-13: the region used to be applied as its bounding rectangle, which is how clipping to a
+        /// rounded-rectangle or elliptical region came out square-cornered. <c>SKRegion</c>, which
+        /// <see cref="Majorsilence.Forms.Drawing.Region"/> is built on and already hands to
+        /// <see cref="FillRegion"/>, clips for real.
         /// </remarks>
 #pragma warning disable CA1416
         public void SetClip (Majorsilence.Forms.Drawing.Region region)
@@ -2298,10 +2586,7 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null || region is null)
                 return;
 
-            if (region.IsInfinite (this))
-                ResetClip ();
-            else
-                SetClip (region.GetBounds (this));
+            ReplaceClip (region.Clone ());
         }
 #pragma warning restore CA1416
 
@@ -2313,7 +2598,9 @@ namespace Majorsilence.Forms.Drawing
 
                 // Clipping is implemented with a canvas save, so leave the canvas at the depth we found
                 // it -- when it is borrowed rather than owned, the next user inherits whatever is left.
+                // ResetClip also releases the tracked clip region.
                 ResetClip ();
+                SetClipShadow (null);
 
                 if (_ownsCanvas)
                     _canvas?.Dispose ();

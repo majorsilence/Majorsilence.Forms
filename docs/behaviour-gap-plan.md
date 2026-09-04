@@ -965,13 +965,80 @@ it asserts that an unfonted control inks the *same height* as an explicitly-font
 relationship between two paths rather than a number in one — which is the only shape of assertion
 that would have caught all three instances at once.
 
-**W5.18 — Pens lose everything but colour and width.**
-Every simple stroke call discards the `Pen`'s dash style, caps, join and brush — so dashed focus
-rectangles, grid lines and custom borders all draw solid. Plus: `SmoothingMode.Default` antialiases
-where GDI+ does not; `IntersectClip(Region)` replaces instead of intersecting; clips are reduced to
-their bounding rectangle; `SetClip(GraphicsPath)` flattens to control points; `DrawImage` with
-`ImageAttributes` + callback drops the attributes.
-*Closes:* `GFX-23` (P0), `GFX-07`, `GFX-12`, `GFX-13`, `GFX-24`, `GFX-15`, `GFX-08`, `GFX-09`.
+**W5.18 — Pens lose everything but colour and width. — DONE (2026-09-04)**
+Every simple stroke call discarded the `Pen`'s dash style, caps, join and brush — so dashed focus
+rectangles, grid lines and custom borders all drew solid. Plus: `SmoothingMode.Default` antialiased
+where GDI+ does not; `IntersectClip(Region)` replaced instead of intersecting; clips were reduced to
+their bounding rectangle; `SetClip(GraphicsPath)` flattened to control points; `DrawImage` with
+`ImageAttributes` + callback dropped the attributes.
+
+**Landed.** All strokes go through one paint builder: `RentStrokePaint` keeps the measured pooled
+`SKPaint` for a plain pen and falls through to `Pen.CreatePaint ()` — the builder `DrawPath` alone was
+using — for any pen carrying a dash, a join, a cap, a custom cap or a stroking brush, so dash, caps,
+join, miter limit and brush now apply to all fifteen stroke call sites (`GFX-23`, P0). `MiterLimit` is
+copied onto the pooled paint too, since Skia defaults `StrokeMiter` to 4 where `Pen` defaults to 10.
+`DrawLines`/`DrawBeziers` build one path instead of looping over per-segment draw calls, because a
+`LineJoin` and a dash phase are properties of the polyline, not of a segment. One `Antialias` property
+on `Graphics` (`AntiAlias`/`HighQuality` only, as GDI+ maps them) drives all four paint builders, so
+fills stop softening their edges by default and strokes start honouring `SmoothingMode` at all
+(`GFX-07`). Clipping keeps its shape: `SetClip`/`IntersectClip`/`ExcludeClip` route regions through
+`SKCanvas.ClipRegion` and paths through the real `ToSKPath ()` outline (`GFX-13`, `GFX-24`);
+`IntersectClip(Region)` can only narrow (`GFX-12`); a tracked clip region makes `Graphics.Clip`
+round-trip a non-rectangular clip and gives `CombineMode.Union`/`Xor`/`Complement` real meaning on
+every `SetClip` overload, `TranslateClip` included. The four callback-carrying `DrawImage` overloads
+forward their `ImageAttributes` (`GFX-15`).
+*Closed:* `GFX-23` (P0), `GFX-07`, `GFX-12`, `GFX-13`, `GFX-24`, `GFX-15`. `GFX-08` is closed only for
+`CompositingMode` (`SourceCopy` → `SKBlendMode.Src`, three lines in the paint builders). 30 tests
+(`tests/Majorsilence.Forms.Tests/PenAndClipFidelityTests.cs`), 29 verified to fail with their fix
+neutralized and 1 labelled in-test as a guard.
+
+**Deferred, with reasons.** `GFX-09` (`PageUnit`/`PageScale`) is not done: it changes the meaning of
+every coordinate handed to the drawing layer, and it cannot be done correctly while `DpiX`/`DpiY` are
+hardcoded to 96 (`GFX-10`) — a page-unit conversion needs a real device resolution, and on a printer
+surface a wrong one is wrong by 6×–12×. It wants its own item alongside `GFX-10` and the printing
+path. Four fifths of `GFX-08` is likewise deferred — `InterpolationMode`, `PixelOffsetMode`,
+`CompositingQuality`, `TextRenderingHint`. Two reasons, both structural rather than effort: (i) the
+finding's own note is right that making these effective without widening `GraphicsState` to carry them
+(`GFX-16`) turns the standard `var s = g.Save (); g.InterpolationMode = …; g.Restore (s);` block into
+a *new* leak, so they belong with `GFX-16`; and (ii) `TextRenderingHint` lands on the RichTextKit text
+path, not on the paint builders, which is a different surface from everything else in this item.
+`CompositingMode` was taken because it is expressible as one blend-mode assignment per paint and its
+failure mode (a "transparent" `SourceCopy` stamp leaving the old pixels) is visible.
+
+**No existing test needed inverting, and that is worth recording.** The whole suite (4263 tests) was
+green before and after: not one test pinned "a dashed pen draws solid", "a default fill is
+antialiased" or "a region clip is its bounding box". The drawing layer's tests cover the members that
+exist rather than the fidelity they carry, which is exactly how a `Pen` could lose four properties on
+fifteen call sites without a single red test. The one place the old behaviour *was* asserted is
+`GraphicsPhase5Tests.DrawPath_honors_the_pen_dash_pattern`, and it asserted the correct behaviour —
+`DrawPath` was the one call site that already worked.
+
+**One existing test was changed, and not for a drawing reason.** Adding a 30-test file to the assembly
+made `KeyboardChainTests.Escape_still_activates_the_CancelButton` fail in roughly half of full-suite
+runs while passing in isolation. It was not this item's change: reverting `Graphics.cs` to its
+pre-W5.18 state and keeping the new test file reproduced the failure 3 times in 6 runs, and the
+original code with the new file excluded was clean 6 times in 6. The cause is
+`Application.ActiveMenu`, which is process-global and which two menu test classes set (one directly,
+without clearing it); an active menu owns the keyboard ahead of the whole pre-processing chain, so
+Escape closed the leaked menu and never reached `CancelButton`.
+
+*Resolved in production rather than in the test.* This item first cleared the field in
+`KeyboardChainTests.ShowForm`, which made the suite stable but left the shipped defect in place: a
+menu open on one window ate every *other* window's Escape, which is a real bug for any multi-window
+app and not merely a test-isolation problem. **W5.16** fixes it at source — `WindowBase.HandleKeyDown`
+routes a key to `Application.ActiveMenu` only when that menu belongs to the window handling the key —
+and the per-class clear was removed once that landed, because keeping it would have masked a
+regression of the fix. Verified after removal: 10 clean full-suite Debug runs, where 4 of the previous
+18 had failed. Worth recording as a pattern all the same: the suite has 52 classes that call
+`HeadlessRenderer.Use ()` without `[Collection ("Headless")]`, so this class of order-dependence is
+latent elsewhere too, and any new test file can expose it.
+
+**Correction to the finding as written.** `GFX-23` says the pooled paint is "the paint used by all
+fifteen direct stroke call sites" and names `DrawRectangles` and `DrawBeziers` among them. Both of
+those delegate to their single-shape sibling rather than building a paint; the pooled paint had
+**fourteen** call sites (the fourteen line numbers the finding itself lists). Immaterial to the fix —
+the delegating overloads inherit it — but the sweep is over fourteen sites, and `DrawBeziers` needed a
+change of its own anyway, since delegating per curve restarts the dash at every join.
 
 **W5.19 — `ControlPaint`'s chrome family, and the themed/classic fork above it.**
 20 empty methods — the primary way an owner-drawn migrated control paints a border, a button face, a
@@ -1324,7 +1391,7 @@ authoritative list and this table as the map of the big ones.
 | 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and so has the ToolStrip cluster** — `TSM-02` was closed by W1.3 in Phase 1 (see `MenuShortcutTests.cs`), which the findings file had not recorded. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4351 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4381 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
