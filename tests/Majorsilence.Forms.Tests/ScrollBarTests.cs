@@ -348,14 +348,36 @@ namespace Majorsilence.Forms.Tests
             using var control = new TestVScrollBar { Minimum = 0, Maximum = 100, SmallChange = 1, Value = 50 };
 
             int seenNew = -1, seenValueAtEvent = -1, raised = 0;
-            control.Scroll += (_, e) => { raised++; seenNew = e.NewValue; seenValueAtEvent = control.Value; };
 
-            control.Wheel (-3);   // wheel down
+            // Only the FIRST raise is snapshotted: the notch is followed by an EndScroll, which by
+            // definition comes after the value is committed, so a handler that overwrites on every
+            // raise would report the post-commit value and look like a bug in the ordering.
+            control.Scroll += (_, e) => {
+                raised++;
 
-            Assert.Equal (1, raised);
+                if (raised > 1)
+                    return;
+
+                seenNew = e.NewValue;
+                seenValueAtEvent = control.Value;
+            };
+
+            // INVERTED by W5.20 (SMP-49). This used to send Delta = -3 and expect Value to move by
+            // 3, which pinned the defect: the old code did `Value - Delta * SmallChange`, and a delta
+            // of 3 made that look like "three units" instead of what a real backend produces. Delta
+            // arrives in units of WHEEL_DELTA (120) per notch, so -3 is a fraction of a notch and
+            // moves nothing until the accumulated delta reaches one.
+            control.Wheel (-3);
+
+            Assert.Equal (0, raised);
+            Assert.Equal (50, control.Value);
+
+            control.Wheel (-117);   // completes the notch: -3 + -117 = -120
+
+            Assert.Equal (2, raised);              // the notch, then EndScroll
             Assert.Equal (50, seenValueAtEvent);   // Value not committed yet when Scroll fires
-            Assert.Equal (53, seenNew);            // proposed value handed to the handler
-            Assert.Equal (53, control.Value);      // committed after
+            Assert.Equal (51, seenNew);            // one SmallChange, not 120 of them
+            Assert.Equal (51, control.Value);
         }
 
         [Fact]

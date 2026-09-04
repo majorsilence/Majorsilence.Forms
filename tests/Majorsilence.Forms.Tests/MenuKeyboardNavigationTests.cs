@@ -289,6 +289,68 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
+        [Fact]
+        public void An_active_menu_does_not_swallow_another_windows_Escape ()
+        {
+            // The regression this pins failed CI on all three platforms, in a DIFFERENT KeyboardChainTests
+            // case on each, because which test noticed depended on collection ordering -- it read as a
+            // flake. Application.ActiveMenu is process-global, so once any test opened a menu, every
+            // later Escape anywhere in the process was claimed by it and the pre-processing chain
+            // (ProcessCmdKey, ProcessDialogKey, Form.CancelButton) never ran. Deterministic here:
+            // one form holds an open menu while a second form is sent the key.
+            var (owner, _, file, _) = Barred ();
+            using var _owner = owner;
+
+            try {
+                HeadlessRenderer.KeyDown (owner, Keys.Alt | Keys.F);
+                Assert.True (file.IsDropDownOpened);            // menu mode is genuinely entered
+
+                using var other = new Form { Width = 300, Height = 200 };
+                var cancel = new Button { Text = "Cancel", Width = 80, Height = 24 };
+                other.Controls.Add (cancel);
+                other.CancelButton = cancel;
+                var cancelled = 0;
+                cancel.Click += (_, _) => cancelled++;
+                other.Show ();
+
+                try {
+                    HeadlessRenderer.KeyDown (other, Keys.Escape);
+
+                    Assert.Equal (1, cancelled);
+                } finally {
+                    other.Close ();
+                }
+            } finally {
+                owner.Close ();
+            }
+        }
+
+        [Fact]
+        public void A_menu_that_was_never_opened_does_not_claim_keys ()
+        {
+            // GUARD, not proof: a menu that was never opened is not Application.ActiveMenu either, so
+            // the routing never consults it and no version of this code could fail this. It is here
+            // because the tempting extra defence -- refusing keys unless MenuBase.IsActivated -- is
+            // unreachable for the same reason, and was removed rather than left as unprovable code.
+            var (form, strip, _, _) = Barred ();
+            using var _form = form;
+
+            try {
+                Assert.False (strip.IsActivated);
+
+                var box = new TextBox { Width = 100, Height = 24, Text = "abc" };
+                form.Controls.Add (box);
+                box.Select ();
+                box.Select (0, 0);
+
+                HeadlessRenderer.KeyDown (form, Keys.Right);
+
+                Assert.Equal (1, box.SelectionStart);
+            } finally {
+                form.Close ();
+            }
+        }
+
         private static MenuItem? SelectedInDropDown (ToolStripMenuItem item)
             => item.DropDownItems.Cast<MenuItem> ().FirstOrDefault (i => i.Selected);
     }

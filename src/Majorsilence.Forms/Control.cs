@@ -2254,7 +2254,23 @@ namespace Majorsilence.Forms
             OnPaint (e);
             Paint?.Invoke (this, e);
             PaintChildren (e);
+
+            // After the children, which is what makes this an ADORNER layer rather than another Paint
+            // handler: anything drawn here lands on top of the controls in this container. The public
+            // Paint event fires before PaintChildren, so a decoration drawn from it is painted under
+            // them -- which is why ErrorProvider's icon needs this hook and not that event
+            // (finding SMP-51). Internal because it is a framework seam, not a WinForms member.
+            PaintAdorners?.Invoke (this, e);
         }
+
+        /// <summary>
+        /// Raised after this control and its children have painted, for decorations that belong on top
+        /// of the container's contents.
+        /// </summary>
+        /// <remarks>Upstream has no equivalent: WinForms adorners are separate windows
+        /// (<c>ErrorProvider.ErrorWindow</c>), and this framework has no child windows to use that
+        /// way.</remarks>
+        internal event PaintEventHandler? PaintAdorners;
 
         /// <summary>
         /// Calls the OnPaintBackground method.

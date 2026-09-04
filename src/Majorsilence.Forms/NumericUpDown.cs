@@ -267,10 +267,15 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void OnMouseClick (MouseEventArgs e)
         {
+            // UpButton/DownButton, not `Value ± 1`: those are the methods that apply Increment, and
+            // the mouse path never called them -- so a control stepping by 0.01 for currency or by 5
+            // for quantities moved by 1 when the user clicked its arrow. Silent data corruption in the
+            // control whose whole job is numeric entry, and invisible to any test that drives
+            // UpButton directly (SMP-31, P0).
             if (GetIncrementArea ().Contains (e.Location))
-                Value = Math.Min (Value + 1, Maximum);
+                UpButton ();
             else if (GetDecrementArea ().Contains (e.Location))
-                Value = Math.Max (Value - 1, Minimum);
+                DownButton ();
 
             base.OnMouseClick (e);
         }

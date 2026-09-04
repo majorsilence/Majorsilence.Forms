@@ -131,8 +131,22 @@ namespace Majorsilence.Forms
         /// </summary>
         public event EventHandler? ValueChanged;
 
-        // The number of possible ScrollBar values.
-        private int PossibleValuesCount => maximum - minimum + 1;
+        // The number of possible ScrollBar values, counting only those a user can actually reach.
+        private int PossibleValuesCount => EffectiveMaximum - minimum + 1;
+
+        /// <summary>
+        /// The largest value a user-driven scroll can reach: <c>Maximum - LargeChange + 1</c>.
+        /// </summary>
+        /// <remarks>
+        /// Upstream's rule (finding <c>SMP-48</c>), and the reason `Maximum` is conventionally set to
+        /// <c>itemCount - 1 + LargeChange - 1</c>: the last page of content starts here, so scrolling
+        /// further would show blank space past the end. Every user-driven path and the track mapping
+        /// clamp to this; the <see cref="Value"/> setter still validates against <see cref="Maximum"/>,
+        /// also as upstream, so code assigning a value in the documented range does not throw.
+        /// Letting the thumb reach `Maximum` scrolled a custom-drawn list a whole page past its
+        /// content, and the thumb never sat at the end of the track for the true last position.
+        /// </remarks>
+        private int EffectiveMaximum => Math.Max (minimum, maximum - LargeChange + 1);
 
         // Retrieves the effective track bounds from the renderer.
         private Rectangle GetEffectiveTrackBounds () => RenderManager.GetRenderer<ScrollBarRenderer> ()!.GetEffectiveTrackBounds (this);
@@ -205,7 +219,7 @@ namespace Majorsilence.Forms
         // did nothing.
         private void PerformScroll (ScrollEventType type, int proposedValue)
         {
-            proposedValue = Math.Max (minimum, Math.Min (maximum, proposedValue));
+            proposedValue = Math.Max (minimum, Math.Min (EffectiveMaximum, proposedValue));
 
             var e = new ScrollEventArgs (type, current_value, proposedValue,
                 vertical ? ScrollOrientation.VerticalScroll : ScrollOrientation.HorizontalScroll);
@@ -247,10 +261,28 @@ namespace Majorsilence.Forms
             if (!Enabled)
                 return;
 
-            if (e.Delta != 0)
-                PerformScroll (
-                    e.Delta > 0 ? ScrollEventType.SmallDecrement : ScrollEventType.SmallIncrement,
-                    Value - (e.Delta * SmallChange));
+            if (e.Delta == 0)
+                return;
+
+            // Delta arrives in units of WHEEL_DELTA (120 per notch), so multiplying by it moved the
+            // value by 120 x SmallChange -- one notch slammed the bar end to end on any range under
+            // 120 (finding SMP-49). Accumulated and spent one SmallChange per whole notch, as
+            // upstream does, so a partial delta from a precision wheel or a trackpad is not lost.
+            wheel_delta += e.Delta;
+
+            var notches = wheel_delta / WheelDelta;
+
+            if (notches == 0)
+                return;
+
+            wheel_delta -= notches * WheelDelta;
+
+            PerformScroll (notches > 0 ? ScrollEventType.SmallDecrement : ScrollEventType.SmallIncrement,
+                           Value - (notches * SmallChange));
+
+            // Upstream finishes a wheel scroll with EndScroll, which is what a handler deferring an
+            // expensive redraw waits for.
+            PerformScroll (ScrollEventType.EndScroll, current_value);
         }
 
         /// <inheritdoc/>
@@ -267,7 +299,7 @@ namespace Majorsilence.Forms
         protected virtual void OnScroll (ScrollEventArgs e)
         {
             e.NewValue = Math.Max (e.NewValue, Minimum);
-            e.NewValue = Math.Min (e.NewValue, Maximum);
+            e.NewValue = Math.Min (e.NewValue, EffectiveMaximum);
 
             Scroll?.Invoke (this, e);
         }
@@ -294,6 +326,11 @@ namespace Majorsilence.Forms
             UpdateFromValue (Value);
         }
 
+        // One wheel notch, as the backends report it.
+        private const int WheelDelta = 120;
+
+        private int wheel_delta;
+
         // Clamps a raw pixel coordinate to the drawable track.
         private int ClampToTrack (int pixel)
         {
@@ -319,11 +356,18 @@ namespace Majorsilence.Forms
         // Updates thumb drag position from a ScrollBar value.
         private void UpdateFromValue (int value)
         {
+            // Clamped to Maximum, NOT to EffectiveMaximum: this is the shared commit path, and a
+            // programmatic `Value = Maximum` is legal upstream -- only user-driven scrolls stop at
+            // Maximum - LargeChange + 1. Clamping here instead made the property setter silently
+            // refuse a documented value.
             value = Math.Max (value, minimum);
             value = Math.Min (value, maximum);
 
             var possible = PossibleValuesCount - 1;
-            var value_percent = possible > 0 ? (double)(value - minimum) / possible : 0d;
+
+            // The thumb cannot travel past the end of the track even for a value above the reachable
+            // maximum, which is the only way such a value can arise.
+            var value_percent = possible > 0 ? Math.Min (1d, (double)(value - minimum) / possible) : 0d;
 
             var effective_track_bounds = GetEffectiveTrackBounds ();
 
