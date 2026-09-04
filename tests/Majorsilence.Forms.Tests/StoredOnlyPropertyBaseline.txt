@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 740 of 1200 public settable auto-properties (61%).
+# 739 of 1200 public settable auto-properties (61%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -253,7 +253,6 @@ Majorsilence.Forms.DrawListViewSubItemEventArgs.DrawDefault
 Majorsilence.Forms.DrawTreeNodeEventArgs.Canvas
 Majorsilence.Forms.DrawTreeNodeEventArgs.TreeView
 Majorsilence.Forms.Drawing.BufferedGraphicsContext.MaximumBuffer
-Majorsilence.Forms.Drawing.Graphics.CompositingMode
 Majorsilence.Forms.Drawing.Graphics.CompositingQuality
 Majorsilence.Forms.Drawing.Graphics.InterpolationMode
 Majorsilence.Forms.Drawing.Graphics.PageScale

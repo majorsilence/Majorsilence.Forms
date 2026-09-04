@@ -62,6 +62,22 @@ Two things worth keeping:
   problem: a test that opens a modal dialog picks its owner from the global `Application.OpenForms`, and
   in parallel it can pick another test's window and wait on it forever. Run serially it finishes in
   seconds. Fixing the isolation properly would let the gate drop the flag.
+- **`Application.ActiveMenu` is the same class of problem, and it bites the keyboard tests** (found
+  2026-09-04 during W5.18). It is process-global, two menu test classes set it, and an active menu owns
+  the keyboard ahead of the entire pre-processing chain -- so a leaked menu makes an unrelated test's
+  Escape close that menu instead of pressing `CancelButton`. It surfaced as
+  `KeyboardChainTests.Escape_still_activates_the_CancelButton` failing in about half of full-suite runs
+  purely because a new 30-test file changed xunit's schedule. **Fixed in production, not in the test**
+  (`W5.16`, on main): `WindowBase.HandleKeyDown` now routes a key to `Application.ActiveMenu` only when
+  that menu belongs to the window handling the key, so a menu open on one window can no longer eat
+  another window's Escape -- which was a real defect for any app with more than one window, not merely
+  a test-isolation problem. The per-class `ActiveMenu = null` this entry originally described was
+  removed once that landed, because it would have masked a regression of it.
+  The general shape is still worth fixing once rather than per class: **52 test classes call
+  `HeadlessRenderer.Use ()` without `[Collection ("Headless")]`**, so any of them can be perturbed into
+  failure by adding tests elsewhere. Candidates for a real fix: reset the process-global renderer,
+  active-menu, modifier-key and open-form state in a shared fixture, and put every headless class in
+  one collection.
 
 ## Wanted: `--dual-build` for VB
 
