@@ -1598,7 +1598,13 @@ namespace Majorsilence.Forms
             // and an accidentally opened menu could not be dismissed (finding TSM-13). Ahead of the
             // pre-processing chain, because a control that wants arrows -- a text box, a grid -- must
             // not eat them while a menu is up.
-            if (Application.ActiveMenu is { } active && active.HandleNavigationKey (keys))
+            // Only a menu belonging to THIS window: Application.ActiveMenu is global, and a menu open
+            // on another window has no claim on these keys. Without the check, a stale or foreign
+            // active menu swallowed Escape here -- which is what took Form.CancelButton out under
+            // MF_FORCE_CUSTOM_CHROME, where the test ordering leaves one set.
+            if (Application.ActiveMenu is { } active
+                && ReferenceEquals (active.FindWindow (), this)
+                && active.HandleNavigationKey (keys))
                 return true;
 
             var kd_e = new KeyEventArgs (keys);

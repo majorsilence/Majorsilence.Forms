@@ -1,15 +1,36 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
+using System.Linq;
 using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
     /// <summary>
-    /// WinForms compatibility: provides a user interface for indicating validation errors on a form.
-    /// Majorsilence.Forms does not render error icons natively; the error text is stored for
-    /// programmatic access and shown in the control's ToolTip text if a ToolTip is set.
+    /// Provides a user interface for indicating validation errors on a form: an error icon beside
+    /// each control that has one.
     /// </summary>
+    /// <remarks>
+    /// The icon is painted by the errored control's PARENT, through
+    /// <c>Control.PaintAdorners</c> -- a layer that runs after the container's children, so the icon
+    /// sits on top of them. Upstream uses a separate <c>ErrorWindow</c> per control, which this
+    /// framework has no child windows for.
+    /// <para>
+    /// This class summary used to say that Majorsilence.Forms "does not render error icons natively"
+    /// and that the text is "shown in the control's ToolTip text if a ToolTip is set" -- the first was
+    /// true and the second never was: <see cref="SetError"/> only wrote to a dictionary that nothing
+    /// but <see cref="GetError"/> read. <c>errorProvider1.SetError (txtName, "Required")</c> in a
+    /// <c>Validating</c> handler, the canonical WinForms validation affordance, produced no feedback of
+    /// any kind, so a form refused to submit with nothing on screen explaining why (finding
+    /// <c>SMP-51</c>, P0).
+    /// </para>
+    /// <para>
+    /// Not implemented: blinking (<see cref="BlinkStyle"/>/<see cref="BlinkRate"/> are honoured as
+    /// state but no timer runs), a custom <see cref="Icon"/> -- the built-in glyph is always drawn --
+    /// and the hover tooltip. Each is additive and none of them is what made this a P0.
+    /// </para>
+    /// </remarks>
     public partial class ErrorProvider : Component, ISupportInitialize
     {
         // Real WinForms ErrorProvider implements ISupportInitialize, so designer code brackets it with
@@ -108,6 +129,7 @@ namespace Majorsilence.Forms
         protected virtual void OnRightToLeftChanged (EventArgs e) => RightToLeftChanged?.Invoke (this, e);
 
         /// <summary>Sets the error description string for the specified control.</summary>
+        /// <remarks>An empty or null description clears the error, as upstream.</remarks>
         public void SetError (Control control, string value)
         {
             Guard.ThrowIfNull (control);
@@ -116,7 +138,111 @@ namespace Majorsilence.Forms
                 _errors.Remove (control);
             else
                 _errors[control] = value;
+
+            Attach (control);
+            Repaint (control);
         }
+
+        /// <summary>Clears all error descriptions.</summary>
+        public void Clear ()
+        {
+            var affected = _errors.Keys.ToArray ();
+
+            _errors.Clear ();
+
+            foreach (var control in affected)
+                Repaint (control);
+        }
+
+        // Every container this provider has hooked, so a second error on the same parent does not
+        // subscribe twice and the icons can be found again when the parent repaints.
+        private readonly HashSet<Control> _hooked = new ();
+
+        private void Attach (Control control)
+        {
+            // The PARENT paints the icon, because the icon sits outside the control's own bounds.
+            if (control.Parent is not { } parent || !_hooked.Add (parent))
+                return;
+
+            parent.PaintAdorners += PaintErrorIcons;
+        }
+
+        private void Repaint (Control control) => control.Parent?.Invalidate ();
+
+        // Draws an icon for every errored child of the container being painted. Iterating the
+        // container's own children rather than the error dictionary keeps a control that has been
+        // removed from the form from drawing anything.
+        private void PaintErrorIcons (object? sender, PaintEventArgs e)
+        {
+            if (sender is not Control parent)
+                return;
+
+            foreach (var child in parent.Controls) {
+                if (!child.Visible || !_errors.ContainsKey (child))
+                    continue;
+
+                DrawIcon (e, IconBounds (e, child));
+            }
+        }
+
+        /// <summary>The icon's rectangle, in the device pixels the parent's canvas uses.</summary>
+        /// <remarks>Child <c>Bounds</c> are logical while the paint canvas is device-scaled, so the
+        /// geometry is converted here rather than in the drawing helper.</remarks>
+        private Rectangle IconBounds (PaintEventArgs e, Control control)
+        {
+            var size = e.LogicalToDeviceUnits (IconSize);
+            var padding = e.LogicalToDeviceUnits (GetIconPadding (control));
+            var bounds = new Rectangle (
+                e.LogicalToDeviceUnits (control.Left),
+                e.LogicalToDeviceUnits (control.Top),
+                e.LogicalToDeviceUnits (control.Width),
+                e.LogicalToDeviceUnits (control.Height));
+
+            var alignment = GetIconAlignment (control);
+            var left = alignment switch {
+                ErrorIconAlignment.TopLeft or ErrorIconAlignment.MiddleLeft or ErrorIconAlignment.BottomLeft
+                    => bounds.Left - size - padding,
+                _ => bounds.Right + padding,
+            };
+            var top = alignment switch {
+                ErrorIconAlignment.TopLeft or ErrorIconAlignment.TopRight => bounds.Top,
+                ErrorIconAlignment.BottomLeft or ErrorIconAlignment.BottomRight => bounds.Bottom - size,
+                _ => bounds.Top + ((bounds.Height - size) / 2),
+            };
+
+            return new Rectangle (left, top, size, size);
+        }
+
+        /// <summary>The icon's logical edge length. Upstream's error bitmap is 16x16.</summary>
+        internal const int IconSize = 16;
+
+        // A filled circle with an exclamation mark, drawn from primitives rather than shipped as an
+        // image: the framework has no resource pipeline for one, and a glyph that scales with the
+        // display beats a bitmap that does not.
+        private static void DrawIcon (PaintEventArgs e, Rectangle bounds)
+        {
+            var radius = bounds.Width / 2;
+            var centre_x = bounds.Left + radius;
+            var centre_y = bounds.Top + radius;
+
+            e.Canvas.FillCircle (centre_x, centre_y, radius, ErrorIconColor);
+
+            // The bar and the dot of the "!", sized off the icon so they hold at any scale.
+            var bar_width = Math.Max (1, bounds.Width / 8);
+            var bar_top = bounds.Top + (bounds.Height / 4);
+            var bar_height = bounds.Height / 3;
+
+            e.Canvas.FillRectangle (
+                new Rectangle (centre_x - (bar_width / 2), bar_top, bar_width, bar_height),
+                ErrorIconGlyphColor);
+
+            e.Canvas.FillRectangle (
+                new Rectangle (centre_x - (bar_width / 2), bar_top + bar_height + Math.Max (1, bounds.Height / 12), bar_width, bar_width),
+                ErrorIconGlyphColor);
+        }
+
+        internal static readonly SKColor ErrorIconColor = new SKColor (0xC4, 0x22, 0x1E);
+        internal static readonly SKColor ErrorIconGlyphColor = new SKColor (0xFF, 0xFF, 0xFF);
 
         /// <summary>Gets the error description string for the specified control.</summary>
         public string GetError (Control control)
@@ -125,9 +251,6 @@ namespace Majorsilence.Forms
 
             return _errors.TryGetValue (control, out var msg) ? msg : string.Empty;
         }
-
-        /// <summary>Clears all error descriptions.</summary>
-        public void Clear () => _errors.Clear ();
 
         /// <summary>Sets the icon alignment for the specified control. Stub in Majorsilence.Forms.</summary>
         public void SetIconAlignment (Control control, ErrorIconAlignment value)

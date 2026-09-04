@@ -1008,6 +1008,36 @@ moves **120 × `SmallChange`**.
 `DomainUpDown` derives from `NumericUpDown` and renders a number instead of its items. Fix the shape
 first or the member work lands twice.
 
+**Split into slices (2026-09-04).** This item is six P0s across five controls, and the structural note
+above orders part of it, so it is being landed in pieces:
+
+- **W5.20a — the scroll and spin arithmetic. — DONE (2026-09-04).** `SMP-31` (P0), `SMP-48`, `SMP-49`,
+  plus the wheel's missing `EndScroll`. A `NumericUpDown` arrow click calls `UpButton`/`DownButton`,
+  the methods that apply `Increment`, instead of hard-coding ±1. `ScrollBar` gains
+  `EffectiveMaximum` (`Maximum - LargeChange + 1`) and clamps every user-driven path and the track
+  mapping to it, while the `Value` setter still accepts anything up to `Maximum`, as upstream. The
+  wheel accumulates `Delta` and spends one `SmallChange` per whole 120-unit notch — it used to
+  multiply by the raw delta, so one notch moved 120 × `SmallChange` — and finishes with `EndScroll`.
+  12 tests, 11 verified to fail with their fix neutralized; 1 existing test inverted
+  (`ScrollBarTests.Wheel_raises_Scroll_with_the_proposed_value_before_Value_updates`).
+  `SMP-47` needed nothing: `PerformScroll` already raised `Scroll` for every path.
+- **W5.20b — `NumericUpDown` text entry (`SMP-32`, P0), and the `UpDownBase`/`DomainUpDown` shape
+  (`SMP-36`/`SMP-37`).** Not started. Deliberately after the structural fix, per the note above.
+- **W5.20c — the date-picking UI: `MonthCalendar` and `DateTimePicker` (`SMP-39`, `SMP-40`, `SMP-42`,
+  `SMP-51`, all P0).** Not started. This is the largest piece and the one with no working UI at all.
+- **W5.20d — `ErrorProvider` rendering. — DONE (2026-09-04).** `SMP-51` (P0). `SetError` now attaches
+  the errored control's parent to a new adorner paint layer and draws an error glyph beside the
+  control, honouring `SetIconAlignment` and `SetIconPadding`. `Clear` and an empty description remove
+  it; a hidden control shows none. The glyph is drawn from primitives rather than shipped as an image,
+  so it scales with the display. 8 tests, 7 verified to fail with their fix neutralized and 1 labelled
+  in-test as a guard.
+  **New framework seam:** `Control.PaintAdorners`, raised *after* `PaintChildren`. The public `Paint`
+  event fires before the children, so anything drawn from it lands underneath them — upstream solves
+  this with a separate `ErrorWindow` per control, and this framework has no child windows to use that
+  way. Still not implemented, and each additive: blinking (`BlinkStyle`/`BlinkRate` are honoured as
+  state, no timer runs), a custom `Icon`, and the hover tooltip.
+  *Still open in this slice:* `SMP-33`, `SMP-41`, `SMP-43`.
+
 **W5.21 — Buttons, labels and pictures.**
 `RadioButton` ignores `AutoCheck` and never manages `TabStop`; `Appearance`, `FlatStyle`/`FlatAppearance`
 are stored-only on `CheckBox`/`RadioButton`; button and label captions never word-wrap (`Label.Multiline`
@@ -1152,11 +1182,43 @@ authoritative list and this table as the map of the big ones.
 | 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and so has the ToolStrip cluster** — `TSM-02` was closed by W1.3 in Phase 1 (see `MenuShortcutTests.cs`), which the findings file had not recorded. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4233 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4287 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.20a found
+
+**A test can hide a 120× error by choosing a delta no device sends.**
+`ScrollBarTests.Wheel_raises_Scroll_with_the_proposed_value_before_Value_updates` sent
+`Delta = -3` and asserted the value moved by 3 — which made `Value - Delta * SmallChange` read as
+"three units" rather than "one hundred and twenty notches' worth". Backends send ±120 per notch, so
+the real behaviour was a full-range jump per notch. The test now sends a partial notch (nothing
+moves), then completes it (one `SmallChange`). When a test picks its own input magnitudes, the choice
+can encode the bug.
+
+**Clamping in the shared commit path broke a documented assignment.** My first version put
+`EffectiveMaximum` into `UpdateFromValue`, which every path funnels through — so `Value = Maximum`,
+legal upstream and validated by the setter, silently landed on `Maximum - LargeChange + 1`. Upstream
+clamps only *user-driven* scrolls; the property setter throws outside `[Minimum, Maximum]` and
+otherwise assigns what it was given. The finding says exactly this ("leave the property setter's
+`ArgumentOutOfRangeException` bound at `Maximum`, as upstream does") and I read past it. The regression
+test for it is now in the file.
+
+**Two of the findings were already fixed, and neither file said so.** `SMP-47` (Scroll raised only for
+`ThumbTrack`) is closed: `PerformScroll` raises `Scroll` for arrows, track, thumb and wheel, and its
+comment names the migrated app whose scrollbar regressed. That is the third time in this phase a
+finding has outlived its defect — see also `TSM-02` and `TSM-14`. Reading the code before the finding
+costs a minute and has now saved several afternoons.
+
+**A window-scoped fix for the previous item, found by the chrome gate.** The menu-key routing added in
+the last item claimed keys whenever `Application.ActiveMenu` was non-null, including for a menu on
+*another* window; under `MF_FORCE_CUSTOM_CHROME` a leftover active menu ate Escape and
+`Form.CancelButton` stopped working. It now requires the active menu to belong to the window handling
+the key, which is correct on its own terms and makes stale global state harmless. Debug and the
+default Release run both passed — only the chrome configuration ordered the tests in the way that
+exposed it.
 
 ### What the menu-mode keyboard work found (the rest of TSM-13)
 

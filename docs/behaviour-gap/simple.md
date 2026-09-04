@@ -3,6 +3,57 @@
 ## Summary
 The simple controls split cleanly into two halves. Button/CheckBox/RadioButton/Label/LinkLabel/TrackBar/ScrollBar/ProgressBar are genuinely implemented — real state machines, real renderers — and their defects are precise: a missing guard, an event raised from the wrong place, a property the renderer forgot to read. The value controls are the opposite: `NumericUpDown` has no keyboard input and steps by a hard-coded `1` instead of `Increment`; `DateTimePicker` is a `TextBox` whose drop-down arrow is painted but dead; `MonthCalendar` draws one line of text where a calendar should be; `ErrorProvider` renders nothing at all. The dominant failure patterns are (1) a setter that stores and invalidates while no renderer ever reads the value, (2) events declared with `#pragma warning disable CS0067` or — worse — `add { } remove { }` accessors that discard the subscription, and (3) a base class chosen for local convenience (`DateTimePicker : TextBox`, `DomainUpDown : NumericUpDown`, `NumericUpDown : Control`) that then behaves wrongly through inheritance. 61 findings: 6 P0, 27 P1, 28 P2, plus a short P3 list. Every control here already has a test file, but those tests assert property round-trips only — none of the 61 divergences is covered, which is exactly the blind spot `docs/winforms-gap-plan.md` predicted.
 
+## Status (2026-09-04, W5.20a — the scroll and spin arithmetic)
+
+**Closed:** SMP-31 (P0), SMP-48, SMP-49, plus the wheel's missing `EndScroll`. 12 tests in
+`ScrollAndSpinArithmeticTests.cs`, 11 verified to fail with their fix neutralized; 1 is labelled
+in-test as a guard. One existing test inverted, `ScrollBarTests.Wheel_raises_Scroll_with_the_proposed_value_before_Value_updates`.
+
+**SMP-47 was already fixed and this file did not know.** `ScrollBar.PerformScroll` raises `Scroll` for
+the arrows, the track, the thumb and the wheel, and finishes a drag with `EndScroll`; its comment names
+the migrated app whose scrollbar regressed before it existed. The only part still missing was the
+`EndScroll` after a *wheel* notch, which is now there. That makes three findings in this phase whose
+defect had already been fixed (see also TSM-02 and TSM-14 in `toolstrip.md`): read the code before
+trusting the entry.
+
+**A correction to SMP-48's scope, which I got wrong first.** The clamp belongs on the user-driven paths
+and the track mapping *only*. Putting `EffectiveMaximum` into `ScrollBar.UpdateFromValue` -- the shared
+commit path -- makes a programmatic `Value = Maximum` silently land on `Maximum - LargeChange + 1`,
+which upstream permits and validates. The finding says as much; the regression test for it is
+`A_programmatic_assignment_may_still_reach_Maximum`.
+
+**Why the wheel bug survived a test.** `ScrollBarTests` sent `Delta = -3` and asserted a move of 3,
+which made `Value - Delta * SmallChange` read as "three units" instead of what a backend really sends
+(±120 per notch). A test that picks its own input magnitudes can encode the defect.
+
+**Still open in this file:** SMP-32 (P0), SMP-36/SMP-37 (structural, and ordered before SMP-32),
+SMP-39/SMP-40/SMP-42 (all P0 -- the date-picking UI), SMP-33, SMP-41, SMP-43.
+
+## Status (2026-09-04, W5.20d -- ErrorProvider renders)
+
+**Closed:** SMP-51 (P0). 8 tests in `ErrorProviderRenderingTests.cs`, 7 verified to fail with their fix
+neutralized; 1 is labelled in-test as a guard.
+
+The icon is painted by the errored control's PARENT through a new `Control.PaintAdorners` event, which
+runs after `PaintChildren`. That seam is the point: the public `Paint` event fires *before* the
+children, so a decoration drawn from it is painted underneath them, and the finding's own suggested fix
+("or have the parent's paint pass draw the icon") would have put the icon behind any control sharing
+that space. Upstream uses a separate `ErrorWindow` per control; this framework has no child windows.
+
+**A correction to the class documentation, which was half untrue.** It claimed the error text is "shown
+in the control's ToolTip text if a ToolTip is set". Nothing read the dictionary but `GetError`, so no
+tooltip was ever set either. Both halves are now accurate.
+
+**Not implemented, and named as such rather than left to be discovered:** blinking
+(`BlinkStyle`/`BlinkRate` are honoured as state, no timer runs), a custom `Icon` -- the built-in glyph
+is always drawn -- and the hover tooltip. None of the three is what made this a P0.
+
+**A trap worth recording, hit for the fourth time this phase.** The first version of these tests used
+`PaintSurface.Render`, and every pixel assertion passed while nothing was drawn: `Control.Visible` is
+ambient, so in a detached tree the paint loop's `!child.Visible` guard skipped every child.
+`RenderOnForm` parents the container first. Together with the `Scaling == 0` / 0x0-bitmap trap, that is
+two independent ways for a pixel test in this codebase to succeed by measuring nothing.
+
 ## Findings
 
 ### SMP-01 — `RadioButton.Checked` / `UpdateSiblings` ignores `AutoCheck` — Cat A — P1 — High
