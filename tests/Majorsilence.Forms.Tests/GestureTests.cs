@@ -343,6 +343,124 @@ public class GestureTests
     }
 
     [Fact]
+    public void ScrollGesture_TreeView_FastPathMatchesAFullRepaint_ForASubRowShift ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);   // populates the first real back buffer
+
+            var rowH = tree.ScaledItemHeight;
+            var at = WindowPoint.DeviceIn (tree, 20, 20);
+
+            // A few small drags that never cross a row boundary: ScrollByDevicePixels.TryFastScrollBlit
+            // repaints these by shifting the existing back buffer and patching only the exposed strip,
+            // instead of a full LayoutItems() + re-render -- it must still leave the TreeView looking
+            // exactly like a normal full render would have.
+            for (var i = 0; i < 3; i++)
+                form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 5);
+            var fastPathPng = HeadlessRenderer.CapturePng (form, 300, 200);
+
+            // Force a full re-render at that identical scroll position (Invalidate () does not touch
+            // top_index/_scrollOffsetPx) and compare pixel-for-pixel against the fast path's output.
+            tree.Invalidate ();
+            var fullRenderPng = HeadlessRenderer.CapturePng (form, 300, 200);
+
+            if (!fastPathPng.AsSpan ().SequenceEqual (fullRenderPng)) {
+                using var a = SkiaSharp.SKBitmap.Decode (fastPathPng);
+                using var b = SkiaSharp.SKBitmap.Decode (fullRenderPng);
+                var count = 0;
+                var maxDelta = 0;
+                var worst = "";
+                for (var y = 0; y < a.Height; y++)
+                for (var x = 0; x < a.Width; x++) {
+                    var pa = a.GetPixel (x, y);
+                    var pb = b.GetPixel (x, y);
+                    if (pa == pb)
+                        continue;
+                    count++;
+                    var delta = Math.Max (Math.Max (Math.Abs (pa.Red - pb.Red), Math.Abs (pa.Green - pb.Green)),
+                        Math.Max (Math.Abs (pa.Blue - pb.Blue), Math.Abs (pa.Alpha - pb.Alpha)));
+                    if (delta > maxDelta) { maxDelta = delta; worst = $"({x},{y}): fast={pa} full={pb}"; }
+                }
+                throw new Xunit.Sdk.XunitException ($"{count} differing pixels, max per-channel delta={maxDelta}, worst {worst}");
+            }
+
+            Assert.Equal (fullRenderPng, fastPathPng);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_TreeView_CrossingARow_StillFallsBackToAFullRepaint ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            var rowH = tree.ScaledItemHeight;
+            var at = WindowPoint.DeviceIn (tree, 20, 20);
+
+            // A drag past a whole row moves the scrollbar thumb, which the fast path deliberately does
+            // not try to keep in sync -- ScrollByDevicePixels must fall back to Invalidate () here, not
+            // leave a stale (shifted-but-uncommitted) frame with a thumb that disagrees with top_index.
+            form.HandleScrollGesture (at.X, at.Y, 0, -(rowH + rowH / 2));
+
+            Assert.True (tree.NeedsPaint, "crossing a row must still request a normal full repaint");
+            HeadlessRenderer.CapturePng (form, 300, 200);   // repaint so LayoutedItems reflects the new scroll offset
+            Assert.NotEqual ("Node 0", tree.LayoutedItems[0].Text);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_TreeView_ManySmallDrags_KeepScrollbarInLockstepWithTopIndex ()
+    {
+        // Shaped like the ControlGallery nav TreeView: many more flat top-level nodes than fit on
+        // screen at once (real gallery has ~40 samples in a nav panel that only shows ~10 rows) --
+        // this is the ratio that actually exercises a multi-row scroll range, unlike a panel tall
+        // enough to show nearly everything at once.
+        var form = new Form { Size = new Size (300, 240) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 240 };
+            for (var i = 0; i < 40; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 240);   // force a layout pass so the scrollbar shows
+
+            var vsbField = tree.GetType ().GetField ("vscrollbar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var vsb = vsbField.GetValue (tree)!;
+            var valueProp = vsb.GetType ().GetProperty ("Value")!;
+            var topIndexField = tree.GetType ().GetField ("top_index", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+
+            var at = WindowPoint.DeviceIn (tree, 20, 20);
+            // Many small drags with no intervening repaint, like the events a real touch fling
+            // delivers between frames -- top_index and the scrollbar's Value must never disagree,
+            // even mid-fling, or the thumb visibly lags/freezes relative to content that has moved on.
+            for (var i = 0; i < 40; i++) {
+                form.HandleScrollGesture (at.X, at.Y, 0, -30);
+                Assert.Equal (topIndexField.GetValue (tree), valueProp.GetValue (vsb));
+            }
+
+            Assert.True ((int) topIndexField.GetValue (tree)! > 0);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
     public void ExistingMouseClickPipeline_IsUnaffectedByGestureAdditions ()
     {
         var form = new Form ();
