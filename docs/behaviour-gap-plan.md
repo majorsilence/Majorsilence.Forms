@@ -988,7 +988,8 @@ upstream derives from each other; assert the invariant in a test rather than the
 
 *Closes:* `GFX-01`, `GFX-02`, `GFX-03`, `GFX-38`.
 
-**W5.20 — The value controls are not implemented.**
+**W5.20 — The value controls are not implemented.** *(As measured 2026-08-25. The `MonthCalendar`
+half is closed — see **W5.20c** below.)*
 Four controls in this family look present and are not: `MonthCalendar` draws no calendar and cannot be
 clicked; `DateTimePicker` derives from `TextBox`, has no drop-down calendar, and its `Text` is
 free-form and never parsed back into `Value`; `ErrorProvider` never renders anything; `NumericUpDown`
@@ -1023,8 +1024,8 @@ above orders part of it, so it is being landed in pieces:
   `SMP-47` needed nothing: `PerformScroll` already raised `Scroll` for every path.
 - **W5.20b — `NumericUpDown` text entry (`SMP-32`, P0), and the `UpDownBase`/`DomainUpDown` shape
   (`SMP-36`/`SMP-37`).** Not started. Deliberately after the structural fix, per the note above.
-- **W5.20c — the date-picking UI: `MonthCalendar` and `DateTimePicker` (`SMP-39`, `SMP-40`, `SMP-42`,
-  `SMP-51`, all P0).** Not started. This is the largest piece and the one with no working UI at all.
+- **W5.20c — the date-picking UI: `MonthCalendar` and `DateTimePicker`. `MonthCalendar` half DONE
+  (2026-09-04); `DateTimePicker` (`SMP-39`, `SMP-40`, `SMP-41`) not started.** Detail below.
 - **W5.20d — `ErrorProvider` rendering. — DONE (2026-09-04).** `SMP-51` (P0). `SetError` now attaches
   the errored control's parent to a new adorner paint layer and draws an error glyph beside the
   control, honouring `SetIconAlignment` and `SetIconPadding`. `Clear` and an empty description remove
@@ -1037,6 +1038,113 @@ above orders part of it, so it is being landed in pieces:
   way. Still not implemented, and each additive: blinking (`BlinkStyle`/`BlinkRate` are honoured as
   state, no timer runs), a custom `Icon`, and the hover tooltip.
   *Still open in this slice:* `SMP-33`, `SMP-41`, `SMP-43`.
+
+**W5.20c detail — the `MonthCalendar` half.**
+
+*A note on the slice letters:* this entry was written against a base where no a/b/c/d subdivision
+existed, and proposed its own lettering. The split above is the live one and is used here instead; the
+work described is unaffected.
+
+*Closed:* `SMP-42` (P0) in full, and the date half of `SMP-43` and `SMP-46`.
+
+`MonthCalendar` now draws and behaves as a calendar:
+
+- **`MonthCalendarRenderer`**, registered with `RenderManager` (there was no entry for the type at
+  all, so `RenderManager` walked up to `Control`, found nothing, and the control's own `OnPaint` drew
+  one centred `ToShortDateString()`). Title band with month/year and two scroll arrows, day-of-week
+  header, six week rows of day cells, the selected range filled, today outlined, an optional
+  week-number column and an optional "Today:" strip.
+- **One geometry, three consumers.** `MonthCalendarGrid.cs` owns `Geometry` and the cell/header/
+  week-number/date rectangles; the renderer draws them, `HitTest` maps points onto them, and the
+  mouse handlers select through `HitTest`. The claim in `MidSizeControlParity.cs`'s header — "HitTest
+  and GetDisplayRange are computed from the same geometry the renderer lays the control out with" —
+  was aspirational before this and is now structural.
+- **Mouse:** press anchors and previews, move extends, release commits. `DateChanged` fires per day
+  crossed and `DateSelected` exactly once, on release. `MaxSelectionCount` trims the *dragged* end and
+  leaves the anchor alone (routing a drag through `SetSelectionRange` moves the anchor instead, because
+  that method adjusts "whichever limit hasn't changed" — right for a programmatic call, wrong for a
+  drag). Arrows page the view without touching the selection, honouring `ScrollChange`; the "Today"
+  strip and a week number select today and that week.
+- **Keyboard:** arrows by a day and a week, `PageUp`/`PageDown` by a month (keeping the day of month
+  where the target month has one), `Home`/`End` to the ends of the month, `Shift` extends from the
+  anchor. Every navigation key is marked `Handled`; everything else is left to the base.
+- **`DateSelected` is field-backed.** It was `add { } remove { }` — every subscription compiled and
+  was discarded. Reverting it to that form does not even compile now, because `OnDateSelected` needs
+  the field; the neutralization proof below had to disable the raiser instead.
+- **A displayed month distinct from the selection.** `display_month` is null ("follow the selection")
+  until something scrolls the view, and `SetSelRange` re-pins it whenever the selection moves out of
+  sight, so a programmatic `SetDate` scrolls to the month it selected. `GetDisplayRange` reports the
+  displayed month rather than `SelectionStart`'s.
+- **Six previously stored-only members are now consumed:** `ShowWeekNumbers`, `ShowTodayCircle`,
+  `TitleForeColor`, `TitleBackColor`, `TrailingForeColor`, `ScrollChange`. The stored-only baseline
+  shrank 746 → 740 and the inert-event baseline 64 → 63.
+
+**Deliberately deferred, and why:**
+
+- **`CalendarDimensions` > 1x1.** One month is painted across the whole client area whatever the
+  dimensions say. A single month that works beats a multi-month grid that half does, and the
+  multi-month case needs its own hit-test partitioning and its own title per month. `GetDisplayRange`
+  still reports every month the dimensions ask for — which is the one place where the "agrees with
+  what the user sees" promise is still unmet, and it is unmet in the direction of the existing
+  documented behaviour (there is a test pinning the two-month range). Recorded against `SMP-46`.
+- **The bolded-date *collections*.** The renderer bolds through `IsBoldedDate`, so the
+  `Add*BoldedDate` API does show, but `BoldedDates`/`AnnuallyBoldedDates`/`MonthlyBoldedDates` remain
+  the second, disagreeing backing store `SMP-44` describes. Fixing that is a store-merging job, not a
+  rendering one, and belongs to `SMP-44`.
+- **`HitArea.TitleYear`, `TitleBackground`.** `TitleMonth` is still returned for the whole middle of
+  the title band. Splitting it needs the title text measured and hit-tested run by run, and an
+  existing test pins `HitTest (100, 1)` on a 200px-wide calendar as `TitleMonth`. `Date`,
+  `PrevMonthDate`, `NextMonthDate`, `DayOfWeek`, `WeekNumbers`, `TodayLink` and `CalendarBackground`
+  *are* now returned, which is the part the mouse handling needed. `SMP-43` is therefore partially,
+  not fully, closed.
+- **`SMP-45`** (the selection setters validating against the raw rather than the effective min/max)
+  is untouched: it is a property-validation fix with its own thrown-exception contract. The new
+  *gesture* paths do clamp to the effective `MinDate`/`MaxDate`, because a click must never land the
+  selection somewhere the grid cannot draw it.
+
+**Two findings were wrong or stale as written, and are corrected in `simple.md`:**
+
+1. `SMP-42` says `DateSelected` is at `MonthCalendar.cs:181` and `OnPaint` at `:250-259`. Both were
+   right; but the finding's own "Fix" list implies `FirstDayOfWeek` was unconsumed, while it was
+   already read by `GetDisplayRange` — `SMP-46` gets that right and `SMP-42` does not.
+2. The doc comments on `ShowToday` and `ShowTodayCircle` were **swapped** (`ShowToday` said "whether
+   today's date is circled"). Nothing read either property, so nothing contradicted them. Both now
+   describe what they do.
+
+**Tests:** `tests/Majorsilence.Forms.Tests/MonthCalendarBehaviourTests.cs`, 44 tests. 42 verified to
+fail with their fix neutralized, in nine batches (renderer registration; mouse handlers; keyboard
+handler; the `OnDateSelected` raiser; `HitTest`'s date mapping; `HitTest`'s logical→device conversion;
+`GetDisplayRange`'s displayed month; each of the two `ScrollInto` call sites; the renderer's reads of
+`TrailingForeColor`/`ShowWeekNumbers`/`ShowToday`/the selection fill). Two are labelled in-test as
+guards rather than proofs — a header click selecting nothing, and keyboard navigation stopping at
+`MaxDate` — because the control had no input handling at all before, so no previous version could
+fail them.
+
+**A pre-existing flake, noted so the next slice does not chase it.**
+`KeyboardChainTests.A_control_that_claims_a_key_stops_dialog_processing` fails roughly one run in
+four, in the full Debug suite only. Confirmed pre-existing by removing this slice's test file
+entirely and running the suite five times — it still failed once. Nothing in it touches
+`MonthCalendar`; it looks like cross-test global state (`Application.OpenForms` / the active window),
+which is what `[assembly: CollectionBehavior (DisableTestParallelization = true)]` in `AssemblyInfo.cs`
+already exists to contain.
+
+**Three things cost time and are worth recording.** First, one `[InlineData]` case was vacuous: the
+fixture pre-selects the 14th, so "click the 14th and assert it is selected" passed with every mouse
+handler deleted. The neutralization pass is what found it. Second, `PaintSurface.RenderOnForm
+(control, 1f)` — pinning the scale to 1 — is wrong for a control whose geometry comes from
+`ClientRectangle`: under `MF_HEADLESS_SCALE=2` the bitmap stayed 220x162 while the grid laid itself
+out over 440x324, so four ink assertions failed on cells drawn outside the bitmap. Letting
+`RenderOnForm` resolve the control's own scaling, and asserting the bitmap equals
+`ClientRectangle.Size` **and** is non-empty, is what makes the pixel tests both non-vacuous and
+scale-independent.
+
+Third, two more assertions were vacuous for a reason only the fixture could reveal: **1 March 2026 is
+a Sunday**, so under the Sunday-first default the 1st lands in column 0 — the answer any broken column
+calculation also gives — and the padded display range needs no leading days at all. The column test
+now uses April (the 1st is a Wednesday) and the padded-range test a Monday-first week. Both then failed
+when the grid's leading padding was neutralized; neither did before. A date fixture can be
+accidentally degenerate in a way a numeric one cannot, and the neutralization pass is the only thing
+that surfaces it.
 
 **W5.21 — Buttons, labels and pictures.**
 `RadioButton` ignores `AutoCheck` and never manages `TabStop`; `Appearance`, `FlatStyle`/`FlatAppearance`
@@ -1216,7 +1324,7 @@ authoritative list and this table as the map of the big ones.
 | 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and so has the ToolStrip cluster** — `TSM-02` was closed by W1.3 in Phase 1 (see `MenuShortcutTests.cs`), which the findings file had not recorded. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4306 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4351 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
@@ -1607,7 +1715,8 @@ what exists is storage:
 
 - `DateTimePicker`/`MonthCalendar` were listed as "Partial", missing bolded dates and `DropDownAlign` —
   theming gaps on a control whose `OnPaint` draws **one line of text** (`MonthCalendar.cs:255-263`).
-  There is no date-picking UI in the framework at all, and the matrix implied there was.
+  There is no date-picking UI in the framework at all, and the matrix implied there was. (`MonthCalendar`
+  draws and picks a date as of 2026-09-04, W5.20c; `DateTimePicker` still does not.)
 - `ErrorProvider` sat in an "Implemented ... minor gaps only" row while nothing it is given ever
   renders (`SMP-51`).
 - `MaskedTextBox` was "Partial", missing `InsertKeyMode` and friends, while the mask is not enforced and

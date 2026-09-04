@@ -20,6 +20,7 @@
             SetRenderer<ListBox> (new ListBoxRenderer ());
             SetRenderer<ListView> (new ListViewRenderer ());
             SetRenderer<Menu> (new MenuRenderer ());
+            SetRenderer<MonthCalendar> (new MonthCalendarRenderer ());
             SetRenderer<MenuDropDown> (new MenuDropDownRenderer ());
             SetRenderer<NavigationPane> (new NavigationPaneRenderer ());
             SetRenderer<Panel> (new PanelRenderer ());

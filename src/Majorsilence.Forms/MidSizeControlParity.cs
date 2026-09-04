@@ -11,10 +11,13 @@ namespace Majorsilence.Forms
     // MonthCalendar, PropertyGrid, WebBrowser and PrintPreviewDialog parity
     // (docs/winforms-gap-plan.md).
     //
-    // MonthCalendar's is the substantial half and is really implemented: the three bolded-date sets
-    // are distinct (a date bolded annually recurs every year, monthly every month, and a plain bolded
-    // date only on that day), and HitTest and GetDisplayRange are computed from the same geometry the
-    // renderer lays the control out with, so they agree with what the user sees.
+    // MonthCalendar's is the substantial half: the three bolded-date sets are distinct (a date bolded
+    // annually recurs every year, monthly every month, and a plain bolded date only on that day), and
+    // HitTest and GetDisplayRange are computed from the same geometry the renderer lays the control
+    // out with, so they agree with what the user sees. That last claim was aspirational until W5.20c
+    // (SMP-42/SMP-43) -- the renderer laid out nothing but a centred string, and HitTest returned
+    // SelectionStart for every point in the body. The geometry now lives in MonthCalendarGrid.cs and
+    // all three read it.
     //
     // WebBrowser's is mostly the hosting surface of an embedded IE control -- print preview dialogs,
     // scripting objects, encryption level. The backends host a modern web view through a narrow seam
@@ -130,11 +133,11 @@ namespace Majorsilence.Forms
         /// </param>
         public SelectionRange GetDisplayRange (bool visible)
         {
-            var dimensions = CalendarDimensions;
-            var months = Math.Max (1, dimensions.Width) * Math.Max (1, dimensions.Height);
-
-            var first = new DateTime (SelectionStart.Year, SelectionStart.Month, 1);
-            var last = first.AddMonths (months).AddDays (-1);
+            // DisplayMonth, not SelectionStart's month: once the user clicks the prev/next arrows the
+            // two differ, and the range has to report what is on screen (SMP-42). They are the same
+            // until something scrolls the view, which is why every existing caller sees no change.
+            var first = DisplayMonth;
+            var last = first.AddMonths (MonthsShown).AddDays (-1);
 
             if (visible)
                 return new SelectionRange (first, last);
@@ -152,34 +155,70 @@ namespace Majorsilence.Forms
         public HitTestInfo HitTest (int x, int y) => HitTest (new Point (x, y));
 
         /// <inheritdoc cref="HitTest(int,int)"/>
+        /// <remarks>
+        /// <paramref name="point"/> is in the logical units a <c>MouseEventArgs</c> carries, while the
+        /// geometry it is tested against is in device pixels, so it is converted first -- the same
+        /// boundary <c>ListBox.GetIndexAtLocation</c> documents. Before W5.20c (finding SMP-43) every
+        /// point in the body returned <c>SelectionStart</c>, whatever day was under the cursor, so a
+        /// per-day context menu always acted on the already-selected date.
+        /// </remarks>
         public HitTestInfo HitTest (Point point)
         {
-            if (!ClientRectangle.Contains (point))
+            var device = new Point (LogicalToDeviceUnits (point.X), LogicalToDeviceUnits (point.Y));
+
+            if (!ClientRectangle.Contains (device))
                 return new HitTestInfo (point, HitArea.Nowhere, DateTime.MinValue);
 
-            var month = SingleMonthSize;
-            var titleHeight = Math.Max (1, month.Height / 8);
+            var geometry = Geometry;
 
             // The title band carries the month name in the middle and the two scroll arrows at the
             // ends, which is why the arrows are tested before the title itself.
-            if (point.Y < titleHeight) {
-                if (point.X < month.Width / 8)
-                    return new HitTestInfo (point, HitArea.PrevMonthButton, DateTime.MinValue);
-                if (point.X > Width - month.Width / 8)
-                    return new HitTestInfo (point, HitArea.NextMonthButton, DateTime.MinValue);
-
+            if (geometry.PrevButton.Contains (device))
+                return new HitTestInfo (point, HitArea.PrevMonthButton, DateTime.MinValue);
+            if (geometry.NextButton.Contains (device))
+                return new HitTestInfo (point, HitArea.NextMonthButton, DateTime.MinValue);
+            if (geometry.Title.Contains (device))
                 return new HitTestInfo (point, HitArea.TitleMonth, DateTime.MinValue);
-            }
 
-            if (ShowToday && point.Y > Height - titleHeight)
+            if (geometry.TodayBand.Contains (device))
                 return new HitTestInfo (point, HitArea.TodayLink, TodayDate);
 
-            return new HitTestInfo (point, HitArea.Date, SelectionStart);
+            if (geometry.DayHeader.Contains (device)) {
+                var column = Math.Min ((device.X - geometry.DayHeader.Left) / geometry.CellWidth, 6);
+
+                return new HitTestInfo (point, HitArea.DayOfWeek, GetDateAt (0, column));
+            }
+
+            if (geometry.WeekNumberColumn.Contains (device)) {
+                var week = Math.Min ((device.Y - geometry.WeekNumberColumn.Top) / geometry.CellHeight, 5);
+
+                return new HitTestInfo (point, HitArea.WeekNumbers, GetDateAt (week, 0));
+            }
+
+            if (geometry.Grid.Contains (device)) {
+                var column = (device.X - geometry.Grid.Left) / geometry.CellWidth;
+                var week = (device.Y - geometry.Grid.Top) / geometry.CellHeight;
+                var date = GetDateAt (week, column);
+                var displayed = DisplayMonth;
+
+                // The leading and trailing days belong to the neighbouring months and say so, because
+                // clicking one both selects that date and pages the view -- callers need to tell them
+                // apart from a day of the month on screen.
+                var area = date.Year == displayed.Year && date.Month == displayed.Month
+                    ? HitArea.Date
+                    : date < displayed ? HitArea.PrevMonthDate : HitArea.NextMonthDate;
+
+                return new HitTestInfo (point, area, date);
+            }
+
+            // Inside the control but on none of the bands: the few pixels integer division leaves at
+            // the right and bottom edges of the grid.
+            return new HitTestInfo (point, HitArea.CalendarBackground, DateTime.MinValue);
         }
 
         // WinForms' Day enum starts at Monday = 0 while DayOfWeek starts at Sunday = 0, so the two
         // cannot be compared directly -- doing so put the padded range's boundaries one day out.
-        private DayOfWeek FirstDayOfWeekAsDayOfWeek
+        internal DayOfWeek FirstDayOfWeekAsDayOfWeek
             => FirstDayOfWeek == Day.Default ? DayOfWeek.Sunday : (DayOfWeek)(((int)FirstDayOfWeek + 1) % 7);
 
         private static void Add (List<DateTime> target, DateTime date)
