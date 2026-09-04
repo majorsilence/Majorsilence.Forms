@@ -99,8 +99,7 @@ namespace Majorsilence.Forms
         internal int SelectedIndex {
             get => selected_index;
             set {
-                if (value < -1)
-                    throw new ArgumentOutOfRangeException (nameof (value), "Index out of range");
+                ValidateIndex (value);
 
                 // WinForms compatibility: designer-generated InitializeComponent code
                 // unconditionally emits `tabControl1.SelectedIndex = 0;` for every TabControl,
@@ -118,14 +117,24 @@ namespace Majorsilence.Forms
                     return;
                 }
 
-                if (value >= Count)
-                    throw new ArgumentOutOfRangeException (nameof (value), "Index out of range");
-
                 if (selected_index != value) {
                     selected_index = value;
                     focused_index = value;
                 }
             }
+        }
+
+        // The range check the SelectedIndex setter applies, factored out so TabStrip can run it
+        // before it announces a pending change to its owner -- raising a cancelable Deselecting and
+        // then throwing would tell handlers about a selection change that never happened.
+        internal void ValidateIndex (int value)
+        {
+            if (value < -1)
+                throw new ArgumentOutOfRangeException (nameof (value), "Index out of range");
+
+            // An empty collection tolerates any non-negative index (see the setter's remarks).
+            if (Count > 0 && value >= Count)
+                throw new ArgumentOutOfRangeException (nameof (value), "Index out of range");
         }
 
         /// <inheritdoc/>

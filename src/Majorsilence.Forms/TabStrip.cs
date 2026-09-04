@@ -19,6 +19,18 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (600, 31);
 
+        // The TabControl (or Ribbon) this strip is the header of, when it has one. The strip is an
+        // implicit child of its owner, so the owner's Alignment/ItemSize/SizeMode/Padding are read
+        // from here rather than mirrored into a second set of fields.
+        internal TabControl? OwnerTabControl => Parent as TabControl;
+
+        // Vetoable notification handed to the owner BEFORE a selection change is committed. The owner
+        // raises TabControl.Deselecting/Deselected from it, which is the only point at which
+        // TabControl.SelectedTab still reports the OUTGOING page -- a handler saving the page it is
+        // leaving used to be shown the page it was arriving at (LAY-13). Returning false vetoes the
+        // change, so a cancelled Deselecting never moves the strip at all.
+        internal Func<int, bool>? SelectionChanging;
+
         /// <inheritdoc/>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
             (style) => {
@@ -60,35 +72,125 @@ namespace Majorsilence.Forms
         // tab would cross the strip's right edge (multiline tab behavior) so every tab stays
         // visible and clickable. The strip grows to hold all rows; since it docks at the top of
         // its TabControl, the pages automatically move below the whole band.
+        //
+        // TabControl.Alignment = Left/Right instead stacks the tabs in a single column and the strip
+        // sizes its own width; ItemSize/SizeMode/Padding adjust the extents (LAY-15).
         private void LayoutTabs ()
         {
+            var owner = OwnerTabControl;
+
+            // ItemSize.Height replaces the row height outright; ItemSize.Width only applies under
+            // SizeMode.Fixed, which is how upstream's TCS_FIXEDWIDTH reads the same two values.
+            var item_size = owner?.ItemSize ?? Size.Empty;
+            var size_mode = owner?.SizeMode ?? TabSizeMode.Normal;
+            var extra_height = 2 * (owner?.Padding.Y ?? 0);
+            var row_height = (item_size.Height > 0 ? item_size.Height : DefaultSize.Height) + extra_height;
+
+            if (owner is { Alignment: TabAlignment.Left or TabAlignment.Right }) {
+                LayoutTabsVertically (row_height, item_size, size_mode);
+                return;
+            }
+
             // All logical. Tab Bounds are logical and are hit-tested against logical MouseEventArgs
             // coordinates, but ClientRectangle is device-scaled and rowHeight was being scaled up too --
             // so on a 2x display tabs got device-sized rows and a logical width, and a click aimed at one
             // tab landed on another. Identity at scaling 1.
             var avail = Math.Max (60, DeviceToLogicalUnits (ClientRectangle.Width));
-            var rowHeight = DefaultSize.Height;
 
+            // Widths first, then rows, because SizeMode.FillToRight has to know how many tabs share a
+            // row before it can hand out the slack.
+            var widths = new int[Tabs.Count];
+            var rows = new int[Tabs.Count];
             var x = 0;
             var row = 0;
-            foreach (var tab in Tabs) {
-                var width = Math.Min (Math.Max (1, tab.GetPreferredSize (Size.Empty).Width), avail);
+
+            for (var i = 0; i < Tabs.Count; i++) {
+                var width = Math.Min (Math.Max (1, MeasureTab (Tabs[i], item_size, size_mode)), avail);
 
                 if (x > 0 && x + width > avail) {
                     x = 0;
                     row++;
                 }
 
-                tab.SetBounds (x, row * rowHeight, width, rowHeight);
+                widths[i] = width;
+                rows[i] = row;
                 x += width;
             }
 
             RowCount = row + 1;
 
+            if (size_mode == TabSizeMode.FillToRight)
+                FillRowsToRight (widths, rows, avail);
+
+            var offset = 0;
+            for (var i = 0; i < Tabs.Count; i++) {
+                if (i > 0 && rows[i] != rows[i - 1])
+                    offset = 0;
+
+                Tabs[i].SetBounds (offset, rows[i] * row_height, widths[i], row_height);
+                offset += widths[i];
+            }
+
             // Grow (or shrink) the strip to fit every row; no-op while the row count is stable.
-            var desired = RowCount * DefaultSize.Height;
+            var desired = RowCount * row_height;
             if (Height != desired)
                 Height = desired;
+        }
+
+        // Alignment = Left/Right: one column of full-width tabs, and the strip takes the width of the
+        // widest of them (docked to a side, the layout engine keeps whatever width the strip asks for).
+        private void LayoutTabsVertically (int rowHeight, Size itemSize, TabSizeMode sizeMode)
+        {
+            RowCount = 1;
+
+            var width = 1;
+            for (var i = 0; i < Tabs.Count; i++)
+                width = Math.Max (width, MeasureTab (Tabs[i], itemSize, sizeMode));
+
+            for (var i = 0; i < Tabs.Count; i++)
+                Tabs[i].SetBounds (0, i * rowHeight, width, rowHeight);
+
+            if (Tabs.Count > 0 && Width != width)
+                Width = width;
+        }
+
+        // A tab's laid-out width: its measured preferred width, or the fixed one when the owner asked
+        // for SizeMode.Fixed with a real ItemSize.Width.
+        private static int MeasureTab (TabStripItem tab, Size itemSize, TabSizeMode sizeMode)
+            => sizeMode == TabSizeMode.Fixed && itemSize.Width > 0
+                ? itemSize.Width
+                : tab.GetPreferredSize (Size.Empty).Width;
+
+        // SizeMode.FillToRight (upstream's TCS_RIGHTJUSTIFY): every row is stretched to the strip's
+        // width, the slack split evenly and the rounding remainder given to the last tab in the row so
+        // the row ends exactly on the edge.
+        private static void FillRowsToRight (int[] widths, int[] rows, int available)
+        {
+            var start = 0;
+
+            while (start < widths.Length) {
+                var end = start;
+                var used = 0;
+
+                while (end < widths.Length && rows[end] == rows[start]) {
+                    used += widths[end];
+                    end++;
+                }
+
+                var count = end - start;
+                var slack = available - used;
+
+                if (slack > 0) {
+                    var share = slack / count;
+
+                    for (var i = start; i < end; i++)
+                        widths[i] += share;
+
+                    widths[end - 1] += slack - (share * count);
+                }
+
+                start = end;
+            }
         }
 
         /// <inheritdoc/>
@@ -246,12 +348,24 @@ namespace Majorsilence.Forms
         public int SelectedIndex {
             get => Tabs.SelectedIndex;
             set {
-                if (Tabs.SelectedIndex != value) {
-                    Tabs.SelectedIndex = value;
-                    OnSelectedTabChanged (EventArgs.Empty);
+                if (Tabs.SelectedIndex == value)
+                    return;
 
-                    Invalidate ();
-                }
+                // Validate up front. The owner's veto below raises its cancelable Deselecting, and
+                // throwing after that would leave handlers having seen a change that never happened.
+                Tabs.ValidateIndex (value);
+
+                // The owner gets its veto -- and with it the chance to raise Deselecting/Deselected
+                // while this strip is still on the outgoing tab -- before anything moves. An empty
+                // collection has no outgoing tab (designer code emits SelectedIndex = 0 before the
+                // tabs exist), so there is nothing to announce and nothing to cancel.
+                if (Tabs.Count > 0 && SelectionChanging?.Invoke (value) == false)
+                    return;
+
+                Tabs.SelectedIndex = value;
+                OnSelectedTabChanged (EventArgs.Empty);
+
+                Invalidate ();
             }
         }
 

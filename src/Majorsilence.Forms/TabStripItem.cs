@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
@@ -7,7 +8,13 @@ namespace Majorsilence.Forms
     /// </summary>
     public class TabStripItem : ILayoutable
     {
+        // Gap between a tab's image and its text, in logical units. Upstream's native tab control
+        // uses 2px of padding between the TCITEM image and the label; the strip's own Padding
+        // supplies the outer inset.
+        internal const int IMAGE_TEXT_GAP = 4;
+
         private bool enabled = true;
+        private SKBitmap? image;
         private string text;
 
         /// <summary>
@@ -49,7 +56,46 @@ namespace Majorsilence.Forms
             var font_size = Parent is { } strip ? strip.LogicalToDeviceUnits (strip.GetEffectiveFontSize ()) : Theme.FontSize;
             var text_size = (int)Math.Round (TextMeasurer.MeasureText (Text, font, font_size).Width);
 
-            return new Size (text_size + padding, Bounds.Height);
+            // An imaged tab has to be wider than a text-only one or the icon crowds the label out --
+            // upstream widens the tab by the image extent, and ours measured text only (LAY-14).
+            var image_extent = ImageExtent ();
+
+            // TabControl.Padding insets every tab on top of the strip's own Padding; it was stored
+            // and never read (LAY-15).
+            var owner_padding = Parent?.OwnerTabControl?.Padding.X ?? 0;
+
+            return new Size (text_size + padding + image_extent + (2 * ScaleToDevice (owner_padding)), Bounds.Height);
+        }
+
+        // The horizontal room the image needs, gap included, in the same (device) units
+        // GetPreferredSize measures text and padding in. Zero when there is no image.
+        internal int ImageExtent () => image is null ? 0 : ScaleToDevice (ImageSize.Width + IMAGE_TEXT_GAP);
+
+        // The image's logical size. ImageList has already resized every frame to its ImageSize, so the
+        // bitmap's own dimensions are the logical extent the tab has to reserve.
+        internal Size ImageSize => image is null ? Size.Empty : new Size (image.Width, image.Height);
+
+        private int ScaleToDevice (int value) => Parent?.LogicalToDeviceUnits (value) ?? value;
+
+        /// <summary>
+        /// Gets or sets the image drawn at the leading edge of the tab.
+        /// </summary>
+        /// <remarks>
+        /// Set by <see cref="TabControl"/> from its <c>ImageList</c> and the page's
+        /// <c>ImageIndex</c>/<c>ImageKey</c>; the bitmap is owned by the image list, not by the tab.
+        /// </remarks>
+        public SKBitmap? Image {
+            get => image;
+            set {
+                if (image == value)
+                    return;
+
+                image = value;
+
+                // The tab's preferred width just changed, so the strip has to re-wrap, not merely repaint.
+                Parent?.PerformLayout ();
+                Parent?.Invalidate ();
+            }
         }
 
         /// <summary>

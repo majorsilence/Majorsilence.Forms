@@ -21,6 +21,56 @@ events in a different order from Windows. Counts: 2 P0, 18 P1, 17 P2 (37 finding
 
 ## Findings
 
+## Status (2026-09-04, W5.23 — the TabControl cluster)
+
+**Closed:** LAY-12, LAY-13, LAY-14, LAY-15. 19 tests in `TabControlBehaviourTests.cs`, 16 verified to
+fail with their fix neutralized; 3 are labelled in-test as guards. Stored-only baseline 754 → 746
+(`TabControl.Alignment`, `ImageList`, `ItemSize`, `Padding`, `SizeMode`, `TabPage.Enabled`,
+`ImageIndex`, `ImageKey`).
+
+**A correction to LAY-12's suggested fix.** It says to write
+`set { base.Enabled = value; TabStripItem.Enabled = value; }`, and the impact paragraph says the
+current code "neither disables the page's children nor greys the tab". The second half of both is
+wrong, and its own *Upstream* line says why: upstream's `new` exists only to re-declare the designer
+attributes, and the behaviour is `Control.Enabled`. Win32's tab control has no notion of a disabled
+tab — `TCITEM` carries no such state — so on Windows `tabPage1.Enabled = false` greys nothing on the
+header and leaves the tab clickable; only the page's contents go dead. Linking `TabStripItem.Enabled`
+would additionally make the tab unselectable (the strip's click and keyboard navigation both skip
+disabled items), which is a *new* divergence dressed as a fix. The implementation forwards to
+`base.Enabled` and stops there; `TabControlBehaviourTests.Disabling_a_page_leaves_its_tab_header_selectable`
+pins that, labelled as a guard.
+
+**A correction to LAY-15's suggested test.** `tc.Alignment = TabAlignment.Bottom;` then
+`assert tc.GetTabRect(0).Top >= tc.DisplayRectangle.Bottom` cannot pass, in this framework, even
+against a correct implementation. `TabControl` does not override `DisplayRectangle`, so it is the whole
+client area rather than the page area — and it must stay that way, because `DefaultLayout` uses
+`DisplayRectangle` as the area it docks *into*: a `DisplayRectangle` that already excluded the strip
+would misposition the strip itself, which is the first thing docked. The page area is instead the
+`Fill`ed page's own `Bounds`, and that is what the test compares the tab rect against.
+
+**Why LAY-13 needed a change to `TabStrip`, not just a reordering.** Raising `Deselecting`/`Deselected`
+first from the existing handler fixes the *order* and not the *impact*: that handler runs after the
+strip has already committed, so `SelectedTab` answers the incoming page no matter where in the handler
+the events are raised — and naming the outgoing page is the entire purpose of those two events.
+`TabStrip` now offers the owner a veto (`SelectionChanging`) before it commits, and `TabControl` raises
+the deselect pair from there. A cancelled `Deselecting` consequently never moves the strip, rather than
+moving it and reverting.
+
+**One bug found outside the findings.** `TabControl` recovered the outgoing page by scanning
+`Controls` for the one whose `Visible` is true. `Control.Visible` is ambient, so every page of a
+`TabControl` that is not itself inside a visible parent answers `false` and the outgoing page could not
+be recovered at all — the four events then reported `null` and index `-1`, and a cancelled `Selecting`
+reverted to "no selection" instead of to the previous tab. The control now tracks the current page.
+
+**Deliberate limits.** `Alignment.Left`/`Right` stack the tabs in a column instead of rotating their
+text (`TCS_VERTICAL`), which the renderer cannot express. `Multiline` remains stored-only: the strip
+wraps unconditionally today, and making `Multiline = false` stop wrapping requires the scroll
+affordance upstream's native control has and this one does not — without it, tabs past the right edge
+would become unreachable. `Appearance`, `HotTrack` and `RightToLeftLayout` remain cosmetic, which
+LAY-15 explicitly allows; `ShowToolTips` belongs to LAY-16. `TabPage.UseVisualStyleBackColor` is still
+a `new` shadow — unlike `Enabled`, its upstream default (`false`) really does differ from this
+framework's base default (`true`), so forwarding it would change behaviour rather than repair it.
+
 > **Status — W5.22, 2026-09-04.** `LAY-01`, `LAY-02`, `LAY-03`, `LAY-04`, `LAY-05`, `LAY-07` and
 > `LAY-08` are **CLOSED**. The min sizes are the real clamp, `FixedPanel` drives an `OnLayout`
 > redistribution, both splitter events are raised from both classes' drag paths, `Splitter.SplitPosition`

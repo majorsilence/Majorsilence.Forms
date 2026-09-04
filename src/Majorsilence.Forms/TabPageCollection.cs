@@ -79,6 +79,11 @@ namespace Majorsilence.Forms
             item.Visible = false;
             owner.Controls.Insert (index, item);
             tab_strip.Tabs.Insert (index, item.TabStripItem);
+
+            // A page's ImageIndex/ImageKey is usually set before it joins a control (the designer
+            // emits it on the constructed page, and TabPages.Add (key, text, imageIndex) does the
+            // same), so the image has to be resolved on the way in as well as on later changes (LAY-14).
+            owner.UpdateTabImage (item);
         }
 
         /// <inheritdoc/>
