@@ -20,6 +20,24 @@ re-implementations rather than ports and diverge on almost every member; `TabCon
 events in a different order from Windows. Counts: 2 P0, 18 P1, 17 P2 (37 findings).
 
 ## Findings
+
+> **Status — W5.22, 2026-09-04.** `LAY-01`, `LAY-02`, `LAY-03`, `LAY-04`, `LAY-05`, `LAY-07` and
+> `LAY-08` are **CLOSED**. The min sizes are the real clamp, `FixedPanel` drives an `OnLayout`
+> redistribution, both splitter events are raised from both classes' drag paths, `Splitter.SplitPosition`
+> is the docked sibling's extent, the legacy `Splitter` resizes that sibling on all four dock edges,
+> the panels are `SplitterPanel`, and the constructor no longer forces `Dock = Fill`. Covered by
+> `tests/Majorsilence.Forms.Tests/SplitContainerBehaviourTests.cs`.
+>
+> **Two corrections to the text below**, both recorded where they belong:
+> * `LAY-05`'s suggested fix says to find the sibling as "the previous sibling by z-order". That is
+>   wrong. The dock walk runs in *reverse* z-order, so the control adjacent to the bar is generally not
+>   the one before it in `Controls` — inside `SplitContainer` it is two places *after* it. Upstream
+>   matches *edges* (`Splitter.FindTarget`), and so does the implementation.
+> * `LAY-08` says the ctor should be changed so `DefaultSize` is 150x100. It already was; only the
+>   `Dock` and the default `SplitterDistance` needed fixing.
+>
+> `LAY-06` is still open and was never part of W5.22.
+
 ### LAY-01 — `SplitContainer.Panel1MinSize` / `Panel2MinSize` — Cat C — P1 — High
 - **Ours:** Plain auto-properties that nothing reads (`src/Majorsilence.Forms/SplitContainer.cs:167,170`). The *working* minimum is held in `Panel1MinimumSize`/`Panel2MinimumSize` (`SplitContainer.cs:93,110`) — names that do not exist in WinForms — which feed `GetMaximumPanel1Size()`/`ResizePanels()` (`SplitContainer.cs:47,120`). So the WinForms-spelled property is inert and the enforced minimum is always the hard-coded 25.
 - **Upstream:** `Panel1MinSize`/`Panel2MinSize` are the real clamps: the setter calls `SetInnerMostBorder`/`ApplyPanel1MinSize` and re-clamps `SplitterDistance` (`src/System.Windows.Forms/System/Windows/Forms/Layout/Containers/SplitContainer.cs:577,610,1272`).
@@ -56,7 +74,7 @@ events in a different order from Windows. Counts: 2 P0, 18 P1, 17 P2 (37 finding
 - **Ours:** `Splitter` only raises a bespoke `Drag` event carrying a delta (`src/Majorsilence.Forms/Splitter.cs:47,60-71`). Nothing in `Splitter` touches any sibling; only `SplitContainer` subscribes. `MinSize` and `MinExtra` are stored and never consulted (`Splitter.cs:123,130`).
 - **Upstream:** The legacy `Splitter` exists precisely to resize the previous docked sibling: `CalcSplitBounds`/`CalcSplitSize`/`ApplySplitPosition` (`Splitter.cs:926-948`) and the `SplitPosition` setter apply the new bounds to `spd._target`, bounded by `MinSize` (target) and `MinExtra` (remaining space).
 - **Impact:** A migrated form using the classic "Panel(Dock=Left) + Splitter(Dock=Left) + Panel(Dock=Fill)" idiom shows a draggable-looking bar that never moves anything. Silent: no exception, correct-looking cursor.
-- **Fix:** In `OnMouseMove`, locate the previous sibling by z-order along the dock edge and set its Width/Height by the delta, clamped by `MinSize`/`MinExtra`.
+- **Fix:** In `OnMouseMove`, locate the sibling along the dock edge and set its Width/Height by the delta, clamped by `MinSize`/`MinExtra`. **Correction (W5.22):** this originally said "the previous sibling by z-order", which is wrong — the dock walk runs in reverse z-order, so the adjacent control is generally not the previous one in `Controls`. Upstream matches facing *edges* (`Splitter.FindTarget`), which is what was implemented.
 - **Test:** parent with left panel + splitter; simulate a 40px drag; assert the left panel grew 40px and stayed >= `MinSize`.
 - **Tests today:** `tests/Majorsilence.Forms.Tests/SplitterTests.cs` (asserts the `Drag` event only)
 
@@ -80,7 +98,7 @@ events in a different order from Windows. Counts: 2 P0, 18 P1, 17 P2 (37 finding
 - **Ours:** `Dock = DockStyle.Fill;` is the first line of the constructor (`src/Majorsilence.Forms/SplitContainer.cs:25`), and the default `SplitterDistance` ends up being whatever `Panel1`'s default `Control` width is rather than a defined value.
 - **Upstream:** `SplitContainer` has `Dock = None` (inherited default) and `DefaultSize` 150x100, with `_splitterDistance = 50` (`src/System.Windows.Forms/System/Windows/Forms/Layout/Containers/SplitContainer.cs:47`).
 - **Impact:** A SplitContainer dropped into a form with `Anchor` or explicit `Location`/`Size` (the designer's default) gets those overridden only if the designer also emits `Dock`; when the designer emits `Anchor` instead, the control fills the whole form. Also `sc.SplitterDistance` before any assignment reports the wrong default, so "restore saved distance, else use default" code lands somewhere else than on Windows.
-- **Fix:** Drop the `Dock = DockStyle.Fill` from the ctor and initialise `Panel1` to a 50px extent so `SplitterDistance` defaults to 50.
+- **Fix:** Drop the `Dock = DockStyle.Fill` from the ctor and initialise `Panel1` to a 50px extent so `SplitterDistance` defaults to 50. **Correction (W5.22):** the `DefaultSize` half of this finding was already correct in our code (`SplitContainer.DefaultSize` was already 150x100); only the `Dock` and the default distance were wrong.
 - **Test:** `Assert.Equal(DockStyle.None, new SplitContainer().Dock); Assert.Equal(50, new SplitContainer().SplitterDistance);`
 - **Tests today:** `tests/Majorsilence.Forms.Tests/SplitContainerTests.cs`
 
