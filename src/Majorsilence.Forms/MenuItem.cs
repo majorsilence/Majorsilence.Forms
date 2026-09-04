@@ -210,6 +210,11 @@ namespace Majorsilence.Forms
         /// </summary>
         public bool IsDropDownOpened { get; private set; }
 
+        // The drop-down this item owns, once it has been opened at least once. Keyboard navigation
+        // needs to reach INTO it -- Up/Down move within the open menu, not along the bar that owns it
+        // (finding TSM-13).
+        internal MenuDropDown? OpenDropDown => IsDropDownOpened ? dropdown : null;
+
         /// <summary>
         /// Gets the collection of menu items contained by this menu item.
         /// </summary>

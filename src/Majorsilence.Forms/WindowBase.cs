@@ -1592,6 +1592,15 @@ namespace Majorsilence.Forms
             if (Filtered (WindowMessages.WM_KEYDOWN, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
                 return true;
 
+            // An open menu owns the keyboard, which is what upstream's ModalMenuFilter arranges: with a
+            // menu on screen, Escape closes it and the arrows walk it, whatever holds focus underneath.
+            // Nothing routed keys to a menu at all before, so keyboard-only operation was impossible
+            // and an accidentally opened menu could not be dismissed (finding TSM-13). Ahead of the
+            // pre-processing chain, because a control that wants arrows -- a text box, a grid -- must
+            // not eat them while a menu is up.
+            if (Application.ActiveMenu is { } active && active.HandleNavigationKey (keys))
+                return true;
+
             var kd_e = new KeyEventArgs (keys);
 
             // The WinForms pre-processing chain, in WinForms' order: ProcessCmdKey (shortcuts win over

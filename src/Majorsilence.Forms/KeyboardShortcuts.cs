@@ -64,13 +64,50 @@ namespace Majorsilence.Forms
         /// Menus first, matching WinForms: Alt+F belongs to the <c>&amp;File</c> menu even when a
         /// button on the form is captioned <c>&amp;Format</c>.
         /// </remarks>
+        /// <summary>
+        /// Handles F10 and a bare Alt: both move the selection onto the form's menu bar without opening
+        /// anything, which is how menu mode is entered from the keyboard.
+        /// </summary>
+        /// <remarks>Upstream does this in <c>ToolStripManager.ProcessMenuKey</c>. Nothing here did it at
+        /// all, so a keyboard-only user could not reach the menus (finding <c>TSM-13</c>).</remarks>
+        internal static bool TryEnterMenuMode (Form form)
+        {
+            foreach (var menu in MenusOf (form)) {
+                if (!menu.IsTopLevelMenuBar)
+                    continue;
+
+                var first = menu.RootItems.FirstOrDefault (IsEnabledAndVisible);
+
+                if (first is null)
+                    continue;
+
+                menu.SelectItemFromKeyboard (first);
+                return true;
+            }
+
+            return false;
+        }
+
         internal static bool TryInvokeMnemonic (Form form, char charCode)
         {
             foreach (var item in MenuItemsOf (form)) {
-                if (IsEnabledAndVisible (item) && Control.IsMnemonic (charCode, item.Text ?? string.Empty)) {
-                    item.PerformClick ();
+                if (!IsEnabledAndVisible (item) || !Control.IsMnemonic (charCode, item.Text ?? string.Empty))
+                    continue;
+
+                // An item with a sub-menu OPENS it and takes the selection with it, which is what Alt+F
+                // does to a File menu upstream (ToolStripMenuItem.ProcessMnemonic). Clicking it instead
+                // fired the item's own Click -- rarely what a menu header has a handler for -- and left
+                // the menu closed, so there was nothing to navigate with the keys (finding TSM-13).
+                if (item.HasItems) {
+                    if (item.OwnerControl is MenuBase owner)
+                        owner.SelectItemFromKeyboard (item);
+
+                    item.ShowDropDown ();
                     return true;
                 }
+
+                item.PerformClick ();
+                return true;
             }
 
             return form.Controls.Cast<Control> ().Any (child => ProcessMnemonicIn (child, charCode));

@@ -169,6 +169,20 @@ namespace Majorsilence.Forms
         // `contextMenu.Items` typed as MenuItemCollection the way they always were.
         internal MenuItemCollection RootItems => root_item.Items;
 
+        // The item this menu was built around. For a bar that is a synthetic MenuRootItem with no
+        // parent; for a drop-down it is the item that owns it, which is what DropDownOwnerItem reports.
+        internal MenuItem RootMenuItem => root_item;
+
+        /// <summary>Whether this is a horizontal menu BAR, as opposed to a drop-down or a toolbar.</summary>
+        /// <remarks><see cref="IsTopLevelMenu"/> is true for a ToolBar too, which has no menu mode to
+        /// enter; menu-mode entry (F10, bare Alt) needs the narrower question.</remarks>
+        internal bool IsTopLevelMenuBar => IsTopLevelMenu && !IsVertical && this is Menu;
+
+        /// <summary>Moves the selection to <paramref name="item"/> as a keyboard action.</summary>
+        /// <remarks>The setter is internal to this assembly and this is the one place keyboard
+        /// navigation needs, so it is named for what it means rather than exposing the setter further.</remarks>
+        internal void SelectItemFromKeyboard (MenuItem? item) => SelectedItem = item;
+
         /// <summary>
         /// The client area in LOGICAL units, for laying items out.
         /// </summary>
@@ -290,6 +304,173 @@ namespace Majorsilence.Forms
                 Invalidate ();
             }
         }
+
+        /// <summary>
+        /// Routes a key pressed while this menu is the active one. Returns whether it was consumed.
+        /// </summary>
+        /// <remarks>
+        /// The keyboard half of menu mode (finding <c>TSM-13</c>): with a menu open, the keys belong to
+        /// the menu rather than to whatever holds focus, which is what upstream's ModalMenuFilter
+        /// arranges. Nothing here existed -- there was no <c>OnKeyDown</c> in this class or any of its
+        /// derivatives -- so an accidentally opened menu could not even be dismissed with Escape, and
+        /// keyboard-only operation was impossible.
+        /// <para>
+        /// Mnemonics and accelerators (<c>Alt+F</c> reaching an item, <c>ShortcutKeys</c>) are a
+        /// different mechanism and were done in W1.3; this is navigation once the menu is on screen.
+        /// </para>
+        /// </remarks>
+        internal bool HandleNavigationKey (Keys keys)
+        {
+            // The deepest open drop-down owns the keys: with File > Recent open, Up/Down move within
+            // Recent, not within File.
+            var open = DeepestOpenDropDown ();
+
+            switch (keys & Keys.KeyCode) {
+                case Keys.Escape:
+                    // One level at a time, as upstream does: Escape out of a submenu returns to its
+                    // parent menu rather than dismissing the lot.
+                    if (open.IsNestedDropDown) {
+                        open.DropDownOwnerItem?.HideDropDown ();
+                        return true;
+                    }
+
+                    Deactivate ();
+                    return true;
+
+                case Keys.Down:
+                    if (!ReferenceEquals (open, this))
+                        return open.MoveSelection (open.SelectedItem, 1);
+
+                    // On a bar, Down opens the selected item instead of moving along it.
+                    if (IsTopLevelMenu && !IsVertical) {
+                        SelectedItem ??= FirstSelectable ();
+                        SelectedItem?.ShowDropDown ();
+                        (SelectedItem?.OpenDropDown)?.MoveSelection (null, 1);
+                        return true;
+                    }
+
+                    return MoveSelection (SelectedItem, 1);
+
+                case Keys.Up:
+                    if (!ReferenceEquals (open, this))
+                        return open.MoveSelection (open.SelectedItem, -1);
+
+                    return !IsVertical && IsTopLevelMenu ? false : MoveSelection (SelectedItem, -1);
+
+                case Keys.Right:
+                case Keys.Left:
+                    var forward = (keys & Keys.KeyCode) == Keys.Right;
+
+                    // Inside a drop-down, Right opens a submenu of the current item and Left closes
+                    // back to the parent; on a bar, both walk along it.
+                    if (!ReferenceEquals (open, this)) {
+                        // Right opens a submenu of the current item...
+                        if (forward && open.SelectedItem is { } candidate && candidate.HasItems) {
+                            candidate.ShowDropDown ();
+                            candidate.OpenDropDown?.MoveSelection (null, 1);
+                            return true;
+                        }
+
+                        // ...and Left closes back to the parent -- but ONLY from a nested one. From a
+                        // menu hanging off the BAR, Left means "the menu to the left", so it has to
+                        // fall through to the walk below. Asking DropDownOwnerItem alone cannot tell the
+                        // two apart: every drop-down has an owning item, including a top-level one,
+                        // whose parent is the bar's own synthetic root.
+                        if (!forward && open.IsNestedDropDown) {
+                            open.DropDownOwnerItem?.HideDropDown ();
+                            return true;
+                        }
+                    }
+
+                    if (!IsTopLevelMenu)
+                        return false;
+
+                    // Just move the selection. Because selection and "open" are one state here (see
+                    // MoveSelection's note), the SelectedItem setter closes the menu being left and
+                    // opens the one being entered by itself -- which is exactly the behaviour that
+                    // makes Left/Right feel like moving between menus. Closing the old one by hand
+                    // first and re-opening the new one afterwards ALSO worked for one step and then
+                    // left the selection null on the next, because the second ShowDropDown on an
+                    // already-open item re-shows its popup, and a popup re-show deactivates the menu
+                    // through Application.ScheduleClosePopupsOnDeactivate.
+                    return MoveSelection (SelectedItem, forward ? 1 : -1);
+
+                case Keys.Enter:
+                    var target = ReferenceEquals (open, this) ? SelectedItem : open.SelectedItem;
+
+                    if (target is null || !target.Enabled)
+                        return false;
+
+                    if (target.HasItems) {
+                        target.ShowDropDown ();
+                        target.OpenDropDown?.MoveSelection (null, 1);
+                        return true;
+                    }
+
+                    Application.ClosePopups ();
+
+                    // PerformClick, so a keyboard activation is the same operation as a mouse one --
+                    // including CheckOnClick toggling and the ItemClicked relay.
+                    target.PerformClick ();
+                    return true;
+            }
+
+            return false;
+        }
+
+        // The innermost menu with something open below it, or this one when nothing is.
+        private MenuBase DeepestOpenDropDown ()
+        {
+            var menu = this;
+
+            while (menu.SelectedItem?.OpenDropDown is { } child)
+                menu = child;
+
+            return menu;
+        }
+
+        /// <summary>
+        /// Moves the selection one selectable item along, wrapping at the ends.
+        /// </summary>
+        /// <remarks>
+        /// In this framework selecting a menu item OPENS it: <c>MenuItem.Selected</c>'s setter calls
+        /// <c>ShowDropDown</c>/<c>HideDropDown</c> directly, which is how click-to-open works. Upstream
+        /// separates "highlighted on the bar" from "dropped down", so its F10 highlights without
+        /// opening; here the two are one state, and moving the selection to a menu opens it. Splitting
+        /// them would change every mouse path into a menu, so this navigation lives with the coupling.
+        /// </remarks>
+        private bool MoveSelection (MenuItem? from, int step)
+        {
+            var selectable = Items.Where (i => i.Visible && i.Enabled && i is not MenuSeparatorItem).ToList ();
+
+            if (selectable.Count == 0)
+                return false;
+
+            var current = from is null ? -1 : selectable.IndexOf (from);
+            var next = current < 0 ? (step > 0 ? 0 : selectable.Count - 1)
+                                   : ((current + step) % selectable.Count + selectable.Count) % selectable.Count;
+
+            SelectedItem = selectable[next];
+
+            return true;
+        }
+
+        private MenuItem? FirstSelectable ()
+            => Items.FirstOrDefault (i => i.Visible && i.Enabled && i is not MenuSeparatorItem);
+
+        /// <summary>Whether items stack vertically, as in a drop-down, rather than along a bar.</summary>
+        protected virtual bool IsVertical => false;
+
+        /// <summary>The item this menu drops down from, when it is a drop-down.</summary>
+        /// <remarks>Not called <c>OwnerMenuItem</c>: <see cref="ToolStripDropDown"/> already has a
+        /// private member of that name meaning the same thing, and a base virtual with a colliding
+        /// name is a CS0114 rather than an override.</remarks>
+        internal virtual MenuItem? DropDownOwnerItem => null;
+
+        /// <summary>Whether this drop-down hangs off an item that is itself inside another drop-down.</summary>
+        /// <remarks>The question Left and Escape need: from a nested menu they close back to the parent,
+        /// while from a menu hanging off the bar Left walks the bar and Escape leaves menu mode.</remarks>
+        internal bool IsNestedDropDown => DropDownOwnerItem?.OwnerControl is MenuDropDown;
 
         // Sets the specified item (or none) as the active hover.
         private void SetHover (MenuItem? item)

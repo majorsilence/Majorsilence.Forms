@@ -184,6 +184,16 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        /// <remarks>Items stack downwards here, so Up/Down navigate within this menu rather than along
+        /// a bar (finding <c>TSM-13</c>).</remarks>
+        protected override bool IsVertical => true;
+
+        /// <inheritdoc/>
+        /// <remarks>The item this drop-down hangs off, which is what Escape and Left close back to. It
+        /// is the root the menu was built around: see the <c>MenuDropDown (MenuItem)</c> constructor.</remarks>
+        internal override MenuItem? DropDownOwnerItem => RootMenuItem.Parent is null ? null : RootMenuItem;
+
+        /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
         /// <inheritdoc/>
