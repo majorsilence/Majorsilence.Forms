@@ -13,7 +13,35 @@ The matrix-documented stored-only group is recorded once here and not repeated p
 **Closed:** TSM-03 (P0), TSM-08, and the menu-lifecycle remainder of TSM-30 (`MenuActivate`,
 `MenuDeactivate`, `ContextMenu.Popup`/`Collapse`, `MenuItem.Popup`). 12 tests in
 `StripFacadeAndCoordinatesTests.cs`, 11 verified to fail with their fix neutralized; 1 is labelled
-in-test as a guard. **This file is down to one P0** -- TSM-02, the keyboard shortcut pipeline.
+in-test as a guard.
+
+**Menu-mode navigation now works (2026-09-03), which closes the rest of TSM-13.** F10 and a bare Alt
+put the selection on the menu bar; Alt+letter opens the matching menu rather than firing its Click;
+Left/Right walk the bar and wrap; Up/Down move within an open menu, skipping disabled items and
+separators; Enter activates through `PerformClick`, so a keyboard activation is the same operation as a
+mouse one; Escape closes. 12 tests in `MenuKeyboardNavigationTests.cs`, 11 verified to fail with the
+routing neutralized. Two things to know:
+
+- **Selecting a menu item opens it** here (`MenuItem.Selected`'s setter calls `ShowDropDown`), so
+  entering menu mode with F10 opens the first menu, where upstream would only highlight it. Splitting
+  "highlighted" from "dropped down" would change every mouse path into a menu.
+- **Nested submenus are implemented but untested.** Right opens a submenu and Escape closes one level
+  back; neither can be evaluated on the headless backend, because showing a second popup while the
+  first is up tears the menu down via `Application.ScheduleClosePopupsOnDeactivate` (the new popup does
+  not report itself active without a window server). Needs a GUI check.
+
+Also fixed here, because this routing made it matter: `Application.ActiveMenu` was cleared only by
+`MenuBase.Deactivate`, so a **closed form left its menu bar as the active menu** and a later keystroke
+was routed into a dead window. `Form.RaiseFormClosed` clears it.
+
+**This file's P0 count is stale, and it is not this item's doing.** The Summary above says "P0: 3", and
+the third -- TSM-02, `ShortcutKeys` and the legacy `Shortcut` -- was closed by **W1.3 in Phase 1**;
+`MenuShortcutTests.cs` has eleven passing tests over shortcuts, disabled items and access keys. No
+status block here recorded it, so the file has been reading one P0 worse than the code for weeks.
+Phase 1 also closed the *mnemonic* half of TSM-13 (Alt+letter reaching a menu item or a button). What
+remains of TSM-13 is menu-MODE navigation: F10/Alt to enter the bar, Left/Right along it, Up/Down and
+Enter inside an open drop-down, Esc to close. There is no `Keys.Escape` or `Keys.F10` handling in
+`MenuBase`, `Menu`, `MenuDropDown` or `ContextMenu` at all.
 
 **A refinement of TSM-08's fix.** The finding suggests overriding `MenuBase.OnItemClicked` in
 `ToolStrip` and removing the per-item `Click +=` hook to avoid a double-fire. That would have cost the

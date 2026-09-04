@@ -1119,14 +1119,47 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and the ToolStrip cluster is down to one** (`TSM-02`, keyboard shortcuts). The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and so has the ToolStrip cluster** — `TSM-02` was closed by W1.3 in Phase 1 (see `MenuShortcutTests.cs`), which the findings file had not recorded. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4221 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4233 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What the menu-mode keyboard work found (the rest of TSM-13)
+
+**The plan said this was done, and it half was.** W1.3 claims `TSM-02` and `TSM-13`, and Phase 1 is
+marked Done. `TSM-02` really is closed — `MenuShortcutTests.cs` has eleven passing tests over
+`ShortcutKeys`, the legacy `Shortcut`, disabled items and access keys — but `TSM-13` covers two
+mechanisms: *accelerators* (Alt+letter reaching an item) and *menu mode* (F10/Alt to enter the bar,
+arrows to walk it, Enter, Escape). Only the first existed; there was no `OnKeyDown` in `MenuBase`,
+`Menu`, `MenuDropDown` or `ContextMenu`, and no `Keys.Escape` handling anywhere in them. The findings
+file meanwhile still counted `TSM-02` as an open P0, so the two documents were wrong in opposite
+directions about the same item. Checking the tests settled it in a minute; believing either document
+would have cost an afternoon.
+
+**Selection and "open" are one state in this framework, and that changes what F10 can mean.**
+`MenuItem.Selected`'s setter calls `ShowDropDown`/`HideDropDown` directly — that is how click-to-open
+works — so moving the selection onto a menu opens it. Upstream separates highlighted-on-the-bar from
+dropped-down, and its F10 highlights without opening. Splitting them here would change every mouse
+path into a menu, so the navigation lives with the coupling and the test says so rather than asserting
+something false.
+
+**My own change made a dormant leak dangerous.** `Application.ActiveMenu` was only ever cleared by
+`MenuBase.Deactivate`, which closing a form does not run, so a closed form left its menu bar as the
+active menu. That was harmless while nothing consulted it — and the moment keys started routing
+through it, a keystroke went to a menu on a window that no longer exists. `Form.RaiseFormClosed`
+clears it now. Worth generalising: adding a consumer to stale global state turns a latent leak into a
+live bug, so the audit of "who clears this?" belongs in the same change as the new reader.
+
+**One behaviour is implemented but deliberately untested**, and recorded as such in
+`toolstrip.md`: Right opening a nested submenu and Escape closing one level back out of it. Opening a
+second popup while the first is up tears the whole menu down through
+`Application.ScheduleClosePopupsOnDeactivate`, because on this backend the newly shown popup does not
+report itself active. A test would measure the backend, and pinning the teardown as expected would be
+worse than having no test at all — it would fix in place behaviour nobody wants.
 
 ### What W5.16 found
 

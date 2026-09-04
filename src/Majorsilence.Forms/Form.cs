@@ -258,7 +258,22 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected override bool ProcessCmdKey (ref Message msg, Keys keyData)
             => KeyboardShortcuts.TryInvokeMenuShortcut (this, keyData)
+                || TryEnterMenuMode (keyData)
                 || base.ProcessCmdKey (ref msg, keyData);
+
+        // F10 and a bare Alt put the selection on the menu bar, which is how menu mode is entered from
+        // the keyboard; from there MenuBase.HandleNavigationKey owns the arrows, Enter and Escape
+        // (finding TSM-13). Alt+letter is a different mechanism and goes through ProcessDialogChar.
+        private bool TryEnterMenuMode (Keys keyData)
+        {
+            var pressed = keyData & Keys.KeyCode;
+            var bare_alt = pressed == Keys.Menu && (keyData & (Keys.Control | Keys.Shift)) == Keys.None;
+
+            if (pressed != Keys.F10 && !bare_alt)
+                return false;
+
+            return KeyboardShortcuts.TryEnterMenuMode (this);
+        }
 
         /// <summary>
         /// Offers an access key (Alt+letter) to the form's menus and then to its controls.
@@ -445,6 +460,14 @@ namespace Majorsilence.Forms
                 return;
 
             _formClosedFired = true;
+
+            // A closed form must not leave its menu bar as Application.ActiveMenu. Nothing cleared it
+            // except MenuBase.Deactivate, which a close does not run, so the strip of a dead form
+            // stayed "active" -- harmless while nothing consulted it, and a keystroke routed into a
+            // window that no longer exists once menu-mode navigation started asking (TSM-13).
+            if (Application.ActiveMenu is { } menu && ReferenceEquals (menu.FindWindow (), this))
+                Application.ClosePopups ();
+
             OnFormClosed (new FormClosedEventArgs (PendingCloseReason));
         }
 
