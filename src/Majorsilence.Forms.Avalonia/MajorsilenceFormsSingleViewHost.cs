@@ -131,6 +131,14 @@ namespace Majorsilence.Forms
         private double _catchupX, _catchupY;             // device px still to be eased in
         private const double CatchupBleedPerFrame = 0.45;
 
+        // A misclassified bridge -- this "continuation" is actually a fresh, unrelated swipe that
+        // happened to land within the (generous) reachability window while the previous gesture was
+        // still coasting -- must not queue a huge, obviously-wrong correction. A real digitizer chop's
+        // drift is small (the coast's own velocity estimate tracks the finger closely); this caps the
+        // queued catch-up to what that drift could plausibly be, so even a wrong bridging decision
+        // reads as a small nudge instead of the content visibly jerking to some other position.
+        private const double MaxCatchupPx = 260;
+
         // The digitizer only reports the finger during ~10% of a chopped swipe, and the velocity
         // measured over one 20-50ms burst is wildly noisy (peak-of-swing speed, or a decelerating
         // tail). The blind-gap displacement over its duration -- learned when the next press bridges --
@@ -151,7 +159,6 @@ namespace Majorsilence.Forms
         private double _flingAccumX, _flingAccumY;   // sub-pixel carry so the glide tail stays smooth
         private int _flingSentX, _flingSentY;        // device px the glide has scrolled since the contact was lost
         private double _flingRetention;              // active decay: gentle while coasting a blind gap, sharp after
-        private bool _coasting;                      // the glide is filling a digitizer blind gap, not a post-lift fling
         private bool _flingCaughtByPress;  // a press landed on a live fling -> swallow its tap
         private const double FlingStopSpeed = 18;        // device px/s; the glide ends here
         private const double FlingRetentionPerSecond = 0.04;   // post-lift decay -- keeps 4% after 1s (tau ~ 0.31s)
@@ -488,14 +495,24 @@ namespace Majorsilence.Forms
 
             // Is this press really the same swipe the digitizer just chopped? Only bridge a contact that
             // was already scrolling -- a plain tap that never crossed the slop finalises as a tap, so
-            // tap-to-select is untouched. A press that lands while the blind-gap coast is still running
-            // is a continuation almost by definition; otherwise it must be soon after, and roughly on
+            // tap-to-select is untouched. It must be soon after the release/capture-loss, and roughly on
             // the swipe path (far along the axis is fine -- the finger moved while the digitizer slept).
+            //
+            // This used to also treat ANY press as a continuation whenever a coast was still running
+            // (_coasting), skipping the reachability check entirely -- the idea being that mid-coast is
+            // obviously still the same gesture. It isn't, necessarily: a coast/fling can glide for up to
+            // FlingMaxSeconds, plenty of time for the user to notice the list still moving and grab it
+            // again on purpose to start a genuinely new, unrelated swipe. That bypass treated the new
+            // press's position, minus wherever the OLD gesture happened to release, as this gesture's
+            // drift correction -- an essentially random vector when the two are unrelated -- and queued
+            // the whole thing as a catch-up, which is exactly what made the content visibly jerk to
+            // another position on a re-swipe. Requiring the same reachability check whether or not a
+            // coast is active still bridges a real digitizer chop (its distance/time are both small)
+            // while rejecting a deliberate new swipe that lands outside it.
             var bridging = false;
             if (_touchReleasePending) {
                 var gap = (now - _touchReleaseTs) / (double) System.Diagnostics.Stopwatch.Frequency;
-                bridging = isTouch && !_recognizerLive
-                           && (_coasting || (gap < BridgeWindowSeconds && BridgeReachable (pos - _touchReleasePos)));
+                bridging = isTouch && !_recognizerLive && gap < BridgeWindowSeconds && BridgeReachable (pos - _touchReleasePos);
                 _touchReleasePending = false;
                 _bridgeTimer.Stop ();
             }
@@ -530,9 +547,13 @@ namespace Majorsilence.Forms
                     }
 
                     // Whatever the coast over- or under-shot the finger's real travel, queue it as a
-                    // catch-up that eases into the next few frames rather than a single jump.
-                    _catchupX += (int)((pos.X - _touchReleasePos.X) * Scale) - coastSent.X;
-                    _catchupY += (int)((pos.Y - _touchReleasePos.Y) * Scale) - coastSent.Y;
+                    // catch-up that eases into the next few frames rather than a single jump. Clamped
+                    // (see MaxCatchupPx) so a bridging decision that still turns out wrong caps out as a
+                    // small nudge rather than a jump to wherever the unrelated old gesture last was.
+                    var rawCatchupX = (int)((pos.X - _touchReleasePos.X) * Scale) - coastSent.X;
+                    var rawCatchupY = (int)((pos.Y - _touchReleasePos.Y) * Scale) - coastSent.Y;
+                    _catchupX += System.Math.Max (-MaxCatchupPx, System.Math.Min (MaxCatchupPx, rawCatchupX));
+                    _catchupY += System.Math.Max (-MaxCatchupPx, System.Math.Min (MaxCatchupPx, rawCatchupY));
                 } else {
                     _touchScrolling = _flingCaughtByPress;
                     _touchVelocity = default;
@@ -634,7 +655,6 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            _coasting = true;
             _flingVelocity = coastVel;
             _flingRetention = retention;
             _flingOrigin = _gestureAnchorPt;
@@ -653,7 +673,6 @@ namespace Majorsilence.Forms
                 return;
             _touchReleasePending = false;
             _touchVelocityValid = false;
-            _coasting = false;
 
             if (_flingTimer.IsEnabled && _flingVelocity.Length >= CoastToFlingSpeed) {
                 _flingRetention = FlingRetentionPerSecond;
@@ -753,7 +772,6 @@ namespace Majorsilence.Forms
         {
             _flingTimer.Stop ();
             _flingVelocity = default;
-            _coasting = false;
             // _flingSentX/Y is NOT cleared here: a coast that self-stops mid-gap has still scrolled the
             // content, and the next bridging press must subtract that from its position correction.
             // It is zeroed when a fresh coast starts (DeferTouchGestureEnd) or a new swipe begins.
