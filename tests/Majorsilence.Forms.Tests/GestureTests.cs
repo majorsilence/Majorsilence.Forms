@@ -461,6 +461,71 @@ public class GestureTests
     }
 
     [Fact]
+    public void ScrollGesture_TreeView_ScrollingToTheEnd_ParksTheThumbAtTheEndOfTheTrack ()
+    {
+        // Regression test for a real device report ("it scrolls but the scroll bar doesn't move"):
+        // with a viewport tall enough to show several rows at once (LargeChange > 1), setting
+        // vscrollbar.Maximum to the last valid top_index directly -- instead of the conventional
+        // itemCount - 1 -- left ScrollBar.EffectiveMaximum (what actually positions the thumb) far
+        // short of the real end, so the thumb reached the end of the track, and froze there, long
+        // before top_index/Value did. This must not regress: EffectiveMaximum has to equal the last
+        // top_index a scroll can reach, and Value must actually get there.
+        var form = new Form { Size = new Size (300, 240) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 240 };
+            for (var i = 0; i < 40; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 240);
+
+            var vsbField = tree.GetType ().GetField ("vscrollbar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var vsb = (VerticalScrollBar) vsbField.GetValue (tree)!;
+
+            // A viewport this shaped genuinely has LargeChange > 1 -- if it didn't, the old bug
+            // (Maximum used where EffectiveMaximum was needed) would happen to be invisible here too.
+            Assert.True (vsb.LargeChange > 1);
+            Assert.True (vsb.EffectiveMaximum < vsb.Maximum, "test setup should exercise LargeChange > 1");
+
+            var at = WindowPoint.DeviceIn (tree, 20, 20);
+            for (var i = 0; i < 60; i++)
+                form.HandleScrollGesture (at.X, at.Y, 0, -30);   // drag far past the end of the content
+
+            Assert.Equal (vsb.EffectiveMaximum, vsb.Value);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_ListBox_ScrollingToTheEnd_ParksTheThumbAtTheEndOfTheTrack ()
+    {
+        var form = new Form { Size = new Size (300, 240) };
+        try {
+            var list = new ListBox { Left = 0, Top = 0, Width = 160, Height = 240 };
+            for (var i = 0; i < 40; i++)
+                list.Items.Add ($"Item {i}");
+            form.Controls.Add (list);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 240);
+
+            var vsbField = list.GetType ().GetField ("vscrollbar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var vsb = (VerticalScrollBar) vsbField.GetValue (list)!;
+
+            Assert.True (vsb.LargeChange > 1);
+            Assert.True (vsb.EffectiveMaximum < vsb.Maximum, "test setup should exercise LargeChange > 1");
+
+            var at = WindowPoint.DeviceIn (list, 20, 20);
+            for (var i = 0; i < 60; i++)
+                form.HandleScrollGesture (at.X, at.Y, 0, -30);
+
+            Assert.Equal (vsb.EffectiveMaximum, vsb.Value);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
     public void ExistingMouseClickPipeline_IsUnaffectedByGestureAdditions ()
     {
         var form = new Form ();

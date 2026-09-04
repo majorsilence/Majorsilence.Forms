@@ -145,8 +145,18 @@ namespace Majorsilence.Forms
         /// also as upstream, so code assigning a value in the documented range does not throw.
         /// Letting the thumb reach `Maximum` scrolled a custom-drawn list a whole page past its
         /// content, and the thumb never sat at the end of the track for the true last position.
+        ///
+        /// Internal (not private) because ListBox/TreeView had been setting Maximum directly to the
+        /// last valid top_index (<c>itemCount - VisibleItemCount</c>) instead of following the
+        /// convention above (<c>itemCount - 1</c>) -- gesture-driven scrolling clamped against the raw
+        /// Maximum, which is what top_index actually needs, but UpdateFromValue positions the *thumb*
+        /// by this property, so with LargeChange > 1 the thumb reached the end of the track a whole
+        /// LargeChange of rows before top_index did and then sat there frozen for the rest of the
+        /// scroll. Now that both controls set Maximum the conventional way, their own clamps read this
+        /// property instead of Maximum so the reachable range is unchanged; only the thumb math (which
+        /// already used this property) lines up with it correctly.
         /// </remarks>
-        private int EffectiveMaximum => Math.Max (minimum, maximum - LargeChange + 1);
+        internal int EffectiveMaximum => Math.Max (minimum, maximum - LargeChange + 1);
 
         // Retrieves the effective track bounds from the renderer.
         private Rectangle GetEffectiveTrackBounds () => RenderManager.GetRenderer<ScrollBarRenderer> ()!.GetEffectiveTrackBounds (this);

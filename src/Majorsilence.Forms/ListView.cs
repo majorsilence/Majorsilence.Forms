@@ -83,11 +83,16 @@ namespace Majorsilence.Forms
             }
 
             vscrollbar.Visible = true;
-            vscrollbar.Maximum = lines - visible;
+            // Maximum is the *conceptual last item index* (see ScrollBar.EffectiveMaximum), not the
+            // last valid top_index -- with LargeChange set below to the page size, EffectiveMaximum
+            // works out to lines - visible, which is what top_index actually clamps against. Setting
+            // Maximum to that directly left the thumb, which is positioned from EffectiveMaximum,
+            // reaching the end of the track a whole page early.
+            vscrollbar.Maximum = Math.Max (0, lines - 1);
             vscrollbar.LargeChange = Math.Max (1, visible);
 
-            if (top_index > vscrollbar.Maximum) {
-                top_index = vscrollbar.Maximum;
+            if (top_index > vscrollbar.EffectiveMaximum) {
+                top_index = vscrollbar.EffectiveMaximum;
                 vscrollbar.Value = top_index;
             }
         }

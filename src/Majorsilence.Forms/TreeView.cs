@@ -126,11 +126,12 @@ namespace Majorsilence.Forms
             else
                 return;
 
-            // Make sure the scrollbar's range reflects the current item count, then clamp so we
-            // never assign a value outside [Minimum, Maximum] (ScrollBar.Value throws otherwise).
+            // Make sure the scrollbar's range reflects the current item count, then clamp to the last
+            // top_index a scroll can actually reach (EffectiveMaximum, not the raw Maximum -- see its
+            // remarks) so target lands in the same range ScrollByDevicePixels itself clamps to.
             UpdateVerticalScrollBar ();
 
-            target = MathCompat.Clamp (target, vscrollbar.Minimum, vscrollbar.Maximum);
+            target = MathCompat.Clamp (target, vscrollbar.Minimum, vscrollbar.EffectiveMaximum);
             top_index = target;
             _scrollOffsetPx = 0;
             vscrollbar.Value = target;
@@ -1006,7 +1007,7 @@ namespace Majorsilence.Forms
         private void ScrollByDevicePixels (double deltaPx)
         {
             var itemH = System.Math.Max (1, ScaledItemHeight);
-            var maxPosPx = System.Math.Max (0, vscrollbar.Maximum) * (double) itemH;
+            var maxPosPx = System.Math.Max (0, vscrollbar.EffectiveMaximum) * (double) itemH;
 
             // Where item[top_index] currently sits relative to the client top, before this delta --
             // the exact pixel shift a fast-blit needs is the difference between this and the same
@@ -1024,7 +1025,7 @@ namespace Majorsilence.Forms
                 // keeps the ones from top_index down), so the fast path -- which only shifts existing
                 // pixels -- can't handle this case; fall back to a normal full repaint.
                 _settingScrollbarFromGesture = true;
-                try { vscrollbar.Value = MathCompat.Clamp (newTop, vscrollbar.Minimum, vscrollbar.Maximum); }
+                try { vscrollbar.Value = MathCompat.Clamp (newTop, vscrollbar.Minimum, vscrollbar.EffectiveMaximum); }
                 finally { _settingScrollbarFromGesture = false; }
                 top_index = newTop;
                 Invalidate ();
@@ -1229,7 +1230,13 @@ namespace Majorsilence.Forms
                 vscrollbar.Value = 0;
 
             vscrollbar.Visible = true;
-            vscrollbar.Maximum = childCount - VisibleItemCount;
+            // Maximum is the *conceptual last item index* (see ScrollBar.EffectiveMaximum), not the
+            // last valid top_index -- with LargeChange set below to the page size, EffectiveMaximum
+            // works out to childCount - VisibleItemCount, which is what top_index/ScrollByDevicePixels
+            // actually clamp against. Setting Maximum to that directly left the thumb, which is
+            // positioned from EffectiveMaximum, reaching the end of the track a whole page early --
+            // frozen there for the rest of a long scroll, which read as "the scrollbar doesn't move".
+            vscrollbar.Maximum = Math.Max (0, childCount - 1);
             vscrollbar.LargeChange = Math.Max (0, VisibleItemCount);
         }
 

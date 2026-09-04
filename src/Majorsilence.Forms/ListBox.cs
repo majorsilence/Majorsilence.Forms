@@ -124,7 +124,7 @@ namespace Majorsilence.Forms
                 if (value < 0 || value >= Items.Count)
                     return;
 
-                vscrollbar.Value = Math.Min (value, vscrollbar.Maximum);
+                vscrollbar.Value = Math.Min (value, vscrollbar.EffectiveMaximum);
             }
         }
         /// <summary>
@@ -530,7 +530,7 @@ namespace Majorsilence.Forms
         private void ScrollByDevicePixels (double deltaPx)
         {
             var itemH = Math.Max (1, ScaledItemHeight);
-            var maxPosPx = Math.Max (0, vscrollbar.Maximum) * (double) itemH;
+            var maxPosPx = Math.Max (0, vscrollbar.EffectiveMaximum) * (double) itemH;
 
             // How far item[top_index] currently sits above the client top -- see GetItemRectangle,
             // which places item[i] at client.Top + (i - top_index) * itemH - this value. Captured before
@@ -545,7 +545,7 @@ namespace Majorsilence.Forms
 
             if (newTop != top_index) {
                 _settingScrollbarFromGesture = true;
-                try { vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (newTop, vscrollbar.Maximum)); }
+                try { vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (newTop, vscrollbar.EffectiveMaximum)); }
                 finally { _settingScrollbarFromGesture = false; }
                 top_index = newTop;
 
@@ -1049,7 +1049,12 @@ namespace Majorsilence.Forms
 
             if (NeededHeightForItems > Bounds.Height) {
                 vscrollbar.Visible = true;
-                vscrollbar.Maximum = Items.Count - VisibleItemCount;
+                // Maximum is the *conceptual last item index* (see ScrollBar.EffectiveMaximum), not the
+                // last valid top_index -- with LargeChange set below to the page size, EffectiveMaximum
+                // works out to Items.Count - VisibleItemCount, which is what top_index/ScrollByDevicePixels
+                // actually clamp against. Setting Maximum to that directly left the thumb, which is
+                // positioned from EffectiveMaximum, reaching the end of the track a whole page early.
+                vscrollbar.Maximum = Math.Max (0, Items.Count - 1);
                 vscrollbar.LargeChange = Math.Max (0, VisibleItemCount);
             } else {
                 vscrollbar.Visible = ScrollbarAlwaysVisible;
