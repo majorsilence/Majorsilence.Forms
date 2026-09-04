@@ -56,6 +56,51 @@ two independent ways for a pixel test in this codebase to succeed by measuring n
 
 ## Findings
 
+## Status (2026-09-04, W5.20c — the `MonthCalendar` half of the date-picking pair)
+
+**Closed:** `SMP-42` (P0) in full. Partially closed: `SMP-43` (the date/day-header/week-number/
+adjacent-month hit areas now come back correctly; `TitleYear` and `TitleBackground` still do not) and
+`SMP-46` (six of its eight properties are now consumed; `CalendarDimensions` > 1x1 is not drawn).
+
+`MonthCalendar` draws a real grid and can be used to pick a date: a new
+`Renderers/MonthCalendarRenderer.cs` registered with `RenderManager`, a new
+`MonthCalendarGrid.cs` holding the layout, hit-testing, mouse selection and keyboard navigation, and
+`DateSelected` turned into a field-backed event with `OnDateChanged`/`OnDateSelected` raisers.
+`DateChanged` fires per day crossed during a drag and `DateSelected` exactly once on release. 44 tests
+in `MonthCalendarBehaviourTests.cs`, 42 verified to fail with their fix neutralized; 2 are labelled
+in-test as guards, because the control had no input handling at all before and no previous version
+could fail them. Six entries left `StoredOnlyPropertyBaseline.txt` (746 → 740) and one left
+`InertEventBaseline.txt` (64 → 63). Full account, including what was deferred and why, in
+`docs/behaviour-gap-plan.md` under **W5.20c**.
+
+**Two corrections to the findings as written.**
+
+1. **`SMP-42`'s "Fix" implies `FirstDayOfWeek` was unconsumed. It was not** — `GetDisplayRange`
+   already read it, as `SMP-46` correctly says ("`FirstDayOfWeek` in particular *is* consumed by
+   `GetDisplayRange`"). The two findings disagree; `SMP-46` is the accurate one. Nothing else in
+   `SMP-42`'s inventory was stale: every line number and every claim checked out against the source.
+
+2. **A defect neither finding names: the doc comments on `ShowToday` and `ShowTodayCircle` were
+   swapped.** `ShowToday` was documented as "whether today's date is circled" and `ShowTodayCircle` as
+   "whether today's date is shown at the bottom" — each describing the other. Because nothing read
+   either property, nothing contradicted them, which is `SMP-46`'s own point turned on the
+   documentation: a stored-only property's *description* rots as silently as its value. Both are
+   corrected.
+
+**Also worth recording, because it is a shape of bug this file will meet again.** `SMP-43` calls the
+`MidSizeControlParity.cs` header's claim — "HitTest and GetDisplayRange are computed from the same
+geometry the renderer lays the control out with" — false, and it was. It is now true *structurally*
+rather than by coincidence: one `Geometry` property is read by the renderer, by `HitTest` and by the
+mouse handlers, so the three cannot drift apart again. Writing the geometry as a fourth, private copy
+inside the renderer would have passed every test in this slice and left the original defect intact.
+
+**Still open on `MonthCalendar`:** `SMP-44` (the two disagreeing bolded-date stores — the renderer
+bolds through `IsBoldedDate`, so the `Add*BoldedDate` API shows, but the three array properties are
+still the second store), `SMP-45` (the selection setters validating against the raw rather than the
+effective min/max — the new *gesture* paths do clamp to the effective range), the `TitleYear`/
+`TitleBackground` remainder of `SMP-43`, and the `CalendarDimensions` remainder of `SMP-46`.
+`DateTimePicker` (`SMP-39`, `SMP-40`, `SMP-41`) is untouched and is the other half of W5.20c.
+
 ### SMP-01 — `RadioButton.Checked` / `UpdateSiblings` ignores `AutoCheck` — Cat A — P1 — High
 - **Ours:** `UpdateSiblings()` unchecks *every* sibling `RadioButton` on the parent, with no regard for either this button's `AutoCheck` or the sibling's `AutoCheck` (`src/Majorsilence.Forms/RadioButton.cs:315-323`). `AutoCheck` is a bare auto-property (`RadioButton.cs:39`) with no setter side-effect.
 - **Upstream:** `PerformAutoUpdates` returns immediately when `!_autoCheck`, and only unchecks a sibling when `radioButton.AutoCheck && radioButton.Checked` (`src/System.Windows.Forms/System/Windows/Forms/Controls/Buttons/RadioButton.cs:411-441`). The `AutoCheck` setter itself calls `PerformAutoUpdates(false)` (`RadioButton.cs:60-71`).
@@ -384,21 +429,21 @@ two independent ways for a pixel test in this codebase to succeed by measuring n
 - **Test:** `dtp.ShowCheckBox = true; dtp.Checked = false;` render and assert the date text uses the disabled foreground and a checkbox glyph is drawn.
 - **Tests today:** none.
 
-### SMP-42 — `MonthCalendar` draws no calendar and cannot be clicked — Cat B — P0 — High
+### SMP-42 — `MonthCalendar` draws no calendar and cannot be clicked — Cat B — P0 — High — **DONE (2026-09-04, W5.20c)**
 - **Ours:** the class doc says "Stub in Majorsilence.Forms — renders as a simple label showing the selected date" (`src/Majorsilence.Forms/MonthCalendar.cs:8`), and `OnPaint` does exactly that: one centred line of `ToShortDateString()` (`MonthCalendar.cs:250-259`). There is no `MonthCalendarRenderer` registered in `src/Majorsilence.Forms/Renderers/RenderManager.cs:10-42`, no `OnMouseDown`/`OnKeyDown` anywhere in `MonthCalendar.cs` or `src/Majorsilence.Forms/MidSizeControlParity.cs`, and `DateSelected` is declared as `add { } remove { }` so subscriptions are discarded (`MonthCalendar.cs:181`).
 - **Upstream:** a full month grid with day headers, week numbers, bolded dates, prev/next arrows, a Today link, mouse range selection and keyboard navigation, raising `DateChanged` while dragging and `DateSelected` on release (`src/System.Windows.Forms/System/Windows/Forms/Controls/MonthCalendar/MonthCalendar.cs`).
 - **Impact:** A MonthCalendar on a form shows a date string in the middle of a 220x162 empty box. The user cannot select a date. Everything downstream of it (`DateSelected` handlers, `SelectionRange`) is driven only by code. Combined with SMP-40 there is no working date-picking UI in the framework at all.
 - **Fix:** Implement a `MonthCalendarRenderer` drawing the grid from `FirstDayOfWeek`/`CalendarDimensions`/`ShowWeekNumbers`/`ShowToday`/bolded dates, add mouse and keyboard handling that sets the selection and raises `DateChanged` then `DateSelected`, and back `DateSelected` with a real event field.
 - **Test:** Headless render and assert 7 day-header cells and the day numbers of the current month are drawn; simulate a click on a day cell and assert `SelectionStart` moved and `DateSelected` fired.
-- **Tests today:** none.
+- **Tests today:** `MonthCalendarBehaviourTests.cs` (44 tests, W5.20c). The "Fix" above implies `FirstDayOfWeek` was unconsumed; it was already read by `GetDisplayRange` -- see `SMP-46`, which has it right.
 
-### SMP-43 — `MonthCalendar.HitTest` returns `SelectionStart` for every point in the body — Cat A — P1 — High
+### SMP-43 — `MonthCalendar.HitTest` returns `SelectionStart` for every point in the body — Cat A — P1 — High — **PARTLY DONE (2026-09-04, W5.20c)**
 - **Ours:** after the title-band and today-link checks, `HitTest` returns `new HitTestInfo (point, HitArea.Date, SelectionStart)` for *any* remaining point (`src/Majorsilence.Forms/MidSizeControlParity.cs:154-175`). It never maps the point to a day cell. `HitArea.WeekNumbers`, `DayOfWeek`, `TitleYear`, `PrevMonthDate`, `NextMonthDate`, `TitleBackground` and `CalendarBackground` are declared but never returned. The file header at `MidSizeControlParity.cs:16-18` claims "HitTest and GetDisplayRange are computed from the same geometry the renderer lays the control out with, so they agree with what the user sees" — the renderer lays out nothing but a centred string.
 - **Upstream:** `MonthCalendar.HitTest(Point)` sends `MCM_HITTEST` and returns the actual date under the cursor plus the precise `HitArea` (`Controls/MonthCalendar/MonthCalendar.cs`, `HitTest`).
 - **Impact:** The standard "what date did the user hover/right-click?" pattern — a context menu on a calendar day, a tooltip per day — always reports the currently selected date, so the menu acts on the wrong day. Silently wrong rather than obviously broken.
 - **Fix:** Once SMP-42 gives the control a real grid geometry, compute the cell from the point and return that date; return the specific `HitArea` values for headers, week numbers and adjacent-month days.
 - **Test:** With a rendered grid, `HitTest` a point in the first day cell and assert `Time` is the first displayed date, not `SelectionStart`.
-- **Tests today:** none.
+- **Tests today:** `MonthCalendarBehaviourTests.cs` covers `Date`, `PrevMonthDate`, `NextMonthDate`, `DayOfWeek` and `WeekNumbers`. `TitleYear` and `TitleBackground` are still never returned -- `TitleMonth` covers the whole middle of the title band -- because splitting them needs the title text measured and hit-tested run by run, and `MidSizeControlParityTests` pins `HitTest (100, 1)` on a 200px calendar as `TitleMonth`.
 
 ### SMP-44 — `MonthCalendar` bolded dates have two disagreeing backing stores — Cat A — P2 — High
 - **Ours:** `BoldedDates`/`AnnuallyBoldedDates`/`MonthlyBoldedDates` are plain auto-properties on `MonthCalendar` (`src/Majorsilence.Forms/MonthCalendar.cs:159-166`), while `AddBoldedDate`/`RemoveBoldedDate`/`IsBoldedDate` operate on private `List<DateTime>` fields in the other partial (`src/Majorsilence.Forms/MidSizeControlParity.cs:24-26, 87-122`). `UpdateBoldedDates()` copies list → property one way only (`MidSizeControlParity.cs:112-118`).
@@ -416,13 +461,13 @@ two independent ways for a pixel test in this codebase to succeed by measuring n
 - **Test:** `Assert.Throws<ArgumentOutOfRangeException>(() => cal.SelectionStart = new DateTime(1200,1,1));`
 - **Tests today:** none.
 
-### SMP-46 — `MonthCalendar` display/appearance properties stored only — Cat C — P2 — High
+### SMP-46 — `MonthCalendar` display/appearance properties stored only — Cat C — P2 — High — **PARTLY DONE (2026-09-04, W5.20c)**
 - **Ours:** `CalendarDimensions`, `FirstDayOfWeek`, `ShowWeekNumbers`, `ShowToday`, `ShowTodayCircle`, `TitleForeColor`, `TitleBackColor`, `TrailingForeColor` are auto-properties, six of them doc-commented "Stub in Majorsilence.Forms" (`src/Majorsilence.Forms/MonthCalendar.cs:113-176`). `SetCalendarDimensions` stores and invalidates (`src/Majorsilence.Forms/MidSizeControlParity.cs:62-77`) but nothing draws multiple months.
 - **Upstream:** all of these change the rendered calendar.
 - **Impact:** Follows directly from SMP-42 — listed separately because each is an independent designer-set property that a fixer will need to wire. `FirstDayOfWeek` in particular *is* consumed by `GetDisplayRange`, so the padded range is computed for a layout that is never drawn.
 - **Fix:** Consume all eight in the new `MonthCalendarRenderer`.
 - **Test:** `cal.ShowWeekNumbers = true` adds a leading column to the rendered grid.
-- **Tests today:** none.
+- **Tests today:** `MonthCalendarBehaviourTests.cs`. `FirstDayOfWeek`, `ShowWeekNumbers`, `ShowToday`, `ShowTodayCircle`, `TitleForeColor`, `TitleBackColor` and `TrailingForeColor` are consumed by `MonthCalendarRenderer`; `ScrollChange` (from `SMP-43`'s neighbourhood, also stored-only) is consumed by the scroll arrows. `CalendarDimensions` > 1x1 is still not drawn -- one month is painted across the whole client area -- so `SetCalendarDimensions` remains cosmetic and `GetDisplayRange` still reports more months than are visible. The doc comments on `ShowToday` and `ShowTodayCircle` were also swapped, each describing the other; corrected.
 
 ### SMP-47 — `ScrollBar.Scroll` is raised only for `ThumbTrack`; arrows, track clicks, wheel and `EndScroll` never fire it — Cat D — P1 — High
 - **Ours:** the only `OnScroll` call site is inside `OnMouseMove` while the thumb is held: `OnScroll (new ScrollEventArgs (ScrollEventType.ThumbTrack, Value))` (`src/Majorsilence.Forms/ScrollBar.cs:200-209`). `OnMouseDown` on the arrows/track just assigns `Value` (`ScrollBar.cs:172-197`), `OnMouseUp` only clears `thumb_pressed` (`ScrollBar.cs:211-217`), and `OnMouseWheel` calls `UpdateFromValue` directly (`ScrollBar.cs:219-229`) — none raise `Scroll`.

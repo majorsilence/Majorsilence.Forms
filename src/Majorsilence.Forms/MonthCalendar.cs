@@ -1,12 +1,19 @@
 using System;
 using System.Drawing;
+using Majorsilence.Forms.Renderers;
 
 namespace Majorsilence.Forms
 {
     /// <summary>
     /// Represents a MonthCalendar control for selecting a date or range of dates.
-    /// Stub in Majorsilence.Forms — renders as a simple label showing the selected date.
     /// </summary>
+    /// <remarks>
+    /// The grid, its hit-testing and its mouse and keyboard selection live in the other half of this
+    /// partial class (<c>MonthCalendarGrid.cs</c>) and are drawn by
+    /// <see cref="MonthCalendarRenderer"/>. Until W5.20c (finding SMP-42, P0) this class documented
+    /// itself as a stub that "renders as a simple label showing the selected date", which is exactly
+    /// what it did: one centred date string in an empty 220x162 box, with no input handling at all.
+    /// </remarks>
     public partial class MonthCalendar : Control
     {
         /// <summary>The minimum date a MonthCalendar can display (1753-01-01).</summary>
@@ -110,7 +117,10 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the number of months to display at once. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the number of months to display at once.</summary>
+        /// <remarks>Read by <see cref="GetDisplayRange"/> and by the scroll step, but only ONE month is
+        /// drawn: <c>MonthCalendarRenderer</c> paints a single month across the whole client area
+        /// whatever this says. Multi-month layout is the deferred half of W5.20c (SMP-46).</remarks>
         public Size CalendarDimensions { get; set; } = new Size (1, 1);
 
         /// <summary>Gets or sets the maximum number of days that can be selected.</summary>
@@ -123,16 +133,18 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the first day of the week. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the first day of the week the grid and its header start on.</summary>
         public Day FirstDayOfWeek { get; set; } = Day.Default;
 
-        /// <summary>Gets or sets whether week numbers are shown. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether a leading week-number column is shown.</summary>
         public bool ShowWeekNumbers { get; set; }
 
-        /// <summary>Gets or sets whether today's date is circled. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether today's date is shown in a strip at the foot.</summary>
+        /// <remarks>The doc comments on this and <see cref="ShowTodayCircle"/> were the wrong way round
+        /// before W5.20c: neither was read by anything, so nothing contradicted them.</remarks>
         public bool ShowToday { get; set; } = true;
 
-        /// <summary>Gets or sets whether today's date is shown at the bottom. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether today's date is outlined in the grid.</summary>
         public bool ShowTodayCircle { get; set; } = true;
 
         private DateTime _todaysDate = DateTime.Now.Date;
@@ -165,20 +177,28 @@ namespace Majorsilence.Forms
         /// <summary>Gets the array of monthly bolded dates.</summary>
         public DateTime[] MonthlyBoldedDates { get; set; } = Array.Empty<DateTime> ();
 
-        /// <summary>Gets or sets the title foreground color. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the title's text and scroll-arrow colour; <c>Color.Empty</c> uses the theme's.</summary>
         public Color TitleForeColor { get; set; } = Color.Empty;
 
-        /// <summary>Gets or sets the title background color. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the title band's background colour; <c>Color.Empty</c> uses the theme's.</summary>
         public Color TitleBackColor { get; set; } = Color.Empty;
 
-        /// <summary>Gets or sets the trailing foreground color. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the colour of the adjacent months' days; <c>Color.Empty</c> uses the theme's.</summary>
         public Color TrailingForeColor { get; set; } = Color.Empty;
 
         /// <summary>Raised when the selected date changes.</summary>
         public event DateRangeEventHandler? DateChanged;
 
-        /// <summary>Raised when the user makes a selection.</summary>
-        public event DateRangeEventHandler? DateSelected { add { } remove { } }
+        /// <summary>Raised when the user finishes selecting a date or range.</summary>
+        /// <remarks>Field-backed as of W5.20c (finding SMP-42, P0). It was declared
+        /// <c>add { } remove { }</c>, so every subscription compiled and was thrown away.</remarks>
+        public event DateRangeEventHandler? DateSelected;
+
+        /// <summary>Raises the <see cref="DateChanged"/> event.</summary>
+        protected virtual void OnDateChanged (DateRangeEventArgs e) => DateChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DateSelected"/> event.</summary>
+        protected virtual void OnDateSelected (DateRangeEventArgs e) => DateSelected?.Invoke (this, e);
 
         /// <summary>
         /// Sets <paramref name="date"/> as the current selected date. The start and end of
@@ -246,7 +266,12 @@ namespace Majorsilence.Forms
             }
 
             if (changed) {
-                DateChanged?.Invoke (this, new DateRangeEventArgs (lower, upper));
+                // A selection the grid is not showing would be invisible, so the view follows it --
+                // the native control scrolls to the date a programmatic SetDate picks, and code that
+                // pre-selects a date on load depends on seeing that month.
+                ScrollInto (lower);
+
+                OnDateChanged (new DateRangeEventArgs (lower, upper));
                 Invalidate ();
             }
         }
@@ -255,11 +280,7 @@ namespace Majorsilence.Forms
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
-            // Minimal rendering — display the selected date range as text
-            var text = _selectionStart == _selectionEnd
-                ? _selectionStart.ToShortDateString ()
-                : $"{_selectionStart.ToShortDateString ()} – {_selectionEnd.ToShortDateString ()}";
-            e.Canvas.DrawText (text, ClientRectangle, this, ContentAlignment.MiddleCenter);
+            RenderManager.Render (this, e);
         }
 
         /// <inheritdoc/>
