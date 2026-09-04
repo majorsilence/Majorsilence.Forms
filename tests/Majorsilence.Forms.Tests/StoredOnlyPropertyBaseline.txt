@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 759 of 1210 public settable auto-properties (62%).
+# 754 of 1208 public settable auto-properties (62%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -555,14 +555,9 @@ Majorsilence.Forms.SplitContainer.AutoScrollMargin
 Majorsilence.Forms.SplitContainer.AutoScrollMinSize
 Majorsilence.Forms.SplitContainer.AutoScrollPosition
 Majorsilence.Forms.SplitContainer.BorderStyle
-Majorsilence.Forms.SplitContainer.FixedPanel
 Majorsilence.Forms.SplitContainer.IsSplitterFixed
-Majorsilence.Forms.SplitContainer.Panel1MinSize
-Majorsilence.Forms.SplitContainer.Panel2MinSize
 Majorsilence.Forms.SplitContainer.SplitterIncrement
 Majorsilence.Forms.Splitter.BorderStyle
-Majorsilence.Forms.SplitterCancelEventArgs.SplitX
-Majorsilence.Forms.SplitterCancelEventArgs.SplitY
 Majorsilence.Forms.StatusBar.ShowPanels
 Majorsilence.Forms.StatusBar.SizingGrip
 Majorsilence.Forms.StatusBarPanel.Alignment

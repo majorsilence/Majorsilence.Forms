@@ -1016,11 +1016,41 @@ never drawn; `PictureBox.Load()` is asynchronous and swallows failures, `SizeMod
 *Closes:* `SMP-01`, `SMP-02`, `SMP-03`, `SMP-05`, `SMP-13`, `SMP-14`, `SMP-15`, `SMP-20`, `SMP-21`,
 `SMP-23`, `SMP-26`, `SMP-29`, `SMP-07`.
 
-**W5.22 — `SplitContainer` and `Splitter`.**
-`Panel1MinSize`/`Panel2MinSize`/`FixedPanel` stored-only; `SplitterMoving`/`SplitterMoved` never raised;
-the legacy `Splitter` does not resize its docked sibling — its entire purpose. Structurally, `Panel1`/
-`Panel2` are `Panel` rather than `SplitterPanel`, and the constructor forces `Dock = Fill`.
-*Closes:* `LAY-01`–`LAY-05`, `LAY-07`, `LAY-08`.
+**W5.22 — `SplitContainer` and `Splitter`. — DONE (2026-09-04)**
+All seven findings closed, the structural half included. `Panel1MinSize`/`Panel2MinSize` are now the
+backing store for the clamp (the Majorsilence-only `Panel1MinimumSize`/`Panel2MinimumSize` survive as
+forwarding aliases, since a sample and an existing test use them); `FixedPanel` is read from a new
+`OnLayout` override that redistributes a container resize between the panels — `None` keeps the split
+proportional, `Panel1`/`Panel2` pin their panel — mirroring upstream's `OnResize`/`SetSplitterRect`;
+`SplitterMoving` (cancellable, and a handler may rewrite `SplitX`/`SplitY`) and `SplitterMoved` (once,
+at the end of the drag) are raised from both `SplitContainer`'s drag path and `Splitter`'s own, whose
+two events stopped being `add { } remove { }`; `Splitter.SplitPosition` is the extent of the docked
+sibling rather than the bar's own thickness; and the legacy `Splitter` resizes that sibling on a drag,
+bounded by `MinSize`/`MinExtra`, for all four dock edges.
+
+The structural half landed rather than being deferred, because both halves turned out cheap and
+contained: `Panel1`/`Panel2` are now `SplitterPanel` (the type already existed, unused, in
+`MissingTypesParity.cs`) and the constructor's `Dock = DockStyle.Fill` is gone, with `Panel1` starting
+at a 50px extent so `SplitterDistance` defaults to WinForms' 50. Nothing in the suite depended on the
+old panel type, and only one sample relied on the forced `Fill` (it now sets it explicitly).
+
+`SplitContainer` hosts a `Splitter` as its bar, so the legacy resize-the-sibling behaviour is switched
+off for that instance (`Splitter.ResizesTarget`) — the container's clamps are
+`Panel1MinSize`/`Panel2MinSize`, not the bar's `MinSize`/`MinExtra`, and left on, every drag would move
+the split twice. Upstream's `SplitContainer` does not use a `Splitter` at all.
+
+Also fixed in passing, because the clamp arithmetic was being made load-bearing: `PaddedClientRectangle`
+is in scaled device pixels while `Width`/`Height` are unscaled, so every maximum derived from it came
+out a factor of the DPI scale too loose. Both classes now divide back out (`Splitter.UnscaledClientExtent`).
+
+32 tests in `tests/Majorsilence.Forms.Tests/SplitContainerBehaviourTests.cs`, 29 of them verified to
+fail with their fix neutralized and 3 labelled in-test as guards. Stored-only baseline 759 → 754
+(`FixedPanel`, `Panel1MinSize`, `Panel2MinSize`, `SplitterCancelEventArgs.SplitX`/`SplitY` dropped out);
+inert-event baseline lost `Splitter.SplitterMoved`/`SplitterMoving`.
+*Closed:* `LAY-01`, `LAY-02`, `LAY-03`, `LAY-04`, `LAY-05`, `LAY-07`, `LAY-08`.
+*Not in scope:* `LAY-06` (`IsSplitterFixed`/`SplitterIncrement` and the absent keyboard handling) is
+P2, was never part of this item, and is left untouched rather than half-done: quantising the drag is
+easy, but the arrow-key path needs a focusable splitter, which is its own piece of work.
 
 **W5.23 — `TabControl`.** `TabPage.Enabled` structural; the Selecting/Selected/Deselecting/Deselected
 order; `ImageList` + `TabPage.ImageIndex`; `Alignment`/`ItemSize`/`SizeMode` stored-only.

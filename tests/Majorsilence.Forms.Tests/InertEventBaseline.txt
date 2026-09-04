@@ -54,8 +54,6 @@ Majorsilence.Forms.PropertyGrid.PropertyValueChanged
 Majorsilence.Forms.PropertyGrid.SelectedGridItemChanged
 Majorsilence.Forms.PropertyGrid.SelectedObjectsChanged
 Majorsilence.Forms.RichTextBox.ContentsResized
-Majorsilence.Forms.Splitter.SplitterMoved
-Majorsilence.Forms.Splitter.SplitterMoving
 Majorsilence.Forms.ToolBar.ButtonClick
 Majorsilence.Forms.ToolStripControlHost.ContentChanged
 Majorsilence.Forms.ToolStripLabel.MouseEnter

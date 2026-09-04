@@ -15,7 +15,8 @@ namespace Majorsilence.Forms.Tests
     // Behavioral tests ported from the upstream WinForms SplitterTests, adapted to the
     // Majorsilence.Forms API (no Handle/CreateParams/accessibility/ImeMode plumbing, no SubSplitter
     // protected-member harness). They pin the constructor defaults, the Dock coupling, the
-    // MinSize/MinExtra negative-value coercion, and the SplitPosition/SplitterWidth aliasing.
+    // MinSize/MinExtra negative-value coercion, and that SplitPosition is NOT the bar's own width.
+    // The behaviour those members drive lives in SplitContainerBehaviourTests.
     // Majorsilence.Forms-specific behavior (the Orientation property, the Drag event) is also covered.
     public class SplitterTests
     {
@@ -117,13 +118,20 @@ namespace Majorsilence.Forms.Tests
         [InlineData (0)]
         [InlineData (1)]
         [InlineData (25)]
-        public void SplitPosition_IsAliasForSplitterWidth (int value)
+        public void SplitPosition_IsNotAnAliasForSplitterWidth (int value)
         {
-            using var control = new Splitter { SplitPosition = value };
+            // SplitPosition used to be `get => SplitterWidth; set => SplitterWidth = value;`, so
+            // splitter1.SplitPosition = 200 produced a 200-pixel-thick bar instead of a
+            // 200-pixel-wide panel (LAY-04). It is now the extent of the sibling the bar is docked
+            // against, which a parentless Splitter does not have: WinForms' CalcSplitSize reports -1
+            // for that, and the assignment has nothing to apply itself to.
+            using var control = new Splitter { SplitterWidth = 5 };
 
-            Assert.Equal (value, control.SplitPosition);
-            Assert.Equal (value, control.SplitterWidth);
-            Assert.Equal (value, control.Width);
+            control.SplitPosition = value;
+
+            Assert.Equal (-1, control.SplitPosition);
+            Assert.Equal (5, control.SplitterWidth);
+            Assert.Equal (5, control.Width);
         }
 
         [Fact]
@@ -196,7 +204,8 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void SplitterMoved_AddRemoveHandler_DoesNotThrow ()
         {
-            // SplitterMoved is a no-op stub in Majorsilence.Forms; subscribing/unsubscribing must be safe.
+            // SplitterMoved is a real field-like event now (LAY-03); subscribing/unsubscribing on a
+            // parentless Splitter, which has no target to move, must still be safe.
             using var control = new Splitter ();
 
             EventHandler<SplitterEventArgs> handler = (sender, e) => { };
@@ -208,7 +217,8 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void SplitterMoving_AddRemoveHandler_DoesNotThrow ()
         {
-            // SplitterMoving is a no-op stub in Majorsilence.Forms; subscribing/unsubscribing must be safe.
+            // SplitterMoving is a real field-like event now (LAY-03); subscribing/unsubscribing on a
+            // parentless Splitter, which has no target to move, must still be safe.
             using var control = new Splitter ();
 
             EventHandler<SplitterCancelEventArgs> handler = (sender, e) => { };
