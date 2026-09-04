@@ -1082,9 +1082,43 @@ inert-event baseline lost `Splitter.SplitterMoved`/`SplitterMoving`.
 P2, was never part of this item, and is left untouched rather than half-done: quantising the drag is
 easy, but the arrow-key path needs a focusable splitter, which is its own piece of work.
 
-**W5.23 — `TabControl`.** `TabPage.Enabled` structural; the Selecting/Selected/Deselecting/Deselected
-order; `ImageList` + `TabPage.ImageIndex`; `Alignment`/`ItemSize`/`SizeMode` stored-only.
-*Closes:* `LAY-12`–`LAY-15`.
+**W5.23 — `TabControl`. — DONE (2026-09-04)**
+All four findings closed. 19 tests in `TabControlBehaviourTests.cs`, 16 of them verified to fail with
+their fix neutralized; 3 are labelled in-test as guards. Stored-only baseline 754 → 746.
+
+`TabPage.Enabled` now forwards to `Control.Enabled` instead of storing into its own field, so the page
+and its `Control` face agree and the controls *on* the page really go dead — locking a wizard step by
+disabling its page was a complete no-op before.
+
+The four selection events are split across two phases, as upstream splits them across `TCN_SELCHANGING`
+and `TCN_SELCHANGE`: `Deselecting`, `Deselected`, then `Selecting`, `Selected`,
+`SelectedIndexChanged`. Both halves of the deselect now run **before** the strip moves, which needed a
+vetoable hook on `TabStrip` (`SelectionChanging`) rather than a reordering of the existing handler —
+the point of `Deselecting` is to save the state of the page being left, and it reads `SelectedTab` to
+find out which page that is. A cancelled `Deselecting` therefore never moves the strip at all, instead
+of moving and moving back.
+
+`TabControl.ImageList` + `TabPage.ImageIndex`/`ImageKey` resolve to a `TabStripItem.Image` on insert,
+on either page property changing, and on the image list being swapped (designer files assign it after
+`AddRange` as often as before). The tab reserves the image's width plus a gap in `GetPreferredSize` and
+`TabStripRenderer` draws it, so icon tabs are both painted and the right width — the widths matter
+because they set the header's wrap points.
+
+`Alignment` moves the strip's `Dock`, so `Bottom` really puts the tabs under the pages and
+`Left`/`Right` stack them in a column beside them; `GetTabRect` was translated into the control's
+coordinates, without which a bottom-aligned tab rect is not comparable with anything else on the
+control. `ItemSize` (height always, width under `SizeMode.Fixed`), `SizeMode.Fixed`/`FillToRight` and
+`Padding` are all read by the strip's layout.
+
+*Deliberately not done:* `Left`/`Right` stack the tabs rather than rotating their text, which the
+renderer cannot express; `Multiline` stays stored-only, because the strip already wraps
+unconditionally and making `Multiline = false` stop wrapping needs a scroll affordance that does not
+exist (and would lose the current guarantee that every tab is reachable); `Appearance`,
+`HotTrack`, `ShowToolTips` and `RightToLeftLayout` stay cosmetic, as `LAY-15` allows — `ShowToolTips`
+is `LAY-16`'s. `TabPage.UseVisualStyleBackColor` is still a `new` shadow: unlike `Enabled` its default
+genuinely differs from the base's, so forwarding it would change behaviour rather than fix it.
+*Closed:* `LAY-12`, `LAY-13`, `LAY-14`, `LAY-15`.
+*Corrected:* `LAY-12`'s suggested fix (see the status block in `behaviour-gap/layout.md`).
 
 **W5.24 — Scaling and preferred size: connect the engine that already works. — DONE (2026-08-31)**
 All four disconnections closed in one pass: `Panel.GetPreferredSizeCore` delegating to the engine,
@@ -1179,10 +1213,10 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and so has the ToolStrip cluster** — `TSM-02` was closed by W1.3 in Phase 1 (see `MenuShortcutTests.cs`), which the findings file had not recorded. The rest not started. |
+| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and so has the ToolStrip cluster** — `TSM-02` was closed by W1.3 in Phase 1 (see `MenuShortcutTests.cs`), which the findings file had not recorded. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4287 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4306 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs

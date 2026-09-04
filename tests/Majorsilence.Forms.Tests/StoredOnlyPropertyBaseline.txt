@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 754 of 1208 public settable auto-properties (62%).
+# 746 of 1200 public settable auto-properties (62%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -571,19 +571,11 @@ Majorsilence.Forms.StatusBarPanel.Tag
 Majorsilence.Forms.StatusBarPanel.Text
 Majorsilence.Forms.StatusBarPanel.ToolTipText
 Majorsilence.Forms.StatusBarPanel.Width
-Majorsilence.Forms.TabControl.Alignment
 Majorsilence.Forms.TabControl.Appearance
 Majorsilence.Forms.TabControl.HotTrack
-Majorsilence.Forms.TabControl.ImageList
-Majorsilence.Forms.TabControl.ItemSize
 Majorsilence.Forms.TabControl.Multiline
-Majorsilence.Forms.TabControl.Padding
 Majorsilence.Forms.TabControl.RightToLeftLayout
 Majorsilence.Forms.TabControl.ShowToolTips
-Majorsilence.Forms.TabControl.SizeMode
-Majorsilence.Forms.TabPage.Enabled
-Majorsilence.Forms.TabPage.ImageIndex
-Majorsilence.Forms.TabPage.ImageKey
 Majorsilence.Forms.TabPage.ToolTipText
 Majorsilence.Forms.TabPage.UseVisualStyleBackColor
 Majorsilence.Forms.TabStripItem.Tag

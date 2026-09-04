@@ -66,7 +66,23 @@ namespace Majorsilence.Forms.Renderers
             var font = control.GetEffectiveFont ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
 
-            e.Canvas.DrawText (item.Text, font, font_size, item.Bounds, font_color, ContentAlignment.MiddleCenter);
+            // An imaged tab draws the icon at its leading edge and gives the rest to the caption.
+            // TabStripItem.GetPreferredSize reserved exactly this much room, so the text still lands
+            // centred in what is left; a tab with no image is laid out and painted as before (LAY-14).
+            var text_bounds = item.Bounds;
+
+            if (item.Image is { } image) {
+                var size = new Size (control.LogicalToDeviceUnits (item.ImageSize.Width), control.LogicalToDeviceUnits (item.ImageSize.Height));
+                var left = item.Bounds.Left + control.LogicalToDeviceUnits (item.Padding.Left);
+                var image_bounds = new Rectangle (left, item.Bounds.Top + ((item.Bounds.Height - size.Height) / 2), size.Width, size.Height);
+
+                e.Canvas.DrawBitmap (image, image_bounds, !item.Enabled || !control.Enabled);
+
+                text_bounds = Rectangle.FromLTRB (image_bounds.Right + control.LogicalToDeviceUnits (TabStripItem.IMAGE_TEXT_GAP),
+                    item.Bounds.Top, item.Bounds.Right, item.Bounds.Bottom);
+            }
+
+            e.Canvas.DrawText (item.Text, font, font_size, text_bounds, font_color, ContentAlignment.MiddleCenter);
 
             if (item.Selected) {
                 var highlight_padding = e.LogicalToDeviceUnits (10);

@@ -24,6 +24,10 @@ namespace Majorsilence.Forms
 
             tab_strip.SelectedTabChanged += TabStrip_SelectedTabChanged;
 
+            // Deselecting/Deselected have to run while the strip is still on the outgoing tab, so they
+            // are raised from a veto the strip asks for before it commits (LAY-13).
+            tab_strip.SelectionChanging = OnStripSelectionChanging;
+
             // In WinForms the tab headers are part of the TabControl itself, so clicking one raises
             // TabControl.Click. Here the headers live in an implicit child strip, which would otherwise
             // swallow the click: the strip receives it and the TabControl never hears about it.
@@ -128,13 +132,85 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the ImageList used by the tab pages.</summary>
-        public ImageList? ImageList { get; set; }
+        public ImageList? ImageList {
+            get => image_list;
+            set {
+                if (image_list == value)
+                    return;
+
+                image_list = value;
+                UpdateTabImages ();
+            }
+        }
+
+        private ImageList? image_list;
+
+        /// <summary>
+        /// Re-resolves every page's tab image from <see cref="ImageList"/>.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="ImageList"/>, <c>TabPage.ImageIndex</c> and <c>TabPage.ImageKey</c> were three
+        /// stores nothing read, so an icon-in-tab UI built the WinForms way lost its icons silently and
+        /// the tabs measured narrower than on Windows, moving the header's wrap points (LAY-14).
+        /// </remarks>
+        internal void UpdateTabImages ()
+        {
+            foreach (var page in TabPages)
+                UpdateTabImage (page);
+        }
+
+        // Resolves one page's tab image. Called when the page is added, when its ImageIndex/ImageKey
+        // changes, and for every page when the ImageList itself is swapped.
+        internal void UpdateTabImage (TabPage page)
+        {
+            page.TabStripItem.Image = ResolveTabImage (page);
+        }
+
+        private SkiaSharp.SKBitmap? ResolveTabImage (TabPage page)
+        {
+            var images = ImageList?.Images;
+
+            if (images is null || images.Count == 0)
+                return null;
+
+            // Key wins over index when both are set, the order upstream's TCITEM resolution uses.
+            if (page.ImageKey.HasValue ())
+                return images.ContainsKey (page.ImageKey) ? images[page.ImageKey] : null;
+
+            return page.ImageIndex >= 0 && page.ImageIndex < images.Count ? images[page.ImageIndex] : null;
+        }
 
         /// <summary>Gets or sets whether more than one row of tabs can be displayed. Stub in Majorsilence.Forms.</summary>
         public bool Multiline { get; set; }
 
-        /// <summary>Gets or sets the alignment of the tabs. Stub in Majorsilence.Forms (always top).</summary>
-        public TabAlignment Alignment { get; set; } = TabAlignment.Top;
+        /// <summary>Gets or sets the alignment of the tabs.</summary>
+        /// <remarks>
+        /// Moves the header strip to that edge of the control; the pages follow, because the strip is
+        /// docked and the layout engine gives what is left to the <c>Fill</c>ed page. <c>Left</c> and
+        /// <c>Right</c> stack the tabs in a single column rather than rotating their text, which is the
+        /// part of upstream's <c>TCS_VERTICAL</c> the renderer here cannot express. Was stored and never
+        /// read, so <c>Alignment = Bottom</c> silently kept the tabs on top (LAY-15).
+        /// </remarks>
+        public TabAlignment Alignment {
+            get => alignment;
+            set {
+                if (alignment == value)
+                    return;
+
+                alignment = value;
+                tab_strip.Dock = DockForAlignment (value);
+                PerformLayout ();
+            }
+        }
+
+        private TabAlignment alignment = TabAlignment.Top;
+
+        private static DockStyle DockForAlignment (TabAlignment alignment) => alignment switch {
+            TabAlignment.Bottom => DockStyle.Bottom,
+            TabAlignment.Left => DockStyle.Left,
+            TabAlignment.Right => DockStyle.Right,
+            _ => DockStyle.Top,
+        };
 
         /// <summary>
         /// Gets or sets the draw mode for the tabs. <see cref="TabDrawMode.OwnerDrawFixed"/> hands each
@@ -142,11 +218,47 @@ namespace Majorsilence.Forms
         /// </summary>
         public TabDrawMode DrawMode { get; set; } = TabDrawMode.Normal;
 
-        /// <summary>Gets or sets the fixed size of each tab. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Size ItemSize { get; set; }
+        /// <summary>Gets or sets the fixed size of each tab.</summary>
+        /// <remarks>
+        /// The height applies always; the width only under <see cref="TabSizeMode.Fixed"/>, which is how
+        /// upstream reads the same two values. Both were stored and ignored (LAY-15).
+        /// </remarks>
+        public System.Drawing.Size ItemSize {
+            get => item_size;
+            set {
+                if (item_size == value)
+                    return;
 
-        /// <summary>Gets or sets the width of the selected tab padding. Stub in Majorsilence.Forms.</summary>
-        public new System.Drawing.Point Padding { get; set; }
+                item_size = value;
+                RelayoutStrip ();
+            }
+        }
+
+        private System.Drawing.Size item_size;
+
+        /// <summary>Gets or sets the extra padding added to every tab, horizontally and vertically.</summary>
+        /// <remarks>Was stored and never read, so designer-set tab padding did nothing (LAY-15).</remarks>
+        public new System.Drawing.Point Padding {
+            get => tab_padding;
+            set {
+                if (tab_padding == value)
+                    return;
+
+                tab_padding = value;
+                RelayoutStrip ();
+            }
+        }
+
+        private System.Drawing.Point tab_padding;
+
+        // The strip measures its tabs from the owner's ItemSize/SizeMode/Padding, so a change to any of
+        // them has to re-run the strip's own layout, not just the container's.
+        private void RelayoutStrip ()
+        {
+            tab_strip.PerformLayout ();
+            tab_strip.Invalidate ();
+            PerformLayout ();
+        }
 
         /// <summary>Gets or sets whether tab pages show their tooltips. Stub in Majorsilence.Forms.</summary>
         public bool ShowToolTips { get; set; }
@@ -163,17 +275,42 @@ namespace Majorsilence.Forms
         /// <summary>Gets the number of tabs in the tab strip.</summary>
         public int TabCount => TabPages.Count;
 
-        /// <summary>Gets or sets the size mode of the tabs. Stub in Majorsilence.Forms.</summary>
-        public TabSizeMode SizeMode { get; set; } = TabSizeMode.Normal;
+        /// <summary>Gets or sets the size mode of the tabs.</summary>
+        /// <remarks>
+        /// <see cref="TabSizeMode.Fixed"/> gives every tab <see cref="ItemSize"/>'s width;
+        /// <see cref="TabSizeMode.FillToRight"/> stretches each row of tabs to the strip's width
+        /// (upstream's <c>TCS_RIGHTJUSTIFY</c>). Was stored and ignored (LAY-15).
+        /// </remarks>
+        public TabSizeMode SizeMode {
+            get => size_mode;
+            set {
+                if (size_mode == value)
+                    return;
+
+                size_mode = value;
+                RelayoutStrip ();
+            }
+        }
+
+        private TabSizeMode size_mode = TabSizeMode.Normal;
 
         /// <summary>Gets the number of tab rows (tabs wrap into additional rows when they overflow).</summary>
         public int RowCount => tab_strip.RowCount;
 
-        /// <summary>Gets the bounding rectangle of a tab at the specified index.</summary>
-        public System.Drawing.Rectangle GetTabRect (int index) =>
-            index >= 0 && index < tab_strip.Tabs.Count
-                ? tab_strip.Tabs[index].Bounds
-                : new System.Drawing.Rectangle (index * 100, 0, 100, 25);
+        /// <summary>Gets the bounding rectangle of a tab at the specified index, in this control's coordinates.</summary>
+        public System.Drawing.Rectangle GetTabRect (int index)
+        {
+            if (index < 0 || index >= tab_strip.Tabs.Count)
+                return new System.Drawing.Rectangle (index * 100, 0, 100, 25);
+
+            // Tab bounds are relative to the strip, but WinForms' GetTabRect answers in the
+            // TabControl's own coordinates. Identity while the strip sits at the top -- and the whole
+            // point of the method once Alignment moves the strip to another edge (LAY-15).
+            var bounds = tab_strip.Tabs[index].Bounds;
+            bounds.Offset (tab_strip.Left, tab_strip.Top);
+
+            return bounds;
+        }
 
         /// <summary>
         /// Raised for each tab when <see cref="DrawMode"/> is an owner-draw mode, letting the handler
@@ -254,10 +391,55 @@ namespace Majorsilence.Forms
         public TabPage? HitTest (System.Drawing.Point point) =>
             TabPages.FirstOrDefault (tp => tp.Bounds.Contains (point));
 
+        // Raised by the strip before it commits a selection change, so the Deselecting/Deselected pair
+        // runs while SelectedTab/SelectedIndex still report the page being LEFT. Returning false vetoes
+        // the change outright, which is what a cancelled Deselecting means -- no revert dance, and no
+        // Deselected either.
+        //
+        // Upstream splits the four events across two notifications: WM_NOTIFY/TCN_SELCHANGING raises
+        // Deselecting then Deselected before the native control moves, and TCN_SELCHANGE raises
+        // Selecting, Selected, SelectedIndexChanged after it has. Ours used to raise all four from the
+        // one place, in the order Deselecting, Selecting, Deselected, SelectedIndexChanged, Selected --
+        // so a handler saving the outgoing page's state was handed the incoming page, and anything
+        // wired to both Selected and SelectedIndexChanged ran them in the reverse of Windows' order
+        // (LAY-13).
+        private bool OnStripSelectionChanging (int newIndex)
+        {
+            // Same suppression as the post-change events below: nothing is announced before the handle
+            // exists (tabs added during InitializeComponent), and the revert after a cancelled
+            // Selecting is not a change of its own.
+            if (!Created || reverting_tab_selection)
+                return true;
+
+            var old_selected = current_page;
+            var old_index = old_selected == null ? -1 : TabPages.IndexOf (old_selected);
+
+            if (old_index == newIndex)
+                return true;
+
+            var deselecting = new TabControlCancelEventArgs (old_selected, old_index, false, TabControlAction.Deselecting);
+            OnDeselecting (deselecting);
+
+            if (deselecting.Cancel)
+                return false;
+
+            OnDeselected (new TabControlEventArgs (old_selected, old_index, TabControlAction.Deselected));
+
+            return true;
+        }
+
+        // The page currently on screen. Tracked rather than read back from TabPage.Visible, which this
+        // handler used to scan for: Control.Visible is ambient, so every page of a TabControl that is
+        // not itself inside a visible parent answers false and the outgoing page cannot be recovered
+        // from it at all -- and the outgoing page is precisely what Deselecting/Deselected exist to
+        // name. It is also independent of the strip, which has already moved by the time the
+        // post-change handler runs.
+        private TabPage? current_page;
+
         // Handles changes of the TabStrip's selected tab.
         private void TabStrip_SelectedTabChanged (object? sender, EventArgs e)
         {
-            var old_selected = Controls.OfType<TabPage> ().FirstOrDefault (tp => tp.Visible);
+            var old_selected = current_page;
             var new_selected = GetPageFromTab (tab_strip.SelectedTab);
 
             if (old_selected == new_selected)
@@ -266,18 +448,15 @@ namespace Majorsilence.Forms
             var old_index = old_selected == null ? -1 : TabPages.IndexOf (old_selected);
             var new_index = new_selected == null ? -1 : TabPages.IndexOf (new_selected);
 
-            // Deselecting/Selecting run before the swap and can cancel it, as WinForms specifies. Skipped
-            // while reverting a cancelled change (the strip raises this again on the way back) and before
-            // the handle exists, matching the SelectedIndexChanged suppression documented below.
+            // Selecting is cancelable and, unlike Deselecting, runs after the strip has moved -- as
+            // upstream's does, the native control having already changed selection by TCN_SELCHANGE.
+            // Cancelling therefore has to put the strip back; that second trip through here sees the
+            // same page still visible and returns above.
             if (Created && !reverting_tab_selection) {
-                var deselecting = new TabControlCancelEventArgs (old_selected, old_index, false, TabControlAction.Deselecting);
-                OnDeselecting (deselecting);
-
                 var selecting = new TabControlCancelEventArgs (new_selected, new_index, false, TabControlAction.Selecting);
-                if (!deselecting.Cancel)
-                    OnSelecting (selecting);
+                OnSelecting (selecting);
 
-                if (deselecting.Cancel || selecting.Cancel) {
+                if (selecting.Cancel) {
                     reverting_tab_selection = true;
                     try {
                         tab_strip.SelectedIndex = old_index;
@@ -294,15 +473,18 @@ namespace Majorsilence.Forms
             if (new_selected != null)
                 new_selected.Visible = true;
 
+            current_page = new_selected;
+
             // Match WinForms: SelectedIndexChanged is not raised while tabs are being added during
             // InitializeComponent (before the control's handle is created). Firing it then runs the form's
             // SelectedIndexChanged handler mid-construction -- before the fields it touches are initialized --
             // which NullReferences (hit opening frmMaintainProperty, whose tab handler calls ShowTransLookup).
             // The visibility swap above still happens so the correct page shows; only the event waits.
-            if (Created) {
-                OnDeselected (new TabControlEventArgs (old_selected, old_index, TabControlAction.Deselected));
-                OnSelectedIndexChanged (EventArgs.Empty);
+            //
+            // Selected before SelectedIndexChanged, which is the order upstream's TCN_SELCHANGE uses.
+            if (Created && !reverting_tab_selection) {
                 OnSelected (new TabControlEventArgs (new_selected, new_index, TabControlAction.Selected));
+                OnSelectedIndexChanged (EventArgs.Empty);
             }
         }
 
