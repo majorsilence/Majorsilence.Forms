@@ -288,12 +288,48 @@ shares that literal short name regardless of type argument. Fixed by detecting t
 `Scroll` and `QueryAccessibilityHelp` are `add {} remove {}` no-op stubs with no `On*` method at all,
 so they correctly fall out of the discovery rather than get a broken shadow.
 
-Verified in `samples/WinFormsCompatDemo`: a hand-written `PaintDemoPanel : Panel` overrides the
-compat-typed `OnPaint(PaintEventArgs e)` and calls `base.OnPaint(e)`; `Form1.cs` also subscribes to
-`Paint`/`MouseDown`/`KeyDown` with `+=`, including writing to `KeyEventArgs.Handled` (a settable
-property that round-trips to the real underlying instance). Builds clean and *runs* --
-`dotnet run --project samples/WinFormsCompatDemo` drives real paint cycles through the override chain
-without crashing, not just a one-time compile check. See `RESULTS.md` for the full writeup.
+Verified in `samples/WinFormsCompatDemo`: `Form1.cs` subscribes to `Paint`/`MouseDown`/`KeyDown` with
+`+=`, including writing to `KeyEventArgs.Handled` (a settable property that round-trips to the real
+underlying instance), and `BinaryRainPanel.cs` (added in the next entry below) overrides the
+compat-typed `OnPaint(PaintEventArgs e)` and calls `base.OnPaint(e)` on every frame of a real
+animation loop. Builds clean and *runs* -- `dotnet run --project samples/WinFormsCompatDemo` drives
+real paint cycles through the override chain without crashing, not just a one-time compile check. See
+`RESULTS.md` for the full writeup.
+
+## WinFormsShims.Compat: a second namespace mapping for Drawing, and two bugs it surfaced (2026-09-05)
+
+The generator was generalized from one hardcoded namespace to a list of mappings -- `Majorsilence.Forms
+-> System.Windows.Forms` plus `Majorsilence.Forms.Drawing -> System.Drawing` -- running the same five
+passes independently for each (`samples/WinFormsCompatDemo/BinaryRainPanel.cs`, a reimplementation of
+`ControlGallery`'s Binary Rain example, is what motivated and validates it). Two bugs surfaced in the
+process and are now fixed; both generalize beyond Drawing specifically, so worth knowing about for any
+future mapping:
+
+1. A safety check that seeded "already exists, don't redeclare" from every type Roslyn's merged
+   namespace view reports blocked the generator's own `Font`/`SolidBrush` -- because a reference
+   assembly forwarder stub for the full GDI+ surface (which many SDKs ship on non-Windows TFMs, and
+   which resolves as a normal-looking symbol without being usable) looked identical to a real,
+   already-declared type. Removed entirely: a type actually declared in source always wins name
+   lookup over a mere forward, so no seeding was needed for that case either.
+2. Widening the mapping made `TryTranslateType` recognize `Majorsilence.Forms.Drawing.Graphics`
+   (sealed, no compat subclass) as a *mapped* type and reject the whole `PaintEventArgs.Graphics`
+   property rather than pass it through -- a real regression, since that property worked fine as a
+   plain passthrough before Drawing was a mapping at all. Fixing the passthrough case surfaced the
+   more serious bug underneath: once a mapped-but-uncounterparted type became "pass through, don't
+   reject" instead, `Brushes.Black` (declared `Brush`, but always a cached `SolidBrush` singleton the
+   framework built once, never through the compat subclass) hit the *existing*, previously-untested
+   downcast-to-compat-subclass logic and would have thrown `InvalidCastException` on every access.
+   Fixed generator-wide: a class-type downcast on a returned value now casts with `as`
+   (`TypeTranslation.IsReferenceDowncast`) instead of a hard cast, turning a guaranteed crash into
+   `null` while leaving genuinely-safe cases (`Application.MainForm`, where the instance really is
+   what the caller constructed) working as before.
+
+See `RESULTS.md`'s matching entry for the concrete counts and code. Still out of scope, and now
+confirmed empirically rather than theoretical: Drawing's **sealed** leaf types (`Font`, `SolidBrush`,
+`Graphics` itself) -- pass 1 excludes sealed types by the same rule it always has, but it costs far
+more here, since real drawing code needs exactly these constantly. A real fix needs a wrapper
+mechanism, the way the event-shadowing pass wraps `EventArgs` instances rather than subclassing them,
+not attempted yet.
 
 **Deliberately still out of scope:** any event family not declared directly on `Control` --
 `TreeView.AfterSelect`, `DataGridView`'s editing events, `ListView`'s selection events, and similar

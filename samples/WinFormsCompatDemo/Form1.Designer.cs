@@ -52,7 +52,7 @@ namespace WinFormsCompatDemo
             // Form1
             //
             this.AcceptButton = this.button1;
-            this.ClientSize = new System.Drawing.Size(284, 261);
+            this.ClientSize = new System.Drawing.Size(700, 620);
             this.Controls.Add(this.textBox1);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.button1);

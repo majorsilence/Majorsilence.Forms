@@ -1,12 +1,13 @@
 # Majorsilence.Forms.WinFormsShims.Compat
 
-A Roslyn **source generator** that emits a `System.Windows.Forms`-namespace compatibility surface
-backed by [Majorsilence.Forms](https://www.nuget.org/packages/Majorsilence.Forms), so source written
-against WinForms — including Designer-generated `*.Designer.cs` files — compiles unchanged.
+A Roslyn **source generator** that emits `System.Windows.Forms`- and `System.Drawing`-namespace
+compatibility surfaces backed by [Majorsilence.Forms](https://www.nuget.org/packages/Majorsilence.Forms),
+so source written against WinForms — including Designer-generated `*.Designer.cs` files — compiles
+unchanged.
 
 It exists for the case where rewriting namespaces is not an option: a distributed control library
-whose own public API exposes `System.Windows.Forms` types, and whose consumers cannot be asked to
-change their code.
+whose own public API exposes `System.Windows.Forms`/`System.Drawing` types, and whose consumers
+cannot be asked to change their code.
 
 ```
 dotnet add package Majorsilence.Forms.WinFormsShims.Compat
@@ -18,7 +19,12 @@ that assembly's `Control`/`Component` hierarchy.
 ## Scope — read this first
 
 This is a **proof of concept**, published so it can be evaluated against real code. The generator
-makes five independent passes over `Majorsilence.Forms`:
+runs the same five passes independently for each of two **namespace mappings** it knows about --
+`Majorsilence.Forms` -> `System.Windows.Forms` (the WinForms surface) and
+`Majorsilence.Forms.Drawing` -> `System.Drawing` (the GDI+-shaped drawing types real WinForms code
+also expects: `Font`, `Brush`, the `Graphics.DrawString` overloads `PaintEventArgs.Graphics` returns,
+...). A member on one mapping's static classes can return or accept a type from the *other* mapping
+too (translation always consults both).
 
 1. Every public, non-sealed, non-generic **class** with an accessible constructor gets a same-named
    subclass with forwarding constructors — not just `Component`/`Control`/`WindowBase` descendants
@@ -51,7 +57,15 @@ makes five independent passes over `Majorsilence.Forms`:
 
 Out of scope:
 
-- `Majorsilence.Forms.Drawing`'s sealed leaf types (`Font`, `Pen`, `Brush`, …).
+- `Majorsilence.Forms.Drawing`'s **sealed** leaf types — `Font`, `SolidBrush`, `Graphics` itself, and
+  the rest of GDI+'s traditionally-`sealed` shapes. Pass 1 (subclassing) always excludes sealed types,
+  the same rule it has always applied to Component-derived types too; it's just far more consequential
+  here; a real ported app doing actual drawing will hit this constantly. `Brush` (the *unsealed*
+  base), Drawing's enums (`FontStyle`, …), and its static utility classes (`Brushes`, `Pens`,
+  `SystemFonts`, `ColorTranslator`, …) DO get a compat surface — just not the leaf types themselves.
+  A real fix needs a wrapper mechanism, like the event-shadowing pass's `EventArgs` wrappers, rather
+  than a subclass; not attempted yet. A file that needs `Font`/`SolidBrush`/etc. still needs
+  `using Majorsilence.Forms.Drawing;` for those specific names, same as before this package existed.
 - Any event whose delegate isn't declared directly on `Control` itself — a `TreeView`-specific event
   like `AfterSelect`, say. #5 is scoped to exactly what `Control` declares; extending it to
   control-specific event families is future work, not attempted here.
@@ -62,6 +76,14 @@ Out of scope:
   an array; a `ref`/`out`/`in` parameter; a generic method; or an extension method.
 - An `EventArgs` wrapper's methods (only its properties are forwarded) and public constructors (a
   wrapper can only be received from a compat event/override, never constructed directly with `new`).
+
+**A correctness note on returned values.** A static-class member (or `EventArgs` wrapper property)
+that hands a *class* instance back out casts it to the compat subclass with `as`, not a hard cast --
+deliberately, because the actual instance isn't always one. `Brushes.Black` is typed `Brush` but is
+actually always a `SolidBrush` singleton the framework built once and cached, never constructed
+through the compat subclass at all; a hard cast there would throw on every single access. `as` turns
+that into `null` instead. The common case -- `Application.MainForm`, say, where the instance really
+is whatever compat `Form` the caller constructed -- still gets the real value.
 
 Expect to hit all of these on a non-trivial WinForms project. The compatibility matrix in the
 repository records what the underlying layer does and does not implement, which applies here

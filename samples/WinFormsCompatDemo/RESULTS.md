@@ -187,3 +187,57 @@ Still explicitly out of scope: any event family not declared directly on `Contro
 forwarded) and public constructors (a wrapper can only be received from a compat event, never
 constructed with `new`), and `DragEventArgs.Data` (typed `IDataObject`, dropped for the same
 interface-return-safety reason as `Clipboard.GetDataObject()`).
+
+## Increment: a second namespace mapping for Majorsilence.Forms.Drawing -> System.Drawing (2026-09-05)
+
+`BinaryRainPanel.cs` here reimplements `samples/ControlGallery/Panels/BinaryRainPanel.cs` -- a
+Timer-driven "Matrix" rain animation, a `TrackBar`/`Button` wired to it, and a custom `Control`
+overriding the compat-typed `OnPaint` hook with a real per-frame drawing workload
+(`Graphics.DrawString`, one call per glyph, alpha-blended per row) -- through unmodified
+`using System.Windows.Forms;`/`using System.Drawing;` source. **Compiles clean, 0 errors/0 warnings,
+and runs** the real animation loop without crashing.
+
+The generator itself was generalized from one hardcoded namespace to a list of *mappings*
+(`Majorsilence.Forms` -> `System.Windows.Forms`, `Majorsilence.Forms.Drawing` -> `System.Drawing`),
+running the same five passes independently for each, with `TryTranslateType` consulting every
+mapping regardless of which one is currently being processed. Concretely this run added **9** compat
+subclasses (`Brush`, `Image`, `CharacterRange`, `ColorConverter`, `FontConverter`, `IconConverter`,
+`ImageConverter`, `ImageFormatConverter`, `ToolboxBitmapAttribute`), **9** enums (`FontStyle`,
+`GraphicsUnit`, `StringAlignment`, ...), **1** interface (`IDeviceContext`), and **7** static classes
+(`Brushes`, `Pens`, `SystemFonts`, `ColorTranslator`, `SystemIcons`, `BufferedGraphicsManager`,
+`FontResourceLoader`) under `System.Drawing` -- all without touching the WinForms mapping's own
+counts (still 252/197/20/26/104).
+
+**Two real bugs surfaced and got fixed before this shipped, both worth recording because they
+generalize beyond Drawing specifically:**
+
+1. **A type name can exist in a compilation without being usable.** The very first attempt failed
+   with `CS1069: The type name 'Font' could not be found... This type has been forwarded to assembly
+   'System.Drawing.Common'... Consider adding a reference` -- caused by an initial safety check that
+   seeded "already exists, don't redeclare" from *every* type Roslyn reports in the target namespace,
+   including a reference-assembly forwarder stub for the full GDI+ surface that many SDKs ship on
+   non-Windows TFMs, resolvable as a symbol but not actually usable without a real
+   `System.Drawing.Common` reference. The seeding step was removed entirely: a type genuinely
+   declared in this compilation's own source always wins ordinary name lookup over a referenced
+   assembly's mere forward, so no seeding was needed for that case either, and an actual collision
+   with a *resolvable* referenced type would show up as a plain, easy-to-diagnose `CS0101` instead of
+   being silently (and, it turned out, incorrectly) avoided in advance.
+2. **A "safe" downcast wasn't always safe.** Widening the namespace mapping meant `TryTranslateType`
+   now recognized `Majorsilence.Forms.Drawing.Graphics` (used by `PaintEventArgs.Graphics`) as a
+   *mapped* type -- and, having no compat subclass (it's sealed), the existing rule rejected the whole
+   property rather than exposing it, which was a real regression (`PaintEventArgs.Graphics` had
+   always worked as a plain passthrough before Drawing was a mapping at all). Fixing that -- a mapped
+   type with no compat counterpart now passes through as the original type, never rejected -- is what
+   surfaced the second, more serious bug: `Brushes.Black` is declared to return `Brush` but is
+   actually always a cached `SolidBrush` singleton the framework built once, never through the compat
+   subclass -- so the existing hard-cast-to-compat-subclass logic (previously validated only against
+   `Application.MainForm`-shaped members, where the returned instance realistically *is* what the
+   caller constructed) would have thrown `InvalidCastException` on every single access. Fixed
+   generator-wide: a class-type downcast on a returned value now casts with `as` (`TypeTranslation.
+  IsReferenceDowncast`), turning a guaranteed crash into `null` while leaving the common, genuinely-safe
+   case (`Application.MainForm`) working exactly as before.
+
+Still out of scope, and now confirmed rather than theoretical: the sealed leaf types real drawing code
+needs most (`Font`, `SolidBrush`, `Graphics` itself) -- `BinaryRainPanel.cs` still reaches for
+`Majorsilence.Forms.Drawing` explicitly for exactly those three names. See the README's "sealed leaf
+types" entry for what a real fix would need.

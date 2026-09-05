@@ -9,24 +9,27 @@ namespace WinFormsCompatDemo
         {
             InitializeComponent();
 
-            // Exercises the event-shadowing pass: MouseDown/KeyDown subscriptions through compat
-            // EventArgs types, and a Paint subscription alongside PaintDemoPanel's OnPaint override --
-            // see RESULTS.md's "event shadowing" section. Added here rather than in
-            // Form1.Designer.cs since InitializeComponent is designer-owned.
-            var paintPanel = new PaintDemoPanel
-            {
-                Location = new System.Drawing.Point(20, 140),
-                Size = new System.Drawing.Size(244, 80),
-                TabStop = true,
-            };
-            paintPanel.MouseDown += (sender, e) => label1.Text = $"Mouse {e.Button} at {e.X},{e.Y}";
-            paintPanel.KeyDown += (sender, e) =>
+            // Exercises the event-shadowing pass on the Form itself: MouseDown/KeyDown subscriptions
+            // through compat EventArgs types (KeyPreview so child controls' keystrokes reach here too)
+            // -- see RESULTS.md's "event shadowing" section.
+            KeyPreview = true;
+            MouseDown += (sender, e) => label1.Text = $"Mouse {e.Button} at {e.X},{e.Y}";
+            KeyDown += (sender, e) =>
             {
                 label1.Text = $"Key {e.KeyCode}";
                 e.Handled = true;
             };
-            paintPanel.Paint += (sender, e) => label1.Text = $"Painted {paintPanel.PaintCount} time(s)";
-            Controls.Add(paintPanel);
+
+            // BinaryRainPanel.cs: a reimplementation of ControlGallery's Binary Rain example
+            // (samples/ControlGallery/Panels/BinaryRainPanel.cs) through unmodified `using
+            // System.Windows.Forms;` source -- a Timer-driven animation, a TrackBar/Button wired to
+            // it, and a custom Control overriding the compat-typed OnPaint hook with a real per-frame
+            // drawing workload, rather than the simple paint-counter this used to be.
+            Controls.Add(new BinaryRainPanel
+            {
+                Location = new System.Drawing.Point(20, 140),
+                Size = new System.Drawing.Size(660, 460),
+            });
         }
 
         private void button1_Click(object sender, EventArgs e)
