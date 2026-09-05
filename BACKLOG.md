@@ -218,8 +218,11 @@ that cannot rewrite their own public API namespace, and it packs itself as an an
 (`analyzers/dotnet/cs`). It is now in both publish lists. The reservation recorded here -- a package id
 is permanent once pushed, so is the PoC the shape this feature keeps? -- was answered by deciding to
 publish it for evaluation against real code, with the scope limits stated in the package's own README
-(public non-sealed `Component`/`Control`/`WindowBase` types only; `Majorsilence.Forms.Drawing`'s sealed
-leaf types and Majorsilence-specific `EventArgs` are out of scope).
+(`Majorsilence.Forms.Drawing`'s sealed leaf types and Majorsilence-specific `EventArgs` are out of
+scope; the README's own history is worth reading -- it started limited to public non-sealed
+`Component`/`Control`/`WindowBase` types and was widened, 2026-09-05, to any public non-sealed class,
+plus interfaces as parameter-only marker sub-interfaces, once static-utility-class forwarding needed
+them).
 
 Two things had to change before a publish list could have any effect:
 
@@ -257,6 +260,45 @@ Decision 2). **`Mcp` is still missing from `release.yml`**; adding that one line
 
 **Not answerable from this repo:** whether each of these is actually *on* nuget.org today. The workflows
 describe what the next published release would push, not what previous releases did.
+
+## WinFormsShims.Compat: event shadowing -- done for Control's own family (2026-09-05)
+
+The generator's last named gap -- Majorsilence-specific `EventArgs` events (`Paint`, `MouseDown`,
+`KeyDown`, ...) -- is closed for exactly the family `Control` itself declares. Scoped on 2026-09-05
+(see the investigation this heading used to describe, and the commit that added `CompatSets`) and
+implemented the same day once the shape of the work was clear enough to trust.
+
+**The finding that set the shape held:** compat subclasses are flat -- `System.Windows.Forms.Panel :
+Majorsilence.Forms.Panel` directly, never `System.Windows.Forms.Panel : System.Windows.Forms.Control`
+-- so there is no compat-side inheritance chain to hang a single shadow on. The fix re-emits the
+override/shadow triple on every one of the 252 compat subclasses that reaches an accessible,
+overridable `On*` method and a matching event for a given family, walking each subclass's own
+Majorsilence base chain individually (`FindReachableOverridableMethod`/`FindReachableEvent` in
+`WinFormsCompatGenerator.cs`) rather than assuming ancestry from a shared compat `Control`. **104** of
+the 252 reach at least one family.
+
+Discovery turned out driven-by-data rather than a curated list: walking `Control`'s own declared
+events (whose delegate's second parameter is a Majorsilence `EventArgs` subclass) found **26** event
+families across **17** distinct `EventArgs` types -- more than the Paint/mouse/keyboard/drag set
+originally scoped, including a `LongPress`/`Pinch`/`ScrollGesture`/`Swipe` gesture family that uses
+the generic `EventHandler<T>` (needing no delegate copy, just reuse with the compat args type) rather
+than a named delegate, and surfacing a real bug along the way: naming a generated file after
+`delegateType.Name` collides for constructed generics, since every `EventHandler<T>` instantiation
+shares that literal short name regardless of type argument. Fixed by detecting the generic case.
+`Scroll` and `QueryAccessibilityHelp` are `add {} remove {}` no-op stubs with no `On*` method at all,
+so they correctly fall out of the discovery rather than get a broken shadow.
+
+Verified in `samples/WinFormsCompatDemo`: a hand-written `PaintDemoPanel : Panel` overrides the
+compat-typed `OnPaint(PaintEventArgs e)` and calls `base.OnPaint(e)`; `Form1.cs` also subscribes to
+`Paint`/`MouseDown`/`KeyDown` with `+=`, including writing to `KeyEventArgs.Handled` (a settable
+property that round-trips to the real underlying instance). Builds clean and *runs* --
+`dotnet run --project samples/WinFormsCompatDemo` drives real paint cycles through the override chain
+without crashing, not just a one-time compile check. See `RESULTS.md` for the full writeup.
+
+**Deliberately still out of scope:** any event family not declared directly on `Control` --
+`TreeView.AfterSelect`, `DataGridView`'s editing events, `ListView`'s selection events, and similar
+control-specific families further out. Widening pass 5 to walk those control-by-control, the same way
+pass 1-4 already cover their non-event members, is the natural next increment here.
 
 ## Wanted: screenshots from a desktop-hosted window
 

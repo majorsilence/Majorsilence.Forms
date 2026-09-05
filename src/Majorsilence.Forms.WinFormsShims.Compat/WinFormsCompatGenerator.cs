@@ -7,29 +7,58 @@ namespace Majorsilence.Forms.WinFormsShims.Compat;
 
 /// <summary>
 /// PoC source generator that emits a <c>System.Windows.Forms</c>-namespace compatibility surface
-/// backed by <c>Majorsilence.Forms</c>, in three independent passes over that namespace's public
+/// backed by <c>Majorsilence.Forms</c>, in five independent passes over that namespace's public
 /// members:
 ///
-/// 1. Every public, non-sealed, non-generic type that derives (directly or transitively) from
-///    <see cref="System.ComponentModel.Component"/> and exposes at least one accessible constructor
-///    gets a same-named subclass with forwarding constructors.
-/// 2. Every public, non-nested enum gets a same-named, same-valued copy -- needed because #3's
-///    forwarders (and the subclasses from #1) surface Majorsilence-specific enums such as
-///    <c>DialogResult</c> or <c>MessageBoxButtons</c> in their own public signatures, and code that
-///    only imports <c>System.Windows.Forms</c> has no other way to name them.
-/// 3. Every public static, non-generic class -- <c>Application</c>, <c>MessageBox</c>,
+/// 1. Every public, non-sealed, non-generic class that does NOT derive from <see cref="System.EventArgs"/>
+///    and exposes at least one accessible constructor gets a same-named subclass with forwarding
+///    constructors -- <c>Button</c>, <c>Form</c> and the rest of the <c>Component</c> hierarchy, but
+///    also plain classes with no <c>Component</c> ancestor at all, like <c>ApplicationContext</c>.
+///    EventArgs types are excluded on purpose: pass 5 gives them a different, purpose-built
+///    treatment -- a plain compat subclass wouldn't let a handler bind to the original event anyway
+///    (C#'s method-group contravariance requires the handler's parameter to be the delegate's
+///    declared type or a BASE of it, never a more-derived subclass).
+/// 2. Every public, non-nested enum gets a same-named, same-valued copy -- needed because #1/#3/#4/#5's
+///    forwarders surface Majorsilence-specific enums such as <c>DialogResult</c> or
+///    <c>MessageBoxButtons</c> in their own public signatures, and code that only imports
+///    <c>System.Windows.Forms</c> has no other way to name them.
+/// 3. Every public, non-generic interface gets a same-named, empty sub-interface (<c>IMessageFilter</c>,
+///    <c>IWin32Window</c>, <c>IDataObject</c>, ...), so it can be named and implemented under
+///    <c>System.Windows.Forms</c> and passed as a parameter. This only works as an INPUT: a
+///    framework-returned instance implements only the original interface, never this marker, so
+///    <see cref="TryTranslateType"/> refuses to hand one back out as the compat type (see
+///    <see cref="TypeTranslation.IsDowncastSafe"/>).
+/// 4. Every public static, non-generic class -- <c>Application</c>, <c>MessageBox</c>,
 ///    <c>Clipboard</c>, <c>SystemInformation</c>, ... -- gets a same-named static class that
 ///    forwards each member whose signature is fully translatable (see <see cref="TryTranslateType"/>)
 ///    into the real Majorsilence.Forms one. A member with any untranslatable type in its signature
 ///    is silently dropped rather than emitted broken; see the README for what that excludes today
-///    (plain Majorsilence classes with no Component ancestor -- <c>FormCollection</c>,
-///    <c>ApplicationContext</c>, ... -- arrays, ref/out parameters, generic methods, and extension
-///    methods).
+///    (a plain Majorsilence class/interface with no compat counterpart above -- e.g. <c>FormCollection</c>,
+///    which has no accessible constructor for #1 to subclass -- arrays, ref/out parameters, generic
+///    methods, and extension methods).
+/// 5. Event shadowing: <see cref="DiscoverEventFamilies"/> finds every event <c>Control</c> itself
+///    declares whose delegate's second parameter is a Majorsilence-specific EventArgs (Paint,
+///    Mouse*, Key*, Drag*, the gesture family, ...). Each distinct EventArgs type gets a compat
+///    wrapper class (<see cref="GenerateEventArgsWrapperSource"/>) forwarding its translatable public
+///    properties to the real instance it wraps; each distinct NAMED delegate (not the generic
+///    <see cref="System.EventHandler{T}"/>, which is reused directly with the compat args type as
+///    its argument) gets a compat copy. Then, on every subclass from pass 1 that reaches an
+///    overridable On* method and a matching event for a given family (see
+///    <see cref="FindReachableOverridableMethod"/>/<see cref="FindReachableEvent"/> -- most classes
+///    do, since nearly everything derives from <c>Control</c>), a second partial-class file
+///    (<see cref="GenerateEventShadowBlock"/>) overrides the original On* method, translates,
+///    dispatches to a NEW compat-typed virtual On* hook of the same name, and shadows the public
+///    event with the compat delegate type -- so both <c>control.Paint += handler;</c> and
+///    <c>protected override void OnPaint(PaintEventArgs e)</c> work. This has to be repeated on
+///    every reaching subclass individually, not solved once on a shared compat <c>Control</c>,
+///    because compat subclasses are flat: <c>System.Windows.Forms.Panel</c> derives directly from
+///    <c>Majorsilence.Forms.Panel</c>, never from <c>System.Windows.Forms.Control</c> (see
+///    BACKLOG.md for the investigation that established this). Scoped deliberately to exactly what
+///    <c>Control</c> itself declares -- a control-specific family further out, like
+///    <c>TreeView.AfterSelect</c>, is not attempted here.
 ///
-/// This intentionally does NOT attempt to shadow events typed to Majorsilence-specific EventArgs
-/// (Paint, MouseDown, KeyDown, ...) -- see the feasibility plan this project exists to validate.
 /// Events typed to the real BCL <see cref="System.EventHandler"/> (Click, TextChanged, Resize, ...)
-/// need no special handling: they already resolve identically regardless of namespace.
+/// need no special handling from pass 5: they already resolve identically regardless of namespace.
 /// </summary>
 [Generator]
 public sealed class WinFormsCompatGenerator : IIncrementalGenerator
@@ -50,8 +79,8 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         if (coreAssembly is null)
             return;
 
-        var componentType = compilation.GetTypeByMetadataName("System.ComponentModel.Component");
-        if (componentType is null)
+        var eventArgsType = compilation.GetTypeByMetadataName("System.EventArgs");
+        if (eventArgsType is null)
             return;
 
         var coreNamespace = FindNamespace(coreAssembly.GlobalNamespace, CoreNamespace);
@@ -59,16 +88,15 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             return;
 
         // Namespace members can't collide within Majorsilence.Forms itself (a class and an enum can't
-        // share a name in the same namespace), but shared across all three passes anyway since this is
+        // share a name in the same namespace), but shared across all four passes anyway since this is
         // emitted output covering the whole compat surface.
         var emittedNames = new HashSet<string>(StringComparer.Ordinal);
-        var compatSubclasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-        var compatEnums = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var sets = new CompatSets();
 
-        // Pass 1: Component-derived types -> forwarding-constructor subclasses.
+        // Pass 1: eligible classes -> forwarding-constructor subclasses.
         foreach (var type in coreNamespace.GetTypeMembers())
         {
-            if (!IsEligible(type, componentType))
+            if (!IsEligibleClass(type, eventArgsType))
                 continue;
 
             var ctors = GetAccessibleConstructors(compilation, type);
@@ -78,13 +106,13 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             if (!emittedNames.Add(type.Name))
                 continue;
 
-            compatSubclasses.Add(type);
+            sets.Subclasses.Add(type);
             var source = GenerateSource(type, ctors);
             context.AddSource($"{type.Name}.g.cs", SourceText.From(source, Encoding.UTF8));
         }
 
-        // Pass 2: public enums -> identical copies, so pass 3 (and pass 1's own generated
-        // signatures) can reference an enum type that resolves under System.Windows.Forms.
+        // Pass 2: public enums -> identical copies, so pass 1's own generated signatures and pass 4
+        // can reference an enum type that resolves under System.Windows.Forms.
         foreach (var type in coreNamespace.GetTypeMembers())
         {
             if (type.TypeKind != TypeKind.Enum)
@@ -97,18 +125,104 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             if (!emittedNames.Add(type.Name))
                 continue;
 
-            compatEnums.Add(type);
+            sets.Enums.Add(type);
             var source = GenerateEnumSource(type);
             context.AddSource($"{type.Name}.Enum.g.cs", SourceText.From(source, Encoding.UTF8));
         }
 
-        // Pass 3: public static utility classes -> forwarding static classes.
+        // Pass 3: public interfaces -> empty sub-interfaces, usable as parameter types (see the
+        // class remarks and TypeTranslation.IsDowncastSafe for why not as return types).
+        foreach (var type in coreNamespace.GetTypeMembers())
+        {
+            if (type.TypeKind != TypeKind.Interface)
+                continue;
+            if (type.DeclaredAccessibility != Accessibility.Public)
+                continue;
+            if (type.IsGenericType)
+                continue;
+            if (type.ContainingType is not null)
+                continue;
+
+            if (!emittedNames.Add(type.Name))
+                continue;
+
+            sets.Interfaces.Add(type);
+            var source = GenerateInterfaceSource(type);
+            context.AddSource($"{type.Name}.Interface.g.cs", SourceText.From(source, Encoding.UTF8));
+        }
+
+        // Pass "event families": Control's own Paint/Mouse/Key event family, shadowed with compat
+        // EventArgs types so `protected override void OnPaint(PaintEventArgs e)` and
+        // `control.Paint += handler;` both bind under System.Windows.Forms. See DiscoverEventFamilies
+        // for why this is scoped to exactly what Control itself can reach, and BACKLOG.md for why the
+        // shadow has to be re-emitted per subclass rather than solved once.
+        var genericEventHandlerType = compilation.GetTypeByMetadataName("System.EventHandler`1");
+        if (genericEventHandlerType is not null && coreNamespace.GetTypeMembers("Control").FirstOrDefault() is { } controlType)
+        {
+            var families = DiscoverEventFamilies(controlType, eventArgsType, genericEventHandlerType)
+                .Where(f => FindReachableOverridableMethod(controlType, "On" + f.EventName, f.ArgsType) is not null)
+                .ToList();
+
+            var compatArgsTypes = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var argsType in families.Select(f => f.ArgsType).Distinct(SymbolEqualityComparer.Default).Cast<INamedTypeSymbol>())
+            {
+                if (!emittedNames.Add(argsType.Name))
+                    continue; // name collision; skip -- families using this args type fall out below too
+
+                compatArgsTypes.Add(argsType);
+                var source = GenerateEventArgsWrapperSource(argsType, eventArgsType, sets);
+                context.AddSource($"{argsType.Name}.EventArgs.g.cs", SourceText.From(source, Encoding.UTF8));
+            }
+
+            // Named custom delegates (PaintEventHandler, MouseEventHandler, ...) need a compat copy;
+            // a constructed `EventHandler<T>` doesn't -- the compat event just reuses the BCL generic
+            // delegate with the compat args type as its argument (see EventFamily.IsGenericEventHandler).
+            var compatDelegates = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var family in families)
+            {
+                if (family.IsGenericEventHandler)
+                    continue;
+                if (!compatArgsTypes.Contains(family.ArgsType))
+                    continue;
+                if (!compatDelegates.Add(family.DelegateType))
+                    continue;
+
+                var source = GenerateDelegateSource(family.DelegateType, family.ArgsType.Name);
+                context.AddSource($"{family.DelegateType.Name}.Delegate.g.cs", SourceText.From(source, Encoding.UTF8));
+            }
+
+            families = families
+                .Where(f => compatArgsTypes.Contains(f.ArgsType) && (f.IsGenericEventHandler || compatDelegates.Contains(f.DelegateType)))
+                .ToList();
+
+            foreach (var type in sets.Subclasses)
+            {
+                var blocks = new List<string>();
+                foreach (var family in families)
+                {
+                    if (FindReachableOverridableMethod(type, "On" + family.EventName, family.ArgsType) is null)
+                        continue;
+                    if (FindReachableEvent(type, family.EventName, family.DelegateType) is null)
+                        continue;
+
+                    blocks.Add(GenerateEventShadowBlock(family));
+                }
+
+                if (blocks.Count == 0)
+                    continue;
+
+                var source = GenerateEventShadowFileSource(type, blocks);
+                context.AddSource($"{type.Name}.Events.g.cs", SourceText.From(source, Encoding.UTF8));
+            }
+        }
+
+        // Pass 4: public static utility classes -> forwarding static classes.
         foreach (var type in coreNamespace.GetTypeMembers())
         {
             if (!IsEligibleStaticClass(type))
                 continue;
 
-            var memberBlocks = CollectStaticMemberBlocks(type, compatEnums, compatSubclasses);
+            var memberBlocks = CollectStaticMemberBlocks(type, sets);
             if (memberBlocks.Count == 0)
                 continue;
 
@@ -118,6 +232,15 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             var source = GenerateStaticWrapperSource(type, memberBlocks);
             context.AddSource($"{type.Name}.Static.g.cs", SourceText.From(source, Encoding.UTF8));
         }
+    }
+
+    /// <summary>The three kinds of compat counterpart a Majorsilence.Forms type can have, populated
+    /// by passes 1-3 and consulted by <see cref="TryTranslateType"/> during pass 4.</summary>
+    private sealed class CompatSets
+    {
+        public HashSet<INamedTypeSymbol> Subclasses { get; } = new(SymbolEqualityComparer.Default);
+        public HashSet<INamedTypeSymbol> Enums { get; } = new(SymbolEqualityComparer.Default);
+        public HashSet<INamedTypeSymbol> Interfaces { get; } = new(SymbolEqualityComparer.Default);
     }
 
     private static INamespaceSymbol? FindNamespace(INamespaceSymbol root, string dottedName)
@@ -133,7 +256,7 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         return current;
     }
 
-    private static bool IsEligible(INamedTypeSymbol type, INamedTypeSymbol componentType)
+    private static bool IsEligibleClass(INamedTypeSymbol type, INamedTypeSymbol eventArgsType)
     {
         if (type.DeclaredAccessibility != Accessibility.Public)
             return false;
@@ -145,12 +268,17 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             return false; // out of scope for this PoC
         if (type.ContainingType is not null)
             return false; // nested types out of scope for this PoC
-        if (SymbolEqualityComparer.Default.Equals(type, componentType))
-            return false; // Component itself is already the right namespace/type
+        if (DerivesFrom(type, eventArgsType))
+            return false; // see the class remarks: a subclass can't satisfy a delegate's base-typed parameter
 
+        return true;
+    }
+
+    private static bool DerivesFrom(INamedTypeSymbol type, INamedTypeSymbol candidateBase)
+    {
         for (var b = type.BaseType; b is not null; b = b.BaseType)
         {
-            if (SymbolEqualityComparer.Default.Equals(b, componentType))
+            if (SymbolEqualityComparer.Default.Equals(b, candidateBase))
                 return true;
         }
         return false;
@@ -192,8 +320,11 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         sb.AppendLine($"namespace {TargetNamespace}");
         sb.AppendLine("{");
 
+        // `partial` even though most of these have exactly one part: the event-shadowing pass
+        // (see DiscoverEventFamilies) adds a second part -- an On*/`new event` pair -- to any
+        // subclass whose original type reaches Control's Paint/Mouse/Key event family.
         var baseRef = "global::" + CoreNamespace + "." + type.Name;
-        var classKeyword = type.IsAbstract ? "abstract class" : "class";
+        var classKeyword = type.IsAbstract ? "abstract partial class" : "partial class";
         sb.AppendLine($"    public {classKeyword} {type.Name} : {baseRef}");
         sb.AppendLine("    {");
 
@@ -347,7 +478,31 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         return sb.ToString();
     }
 
-    // ── Static utility class forwarding (pass 3) ───────────────────────────────────────────
+    // ── Interface copies (pass 3) ───────────────────────────────────────────────────────────
+
+    private static string GenerateInterfaceSource(INamedTypeSymbol interfaceType)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- an empty interface that");
+        sb.AppendLine("// extends the Majorsilence.Forms interface of the same name, so it can be named,");
+        sb.AppendLine("// implemented, and passed as a parameter under `System.Windows.Forms`. Handing a");
+        sb.AppendLine("// value back OUT as this type is not supported: a framework-returned instance");
+        sb.AppendLine("// implements only the original interface, never this one. Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {TargetNamespace}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public interface {interfaceType.Name} : global::{CoreNamespace}.{interfaceType.Name}");
+        sb.AppendLine("    {");
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    // ── Static utility class forwarding (pass 4) ───────────────────────────────────────────
 
     private static bool IsEligibleStaticClass(INamedTypeSymbol type)
     {
@@ -375,18 +530,34 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
     /// </summary>
     private readonly struct TypeTranslation
     {
-        public TypeTranslation(string compatDisplay, string originalDisplay, bool needsCastToOriginal, bool needsCastToCompat)
+        public TypeTranslation(string compatDisplay, string originalDisplay, bool needsCastToOriginal, bool needsCastToCompat, bool isDowncastSafe = true)
         {
             CompatDisplay = compatDisplay;
             OriginalDisplay = originalDisplay;
             NeedsCastToOriginal = needsCastToOriginal;
             NeedsCastToCompat = needsCastToCompat;
+            IsDowncastSafe = isDowncastSafe;
         }
 
         public string CompatDisplay { get; }
         public string OriginalDisplay { get; }
         public bool NeedsCastToOriginal { get; }
+
+        /// <summary>Whether handing a value of this type back OUT as <see cref="CompatDisplay"/>
+        /// needs an explicit cast. True for enums (unrelated types, but same values by construction)
+        /// and Component-derived subclasses (a downcast, assumed safe because a consumer of this
+        /// package only ever constructs the compat subclass). False for interfaces -- see
+        /// <see cref="IsDowncastSafe"/>.</summary>
         public bool NeedsCastToCompat { get; }
+
+        /// <summary>
+        /// Whether <see cref="NeedsCastToCompat"/>, if true, is actually safe to emit. True for enums
+        /// and Component-derived subclasses. False for interfaces (pass 3): a compat interface is an
+        /// empty marker sub-interface, and a framework-returned instance was never constructed as
+        /// that marker, so a cast to it would fail at runtime for every real value -- callers must
+        /// reject the whole member rather than emit that cast.
+        /// </summary>
+        public bool IsDowncastSafe { get; }
     }
 
     private static readonly SymbolDisplayFormat DisplayFormatWithNullability = SymbolDisplayFormat.FullyQualifiedFormat
@@ -396,27 +567,27 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
     /// <summary>
     /// Decides whether <paramref name="type"/> can appear in a forwarding wrapper's own signature,
     /// and how to convert a value between that signature and the real Majorsilence.Forms member it
-    /// forwards to. Three cases translate; everything else is rejected so the caller can drop the
+    /// forwards to. Four cases translate; everything else is rejected so the caller can drop the
     /// whole member rather than emit something that doesn't compile or silently does the wrong thing:
     ///
     /// - A Majorsilence.Forms enum with a compat copy (pass 2) -- both directions need an explicit
     ///   cast (unrelated enum types with matching values by construction).
-    /// - A Majorsilence.Forms Component-derived type with a compat subclass (pass 1) -- passing the
-    ///   compat subclass to the original member is an implicit upcast (no cast needed); handing a
-    ///   value back out as the compat type is a downcast (needs a cast, and is only safe because a
-    ///   consumer of this package -- by construction -- constructs everything through the compat
-    ///   subclasses, never the plain Majorsilence.Forms base type directly).
+    /// - A Majorsilence.Forms interface with a compat sub-interface (pass 3) -- accepting one as a
+    ///   parameter is an implicit upcast (no cast needed); handing one back out as the compat type is
+    ///   rejected outright (<see cref="TypeTranslation.IsDowncastSafe"/> is false), since nothing the
+    ///   framework itself returns was ever constructed as that marker sub-interface.
+    /// - A Majorsilence.Forms class with a compat subclass (pass 1) -- passing the compat subclass to
+    ///   the original member is an implicit upcast (no cast needed); handing a value back out as the
+    ///   compat type is a downcast (needs a cast, and is tolerated -- unlike the interface case --
+    ///   because a consumer of this package, by construction, constructs everything through the
+    ///   compat subclasses, never the plain Majorsilence.Forms type directly).
     /// - Anything outside the Majorsilence.Forms namespace (BCL types, System.Drawing, ...) needs no
     ///   translation: it resolves identically regardless of which namespace the wrapper lives in.
     ///
     /// Arrays, and any other Majorsilence.Forms type without a compat counterpart above (a plain class
-    /// or interface such as <c>FormCollection</c> or <c>ApplicationContext</c>), are rejected.
+    /// or interface with no compat counterpart, e.g. <c>FormCollection</c>), are rejected.
     /// </summary>
-    private static bool TryTranslateType(
-        ITypeSymbol type,
-        HashSet<INamedTypeSymbol> compatEnums,
-        HashSet<INamedTypeSymbol> compatSubclasses,
-        out TypeTranslation result)
+    private static bool TryTranslateType(ITypeSymbol type, CompatSets sets, out TypeTranslation result)
     {
         if (type is IArrayTypeSymbol)
         {
@@ -428,9 +599,9 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         {
             var inner = nullableType.TypeArguments[0];
             if (inner is INamedTypeSymbol innerEnum && innerEnum.TypeKind == TypeKind.Enum
-                && IsMajorsilenceForms(innerEnum) && compatEnums.Contains(innerEnum))
+                && IsMajorsilenceForms(innerEnum) && sets.Enums.Contains(innerEnum))
             {
-                if (!TryTranslateType(inner, compatEnums, compatSubclasses, out var innerResult))
+                if (!TryTranslateType(inner, sets, out var innerResult))
                 {
                     result = default;
                     return false;
@@ -440,7 +611,8 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
                     innerResult.CompatDisplay + "?",
                     innerResult.OriginalDisplay + "?",
                     innerResult.NeedsCastToOriginal,
-                    innerResult.NeedsCastToCompat);
+                    innerResult.NeedsCastToCompat,
+                    innerResult.IsDowncastSafe);
                 return true;
             }
 
@@ -451,7 +623,7 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         }
 
         if (type.TypeKind == TypeKind.Enum && type is INamedTypeSymbol enumType
-            && IsMajorsilenceForms(enumType) && compatEnums.Contains(enumType))
+            && IsMajorsilenceForms(enumType) && sets.Enums.Contains(enumType))
         {
             result = new TypeTranslation(
                 "global::" + TargetNamespace + "." + enumType.Name,
@@ -461,7 +633,20 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             return true;
         }
 
-        if (type is INamedTypeSymbol classType && IsMajorsilenceForms(classType) && compatSubclasses.Contains(classType))
+        if (type.TypeKind == TypeKind.Interface && type is INamedTypeSymbol interfaceType
+            && IsMajorsilenceForms(interfaceType) && sets.Interfaces.Contains(interfaceType))
+        {
+            var suffix = type.NullableAnnotation == NullableAnnotation.Annotated ? "?" : "";
+            result = new TypeTranslation(
+                "global::" + TargetNamespace + "." + interfaceType.Name + suffix,
+                "global::" + CoreNamespace + "." + interfaceType.Name + suffix,
+                needsCastToOriginal: false,
+                needsCastToCompat: true,
+                isDowncastSafe: false);
+            return true;
+        }
+
+        if (type is INamedTypeSymbol classType && IsMajorsilenceForms(classType) && sets.Subclasses.Contains(classType))
         {
             var suffix = type.NullableAnnotation == NullableAnnotation.Annotated ? "?" : "";
             result = new TypeTranslation(
@@ -475,8 +660,9 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         if (IsMajorsilenceForms(type))
         {
             // Some other Majorsilence.Forms type this generator has no compat counterpart for -- a
-            // plain class, interface, struct or delegate (FormCollection, ApplicationContext,
-            // IMessageFilter, ...). Reject rather than guess; the caller drops the member.
+            // plain class/interface with no compat counterpart, a struct, or a delegate
+            // (FormCollection has no accessible constructor for pass 1 to subclass, for instance).
+            // Reject rather than guess; the caller drops the member.
             result = default;
             return false;
         }
@@ -486,10 +672,7 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         return true;
     }
 
-    private static List<string> CollectStaticMemberBlocks(
-        INamedTypeSymbol type,
-        HashSet<INamedTypeSymbol> compatEnums,
-        HashSet<INamedTypeSymbol> compatSubclasses)
+    private static List<string> CollectStaticMemberBlocks(INamedTypeSymbol type, CompatSets sets)
     {
         var blocks = new List<string>();
 
@@ -497,10 +680,10 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         {
             string? block = member switch
             {
-                IMethodSymbol method => TryFormatMethod(method, compatEnums, compatSubclasses),
-                IPropertySymbol property => TryFormatProperty(property, compatEnums, compatSubclasses),
-                IFieldSymbol field => TryFormatField(field, compatEnums, compatSubclasses),
-                IEventSymbol ev => TryFormatEvent(ev, compatEnums, compatSubclasses),
+                IMethodSymbol method => TryFormatMethod(method, sets),
+                IPropertySymbol property => TryFormatProperty(property, sets),
+                IFieldSymbol field => TryFormatField(field, sets),
+                IEventSymbol ev => TryFormatEvent(ev, sets),
                 _ => null,
             };
 
@@ -514,8 +697,7 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
     private static bool TryBuildForwardedParameters(
         System.Collections.Immutable.ImmutableArray<IParameterSymbol> parameters,
         bool isExtensionMethod,
-        HashSet<INamedTypeSymbol> compatEnums,
-        HashSet<INamedTypeSymbol> compatSubclasses,
+        CompatSets sets,
         out string parameterList,
         out string argumentList)
     {
@@ -524,8 +706,10 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
 
         // Extension methods need `this` preserved on the first parameter to keep working as
         // extension methods; skipped for now rather than handled, since every extension-method
-        // candidate seen so far extends a Majorsilence-only interface (IDataObject) that itself
-        // has no compat counterpart, making this moot in practice.
+        // candidate seen so far extends IDataObject, and an interface's own extension methods gain
+        // nothing from pass 3's marker sub-interface -- the receiver is still a parameter, but the
+        // whole point of an extension method is being callable on an *existing* value, which here
+        // would always be a plain IDataObject instance, never the marker subtype.
         if (isExtensionMethod)
             return false;
 
@@ -539,7 +723,7 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             var p = parameters[i];
             if (p.RefKind != RefKind.None)
                 return false;
-            if (!TryTranslateType(p.Type, compatEnums, compatSubclasses, out var t))
+            if (!TryTranslateType(p.Type, sets, out var t))
                 return false;
 
             if (p.HasExplicitDefaultValue)
@@ -569,10 +753,7 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         return true;
     }
 
-    private static string? TryFormatMethod(
-        IMethodSymbol method,
-        HashSet<INamedTypeSymbol> compatEnums,
-        HashSet<INamedTypeSymbol> compatSubclasses)
+    private static string? TryFormatMethod(IMethodSymbol method, CompatSets sets)
     {
         if (method.MethodKind != MethodKind.Ordinary)
             return null;
@@ -583,7 +764,7 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         if (method.IsGenericMethod)
             return null;
 
-        if (!TryBuildForwardedParameters(method.Parameters, method.IsExtensionMethod, compatEnums, compatSubclasses,
+        if (!TryBuildForwardedParameters(method.Parameters, method.IsExtensionMethod, sets,
                 out var parameterList, out var argumentList))
             return null;
 
@@ -593,17 +774,16 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         if (method.ReturnsVoid)
             return $"        public static void {method.Name} ({parameterList}) => {call};\n";
 
-        if (!TryTranslateType(method.ReturnType, compatEnums, compatSubclasses, out var returnType))
+        if (!TryTranslateType(method.ReturnType, sets, out var returnType))
             return null;
+        if (returnType.NeedsCastToCompat && !returnType.IsDowncastSafe)
+            return null; // e.g. a method returning a Majorsilence.Forms interface -- see IsDowncastSafe
 
         var body = returnType.NeedsCastToCompat ? $"({returnType.CompatDisplay})({call})" : call;
         return $"        public static {returnType.CompatDisplay} {method.Name} ({parameterList}) => {body};\n";
     }
 
-    private static string? TryFormatProperty(
-        IPropertySymbol property,
-        HashSet<INamedTypeSymbol> compatEnums,
-        HashSet<INamedTypeSymbol> compatSubclasses)
+    private static string? TryFormatProperty(IPropertySymbol property, CompatSets sets)
     {
         if (property.DeclaredAccessibility != Accessibility.Public)
             return null;
@@ -617,8 +797,10 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         if (!canGet && !canSet)
             return null;
 
-        if (!TryTranslateType(property.Type, compatEnums, compatSubclasses, out var t))
+        if (!TryTranslateType(property.Type, sets, out var t))
             return null;
+        if (canGet && t.NeedsCastToCompat && !t.IsDowncastSafe)
+            return null; // e.g. a property of a Majorsilence.Forms interface type -- see IsDowncastSafe
 
         var owner = "global::" + CoreNamespace + "." + property.ContainingType.Name + "." + property.Name;
 
@@ -645,18 +827,17 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         return sb.ToString();
     }
 
-    private static string? TryFormatField(
-        IFieldSymbol field,
-        HashSet<INamedTypeSymbol> compatEnums,
-        HashSet<INamedTypeSymbol> compatSubclasses)
+    private static string? TryFormatField(IFieldSymbol field, CompatSets sets)
     {
         if (field.DeclaredAccessibility != Accessibility.Public)
             return null;
         if (!field.IsStatic)
             return null;
 
-        if (!TryTranslateType(field.Type, compatEnums, compatSubclasses, out var t))
+        if (!TryTranslateType(field.Type, sets, out var t))
             return null;
+        if (t.NeedsCastToCompat && !t.IsDowncastSafe)
+            return null; // e.g. a field of a Majorsilence.Forms interface type -- see IsDowncastSafe
 
         var owner = "global::" + CoreNamespace + "." + field.ContainingType.Name + "." + field.Name;
         var getExpr = t.NeedsCastToCompat ? $"({t.CompatDisplay})({owner})" : owner;
@@ -674,17 +855,14 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         return sb.ToString();
     }
 
-    private static string? TryFormatEvent(
-        IEventSymbol ev,
-        HashSet<INamedTypeSymbol> compatEnums,
-        HashSet<INamedTypeSymbol> compatSubclasses)
+    private static string? TryFormatEvent(IEventSymbol ev, CompatSets sets)
     {
         if (ev.DeclaredAccessibility != Accessibility.Public)
             return null;
         if (!ev.IsStatic)
             return null;
 
-        if (!TryTranslateType(ev.Type, compatEnums, compatSubclasses, out var t))
+        if (!TryTranslateType(ev.Type, sets, out var t))
             return null;
         // Only a passthrough delegate type (EventHandler, EventHandler<T> of a BCL T, ...) is
         // supported: an event whose delegate itself needed translation would need a wrapper
@@ -718,6 +896,259 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         sb.AppendLine($"    public static class {type.Name}");
         sb.AppendLine("    {");
         foreach (var block in memberBlocks)
+            sb.Append(block);
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    // ── Event shadowing (Control's Paint/Mouse/Key family) ─────────────────────────────────
+
+    /// <summary>An event declared on <c>Control</c> whose delegate's second parameter is a
+    /// Majorsilence-specific <see cref="System.EventArgs"/> subclass -- the shape that needs a compat
+    /// EventArgs wrapper and delegate copy, plus a per-subclass override/shadow pair, to become usable
+    /// under <c>System.Windows.Forms</c> (see the class remarks on why plain <c>EventHandler</c>
+    /// events like <c>Click</c> need none of this).</summary>
+    private readonly struct EventFamily
+    {
+        public EventFamily(string eventName, INamedTypeSymbol delegateType, INamedTypeSymbol argsType, bool isGenericEventHandler)
+        {
+            EventName = eventName;
+            DelegateType = delegateType;
+            ArgsType = argsType;
+            IsGenericEventHandler = isGenericEventHandler;
+        }
+
+        public string EventName { get; }
+        public INamedTypeSymbol DelegateType { get; }
+        public INamedTypeSymbol ArgsType { get; }
+
+        /// <summary>
+        /// True when <see cref="DelegateType"/> is a constructed <c>System.EventHandler&lt;T&gt;</c>
+        /// (e.g. <c>EventHandler&lt;LongPressEventArgs&gt;</c>) rather than a named custom delegate
+        /// (e.g. <c>PaintEventHandler</c>). Constructed generics share the short name "EventHandler"
+        /// regardless of their type argument, so they can't be told apart by <c>DelegateType.Name</c>
+        /// the way named delegates can -- and don't need a compat copy at all, since the compat event
+        /// can just reuse the BCL <c>EventHandler&lt;T&gt;</c> instantiated with the compat args type.
+        /// </summary>
+        public bool IsGenericEventHandler { get; }
+    }
+
+    private static List<EventFamily> DiscoverEventFamilies(INamedTypeSymbol controlType, INamedTypeSymbol eventArgsType, INamedTypeSymbol genericEventHandlerType)
+    {
+        var result = new List<EventFamily>();
+        foreach (var ev in controlType.GetMembers().OfType<IEventSymbol>())
+        {
+            if (ev.DeclaredAccessibility != Accessibility.Public)
+                continue;
+            if (ev.IsStatic)
+                continue;
+            if (ev.Type is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
+                continue;
+
+            var invoke = delegateType.DelegateInvokeMethod;
+            if (invoke is null || invoke.Parameters.Length != 2)
+                continue;
+            if (invoke.Parameters[1].Type is not INamedTypeSymbol argsType)
+                continue;
+            if (argsType.TypeKind != TypeKind.Class)
+                continue;
+            if (!IsMajorsilenceForms(argsType))
+                continue;
+            if (!DerivesFrom(argsType, eventArgsType))
+                continue;
+
+            var isGenericEventHandler = delegateType.IsGenericType
+                && SymbolEqualityComparer.Default.Equals(delegateType.OriginalDefinition, genericEventHandlerType);
+            result.Add(new EventFamily(ev.Name, delegateType, argsType, isGenericEventHandler));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Finds the closest (most-derived) accessible, overridable method named <paramref name="name"/>
+    /// with exactly one parameter of type <paramref name="paramType"/>, walking from
+    /// <paramref name="type"/> up through its Majorsilence.Forms base chain. Returns null if none is
+    /// reachable, or if the closest one found is sealed -- either way, the caller can't safely
+    /// generate an override, so it skips this family for this type entirely.
+    /// </summary>
+    private static IMethodSymbol? FindReachableOverridableMethod(INamedTypeSymbol type, string name, INamedTypeSymbol paramType)
+    {
+        for (var t = type; t is not null; t = t.BaseType)
+        {
+            foreach (var m in t.GetMembers(name).OfType<IMethodSymbol>())
+            {
+                if (m.Parameters.Length != 1)
+                    continue;
+                if (!SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, paramType))
+                    continue;
+                if (m.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal))
+                    return null;
+                if (!(m.IsVirtual || m.IsOverride) || m.IsSealed)
+                    return null;
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Same idea as <see cref="FindReachableOverridableMethod"/>, for the event half of the
+    /// pair: the closest event named <paramref name="name"/> must be public, non-static, and typed to
+    /// exactly <paramref name="delegateType"/> (not some other type that happens to share the name).</summary>
+    private static IEventSymbol? FindReachableEvent(INamedTypeSymbol type, string name, INamedTypeSymbol delegateType)
+    {
+        for (var t = type; t is not null; t = t.BaseType)
+        {
+            foreach (var e in t.GetMembers(name).OfType<IEventSymbol>())
+            {
+                if (e.IsStatic)
+                    return null;
+                if (!SymbolEqualityComparer.Default.Equals(e.Type, delegateType))
+                    return null;
+                if (e.DeclaredAccessibility != Accessibility.Public)
+                    return null;
+                return e;
+            }
+        }
+        return null;
+    }
+
+    private static string GenerateEventArgsWrapperSource(INamedTypeSymbol argsType, INamedTypeSymbol eventArgsType, CompatSets sets)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- wraps the real Majorsilence.Forms");
+        sb.AppendLine("// event-args instance and forwards every translatable public instance property to it, so");
+        sb.AppendLine("// handlers under `System.Windows.Forms` can read (and, where settable, write) the same");
+        sb.AppendLine("// data. Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {TargetNamespace}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public class {argsType.Name} : global::System.EventArgs");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        internal {argsType.Name} (global::{CoreNamespace}.{argsType.Name} inner) => Inner = inner;");
+        sb.AppendLine($"        internal global::{CoreNamespace}.{argsType.Name} Inner {{ get; }}");
+        sb.AppendLine();
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (var t = argsType; t is not null && !SymbolEqualityComparer.Default.Equals(t, eventArgsType); t = t.BaseType)
+        {
+            foreach (var prop in t.GetMembers().OfType<IPropertySymbol>())
+            {
+                if (!seen.Add(prop.Name))
+                    continue; // a more-derived declaration of the same name already won
+                if (prop.DeclaredAccessibility != Accessibility.Public)
+                    continue;
+                if (prop.IsStatic || prop.IsIndexer)
+                    continue;
+
+                var canGet = prop.GetMethod is { DeclaredAccessibility: Accessibility.Public };
+                var canSet = prop.SetMethod is { DeclaredAccessibility: Accessibility.Public, IsInitOnly: false };
+                if (!canGet && !canSet)
+                    continue;
+
+                if (!TryTranslateType(prop.Type, sets, out var pt))
+                    continue;
+                if (canGet && pt.NeedsCastToCompat && !pt.IsDowncastSafe)
+                    continue; // e.g. DragEventArgs.Data (IDataObject) -- see TypeTranslation.IsDowncastSafe
+
+                var owner = "Inner." + prop.Name;
+                if (canGet && !canSet)
+                {
+                    var getExpr = pt.NeedsCastToCompat ? $"({pt.CompatDisplay})({owner})" : owner;
+                    sb.AppendLine($"        public {pt.CompatDisplay} {prop.Name} => {getExpr};");
+                    continue;
+                }
+
+                sb.AppendLine($"        public {pt.CompatDisplay} {prop.Name}");
+                sb.AppendLine("        {");
+                if (canGet)
+                {
+                    var getExpr = pt.NeedsCastToCompat ? $"({pt.CompatDisplay})({owner})" : owner;
+                    sb.AppendLine($"            get => {getExpr};");
+                }
+                if (canSet)
+                {
+                    var setExpr = pt.NeedsCastToOriginal ? $"({pt.OriginalDisplay})value" : "value";
+                    sb.AppendLine($"            set => {owner} = {setExpr};");
+                }
+                sb.AppendLine("        }");
+            }
+        }
+
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    private static string GenerateDelegateSource(INamedTypeSymbol delegateType, string compatArgsName)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- a delegate copy typed to the");
+        sb.AppendLine("// compat EventArgs wrapper above, since the original delegate is typed to the real");
+        sb.AppendLine("// Majorsilence.Forms one. Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {TargetNamespace}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public delegate void {delegateType.Name} (object? sender, {compatArgsName} e);");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// The per-subclass shadow for one event family: override the original virtual On* method,
+    /// translate, dispatch to a new compat-typed virtual hook of the same name (so a further-derived
+    /// class can override *that* instead), and shadow the public event with one of the compat delegate
+    /// type. The new virtual hook -- not the override -- raises the shadowed event, matching real
+    /// WinForms: a subclass that overrides the hook without calling base suppresses the event, exactly
+    /// as overriding upstream's OnPaint without calling base.OnPaint does.
+    /// </summary>
+    private static string GenerateEventShadowBlock(EventFamily family)
+    {
+        var argsCompat = "global::" + TargetNamespace + "." + family.ArgsType.Name;
+        var argsOriginal = "global::" + CoreNamespace + "." + family.ArgsType.Name;
+        var delegateCompat = family.IsGenericEventHandler
+            ? $"global::System.EventHandler<{argsCompat}>"
+            : "global::" + TargetNamespace + "." + family.DelegateType.Name;
+        var onName = "On" + family.EventName;
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"        protected override void {onName} ({argsOriginal} e)");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            {onName} (new {argsCompat} (e));");
+        sb.AppendLine($"            base.{onName} (e);");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine($"        protected virtual void {onName} ({argsCompat} e) => {family.EventName}?.Invoke (this, e);");
+        sb.AppendLine();
+        sb.AppendLine($"        public new event {delegateCompat}? {family.EventName};");
+        sb.AppendLine();
+        return sb.ToString();
+    }
+
+    private static string GenerateEventShadowFileSource(INamedTypeSymbol type, List<string> blocks)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- the second part of this type's");
+        sb.AppendLine("// partial subclass (see the other generated file for its constructors): shadows Control's");
+        sb.AppendLine("// Paint/Mouse/Key event family with compat EventArgs types. Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {TargetNamespace}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public partial class {type.Name}");
+        sb.AppendLine("    {");
+        foreach (var block in blocks)
             sb.Append(block);
         sb.AppendLine("    }");
         sb.AppendLine("}");
