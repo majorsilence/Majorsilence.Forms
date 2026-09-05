@@ -324,12 +324,44 @@ future mapping:
    `null` while leaving genuinely-safe cases (`Application.MainForm`, where the instance really is
    what the caller constructed) working as before.
 
-See `RESULTS.md`'s matching entry for the concrete counts and code. Still out of scope, and now
-confirmed empirically rather than theoretical: Drawing's **sealed** leaf types (`Font`, `SolidBrush`,
-`Graphics` itself) -- pass 1 excludes sealed types by the same rule it always has, but it costs far
-more here, since real drawing code needs exactly these constantly. A real fix needs a wrapper
-mechanism, the way the event-shadowing pass wraps `EventArgs` instances rather than subclassing them,
-not attempted yet.
+See `RESULTS.md`'s matching entry for the concrete counts and code. At the time, Drawing's **sealed**
+leaf types (`Font`, `SolidBrush`, `Graphics` itself) were still out of scope, confirmed empirically
+rather than theoretical -- pass 1 excludes sealed types by the same rule it always has, but it cost far
+more here, since real drawing code needs exactly these constantly. **Resolved the same day**, see the
+next entry below.
+
+## WinFormsShims.Compat: pass 1b wraps sealed leaf types (2026-09-05)
+
+The gap immediately above is closed with a wrapper mechanism, generalizing the event-shadowing pass's
+`EventArgs` wrappers with one addition: implicit conversion operators in both directions. A new pass
+1b targets exactly pass 1's complement -- public, non-generic, *sealed* classes with an accessible
+constructor -- and wraps 14 Drawing types (`Font`, `SolidBrush`, `Pen`, `Bitmap`, `FontFamily`, ...)
+and, as a bonus nobody specifically asked for, 9 WinForms-mapping ones the generator had no previous
+way to reach either (`ComputerInfo`, `GridItemCollection`, `ImageListStreamer`, ...). Each wrapper
+forwards constructors, methods, AND properties (instance and static both) to the real instance it
+holds, then declares `public static implicit operator` both ways -- which is what lets
+`TryTranslateType` treat a wrapped type exactly like passthrough (no cast text emitted anywhere): a
+compat instance passed to a still-Majorsilence-typed API, or an original instance hand back out as
+the compat type, both just compile, the same as any user-defined implicit conversion.
+
+`Graphics` itself still gets neither a subclass nor a wrapper, correctly: every one of its
+constructors is `internal`/`private`, matching real `System.Drawing.Graphics` (nobody constructs one
+directly there either). Pass 1b's own eligibility check treats "no accessible constructor" as
+disqualifying, the same as pass 1's, rather than guessing at a public shape that isn't there.
+
+**A real ordering bug surfaced and got fixed before this was trustworthy:** the first version placed
+pass 1b immediately after pass 1 (per mapping), so a wrapped type's own constructor could only see
+pass 1's subclass set -- not pass 2's enums or pass 3's interfaces, which hadn't run yet for that
+mapping. `Font`'s constructor takes `FontStyle`/`GraphicsUnit` (both pass-2 enums); with the bug, it
+silently fell back to the untranslated Majorsilence type instead of failing loudly, which would have
+shipped with the wrapper's own public constructor signature leaking internal types. Fixed by moving
+pass 1b to run only after passes 1-3 have completed for *every* mapping (matching how pass 4 already
+works), with eligibility collected for all mappings before any wrapper body is generated.
+
+See `RESULTS.md`'s matching entry for the full writeup. Still out of scope: a wrapper's
+`Equals`/`GetHashCode`/`ToString`, if the original overrides them, forward as ordinary (non-`override`)
+methods that hide `object`'s -- correct for direct calls, not through a boxed/`object`-typed
+reference.
 
 **Deliberately still out of scope:** any event family not declared directly on `Control` --
 `TreeView.AfterSelect`, `DataGridView`'s editing events, `ListView`'s selection events, and similar

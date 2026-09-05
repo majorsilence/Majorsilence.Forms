@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.WinFormsShims.Compat;
 /// WinForms surface) and <c>Majorsilence.Forms.Drawing</c> -&gt; <c>System.Drawing</c> (the GDI+-shaped
 /// drawing types real WinForms code also expects -- <c>Font</c>, <c>Brush</c>, the
 /// <c>Graphics.DrawString</c> overloads <c>PaintEventArgs.Graphics</c> returns, ...). Each mapping runs
-/// the same five independent passes over its own source namespace's public members:
+/// the same six independent passes over its own source namespace's public members:
 ///
 /// 1. Every public, non-sealed, non-generic class that does NOT derive from <see cref="System.EventArgs"/>
 ///    and exposes at least one accessible constructor gets a same-named subclass with forwarding
@@ -21,9 +21,22 @@ namespace Majorsilence.Forms.WinFormsShims.Compat;
 ///    treatment -- a plain compat subclass wouldn't let a handler bind to the original event anyway
 ///    (C#'s method-group contravariance requires the handler's parameter to be the delegate's
 ///    declared type or a BASE of it, never a more-derived subclass).
-/// 2. Every public, non-nested enum gets a same-named, same-valued copy -- needed because #1/#3/#4/#5's
-///    forwarders surface Majorsilence-specific enums such as <c>DialogResult</c> or
-///    <c>MessageBoxButtons</c> in their own public signatures, and code that only imports the target
+/// 1b. Every public, non-generic SEALED class with an accessible constructor -- exactly what pass 1
+///    always excludes, which for the Drawing mapping is the leaf types real drawing code needs most
+///    (<c>Font</c>, <c>SolidBrush</c>, <c>Pen</c>, <c>Bitmap</c>, ...) -- gets a wrapper class instead
+///    of a subclass (<see cref="GenerateWrapperSource"/>): it holds the real instance, forwards every
+///    translatable constructor/method/property (instance AND static) to it, and declares an implicit
+///    conversion operator in each direction. That conversion is what makes <see cref="TryTranslateType"/>
+///    able to treat a wrapped type exactly like passthrough (no cast text emitted anywhere) even
+///    though the wrapper and the original are otherwise unrelated types -- passing a compat instance
+///    to a still-Majorsilence-typed API, or getting an original instance back as the compat type, both
+///    just compile, the same as any user-defined implicit conversion. Types with no accessible
+///    constructor at all (<c>Graphics</c> itself -- real <c>System.Drawing.Graphics</c> has none
+///    either) get neither a subclass nor a wrapper; they're exposed as the plain Majorsilence type,
+///    same as before pass 1b existed.
+/// 2. Every public, non-nested enum gets a same-named, same-valued copy -- needed because #1/#1b/#3/
+///    #4/#5's forwarders surface Majorsilence-specific enums such as <c>DialogResult</c> or
+///    <c>FontStyle</c> in their own public signatures, and code that only imports the target
 ///    namespace has no other way to name them.
 /// 3. Every public, non-generic interface gets a same-named, empty sub-interface (<c>IMessageFilter</c>,
 ///    <c>IWin32Window</c>, <c>IDataObject</c>, ...), so it can be named and implemented under the
@@ -32,8 +45,8 @@ namespace Majorsilence.Forms.WinFormsShims.Compat;
 ///    <see cref="TryTranslateType"/> refuses to hand one back out as the compat type (see
 ///    <see cref="TypeTranslation.IsDowncastSafe"/>).
 /// 4. Every public static, non-generic class -- <c>Application</c>, <c>MessageBox</c>,
-///    <c>Clipboard</c>, <c>SystemInformation</c>, ... -- gets a same-named static class that
-///    forwards each member whose signature is fully translatable (see <see cref="TryTranslateType"/>,
+///    <c>Clipboard</c>, <c>SystemInformation</c>, <c>Brushes</c>, ... -- gets a same-named static class
+///    that forwards each member whose signature is fully translatable (see <see cref="TryTranslateType"/>,
 ///    which consults every mapping, not just the one currently being processed -- this is how e.g. a
 ///    <c>System.Windows.Forms</c> member returning a Drawing type gets that type translated too) into
 ///    the real Majorsilence.Forms one. A member with any untranslatable type in its signature is
@@ -214,6 +227,51 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             }
         }
 
+        // Pass 1b: sealed leaf classes -> wrapper classes, for every mapping. Runs only after passes
+        // 1-3 have completed for ALL mappings (not folded into the loop above), because a wrapped
+        // type's forwarding constructor needs the enum/interface sets fully populated to translate its
+        // own parameters correctly -- Font's constructor takes a FontStyle/GraphicsUnit (pass 2) and a
+        // FontFamily (itself pass 1b), and needs both resolved regardless of processing order.
+        //
+        // Pass 1 always excludes sealed types (nothing new -- it always has, for Component-derived
+        // types too), but for Majorsilence.Forms.Drawing that excludes exactly the types real drawing
+        // code needs most (Font, SolidBrush, ...). A wrapper holding the real instance, with
+        // forwarding constructors/members and an implicit conversion in each direction, gets there a
+        // different way: passing a compat instance anywhere the original is expected (and handing an
+        // original back out as the compat type) just works via the conversion operators, with no cast
+        // anywhere in the rest of this generator's own codegen -- see the class remarks on
+        // GenerateWrapperSource. Eligibility across all mappings is collected before any body is
+        // generated, for the same one-wrapped-type-references-another reason.
+        var wrapperCandidatesByMapping = new Dictionary<NamespaceMapping, List<(INamedTypeSymbol Type, List<IMethodSymbol> Ctors)>>();
+        foreach (var mapping in mappings)
+        {
+            var wrapperCandidates = new List<(INamedTypeSymbol Type, List<IMethodSymbol> Ctors)>();
+            foreach (var type in typeMembersByMapping[mapping])
+            {
+                if (!IsEligibleSealedLeaf(type, eventArgsType))
+                    continue;
+
+                var ctors = GetAccessibleConstructors(compilation, type);
+                if (ctors.Count == 0)
+                    continue;
+
+                if (!mapping.EmittedNames.Add(type.Name))
+                    continue;
+
+                mapping.Sets.Wrappers.Add(type);
+                wrapperCandidates.Add((type, ctors));
+            }
+            wrapperCandidatesByMapping[mapping] = wrapperCandidates;
+        }
+        foreach (var mapping in mappings)
+        {
+            foreach (var (type, ctors) in wrapperCandidatesByMapping[mapping])
+            {
+                var source = GenerateWrapperSource(type, ctors, mapping, mappings);
+                context.AddSource(HintName(mapping, type.Name, "Wrapper.g"), SourceText.From(source, Encoding.UTF8));
+            }
+        }
+
         // Pass "event families" -- WinForms mapping only; Control has no Drawing-mapping analog. See
         // DiscoverEventFamilies for why this is scoped to exactly what Control itself can reach, and
         // BACKLOG.md for why the shadow has to be re-emitted per subclass rather than solved once.
@@ -310,6 +368,10 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         public HashSet<INamedTypeSymbol> Subclasses { get; } = new(SymbolEqualityComparer.Default);
         public HashSet<INamedTypeSymbol> Enums { get; } = new(SymbolEqualityComparer.Default);
         public HashSet<INamedTypeSymbol> Interfaces { get; } = new(SymbolEqualityComparer.Default);
+
+        /// <summary>Sealed leaf classes (pass 1b) with a wrapper instead of a subclass -- see
+        /// GenerateWrapperSource.</summary>
+        public HashSet<INamedTypeSymbol> Wrappers { get; } = new(SymbolEqualityComparer.Default);
     }
 
     // Hint names are prefixed with the target namespace so two mappings can never collide even if
@@ -345,6 +407,27 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             return false; // nested types out of scope for this PoC
         if (DerivesFrom(type, eventArgsType))
             return false; // see the class remarks: a subclass can't satisfy a delegate's base-typed parameter
+
+        return true;
+    }
+
+    /// <summary>The complement of <see cref="IsEligibleClass"/>'s sealed check: a public, non-generic,
+    /// non-nested sealed class (GDI+'s traditional shape -- <c>Font</c>, <c>SolidBrush</c>,
+    /// <c>Graphics</c> itself, ...) that pass 1 can never subclass, so pass 1b wraps it instead.</summary>
+    private static bool IsEligibleSealedLeaf(INamedTypeSymbol type, INamedTypeSymbol eventArgsType)
+    {
+        if (type.DeclaredAccessibility != Accessibility.Public)
+            return false;
+        if (type.TypeKind != TypeKind.Class)
+            return false;
+        if (!type.IsSealed || type.IsStatic)
+            return false;
+        if (type.IsGenericType)
+            return false;
+        if (type.ContainingType is not null)
+            return false;
+        if (DerivesFrom(type, eventArgsType))
+            return false; // keep EventArgs-shaped sealed leaves out of this too -- consistent with pass 1
 
         return true;
     }
@@ -511,6 +594,151 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         '\t' => "\\t",
         _ => c.ToString(),
     };
+
+    // ── Sealed leaf class wrappers (pass 1b) ───────────────────────────────────────────────
+
+    /// <summary>
+    /// A wrapper class for a sealed leaf type: holds the real instance (<c>Inner</c>), forwards every
+    /// translatable constructor/method/property (instance AND static -- <c>Brushes.Black</c>-style
+    /// framework classes exist for these types too) to it, and declares an implicit conversion
+    /// operator in each direction so the wrapper and the original interoperate with no cast anywhere:
+    /// passing a compat instance to a still-untranslated method that expects the original type just
+    /// works, and getting an original instance back from one is automatically wrapped. This is what
+    /// lets <see cref="TryTranslateType"/> treat a wrapped type's forwarding exactly like plain
+    /// passthrough (no cast text emitted at all) even though the two types are unrelated at the type
+    /// level -- the conversion operators do the real work, invisibly, wherever the language would
+    /// already insert an implicit conversion (argument passing, assignment, a return statement).
+    /// </summary>
+    private static string GenerateWrapperSource(INamedTypeSymbol type, List<IMethodSymbol> ctors, NamespaceMapping mapping, IReadOnlyList<NamespaceMapping> mappings)
+    {
+        var originalRef = "global::" + mapping.SourceNamespace + "." + type.Name;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- wraps the real, sealed");
+        sb.AppendLine("// Majorsilence.Forms leaf type (pass 1's subclass mechanism always excludes sealed types)");
+        sb.AppendLine("// and forwards every translatable member to it, with an implicit conversion in each");
+        sb.AppendLine("// direction so a compat instance interoperates with the original with no cast needed");
+        sb.AppendLine("// anywhere. Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {mapping.TargetNamespace}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public sealed class {type.Name}");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        internal {originalRef} Inner {{ get; }}");
+        sb.AppendLine($"        internal {type.Name} ({originalRef} inner) => Inner = inner;");
+        sb.AppendLine();
+
+        foreach (var ctor in ctors)
+        {
+            if (!TryBuildForwardedParameters(ctor.Parameters, isExtensionMethod: false, mappings, out var parameterList, out var argumentList))
+                continue;
+
+            var accessibility = AccessibilityKeyword(ctor.DeclaredAccessibility);
+            sb.AppendLine($"        {accessibility} {type.Name} ({parameterList}) : this (new {originalRef} ({argumentList})) {{ }}");
+        }
+        sb.AppendLine();
+
+        foreach (var member in type.GetMembers())
+        {
+            string? block = member switch
+            {
+                IMethodSymbol method => TryFormatWrapperMethod(method, mapping, mappings),
+                IPropertySymbol property => TryFormatWrapperProperty(property, mapping, mappings),
+                _ => null,
+            };
+
+            if (block is not null)
+                sb.Append(block);
+        }
+
+        sb.AppendLine($"        public static implicit operator {originalRef}? ({type.Name}? compat) => compat?.Inner;");
+        sb.AppendLine($"        public static implicit operator {type.Name}? ({originalRef}? original) => original is null ? null : new {type.Name} (original);");
+
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>Like <see cref="TryFormatMethod"/>, but for a wrapper's own member (pass 1b): a
+    /// static member forwards to the original type the same way pass 4's static classes do, while an
+    /// instance member forwards to <c>Inner</c> instead.</summary>
+    private static string? TryFormatWrapperMethod(IMethodSymbol method, NamespaceMapping ownerMapping, IReadOnlyList<NamespaceMapping> mappings)
+    {
+        if (method.MethodKind != MethodKind.Ordinary)
+            return null;
+        if (method.DeclaredAccessibility != Accessibility.Public)
+            return null;
+        if (method.IsGenericMethod)
+            return null;
+
+        if (!TryBuildForwardedParameters(method.Parameters, method.IsExtensionMethod, mappings, out var parameterList, out var argumentList))
+            return null;
+
+        var staticKeyword = method.IsStatic ? "static " : "";
+        var owner = method.IsStatic ? "global::" + ownerMapping.SourceNamespace + "." + method.ContainingType.Name : "Inner";
+        var call = $"{owner}.{method.Name} ({argumentList})";
+
+        if (method.ReturnsVoid)
+            return $"        public {staticKeyword}void {method.Name} ({parameterList}) => {call};\n";
+
+        if (!TryTranslateType(method.ReturnType, mappings, out var returnType))
+            return null;
+        if (returnType.NeedsCastToCompat && !returnType.IsDowncastSafe)
+            return null;
+
+        var body = returnType.NeedsCastToCompat ? BuildDowncastExpression(returnType, call) : call;
+        return $"        public {staticKeyword}{returnType.CompatDisplay} {method.Name} ({parameterList}) => {body};\n";
+    }
+
+    /// <summary>Like <see cref="TryFormatProperty"/>, but for a wrapper's own member (pass 1b) --
+    /// see <see cref="TryFormatWrapperMethod"/> for the instance-vs-static owner distinction.</summary>
+    private static string? TryFormatWrapperProperty(IPropertySymbol property, NamespaceMapping ownerMapping, IReadOnlyList<NamespaceMapping> mappings)
+    {
+        if (property.DeclaredAccessibility != Accessibility.Public)
+            return null;
+        if (property.IsIndexer || property.Parameters.Length > 0)
+            return null;
+
+        var canGet = property.GetMethod is { DeclaredAccessibility: Accessibility.Public };
+        var canSet = property.SetMethod is { DeclaredAccessibility: Accessibility.Public, IsInitOnly: false };
+        if (!canGet && !canSet)
+            return null;
+
+        if (!TryTranslateType(property.Type, mappings, out var t))
+            return null;
+        if (canGet && t.NeedsCastToCompat && !t.IsDowncastSafe)
+            return null;
+
+        var staticKeyword = property.IsStatic ? "static " : "";
+        var ownerBase = property.IsStatic ? "global::" + ownerMapping.SourceNamespace + "." + property.ContainingType.Name : "Inner";
+        var owner = ownerBase + "." + property.Name;
+
+        if (canGet && !canSet)
+        {
+            var getExpr = t.NeedsCastToCompat ? BuildDowncastExpression(t, owner) : owner;
+            return $"        public {staticKeyword}{t.CompatDisplay} {property.Name} => {getExpr};\n";
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"        public {staticKeyword}{t.CompatDisplay} {property.Name}");
+        sb.AppendLine("        {");
+        if (canGet)
+        {
+            var getExpr = t.NeedsCastToCompat ? BuildDowncastExpression(t, owner) : owner;
+            sb.AppendLine($"            get => {getExpr};");
+        }
+        if (canSet)
+        {
+            var setExpr = t.NeedsCastToOriginal ? $"({t.OriginalDisplay})value" : "value";
+            sb.AppendLine($"            set => {owner} = {setExpr};");
+        }
+        sb.AppendLine("        }");
+        return sb.ToString();
+    }
 
     // ── Enum copies (pass 2) ────────────────────────────────────────────────────────────────
 
@@ -694,7 +922,7 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
     /// forwards to. <paramref name="mappings"/> is every mapping this generator knows about, not just
     /// the one currently being processed -- a System.Windows.Forms member can return a Drawing type
     /// and vice versa. Only arrays are rejected outright (the caller drops the whole member); every
-    /// other type falls into one of four cases:
+    /// other type falls into one of five cases:
     ///
     /// - A mapped enum with a compat copy (pass 2) -- both directions need an explicit cast (unrelated
     ///   enum types with matching values by construction).
@@ -702,14 +930,17 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
     ///   implicit upcast (no cast needed); handing one back out as the compat type is rejected outright
     ///   (<see cref="TypeTranslation.IsDowncastSafe"/> is false), since nothing the framework itself
     ///   returns was ever constructed as that marker sub-interface -- the caller drops the member.
+    /// - A sealed leaf type with a compat wrapper (pass 1b, e.g. <c>Font</c>, <c>SolidBrush</c>,
+    ///   <c>Graphics</c> itself) -- neither direction needs a cast in the generated text, because the
+    ///   wrapper's own implicit conversion operators (see <see cref="GenerateWrapperSource"/>) do the
+    ///   work invisibly, the same way a user-defined implicit conversion always does.
     /// - A mapped class with a compat subclass (pass 1) -- passing the compat subclass to the original
     ///   member is an implicit upcast (no cast needed); handing a value back out as the compat type is
     ///   a downcast (needs a cast, and is tolerated -- unlike the interface case -- because a consumer
     ///   of this package, by construction, constructs everything through the compat subclasses, never
     ///   the plain Majorsilence.Forms type directly).
     /// - Everything else -- BCL types, and any mapped type this generator has no compat counterpart
-    ///   for (a plain class/interface with none, e.g. <c>FormCollection</c>; a sealed leaf type pass 1
-    ///   never subclasses, e.g. <c>Majorsilence.Forms.Drawing.Graphics</c>/<c>Font</c>; a struct; a
+    ///   for at all (a plain class/interface with none, e.g. <c>FormCollection</c>; a struct; a
     ///   delegate) -- needs no translation and is exposed as-is: it's the identical type on both
     ///   sides, so neither direction ever needs a cast, and it's always fully qualified, so it
     ///   resolves without a `using`. The one cost is that such a member's signature names a
@@ -772,6 +1003,22 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
                 needsCastToOriginal: false,
                 needsCastToCompat: true,
                 isDowncastSafe: false);
+            return true;
+        }
+
+        if (type is INamedTypeSymbol wrapperType && FindMapping(wrapperType, mappings) is { } wrapperMapping && wrapperMapping.Sets.Wrappers.Contains(wrapperType))
+        {
+            // A sealed leaf type wrapped by pass 1b (Font, SolidBrush, Graphics, ...). Unlike enums
+            // and subclasses, no explicit cast is emitted in either direction: the wrapper declares
+            // implicit conversion operators both ways (see GenerateWrapperSource), so simply using
+            // the compat-typed value where the original is expected -- and vice versa -- just
+            // compiles, the same as if no translation were needed at all.
+            var suffix = type.NullableAnnotation == NullableAnnotation.Annotated ? "?" : "";
+            result = new TypeTranslation(
+                "global::" + wrapperMapping.TargetNamespace + "." + wrapperType.Name + suffix,
+                "global::" + wrapperMapping.SourceNamespace + "." + wrapperType.Name + suffix,
+                needsCastToOriginal: false,
+                needsCastToCompat: false);
             return true;
         }
 

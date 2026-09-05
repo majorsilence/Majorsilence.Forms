@@ -1,27 +1,25 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Majorsilence.Forms.Drawing;
 using Timer = System.Windows.Forms.Timer;
 
 namespace WinFormsCompatDemo
 {
     // A reimplementation of ControlGallery's BinaryRainPanel (samples/ControlGallery/Panels/BinaryRainPanel.cs),
     // ported here through unmodified `using System.Windows.Forms;`/`using System.Drawing;` source
-    // instead of `using Majorsilence.Forms;`, to exercise the compat generator with something more
-    // substantial than a static form: a Timer-driven animation, a TrackBar/Button wired to it, and a
-    // custom Control subclass overriding the compat-typed OnPaint hook with a real per-frame drawing
-    // workload (Graphics.DrawString, one call per glyph).
+    // instead of `using Majorsilence.Forms;`/`using Majorsilence.Forms.Drawing;`, to exercise the
+    // compat generator with something more substantial than a static form: a Timer-driven animation,
+    // a TrackBar/Button wired to it, and a custom Control subclass overriding the compat-typed OnPaint
+    // hook with a real per-frame drawing workload (Graphics.DrawString, one call per glyph).
     //
-    // Color/Point/Rectangle above resolve as real BCL System.Drawing types, unaffected by the
-    // generator's second namespace mapping (Majorsilence.Forms.Drawing -> System.Drawing) -- but
-    // Font, FontFamily and SolidBrush stay on `using Majorsilence.Forms.Drawing;` below: they're
-    // `sealed` in Majorsilence.Forms.Drawing.Common, and pass 1's subclass mechanism (which is what
-    // that second mapping relies on) always excludes sealed types, same as it always has for
-    // Component-derived ones. The mapping still isn't wasted -- Brush (unsealed) and Drawing's enums
-    // and static utility classes (Brushes, SystemFonts, ...) do get a compat surface -- but the
-    // sealed GDI+ leaf types need a wrapper mechanism like the event-shadowing pass's EventArgs
-    // wrappers, not a subclass, and that's not attempted yet. See RESULTS.md.
+    // Font, FontFamily and SolidBrush resolve here as compat WRAPPER classes, not subclasses: they're
+    // `sealed` in Majorsilence.Forms.Drawing.Common, so pass 1's subclass mechanism can't touch them
+    // (same rule it has always applied to Component-derived types), but pass 1b wraps the real
+    // instance instead and declares an implicit conversion in each direction -- so
+    // `new Font(FontFamily.GenericMonospace, 13)` below constructs a real Majorsilence Font under the
+    // hood, and passing it to `Graphics.DrawString` (still Majorsilence-typed, since Graphics itself
+    // is also sealed... wrapped too, in fact, though PaintEventArgs.Graphics here uses the real type
+    // directly) just works with no cast anywhere in this file. See RESULTS.md.
     public class BinaryRainPanel : Panel
     {
         private readonly Timer timer = new() { Interval = 90 };
