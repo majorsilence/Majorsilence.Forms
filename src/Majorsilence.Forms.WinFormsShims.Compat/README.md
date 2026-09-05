@@ -18,11 +18,31 @@ that assembly's `Control`/`Component` hierarchy.
 ## Scope — read this first
 
 This is a **proof of concept**, published so it can be evaluated against real code. The generator
-covers public, non-sealed types deriving from `Component`, `Control` or `WindowBase`. Out of scope:
+makes three independent passes over `Majorsilence.Forms`:
+
+1. Every public, non-sealed type deriving from `Component`, `Control` or `WindowBase` gets a
+   same-named subclass with forwarding constructors (e.g. `Button`, `Form`, `DataGridView`, …).
+2. Every public enum (`DialogResult`, `MessageBoxButtons`, `Keys`, …) gets an identical, same-valued
+   copy — needed because #1 and #3's forwarded signatures surface these constantly, and code that
+   only imports `System.Windows.Forms` has no other way to name them.
+3. Every public static utility class (`Application`, `MessageBox`, `Clipboard`,
+   `SystemInformation`, `SystemColors`, `ControlPaint`, `TextRenderer`, …) gets a same-named static
+   class that forwards each member whose signature is fully translatable by #1 and #2's rules. A
+   member is silently dropped, not emitted broken, when its signature can't be translated — see
+   below for what that excludes.
+
+Out of scope:
 
 - `Majorsilence.Forms.Drawing`'s sealed leaf types (`Font`, `Pen`, `Brush`, …).
 - Events typed to Majorsilence-specific `EventArgs`.
+- A static-class member whose signature involves a plain Majorsilence.Forms class or interface with
+  no `Component` ancestor (`FormCollection`, `ApplicationContext`, `IMessageFilter`, …), an array, a
+  `ref`/`out`/`in` parameter, a generic method, or an extension method. `Application.OpenForms`,
+  `Application.Run(ApplicationContext)` and `Application.AddMessageFilter` are concrete examples that
+  fall out this way today; `Application.Run(Form)`, `Application.MainForm` and `MessageBox.Show(...)`
+  do not.
 
-Expect to hit both on a non-trivial WinForms project. The compatibility matrix in the repository
-records what the underlying layer does and does not implement, which applies here unchanged: this
-package changes the *namespace* your code compiles against, not the behaviour behind it.
+Expect to hit all of these on a non-trivial WinForms project. The compatibility matrix in the
+repository records what the underlying layer does and does not implement, which applies here
+unchanged: this package changes the *namespace* your code compiles against, not the behaviour
+behind it.

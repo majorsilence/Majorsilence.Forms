@@ -1,4 +1,4 @@
-namespace TestApp
+namespace WinFormsCompatDemo
 {
     partial class Form1
     {
