@@ -234,10 +234,13 @@ Two things had to change before a publish list could have any effect:
   very dependency being added, and a consumer puts the generated types in its own public API, so the
   runtime reference has to flow onward.
 
-`Majorsilence.Forms.WinFormsShims.Compat.PoCTest` -- the unmodified `using System.Windows.Forms;`
-sample the generator is validated against -- was added to the solution so CI builds it. It compiles
-clean today, which makes it a genuine end-to-end check on a package that is now published rather than
-a throwaway.
+`samples/WinFormsCompatDemo` (renamed and moved from `src/Majorsilence.Forms.WinFormsShims.Compat.PoCTest`,
+2026-09-05) -- the unmodified `using System.Windows.Forms;` sample the generator is validated
+against -- was added to the solution so CI builds it. It compiles clean today, which makes it a
+genuine end-to-end check on a package that is now published rather than a throwaway. It also
+references the Avalonia backend and runs (`dotnet run --project samples/WinFormsCompatDemo`), so it
+exercises the generator's static-utility-class forwarding (`Application`, `MessageBox`, ...) at
+runtime, not just at compile time -- see its `RESULTS.md`.
 
 **Half of one gap left, and it is in the smoke test rather than the publish.** `Migrator` and `Mcp` were
 both in `publish-nuget.yml`'s list but **not** in `release.yml`'s -- and `release.yml` is the workflow

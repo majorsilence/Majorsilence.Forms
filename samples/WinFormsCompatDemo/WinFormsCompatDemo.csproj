@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Demo/validation sample for the Majorsilence.Forms.WinFormsShims.Compat source generator: an
+       unmodified `using System.Windows.Forms;` WinForms-style Form1.cs/Form1.Designer.cs pair plus
+       a Program.cs that calls Application.Run/MessageBox.Show, checking how much of it compiles,
+       and, with the Avalonia backend referenced below, actually runs, against Majorsilence.Forms
+       + the generated compat namespace, with zero source changes. See RESULTS.md and the feasibility
+       plan this exists to validate. -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinFormsShims.Compat\Majorsilence.Forms.WinFormsShims.Compat.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>
