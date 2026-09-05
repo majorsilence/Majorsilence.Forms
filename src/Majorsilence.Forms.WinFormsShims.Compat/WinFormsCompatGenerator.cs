@@ -7,18 +7,18 @@ namespace Majorsilence.Forms.WinFormsShims.Compat;
 
 /// <summary>
 /// PoC source generator that emits a <c>System.Windows.Forms</c>-namespace compatibility surface
-/// backed by <c>Majorsilence.Forms</c>, in four independent passes over that namespace's public
+/// backed by <c>Majorsilence.Forms</c>, in five independent passes over that namespace's public
 /// members:
 ///
 /// 1. Every public, non-sealed, non-generic class that does NOT derive from <see cref="System.EventArgs"/>
 ///    and exposes at least one accessible constructor gets a same-named subclass with forwarding
 ///    constructors -- <c>Button</c>, <c>Form</c> and the rest of the <c>Component</c> hierarchy, but
 ///    also plain classes with no <c>Component</c> ancestor at all, like <c>ApplicationContext</c>.
-///    EventArgs types are excluded on purpose: giving e.g. <c>PaintEventArgs</c> a compat subclass
-///    would look like it enables `Control.Paint += someHandler;`, but a handler parameter typed to a
-///    *subclass* can never satisfy a delegate whose declared parameter is the *base* type (C#
-///    contravariance runs the other way) -- see the class remarks on event shadowing below.
-/// 2. Every public, non-nested enum gets a same-named, same-valued copy -- needed because #1/#3/#4's
+///    EventArgs types are excluded on purpose: pass 5 gives them a different, purpose-built
+///    treatment -- a plain compat subclass wouldn't let a handler bind to the original event anyway
+///    (C#'s method-group contravariance requires the handler's parameter to be the delegate's
+///    declared type or a BASE of it, never a more-derived subclass).
+/// 2. Every public, non-nested enum gets a same-named, same-valued copy -- needed because #1/#3/#4/#5's
 ///    forwarders surface Majorsilence-specific enums such as <c>DialogResult</c> or
 ///    <c>MessageBoxButtons</c> in their own public signatures, and code that only imports
 ///    <c>System.Windows.Forms</c> has no other way to name them.
@@ -36,11 +36,29 @@ namespace Majorsilence.Forms.WinFormsShims.Compat;
 ///    (a plain Majorsilence class/interface with no compat counterpart above -- e.g. <c>FormCollection</c>,
 ///    which has no accessible constructor for #1 to subclass -- arrays, ref/out parameters, generic
 ///    methods, and extension methods).
+/// 5. Event shadowing: <see cref="DiscoverEventFamilies"/> finds every event <c>Control</c> itself
+///    declares whose delegate's second parameter is a Majorsilence-specific EventArgs (Paint,
+///    Mouse*, Key*, Drag*, the gesture family, ...). Each distinct EventArgs type gets a compat
+///    wrapper class (<see cref="GenerateEventArgsWrapperSource"/>) forwarding its translatable public
+///    properties to the real instance it wraps; each distinct NAMED delegate (not the generic
+///    <see cref="System.EventHandler{T}"/>, which is reused directly with the compat args type as
+///    its argument) gets a compat copy. Then, on every subclass from pass 1 that reaches an
+///    overridable On* method and a matching event for a given family (see
+///    <see cref="FindReachableOverridableMethod"/>/<see cref="FindReachableEvent"/> -- most classes
+///    do, since nearly everything derives from <c>Control</c>), a second partial-class file
+///    (<see cref="GenerateEventShadowBlock"/>) overrides the original On* method, translates,
+///    dispatches to a NEW compat-typed virtual On* hook of the same name, and shadows the public
+///    event with the compat delegate type -- so both <c>control.Paint += handler;</c> and
+///    <c>protected override void OnPaint(PaintEventArgs e)</c> work. This has to be repeated on
+///    every reaching subclass individually, not solved once on a shared compat <c>Control</c>,
+///    because compat subclasses are flat: <c>System.Windows.Forms.Panel</c> derives directly from
+///    <c>Majorsilence.Forms.Panel</c>, never from <c>System.Windows.Forms.Control</c> (see
+///    BACKLOG.md for the investigation that established this). Scoped deliberately to exactly what
+///    <c>Control</c> itself declares -- a control-specific family further out, like
+///    <c>TreeView.AfterSelect</c>, is not attempted here.
 ///
-/// This intentionally does NOT attempt to shadow events typed to Majorsilence-specific EventArgs
-/// (Paint, MouseDown, KeyDown, ...) -- see the feasibility plan this project exists to validate.
 /// Events typed to the real BCL <see cref="System.EventHandler"/> (Click, TextChanged, Resize, ...)
-/// need no special handling: they already resolve identically regardless of namespace.
+/// need no special handling from pass 5: they already resolve identically regardless of namespace.
 /// </summary>
 [Generator]
 public sealed class WinFormsCompatGenerator : IIncrementalGenerator
@@ -131,6 +149,71 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             sets.Interfaces.Add(type);
             var source = GenerateInterfaceSource(type);
             context.AddSource($"{type.Name}.Interface.g.cs", SourceText.From(source, Encoding.UTF8));
+        }
+
+        // Pass "event families": Control's own Paint/Mouse/Key event family, shadowed with compat
+        // EventArgs types so `protected override void OnPaint(PaintEventArgs e)` and
+        // `control.Paint += handler;` both bind under System.Windows.Forms. See DiscoverEventFamilies
+        // for why this is scoped to exactly what Control itself can reach, and BACKLOG.md for why the
+        // shadow has to be re-emitted per subclass rather than solved once.
+        var genericEventHandlerType = compilation.GetTypeByMetadataName("System.EventHandler`1");
+        if (genericEventHandlerType is not null && coreNamespace.GetTypeMembers("Control").FirstOrDefault() is { } controlType)
+        {
+            var families = DiscoverEventFamilies(controlType, eventArgsType, genericEventHandlerType)
+                .Where(f => FindReachableOverridableMethod(controlType, "On" + f.EventName, f.ArgsType) is not null)
+                .ToList();
+
+            var compatArgsTypes = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var argsType in families.Select(f => f.ArgsType).Distinct(SymbolEqualityComparer.Default).Cast<INamedTypeSymbol>())
+            {
+                if (!emittedNames.Add(argsType.Name))
+                    continue; // name collision; skip -- families using this args type fall out below too
+
+                compatArgsTypes.Add(argsType);
+                var source = GenerateEventArgsWrapperSource(argsType, eventArgsType, sets);
+                context.AddSource($"{argsType.Name}.EventArgs.g.cs", SourceText.From(source, Encoding.UTF8));
+            }
+
+            // Named custom delegates (PaintEventHandler, MouseEventHandler, ...) need a compat copy;
+            // a constructed `EventHandler<T>` doesn't -- the compat event just reuses the BCL generic
+            // delegate with the compat args type as its argument (see EventFamily.IsGenericEventHandler).
+            var compatDelegates = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var family in families)
+            {
+                if (family.IsGenericEventHandler)
+                    continue;
+                if (!compatArgsTypes.Contains(family.ArgsType))
+                    continue;
+                if (!compatDelegates.Add(family.DelegateType))
+                    continue;
+
+                var source = GenerateDelegateSource(family.DelegateType, family.ArgsType.Name);
+                context.AddSource($"{family.DelegateType.Name}.Delegate.g.cs", SourceText.From(source, Encoding.UTF8));
+            }
+
+            families = families
+                .Where(f => compatArgsTypes.Contains(f.ArgsType) && (f.IsGenericEventHandler || compatDelegates.Contains(f.DelegateType)))
+                .ToList();
+
+            foreach (var type in sets.Subclasses)
+            {
+                var blocks = new List<string>();
+                foreach (var family in families)
+                {
+                    if (FindReachableOverridableMethod(type, "On" + family.EventName, family.ArgsType) is null)
+                        continue;
+                    if (FindReachableEvent(type, family.EventName, family.DelegateType) is null)
+                        continue;
+
+                    blocks.Add(GenerateEventShadowBlock(family));
+                }
+
+                if (blocks.Count == 0)
+                    continue;
+
+                var source = GenerateEventShadowFileSource(type, blocks);
+                context.AddSource($"{type.Name}.Events.g.cs", SourceText.From(source, Encoding.UTF8));
+            }
         }
 
         // Pass 4: public static utility classes -> forwarding static classes.
@@ -237,8 +320,11 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         sb.AppendLine($"namespace {TargetNamespace}");
         sb.AppendLine("{");
 
+        // `partial` even though most of these have exactly one part: the event-shadowing pass
+        // (see DiscoverEventFamilies) adds a second part -- an On*/`new event` pair -- to any
+        // subclass whose original type reaches Control's Paint/Mouse/Key event family.
         var baseRef = "global::" + CoreNamespace + "." + type.Name;
-        var classKeyword = type.IsAbstract ? "abstract class" : "class";
+        var classKeyword = type.IsAbstract ? "abstract partial class" : "partial class";
         sb.AppendLine($"    public {classKeyword} {type.Name} : {baseRef}");
         sb.AppendLine("    {");
 
@@ -810,6 +896,259 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         sb.AppendLine($"    public static class {type.Name}");
         sb.AppendLine("    {");
         foreach (var block in memberBlocks)
+            sb.Append(block);
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    // ── Event shadowing (Control's Paint/Mouse/Key family) ─────────────────────────────────
+
+    /// <summary>An event declared on <c>Control</c> whose delegate's second parameter is a
+    /// Majorsilence-specific <see cref="System.EventArgs"/> subclass -- the shape that needs a compat
+    /// EventArgs wrapper and delegate copy, plus a per-subclass override/shadow pair, to become usable
+    /// under <c>System.Windows.Forms</c> (see the class remarks on why plain <c>EventHandler</c>
+    /// events like <c>Click</c> need none of this).</summary>
+    private readonly struct EventFamily
+    {
+        public EventFamily(string eventName, INamedTypeSymbol delegateType, INamedTypeSymbol argsType, bool isGenericEventHandler)
+        {
+            EventName = eventName;
+            DelegateType = delegateType;
+            ArgsType = argsType;
+            IsGenericEventHandler = isGenericEventHandler;
+        }
+
+        public string EventName { get; }
+        public INamedTypeSymbol DelegateType { get; }
+        public INamedTypeSymbol ArgsType { get; }
+
+        /// <summary>
+        /// True when <see cref="DelegateType"/> is a constructed <c>System.EventHandler&lt;T&gt;</c>
+        /// (e.g. <c>EventHandler&lt;LongPressEventArgs&gt;</c>) rather than a named custom delegate
+        /// (e.g. <c>PaintEventHandler</c>). Constructed generics share the short name "EventHandler"
+        /// regardless of their type argument, so they can't be told apart by <c>DelegateType.Name</c>
+        /// the way named delegates can -- and don't need a compat copy at all, since the compat event
+        /// can just reuse the BCL <c>EventHandler&lt;T&gt;</c> instantiated with the compat args type.
+        /// </summary>
+        public bool IsGenericEventHandler { get; }
+    }
+
+    private static List<EventFamily> DiscoverEventFamilies(INamedTypeSymbol controlType, INamedTypeSymbol eventArgsType, INamedTypeSymbol genericEventHandlerType)
+    {
+        var result = new List<EventFamily>();
+        foreach (var ev in controlType.GetMembers().OfType<IEventSymbol>())
+        {
+            if (ev.DeclaredAccessibility != Accessibility.Public)
+                continue;
+            if (ev.IsStatic)
+                continue;
+            if (ev.Type is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
+                continue;
+
+            var invoke = delegateType.DelegateInvokeMethod;
+            if (invoke is null || invoke.Parameters.Length != 2)
+                continue;
+            if (invoke.Parameters[1].Type is not INamedTypeSymbol argsType)
+                continue;
+            if (argsType.TypeKind != TypeKind.Class)
+                continue;
+            if (!IsMajorsilenceForms(argsType))
+                continue;
+            if (!DerivesFrom(argsType, eventArgsType))
+                continue;
+
+            var isGenericEventHandler = delegateType.IsGenericType
+                && SymbolEqualityComparer.Default.Equals(delegateType.OriginalDefinition, genericEventHandlerType);
+            result.Add(new EventFamily(ev.Name, delegateType, argsType, isGenericEventHandler));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Finds the closest (most-derived) accessible, overridable method named <paramref name="name"/>
+    /// with exactly one parameter of type <paramref name="paramType"/>, walking from
+    /// <paramref name="type"/> up through its Majorsilence.Forms base chain. Returns null if none is
+    /// reachable, or if the closest one found is sealed -- either way, the caller can't safely
+    /// generate an override, so it skips this family for this type entirely.
+    /// </summary>
+    private static IMethodSymbol? FindReachableOverridableMethod(INamedTypeSymbol type, string name, INamedTypeSymbol paramType)
+    {
+        for (var t = type; t is not null; t = t.BaseType)
+        {
+            foreach (var m in t.GetMembers(name).OfType<IMethodSymbol>())
+            {
+                if (m.Parameters.Length != 1)
+                    continue;
+                if (!SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, paramType))
+                    continue;
+                if (m.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal))
+                    return null;
+                if (!(m.IsVirtual || m.IsOverride) || m.IsSealed)
+                    return null;
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Same idea as <see cref="FindReachableOverridableMethod"/>, for the event half of the
+    /// pair: the closest event named <paramref name="name"/> must be public, non-static, and typed to
+    /// exactly <paramref name="delegateType"/> (not some other type that happens to share the name).</summary>
+    private static IEventSymbol? FindReachableEvent(INamedTypeSymbol type, string name, INamedTypeSymbol delegateType)
+    {
+        for (var t = type; t is not null; t = t.BaseType)
+        {
+            foreach (var e in t.GetMembers(name).OfType<IEventSymbol>())
+            {
+                if (e.IsStatic)
+                    return null;
+                if (!SymbolEqualityComparer.Default.Equals(e.Type, delegateType))
+                    return null;
+                if (e.DeclaredAccessibility != Accessibility.Public)
+                    return null;
+                return e;
+            }
+        }
+        return null;
+    }
+
+    private static string GenerateEventArgsWrapperSource(INamedTypeSymbol argsType, INamedTypeSymbol eventArgsType, CompatSets sets)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- wraps the real Majorsilence.Forms");
+        sb.AppendLine("// event-args instance and forwards every translatable public instance property to it, so");
+        sb.AppendLine("// handlers under `System.Windows.Forms` can read (and, where settable, write) the same");
+        sb.AppendLine("// data. Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {TargetNamespace}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public class {argsType.Name} : global::System.EventArgs");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        internal {argsType.Name} (global::{CoreNamespace}.{argsType.Name} inner) => Inner = inner;");
+        sb.AppendLine($"        internal global::{CoreNamespace}.{argsType.Name} Inner {{ get; }}");
+        sb.AppendLine();
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (var t = argsType; t is not null && !SymbolEqualityComparer.Default.Equals(t, eventArgsType); t = t.BaseType)
+        {
+            foreach (var prop in t.GetMembers().OfType<IPropertySymbol>())
+            {
+                if (!seen.Add(prop.Name))
+                    continue; // a more-derived declaration of the same name already won
+                if (prop.DeclaredAccessibility != Accessibility.Public)
+                    continue;
+                if (prop.IsStatic || prop.IsIndexer)
+                    continue;
+
+                var canGet = prop.GetMethod is { DeclaredAccessibility: Accessibility.Public };
+                var canSet = prop.SetMethod is { DeclaredAccessibility: Accessibility.Public, IsInitOnly: false };
+                if (!canGet && !canSet)
+                    continue;
+
+                if (!TryTranslateType(prop.Type, sets, out var pt))
+                    continue;
+                if (canGet && pt.NeedsCastToCompat && !pt.IsDowncastSafe)
+                    continue; // e.g. DragEventArgs.Data (IDataObject) -- see TypeTranslation.IsDowncastSafe
+
+                var owner = "Inner." + prop.Name;
+                if (canGet && !canSet)
+                {
+                    var getExpr = pt.NeedsCastToCompat ? $"({pt.CompatDisplay})({owner})" : owner;
+                    sb.AppendLine($"        public {pt.CompatDisplay} {prop.Name} => {getExpr};");
+                    continue;
+                }
+
+                sb.AppendLine($"        public {pt.CompatDisplay} {prop.Name}");
+                sb.AppendLine("        {");
+                if (canGet)
+                {
+                    var getExpr = pt.NeedsCastToCompat ? $"({pt.CompatDisplay})({owner})" : owner;
+                    sb.AppendLine($"            get => {getExpr};");
+                }
+                if (canSet)
+                {
+                    var setExpr = pt.NeedsCastToOriginal ? $"({pt.OriginalDisplay})value" : "value";
+                    sb.AppendLine($"            set => {owner} = {setExpr};");
+                }
+                sb.AppendLine("        }");
+            }
+        }
+
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    private static string GenerateDelegateSource(INamedTypeSymbol delegateType, string compatArgsName)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- a delegate copy typed to the");
+        sb.AppendLine("// compat EventArgs wrapper above, since the original delegate is typed to the real");
+        sb.AppendLine("// Majorsilence.Forms one. Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {TargetNamespace}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public delegate void {delegateType.Name} (object? sender, {compatArgsName} e);");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// The per-subclass shadow for one event family: override the original virtual On* method,
+    /// translate, dispatch to a new compat-typed virtual hook of the same name (so a further-derived
+    /// class can override *that* instead), and shadow the public event with one of the compat delegate
+    /// type. The new virtual hook -- not the override -- raises the shadowed event, matching real
+    /// WinForms: a subclass that overrides the hook without calling base suppresses the event, exactly
+    /// as overriding upstream's OnPaint without calling base.OnPaint does.
+    /// </summary>
+    private static string GenerateEventShadowBlock(EventFamily family)
+    {
+        var argsCompat = "global::" + TargetNamespace + "." + family.ArgsType.Name;
+        var argsOriginal = "global::" + CoreNamespace + "." + family.ArgsType.Name;
+        var delegateCompat = family.IsGenericEventHandler
+            ? $"global::System.EventHandler<{argsCompat}>"
+            : "global::" + TargetNamespace + "." + family.DelegateType.Name;
+        var onName = "On" + family.EventName;
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"        protected override void {onName} ({argsOriginal} e)");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            {onName} (new {argsCompat} (e));");
+        sb.AppendLine($"            base.{onName} (e);");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine($"        protected virtual void {onName} ({argsCompat} e) => {family.EventName}?.Invoke (this, e);");
+        sb.AppendLine();
+        sb.AppendLine($"        public new event {delegateCompat}? {family.EventName};");
+        sb.AppendLine();
+        return sb.ToString();
+    }
+
+    private static string GenerateEventShadowFileSource(INamedTypeSymbol type, List<string> blocks)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- the second part of this type's");
+        sb.AppendLine("// partial subclass (see the other generated file for its constructors): shadows Control's");
+        sb.AppendLine("// Paint/Mouse/Key event family with compat EventArgs types. Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {TargetNamespace}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public partial class {type.Name}");
+        sb.AppendLine("    {");
+        foreach (var block in blocks)
             sb.Append(block);
         sb.AppendLine("    }");
         sb.AppendLine("}");

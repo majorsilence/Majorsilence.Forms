@@ -120,7 +120,70 @@ Two more static classes crossed the "has at least one forwardable member" thresh
 
 `samples/WinFormsCompatDemo` builds clean, 0 errors/0 warnings, and runs, unchanged by this increment.
 
-Still open: the `new event`/`On*` event-shadowing increment (unchanged from above), and the
-theoretical gap this widening exposed rather than closed — a Majorsilence.Forms type with **no**
-compat counterpart at all (a struct, a delegate, or a class with truly no accessible constructor).
-Nothing in the assembly is currently shaped that way, so it hasn't blocked anything yet.
+Still open: the `new event`/`On*` event-shadowing increment (see below, now done for `Control`'s own
+family), and the theoretical gap this widening exposed rather than closed — a Majorsilence.Forms type
+with **no** compat counterpart at all (a struct, a delegate, or a class with truly no accessible
+constructor). Nothing in the assembly is currently shaped that way, so it hasn't blocked anything yet.
+
+## Increment: event shadowing for Control's Paint/Mouse/Key/Drag/gesture family (2026-09-05)
+
+Both halves of the last named gap now work, through unmodified `System.Windows.Forms` source:
+
+```csharp
+public class PaintDemoPanel : Panel
+{
+    public int PaintCount { get; private set; }
+
+    protected override void OnPaint (PaintEventArgs e)   // the compat PaintEventArgs, overriding
+    {                                                      // the compat-declared virtual hook
+        PaintCount++;
+        base.OnPaint (e);                                 // keeps the shadowed Paint event working
+    }
+}
+
+// Form1.cs:
+paintPanel.MouseDown += (sender, e) => label1.Text = $"Mouse {e.Button} at {e.X},{e.Y}";
+paintPanel.KeyDown += (sender, e) => { label1.Text = $"Key {e.KeyCode}"; e.Handled = true; };
+paintPanel.Paint += (sender, e) => label1.Text = $"Painted {paintPanel.PaintCount} time(s)";
+```
+
+**Compiles clean, 0 errors/0 warnings, and runs** (`dotnet run --project samples/WinFormsCompatDemo`)
+without the app crashing — the override chain executes on every real paint cycle Avalonia drives, not
+just once at startup.
+
+The mechanism, discovered by walking `Control`'s own declared events rather than hand-listing them
+(which found more than a manual read of `Control.cs` alone did — `Control.Events.cs` and other
+partials carry several of the `On*` methods): every event `Control` declares whose delegate's second
+parameter is a Majorsilence-specific `EventArgs` becomes an *event family*. This run found **26**
+across **17** distinct `EventArgs` types (`PaintEventArgs`, `MouseEventArgs`, `KeyEventArgs`,
+`KeyPressEventArgs`, `PreviewKeyDownEventArgs`, `DragEventArgs`, `GiveFeedbackEventArgs`,
+`QueryContinueDragEventArgs`, `ControlEventArgs`, `InvalidateEventArgs`, `LayoutEventArgs`,
+`UICuesEventArgs`, `HelpEventArgs`, and the gesture family `LongPressEventArgs`/
+`PinchGestureEventArgs`/`ScrollGestureEventArgs`/`SwipeGestureEventArgs`) — more than the Paint/mouse/
+keyboard set originally scoped in BACKLOG.md, because the discovery is driven by the real event
+declarations rather than a curated list. `Scroll` and `QueryAccessibilityHelp` are declared as
+`add {} remove {}` no-op stubs with no backing `On*` method at all, so they correctly fall out rather
+than get a broken shadow.
+
+Each distinct `EventArgs` type gets a wrapper class holding the real instance and forwarding its
+translatable public properties (settable ones too — `KeyEventArgs.Handled`/`SuppressKeyPress` round-trip
+to the real object, so setting `e.Handled = true` in a compat handler genuinely suppresses the key
+the way it does upstream). 13 of the 26 families use a named custom delegate (`PaintEventHandler`,
+`MouseEventHandler`, ...) and get a compat delegate copy; the four gesture events use the generic
+`EventHandler<T>`, which needed no copy — just reusing the BCL delegate with the compat args type as
+its argument — and, along the way, surfaced a real bug: naively naming a generated file after
+`delegateType.Name` collided, since every constructed `EventHandler<T>` shares that same short name
+regardless of its type argument. Fixed by detecting the generic case and skipping delegate-copy
+generation for it entirely.
+
+**104** of the 252 compat subclasses reach at least one of these families (found via
+`FindReachableOverridableMethod`/`FindReachableEvent` walking each subclass's own Majorsilence base
+chain, not just `Control`) and got a second partial-class file with the override/shadow/hook triple —
+confirming the BACKLOG.md finding that this can't be solved once on a shared compat `Control`, since
+compat subclasses are flat.
+
+Still explicitly out of scope: any event family not declared directly on `Control` (a `TreeView` or
+`DataGridView`-specific `EventArgs` event, say), an `EventArgs` wrapper's methods (only properties are
+forwarded) and public constructors (a wrapper can only be received from a compat event, never
+constructed with `new`), and `DragEventArgs.Data` (typed `IDataObject`, dropped for the same
+interface-return-safety reason as `Clipboard.GetDataObject()`).

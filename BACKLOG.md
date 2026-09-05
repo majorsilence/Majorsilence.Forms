@@ -261,52 +261,44 @@ Decision 2). **`Mcp` is still missing from `release.yml`**; adding that one line
 **Not answerable from this repo:** whether each of these is actually *on* nuget.org today. The workflows
 describe what the next published release would push, not what previous releases did.
 
-## WinFormsShims.Compat: event shadowing, scoped but not started
+## WinFormsShims.Compat: event shadowing -- done for Control's own family (2026-09-05)
 
-The generator's last named gap (its own doc comment, README, and `RESULTS.md` all point here) is
-Majorsilence-specific `EventArgs` events -- `Paint`, `MouseDown`, `KeyDown`, the whole `Control`-level
-family. This was investigated on 2026-09-05 while widening the generator's class/interface coverage
-(see the commit that added `CompatSets`), far enough to know the shape of the work, not far enough to
-attempt it in the same pass -- the risk of a subtly wrong override breaking paint/input dispatch across
-every generated subclass is real, and deserves its own dedicated, carefully-validated increment.
+The generator's last named gap -- Majorsilence-specific `EventArgs` events (`Paint`, `MouseDown`,
+`KeyDown`, ...) -- is closed for exactly the family `Control` itself declares. Scoped on 2026-09-05
+(see the investigation this heading used to describe, and the commit that added `CompatSets`) and
+implemented the same day once the shape of the work was clear enough to trust.
 
-**The key finding that changes the estimate:** compat subclasses are flat -- `System.Windows.Forms.Panel
-: Majorsilence.Forms.Panel` directly, never `System.Windows.Forms.Panel : System.Windows.Forms.Control`
--- so there is no compat-side inheritance chain to hang a single shadow on. `Majorsilence.Forms.Control`
-declares `OnPaint`/`Paint` (and the matching pairs for `MouseDown`/`Up`/`Move`/`Wheel`/`Click`/
-`DoubleClick`, `KeyDown`/`Up`/`Press`, `PreviewKeyDown`, and the `Drag*`/`GiveFeedback`/
-`QueryContinueDrag` family) exactly once, in `Control.cs`/`Control.Events.cs`, and every other control
-inherits them on the *Majorsilence* side -- but on the *compat* side, shadowing must be re-emitted on
-**every** generated subclass that transitively derives from `Control`, not once on a compat `Control`
-class that nothing else compat-inherits from. `Majorsilence.Forms.Control.RaisePaint` (internal) is the
-concrete mechanism this has to hook: it calls the virtual `OnPaint(e)` (so an override on the actual
-runtime type wins) and then raises the base `Paint` field-event directly -- a generated override must
-call `base.OnPaint(originalArgs)` to preserve any real per-type override behavior further up the
-Majorsilence chain (`OnPaint` on `Control` itself is deliberately empty, matching upstream, but that is
-not guaranteed for every override site), then separately invoke the shadowed compat event/virtual hook
-with translated args.
+**The finding that set the shape held:** compat subclasses are flat -- `System.Windows.Forms.Panel :
+Majorsilence.Forms.Panel` directly, never `System.Windows.Forms.Panel : System.Windows.Forms.Control`
+-- so there is no compat-side inheritance chain to hang a single shadow on. The fix re-emits the
+override/shadow triple on every one of the 252 compat subclasses that reaches an accessible,
+overridable `On*` method and a matching event for a given family, walking each subclass's own
+Majorsilence base chain individually (`FindReachableOverridableMethod`/`FindReachableEvent` in
+`WinFormsCompatGenerator.cs`) rather than assuming ancestry from a shared compat `Control`. **104** of
+the 252 reach at least one family.
 
-What a first cut needs, roughly in dependency order:
+Discovery turned out driven-by-data rather than a curated list: walking `Control`'s own declared
+events (whose delegate's second parameter is a Majorsilence `EventArgs` subclass) found **26** event
+families across **17** distinct `EventArgs` types -- more than the Paint/mouse/keyboard/drag set
+originally scoped, including a `LongPress`/`Pinch`/`ScrollGesture`/`Swipe` gesture family that uses
+the generic `EventHandler<T>` (needing no delegate copy, just reuse with the compat args type) rather
+than a named delegate, and surfacing a real bug along the way: naming a generated file after
+`delegateType.Name` collides for constructed generics, since every `EventHandler<T>` instantiation
+shares that literal short name regardless of type argument. Fixed by detecting the generic case.
+`Scroll` and `QueryAccessibilityHelp` are `add {} remove {}` no-op stubs with no `On*` method at all,
+so they correctly fall out of the discovery rather than get a broken shadow.
 
-1. **Compat `EventArgs` copies** -- not enum-style identical copies, since these classes carry live data
-   (`PaintEventArgs.Graphics`, `MouseEventArgs.X`/`Y`/`Button`, `KeyEventArgs.KeyCode`, ...): a
-   property-forwarding wrapper per type, likely holding the original instance and exposing the same
-   properties, for at minimum `PaintEventArgs`, `MouseEventArgs`, `KeyEventArgs`, `KeyPressEventArgs`,
-   `DragEventArgs`, `GiveFeedbackEventArgs`, `QueryContinueDragEventArgs`, `PreviewKeyDownEventArgs`.
-2. **A per-type base-chain lookup** -- given a compat subclass's original Majorsilence type, walk its
-   base types (not just declared members) to find which of the above On*/event pairs are actually
-   *reachable* (inherited or overridden), since not every eligible class in the now-widened pass 1
-   derives from `Control` at all (`ApplicationContext`, `FormCollection`, ... plainly don't).
-3. **The override+shadow template itself**, emitted once per reachable event family per eligible
-   subclass: override the original `OnX(originalArgs)`, translate, invoke a new `protected virtual
-   OnX(compatArgs)` hook plus a `new event` of the matching compat delegate type, then call
-   `base.OnX(originalArgs)`.
+Verified in `samples/WinFormsCompatDemo`: a hand-written `PaintDemoPanel : Panel` overrides the
+compat-typed `OnPaint(PaintEventArgs e)` and calls `base.OnPaint(e)`; `Form1.cs` also subscribes to
+`Paint`/`MouseDown`/`KeyDown` with `+=`, including writing to `KeyEventArgs.Handled` (a settable
+property that round-trips to the real underlying instance). Builds clean and *runs* --
+`dotnet run --project samples/WinFormsCompatDemo` drives real paint cycles through the override chain
+without crashing, not just a one-time compile check. See `RESULTS.md` for the full writeup.
 
-Scoping a first cut to exactly the `Control`-declared family above (not the many more control-specific
-`EventArgs` types further out -- `TreeViewEventArgs`, `DataGridView`'s editing events, `ListView`'s
-selection events, ...) is the recommended first slice: it is the one every control shares, and it is
-named in `RESULTS.md` as "the *first* thing that breaks" once real WinForms code goes past plain
-`Click`/`TextChanged` handlers.
+**Deliberately still out of scope:** any event family not declared directly on `Control` --
+`TreeView.AfterSelect`, `DataGridView`'s editing events, `ListView`'s selection events, and similar
+control-specific families further out. Widening pass 5 to walk those control-by-control, the same way
+pass 1-4 already cover their non-event members, is the natural next increment here.
 
 ## Wanted: screenshots from a desktop-hosted window
 
