@@ -83,3 +83,44 @@ all survive that filter; `Application.OpenForms` (returns `FormCollection`, a pl
 
 Still open: the `new event` shadow + `On*` override generation for Majorsilence-specific `EventArgs`
 events (`Paint`, mouse, keyboard) described in the feasibility plan — not attempted here.
+
+## Increment: subclass every eligible class, not just Component descendants, plus interfaces (2026-09-05)
+
+The three rejects named directly above are now generated correctly:
+
+```csharp
+public static void Run (global::System.Windows.Forms.ApplicationContext context)
+    => global::Majorsilence.Forms.Application.Run (context);
+public static void AddMessageFilter (global::System.Windows.Forms.IMessageFilter value)
+    => global::Majorsilence.Forms.Application.AddMessageFilter (value);
+public static global::System.Windows.Forms.FormCollection OpenForms
+    => (global::System.Windows.Forms.FormCollection)(global::Majorsilence.Forms.Application.OpenForms);
+```
+
+The generator's first pass no longer requires `Component`/`Control`/`WindowBase` ancestry to subclass
+a class — only that it's public, non-sealed, non-generic, and not a `System.EventArgs` descendant
+(deliberately excluded: see the README for why a compat `PaintEventArgs` subclass wouldn't actually
+help `Control.Paint`). `ApplicationContext` and `FormCollection` are ordinary classes under that
+rule now, same mechanism as `Button`/`Form` — subclass count went from 101 to **252**. `FormCollection`
+in particular has no *explicit* constructor at all in Majorsilence.Forms; the compiler-synthesized
+implicit public parameterless one is enough for the generator to subclass it, which wasn't obvious
+going in.
+
+A new pass alongside the enum copies does the same for public interfaces (**20**: `IMessageFilter`,
+`IWin32Window`, `IDataObject`, `IBindableComponent`, …) — an empty sub-interface extending the
+original, usable as a parameter type but *not* as a return type (a value the framework hands back was
+never constructed as the marker sub-interface, so casting one back out would fail at runtime for
+every real value; the generator rejects that direction outright rather than emit it). That's exactly
+why `AddMessageFilter`/`RemoveMessageFilter` now generate but `Clipboard.GetDataObject(): IDataObject`
+still doesn't.
+
+Two more static classes crossed the "has at least one forwardable member" threshold as a result:
+`Cursors` (returns `Cursor`, a plain non-`Component` class, now subclassed) and `DataFormats` (returns
+`DataFormat`, likewise). Static-class count: 24 → **26**.
+
+`samples/WinFormsCompatDemo` builds clean, 0 errors/0 warnings, and runs, unchanged by this increment.
+
+Still open: the `new event`/`On*` event-shadowing increment (unchanged from above), and the
+theoretical gap this widening exposed rather than closed — a Majorsilence.Forms type with **no**
+compat counterpart at all (a struct, a delegate, or a class with truly no accessible constructor).
+Nothing in the assembly is currently shaped that way, so it hasn't blocked anything yet.

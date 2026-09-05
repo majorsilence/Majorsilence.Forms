@@ -218,8 +218,11 @@ that cannot rewrite their own public API namespace, and it packs itself as an an
 (`analyzers/dotnet/cs`). It is now in both publish lists. The reservation recorded here -- a package id
 is permanent once pushed, so is the PoC the shape this feature keeps? -- was answered by deciding to
 publish it for evaluation against real code, with the scope limits stated in the package's own README
-(public non-sealed `Component`/`Control`/`WindowBase` types only; `Majorsilence.Forms.Drawing`'s sealed
-leaf types and Majorsilence-specific `EventArgs` are out of scope).
+(`Majorsilence.Forms.Drawing`'s sealed leaf types and Majorsilence-specific `EventArgs` are out of
+scope; the README's own history is worth reading -- it started limited to public non-sealed
+`Component`/`Control`/`WindowBase` types and was widened, 2026-09-05, to any public non-sealed class,
+plus interfaces as parameter-only marker sub-interfaces, once static-utility-class forwarding needed
+them).
 
 Two things had to change before a publish list could have any effect:
 
