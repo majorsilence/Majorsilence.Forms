@@ -36,6 +36,7 @@ runner that has only one of the two workloads — pass `-p:EnableAndroidTarget=t
 | [`PointOfSale`](#pointofsale) | A full client/server LOB app | Windows, macOS, Linux |
 | [`EmbeddingAvalonia` / `EmbeddingUno` / `EmbeddingWinForms`](#embeddingavalonia--embeddinguno--embeddingwinforms) | Majorsilence.Forms hosted *inside* a native app | Desktop (WinForms: Windows only) |
 | [`WinFormsInterop`](#winformsinterop-windows-only) | Bi-directional `System.Windows.Forms` interop | Windows |
+| [`WinFormsCompatDemo`](#winformscompatdemo) | Source-generated `System.Windows.Forms` namespace, no real WinForms assembly | Windows, macOS, Linux |
 | [`AutomationTarget`](#automationtarget) | An app that exposes its own automation endpoint | Windows, macOS, Linux |
 
 ### ControlGallery
@@ -289,4 +290,20 @@ See [WinForms Interop](winforms-interop.md) for full API documentation.
 
 ```bash
 dotnet run --project samples/WinFormsInterop
+```
+
+### WinFormsCompatDemo
+
+Not to be confused with `WinFormsInterop` above: there is no real `System.Windows.Forms` assembly
+anywhere in this process. `Form1.cs`/`Form1.Designer.cs` here are ordinary, unmodified WinForms
+designer-generated source — a `Button`, `Label`, `TextBox`, a `MessageBox.Show(...)` call — that
+compile against `Majorsilence.Forms` because the
+[`Majorsilence.Forms.WinFormsShims.Compat`](../src/Majorsilence.Forms.WinFormsShims.Compat)
+Roslyn source generator emits a same-named `System.Windows.Forms` namespace backed by it, purely at
+compile time. This sample references the Avalonia backend so `Application.Run` opens a real window,
+not just a compile check — see its own [`RESULTS.md`](../samples/WinFormsCompatDemo/RESULTS.md) for
+what does and doesn't survive that translation today.
+
+```bash
+dotnet run --project samples/WinFormsCompatDemo
 ```

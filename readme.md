@@ -91,6 +91,11 @@ See [Platform backends](docs/backends.md) for the details and how to add your ow
   `dotnet tool install -g Majorsilence.Forms.Migrator`.
 - [`COMPATIBILITY_MATRIX.md`](COMPATIBILITY_MATRIX.md) — what's fully implemented, what's
   approximated, and what's deliberately out of scope, once your code compiles.
+- [`Majorsilence.Forms.WinFormsShims.Compat`](src/Majorsilence.Forms.WinFormsShims.Compat) — for
+  the case where rewriting `using System.Windows.Forms;` isn't an option (a distributed control
+  library whose own public API is typed to it): a source generator that makes unmodified WinForms
+  source, including Designer.cs files, compile against Majorsilence.Forms instead. Proof of concept;
+  see its README for current scope.
 
 ## Getting started
 
@@ -127,6 +132,7 @@ Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) fol
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
+- [`WinFormsCompatDemo`](samples/WinFormsCompatDemo) — unmodified `System.Windows.Forms` designer-generated source compiling and running against Majorsilence.Forms through a source generator, no real WinForms assembly involved. See [`Majorsilence.Forms.WinFormsShims.Compat`](src/Majorsilence.Forms.WinFormsShims.Compat).
 - [`EmbeddingWinForms`](samples/EmbeddingWinForms) — Majorsilence.Forms controls embedded inside a classic WinForms app via the **WinForms backend** (`MajorsilenceFormsPresenter`/`ToWinFormsControl()`), the port-one-control-at-a-time migration path (Windows-only). See [Platform backends](docs/backends.md).
 - [`AutomationTarget`](samples/AutomationTarget) — a small app that exposes its own automation endpoint, so you have something real to drive from the [MCP server](tools/Majorsilence.Forms.Mcp), Selenium, or `curl`. See [Automation & UI testing](docs/automation.md).
 
