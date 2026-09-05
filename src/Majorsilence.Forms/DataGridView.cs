@@ -1132,7 +1132,7 @@ namespace Majorsilence.Forms
                 if (value < 0 || value >= Rows.Count)
                     return;
 
-                vscrollbar.Value = Math.Min (value, vscrollbar.Maximum);
+                vscrollbar.Value = Math.Min (value, vscrollbar.EffectiveMaximum);
             }
         }
 
@@ -3066,7 +3066,12 @@ namespace Majorsilence.Forms
             // Vertical scrollbar
             if (Rows.Count > visible_rows && visible_rows > 0) {
                 vscrollbar.Visible = true;
-                vscrollbar.Maximum = Rows.Count - visible_rows;
+                // Maximum is the *conceptual last item index* (see ScrollBar.EffectiveMaximum), not the
+                // last valid top_index -- with LargeChange set below to the page size, EffectiveMaximum
+                // works out to Rows.Count - visible_rows, which is what top_index actually clamps
+                // against. Setting Maximum to that directly left the thumb, which is positioned from
+                // EffectiveMaximum, reaching the end of the track a whole page early.
+                vscrollbar.Maximum = Math.Max (0, Rows.Count - 1);
                 vscrollbar.LargeChange = Math.Max (0, visible_rows);
             } else {
                 vscrollbar.Visible = false;
@@ -3084,7 +3089,13 @@ namespace Majorsilence.Forms
 
             if (scrollable_total > scrollable_available && scrollable_available > 0) {
                 hscrollbar.Visible = true;
-                hscrollbar.Maximum = scrollable_total - scrollable_available;
+                // Maximum is the *conceptual total extent minus one* (see ScrollBar.EffectiveMaximum),
+                // not the last valid scroll offset -- with LargeChange set below to the page size,
+                // EffectiveMaximum works out to scrollable_total - scrollable_available, which is what
+                // horizontal_scroll_offset actually needs. Setting Maximum to that directly left the
+                // thumb, which is positioned from EffectiveMaximum, reaching the end of the track a
+                // whole page early.
+                hscrollbar.Maximum = Math.Max (0, scrollable_total - 1);
                 hscrollbar.LargeChange = Math.Max (0, scrollable_available);
             } else {
                 hscrollbar.Visible = false;

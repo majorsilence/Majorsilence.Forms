@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Globalization;
 using Majorsilence.Forms.Renderers;
+using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
@@ -123,7 +124,7 @@ namespace Majorsilence.Forms
                 if (value < 0 || value >= Items.Count)
                     return;
 
-                vscrollbar.Value = Math.Min (value, vscrollbar.Maximum);
+                vscrollbar.Value = Math.Min (value, vscrollbar.EffectiveMaximum);
             }
         }
         /// <summary>
@@ -529,7 +530,13 @@ namespace Majorsilence.Forms
         private void ScrollByDevicePixels (double deltaPx)
         {
             var itemH = Math.Max (1, ScaledItemHeight);
-            var maxPosPx = Math.Max (0, vscrollbar.Maximum) * (double) itemH;
+            var maxPosPx = Math.Max (0, vscrollbar.EffectiveMaximum) * (double) itemH;
+
+            // How far item[top_index] currently sits above the client top -- see GetItemRectangle,
+            // which places item[i] at client.Top + (i - top_index) * itemH - this value. Captured before
+            // _scrollOffsetPx below is overwritten, so a pure sub-row move (top_index unchanged) can be
+            // repainted as a pixel shift of the existing frame instead of a full re-render.
+            var oldRenderOffsetPx = top_index * itemH + (int) Math.Round (_scrollOffsetPx);
 
             var posPx = Math.Max (0, Math.Min (top_index * (double) itemH + _scrollOffsetPx - deltaPx, maxPosPx));
 
@@ -538,17 +545,131 @@ namespace Majorsilence.Forms
 
             if (newTop != top_index) {
                 _settingScrollbarFromGesture = true;
-                try { vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (newTop, vscrollbar.Maximum)); }
+                try { vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (newTop, vscrollbar.EffectiveMaximum)); }
                 finally { _settingScrollbarFromGesture = false; }
                 top_index = newTop;
+
+                // Crossing a row also moves the scroll thumb, which dirties it -- and a dirty child
+                // forces this control's own OnPaint to run again anyway once its parent notices
+                // NeedsPaint (see Control.PaintChildren), so there is nothing for the fast path to save
+                // here. Full repaint, exactly as before.
+                Invalidate ();
+                return;
             }
 
-            Invalidate ();
+            var newRenderOffsetPx = top_index * itemH + (int) Math.Round (_scrollOffsetPx);
+            if (!TryFastScrollBlit (oldRenderOffsetPx - newRenderOffsetPx))
+                Invalidate ();
+        }
+
+        // A full repaint is due (Invalidate () was called, to get this control re-blitted into its
+        // ancestors -- see the comment on TryFastScrollBlit for why that call can't be skipped), but
+        // TryFastScrollBlit already left the back buffer in the correct state by hand: the next
+        // OnPaintBackground/OnPaint pass must do nothing and leave those pixels alone.
+        //
+        // Kept correct by OnInvalidated, not by "one-shot and cleared the moment OnPaint runs": several
+        // scroll deltas routinely land back-to-back before the next real paint (the Android host
+        // throttles its own repaint while a finger is down), so TryFastScrollBlit can run several times
+        // in a row while this is still pending -- each further shift must still take the fast path.
+        // OnInvalidated turns it back off the moment anything OTHER than TryFastScrollBlit calls
+        // Invalidate () (a selection/data change, say): that content cannot be produced by shifting
+        // pixels, so the pending state must fall through to a real, full repaint.
+        private bool _skipNextRepaint;
+        private bool _invalidatingForFastScroll;
+
+        /// <inheritdoc/>
+        protected override void OnInvalidated (InvalidateEventArgs e)
+        {
+            _skipNextRepaint = _invalidatingForFastScroll;
+            base.OnInvalidated (e);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            if (_skipNextRepaint)
+                return;
+            base.OnPaintBackground (e);
+        }
+
+        // Repaints a pure sub-row scroll (the common case for a touch drag/fling: top_index unchanged,
+        // no scrollbar thumb movement to keep in sync) by shifting the control's own already-rendered
+        // back buffer by the pixel amount the content actually moved, then rendering only the strip of
+        // rows the shift newly exposed -- instead of re-running every visible row's renderer (text
+        // shaping included) on every scroll frame. <paramref name="shiftPx"/> is the on-screen
+        // displacement (positive = content moves down, revealing earlier rows at the top; negative =
+        // content moves up, revealing later rows at the bottom).
+        //
+        // Returns false (no repaint performed -- the caller falls back to Invalidate()) whenever the
+        // shortcut is not safe: nothing to shift from yet, a full repaint is already pending for some
+        // other reason (NeedsPaint but _skipNextRepaint is false -- see OnInvalidated), or a background
+        // image / rounded border would need re-compositing across the whole client area rather than
+        // just the exposed strip.
+        private bool TryFastScrollBlit (int shiftPx)
+        {
+            if (shiftPx == 0 || (NeedsPaint && !_skipNextRepaint) || BackgroundImage is not null || CurrentStyle.Border.GetRadius () > 0)
+                return false;
+
+            if (BackBufferPixels is not { } buffer || buffer.Width != ScaledSize.Width || buffer.Height != ScaledSize.Height)
+                return false;   // no existing frame to shift (never painted yet, or just resized)
+
+            var client = ClientRectangle;
+            var contentWidth = client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0);
+            if (contentWidth <= 0 || Math.Abs (shiftPx) >= client.Height)
+                return false;
+
+            // Excludes the scrollbar's own strip (a separate child, composited on top of this buffer by
+            // the normal paint pass) so its already-correct pixels are left exactly where they are.
+            var contentRect = new Rectangle (client.Left, client.Top, contentWidth, client.Height);
+
+            // A deep copy, not SKImage.FromBitmap (which can share the source's pixel memory): the
+            // canvas below writes into this same buffer while reading the snapshot, and a shared,
+            // overlapping source/destination is undefined for a translated blit.
+            using var snapshot = buffer.Copy ();
+            if (snapshot is null)
+                return false;
+
+            using (var canvas = new SKCanvas (buffer)) {
+                canvas.Save ();
+                canvas.ClipRect (contentRect.ToSKRect ());
+                canvas.DrawBitmap (snapshot, 0, shiftPx);
+                canvas.Restore ();
+
+                var exposed = shiftPx > 0
+                    ? new Rectangle (contentRect.Left, contentRect.Top, contentRect.Width, shiftPx)
+                    : new Rectangle (contentRect.Left, contentRect.Bottom + shiftPx, contentRect.Width, -shiftPx);
+
+                canvas.Save ();
+                canvas.ClipRect (exposed.ToSKRect ());
+                canvas.Clear (GetEffectiveBackgroundColor ());
+
+                var info = new SKImageInfo (buffer.Width, buffer.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+                RenderManager.Render (this, new PaintEventArgs (info, canvas, Scaling));
+                canvas.Restore ();
+
+                canvas.Flush ();
+            }
+
+            // Invalidate (), not a quieter window-only nudge: a control's own IsDirty is what makes
+            // Controls.AnyNeedsPaint () bubble NeedsPaint up through every ancestor, which is what makes
+            // Control.PaintChildren actually walk down and re-blit this control into them at all -- skip
+            // it and this correctly-updated buffer would simply never be recomposited. The
+            // _invalidatingForFastScroll flag tells OnInvalidated that THIS particular Invalidate () must
+            // not force a real repaint (see its own comment for why a plain one-shot bool can't do this
+            // safely across several chained calls).
+            _invalidatingForFastScroll = true;
+            try { Invalidate (); } finally { _invalidatingForFastScroll = false; }
+            return true;
         }
 
         /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
         {
+            if (_skipNextRepaint) {
+                _skipNextRepaint = false;
+                return;
+            }
+
             base.OnPaint (e);
 
             RenderManager.Render (this, e);
@@ -928,7 +1049,12 @@ namespace Majorsilence.Forms
 
             if (NeededHeightForItems > Bounds.Height) {
                 vscrollbar.Visible = true;
-                vscrollbar.Maximum = Items.Count - VisibleItemCount;
+                // Maximum is the *conceptual last item index* (see ScrollBar.EffectiveMaximum), not the
+                // last valid top_index -- with LargeChange set below to the page size, EffectiveMaximum
+                // works out to Items.Count - VisibleItemCount, which is what top_index/ScrollByDevicePixels
+                // actually clamp against. Setting Maximum to that directly left the thumb, which is
+                // positioned from EffectiveMaximum, reaching the end of the track a whole page early.
+                vscrollbar.Maximum = Math.Max (0, Items.Count - 1);
                 vscrollbar.LargeChange = Math.Max (0, VisibleItemCount);
             } else {
                 vscrollbar.Visible = ScrollbarAlwaysVisible;

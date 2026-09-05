@@ -262,6 +262,230 @@ public class GestureTests
     }
 
     [Fact]
+    public void ScrollGesture_ListBox_FastPathMatchesAFullRepaint_ForASubRowShift ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var list = new ListBox { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                list.Items.Add ($"Item {i}");
+            form.Controls.Add (list);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);   // populates the first real back buffer
+
+            var rowH = list.ScaledItemHeight;
+            var at = WindowPoint.DeviceIn (list, 20, 20);
+
+            // A few small drags that never cross a row boundary: ScrollByDevicePixels.TryFastScrollBlit
+            // repaints these by shifting the existing back buffer and patching only the exposed strip,
+            // instead of a full re-render (text shaping included) -- it must still leave ListBox looking
+            // exactly like a normal full render would have.
+            for (var i = 0; i < 3; i++)
+                form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 5);
+            var fastPathPng = HeadlessRenderer.CapturePng (form, 300, 200);
+
+            // Force a full re-render at that identical scroll position (Invalidate () does not touch
+            // top_index/_scrollOffsetPx) and compare pixel-for-pixel against the fast path's output.
+            list.Invalidate ();
+            var fullRenderPng = HeadlessRenderer.CapturePng (form, 300, 200);
+
+            AssertFastPathMatchesFullRepaint (fastPathPng, fullRenderPng, ScrollbarScaledLeft (list));
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_ListBox_CrossingARow_StillFallsBackToAFullRepaint ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var list = new ListBox { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                list.Items.Add ($"Item {i}");
+            form.Controls.Add (list);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            var rowH = list.ScaledItemHeight;
+            var at = WindowPoint.DeviceIn (list, 20, 20);
+
+            // A drag past a whole row moves the scrollbar thumb, which the fast path deliberately does
+            // not try to keep in sync -- ScrollByDevicePixels must fall back to Invalidate () here, not
+            // leave a stale (shifted-but-uncommitted) frame with a thumb that disagrees with top_index.
+            form.HandleScrollGesture (at.X, at.Y, 0, -(rowH + rowH / 2));
+
+            Assert.True (list.FirstVisibleIndex > 0);
+            Assert.True (list.NeedsPaint, "crossing a row must still request a normal full repaint");
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_TreeView_FastPathMatchesAFullRepaint_ForASubRowShift ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);   // populates the first real back buffer
+
+            var rowH = tree.ScaledItemHeight;
+            var at = WindowPoint.DeviceIn (tree, 20, 20);
+
+            // A few small drags that never cross a row boundary: ScrollByDevicePixels.TryFastScrollBlit
+            // repaints these by shifting the existing back buffer and patching only the exposed strip,
+            // instead of a full LayoutItems() + re-render -- it must still leave the TreeView looking
+            // exactly like a normal full render would have.
+            for (var i = 0; i < 3; i++)
+                form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 5);
+            var fastPathPng = HeadlessRenderer.CapturePng (form, 300, 200);
+
+            // Force a full re-render at that identical scroll position (Invalidate () does not touch
+            // top_index/_scrollOffsetPx) and compare pixel-for-pixel against the fast path's output.
+            tree.Invalidate ();
+            var fullRenderPng = HeadlessRenderer.CapturePng (form, 300, 200);
+
+            AssertFastPathMatchesFullRepaint (fastPathPng, fullRenderPng, ScrollbarScaledLeft (tree));
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_TreeView_CrossingARow_StillFallsBackToAFullRepaint ()
+    {
+        var form = new Form { Size = new Size (300, 200) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 120 };
+            for (var i = 0; i < 60; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            var rowH = tree.ScaledItemHeight;
+            var at = WindowPoint.DeviceIn (tree, 20, 20);
+
+            // A drag past a whole row moves the scrollbar thumb, which the fast path deliberately does
+            // not try to keep in sync -- ScrollByDevicePixels must fall back to Invalidate () here, not
+            // leave a stale (shifted-but-uncommitted) frame with a thumb that disagrees with top_index.
+            form.HandleScrollGesture (at.X, at.Y, 0, -(rowH + rowH / 2));
+
+            Assert.True (tree.NeedsPaint, "crossing a row must still request a normal full repaint");
+            HeadlessRenderer.CapturePng (form, 300, 200);   // repaint so LayoutedItems reflects the new scroll offset
+            Assert.NotEqual ("Node 0", tree.LayoutedItems[0].Text);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_TreeView_ManySmallDrags_KeepScrollbarInLockstepWithTopIndex ()
+    {
+        // Shaped like the ControlGallery nav TreeView: many more flat top-level nodes than fit on
+        // screen at once (real gallery has ~40 samples in a nav panel that only shows ~10 rows) --
+        // this is the ratio that actually exercises a multi-row scroll range, unlike a panel tall
+        // enough to show nearly everything at once.
+        var form = new Form { Size = new Size (300, 240) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 240 };
+            for (var i = 0; i < 40; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 240);   // force a layout pass so the scrollbar shows
+
+            var vsbField = tree.GetType ().GetField ("vscrollbar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var vsb = vsbField.GetValue (tree)!;
+            var valueProp = vsb.GetType ().GetProperty ("Value")!;
+            var topIndexField = tree.GetType ().GetField ("top_index", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+
+            var at = WindowPoint.DeviceIn (tree, 20, 20);
+            // Many small drags with no intervening repaint, like the events a real touch fling
+            // delivers between frames -- top_index and the scrollbar's Value must never disagree,
+            // even mid-fling, or the thumb visibly lags/freezes relative to content that has moved on.
+            for (var i = 0; i < 40; i++) {
+                form.HandleScrollGesture (at.X, at.Y, 0, -30);
+                Assert.Equal (topIndexField.GetValue (tree), valueProp.GetValue (vsb));
+            }
+
+            Assert.True ((int) topIndexField.GetValue (tree)! > 0);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_TreeView_ScrollingToTheEnd_ParksTheThumbAtTheEndOfTheTrack ()
+    {
+        // Regression test for a real device report ("it scrolls but the scroll bar doesn't move"):
+        // with a viewport tall enough to show several rows at once (LargeChange > 1), setting
+        // vscrollbar.Maximum to the last valid top_index directly -- instead of the conventional
+        // itemCount - 1 -- left ScrollBar.EffectiveMaximum (what actually positions the thumb) far
+        // short of the real end, so the thumb reached the end of the track, and froze there, long
+        // before top_index/Value did. This must not regress: EffectiveMaximum has to equal the last
+        // top_index a scroll can reach, and Value must actually get there.
+        var form = new Form { Size = new Size (300, 240) };
+        try {
+            var tree = new TreeView { Left = 0, Top = 0, Width = 160, Height = 240 };
+            for (var i = 0; i < 40; i++)
+                tree.Nodes.Add ($"Node {i}");
+            form.Controls.Add (tree);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 240);
+
+            var vsbField = tree.GetType ().GetField ("vscrollbar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var vsb = (VerticalScrollBar) vsbField.GetValue (tree)!;
+
+            // A viewport this shaped genuinely has LargeChange > 1 -- if it didn't, the old bug
+            // (Maximum used where EffectiveMaximum was needed) would happen to be invisible here too.
+            Assert.True (vsb.LargeChange > 1);
+            Assert.True (vsb.EffectiveMaximum < vsb.Maximum, "test setup should exercise LargeChange > 1");
+
+            var at = WindowPoint.DeviceIn (tree, 20, 20);
+            for (var i = 0; i < 60; i++)
+                form.HandleScrollGesture (at.X, at.Y, 0, -30);   // drag far past the end of the content
+
+            Assert.Equal (vsb.EffectiveMaximum, vsb.Value);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
+    public void ScrollGesture_ListBox_ScrollingToTheEnd_ParksTheThumbAtTheEndOfTheTrack ()
+    {
+        var form = new Form { Size = new Size (300, 240) };
+        try {
+            var list = new ListBox { Left = 0, Top = 0, Width = 160, Height = 240 };
+            for (var i = 0; i < 40; i++)
+                list.Items.Add ($"Item {i}");
+            form.Controls.Add (list);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 300, 240);
+
+            var vsbField = list.GetType ().GetField ("vscrollbar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var vsb = (VerticalScrollBar) vsbField.GetValue (list)!;
+
+            Assert.True (vsb.LargeChange > 1);
+            Assert.True (vsb.EffectiveMaximum < vsb.Maximum, "test setup should exercise LargeChange > 1");
+
+            var at = WindowPoint.DeviceIn (list, 20, 20);
+            for (var i = 0; i < 60; i++)
+                form.HandleScrollGesture (at.X, at.Y, 0, -30);
+
+            Assert.Equal (vsb.EffectiveMaximum, vsb.Value);
+        } finally {
+            form.Close ();
+        }
+    }
+
+    [Fact]
     public void ExistingMouseClickPipeline_IsUnaffectedByGestureAdditions ()
     {
         var form = new Form ();
@@ -286,5 +510,52 @@ public class GestureTests
         } finally {
             form.Close ();
         }
+    }
+
+    // The private "vscrollbar" field, common to ListBox/TreeView/DataGridView/ListView.
+    private static int ScrollbarScaledLeft (Control control)
+    {
+        var field = control.GetType ().GetField ("vscrollbar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var vsb = (Control) field.GetValue (control)!;
+        return vsb.ScaledLeft;
+    }
+
+    // Byte-for-byte, TryFastScrollBlit's shifted-and-patched buffer must match a normal full
+    // repaint everywhere it actually draws: the content area (below vsbLeft is the vscrollbar's own
+    // strip, a separate child TryFastScrollBlit never touches -- see its own comment). A handful of
+    // pixels there CAN still differ by a HiDPI scale factor: PaintChildren always re-blits the
+    // vscrollbar on top of whatever is underneath, and if its own edge pixels (the arrow glyphs, at
+    // least) are not fully opaque, that blit blends them against the backdrop rather than replacing
+    // it outright -- a backdrop that can be a frame or two stale under the fast path (nothing this
+    // control draws needs the vscrollbar's own strip refreshed on every sub-row shift) versus
+    // freshly painted under a full repaint. That is a real, understood difference, not a bug in the
+    // shift/patch logic itself -- confirmed by forcing every scroll delta through a full repaint
+    // instead, which removes it entirely -- so it is tolerated here (bounded, and only in that
+    // strip) rather than chased further into ScrollBar/PaintChildren's compositing.
+    private static void AssertFastPathMatchesFullRepaint (byte[] fastPathPng, byte[] fullRenderPng, int vsbLeft)
+    {
+        if (fastPathPng.AsSpan ().SequenceEqual (fullRenderPng))
+            return;
+
+        using var a = SkiaSharp.SKBitmap.Decode (fastPathPng);
+        using var b = SkiaSharp.SKBitmap.Decode (fullRenderPng);
+        var count = 0;
+        var maxDelta = 0;
+        var worst = "";
+        for (var y = 0; y < a.Height; y++)
+        for (var x = 0; x < a.Width; x++) {
+            var pa = a.GetPixel (x, y);
+            var pb = b.GetPixel (x, y);
+            if (pa == pb)
+                continue;
+            count++;
+            var delta = System.Math.Max (System.Math.Max (System.Math.Abs (pa.Red - pb.Red), System.Math.Abs (pa.Green - pb.Green)),
+                System.Math.Max (System.Math.Abs (pa.Blue - pb.Blue), System.Math.Abs (pa.Alpha - pb.Alpha)));
+            if (delta > maxDelta) { maxDelta = delta; worst = $"({x},{y}): fast={pa} full={pb}"; }
+            if (x < vsbLeft)
+                throw new Xunit.Sdk.XunitException ($"content area (x < {vsbLeft}) must match a full repaint exactly: {count} differing pixels so far, worst {worst}");
+        }
+        if (count > 4 || maxDelta > 100)
+            throw new Xunit.Sdk.XunitException ($"{count} differing pixels in the vscrollbar strip (x >= {vsbLeft}), max per-channel delta={maxDelta}, worst {worst} -- more/larger than the known blend-against-stale-backdrop tolerance");
     }
 }

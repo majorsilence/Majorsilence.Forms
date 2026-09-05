@@ -126,11 +126,12 @@ namespace Majorsilence.Forms
             else
                 return;
 
-            // Make sure the scrollbar's range reflects the current item count, then clamp so we
-            // never assign a value outside [Minimum, Maximum] (ScrollBar.Value throws otherwise).
+            // Make sure the scrollbar's range reflects the current item count, then clamp to the last
+            // top_index a scroll can actually reach (EffectiveMaximum, not the raw Maximum -- see its
+            // remarks) so target lands in the same range ScrollByDevicePixels itself clamps to.
             UpdateVerticalScrollBar ();
 
-            target = MathCompat.Clamp (target, vscrollbar.Minimum, vscrollbar.Maximum);
+            target = MathCompat.Clamp (target, vscrollbar.Minimum, vscrollbar.EffectiveMaximum);
             top_index = target;
             _scrollOffsetPx = 0;
             vscrollbar.Value = target;
@@ -968,6 +969,15 @@ namespace Majorsilence.Forms
         private double _scrollOffsetPx;
         private bool _settingScrollbarFromGesture;
 
+        // See ListBox's identical pair for the full rationale: Invalidate() is what makes NeedsPaint
+        // bubble up through ancestors so the back-buffer we already patched in TryFastScrollBlit
+        // actually gets re-blitted into the window, but we don't want the *content* re-rendered on
+        // top of what we just shifted. _skipNextRepaint tells OnPaint/OnPaintBackground to no-op for
+        // exactly the one repaint that our own fast-blit Invalidate() triggers; _invalidatingForFastScroll
+        // is how OnInvalidated tells an unrelated Invalidate() (a real content change) apart from that.
+        private bool _skipNextRepaint;
+        private bool _invalidatingForFastScroll;
+
         /// <summary>
         /// Pans the visible range on a touch drag/flick, pixel by pixel. TreeView owns its own
         /// vertical scrollbar rather than deriving from <see cref="ScrollableControl"/>, so the
@@ -997,7 +1007,13 @@ namespace Majorsilence.Forms
         private void ScrollByDevicePixels (double deltaPx)
         {
             var itemH = System.Math.Max (1, ScaledItemHeight);
-            var maxPosPx = System.Math.Max (0, vscrollbar.Maximum) * (double) itemH;
+            var maxPosPx = System.Math.Max (0, vscrollbar.EffectiveMaximum) * (double) itemH;
+
+            // Where item[top_index] currently sits relative to the client top, before this delta --
+            // the exact pixel shift a fast-blit needs is the difference between this and the same
+            // quantity recomputed after the delta, since both use identical rounding to whatever a
+            // full LayoutItems()/repaint would have produced.
+            var oldRenderOffsetPx = top_index * itemH + (int) System.Math.Round (_scrollOffsetPx);
 
             var posPx = MathCompat.Clamp (top_index * (double) itemH + _scrollOffsetPx - deltaPx, 0, maxPosPx);
 
@@ -1005,19 +1021,102 @@ namespace Majorsilence.Forms
             _scrollOffsetPx = posPx - newTop * (double) itemH;
 
             if (newTop != top_index) {
+                // Crossing a row changes which nodes are even in _layoutItems (LayoutItems() only
+                // keeps the ones from top_index down), so the fast path -- which only shifts existing
+                // pixels -- can't handle this case; fall back to a normal full repaint.
                 _settingScrollbarFromGesture = true;
-                try { vscrollbar.Value = MathCompat.Clamp (newTop, vscrollbar.Minimum, vscrollbar.Maximum); }
+                try { vscrollbar.Value = MathCompat.Clamp (newTop, vscrollbar.Minimum, vscrollbar.EffectiveMaximum); }
                 finally { _settingScrollbarFromGesture = false; }
                 top_index = newTop;
+                Invalidate ();
+                return;
             }
 
-            Invalidate ();
+            var newRenderOffsetPx = top_index * itemH + (int) System.Math.Round (_scrollOffsetPx);
+            if (!TryFastScrollBlit (oldRenderOffsetPx - newRenderOffsetPx))
+                Invalidate ();
+        }
+
+        /// <summary>
+        /// Shifts the existing back-buffer by <paramref name="shiftPx"/> device pixels instead of
+        /// re-running LayoutItems()'s full StackLayoutEngine pass plus a text/icon re-render for every
+        /// visible node -- the expensive part of a TreeView repaint -- when a sub-row scroll delta
+        /// hasn't changed which nodes are visible. Only the freshly-exposed strip is actually rendered.
+        /// </summary>
+        private bool TryFastScrollBlit (int shiftPx)
+        {
+            if (shiftPx == 0 || (NeedsPaint && !_skipNextRepaint) || BackgroundImage is not null || CurrentStyle.Border.GetRadius () > 0)
+                return false;
+            if (BackBufferPixels is not { } buffer || buffer.Width != ScaledSize.Width || buffer.Height != ScaledSize.Height)
+                return false;
+
+            var client = ClientRectangle;
+            var contentWidth = client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0);
+            if (contentWidth <= 0 || System.Math.Abs (shiftPx) >= client.Height)
+                return false;
+
+            // Node rectangles must reflect the new scroll position before we render the exposed strip
+            // (and before returning, so a click landing before the next real repaint still hit-tests
+            // against the right node) -- this is the one part of LayoutItems() that isn't optional here,
+            // unlike ListBox where item rectangles are computed on the fly from top_index/_scrollOffsetPx.
+            LayoutItems ();
+
+            var contentRect = new Rectangle (client.Left, client.Top, contentWidth, client.Height);
+            using var snapshot = buffer.Copy ();
+            if (snapshot is null)
+                return false;
+
+            using (var canvas = new SKCanvas (buffer)) {
+                canvas.Save ();
+                canvas.ClipRect (contentRect.ToSKRect ());
+                canvas.DrawBitmap (snapshot, 0, shiftPx);
+                canvas.Restore ();
+
+                var exposed = shiftPx > 0
+                    ? new Rectangle (contentRect.Left, contentRect.Top, contentRect.Width, shiftPx)
+                    : new Rectangle (contentRect.Left, contentRect.Bottom + shiftPx, contentRect.Width, -shiftPx);
+
+                canvas.Save ();
+                canvas.ClipRect (exposed.ToSKRect ());
+                canvas.Clear (GetEffectiveBackgroundColor ());
+                var info = new SKImageInfo (buffer.Width, buffer.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+                RenderManager.Render (this, new PaintEventArgs (info, canvas, Scaling));
+                canvas.Restore ();
+                canvas.Flush ();
+            }
+
+            _invalidatingForFastScroll = true;
+            try { Invalidate (); } finally { _invalidatingForFastScroll = false; }
+            return true;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnInvalidated (InvalidateEventArgs e)
+        {
+            _skipNextRepaint = _invalidatingForFastScroll;
+            base.OnInvalidated (e);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            if (_skipNextRepaint)
+                return;
+            base.OnPaintBackground (e);
         }
 
         /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
         {
+            // Always keep node rectangles in sync, even when the actual drawing below is skipped --
+            // LayoutItems() is cheap bookkeeping (rectangle math over the visible nodes), not the
+            // render-with-text-and-icons cost this fast path exists to avoid.
             LayoutItems ();
+
+            if (_skipNextRepaint) {
+                _skipNextRepaint = false;
+                return;
+            }
 
             base.OnPaint (e);
 
@@ -1131,7 +1230,13 @@ namespace Majorsilence.Forms
                 vscrollbar.Value = 0;
 
             vscrollbar.Visible = true;
-            vscrollbar.Maximum = childCount - VisibleItemCount;
+            // Maximum is the *conceptual last item index* (see ScrollBar.EffectiveMaximum), not the
+            // last valid top_index -- with LargeChange set below to the page size, EffectiveMaximum
+            // works out to childCount - VisibleItemCount, which is what top_index/ScrollByDevicePixels
+            // actually clamp against. Setting Maximum to that directly left the thumb, which is
+            // positioned from EffectiveMaximum, reaching the end of the track a whole page early --
+            // frozen there for the rest of a long scroll, which read as "the scrollbar doesn't move".
+            vscrollbar.Maximum = Math.Max (0, childCount - 1);
             vscrollbar.LargeChange = Math.Max (0, VisibleItemCount);
         }
 
@@ -1166,8 +1271,11 @@ namespace Majorsilence.Forms
             }
         }
 
-        // The number of items that can be shown with the current height.
-        private int VisibleItemCount => ScaledHeight / ScaledItemHeight;
+        // The number of items that can be shown with the current height. Must use the client area
+        // (border excluded), not ScaledHeight (the full control including its border) -- ListBox uses
+        // the equivalent ClientRectangle.Height for the same reason: overcounting here understates
+        // vscrollbar.Maximum/LargeChange, shrinking the usable scroll range and the thumb's travel.
+        private int VisibleItemCount => ClientRectangle.Height / ScaledItemHeight;
 
         /// <inheritdoc/>
         public class TreeViewControlStyle : ControlStyle
