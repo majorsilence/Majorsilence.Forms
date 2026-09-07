@@ -136,6 +136,7 @@ Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) fol
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
 - [`WinFormsCompatDemo`](samples/WinFormsCompatDemo) — unmodified `System.Windows.Forms` designer-generated source compiling and running against Majorsilence.Forms through a source generator, no real WinForms assembly involved. See [`Majorsilence.Forms.WinFormsShims.Compat`](src/Majorsilence.Forms.WinFormsShims.Compat).
 - [`EmbeddingWinForms`](samples/EmbeddingWinForms) — Majorsilence.Forms controls embedded inside a classic WinForms app via the **WinForms backend** (`MajorsilenceFormsPresenter`/`ToWinFormsControl()`), the port-one-control-at-a-time migration path (Windows-only). See [Platform backends](docs/backends.md).
+- [`EmbeddingGtk4`](samples/EmbeddingGtk4) — Majorsilence.Forms controls embedded inside a host **GTK 4** app via `MajorsilenceFormsPresenter` / `ToGtkWidget()`, with `ToGtkWindow()` handing an MF `Form` back as a `Gtk.Window`. Needs a display session and GTK 4. See [Platform backends](docs/backends.md).
 - [`AutomationTarget`](samples/AutomationTarget) — a small app that exposes its own automation endpoint, so you have something real to drive from the [MCP server](tools/Majorsilence.Forms.Mcp), Selenium, or `curl`. See [Automation & UI testing](docs/automation.md).
 
 Run the gallery on the Avalonia backend:

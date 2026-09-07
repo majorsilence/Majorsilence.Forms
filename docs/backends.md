@@ -114,13 +114,13 @@ depends on Avalonia's own trim story and is not covered here.
 ## Embedding in a host app
 
 Everything above assumes Majorsilence.Forms owns the top-level window and the backend is just the
-rendering host underneath (`Form.Show()` → `Platform.Backend.CreateWindow()`). The Avalonia and Uno
-backends also support the *reverse* direction: an existing Avalonia or Uno app that wants to use MF
-objects as if they were its own native objects, additively and without changing anything about the
-usual `Form.Show()` flow.
+rendering host underneath (`Form.Show()` → `Platform.Backend.CreateWindow()`). The Avalonia, Uno,
+WinForms, WPF and GTK 4 backends also support the *reverse* direction: an existing host app that wants
+to use MF objects as if they were its own native objects, additively and without changing anything
+about the usual `Form.Show()` flow.
 
 **MF Control → host control**, via `MajorsilenceFormsPresenter` (a real `Avalonia.Controls.Canvas` /
-WinUI `Grid`) and its convenience extension methods:
+WinUI `Grid` / WPF `Grid` / GTK `DrawingArea`) and its convenience extension methods:
 
 ```csharp
 // Avalonia (namespace Majorsilence.Forms)
@@ -131,19 +131,27 @@ Microsoft.UI.Xaml.FrameworkElement hostControl = myMfControl.ToUnoControl ();
 
 // WinForms (namespace Majorsilence.Forms.WinForms)
 System.Windows.Forms.Control hostControl = myMfControl.ToWinFormsControl ();
+
+// GTK 4 (namespace Majorsilence.Forms.Gtk4)
+Gtk.Widget hostControl = myMfControl.ToGtkWidget ();
 ```
 
 Drop the result into any native visual tree. This is exactly what `samples/EmbeddingAvalonia`,
-`samples/EmbeddingUno` and `samples/EmbeddingWinForms` do.
+`samples/EmbeddingUno`, `samples/EmbeddingWinForms` and `samples/EmbeddingGtk4` do. The GTK 4
+`MajorsilenceFormsPresenter` *exposes* a `Widget` rather than deriving from a GTK widget (gir.core's
+GObject subclassing needs an extra integration package and a type-registration call); everything else
+is the same shape.
 
 **MF Form → host window.** A `Form`'s backend window is created eagerly in the Form's own constructor
-(before `Show()` is ever called), and on both backends that object already *is* (Avalonia) or *wraps*
-(Uno) a real native window. `ToAvaloniaWindow()`/`ToUnoWindow()` hand that window back directly:
+(before `Show()` is ever called), and on these backends that object already *is* (Avalonia, GTK 4) or
+*wraps* (Uno) a real native window. `ToAvaloniaWindow()`/`ToUnoWindow()`/`ToGtkWindow()` hand that
+window back directly:
 
 ```csharp
 Avalonia.Controls.Window  window = myForm.ToAvaloniaWindow ();   // Majorsilence.Forms.AvaloniaHostInterop
 Microsoft.UI.Xaml.Window  window = myForm.ToUnoWindow ();        // Majorsilence.Forms.Uno.UnoHostInterop
 System.Windows.Forms.Form form   = myForm.ToWinFormsForm ();     // Majorsilence.Forms.WinForms.WinFormsHostInterop
+Gtk.Window                window = myForm.ToGtkWindow ();         // Majorsilence.Forms.Gtk4.Gtk4HostInterop
 ```
 
 The host owns showing it from here on — assign it as the app's main window, set `Owner`, call
@@ -366,16 +374,24 @@ runtime is installed.
   Headless work-queue loop), a `GLib.Functions.TimeoutAdd` timer, `Post`/`Invoke` via
   `GLib.Functions.IdleAdd`, the GDK clipboard (async read pumped against the loop we own), and
   `Gdk.Display` monitor enumeration. `RunModalLoop` nests another iteration loop.
-- `Gtk4WindowHost : IWindowBackend` — a `Gtk.Window` whose child is a `Gtk.DrawingArea`. The draw
-  func renders `owner.RenderFrame` straight into a **fresh per-frame** `Cairo.ImageSurface` buffer
-  (a persistent one trips `cairo_surface_mark_dirty` once cairo snapshots it as a paint source, so
-  it is allocated per paint — the same order of cost as the WPF backend's `WriteableBitmap`
-  present), then blits it with `SetSourceSurface`/`Paint`, scaled by `1/scaleFactor` for HiDPI.
-  Input arrives through `GestureClick`, `EventControllerMotion`, `EventControllerScroll` and
-  `EventControllerKey`; `Gtk4KeyInterop` maps GDK keysyms → `Keys`, modifier masks, gesture button
-  numbers and CSS cursor names. `BeginMoveDrag`/`BeginResizeDrag` call
-  `Gdk.Toplevel.BeginMove`/`BeginResize` (Majorsilence.Forms draws its own chrome on Linux).
+- `Gtk4SkiaSurface` — the shared `Gtk.DrawingArea` both hosts draw and receive input through. The
+  draw func renders `owner.RenderFrame` straight into a **fresh per-frame** `Cairo.ImageSurface`
+  buffer (a persistent one trips `cairo_surface_mark_dirty` once cairo snapshots it as a paint
+  source, so it is allocated per paint — the same order of cost as the WPF backend's
+  `WriteableBitmap` present), then blits it with `SetSourceSurface`/`Paint`, scaled by
+  `1/scaleFactor` for HiDPI. Input arrives through `GestureClick`, `EventControllerMotion`,
+  `EventControllerScroll` and `EventControllerKey`; `Gtk4KeyInterop` maps GDK keysyms → `Keys`,
+  modifier masks, gesture button numbers and CSS cursor names.
+- `Gtk4WindowHost : IWindowBackend` — wraps `Gtk4SkiaSurface` in a `Gtk.Window` and adds chrome,
+  geometry and lifecycle. `BeginMoveDrag`/`BeginResizeDrag` call
+  `Gdk.Toplevel.BeginMove`/`BeginResize` (Majorsilence.Forms draws its own chrome on Linux);
   `ShowDialog` sets transient-for + modal for a genuine z-ordered dialog.
+- `MajorsilenceFormsPresenter` + `ToGtkWidget()` / `ToGtkWindow()` — the embedding direction (see
+  [Embedding in a host app](#embedding-in-a-host-app)). The presenter reuses `Gtk4SkiaSurface` and
+  implements `IWindowBackend` for a window-less scene, exposing a `Widget` property rather than
+  deriving from a GTK widget. `samples/EmbeddingGtk4` shows it inside a host `Gtk.Application`.
+  `INativeControlHostBackend` (hosting real GTK widgets *inside* an MF scene) is not implemented —
+  deferred, as on Headless.
 
 **Running it** needs a display session and the GTK 4 native libraries; `samples/Gallery.Gtk4` is the
 head:
@@ -389,6 +405,11 @@ MF_GTK4_DEMO=1 dotnet run --project samples/Gallery.Gtk4  # tiny render+input sm
 `Application.Exit()`s — a non-interactive check that render, the GLib loop, timers and invalidation
 are all live. Verified on Wayland: the window shows, the ControlGallery `MainForm` renders, the GLib
 timer fires and repaints follow input.
+
+`samples/EmbeddingGtk4` is the host-owned counterpart — a `Gtk.Application` that drops an embedded MF
+scene in via `MajorsilenceFormsPresenter` and opens an MF `Form` as a GTK window via `ToGtkWindow()`.
+`EMBED_SELFTEST=1` runs a non-interactive check (embedded scene paints, `ToGtkWindow()` presents);
+verified on Wayland.
 
 **What doesn't work** (mostly GTK 4 API removals rather than pending work):
 

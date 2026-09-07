@@ -35,7 +35,7 @@ runner that has only one of the two workloads — pass `-p:EnableAndroidTarget=t
 | [`Explorer`](#explore) | A Windows Explorer clone | Windows, macOS, Linux |
 | [`Outlaw`](#outlaw) | An Outlook clone | Windows, macOS, Linux |
 | [`PointOfSale`](#pointofsale) | A full client/server LOB app | Windows, macOS, Linux |
-| [`EmbeddingAvalonia` / `EmbeddingUno` / `EmbeddingWinForms`](#embeddingavalonia--embeddinguno--embeddingwinforms) | Majorsilence.Forms hosted *inside* a native app | Desktop (WinForms: Windows only) |
+| [`EmbeddingAvalonia` / `EmbeddingUno` / `EmbeddingWinForms` / `EmbeddingGtk4`](#embeddingavalonia--embeddinguno--embeddingwinforms--embeddinggtk4) | Majorsilence.Forms hosted *inside* a native app | Desktop (WinForms: Windows only; Gtk4: needs GTK 4) |
 | [`WinFormsInterop`](#winformsinterop-windows-only) | Bi-directional `System.Windows.Forms` interop | Windows |
 | [`WinFormsCompatDemo`](#winformscompatdemo) | Source-generated `System.Windows.Forms` namespace, no real WinForms assembly | Windows, macOS, Linux |
 | [`AutomationTarget`](#automationtarget) | An app that exposes its own automation endpoint | Windows, macOS, Linux |
@@ -267,33 +267,37 @@ The API creates and seeds a local `pos.db` on first run. The default JWT signing
 `appsettings.json` is a placeholder, not a secret — override it in `appsettings.Development.json` or
 the environment.
 
-### EmbeddingAvalonia / EmbeddingUno / EmbeddingWinForms
+### EmbeddingAvalonia / EmbeddingUno / EmbeddingWinForms / EmbeddingGtk4
 
-The reverse hosting direction: an ordinary Avalonia, Uno, or classic WinForms application that uses
-Majorsilence.Forms objects as if they were its own native ones.
+The reverse hosting direction: an ordinary Avalonia, Uno, classic WinForms, or GTK 4 application that
+uses Majorsilence.Forms objects as if they were its own native ones.
 
 ```bash
 dotnet run --project samples/EmbeddingAvalonia
 dotnet run --project samples/EmbeddingUno
 dotnet run --project samples/EmbeddingWinForms   # Windows only
+dotnet run --project samples/EmbeddingGtk4       # needs a display + GTK 4
 ```
 
 Each window puts native host controls and an embedded Majorsilence.Forms scene side by side, and
-demonstrates all three seams:
+demonstrates the embedding seams:
 
-- `ToAvaloniaControl()` / `ToUnoControl()` / `ToWinFormsControl()` — a Majorsilence control hosted
-  as a native one via `MajorsilenceFormsPresenter`.
-- `ToAvaloniaWindow()` / `ToUnoWindow()` / `ToWinFormsForm()` — a Majorsilence `Form`'s backend
-  window handed back to the host. Avalonia and WinForms get a genuine OS-level modal dialog ("Open
-  as Avalonia dialog" / "Open as WinForms dialog"); Uno has no owner concept in this backend, so it
-  gets an independent top-level window ("Open as Uno window") and `Form.ShowDialog(parent)` is the
-  way to get modal behaviour there.
+- `ToAvaloniaControl()` / `ToUnoControl()` / `ToWinFormsControl()` / `ToGtkWidget()` — a Majorsilence
+  control hosted as a native one via `MajorsilenceFormsPresenter`.
+- `ToAvaloniaWindow()` / `ToUnoWindow()` / `ToWinFormsForm()` / `ToGtkWindow()` — a Majorsilence
+  `Form`'s backend window handed back to the host. Avalonia, WinForms and GTK 4 get a genuine
+  OS-level modal dialog; Uno has no owner concept in this backend, so it gets an independent
+  top-level window ("Open as Uno window") and `Form.ShowDialog(parent)` is the way to get modal
+  behaviour there.
 - `NativeControlHost` — a native button hosted *inside* the Majorsilence scene, the other direction
-  again. See [`native-interop.md`](native-interop.md).
+  again (Avalonia / Uno / WinForms only; not implemented on the GTK 4 backend). See
+  [`native-interop.md`](native-interop.md).
 
 The Avalonia and Uno ones also toggle the host theme, so you can watch Majorsilence.Forms controls
 follow it. The WinForms one is Windows-only and exists as the port-one-control-at-a-time migration
-path — see [The WinForms backend](backends.md#the-winforms-backend).
+path — see [The WinForms backend](backends.md#the-winforms-backend). The GTK 4 one runs its host
+`Gtk.Application`'s loop, with the Gtk4 backend running inside it (`EMBED_SELFTEST=1` for a
+non-interactive check).
 
 See [Embedding in a host app](backends.md#embedding-in-a-host-app) for the API details.
 

@@ -39,6 +39,27 @@ Application.Run (new MainForm ());      // GLib main loop
 - Custom-chrome window move/resize drags via `Gdk.Toplevel.BeginMove`/`BeginResize`.
 - `ShowDialog` gets a real transient-for / modal window relationship.
 
+## Embed in a host GTK app
+
+The reverse direction — an existing `Gtk.Application` that wants to use MF objects as its own:
+
+```csharp
+using Majorsilence.Forms.Gtk4;
+
+// MF Control  → GTK widget
+Gtk.Widget widget = myMfControl.ToGtkWidget ();          // or: new MajorsilenceFormsPresenter { Content = myMfControl }
+someGtkBox.Append (widget);
+
+// MF Form → Gtk.Window (created eagerly in the Form's constructor)
+Gtk.Window window = myForm.ToGtkWindow ();
+window.SetTransientFor (hostWindow);
+window.Present ();
+```
+
+`MajorsilenceFormsPresenter` exposes a `Widget` property rather than deriving from a GTK widget
+(gir.core's GObject subclassing needs an extra integration package and a type-registration call). See
+`samples/EmbeddingGtk4`.
+
 ## Known limits (v1)
 
 - **No screen-position control.** GTK 4 removed client-side positioning of top-levels, so

@@ -2,17 +2,14 @@ using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using Majorsilence.Forms.Backends;
-using SkiaSharp;
 using MF = Majorsilence.Forms;
 
 namespace Majorsilence.Forms.Gtk4
 {
     /// <summary>
     /// An <see cref="IWindowBackend"/> that presents a Majorsilence.Forms window through a real GTK 4
-    /// <c>Gtk.Window</c> whose child is a <c>Gtk.DrawingArea</c>. Each draw pass renders the owning
-    /// <see cref="MF.WindowBase"/> via <c>RenderFrame</c> straight into a Cairo image-surface buffer;
-    /// GTK event-controller input (click / motion / scroll / key) is translated into the neutral
-    /// <c>WindowBase.Handle*</c> path.
+    /// <c>Gtk.Window</c> whose child is the shared <see cref="Gtk4SkiaSurface"/>. Chrome, geometry and
+    /// lifecycle live here; rendering and input translation are the surface's job.
     ///
     /// Popups (menus, combo dropdowns) are borderless, non-resizable top-level windows.
     /// </summary>
@@ -21,18 +18,15 @@ namespace Majorsilence.Forms.Gtk4
         private readonly MF.WindowBase _owner;
         private readonly bool _isPopup;
         private readonly global::Gtk.Window _window;
-        private readonly global::Gtk.DrawingArea _area;
+        private readonly Gtk4SkiaSurface _surface;
 
         private Size _size = new (800, 600);
-        private Size _clientLogical = new (800, 600);
         private Point _location;
         private bool _systemDecorations;
         private bool _canResize = true;
         private bool _closedDelivered;
         private bool _minimized;
         private double _opacity = 1.0;
-        private uint _lastEventTime;
-        private (double X, double Y) _lastPointer;
 
         public Gtk4WindowHost (MF.WindowBase owner, bool isPopup)
         {
@@ -40,25 +34,19 @@ namespace Majorsilence.Forms.Gtk4
             _isPopup = isPopup;
             _systemDecorations = !isPopup;
 
-            MF.Theme.WarmupFonts ();
-
             _window = global::Gtk.Window.New ();
             _window.SetDefaultSize (_size.Width, _size.Height);
             _window.SetDecorated (!isPopup);
             _window.SetResizable (!isPopup);
 
-            _area = global::Gtk.DrawingArea.New ();
-            _area.SetHexpand (true);
-            _area.SetVexpand (true);
-            _area.SetFocusable (true);
-            _area.SetDrawFunc (Render);
-            _area.OnResize += (_, e) => { _clientLogical = new Size (e.Width, e.Height); };
-
-            _window.SetChild (_area);
+            _surface = new Gtk4SkiaSurface (() => _owner);
+            _window.SetChild (_surface.Widget);
 
             WireLifecycle ();
-            WireInput ();
         }
+
+        /// <summary>The real GTK window backing this host (used by <see cref="Gtk4HostInterop.ToGtkWindow"/>).</summary>
+        internal global::Gtk.Window NativeWindow => _window;
 
         private void WireLifecycle ()
         {
@@ -74,125 +62,6 @@ namespace Majorsilence.Forms.Gtk4
             };
         }
 
-        // ── Input ────────────────────────────────────────────────────────────────
-
-        private void WireInput ()
-        {
-            var click = global::Gtk.GestureClick.New ();
-            click.SetButton (0);   // 0 == report every button
-            click.OnPressed += (g, e) => {
-                _lastEventTime = ((global::Gtk.EventController) g).GetCurrentEventTime ();
-                _lastPointer = (e.X, e.Y);
-                _area.GrabFocus ();
-                var state = ((global::Gtk.EventController) g).GetCurrentEventState ();
-                var (x, y) = Device (e.X, e.Y);
-                _owner.HandlePointerPressed (Gtk4KeyInterop.ToButton (((global::Gtk.GestureClick) g).GetCurrentButton ()),
-                    x, y, Gtk4KeyInterop.ModifierKeys (state));
-            };
-            click.OnReleased += (g, e) => {
-                _lastEventTime = ((global::Gtk.EventController) g).GetCurrentEventTime ();
-                _lastPointer = (e.X, e.Y);
-                var state = ((global::Gtk.EventController) g).GetCurrentEventState ();
-                var (x, y) = Device (e.X, e.Y);
-                _owner.HandlePointerReleased (Gtk4KeyInterop.ToButton (((global::Gtk.GestureClick) g).GetCurrentButton ()),
-                    x, y, Gtk4KeyInterop.ModifierKeys (state));
-            };
-            _area.AddController (click);
-
-            var motion = global::Gtk.EventControllerMotion.New ();
-            motion.OnMotion += (m, e) => {
-                _lastEventTime = ((global::Gtk.EventController) m).GetCurrentEventTime ();
-                _lastPointer = (e.X, e.Y);
-                var state = ((global::Gtk.EventController) m).GetCurrentEventState ();
-                var (x, y) = Device (e.X, e.Y);
-                _owner.HandlePointerMoved (Gtk4KeyInterop.ButtonsFromState (state), x, y, Gtk4KeyInterop.ModifierKeys (state));
-            };
-            motion.OnLeave += (_, _) => {
-                var (x, y) = Device (_lastPointer.X, _lastPointer.Y);
-                _owner.HandlePointerExited (MF.MouseButtons.None, x, y, MF.Keys.None);
-            };
-            _area.AddController (motion);
-
-            var scroll = global::Gtk.EventControllerScroll.New (global::Gtk.EventControllerScrollFlags.BothAxes);
-            scroll.OnScroll += (s, e) => {
-                var state = ((global::Gtk.EventController) s).GetCurrentEventState ();
-                var (x, y) = Device (_lastPointer.X, _lastPointer.Y);
-                // GTK: +dy scrolls the content down; WinForms wheel delta is +120 per notch scrolling up.
-                var delta = new Point ((int) Math.Round (-e.Dx * 120), (int) Math.Round (-e.Dy * 120));
-                _owner.HandlePointerWheel (MF.MouseButtons.None, x, y, delta, Gtk4KeyInterop.ModifierKeys (state));
-                return true;
-            };
-            _area.AddController (scroll);
-
-            var keys = global::Gtk.EventControllerKey.New ();
-            keys.OnKeyPressed += (_, e) => {
-                var handled = _owner.HandleKeyDown (Gtk4KeyInterop.ToKeys (e.Keyval, e.State));
-
-                // GTK's CharacterReceived equivalent is the IM commit; for a first cut, derive the
-                // printable character straight off the key value (mirrors the Uno backend).
-                var codepoint = Gdk.Functions.KeyvalToUnicode (e.Keyval);
-                if (codepoint != 0) {
-                    var ch = char.ConvertFromUtf32 ((int) codepoint);
-                    if (!string.IsNullOrEmpty (ch) && !char.IsControl (ch[0]))
-                        handled |= _owner.HandleTextInput (ch);
-                }
-                return handled;
-            };
-            keys.OnKeyReleased += (_, e) => _owner.HandleKeyUp (Gtk4KeyInterop.ToKeys (e.Keyval, e.State));
-            _window.AddController (keys);
-        }
-
-        // Widget coords are logical; RenderFrame and the neutral input path take device pixels.
-        private (int X, int Y) Device (double x, double y)
-        {
-            var s = Scaling;
-            return ((int) Math.Round (x * s), (int) Math.Round (y * s));
-        }
-
-        // ── Rendering ────────────────────────────────────────────────────────────
-
-        private void Render (global::Gtk.DrawingArea area, Cairo.Context cr, int width, int height)
-        {
-            if (width <= 0 || height <= 0)
-                return;
-
-            _clientLogical = new Size (width, height);
-            var scale = Math.Max (1, area.GetScaleFactor ());
-            var physW = Math.Max (1, width * scale);
-            var physH = Math.Max (1, height * scale);
-
-            // A fresh image surface per frame: once it is used as a paint source cairo takes a snapshot
-            // of it, and marking a snapshotted surface dirty on the next pass trips an assertion. Frames
-            // are drawn on resize / explicit Invalidate, not continuously, so the per-paint allocation
-            // is the same order of cost as the WPF backend's WriteableBitmap present.
-            using var surface = new Cairo.ImageSurface (Cairo.Format.Argb32, physW, physH);
-            RenderInto (surface, physW, physH, scale);
-            surface.MarkDirty ();
-
-            cr.Save ();
-            if (scale != 1)
-                cr.Scale (1.0 / scale, 1.0 / scale);
-            cr.SetSourceSurface (surface, 0, 0);
-            cr.Paint ();
-            cr.Restore ();
-        }
-
-        private unsafe void RenderInto (Cairo.ImageSurface surface, int physW, int physH, double scale)
-        {
-            var data = surface.GetData ();
-            fixed (byte* ptr = data) {
-                // Cairo ARGB32 on a little-endian host is byte-order BGRA, premultiplied — SkiaSharp's Bgra8888/Premul.
-                var info = new SKImageInfo (physW, physH, SKColorType.Bgra8888, SKAlphaType.Premul);
-                using var skSurface = SKSurface.Create (info, (IntPtr) ptr, surface.Stride);
-                if (skSurface is null)
-                    return;
-
-                skSurface.Canvas.Clear (SKColors.Transparent);
-                _owner.RenderFrame (skSurface.Canvas, physW, physH, scale);
-                skSurface.Canvas.Flush ();
-            }
-        }
-
         // ── Geometry ─────────────────────────────────────────────────────────────
         // GTK 4 removed client-side control (and query) of a top-level's screen position, so Location
         // is a best-effort stored value and the PointTo* conversions assume it. Size/ClientSize track
@@ -201,8 +70,8 @@ namespace Majorsilence.Forms.Gtk4
         public Point Location { get => _location; set => _location = value; }
 
         public Size Size {
-            get => _window.GetRealized () && _area.GetWidth () > 0
-                ? new Size (_area.GetWidth (), _area.GetHeight ())
+            get => _window.GetRealized () && _surface.Widget.GetWidth () > 0
+                ? new Size (_surface.Widget.GetWidth (), _surface.Widget.GetHeight ())
                 : _size;
             set {
                 _size = value;
@@ -210,16 +79,11 @@ namespace Majorsilence.Forms.Gtk4
             }
         }
 
-        public Size ClientSize => _window.GetRealized () && _area.GetWidth () > 0
-            ? new Size (_area.GetWidth (), _area.GetHeight ())
-            : _clientLogical;
+        public Size ClientSize => _window.GetRealized () && _surface.Widget.GetWidth () > 0
+            ? new Size (_surface.Widget.GetWidth (), _surface.Widget.GetHeight ())
+            : (_surface.ClientLogical.Width > 0 ? _surface.ClientLogical : _size);
 
-        public double Scaling {
-            get {
-                var s = _area.GetScaleFactor ();
-                return s > 0 ? s : 1.0;
-            }
-        }
+        public double Scaling => _surface.Scaling;
 
         // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -283,13 +147,13 @@ namespace Majorsilence.Forms.Gtk4
             _window.SetDecorated (!_isPopup && useSystemDecorations);
         }
 
-        public void SetCursor (CursorType cursor) => _area.SetCursorFromName (Gtk4KeyInterop.ToCursorName (cursor));
+        public void SetCursor (CursorType cursor) => _surface.Widget.SetCursorFromName (Gtk4KeyInterop.ToCursorName (cursor));
 
         // GTK 4 window icons come from a themed icon name, not raw PNG bytes — no-op.
         public void SetIcon (byte[]? iconPng) { }
 
         public Size MinimumSize {
-            set => _area.SetSizeRequest (value.IsEmpty ? -1 : value.Width, value.IsEmpty ? -1 : value.Height);
+            set => _surface.Widget.SetSizeRequest (value.IsEmpty ? -1 : value.Width, value.IsEmpty ? -1 : value.Height);
         }
 
         // GTK 4 exposes no maximum-size hint from application code — no-op.
@@ -349,16 +213,16 @@ namespace Majorsilence.Forms.Gtk4
         public void BeginMoveDrag ()
         {
             if (TryGetToplevel (out var toplevel, out var device)) {
-                var (x, y) = _lastPointer;
-                toplevel.BeginMove (device!, 1, x, y, _lastEventTime);
+                var (x, y) = _surface.LastPointer;
+                toplevel.BeginMove (device!, 1, x, y, _surface.LastEventTime);
             }
         }
 
         public void BeginResizeDrag (WindowEdge edge)
         {
             if (TryGetToplevel (out var toplevel, out var device)) {
-                var (x, y) = _lastPointer;
-                toplevel.BeginResize (Gtk4KeyInterop.ToSurfaceEdge (edge), device, 1, x, y, _lastEventTime);
+                var (x, y) = _surface.LastPointer;
+                toplevel.BeginResize (Gtk4KeyInterop.ToSurfaceEdge (edge), device, 1, x, y, _surface.LastEventTime);
             }
         }
 
@@ -379,7 +243,7 @@ namespace Majorsilence.Forms.Gtk4
 
         // ── Rendering ────────────────────────────────────────────────────────────
 
-        public void Invalidate () => _area.QueueDraw ();
+        public void Invalidate () => _surface.RequestRender ();
 
         // ── File/folder pickers ──────────────────────────────────────────────────
         // Gtk.FileDialog is async and needs a live loop turn; deferred — WebView-less compat controls
