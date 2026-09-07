@@ -146,6 +146,23 @@ namespace Majorsilence.Forms.Tests
             return counts.OrderByDescending (p => p.Value).First ().Key;
         }
 
+        // Pixels inside a region with a clear magenta cast -- red and blue both well above green.
+        // A saturated-magenta glyph produces these at any anti-aliasing coverage; neutral-grey text
+        // (r == g == b) and the theme background never do.
+        private static int MagentaInk (SKBitmap bitmap, Rectangle area)
+        {
+            var count = 0;
+
+            for (var x = Math.Max (0, area.Left); x < Math.Min (bitmap.Width, area.Right); x++)
+                for (var y = Math.Max (0, area.Top); y < Math.Min (bitmap.Height, area.Bottom); y++) {
+                    var p = bitmap.GetPixel (x, y);
+                    if (p.Red - p.Green > 60 && p.Blue - p.Green > 60)
+                        count++;
+                }
+
+            return count;
+        }
+
         [Fact]
         public void Every_day_cell_in_the_grid_is_drawn ()
         {
@@ -276,8 +293,12 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void A_day_outside_the_displayed_month_is_drawn_in_the_trailing_colour ()
         {
-            // TrailingForeColor was stored and read by nothing (SMP-46). Setting it to something
-            // nothing else in the control uses proves the renderer consults it.
+            // TrailingForeColor was stored and read by nothing (SMP-46). Setting it to a hue nothing
+            // else in the control uses (saturated magenta) proves the renderer consults it: the
+            // trailing cell's digits pick up a magenta cast that an in-month cell's neutral-grey
+            // digits never show. Checked as a colour *bias* (R and B well above G), not an exact
+            // pixel value -- subpixel-antialiased glyph strokes this small never fully cover a pixel,
+            // so an exact-equality scan was font/hinting dependent and flaky across the CI matrix.
             using var calendar = Calendar (c => c.TrailingForeColor = Color.FromArgb (255, 255, 0, 255));
             using var bitmap = Render (calendar);
 
@@ -285,15 +306,9 @@ namespace Majorsilence.Forms.Tests
 
             Assert.NotEqual (March.Month, trailing.Month);
 
-            var magenta = new SKColor (255, 0, 255);
-            var cell = calendar.GetDateCellBounds (trailing);
-            var found = false;
-
-            for (var x = cell.Left; x < cell.Right && !found; x++)
-                for (var y = cell.Top; y < cell.Bottom && !found; y++)
-                    found = bitmap.GetPixel (x, y) == magenta;
-
-            Assert.True (found, "TrailingForeColor is not used for adjacent-month days");
+            Assert.True (MagentaInk (bitmap, calendar.GetDateCellBounds (trailing)) > 0,
+                         "TrailingForeColor is not used for adjacent-month days");
+            Assert.Equal (0, MagentaInk (bitmap, calendar.GetDateCellBounds (March)));
         }
 
         // ---------------- mouse: selection
