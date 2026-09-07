@@ -12,6 +12,7 @@ how source gets here in the first place, see [`MIGRATION.md`](MIGRATION.md).
 | `Majorsilence.Forms.Drawing.Common` | The `Majorsilence.Forms.Drawing` GDI+ replacement (`Bitmap`, `Font`, `Pen`, `Brush`, `Icon`, `Region`, `StringFormat`, `Drawing2D`, `Imaging`, ...) plus the bundled fallback font set. Usable standalone, without any of the WinForms control layer | SkiaSharp |
 | `Majorsilence.Forms.Avalonia` | Default backend — Windows/macOS/Linux desktop, real `WebView2`/`WKWebView`/`WebKitGTK` support via `Avalonia.Controls.WebView` | `Majorsilence.Forms` + Avalonia |
 | `Majorsilence.Forms.Uno` | Uno Platform (Skia) backend — desktop, iOS, Android, WebAssembly | `Majorsilence.Forms` + Uno.WinUI |
+| `Majorsilence.Forms.Gtk4` | GTK 4 backend (gir.core) — Linux-first real GTK window, also Windows/macOS with the GTK 4 runtime. Both embedding directions, `INativeControlHostBackend`, and `IWebViewFactory` (WebKitGTK 6.0) | `Majorsilence.Forms` + `GirCore.Gtk-4.0` / `GirCore.WebKit-6.0` |
 | `Majorsilence.Forms.Headless` | Offscreen SkiaSharp backend — CI, automated tests, pixel-diff verification. No native webview support (`IWebViewFactory` is absent, not just unsupported) | `Majorsilence.Forms` |
 | `Majorsilence.Forms.WindowsUIAutomation` | Windows-only UI Automation bridge so screen readers/magnifiers can drive a Majorsilence.Forms window. Off Windows, ships as an empty stub so `dotnet build` stays green cross-platform | `Majorsilence.Forms`, Windows-only |
 | `Majorsilence.Forms.Telerik` | Telerik UI for WinForms compat layer — see [below](#telerik-ui-for-winforms-compat-layer). Depends only on core, **not** on any specific backend — the webview-backed controls in it (`RadPdfViewer`, `RadRichTextEditor`) work with whichever backend the host app references, or degrade gracefully if none supports webviews | `Majorsilence.Forms` only |
@@ -462,7 +463,8 @@ host app references — the Telerik package itself has no backend dependency.
 | Avalonia / Windows (WebView2 runtime missing) | — | Temp file handed to the system's default PDF viewer | Falls back to `RichTextBox` showing raw HTML |
 | Avalonia / macOS | WKWebView | Inline PDF (native WebKit PDF rendering) | Full webview editor |
 | Avalonia / Linux (WebKitGTK/WPE present) | WebKitGTK | System PDF viewer **by policy** — WebKit has no built-in inline PDF viewer, so Linux always uses the system-viewer path even though the webview itself works | Full webview editor (native spellcheck depends on `enchant` dictionaries being installed) |
-| Uno backend, or Avalonia with the engine unavailable | — | System PDF viewer | `RichTextBox` fallback |
+| GTK 4 backend / Linux (WebKitGTK 6.0 present) | WebKitGTK 6.0 (`Gtk4WebViewHandle`) | System PDF viewer **by policy** (same as Avalonia/Linux — no inline PDF viewer in WebKit) | Full webview editor |
+| Uno backend, or a backend with the engine unavailable | — | System PDF viewer | `RichTextBox` fallback |
 | Avalonia / browser, Android, iOS (single-view) | — (`AvaloniaWebViewHandle` is excluded from these TFMs) | Placeholder label (`AllowSystemViewerFallback` defaults off here — `Process.Start`/`UseShellExecute` has nothing to service on these platforms) | `RichTextBox` fallback |
 | Headless backend | — (no `IWebViewFactory` at all) | Caches the document and paints a placeholder; never shells out to a system viewer (so CI/automated tests never spawn OS processes) | `RichTextBox` fallback |
 

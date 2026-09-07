@@ -11,6 +11,7 @@ That host is abstracted behind a small seam so Majorsilence.Forms can run on mor
 | `Majorsilence.Forms.Avalonia` | Avalonia 12 (`AvaloniaPlatformBackend`) | Default desktop backend (Windows/macOS/Linux). Also multi-targets Browser/WASM, Android, and iOS through Avalonia's own platform packages, so it is a second path to mobile and web alongside Uno — see [The Avalonia backend](#the-avalonia-backend). |
 | `Majorsilence.Forms.Headless` | Dependency-free SkiaSharp (`HeadlessPlatformBackend`) | Offscreen rendering for tests/servers; the reference second backend. |
 | `Majorsilence.Forms.Uno` | Uno Platform / Skia (`UnoPlatformBackend`) | Builds against `Uno.WinUI 6.5.237` + `SkiaSharp.Views.Uno.WinUI`; presents via `SKXamlCanvas`. Runs through a Uno app head (`samples/Gallery.Uno`) — verified bootstrapping + rendering Majorsilence.Forms on macOS. |
+| `Majorsilence.Forms.Gtk4` | GTK 4 via gir.core (`Gtk4PlatformBackend`) | Builds against `GirCore.Gtk-4.0 0.8.1`; a real `Gtk.Window` per Form, Skia rendered into a Cairo image surface behind a `Gtk.DrawingArea`, GLib main loop. Runs through `samples/Gallery.Gtk4` — verified rendering + timers on Wayland. See [The GTK 4 backend](#the-gtk-4-backend). |
 | `Majorsilence.Forms.WinForms` | System.Windows.Forms (`WinFormsPlatformBackend`) | Windows-only migration backend: real WinForms windows on the classic Win32 pump, presenting Skia through a GDI-backed control. Exists for incremental migration — embed MF controls in a WinForms app via `ToWinFormsControl()`, then swap to Avalonia/Uno when fully ported. See [The WinForms backend](#the-winforms-backend). |
 | `Majorsilence.Forms.Wpf` | WPF / System.Windows (`WpfPlatformBackend`) | Windows-only migration backend: a real WPF `Window` on the `Dispatcher` loop, presenting Skia through a `WriteableBitmap`. Same shape and purpose as the WinForms backend — embed MF controls in a WPF app via `ToWpfElement()`, then swap to Avalonia/Uno when ported. |
 
@@ -28,7 +29,7 @@ host. The `net48` row of both builds for real on every OS via the
 cross-platform; only *running* needs Windows), so it is a compile gate on all CI legs. For the
 `net*-windows` rows the two backends differ: the WinForms one falls back to an empty placeholder off
 Windows, while the WPF one compiles them for real everywhere through `EnableWindowsTargeting`. The
-other backends (Avalonia, Uno, Headless) target `net8.0`+ only — there is no `netstandard2.0`
+other backends (Avalonia, Uno, Gtk4, Headless) target `net8.0`+ only — there is no `netstandard2.0`
 `IPlatformBackend` implementation, so on a non-Windows .NET Framework runtime an app can reference
 the controls but not host a window. On the `netstandard2.0` row the five optional no-op members of `IWindowBackend`
 (`SetShaped`, `SetTextInputActive`, …) are plain interface members rather than default
@@ -101,7 +102,7 @@ site. The `Majorsilence.Forms.Backends.Platform` default-backend lookup uses `Ty
 `Majorsilence.Forms.Avalonia` still resolves it. The netstandard2.0 rows are unanalysed — trimming and
 AOT are not concepts there (.NET Framework / Mono).
 
-The other backends (`Uno`, `WinForms`, `Wpf`, `Telerik`) are **not** analysed: Uno/WinUI, WinForms and
+The other backends (`Uno`, `Gtk4`, `WinForms`, `Wpf`, `Telerik`) are **not** analysed: Uno/WinUI, gir.core, WinForms and
 WPF are themselves reflection-heavy and out of scope for an AOT guarantee.
 
 `tests/Majorsilence.Forms.AotSmoke` is a `PublishAot=true` console that renders a `Form` (Label +
@@ -113,13 +114,13 @@ depends on Avalonia's own trim story and is not covered here.
 ## Embedding in a host app
 
 Everything above assumes Majorsilence.Forms owns the top-level window and the backend is just the
-rendering host underneath (`Form.Show()` → `Platform.Backend.CreateWindow()`). The Avalonia and Uno
-backends also support the *reverse* direction: an existing Avalonia or Uno app that wants to use MF
-objects as if they were its own native objects, additively and without changing anything about the
-usual `Form.Show()` flow.
+rendering host underneath (`Form.Show()` → `Platform.Backend.CreateWindow()`). The Avalonia, Uno,
+WinForms, WPF and GTK 4 backends also support the *reverse* direction: an existing host app that wants
+to use MF objects as if they were its own native objects, additively and without changing anything
+about the usual `Form.Show()` flow.
 
 **MF Control → host control**, via `MajorsilenceFormsPresenter` (a real `Avalonia.Controls.Canvas` /
-WinUI `Grid`) and its convenience extension methods:
+WinUI `Grid` / WPF `Grid` / GTK `DrawingArea`) and its convenience extension methods:
 
 ```csharp
 // Avalonia (namespace Majorsilence.Forms)
@@ -130,19 +131,27 @@ Microsoft.UI.Xaml.FrameworkElement hostControl = myMfControl.ToUnoControl ();
 
 // WinForms (namespace Majorsilence.Forms.WinForms)
 System.Windows.Forms.Control hostControl = myMfControl.ToWinFormsControl ();
+
+// GTK 4 (namespace Majorsilence.Forms.Gtk4)
+Gtk.Widget hostControl = myMfControl.ToGtkWidget ();
 ```
 
 Drop the result into any native visual tree. This is exactly what `samples/EmbeddingAvalonia`,
-`samples/EmbeddingUno` and `samples/EmbeddingWinForms` do.
+`samples/EmbeddingUno`, `samples/EmbeddingWinForms` and `samples/EmbeddingGtk4` do. The GTK 4
+`MajorsilenceFormsPresenter` *exposes* a `Widget` rather than deriving from a GTK widget (gir.core's
+GObject subclassing needs an extra integration package and a type-registration call); everything else
+is the same shape.
 
 **MF Form → host window.** A `Form`'s backend window is created eagerly in the Form's own constructor
-(before `Show()` is ever called), and on both backends that object already *is* (Avalonia) or *wraps*
-(Uno) a real native window. `ToAvaloniaWindow()`/`ToUnoWindow()` hand that window back directly:
+(before `Show()` is ever called), and on these backends that object already *is* (Avalonia, GTK 4) or
+*wraps* (Uno) a real native window. `ToAvaloniaWindow()`/`ToUnoWindow()`/`ToGtkWindow()` hand that
+window back directly:
 
 ```csharp
 Avalonia.Controls.Window  window = myForm.ToAvaloniaWindow ();   // Majorsilence.Forms.AvaloniaHostInterop
 Microsoft.UI.Xaml.Window  window = myForm.ToUnoWindow ();        // Majorsilence.Forms.Uno.UnoHostInterop
 System.Windows.Forms.Form form   = myForm.ToWinFormsForm ();     // Majorsilence.Forms.WinForms.WinFormsHostInterop
+Gtk.Window                window = myForm.ToGtkWindow ();         // Majorsilence.Forms.Gtk4.Gtk4HostInterop
 ```
 
 The host owns showing it from here on — assign it as the app's main window, set `Owner`, call
@@ -352,6 +361,90 @@ title-bar drag works on the **Win32 desktop head**. On the macOS head `Form` use
 no-ops (caught) — edge-resize may still work via the presenter, but title-bar drag is unavailable;
 use `UseSystemDecorations` there if you need OS window dragging.
 
+## The GTK 4 backend
+
+`Majorsilence.Forms.Gtk4` implements the seam on GTK 4 through the
+[gir.core](https://github.com/gircore/gir.core) bindings (`GirCore.Gtk-4.0`, which pulls
+Gdk/Gsk/Pango/Cairo/Gio/GObject/GLib transitively). It is a real-window desktop backend for
+Linux first (Wayland/X11), and also compiles and runs on Windows/macOS wherever the GTK 4
+runtime is installed.
+
+- `Gtk4PlatformBackend : IPlatformBackend, IWebViewFactory` — initializes GTK
+  (`Gtk.Functions.InitCheck`), owns the loop by iterating `GLib.MainContext.Default()` on the calling
+  thread (the same shape as the Headless work-queue loop), a `GLib.Functions.TimeoutAdd` timer,
+  `Post`/`Invoke` via `GLib.Functions.IdleAdd`, the GDK clipboard (async read pumped against the loop
+  we own), and `Gdk.Display` monitor enumeration. `RunModalLoop` nests another iteration loop. The
+  `IWebViewFactory` side is below.
+- `Gtk4SkiaSurface` — the shared `Gtk.DrawingArea` both hosts draw and receive input through. The
+  draw func renders `owner.RenderFrame` straight into a **fresh per-frame** `Cairo.ImageSurface`
+  buffer (a persistent one trips `cairo_surface_mark_dirty` once cairo snapshots it as a paint
+  source, so it is allocated per paint — the same order of cost as the WPF backend's
+  `WriteableBitmap` present), then blits it with `SetSourceSurface`/`Paint`, scaled by
+  `1/scaleFactor` for HiDPI. Input arrives through `GestureClick`, `EventControllerMotion`,
+  `EventControllerScroll` and `EventControllerKey`; `Gtk4KeyInterop` maps GDK keysyms → `Keys`,
+  modifier masks, gesture button numbers and CSS cursor names.
+- `Gtk4WindowHost : IWindowBackend` — wraps `Gtk4SkiaSurface` in a `Gtk.Window` and adds chrome,
+  geometry and lifecycle. `BeginMoveDrag`/`BeginResizeDrag` call
+  `Gdk.Toplevel.BeginMove`/`BeginResize` (Majorsilence.Forms draws its own chrome on Linux);
+  `ShowDialog` sets transient-for + modal for a genuine z-ordered dialog.
+- `MajorsilenceFormsPresenter` + `ToGtkWidget()` / `ToGtkWindow()` — the embedding direction (see
+  [Embedding in a host app](#embedding-in-a-host-app)). The presenter reuses `Gtk4SkiaSurface` and
+  implements `IWindowBackend` for a window-less scene, exposing a `Widget` property rather than
+  deriving from a GTK widget. `samples/EmbeddingGtk4` shows it inside a host `Gtk.Application`.
+- `Gtk4NativeOverlay` — `INativeControlHostBackend` on both hosts: the `Gtk4SkiaSurface` sits inside
+  a `Gtk.Overlay`, and a `NativeControlHost`'s widget is added as an overlay child positioned by
+  margins. GTK 4 has *no airspace problem* (every widget composites into one render tree), so this is
+  simpler here than on Avalonia/Uno/WinForms — the only compromise is that a host scrolled partly out
+  of a viewport reflows its native widget into the visible box rather than translating it under a
+  clip. The overlay add is deferred one idle turn because `SyncNativeControl` runs inside GTK's
+  snapshot pass.
+- `Gtk4WebViewHandle` — `IWebViewFactory` via `WebKit.WebView` (WebKitGTK 6.0, `GirCore.WebKit-6.0`).
+  `WebKit.WebView` is a `Gtk.Widget`, so it rides the `INativeControlHostBackend` overlay above. Nav
+  events map from `load-changed`/`load-failed`; `ExecuteScriptAsync` awaits gir.core's
+  `EvaluateJavascriptAsync` (a `Task<JavaScriptCore.Value>`); the JS→host bridge registers a
+  `majorsilenceForms` script-message handler. `IsSupported` probes by calling
+  `WebKit.Functions.GetMajorVersion()` (a `DllNotFoundException` when WebKitGTK 6.0 isn't installed,
+  or off Linux, is caught → unsupported). The `GirCore.WebKit-6.0` package (+ its transitive
+  JavaScriptCore / Soup bindings) is a hard dependency of the backend but is all managed — the native
+  `libwebkitgtk-6.0` is only `dlopen`'d when a `WebBrowser` is actually created.
+
+**Running it** needs a display session and the GTK 4 native libraries; `samples/Gallery.Gtk4` is the
+head:
+
+```
+dotnet run --project samples/Gallery.Gtk4                 # full ControlGallery
+MF_GTK4_DEMO=1 dotnet run --project samples/Gallery.Gtk4  # tiny render+input smoke form
+```
+
+`MF_GTK4_SELFTEST=1` (with `MF_GTK4_DEMO=1`) drives four timer ticks + programmatic clicks and then
+`Application.Exit()`s — a non-interactive check that render, the GLib loop, timers and invalidation
+are all live. Verified on Wayland: the window shows, the ControlGallery `MainForm` renders, the GLib
+timer fires and repaints follow input.
+
+`samples/EmbeddingGtk4` is the host-owned counterpart — a `Gtk.Application` that drops an embedded MF
+scene in via `MajorsilenceFormsPresenter` and opens an MF `Form` as a GTK window via `ToGtkWindow()`.
+`EMBED_SELFTEST=1` runs a non-interactive check (embedded scene paints, `ToGtkWindow()` presents);
+verified on Wayland.
+
+`MF_GTK4_WEBVIEW=1 dotnet run --project samples/Gallery.Gtk4` shows a `WebBrowser`; with
+`MF_GTK4_SELFTEST=1` it loads an HTML string, round-trips a script message and an
+`ExecuteScriptAsync("document.title")`, then exits. Verified on Wayland against WebKitGTK 6.0:
+`IsWebViewFunctional` true, `DocumentCompleted` and `WebMessageReceived` fire, script eval returns.
+
+**What doesn't work** (mostly GTK 4 API removals rather than pending work):
+
+- **No screen-position control.** GTK 4 dropped client-side positioning of top-levels, so
+  `Form.Location` is a stored hint the window manager may ignore and `PointToClient`/`PointToScreen`
+  are computed against it. `Topmost`, `ShowInTaskbar` and `MaximumSize` round-trip as properties but
+  have no enforcing API.
+- **`SetIcon(byte[])` is a no-op** — GTK 4 window icons are a themed icon *name*.
+- **File/folder pickers return empty**, so the common-dialog fallbacks take over, exactly as on
+  Headless. `Gtk.FileDialog` wiring is deferred work.
+- **Fractional scaling** uses GTK's integer `scale-factor` (1 or 2); 1.25×/1.5× displays render at
+  1× and let the compositor upscale until fractional-scale support is added.
+- **Not AOT-analysed** — gir.core's generated bindings are P/Invoke-heavy, out of scope for the AOT
+  guarantee (same call as Uno/WinForms/Wpf).
+
 ## The WinForms backend
 
 `Majorsilence.Forms.WinForms` implements the seam on classic `System.Windows.Forms` — Windows-only
@@ -462,12 +555,15 @@ optional `IWebViewFactory` capability above).
 ## Hosting native elements
 
 `INativeControlHostBackend` is a third optional capability, alongside `IWebViewFactory` — implemented
-by the Avalonia, Uno and WinForms backends, absent on Headless. It lets a `NativeControlHost` control reserve a
-rectangle that the backend fills with a real toolkit element (an Avalonia `Control`, an Uno
-`UIElement`) overlaid on top of the Skia surface, kept aligned to the placeholder's bounds, clip and
-visibility. See [`native-interop.md`](native-interop.md) for how to use it, its airspace limits, why
-native handles can't be faked, and why video is usually better done with frame callbacks drawn into
-Skia than with a hosted native surface.
+by the Avalonia, Uno, WinForms and GTK 4 backends, absent on Headless. It lets a `NativeControlHost`
+control reserve a rectangle that the backend fills with a real toolkit element (an Avalonia
+`Control`, an Uno `UIElement`, a `Gtk.Widget`) overlaid on top of the Skia surface, kept aligned to
+the placeholder's bounds, clip and visibility. See [`native-interop.md`](native-interop.md) for how
+to use it, its airspace limits, why native handles can't be faked, and why video is usually better
+done with frame callbacks drawn into Skia than with a hosted native surface. The GTK 4 backend is the
+exception to the airspace limits — GTK composites every widget into one render tree, so a hosted
+`Gtk.Widget` clips and blends correctly with no separate native surface (see
+[The GTK 4 backend](#the-gtk-4-backend)).
 
 ### Adding another backend
 

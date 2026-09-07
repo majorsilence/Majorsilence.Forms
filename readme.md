@@ -73,6 +73,7 @@ instead of starting over, this framework is for you.
    Swappable host backend
    ├─ Avalonia   → Windows · macOS · Linux  (default)  · also Android · iOS · Browser
    ├─ Uno         → desktop · iOS · Android · WebAssembly
+   ├─ GTK 4       → Linux-first real GTK window (gir.core), also Windows/macOS with the GTK runtime
    ├─ WinForms    → Windows-only migration bridge: embed in an existing WinForms app, port in steps
    └─ Headless    → offscreen rendering for tests / CI
 ```
@@ -123,9 +124,10 @@ A form looks exactly like you'd expect:
 
 Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) folder:
 
-- [`ControlGallery`](samples/ControlGallery) — every built-in control, live. A backend-agnostic library (shared `MainForm`/panels) run by the `Gallery.Avalonia`, `Gallery.Uno`, `Gallery.Wasm`, `Gallery.Android` and `Gallery.iOS` heads below.
+- [`ControlGallery`](samples/ControlGallery) — every built-in control, live. A backend-agnostic library (shared `MainForm`/panels) run by the `Gallery.Avalonia`, `Gallery.Uno`, `Gallery.Gtk4`, `Gallery.Wasm`, `Gallery.Android` and `Gallery.iOS` heads below.
 - [`Gallery.Avalonia`](samples/Gallery.Avalonia) — the control gallery running on the **Avalonia** backend.
 - [`Gallery.Uno`](samples/Gallery.Uno) — the control gallery running on the **Uno** backend.
+- [`Gallery.Gtk4`](samples/Gallery.Gtk4) — the control gallery running on the **GTK 4** backend (gir.core). Needs a desktop session and the GTK 4 native libraries; `MF_GTK4_DEMO=1` shows a small smoke form, `MF_GTK4_WEBVIEW=1` a `WebBrowser` on WebKitGTK 6.0.
 - [`Gallery.Wasm`](samples/Gallery.Wasm) — the control gallery running on **Avalonia in the browser** (WebAssembly).
 - [`Gallery.Android`](samples/Gallery.Android) — the control gallery running on **Avalonia on Android**. Requires the `android` workload (`dotnet workload install android`); in the solution, but compiles as an empty stub until the workload is present (see that project's own comment). ⚠️ Work in progress: it has had an initial real-device pass (boots, taps, render scaling and touch scroll all confirmed), but keyboard, safe-area, rotation and full control coverage are not yet as exercised as the desktop/browser backends.
 - [`Gallery.iOS`](samples/Gallery.iOS) — the control gallery running on **Avalonia on iOS**. Requires a Mac with the `ios` workload (`dotnet workload install ios`) — that workload doesn't install on Linux/Windows at all, so this can only be built on macOS or in the `ios` CI job; elsewhere it is an empty stub. ⚠️ Unverified: written from Avalonia.iOS's decompiled API and standard .NET-for-iOS conventions. CI now compiles the real head and launches it in a simulator smoke check, but nobody has run it interactively on a device — expect a shakeout.
@@ -134,6 +136,7 @@ Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) fol
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
 - [`WinFormsCompatDemo`](samples/WinFormsCompatDemo) — unmodified `System.Windows.Forms` designer-generated source compiling and running against Majorsilence.Forms through a source generator, no real WinForms assembly involved. See [`Majorsilence.Forms.WinFormsShims.Compat`](src/Majorsilence.Forms.WinFormsShims.Compat).
 - [`EmbeddingWinForms`](samples/EmbeddingWinForms) — Majorsilence.Forms controls embedded inside a classic WinForms app via the **WinForms backend** (`MajorsilenceFormsPresenter`/`ToWinFormsControl()`), the port-one-control-at-a-time migration path (Windows-only). See [Platform backends](docs/backends.md).
+- [`EmbeddingGtk4`](samples/EmbeddingGtk4) — Majorsilence.Forms controls embedded inside a host **GTK 4** app via `MajorsilenceFormsPresenter` / `ToGtkWidget()`, with `ToGtkWindow()` handing an MF `Form` back as a `Gtk.Window`. Needs a display session and GTK 4. See [Platform backends](docs/backends.md).
 - [`AutomationTarget`](samples/AutomationTarget) — a small app that exposes its own automation endpoint, so you have something real to drive from the [MCP server](tools/Majorsilence.Forms.Mcp), Selenium, or `curl`. See [Automation & UI testing](docs/automation.md).
 
 Run the gallery on the Avalonia backend:
