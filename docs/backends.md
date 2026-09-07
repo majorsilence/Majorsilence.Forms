@@ -390,8 +390,13 @@ runtime is installed.
   [Embedding in a host app](#embedding-in-a-host-app)). The presenter reuses `Gtk4SkiaSurface` and
   implements `IWindowBackend` for a window-less scene, exposing a `Widget` property rather than
   deriving from a GTK widget. `samples/EmbeddingGtk4` shows it inside a host `Gtk.Application`.
-  `INativeControlHostBackend` (hosting real GTK widgets *inside* an MF scene) is not implemented —
-  deferred, as on Headless.
+- `Gtk4NativeOverlay` — `INativeControlHostBackend` on both hosts: the `Gtk4SkiaSurface` sits inside
+  a `Gtk.Overlay`, and a `NativeControlHost`'s widget is added as an overlay child positioned by
+  margins. GTK 4 has *no airspace problem* (every widget composites into one render tree), so this is
+  simpler here than on Avalonia/Uno/WinForms — the only compromise is that a host scrolled partly out
+  of a viewport reflows its native widget into the visible box rather than translating it under a
+  clip. The overlay add is deferred one idle turn because `SyncNativeControl` runs inside GTK's
+  snapshot pass.
 
 **Running it** needs a display session and the GTK 4 native libraries; `samples/Gallery.Gtk4` is the
 head:
@@ -535,12 +540,15 @@ optional `IWebViewFactory` capability above).
 ## Hosting native elements
 
 `INativeControlHostBackend` is a third optional capability, alongside `IWebViewFactory` — implemented
-by the Avalonia, Uno and WinForms backends, absent on Headless. It lets a `NativeControlHost` control reserve a
-rectangle that the backend fills with a real toolkit element (an Avalonia `Control`, an Uno
-`UIElement`) overlaid on top of the Skia surface, kept aligned to the placeholder's bounds, clip and
-visibility. See [`native-interop.md`](native-interop.md) for how to use it, its airspace limits, why
-native handles can't be faked, and why video is usually better done with frame callbacks drawn into
-Skia than with a hosted native surface.
+by the Avalonia, Uno, WinForms and GTK 4 backends, absent on Headless. It lets a `NativeControlHost`
+control reserve a rectangle that the backend fills with a real toolkit element (an Avalonia
+`Control`, an Uno `UIElement`, a `Gtk.Widget`) overlaid on top of the Skia surface, kept aligned to
+the placeholder's bounds, clip and visibility. See [`native-interop.md`](native-interop.md) for how
+to use it, its airspace limits, why native handles can't be faked, and why video is usually better
+done with frame callbacks drawn into Skia than with a hosted native surface. The GTK 4 backend is the
+exception to the airspace limits — GTK composites every widget into one render tree, so a hosted
+`Gtk.Widget` clips and blends correctly with no separate native surface (see
+[The GTK 4 backend](#the-gtk-4-backend)).
 
 ### Adding another backend
 

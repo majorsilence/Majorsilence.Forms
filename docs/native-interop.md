@@ -77,10 +77,12 @@ if you move or resize the host outside the normal paint cycle.
 |---|---|---|
 | Avalonia (window host, single-view host, presenter) | `Avalonia.Controls.Control` | Added to an overlay `Canvas` above the Skia surface. |
 | Uno (window host, presenter) | `Microsoft.UI.Xaml.UIElement` | Added to the root `Canvas`/panel above the `SKXamlCanvas`. |
+| WinForms / WPF (window host, presenter) | `System.Windows.Forms.Control` / `System.Windows.FrameworkElement` | Added to an overlay layer above the Skia control. |
+| GTK 4 (window host, presenter) | `Gtk.Widget` | Added as a `Gtk.Overlay` child above the `Gtk.DrawingArea`. **No airspace problem** — GTK composites every widget into one render tree, so the hosted widget clips and blends like any other. |
 | Headless | — | Does not implement `INativeControlHostBackend`. The host renders as an empty placeholder. |
 
-> **Assigning the wrong type fails silently.** Both backends type-check `nativeControl` and simply
-> `return` if it doesn't match, and the subsequent `UpdateNativeControl` finds no overlay entry and
+> **Assigning the wrong type fails silently.** Each backend type-checks `nativeControl` and simply
+> `return`s if it doesn't match, and the subsequent `UpdateNativeControl` finds no overlay entry and
 > returns too. Nothing throws, nothing logs, and nothing appears on screen. If your native content is
 > invisible, check the type first — an Avalonia `Control` given to the Uno backend, or vice versa,
 > produces exactly this.

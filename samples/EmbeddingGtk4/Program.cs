@@ -84,11 +84,27 @@ public static class Program
                     w.SetTransientFor (window);
                     w.Present ();
                     System.Console.Error.WriteLine ($"[selftest] ToGtkWindow () -> {w.GetType ().Name}, presented");
+
+                    var nested = FindNativeOverlayChild (presenter.Widget);
+                    System.Console.Error.WriteLine ($"[selftest] native overlay widget present in tree: {nested}");
                 }
                 if (ticks >= 4) { app.Quit (); return false; }
                 return true;
             });
         }
+    }
+
+    // Walks the GTK widget tree under the presenter looking for the hosted native button — proves
+    // INativeControlHostBackend actually parented it into the overlay.
+    private static bool FindNativeOverlayChild (global::Gtk.Widget root)
+    {
+        for (var child = root.GetFirstChild (); child is not null; child = child.GetNextSibling ()) {
+            if (child is global::Gtk.Button b && (b.GetLabel ()?.StartsWith ("Native GTK button", System.StringComparison.Ordinal) ?? false))
+                return true;
+            if (FindNativeOverlayChild (child))
+                return true;
+        }
+        return false;
     }
 
     private static global::Gtk.Label Heading (string text)
@@ -140,10 +156,21 @@ public static class Program
             status.SetText ($"Clicks: {clicks} — text: \"{textbox.Text}\"");
         };
 
+        // A real native GTK button hosted *inside* the Majorsilence scene via NativeControlHost /
+        // INativeControlHostBackend — the other embedding direction. GTK 4 composites it into the same
+        // render tree as the Skia surface, so there is no airspace problem.
+        var nativeButton = global::Gtk.Button.NewWithLabel ("Native GTK button (inside the MF scene)");
+        nativeButton.OnClicked += (_, _) => status.SetText ("Native GTK button clicked!");
+        var nativeHost = new CF.NativeControlHost {
+            Left = 12, Top = 176, Width = 300, Height = 36,
+            NativeControl = nativeButton
+        };
+
         panel.Controls.Add (label);
         panel.Controls.Add (textbox);
         panel.Controls.Add (combo);
         panel.Controls.Add (button);
+        panel.Controls.Add (nativeHost);
         return panel;
     }
 }

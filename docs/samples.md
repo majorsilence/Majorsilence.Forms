@@ -290,7 +290,7 @@ demonstrates the embedding seams:
   top-level window ("Open as Uno window") and `Form.ShowDialog(parent)` is the way to get modal
   behaviour there.
 - `NativeControlHost` — a native button hosted *inside* the Majorsilence scene, the other direction
-  again (Avalonia / Uno / WinForms only; not implemented on the GTK 4 backend). See
+  again (all four backends; on GTK 4 it composites cleanly with no airspace problem). See
   [`native-interop.md`](native-interop.md).
 
 The Avalonia and Uno ones also toggle the host theme, so you can watch Majorsilence.Forms controls

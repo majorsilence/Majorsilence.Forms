@@ -24,10 +24,12 @@ namespace Majorsilence.Forms.Gtk4
     /// GObject subclassing needs an extra integration package and a type-registration call, and nothing
     /// here requires it.
     /// </summary>
-    public sealed class MajorsilenceFormsPresenter : IWindowBackend, IDisposable
+    public sealed class MajorsilenceFormsPresenter : IWindowBackend, INativeControlHostBackend, IDisposable
     {
         private readonly Gtk4SkiaSurface _surface;
+        private readonly global::Gtk.Overlay _overlay;
         private readonly MF.HostedSurface _host;
+        private readonly Dictionary<MF.NativeControlHost, Gtk4NativeOverlay.Entry> _overlays = new ();
         private bool _disposed;
         private bool _enabled = true;
 
@@ -43,13 +45,15 @@ namespace Majorsilence.Forms.Gtk4
             Platform.Backend.Initialize ();
 
             _surface = new Gtk4SkiaSurface (() => _host);
+            _overlay = global::Gtk.Overlay.New ();
+            _overlay.SetChild (_surface.Widget);
             _host = new MF.HostedSurface (this);
 
-            _surface.Widget.OnUnrealize += (_, _) => Dispose ();
+            _overlay.OnUnrealize += (_, _) => Dispose ();
         }
 
-        /// <summary>The GTK widget to place in your visual tree.</summary>
-        public global::Gtk.Widget Widget => _surface.Widget;
+        /// <summary>The GTK widget to place in your visual tree (a <c>Gtk.Overlay</c> wrapping the Skia surface).</summary>
+        public global::Gtk.Widget Widget => _overlay;
 
         /// <summary>Gets or sets the root Majorsilence.Forms control hosted by this presenter.</summary>
         public MF.Control? Content {
@@ -118,6 +122,17 @@ namespace Majorsilence.Forms.Gtk4
         void IWindowBackend.BeginResizeDrag (WindowEdge edge) { }
 
         void IWindowBackend.Invalidate () => _surface.RequestRender ();
+
+        // ── INativeControlHostBackend ────────────────────────────────────────────
+
+        void INativeControlHostBackend.AttachNativeControl (MF.NativeControlHost host, object nativeControl)
+            => Gtk4NativeOverlay.Attach (_overlay, _overlays, host, nativeControl);
+
+        void INativeControlHostBackend.UpdateNativeControl (MF.NativeControlHost host, Rectangle logicalBounds, Rectangle clipBounds, bool visible)
+            => Gtk4NativeOverlay.Update (_overlay, _overlays, host, logicalBounds, clipBounds, visible);
+
+        void INativeControlHostBackend.DetachNativeControl (MF.NativeControlHost host)
+            => Gtk4NativeOverlay.Detach (_overlay, _overlays, host);
 
         Task<string[]> IWindowBackend.ShowOpenFileDialog (OpenFileRequest request) => Task.FromResult (Array.Empty<string> ());
         Task<string?> IWindowBackend.ShowSaveFileDialog (SaveFileRequest request) => Task.FromResult<string?> (null);

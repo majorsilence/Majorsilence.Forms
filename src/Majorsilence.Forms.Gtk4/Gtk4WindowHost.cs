@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
 using Majorsilence.Forms.Backends;
@@ -8,17 +9,20 @@ namespace Majorsilence.Forms.Gtk4
 {
     /// <summary>
     /// An <see cref="IWindowBackend"/> that presents a Majorsilence.Forms window through a real GTK 4
-    /// <c>Gtk.Window</c> whose child is the shared <see cref="Gtk4SkiaSurface"/>. Chrome, geometry and
-    /// lifecycle live here; rendering and input translation are the surface's job.
+    /// <c>Gtk.Window</c> whose child is the shared <see cref="Gtk4SkiaSurface"/> inside a
+    /// <c>Gtk.Overlay</c> (so <see cref="NativeControlHost"/> can stack native widgets on top). Chrome,
+    /// geometry and lifecycle live here; rendering and input translation are the surface's job.
     ///
     /// Popups (menus, combo dropdowns) are borderless, non-resizable top-level windows.
     /// </summary>
-    internal sealed class Gtk4WindowHost : IWindowBackend, IDisposable
+    internal sealed class Gtk4WindowHost : IWindowBackend, INativeControlHostBackend, IDisposable
     {
         private readonly MF.WindowBase _owner;
         private readonly bool _isPopup;
         private readonly global::Gtk.Window _window;
+        private readonly global::Gtk.Overlay _overlay;
         private readonly Gtk4SkiaSurface _surface;
+        private readonly Dictionary<MF.NativeControlHost, Gtk4NativeOverlay.Entry> _overlays = new ();
 
         private Size _size = new (800, 600);
         private Point _location;
@@ -40,7 +44,9 @@ namespace Majorsilence.Forms.Gtk4
             _window.SetResizable (!isPopup);
 
             _surface = new Gtk4SkiaSurface (() => _owner);
-            _window.SetChild (_surface.Widget);
+            _overlay = global::Gtk.Overlay.New ();
+            _overlay.SetChild (_surface.Widget);
+            _window.SetChild (_overlay);
 
             WireLifecycle ();
         }
@@ -244,6 +250,17 @@ namespace Majorsilence.Forms.Gtk4
         // ── Rendering ────────────────────────────────────────────────────────────
 
         public void Invalidate () => _surface.RequestRender ();
+
+        // ── INativeControlHostBackend (real GTK widgets stacked on the Skia surface) ──────────────
+
+        void INativeControlHostBackend.AttachNativeControl (MF.NativeControlHost host, object nativeControl)
+            => Gtk4NativeOverlay.Attach (_overlay, _overlays, host, nativeControl);
+
+        void INativeControlHostBackend.UpdateNativeControl (MF.NativeControlHost host, Rectangle logicalBounds, Rectangle clipBounds, bool visible)
+            => Gtk4NativeOverlay.Update (_overlay, _overlays, host, logicalBounds, clipBounds, visible);
+
+        void INativeControlHostBackend.DetachNativeControl (MF.NativeControlHost host)
+            => Gtk4NativeOverlay.Detach (_overlay, _overlays, host);
 
         // ── File/folder pickers ──────────────────────────────────────────────────
         // Gtk.FileDialog is async and needs a live loop turn; deferred — WebView-less compat controls

@@ -38,6 +38,8 @@ Application.Run (new MainForm ());      // GLib main loop
 - Clipboard text, multi-monitor `Screen` enumeration.
 - Custom-chrome window move/resize drags via `Gdk.Toplevel.BeginMove`/`BeginResize`.
 - `ShowDialog` gets a real transient-for / modal window relationship.
+- `NativeControlHost` — a real `Gtk.Widget` overlaid *inside* an MF scene (`INativeControlHostBackend`).
+  GTK 4 composites every widget into one render tree, so there is no airspace problem.
 
 ## Embed in a host GTK app
 
