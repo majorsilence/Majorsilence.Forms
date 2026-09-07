@@ -187,3 +187,104 @@ Still explicitly out of scope: any event family not declared directly on `Contro
 forwarded) and public constructors (a wrapper can only be received from a compat event, never
 constructed with `new`), and `DragEventArgs.Data` (typed `IDataObject`, dropped for the same
 interface-return-safety reason as `Clipboard.GetDataObject()`).
+
+## Increment: a second namespace mapping for Majorsilence.Forms.Drawing -> System.Drawing (2026-09-05)
+
+`BinaryRainPanel.cs` here reimplements `samples/ControlGallery/Panels/BinaryRainPanel.cs` -- a
+Timer-driven "Matrix" rain animation, a `TrackBar`/`Button` wired to it, and a custom `Control`
+overriding the compat-typed `OnPaint` hook with a real per-frame drawing workload
+(`Graphics.DrawString`, one call per glyph, alpha-blended per row) -- through unmodified
+`using System.Windows.Forms;`/`using System.Drawing;` source. **Compiles clean, 0 errors/0 warnings,
+and runs** the real animation loop without crashing.
+
+The generator itself was generalized from one hardcoded namespace to a list of *mappings*
+(`Majorsilence.Forms` -> `System.Windows.Forms`, `Majorsilence.Forms.Drawing` -> `System.Drawing`),
+running the same five passes independently for each, with `TryTranslateType` consulting every
+mapping regardless of which one is currently being processed. Concretely this run added **9** compat
+subclasses (`Brush`, `Image`, `CharacterRange`, `ColorConverter`, `FontConverter`, `IconConverter`,
+`ImageConverter`, `ImageFormatConverter`, `ToolboxBitmapAttribute`), **9** enums (`FontStyle`,
+`GraphicsUnit`, `StringAlignment`, ...), **1** interface (`IDeviceContext`), and **7** static classes
+(`Brushes`, `Pens`, `SystemFonts`, `ColorTranslator`, `SystemIcons`, `BufferedGraphicsManager`,
+`FontResourceLoader`) under `System.Drawing` -- all without touching the WinForms mapping's own
+counts (still 252/197/20/26/104).
+
+**Two real bugs surfaced and got fixed before this shipped, both worth recording because they
+generalize beyond Drawing specifically:**
+
+1. **A type name can exist in a compilation without being usable.** The very first attempt failed
+   with `CS1069: The type name 'Font' could not be found... This type has been forwarded to assembly
+   'System.Drawing.Common'... Consider adding a reference` -- caused by an initial safety check that
+   seeded "already exists, don't redeclare" from *every* type Roslyn reports in the target namespace,
+   including a reference-assembly forwarder stub for the full GDI+ surface that many SDKs ship on
+   non-Windows TFMs, resolvable as a symbol but not actually usable without a real
+   `System.Drawing.Common` reference. The seeding step was removed entirely: a type genuinely
+   declared in this compilation's own source always wins ordinary name lookup over a referenced
+   assembly's mere forward, so no seeding was needed for that case either, and an actual collision
+   with a *resolvable* referenced type would show up as a plain, easy-to-diagnose `CS0101` instead of
+   being silently (and, it turned out, incorrectly) avoided in advance.
+2. **A "safe" downcast wasn't always safe.** Widening the namespace mapping meant `TryTranslateType`
+   now recognized `Majorsilence.Forms.Drawing.Graphics` (used by `PaintEventArgs.Graphics`) as a
+   *mapped* type -- and, having no compat subclass (it's sealed), the existing rule rejected the whole
+   property rather than exposing it, which was a real regression (`PaintEventArgs.Graphics` had
+   always worked as a plain passthrough before Drawing was a mapping at all). Fixing that -- a mapped
+   type with no compat counterpart now passes through as the original type, never rejected -- is what
+   surfaced the second, more serious bug: `Brushes.Black` is declared to return `Brush` but is
+   actually always a cached `SolidBrush` singleton the framework built once, never through the compat
+   subclass -- so the existing hard-cast-to-compat-subclass logic (previously validated only against
+   `Application.MainForm`-shaped members, where the returned instance realistically *is* what the
+   caller constructed) would have thrown `InvalidCastException` on every single access. Fixed
+   generator-wide: a class-type downcast on a returned value now casts with `as` (`TypeTranslation.
+  IsReferenceDowncast`), turning a guaranteed crash into `null` while leaving the common, genuinely-safe
+   case (`Application.MainForm`) working exactly as before.
+
+Still out of scope, and now confirmed rather than theoretical: the sealed leaf types real drawing code
+needs most (`Font`, `SolidBrush`, `Graphics` itself) -- `BinaryRainPanel.cs` still reaches for
+`Majorsilence.Forms.Drawing` explicitly for exactly those three names. See the README's "sealed leaf
+types" entry for what a real fix would need.
+
+## Increment: wrapper classes for sealed leaf types, closing the gap above (2026-09-05)
+
+`BinaryRainPanel.cs` no longer needs `using Majorsilence.Forms.Drawing;` at all -- `Font`,
+`FontFamily` and `SolidBrush` now resolve as compat **wrapper** classes under `System.Drawing`, the
+same technique the event-shadowing pass already used for `EventArgs`, generalized with one addition:
+implicit conversion operators in both directions. `new Font(FontFamily.GenericMonospace, 13)`
+constructs a real `Majorsilence.Forms.Drawing.Font` under the hood and wraps it; passing that compat
+`Font` to `Graphics.DrawString` (still Majorsilence-typed -- `Graphics` itself has no accessible
+constructor, matching real `System.Drawing.Graphics`, so it gets neither a subclass nor a wrapper)
+compiles with **no cast anywhere in this file**, because the wrapper's own
+`public static implicit operator` handles it, the same as any user-defined implicit conversion would.
+**Compiles clean, 0 errors/0 warnings, and runs** the same real animation loop as the previous
+increment, now constructing and using real `Font`/`SolidBrush` instances through the compat types on
+every frame.
+
+The new pass ("1b", inserted between pass 1 and pass 2) targets exactly pass 1's complement: public,
+non-generic, *sealed* classes with an accessible constructor. For the Drawing mapping this run wrapped
+**14** types (`Font`, `FontFamily`, `SolidBrush`, `Pen`, `Bitmap`, `Icon`, `TextureBrush`, `Region`,
+`RegionData`, `StringFormat`, `BufferedGraphicsContext`, `SkiaGraphics`, and two designer attribute
+types); the WinForms mapping picked up **9** more it had never had a way to reach either
+(`ComputerInfo`, `DataGridViewAdvancedBorderStyle`, `GridItemCollection`,
+`ImageListStreamer`, `ThemeXmlException`, and four attribute types). Each wrapper forwards
+methods too, not just properties (`Font.GetHeight()`, `Font.Clone()`, ...), and static members
+alongside instance ones, using the exact same `TryTranslateType` machinery -- `Brushes`/`Pens`-style
+framework classes exist for wrapped types too, and needed no new code to pick up.
+
+**One ordering bug surfaced and got fixed before this was trustworthy.** The first version placed
+pass 1b immediately after pass 1, so a wrapped type's forwarding constructor could only translate
+parameters using pass 1's own (already-complete) subclass set -- not pass 2's enums or pass 3's
+interfaces, which hadn't run yet. `Font`'s constructor taking `FontStyle`/`GraphicsUnit` (both pass-2
+enums) silently fell back to the untranslated Majorsilence type instead of failing loudly, which would
+have shipped a wrapper whose own constructor signature leaked internal types. Fixed by moving pass 1b
+to run only after passes 1-3 have completed for *every* mapping (mirroring how pass 4 already works),
+with eligibility collected across all mappings before any wrapper body is generated -- the same
+two-phase shape already used within a single mapping, extended across mappings for the same reason:
+one wrapped type's constructor can reference another regardless of processing order.
+
+Confirmed, not just assumed: `Graphics`'s constructors are all `internal`/`private`, matching real
+`System.Drawing.Graphics` (nobody constructs one directly there either -- `CreateGraphics()`,
+`Graphics.FromImage()`, or a paint event). Pass 1b correctly leaves it as a plain Majorsilence type
+rather than guessing at a public shape that was never there.
+
+Still out of scope: a wrapper's `Equals`/`GetHashCode`/`ToString` (if the original overrides them)
+forward as ordinary, non-`override` methods that hide `object`'s -- correct for direct calls, not for
+a boxed/`object`-typed reference; and, as always, anything whose signature needs a type with no compat
+counterpart at all (a struct, a delegate, `Graphics`).
