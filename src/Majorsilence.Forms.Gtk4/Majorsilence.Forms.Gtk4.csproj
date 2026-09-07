@@ -37,8 +37,11 @@
 
   <ItemGroup>
     <!-- GirCore.Gtk-4.0 pulls Gdk/Gsk/Pango/Cairo/Gio/GObject/GLib transitively; all are compile-visible
-         because they arrive as package (not project) references. -->
+         because they arrive as package (not project) references. GirCore.WebKit-6.0 (WebKitGTK 6.0)
+         backs IWebViewFactory; it compiles everywhere and only dlopen()s libwebkitgtk-6.0 at runtime
+         when a WebBrowser is actually created (IsSupported probes safely first). -->
     <PackageReference Include="GirCore.Gtk-4.0" />
+    <PackageReference Include="GirCore.WebKit-6.0" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>

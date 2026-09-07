@@ -15,7 +15,9 @@ dotnet add package Majorsilence.Forms.Gtk4
 ```
 
 You also need GTK 4 installed on the machine (`libgtk-4-1` on Debian/Ubuntu, `gtk4` on Fedora/Arch,
-`brew install gtk4` on macOS, the GTK runtime on Windows).
+`brew install gtk4` on macOS, the GTK runtime on Windows). For `WebBrowser` / the webview-backed
+compat controls, also install WebKitGTK 6.0 (`libwebkitgtk-6.0-4` on Debian/Ubuntu,
+`webkitgtk6.0` on Fedora, `webkitgtk` on Arch).
 
 ## Use it
 
@@ -40,6 +42,9 @@ Application.Run (new MainForm ());      // GLib main loop
 - `ShowDialog` gets a real transient-for / modal window relationship.
 - `NativeControlHost` — a real `Gtk.Widget` overlaid *inside* an MF scene (`INativeControlHostBackend`).
   GTK 4 composites every widget into one render tree, so there is no airspace problem.
+- `WebBrowser` / `RadPdfViewer` / `RadRichTextEditor` — `IWebViewFactory` backed by **WebKitGTK 6.0**
+  (`GirCore.WebKit-6.0`): navigation events, `ExecuteScriptAsync`, and a JS→host script-message
+  bridge. Needs `libwebkitgtk-6.0` installed at runtime (`IsWebViewFunctional` is `false` otherwise).
 
 ## Embed in a host GTK app
 

@@ -16,9 +16,10 @@ namespace Majorsilence.Forms.Gtk4
     /// The message loop is GLib's — <see cref="RunMainLoop"/> iterates <c>GLib.MainContext.Default()</c>
     /// on the calling thread, the same shape as the Headless backend's work-queue loop.
     /// </summary>
-    public sealed class Gtk4PlatformBackend : IPlatformBackend, IDisposable
+    public sealed class Gtk4PlatformBackend : IPlatformBackend, IWebViewFactory, IDisposable
     {
         private static bool s_gtkInitialized;
+        private static bool? s_webViewSupported;
 
         private readonly ConcurrentQueue<Action> _queue = new ();
         private int _uiThreadId = -1;
@@ -152,6 +153,40 @@ namespace Majorsilence.Forms.Gtk4
 
         /// <inheritdoc/>
         public IPlatformTimer CreateTimer () => new Gtk4Timer ();
+
+        // ── WebView (WebKitGTK 6.0 via GirCore.WebKit-6.0) ───────────────────────
+
+        /// <inheritdoc/>
+        public bool IsSupported {
+            get {
+                if (s_webViewSupported is bool cached)
+                    return cached;
+
+                bool supported;
+                try {
+                    global::WebKit.Module.Initialize ();
+                    // A trivial native call — forces gir.core to dlopen libwebkitgtk-6.0. Throws
+                    // DllNotFoundException (caught) when WebKitGTK 6.0 isn't installed, or on
+                    // Windows/macOS where the .so name doesn't resolve.
+                    supported = global::WebKit.Functions.GetMajorVersion () > 0;
+                } catch {
+                    supported = false;
+                }
+
+                s_webViewSupported = supported;
+                return supported;
+            }
+        }
+
+        /// <inheritdoc/>
+        public IWebViewHandle? CreateWebView ()
+        {
+            try {
+                return Invoke (() => (IWebViewHandle) new Gtk4WebViewHandle (this));
+            } catch {
+                return null;
+            }
+        }
 
         // ── Clipboard ────────────────────────────────────────────────────────────
         // GDK's clipboard read is async-only; we own the main loop, so pump it until the read completes.

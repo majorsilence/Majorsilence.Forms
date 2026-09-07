@@ -369,11 +369,12 @@ Gdk/Gsk/Pango/Cairo/Gio/GObject/GLib transitively). It is a real-window desktop 
 Linux first (Wayland/X11), and also compiles and runs on Windows/macOS wherever the GTK 4
 runtime is installed.
 
-- `Gtk4PlatformBackend : IPlatformBackend` — initializes GTK (`Gtk.Functions.InitCheck`), owns the
-  loop by iterating `GLib.MainContext.Default()` on the calling thread (the same shape as the
-  Headless work-queue loop), a `GLib.Functions.TimeoutAdd` timer, `Post`/`Invoke` via
-  `GLib.Functions.IdleAdd`, the GDK clipboard (async read pumped against the loop we own), and
-  `Gdk.Display` monitor enumeration. `RunModalLoop` nests another iteration loop.
+- `Gtk4PlatformBackend : IPlatformBackend, IWebViewFactory` — initializes GTK
+  (`Gtk.Functions.InitCheck`), owns the loop by iterating `GLib.MainContext.Default()` on the calling
+  thread (the same shape as the Headless work-queue loop), a `GLib.Functions.TimeoutAdd` timer,
+  `Post`/`Invoke` via `GLib.Functions.IdleAdd`, the GDK clipboard (async read pumped against the loop
+  we own), and `Gdk.Display` monitor enumeration. `RunModalLoop` nests another iteration loop. The
+  `IWebViewFactory` side is below.
 - `Gtk4SkiaSurface` — the shared `Gtk.DrawingArea` both hosts draw and receive input through. The
   draw func renders `owner.RenderFrame` straight into a **fresh per-frame** `Cairo.ImageSurface`
   buffer (a persistent one trips `cairo_surface_mark_dirty` once cairo snapshots it as a paint
@@ -397,6 +398,15 @@ runtime is installed.
   of a viewport reflows its native widget into the visible box rather than translating it under a
   clip. The overlay add is deferred one idle turn because `SyncNativeControl` runs inside GTK's
   snapshot pass.
+- `Gtk4WebViewHandle` — `IWebViewFactory` via `WebKit.WebView` (WebKitGTK 6.0, `GirCore.WebKit-6.0`).
+  `WebKit.WebView` is a `Gtk.Widget`, so it rides the `INativeControlHostBackend` overlay above. Nav
+  events map from `load-changed`/`load-failed`; `ExecuteScriptAsync` awaits gir.core's
+  `EvaluateJavascriptAsync` (a `Task<JavaScriptCore.Value>`); the JS→host bridge registers a
+  `majorsilenceForms` script-message handler. `IsSupported` probes by calling
+  `WebKit.Functions.GetMajorVersion()` (a `DllNotFoundException` when WebKitGTK 6.0 isn't installed,
+  or off Linux, is caught → unsupported). The `GirCore.WebKit-6.0` package (+ its transitive
+  JavaScriptCore / Soup bindings) is a hard dependency of the backend but is all managed — the native
+  `libwebkitgtk-6.0` is only `dlopen`'d when a `WebBrowser` is actually created.
 
 **Running it** needs a display session and the GTK 4 native libraries; `samples/Gallery.Gtk4` is the
 head:
@@ -416,6 +426,11 @@ scene in via `MajorsilenceFormsPresenter` and opens an MF `Form` as a GTK window
 `EMBED_SELFTEST=1` runs a non-interactive check (embedded scene paints, `ToGtkWindow()` presents);
 verified on Wayland.
 
+`MF_GTK4_WEBVIEW=1 dotnet run --project samples/Gallery.Gtk4` shows a `WebBrowser`; with
+`MF_GTK4_SELFTEST=1` it loads an HTML string, round-trips a script message and an
+`ExecuteScriptAsync("document.title")`, then exits. Verified on Wayland against WebKitGTK 6.0:
+`IsWebViewFunctional` true, `DocumentCompleted` and `WebMessageReceived` fire, script eval returns.
+
 **What doesn't work** (mostly GTK 4 API removals rather than pending work):
 
 - **No screen-position control.** GTK 4 dropped client-side positioning of top-levels, so
@@ -423,8 +438,8 @@ verified on Wayland.
   are computed against it. `Topmost`, `ShowInTaskbar` and `MaximumSize` round-trip as properties but
   have no enforcing API.
 - **`SetIcon(byte[])` is a no-op** — GTK 4 window icons are a themed icon *name*.
-- **File/folder pickers return empty**, so WebView-less compat controls and the common-dialog
-  fallbacks take over, exactly as on Headless. `Gtk.FileDialog` wiring is deferred work.
+- **File/folder pickers return empty**, so the common-dialog fallbacks take over, exactly as on
+  Headless. `Gtk.FileDialog` wiring is deferred work.
 - **Fractional scaling** uses GTK's integer `scale-factor` (1 or 2); 1.25×/1.5× displays render at
   1× and let the compositor upscale until fractional-scale support is added.
 - **Not AOT-analysed** — gir.core's generated bindings are P/Invoke-heavy, out of scope for the AOT

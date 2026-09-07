@@ -107,9 +107,15 @@ surface, a native map/CAD view, a browser engine.
 
 The important point is that you are **not faking a handle — you are creating a real one** and giving
 the native library that. `NativeControlHost.NativeControl` takes a toolkit object, not a handle, so
-there is a wrapper step in between. `AvaloniaWebViewHandle` (in `Majorsilence.Forms.Avalonia`) is the
-worked example already in the tree: it wraps an `Avalonia.Controls.NativeWebView` and exposes it as
+there is a wrapper step in between. `AvaloniaWebViewHandle` (in `Majorsilence.Forms.Avalonia`) and
+`Gtk4WebViewHandle` (in `Majorsilence.Forms.Gtk4`) are the worked examples already in the tree: they
+wrap `Avalonia.Controls.NativeWebView` / `WebKit.WebView` and expose them as
 `IWebViewHandle.NativeControl`.
+
+**GTK 4 is the easy case.** `WebKit.WebView` is just a `Gtk.Widget`; the backend adds it to the
+`Gtk.Overlay` above the Skia surface and GTK composites it into the same render tree — no handle to
+create, no airspace, no platform-reach caveat. The full `IWebViewHandle` (navigation events, JS eval,
+the script-message bridge) is implemented against WebKitGTK 6.0.
 
 **Avalonia.** Subclass `Avalonia.Controls.NativeControlHost` and override
 `CreateNativeControlCore (IPlatformHandle parent)`, which returns a real `IPlatformHandle` — an
@@ -195,9 +201,9 @@ need hardware decode kept on the GPU, that is the case for Route A.
 
 | | Route A (native host) | Route B (frame callbacks) |
 |---|---|---|
-| Composites with Majorsilence content | No — draws on top | Yes |
-| Backends | Avalonia, Uno | All, including Headless |
-| Platforms | Windows, X11 realistically | Everywhere |
+| Composites with Majorsilence content | No — draws on top (GTK 4: yes) | Yes |
+| Backends | Avalonia, Uno, GTK 4 | All, including Headless |
+| Platforms | Windows, X11 realistically (GTK 4: also Wayland) | Everywhere |
 | GPU decode path | Yes | No (software decode + copy) |
 | Testable in CI | No | Yes |
 | Needs a real OS handle | Yes (create one — never fake) | No |
@@ -214,4 +220,5 @@ third-party native view that only knows how to draw into a window.
 - **No media/video control ships in the framework.** Both routes above are integration guidance, not
   a `VideoView` you can instantiate.
 - **Route A's Uno path is documented from the public API surface, not from a running app.** The
-  Avalonia path is exercised in the tree by `AvaloniaWebViewHandle`; the Uno equivalent is not.
+  Avalonia path is exercised in the tree by `AvaloniaWebViewHandle`, and the GTK 4 path by
+  `Gtk4WebViewHandle` (verified on Wayland against WebKitGTK 6.0); the Uno equivalent is not.

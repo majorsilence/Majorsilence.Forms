@@ -85,15 +85,17 @@ The same `MainForm`, hosted on the GTK 4 backend (gir.core) — see [`backends.m
 how the backend implements the seam.
 
 ```bash
-dotnet run --project samples/Gallery.Gtk4                 # full ControlGallery
-MF_GTK4_DEMO=1 dotnet run --project samples/Gallery.Gtk4  # tiny render + input smoke form
+dotnet run --project samples/Gallery.Gtk4                    # full ControlGallery
+MF_GTK4_DEMO=1 dotnet run --project samples/Gallery.Gtk4     # tiny render + input smoke form
+MF_GTK4_WEBVIEW=1 dotnet run --project samples/Gallery.Gtk4  # a WebBrowser on WebKitGTK 6.0
 ```
 
 Needs a display session (X11/Wayland) and the GTK 4 native libraries, so it is not part of the
-headless CI build. Its `GirCore.*` packages restore from nuget.org via the sample's own
-`nuget.config`, and it manages its own package versions independently of the repo's central package
-management. `MF_GTK4_SELFTEST=1` (with `MF_GTK4_DEMO=1`) runs a non-interactive render/loop/timer
-check and exits. Verified launching and rendering the full gallery on Wayland.
+headless CI build (the webview form additionally needs `libwebkitgtk-6.0`). Its `GirCore.*` packages
+restore from nuget.org via the sample's own `nuget.config`, and it manages its own package versions
+independently of the repo's central package management. `MF_GTK4_SELFTEST=1` runs a non-interactive
+check and exits — a render/loop/timer check with `MF_GTK4_DEMO=1`, or a navigate + script round-trip
+with `MF_GTK4_WEBVIEW=1`. Verified launching and rendering the full gallery on Wayland.
 
 ### Gallery.Wasm
 
