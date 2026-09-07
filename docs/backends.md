@@ -11,6 +11,7 @@ That host is abstracted behind a small seam so Majorsilence.Forms can run on mor
 | `Majorsilence.Forms.Avalonia` | Avalonia 12 (`AvaloniaPlatformBackend`) | Default desktop backend (Windows/macOS/Linux). Also multi-targets Browser/WASM, Android, and iOS through Avalonia's own platform packages, so it is a second path to mobile and web alongside Uno — see [The Avalonia backend](#the-avalonia-backend). |
 | `Majorsilence.Forms.Headless` | Dependency-free SkiaSharp (`HeadlessPlatformBackend`) | Offscreen rendering for tests/servers; the reference second backend. |
 | `Majorsilence.Forms.Uno` | Uno Platform / Skia (`UnoPlatformBackend`) | Builds against `Uno.WinUI 6.5.237` + `SkiaSharp.Views.Uno.WinUI`; presents via `SKXamlCanvas`. Runs through a Uno app head (`samples/Gallery.Uno`) — verified bootstrapping + rendering Majorsilence.Forms on macOS. |
+| `Majorsilence.Forms.Gtk4` | GTK 4 via gir.core (`Gtk4PlatformBackend`) | Builds against `GirCore.Gtk-4.0 0.8.1`; a real `Gtk.Window` per Form, Skia rendered into a Cairo image surface behind a `Gtk.DrawingArea`, GLib main loop. Runs through `samples/Gallery.Gtk4` — verified rendering + timers on Wayland. See [The GTK 4 backend](#the-gtk-4-backend). |
 | `Majorsilence.Forms.WinForms` | System.Windows.Forms (`WinFormsPlatformBackend`) | Windows-only migration backend: real WinForms windows on the classic Win32 pump, presenting Skia through a GDI-backed control. Exists for incremental migration — embed MF controls in a WinForms app via `ToWinFormsControl()`, then swap to Avalonia/Uno when fully ported. See [The WinForms backend](#the-winforms-backend). |
 | `Majorsilence.Forms.Wpf` | WPF / System.Windows (`WpfPlatformBackend`) | Windows-only migration backend: a real WPF `Window` on the `Dispatcher` loop, presenting Skia through a `WriteableBitmap`. Same shape and purpose as the WinForms backend — embed MF controls in a WPF app via `ToWpfElement()`, then swap to Avalonia/Uno when ported. |
 
@@ -28,7 +29,7 @@ host. The `net48` row of both builds for real on every OS via the
 cross-platform; only *running* needs Windows), so it is a compile gate on all CI legs. For the
 `net*-windows` rows the two backends differ: the WinForms one falls back to an empty placeholder off
 Windows, while the WPF one compiles them for real everywhere through `EnableWindowsTargeting`. The
-other backends (Avalonia, Uno, Headless) target `net8.0`+ only — there is no `netstandard2.0`
+other backends (Avalonia, Uno, Gtk4, Headless) target `net8.0`+ only — there is no `netstandard2.0`
 `IPlatformBackend` implementation, so on a non-Windows .NET Framework runtime an app can reference
 the controls but not host a window. On the `netstandard2.0` row the five optional no-op members of `IWindowBackend`
 (`SetShaped`, `SetTextInputActive`, …) are plain interface members rather than default
@@ -101,7 +102,7 @@ site. The `Majorsilence.Forms.Backends.Platform` default-backend lookup uses `Ty
 `Majorsilence.Forms.Avalonia` still resolves it. The netstandard2.0 rows are unanalysed — trimming and
 AOT are not concepts there (.NET Framework / Mono).
 
-The other backends (`Uno`, `WinForms`, `Wpf`, `Telerik`) are **not** analysed: Uno/WinUI, WinForms and
+The other backends (`Uno`, `Gtk4`, `WinForms`, `Wpf`, `Telerik`) are **not** analysed: Uno/WinUI, gir.core, WinForms and
 WPF are themselves reflection-heavy and out of scope for an AOT guarantee.
 
 `tests/Majorsilence.Forms.AotSmoke` is a `PublishAot=true` console that renders a `Form` (Label +
@@ -351,6 +352,57 @@ title-bar drag works on the **Win32 desktop head**. On the macOS head `Form` use
 (`UseSystemDecorations`) and the OS owns drag/resize. On the **X11 head** the caption-region call
 no-ops (caught) — edge-resize may still work via the presenter, but title-bar drag is unavailable;
 use `UseSystemDecorations` there if you need OS window dragging.
+
+## The GTK 4 backend
+
+`Majorsilence.Forms.Gtk4` implements the seam on GTK 4 through the
+[gir.core](https://github.com/gircore/gir.core) bindings (`GirCore.Gtk-4.0`, which pulls
+Gdk/Gsk/Pango/Cairo/Gio/GObject/GLib transitively). It is a real-window desktop backend for
+Linux first (Wayland/X11), and also compiles and runs on Windows/macOS wherever the GTK 4
+runtime is installed.
+
+- `Gtk4PlatformBackend : IPlatformBackend` — initializes GTK (`Gtk.Functions.InitCheck`), owns the
+  loop by iterating `GLib.MainContext.Default()` on the calling thread (the same shape as the
+  Headless work-queue loop), a `GLib.Functions.TimeoutAdd` timer, `Post`/`Invoke` via
+  `GLib.Functions.IdleAdd`, the GDK clipboard (async read pumped against the loop we own), and
+  `Gdk.Display` monitor enumeration. `RunModalLoop` nests another iteration loop.
+- `Gtk4WindowHost : IWindowBackend` — a `Gtk.Window` whose child is a `Gtk.DrawingArea`. The draw
+  func renders `owner.RenderFrame` straight into a **fresh per-frame** `Cairo.ImageSurface` buffer
+  (a persistent one trips `cairo_surface_mark_dirty` once cairo snapshots it as a paint source, so
+  it is allocated per paint — the same order of cost as the WPF backend's `WriteableBitmap`
+  present), then blits it with `SetSourceSurface`/`Paint`, scaled by `1/scaleFactor` for HiDPI.
+  Input arrives through `GestureClick`, `EventControllerMotion`, `EventControllerScroll` and
+  `EventControllerKey`; `Gtk4KeyInterop` maps GDK keysyms → `Keys`, modifier masks, gesture button
+  numbers and CSS cursor names. `BeginMoveDrag`/`BeginResizeDrag` call
+  `Gdk.Toplevel.BeginMove`/`BeginResize` (Majorsilence.Forms draws its own chrome on Linux).
+  `ShowDialog` sets transient-for + modal for a genuine z-ordered dialog.
+
+**Running it** needs a display session and the GTK 4 native libraries; `samples/Gallery.Gtk4` is the
+head:
+
+```
+dotnet run --project samples/Gallery.Gtk4                 # full ControlGallery
+MF_GTK4_DEMO=1 dotnet run --project samples/Gallery.Gtk4  # tiny render+input smoke form
+```
+
+`MF_GTK4_SELFTEST=1` (with `MF_GTK4_DEMO=1`) drives four timer ticks + programmatic clicks and then
+`Application.Exit()`s — a non-interactive check that render, the GLib loop, timers and invalidation
+are all live. Verified on Wayland: the window shows, the ControlGallery `MainForm` renders, the GLib
+timer fires and repaints follow input.
+
+**What doesn't work** (mostly GTK 4 API removals rather than pending work):
+
+- **No screen-position control.** GTK 4 dropped client-side positioning of top-levels, so
+  `Form.Location` is a stored hint the window manager may ignore and `PointToClient`/`PointToScreen`
+  are computed against it. `Topmost`, `ShowInTaskbar` and `MaximumSize` round-trip as properties but
+  have no enforcing API.
+- **`SetIcon(byte[])` is a no-op** — GTK 4 window icons are a themed icon *name*.
+- **File/folder pickers return empty**, so WebView-less compat controls and the common-dialog
+  fallbacks take over, exactly as on Headless. `Gtk.FileDialog` wiring is deferred work.
+- **Fractional scaling** uses GTK's integer `scale-factor` (1 or 2); 1.25×/1.5× displays render at
+  1× and let the compositor upscale until fractional-scale support is added.
+- **Not AOT-analysed** — gir.core's generated bindings are P/Invoke-heavy, out of scope for the AOT
+  guarantee (same call as Uno/WinForms/Wpf).
 
 ## The WinForms backend
 

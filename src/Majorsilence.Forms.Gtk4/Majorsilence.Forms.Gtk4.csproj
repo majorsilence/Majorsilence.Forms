@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- The Skia frame is rendered straight into the Cairo image-surface buffer via a pinned
+         pointer (see Gtk4WindowHost.Render); that one hot path needs unsafe. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Not part of the AOT-analysed quartet (core + Drawing.Common + Avalonia + Headless): gir.core's
+         generated bindings are P/Invoke- and marshalling-heavy and out of scope for an AOT guarantee,
+         same call as Uno/WinForms/Wpf. See docs/backends.md "Trimming and NativeAOT". -->
+    <!-- gir.core's generated enums repeat the native GTK/GDK names (CA1069 duplicate enum values,
+         e.g. Key.Return == Key.Enter) and its records expose native resources the analyzer flags for
+         disposal (CA2000); neither is actionable in this binding layer. -->
+    <NoWarn>$(NoWarn);CA1069;CA2000;CA1416</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.Gtk4</PackageId>
+    <Description>GTK 4 (gir.core) platform backend for Majorsilence.Forms — hosts a cross-platform WinForms app on a real GTK 4 window, presenting Skia through a Gtk.DrawingArea.</Description>
+    <PackageTags>majorsilence-forms;winforms;cross-platform;gtk;gtk4;gir.core;gircore;skiasharp;backend;linux</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- GirCore.Gtk-4.0 pulls Gdk/Gsk/Pango/Cairo/Gio/GObject/GLib transitively; all are compile-visible
+         because they arrive as package (not project) references. -->
+    <PackageReference Include="GirCore.Gtk-4.0" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>

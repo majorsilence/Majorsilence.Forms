@@ -86,6 +86,10 @@
          below mean it never actually ships or loads from this reference. -->
     <PackageVersion Include="Microsoft.Build.Framework" Version="17.11.48" />
     <PackageVersion Include="Topten.RichTextKit" Version="0.4.167" />
+    <!-- GTK 4 backend (restored from nuget.org via src/Majorsilence.Forms.Gtk4/nuget.config). Pulls
+         Gdk/Gsk/Pango/Cairo/Gio/GObject/GLib transitively at the matching 0.8.1; only the leaf
+         package is referenced directly, so those need no PackageVersion entry of their own. -->
+    <PackageVersion Include="GirCore.Gtk-4.0" Version="0.8.1" />
     <!-- Uno backend (restored from nuget.org via src/Majorsilence.Forms.Uno/nuget.config). -->
     <PackageVersion Include="Uno.WinUI" Version="6.5.237" />
     <PackageVersion Include="Uno.WinUI.Runtime.Skia.X11" Version="6.5.237" />

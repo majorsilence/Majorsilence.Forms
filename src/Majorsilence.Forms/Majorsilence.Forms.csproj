@@ -135,6 +135,7 @@
     <!-- Backend assemblies live separately and reach into the core's internal window/render/input
          plumbing (RenderFrame, Handle*, OnBackend*, the Backend field) through the IWindowBackend seam. -->
     <InternalsVisibleTo Include="Majorsilence.Forms.Avalonia" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Gtk4" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Headless" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Uno" />
     <InternalsVisibleTo Include="Majorsilence.Forms.WinForms" />

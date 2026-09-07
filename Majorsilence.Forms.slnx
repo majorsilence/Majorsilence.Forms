@@ -13,6 +13,7 @@
     <Project Path="samples/Explorer/Explore.csproj" />
     <Project Path="samples/Gallery.Android/Gallery.Android.csproj" />
     <Project Path="samples/Gallery.Avalonia/Gallery.Avalonia.csproj" />
+    <Project Path="samples/Gallery.Gtk4/Gallery.Gtk4.csproj" />
     <Project Path="samples/Gallery.iOS/Gallery.iOS.csproj" />
     <Project Path="samples/Gallery.Uno/Gallery.Uno.csproj" />
     <Project Path="samples/Gallery.Wasm/Gallery.Wasm.csproj" />
@@ -27,6 +28,7 @@
   <Folder Name="/src/">
     <Project Path="src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj" />
     <Project Path="src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj" />
+    <Project Path="src/Majorsilence.Forms.Gtk4/Majorsilence.Forms.Gtk4.csproj" />
     <Project Path="src/Majorsilence.Forms.DrawingShims/Majorsilence.Forms.DrawingShims.csproj" />
     <Project Path="src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj" />
     <Project Path="src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj" />

@@ -28,6 +28,7 @@ runner that has only one of the two workloads — pass `-p:EnableAndroidTarget=t
 | [`ControlGallery`](#controlgallery) | Every built-in control (a library — see the heads below) | — |
 | [`Gallery.Avalonia`](#galleryavalonia) | The gallery on the default backend, incl. headless rendering | Windows, macOS, Linux |
 | [`Gallery.Uno`](#galleryuno) | The same gallery on the Uno backend | Desktop (verified on macOS) |
+| [`Gallery.Gtk4`](#gallerygtk4) | The same gallery on the GTK 4 backend (gir.core) | Desktop with GTK 4 (verified on Wayland) |
 | [`Gallery.Wasm`](#gallerywasm) | The same gallery in the browser | WebAssembly |
 | [`Gallery.Android`](#galleryandroid-android-only-work-in-progress) | The same gallery on Android | Android |
 | [`Gallery.iOS`](#galleryios-ios-only-unverified) | The same gallery on iOS | iOS |
@@ -77,6 +78,22 @@ dotnet run --project samples/Gallery.Uno
 Needs a windowing session, so it is not part of the headless CI build. Its Uno packages restore from
 nuget.org via the sample's own `nuget.config`, and it manages its own package versions independently
 of the repo's central package management. Verified launching and rendering the full gallery on macOS.
+
+### Gallery.Gtk4
+
+The same `MainForm`, hosted on the GTK 4 backend (gir.core) — see [`backends.md`](backends.md) for
+how the backend implements the seam.
+
+```bash
+dotnet run --project samples/Gallery.Gtk4                 # full ControlGallery
+MF_GTK4_DEMO=1 dotnet run --project samples/Gallery.Gtk4  # tiny render + input smoke form
+```
+
+Needs a display session (X11/Wayland) and the GTK 4 native libraries, so it is not part of the
+headless CI build. Its `GirCore.*` packages restore from nuget.org via the sample's own
+`nuget.config`, and it manages its own package versions independently of the repo's central package
+management. `MF_GTK4_SELFTEST=1` (with `MF_GTK4_DEMO=1`) runs a non-interactive render/loop/timer
+check and exits. Verified launching and rendering the full gallery on Wayland.
 
 ### Gallery.Wasm
 
