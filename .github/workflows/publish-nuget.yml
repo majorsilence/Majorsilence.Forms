@@ -26,6 +26,7 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   # Cross-platform packages — packed on Linux in the `publish` job.
+  # Keep this in sync with PACKABLE_PROJECTS in release.yml and dotnet.yml (the `pack` job).
   PACKABLE_PROJECTS: >-
     src/Majorsilence.Forms/Majorsilence.Forms.csproj
     src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
