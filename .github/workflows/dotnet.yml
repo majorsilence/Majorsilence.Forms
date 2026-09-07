@@ -2,9 +2,11 @@ name: CI
 
 # Build / test gate. Runs on every PR and on demand.
 #
-# Packaging and release live in release.yml (NuGet packages + the migrator tool) —
-# this workflow intentionally does NOT pack or upload artifacts, so the two don't
-# duplicate each other.
+# Real releases live in release.yml (version injection + the draft GitHub Release, and its
+# PR-time pack only fires on PRs that touch packable paths) and publishing in publish-nuget.yml.
+# The `pack` job here is the plain convenience artifact: every CI run, whatever changed, uploads
+# installable .nupkg/.snupkg files (e.g. to test Majorsilence.Forms.Gtk4 against a real app).
+# Keep its two project lists in sync with release.yml / publish-nuget.yml.
 #
 # Note: there is deliberately no `dotnet format --verify-no-changes` gate. The repo's
 # hand-maintained style (e.g. space-before-paren) does not match what `dotnet format`
@@ -160,6 +162,99 @@ jobs:
       - name: API gap check
         if: ${{ !cancelled() && runner.os == 'Linux' }}
         run: dotnet run --project tools/Majorsilence.Forms.ApiDiff --configuration Release --no-build -- --check
+
+  # Pack the shipping NuGet packages and upload them as build artifacts, so every CI run
+  # yields installable .nupkg/.snupkg files (e.g. to test Majorsilence.Forms.Gtk4 against a
+  # real app) without waiting for a release. Runs on every PR regardless of what changed.
+  #
+  # release.yml also packs on PRs — but only ones that touch src/**, tools/** or the Directory.*
+  # props, and it injects a release version for the draft GitHub Release. This job is the plain
+  # "grab the packages" artifact.
+  #
+  # Two rows: the cross-platform packages pack on Linux (the `android` workload is installed
+  # because Majorsilence.Forms.Avalonia is packed with EnableAndroidTarget=true to carry its
+  # net10.0-android asset — same reason release.yml's pack job needs it); the net*-windows
+  # packages (UseWindowsForms/UseWPF) compile to an empty IsPackable=false stub off Windows, so
+  # they pack on windows-latest. Keep the two lists in sync with release.yml / publish-nuget.yml.
+  pack:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: nuget-packages
+            workload: android
+            projects: >-
+              src/Majorsilence.Forms/Majorsilence.Forms.csproj
+              src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
+              src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
+              src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
+              src/Majorsilence.Forms.Gtk4/Majorsilence.Forms.Gtk4.csproj
+              src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
+              src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
+              src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj
+              src/Majorsilence.Forms.Wpf/Majorsilence.Forms.Wpf.csproj
+              tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
+              tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
+              tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
+              src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
+          - os: windows-latest
+            artifact: nuget-packages-windows
+            workload: ''
+            projects: >-
+              src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj
+              src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
+              src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so SourceLink embeds correct commit info
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install workload
+        if: matrix.workload != ''
+        run: dotnet workload install ${{ matrix.workload }}
+
+      - name: Pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${{ github.workspace }}/nupkg"
+          for proj in ${{ matrix.projects }}; do
+            echo "::group::pack $proj"
+            # Majorsilence.Forms.Avalonia's net10.0-android TFM row is opt-in, so include it
+            # explicitly here the same way release.yml / publish-nuget.yml do.
+            extra_args=""
+            if [[ "$proj" == *Majorsilence.Forms.Avalonia.csproj ]]; then
+              extra_args="-p:EnableAndroidTarget=true"
+            fi
+            dotnet pack "$proj" --configuration Release --output "${{ github.workspace }}/nupkg" $extra_args
+            echo "::endgroup::"
+          done
+          ls -lh "${{ github.workspace }}/nupkg"
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: nupkg/*.nupkg
+          if-no-files-found: error
+
+      - name: Upload symbol packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-symbols
+          path: nupkg/*.snupkg
+          if-no-files-found: ignore
 
   # .NET Framework (net472) consumer smoke test.
   #

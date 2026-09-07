@@ -45,17 +45,20 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   # Cross-platform packages that produce shipped NuGet packages — packed on Linux.
+  # Keep this in sync with PACKABLE_PROJECTS in publish-nuget.yml and dotnet.yml (the `pack` job).
   PACKABLE_PROJECTS: >-
     src/Majorsilence.Forms/Majorsilence.Forms.csproj
     src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
     src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
     src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
+    src/Majorsilence.Forms.Gtk4/Majorsilence.Forms.Gtk4.csproj
     src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
     src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
     src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj
     src/Majorsilence.Forms.Wpf/Majorsilence.Forms.Wpf.csproj
     tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
     tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
+    tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
     src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
   # Windows-only packages (net*-windows, UseWindowsForms/UseWPF). Off Windows these
   # projects compile to an empty IsPackable=false placeholder, so they must be packed
