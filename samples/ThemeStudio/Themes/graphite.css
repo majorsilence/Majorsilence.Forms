@@ -1,0 +1,44 @@
+/* Graphite: neutral dark, amber accent, flat controls. */
+@theme "Graphite" extends Dark;
+
+:root {
+  --accent-color: #f2a93b;
+  --accent-color-2: #c77f12;
+  --background-color: #1c1c1e;
+  --control-low-color: #232326;
+  --control-mid-color: #2c2c30;
+  --control-mid-high-color: #38383d;
+  --control-highlight-low-color: #34343a;
+  --control-highlight-mid-color: #8a8a92;
+  --border-low-color: #3a3a40;
+  --border-mid-color: #55555c;
+  --border-high-color: #8a8a92;
+  --foreground-color: #e8e8ea;
+  --foreground-color-on-accent: #1a1200;   /* dark text on amber */
+  --foreground-disabled-color: #6e6e76;
+  --text-selection-background-color: rgba(242, 169, 59, 0.35);
+  --warning-highlight-color: #ff5b5b;
+  --font-size: 13px;
+  --item-font-size: 12px;
+  --ui-font: "Segoe UI", "Noto Sans", sans-serif;
+}
+
+Button {
+  background-color: #38383d;
+  border: none;
+  border-radius: 2px;
+}
+
+Button:hover {
+  background-color: var(--accent-color);      /* stays live if AccentColor changes */
+  color: var(--foreground-color-on-accent);
+}
+
+TextBox, NumericUpDown {
+  background-color: #141416;
+  border: 1px solid var(--border-low-color);
+}
+
+Menu, ToolBar, StatusBar {
+  background-color: #141416;
+}

@@ -287,6 +287,11 @@ dotnet run --project samples/ThemeStudio -- --render-headless out.png samples/Th
 The last form renders the preview to a PNG with no display (tabs: 0 inputs, 1 lists and grids,
 2 menus and chrome, 3 token swatches) and exits non-zero if the theme has errors.
 
+`samples/ThemeStudio/Themes/` ships example themes to start from: `light.css` and `dark.css` (a
+matched light/dark pair sharing one accent and identical control rules, so an app can switch modes
+without anything moving), `ocean.css` (deep blue), `graphite.css` (neutral dark, amber accent, flat
+controls), `paper.css` and `parchment.css` (warm light themes with serif body text).
+
 ### EmbeddingAvalonia / EmbeddingUno / EmbeddingWinForms / EmbeddingGtk4
 
 The reverse hosting direction: an ordinary Avalonia, Uno, classic WinForms, or GTK 4 application that

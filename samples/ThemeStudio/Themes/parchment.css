@@ -1,0 +1,46 @@
+/* Parchment: warm paper, terracotta accent, serif body text. */
+@theme "Parchment" extends Light;
+
+:root {
+  --clay: #b8552e;
+
+  --accent-color: var(--clay);
+  --accent-color-2: #8a3d1f;
+  --background-color: #f4efe6;
+  --control-low-color: #fffdf8;
+  --control-mid-color: #ece4d6;
+  --control-mid-high-color: #ddd2bf;
+  --control-highlight-low-color: #e3d6bf;
+  --control-highlight-mid-color: #a08e6c;
+  --border-low-color: #c9bda6;
+  --border-mid-color: #9c8f78;
+  --border-high-color: #4a4034;
+  --foreground-color: #2b2520;
+  --foreground-color-on-accent: #fff9f2;
+  --foreground-disabled-color: #a39a8c;
+  --text-selection-background-color: #f0c9b3;
+  --warning-highlight-color: #b3261e;
+  --ui-font: "Segoe UI", "Noto Sans", sans-serif;
+  --ui-font-bold: "Segoe UI Semibold", "Segoe UI", sans-serif;
+}
+
+/* The ambient font every Label, TextBox, CheckBox... inherits. */
+Form {
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-size: 15px;
+}
+
+Button {
+  background-color: var(--control-low-color);
+  border: 1px solid var(--border-mid-color);
+  border-radius: 10px;
+}
+
+Button:hover {
+  border-color: var(--clay);
+}
+
+TextBox, ComboBox, NumericUpDown {
+  border: 1px solid var(--border-low-color);
+  border-radius: 6px;
+}
