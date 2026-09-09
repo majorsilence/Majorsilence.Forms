@@ -711,9 +711,36 @@ P0s and there is no ordering dependency between them:
   threw before, and adding the throw is a behavioural decision separate from making the property work.
   And `Column.DisplayIndex` is untouched — it is named in this item's original text but by no finding
   in its `Closes` list.
-- **W5.2b — the selection model (`DGV-14`).** Not started. `Row.Selected`/`Cell.Selected`,
-  `MultiSelect`, Ctrl/Shift extension, most-recent-first `SelectedRows`, `SelectionChanged`, and the
-  renderer painting per-row selection rather than only `SelectedRowIndex`.
+- **W5.2b — the selection model. — DONE (2026-09-09).** `DGV-14`, and `DGV-15` with it: that finding
+  records that it *cannot* be fixed until "current" and "selected" are separated, which is this item's
+  central change. 27 tests, 15 neutralizations each producing a failure, 2 tests labelled in-test as
+  guards that did not discriminate (see below).
+  `Row.Selected`/`Cell.Selected`/`Column.Selected` are choke points into the grid, so selecting
+  repaints and raises `SelectionChanged`; `MultiSelect = false` means one selected element at a time
+  whether the selection came from a click or from code; `OnMouseDown` honours Ctrl (toggle) and Shift
+  (range for rows and columns, rectangular block for cells); `SelectedRows`/`SelectedCells`/
+  `SelectedColumns` come back most-recent-first and are correct per `SelectionMode`; and the renderer
+  paints `row.Selected`/`cell.Selected` rather than `SelectedRowIndex`.
+  *Ordering is a monotonic stamp on the element, not a list of references on the grid.* The finding's
+  fix text suggests `List<int>`, but row indices go stale on every sort and every rebind, and reference
+  lists then need pruning against a collection that has already been replaced. A stamp makes recency
+  fall out of a sort and keeps "am I selected" on the element, which is also what lets a detached row or
+  cell still round-trip the property.
+  *Three deliberate deviations.* `Column.Clone` does not carry `Selected` (WinForms clones band
+  properties, not selection state), the row-header triangle still marks the **current** row rather than
+  the selected ones, and `SelectedColumns` returns a *projection* collection — a normal
+  `DataGridViewColumnCollection` re-owns each column and raises `ColumnAdded` on insert, so a populated
+  one built the obvious way would fire the grid's column events on every read.
+  *`ClearSelection` no longer blanks the current cell* (`DGV-15`), so `grid.ClearSelection ()` followed
+  by `grid.CurrentRow.Cells[...]` works instead of throwing. The existing
+  `DataGridViewTests.ClearSelection_ResetsCurrentRowAndCell` asserted the divergence and was flipped.
+  *Two findings of my own, both recorded rather than papered over.* The first version had a
+  `suppress_selection_notification` flag for composite operations; nothing ever took the path it
+  guarded, because every batch body writes through `SetSelectedCore` rather than through the properties,
+  so it was removed rather than left as unexercised code. And the two "announces once" tests did **not**
+  fail when the batch bodies were rewritten to assign the properties element by element, which is the
+  implementation they were meant to rule out — so they are labelled guards, not proof, and the design
+  comment says so instead of claiming an event-count difference the tests do not demonstrate.
 
 **W5.3 — `DataGridView` incremental data binding.** `OnBoundListChanged` ignores `ListChangedType` and
 regenerates every column and row on any change — which is also why `RowsAdded` never fires for bound
@@ -1416,6 +1443,41 @@ Suite: **4395 passing, 0 failing**, in Debug and Release, with system decoration
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.2b found
+
+**A fourth way a baseline reads clean over dead code: a property read only by a state reporter and a
+clone.** The three already catalogued here are a ring of stub properties reading each other (W5.10), a
+property read only by inert code (W5.11), and an `OnXxx` raiser containing `Xxx?.Invoke` counting as a
+raise site even when nothing calls the raiser (W5.16). `Row.Selected` is a new one: it was read, by
+`DataGridViewRow.State`/`InheritedState` and by `Clone`, so the stored-only detector never flagged it --
+and both of those readers only ever hand the value straight back out. A property whose every reader
+returns it verbatim is doing nothing, and looks exactly like a property that is doing something. Making
+the two `Selected` properties real dropped the auto-property denominator from 1199 to 1197 and left the
+stored-only count at 739, which is the tell: they were never counted in the first place.
+
+**A test can pass because the state it asserts was already true.** The Ctrl-click test originally
+clicked row 1 and then Ctrl-clicked row 1, asserting the current row was row 1 -- which the *first*
+click had already made true, so neutralizing "the current cell follows a modified click" changed
+nothing. Re-pointing the second click at a different row made it discriminate. This is the same shape as
+W5.9's `GetNodeAt` test, where three nodes made the probed index the fixed point of the very reversal
+the test was meant to catch.
+
+**Reading a property should not raise events, and here the obvious implementation would have.**
+`SelectedColumns` is typed as `DataGridViewColumnCollection`, whose `InsertItem` re-owns the column and
+raises `ColumnAdded` plus `OnColumnsChanged`. Populating one to return it would have meant every read of
+`SelectedColumns` firing the grid's column-added event and forcing a relayout -- a property getter with
+side effects on the control it belongs to. The projection constructor exists only to make the getter
+inert, and there is a test asserting the read raises nothing.
+
+**Two of my own tests turned out to be guards, and saying so was the only honest option.** Both
+"announces once" tests survived a neutralization that rewrote the batch bodies to assign the `Selected`
+properties element by element -- the naive implementation they were written to rule out. Tracing showed
+two notifications reaching a one-handler invocation list while the counter still read one, which I could
+not explain, so the claim was removed rather than asserted. The direct `SetSelectedCore` writes are kept
+because they make the single notification structural, but the plan, the code comment and the tests all
+now say that no test pins the difference. An unproven claim in a comment is worse than an admitted gap:
+the next person reads it as verified.
 
 ### What W5.20a found
 

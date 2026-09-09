@@ -228,7 +228,9 @@ namespace Majorsilence.Forms.Renderers
             // Determine background color from cell styles
             SKColor? bg = null;
 
-            if (control.SelectedRowIndex == rowIndex)
+            // row.Selected, not SelectedRowIndex: the index is the CURRENT cell, and painting from it
+            // is what made Row.Selected and MultiSelect invisible (DGV-14).
+            if (control.IsRowPaintedSelected (rowIndex))
                 bg = Theme.ControlHighlightLowColor;
             else if (control.HoveredRowIndex == rowIndex)
                 bg = Theme.ControlMidColor;
@@ -452,17 +454,17 @@ namespace Majorsilence.Forms.Renderers
             var cell_bg = cellStyle?.BackgroundColor;
 
             if (cell_bg.HasValue && paintParts.HasFlag (DataGridViewPaintParts.Background)
-                && control.SelectedRowIndex != rowIndex && control.HoveredRowIndex != rowIndex)
+                && !control.IsRowPaintedSelected (rowIndex) && control.HoveredRowIndex != rowIndex)
                 e.Canvas.FillRectangle (bounds, cell_bg.Value);
 
             // Draw the cell's borders as described by the grid's advanced (per-edge) border style.
             if (paintParts.HasFlag (DataGridViewPaintParts.Border))
                 RenderCellBorders (control.AdvancedCellBorderStyle, bounds, e);
 
-            // Draw cell selection for cell mode
+            // Draw cell selection for the cell and column modes. Every selected cell is outlined, not
+            // just the current one -- which is what makes a Ctrl-clicked or SelectAll'd block visible.
             if (paintParts.HasFlag (DataGridViewPaintParts.SelectionBackground)
-                && control.SelectionMode != DataGridViewSelectionMode.FullRowSelect
-                && control.SelectedRowIndex == rowIndex && control.SelectedColumnIndex == columnIndex)
+                && control.IsCellPaintedSelected (rowIndex, columnIndex))
                 e.Canvas.DrawRectangle (bounds, Theme.AccentColor, 2);
 
             if (!paintParts.HasFlag (DataGridViewPaintParts.ContentForeground)

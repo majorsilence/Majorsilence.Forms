@@ -57,9 +57,37 @@ namespace Majorsilence.Forms
         public int Index => owner?.Rows.IndexOf (this) ?? -1;
 
         /// <summary>
-        /// Gets or sets whether this row is selected.
+        /// Gets or sets whether this row is selected. Setting it selects or deselects the row in the
+        /// owning grid, which repaints and raises <see cref="DataGridView.SelectionChanged"/>; with
+        /// <see cref="DataGridView.MultiSelect"/> off, selecting this row deselects everything else.
+        /// A row that belongs to no grid simply stores the value.
         /// </summary>
-        public bool Selected { get; set; }
+        public bool Selected {
+            get => selected;
+            set {
+                if (owner is { } grid)
+                    grid.SetRowSelected (this, value);
+                else
+                    SetSelectedCore (value, 0);
+            }
+        }
+
+        private bool selected;
+
+        // The grid's SetRowSelected writes through here, so the flag and the recency stamp are always
+        // set together. Assigning `selected` anywhere else would leave SelectedRows mis-ordered.
+        internal void SetSelectedCore (bool value, long order)
+        {
+            selected = value;
+            selection_order = order;
+        }
+
+        // When this row was most recently selected, as handed out by the grid. Zero when unselected.
+        // DataGridView.SelectedRows sorts on it so the most recently selected row comes first, the way
+        // upstream's prepend-to-a-linked-list does.
+        internal long SelectionOrder => selection_order;
+
+        private long selection_order;
 
         /// <summary>
         /// Gets or sets an object that contains data to associate with the row.
@@ -200,7 +228,7 @@ namespace Majorsilence.Forms
             clone.Tag = Tag;
             clone.Visible = Visible;
             clone.Frozen = Frozen;
-            clone.Selected = Selected;
+            clone.SetSelectedCore (Selected, SelectionOrder);   // not the setter: a clone must not notify a grid
             clone.ErrorText = ErrorText;
             clone.Resizable = Resizable;
             clone.DataBoundItem = DataBoundItem;

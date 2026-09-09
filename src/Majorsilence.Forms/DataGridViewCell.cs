@@ -135,9 +135,34 @@ namespace Majorsilence.Forms
         public int RowIndex => owner?.Index ?? -1;
 
         /// <summary>
-        /// Gets or sets whether this cell is selected.
+        /// Gets or sets whether this cell is selected. Setting it selects or deselects the cell in the
+        /// owning grid, which repaints and raises <see cref="DataGridView.SelectionChanged"/>; with
+        /// <see cref="DataGridView.MultiSelect"/> off, selecting this cell deselects everything else.
+        /// A cell that belongs to no grid simply stores the value.
         /// </summary>
-        public bool Selected { get; set; }
+        public bool Selected {
+            get => selected;
+            set {
+                if (DataGridView is { } grid)
+                    grid.SetCellSelected (this, value);
+                else
+                    SetSelectedCore (value, 0);
+            }
+        }
+
+        private bool selected;
+
+        // See DataGridViewRow.SetSelectedCore: the flag and its recency stamp move together.
+        internal void SetSelectedCore (bool value, long order)
+        {
+            selected = value;
+            selection_order = order;
+        }
+
+        // When this cell was most recently selected. See DataGridViewRow.SelectionOrder.
+        internal long SelectionOrder => selection_order;
+
+        private long selection_order;
 
         /// <summary>Gets whether this cell is currently being edited. Mirrors WinForms DataGridViewCell.IsInEditMode.</summary>
         public bool IsInEditMode => DataGridView?.IsCellInEditMode (RowIndex, ColumnIndex) ?? false;
@@ -333,7 +358,7 @@ namespace Majorsilence.Forms
             target.value = value;
             target.Tag = Tag;
             target.ReadOnly = ReadOnly;
-            target.Selected = Selected;
+            target.SetSelectedCore (Selected, SelectionOrder);   // not the setter: a clone must not notify a grid
             target.ToolTipText = ToolTipText;
             target.ErrorText = ErrorText;
             target.Visible = Visible;

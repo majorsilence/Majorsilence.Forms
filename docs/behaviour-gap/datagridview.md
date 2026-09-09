@@ -29,7 +29,16 @@ neither hid the row nor threw, and this change makes it hide -- adding the throw
 behavioural decision. `Column.DisplayIndex`, named in W5.2's plan text, belongs to no finding in that
 item's list and is untouched.
 
-**Still open in this file:** DGV-01 (P0), DGV-03 (P0), DGV-31 (P0), DGV-14, and the remaining 35.
+`DGV-14` and `DGV-15` are closed as of 2026-09-09 (`W5.2b`). `Row.Selected`/`Cell.Selected`/
+`Column.Selected` are choke points that repaint and raise `SelectionChanged`; `MultiSelect` is honoured
+from both the click path and code; Ctrl toggles and Shift extends; `SelectedRows`/`SelectedCells`/
+`SelectedColumns` are most-recent-first and mode-correct; and the renderer paints the selection flags
+rather than `SelectedRowIndex`. `ClearSelection` leaves the current cell alone, which is what `DGV-15`
+was waiting on. Recency is a monotonic stamp on each element rather than the `List<int>` this file's fix
+text suggests -- indices go stale on every sort and rebind. `Column.DisplayIndex` remains untouched: it
+is named in W5.2's plan text but belongs to no finding in that item's list.
+
+**Still open in this file:** DGV-01 (P0), DGV-03 (P0), DGV-31 (P0), and the remaining 35.
 
 ## Findings
 
@@ -137,7 +146,7 @@ item's list and is untouched.
 - **Test:** `new DataGridView()` → `RowHeadersVisible`, `SelectionMode == RowHeaderSelect`, `RowHeadersWidth == 41`, `ColumnHeadersHeight == 23`.
 - **Tests today:** `DataGridViewTests.Ctor_Default`, `DataGridViewRowTests.Height_SetDefault_IsTwentyFive`, `*_ClampsToMinimum` codify the divergent values.
 
-### DGV-14 — Multi-selection: `MultiSelect`, Ctrl/Shift-click, `row.Selected`/`cell.Selected` setters, `SelectedRows` order, `SelectedCells`, `SelectedColumns` — Cat C/A — P1 — High
+### DGV-14 — Multi-selection: `MultiSelect`, Ctrl/Shift-click, `row.Selected`/`cell.Selected` setters, `SelectedRows` order, `SelectedCells`, `SelectedColumns` — Cat C/A — P1 — High — **CLOSED 2026-09-09 (W5.2b)**
 - **Ours:** `MultiSelect` stored-only (`DataGridView.cs:735-747`); `OnMouseDown` always single-selects via `SelectedRowIndex` (2260-2267, no modifier check); `DataGridViewRow.Selected` / `DataGridViewCell.Selected` are auto-properties (`DataGridViewRow.cs:62`, `DataGridViewCell.cs:140`) — no `SelectionChanged`, no repaint, and the renderer highlights only `SelectedRowIndex` (`Renderers/DataGridViewRenderer.cs:223`, `:413`, `:456`); `SelectedCells` is derived from `SelectedRows` (2629-2638), so in `CellSelect` mode after `SelectAll` (2986-2989 sets `cell.Selected`) `SelectedCells` is empty; `SelectedColumns` returns a new empty collection (2978); `SelectedRows` is in index order.
 - **Upstream:** selection lists are prepended (`…/DataGridViewIntLinkedList.cs:93-101`) so `SelectedRows` is most-recent-first (`…/DataGridView.cs:3726`); `row.Selected = true` selects and repaints and raises `SelectionChanged`; Ctrl/Shift extend selection when `MultiSelect`.
 - **Impact:** "delete selected rows" loops delete one row; programmatic `Rows[i].Selected = true` highlights nothing and raises nothing; `SelectedRows[0]` is the *first* rather than the most recently clicked row (code that reads `SelectedRows[0]` after a Shift-click gets the wrong row); `SelectedCells.Count` is wrong in cell modes.
@@ -145,7 +154,7 @@ item's list and is untouched.
 - **Test:** `rows[0].Selected = rows[2].Selected = true` → `SelectionChanged` ×2, `SelectedRows.Count == 2`, `SelectedRows[0] == rows[2]`; render and probe both rows' highlight colour.
 - **Tests today:** `DataGridViewTests.SelectAll_FullRowSelect_SelectsAllRows`, `GetCellCount_SelectedFilter_CountsSelectedCells` (row mode only).
 
-### DGV-15 — `ClearSelection()` resets `CurrentCell` and raises no `SelectionChanged` — Cat A — P2 — High
+### DGV-15 — `ClearSelection()` resets `CurrentCell` and raises no `SelectionChanged` — Cat A — P2 — High — **CLOSED 2026-09-09 (W5.2b)**
 - **Ours:** clears flags and sets both indices to -1 without raising (`DataGridView.cs:2806-2814`).
 - **Upstream:** clears selection only; `_ptCurrentCell` is untouched and `SelectionChanged` is flushed (`…/DataGridView.Methods.cs:3385-3450`, `:6787`).
 - **Impact:** `grid.ClearSelection(); … grid.CurrentRow.Cells[…]` NREs; selection-count labels don't update.
