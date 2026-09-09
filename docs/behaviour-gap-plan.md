@@ -690,10 +690,30 @@ via `ParseFormattedValue`, `DataError` raised rather than swallowed, `ReadOnly` 
 upstream event order (`CellBeginEdit` → `EditingControlShowing` → … → `CellEndEdit`).
 *Closes:* `DGV-01` (P0), `DGV-06`, `DGV-07`, `DGV-08`, `DGV-10`, `DGV-11`.
 
-**W5.2 — `DataGridView` cell/row/column objects become participants.** `Cell.Value` setter raising
-`CellValueChanged` and repainting; `Row.Visible` actually hiding; `Row.Selected`/`Cell.Selected`;
-`Column.DisplayIndex`. They are passive auto-properties today, so none of them change anything.
-*Closes:* `DGV-02` (P0), `DGV-20` (P0), `DGV-14`.
+**W5.2 — `DataGridView` cell/row/column objects become participants.**
+Split into two, because the selection model is a different size of job from the two value/visibility
+P0s and there is no ordering dependency between them:
+
+- **W5.2a — the value and visibility choke points. — DONE (2026-09-04).** `DGV-02` (P0) and `DGV-20`
+  (P0). `Cell.Value` writes through to the bound object and raises `CellValueChanged`; a hidden row is
+  excluded from layout, painting, hit-testing, the scroll extent and `DisplayedRowCount`. 14 tests, 9
+  verified to fail with their fix neutralized and 5 labelled in-test as guards.
+  *The push-to-bound-object logic existed only inline inside `EndEdit`*, which is precisely why a
+  programmatic assignment could not do it; it is now one `TryPushValueToBoundItem` shared by both
+  paths, with `EndEdit` suppressing the setter's notification because it parses through `CellParsing`
+  first and needs the push's result to drive its own commit/validate sequence. So the push is shared
+  and the event fires once, from whichever path the caller used.
+  `Row.Visible` is honoured through a single `RowDeviceHeight` — "a hidden row has no height" — rather
+  than an `if (!row.Visible) continue` at each of five loops. That is deliberate: `DGV-20` records that
+  `Column.Visible` came to be honoured in some places and not others exactly because it was done
+  site-by-site.
+  *Two deliberate omissions:* WinForms throws when hiding the **current** row; ours neither hid it nor
+  threw before, and adding the throw is a behavioural decision separate from making the property work.
+  And `Column.DisplayIndex` is untouched — it is named in this item's original text but by no finding
+  in its `Closes` list.
+- **W5.2b — the selection model (`DGV-14`).** Not started. `Row.Selected`/`Cell.Selected`,
+  `MultiSelect`, Ctrl/Shift extension, most-recent-first `SelectedRows`, `SelectionChanged`, and the
+  renderer painting per-row selection rather than only `SelectedRowIndex`.
 
 **W5.3 — `DataGridView` incremental data binding.** `OnBoundListChanged` ignores `ListChangedType` and
 regenerates every column and row on any change — which is also why `RowsAdded` never fires for bound
@@ -1391,7 +1411,7 @@ authoritative list and this table as the map of the big ones.
 | 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and so has the ToolStrip cluster** — `TSM-02` was closed by W1.3 in Phase 1 (see `MenuShortcutTests.cs`), which the findings file had not recorded. The rest not started. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
 
-Suite: **4381 passing, 0 failing**, in Debug and Release, with system decorations and with
+Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs

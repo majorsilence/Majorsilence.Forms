@@ -6,6 +6,31 @@ Paths below are relative to the two repos: ours = `/Users/petergill/Projects/Maj
 
 The grid is a working single-selection, text-editing, row-highlighting table with a solid paint pipeline (CellFormatting/CellPainting/RowPre/PostPaint/CellParsing/RowValidating are real). Almost everything *around* that core is shape-only: the editing lifecycle is a fixed TextBox with no dirty state, no type conversion and no DataError; the data-binding layer re-runs the whole bind (columns included) on every `ListChanged`; selection is a single `(row, col)` pair so `MultiSelect`, `row.Selected`, `SelectedCells`, `SelectedColumns` and `ClearSelection` all mean something different from WinForms; sorting never records `SortedColumn`/`SortOrder`; sizing (`AutoSizeColumnsMode.Fill`, `AutoResize*`, `RowTemplate`) only invalidates; and the renderer reads its own non-WinForms properties (`column.DefaultCellStyleAlignment`, `column.SortOrder`, `column.Sortable`, `SelectedRowIndex`) instead of the WinForms ones (`DefaultCellStyle.Alignment`, `HeaderCell.SortGlyphDirection`, `SortMode`, `row.Selected`), so the WinForms setters store values nothing consumes. Two dominant root causes: (1) no-op/`add { } remove { }` events with natural trigger points already present in `OnMouseDown`/`OnKeyUp`/`EndEdit`; (2) the row/column/cell objects are passive data holders (auto-properties) rather than participants — `Cell.Value`, `Row.Visible`, `Row.Selected`, `Column.DisplayIndex` change nothing. Count: **5 × P0, 21 × P1, 15 × P2** (41 findings), plus a P3 list. Several existing tests codify the divergent behaviour (noted per finding).
 
+## Status (2026-09-04, W5.2a — the value and visibility choke points)
+
+**Closed:** DGV-02 (P0), DGV-20 (P0). 14 tests in `DataGridViewParticipantTests.cs`, 9 verified to fail
+with their fix neutralized; 5 are labelled in-test as guards. **This is the first work in this file** --
+it had no status block before, and the cluster's other 39 findings are untouched.
+
+**A note on DGV-02's fix, which the finding gets right and is worth restating.** The write-to-the-bound-
+item logic lived *inline inside `EndEdit`* and nowhere else. That is the whole mechanism of the bug: a
+programmatic `Cell.Value` assignment had no way to reach it. It is now `TryPushValueToBoundItem`, shared
+by both paths; `EndEdit` suppresses the setter's notification because it has already parsed the text
+through `CellParsing` and needs the push's success to drive its own commit/validate sequence.
+
+**A note on how DGV-20 was fixed.** The finding lists six call sites that must skip `!row.Visible`.
+Rather than six guards, there is one `DataGridView.RowDeviceHeight (index)` that returns zero for a
+hidden row, and every site that walks rows vertically goes through it. The finding itself observes that
+`Column.Visible` ended up honoured in some places and not others; doing this per-site invites the same
+outcome for the next site added.
+
+**Deliberately not done, and not defects:** WinForms throws when hiding the row that is current. Ours
+neither hid the row nor threw, and this change makes it hide -- adding the throw as well is a separate
+behavioural decision. `Column.DisplayIndex`, named in W5.2's plan text, belongs to no finding in that
+item's list and is untouched.
+
+**Still open in this file:** DGV-01 (P0), DGV-03 (P0), DGV-31 (P0), DGV-14, and the remaining 35.
+
 ## Findings
 
 ### DGV-01 — `DataGridView.BeginEdit(bool selectAll)` — Cat B — P0 — High

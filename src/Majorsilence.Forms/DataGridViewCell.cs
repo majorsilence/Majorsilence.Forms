@@ -173,13 +173,28 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the value of this cell.
         /// </summary>
+        /// <remarks>
+        /// Setting this is a real edit, not a store: it writes through to the bound object and raises
+        /// <see cref="DataGridView.CellValueChanged"/>. It used to store and repaint only, so
+        /// <c>grid.Rows[i].Cells["Qty"].Value = 5</c> never ran the "recalculate the total in
+        /// CellValueChanged" handler that is the whole reason to hook that event -- and on a bound grid
+        /// the new value was shown but never written to the item, so the next <c>ListChanged</c> rebind
+        /// silently reverted it (finding <c>DGV-02</c>, P0).
+        /// </remarks>
         public object? Value {
             get => value;
             set {
-                if (!Equals (this.value, value)) {
-                    this.value = value;
-                    owner?.DataGridView?.Invalidate ();
-                }
+                if (Equals (this.value, value))
+                    return;
+
+                var old_value = this.value;
+
+                this.value = value;
+
+                // The grid owns the consequences: pushing to the bound item can fail and has to revert
+                // this assignment, and only the grid can raise its own event. A detached cell (one not
+                // yet added to a row, as a designer or a test builds) just stores.
+                owner?.DataGridView?.NotifyCellValueSet (this, old_value);
             }
         }
 
