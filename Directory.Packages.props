@@ -58,7 +58,10 @@
     <!-- .NET Framework reference assemblies so the net472 consumer smoke test
          (tests/Majorsilence.Forms.NetFxSmoke) builds on Linux/macOS CI runners too. -->
     <PackageVersion Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.201" />
+    <!-- 10.0.303, not the 10.0.20x band: CVE-2026-62900 (GHSA-23fw-v26w-5fgq) covers the
+         transitive Microsoft.Build.Tasks.Git through 10.0.204 with no patched release in that
+         band, and NuGetAudit warnings are errors here, so 10.0.20x fails every build. -->
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.303" />
     <!-- samples/ControlGallery's CommunityToolkit.Mvvm panel: source-generated ObservableObject/
          RelayCommand. Majorsilence.Forms.Control.DataBindings is a stub (see WinFormsCompat.cs), so the
          panel wires the ViewModel's PropertyChanged/ICommand manually rather than declaratively. -->
