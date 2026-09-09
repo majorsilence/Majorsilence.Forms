@@ -2031,11 +2031,34 @@ namespace Majorsilence.Forms
         // the SelectedRowIndex property) to avoid raising selection/layout events mid-bind.
         private void SetInitialCurrentCell ()
         {
-            if (selected_row_index < 0 && Rows.Count > 0)
-                selected_row_index = 0;
+            var seeded = false;
 
-            if (selected_column_index < 0 && Columns.Count > 0)
+            if (selected_row_index < 0 && Rows.Count > 0) {
+                selected_row_index = 0;
+                seeded = true;
+            }
+
+            if (selected_column_index < 0 && Columns.Count > 0) {
                 selected_column_index = 0;
+                seeded = true;
+            }
+
+            // The seeded cell has to be SELECTED, not merely current: since DGV-14 the renderer paints
+            // row.Selected/cell.Selected rather than the current-cell indices, so seeding the indices
+            // alone would leave a freshly bound grid with a current row that is not highlighted.
+            // Written through the core setters, silently, for the reason above -- no events mid-bind.
+            if (!seeded)
+                return;
+
+            if (SelectionIsColumnBased) {
+                if (selected_column_index >= 0 && selected_column_index < Columns.Count)
+                    Columns[selected_column_index].SetSelectedCore (true, ++selection_sequence);
+            } else if (SelectionIsRowBased) {
+                if (selected_row_index >= 0 && selected_row_index < Rows.Count)
+                    Rows[selected_row_index].SetSelectedCore (true, ++selection_sequence);
+            } else if (IsCellAddress (selected_row_index, selected_column_index)) {
+                Rows[selected_row_index].Cells[selected_column_index].SetSelectedCore (true, ++selection_sequence);
+            }
         }
 
         // Gets the element type from an IList.
@@ -2413,6 +2436,11 @@ namespace Majorsilence.Forms
                         // not just sortable columns.
                         OnColumnHeaderMouseClick (new DataGridViewCellMouseEventArgs (col, -1, e.Location.X - GetColumnDeviceLeft (col), e.Location.Y - client.Top, e));
 
+                        // A header click is how a column gets selected from the UI, and the only way in
+                        // ColumnHeaderSelect -- where clicking a cell selects the cell instead.
+                        if (SelectionIsColumnBased)
+                            SelectFromPointer (-1, col, e.Modifiers);
+
                         if (Columns[col].Sortable)
                             OnColumnHeaderClick (col);
                     }
@@ -2425,15 +2453,19 @@ namespace Majorsilence.Forms
             var row = GetRowAtLocation (e.Location);
 
             if (row >= 0) {
-                int col;
+                var col = GetColumnAtLocation (e.Location);
 
-                if (selection_mode == DataGridViewSelectionMode.FullRowSelect) {
-                    SelectedRowIndex = row;
-                    col = GetColumnAtLocation (e.Location);
-                } else {
-                    col = GetColumnAtLocation (e.Location);
-                    SelectedRowIndex = row;
-                    SelectedColumnIndex = col;
+                // The current cell moves first and unconditionally -- a Ctrl-click that DEselects a row
+                // still moves the cursor there -- then the modifiers decide what happens to the
+                // selection. Going through SelectFromPointer rather than the two index setters is what
+                // makes MultiSelect, Ctrl and Shift mean anything (DGV-14) and keeps one click to one
+                // SelectionChanged.
+                // e.Modifiers, not the static Control.ModifierKeys: constructing a MouseEventArgs
+                // ASSIGNS that static from its own keyData, so the static says None for any event args
+                // built without one and cannot be primed from outside.
+                if (SetCurrentRowIndex (row)) {
+                    selected_column_index = col;
+                    SelectFromPointer (row, col, e.Modifiers);
                 }
 
                 // Toggle check-box cells on click (covers DataGridViewCheckBoxColumn and any column
@@ -2779,31 +2811,11 @@ namespace Majorsilence.Forms
         public int SelectedColumnIndex {
             get => selected_column_index;
             set {
-                if (selected_column_index != value) {
-                    selected_column_index = value;
-                    OnSelectionChanged (EventArgs.Empty);
-                    Invalidate ();
-                }
-            }
-        }
+                if (selected_column_index == value)
+                    return;
 
-        /// <summary>
-        /// Gets the collection of selected rows (read-only).
-        /// </summary>
-        public IReadOnlyList<DataGridViewRow> SelectedRows =>
-            Rows.Where (r => r.Selected).ToList ().AsReadOnly ();
-
-        /// <summary>
-        /// Gets the collection of selected cells (read-only, returns cells in the selected rows).
-        /// </summary>
-        public IReadOnlyList<DataGridViewCell> SelectedCells {
-            get {
-                var cells = new List<DataGridViewCell> ();
-
-                foreach (var row in SelectedRows)
-                    cells.AddRange (row.Cells);
-
-                return cells.AsReadOnly ();
+                selected_column_index = value;
+                ReplaceSelectionWithCurrentCell ();
             }
         }
 
@@ -2813,29 +2825,47 @@ namespace Majorsilence.Forms
         public int SelectedRowIndex {
             get => selected_row_index;
             set {
-                if (selected_row_index != value) {
-                    // WinForms row-commit cycle: leaving a row commits its edit and runs
-                    // RowValidating/RowValidated/RowLeave. A cancelling handler keeps the row current.
-                    if (!ValidateRow (selected_row_index))
-                        return;
+                if (selected_row_index == value)
+                    return;
 
-                    // Deselect old row
-                    if (selected_row_index >= 0 && selected_row_index < Rows.Count)
-                        Rows[selected_row_index].Selected = false;
+                if (!SetCurrentRowIndex (value))
+                    return;
 
-                    selected_row_index = value;
-
-                    // Select new row
-                    if (selected_row_index >= 0 && selected_row_index < Rows.Count)
-                        Rows[selected_row_index].Selected = true;
-
-                    if (selected_row_index >= 0 && selected_row_index < Rows.Count)
-                        OnRowEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
-
-                    OnSelectionChanged (EventArgs.Empty);
-                    Invalidate ();
-                }
+                // Moving the current row replaces the selection with it -- an unmodified move, which is
+                // what an assignment is. Ctrl/Shift extension goes through SelectFromPointer instead.
+                ReplaceSelectionWithCurrentCell ();
             }
+        }
+
+        // Makes a row current without touching the selection: validates the row being left, assigns the
+        // index and raises RowEnter. Returns false when a Validating handler cancelled, in which case
+        // the current row has not moved. Separated out because "current" and "selected" are different
+        // things (DGV-14/DGV-15) and the pointer path needs to move one without replacing the other.
+        private bool SetCurrentRowIndex (int value)
+        {
+            // WinForms row-commit cycle: leaving a row commits its edit and runs
+            // RowValidating/RowValidated/RowLeave. A cancelling handler keeps the row current.
+            if (!ValidateRow (selected_row_index))
+                return false;
+
+            selected_row_index = value;
+
+            if (selected_row_index >= 0 && selected_row_index < Rows.Count)
+                OnRowEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
+
+            return true;
+        }
+
+        // Selects whatever the current mode selects at the current cell address, dropping the rest of
+        // the selection. Raises SelectionChanged once.
+        private void ReplaceSelectionWithCurrentCell ()
+        {
+            if (SelectionIsColumnBased)
+                SelectSingleColumn (selected_column_index);
+            else if (SelectionIsRowBased)
+                SelectSingleRow (selected_row_index);
+            else
+                SelectSingleCell (selected_row_index, selected_column_index);
         }
 
         /// <summary>
@@ -2970,17 +3000,6 @@ namespace Majorsilence.Forms
 
             // Replace rows without triggering per-item change notifications
             Rows.ReplaceAll (sorted);
-        }
-
-        /// <summary>Clears the current selection.</summary>
-        public void ClearSelection ()
-        {
-            foreach (var row in Rows)
-                row.Selected = false;
-
-            selected_row_index = -1;
-            selected_column_index = -1;
-            Invalidate ();
         }
 
         /// <summary>Sorts the data by the specified column in the specified direction.</summary>
@@ -3143,24 +3162,6 @@ namespace Majorsilence.Forms
         }
 
         private BorderStyle border_style = BorderStyle.Fixed3D;
-
-        /// <summary>Gets the columns currently selected (via column-header click). Stub: always empty -- the compat grid does not track column selection.</summary>
-        public DataGridViewColumnCollection SelectedColumns => new DataGridViewColumnCollection (this);
-
-        /// <summary>Selects all cells, rows, or columns, depending on selection mode.</summary>
-        public void SelectAll ()
-        {
-            if (SelectionMode == DataGridViewSelectionMode.FullRowSelect) {
-                foreach (var row in Rows)
-                    row.Selected = true;
-            } else {
-                foreach (var row in Rows)
-                    foreach (var cell in row.Cells)
-                        cell.Selected = true;
-            }
-
-            Invalidate ();
-        }
 
         /// <summary>Scrolls the DataGridView so that the specified cell is visible.</summary>
         public void ScrollIntoView (int columnIndex, int rowIndex) => Invalidate ();

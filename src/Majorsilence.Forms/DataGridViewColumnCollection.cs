@@ -28,12 +28,28 @@ namespace Majorsilence.Forms
 
         private readonly DataGridView owner;
 
+        // True for a read-only projection of the grid's columns -- what SelectedColumns hands back.
+        // The columns in it already belong to `owner`, so re-owning them is meaningless, and raising
+        // ColumnAdded/OnColumnsChanged for each one would mean that merely READING SelectedColumns
+        // fired the grid's column events and forced a relayout.
+        private readonly bool is_projection;
+
         /// <summary>
         /// Initializes a new instance of the DataGridViewColumnCollection class.
         /// </summary>
         internal DataGridViewColumnCollection (DataGridView owner)
         {
             this.owner = owner;
+        }
+
+        /// <summary>
+        /// Initializes a projection of an existing grid's columns -- a collection that carries columns
+        /// owned by <paramref name="owner"/> without acting as that grid's column list.
+        /// </summary>
+        internal DataGridViewColumnCollection (DataGridView owner, bool projection)
+        {
+            this.owner = owner;
+            is_projection = projection;
         }
 
         /// <summary>
@@ -137,6 +153,11 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void ClearItems ()
         {
+            if (is_projection) {
+                base.ClearItems ();
+                return;
+            }
+
             var removedColumns = System.Linq.Enumerable.ToArray (this);
             foreach (var column in this)
                 column.SetOwner (null);
@@ -151,6 +172,11 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void InsertItem (int index, DataGridViewColumn item)
         {
+            if (is_projection) {
+                base.InsertItem (index, item);
+                return;
+            }
+
             item.SetOwner (owner);
             base.InsertItem (index, item);
             owner.OnColumnsChanged ();
@@ -163,6 +189,11 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void RemoveItem (int index)
         {
+            if (is_projection) {
+                base.RemoveItem (index);
+                return;
+            }
+
             var removedColumn = this[index];
             this[index].SetOwner (null);
             base.RemoveItem (index);
@@ -173,6 +204,11 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void SetItem (int index, DataGridViewColumn item)
         {
+            if (is_projection) {
+                base.SetItem (index, item);
+                return;
+            }
+
             this[index].SetOwner (null);
             item.SetOwner (owner);
             base.SetItem (index, item);
