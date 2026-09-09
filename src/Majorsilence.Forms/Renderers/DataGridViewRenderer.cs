@@ -175,7 +175,15 @@ namespace Majorsilence.Forms.Renderers
                     break;
 
                 var row = control.Rows[i];
-                var row_height = control.LogicalToDeviceUnits (row.Height);
+                var row_height = control.RowDeviceHeight (i);
+
+                // A hidden row paints nothing and takes no space (DGV-20). Its Bounds are cleared so a
+                // stale rectangle from when it was visible cannot be hit-tested or drawn into.
+                if (row_height == 0) {
+                    row.Bounds = Rectangle.Empty;
+                    continue;
+                }
+
                 var row_rect = new Rectangle (contentArea.Left, y, contentArea.Width, Math.Min (row_height, contentArea.Bottom - y));
 
                 row.Bounds = row_rect;

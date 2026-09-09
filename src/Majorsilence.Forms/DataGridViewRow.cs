@@ -97,7 +97,33 @@ namespace Majorsilence.Forms
         public DataGridViewCellStyle DefaultCellStyle { get; set; } = new DataGridViewCellStyle ();
 
         /// <summary>Gets or sets whether this row is visible.</summary>
-        public bool Visible { get; set; } = true;
+        /// <remarks>
+        /// A hidden row is excluded from layout, painting, hit-testing and scrolling, because it has no
+        /// height (see <c>DataGridView.RowDeviceHeight</c>). It used to be a plain auto-property that
+        /// only <c>InheritedState</c> read, so the commonest client-side filter there is --
+        /// <c>foreach (var r in grid.Rows) r.Visible = !Matches (r);</c> -- left every row on screen
+        /// (finding <c>DGV-20</c>, P0).
+        /// <para>
+        /// Note this does NOT throw when hiding the current row, where WinForms does. Ours neither hid
+        /// the row nor threw before, and adding the throw is a separate behavioural decision from
+        /// making the property work.
+        /// </para>
+        /// </remarks>
+        public bool Visible {
+            get => visible;
+            set {
+                if (visible == value)
+                    return;
+
+                visible = value;
+
+                // The grid's own scroll extent and displayed-row count are derived from row heights, so
+                // both have to be recomputed before the repaint.
+                owner?.NotifyRowVisibleChanged ();
+            }
+        }
+
+        private bool visible = true;
 
         /// <summary>Gets or sets whether the row can be resized by the user. Stub in Majorsilence.Forms.</summary>
         public DataGridViewTriState Resizable { get; set; } = DataGridViewTriState.NotSet;

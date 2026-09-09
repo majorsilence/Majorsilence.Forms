@@ -978,52 +978,30 @@ namespace Majorsilence.Forms
             }
 
             if (old_value != (parsed_value?.ToString () ?? string.Empty) || !Equals (editing_cell.Value, parsed_value)) {
-                editing_cell.Value = parsed_value;
-                var committed = true;
+                // The assignment is suppressed so it does not notify twice: this path parses through
+                // CellParsing first and needs the push's result to drive its own commit/validate
+                // sequence, so it pushes and raises below rather than letting the setter do it
+                // (DGV-02).
+                suppress_cell_value_notification = true;
 
-                // Update the data source if bound
-                if (data_source is not null && editing_row_index < data_source.Count) {
-                    var item = data_source[editing_row_index];
+                try {
+                    editing_cell.Value = parsed_value;
+                } finally {
+                    suppress_cell_value_notification = false;
+                }
 
-                    if (item is not null && editing_column_index < Columns.Count) {
-                        // DataPropertyName is the bound member; HeaderText is only a fallback (app code
-                        // routinely reassigns HeaderText for display). Descriptors are consulted first so
-                        // DataRowView columns are writable too.
-                        var column = Columns[editing_column_index];
-                        var member = string.IsNullOrEmpty (column.DataPropertyName) ? column.HeaderText : column.DataPropertyName;
-                        var descriptor = string.IsNullOrEmpty (member)
-                            ? null
-                            : System.ComponentModel.TypeDescriptor.GetProperties (item)[member];
+                // One shared implementation with the programmatic path -- the inline copy that used to
+                // live here was the only code that knew how to write to a bound item, which is exactly
+                // why setting Value directly never did.
+                var committed = TryPushValueToBoundItem (editing_row_index, editing_column_index, parsed_value);
 
-                        if (descriptor is not null && !descriptor.IsReadOnly) {
-                            try {
-                                var converted = parsed_value is not null && descriptor.PropertyType.IsInstanceOfType (parsed_value)
-                                    ? parsed_value
-                                    : Convert.ChangeType (parsed_value, descriptor.PropertyType);
-                                descriptor.SetValue (item, converted);
-                            } catch {
-                                editing_cell.Value = (object)old_value;
-                                committed = false;
-                            }
-                        }
+                if (!committed) {
+                    suppress_cell_value_notification = true;
 
-                        var prop = descriptor is not null
-                            ? null
-                            : item.GetType ().GetProperty (member, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
-                        if (prop?.CanWrite == true) {
-                            try {
-                                // A CellParsing handler may already have produced a value of the bound
-                                // property's type; only fall back to Convert for anything else.
-                                var converted = parsed_value is not null && prop.PropertyType.IsInstanceOfType (parsed_value)
-                                    ? parsed_value
-                                    : Convert.ChangeType (parsed_value, prop.PropertyType);
-                                prop.SetValue (item, converted);
-                            } catch {
-                                // Conversion failed - revert cell value
-                                editing_cell.Value = (object)old_value;
-                                committed = false;
-                            }
-                        }
+                    try {
+                        editing_cell.Value = (object)old_value;
+                    } finally {
+                        suppress_cell_value_notification = false;
                     }
                 }
 
@@ -1171,9 +1149,14 @@ namespace Majorsilence.Forms
             var y = row_top;
 
             for (var i = top_index; i < rowIndex; i++)
-                y += LogicalToDeviceUnits (Rows[i].Height);
+                y += RowDeviceHeight (i);
 
-            var scaled_row_height = LogicalToDeviceUnits (Rows[rowIndex].Height);
+            var scaled_row_height = RowDeviceHeight (rowIndex);
+
+            // A hidden row has no rectangle: returning a zero-height one would put an editor or a
+            // context menu at the position of a row nobody can see.
+            if (scaled_row_height == 0)
+                return Rectangle.Empty;
 
             // Row is below the visible area
             if (y >= client.Bottom)
@@ -1462,7 +1445,7 @@ namespace Majorsilence.Forms
             var resize_zone = LogicalToDeviceUnits (4);
 
             for (var i = top_index; i < Rows.Count; i++) {
-                var scaled_row_height = LogicalToDeviceUnits (Rows[i].Height);
+                var scaled_row_height = RowDeviceHeight (i);   // hidden rows contribute nothing (DGV-20)
                 row_top += scaled_row_height;
 
                 if (row_top > client.Bottom)
@@ -1478,6 +1461,28 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the row index at the specified location.
         /// </summary>
+        /// <summary>
+        /// The device-pixel height a row occupies: zero when it is hidden.
+        /// </summary>
+        /// <remarks>
+        /// One expression of "a hidden row has no height", which every site that walks rows vertically
+        /// goes through -- layout, painting, hit-testing, the scroll extent and the displayed-row count.
+        /// Scattering <c>if (!row.Visible) continue</c> across five loops instead invites the next one
+        /// to forget, which is how `Column.Visible` came to be honoured in some places and not others
+        /// (finding <c>DGV-20</c>).
+        /// </remarks>
+        internal int RowDeviceHeight (int rowIndex)
+            => rowIndex >= 0 && rowIndex < Rows.Count && Rows[rowIndex].Visible
+                ? LogicalToDeviceUnits (Rows[rowIndex].Height)
+                : 0;
+
+        /// <summary>Called by <see cref="DataGridViewRow.Visible"/> when a row is shown or hidden.</summary>
+        internal void NotifyRowVisibleChanged ()
+        {
+            UpdateScrollBars ();
+            Invalidate ();
+        }
+
         internal int GetRowAtLocation (Point location)
         {
             var client = GetContentArea ();
@@ -1489,9 +1494,11 @@ namespace Majorsilence.Forms
             var y = row_top;
 
             for (var i = top_index; i < Rows.Count; i++) {
-                var h = LogicalToDeviceUnits (Rows[i].Height);
+                var h = RowDeviceHeight (i);
 
-                if (location.Y >= y && location.Y < y + h)
+                // A hidden row is zero-height, so this can never match it -- which is what keeps
+                // hit-testing and painting agreeing about which row is under the pointer.
+                if (h > 0 && location.Y >= y && location.Y < y + h)
                     return i;
 
                 y += h;
@@ -1618,6 +1625,120 @@ namespace Majorsilence.Forms
         /// Raises the CellValueChanged event.
         /// </summary>
         protected virtual void OnCellValueChanged (DataGridViewCellEventArgs e) => CellValueChanged?.Invoke (this, e);
+
+        /// <summary>
+        /// Called by <see cref="DataGridViewCell.Value"/> after it stores a new value: writes the value
+        /// through to the bound object, repaints, and raises <see cref="CellValueChanged"/>.
+        /// </summary>
+        /// <remarks>
+        /// The single choke point for a value change (finding <c>DGV-02</c>, P0). <c>EndEdit</c> assigns
+        /// <c>Value</c> too, and suppresses this while it does so, because it has already parsed the
+        /// text through <c>CellParsing</c> and needs the push's success to drive its own
+        /// commit/validate sequence -- so the push itself is shared (see
+        /// <see cref="TryPushValueToBoundItem"/>) while the notification happens once, in whichever
+        /// path the caller actually used.
+        /// </remarks>
+        internal void NotifyCellValueSet (DataGridViewCell cell, object? oldValue)
+        {
+            if (suppress_cell_value_notification) {
+                Invalidate ();
+                return;
+            }
+
+            var row_index = cell.RowIndex;
+            var column_index = cell.ColumnIndex;
+
+            // A push that cannot convert reverts the cell, as EndEdit's own path does, rather than
+            // leaving the grid showing a value the object rejected.
+            if (row_index >= 0 && column_index >= 0 && !TryPushValueToBoundItem (row_index, column_index, cell.Value)) {
+                suppress_cell_value_notification = true;
+
+                try {
+                    cell.Value = oldValue;
+                } finally {
+                    suppress_cell_value_notification = false;
+                }
+
+                Invalidate ();
+                return;
+            }
+
+            Invalidate ();
+
+            if (row_index >= 0 && column_index >= 0)
+                OnCellValueChanged (new DataGridViewCellEventArgs (column_index, row_index));
+        }
+
+        // True while EndEdit is assigning Value itself; see NotifyCellValueSet.
+        private bool suppress_cell_value_notification;
+
+        /// <summary>
+        /// Writes <paramref name="value"/> into the bound item behind <paramref name="rowIndex"/>,
+        /// through the column's <c>DataPropertyName</c>. Returns false only when the value could not be
+        /// converted to the bound member's type.
+        /// </summary>
+        /// <remarks>
+        /// Factored out of <c>EndEdit</c>, which was the only place that knew how to do this -- which is
+        /// why a programmatic <c>Value</c> assignment updated the display and not the object
+        /// (<c>DGV-02</c>). Returns true when the grid is unbound or the member cannot be resolved:
+        /// there is nothing to write, which is not a failure.
+        /// </remarks>
+        // The suppressions move with the code: these were on EndEdit, which was the only method doing
+        // this reflection before it was factored out. Release turns trim warnings into errors, so the
+        // extraction fails the build without them rather than degrading silently.
+        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
+        [UnconditionalSuppressMessage ("Trimming", "IL2026",
+            Justification = "TypeDescriptor is how WinForms resolves the bound member to write back to; a trimmed descriptor degrades to the reflection path alongside it.")]
+        internal bool TryPushValueToBoundItem (int rowIndex, int columnIndex, object? value)
+        {
+            if (data_source is null || rowIndex < 0 || rowIndex >= data_source.Count || columnIndex < 0 || columnIndex >= Columns.Count)
+                return true;
+
+            var item = data_source[rowIndex];
+
+            if (item is null)
+                return true;
+
+            // DataPropertyName is the bound member; HeaderText is only a fallback, because app code
+            // routinely reassigns HeaderText for display. Descriptors first, so DataRowView columns are
+            // writable too.
+            var column = Columns[columnIndex];
+            var member = string.IsNullOrEmpty (column.DataPropertyName) ? column.HeaderText : column.DataPropertyName;
+
+            if (string.IsNullOrEmpty (member))
+                return true;
+
+            var descriptor = System.ComponentModel.TypeDescriptor.GetProperties (item)[member];
+
+            if (descriptor is not null) {
+                if (descriptor.IsReadOnly)
+                    return true;
+
+                try {
+                    descriptor.SetValue (item, Coerce (value, descriptor.PropertyType));
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+
+            var prop = item.GetType ().GetProperty (member, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+
+            if (prop?.CanWrite != true)
+                return true;
+
+            try {
+                prop.SetValue (item, Coerce (value, prop.PropertyType));
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        // A CellParsing handler may already have produced a value of the bound member's type; only fall
+        // back to Convert for anything else.
+        private static object? Coerce (object? value, Type target)
+            => value is not null && target.IsInstanceOfType (value) ? value : Convert.ChangeType (value, target);
 
         /// <summary>
         /// Handles a column header click for sorting.
@@ -3053,9 +3174,9 @@ namespace Majorsilence.Forms
             var rows_height = 0;
 
             for (var i = 0; i < Rows.Count; i++) {
-                var rh = LogicalToDeviceUnits (Rows[i].Height);
+                var rh = RowDeviceHeight (i);   // hidden rows contribute nothing (DGV-20)
 
-                if (rows_height + rh <= content_height) {
+                if (rh > 0 && rows_height + rh <= content_height) {
                     visible_rows++;
                     rows_height += rh;
                 } else {
@@ -3165,7 +3286,12 @@ namespace Majorsilence.Forms
             var h = 0;
 
             for (var i = 0; i < Rows.Count; i++) {
-                var rh = LogicalToDeviceUnits (Rows[i].Height);
+                var rh = RowDeviceHeight (i);
+
+                // A hidden row is not displayed and does not consume space, so it neither counts nor
+                // ends the walk (DGV-20).
+                if (rh == 0)
+                    continue;
 
                 if (h + rh > available)
                     break;
