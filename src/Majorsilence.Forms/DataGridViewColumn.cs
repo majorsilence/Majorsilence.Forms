@@ -269,6 +269,36 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        /// Gets or sets whether this column is selected. Setting it selects or deselects the column in
+        /// the owning grid, which repaints and raises <see cref="DataGridView.SelectionChanged"/>; with
+        /// <see cref="DataGridView.MultiSelect"/> off, selecting this column deselects everything else.
+        /// A column that belongs to no grid simply stores the value.
+        /// </summary>
+        public bool Selected {
+            get => selected;
+            set {
+                if (owner is { } grid)
+                    grid.SetColumnSelected (this, value);
+                else
+                    SetSelectedCore (value, 0);
+            }
+        }
+
+        private bool selected;
+
+        // See DataGridViewRow.SetSelectedCore: the flag and its recency stamp move together.
+        internal void SetSelectedCore (bool value, long order)
+        {
+            selected = value;
+            selection_order = order;
+        }
+
+        // When this column was most recently selected. See DataGridViewRow.SelectionOrder.
+        internal long SelectionOrder => selection_order;
+
+        private long selection_order;
+
         /// <summary>Gets the state of this column (WinForms DataGridViewColumn.State / InheritedState).</summary>
         public DataGridViewElementStates State {
             get {
@@ -276,6 +306,8 @@ namespace Majorsilence.Forms
 
                 if (Visible)
                     state |= DataGridViewElementStates.Visible;
+                if (Selected)
+                    state |= DataGridViewElementStates.Selected;
                 if (ReadOnly || (owner?.ReadOnly ?? false))
                     state |= DataGridViewElementStates.ReadOnly;
                 if (Frozen)

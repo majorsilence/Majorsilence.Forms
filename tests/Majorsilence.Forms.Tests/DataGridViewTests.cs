@@ -460,18 +460,23 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void ClearSelection_ResetsCurrentRowAndCell ()
+        public void ClearSelection_ClearsTheSelectionAndLeavesTheCurrentCell ()
         {
+            // This test used to assert CurrentRow == null, codifying the DGV-15 divergence: clearing the
+            // selection also blanked the current cell, because one pair of indices was doing both jobs.
+            // Upstream clears only the selection, which is what makes the extremely common
+            // "grid.ClearSelection (); ... grid.CurrentRow.Cells[...]" sequence work instead of NRE.
             using var control = new DataGridView ();
             control.Columns.Add ("col", "Header");
             control.Rows.Add ("a");
-            control.Rows.Add ("b");
+            var row1 = control.Rows.Add ("b");
 
             control.SelectedRowIndex = 1;
+            control.SelectedColumnIndex = 0;      // CurrentCell needs a current column, not just a row
             control.ClearSelection ();
 
-            Assert.Null (control.CurrentRow);
-            Assert.Null (control.CurrentCell);
+            Assert.Same (row1, control.CurrentRow);
+            Assert.Same (row1.Cells[0], control.CurrentCell);
             Assert.Empty (control.SelectedRows);
             Assert.All (control.Rows, r => Assert.False (r.Selected));
         }
