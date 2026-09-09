@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(_TargetFramework)</TargetFramework>
+    <RootNamespace>ThemeStudio</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
+    <!-- For the render-headless switch: renders the preview to a PNG with no display, so CI (or a coding
+         assistant) can look at a theme. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Themes\*.css" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

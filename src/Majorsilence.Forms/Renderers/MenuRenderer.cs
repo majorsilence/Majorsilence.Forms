@@ -27,7 +27,7 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderItem (Menu control, MenuItem item, PaintEventArgs e)
         {
             // Background
-            var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor : Theme.BackgroundColor;
+            var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor : control.GetEffectiveBackgroundColor ();
             e.Canvas.FillRectangle (item.Bounds, background_color);
 
             // Text
@@ -43,7 +43,7 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderMenuSeparatorItem (Menu control, MenuSeparatorItem item, PaintEventArgs e)
         {
             // Background
-            e.Canvas.FillRectangle (item.Bounds, Theme.BackgroundColor);
+            e.Canvas.FillRectangle (item.Bounds, control.GetEffectiveBackgroundColor ());
 
             var center = item.Bounds.GetCenter ();
             var thickness = e.LogicalToDeviceUnits (1);

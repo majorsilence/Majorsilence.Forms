@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Renderers;
+﻿using Majorsilence.Forms.Renderers;
 
 namespace Majorsilence.Forms
 {
@@ -43,6 +43,15 @@ namespace Majorsilence.Forms
         /// Gets the collection of tabs contained by this TabControl.
         /// </summary>
         public TabPageCollection TabPages { get; }
+
+        /// <summary>
+        /// The default <see cref="ControlStyle"/> for all <see cref="TabControl"/> instances. Gives the type
+        /// its own layer in the style chain so a CSS theme rule (<c>TabControl { ... }</c>) can target it.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
         /// <inheritdoc/>
         protected override ControlCollection CreateControlsInstance () => new TabControlControlCollection (this);

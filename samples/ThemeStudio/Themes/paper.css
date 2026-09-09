@@ -1,0 +1,60 @@
+/* Paper: a warm, high-contrast light theme with rounded buttons and underlined inputs. */
+@theme "Paper" extends Light;
+
+:root {
+  --ink: #2b2118;
+  --paper: #f7f1e6;
+  --terracotta: #c0532a;
+
+  --accent-color: var(--terracotta);
+  --accent-color-2: #8a3a1c;
+  --background-color: var(--paper);
+  --control-low-color: #fffdf8;
+  --control-mid-color: #efe6d6;
+  --control-mid-high-color: #e3d7c2;
+  --control-high-color: #cbbda3;
+  --control-highlight-low-color: #f3dccd;
+  --control-highlight-mid-color: #e9c3ab;
+  --border-low-color: #cbbda3;
+  --border-mid-color: #a08e6d;
+  --border-high-color: #6f5f45;
+  --foreground-color: var(--ink);
+  --foreground-disabled-color: #a08e6d;
+  --foreground-color-on-accent: #fffdf8;
+  --text-selection-background-color: rgba(192, 83, 42, 0.35);
+  --font-size: 14px;
+  --ui-font: "Georgia", "Noto Serif", serif;
+  --ui-font-bold: "Georgia", "Noto Serif", serif;
+}
+
+Form {
+  font-family: "Georgia", "Noto Serif", serif;
+  font-size: 14px;
+}
+
+Button {
+  background-color: var(--control-low-color);
+  border: 1px solid var(--border-mid-color);
+  border-radius: 14px;
+}
+
+Button:hover {
+  background-color: var(--terracotta);
+  border-color: var(--accent-color-2);
+  color: var(--foreground-color-on-accent);
+}
+
+TextBox, ComboBox, NumericUpDown {
+  background-color: var(--control-low-color);
+  border-width: 0;
+  border-bottom-width: 2px;
+  border-bottom-color: var(--border-mid-color);
+}
+
+GroupBox {
+  border-color: var(--border-mid-color);
+}
+
+LinkLabel {
+  color: var(--accent-color-2);
+}

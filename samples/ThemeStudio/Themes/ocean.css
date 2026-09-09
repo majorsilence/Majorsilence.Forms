@@ -1,0 +1,55 @@
+/* Ocean: a deep blue-green dark theme with a dodger-blue accent.
+   Open it in Theme Studio (dotnet run --project samples/ThemeStudio -- Themes/ocean.css)
+   and edit it here or in the Studio -- the preview follows either. */
+@theme "Ocean" extends Dark;
+
+:root {
+  --brand: #1e90ff;
+  --deep: #0a1929;
+
+  --accent-color: var(--brand);
+  --accent-color-2: #006994;
+  --background-color: var(--deep);
+  --control-low-color: #061120;
+  --control-mid-color: #102a43;
+  --control-mid-high-color: #15395c;
+  --control-high-color: #1e4a73;
+  --control-highlight-low-color: #1e4a73;
+  --control-highlight-mid-color: #2a6496;
+  --border-low-color: #15395c;
+  --border-mid-color: #1e4a73;
+  --border-high-color: #3fa7d6;
+  --foreground-color: #cfe8ff;
+  --foreground-disabled-color: #5f7d99;
+  --foreground-color-on-accent: white;
+  --text-selection-background-color: rgba(30, 144, 255, 0.5);
+  --warning-highlight-color: #ff5f56;
+}
+
+Button {
+  border: 1px solid var(--border-low-color);
+  border-radius: 4px;
+}
+
+Button:hover {
+  background-color: var(--brand);
+  border-color: #3fa7d6;
+  color: white;
+}
+
+TextBox, ComboBox, NumericUpDown {
+  background-color: var(--control-low-color);
+  border-color: var(--border-low-color);
+}
+
+ListBox, ListView, TreeView, DataGridView {
+  background-color: var(--control-low-color);
+}
+
+LinkLabel {
+  color: #3fa7d6;
+}
+
+LinkLabel:hover {
+  color: white;
+}

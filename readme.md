@@ -36,6 +36,7 @@ within reach through [Uno Platform](https://platform.uno) or through
 | migrate/convert/modernize a WinForms app | [`MIGRATION.md`](MIGRATION.md) · [migration guide](https://forms.majorsilence.com/migration/) |
 | is control *X* supported? | [`COMPATIBILITY_MATRIX.md`](COMPATIBILITY_MATRIX.md) |
 | WinForms UI testing, Selenium, headless CI | [Automation & UI testing](https://forms.majorsilence.com/automation/) |
+| theme / dark mode / restyle a Majorsilence.Forms app, CSS themes | [Theming with CSS](docs/theming.md) |
 | `System.Drawing.Common` / GDI+ replacement | [`Majorsilence.Forms.Drawing.Common`](https://www.nuget.org/packages/Majorsilence.Forms.Drawing.Common) |
 
 </details>
@@ -133,6 +134,7 @@ Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) fol
 - [`Gallery.iOS`](samples/Gallery.iOS) — the control gallery running on **Avalonia on iOS**. Requires a Mac with the `ios` workload (`dotnet workload install ios`) — that workload doesn't install on Linux/Windows at all, so this can only be built on macOS or in the `ios` CI job; elsewhere it is an empty stub. ⚠️ Unverified: written from Avalonia.iOS's decompiled API and standard .NET-for-iOS conventions. CI now compiles the real head and launches it in a simulator smoke check, but nobody has run it interactively on a device — expect a shakeout.
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
+- [`ThemeStudio`](samples/ThemeStudio) — write a CSS theme and watch it apply live to every control, with the parser's diagnostics beside the editor. See [Theming with CSS](docs/theming.md).
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
 - [`WinFormsCompatDemo`](samples/WinFormsCompatDemo) — unmodified `System.Windows.Forms` designer-generated source compiling and running against Majorsilence.Forms through a source generator, no real WinForms assembly involved. See [`Majorsilence.Forms.WinFormsShims.Compat`](src/Majorsilence.Forms.WinFormsShims.Compat).
 - [`EmbeddingWinForms`](samples/EmbeddingWinForms) — Majorsilence.Forms controls embedded inside a classic WinForms app via the **WinForms backend** (`MajorsilenceFormsPresenter`/`ToWinFormsControl()`), the port-one-control-at-a-time migration path (Windows-only). See [Platform backends](docs/backends.md).

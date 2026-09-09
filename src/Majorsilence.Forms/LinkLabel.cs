@@ -74,6 +74,15 @@ namespace Majorsilence.Forms
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
         /// <summary>
+        /// The default hover <see cref="ControlStyle"/> for all <see cref="LinkLabel"/> instances, layered on
+        /// <see cref="DefaultStyle"/> so a <c>LinkLabel:hover</c> CSS rule inherits the normal rule's values.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleHover = new ControlStyle (DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleHover { get; } = new ControlStyle (DefaultStyleHover);
+
+        /// <summary>
         /// Gets or sets the color used to display active links.
         /// </summary>
 #pragma warning disable CA1416

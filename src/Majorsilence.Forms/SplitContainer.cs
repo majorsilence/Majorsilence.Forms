@@ -55,6 +55,15 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (150, 100);
 
+        /// <summary>
+        /// The default <see cref="ControlStyle"/> for all <see cref="SplitContainer"/> instances. Gives the type
+        /// its own layer in the style chain so a CSS theme rule (<c>SplitContainer { ... }</c>) can target it.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         // WinForms designer-generated InitializeComponent code always brackets a SplitContainer's
         // property assignments with ((ISupportInitialize)(this.splitContainer1)).BeginInit()/
         // EndInit() -- explicit no-op implementations (matching NumericUpDown/DataGridView's own)
