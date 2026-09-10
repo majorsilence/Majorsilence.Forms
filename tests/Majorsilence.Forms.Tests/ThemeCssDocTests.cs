@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using Xunit;
@@ -62,7 +62,16 @@ namespace Majorsilence.Forms.Tests
         private static string LightThemeBlock ()
         {
             Theme.SetBuiltInTheme (BuiltInTheme.Light);
-            return "```css\n" + Theme.ExportCss ("MyTheme", "Light").TrimEnd () + "\n```";
+            var css = Theme.ExportCss ("MyTheme", "Light").TrimEnd ();
+
+            // ExportCss writes the RESOLVED family of the default UI font, which is whatever the OS
+            // matched -- Helvetica on macOS, DejaVu Sans on Linux, Segoe UI Emoji on Windows -- so the
+            // committed document would differ per machine. Replace the two font lines with the portable
+            // spelling a theme author should write.
+            css = System.Text.RegularExpressions.Regex.Replace (css, @"--ui-font: ""[^""]*"";", "--ui-font: \"Segoe UI\", \"Noto Sans\", sans-serif;");
+            css = System.Text.RegularExpressions.Regex.Replace (css, @"--ui-font-bold: ""[^""]*"";", "--ui-font-bold: \"Segoe UI Semibold\", \"Segoe UI\", \"Noto Sans\", sans-serif;");
+
+            return "```css\n" + css + "\n```";
         }
 
         [Fact]

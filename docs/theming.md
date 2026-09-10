@@ -322,9 +322,9 @@ with, and edit the rest:
   /* A smaller pixel size for dense item text. */
   --item-font-size: 12px;
   /* The theme font family (regular weight). */
-  --ui-font: "Helvetica";
+  --ui-font: "Segoe UI", "Noto Sans", sans-serif;
   /* The theme font family used where text is bold. Resolved at bold weight. */
-  --ui-font-bold: "Helvetica";
+  --ui-font-bold: "Segoe UI Semibold", "Segoe UI", "Noto Sans", sans-serif;
 }
 ```
 <!-- END GENERATED: light-theme -->
