@@ -348,8 +348,12 @@ dotnet run --project samples/ThemeStudio -- Themes/ocean.css   # open a file and
   clipboard — paste it into a chat with your assistant along with what you want ("a warm, high-contrast
   light theme with rounded buttons") and paste the answer back into the editor.
 - The **Tokens** tab shows every token's current value as a swatch, so you can see which one to change.
-- `--render-headless out.png [theme.css]` renders the preview to a PNG without a display, for CI or for
-  an assistant that wants to *look* at its theme.
+- `--render-headless out.png [theme.css] [--tab N]` renders the preview to a PNG without a display (tabs:
+  0 inputs, 1 lists and grids, 2 menus and chrome, 3 token swatches) and exits non-zero if the theme has
+  errors — for CI, or for an assistant that wants to *look* at its theme.
+- `samples/ThemeStudio/Themes/` ships six example themes to start from: `light.css` / `dark.css` (a
+  matched pair with one accent and identical control rules, so an app can switch modes without anything
+  moving), `ocean.css`, `graphite.css`, `paper.css` and `parchment.css`.
 
 ## Prompting a coding assistant
 
