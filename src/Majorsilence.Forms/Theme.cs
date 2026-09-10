@@ -423,6 +423,7 @@ namespace Majorsilence.Forms
             TextMeasurer.ClearTextBlockCache ();
             ThemeChanged?.Invoke (null, EventArgs.Empty);
             Application.DoThemeChanged ();
+            RaiseStyleSheetApplied ();
         }
 
         private static void RaiseThemeChanged ()

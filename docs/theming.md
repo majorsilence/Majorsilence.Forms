@@ -348,8 +348,12 @@ dotnet run --project samples/ThemeStudio -- Themes/ocean.css   # open a file and
   clipboard — paste it into a chat with your assistant along with what you want ("a warm, high-contrast
   light theme with rounded buttons") and paste the answer back into the editor.
 - The **Tokens** tab shows every token's current value as a swatch, so you can see which one to change.
-- `--render-headless out.png [theme.css]` renders the preview to a PNG without a display, for CI or for
-  an assistant that wants to *look* at its theme.
+- `--render-headless out.png [theme.css] [--tab N]` renders the preview to a PNG without a display (tabs:
+  0 inputs, 1 lists and grids, 2 menus and chrome, 3 token swatches) and exits non-zero if the theme has
+  errors — for CI, or for an assistant that wants to *look* at its theme.
+- `samples/ThemeStudio/Themes/` ships six example themes to start from: `light.css` / `dark.css` (a
+  matched pair with one accent and identical control rules, so an app can switch modes without anything
+  moving), `ocean.css`, `graphite.css`, `paper.css` and `parchment.css`.
 
 ## Prompting a coding assistant
 
@@ -380,3 +384,31 @@ assistant — every message names the offending text and the supported alternati
   elements, simply layer onto the current values.
 - Base chains (`extends`) may mix CSS and XML themes; cycles are detected. `ThemeChanged` is raised once
   per apply.
+
+### Reading a theme from other code (host bridges)
+
+A parsed sheet is also available as a **host-neutral model**, for code that mirrors the theme onto
+another toolkit (real `System.Windows.Forms`, Avalonia) without re-parsing the CSS:
+
+```csharp
+var sheet = ThemeStyleSheet.Parse (css);
+
+foreach (var token in sheet.Tokens)              // ThemeCssTokenValue: Token, Value, TokenReference
+    Console.WriteLine ($"{token.Token.Name} = {token.Value}");
+
+foreach (var rule in sheet.Rules)                // ThemeCssRule: Selector, Hover, Declarations
+    foreach (var d in rule.Declarations)         // ThemeCssDeclaration: Property, Value, TokenReference
+        Apply (rule.Selector.Name, rule.Hover, d.Property, d.Value);   // ThemeCssValue: Argb / Pixels / FontFamilies / FontWeight / FontStyle
+
+Theme.StyleSheetApplied += (_, e) => Mirror (e.StyleSheet, e.Chain);  // after ThemeChanged, once per apply
+var current = Theme.CurrentStyleSheets;                                // the installed chain, base first
+```
+
+- Values are plain data — colours as `0xAARRGGBB`, lengths as pixels, fonts as family lists, weights as
+  100–900, styles as the keyword — with no SkiaSharp types. `border` is already expanded to
+  `border-width` / `border-color`; the three `font-*` properties stay separate.
+- A declaration written as `var(--token)` keeps `TokenReference`, and its `Value` is read **live** from the
+  current theme, so a bridge that re-applies on `ThemeChanged` follows later token edits exactly as the
+  built-in renderers do. Author variables (`--brand`) are substituted at parse time and look like literals.
+- The model is built from the same compiled declarations the renderers apply; a test keeps the two in
+  agreement.

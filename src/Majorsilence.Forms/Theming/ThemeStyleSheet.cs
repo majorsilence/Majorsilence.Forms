@@ -15,30 +15,36 @@ namespace Majorsilence.Forms
     /// </summary>
     public sealed class ThemeStyleSheet
     {
+        // The compiled (fast-path) form of a token declaration, paired with its public model so the two
+        // are built from the same parse and cannot disagree.
         internal sealed class TokenDeclaration
         {
-            public TokenDeclaration (ThemeCssToken token, Func<object> resolve)
+            public TokenDeclaration (ThemeCssToken token, Func<object> resolve, ThemeCssTokenValue model)
             {
                 Token = token;
                 Resolve = resolve;
+                Model = model;
             }
 
             public ThemeCssToken Token { get; }
             public Func<object> Resolve { get; }
+            public ThemeCssTokenValue Model { get; }
         }
 
         internal sealed class ControlRule
         {
-            public ControlRule (ThemeCssSelector selector, bool hover, Action<ControlStyle> apply)
+            public ControlRule (ThemeCssSelector selector, bool hover, Action<ControlStyle> apply, ThemeCssRule model)
             {
                 Selector = selector;
                 Hover = hover;
                 Apply = apply;
+                Model = model;
             }
 
             public ThemeCssSelector Selector { get; }
             public bool Hover { get; }
             public Action<ControlStyle> Apply { get; }
+            public ThemeCssRule Model { get; }
         }
 
         private ThemeStyleSheet (string? name, string? baseName, List<TokenDeclaration> tokens, List<ControlRule> rules, List<ThemeCssDiagnostic> diagnostics)
@@ -48,6 +54,8 @@ namespace Majorsilence.Forms
             TokenDeclarations = tokens;
             ControlRules = rules;
             Diagnostics = diagnostics;
+            Tokens = tokens.Select (t => t.Model).ToList ();
+            Rules = rules.Select (r => r.Model).ToList ();
         }
 
         /// <summary>The name from the <c>@theme</c> header, or null when the sheet has none.</summary>
@@ -67,6 +75,21 @@ namespace Majorsilence.Forms
 
         /// <summary>How many control rules (one per selector in a comma list) parsed successfully.</summary>
         public int RuleCount => ControlRules.Count;
+
+        /// <summary>
+        /// The <c>:root</c> token declarations that parsed, in source order, with their resolved values.
+        /// Host-neutral: see <see cref="ThemeCssValue"/>. A host other than Majorsilence.Forms' own
+        /// renderers (System.Windows.Forms, Avalonia) reads the sheet through this and <see cref="Rules"/>
+        /// instead of re-parsing the CSS, so there is one grammar and one set of diagnostics.
+        /// </summary>
+        public IReadOnlyList<ThemeCssTokenValue> Tokens { get; }
+
+        /// <summary>
+        /// The control rules that parsed -- one per selector in a comma list -- with shorthands expanded
+        /// to longhands and <c>var()</c> references resolved (and kept live, see
+        /// <see cref="ThemeCssDeclaration.TokenReference"/>).
+        /// </summary>
+        public IReadOnlyList<ThemeCssRule> Rules { get; }
 
         internal List<TokenDeclaration> TokenDeclarations { get; }
         internal List<ControlRule> ControlRules { get; }
@@ -649,40 +672,50 @@ namespace Majorsilence.Forms
                         if (value is null)
                             continue;
 
-                        var resolve = CompileTokenValue (token, value, declaration);
+                        var resolve = CompileTokenValue (token, value, declaration, out var model);
 
-                        if (resolve is not null)
-                            tokens.Add (new TokenDeclaration (token, resolve));
+                        if (resolve is not null && model is not null)
+                            tokens.Add (new TokenDeclaration (token, resolve, new ThemeCssTokenValue (token, model, TokenReferenceOf (value), declaration.Line, declaration.Column)));
                     }
                 }
             }
 
-            private Func<object>? CompileTokenValue (ThemeCssToken token, List<CssComponent> value, RawDeclaration declaration)
+            private Func<object>? CompileTokenValue (ThemeCssToken token, List<CssComponent> value, RawDeclaration declaration, out Func<ThemeCssValue>? model)
             {
                 string? error;
+                model = null;
 
                 switch (token.Kind) {
                     case ThemeCssValueKind.Color:
-                        if (ThemeCssValues.TryParseColor (value, out var color, out error))
+                        if (ThemeCssValues.TryParseColor (value, out var color, out error)) {
+                            model = () => ThemeCssValue.Color ((uint) color ());
                             return () => color ();
+                        }
                         Error (declaration.Line, declaration.Column, $"'{token.Name}' expects a color. {error}");
                         return null;
 
                     case ThemeCssValueKind.Length:
-                        if (ThemeCssValues.TryParseLength (value, out var length, out error))
+                        if (ThemeCssValues.TryParseLength (value, out var length, out error)) {
+                            model = () => ThemeCssValue.Length (length ());
                             return () => length ();
+                        }
                         Error (declaration.Line, declaration.Column, $"'{token.Name}' expects a length in pixels, e.g. '14px'. {error}");
                         return null;
 
                     default:
                         if (ThemeCssValues.TryParseFontFamilies (value, out var families, out error)) {
                             var weight = token.PropertyName == nameof (Theme.UIFontBold) ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+                            model = () => ThemeCssValue.Families (families ());
                             return () => ThemeCssValues.GetTypeface (families (), weight, SKFontStyleSlant.Upright);
                         }
                         Error (declaration.Line, declaration.Column, $"'{token.Name}' expects a font family list, e.g. \"Segoe UI\", sans-serif. {error}");
                         return null;
                 }
             }
+
+            // The token a value was written as var(--token) of, when it is exactly that and nothing else.
+            private static ThemeCssToken? TokenReferenceOf (List<CssComponent> value)
+                => value.Count == 1 && value[0] is CssTokenRef reference ? reference.Token : null;
 
             private void CompileControlRules (List<ControlRule> rules)
             {
@@ -691,7 +724,8 @@ namespace Majorsilence.Forms
                         continue;
 
                     // Compile the declarations once, then attach them to every selector in the list.
-                    var actions = CompileDeclarations (rule.Declarations);
+                    var compiled = CompileDeclarations (rule.Declarations);
+                    var actions = compiled.Actions;
 
                     foreach (var raw in rule.Selectors) {
                         if (raw.Error is not null) {
@@ -738,14 +772,24 @@ namespace Majorsilence.Forms
                         rules.Add (new ControlRule (selector, hover, style => {
                             foreach (var action in captured)
                                 action (style);
-                        }));
+                        }, new ThemeCssRule (selector, hover, compiled.Model, raw.Line, raw.Column)));
                     }
                 }
             }
 
-            private List<Action<ControlStyle>> CompileDeclarations (List<RawDeclaration> declarations)
+            // A rule's declarations in both forms: the closures our renderers apply, and the public
+            // longhand model other hosts read. Built side by side from the same parsed values.
+            private sealed class CompiledDeclarations
             {
-                var actions = new List<Action<ControlStyle>> ();
+                public List<Action<ControlStyle>> Actions = new ();
+                public List<ThemeCssDeclaration> Model = new ();
+            }
+
+            private CompiledDeclarations CompileDeclarations (List<RawDeclaration> declarations)
+            {
+                var compiled = new CompiledDeclarations ();
+                var actions = compiled.Actions;
+                var model = compiled.Model;
 
                 Func<IReadOnlyList<string>>? families = null;
                 SKFontStyleWeight? weight = null;
@@ -773,19 +817,23 @@ namespace Majorsilence.Forms
                         continue;
 
                     string? error;
+                    var reference = TokenReferenceOf (value);
+                    void Declare (Func<ThemeCssValue> resolve) => model.Add (new ThemeCssDeclaration (name, resolve, reference, declaration.Line, declaration.Column));
 
                     switch (name) {
                         case "background-color":
-                            if (ThemeCssValues.TryParseColor (value, out var background, out error))
+                            if (ThemeCssValues.TryParseColor (value, out var background, out error)) {
                                 actions.Add (s => s.BackgroundColor = background ());
-                            else
+                                Declare (() => ThemeCssValue.Color ((uint) background ()));
+                            } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "color":
-                            if (ThemeCssValues.TryParseColor (value, out var foreground, out error))
+                            if (ThemeCssValues.TryParseColor (value, out var foreground, out error)) {
                                 actions.Add (s => s.ForegroundColor = foreground ());
-                            else
+                                Declare (() => ThemeCssValue.Color ((uint) foreground ()));
+                            } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
@@ -794,9 +842,10 @@ namespace Majorsilence.Forms
                         case "border-right-color":
                         case "border-bottom-color":
                         case "border-left-color":
-                            if (ThemeCssValues.TryParseColor (value, out var borderColor, out error))
+                            if (ThemeCssValues.TryParseColor (value, out var borderColor, out error)) {
                                 actions.Add (BorderColorSetter (name, borderColor));
-                            else
+                                Declare (() => ThemeCssValue.Color ((uint) borderColor ()));
+                            } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
@@ -805,48 +854,60 @@ namespace Majorsilence.Forms
                         case "border-right-width":
                         case "border-bottom-width":
                         case "border-left-width":
-                            if (ThemeCssValues.TryParseLength (value, out var borderWidth, out error))
+                            if (ThemeCssValues.TryParseLength (value, out var borderWidth, out error)) {
                                 actions.Add (BorderWidthSetter (name, borderWidth));
-                            else
+                                Declare (() => ThemeCssValue.Length (borderWidth ()));
+                            } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "border-radius":
-                            if (ThemeCssValues.TryParseLength (value, out var radius, out error))
+                            if (ThemeCssValues.TryParseLength (value, out var radius, out error)) {
                                 actions.Add (s => s.Border.Radius = radius ());
-                            else
+                                Declare (() => ThemeCssValue.Length (radius ()));
+                            } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "border":
-                            CompileBorderShorthand (value, declaration, actions);
+                            CompileBorderShorthand (value, declaration, compiled);
                             break;
 
                         case "font-size":
-                            if (ThemeCssValues.TryParseLength (value, out var fontSize, out error))
+                            if (ThemeCssValues.TryParseLength (value, out var fontSize, out error)) {
                                 actions.Add (s => s.FontSize = fontSize ());
-                            else
+                                Declare (() => ThemeCssValue.Length (fontSize ()));
+                            } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "font-family":
-                            if (ThemeCssValues.TryParseFontFamilies (value, out var parsedFamilies, out error))
+                            if (ThemeCssValues.TryParseFontFamilies (value, out var parsedFamilies, out error)) {
                                 families = parsedFamilies;
-                            else
+                                Declare (() => ThemeCssValue.Families (parsedFamilies ()));
+                            } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "font-weight":
-                            if (ThemeCssValues.TryParseFontWeight (value, out var parsedWeight, out error))
+                            if (ThemeCssValues.TryParseFontWeight (value, out var parsedWeight, out error)) {
                                 weight = parsedWeight;
-                            else
+                                var weightValue = ThemeCssValue.Weight ((int) parsedWeight);
+                                Declare (() => weightValue);
+                            } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "font-style":
-                            if (ThemeCssValues.TryParseFontStyle (value, out var parsedSlant, out error))
+                            if (ThemeCssValues.TryParseFontStyle (value, out var parsedSlant, out error)) {
                                 slant = parsedSlant;
-                            else
+                                var styleValue = ThemeCssValue.Style (parsedSlant switch {
+                                    SKFontStyleSlant.Italic => "italic",
+                                    SKFontStyleSlant.Oblique => "oblique",
+                                    _ => "normal"
+                                });
+                                Declare (() => styleValue);
+                            } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
                     }
@@ -861,7 +922,7 @@ namespace Majorsilence.Forms
                         fam?.Invoke () ?? new[] { Majorsilence.Forms.SystemFonts.DefaultTypeface.FamilyName }, w, sl));
                 }
 
-                return actions;
+                return compiled;
             }
 
             private static Action<ControlStyle> BorderColorSetter (string property, Func<SKColor> color) => property switch {
@@ -884,10 +945,13 @@ namespace Majorsilence.Forms
                 "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"
             };
 
-            private void CompileBorderShorthand (List<CssComponent> value, RawDeclaration declaration, List<Action<ControlStyle>> actions)
+            private void CompileBorderShorthand (List<CssComponent> value, RawDeclaration declaration, CompiledDeclarations compiled)
             {
+                var actions = compiled.Actions;
                 Func<int>? width = null;
                 Func<SKColor>? color = null;
+                ThemeCssToken? widthReference = null;
+                ThemeCssToken? colorReference = null;
 
                 foreach (var component in value) {
                     if (component is CssNumber) {
@@ -926,6 +990,7 @@ namespace Majorsilence.Forms
                             Error (component, $"'border': {tokenLengthError}");
                             return;
                         }
+                        widthReference = tokenRef.Token;
                         continue;
                     }
 
@@ -938,6 +1003,8 @@ namespace Majorsilence.Forms
                         Error (component, $"'border': {colorError}");
                         return;
                     }
+
+                    colorReference = (component as CssTokenRef)?.Token;
                 }
 
                 if (width is null && color is null) {
@@ -945,14 +1012,17 @@ namespace Majorsilence.Forms
                     return;
                 }
 
+                // The model sees the longhands the shorthand stands for, in the order a host would apply them.
                 if (width is not null) {
                     var w = width;
                     actions.Add (s => s.Border.Width = w ());
+                    compiled.Model.Add (new ThemeCssDeclaration ("border-width", () => ThemeCssValue.Length (w ()), widthReference, declaration.Line, declaration.Column));
                 }
 
                 if (color is not null) {
                     var c = color;
                     actions.Add (s => s.Border.Color = c ());
+                    compiled.Model.Add (new ThemeCssDeclaration ("border-color", () => ThemeCssValue.Color ((uint) c ()), colorReference, declaration.Line, declaration.Column));
                 }
             }
 
