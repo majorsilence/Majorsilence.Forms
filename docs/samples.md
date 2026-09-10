@@ -35,6 +35,7 @@ runner that has only one of the two workloads — pass `-p:EnableAndroidTarget=t
 | [`Explorer`](#explore) | A Windows Explorer clone | Windows, macOS, Linux |
 | [`Outlaw`](#outlaw) | An Outlook clone | Windows, macOS, Linux |
 | [`PointOfSale`](#pointofsale) | A full client/server LOB app | Windows, macOS, Linux |
+| [`ThemeStudio`](#themestudio) | Live CSS theme editor and preview | Windows, macOS, Linux |
 | [`EmbeddingAvalonia` / `EmbeddingUno` / `EmbeddingWinForms` / `EmbeddingGtk4`](#embeddingavalonia--embeddinguno--embeddingwinforms--embeddinggtk4) | Majorsilence.Forms hosted *inside* a native app | Desktop (WinForms: Windows only; Gtk4: needs GTK 4) |
 | [`WinFormsInterop`](#winformsinterop-windows-only) | Bi-directional `System.Windows.Forms` interop | Windows |
 | [`WinFormsCompatDemo`](#winformscompatdemo) | Source-generated `System.Windows.Forms` namespace, no real WinForms assembly | Windows, macOS, Linux |
@@ -268,6 +269,28 @@ dotnet run --project samples/PointOfSale/PointOfSale.Client
 The API creates and seeds a local `pos.db` on first run. The default JWT signing key in
 `appsettings.json` is a placeholder, not a secret — override it in `appsettings.Development.json` or
 the environment.
+
+### ThemeStudio
+
+A desktop app for writing [CSS themes](theming.md): a CSS editor on the left, one of every themable
+control on the right, and the parser's diagnostics underneath. Every edit re-applies the sheet (to the
+Studio's own window too), an opened file is watched on disk so an external editor or a coding
+assistant can drive it, and **Copy reference for AI** puts the complete theming reference on the
+clipboard for prompting an assistant.
+
+```bash
+dotnet run --project samples/ThemeStudio                                       # start from the Light theme as CSS
+dotnet run --project samples/ThemeStudio -- samples/ThemeStudio/Themes/ocean.css   # open and watch a theme
+dotnet run --project samples/ThemeStudio -- --render-headless out.png samples/ThemeStudio/Themes/paper.css --tab 1
+```
+
+The last form renders the preview to a PNG with no display (tabs: 0 inputs, 1 lists and grids,
+2 menus and chrome, 3 token swatches) and exits non-zero if the theme has errors.
+
+`samples/ThemeStudio/Themes/` ships example themes to start from: `light.css` and `dark.css` (a
+matched light/dark pair sharing one accent and identical control rules, so an app can switch modes
+without anything moving), `ocean.css` (deep blue), `graphite.css` (neutral dark, amber accent, flat
+controls), `paper.css` and `parchment.css` (warm light themes with serif body text).
 
 ### EmbeddingAvalonia / EmbeddingUno / EmbeddingWinForms / EmbeddingGtk4
 

@@ -44,8 +44,17 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Drops every value set on this border (all sides and the radius) so the owning style can be
+        // rebuilt from its defaults; see ControlStyle.ResetWithStyleSheetRules.
+        internal void ClearValues ()
+        {
+            Color = null;
+            Width = null;
+            Radius = null;
+        }
+
         /// <summary>
-        /// Gets the computed radius for all border corners.
+        /// Gets the computed color of all sides of the border.
         /// </summary>
         public SKColor GetColor () => Color ?? _parent?.GetColor () ?? SKColor.Empty;
 

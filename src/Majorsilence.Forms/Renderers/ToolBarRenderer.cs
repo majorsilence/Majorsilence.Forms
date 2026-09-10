@@ -39,7 +39,7 @@ namespace Majorsilence.Forms.Renderers
             // the item reacts under the pointer.
             var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor
                                  : item.Checked ? Theme.ControlHighlightLowColor
-                                 : Theme.BackgroundColor;
+                                 : control.GetEffectiveBackgroundColor ();
             e.Canvas.FillRectangle (item.Bounds, background_color);
 
             var font_color = item.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
@@ -161,7 +161,7 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderMenuSeparatorItem (ToolBar control, MenuSeparatorItem item, PaintEventArgs e)
         {
             // Background
-            e.Canvas.FillRectangle (item.Bounds, Theme.BackgroundColor);
+            e.Canvas.FillRectangle (item.Bounds, control.GetEffectiveBackgroundColor ());
 
             var center = item.Bounds.GetCenter ();
             var thickness = e.LogicalToDeviceUnits (1);

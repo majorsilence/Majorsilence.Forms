@@ -23,16 +23,19 @@ namespace Majorsilence.Forms
                 ? "Segoe UI Emoji"
                 : "sans-serif";
 
+        // The font defaults every built-in theme shares. Created once (typeface lookup is not free) and
+        // re-applied by SetBuiltInTheme, so switching to a built-in theme also undoes a custom theme's
+        // fonts and sizes -- otherwise a CSS theme's --font-size would leak into the next theme.
+        private static readonly SKTypeface default_ui_font = SKTypeface.FromFamilyName (_uiFontFamily, SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+        private static readonly SKTypeface default_ui_font_bold = SKTypeface.FromFamilyName (_uiFontFamily, SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+        private const int default_font_size = 14;
+        private const int default_item_font_size = 12;
+
         static Theme ()
         {
             CachingFontMapper.Install ();
 
             SetBuiltInTheme (BuiltInTheme.Default);
-
-            values[nameof (UIFont)] = SKTypeface.FromFamilyName (_uiFontFamily, SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
-            values[nameof (UIFontBold)] = SKTypeface.FromFamilyName (_uiFontFamily, SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
-            values[nameof (FontSize)] = 14;
-            values[nameof (ItemFontSize)] = 12;
         }
 
         /// <summary>
@@ -268,6 +271,11 @@ namespace Majorsilence.Forms
             BeginUpdate ();
             try {
 
+            values[nameof (UIFont)] = default_ui_font;
+            values[nameof (UIFontBold)] = default_ui_font_bold;
+            values[nameof (FontSize)] = default_font_size;
+            values[nameof (ItemFontSize)] = default_item_font_size;
+
             // TODO: BuiltInTheme.Default should detect the OS setting. Currently it just uses Light.
             switch (theme) {
                 case BuiltInTheme.Dark:
@@ -397,6 +405,10 @@ namespace Majorsilence.Forms
                     values[nameof (WarningHighlightColor)] = new SKColor (232, 17, 35);
                     break;
             }
+
+            // A built-in theme resets everything a theme can set, and a CSS theme's control rules are
+            // part of that (Theme.Css.cs). Runs after the colors so the re-run type defaults read them.
+            ClearStyleSheetRules ();
 
             RaiseThemeChanged ();
             } finally {

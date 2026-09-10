@@ -9,6 +9,10 @@ namespace Majorsilence.Forms
     {
         internal readonly ControlStyle? _parent;
 
+        // The defaults a type-level style was declared with, kept so they can be re-run after a CSS
+        // stylesheet clears the style (see ResetWithStyleSheetRules).
+        private readonly Action<ControlStyle>? _setDefaults;
+
         /// <summary>
         /// Initializes a new instance of the ControlStyle class.  This constructor is
         /// generally used by the static DefaultStyle property.
@@ -16,12 +20,13 @@ namespace Majorsilence.Forms
         public ControlStyle (ControlStyle? parent, Action<ControlStyle> setDefaults)
         {
             _parent = parent;
+            _setDefaults = setDefaults;
 
             Border = new ControlBorderStyle (parent?.Border);
 
             setDefaults (this);
 
-            Theme.ThemeChanged += (o, e) => setDefaults (this);
+            Theme.ThemeChanged += (o, e) => ApplyDefaults ();
         }
 
         /// <summary>
@@ -33,6 +38,42 @@ namespace Majorsilence.Forms
             _parent = parent;
 
             Border = new ControlBorderStyle (parent?.Border);
+        }
+
+        /// <summary>
+        /// The declarations a CSS theme (<see cref="ThemeStyleSheet"/>) assigned to this type-level
+        /// style, or null when no stylesheet targets it. Re-run after the declared defaults on every
+        /// theme change so a `Button { background-color: ... }` rule keeps winning over the
+        /// theme-derived default the type declares -- the defaults callback would otherwise overwrite
+        /// it the next time any Theme property changed.
+        /// </summary>
+        internal Action<ControlStyle>? StyleSheetRules { get; private set; }
+
+        // Runs the declared defaults and then the stylesheet layer on top, which is the order that makes
+        // "CSS overrides the type's defaults" hold both at apply time and after later theme changes.
+        private void ApplyDefaults ()
+        {
+            _setDefaults?.Invoke (this);
+            StyleSheetRules?.Invoke (this);
+        }
+
+        /// <summary>
+        /// Replaces the stylesheet layer on a type-level style and rebuilds it from scratch: every
+        /// value is cleared, the declared defaults re-run, then <paramref name="rules"/> (if any).
+        /// Clearing first is what lets a stylesheet that no longer mentions a property return the
+        /// style to its default instead of leaving the previous sheet's value behind.
+        /// </summary>
+        internal void ResetWithStyleSheetRules (Action<ControlStyle>? rules)
+        {
+            StyleSheetRules = rules;
+
+            BackgroundColor = null;
+            ForegroundColor = null;
+            Font = null;
+            FontSize = null;
+            Border.ClearValues ();
+
+            ApplyDefaults ();
         }
 
         /// <summary>

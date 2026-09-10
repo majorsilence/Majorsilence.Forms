@@ -1609,7 +1609,13 @@ namespace Majorsilence.Forms
         /// form's 8.25pt font in GDI) hold instead of clipping at the larger theme font.
         /// </summary>
         internal SKTypeface GetEffectiveFont ()
-            => CurrentStyle.TryGetFont () ?? Parent?.GetEffectiveFont () ?? Majorsilence.Forms.SystemFonts.DefaultTypeface;
+            => CurrentStyle.TryGetFont ()
+                ?? Parent?.GetEffectiveFont ()
+                // The window is not a Control, so the parent walk stops at its adapter; ask the window's
+                // own style chain before the default, as the colour resolutions above do. This is what
+                // lets a `Form { font-family: ... }` theme rule set the app-wide text font.
+                ?? FindWindow ()?.CurrentStyle.TryGetFont ()
+                ?? Majorsilence.Forms.SystemFonts.DefaultTypeface;
 
         /// <summary>Companion to <see cref="GetEffectiveFont"/> for the font size (logical PIXELS).</summary>
         /// <remarks>
@@ -1623,6 +1629,7 @@ namespace Majorsilence.Forms
         internal int GetEffectiveFontSize ()
             => CurrentStyle.TryGetFontSize ()
                 ?? Parent?.GetEffectiveFontSize ()
+                ?? FindWindow ()?.CurrentStyle.TryGetFontSize ()
                 ?? (int) System.Math.Round (Majorsilence.Forms.SystemFonts.DefaultFont.PixelSize);
 
         /// <summary>

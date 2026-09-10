@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Drawing;
 using Majorsilence.Forms.Renderers;
 using SkiaSharp;
@@ -32,6 +32,15 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (100, 50);
+
+        /// <summary>
+        /// The default <see cref="ControlStyle"/> for all <see cref="PictureBox"/> instances. Gives the type
+        /// its own layer in the style chain so a CSS theme rule (<c>PictureBox { ... }</c>) can target it.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
         // WinForms designer-generated InitializeComponent code always brackets a PictureBox's
         // property assignments with ((ISupportInitialize)(this.pictureBox1)).BeginInit()/EndInit()

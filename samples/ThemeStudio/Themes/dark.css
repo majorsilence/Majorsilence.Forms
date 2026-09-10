@@ -1,0 +1,64 @@
+/* Dark mode: the counterpart of light.css -- same accent family, same control rules, inverted surfaces.
+   Surfaces step up in lightness as they come forward (window < panel < input), the usual dark-mode
+   convention, and text sits at ~90% white rather than pure white to keep long reading comfortable. */
+@theme "Dark mode" extends Dark;
+
+:root {
+  --accent: #4c9aff;
+  --accent-strong: #2a7de1;
+
+  --accent-color: var(--accent);
+  --accent-color-2: var(--accent-strong);
+  --background-color: #1e1f22;
+  --control-low-color: #2a2b2f;
+  --control-mid-color: #34363b;
+  --control-mid-high-color: #40434a;
+  --control-high-color: #565a63;
+  --control-very-high-color: #c9ccd3;
+  --control-highlight-low-color: #3a4352;
+  --control-highlight-mid-color: #4a5c78;
+  --control-highlight-high-color: #4c9aff;
+  --border-low-color: #45484f;
+  --border-mid-color: #62666f;
+  --border-high-color: #9aa0ab;
+  --foreground-color: #e6e7ea;
+  --foreground-color-on-accent: #0b1a2e;
+  --foreground-disabled-color: #7d828c;
+  --text-selection-background-color: rgba(76, 154, 255, 0.35);
+  --warning-highlight-color: #ff6b62;
+  --font-size: 14px;
+  --item-font-size: 12px;
+  --ui-font: "Segoe UI", "Noto Sans", sans-serif;
+  --ui-font-bold: "Segoe UI Semibold", "Segoe UI", "Noto Sans", sans-serif;
+}
+
+Button {
+  background-color: var(--control-mid-high-color);
+  border: 1px solid var(--border-low-color);
+  border-radius: 6px;
+}
+
+Button:hover {
+  background-color: var(--accent);
+  border-color: var(--accent-strong);
+  color: var(--foreground-color-on-accent);
+}
+
+TextBox, ComboBox, NumericUpDown {
+  background-color: var(--control-low-color);
+  border: 1px solid var(--border-low-color);
+  border-radius: 4px;
+}
+
+ListBox, ListView, TreeView, DataGridView, PropertyGrid {
+  background-color: var(--control-low-color);
+  border-color: var(--border-low-color);
+}
+
+GroupBox {
+  border-color: var(--border-mid-color);
+}
+
+LinkLabel {
+  color: var(--accent);
+}

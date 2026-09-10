@@ -1,0 +1,64 @@
+/* Light mode: a clean, neutral light theme with a blue accent.
+   Pairs with dark.css -- both set every token and share the same control rules, so an app can switch
+   between them (Theme.ApplyTheme ("Light mode") / ("Dark mode")) without any shape or spacing changing. */
+@theme "Light mode" extends Light;
+
+:root {
+  --accent: #2a7de1;
+  --accent-strong: #1b5fb4;
+
+  --accent-color: var(--accent);
+  --accent-color-2: var(--accent-strong);
+  --background-color: #f5f6f8;
+  --control-low-color: #ffffff;
+  --control-mid-color: #eceef2;
+  --control-mid-high-color: #dfe2e8;
+  --control-high-color: #c4c9d2;
+  --control-very-high-color: #6b7280;
+  --control-highlight-low-color: #e2ecfa;
+  --control-highlight-mid-color: #c6dbf7;
+  --control-highlight-high-color: #2a7de1;
+  --border-low-color: #d0d4dc;
+  --border-mid-color: #a3aab6;
+  --border-high-color: #5b6270;
+  --foreground-color: #1f2328;
+  --foreground-color-on-accent: #ffffff;
+  --foreground-disabled-color: #9aa1ad;
+  --text-selection-background-color: rgba(42, 125, 225, 0.3);
+  --warning-highlight-color: #d93025;
+  --font-size: 14px;
+  --item-font-size: 12px;
+  --ui-font: "Segoe UI", "Noto Sans", sans-serif;
+  --ui-font-bold: "Segoe UI Semibold", "Segoe UI", "Noto Sans", sans-serif;
+}
+
+Button {
+  background-color: var(--control-low-color);
+  border: 1px solid var(--border-low-color);
+  border-radius: 6px;
+}
+
+Button:hover {
+  background-color: var(--accent);
+  border-color: var(--accent-strong);
+  color: var(--foreground-color-on-accent);
+}
+
+TextBox, ComboBox, NumericUpDown {
+  background-color: var(--control-low-color);
+  border: 1px solid var(--border-low-color);
+  border-radius: 4px;
+}
+
+ListBox, ListView, TreeView, DataGridView, PropertyGrid {
+  background-color: var(--control-low-color);
+  border-color: var(--border-low-color);
+}
+
+GroupBox {
+  border-color: var(--border-low-color);
+}
+
+LinkLabel {
+  color: var(--accent-strong);
+}

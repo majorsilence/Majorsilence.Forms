@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using Majorsilence.Forms.Renderers;
 
@@ -286,8 +286,14 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (220, 162);
 
+        /// <summary>
+        /// The default <see cref="ControlStyle"/> for all <see cref="MonthCalendar"/> instances. Gives the type
+        /// its own layer in the style chain so a CSS theme rule (<c>MonthCalendar { ... }</c>) can target it.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
         /// <inheritdoc/>
-        public override ControlStyle Style { get; } = new ControlStyle (Control.DefaultStyle);
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
     }
 
     /// <summary>Provides data for the MonthCalendar DateChanged and DateSelected events.</summary>

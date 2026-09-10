@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Xml.Linq;
 using SkiaSharp;
@@ -10,6 +10,9 @@ namespace Majorsilence.Forms
     // properties below. Registered themes are stored as parsed documents and applied on demand,
     // layered on top of an optional base theme (a BuiltInTheme or another registered theme).
     //
+    // CSS themes (Theme.Css.cs) share the registry, so an XML theme can extend a CSS one and vice
+    // versa; a registered definition is either an XElement or a ThemeStyleSheet.
+    //
     // Example:
     //   <Theme name="Ocean" base="Dark">
     //     <BackgroundColor>#FF0A1929</BackgroundColor>
@@ -19,9 +22,9 @@ namespace Majorsilence.Forms
     //   </Theme>
     public static partial class Theme
     {
-        // Registered themes keyed by name, stored as their parsed root <Theme> element so they can
-        // be re-applied any number of times (and re-used as a base by other themes).
-        private static readonly Dictionary<string, XElement> registered_themes = new (StringComparer.OrdinalIgnoreCase);
+        // Registered themes keyed by name, stored parsed (an XElement root or a ThemeStyleSheet) so
+        // they can be re-applied any number of times (and re-used as a base by other themes).
+        private static readonly Dictionary<string, object> registered_themes = new (StringComparer.OrdinalIgnoreCase);
 
         // The set of color-valued properties that may appear as XML elements. Matches the SKColor
         // properties declared in Theme.cs; the keys double as the dictionary keys used internally.
@@ -121,16 +124,28 @@ namespace Majorsilence.Forms
             if (string.IsNullOrEmpty (name))
                 throw new ArgumentException ("Theme name cannot be null or empty.", nameof (name));
 
-            XElement element;
+            object definition;
 
             lock (_lock) {
-                if (!registered_themes.TryGetValue (name, out element!))
+                if (!registered_themes.TryGetValue (name, out definition!))
                     throw new ArgumentException ($"No theme is registered with the name '{name}'.", nameof (name));
             }
 
             BeginUpdate ();
             try {
-                ApplyThemeElement (element, new HashSet<string> (StringComparer.OrdinalIgnoreCase));
+                var visiting = new HashSet<string> (StringComparer.OrdinalIgnoreCase) { name };
+                var chain = new List<ThemeStyleSheet> ();
+
+                if (definition is XElement element)
+                    ApplyThemeElement (element, visiting, chain);
+                else
+                    ApplyStyleSheetLayer ((ThemeStyleSheet) definition, visiting, chain);
+
+                // Control rules belong to the stylesheet chain: a pure XML theme leaves whatever a
+                // CSS theme applied earlier in place (the same layering its tokens get).
+                if (chain.Count > 0)
+                    ApplyControlRules (chain);
+
                 RaiseThemeChanged ();
             } finally {
                 EndUpdate ();
@@ -201,7 +216,13 @@ namespace Majorsilence.Forms
         {
             BeginUpdate ();
             try {
-                ApplyThemeElement (root, new HashSet<string> (StringComparer.OrdinalIgnoreCase));
+                var chain = new List<ThemeStyleSheet> ();
+
+                ApplyThemeElement (root, new HashSet<string> (StringComparer.OrdinalIgnoreCase), chain);
+
+                if (chain.Count > 0)
+                    ApplyControlRules (chain);
+
                 RaiseThemeChanged ();
             } finally {
                 EndUpdate ();
@@ -209,19 +230,23 @@ namespace Majorsilence.Forms
         }
 
         // Applies the base (if any) and then each property element. The visiting set guards against
-        // cycles in base chains between registered themes.
-        private static void ApplyThemeElement (XElement root, HashSet<string> visiting)
+        // cycles in base chains between registered themes; the chain collects any CSS stylesheets met
+        // along the way so their control rules can be applied once, base first.
+        private static void ApplyThemeElement (XElement root, HashSet<string> visiting, List<ThemeStyleSheet> chain)
         {
             var baseName = ((string?) root.Attribute ("base"))?.Trim ();
 
             if (!string.IsNullOrEmpty (baseName))
-                ApplyBase (baseName!, visiting);
+                ApplyBase (baseName!, visiting, chain, message => new ThemeXmlException (message));
 
             foreach (var element in root.Elements ())
                 ApplyPropertyElement (element);
         }
 
-        private static void ApplyBase (string baseName, HashSet<string> visiting)
+        // Shared by XML and CSS themes. `error` builds the exception matching the format of the theme
+        // that named the base, so an XML theme keeps throwing ThemeXmlException and a CSS one
+        // ThemeCssException.
+        private static void ApplyBase (string baseName, HashSet<string> visiting, List<ThemeStyleSheet> chain, Func<string, Exception> error)
         {
             // A built-in theme name always wins as a base and resets to its defaults first.
             if (Enum.TryParse<BuiltInTheme> (baseName, ignoreCase: true, out var builtIn)) {
@@ -229,20 +254,26 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            XElement? baseElement;
+            object? definition;
 
             lock (_lock)
-                registered_themes.TryGetValue (baseName, out baseElement);
+                registered_themes.TryGetValue (baseName, out definition);
 
-            if (baseElement is null)
-                throw new ThemeXmlException ($"Base theme '{baseName}' is not a built-in theme or a registered theme.");
+            if (definition is null)
+                throw error ($"Base theme '{baseName}' is not a built-in theme (Light, Dark, Classic, Aero, PointOfSale, HotDog) or a registered theme.");
 
-            var name = ((string?) baseElement.Attribute ("name"))?.Trim () ?? baseName;
+            var name = definition is XElement baseElement
+                ? ((string?) baseElement.Attribute ("name"))?.Trim () ?? baseName
+                : ((ThemeStyleSheet) definition).Name ?? baseName;
 
             if (!visiting.Add (name))
-                throw new ThemeXmlException ($"Cyclic theme inheritance detected at '{name}'.");
+                throw error ($"Cyclic theme inheritance detected at '{name}'.");
 
-            ApplyThemeElement (baseElement, visiting);
+            if (definition is XElement xml)
+                ApplyThemeElement (xml, visiting, chain);
+            else
+                ApplyStyleSheetLayer ((ThemeStyleSheet) definition, visiting, chain);
+
             visiting.Remove (name);
         }
 

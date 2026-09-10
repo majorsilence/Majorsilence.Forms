@@ -100,6 +100,15 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
+        /// <summary>
+        /// The default hover <see cref="ControlStyle"/> for all <see cref="TrackBar"/> instances, layered on
+        /// <see cref="DefaultStyle"/> so a <c>TrackBar:hover</c> CSS rule inherits the normal rule's values.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleHover = new ControlStyle (DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleHover { get; } = new ControlStyle (DefaultStyleHover);
+
         /// <inheritdoc/>
         protected override Size DefaultSize
             => Orientation == Orientation.Horizontal

@@ -446,7 +446,7 @@ drop-downs, menus, and the areas below.
 | Item | Why |
 |---|---|
 | Full month/week/day calendar **grid** rendering (drag-resize appointments, timeline swimlanes) | The data layer and agenda view above cover real-world usage; the full interactive calendar grid was judged too large to fake convincingly. `GetMonthView()`/`GetWeekView()`/`GetDayView()`/`GetTimelineView()` return settable-but-not-rendered carriers so migrated code still compiles. |
-| `Telerik.WinControls.Themes` (e.g. `Office2007BlackTheme`) | No visual theming system exists to back it; references are left unrewritten by the migrator and flagged for manual review rather than silently ignored. |
+| `Telerik.WinControls.Themes` (e.g. `Office2007BlackTheme`) | Not mapped onto the framework's own theming (CSS themes, see [`docs/theming.md`](docs/theming.md)); references are left unrewritten by the migrator and flagged for manual review rather than silently ignored. |
 | `Telerik.WinControls.Design`, `.Primitives`, `.Layouts` | Design-time/layout infrastructure with no runtime equivalent; same warn-and-leave treatment. (Note: `.Layouts` specifically can't be flattened into the compat namespace even in principle — a type named `Dock` there would collide with `Control.Dock` in any VB file that imports both namespaces.) |
 
 ## Heavyweight controls implementation notes
