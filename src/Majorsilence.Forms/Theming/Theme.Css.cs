@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using SkiaSharp;
@@ -26,6 +26,35 @@ namespace Majorsilence.Forms
         // The type-level styles currently carrying stylesheet rules, so the next apply (or a built-in
         // reset) can return the ones no longer targeted to their declared defaults.
         private static readonly HashSet<ControlStyle> stylesheet_styles = new ();
+
+        // The stylesheet chain whose rules are installed (base first), and the chain a host bridge has
+        // not yet been told about. The notification is deferred to InvokeThemeChanged so it always
+        // follows ThemeChanged -- a bridge that mirrors the theme onto another toolkit must see the
+        // final Theme values, not the half-applied ones inside a BeginUpdate block.
+        private static IReadOnlyList<ThemeStyleSheet> current_stylesheets = Array.Empty<ThemeStyleSheet> ();
+        private static IReadOnlyList<ThemeStyleSheet>? pending_stylesheet_notification;
+
+        /// <summary>
+        /// Raised, after <see cref="ThemeChanged"/>, whenever a CSS stylesheet (or a theme whose base
+        /// chain contains one) has been applied. Host bridges -- code that mirrors the theme onto
+        /// System.Windows.Forms or Avalonia controls -- subscribe here and read the sheet through
+        /// <see cref="ThemeStyleSheet.Tokens"/> / <see cref="ThemeStyleSheet.Rules"/>. Not raised by
+        /// <see cref="SetBuiltInTheme"/>, which clears the stylesheets; watch <see cref="ThemeChanged"/>
+        /// and <see cref="CurrentStyleSheets"/> for that.
+        /// </summary>
+        public static event EventHandler<ThemeStyleSheetEventArgs>? StyleSheetApplied;
+
+        /// <summary>
+        /// The CSS stylesheets whose control rules are currently installed, base first (the last is the
+        /// one applied). Empty when no CSS theme is in effect, including after
+        /// <see cref="SetBuiltInTheme"/>.
+        /// </summary>
+        public static IReadOnlyList<ThemeStyleSheet> CurrentStyleSheets {
+            get {
+                lock (_lock)
+                    return current_stylesheets;
+            }
+        }
 
         /// <summary>
         /// Registers a CSS theme so it can later be applied by name with <see cref="ApplyTheme"/> or
@@ -236,6 +265,27 @@ namespace Majorsilence.Forms
 
                 stylesheet_styles.Add (style);
             }
+
+            var applied = chain.ToArray ();
+
+            lock (_lock) {
+                current_stylesheets = applied;
+                pending_stylesheet_notification = applied;
+            }
+        }
+
+        // Called from InvokeThemeChanged, after ThemeChanged and the repaint marking.
+        private static void RaiseStyleSheetApplied ()
+        {
+            IReadOnlyList<ThemeStyleSheet>? chain;
+
+            lock (_lock) {
+                chain = pending_stylesheet_notification;
+                pending_stylesheet_notification = null;
+            }
+
+            if (chain is not null && chain.Count > 0)
+                StyleSheetApplied?.Invoke (null, new ThemeStyleSheetEventArgs (chain));
         }
 
         // Called by SetBuiltInTheme: a built-in theme is a full reset, control rules included.
@@ -245,6 +295,11 @@ namespace Majorsilence.Forms
                 style.ResetWithStyleSheetRules (null);
 
             stylesheet_styles.Clear ();
+
+            lock (_lock) {
+                current_stylesheets = Array.Empty<ThemeStyleSheet> ();
+                pending_stylesheet_notification = null;
+            }
         }
     }
 }

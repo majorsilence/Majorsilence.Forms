@@ -17,7 +17,13 @@ namespace Majorsilence.Forms
         Length,
 
         /// <summary>A font-family list: <c>"Segoe UI", sans-serif</c>.</summary>
-        FontFamily
+        FontFamily,
+
+        /// <summary>A CSS font weight (100–900). Only appears on control-rule declarations, never on a token.</summary>
+        FontWeight,
+
+        /// <summary>A CSS font style keyword (normal, italic, oblique). Only appears on control-rule declarations.</summary>
+        FontStyle
     }
 
     /// <summary>
@@ -312,6 +318,8 @@ namespace Majorsilence.Forms
         internal static string KindName (ThemeCssValueKind kind) => kind switch {
             ThemeCssValueKind.Color => "color",
             ThemeCssValueKind.Length => "length (px)",
+            ThemeCssValueKind.FontWeight => "font weight",
+            ThemeCssValueKind.FontStyle => "font style",
             _ => "font family list"
         };
 

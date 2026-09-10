@@ -416,6 +416,8 @@ namespace Majorsilence.Forms
         public static string DescribeKind (ThemeCssValueKind kind) => kind switch {
             ThemeCssValueKind.Color => "color",
             ThemeCssValueKind.Length => "length",
+            ThemeCssValueKind.FontWeight => "font-weight",
+            ThemeCssValueKind.FontStyle => "font-style",
             _ => "font-family"
         };
 
