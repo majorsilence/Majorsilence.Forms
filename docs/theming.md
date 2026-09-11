@@ -419,6 +419,13 @@ dotnet run --project samples/ThemeStudio -- Themes/ocean.css   # open a file and
   matched pair with one accent and identical control rules, so an app can switch modes without anything
   moving), `ocean.css`, `graphite.css`, `paper.css` and `parchment.css`.
 
+## Real System.Windows.Forms apps
+
+The same stylesheet can restyle **real WinForms controls** in a mixed migration app through
+`Majorsilence.Forms.Theming.WinForms` (`WinFormsCssTheme.Apply` / `Watch` / `Track`), as far as WinForms
+allows — with every gap reported as a diagnostic, never silently ignored. The property × control support
+matrix and the Windows-only Theme Studio head are in [theming-winforms.md](theming-winforms.md).
+
 ## Prompting a coding assistant
 
 Paste the reference (from the Studio's **Copy reference for AI**, or `ThemeCssReference.ToMarkdown ()`,

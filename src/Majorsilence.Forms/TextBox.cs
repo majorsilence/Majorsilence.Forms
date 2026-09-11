@@ -846,14 +846,20 @@ namespace Majorsilence.Forms
             // is WANTED is ScrollBars' answer (TXT-26); whether it is NEEDED is the content's. None
             // still scrolls with the caret -- ScrollToCaret works off DoScroll, not off a bar.
             var wanted = ScrollBars == ScrollBars.Vertical || ScrollBars == ScrollBars.Both;
+            var overflow = (int)block.MeasuredHeight - PaddedClientRectangle.Height;
 
-            if (wanted && (int)block.MeasuredHeight - PaddedClientRectangle.Height > 0) {
+            if (wanted && overflow > 0) {
                 VerticalScrollBar.Enabled = true;
-                VerticalScrollBar.Maximum = (int)block.MeasuredHeight - PaddedClientRectangle.Height;
+                // A user-driven scroll stops at Maximum - LargeChange + 1 (ScrollBar.EffectiveMaximum,
+                // upstream's rule), so Maximum is the content extent minus one, as ListBox and TreeView
+                // set it -- not the overflow. With Maximum = overflow the reachable range was
+                // `overflow - viewport + 1`: nothing at all until the text was more than twice the
+                // viewport, and always one viewport short of the end (the Theme Studio's editor).
+                VerticalScrollBar.Maximum = (int)block.MeasuredHeight - 1;
                 VerticalScrollBar.LargeChange = PaddedClientRectangle.Height;
                 VerticalScrollBar.SmallChange = CurrentFontSize * 3;
 
-                var new_value = Math.Min (scroll_y, VerticalScrollBar.Maximum);
+                var new_value = Math.Min (scroll_y, overflow);
 
                 if (VerticalScrollBar.Value != new_value)
                     VerticalScrollBar.Value = new_value;
@@ -876,11 +882,12 @@ namespace Majorsilence.Forms
 
             if (wanted && overflow > 0) {
                 HorizontalScrollBar.Enabled = true;
-                HorizontalScrollBar.Maximum = overflow;
+                // Same convention as the vertical bar above: Maximum is the extent minus one.
+                HorizontalScrollBar.Maximum = (int)block.MeasuredWidth - 1;
                 HorizontalScrollBar.LargeChange = PaddedClientRectangle.Width;
                 HorizontalScrollBar.SmallChange = CurrentFontSize * 3;
 
-                var new_value = Math.Min (scroll_x, HorizontalScrollBar.Maximum);
+                var new_value = Math.Min (scroll_x, overflow);
 
                 if (HorizontalScrollBar.Value != new_value)
                     HorizontalScrollBar.Value = new_value;

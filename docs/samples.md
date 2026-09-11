@@ -292,6 +292,23 @@ matched light/dark pair sharing one accent and identical control rules, so an ap
 without anything moving), `ocean.css` (deep blue), `graphite.css` (neutral dark, amber accent, flat
 controls), `paper.css` and `parchment.css` (warm light themes with serif body text).
 
+### ThemeStudio.WinForms
+
+The Windows-only head of the Theme Studio for **real `System.Windows.Forms`** apps
+([theming-winforms.md](theming-winforms.md)): the same editor and diagnostics, with a preview of one
+of each WinForms control the applier maps, themed through `Majorsilence.Forms.Theming.WinForms`. The
+diagnostics list adds what WinForms could not express (info / warning) to the parser's own.
+
+```bash
+dotnet run --project samples/ThemeStudio.WinForms                                       # start from the Light theme as CSS
+dotnet run --project samples/ThemeStudio.WinForms -- samples/ThemeStudio/Themes/graphite.css   # open and watch a theme
+dotnet run --project samples/ThemeStudio.WinForms -- --screenshot out.png samples/ThemeStudio/Themes/graphite.css
+```
+
+`--screenshot` renders the preview with `Control.DrawToBitmap` — the window is shown off-screen at zero
+opacity for the capture (WinForms has no headless backend, so a desktop session is still required) —
+and exits non-zero on parse errors.
+
 ### EmbeddingAvalonia / EmbeddingUno / EmbeddingWinForms / EmbeddingGtk4
 
 The reverse hosting direction: an ordinary Avalonia, Uno, classic WinForms, or GTK 4 application that
@@ -305,7 +322,9 @@ dotnet run --project samples/EmbeddingGtk4       # needs a display + GTK 4
 ```
 
 Each window puts native host controls and an embedded Majorsilence.Forms scene side by side, and
-demonstrates the embedding seams:
+demonstrates the embedding seams (`EmbeddingWinForms` also themes both halves from one stylesheet,
+`Themes/graphite.css`, through `WinFormsCssTheme` — see [theming-winforms.md](theming-winforms.md);
+pass `--no-theme` for the untreated look):
 
 - `ToAvaloniaControl()` / `ToUnoControl()` / `ToWinFormsControl()` / `ToGtkWidget()` — a Majorsilence
   control hosted as a native one via `MajorsilenceFormsPresenter`.

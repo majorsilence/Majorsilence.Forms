@@ -135,6 +135,7 @@ Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) fol
 - [`Explorer`](samples/Explorer) — a Windows Explorer clone.
 - [`Outlaw`](samples/Outlaw) — a Microsoft Outlook clone.
 - [`ThemeStudio`](samples/ThemeStudio) — write a CSS theme and watch it apply live to every control, with the parser's diagnostics beside the editor. See [Theming with CSS](docs/theming.md).
+- [`ThemeStudio.WinForms`](samples/ThemeStudio.WinForms) — the same Studio against **real `System.Windows.Forms` controls**, themed from the same stylesheet through `Majorsilence.Forms.Theming.WinForms`, with WinForms' gaps listed as diagnostics (Windows-only). See [CSS theming for WinForms apps](docs/theming-winforms.md).
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
 - [`WinFormsCompatDemo`](samples/WinFormsCompatDemo) — unmodified `System.Windows.Forms` designer-generated source compiling and running against Majorsilence.Forms through a source generator, no real WinForms assembly involved. See [`Majorsilence.Forms.WinFormsShims.Compat`](src/Majorsilence.Forms.WinFormsShims.Compat).
 - [`EmbeddingWinForms`](samples/EmbeddingWinForms) — Majorsilence.Forms controls embedded inside a classic WinForms app via the **WinForms backend** (`MajorsilenceFormsPresenter`/`ToWinFormsControl()`), the port-one-control-at-a-time migration path (Windows-only). See [Platform backends](docs/backends.md).
