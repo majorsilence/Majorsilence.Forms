@@ -29,11 +29,26 @@ neither hid the row nor threw, and this change makes it hide -- adding the throw
 behavioural decision. `Column.DisplayIndex`, named in W5.2's plan text, belongs to no finding in that
 item's list and is untouched.
 
-**Still open in this file:** DGV-01 (P0), DGV-03 (P0), DGV-31 (P0), DGV-14, and the remaining 35.
+`DGV-14` and `DGV-15` are closed as of 2026-09-09 (`W5.2b`). `Row.Selected`/`Cell.Selected`/
+`Column.Selected` are choke points that repaint and raise `SelectionChanged`; `MultiSelect` is honoured
+from both the click path and code; Ctrl toggles and Shift extends; `SelectedRows`/`SelectedCells`/
+`SelectedColumns` are most-recent-first and mode-correct; and the renderer paints the selection flags
+rather than `SelectedRowIndex`. `ClearSelection` leaves the current cell alone, which is what `DGV-15`
+was waiting on. Recency is a monotonic stamp on each element rather than the `List<int>` this file's fix
+text suggests -- indices go stale on every sort and rebind. `Column.DisplayIndex` remains untouched: it
+is named in W5.2's plan text but belongs to no finding in that item's list.
+
+`DGV-01`, `DGV-06`–`DGV-11` are closed as of 2026-09-11 (`W5.1`): `BeginEdit (bool)` edits and reports,
+`EditMode` decides what opens an editor, `ReadOnly` has a veto at column/row/cell, the dirty flag is
+real and starts false, `CancelEdit` raises `CellEndEdit`, the commit converts to the resolved value
+type and reports failure through `DataError`, and every current-cell move runs leave/validate/enter/
+changed through one `MoveCurrentCell`.
+
+**Still open in this file:** DGV-03 (P0), DGV-31 (P0), and the remaining 32.
 
 ## Findings
 
-### DGV-01 — `DataGridView.BeginEdit(bool selectAll)` — Cat B — P0 — High
+### DGV-01 — `DataGridView.BeginEdit(bool selectAll)` — Cat B — P0 — High — **CLOSED 2026-09-11 (W5.1)**
 - **Ours:** `public bool BeginEdit (bool selectAll) { return true; }` — returns success, edits nothing (`src/Majorsilence.Forms/DataGridView.cs:116`). Only the non-WinForms `BeginEdit(int rowIndex, int columnIndex)` (line 121) does work.
 - **Upstream:** `BeginEdit(bool selectAll)` begins editing the current cell via `BeginEditInternal` (`…/DataGridView/DataGridView.Methods.cs:2564`, `:2568`).
 - **Impact:** The only public WinForms way to start an edit from code (`dgv.BeginEdit(true)` in CellClick/CellEnter handlers, "edit on single click" idioms, toolbar "Edit" buttons) is a silent no-op that reports success.
@@ -73,7 +88,7 @@ item's list and is untouched.
 - **Test:** `AllowUserToAddRows = true; Rows.Add("a");` → `Rows.Count == 2`, `Rows[1].IsNewRow`, `NewRowIndex == 1`.
 - **Tests today:** `DataGridViewTests.NewRowIndex_ReflectsAllowUserToAddRows` (line 183) codifies the divergent `NewRowIndex == Rows.Count`.
 
-### DGV-06 — `EditMode` / keystroke editing / click-on-current-cell / `EditingControl` — Cat C — P1 — High
+### DGV-06 — `EditMode` / keystroke editing / click-on-current-cell / `EditingControl` — Cat C — P1 — High — **CLOSED 2026-09-11 (W5.1)**
 - **Ours:** `EditMode` stored-only (`DataGridView.cs:780-792`). Editing starts only on F2 (`OnKeyUp` 2415) and double-click (`OnDoubleClick` 2113) regardless of mode (so `EditProgrammatically` still edits); typing a character does nothing; `EditOnEnter` never auto-edits; Tab inside the editor always begins editing the next cell (1063-1073). `EditingControl => null`, `EditingPanel => null` (3136-3139); `EditingControlShowing` receives a fresh empty `DataGridViewCellStyle` (176).
 - **Upstream:** `ProcessKeyEventArgs` → `cell.KeyEntersEditMode` → `BeginEditInternal` (`…/DataGridView.Methods.cs:21886-21900`); a left-click on the *current* text cell begins editing unless `EditProgrammatically` (`…/DataGridViewTextBoxCell.cs:575-585`); `EditOnEnter` begins editing in `SetCurrentCellAddressCore` (`:4113`, `:12831`); Tab only moves (`:24339-24368`); `EditingControl` is the live control.
 - **Impact:** Users must know to press F2/double-click; `EditMode = EditProgrammatically` grids (read-mostly with custom editors) still open the text box; `grid.EditingControl as TextBox` is always null so `EditingControl.KeyPress += …` idioms NRE.
@@ -81,7 +96,7 @@ item's list and is untouched.
 - **Test:** `EditMode = EditProgrammatically; OnKeyUp(F2)` → not editing; `EditMode = EditOnKeystrokeOrF2; OnKeyDown('A')` → editing with text "A".
 - **Tests today:** `DataGridViewTests.EditMode_Set_GetReturnsExpected` (store/read only); `DataGridViewParityTests.KeyEntersEditMode_*` (cell method only).
 
-### DGV-07 — `BeginEdit` ignores column/row/cell `ReadOnly` — Cat A — P1 — High
+### DGV-07 — `BeginEdit` ignores column/row/cell `ReadOnly` — Cat A — P1 — High — **CLOSED 2026-09-11 (W5.1)**
 - **Ours:** `BeginEdit(row,col)` checks only the grid's `read_only` (`DataGridView.cs:123`); `OnDoubleClick` same (2105). `Column.ReadOnly` (`DataGridViewColumn.cs:92`) and `Cell.ReadOnly` (`DataGridViewCell.cs:197`) are consulted only by `InheritedState` and the check-box toggle.
 - **Upstream:** `BeginEditInternal` refuses when `IsSharedCellReadOnly(cell) || !ColumnEditable(col)` (`…/DataGridView.Methods.cs:2585`, `:2618`).
 - **Impact:** `Columns["Id"].ReadOnly = true` (every LOB grid) is editable by F2/double-click and the edit is written back to the bound object.
@@ -89,7 +104,7 @@ item's list and is untouched.
 - **Test:** `Columns[0].ReadOnly = true; BeginEdit(0,0);` → `IsCurrentCellInEditMode == false`, `CellBeginEdit` not raised.
 - **Tests today:** none.
 
-### DGV-08 — `IsCurrentCellDirty`, `IsCurrentRowDirty`, `CurrentCellDirtyStateChanged`, `NotifyCurrentCellDirty` — Cat A/D — P1 — High
+### DGV-08 — `IsCurrentCellDirty`, `IsCurrentRowDirty`, `CurrentCellDirtyStateChanged`, `NotifyCurrentCellDirty` — Cat A/D — P1 — High — **CLOSED 2026-09-11 (W5.1)**
 - **Ours:** `IsCurrentCellDirty => edit_textbox is not null` (`DataGridView.cs:925`) — true the instant editing starts, before any change; `CurrentCellDirtyStateChanged` never raised (928-929); `NotifyCurrentCellDirty` empty (3016, in NoOpStubBaseline); `IsCurrentRowDirty => IsCurrentCellDirty` (`DataGridViewParity.cs:440`).
 - **Upstream:** a real flag set by editing-control changes and `NotifyCurrentCellDirty`, raising `OnCurrentCellDirtyStateChanged` on transition (`…/DataGridView.cs:2856-2867`, `…/DataGridView.Methods.cs:10513-10520`).
 - **Impact:** The canonical check-box commit idiom `CurrentCellDirtyStateChanged += (s,e) => { if (IsCurrentCellDirty) CommitEdit(Commit); }` never runs; "prompt to save if dirty" logic reports dirty after F2+Escape.
@@ -97,7 +112,7 @@ item's list and is untouched.
 - **Test:** `BeginEdit(0,0)` → `IsCurrentCellDirty == false`; set editor text → true and event raised once.
 - **Tests today:** none.
 
-### DGV-09 — `CancelEdit()` / Escape does not raise `CellEndEdit` — Cat D — P2 — High
+### DGV-09 — `CancelEdit()` / Escape does not raise `CellEndEdit` — Cat D — P2 — High — **CLOSED 2026-09-11 (W5.1)**
 - **Ours:** tears down the editor without events (`DataGridView.cs:1088-1102`).
 - **Upstream:** `CancelEdit` → `EndEdit(…)` → `OnCellEndEdit` (`…/DataGridView.Methods.cs:3036-3062`, `:6269`).
 - **Impact:** Handlers that re-enable buttons / clear "editing" status in `CellEndEdit` stay stuck after Escape.
@@ -105,7 +120,7 @@ item's list and is untouched.
 - **Test:** `BeginEdit(0,0); CancelEdit();` → `CellEndEdit` count 1.
 - **Tests today:** none.
 
-### DGV-10 — Commit path: no typed conversion without a `CellParsing` handler; `DataError` never raised — Cat A/D — P1 — High
+### DGV-10 — Commit path: no typed conversion without a `CellParsing` handler; `DataError` never raised — Cat A/D — P1 — High — **CLOSED 2026-09-11 (W5.1)**
 - **Ours:** `EndEdit` stores the raw editor string unless a `CellParsing` handler is attached (`DataGridView.cs:963-981`); write-back failures are caught, the cell silently reverted, `committed=false`, and `_dataError` is never invoked anywhere (1004-1007, 1021-1025; event at 235-237). `DataGridViewCell.ParseFormattedValue` exists (`DataGridViewParity.Cell.cs:195-215`) but nothing calls it.
 - **Upstream:** `PushFormattedValue` always calls `cell.ParseFormattedValue` to the cell's `ValueType` (`…/DataGridView.Methods.cs:25373`); failures go to `OnDataError`, which invokes the handler or shows a message box, and re-throws when `e.ThrowException` (`:14608-14645`).
 - **Impact:** An unbound grid with `Columns[0].ValueType = typeof(int)` stores `"5"` (string) — `(int)cell.Value` casts fail, numeric sort falls to text; typing "abc" into a bound int column just vanishes with no `DataError` and no message; `DataError` handlers (present in most bound grids) never run.
@@ -113,7 +128,7 @@ item's list and is untouched.
 - **Test:** `Columns[0].ValueType = typeof(int)`; edit "5" → `Value is int 5`; edit "x" → `DataError` raised once, still in edit mode.
 - **Tests today:** `DataGridViewHookTests.CellParsing_NotHandled_StoresTheEditedTextAsBefore` codifies the string storage.
 
-### DGV-11 — `CurrentCellChanged`, `CellEnter`, `CellLeave`, `CellValidating` on cell leave — Cat D — P1 — High
+### DGV-11 — `CurrentCellChanged`, `CellEnter`, `CellLeave`, `CellValidating` on cell leave — Cat D — P1 — High — **CLOSED 2026-09-11 (W5.1)**
 - **Ours:** `_currentCellChanged` is invoked only from the `CurrentCell` setter (`DataGridView.cs:1539`), not from mouse/keyboard selection; `CellLeave` declared under `#pragma warning disable CS0067` (196-198); `CellEnter` declared, never raised (`DataGridViewParity.cs:113`); `CellValidating` is raised only inside `EndEdit` (950), never when leaving a non-edited cell.
 - **Upstream:** `SetCurrentCellAddressCore` raises `OnCurrentCellChanged` for every path (`…/DataGridView.Methods.cs:26798`, `:26929`, `:27084`); `CellLeave`/`CellValidating`/`CellValidated`/`CellEnter` run on every current-cell move.
 - **Impact:** Master-detail forms that refresh on `CurrentCellChanged` never refresh on click; per-cell validation that relies on `CellValidating` when tabbing through untouched cells does not run.
@@ -137,7 +152,7 @@ item's list and is untouched.
 - **Test:** `new DataGridView()` → `RowHeadersVisible`, `SelectionMode == RowHeaderSelect`, `RowHeadersWidth == 41`, `ColumnHeadersHeight == 23`.
 - **Tests today:** `DataGridViewTests.Ctor_Default`, `DataGridViewRowTests.Height_SetDefault_IsTwentyFive`, `*_ClampsToMinimum` codify the divergent values.
 
-### DGV-14 — Multi-selection: `MultiSelect`, Ctrl/Shift-click, `row.Selected`/`cell.Selected` setters, `SelectedRows` order, `SelectedCells`, `SelectedColumns` — Cat C/A — P1 — High
+### DGV-14 — Multi-selection: `MultiSelect`, Ctrl/Shift-click, `row.Selected`/`cell.Selected` setters, `SelectedRows` order, `SelectedCells`, `SelectedColumns` — Cat C/A — P1 — High — **CLOSED 2026-09-09 (W5.2b)**
 - **Ours:** `MultiSelect` stored-only (`DataGridView.cs:735-747`); `OnMouseDown` always single-selects via `SelectedRowIndex` (2260-2267, no modifier check); `DataGridViewRow.Selected` / `DataGridViewCell.Selected` are auto-properties (`DataGridViewRow.cs:62`, `DataGridViewCell.cs:140`) — no `SelectionChanged`, no repaint, and the renderer highlights only `SelectedRowIndex` (`Renderers/DataGridViewRenderer.cs:223`, `:413`, `:456`); `SelectedCells` is derived from `SelectedRows` (2629-2638), so in `CellSelect` mode after `SelectAll` (2986-2989 sets `cell.Selected`) `SelectedCells` is empty; `SelectedColumns` returns a new empty collection (2978); `SelectedRows` is in index order.
 - **Upstream:** selection lists are prepended (`…/DataGridViewIntLinkedList.cs:93-101`) so `SelectedRows` is most-recent-first (`…/DataGridView.cs:3726`); `row.Selected = true` selects and repaints and raises `SelectionChanged`; Ctrl/Shift extend selection when `MultiSelect`.
 - **Impact:** "delete selected rows" loops delete one row; programmatic `Rows[i].Selected = true` highlights nothing and raises nothing; `SelectedRows[0]` is the *first* rather than the most recently clicked row (code that reads `SelectedRows[0]` after a Shift-click gets the wrong row); `SelectedCells.Count` is wrong in cell modes.
@@ -145,7 +160,7 @@ item's list and is untouched.
 - **Test:** `rows[0].Selected = rows[2].Selected = true` → `SelectionChanged` ×2, `SelectedRows.Count == 2`, `SelectedRows[0] == rows[2]`; render and probe both rows' highlight colour.
 - **Tests today:** `DataGridViewTests.SelectAll_FullRowSelect_SelectsAllRows`, `GetCellCount_SelectedFilter_CountsSelectedCells` (row mode only).
 
-### DGV-15 — `ClearSelection()` resets `CurrentCell` and raises no `SelectionChanged` — Cat A — P2 — High
+### DGV-15 — `ClearSelection()` resets `CurrentCell` and raises no `SelectionChanged` — Cat A — P2 — High — **CLOSED 2026-09-09 (W5.2b)**
 - **Ours:** clears flags and sets both indices to -1 without raising (`DataGridView.cs:2806-2814`).
 - **Upstream:** clears selection only; `_ptCurrentCell` is untouched and `SelectionChanged` is flushed (`…/DataGridView.Methods.cs:3385-3450`, `:6787`).
 - **Impact:** `grid.ClearSelection(); … grid.CurrentRow.Cells[…]` NREs; selection-count labels don't update.

@@ -684,11 +684,31 @@ into an empty strip. *Closed:* `BND-11`, `BND-12`.
 Independent of each other; parallelise freely. Each closes a block of P0/P1 findings in one control
 family. Ordered by traffic in a typical LOB app.
 
-**W5.1 — `DataGridView` editing lifecycle.** `BeginEdit(bool)`, per-column editor types, the dirty
-flag (`IsCurrentCellDirty`, `NotifyCurrentCellDirty`, `CurrentCellDirtyStateChanged`), typed conversion
-via `ParseFormattedValue`, `DataError` raised rather than swallowed, `ReadOnly` honoured, and the
-upstream event order (`CellBeginEdit` → `EditingControlShowing` → … → `CellEndEdit`).
-*Closes:* `DGV-01` (P0), `DGV-06`, `DGV-07`, `DGV-08`, `DGV-10`, `DGV-11`.
+**W5.1 — `DataGridView` editing lifecycle. — DONE (2026-09-11).** `DGV-01` (P0), `DGV-06`, `DGV-07`,
+`DGV-08`, `DGV-10`, `DGV-11`, and `DGV-09` with them — that one is a single missing raise in
+`CancelEdit`, in the same method family, and leaving a one-line P2 behind for a later branch to touch
+the same code again is worse than carrying it. 40 tests, 18 neutralizations each producing a failure.
+`BeginEdit (bool)` — which was `{ return true; }`, the only public WinForms way to start an edit from
+code — edits the current cell and *reports* whether it did, so a refusal is visible. The column, the
+row and the cell each get a `ReadOnly` veto through `IsCellEditable`, which asks
+`Cell.InheritedState` rather than re-checking four properties. `EditMode` decides what opens an
+editor: F2, a keystroke, a click on the already-current cell, or becoming current. `IsCurrentCellDirty`
+is a tracked flag that starts **false** and moves through one `SetCurrentCellDirty`, so
+`CurrentCellDirtyStateChanged` fires on the transition and the commit-a-checkbox-immediately idiom
+works. `EditingControl` is the live editor. The commit converts to the resolved value type — column,
+then cell, then bound member — and a failure raises `DataError` and *stays in edit mode* with the bad
+text on screen.
+*One structural change worth naming:* every current-cell move now goes through a single
+`MoveCurrentCell`, which runs validate → leave → assign → enter → changed once per move. Before,
+`CurrentCellChanged` was raised only from the `CurrentCell` setter, so a click never raised it; and
+`CellValidating` ran only inside `EndEdit`, so a cell that was never edited was never validated.
+Putting it in one place is what stops a two-index move (a cell-mode click sets both) announcing twice.
+*A trap found here:* `DataGridViewCell.ParseFormattedValue` converts to the **cell's** `ValueType`,
+which is normally unset when the type was declared on the column — so it hands the string straight
+back. The cell hook is still asked first, so a derived cell type overriding it is honoured, but its
+result is *checked* against the resolved target rather than trusted, and the commit falls through to a
+`TypeConverter` on that target. Trusting it was the first version, and it made a typed commit silently
+store a string while every test still passed.
 
 **W5.2 — `DataGridView` cell/row/column objects become participants.**
 Split into two, because the selection model is a different size of job from the two value/visibility
@@ -711,9 +731,36 @@ P0s and there is no ordering dependency between them:
   threw before, and adding the throw is a behavioural decision separate from making the property work.
   And `Column.DisplayIndex` is untouched — it is named in this item's original text but by no finding
   in its `Closes` list.
-- **W5.2b — the selection model (`DGV-14`).** Not started. `Row.Selected`/`Cell.Selected`,
-  `MultiSelect`, Ctrl/Shift extension, most-recent-first `SelectedRows`, `SelectionChanged`, and the
-  renderer painting per-row selection rather than only `SelectedRowIndex`.
+- **W5.2b — the selection model. — DONE (2026-09-09).** `DGV-14`, and `DGV-15` with it: that finding
+  records that it *cannot* be fixed until "current" and "selected" are separated, which is this item's
+  central change. 27 tests, 15 neutralizations each producing a failure, 2 tests labelled in-test as
+  guards that did not discriminate (see below).
+  `Row.Selected`/`Cell.Selected`/`Column.Selected` are choke points into the grid, so selecting
+  repaints and raises `SelectionChanged`; `MultiSelect = false` means one selected element at a time
+  whether the selection came from a click or from code; `OnMouseDown` honours Ctrl (toggle) and Shift
+  (range for rows and columns, rectangular block for cells); `SelectedRows`/`SelectedCells`/
+  `SelectedColumns` come back most-recent-first and are correct per `SelectionMode`; and the renderer
+  paints `row.Selected`/`cell.Selected` rather than `SelectedRowIndex`.
+  *Ordering is a monotonic stamp on the element, not a list of references on the grid.* The finding's
+  fix text suggests `List<int>`, but row indices go stale on every sort and every rebind, and reference
+  lists then need pruning against a collection that has already been replaced. A stamp makes recency
+  fall out of a sort and keeps "am I selected" on the element, which is also what lets a detached row or
+  cell still round-trip the property.
+  *Three deliberate deviations.* `Column.Clone` does not carry `Selected` (WinForms clones band
+  properties, not selection state), the row-header triangle still marks the **current** row rather than
+  the selected ones, and `SelectedColumns` returns a *projection* collection — a normal
+  `DataGridViewColumnCollection` re-owns each column and raises `ColumnAdded` on insert, so a populated
+  one built the obvious way would fire the grid's column events on every read.
+  *`ClearSelection` no longer blanks the current cell* (`DGV-15`), so `grid.ClearSelection ()` followed
+  by `grid.CurrentRow.Cells[...]` works instead of throwing. The existing
+  `DataGridViewTests.ClearSelection_ResetsCurrentRowAndCell` asserted the divergence and was flipped.
+  *Two findings of my own, both recorded rather than papered over.* The first version had a
+  `suppress_selection_notification` flag for composite operations; nothing ever took the path it
+  guarded, because every batch body writes through `SetSelectedCore` rather than through the properties,
+  so it was removed rather than left as unexercised code. And the two "announces once" tests did **not**
+  fail when the batch bodies were rewritten to assign the properties element by element, which is the
+  implementation they were meant to rule out — so they are labelled guards, not proof, and the design
+  comment says so instead of claiming an event-count difference the tests do not demonstrate.
 
 **W5.3 — `DataGridView` incremental data binding.** `OnBoundListChanged` ignores `ListChangedType` and
 regenerates every column and row on any change — which is also why `RowsAdded` never fires for bound
@@ -1408,14 +1455,49 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and so has the ToolStrip cluster** — `TSM-02` was closed by W1.3 in Phase 1 (see `MenuShortcutTests.cs`), which the findings file had not recorded. The rest not started. |
-| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11. **Open:** **W5.3**, **W5.4**, **W5.5** (the rest of `DataGridView`), **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
+| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.2b found
+
+**A fourth way a baseline reads clean over dead code: a property read only by a state reporter and a
+clone.** The three already catalogued here are a ring of stub properties reading each other (W5.10), a
+property read only by inert code (W5.11), and an `OnXxx` raiser containing `Xxx?.Invoke` counting as a
+raise site even when nothing calls the raiser (W5.16). `Row.Selected` is a new one: it was read, by
+`DataGridViewRow.State`/`InheritedState` and by `Clone`, so the stored-only detector never flagged it --
+and both of those readers only ever hand the value straight back out. A property whose every reader
+returns it verbatim is doing nothing, and looks exactly like a property that is doing something. Making
+the two `Selected` properties real dropped the auto-property denominator from 1199 to 1197 and left the
+stored-only count at 739, which is the tell: they were never counted in the first place.
+
+**A test can pass because the state it asserts was already true.** The Ctrl-click test originally
+clicked row 1 and then Ctrl-clicked row 1, asserting the current row was row 1 -- which the *first*
+click had already made true, so neutralizing "the current cell follows a modified click" changed
+nothing. Re-pointing the second click at a different row made it discriminate. This is the same shape as
+W5.9's `GetNodeAt` test, where three nodes made the probed index the fixed point of the very reversal
+the test was meant to catch.
+
+**Reading a property should not raise events, and here the obvious implementation would have.**
+`SelectedColumns` is typed as `DataGridViewColumnCollection`, whose `InsertItem` re-owns the column and
+raises `ColumnAdded` plus `OnColumnsChanged`. Populating one to return it would have meant every read of
+`SelectedColumns` firing the grid's column-added event and forcing a relayout -- a property getter with
+side effects on the control it belongs to. The projection constructor exists only to make the getter
+inert, and there is a test asserting the read raises nothing.
+
+**Two of my own tests turned out to be guards, and saying so was the only honest option.** Both
+"announces once" tests survived a neutralization that rewrote the batch bodies to assign the `Selected`
+properties element by element -- the naive implementation they were written to rule out. Tracing showed
+two notifications reaching a one-handler invocation list while the counter still read one, which I could
+not explain, so the claim was removed rather than asserted. The direct `SetSelectedCore` writes are kept
+because they make the single notification structural, but the plan, the code comment and the tests all
+now say that no test pins the difference. An unproven claim in a comment is worse than an admitted gap:
+the next person reads it as verified.
 
 ### What W5.20a found
 

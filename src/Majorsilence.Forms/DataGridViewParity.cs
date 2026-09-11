@@ -109,7 +109,7 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the corresponding state changes. Declared and raisable through <see cref="OnCellToolTipTextChanged"/>; the framework does not raise it yet.</summary>
         public event DataGridViewCellEventHandler? CellToolTipTextChanged;
 
-        /// <summary>Raised when the corresponding state changes. Declared and raisable through <see cref="OnCellEnter"/>; the framework does not raise it yet.</summary>
+        /// <summary>Raised when the current cell moves onto a cell. Mirrors WinForms DataGridView.CellEnter.</summary>
         public event DataGridViewCellEventHandler? CellEnter;
 
         /// <summary>Raised when the corresponding state changes. Declared and raisable through <see cref="OnColumnContextMenuStripChanged"/>; the framework does not raise it yet.</summary>
@@ -436,8 +436,8 @@ namespace Majorsilence.Forms
         /// <summary>Gets the width of the part of the first displayed column that is scrolled out of view.</summary>
         public int FirstDisplayedScrollingColumnHiddenWidth => 0;
 
-        /// <summary>Gets whether the current row has uncommitted changes.</summary>
-        public bool IsCurrentRowDirty => IsCurrentCellDirty;
+        // IsCurrentRowDirty moved to DataGridView.Editing.cs (DGV-08): it is a different question from
+        // IsCurrentCellDirty and needs its own state.
 
         /// <summary>Gets or sets the first cell visible in the control.</summary>
         public DataGridViewCell? FirstDisplayedCell {

@@ -111,16 +111,16 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Begins editing the currently selected cell (WinForms compat overload). Stub in Majorsilence.Forms.
-        /// </summary>
-        public bool BeginEdit (bool selectAll) { return true; }
-
-        /// <summary>
         /// Begins editing the specified cell.
         /// </summary>
         public void BeginEdit (int rowIndex, int columnIndex)
         {
             if (read_only || rowIndex < 0 || rowIndex >= Rows.Count || columnIndex < 0 || columnIndex >= Columns.Count)
+                return;
+
+            // The column, the row and the cell each get a veto, not just the grid (DGV-07). A read-only
+            // column is in every LOB grid, and without this it edited and wrote back to the bound object.
+            if (!IsCellEditable (rowIndex, columnIndex))
                 return;
 
             // End any current edit
@@ -160,6 +160,11 @@ namespace Majorsilence.Forms
 
             editor.KeyDown += EditTextBox_KeyDown;
             editor.LostFocus += EditTextBox_LostFocus;
+            editor.TextChanged += EditTextBox_TextChanged;
+
+            // An edit begins CLEAN. IsCurrentCellDirty used to be "an editor exists", so it reported
+            // true right here, before the user had touched anything (DGV-08).
+            SetCurrentCellDirty (false);
 
             Controls.Add (editor);
 
@@ -173,7 +178,8 @@ namespace Majorsilence.Forms
             // double-click, killing the application.
 
             // Let handlers customise/inspect the editing control before it is shown (WinForms).
-            OnEditingControlShowing (new DataGridViewEditingControlShowingEventArgs (editor, new DataGridViewCellStyle ()));
+            OnEditingControlShowing (new DataGridViewEditingControlShowingEventArgs (editor,
+                Rows[rowIndex].Cells[columnIndex].InheritedStyle));
 
             if (!ReferenceEquals (edit_textbox, editor))
                 return;
@@ -192,10 +198,14 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a cell is clicked.</summary>
         public event DataGridViewCellEventHandler? CellClick;
 
-        /// <summary>Raised when a cell loses input focus. Mirrors WinForms DataGridView.CellLeave.</summary>
-#pragma warning disable CS0067 // raised once cell-focus tracking lands; declared for WinForms source compat
+        /// <summary>Raised when the current cell moves off a cell. Mirrors WinForms DataGridView.CellLeave.</summary>
         public event DataGridViewCellEventHandler? CellLeave;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="CellLeave"/> event.</summary>
+        protected virtual void OnCellLeave (DataGridViewCellEventArgs e) => CellLeave?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="CurrentCellChanged"/> event.</summary>
+        protected virtual void OnCurrentCellChanged (EventArgs e) => _currentCellChanged?.Invoke (this, e);
 
         /// <summary>Raised when a cell's tooltip text is needed.</summary>
         public event EventHandler<DataGridViewCellToolTipTextNeededEventArgs>? CellToolTipTextNeeded;
@@ -970,12 +980,10 @@ namespace Majorsilence.Forms
         // The uncommitted text of the active editor, if any (used by DataGridViewCell.EditedFormattedValue).
         internal string? CurrentEditValue => edit_textbox?.Text;
 
-        /// <summary>Gets whether the current cell has uncommitted changes. Mirrors WinForms.</summary>
-        public bool IsCurrentCellDirty => edit_textbox is not null;
-
-        /// <summary>Raised when the current cell's dirty state changes. Declared for WinForms compat; the compat grid commits on end-edit and does not raise it.</summary>
-#pragma warning disable CS0067
+        /// <summary>Raised when <see cref="IsCurrentCellDirty"/> changes.</summary>
         public event EventHandler? CurrentCellDirtyStateChanged;
+
+#pragma warning disable CS0067
 
         /// <summary>Raised after the grid finishes sorting. Declared for WinForms compat; the compat grid has no sort pipeline yet.</summary>
         public event EventHandler? Sorted;
@@ -1010,20 +1018,40 @@ namespace Majorsilence.Forms
             var old_value = editing_cell.Value?.ToString () ?? string.Empty;
 
             // WinForms CellParsing: a handler converts the edited text into a typed value before the
-            // grid stores it. Without a handler the edited text is stored as-is, as before.
+            // grid stores it.
+            var desired_type = CommitValueType (editing_cell, editing_column_index);
             object? parsed_value = new_value;
+            var parsing_handled = false;
 
             if (_cellParsing is not null) {
-                var desired_type = (editing_column_index < Columns.Count ? Columns[editing_column_index].ValueType : null)
-                    ?? editing_cell.ValueType
-                    ?? typeof (string);
-
                 var parsing_args = new DataGridViewCellParsingEventArgs (editing_column_index, editing_row_index,
                     new_value, desired_type, editing_cell.InheritedStyle);
                 OnCellParsing (parsing_args);
 
-                if (parsing_args.ParsingApplied)
+                if (parsing_args.ParsingApplied) {
                     parsed_value = parsing_args.Value;
+                    parsing_handled = true;
+                }
+            }
+
+            // DGV-10: without a handler the grid used to store the editor's raw string, so a column
+            // declared ValueType = typeof (int) held "5" and every (int)cell.Value cast threw. Upstream
+            // always parses to the cell's type; a handler only pre-empts it.
+            if (!parsing_handled) {
+                try {
+                    parsed_value = ParseForCommit (editing_cell, new_value, desired_type);
+                } catch (Exception ex) {
+                    // The conversion failed -- "abc" into an int column. Upstream reports this through
+                    // DataError and STAYS in edit mode, so the bad text is still on screen to correct
+                    // rather than silently vanishing.
+                    var error = new DataGridViewDataErrorEventArgs (ex, editing_column_index, editing_row_index,
+                        DataGridViewDataErrorContexts.Commit | DataGridViewDataErrorContexts.Parsing);
+
+                    if (OnDataError (true, error))
+                        throw;
+
+                    return false;
+                }
             }
 
             if (old_value != (parsed_value?.ToString () ?? string.Empty) || !Equals (editing_cell.Value, parsed_value)) {
@@ -1052,9 +1080,19 @@ namespace Majorsilence.Forms
                     } finally {
                         suppress_cell_value_notification = false;
                     }
+
+                    // A refused write-back used to revert the cell and say nothing at all -- DataError
+                    // was declared on this type and raised from nowhere in it (DGV-10).
+                    var push_error = new DataGridViewDataErrorEventArgs (
+                        new InvalidOperationException ($"The value could not be written back to the bound item for row {editing_row_index}, column {editing_column_index}."),
+                        editing_column_index, editing_row_index, DataGridViewDataErrorContexts.Commit);
+
+                    if (OnDataError (true, push_error))
+                        throw push_error.Exception;
                 }
 
                 if (committed) {
+                    current_row_dirty = true;
                     var changed_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
                     OnCellValueChanged (changed_args);
                 }
@@ -1068,11 +1106,13 @@ namespace Majorsilence.Forms
             // Clean up the TextBox
             edit_textbox.KeyDown -= EditTextBox_KeyDown;
             edit_textbox.LostFocus -= EditTextBox_LostFocus;
+            edit_textbox.TextChanged -= EditTextBox_TextChanged;
             Controls.Remove (edit_textbox);
             edit_textbox.Dispose ();
             edit_textbox = null;
             editing_row_index = -1;
             editing_column_index = -1;
+            SetCurrentCellDirty (false);
 
             Invalidate ();
             return true;
@@ -1103,6 +1143,10 @@ namespace Majorsilence.Forms
             }
         }
 
+        // DGV-08: the editor changing is what makes the cell dirty. Routed through SetCurrentCellDirty
+        // so CurrentCellDirtyStateChanged fires once, on the transition.
+        private void EditTextBox_TextChanged (object? sender, EventArgs e) => SetCurrentCellDirty (true);
+
         // Handle lost focus during editing.
         private void EditTextBox_LostFocus (object? sender, EventArgs e)
         {
@@ -1119,11 +1163,19 @@ namespace Majorsilence.Forms
 
             edit_textbox.KeyDown -= EditTextBox_KeyDown;
             edit_textbox.LostFocus -= EditTextBox_LostFocus;
+            edit_textbox.TextChanged -= EditTextBox_TextChanged;
             Controls.Remove (edit_textbox);
             edit_textbox.Dispose ();
             edit_textbox = null;
+
+            // Escape ends the edit as surely as Enter does, and the handlers that re-enable buttons or
+            // clear an "editing" status live in CellEndEdit -- they used to stay stuck (DGV-09).
+            var cancelled_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
+
             editing_row_index = -1;
             editing_column_index = -1;
+            SetCurrentCellDirty (false);
+            OnCellEndEdit (cancelled_args);
 
             Invalidate ();
         }
@@ -1592,7 +1644,7 @@ namespace Majorsilence.Forms
 
                 SelectedColumnIndex = value.ColumnIndex;
                 SelectedRowIndex = value.RowIndex;
-                _currentCellChanged?.Invoke (this, EventArgs.Empty);
+                OnCurrentCellChanged (EventArgs.Empty);
             }
         }
 
@@ -2031,11 +2083,34 @@ namespace Majorsilence.Forms
         // the SelectedRowIndex property) to avoid raising selection/layout events mid-bind.
         private void SetInitialCurrentCell ()
         {
-            if (selected_row_index < 0 && Rows.Count > 0)
-                selected_row_index = 0;
+            var seeded = false;
 
-            if (selected_column_index < 0 && Columns.Count > 0)
+            if (selected_row_index < 0 && Rows.Count > 0) {
+                selected_row_index = 0;
+                seeded = true;
+            }
+
+            if (selected_column_index < 0 && Columns.Count > 0) {
                 selected_column_index = 0;
+                seeded = true;
+            }
+
+            // The seeded cell has to be SELECTED, not merely current: since DGV-14 the renderer paints
+            // row.Selected/cell.Selected rather than the current-cell indices, so seeding the indices
+            // alone would leave a freshly bound grid with a current row that is not highlighted.
+            // Written through the core setters, silently, for the reason above -- no events mid-bind.
+            if (!seeded)
+                return;
+
+            if (SelectionIsColumnBased) {
+                if (selected_column_index >= 0 && selected_column_index < Columns.Count)
+                    Columns[selected_column_index].SetSelectedCore (true, ++selection_sequence);
+            } else if (SelectionIsRowBased) {
+                if (selected_row_index >= 0 && selected_row_index < Rows.Count)
+                    Rows[selected_row_index].SetSelectedCore (true, ++selection_sequence);
+            } else if (IsCellAddress (selected_row_index, selected_column_index)) {
+                Rows[selected_row_index].Cells[selected_column_index].SetSelectedCore (true, ++selection_sequence);
+            }
         }
 
         // Gets the element type from an IList.
@@ -2280,7 +2355,12 @@ namespace Majorsilence.Forms
 
             if (row >= 0 && col >= 0) {
                 OnCellDoubleClick (new DataGridViewCellEventArgs (col, row));
-                BeginEdit (row, col);
+
+                // Every EditMode but EditProgrammatically opens an editor on a double-click; that one
+                // exists precisely so a read-mostly grid with a custom editor is never opened by the
+                // user (DGV-06). It used to open regardless.
+                if (edit_mode != DataGridViewEditMode.EditProgrammatically)
+                    BeginEdit (row, col);
             }
         }
 
@@ -2413,6 +2493,11 @@ namespace Majorsilence.Forms
                         // not just sortable columns.
                         OnColumnHeaderMouseClick (new DataGridViewCellMouseEventArgs (col, -1, e.Location.X - GetColumnDeviceLeft (col), e.Location.Y - client.Top, e));
 
+                        // A header click is how a column gets selected from the UI, and the only way in
+                        // ColumnHeaderSelect -- where clicking a cell selects the cell instead.
+                        if (SelectionIsColumnBased)
+                            SelectFromPointer (-1, col, e.Modifiers);
+
                         if (Columns[col].Sortable)
                             OnColumnHeaderClick (col);
                     }
@@ -2425,15 +2510,24 @@ namespace Majorsilence.Forms
             var row = GetRowAtLocation (e.Location);
 
             if (row >= 0) {
-                int col;
+                var col = GetColumnAtLocation (e.Location);
 
-                if (selection_mode == DataGridViewSelectionMode.FullRowSelect) {
-                    SelectedRowIndex = row;
-                    col = GetColumnAtLocation (e.Location);
-                } else {
-                    col = GetColumnAtLocation (e.Location);
-                    SelectedRowIndex = row;
-                    SelectedColumnIndex = col;
+                // The current cell moves first and unconditionally -- a Ctrl-click that DEselects a row
+                // still moves the cursor there -- then the modifiers decide what happens to the
+                // selection. Going through SelectFromPointer rather than the two index setters is what
+                // makes MultiSelect, Ctrl and Shift mean anything (DGV-14) and keeps one click to one
+                // SelectionChanged.
+                // e.Modifiers, not the static Control.ModifierKeys: constructing a MouseEventArgs
+                // ASSIGNS that static from its own keyData, so the static says None for any event args
+                // built without one and cannot be primed from outside.
+                var was_already_current = selected_row_index == row && selected_column_index == col;
+
+                if (MoveCurrentCell (row, col)) {
+                    SelectFromPointer (row, col, e.Modifiers);
+
+                    // Clicking the cell that was already current begins editing it -- single-click-to-
+                    // edit, with no handler written (DGV-06).
+                    TryBeginEditFromClick (row, col, was_already_current);
                 }
 
                 // Toggle check-box cells on click (covers DataGridViewCheckBoxColumn and any column
@@ -2579,15 +2673,35 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void OnKeyUp (KeyEventArgs e)
+        /// <remarks>
+        /// Only the edit triggers are handled here. The rest of this grid's keyboard still runs on
+        /// <see cref="OnKeyUp"/>, which is its own finding (DGV-25, W5.5) -- moving it wholesale is that
+        /// item's job. F2 and the keystroke trigger have to be on key-down because the character that
+        /// opens the editor has to reach it.
+        /// </remarks>
+        protected override void OnKeyDown (KeyEventArgs e)
         {
-            // F2 begins editing
-            if (e.KeyCode == Keys.F2 && !read_only && selected_row_index >= 0 && selected_column_index >= 0) {
-                BeginEdit (selected_row_index, selected_column_index);
-                e.Handled = true;
+            base.OnKeyDown (e);
+
+            Guard.ThrowIfNull (e);
+
+            if (e.Handled || !Enabled || IsCurrentCellInEditMode)
+                return;
+
+            if (e.KeyCode == Keys.F2) {
+                if (TryBeginEditFromF2 ())
+                    e.Handled = true;
+
                 return;
             }
 
+            if (TryBeginEditFromKeystroke (e))
+                e.Handled = true;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnKeyUp (KeyEventArgs e)
+        {
             if (e.KeyCode == Keys.Down) {
                 if (selected_row_index < Rows.Count - 1) {
                     SelectedRowIndex = selected_row_index + 1;
@@ -2779,31 +2893,13 @@ namespace Majorsilence.Forms
         public int SelectedColumnIndex {
             get => selected_column_index;
             set {
-                if (selected_column_index != value) {
-                    selected_column_index = value;
-                    OnSelectionChanged (EventArgs.Empty);
-                    Invalidate ();
-                }
-            }
-        }
+                if (selected_column_index == value)
+                    return;
 
-        /// <summary>
-        /// Gets the collection of selected rows (read-only).
-        /// </summary>
-        public IReadOnlyList<DataGridViewRow> SelectedRows =>
-            Rows.Where (r => r.Selected).ToList ().AsReadOnly ();
+                if (!MoveCurrentCell (selected_row_index, value))
+                    return;
 
-        /// <summary>
-        /// Gets the collection of selected cells (read-only, returns cells in the selected rows).
-        /// </summary>
-        public IReadOnlyList<DataGridViewCell> SelectedCells {
-            get {
-                var cells = new List<DataGridViewCell> ();
-
-                foreach (var row in SelectedRows)
-                    cells.AddRange (row.Cells);
-
-                return cells.AsReadOnly ();
+                ReplaceSelectionWithCurrentCell ();
             }
         }
 
@@ -2813,29 +2909,87 @@ namespace Majorsilence.Forms
         public int SelectedRowIndex {
             get => selected_row_index;
             set {
-                if (selected_row_index != value) {
-                    // WinForms row-commit cycle: leaving a row commits its edit and runs
-                    // RowValidating/RowValidated/RowLeave. A cancelling handler keeps the row current.
-                    if (!ValidateRow (selected_row_index))
-                        return;
+                if (selected_row_index == value)
+                    return;
 
-                    // Deselect old row
-                    if (selected_row_index >= 0 && selected_row_index < Rows.Count)
-                        Rows[selected_row_index].Selected = false;
+                if (!SetCurrentRowIndex (value))
+                    return;
 
-                    selected_row_index = value;
-
-                    // Select new row
-                    if (selected_row_index >= 0 && selected_row_index < Rows.Count)
-                        Rows[selected_row_index].Selected = true;
-
-                    if (selected_row_index >= 0 && selected_row_index < Rows.Count)
-                        OnRowEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
-
-                    OnSelectionChanged (EventArgs.Empty);
-                    Invalidate ();
-                }
+                // Moving the current row replaces the selection with it -- an unmodified move, which is
+                // what an assignment is. Ctrl/Shift extension goes through SelectFromPointer instead.
+                ReplaceSelectionWithCurrentCell ();
             }
+        }
+
+        // Makes a row current without touching the selection: validates the row being left, assigns the
+        // index and raises RowEnter. Returns false when a Validating handler cancelled, in which case
+        // the current row has not moved. Separated out because "current" and "selected" are different
+        // things (DGV-14/DGV-15) and the pointer path needs to move one without replacing the other.
+        private bool SetCurrentRowIndex (int value) => MoveCurrentCell (value, selected_column_index);
+
+        // The one place the current cell moves (DGV-11). Every path -- the two index setters, a click,
+        // a keyboard move -- comes through here, so the leave/validate/enter/changed sequence runs once
+        // per move rather than once per index that happened to change. Before this, CurrentCellChanged
+        // was raised only from the CurrentCell setter, so a click never raised it and master-detail
+        // forms that refresh on it never refreshed.
+        internal bool MoveCurrentCell (int rowIndex, int columnIndex)
+        {
+            var old_row = selected_row_index;
+            var old_column = selected_column_index;
+
+            if (old_row == rowIndex && old_column == columnIndex)
+                return true;
+
+            // WinForms row-commit cycle: leaving a row commits its edit and runs
+            // RowValidating/RowValidated/RowLeave. A cancelling handler keeps the row current.
+            if (old_row != rowIndex && !ValidateRow (old_row))
+                return false;
+
+            // Leaving a cell validates it even when it was never edited -- per-cell validation on Tab
+            // through untouched cells depends on this running without an edit having happened.
+            if (IsCellAddress (old_row, old_column)) {
+                var validating = new DataGridViewCellValidatingEventArgs (old_column, old_row,
+                    Rows[old_row].Cells[old_column].Value);
+                OnCellValidating (validating);
+
+                if (validating.Cancel)
+                    return false;
+
+                OnCellValidated (new DataGridViewCellEventArgs (old_column, old_row));
+                OnCellLeave (new DataGridViewCellEventArgs (old_column, old_row));
+            }
+
+            selected_row_index = rowIndex;
+            selected_column_index = columnIndex;
+
+            if (old_row != rowIndex) {
+                current_row_dirty = false;   // a new row starts undirty (DGV-08)
+
+                if (selected_row_index >= 0 && selected_row_index < Rows.Count)
+                    OnRowEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
+            }
+
+            if (IsCellAddress (selected_row_index, selected_column_index))
+                OnCellEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
+
+            OnCurrentCellChanged (EventArgs.Empty);
+
+            // EditOnEnter opens the editor as soon as the cell becomes current, from any path (DGV-06).
+            TryBeginEditOnEnter ();
+
+            return true;
+        }
+
+        // Selects whatever the current mode selects at the current cell address, dropping the rest of
+        // the selection. Raises SelectionChanged once.
+        private void ReplaceSelectionWithCurrentCell ()
+        {
+            if (SelectionIsColumnBased)
+                SelectSingleColumn (selected_column_index);
+            else if (SelectionIsRowBased)
+                SelectSingleRow (selected_row_index);
+            else
+                SelectSingleCell (selected_row_index, selected_column_index);
         }
 
         /// <summary>
@@ -2970,17 +3124,6 @@ namespace Majorsilence.Forms
 
             // Replace rows without triggering per-item change notifications
             Rows.ReplaceAll (sorted);
-        }
-
-        /// <summary>Clears the current selection.</summary>
-        public void ClearSelection ()
-        {
-            foreach (var row in Rows)
-                row.Selected = false;
-
-            selected_row_index = -1;
-            selected_column_index = -1;
-            Invalidate ();
         }
 
         /// <summary>Sorts the data by the specified column in the specified direction.</summary>
@@ -3144,24 +3287,6 @@ namespace Majorsilence.Forms
 
         private BorderStyle border_style = BorderStyle.Fixed3D;
 
-        /// <summary>Gets the columns currently selected (via column-header click). Stub: always empty -- the compat grid does not track column selection.</summary>
-        public DataGridViewColumnCollection SelectedColumns => new DataGridViewColumnCollection (this);
-
-        /// <summary>Selects all cells, rows, or columns, depending on selection mode.</summary>
-        public void SelectAll ()
-        {
-            if (SelectionMode == DataGridViewSelectionMode.FullRowSelect) {
-                foreach (var row in Rows)
-                    row.Selected = true;
-            } else {
-                foreach (var row in Rows)
-                    foreach (var cell in row.Cells)
-                        cell.Selected = true;
-            }
-
-            Invalidate ();
-        }
-
         /// <summary>Scrolls the DataGridView so that the specified cell is visible.</summary>
         public void ScrollIntoView (int columnIndex, int rowIndex) => Invalidate ();
 
@@ -3183,7 +3308,6 @@ namespace Majorsilence.Forms
         public void InvalidateColumn (int columnIndex) => Invalidate ();
 
         /// <summary>Notifies the DataGridView that the current cell value has changed. Stub in Majorsilence.Forms.</summary>
-        public void NotifyCurrentCellDirty (bool dirty) { }
 
         /// <summary>Updates the value displayed in the specified cell. Invalidates the cell in Majorsilence.Forms.</summary>
         public void UpdateCellValue (int columnIndex, int rowIndex) => Invalidate ();
@@ -3314,7 +3438,6 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the control used to edit the current cell, or null if not in edit mode. Stub in Majorsilence.Forms.</summary>
-        public Control? EditingControl => null;
 
         /// <summary>Gets the panel that contains editing controls. Stub in Majorsilence.Forms.</summary>
         public Panel? EditingPanel => null;
