@@ -42,14 +42,14 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw header background
             var header_rect = new Rectangle (contentArea.Left, y, contentArea.Width, header_height);
-            var header_bg = control.ColumnHeadersDefaultCellStyle.BackgroundColor ?? Theme.ControlMidColor;
+            var header_bg = control.ColumnHeadersDefaultCellStyle.BackgroundColor ?? DataGridView.DefaultColumnHeaderStyle.GetBackgroundColor ();
             e.Canvas.FillRectangle (header_rect, header_bg);
 
             // Draw row header corner cell
             if (control.RowHeadersVisible) {
                 var corner_rect = new Rectangle (contentArea.Left, y, row_header_offset, header_height);
                 e.Canvas.FillRectangle (corner_rect, header_bg);
-                e.Canvas.DrawLine (corner_rect.Right - 1, corner_rect.Top, corner_rect.Right - 1, corner_rect.Bottom, Theme.BorderLowColor);
+                e.Canvas.DrawLine (corner_rect.Right - 1, corner_rect.Top, corner_rect.Right - 1, corner_rect.Bottom, DataGridView.DefaultColumnHeaderStyle.Border.Right.GetColor ());
             }
 
             // Scrollable headers (clipped to the middle band), then pinned headers (left + right) on top.
@@ -79,7 +79,7 @@ namespace Majorsilence.Forms.Renderers
             }
 
             // Draw header bottom border
-            e.Canvas.DrawLine (contentArea.Left, y + header_height - 1, contentArea.Right, y + header_height - 1, Theme.BorderMidColor);
+            e.Canvas.DrawLine (contentArea.Left, y + header_height - 1, contentArea.Right, y + header_height - 1, DataGridView.DefaultColumnHeaderStyle.Border.Bottom.GetColor ());
         }
 
         // Renders a single column header at its frozen-aware device position.
@@ -107,9 +107,9 @@ namespace Majorsilence.Forms.Renderers
             if (right_inset > 0)
                 text_bounds.Width = Math.Max (0, text_bounds.Width - right_inset);
 
-            var fg = control.ColumnHeadersDefaultCellStyle.ForegroundColor ?? Theme.ForegroundColor;
-            var font = control.ColumnHeadersDefaultCellStyle.Font ?? Theme.UIFontBold;
-            var font_size = control.ColumnHeadersDefaultCellStyle.FontSize ?? Theme.ItemFontSize;
+            var fg = control.ColumnHeadersDefaultCellStyle.ForegroundColor ?? DataGridView.DefaultColumnHeaderStyle.GetForegroundColor ();
+            var font = control.ColumnHeadersDefaultCellStyle.Font ?? DataGridView.DefaultColumnHeaderStyle.GetFont ();
+            var font_size = control.ColumnHeadersDefaultCellStyle.FontSize ?? DataGridView.DefaultColumnHeaderStyle.GetFontSize ();
 
             e.Canvas.DrawText (column.HeaderText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: 1);
 
@@ -229,7 +229,7 @@ namespace Majorsilence.Forms.Renderers
             SKColor? bg = null;
 
             if (control.SelectedRowIndex == rowIndex)
-                bg = Theme.ControlHighlightLowColor;
+                bg = DataGridView.DefaultSelectionStyle.GetBackgroundColor ();
             else if (control.HoveredRowIndex == rowIndex)
                 bg = Theme.ControlMidColor;
             else if (!row.DefaultCellStyle.BackColor.IsEmpty)
@@ -239,7 +239,7 @@ namespace Majorsilence.Forms.Renderers
             else if (rowIndex % 2 == 1 && control.AlternatingRowColorsEnabled && control.AlternatingRowsDefaultCellStyle.BackgroundColor.HasValue)
                 bg = control.AlternatingRowsDefaultCellStyle.BackgroundColor.Value;
             else if (rowIndex % 2 == 1 && control.AlternatingRowColorsEnabled)
-                bg = AlternatingRowColor ();
+                bg = DataGridView.DefaultAlternatingRowStyle.BackgroundColor ?? AlternatingRowColor ();
             else if (control.DefaultCellStyle.BackgroundColor.HasValue)
                 bg = control.DefaultCellStyle.BackgroundColor.Value;
 
@@ -412,11 +412,11 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderRowHeader (DataGridView control, DataGridViewRow row, int rowIndex, Rectangle bounds, PaintEventArgs e)
         {
-            var bg = control.RowHeadersDefaultCellStyle.BackgroundColor ?? Theme.ControlMidColor;
+            var bg = control.RowHeadersDefaultCellStyle.BackgroundColor ?? DataGridView.DefaultRowHeaderStyle.GetBackgroundColor ();
             e.Canvas.FillRectangle (bounds, bg);
 
             // Draw right border
-            e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, Theme.BorderLowColor);
+            e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, DataGridView.DefaultRowHeaderStyle.Border.Right.GetColor ());
 
             // Draw selection indicator triangle for the selected row
             if (control.SelectedRowIndex == rowIndex) {
@@ -430,7 +430,7 @@ namespace Majorsilence.Forms.Renderers
                 path.LineTo (tri_x, tri_y + tri_size);
                 path.Close ();
 
-                using var paint = new SKPaint { Color = Theme.ForegroundColor, IsAntialias = true };
+                using var paint = new SKPaint { Color = DataGridView.DefaultRowHeaderStyle.GetForegroundColor (), IsAntialias = true };
                 e.Canvas.DrawPath (path, paint);
             }
         }
@@ -463,7 +463,7 @@ namespace Majorsilence.Forms.Renderers
             if (paintParts.HasFlag (DataGridViewPaintParts.SelectionBackground)
                 && control.SelectionMode != DataGridViewSelectionMode.FullRowSelect
                 && control.SelectedRowIndex == rowIndex && control.SelectedColumnIndex == columnIndex)
-                e.Canvas.DrawRectangle (bounds, Theme.AccentColor, 2);
+                e.Canvas.DrawRectangle (bounds, DataGridView.DefaultSelectionStyle.Border.GetColor (), DataGridView.DefaultSelectionStyle.Border.GetWidth ());
 
             if (!paintParts.HasFlag (DataGridViewPaintParts.ContentForeground)
                 && !paintParts.HasFlag (DataGridViewPaintParts.ContentBackground))
@@ -478,7 +478,13 @@ namespace Majorsilence.Forms.Renderers
                 text_bounds.Width = Math.Max (0, text_bounds.Width - left_inset);
             }
 
-            var fg = cellStyle?.ForegroundColor ?? control.DefaultCellStyle.ForegroundColor ?? Theme.ForegroundColor;
+            // A `DataGridView::selection { color }` rule recolours the selected cell's text (the whole row
+            // in full-row mode); without one the cell keeps its own colour on the highlight, as before.
+            var in_selection = control.SelectedRowIndex == rowIndex
+                && (control.SelectionMode == DataGridViewSelectionMode.FullRowSelect || control.SelectedColumnIndex == columnIndex);
+            var fg = in_selection && DataGridView.DefaultSelectionStyle.ForegroundColor is { } selection_fg
+                ? selection_fg
+                : cellStyle?.ForegroundColor ?? control.DefaultCellStyle.ForegroundColor ?? Theme.ForegroundColor;
             var font = cellStyle?.Font ?? control.DefaultCellStyle.Font ?? Theme.UIFont;
             var font_size = cellStyle?.FontSize ?? control.DefaultCellStyle.FontSize ?? Theme.ItemFontSize;
             var scaled_font = control.LogicalToDeviceUnits (font_size);

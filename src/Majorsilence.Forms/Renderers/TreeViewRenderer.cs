@@ -62,7 +62,9 @@ namespace Majorsilence.Forms.Renderers
             // were silently ignored (LST-26).
             var foreground_color = !control.Enabled
                 ? Theme.ForegroundDisabledColor
-                : item.ForeColor != System.Drawing.Color.Empty ? item.ForeColor.ToSKColor () : Theme.ForegroundColor;
+                : item.ForeColor != System.Drawing.Color.Empty ? item.ForeColor.ToSKColor ()
+                : is_selected && TreeView.DefaultSelectionStyle.ForegroundColor is { } selection_fg ? selection_fg
+                : Theme.ForegroundColor;
 
             if (item.BackColor != System.Drawing.Color.Empty && !is_selected)
                 e.Canvas.FillRectangle (item.Bounds, item.BackColor.ToSKColor ());

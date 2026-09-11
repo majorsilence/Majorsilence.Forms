@@ -68,6 +68,13 @@ namespace Majorsilence.Forms
                 style.Border.Width = 1;
             });
 
+        /// <summary>
+        /// The default style of the selection highlight: the selected item's background and, when set,
+        /// its text colour. CSS: <c>ListBox::selection</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultSelectionStyle = new ControlStyle (null,
+            (style) => style.BackgroundColor = Theme.ControlHighlightLowColor);
+
         private void EnsureItemVisible (int index)
         {
             // If there aren't enough items to need scrolling, things are good

@@ -42,3 +42,41 @@ TextBox, NumericUpDown {
 Menu, ToolBar, StatusBar {
   background-color: #141416;
 }
+
+/* Parts: pieces inside a control, addressed as Type::part. */
+Menu::item:hover, ToolBar::item:hover, MenuDropDown::item:hover {
+  background-color: var(--accent-color);
+  color: var(--foreground-color-on-accent);
+}
+
+DataGridView::header {
+  background-color: #141416;
+  color: #9a9aa2;
+  border-bottom-color: var(--accent-color-2);
+}
+
+DataGridView::selection {
+  background-color: #3a3220;
+  border-color: var(--accent-color);
+}
+
+TabStrip::selected {
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
+  border-bottom-width: 2px;
+}
+
+ListBox::selection, ListView::selection, TreeView::selection {
+  background-color: #3a3220;
+}
+
+ScrollBar::thumb {
+  background-color: #55555c;
+  border-color: transparent;
+  border-radius: 4px;
+}
+
+ScrollBar::arrow {
+  background-color: #232326;
+  color: #8a8a92;
+}

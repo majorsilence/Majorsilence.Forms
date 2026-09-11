@@ -80,6 +80,17 @@ namespace Majorsilence.Forms
                 style.Border.Width = 1;
             });
 
+        // Part styles for the items (CSS `MenuDropDown::item` and `MenuDropDown::item:hover`). The hover style
+        // layers on the item style, so an item text colour carries into the hovered state.
+
+        /// <summary>The default style of an item: its text colour and background. CSS: <c>MenuDropDown::item</c>.</summary>
+        public new static readonly ControlStyle DefaultItemStyle = new ControlStyle (null,
+            (style) => { style.ForegroundColor = Theme.ForegroundColor; style.BackgroundColor = Theme.ControlLowColor; });
+
+        /// <summary>The default style of a hovered (or open) item. CSS: <c>MenuDropDown::item:hover</c>.</summary>
+        public new static readonly ControlStyle DefaultItemHoverStyle = new ControlStyle (DefaultItemStyle,
+            (style) => style.BackgroundColor = Theme.ControlHighlightLowColor);
+
         /// <inheritdoc/>
         public override Form? FindForm ()
         {

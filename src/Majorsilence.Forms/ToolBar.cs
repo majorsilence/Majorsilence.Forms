@@ -68,6 +68,17 @@ namespace Majorsilence.Forms
               style.Border.Bottom.Width = 1;
           });
 
+        // Part styles for the items (CSS `ToolBar::item` and `ToolBar::item:hover`). The hover style
+        // layers on the item style, so an item text colour carries into the hovered state.
+
+        /// <summary>The default style of an item: its text colour (the background is the strip itself unless set). CSS: <c>ToolBar::item</c>.</summary>
+        public static readonly ControlStyle DefaultItemStyle = new ControlStyle (null,
+            (style) => { style.ForegroundColor = Theme.ForegroundColor; });
+
+        /// <summary>The default style of a hovered (or open) item. CSS: <c>ToolBar::item:hover</c>.</summary>
+        public static readonly ControlStyle DefaultItemHoverStyle = new ControlStyle (DefaultItemStyle,
+            (style) => style.BackgroundColor = Theme.ControlHighlightLowColor);
+
         /// <inheritdoc/>
         protected override bool IsTopLevelMenu => true;
 

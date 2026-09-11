@@ -29,7 +29,8 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderItem (MenuDropDown control, MenuItem item, PaintEventArgs e)
         {
             // Background
-            var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor : Theme.ControlLowColor;
+            var item_style = item.Hovered || item.IsDropDownOpened ? MenuDropDown.DefaultItemHoverStyle : MenuDropDown.DefaultItemStyle;
+            var background_color = item_style.GetBackgroundColor ();
             e.Canvas.FillRectangle (item.Bounds, background_color);
 
             // A check mark goes in the image gutter, which is the 28px inset the text starts after.
@@ -58,7 +59,7 @@ namespace Majorsilence.Forms.Renderers
             }
 
             // Text
-            var font_color = item.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+            var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
             var bounds = item.Bounds;
             bounds.X += e.LogicalToDeviceUnits (28);

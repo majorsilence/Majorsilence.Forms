@@ -33,18 +33,26 @@ namespace Majorsilence.Forms
 
         internal sealed class ControlRule
         {
-            public ControlRule (ThemeCssSelector selector, bool hover, Action<ControlStyle> apply, ThemeCssRule model)
+            public ControlRule (ThemeCssSelector selector, ThemeCssPart? part, bool hover, Action<ControlStyle> apply, ThemeCssRule model)
             {
                 Selector = selector;
+                Part = part;
                 Hover = hover;
                 Apply = apply;
                 Model = model;
             }
 
             public ThemeCssSelector Selector { get; }
+            public ThemeCssPart? Part { get; }
             public bool Hover { get; }
             public Action<ControlStyle> Apply { get; }
             public ThemeCssRule Model { get; }
+
+            /// <summary>The type-level style this rule's declarations are installed on.</summary>
+            public ControlStyle GetTargetStyle ()
+                => Part is not null
+                    ? (Hover ? Part.GetHoverStyle! () : Part.GetStyle ())
+                    : (Hover ? Selector.GetHoverStyle! () : Selector.GetStyle ());
         }
 
         private ThemeStyleSheet (string? name, string? baseName, List<TokenDeclaration> tokens, List<ControlRule> rules, List<ThemeCssDiagnostic> diagnostics)
@@ -121,6 +129,7 @@ namespace Majorsilence.Forms
         {
             public bool IsRoot;
             public string? TypeName;
+            public string? Part;      // the name after '::', when present
             public string? Pseudo;
             public int Line;
             public int Column;
@@ -375,7 +384,7 @@ namespace Majorsilence.Forms
                     Raw = string.Join ("", tokens.Select (t => t.Raw)),
                 };
 
-                const string Supported = "Supported selectors are ':root', a control type name such as 'Button', 'Button:hover', and comma-separated lists of those.";
+                const string Supported = "Supported selectors are ':root', a control type name such as 'Button', 'Button:hover', a part such as 'DataGridView::header' (optionally ':hover'), and comma-separated lists of those.";
 
                 // :root
                 if (first.Is (CssTokenKind.Colon) && tokens.Count == 2 && tokens[1].IsIdent ("root")) {
@@ -404,17 +413,43 @@ namespace Majorsilence.Forms
                     return selector;
 
                 if (tokens[1].Is (CssTokenKind.Colon)) {
+                    // Type::part and Type::part:hover -- a styleable piece inside the control.
+                    if (tokens.Count >= 3 && tokens[2].Is (CssTokenKind.Colon)) {
+                        if (tokens.Count < 4 || !tokens[3].Is (CssTokenKind.Ident)) {
+                            selector.Error = $"'{selector.Raw}': expected a part name after '::', e.g. 'DataGridView::header' or 'ScrollBar::thumb'.";
+                            return selector;
+                        }
+
+                        selector.Part = tokens[3].Value;
+
+                        if (tokens.Count == 4)
+                            return selector;
+
+                        if (tokens.Count == 6 && tokens[4].Is (CssTokenKind.Colon) && tokens[5].Is (CssTokenKind.Ident)) {
+                            selector.Pseudo = tokens[5].Value;
+                            return selector;
+                        }
+
+                        if (tokens.Count >= 6 && tokens[4].Is (CssTokenKind.Colon) && tokens[5].Is (CssTokenKind.Colon)) {
+                            selector.Error = $"'{selector.Raw}': a selector names one part; parts do not nest.";
+                            return selector;
+                        }
+
+                        selector.Error = $"'{selector.Raw}' is not a valid selector; after a part only ':hover' may follow, e.g. '{first.Value}::{selector.Part}:hover'.";
+                        return selector;
+                    }
+
                     if (tokens.Count == 3 && tokens[2].Is (CssTokenKind.Ident)) {
                         selector.Pseudo = tokens[2].Value;
                         return selector;
                     }
 
-                    if (tokens.Count >= 3 && tokens[2].Is (CssTokenKind.Colon)) {
-                        selector.Error = $"'{selector.Raw}': pseudo-elements ('::something') are not supported. The only pseudo-class is ':hover'.";
+                    if (tokens.Count >= 5 && tokens[2].Is (CssTokenKind.Ident) && tokens[3].Is (CssTokenKind.Colon) && tokens[4].Is (CssTokenKind.Colon)) {
+                        selector.Error = $"'{selector.Raw}': put the part before the pseudo-class -- '{first.Value}::{(tokens.Count > 5 ? tokens[5].Value : "part")}:{tokens[2].Value}'.";
                         return selector;
                     }
 
-                    selector.Error = $"'{selector.Raw}' is not a valid selector; expected a pseudo-class name after ':' (only ':hover' is supported).";
+                    selector.Error = $"'{selector.Raw}' is not a valid selector; expected a pseudo-class name after ':' (only ':hover' is supported) or a part after '::'.";
                     return selector;
                 }
 
@@ -725,7 +760,6 @@ namespace Majorsilence.Forms
 
                     // Compile the declarations once, then attach them to every selector in the list.
                     var compiled = CompileDeclarations (rule.Declarations);
-                    var actions = compiled.Actions;
 
                     foreach (var raw in rule.Selectors) {
                         if (raw.Error is not null) {
@@ -742,6 +776,24 @@ namespace Majorsilence.Forms
                             continue;
                         }
 
+                        ThemeCssPart? part = null;
+
+                        if (raw.Part is not null) {
+                            if (selector.Parts.Count == 0) {
+                                var withParts = string.Join (", ", ThemeCssReference.Selectors.Where (s => s.Parts.Count > 0).Select (s => s.Name));
+                                Error (raw.Line, raw.Column, $"'{selector.Name}::{raw.Part}': {selector.Name} has no separately styleable parts; style the whole control with '{selector.Name} {{ ... }}'. Controls with parts: {withParts}.");
+                                continue;
+                            }
+
+                            part = selector.FindPart (raw.Part);
+
+                            if (part is null) {
+                                var known = string.Join (", ", selector.Parts.Select (p => $"::{p.Name}"));
+                                Error (raw.Line, raw.Column, $"'{selector.Name}::{raw.Part}' is not a part of {selector.Name}.{ThemeCssValues.Suggest (raw.Part, selector.Parts.Select (p => p.Name))} {selector.Name} parts: {known}.");
+                                continue;
+                            }
+                        }
+
                         var hover = false;
 
                         if (raw.Pseudo is not null) {
@@ -756,7 +808,13 @@ namespace Majorsilence.Forms
                                 continue;
                             }
 
-                            if (!selector.SupportsHover) {
+                            if (part is not null && !part.SupportsHover) {
+                                var hoverableParts = string.Join (", ", ThemeCssReference.Parts.Where (p => p.Part.SupportsHover).Select (p => $"{p.Selector.Name}::{p.Part.Name}"));
+                                Error (raw.Line, raw.Column, $"'{selector.Name}::{part.Name}:hover' is not supported: the {part.Name} does not change when hovered. Parts with ':hover': {hoverableParts}.");
+                                continue;
+                            }
+
+                            if (part is null && !selector.SupportsHover) {
                                 var hoverable = string.Join (", ", ThemeCssReference.Selectors.Where (s => s.SupportsHover).Select (s => s.Name));
                                 Error (raw.Line, raw.Column, $"'{selector.Name}:hover' is not supported: {selector.Name} does not change appearance when hovered. ':hover' is available on: {hoverable}.");
                                 continue;
@@ -765,35 +823,95 @@ namespace Majorsilence.Forms
                             hover = true;
                         }
 
+                        // A part honours only the properties its renderer reads; anything else is dropped
+                        // for that selector with an error that names the accepted list.
+                        if (part is not null)
+                            foreach (var item in compiled.Items)
+                                if (!part.Accepts (item.Model.Property))
+                                    Error (item.Model.Line, item.Model.Column, $"'{item.Model.Property}' does not apply to {selector.Name}::{part.Name}; it accepts: {string.Join (", ", part.Properties)}.");
+
+                        var (actions, model) = compiled.Build (part is null ? null : part.Accepts);
+
                         if (actions.Count == 0)
                             continue;
 
                         var captured = actions;
-                        rules.Add (new ControlRule (selector, hover, style => {
+                        rules.Add (new ControlRule (selector, part, hover, style => {
                             foreach (var action in captured)
                                 action (style);
-                        }, new ThemeCssRule (selector, hover, compiled.Model, raw.Line, raw.Column)));
+                        }, new ThemeCssRule (selector, part, hover, model, raw.Line, raw.Column)));
                     }
                 }
             }
 
-            // A rule's declarations in both forms: the closures our renderers apply, and the public
-            // longhand model other hosts read. Built side by side from the same parsed values.
+            // One compiled declaration: its public longhand model plus how to apply it. The three font
+            // properties describe a single typeface, so they carry their parsed piece here and are merged
+            // into one assignment when a rule is built.
+            private sealed class CompiledDeclaration
+            {
+                public CompiledDeclaration (ThemeCssDeclaration model) => Model = model;
+
+                public ThemeCssDeclaration Model { get; }
+                public Action<ControlStyle>? Action { get; set; }
+                public Func<IReadOnlyList<string>>? Families { get; set; }
+                public SKFontStyleWeight? Weight { get; set; }
+                public SKFontStyleSlant? Slant { get; set; }
+            }
+
+            // A rule's declarations, compiled once and then attached to every selector in its comma list.
+            // Build () takes the subset a target accepts -- everything for a control, the part's list for
+            // a part -- so `Menu::item, Button { color: red; font-size: 12px }` gives the part only the
+            // colour while the button gets both.
             private sealed class CompiledDeclarations
             {
-                public List<Action<ControlStyle>> Actions = new ();
-                public List<ThemeCssDeclaration> Model = new ();
+                public List<CompiledDeclaration> Items { get; } = new ();
+
+                public (List<Action<ControlStyle>> Actions, List<ThemeCssDeclaration> Model) Build (Func<string, bool>? accepts)
+                {
+                    var actions = new List<Action<ControlStyle>> ();
+                    var model = new List<ThemeCssDeclaration> ();
+
+                    Func<IReadOnlyList<string>>? families = null;
+                    SKFontStyleWeight? weight = null;
+                    SKFontStyleSlant? slant = null;
+                    var hasFont = false;
+
+                    foreach (var item in Items) {
+                        if (accepts is not null && !accepts (item.Model.Property))
+                            continue;
+
+                        model.Add (item.Model);
+
+                        if (item.Action is not null) {
+                            actions.Add (item.Action);
+                            continue;
+                        }
+
+                        hasFont = true;
+                        families ??= item.Families;
+                        if (item.Families is not null)
+                            families = item.Families;
+                        if (item.Weight is not null)
+                            weight = item.Weight;
+                        if (item.Slant is not null)
+                            slant = item.Slant;
+                    }
+
+                    if (hasFont) {
+                        var w = weight ?? SKFontStyleWeight.Normal;
+                        var sl = slant ?? SKFontStyleSlant.Upright;
+                        var fam = families;
+                        actions.Add (s => s.Font = ThemeCssValues.GetTypeface (
+                            fam?.Invoke () ?? new[] { Majorsilence.Forms.SystemFonts.DefaultTypeface.FamilyName }, w, sl));
+                    }
+
+                    return (actions, model);
+                }
             }
 
             private CompiledDeclarations CompileDeclarations (List<RawDeclaration> declarations)
             {
                 var compiled = new CompiledDeclarations ();
-                var actions = compiled.Actions;
-                var model = compiled.Model;
-
-                Func<IReadOnlyList<string>>? families = null;
-                SKFontStyleWeight? weight = null;
-                SKFontStyleSlant? slant = null;
 
                 foreach (var declaration in declarations) {
                     var name = declaration.Name.ToLowerInvariant ();
@@ -818,22 +936,27 @@ namespace Majorsilence.Forms
 
                     string? error;
                     var reference = TokenReferenceOf (value);
-                    void Declare (Func<ThemeCssValue> resolve) => model.Add (new ThemeCssDeclaration (name, resolve, reference, declaration.Line, declaration.Column));
+                    void Add (Func<ThemeCssValue> resolve, Action<ControlStyle> action)
+                        => compiled.Items.Add (new CompiledDeclaration (new ThemeCssDeclaration (name, resolve, reference, declaration.Line, declaration.Column)) { Action = action });
+                    CompiledDeclaration AddFont (Func<ThemeCssValue> resolve)
+                    {
+                        var item = new CompiledDeclaration (new ThemeCssDeclaration (name, resolve, reference, declaration.Line, declaration.Column));
+                        compiled.Items.Add (item);
+                        return item;
+                    }
 
                     switch (name) {
                         case "background-color":
-                            if (ThemeCssValues.TryParseColor (value, out var background, out error)) {
-                                actions.Add (s => s.BackgroundColor = background ());
-                                Declare (() => ThemeCssValue.Color ((uint) background ()));
-                            } else
+                            if (ThemeCssValues.TryParseColor (value, out var background, out error))
+                                Add (() => ThemeCssValue.Color ((uint) background ()), s => s.BackgroundColor = background ());
+                            else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "color":
-                            if (ThemeCssValues.TryParseColor (value, out var foreground, out error)) {
-                                actions.Add (s => s.ForegroundColor = foreground ());
-                                Declare (() => ThemeCssValue.Color ((uint) foreground ()));
-                            } else
+                            if (ThemeCssValues.TryParseColor (value, out var foreground, out error))
+                                Add (() => ThemeCssValue.Color ((uint) foreground ()), s => s.ForegroundColor = foreground ());
+                            else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
@@ -842,10 +965,9 @@ namespace Majorsilence.Forms
                         case "border-right-color":
                         case "border-bottom-color":
                         case "border-left-color":
-                            if (ThemeCssValues.TryParseColor (value, out var borderColor, out error)) {
-                                actions.Add (BorderColorSetter (name, borderColor));
-                                Declare (() => ThemeCssValue.Color ((uint) borderColor ()));
-                            } else
+                            if (ThemeCssValues.TryParseColor (value, out var borderColor, out error))
+                                Add (() => ThemeCssValue.Color ((uint) borderColor ()), BorderColorSetter (name, borderColor));
+                            else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
@@ -854,18 +976,16 @@ namespace Majorsilence.Forms
                         case "border-right-width":
                         case "border-bottom-width":
                         case "border-left-width":
-                            if (ThemeCssValues.TryParseLength (value, out var borderWidth, out error)) {
-                                actions.Add (BorderWidthSetter (name, borderWidth));
-                                Declare (() => ThemeCssValue.Length (borderWidth ()));
-                            } else
+                            if (ThemeCssValues.TryParseLength (value, out var borderWidth, out error))
+                                Add (() => ThemeCssValue.Length (borderWidth ()), BorderWidthSetter (name, borderWidth));
+                            else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "border-radius":
-                            if (ThemeCssValues.TryParseLength (value, out var radius, out error)) {
-                                actions.Add (s => s.Border.Radius = radius ());
-                                Declare (() => ThemeCssValue.Length (radius ()));
-                            } else
+                            if (ThemeCssValues.TryParseLength (value, out var radius, out error))
+                                Add (() => ThemeCssValue.Length (radius ()), s => s.Border.Radius = radius ());
+                            else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
@@ -874,52 +994,39 @@ namespace Majorsilence.Forms
                             break;
 
                         case "font-size":
-                            if (ThemeCssValues.TryParseLength (value, out var fontSize, out error)) {
-                                actions.Add (s => s.FontSize = fontSize ());
-                                Declare (() => ThemeCssValue.Length (fontSize ()));
-                            } else
+                            if (ThemeCssValues.TryParseLength (value, out var fontSize, out error))
+                                Add (() => ThemeCssValue.Length (fontSize ()), s => s.FontSize = fontSize ());
+                            else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "font-family":
-                            if (ThemeCssValues.TryParseFontFamilies (value, out var parsedFamilies, out error)) {
-                                families = parsedFamilies;
-                                Declare (() => ThemeCssValue.Families (parsedFamilies ()));
-                            } else
+                            if (ThemeCssValues.TryParseFontFamilies (value, out var parsedFamilies, out error))
+                                AddFont (() => ThemeCssValue.Families (parsedFamilies ())).Families = parsedFamilies;
+                            else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "font-weight":
                             if (ThemeCssValues.TryParseFontWeight (value, out var parsedWeight, out error)) {
-                                weight = parsedWeight;
                                 var weightValue = ThemeCssValue.Weight ((int) parsedWeight);
-                                Declare (() => weightValue);
+                                AddFont (() => weightValue).Weight = parsedWeight;
                             } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
 
                         case "font-style":
                             if (ThemeCssValues.TryParseFontStyle (value, out var parsedSlant, out error)) {
-                                slant = parsedSlant;
                                 var styleValue = ThemeCssValue.Style (parsedSlant switch {
                                     SKFontStyleSlant.Italic => "italic",
                                     SKFontStyleSlant.Oblique => "oblique",
                                     _ => "normal"
                                 });
-                                Declare (() => styleValue);
+                                AddFont (() => styleValue).Slant = parsedSlant;
                             } else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
                     }
-                }
-
-                // The three font properties describe one typeface, so they compile to one assignment.
-                if (families is not null || weight is not null || slant is not null) {
-                    var w = weight ?? SKFontStyleWeight.Normal;
-                    var sl = slant ?? SKFontStyleSlant.Upright;
-                    var fam = families;
-                    actions.Add (s => s.Font = ThemeCssValues.GetTypeface (
-                        fam?.Invoke () ?? new[] { Majorsilence.Forms.SystemFonts.DefaultTypeface.FamilyName }, w, sl));
                 }
 
                 return compiled;
@@ -947,7 +1054,6 @@ namespace Majorsilence.Forms
 
             private void CompileBorderShorthand (List<CssComponent> value, RawDeclaration declaration, CompiledDeclarations compiled)
             {
-                var actions = compiled.Actions;
                 Func<int>? width = null;
                 Func<SKColor>? color = null;
                 ThemeCssToken? widthReference = null;
@@ -1015,14 +1121,16 @@ namespace Majorsilence.Forms
                 // The model sees the longhands the shorthand stands for, in the order a host would apply them.
                 if (width is not null) {
                     var w = width;
-                    actions.Add (s => s.Border.Width = w ());
-                    compiled.Model.Add (new ThemeCssDeclaration ("border-width", () => ThemeCssValue.Length (w ()), widthReference, declaration.Line, declaration.Column));
+                    compiled.Items.Add (new CompiledDeclaration (new ThemeCssDeclaration ("border-width", () => ThemeCssValue.Length (w ()), widthReference, declaration.Line, declaration.Column)) {
+                        Action = s => s.Border.Width = w ()
+                    });
                 }
 
                 if (color is not null) {
                     var c = color;
-                    actions.Add (s => s.Border.Color = c ());
-                    compiled.Model.Add (new ThemeCssDeclaration ("border-color", () => ThemeCssValue.Color ((uint) c ()), colorReference, declaration.Line, declaration.Column));
+                    compiled.Items.Add (new CompiledDeclaration (new ThemeCssDeclaration ("border-color", () => ThemeCssValue.Color ((uint) c ()), colorReference, declaration.Line, declaration.Column)) {
+                        Action = s => s.Border.Color = c ()
+                    });
                 }
             }
 

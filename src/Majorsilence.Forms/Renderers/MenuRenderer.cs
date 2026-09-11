@@ -27,11 +27,12 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderItem (Menu control, MenuItem item, PaintEventArgs e)
         {
             // Background
-            var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor : control.GetEffectiveBackgroundColor ();
+            var item_style = item.Hovered || item.IsDropDownOpened ? Menu.DefaultItemHoverStyle : Menu.DefaultItemStyle;
+            var background_color = item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ();
             e.Canvas.FillRectangle (item.Bounds, background_color);
 
             // Text
-            var font_color = item.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+            var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
 
             e.Canvas.DrawMnemonicText (item.Text, Theme.UIFont, font_size, item.Bounds, font_color, ContentAlignment.MiddleCenter);

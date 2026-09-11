@@ -27,15 +27,17 @@ namespace Majorsilence.Forms.Renderers
             bottom_arrow_area.Width -= 1;
             bottom_arrow_area.Height -= 1;
 
+            var arrow = ScrollBar.DefaultArrowStyle;
+
             // Top Arrow
-            e.Canvas.FillRectangle (top_arrow_area, Theme.ControlLowColor);
-            e.Canvas.DrawRectangle (top_arrow_area, Theme.BorderLowColor);
-            ControlPaint.DrawArrowGlyph (e, top_arrow_area, Theme.ControlHighlightMidColor, GetDecrementArrowDirection (control));
+            e.Canvas.FillRectangle (top_arrow_area, arrow.GetBackgroundColor ());
+            e.Canvas.DrawRectangle (top_arrow_area, arrow.Border.GetColor ());
+            ControlPaint.DrawArrowGlyph (e, top_arrow_area, arrow.GetForegroundColor (), GetDecrementArrowDirection (control));
 
             // Bottom Arrow
-            e.Canvas.FillRectangle (bottom_arrow_area, Theme.ControlLowColor);
-            e.Canvas.DrawRectangle (bottom_arrow_area, Theme.BorderLowColor);
-            ControlPaint.DrawArrowGlyph (e, bottom_arrow_area, Theme.ControlHighlightMidColor, GetIncrementArrowDirection (control));
+            e.Canvas.FillRectangle (bottom_arrow_area, arrow.GetBackgroundColor ());
+            e.Canvas.DrawRectangle (bottom_arrow_area, arrow.Border.GetColor ());
+            ControlPaint.DrawArrowGlyph (e, bottom_arrow_area, arrow.GetForegroundColor (), GetIncrementArrowDirection (control));
 
             if (!control.Enabled)
                 return;
@@ -44,8 +46,19 @@ namespace Majorsilence.Forms.Renderers
             var thumb_bounds = GetThumbDragBounds (control);
 
             if (thumb_bounds.Width > 0 && thumb_bounds.Height > 0) {
-                e.Canvas.FillRectangle (thumb_bounds, Theme.ControlLowColor);
-                e.Canvas.DrawRectangle (thumb_bounds, Theme.BorderLowColor);
+                var thumb = ScrollBar.DefaultThumbStyle;
+                var radius = e.LogicalToDeviceUnits (thumb.Border.GetRadius ());
+                var stroke = thumb.Border.GetWidth ();
+
+                if (radius > 0) {
+                    e.Canvas.FillRoundedRectangle (thumb_bounds.X, thumb_bounds.Y, thumb_bounds.Width, thumb_bounds.Height, thumb.GetBackgroundColor (), radius, radius);
+                    if (stroke > 0)
+                        e.Canvas.DrawRoundedRectangle (thumb_bounds.X, thumb_bounds.Y, thumb_bounds.Width, thumb_bounds.Height, thumb.Border.GetColor (), radius, radius, stroke);
+                } else {
+                    e.Canvas.FillRectangle (thumb_bounds, thumb.GetBackgroundColor ());
+                    if (stroke > 0)
+                        e.Canvas.DrawRectangle (thumb_bounds, thumb.Border.GetColor (), stroke);
+                }
             }
         }
 
