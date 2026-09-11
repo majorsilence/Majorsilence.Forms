@@ -39,8 +39,10 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderItem (ListBox control, object item, int index, Rectangle bounds, PaintEventArgs e)
         {
             // Draw selected background
-            if (control.Items.SelectedIndexes.Contains (index))
-                e.Canvas.FillRectangle (bounds, Theme.ControlHighlightLowColor);
+            var selected = control.Items.SelectedIndexes.Contains (index);
+
+            if (selected)
+                e.Canvas.FillRectangle (bounds, ListBox.DefaultSelectionStyle.GetBackgroundColor ());
 
             // Draw hover background
             else if (control.ShowHover && control.Items.HoveredIndex == index)
@@ -56,7 +58,10 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw text
             // GetItemText, not ToString: items are the bound objects, so DisplayMember decides the text.
-            e.Canvas.DrawText (control.GetItemText (item), bounds, control, ContentAlignment.MiddleLeft, maxLines: 1);
+            if (selected && ListBox.DefaultSelectionStyle.ForegroundColor is { } selection_fg && control.Enabled)
+                e.Canvas.DrawText (control.GetItemText (item), control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, selection_fg, ContentAlignment.MiddleLeft, maxLines: 1);
+            else
+                e.Canvas.DrawText (control.GetItemText (item), bounds, control, ContentAlignment.MiddleLeft, maxLines: 1);
         }
     }
 }

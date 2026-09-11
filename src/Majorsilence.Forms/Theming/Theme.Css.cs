@@ -238,7 +238,7 @@ namespace Majorsilence.Forms
 
             foreach (var sheet in chain)
                 foreach (var rule in sheet.ControlRules) {
-                    var style = rule.Hover ? rule.Selector.GetHoverStyle! () : rule.Selector.GetStyle ();
+                    var style = rule.GetTargetStyle ();
 
                     if (!targets.TryGetValue (style, out var actions)) {
                         actions = new List<Action<ControlStyle>> ();

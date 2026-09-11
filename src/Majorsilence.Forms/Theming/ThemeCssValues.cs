@@ -436,7 +436,10 @@ namespace Majorsilence.Forms
         {
             string? best = null;
             var bestDistance = int.MaxValue;
-            var limit = Math.Max (2, name.Length / 3);
+            // Up to half the characters may differ: 'heading' -> 'header' (3 edits of 7) is the kind of
+            // near miss a suggestion exists for, and the candidate lists are short and distinct enough
+            // that a looser bound does not produce misleading matches.
+            var limit = Math.Max (2, (name.Length + 1) / 2);
 
             foreach (var candidate in candidates) {
                 var lower = name.ToLowerInvariant ();

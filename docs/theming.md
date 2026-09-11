@@ -72,6 +72,17 @@ TextBox, ComboBox, NumericUpDown {
 }
 ```
 
+Pieces *inside* a control -- grid headers, the selected tab, a hovered menu item, the scroll bar thumb --
+are **parts**, addressed as pseudo-elements on the control's selector:
+
+```css
+DataGridView::header    { background-color: #2c2c30; color: #e8e8ea; font-weight: bold; }
+DataGridView::selection { background-color: var(--accent-color); color: var(--foreground-color-on-accent); }
+TabStrip::selected      { border-bottom-color: #f2a93b; border-bottom-width: 2px; }
+Menu::item:hover        { background-color: #34343a; }
+ScrollBar::thumb        { background-color: #55555c; border-radius: 4px; }
+```
+
 Errors are reported with a line, a column, and what to write instead:
 
 ```text
@@ -81,7 +92,8 @@ error (20:1): 'TextBox:hover' is not supported: TextBox does not change appearan
 
 ## The language
 
-A stylesheet has three kinds of statement. Whitespace and `/* comments */` are free.
+A stylesheet has three kinds of statement -- a header, tokens, and control rules (which may target a
+part of a control). Whitespace and `/* comments */` are free.
 
 ### 1. `@theme` header (optional)
 
@@ -130,14 +142,43 @@ TextBox, ComboBox { border: 1px solid #808080; }
 - A rule sets the type's static default style (`Button.DefaultStyle`). Every instance that has not set
   the same property in code (`button.Style.BackgroundColor = ...`, or WinForms `BackColor`) picks it
   up; explicit per-control values still win, as in WinForms.
-- `:hover` is available only on controls that repaint on hover (`Button`, `LinkLabel`, `TrackBar`).
-  The hover style is layered on the normal one, so a `Button:hover` rule only needs the properties that
-  change.
+- `:hover` is available only on controls that repaint on hover (`Button`, `LinkLabel`, `TrackBar`) and
+  on the parts whose renderer tracks item hover (see below). The hover style is layered on the normal
+  one, so a `Button:hover` rule only needs the properties that change.
 - Later declarations replace earlier ones, within a rule and across rules. There is no specificity,
   no cascade, and no `!important`.
 - Derived controls without their own default style follow their base type's rule (`Panel` also styles
   `FlowLayoutPanel`, `TableLayoutPanel`, `TabPage`; `TextBox` also styles `DateTimePicker`; `ListBox`
   also styles `CheckedListBox`).
+
+### 4. Parts -- `Type::part`
+
+```css
+DataGridView::header        { background-color: #2c2c30; color: #e8e8ea; border-bottom-color: #55555c; }
+DataGridView::alternating-row { background-color: #26262a; }
+TabStrip::item:hover        { background-color: #2c2c30; }
+TabStrip::selected          { color: white; border-bottom-color: var(--accent-color); }
+Menu::item, ToolBar::item   { color: #e8e8ea; }
+Menu::item:hover, ToolBar::item:hover, MenuDropDown::item:hover { background-color: var(--accent-color); color: var(--foreground-color-on-accent); }
+ListBox::selection, ListView::selection, TreeView::selection    { background-color: #3a4352; color: white; }
+ScrollBar::thumb            { background-color: #55555c; border-color: transparent; border-radius: 4px; }
+ScrollBar::arrow            { background-color: #2c2c30; color: #9aa0ab; }
+```
+
+- A part is a piece a control paints inside itself that has its own type-level style: the grid's
+  column headers are `DataGridView.DefaultColumnHeaderStyle`, the thumb is `ScrollBar.DefaultThumbStyle`,
+  and so on. Its defaults come from the tokens (a theme that sets only tokens still recolours every part),
+  and a `Type::part` rule overrides exactly that piece.
+- The **Parts** table in the reference lists every part and the properties it **accepts**. A part only
+  honours what its renderer reads; a property outside that list is an error naming the accepted ones,
+  never a silent no-op.
+- `:hover` after a part (`Menu::item:hover`) means "that part when hovered" and is only accepted where
+  the renderer tracks hover: `Menu::item`, `ToolBar::item`, `MenuDropDown::item`, `TabStrip::item`.
+  `ToolBar::item:hover` also covers a checked (toggled) item. The hover style layers on the part's own,
+  so `Menu::item { color }` carries into the hovered item.
+- Per-control values still win over a part rule where the control exposes one (`grid.ColumnHeadersDefaultCellStyle`,
+  `tree.Style.SelectedItemBackgroundColor`), the same way `button.Style.BackgroundColor` wins over a `Button` rule.
+- Selectors without parts (`Button`, `TextBox`, ...) reject `::`; the error lists the controls that have them.
 
 ### Values
 
@@ -160,6 +201,9 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `.primary { color: red; }` | Controls have no CSS classes or ids. | A type rule, and `button.Style.ForegroundColor` in code for one control. |
 | `Panel Button { color: red; }` | A rule applies to every control of the type, wherever it sits. | `Button { color: red; }` |
 | `Button:disabled { color: gray; }` | The only pseudo-class is `:hover`. | `:root { --foreground-disabled-color: gray; }` |
+| `Button::icon { color: red; }` | `Button` has no separately styleable parts; parts exist only where a renderer paints a distinct piece. | `Button { color: red; }`; the reference lists the controls with parts. |
+| `DataGridView::header:hover { color: red; }` | Headers do not react to hover. | `:hover` on parts: `Menu::item`, `ToolBar::item`, `MenuDropDown::item`, `TabStrip::item`. |
+| `ScrollBar::thumb { font-size: 12px; }` | A part accepts only the properties its renderer reads. | See the part's **Accepts** column; the thumb takes `background-color`, `border-*`, `border-radius`. |
 | `TextBox:hover { color: red; }` | `TextBox` does not repaint on hover. | Only `Button`, `LinkLabel`, `TrackBar` take `:hover`. |
 | `Button { font-size: 12pt; }` | Sizes are pixels. | `font-size: 16px;` |
 | `Button { color: red !important; }` | There is no cascade to override. | Put the declaration later in the file. |
@@ -211,15 +255,15 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `Button` | yes |  | Push buttons. Hovering applies the :hover rule on top of the normal one. |
 | `CheckBox` | no |  | Check boxes: the text and the box glyph's surround. |
 | `ComboBox` | no |  | Drop-down selectors (the closed box; the open list is a ListBox). |
-| `DataGridView` | no |  | Data grids: the control background and border. Cells and headers follow the tokens (--control-low-color, --border-low-color, --accent-color). |
+| `DataGridView` | no |  | Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts. |
 | `Form` | no |  | The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own. |
 | `GroupBox` | no |  | Titled group frames: the border colour is the frame, color is the caption. |
 | `Label` | no |  | Static text. |
 | `LinkLabel` | yes |  | Hyperlink text; color is the link colour. Supports :hover. |
-| `ListBox` | no | `CheckedListBox` | Single-column lists (also the ComboBox drop-down list). Item highlight comes from --control-highlight-low-color. |
-| `ListView` | no |  | Icon / detail lists. |
-| `Menu` | no |  | The menu bar. Its items paint on the strip's background; the hovered item uses --control-highlight-low-color. |
-| `MenuDropDown` | no |  | Drop-down and context menus. |
+| `ListBox` | no | `CheckedListBox` | Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part. |
+| `ListView` | no |  | Icon / detail lists. The selected item is the ::selection part. |
+| `Menu` | no |  | The menu bar. Items are the ::item part; they paint on the strip's background unless ::item sets one. |
+| `MenuDropDown` | no |  | Drop-down and context menus. Items are the ::item part. |
 | `MonthCalendar` | no |  | The calendar grid; the selected day uses --accent-color. |
 | `NavigationPane` | no |  | The Outlook-style side navigation bar. |
 | `NumericUpDown` | no |  | Numeric spinners. |
@@ -228,16 +272,35 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `PropertyGrid` | no |  | Property editors. |
 | `RadioButton` | no |  | Radio buttons. |
 | `Ribbon` | no |  | The ribbon; items paint on its background and highlight with --control-highlight-low-color / --control-highlight-mid-color. |
-| `ScrollBar` | no |  | Scroll bars: background-color is the track; the thumb and arrows follow --control-low-color and --border-low-color. |
+| `ScrollBar` | no |  | Scroll bars: background-color is the track; the grip and the arrow buttons are the ::thumb and ::arrow parts. |
 | `SplitContainer` | no |  | Split containers (the splitter bar between the two panels). |
 | `Splitter` | no |  | Stand-alone splitter bars. |
 | `StatusBar` | no |  | The status bar along the bottom of a form. |
 | `TabControl` | no |  | Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels). |
-| `TabStrip` | no |  | The row of tab headers. The selected tab uses --control-low-color with an --accent-color-2 underline. |
+| `TabStrip` | no |  | The row of tab headers. Tabs are the ::item part (with :hover) and the current one the ::selected part. |
 | `TextBox` | no | `DateTimePicker` | Text inputs. Selected text uses --text-selection-background-color. |
-| `ToolBar` | no |  | Tool bars; items highlight with --control-highlight-low-color. |
+| `ToolBar` | no |  | Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item. |
 | `TrackBar` | yes |  | Sliders. Supports :hover. |
-| `TreeView` | no |  | Tree views. |
+| `TreeView` | no |  | Tree views. The selected node is the ::selection part. |
+
+### Parts (`Selector::part` pseudo-elements)
+
+| Part | `:hover` | Accepts | What it is |
+|---|---|---|---|
+| `DataGridView::header` | no | `background-color`, `color`, `border-color`, `border-bottom-color`, `font-family`, `font-size`, `font-weight`, `font-style` | Column headers: background, text colour, font; border-color is the separator between headers, border-bottom-color the line under the header row. |
+| `DataGridView::row-header` | no | `background-color`, `color`, `border-color` | Row headers: background, the current-row indicator (color) and the separator (border-color). |
+| `DataGridView::selection` | no | `background-color`, `color`, `border-color`, `border-width` | The selected row's background and text colour, and the outline of the selected cell in cell-select mode (border-color, border-width). |
+| `DataGridView::alternating-row` | no | `background-color` | The background of every second row. Unset by default (a shade derived from the grid background). |
+| `ListBox::selection` | no | `background-color`, `color` | The selected item's background and, when set, its text colour. |
+| `ListView::selection` | no | `background-color`, `color` | The selected item's background and, when set, its text colour. |
+| `Menu::item` | yes | `background-color`, `color` | A menu bar item: text colour and optional background; :hover is the hovered or open item. |
+| `MenuDropDown::item` | yes | `background-color`, `color` | A drop-down item: background and text colour; :hover is the hovered or open item. |
+| `ScrollBar::thumb` | no | `background-color`, `border-color`, `border-width`, `border-radius` | The draggable grip: fill, outline (border-color, border-width) and corner radius. |
+| `ScrollBar::arrow` | no | `background-color`, `border-color`, `color` | The two arrow buttons: fill, outline and the arrow glyph colour (color). |
+| `TabStrip::item` | yes | `background-color`, `color` | A tab: optional background and the caption colour; :hover is the hovered tab (default --control-low-color). |
+| `TabStrip::selected` | no | `background-color`, `color`, `border-bottom-color`, `border-bottom-width` | The selected tab: optional background, caption colour, and the accent underline (border-bottom-color, border-bottom-width; default --accent-color-2, 3px). |
+| `ToolBar::item` | yes | `background-color`, `color` | A tool bar item: text colour and optional background; :hover is the hovered, open or checked item. |
+| `TreeView::selection` | no | `background-color`, `color` | The selected node's background and, when set, its text colour. |
 
 ### Properties (inside a control rule)
 
@@ -347,7 +410,8 @@ dotnet run --project samples/ThemeStudio -- Themes/ocean.css   # open a file and
 - **Copy reference for AI** puts `ThemeCssReference.ToMarkdown ()` plus a short instruction on the
   clipboard — paste it into a chat with your assistant along with what you want ("a warm, high-contrast
   light theme with rounded buttons") and paste the answer back into the editor.
-- The **Tokens** tab shows every token's current value as a swatch, so you can see which one to change.
+- The **Tokens** tab shows every token's current value as a swatch, and below them every part
+  (`Selector::part`) with its current background and text colour, so you can see which one to change.
 - `--render-headless out.png [theme.css] [--tab N]` renders the preview to a PNG without a display (tabs:
   0 inputs, 1 lists and grids, 2 menus and chrome, 3 token swatches) and exits non-zero if the theme has
   errors — for CI, or for an assistant that wants to *look* at its theme.

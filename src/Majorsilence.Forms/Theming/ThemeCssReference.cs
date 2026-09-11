@@ -89,8 +89,30 @@ namespace Majorsilence.Forms
         /// <summary>Derived controls that share this type's default style and therefore this rule.</summary>
         public IReadOnlyList<string> AlsoAppliesTo { get; }
 
+        /// <summary>
+        /// The pieces inside the control a theme can address as <c>Name::part</c> (see
+        /// <see cref="ThemeCssPart"/>). Empty for controls that paint no separately styleable parts.
+        /// </summary>
+        public IReadOnlyList<ThemeCssPart> Parts { get; private set; } = Array.Empty<ThemeCssPart> ();
+
         internal Func<ControlStyle> GetStyle { get; }
         internal Func<ControlStyle>? GetHoverStyle { get; }
+
+        /// <summary>The type's default <see cref="ControlStyle"/> -- what a <c>Type { ... }</c> rule sets.</summary>
+        public ControlStyle Style => GetStyle ();
+
+        /// <summary>The type's default hover style -- what a <c>Type:hover { ... }</c> rule sets -- or null.</summary>
+        public ControlStyle? HoverStyle => GetHoverStyle?.Invoke ();
+
+        /// <summary>Finds a part by name (case-insensitive), or null.</summary>
+        public ThemeCssPart? FindPart (string name)
+            => Parts.FirstOrDefault (p => string.Equals (p.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        internal ThemeCssSelector WithParts (params ThemeCssPart[] parts)
+        {
+            Parts = parts;
+            return this;
+        }
 
         /// <inheritdoc/>
         public override string ToString () => Name;
@@ -208,16 +230,41 @@ namespace Majorsilence.Forms
                 () => Button.DefaultStyle, () => Button.DefaultStyleHover),
             new ThemeCssSelector ("CheckBox", "Check boxes: the text and the box glyph's surround.", () => CheckBox.DefaultStyle),
             new ThemeCssSelector ("ComboBox", "Drop-down selectors (the closed box; the open list is a ListBox).", () => ComboBox.DefaultStyle),
-            new ThemeCssSelector ("DataGridView", "Data grids: the control background and border. Cells and headers follow the tokens (--control-low-color, --border-low-color, --accent-color).", () => DataGridView.DefaultStyle),
+            new ThemeCssSelector ("DataGridView", "Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts.", () => DataGridView.DefaultStyle)
+                .WithParts (
+                    new ThemeCssPart ("header", "Column headers: background, text colour, font; border-color is the separator between headers, border-bottom-color the line under the header row.",
+                        () => DataGridView.DefaultColumnHeaderStyle, null,
+                        "background-color", "color", "border-color", "border-bottom-color", "font-family", "font-size", "font-weight", "font-style"),
+                    new ThemeCssPart ("row-header", "Row headers: background, the current-row indicator (color) and the separator (border-color).",
+                        () => DataGridView.DefaultRowHeaderStyle, null,
+                        "background-color", "color", "border-color"),
+                    new ThemeCssPart ("selection", "The selected row's background and text colour, and the outline of the selected cell in cell-select mode (border-color, border-width).",
+                        () => DataGridView.DefaultSelectionStyle, null,
+                        "background-color", "color", "border-color", "border-width"),
+                    new ThemeCssPart ("alternating-row", "The background of every second row. Unset by default (a shade derived from the grid background).",
+                        () => DataGridView.DefaultAlternatingRowStyle, null,
+                        "background-color")),
             new ThemeCssSelector ("Form", "The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own.", () => Form.DefaultStyle),
             new ThemeCssSelector ("GroupBox", "Titled group frames: the border colour is the frame, color is the caption.", () => GroupBox.DefaultStyle),
             new ThemeCssSelector ("Label", "Static text.", () => Label.DefaultStyle),
             new ThemeCssSelector ("LinkLabel", "Hyperlink text; color is the link colour. Supports :hover.", () => LinkLabel.DefaultStyle, () => LinkLabel.DefaultStyleHover),
-            new ThemeCssSelector ("ListBox", "Single-column lists (also the ComboBox drop-down list). Item highlight comes from --control-highlight-low-color.",
-                () => ListBox.DefaultStyle, null, "CheckedListBox"),
-            new ThemeCssSelector ("ListView", "Icon / detail lists.", () => ListView.DefaultStyle),
-            new ThemeCssSelector ("Menu", "The menu bar. Its items paint on the strip's background; the hovered item uses --control-highlight-low-color.", () => Menu.DefaultStyle),
-            new ThemeCssSelector ("MenuDropDown", "Drop-down and context menus.", () => MenuDropDown.DefaultStyle),
+            new ThemeCssSelector ("ListBox", "Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part.",
+                () => ListBox.DefaultStyle, null, "CheckedListBox")
+                .WithParts (
+                    new ThemeCssPart ("selection", "The selected item's background and, when set, its text colour.",
+                        () => ListBox.DefaultSelectionStyle, null, "background-color", "color")),
+            new ThemeCssSelector ("ListView", "Icon / detail lists. The selected item is the ::selection part.", () => ListView.DefaultStyle)
+                .WithParts (
+                    new ThemeCssPart ("selection", "The selected item's background and, when set, its text colour.",
+                        () => ListView.DefaultSelectionStyle, null, "background-color", "color")),
+            new ThemeCssSelector ("Menu", "The menu bar. Items are the ::item part; they paint on the strip's background unless ::item sets one.", () => Menu.DefaultStyle)
+                .WithParts (
+                    new ThemeCssPart ("item", "A menu bar item: text colour and optional background; :hover is the hovered or open item.",
+                        () => Menu.DefaultItemStyle, () => Menu.DefaultItemHoverStyle, "background-color", "color")),
+            new ThemeCssSelector ("MenuDropDown", "Drop-down and context menus. Items are the ::item part.", () => MenuDropDown.DefaultStyle)
+                .WithParts (
+                    new ThemeCssPart ("item", "A drop-down item: background and text colour; :hover is the hovered or open item.",
+                        () => MenuDropDown.DefaultItemStyle, () => MenuDropDown.DefaultItemHoverStyle, "background-color", "color")),
             new ThemeCssSelector ("MonthCalendar", "The calendar grid; the selected day uses --accent-color.", () => MonthCalendar.DefaultStyle),
             new ThemeCssSelector ("NavigationPane", "The Outlook-style side navigation bar.", () => NavigationPane.DefaultStyle),
             new ThemeCssSelector ("NumericUpDown", "Numeric spinners.", () => NumericUpDown.DefaultStyle),
@@ -227,16 +274,32 @@ namespace Majorsilence.Forms
             new ThemeCssSelector ("PropertyGrid", "Property editors.", () => PropertyGrid.DefaultStyle),
             new ThemeCssSelector ("RadioButton", "Radio buttons.", () => RadioButton.DefaultStyle),
             new ThemeCssSelector ("Ribbon", "The ribbon; items paint on its background and highlight with --control-highlight-low-color / --control-highlight-mid-color.", () => Ribbon.DefaultStyle),
-            new ThemeCssSelector ("ScrollBar", "Scroll bars: background-color is the track; the thumb and arrows follow --control-low-color and --border-low-color.", () => ScrollBar.DefaultStyle),
+            new ThemeCssSelector ("ScrollBar", "Scroll bars: background-color is the track; the grip and the arrow buttons are the ::thumb and ::arrow parts.", () => ScrollBar.DefaultStyle)
+                .WithParts (
+                    new ThemeCssPart ("thumb", "The draggable grip: fill, outline (border-color, border-width) and corner radius.",
+                        () => ScrollBar.DefaultThumbStyle, null, "background-color", "border-color", "border-width", "border-radius"),
+                    new ThemeCssPart ("arrow", "The two arrow buttons: fill, outline and the arrow glyph colour (color).",
+                        () => ScrollBar.DefaultArrowStyle, null, "background-color", "border-color", "color")),
             new ThemeCssSelector ("SplitContainer", "Split containers (the splitter bar between the two panels).", () => SplitContainer.DefaultStyle),
             new ThemeCssSelector ("Splitter", "Stand-alone splitter bars.", () => Splitter.DefaultStyle),
             new ThemeCssSelector ("StatusBar", "The status bar along the bottom of a form.", () => StatusBar.DefaultStyle),
             new ThemeCssSelector ("TabControl", "Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels).", () => TabControl.DefaultStyle),
-            new ThemeCssSelector ("TabStrip", "The row of tab headers. The selected tab uses --control-low-color with an --accent-color-2 underline.", () => TabStrip.DefaultStyle),
+            new ThemeCssSelector ("TabStrip", "The row of tab headers. Tabs are the ::item part (with :hover) and the current one the ::selected part.", () => TabStrip.DefaultStyle)
+                .WithParts (
+                    new ThemeCssPart ("item", "A tab: optional background and the caption colour; :hover is the hovered tab (default --control-low-color).",
+                        () => TabStrip.DefaultItemStyle, () => TabStrip.DefaultItemHoverStyle, "background-color", "color"),
+                    new ThemeCssPart ("selected", "The selected tab: optional background, caption colour, and the accent underline (border-bottom-color, border-bottom-width; default --accent-color-2, 3px).",
+                        () => TabStrip.DefaultSelectedItemStyle, null, "background-color", "color", "border-bottom-color", "border-bottom-width")),
             new ThemeCssSelector ("TextBox", "Text inputs. Selected text uses --text-selection-background-color.", () => TextBox.DefaultStyle, null, "DateTimePicker"),
-            new ThemeCssSelector ("ToolBar", "Tool bars; items highlight with --control-highlight-low-color.", () => ToolBar.DefaultStyle),
+            new ThemeCssSelector ("ToolBar", "Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item.", () => ToolBar.DefaultStyle)
+                .WithParts (
+                    new ThemeCssPart ("item", "A tool bar item: text colour and optional background; :hover is the hovered, open or checked item.",
+                        () => ToolBar.DefaultItemStyle, () => ToolBar.DefaultItemHoverStyle, "background-color", "color")),
             new ThemeCssSelector ("TrackBar", "Sliders. Supports :hover.", () => TrackBar.DefaultStyle, () => TrackBar.DefaultStyleHover),
-            new ThemeCssSelector ("TreeView", "Tree views.", () => TreeView.DefaultStyle),
+            new ThemeCssSelector ("TreeView", "Tree views. The selected node is the ::selection part.", () => TreeView.DefaultStyle)
+                .WithParts (
+                    new ThemeCssPart ("selection", "The selected node's background and, when set, its text colour.",
+                        () => TreeView.DefaultSelectionStyle, null, "background-color", "color")),
         };
 
         /// <summary>The properties accepted inside a control rule.</summary>
@@ -267,8 +330,12 @@ namespace Majorsilence.Forms
             "font-family", "font-size", "font-weight", "font-style",
         };
 
-        /// <summary>The pseudo-classes a selector may carry. Only <c>:hover</c>, and only on the selectors that support it.</summary>
+        /// <summary>The pseudo-classes a selector may carry. Only <c>:hover</c>, and only on the selectors (and parts) that support it.</summary>
         public static IReadOnlyList<string> PseudoClasses { get; } = new[] { "hover" };
+
+        /// <summary>Every <c>(selector, part)</c> pair a theme can address as <c>Selector::part</c>.</summary>
+        public static IEnumerable<(ThemeCssSelector Selector, ThemeCssPart Part)> Parts
+            => Selectors.SelectMany (s => s.Parts.Select (p => (s, p)));
 
         /// <summary>The CSS named colours a colour value may use (case-insensitive), plus <c>transparent</c>.</summary>
         public static IReadOnlyDictionary<string, SKColor> NamedColors => ThemeCssValues.NamedColors;
@@ -303,6 +370,14 @@ namespace Majorsilence.Forms
             sb.AppendLine ("|---|---|---|---|");
             foreach (var selector in Selectors)
                 sb.AppendLine ($"| `{selector.Name}` | {(selector.SupportsHover ? "yes" : "no")} | {(selector.AlsoAppliesTo.Count == 0 ? "" : string.Join (", ", selector.AlsoAppliesTo.Select (a => $"`{a}`")))} | {Escape (selector.Description)} |");
+
+            sb.AppendLine ();
+            sb.AppendLine ("### Parts (`Selector::part` pseudo-elements)");
+            sb.AppendLine ();
+            sb.AppendLine ("| Part | `:hover` | Accepts | What it is |");
+            sb.AppendLine ("|---|---|---|---|");
+            foreach (var (selector, part) in Parts)
+                sb.AppendLine ($"| `{selector.Name}::{part.Name}` | {(part.SupportsHover ? "yes" : "no")} | {string.Join (", ", part.Properties.Select (p => $"`{p}`"))} | {Escape (part.Description)} |");
 
             sb.AppendLine ();
             sb.AppendLine ("### Properties (inside a control rule)");

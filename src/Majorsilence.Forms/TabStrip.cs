@@ -37,6 +37,26 @@ namespace Majorsilence.Forms
                 style.BackgroundColor = Theme.BackgroundColor;
             });
 
+        // Part styles for the tabs themselves (CSS `TabStrip::item`, `::item:hover`, `::selected`).
+        // Hover and selected layer on the item style, so a colour set on `::item` carries into both.
+
+        /// <summary>The default style of a tab: an optional background and the caption colour (unset = the strip's ambient text colour).</summary>
+        public static readonly ControlStyle DefaultItemStyle = new ControlStyle (null, _ => { });
+
+        /// <summary>The default style of a hovered tab. CSS: <c>TabStrip::item:hover</c>.</summary>
+        public static readonly ControlStyle DefaultItemHoverStyle = new ControlStyle (DefaultItemStyle,
+            (style) => style.BackgroundColor = Theme.ControlLowColor);
+
+        /// <summary>
+        /// The default style of the selected tab; <c>Border.Bottom</c> is the accent underline (colour and
+        /// thickness). CSS: <c>TabStrip::selected</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultSelectedItemStyle = new ControlStyle (DefaultItemStyle,
+            (style) => {
+                style.Border.Bottom.Color = Theme.AccentColor2;
+                style.Border.Bottom.Width = 3;
+            });
+
         private int FindNextTab (int startIndex, bool forward, bool wrap)
         {
             if (forward) {

@@ -34,6 +34,29 @@ namespace Majorsilence.Forms
             (style) => style.BackgroundColor = Theme.ControlMidHighColor);
 
         /// <summary>
+        /// The default style of the thumb (the draggable grip): fill, outline colour/width and corner
+        /// radius. CSS: <c>ScrollBar::thumb</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultThumbStyle = new ControlStyle (null,
+            (style) => {
+                style.BackgroundColor = Theme.ControlLowColor;
+                style.Border.Color = Theme.BorderLowColor;
+                style.Border.Width = 1;
+                style.Border.Radius = 0;
+            });
+
+        /// <summary>
+        /// The default style of the two arrow buttons: fill, outline colour and the glyph colour
+        /// (foreground). CSS: <c>ScrollBar::arrow</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultArrowStyle = new ControlStyle (null,
+            (style) => {
+                style.BackgroundColor = Theme.ControlLowColor;
+                style.Border.Color = Theme.BorderLowColor;
+                style.ForegroundColor = Theme.ControlHighlightMidColor;
+            });
+
+        /// <summary>
         /// Gets or sets the amount the ScrollBar will change when clicked in the track area.
         /// </summary>
         public int LargeChange {

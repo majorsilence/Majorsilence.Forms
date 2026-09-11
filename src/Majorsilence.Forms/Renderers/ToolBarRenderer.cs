@@ -37,12 +37,11 @@ namespace Majorsilence.Forms.Renderers
             // Background. A checked ToolStripButton draws with the pressed background, which is the
             // only way the user can see which mode a toggle button is in (TSM-06); hover still wins so
             // the item reacts under the pointer.
-            var background_color = item.Hovered || item.IsDropDownOpened ? Theme.ControlHighlightLowColor
-                                 : item.Checked ? Theme.ControlHighlightLowColor
-                                 : control.GetEffectiveBackgroundColor ();
+            var item_style = item.Hovered || item.IsDropDownOpened || item.Checked ? ToolBar.DefaultItemHoverStyle : ToolBar.DefaultItemStyle;
+            var background_color = item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ();
             e.Canvas.FillRectangle (item.Bounds, background_color);
 
-            var font_color = item.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+            var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
             var pad = e.LogicalToDeviceUnits (8);
 

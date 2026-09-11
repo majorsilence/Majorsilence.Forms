@@ -126,9 +126,10 @@ namespace Majorsilence.Forms
     /// </summary>
     public sealed class ThemeCssRule
     {
-        internal ThemeCssRule (ThemeCssSelector selector, bool hover, IReadOnlyList<ThemeCssDeclaration> declarations, int line, int column)
+        internal ThemeCssRule (ThemeCssSelector selector, ThemeCssPart? part, bool hover, IReadOnlyList<ThemeCssDeclaration> declarations, int line, int column)
         {
             Selector = selector;
+            Part = part;
             Hover = hover;
             Declarations = declarations;
             Line = line;
@@ -138,7 +139,10 @@ namespace Majorsilence.Forms
         /// <summary>The control type targeted.</summary>
         public ThemeCssSelector Selector { get; }
 
-        /// <summary>Whether this is the <c>Type:hover</c> rule.</summary>
+        /// <summary>The part inside the control targeted (<c>Type::part</c>), or null for the control itself.</summary>
+        public ThemeCssPart? Part { get; }
+
+        /// <summary>Whether this is the <c>:hover</c> variant (of the control, or of the part when <see cref="Part"/> is set).</summary>
         public bool Hover { get; }
 
         /// <summary>The expanded declarations in source order.</summary>
@@ -155,6 +159,8 @@ namespace Majorsilence.Forms
         {
             var sb = new StringBuilder ();
             sb.Append (Selector.Name);
+            if (Part is not null)
+                sb.Append ("::").Append (Part.Name);
             if (Hover)
                 sb.Append (":hover");
             sb.Append (" { ");

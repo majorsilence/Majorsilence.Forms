@@ -96,7 +96,7 @@ namespace Majorsilence.Forms.Renderers
                     : new Rectangle (item.Bounds.Left, item.Bounds.Top,
                         control.ScaledCheckWidth + control.ScaledColumnWidth (control.Columns[0]), item.Bounds.Height);
 
-                e.Canvas.FillRectangle (highlight, Theme.ControlHighlightLowColor);
+                e.Canvas.FillRectangle (highlight, ListView.DefaultSelectionStyle.GetBackgroundColor ());
             }
 
             RenderCheckBox (control, item, e);
@@ -138,7 +138,7 @@ namespace Majorsilence.Forms.Renderers
             var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);
 
             if (item.Selected)
-                e.Canvas.FillRectangle (item.Bounds, Theme.ControlHighlightLowColor);
+                e.Canvas.FillRectangle (item.Bounds, ListView.DefaultSelectionStyle.GetBackgroundColor ());
 
             RenderCheckBox (control, item, e);
 
@@ -167,7 +167,7 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderTile (ListView control, ListViewItem item, PaintEventArgs e)
         {
             if (item.Selected)
-                e.Canvas.FillRectangle (item.Bounds, Theme.ControlHighlightLowColor);
+                e.Canvas.FillRectangle (item.Bounds, ListView.DefaultSelectionStyle.GetBackgroundColor ());
 
             RenderCheckBox (control, item, e);
 
@@ -215,7 +215,11 @@ namespace Majorsilence.Forms.Renderers
                 ? item.SubItems[column].ForeColor
                 : item.ForeColor;
 
-            return color == Color.Empty ? Theme.ForegroundColor : color.ToSKColor ();
+            if (color != Color.Empty)
+                return color.ToSKColor ();
+
+            // A `ListView::selection { color }` rule recolours selected items' text.
+            return item.Selected && ListView.DefaultSelectionStyle.ForegroundColor is { } selection_fg ? selection_fg : Theme.ForegroundColor;
         }
 
         private static Rectangle Padded (Rectangle cell, PaintEventArgs e)

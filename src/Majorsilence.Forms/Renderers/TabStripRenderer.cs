@@ -49,9 +49,14 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderItem (TabStrip control, TabStripItem item, PaintEventArgs e)
         {
-            // Hover background
-            if (item.Hovered && item.Enabled)
-                e.Canvas.FillRectangle (item.Bounds, Theme.ControlLowColor);
+            // The part style for this tab's state: hover wins over selected (a hovered selected tab still
+            // lights up), then the plain item style. A part with no background leaves the strip showing.
+            var item_style = item.Hovered && item.Enabled ? TabStrip.DefaultItemHoverStyle
+                : item.Selected ? TabStrip.DefaultSelectedItemStyle
+                : TabStrip.DefaultItemStyle;
+
+            if (item_style.TryGetBackgroundColor () is { } item_bg)
+                e.Canvas.FillRectangle (item.Bounds, item_bg);
 
             // Draw focus rectangle
             if (control.Selected && control.ShowFocusCues && control.Tabs.FocusedIndex == control.Tabs.IndexOf (item))
@@ -62,7 +67,7 @@ namespace Majorsilence.Forms.Renderers
             // emphasis comes from the accent underline below rather than a bold variant.
             var font_color = !item.Enabled || !control.Enabled
                 ? Theme.ForegroundDisabledColor
-                : control.GetEffectiveForegroundColor ();
+                : item_style.TryGetForegroundColor () ?? control.GetEffectiveForegroundColor ();
             var font = control.GetEffectiveFont ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
 
@@ -85,11 +90,13 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.DrawText (item.Text, font, font_size, text_bounds, font_color, ContentAlignment.MiddleCenter);
 
             if (item.Selected) {
+                var underline = TabStrip.DefaultSelectedItemStyle.Border.Bottom;
                 var highlight_padding = e.LogicalToDeviceUnits (10);
-                var highlight_height = e.LogicalToDeviceUnits (3);
+                var highlight_height = e.LogicalToDeviceUnits (underline.GetWidth ());
                 var highlight_bounds = new Rectangle (item.Bounds.Left + highlight_padding, item.Bounds.Bottom - highlight_height, item.Bounds.Width - (2 * highlight_padding), highlight_height);
 
-                e.Canvas.FillRectangle (highlight_bounds, Theme.AccentColor2);
+                if (highlight_height > 0)
+                    e.Canvas.FillRectangle (highlight_bounds, underline.GetColor ());
             }
         }
     }

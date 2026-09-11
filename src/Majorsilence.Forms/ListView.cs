@@ -117,6 +117,13 @@ namespace Majorsilence.Forms
             (style) => style.BackgroundColor = Theme.ControlLowColor);
 
         /// <summary>
+        /// The default style of the selection highlight: the selected item's background and, when set,
+        /// its text colour. CSS: <c>ListView::selection</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultSelectionStyle = new ControlStyle (null,
+            (style) => style.BackgroundColor = Theme.ControlHighlightLowColor);
+
+        /// <summary>
         /// Raised when a list view item is double-clicked.
         /// </summary>
         public event EventHandler<EventArgs<ListViewItem>>? ItemDoubleClicked;

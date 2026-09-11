@@ -566,6 +566,55 @@ namespace Majorsilence.Forms
                 style.Border.Width = 1;
             });
 
+        // Part styles: the type-level defaults for the pieces a grid paints inside itself. Each derives
+        // its values from the theme tokens (re-run on every theme change) and is the target of the CSS
+        // pseudo-elements `DataGridView::header`, `::row-header`, `::selection`, `::alternating-row`.
+        // A grid's own ColumnHeadersDefaultCellStyle etc. still win over these, as they always did.
+
+        /// <summary>
+        /// The default style of column headers: background, text colour, font, and the separator
+        /// (border) colours -- <c>Border.Bottom</c> is the line under the header row. CSS:
+        /// <c>DataGridView::header</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultColumnHeaderStyle = new ControlStyle (null,
+            (style) => {
+                style.BackgroundColor = Theme.ControlMidColor;
+                style.ForegroundColor = Theme.ForegroundColor;
+                style.Font = Theme.UIFontBold;
+                style.FontSize = Theme.ItemFontSize;
+                style.Border.Color = Theme.BorderLowColor;
+                style.Border.Bottom.Color = Theme.BorderMidColor;
+            });
+
+        /// <summary>
+        /// The default style of row headers: background, the selection-indicator colour (foreground)
+        /// and the separator colour. CSS: <c>DataGridView::row-header</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultRowHeaderStyle = new ControlStyle (null,
+            (style) => {
+                style.BackgroundColor = Theme.ControlMidColor;
+                style.ForegroundColor = Theme.ForegroundColor;
+                style.Border.Color = Theme.BorderLowColor;
+            });
+
+        /// <summary>
+        /// The default style of the selection: the selected row's background and (when set) text
+        /// colour, and the outline (border colour and width) of the selected cell in cell-select mode.
+        /// CSS: <c>DataGridView::selection</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultSelectionStyle = new ControlStyle (null,
+            (style) => {
+                style.BackgroundColor = Theme.ControlHighlightLowColor;
+                style.Border.Color = Theme.AccentColor;
+                style.Border.Width = 2;
+            });
+
+        /// <summary>
+        /// The default background of alternating rows. Unset by default, in which case the renderer
+        /// derives a slightly darker shade of the grid background. CSS: <c>DataGridView::alternating-row</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultAlternatingRowStyle = new ControlStyle (null, _ => { });
+
         /// <summary>Gets or sets the data member within the data source. Stub in Majorsilence.Forms.</summary>
         public string DataMember {
             get => data_member;

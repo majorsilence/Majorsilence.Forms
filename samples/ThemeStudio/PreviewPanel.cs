@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Linq;
 using Majorsilence.Forms;
 using Majorsilence.Forms.Renderers;
 using SkiaSharp;
@@ -22,8 +23,11 @@ namespace ThemeStudio
             BuildLists (tabs.TabPages.Add ("Lists & grids"));
             BuildChrome (tabs.TabPages.Add ("Menus & chrome"));
 
+            // The swatch list is taller than the page once the parts are included, so the page scrolls
+            // and the list takes its preferred height rather than filling.
             var tokens = tabs.TabPages.Add ("Tokens");
-            swatches = tokens.Controls.Add (new TokenSwatches { Dock = DockStyle.Fill });
+            tokens.AutoScroll = true;
+            swatches = tokens.Controls.Add (new TokenSwatches { Dock = DockStyle.Top, Height = TokenSwatches.PreferredHeight });
         }
 
         public void RefreshTokens () => swatches.Invalidate ();
@@ -187,11 +191,17 @@ namespace ThemeStudio
     // token drives which colour and copy the value that is there now.
     public class TokenSwatches : Panel
     {
+        private const int RowHeight = 26;
+
+        /// <summary>The logical height of the whole list: one row per token, a heading, and one row per part (two when it has a hover state).</summary>
+        public static int PreferredHeight
+            => 10 + (ThemeCssReference.Tokens.Count + 2 + ThemeCssReference.Parts.Sum (p => p.Part.SupportsHover ? 2 : 1)) * RowHeight + 10;
+
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
 
-            var rowHeight = LogicalToDeviceUnits (26);
+            var rowHeight = LogicalToDeviceUnits (RowHeight);
             var swatch = LogicalToDeviceUnits (44);
             var left = LogicalToDeviceUnits (12);
             var y = LogicalToDeviceUnits (10);
@@ -218,11 +228,53 @@ namespace ThemeStudio
                 e.Canvas.DrawText (value, font, fontSize, valueBounds, foreground, ContentAlignment.MiddleLeft);
 
                 var descriptionBounds = new Rectangle (valueBounds.Right, y, Math.Max (0, ScaledSize.Width - valueBounds.Right - left), textBounds.Height);
-                e.Canvas.DrawText (token.Description, font, fontSize, descriptionBounds, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft);
+                e.Canvas.DrawText (token.Description, font, fontSize, descriptionBounds, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: true);
 
                 y += rowHeight;
             }
+
+            // Parts: the current background (left half) and text colour (right half) of each
+            // `Selector::part`, so a designer sees which pseudo-element paints which piece.
+            y += LogicalToDeviceUnits (8);
+            e.Canvas.DrawText ("Parts (Selector::part) -- background | text", Theme.UIFontBold, fontSize,
+                new Rectangle (left, y, LogicalToDeviceUnits (600), rowHeight), foreground, ContentAlignment.MiddleLeft);
+            y += rowHeight;
+
+            foreach (var (selector, part) in ThemeCssReference.Parts) {
+                DrawPartRow (e, $"{selector.Name}::{part.Name}", part.Style, part.Description, left, y, swatch, rowHeight, nameWidth, valueWidth, fontSize, font, foreground, border);
+                y += rowHeight;
+
+                if (part.HoverStyle is { } hover) {
+                    DrawPartRow (e, $"{selector.Name}::{part.Name}:hover", hover, "The same part when hovered.", left, y, swatch, rowHeight, nameWidth, valueWidth, fontSize, font, foreground, border);
+                    y += rowHeight;
+                }
+            }
         }
+
+        private void DrawPartRow (PaintEventArgs e, string name, ControlStyle style, string description, int left, int y, int swatch, int rowHeight, int nameWidth, int valueWidth, int fontSize, SKTypeface font, SKColor foreground, SKColor border)
+        {
+            var height = rowHeight - LogicalToDeviceUnits (6);
+            var half = swatch / 2;
+
+            // A part with no background of its own shows the strip/list behind it; draw that as a gap.
+            if (style.BackgroundColor is { } background || (style.GetBackgroundColor () is { } inherited && (background = inherited) != default))
+                e.Canvas.FillRectangle (left, y, half, height, background);
+            e.Canvas.FillRectangle (left + half, y, swatch - half, height, style.GetForegroundColor ());
+            e.Canvas.DrawRectangle (left, y, swatch, height, border);
+
+            var textBounds = new Rectangle (left + swatch + LogicalToDeviceUnits (10), y, nameWidth, height);
+            e.Canvas.DrawText (name, font, fontSize, textBounds, foreground, ContentAlignment.MiddleLeft);
+
+            var valueBounds = new Rectangle (textBounds.Right, y, valueWidth, height);
+            var value = (style.BackgroundColor is { } bg ? ThemeCssValueText (bg) : "(inherits)") + " | " + ThemeCssValueText (style.GetForegroundColor ());
+            e.Canvas.DrawText (value, font, fontSize, valueBounds, foreground, ContentAlignment.MiddleLeft);
+
+            var descriptionBounds = new Rectangle (valueBounds.Right, y, Math.Max (0, ScaledSize.Width - valueBounds.Right - left), height);
+            e.Canvas.DrawText (description, font, fontSize, descriptionBounds, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: true);
+        }
+
+        private static string ThemeCssValueText (SKColor color)
+            => color.Alpha == 255 ? $"#{color.Red:x2}{color.Green:x2}{color.Blue:x2}" : $"#{color.Red:x2}{color.Green:x2}{color.Blue:x2}{color.Alpha:x2}";
 
         private SKColor GetEffectiveForeground () => Style.ForegroundColor ?? Theme.ForegroundColor;
     }

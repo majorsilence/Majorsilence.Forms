@@ -52,6 +52,14 @@ namespace Majorsilence.Forms
         /// </summary>
         public event EventHandler<TreeViewCancelEventArgs>? BeforeExpand;
 
+        /// <summary>
+        /// The default style of the selected node's highlight: its background and, when set, its text
+        /// colour. The per-instance <see cref="TreeViewControlStyle.SelectedItemBackgroundColor"/> still
+        /// wins. CSS: <c>TreeView::selection</c>.
+        /// </summary>
+        public static readonly ControlStyle DefaultSelectionStyle = new ControlStyle (null,
+            (style) => style.BackgroundColor = Theme.ControlHighlightLowColor);
+
         /// <inheritdoc/>
         public new static readonly TreeViewControlStyle DefaultStyle = new TreeViewControlStyle (Control.DefaultStyle,
             (style) => {
@@ -59,7 +67,9 @@ namespace Majorsilence.Forms
                 style.Border.Width = 1;
 
                 if (style is TreeViewControlStyle s)
-                    s.SelectedItemBackgroundColor = Theme.ControlHighlightLowColor;
+                    // Resolved through DefaultSelectionStyle (see GetSelectedItemBackgroundColor), so a CSS
+                    // `TreeView::selection` rule reaches every tree that did not pin its own colour.
+                    s.SelectedItemBackgroundColor = null;
             });
 
         /// <inheritdoc/>
@@ -1298,7 +1308,7 @@ namespace Majorsilence.Forms
             /// <summary>
             /// Gets the computed selected item background color.
             /// </summary>
-            public SKColor GetSelectedItemBackgroundColor () => SelectedItemBackgroundColor ?? (_parent as TreeViewControlStyle)?.GetSelectedItemBackgroundColor () ?? Theme.ControlHighlightLowColor;
+            public SKColor GetSelectedItemBackgroundColor () => SelectedItemBackgroundColor ?? (_parent as TreeViewControlStyle)?.GetSelectedItemBackgroundColor () ?? TreeView.DefaultSelectionStyle.GetBackgroundColor ();
         }
     }
 }
