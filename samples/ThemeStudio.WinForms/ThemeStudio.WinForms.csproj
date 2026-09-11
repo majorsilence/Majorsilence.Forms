@@ -1,10 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Windows-only (System.Windows.Forms host app). Off Windows this compiles to an empty
-       placeholder so the full-solution build stays green on the Linux/macOS CI legs. -->
+  <!-- The Windows-only head of the Theme Studio: the same CSS editor and diagnostics as
+       samples/ThemeStudio, with a REAL System.Windows.Forms preview (one of each mapped control)
+       applied through Majorsilence.Forms.Theming.WinForms. The Avalonia-hosted Studio cannot show
+       WinForms controls, and WinForms only builds and runs on Windows — off Windows this compiles to
+       an empty placeholder so the full-solution build stays green on the Linux/macOS CI legs. -->
 
   <PropertyGroup>
     <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
+    <RootNamespace>ThemeStudio.WinForms</RootNamespace>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
@@ -20,14 +24,12 @@
 
   <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
-    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinForms\Majorsilence.Forms.WinForms.csproj" />
-    <!-- One stylesheet for both halves: the native WinForms controls and the embedded
-         Majorsilence.Forms scene are themed from Themes/graphite.css (see Program.cs). -->
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Theming.WinForms\Majorsilence.Forms.Theming.WinForms.csproj" />
   </ItemGroup>
 
+  <!-- The same example themes as the Avalonia head, so one file can be opened in both. -->
   <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
-    <None Include="..\ThemeStudio\Themes\graphite.css" Link="Themes\graphite.css" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\ThemeStudio\Themes\*.css" Link="Themes\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

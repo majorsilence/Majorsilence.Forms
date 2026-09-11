@@ -25,6 +25,7 @@
     <Project Path="samples/PointOfSale/PointOfSale.Contracts/PointOfSale.Contracts.csproj" />
     <Project Path="samples/PointOfSale/PointOfSale.Data/PointOfSale.Data.csproj" />
     <Project Path="samples/ThemeStudio/ThemeStudio.csproj" />
+    <Project Path="samples/ThemeStudio.WinForms/ThemeStudio.WinForms.csproj" />
     <Project Path="samples/WinFormsCompatDemo/WinFormsCompatDemo.csproj" />
   </Folder>
   <Folder Name="/src/">
@@ -34,6 +35,7 @@
     <Project Path="src/Majorsilence.Forms.DrawingShims/Majorsilence.Forms.DrawingShims.csproj" />
     <Project Path="src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj" />
     <Project Path="src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj" />
+    <Project Path="src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj" />
     <Project Path="src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj" />
     <Project Path="src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj" />
     <Project Path="src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj" />
@@ -48,6 +50,7 @@
     <Project Path="tests/Majorsilence.Forms.Mcp.Tests/Majorsilence.Forms.Mcp.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Migrator.Tests/Majorsilence.Forms.Migrator.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Tests/Majorsilence.Forms.Tests.csproj" />
+    <Project Path="tests/Majorsilence.Forms.Theming.WinForms.Tests/Majorsilence.Forms.Theming.WinForms.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.WindowsUIAutomation.Tests/Majorsilence.Forms.WindowsUIAutomation.Tests.csproj" />
     <Project Path="tests/PointOfSale.Data.Tests/PointOfSale.Data.Tests.csproj" />
   </Folder>

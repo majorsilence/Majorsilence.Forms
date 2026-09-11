@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Applies the CSS theme subset (docs/theming.md) to REAL System.Windows.Forms controls, so a
+       mixed migration app — Majorsilence.Forms controls embedded in a WinForms shell, or the
+       reverse — can be themed from one stylesheet: same tokens, same selectors, same diagnostics.
+       See docs/theming-winforms.md for the property × control support matrix.
+
+       Depends only on the Majorsilence.Forms core (for the parser and the host-neutral
+       ThemeStyleSheet.Tokens / Rules model), never on the Skia-backed renderers: the point is to
+       set native WinForms properties (BackColor, FlatAppearance, DataGridView cell styles, a
+       ToolStrip color table), not to redraw anything.
+
+       Targets net8.0-windows / net10.0-windows only — WinForms property theming has no meaning on
+       .NET Framework's older surface here (no Application.SetDefaultFont / SetColorMode) and the
+       repo's WinForms interop story for net48 lives in Majorsilence.Forms.WinForms. Off Windows the
+       Windows Desktop targeting pack does not exist, so this compiles to an empty placeholder to
+       keep the full-solution `dotnet build` green on the Linux/macOS CI legs. -->
+
+  <PropertyGroup>
+    <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
+    <TargetFrameworks Condition="'$(_IsWindowsBuild)' == 'true'">net8.0-windows;net10.0-windows</TargetFrameworks>
+    <TargetFrameworks Condition="'$(_IsWindowsBuild)' != 'true'">net8.0</TargetFrameworks>
+    <PackageId>Majorsilence.Forms.Theming.WinForms</PackageId>
+    <Description>Applies Majorsilence.Forms CSS themes to real System.Windows.Forms controls — one stylesheet restyles both halves of a mixed migration app. Walks the control tree and sets native properties (colors, fonts, FlatAppearance, DataGridView cell styles, a ToolStrip renderer, the Windows 11 title bar), keeps styling controls created later, and reports what WinForms cannot express as diagnostics instead of silently ignoring it.</Description>
+    <PackageTags>winforms;windows-forms;theming;css;dark-mode;majorsilence-forms;windows</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <!-- Off Windows this project is build-only (the shipped package is always produced by the Windows
+       CI leg — see release.yml's pack-windows job). -->
+  <PropertyGroup Condition="'$(_IsWindowsBuild)' != 'true'">
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(_IsWindowsBuild)' == 'true'">
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -13,7 +13,14 @@ namespace Majorsilence.Forms
         Warning,
 
         /// <summary>The offending declaration or rule was ignored.</summary>
-        Error
+        Error,
+
+        /// <summary>
+        /// Nothing is wrong with the stylesheet; the message tells the author something about how it
+        /// applies. Used by host appliers (e.g. the System.Windows.Forms one) to report selectors and
+        /// properties their toolkit has no counterpart for -- the sheet stays valid for every host.
+        /// </summary>
+        Info
     }
 
     /// <summary>
@@ -48,7 +55,7 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc/>
         public override string ToString ()
-            => $"{(Severity == ThemeCssSeverity.Error ? "error" : "warning")} ({Line}:{Column}): {Message}";
+            => $"{Severity switch { ThemeCssSeverity.Error => "error", ThemeCssSeverity.Info => "info", _ => "warning" }} ({Line}:{Column}): {Message}";
     }
 
     /// <summary>
