@@ -43,8 +43,6 @@ Majorsilence.Forms.DataGridTableStyle.SelectionBackColorChanged
 Majorsilence.Forms.DataGridTableStyle.SelectionForeColorChanged
 Majorsilence.Forms.DataGridTextBox.KeyPress
 Majorsilence.Forms.DataGridTextBox.TextChanged
-Majorsilence.Forms.DataGridView.CellLeave
-Majorsilence.Forms.DataGridView.CurrentCellDirtyStateChanged
 Majorsilence.Forms.DataGridView.Sorted
 Majorsilence.Forms.DataGridViewColumnCollection.CollectionChanged
 Majorsilence.Forms.DateTimePicker.CloseUp

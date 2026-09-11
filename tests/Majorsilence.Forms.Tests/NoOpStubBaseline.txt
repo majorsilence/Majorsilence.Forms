@@ -59,7 +59,6 @@ Majorsilence.Forms.DataGrid.Expand/1
 Majorsilence.Forms.DataGrid.NavigateBack/0
 Majorsilence.Forms.DataGrid.NavigateTo/2
 Majorsilence.Forms.DataGrid.SubObjectsSiteChange/1
-Majorsilence.Forms.DataGridView.NotifyCurrentCellDirty/1
 Majorsilence.Forms.DataGridView.RefreshEdit/0
 Majorsilence.Forms.DataGridViewCell.DetachEditingControl/0
 Majorsilence.Forms.DataGridViewCell.InitializeEditingControl/3

@@ -684,11 +684,31 @@ into an empty strip. *Closed:* `BND-11`, `BND-12`.
 Independent of each other; parallelise freely. Each closes a block of P0/P1 findings in one control
 family. Ordered by traffic in a typical LOB app.
 
-**W5.1 — `DataGridView` editing lifecycle.** `BeginEdit(bool)`, per-column editor types, the dirty
-flag (`IsCurrentCellDirty`, `NotifyCurrentCellDirty`, `CurrentCellDirtyStateChanged`), typed conversion
-via `ParseFormattedValue`, `DataError` raised rather than swallowed, `ReadOnly` honoured, and the
-upstream event order (`CellBeginEdit` → `EditingControlShowing` → … → `CellEndEdit`).
-*Closes:* `DGV-01` (P0), `DGV-06`, `DGV-07`, `DGV-08`, `DGV-10`, `DGV-11`.
+**W5.1 — `DataGridView` editing lifecycle. — DONE (2026-09-11).** `DGV-01` (P0), `DGV-06`, `DGV-07`,
+`DGV-08`, `DGV-10`, `DGV-11`, and `DGV-09` with them — that one is a single missing raise in
+`CancelEdit`, in the same method family, and leaving a one-line P2 behind for a later branch to touch
+the same code again is worse than carrying it. 40 tests, 18 neutralizations each producing a failure.
+`BeginEdit (bool)` — which was `{ return true; }`, the only public WinForms way to start an edit from
+code — edits the current cell and *reports* whether it did, so a refusal is visible. The column, the
+row and the cell each get a `ReadOnly` veto through `IsCellEditable`, which asks
+`Cell.InheritedState` rather than re-checking four properties. `EditMode` decides what opens an
+editor: F2, a keystroke, a click on the already-current cell, or becoming current. `IsCurrentCellDirty`
+is a tracked flag that starts **false** and moves through one `SetCurrentCellDirty`, so
+`CurrentCellDirtyStateChanged` fires on the transition and the commit-a-checkbox-immediately idiom
+works. `EditingControl` is the live editor. The commit converts to the resolved value type — column,
+then cell, then bound member — and a failure raises `DataError` and *stays in edit mode* with the bad
+text on screen.
+*One structural change worth naming:* every current-cell move now goes through a single
+`MoveCurrentCell`, which runs validate → leave → assign → enter → changed once per move. Before,
+`CurrentCellChanged` was raised only from the `CurrentCell` setter, so a click never raised it; and
+`CellValidating` ran only inside `EndEdit`, so a cell that was never edited was never validated.
+Putting it in one place is what stops a two-index move (a cell-mode click sets both) announcing twice.
+*A trap found here:* `DataGridViewCell.ParseFormattedValue` converts to the **cell's** `ValueType`,
+which is normally unset when the type was declared on the column — so it hands the string straight
+back. The cell hook is still asked first, so a derived cell type overriding it is honoured, but its
+result is *checked* against the resolved target rather than trusted, and the commit falls through to a
+`TypeConverter` on that target. Trusting it was the first version, and it made a typed commit silently
+store a string while every test still passed.
 
 **W5.2 — `DataGridView` cell/row/column objects become participants.**
 Split into two, because the selection model is a different size of job from the two value/visibility
@@ -1435,8 +1455,8 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring) done. **The text cluster has no P0s left, and so has the ToolStrip cluster** — `TSM-02` was closed by W1.3 in Phase 1 (see `MenuShortcutTests.cs`), which the findings file had not recorded. The rest not started. |
-| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11. **Open:** **W5.3**, **W5.4**, **W5.5** (the rest of `DataGridView`), **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
+| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
