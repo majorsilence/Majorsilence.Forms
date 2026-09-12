@@ -205,6 +205,7 @@ jobs:
               src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj
               src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
               src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
+              src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj
 
     runs-on: ${{ matrix.os }}
 

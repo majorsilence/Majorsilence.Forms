@@ -39,6 +39,34 @@ dotnet test -c Release --filter "FullyQualifiedName!~Migrator"   # everything ex
   when adding one.
 - Packages are centrally versioned in `Directory.Packages.props`; no `Version=` on a `PackageReference`.
 
+## Adding a new consumer-facing project
+
+A new library project meant for consumers (not a sample/test/internal tool) must:
+
+1. Be packable: set `<PackageId>`, `<Description>`, `<PackageTags>`, `<PackageOutputPath>../../nupkg</PackageOutputPath>`,
+   and a `README.md` via `<PackageReadmeFile>` — copy `src/Majorsilence.Forms.Theming.WinForms/`'s
+   csproj as a template, including its Windows-only-placeholder pattern if applicable.
+2. Be added to the `PACKABLE_PROJECTS` (cross-platform) or `PACKABLE_PROJECTS_WINDOWS`
+   (`net*-windows` / `UseWindowsForms`/`UseWPF`) list in **all three** places that enumerate them by
+   hand: the `pack` job matrix in `.github/workflows/dotnet.yml`, and the top-level env block in both
+   `.github/workflows/release.yml` and `.github/workflows/publish-nuget.yml`. Each already says "keep
+   in sync" in a comment for exactly this reason — miss one and the package either builds in CI but
+   never reaches a GitHub Release/nuget.org, or ships from a path CI never packed.
+
+There is no wildcard/auto-discovery for this today, and it's a deliberate choice, not an oversight: the
+split between the two lists exists because Windows-only projects need a `windows-latest` runner and
+compile to an empty placeholder on the Linux/macOS legs, so a naive `**/*.csproj` glob would either pack
+those (empty package) on Linux or need an `IsPackable` probe run per-OS before every pack step. That's
+possible (`dotnet msbuild <path> -getProperty:IsPackable`, filtered per runner OS) but nobody has built
+and proven it, so for now update the three lists by hand — grep the repo for `PACKABLE_PROJECTS` to find
+all of them before adding a project.
+
+A new consumer-facing **sample** worth shipping prebuilt (a runnable desktop/mobile/web app, not source)
+follows a different path: add a `sample-<name>` job to `release.yml` that publishes and zips/packages
+it (see `sample-wasm`, `sample-android`, `sample-themestudio` for the pattern), then add that job's name
+to the `release` job's `needs:` list — it already globs `*.zip`/`*.apk`/`*.aab`/`*.nupkg`/`*.snupkg` out
+of the downloaded `artifacts/` directory, so nothing else changes there.
+
 ## Conventions the analyzers do not enforce
 
 - A space before every parameter list: `Method (arg)`, `new Size (1, 2)`, `Foo ()`. Block-scoped
@@ -85,3 +113,6 @@ macOS, 13px elsewhere). Render through `HeadlessRenderer` rather than showing wi
 
 Do not commit or push on the user's behalf; leave the working tree for them to review. Branch off
 `main`; PRs target `main` and must be up to date with it before merging.
+
+Do not add `Co-Authored-By`, `Claude-Session`, "Generated with Claude Code", or similar
+attribution/session trailers to commit messages or PR descriptions — plain messages only.
