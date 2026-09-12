@@ -381,18 +381,38 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      # -p:EnableMobileHeads=false: windows-latest ships the android workload's SDK pack
+      # preinstalled, which auto-adds a net10.0-android row to Majorsilence.Forms.Avalonia
+      # (see Directory.Build.props' EnableAndroidHead detection) -- fine for a plain
+      # `dotnet build`, but a self-contained `dotnet publish -r win-x64` then tries to
+      # restore a Mono runtime pack for that TFM against the win-x64 RID, which doesn't
+      # exist (NU1102: Microsoft.NETCore.App.Runtime.Mono.win-x64). ThemeStudio never
+      # targets android, so force the row off explicitly rather than relying on runner
+      # image contents.
       - name: Publish ThemeStudio (${{ matrix.rid }}, self-contained)
         run: >-
           dotnet publish samples/ThemeStudio/ThemeStudio.csproj
           --configuration Release -r ${{ matrix.rid }} --self-contained true
+          -p:EnableMobileHeads=false
           -o "${{ github.workspace }}/themestudio-out"
-      - name: Zip ThemeStudio (${{ matrix.rid }})
+      # zip isn't on the GitHub-hosted windows-latest image (Git Bash has no `zip`), so
+      # Windows uses PowerShell's Compress-Archive instead.
+      - name: Zip ThemeStudio (${{ matrix.rid }}, Unix)
+        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           set -euo pipefail
           V="${{ needs.version.outputs.version }}"
           cd "${{ github.workspace }}/themestudio-out"
           zip -r "${{ github.workspace }}/themestudio-${{ matrix.rid }}${V:+-$V}.zip" .
+      - name: Zip ThemeStudio (${{ matrix.rid }}, Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $v = "${{ needs.version.outputs.version }}"
+          $suffix = if ($v) { "-$v" } else { "" }
+          Compress-Archive -Path "${{ github.workspace }}\themestudio-out\*" `
+            -DestinationPath "${{ github.workspace }}\themestudio-${{ matrix.rid }}$suffix.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: sample-themestudio-${{ matrix.rid }}
@@ -417,13 +437,15 @@ jobs:
           dotnet publish samples/ThemeStudio.WinForms/ThemeStudio.WinForms.csproj
           --configuration Release -r win-x64 --self-contained true
           -o "${{ github.workspace }}/themestudio-winforms-out"
+      # zip isn't on the GitHub-hosted windows-latest image (Git Bash has no `zip`), so
+      # use PowerShell's Compress-Archive instead -- see the matching comment above.
       - name: Zip ThemeStudio.WinForms
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          V="${{ needs.version.outputs.version }}"
-          cd "${{ github.workspace }}/themestudio-winforms-out"
-          zip -r "${{ github.workspace }}/themestudio-winforms-win-x64${V:+-$V}.zip" .
+          $v = "${{ needs.version.outputs.version }}"
+          $suffix = if ($v) { "-$v" } else { "" }
+          Compress-Archive -Path "${{ github.workspace }}\themestudio-winforms-out\*" `
+            -DestinationPath "${{ github.workspace }}\themestudio-winforms-win-x64$suffix.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: sample-themestudio-winforms
