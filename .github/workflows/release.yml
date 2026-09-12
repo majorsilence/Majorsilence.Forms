@@ -67,6 +67,7 @@ env:
     src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj
     src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
     src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
+    src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -349,11 +350,114 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
+  # Theme Studio zips. Both heads are self-contained (no .NET runtime required to
+  # run them) so a reviewer can download, unzip, and try the CSS theme editor
+  # (docs/samples.md) with no toolchain installed.
+  #
+  # ThemeStudio (Avalonia) is cross-platform, so it's published once per RID on a
+  # runner that natively matches it -- win-x64 on windows-latest, linux-x64 on
+  # ubuntu-latest, osx-arm64 on macos-latest (macos-latest is Apple Silicon) --
+  # the same "build where it ships" approach as sample-android / sample-ios above,
+  # rather than cross-publishing.
+  # ---------------------------------------------------------------------------
+  sample-themestudio:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: osx-arm64
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      # -p:EnableMobileHeads=false: windows-latest ships the android workload's SDK pack
+      # preinstalled, which auto-adds a net10.0-android row to Majorsilence.Forms.Avalonia
+      # (see Directory.Build.props' EnableAndroidHead detection) -- fine for a plain
+      # `dotnet build`, but a self-contained `dotnet publish -r win-x64` then tries to
+      # restore a Mono runtime pack for that TFM against the win-x64 RID, which doesn't
+      # exist (NU1102: Microsoft.NETCore.App.Runtime.Mono.win-x64). ThemeStudio never
+      # targets android, so force the row off explicitly rather than relying on runner
+      # image contents.
+      - name: Publish ThemeStudio (${{ matrix.rid }}, self-contained)
+        run: >-
+          dotnet publish samples/ThemeStudio/ThemeStudio.csproj
+          --configuration Release -r ${{ matrix.rid }} --self-contained true
+          -p:EnableMobileHeads=false
+          -o "${{ github.workspace }}/themestudio-out"
+      # zip isn't on the GitHub-hosted windows-latest image (Git Bash has no `zip`), so
+      # Windows uses PowerShell's Compress-Archive instead.
+      - name: Zip ThemeStudio (${{ matrix.rid }}, Unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="${{ needs.version.outputs.version }}"
+          cd "${{ github.workspace }}/themestudio-out"
+          zip -r "${{ github.workspace }}/themestudio-${{ matrix.rid }}${V:+-$V}.zip" .
+      - name: Zip ThemeStudio (${{ matrix.rid }}, Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $v = "${{ needs.version.outputs.version }}"
+          $suffix = if ($v) { "-$v" } else { "" }
+          Compress-Archive -Path "${{ github.workspace }}\themestudio-out\*" `
+            -DestinationPath "${{ github.workspace }}\themestudio-${{ matrix.rid }}$suffix.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sample-themestudio-${{ matrix.rid }}
+          path: themestudio-*.zip
+          if-no-files-found: error
+
+  # ThemeStudio.WinForms only builds and runs on Windows (real System.Windows.Forms,
+  # via Majorsilence.Forms.Theming.WinForms) -- one RID, no matrix needed.
+  sample-themestudio-winforms:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish ThemeStudio.WinForms (win-x64, self-contained)
+        run: >-
+          dotnet publish samples/ThemeStudio.WinForms/ThemeStudio.WinForms.csproj
+          --configuration Release -r win-x64 --self-contained true
+          -o "${{ github.workspace }}/themestudio-winforms-out"
+      # zip isn't on the GitHub-hosted windows-latest image (Git Bash has no `zip`), so
+      # use PowerShell's Compress-Archive instead -- see the matching comment above.
+      - name: Zip ThemeStudio.WinForms
+        shell: pwsh
+        run: |
+          $v = "${{ needs.version.outputs.version }}"
+          $suffix = if ($v) { "-$v" } else { "" }
+          Compress-Archive -Path "${{ github.workspace }}\themestudio-winforms-out\*" `
+            -DestinationPath "${{ github.workspace }}\themestudio-winforms-win-x64$suffix.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sample-themestudio-winforms
+          path: themestudio-winforms-*.zip
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
   # On a tag build (or manual dispatch with a version), collect everything into a
   # draft GitHub Release. Nothing here touches nuget.org -- see publish-nuget.yml.
   # ---------------------------------------------------------------------------
   release:
-    needs: [version, pack, pack-windows, sample-wasm, sample-android, sample-ios]
+    needs: [version, pack, pack-windows, sample-wasm, sample-android, sample-ios, sample-themestudio, sample-themestudio-winforms]
     runs-on: ubuntu-latest
     if: needs.version.outputs.is_release == 'true'
     steps:
