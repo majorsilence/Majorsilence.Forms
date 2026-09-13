@@ -546,22 +546,12 @@ namespace Majorsilence.Forms
         /// and populates the rows from the collection.
         /// </summary>
         public object? DataSource {
-            get => data_source;
+            // What was assigned, not what it resolved to: ((DataTable)grid.DataSource) must work after
+            // grid.DataSource = table, and the getter used to hand back the DataView (DGV-32).
+            get => data_source_object;
             set {
-                // WinForms accepts any list-like source. Resolve the common ADO.NET cases:
-                // a DataTable binds via its DefaultView; an IListSource (e.g. DataSet) via GetList ().
-                DetachFromBoundList ();
-
-                data_source = value switch {
-                    null => null,
-                    IList list => list,
-                    System.Data.DataTable table => table.DefaultView,
-                    System.ComponentModel.IListSource source => source.GetList (),
-                    _ => data_source
-                };
-
-                AttachToBoundList ();
-                OnDataSourceChanged ();
+                data_source_object = value;
+                RebindDataSource ();
                 OnDataSourceChanged (EventArgs.Empty);
             }
         }
@@ -633,6 +623,12 @@ namespace Majorsilence.Forms
                     return;
 
                 data_member = value;
+
+                // Stored and read by nothing before: grid.DataSource = dataSet; grid.DataMember = "Orders"
+                // showed the DataViewManager instead of the Orders table (DGV-32).
+                if (data_source_object is not null)
+                    RebindDataSource ();
+
                 OnDataMemberChanged (EventArgs.Empty);
                 Invalidate ();
             }
@@ -1927,33 +1923,22 @@ namespace Majorsilence.Forms
             bound_list = null;
         }
 
-        // Keeps the grid in step with a source that changes after binding.
+        // Populates rows and columns from the DataSource: the FULL bind. Runs on assignment, on
+        // ListChangedType.Reset, and on a schema change. Everything incremental goes through
+        // OnBoundListChanged in DataGridView.Binding.cs instead.
         //
-        // This is the normal case, not an edge case: designer code assigns DataSource inside
-        // InitializeComponent, and the form loads its data afterwards -- so at bind time the source is
-        // routinely an empty list with no schema yet. Without this the grid draws that empty snapshot
-        // forever and the app looks broken while holding perfectly good data.
-        //
-        // Every change re-runs the full bind. That is heavier than patching the single affected row, but
-        // it is correct for every ListChangedType including schema changes, and Rows.ReplaceAll already
-        // makes the rebuild a single notification rather than one per row.
-        private void OnBoundListChanged (object? sender, System.ComponentModel.ListChangedEventArgs e)
-        {
-            if (IsDisposed)
-                return;
-
-            OnDataSourceChanged ();
-            Invalidate ();
-        }
-
-        // Populates rows and columns from the DataSource.
+        // The schema the rows are built from is memoised (bound_descriptors / bound_properties) so a
+        // later ItemAdded or ItemChanged can build or refresh one row the same way this built them all.
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
-        private void OnDataSourceChanged ()
+        private void OnDataSourceChanged (bool forceColumnRegeneration = false)
         {
-            Rows.Clear ();
+            bound_descriptors = null;
+            bound_properties = null;
 
-            if (data_source is null)
+            if (data_source is null) {
+                Rows.Clear ();
                 return;
+            }
 
             // Preferred bound-list path. DataView, DataTable.DefaultView and BindingSource all implement
             // ITypedList, which exposes the bound *schema* as property descriptors -- the DataColumns of
@@ -1967,111 +1952,62 @@ namespace Majorsilence.Forms
             // (grid.Columns["Start"].HeaderText = "Reminder Date") then looks the column up again by its
             // original field name -- without Name set, that second lookup returns null and the caller NREs.
             if (data_source is System.ComponentModel.ITypedList typed_list) {
-                var descriptors = typed_list.GetItemProperties (null);
+                bound_descriptors = typed_list.GetItemProperties (null);
 
-                if (AutoGenerateColumns) {
+                // Columns are regenerated only when the schema changed. A Reset over the SAME schema --
+                // BindingList<T>.ResetBindings, a re-sort, a filter -- keeps the app's header renames,
+                // widths and hidden columns, which a rebuild used to silently put back (DGV-31).
+                if (AutoGenerateColumns && (forceColumnRegeneration || !ColumnsMatchSchema (bound_descriptors))) {
                     Columns.Clear ();
 
-                    foreach (System.ComponentModel.PropertyDescriptor descriptor in descriptors)
+                    foreach (System.ComponentModel.PropertyDescriptor descriptor in bound_descriptors)
                         Columns.Add (CreateBoundColumn (descriptor.Name, descriptor.PropertyType));
                 }
 
-                var typedRows = new System.Collections.Generic.List<DataGridViewRow> ();
-                foreach (var item in data_source) {
-                    if (item is null)
-                        continue;
-
-                    var row = new DataGridViewRow ();
-
-                    // The TYPED value, not its text: WinForms cell values keep the bound member's type,
-                    // so handlers can cast (e.g. CType(cell.Value, Decimal)) and numeric/date columns
-                    // sort and format as numbers and dates rather than as strings.
-                    if (AutoGenerateColumns) {
-                        for (var i = 0; i < descriptors.Count; i++)
-                            row.Cells.Add (descriptors[i].GetValue (item));
-                    } else {
-                        // Columns the caller defined: fill them in THEIR order, from the member each one
-                        // names. Walking the descriptors regardless meant a grid with manually defined
-                        // columns got the source's columns in the source's order instead of its own.
-                        for (var i = 0; i < Columns.Count; i++) {
-                            var col = Columns[i];
-                            var member = string.IsNullOrEmpty (col.DataPropertyName) ? col.HeaderText : col.DataPropertyName;
-                            row.Cells.Add (ReadMember (item, member));
-                        }
-                    }
-
-                    row.DataBoundItem = item;
-                    typedRows.Add (row);
-                }
-
-                // Populate in one shot: each individual Rows.Add fires OnRowsChanged, and derived grids
-                // (RadGridView) rebuild their whole view on every change, so adding N rows one at a time
-                // is O(N^2) -- slow to display for large result sets. ReplaceAll notifies once.
-                Rows.ReplaceAll (typedRows);
-
-                SetInitialCurrentCell ();
-                _dataBindingComplete?.Invoke (this, EventArgs.Empty);
+                ReplaceBoundRows ();
                 return;
             }
 
             if (AutoGenerateColumns) {
-                // Auto-generate columns from public readable properties
-                Columns.Clear ();
                 var element_type = GetElementType (data_source);
 
-                if (element_type is null)
+                if (element_type is null) {
+                    Rows.Clear ();
                     return;
+                }
 
                 // Indexers are excluded, and not as a tidy-up: GetValue with no index arguments
                 // throws TargetParameterCountException, so binding to a List<string> -- whose element
                 // type carries string's Chars indexer -- crashed on the first row.
-                var properties = element_type.GetProperties (BindingFlags.Public | BindingFlags.Instance)
+                bound_properties = element_type.GetProperties (BindingFlags.Public | BindingFlags.Instance)
                     .Where (p => p.CanRead && p.GetIndexParameters ().Length == 0)
                     .ToArray ();
 
-                foreach (var prop in properties)
-                    Columns.Add (CreateBoundColumn (prop.Name, prop.PropertyType));
+                if (forceColumnRegeneration || !ColumnsMatchSchema (bound_properties)) {
+                    Columns.Clear ();
 
-                var propertyRows = new System.Collections.Generic.List<DataGridViewRow> ();
-                foreach (var item in data_source) {
-                    if (item is null)
-                        continue;
-
-                    var row = new DataGridViewRow ();
-                    // Typed values -- see the descriptor branch above.
-                    for (var i = 0; i < properties.Length; i++)
-                        row.Cells.Add (properties[i].GetValue (item));
-                    row.DataBoundItem = item;
-                    propertyRows.Add (row);
+                    foreach (var prop in bound_properties)
+                        Columns.Add (CreateBoundColumn (prop.Name, prop.PropertyType));
                 }
-
-                // One notification instead of one per row (see ReplaceAll note in the ITypedList branch).
-                Rows.ReplaceAll (propertyRows);
-            } else {
-                // Columns were manually defined — populate rows via DataPropertyName (or HeaderText fallback)
-                var manualRows = new System.Collections.Generic.List<DataGridViewRow> ();
-                foreach (var item in data_source) {
-                    if (item is null)
-                        continue;
-
-                    var row = new DataGridViewRow ();
-                    for (var i = 0; i < Columns.Count; i++) {
-                        var col = Columns[i];
-                        var prop_name = string.IsNullOrEmpty (col.DataPropertyName) ? col.HeaderText : col.DataPropertyName;
-
-                        // Property descriptors first: a DataRowView exposes its columns as descriptors,
-                        // not CLR properties, so reflection alone left every cell of a DataTable-bound
-                        // grid with manually defined columns empty. Typed value, as above.
-                        row.Cells.Add (ReadMember (item, prop_name));
-                    }
-
-                    row.DataBoundItem = item;
-                    manualRows.Add (row);
-                }
-
-                Rows.ReplaceAll (manualRows);
             }
 
+            ReplaceBoundRows ();
+        }
+
+        // Builds every row from the memoised schema and swaps them in with one notification. Each
+        // individual Rows.Add fires OnRowsChanged, and derived grids (RadGridView) rebuild their whole
+        // view on every change, so adding N rows one at a time is O(N^2) -- slow to display for large
+        // result sets. ReplaceAll notifies once, and raises RowsAdded (0, N) once (DGV-33).
+        private void ReplaceBoundRows ()
+        {
+            var rows = new List<DataGridViewRow> ();
+
+            foreach (var item in data_source!) {
+                if (item is not null)
+                    rows.Add (BuildBoundRow (item));
+            }
+
+            Rows.ReplaceAll (rows);
             SetInitialCurrentCell ();
             _dataBindingComplete?.Invoke (this, EventArgs.Empty);
         }

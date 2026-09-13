@@ -135,13 +135,23 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void DataGrid_SetDataBinding_sets_both_halves ()
         {
+            // The member has to name a LIST on the item: this used to bind List<string> with "Length",
+            // which resolves to an int, and passed only because DataMember was stored and never followed
+            // (DGV-32). Upstream rejects a member that does not reach a list, and so does this grid now.
             using var grid = new DataGrid ();
-            var rows = new System.Collections.Generic.List<string> { "a" };
+            var rows = new System.Collections.Generic.List<Customer> {
+                new () { Orders = new System.Collections.Generic.List<string> { "a" } },
+            };
 
-            grid.SetDataBinding (rows, "Length");
+            grid.SetDataBinding (rows, "Orders");
 
             Assert.Same (rows, grid.DataSource);
-            Assert.Equal ("Length", grid.DataMember);
+            Assert.Equal ("Orders", grid.DataMember);
+        }
+
+        private sealed class Customer
+        {
+            public System.Collections.Generic.List<string> Orders { get; set; } = new ();
         }
 
         [Fact]

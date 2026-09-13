@@ -106,8 +106,9 @@ namespace Majorsilence.Forms
             Guard.ThrowIfGreaterThan (rowIndex, Count);
             Guard.ThrowIfNegativeOrZero (count);
 
+            // Insert (int, row) already refuses while bound and creates the cells; this just repeats it.
             for (var i = 0; i < count; i++)
-                Insert (rowIndex + i, new DataGridViewRow ());
+                Insert (rowIndex + i, CreateEmptyRow ());
         }
     }
 
