@@ -762,10 +762,35 @@ P0s and there is no ordering dependency between them:
   implementation they were meant to rule out — so they are labelled guards, not proof, and the design
   comment says so instead of claiming an event-count difference the tests do not demonstrate.
 
-**W5.3 — `DataGridView` incremental data binding.** `OnBoundListChanged` ignores `ListChangedType` and
-regenerates every column and row on any change — which is also why `RowsAdded` never fires for bound
-rows and `RowsRemoved` fires spuriously. Honour the change type.
-*Closes:* `DGV-31` (P0), `DGV-32`, `DGV-33`, `DGV-03` (P0).
+**W5.3 — `DataGridView` incremental data binding. — DONE (2026-09-13).** `DGV-31` (P0), `DGV-03`
+(P0), `DGV-32`, `DGV-33`. 26 tests, 18 neutralizations each producing a failure; 1 existing test
+re-pointed (`RemainingParityTests.DataGrid_SetDataBinding_sets_both_halves` bound `List<string>` with
+`DataMember = "Length"`, which resolves to an `int` — it passed only because the member was never
+followed).
+`OnBoundListChanged` switches on `ListChangedType`: `ItemAdded` inserts one row, `ItemDeleted` removes
+one and moves the current cell if it was on it, `ItemChanged` refreshes one row's cells **without**
+raising `CellValueChanged` (the source is telling the grid, not the reverse — announcing it would make a
+write-back handler write it straight back), `ItemMoved` moves the row *object*, and only `Reset` and the
+`PropertyDescriptor*` types rebuild. A `Reset` regenerates columns **only when the schema differs** from
+the columns already there, so `ResetBindings`, a re-sort and a filter keep the app's header renames,
+widths and hidden columns — which every change used to silently put back.
+*The schema is memoised.* The descriptors (or CLR properties) the columns were generated from are kept on
+the grid, so `ItemAdded` builds its one row the same way the full bind built them all. Re-deriving the
+schema per change is where a rebuild sneaks back in.
+*`DGV-03` was two defects, not one.* `Rows.Add ()` returned `Count` rather than the new index — the
+finding's own observation — but fixing that alone still left the canonical
+`Rows[Rows.Add ()].Cells[0].Value = …` throwing, now on `Cells[0]`: an empty row had **no cells**.
+Upstream's row-template clone has one per column, and so does this now.
+*`DGV-32`:* `DataSource`'s getter returns what was assigned, so `((DataTable)grid.DataSource)` works;
+`DataMember` re-resolves (a `DataSet` + table name is taken before `ListBindingHelper`, which follows
+CLR properties and a table name is not one); an `IEnumerable<T>` query is materialised; anything else
+throws `ArgumentException` where it used to keep the *previous* list on screen and say nothing.
+*`DGV-33`:* `ReplaceAll` raises one `RowsRemoved` and one `RowsAdded` for the batch so the two balance;
+`Insert (int, row)` goes through `InsertItem`; every public `Add`/`Insert` throws
+`InvalidOperationException` while bound, and the grid's own path uses `InsertBound`/`RemoveBound`/
+`MoveBound`, which do not.
+*Not done here:* `DGV-04` (the `Add (params object[])` overloads returning the row rather than an `int`)
+is a public-signature change and its own finding.
 
 **W5.4 — `DataGridView` styles, sizing and sorting.** Make the renderer read the WinForms properties
 instead of its private twins (`DefaultCellStyle.Alignment`, `HeaderCell.SortGlyphDirection`,
@@ -1455,7 +1480,7 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11. **Open:** **W5.3**, **W5.4**, **W5.5** (the rest of `DataGridView`), **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) done 2026-09-13. **Open:** **W5.4**, **W5.5** (the rest of `DataGridView`), **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
@@ -1463,6 +1488,37 @@ Suite: **4395 passing, 0 failing**, in Debug and Release, with system decoration
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.3 found
+
+**A finding can name one defect and be caused by two.** `DGV-03` says `Rows.Add ()` returns `Count`
+instead of the new index, and it does. Fixing exactly that made the finding's own test — `int i =
+grid.Rows.Add (); grid.Rows[i].Cells[0].Value = …` — throw on the *next* token: the new row had no
+cells. The idiom the finding describes as broken was broken twice over, and the second break was
+invisible until the first was fixed. The test for a finding should be the idiom it names, run to
+completion, not the sub-assertion that first surfaced it.
+
+**"Ignored" is not the only way a property can be inert — it can be actively dangerous when honoured.**
+`DataMember` was stored and never followed. Following it exposed a parity test that bound `List<string>`
+with `DataMember = "Length"`: a member that resolves to an `int`, which no version of WinForms would
+accept. The test was asserting a contract ("both halves are set") on an input the contract never
+covered, and passed for as long as the property did nothing. When a stored-only property starts working,
+every existing test that touches it is suspect — not because the tests were wrong, but because they were
+never actually exercised.
+
+**A guard can have two branches and one test.** The "regenerate columns only when the schema changed"
+guard exists in both the `ITypedList` branch and the reflection branch. `BindingList<T>` is not
+`ITypedList`, so the same-schema `Reset` test covered only the reflection branch, and neutralizing the
+descriptor branch changed nothing. The descriptor branch's real-world case is a `DataView` re-sort —
+which raises `Reset` over an unchanged schema, and which used to reset every header rename on the
+grid. It needed its own test, and now has one.
+
+**The source telling the grid is not the grid editing.** `ItemChanged` refreshes a row's cells from the
+item. Doing that through `Cell.Value`'s setter — real since W5.2a — would raise `CellValueChanged` and
+run the write-back, sending the value straight back to the object it came from. The refresh writes
+through the same suppression W5.2a's `EndEdit` uses. A choke point that makes a property *do*
+something creates a class of caller that must deliberately bypass it, and each such caller is a place
+the reasoning has to be written down.
 
 ### What W5.2b found
 
