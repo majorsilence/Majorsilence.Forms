@@ -368,6 +368,114 @@ reference.
 control-specific families further out. Widening pass 5 to walk those control-by-control, the same way
 pass 1-4 already cover their non-event members, is the natural next increment here.
 
+## WinFormsShims.Compat: what a real internal-code migration surfaces (scoped 2026-09-13)
+
+**Status: scoping only, nothing implemented here.** Found by actually pointing a large, real WinForms
+codebase (Majorsilence Reporting's `RdlViewer`, 9 files/~94 references, and `RdlDesign`, 119
+files/~2,997 references — both already migrated once from real WinForms to `Majorsilence.Forms`
+directly, then rewritten a second time to import the compat shim's namespaces instead) at the
+generator as it exists after the entries above. `RdlViewer` was completed and shipped this way
+(all fixes were consumer-side namespace qualification, no generator changes); the categories below are
+what a from-scratch consumer would hit, roughly in order of how much they'd cost to close.
+
+**1. Generated subclasses don't form their own hierarchy — this is the big one.** Confirmed with an
+isolated 3-line repro against just the shim packages (no other project involved):
+```csharp
+using System.Windows.Forms;
+Control v;
+TextBox tb = new TextBox();
+v = tb;   // CS0029: cannot implicitly convert 'System.Windows.Forms.TextBox' to 'System.Windows.Forms.Control'
+```
+Every pass-1 subclass derives from its *same-named real type* (`compat.TextBox : real.TextBox`), never
+from another *generated* compat type — so `compat.Control` and `compat.TextBox` are unrelated siblings
+in the compat namespace, even though `real.TextBox : real.TextBoxBase : real.Control` holds in the real
+hierarchy. Any consumer code that stores a concrete control polymorphically (`Control v = someTextBox;`,
+`Controls.Add(control)` where `Controls` is itself compat-typed, `is Control`/pattern-matching, a
+`List<Control>`) breaks. This is exactly what the event-shadowing entry above found and worked around
+for one specific case ("compat subclasses are flat... no compat-side inheritance chain to hang a single
+shadow on") — but it generalizes far beyond events, to *any* polymorphic use of `Control`, `Brush`, or
+any other type with subtypes, which is most of idiomatic WinForms code.
+
+Why it's hard, not just unfinished: `compat.TextBox` has to literally derive from `real.TextBox` for
+Majorsilence.Forms' own internals to treat an instance correctly (layout, rendering, event dispatch all
+key off the real type). Making `compat.TextBox : compat.Control` instead would sever that — C# has no
+multiple inheritance, so it can't be both. Three directions, roughly cheapest to most complete:
+  - **(a) Do nothing further, document it** (what Reporting did for D12 in its own MIGRATION-NOTES.md —
+    every affected variable/field is retyped to the real `Majorsilence.Forms.X`, which still works since
+    every compat leaf transitively *is* the real base). Zero generator cost, but every consumer repeats
+    the same investigation.
+  - **(b) Add implicit conversion operators from each generated type to each of its real ancestors'
+    compat counterparts** (`public static implicit operator System.Windows.Forms.Control(TextBox t) => t;`,
+    one per ancestor, generated alongside the existing subclass). Fixes plain assignment and
+    method-argument passing — the majority of real call sites — cheaply, reusing the exact mechanism
+    pass 1b already uses for Drawing wrappers. Does **not** fix `is`/pattern-matching or anything that
+    inspects the actual runtime type (`if (sender is Control c)` still fails, since the object's real
+    runtime type is still `compat.TextBox`, unrelated to `compat.Control` at the CLR level) — and this
+    pattern is extremely common in WinForms event handlers. Worth doing regardless, since it costs little
+    and closes most of the gap, but should ship with the same honest caveat about `is`-checks that (a)
+    already needs.
+  - **(c) Full wrapper-based parallel hierarchy** — every generated type (not just sealed leaves)
+    becomes a wrapper holding a real instance, with the *wrapper* classes deriving from each other,
+    mirroring the real hierarchy. Fixes polymorphism and `is`-checks genuinely. Cost: loses "compat
+    instance literally is the real type" for free — anywhere Majorsilence.Forms' own internals need a
+    real instance (adding to a real `Controls` collection, virtual dispatch for overrides like `OnPaint`
+    reaching the real rendering pipeline), the wrapper needs either a bridging adapter that's a real
+    subclass forwarding virtual calls back into the wrapper (comparable in complexity to the runtime-host
+    bridge `Majorsilence.Forms.WinForms`/`ToWinFormsControl()` already builds, not a small addition), or
+    acceptance that overriding a virtual method on a compat type no longer participates in real
+    rendering. This is a genuine redesign, not a patch — likely its own multi-session project, and it
+    should start from a clear answer to "does anything in Majorsilence.Forms' internals branch on
+    concrete WinForms type identity for its own controls (TextBox, Button, ...), or only on virtual
+    `Control`-level members?" — if the latter, (c) is more tractable than it looks.
+
+**2. Pass-1b wrappers don't implement `IDisposable`.** `SolidBrush`, `Bitmap`, `Font`, `Pen` (any
+disposable sealed leaf) can't be used in a `using (...)` statement or have `.Dispose()` called directly
+— `'SolidBrush': type used in a using statement must implement 'System.IDisposable'`. Straightforward:
+when the wrapped real type implements `IDisposable`, have the wrapper implement it too and forward
+`Dispose()` to the held instance (same forwarding-member mechanism the wrapper already uses for every
+other method).
+
+**3. Pass-1b wrappers only forward members *declared on the wrapped type itself*, not inherited ones.**
+`Bitmap.Width`/`.Height` (declared on `Image`, `Bitmap`'s base) aren't forwarded, so `new
+Majorsilence.Forms.Drawing.Bitmap(...)`'s compat wrapper is missing them entirely — `'Bitmap' does not
+contain a definition for 'Width'`. Fix: when collecting a wrapper candidate's members to forward, walk
+the real type's full base-class chain (up to `object`), not just its own declared members — same
+principle as #1's polymorphism gap, but scoped to member *lookup* rather than type *identity*, so it's
+a much smaller, self-contained fix (no hierarchy redesign needed, since wrappers hold-and-forward rather
+than subclass).
+
+**4. No namespace mapping below the two top-level ones.** `Majorsilence.Forms.Printing`,
+`.Design`/`.Design.Behavior`, `.Drawing.Common`, `.Drawing.Drawing2D`, `.Drawing.Imaging`/`.Imaging.Metafiles`,
+`.Drawing.Text` all stay real, unconditionally, because `NamespaceMapping` only lists
+`Majorsilence.Forms`/`Majorsilence.Forms.Drawing` today. The "second namespace mapping" entry above
+already generalized the pipeline to run per-mapping, so adding these should mostly be a matter of
+listing them (each real WinForms namespace has a real counterpart: `System.Drawing.Printing`,
+`System.ComponentModel.Design`, `System.Drawing.Drawing2D`, `System.Drawing.Imaging`,
+`System.Drawing.Text`) — worth doing since real WinForms `PrintDocument`/`UITypeEditor`/`GraphicsPath`
+usage is common and currently gets a hard "type not found," not even a degraded passthrough.
+
+**5. No compat surface for the static side of no-constructor types.** `Graphics` (and anything else
+excluded from both pass 1 and 1b for having no accessible constructor at all) gets *nothing* — not even
+`Graphics.FromImage`/`.FromHwnd`, which are ordinary static factory methods unrelated to the
+missing-instance-constructor problem. Pass 4 already forwards static members for genuinely-static
+utility classes (`Application`, `MessageBox`); extending the same mechanism to the *static* members of
+an otherwise-excluded instance class would close this without touching the instance-side exclusion
+logic at all.
+
+**6. Consequence worth documenting even if not fixable in the generator itself:** because generated
+subclasses inherit real base members unchanged (#1's flip side, for *properties* not types), any
+`Control`/`Form` member whose name collides with an enum type it uses (`BorderStyle`, `Cursor`,
+`DialogResult`, `FormBorderStyle`, `SizeGripStyle`, `Control.MouseButtons`) makes the bare enum-type
+reference in that scope resolve to the *member* instead, one incorrectly-inherited step before the type
+system even gets involved (`CS0176`, not a shim-specific diagnostic). Consumers have to know to
+namespace-qualify (`Majorsilence.Forms.BorderStyle.None`) rather than add a `using`. Not something the
+generator can fix — but worth a call-out in the README's known-gaps list next to the existing ones,
+since it's surprising and easy to burn time on without knowing it's a named, expected class of error.
+
+See Majorsilence Reporting's `MIGRATION-NOTES.md` (`D12`, dated 2026-09-13) for the consumer-side
+write-up of all six as lived experience, including the exact fix applied at each call site — useful as
+worked examples if any of the above gets picked up here.
+
 ## Wanted: screenshots from a desktop-hosted window
 
 **Status: a real gap, found while driving `samples/AutomationTarget` over the MCP server.** The WebDriver
