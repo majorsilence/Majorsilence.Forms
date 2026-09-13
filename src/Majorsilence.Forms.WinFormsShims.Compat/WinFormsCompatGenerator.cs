@@ -8,10 +8,13 @@ namespace Majorsilence.Forms.WinFormsShims.Compat;
 /// <summary>
 /// PoC source generator that emits compatibility surfaces backed by <c>Majorsilence.Forms</c>, one per
 /// <see cref="NamespaceMapping"/>: <c>Majorsilence.Forms</c> -&gt; <c>System.Windows.Forms</c> (the
-/// WinForms surface) and <c>Majorsilence.Forms.Drawing</c> -&gt; <c>System.Drawing</c> (the GDI+-shaped
+/// WinForms surface), <c>Majorsilence.Forms.Drawing</c> -&gt; <c>System.Drawing</c> (the GDI+-shaped
 /// drawing types real WinForms code also expects -- <c>Font</c>, <c>Brush</c>, the
-/// <c>Graphics.DrawString</c> overloads <c>PaintEventArgs.Graphics</c> returns, ...). Each mapping runs
-/// the same six independent passes over its own source namespace's public members:
+/// <c>Graphics.DrawString</c> overloads <c>PaintEventArgs.Graphics</c> returns, ...), and six more for
+/// the real sub-namespaces WinForms code reaches into about as often: <c>Printing</c>,
+/// <c>Design</c>/<c>Design.Behavior</c>, and <c>Drawing.Drawing2D</c>/<c>Drawing.Imaging</c>/
+/// <c>Drawing.Imaging.Metafiles</c>/<c>Drawing.Text</c>. Each mapping runs the same independent passes
+/// over its own source namespace's public members:
 ///
 /// 1. Every public, non-sealed, non-generic class that does NOT derive from <see cref="System.EventArgs"/>
 ///    and exposes at least one accessible constructor gets a same-named subclass with forwarding
@@ -20,20 +23,31 @@ namespace Majorsilence.Forms.WinFormsShims.Compat;
 ///    EventArgs types are excluded on purpose: pass 5 gives them a different, purpose-built
 ///    treatment -- a plain compat subclass wouldn't let a handler bind to the original event anyway
 ///    (C#'s method-group contravariance requires the handler's parameter to be the delegate's
-///    declared type or a BASE of it, never a more-derived subclass).
+///    declared type or a BASE of it, never a more-derived subclass). So is
+///    <see cref="IsForcedPolymorphicRoot"/>'s curated set (today: just <c>Brush</c>) -- pass 1b wraps
+///    those instead, even though they aren't sealed; see its own remarks for why.
 /// 1b. Every public, non-generic SEALED class with an accessible constructor -- exactly what pass 1
 ///    always excludes, which for the Drawing mapping is the leaf types real drawing code needs most
-///    (<c>Font</c>, <c>SolidBrush</c>, <c>Pen</c>, <c>Bitmap</c>, ...) -- gets a wrapper class instead
-///    of a subclass (<see cref="GenerateWrapperSource"/>): it holds the real instance, forwards every
-///    translatable constructor/method/property (instance AND static) to it, and declares an implicit
-///    conversion operator in each direction. That conversion is what makes <see cref="TryTranslateType"/>
+///    (<c>Font</c>, <c>SolidBrush</c>, <c>Pen</c>, <c>Bitmap</c>, ...) -- plus
+///    <see cref="IsForcedPolymorphicRoot"/>'s forced roots despite not being sealed, gets a wrapper
+///    class instead of a subclass (<see cref="GenerateWrapperSource"/>): it holds the real instance,
+///    forwards every translatable constructor/method/property (instance AND static, walking the real
+///    type's full base chain so inherited members are forwarded too -- <c>Bitmap.Width</c>/<c>.Height</c>,
+///    declared on <c>Image</c>, not <c>Bitmap</c> itself), implements <see cref="System.IDisposable"/>
+///    and forwards <c>Dispose()</c> when the real type does, and declares an implicit conversion
+///    operator in each direction. That conversion is what makes <see cref="TryTranslateType"/>
 ///    able to treat a wrapped type exactly like passthrough (no cast text emitted anywhere) even
 ///    though the wrapper and the original are otherwise unrelated types -- passing a compat instance
 ///    to a still-Majorsilence-typed API, or getting an original instance back as the compat type, both
-///    just compile, the same as any user-defined implicit conversion. Types with no accessible
-///    constructor at all (<c>Graphics</c> itself -- real <c>System.Drawing.Graphics</c> has none
-///    either) get neither a subclass nor a wrapper; they're exposed as the plain Majorsilence type,
-///    same as before pass 1b existed.
+///    just compile, the same as any user-defined implicit conversion. A forced root additionally gets
+///    one directly-emitted bridging operator on every *other* wrapper that has it as a real ancestor
+///    (<c>SolidBrush</c> -&gt; <c>Brush</c>, say), since two sibling wrappers can't chain their own
+///    real-to-compat conversions into each other the way a pass-1 subclass reaches a forced root for
+///    free (one built-in upcast plus the root's own operator -- C# allows at most one user-defined
+///    conversion per implicit conversion, so two wrappers need the bridge written explicitly). Types
+///    with no accessible constructor at all (<c>Graphics</c> itself -- real
+///    <c>System.Drawing.Graphics</c> has none either) get neither a subclass nor a wrapper; see pass
+///    4b for what they get instead.
 /// 2. Every public, non-nested enum gets a same-named, same-valued copy -- needed because #1/#1b/#3/
 ///    #4/#5's forwarders surface Majorsilence-specific enums such as <c>DialogResult</c> or
 ///    <c>FontStyle</c> in their own public signatures, and code that only imports the target
@@ -51,6 +65,11 @@ namespace Majorsilence.Forms.WinFormsShims.Compat;
 ///    <c>System.Windows.Forms</c> member returning a Drawing type gets that type translated too) into
 ///    the real Majorsilence.Forms one. A member with any untranslatable type in its signature is
 ///    silently dropped rather than emitted broken; see the README for what that excludes today.
+/// 4b. A type <see cref="IsEligibleStaticSurface"/> accepts -- no accessible constructor at all
+///    (so neither pass 1 nor 1b produced an instance type for it), but with public static members of
+///    its own -- gets the same static-forwarding treatment as pass 4, honestly: a factory such as
+///    <c>Graphics.FromImage</c> still returns the real Majorsilence.Forms type, since there's no
+///    compat instance type for it to become.
 /// 5. Event shadowing (WinForms mapping only -- there is no Drawing analog of <c>Control</c>):
 ///    <see cref="DiscoverEventFamilies"/> finds every event <c>Control</c> itself declares whose
 ///    delegate's second parameter is a Majorsilence-specific EventArgs (Paint, Mouse*, Key*, Drag*,
@@ -128,6 +147,17 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         {
             new("Majorsilence.Forms", "System.Windows.Forms", "Majorsilence.Forms"),
             new("Majorsilence.Forms.Drawing", "System.Drawing", "Majorsilence.Forms", "Majorsilence.Forms.Drawing.Common"),
+            // The Drawing root is only the first of several namespaces ordinary WinForms source
+            // imports.  Keep their mappings independent: FindMapping deliberately matches an exact
+            // namespace, so a System.Drawing mapping can never accidentally translate a
+            // System.Drawing.Imaging type.
+            new("Majorsilence.Forms.Drawing.Drawing2D", "System.Drawing.Drawing2D", "Majorsilence.Forms", "Majorsilence.Forms.Drawing.Common"),
+            new("Majorsilence.Forms.Drawing.Imaging", "System.Drawing.Imaging", "Majorsilence.Forms", "Majorsilence.Forms.Drawing.Common"),
+            new("Majorsilence.Forms.Drawing.Imaging.Metafiles", "System.Drawing.Imaging.Metafiles", "Majorsilence.Forms.Drawing.Common"),
+            new("Majorsilence.Forms.Drawing.Text", "System.Drawing.Text", "Majorsilence.Forms.Drawing.Common"),
+            new("Majorsilence.Forms.Printing", "System.Drawing.Printing", "Majorsilence.Forms"),
+            new("Majorsilence.Forms.Design", "System.ComponentModel.Design", "Majorsilence.Forms"),
+            new("Majorsilence.Forms.Design.Behavior", "System.Windows.Forms.Design.Behavior", "Majorsilence.Forms"),
         };
 
         var typeMembersByMapping = new Dictionary<NamespaceMapping, List<INamedTypeSymbol>>();
@@ -248,12 +278,21 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             var wrapperCandidates = new List<(INamedTypeSymbol Type, List<IMethodSymbol> Ctors)>();
             foreach (var type in typeMembersByMapping[mapping])
             {
-                if (!IsEligibleSealedLeaf(type, eventArgsType))
+                var isForcedRoot = IsForcedPolymorphicRoot(type, eventArgsType);
+                if (!IsEligibleSealedLeaf(type, eventArgsType) && !isForcedRoot)
                     continue;
 
-                var ctors = GetAccessibleConstructors(compilation, type);
-                if (ctors.Count == 0)
-                    continue;
+                // Public only, even though GetAccessibleConstructors also allows protected (needed
+                // elsewhere for pass 1's subclass base-call). A forwarding ctor here always does
+                // `new original(...)`, which is illegal wherever `original` turns out to be abstract
+                // (true of Brush -- pass 1 used to subclass it despite that, via its protected
+                // constructor, which is exactly the flat-hierarchy problem this wrapper replaces) or
+                // simply pointless on a sealed wrapper nothing can derive from.
+                var ctors = GetAccessibleConstructors(compilation, type)
+                    .Where(c => c.DeclaredAccessibility == Accessibility.Public)
+                    .ToList();
+                if (ctors.Count == 0 && !isForcedRoot)
+                    continue; // ordinary sealed leaf with no public ctor: leave it to pass 4b instead
 
                 if (!mapping.EmittedNames.Add(type.Name))
                     continue;
@@ -358,6 +397,31 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
                 context.AddSource(HintName(mapping, type.Name, "Static.g"), SourceText.From(source, Encoding.UTF8));
             }
         }
+
+        // Pass 4b: types such as Graphics have no accessible constructor, so neither the subclass
+        // pass nor the sealed-leaf wrapper pass can expose an instance type.  Their static factory
+        // members remain useful on their own, though (for example Graphics.FromImage), and do not
+        // require pretending that the result is a compat instance.  Emit a static-only facade for
+        // that narrow case.  A value returned by it intentionally remains the real
+        // Majorsilence.Forms type; consumers can use `var` or an explicit real-type declaration.
+        foreach (var mapping in mappings)
+        {
+            foreach (var type in typeMembersByMapping[mapping])
+            {
+                if (!IsEligibleStaticSurface(type, eventArgsType, compilation))
+                    continue;
+
+                var memberBlocks = CollectStaticMemberBlocks(type, mapping, mappings);
+                if (memberBlocks.Count == 0)
+                    continue;
+
+                if (!mapping.EmittedNames.Add(type.Name))
+                    continue;
+
+                var source = GenerateStaticWrapperSource(type, mapping, memberBlocks);
+                context.AddSource(HintName(mapping, type.Name, "StaticSurface.g"), SourceText.From(source, Encoding.UTF8));
+            }
+        }
     }
 
     /// <summary>The three kinds of compat counterpart a type in one mapping's source namespace can
@@ -395,6 +459,9 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
 
     private static bool IsEligibleClass(INamedTypeSymbol type, INamedTypeSymbol eventArgsType)
     {
+        if (IsForcedPolymorphicRoot(type, eventArgsType))
+            return false; // pass 1b claims these instead -- see IsForcedPolymorphicRoot's remarks
+
         if (type.DeclaredAccessibility != Accessibility.Public)
             return false;
         if (type.TypeKind != TypeKind.Class)
@@ -428,6 +495,50 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             return false;
         if (DerivesFrom(type, eventArgsType))
             return false; // keep EventArgs-shaped sealed leaves out of this too -- consistent with pass 1
+
+        return true;
+    }
+
+    /// <summary>A curated handful of non-sealed types that pass 1b wraps despite not being sealed
+    /// leaves, because their whole purpose is polymorphic storage of a leaf type -- exactly what pass
+    /// 1's flat subclassing can never support (see BACKLOG.md's "what a real internal-code migration
+    /// surfaces": <c>compat.SolidBrush</c> derives from <c>real.SolidBrush</c>, never from a compat
+    /// <c>Brush</c>, so a bare <c>Brush b = someSolidBrush;</c> doesn't compile today). Wrapping
+    /// <c>Brush</c> instead of subclassing it fixes this for every existing pass-1 Drawing subclass
+    /// "for free", with no per-leaf-type change anywhere else: C#'s implicit-conversion rules allow
+    /// one built-in reference conversion (any leaf already IS-A the real base by ordinary inheritance)
+    /// plus exactly one user-defined operator (the wrapper's own real-to-compat conversion) in a
+    /// single implicit conversion, so `Brush b = someSolidBrush;` type-checks as soon as compat
+    /// `Brush` is a wrapper with that operator -- no change to `SolidBrush` itself needed.
+    ///
+    /// <c>Control</c> was tried here too and reverted: unlike `Brush` (abstract in real GDI+, and
+    /// never meaningfully subclassed directly even in real WinForms code), `Control` genuinely is
+    /// subclassed directly in real code -- <c>samples/WinFormsCompatDemo/BinaryRainPanel.cs</c>'s
+    /// `RainCanvas : Control` overriding `OnPaint` is exactly that, and is what pass 5's event
+    /// shadowing exists to support. Making `Control` a sealed wrapper breaks it outright (`CS0509:
+    /// cannot derive from sealed type 'Control'`), which is an unacceptable regression for an
+    /// already-shipped, already-verified capability -- not a rare edge case discovered in theory, but
+    /// the first thing that broke when this was tried. The two goals are irreconcilable for `Control`
+    /// specifically under C#'s single inheritance: a type cannot simultaneously BE something
+    /// subclassable directly by consumer code AND BE a wrapper with no subclassing of its own. `Brush`
+    /// has no such conflict, so it alone gets this treatment; `Control`'s flat-hierarchy gap remains
+    /// exactly as documented in BACKLOG.md (qualify the variable as the real `Majorsilence.Forms.Control`
+    /// instead).</summary>
+    private static readonly HashSet<string> ForcedPolymorphicRootNames =
+        new(StringComparer.Ordinal) { "Brush" };
+
+    private static bool IsForcedPolymorphicRoot(INamedTypeSymbol type, INamedTypeSymbol eventArgsType)
+    {
+        if (!ForcedPolymorphicRootNames.Contains(type.Name))
+            return false;
+        if (type.DeclaredAccessibility != Accessibility.Public)
+            return false;
+        if (type.TypeKind != TypeKind.Class || type.IsStatic || type.IsGenericType)
+            return false;
+        if (type.ContainingType is not null)
+            return false;
+        if (DerivesFrom(type, eventArgsType))
+            return false;
 
         return true;
     }
@@ -626,7 +737,9 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         sb.AppendLine();
         sb.AppendLine($"namespace {mapping.TargetNamespace}");
         sb.AppendLine("{");
-        sb.AppendLine($"    public sealed class {type.Name}");
+        var implementsDisposable = ImplementsDisposable(type);
+        var disposableClause = implementsDisposable ? " : global::System.IDisposable" : "";
+        sb.AppendLine($"    public sealed class {type.Name}{disposableClause}");
         sb.AppendLine("    {");
         sb.AppendLine($"        internal {originalRef} Inner {{ get; }}");
         sb.AppendLine($"        internal {type.Name} ({originalRef} inner) => Inner = inner;");
@@ -642,25 +755,94 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         }
         sb.AppendLine();
 
-        foreach (var member in type.GetMembers())
+        // `GetMembers()` only sees declarations on the sealed leaf itself.  That omitted ordinary
+        // inherited API such as Bitmap.Width/Height (declared by Image), which is exactly the API
+        // traditional GDI+-style source reaches for most often.  Walk the real base chain from the
+        // most-derived type down, allowing the derived declaration to win whenever a member is
+        // hidden or overridden.
+        var emittedMembers = new HashSet<string>(StringComparer.Ordinal);
+        for (var declaringType = type;
+             declaringType is not null && declaringType.SpecialType != SpecialType.System_Object;
+             declaringType = declaringType.BaseType)
         {
-            string? block = member switch
+            foreach (var member in declaringType.GetMembers())
             {
-                IMethodSymbol method => TryFormatWrapperMethod(method, mapping, mappings),
-                IPropertySymbol property => TryFormatWrapperProperty(property, mapping, mappings),
-                _ => null,
-            };
+                if (!TryGetWrapperMemberKey(member, out var key) || !emittedMembers.Add(key))
+                    continue;
+                if (implementsDisposable && IsDisposeMember(member))
+                    continue; // emitted explicitly below, including when the real implementation is explicit
 
-            if (block is not null)
-                sb.Append(block);
+                string? block = member switch
+                {
+                    IMethodSymbol method => TryFormatWrapperMethod(method, mapping, mappings),
+                    IPropertySymbol property => TryFormatWrapperProperty(property, mapping, mappings),
+                    _ => null,
+                };
+
+                if (block is not null)
+                    sb.Append(block);
+            }
         }
+
+        if (implementsDisposable)
+            sb.AppendLine("        public void Dispose () => ((global::System.IDisposable) Inner).Dispose (); ");
 
         sb.AppendLine($"        public static implicit operator {originalRef}? ({type.Name}? compat) => compat?.Inner;");
         sb.AppendLine($"        public static implicit operator {type.Name}? ({originalRef}? original) => original is null ? null : new {type.Name} (original);");
 
+        // A forced polymorphic root (Brush) is ALSO a pass-1b wrapper, not a pass-1 subclass -- so,
+        // unlike a genuine subclass (which reaches it via one free built-in upcast plus the root's own
+        // real-to-compat operator), a sibling wrapper like SolidBrush has no built-in relationship to
+        // it at all. C# allows at most one user-defined operator per implicit conversion, and getting
+        // from this wrapper to the root's compat type would otherwise need two (this wrapper's own
+        // real-to-compat, then the root's) -- so the bridge has to be emitted directly, here, rather
+        // than relying on the language to chain the two.
+        for (var ancestor = type.BaseType; ancestor is not null; ancestor = ancestor.BaseType)
+        {
+            if (!ForcedPolymorphicRootNames.Contains(ancestor.Name))
+                continue;
+            if (ancestor.ContainingNamespace?.ToDisplayString() != mapping.SourceNamespace)
+                continue;
+
+            var rootOriginalRef = "global::" + mapping.SourceNamespace + "." + ancestor.Name;
+            var rootCompatRef = mapping.TargetNamespace + "." + ancestor.Name;
+            sb.AppendLine($"        public static implicit operator {rootCompatRef}? ({type.Name}? compat) => compat is null ? null : new {rootCompatRef} (({rootOriginalRef}) compat.Inner);");
+        }
+
         sb.AppendLine("    }");
         sb.AppendLine("}");
         return sb.ToString();
+    }
+
+    private static bool ImplementsDisposable(INamedTypeSymbol type) =>
+        type.AllInterfaces.Any(i => i.SpecialType == SpecialType.System_IDisposable);
+
+    private static bool IsDisposeMember(ISymbol member) => member is IMethodSymbol
+    {
+        Name: "Dispose",
+        MethodKind: MethodKind.Ordinary,
+        Parameters.Length: 0,
+    };
+
+    /// <summary>Returns a stable signature for member de-duplication while a wrapper walks its base
+    /// chain.  Properties are keyed by their name and indexer parameter types; methods additionally
+    /// include parameter ref-kinds.  Fields/events/nested types are intentionally not forwarded.</summary>
+    private static bool TryGetWrapperMemberKey(ISymbol member, out string key)
+    {
+        switch (member)
+        {
+            case IMethodSymbol method when method.MethodKind == MethodKind.Ordinary:
+                key = "M:" + method.Name + "(" + string.Join(",", method.Parameters.Select(p =>
+                    p.RefKind + ":" + p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))) + ")";
+                return true;
+            case IPropertySymbol property:
+                key = "P:" + property.Name + "(" + string.Join(",", property.Parameters.Select(p =>
+                    p.RefKind + ":" + p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))) + ")";
+                return true;
+            default:
+                key = "";
+                return false;
+        }
     }
 
     /// <summary>Like <see cref="TryFormatMethod"/>, but for a wrapper's own member (pass 1b): a
@@ -679,7 +861,13 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             return null;
 
         var staticKeyword = method.IsStatic ? "static " : "";
-        var owner = method.IsStatic ? "global::" + ownerMapping.SourceNamespace + "." + method.ContainingType.Name : "Inner";
+        // Inherited static members belong to their declaring type, which can live outside the
+        // wrapper's mapping entirely (for example System.Attribute).  Reconstructing the owner
+        // from ownerMapping would incorrectly turn Attribute.GetCustomAttributes into
+        // Majorsilence.Forms.Attribute.GetCustomAttributes.
+        var owner = method.IsStatic
+            ? method.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            : "Inner";
         var call = $"{owner}.{method.Name} ({argumentList})";
 
         if (method.ReturnsVoid)
@@ -714,7 +902,9 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             return null;
 
         var staticKeyword = property.IsStatic ? "static " : "";
-        var ownerBase = property.IsStatic ? "global::" + ownerMapping.SourceNamespace + "." + property.ContainingType.Name : "Inner";
+        var ownerBase = property.IsStatic
+            ? property.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            : "Inner";
         var owner = ownerBase + "." + property.Name;
 
         if (canGet && !canSet)
@@ -820,6 +1010,25 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         if (type.ContainingType is not null)
             return false;
         return true;
+    }
+
+    /// <summary>
+    /// Returns true for a public instance class that has no constructor a consumer could call, but
+    /// still offers one or more public static members.  This deliberately does not produce an
+    /// instance wrapper: a static facade is honest about the fact that the result of a factory such
+    /// as <c>Graphics.FromImage</c> is still a real Majorsilence.Forms object.
+    /// </summary>
+    private static bool IsEligibleStaticSurface(INamedTypeSymbol type, INamedTypeSymbol eventArgsType, Compilation compilation)
+    {
+        if (type.DeclaredAccessibility != Accessibility.Public)
+            return false;
+        if (type.TypeKind != TypeKind.Class || type.IsStatic || type.IsGenericType || type.ContainingType is not null)
+            return false;
+        if (DerivesFrom(type, eventArgsType))
+            return false;
+        if (GetAccessibleConstructors(compilation, type).Count != 0)
+            return false;
+        return type.GetMembers().Any(member => member.IsStatic && member.DeclaredAccessibility == Accessibility.Public);
     }
 
     /// <summary>Finds which mapping (if any) owns <paramref name="type"/>, by matching its containing
