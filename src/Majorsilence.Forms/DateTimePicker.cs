@@ -19,9 +19,15 @@ namespace Majorsilence.Forms
 
     /// <summary>
     /// Represents a DateTimePicker control for selecting a date and/or time.
-    /// Built on TimePicker for Majorsilence.Forms compatibility.
     /// </summary>
-    public partial class DateTimePicker : TextBox
+    /// <remarks>
+    /// Derives from <see cref="Control"/>, as upstream (SMP-39). It derived from <see cref="TextBox"/>,
+    /// which meant the user could delete the date and type anything with nothing validating it,
+    /// <c>Text</c> was free-form and never parsed back into <see cref="Value"/>, the surface carried
+    /// <c>Multiline</c>/<c>PasswordChar</c>/<c>AcceptsReturn</c>, and
+    /// <c>foreach (Control c in ...) if (c is TextBox)</c> sweeps picked up every date picker on a form.
+    /// </remarks>
+    public partial class DateTimePicker : Control
     {
         /// <summary>The minimum date value supported by the DateTimePicker (January 1, 1753).</summary>
         public static readonly DateTime MinDateTime = new DateTime (1753, 1, 1);
@@ -52,13 +58,58 @@ namespace Majorsilence.Forms
         {
             base.OnPaint (e);
 
-            var buttonWidth = System.Math.Min (LogicalToDeviceUnits (16), ScaledSize.Width);
-            var rect = new Rectangle (ScaledSize.Width - buttonWidth, 0, buttonWidth, ScaledSize.Height);
+            var font = GetEffectiveFont ();
+            var font_size = LogicalToDeviceUnits (GetEffectiveFontSize ());
 
+            // The date is greyed when the control is disabled OR when an optional date is unset -- the
+            // ShowCheckBox/Checked pattern, which used to paint nothing at all (SMP-41).
+            var has_value = !ShowCheckBox || Checked;
+            var foreground = Enabled && has_value ? GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor;
+
+            if (ShowCheckBox)
+                DrawCheckBox (e);
+
+            e.Canvas.DrawText (base.Text, font, font_size, TextBounds, foreground, ContentAlignment.MiddleLeft, maxLines: 1);
+
+            var rect = ButtonBounds;
             e.Canvas.FillRectangle (rect.X, rect.Y, rect.Width, rect.Height, Theme.ControlMidColor);
-            e.Canvas.DrawText ("▾", Theme.UIFont, LogicalToDeviceUnits (Theme.FontSize), rect,
-                Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor,
-                ContentAlignment.MiddleCenter, maxLines: 1);
+
+            var glyph = Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+
+            if (ShowUpDown) {
+                // ShowUpDown replaces the drop-down button with a spin control, as upstream does. It was
+                // stored and the drop-down arrow was drawn regardless.
+                var half = rect.Height / 2;
+                ControlPaint.DrawArrowGlyph (e, new Rectangle (rect.X, rect.Y, rect.Width, half), glyph, ArrowDirection.Up);
+                ControlPaint.DrawArrowGlyph (e, new Rectangle (rect.X, rect.Y + half, rect.Width, rect.Height - half), glyph, ArrowDirection.Down);
+                return;
+            }
+
+            e.Canvas.DrawText ("▾", font, font_size, rect, glyph, ContentAlignment.MiddleCenter, maxLines: 1);
+        }
+
+        // The optional-date check box: a box, and a tick when the date is set.
+        private void DrawCheckBox (PaintEventArgs e)
+        {
+            var box = CheckBoxBounds;
+
+            e.Canvas.FillRectangle (box.X, box.Y, box.Width, box.Height, Enabled ? Theme.BackgroundColor : Theme.ControlMidColor);
+            e.Canvas.DrawRectangle (box, Theme.BorderLowColor);
+
+            if (!Checked)
+                return;
+
+            var tick = Rectangle.Inflate (box, -LogicalToDeviceUnits (3), -LogicalToDeviceUnits (3));
+
+            if (tick.Width <= 0 || tick.Height <= 0)
+                return;
+
+            var ink = Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+            var mid_x = tick.Left + tick.Width / 3;
+            var mid_y = tick.Bottom - 1 - tick.Height / 4;
+
+            e.Canvas.DrawLine (tick.Left, tick.Top + tick.Height / 2, mid_x, mid_y, ink);
+            e.Canvas.DrawLine (mid_x, mid_y, tick.Right - 1, tick.Top, ink);
         }
 
         /// <summary>Gets the minimum date/time value supported by the control.</summary>
@@ -71,9 +122,15 @@ namespace Majorsilence.Forms
         public string CustomFormat {
             get => _customFormat;
             set {
+                if (_customFormat == (value ?? "G"))
+                    return;
+
                 _customFormat = value ?? "G";
+
                 if (_format == DateTimePickerFormat.Custom)
                     UpdateText ();
+
+                OnFormatChanged (EventArgs.Empty);
             }
         }
 
@@ -81,8 +138,15 @@ namespace Majorsilence.Forms
         public DateTimePickerFormat Format {
             get => _format;
             set {
+                if (_format == value)
+                    return;
+
                 _format = value;
                 UpdateText ();
+
+                // The setter raised nothing, so a handler watching for a format change never ran
+                // (SMP-40).
+                OnFormatChanged (EventArgs.Empty);
             }
         }
 
@@ -156,12 +220,10 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the Value property changes.</summary>
         /// <summary>Raised when the drop-down calendar opens. Mirrors WinForms DateTimePicker.DropDown.</summary>
-#pragma warning disable CS0067 // raised once the popup pipeline exposes open/close notifications
         public event EventHandler? DropDown;
 
         /// <summary>Raised when the drop-down calendar closes. Mirrors WinForms DateTimePicker.CloseUp.</summary>
         public event EventHandler? CloseUp;
-#pragma warning restore CS0067
 
         /// <summary>Raised when the date value changes. Mirrors WinForms DateTimePicker.ValueChanged.</summary>
         public event EventHandler? ValueChanged;
@@ -169,11 +231,50 @@ namespace Majorsilence.Forms
         /// <summary>Raises the ValueChanged event. Mirrors WinForms DateTimePicker.OnValueChanged.</summary>
         protected virtual void OnValueChanged (EventArgs e) => ValueChanged?.Invoke (this, e);
 
-        /// <summary>Gets or sets whether a checkbox is displayed to the left of the selected date. Stub in Majorsilence.Forms.</summary>
-        public bool ShowCheckBox { get; set; }
+        /// <summary>
+        /// Gets or sets whether a check box is shown at the left of the date. With
+        /// <see cref="Checked"/> it is the only way WinForms expresses an OPTIONAL date, and it is on
+        /// virtually every "date of X (optional)" field (SMP-41).
+        /// </summary>
+        public bool ShowCheckBox {
+            get => show_check_box;
+            set {
+                if (show_check_box == value)
+                    return;
 
-        /// <summary>Gets or sets whether the date/time value is enabled (meaningful when ShowCheckBox is true). Stub in Majorsilence.Forms.</summary>
-        public bool Checked { get; set; } = true;
+                show_check_box = value;
+                Invalidate ();
+            }
+        }
+
+        private bool show_check_box;
+
+        /// <summary>
+        /// Gets or sets whether the date is set. Meaningful when <see cref="ShowCheckBox"/> is on:
+        /// false greys the date and means "no value", which is how a nullable date reaches the app.
+        /// </summary>
+        public bool Checked {
+            get => is_checked;
+            set {
+                if (is_checked == value)
+                    return;
+
+                is_checked = value;
+                OnValueChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private bool is_checked = true;
+
+        /// <summary>Raises the <see cref="FormatChanged"/> event.</summary>
+        protected virtual void OnFormatChanged (EventArgs e) => FormatChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DropDown"/> event.</summary>
+        protected virtual void OnDropDown (EventArgs e) => DropDown?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="CloseUp"/> event.</summary>
+        protected virtual void OnCloseUp (EventArgs e) => CloseUp?.Invoke (this, e);
 
         /// <summary>Gets or sets the calendar's foreground color. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Color CalendarForeColor { get; set; } = System.Drawing.Color.Empty;
@@ -187,15 +288,46 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the calendar's title background color. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Color CalendarTitleBackColor { get; set; } = System.Drawing.Color.Empty;
 
+        /// <summary>
+        /// Gets or sets the displayed date as text. Setting it PARSES into <see cref="Value"/>, as
+        /// upstream does -- <c>dtp.Text = "2024-01-15"</c> is a common way to seed a picker from a
+        /// string, and it used to display the text while leaving Value at today, so the app saved the
+        /// wrong date (SMP-39).
+        /// </summary>
+        public override string Text {
+            get => base.Text;
+            set {
+                // Empty resets to today, which is upstream's ResetValue.
+                if (string.IsNullOrWhiteSpace (value)) {
+                    Value = DateTime.Now;
+                    return;
+                }
+
+                if (DateTime.TryParse (value, System.Globalization.CultureInfo.CurrentCulture,
+                        System.Globalization.DateTimeStyles.None, out var parsed)
+                    && parsed >= _min && parsed <= _max) {
+                    Value = parsed;
+                    return;
+                }
+
+                // Unparseable text is refused rather than displayed: a picker showing "asdf" while
+                // Value reads today is the failure this finding describes.
+                UpdateText ();
+            }
+        }
+
+        /// <summary>The format string this control's <see cref="Format"/> selects.</summary>
+        internal string FormatString => _format switch {
+            DateTimePickerFormat.Custom => _customFormat,
+            DateTimePickerFormat.Short => "d",
+            DateTimePickerFormat.Time => "t",
+            _ => "D"
+        };
+
         private void UpdateText ()
         {
-            var fmt = _format switch {
-                DateTimePickerFormat.Custom => _customFormat,
-                DateTimePickerFormat.Short => "d",
-                DateTimePickerFormat.Time => "t",
-                _ => "D"
-            };
-            Text = _value.ToString (fmt);
+            base.Text = _value.ToString (FormatString);
+            Invalidate ();
         }
     }
 }

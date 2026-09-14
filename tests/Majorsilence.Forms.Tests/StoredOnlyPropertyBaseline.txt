@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 730 of 1199 public settable auto-properties (60%).
+# 720 of 1197 public settable auto-properties (60%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -205,16 +205,6 @@ Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.State
 Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlDataGridView
 Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlRowIndex
 Majorsilence.Forms.DateBoldEventArgs.DaysToBold
-Majorsilence.Forms.DateTimePicker.CalendarFont
-Majorsilence.Forms.DateTimePicker.CalendarForeColor
-Majorsilence.Forms.DateTimePicker.CalendarMonthBackground
-Majorsilence.Forms.DateTimePicker.CalendarTitleBackColor
-Majorsilence.Forms.DateTimePicker.CalendarTitleForeColor
-Majorsilence.Forms.DateTimePicker.CalendarTrailingForeColor
-Majorsilence.Forms.DateTimePicker.Checked
-Majorsilence.Forms.DateTimePicker.DropDownAlign
-Majorsilence.Forms.DateTimePicker.ShowCheckBox
-Majorsilence.Forms.DateTimePicker.ShowUpDown
 Majorsilence.Forms.Design.Behavior.Adorner.BehaviorService
 Majorsilence.Forms.Design.Behavior.Adorner.Enabled
 Majorsilence.Forms.Design.CollectionEditor+CollectionForm.Items

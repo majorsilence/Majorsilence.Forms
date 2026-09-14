@@ -44,9 +44,6 @@ Majorsilence.Forms.DataGridTableStyle.SelectionForeColorChanged
 Majorsilence.Forms.DataGridTextBox.KeyPress
 Majorsilence.Forms.DataGridTextBox.TextChanged
 Majorsilence.Forms.DataGridViewColumnCollection.CollectionChanged
-Majorsilence.Forms.DateTimePicker.CloseUp
-Majorsilence.Forms.DateTimePicker.DropDown
-Majorsilence.Forms.DateTimePicker.FormatChanged
 Majorsilence.Forms.Design.DesignerActionUIService.DesignerActionListsChanged
 Majorsilence.Forms.DomainUpDown.SelectedItemChanged
 Majorsilence.Forms.FolderBrowserDialog.HelpRequest

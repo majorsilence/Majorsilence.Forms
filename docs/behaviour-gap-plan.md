@@ -1267,8 +1267,27 @@ above orders part of it, so it is being landed in pieces:
   `SMP-47` needed nothing: `PerformScroll` already raised `Scroll` for every path.
 - **W5.20b — `NumericUpDown` text entry (`SMP-32`, P0), and the `UpDownBase`/`DomainUpDown` shape
   (`SMP-36`/`SMP-37`).** Not started. Deliberately after the structural fix, per the note above.
-- **W5.20c — the date-picking UI: `MonthCalendar` and `DateTimePicker`. `MonthCalendar` half DONE
-  (2026-09-04); `DateTimePicker` (`SMP-39`, `SMP-40`, `SMP-41`) not started.** Detail below.
+- **W5.20c — the date-picking UI: `MonthCalendar` and `DateTimePicker`. — DONE.** `MonthCalendar` half
+  2026-09-04; `DateTimePicker` (`SMP-39` P0, `SMP-40` P0, `SMP-41`) 2026-09-14. 17 tests, each verified
+  to fail with its fix neutralized. `MonthCalendar` detail below.
+  *`SMP-39`:* the control derived from `TextBox`, so `Text` was free-form and never parsed back into
+  `Value` — `dtp.Text = "2024-01-15"`, a common way to seed a picker from a string, displayed the text
+  and left `Value` at today, so the app saved the wrong date. It now derives from `Control`, and `Text`'s
+  setter parses: empty resets to today, an unparseable or out-of-range string is refused rather than
+  displayed. That also takes `Multiline`/`PasswordChar`/`AcceptsReturn` off the surface and stops
+  `if (c is TextBox)` sweeps picking up every date picker on a form.
+  *`SMP-40`:* the drop-down arrow was painted and dead — nothing hit-tested it, there was no popup
+  anywhere, and `DropDown`/`CloseUp` sat under a `CS0067` suppression. With no keyboard path either, a
+  `DateTimePicker` was a read-only display of today. It now opens a `PopupWindow` hosting the
+  `MonthCalendar` this item's first half made real, honours `DropDownAlign`, commits the picked date and
+  closes, and raises `DropDown`/`CloseUp`. F4 and Alt+Down open it from the keyboard; `Format` and
+  `CustomFormat` raise `FormatChanged`.
+  *`SMP-41`:* `ShowCheckBox` + `Checked` — the only way WinForms expresses an *optional* date, on
+  virtually every "date of X (optional)" field — were stored and read by nothing, so the user could
+  neither clear nor set the date and code reading `Checked` always got `true`, writing nulls as today.
+  The check box is painted and hit-tested (Space from the keyboard), an unchecked date is greyed, and
+  the `Calendar*` colours and font reach the drop-down. `ShowUpDown` replaces the drop-down button with
+  a spin strip that steps the date by a day.
 - **W5.20d — `ErrorProvider` rendering. — DONE (2026-09-04).** `SMP-51` (P0). `SetError` now attaches
   the errored control's parent to a new adorner paint layer and draws an error glyph beside the
   control, honouring `SetIconAlignment` and `SetIconPadding`. `Clear` and an empty description remove
@@ -1572,6 +1591,23 @@ Suite: **4395 passing, 0 failing**, in Debug and Release, with system decoration
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.20c found
+
+**The API-surface gate caught what the reparenting silently removed.** `DateTimePicker.PreferredHeight`
+came from `TextBoxBase`; deriving from `Control` instead dropped a member upstream really has, and no
+test noticed because nothing in the suite read it. Of the four gates it is the only one watching for
+*removal* rather than misbehaviour — worth remembering whenever an item's shape is "reparent this".
+
+**A stale Release assembly made a fixed gate keep failing.** After adding the member back the gap was
+still reported: `ApiDiff` inspects the *Release* build, and only the Debug one had been rebuilt. When a
+gate disagrees with the source in front of you, check which binary it is reading before you change the
+source again.
+
+**Neutralization found a redundant guard, again.** `StepValue`'s range check looked like the enforcement
+point for spinning past `MinDate`/`MaxDate`; removing it changed nothing, because `Value`'s setter
+already clamps. It stays only because assigning out of range would throw out of a mouse click — the same
+shape as W5.20b's commit clamp.
 
 ### What W5.19 found
 
@@ -2127,7 +2163,7 @@ what exists is storage:
 - `DateTimePicker`/`MonthCalendar` were listed as "Partial", missing bolded dates and `DropDownAlign` —
   theming gaps on a control whose `OnPaint` draws **one line of text** (`MonthCalendar.cs:255-263`).
   There is no date-picking UI in the framework at all, and the matrix implied there was. (`MonthCalendar`
-  draws and picks a date as of 2026-09-04, W5.20c; `DateTimePicker` still does not.)
+  draws and picks a date as of 2026-09-04 and `DateTimePicker` as of 2026-09-14, both W5.20c.)
 - `ErrorProvider` sat in an "Implemented ... minor gaps only" row while nothing it is given ever
   renders (`SMP-51`).
 - `MaskedTextBox` was "Partial", missing `InsertKeyMode` and friends, while the mask is not enforced and

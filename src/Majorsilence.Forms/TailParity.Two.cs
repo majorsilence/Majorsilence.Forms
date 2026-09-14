@@ -253,9 +253,7 @@ namespace Majorsilence.Forms
         public event EventHandler? RightToLeftLayoutChanged;
 
         /// <summary>Raised when the format changes.</summary>
-#pragma warning disable CS0067
         public event EventHandler? FormatChanged;
-#pragma warning restore CS0067
     }
 
     public partial class ToolTip
