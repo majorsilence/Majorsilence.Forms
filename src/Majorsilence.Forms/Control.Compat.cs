@@ -493,26 +493,52 @@ namespace Majorsilence.Forms
             if (scroller is null)
                 return;
 
-            // target's top/bottom relative to the scroller's content origin.
+            // target's position relative to the scroller's content origin.
             var top = 0;
-            for (Control? c = target; c is not null && !ReferenceEquals (c, scroller); c = c.Parent)
+            var left = 0;
+            for (Control? c = target; c is not null && !ReferenceEquals (c, scroller); c = c.Parent) {
                 top += c.Top;
+                left += c.Left;
+            }
 
-            var viewportBottom = scroller.ClientRectangle.Height - bottomInset;
+            // LAY-30: AutoScrollMargin is the gap upstream keeps clear around the control it scrolls
+            // to, so the field does not end up flush against the edge of the viewport.
+            var margin = scroller.AutoScrollMargin;
+
+            // In LOGICAL units, because everything else here is: Bounds, AutoScrollMargin and the
+            // accumulated child offsets all are, while ClientRectangle is in DEVICE pixels. Comparing
+            // the two directly made this scale-dependent -- on a 2x display it read the viewport as
+            // twice its logical height, decided the control already fitted, and scrolled too little
+            // or not at all. Caught by the MF_HEADLESS_SCALE=2 gate, not by review.
+            var viewport = scroller.DeviceToLogicalUnits (scroller.ClientRectangle.Size);
+            var viewportBottom = viewport.Height - bottomInset;
             var current = scroller.AutoScrollPosition;      // WinForms-style negative offset
             var offsetY = -current.Y;
+            var offsetX = -current.X;
 
             var visibleTop = top - offsetY;
             var visibleBottom = visibleTop + target.Height;
 
-            if (visibleBottom > viewportBottom)
-                offsetY += visibleBottom - viewportBottom;
-            else if (visibleTop < 0)
-                offsetY += visibleTop;
+            if (visibleBottom + margin.Height > viewportBottom)
+                offsetY += visibleBottom + margin.Height - viewportBottom;
+            else if (visibleTop - margin.Height < 0)
+                offsetY += visibleTop - margin.Height;
+
+            // The horizontal axis was simply not handled: a wide form scrolled sideways left the
+            // focused field off to the right however far down the panel had scrolled to reach it.
+            var visibleLeft = left - offsetX;
+            var visibleRight = visibleLeft + target.Width;
+
+            if (visibleRight + margin.Width > viewport.Width)
+                offsetX += visibleRight + margin.Width - viewport.Width;
+            else if (visibleLeft - margin.Width < 0)
+                offsetX += visibleLeft - margin.Width;
 
             offsetY = System.Math.Max (0, offsetY);
-            if (offsetY != -current.Y)
-                scroller.AutoScrollPosition = new System.Drawing.Point (-current.X, offsetY);
+            offsetX = System.Math.Max (0, offsetX);
+
+            if (offsetY != -current.Y || offsetX != -current.X)
+                scroller.AutoScrollPosition = new System.Drawing.Point (offsetX, offsetY);
         }
 
         /// <summary>Returns the child control at the specified client coordinates, or null.

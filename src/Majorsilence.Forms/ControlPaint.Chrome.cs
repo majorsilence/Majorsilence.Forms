@@ -521,5 +521,49 @@ namespace Majorsilence.Forms
             using var dark = new MFDrawing.SolidBrush (Dark (color, 0f));
             graphics.DrawString (s, font, dark, layoutRectangle);
         }
+
+        /// <summary>
+        /// Draws one cell's grid lines for a <see cref="TableLayoutPanel"/>, in the style its
+        /// <c>CellBorderStyle</c> asks for. Internal, as upstream's is.
+        /// </summary>
+        /// <remarks>
+        /// LAY-22. Each cell owns its top and left edges only; the table's right and bottom edges are
+        /// drawn once by the panel, or adjacent cells would paint every interior line twice -- visible
+        /// as a doubled-width line under the Inset and Outset styles, which use two colours.
+        /// </remarks>
+        internal static void PaintTableCellBorder (TableLayoutPanelCellBorderStyle borderStyle, PaintEventArgs e, Rectangle bounds)
+        {
+            Guard.ThrowIfNull (e);
+
+            if (borderStyle == TableLayoutPanelCellBorderStyle.None || bounds.Width <= 0 || bounds.Height <= 0)
+                return;
+
+            // Inset and Outset are the same pair of colours with the light and dark swapped, which is
+            // the whole difference between a cell that looks sunken and one that looks raised.
+            var (top_left, bottom_right) = borderStyle switch {
+                TableLayoutPanelCellBorderStyle.Inset or TableLayoutPanelCellBorderStyle.InsetDouble
+                    => (Theme.BorderLowColor, Theme.BorderHighColor),
+                TableLayoutPanelCellBorderStyle.Outset or TableLayoutPanelCellBorderStyle.OutsetDouble
+                    or TableLayoutPanelCellBorderStyle.OutsetPartial
+                    => (Theme.BorderHighColor, Theme.BorderLowColor),
+                _ => (Theme.BorderMidColor, Theme.BorderMidColor),
+            };
+
+            // Top and left.
+            e.Canvas.DrawLine (bounds.X, bounds.Y, bounds.Right, bounds.Y, top_left);
+            e.Canvas.DrawLine (bounds.X, bounds.Y, bounds.X, bounds.Bottom, top_left);
+
+            var doubled = borderStyle is TableLayoutPanelCellBorderStyle.InsetDouble
+                              or TableLayoutPanelCellBorderStyle.OutsetDouble
+                              or TableLayoutPanelCellBorderStyle.OutsetPartial;
+
+            if (!doubled)
+                return;
+
+            // The second line of a *Double style, in the opposite colour, one pixel in.
+            e.Canvas.DrawLine (bounds.X + 1, bounds.Y + 1, bounds.Right - 1, bounds.Y + 1, bottom_right);
+            e.Canvas.DrawLine (bounds.X + 1, bounds.Y + 1, bounds.X + 1, bounds.Bottom - 1, bottom_right);
+        }
+
     }
 }

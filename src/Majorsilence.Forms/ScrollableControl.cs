@@ -65,10 +65,25 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets the extra margin (in pixels) added around the auto-scroll area.
-        /// Stub in Majorsilence.Forms — the value is stored but not applied to layout.
+        /// Gets or sets the extra margin, in pixels, kept around the auto-scroll area -- both added to
+        /// the scrollable canvas and left clear when <see cref="Control.ScrollControlIntoView(Control?)"/>
+        /// brings a control into view.
         /// </summary>
-        public Size AutoScrollMargin { get; set; } = Size.Empty;
+        /// <remarks>
+        /// LAY-30: this was an auto-property, while <c>Recalculate</c> read a private field of the same
+        /// name that nothing ever wrote -- so the margin was stored, reported back, and applied to
+        /// nothing. The two are now one store.
+        /// </remarks>
+        public Size AutoScrollMargin {
+            get => auto_scroll_margin;
+            set {
+                if (auto_scroll_margin == value)
+                    return;
+
+                auto_scroll_margin = value;
+                PerformLayout (this, nameof (AutoScrollMargin));
+            }
+        }
 
         /// <summary>Sets the size of the auto-scroll margin around the control (WinForms compat for AutoScrollMargin property).</summary>
         public void SetAutoScrollMargin (int x, int y) => AutoScrollMargin = new Size (x, y);
@@ -187,6 +202,25 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// <para>
+        /// LAY-29: this used to report the visible client area with its origin always at the client
+        /// origin, whatever the scroll position, and its size always the visible size. Upstream's
+        /// carries the scroll offset as a NEGATIVE origin and the scrollable content extent as the
+        /// size (<c>ScrollableControl.DisplayRectangle</c>), which is the coordinate space every
+        /// anchor delta in the layout engine is expressed in -- the capture subtracts this origin and
+        /// the placement adds it back. Anything converting between content and client coordinates,
+        /// custom painting and hit-testing included, read <c>(0,0)</c> and mis-placed content by
+        /// exactly the scroll amount.
+        /// </para>
+        /// <para>
+        /// The children are still physically moved when the control scrolls, which is not a departure
+        /// from upstream: <c>SetDisplayRectLocation</c> scrolls with <c>SW_SCROLLCHILDREN</c>, so the
+        /// OS moves the child windows there too. The two stay consistent by construction -- a layout
+        /// pass computes a child's position as (delta captured against the old origin) + (the new
+        /// origin), which is where scrolling already put it.
+        /// </para>
+        /// </remarks>
         public override Rectangle DisplayRectangle {
             get {
                 // A ScrollableControl DisplayRectangle includes Padding, while a normal Control does not.
@@ -197,6 +231,17 @@ namespace Majorsilence.Forms
 
                 if (vscrollbar.Visible)
                     rect.Width -= vscrollbar.Width;
+
+                rect.X -= scroll_position.X;
+                rect.Y -= scroll_position.Y;
+
+                // The content extent, not the visible extent, on whichever axis actually scrolls --
+                // an axis with no scrollbar has no content beyond what is already shown.
+                if (hscrollbar.Visible && canvas_size.Width > rect.Width)
+                    rect.Width = canvas_size.Width;
+
+                if (vscrollbar.Visible && canvas_size.Height > rect.Height)
+                    rect.Height = canvas_size.Height;
 
                 // TODO: Scale padding?
                 return LayoutUtils.DeflateRect (rect, Padding);

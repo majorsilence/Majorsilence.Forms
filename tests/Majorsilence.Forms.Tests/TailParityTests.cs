@@ -291,10 +291,17 @@ namespace Majorsilence.Forms.Tests
 
             strip.HorizontalScroll.Value = 25;
             strip.VerticalScroll.Maximum = 400;
-            strip.SetAutoScrollMargin (4, 6);
 
             Assert.Equal (25, strip.HorizontalScroll.Value);
             Assert.Equal (400, strip.VerticalScroll.Maximum);
+
+            // SetAutoScrollMargin moved out of the middle of this test (LAY-30). The margin is real
+            // now rather than an inert auto-property, so setting it runs a layout pass -- and a layout
+            // pass zeroes the value of a scrollbar it decides is not needed, which a strip with no
+            // overflowing content never is. The margin's own round trip is covered by
+            // ScrollingContainerTests.
+            strip.SetAutoScrollMargin (4, 6);
+
             Assert.Equal (new Size (4, 6), strip.AutoScrollMargin);
         }
 

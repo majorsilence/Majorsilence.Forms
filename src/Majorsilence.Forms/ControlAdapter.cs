@@ -160,6 +160,13 @@ namespace Majorsilence.Forms
 
                 entering?.RaiseGotFocus ();
 
+                // LAY-30: the headline behaviour of ScrollControlIntoView is that TABBING into a
+                // control below the fold of an AutoScroll panel scrolls it into view. Upstream drives
+                // that from ContainerControl when the active control changes; this is the equivalent
+                // point here. Without it, focus lands on a field the user cannot see -- immediately
+                // noticed on any long data-entry form, and the reason the method exists.
+                entering?.ScrollControlIntoView (entering);
+
                 leaving?.Invalidate ();
                 entering?.Invalidate ();
             } finally {
