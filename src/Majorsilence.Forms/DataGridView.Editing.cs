@@ -121,7 +121,7 @@ namespace Majorsilence.Forms
         /// WinForms, where <c>grid.EditingControl as TextBox</c> is how a handler reaches the editor to
         /// attach its own <c>KeyPress</c>.
         /// </summary>
-        public Control? EditingControl => edit_textbox;
+        public Control? EditingControl => edit_control;
 
         // True when this EditMode opens an editor for the given trigger. Upstream spreads these checks
         // through four call sites; one predicate keeps them from drifting apart.

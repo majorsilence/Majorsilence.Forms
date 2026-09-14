@@ -848,10 +848,20 @@ write-back), marks the cell dirty around the commit so a `CurrentCellDirtyStateC
 (W5.2a/DGV-08), asks `IsCellEditable` so the grid's and column's `ReadOnly` get a veto and not only the
 cell's (DGV-07), and stores the column's `TrueValue`/`FalseValue` -- a `"Y"`/`"N"` flag column never
 rendered checked, because both the toggle and the renderer tested for `"True"`/`"1"`.
-***Not done: `DGV-26`***, the combo-box column: resolving a cell's value through
-`DisplayMember`/`ValueMember` for display, and hosting a `ComboBox` rather than a `TextBox` when editing
-one. It is a different subsystem -- value formatting plus a second editing-control type -- and wants its
-own branch.
+**`DGV-26` — the combo-box column. — DONE (2026-09-14),** on its own branch as planned. 12 tests, 10
+neutralizations each producing a failure.
+A lookup column now displays the item whose `ValueMember` matches the cell's value, rendered through its
+`DisplayMember` -- the `CustomerId` cell that should read as the customer's name. The lookup sits on the
+cell's `FormattedValue` and in `ApplyCellFormatting`, so painting, `CellPainting.FormattedValue` and
+`PreferredSize` all agree; a `CellFormatting` handler still pre-empts it. `Items` works the same way as
+`DataSource`, for a statically populated column.
+Editing a combo column hosts a `DataGridViewComboBoxEditingControl` -- the type that existed and was
+never constructed -- bound to the same list, opened on the cell's current value, committing its
+`SelectedValue`. The editor field became a `Control` rather than a `TextBox` for this.
+*An unmatched value falls back to the value itself,* where upstream raises `DataError`. A blank cell
+where a name belongs is the harder bug to diagnose than a visible id, and the `DataError` path for
+formatting is not implemented. Recorded as a deviation with a test asserting the fallback, so it is a
+decision rather than an accident.
 
 **W5.6 — `ListView` is not a list view. — DONE (2026-09-01)**
 `View` now selects the layout and the rendering: `Details` draws a header band from `Columns` and one
@@ -1531,7 +1541,7 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. **Open:** `DGV-13` (default values) and `DGV-26` (combo-box column), **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. `DGV-26` (combo-box column) done 2026-09-14. **Open:** `DGV-13` (default values), **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
@@ -1554,6 +1564,17 @@ behaviour for another.
 sat in the inert-event baseline the whole time. The file is a list of facts, not a to-do list -- but
 these eight were a to-do list, and reading them as facts is what let them sit. Worth checking whether
 other baseline entries are load-bearing in the same way.
+
+**Two names for one editor, and the type of one of them was the bug.** `EditingControl` returned
+`edit_textbox`, which after the field became a `Control` was `edit_control as TextBox` -- null for a
+combo editor. Four tests failed with a null reference at a point where `BeginEdit` had just returned
+**true**: the editor existed, and the property that hands it out could not see it. When a field is
+generalised, every *derived* accessor is a place the old assumption can survive silently.
+
+**A commit path that parses text cannot commit a non-string.** A combo box's `SelectedValue` is the id
+behind the name, and routing it through the text parser stored `"3"` instead of `3` -- an unbound lookup
+column declares no `ValueType` for the conversion to aim at. The test failure read `Expected: 3, Actual:
+3`, which is xunit saying "same rendering, different type" and is worth recognising on sight.
 
 **A key-up handler cannot repeat.** Holding an arrow key moved one row and stopped, which reads as a
 sluggish grid rather than as a missing feature -- the kind of defect users report as "it feels wrong"

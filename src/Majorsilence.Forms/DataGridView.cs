@@ -31,7 +31,11 @@ namespace Majorsilence.Forms
         private DataGridViewSelectionMode selection_mode = DataGridViewSelectionMode.FullRowSelect;
         private bool read_only;
         private IList? data_source;
-        private TextBox? edit_textbox;
+        // The hosted editor. A Control, not a TextBox, since DGV-26: a combo-box column edits in a combo
+        // box. edit_textbox is the text-box view of it, for the paths that are genuinely text-only.
+        private Control? edit_control;
+
+        private TextBox? edit_textbox => edit_control as TextBox;
         private int editing_row_index = -1;
         private int editing_column_index = -1;
 
@@ -144,17 +148,20 @@ namespace Majorsilence.Forms
             if (begin_args.Cancel)
                 return;
 
-            // GetCellBounds returns device pixel coordinates; child control bounds are
-            // in logical units, so convert before positioning the TextBox.
-            var editor = new TextBox {
-                Left = DeviceToLogicalUnits (cell_bounds.Left) + 1,
-                Top = DeviceToLogicalUnits (cell_bounds.Top) + 1,
-                Width = DeviceToLogicalUnits (cell_bounds.Width) - 2,
-                Height = DeviceToLogicalUnits (cell_bounds.Height) - 2,
-                Text = cell_value
-            };
+            // The editor the COLUMN wants: a combo-box column edits in a combo box bound to the same
+            // list its display text is looked up in, so the user picks from what they were reading
+            // (DGV-26). Everything else edits in a text box, as before.
+            var editor = CreateEditorFor (columnIndex < Columns.Count ? Columns[columnIndex] : null,
+                Rows[rowIndex].Cells[columnIndex], cell_value);
 
-            edit_textbox = editor;
+            // GetCellBounds returns device pixel coordinates; child control bounds are
+            // in logical units, so convert before positioning the editor.
+            editor.Left = DeviceToLogicalUnits (cell_bounds.Left) + 1;
+            editor.Top = DeviceToLogicalUnits (cell_bounds.Top) + 1;
+            editor.Width = DeviceToLogicalUnits (cell_bounds.Width) - 2;
+            editor.Height = DeviceToLogicalUnits (cell_bounds.Height) - 2;
+
+            edit_control = editor;
             editor.Style.Border.Width = 0;
 
             editor.KeyDown += EditTextBox_KeyDown;
@@ -180,15 +187,15 @@ namespace Majorsilence.Forms
             OnEditingControlShowing (new DataGridViewEditingControlShowingEventArgs (editor,
                 Rows[rowIndex].Cells[columnIndex].InheritedStyle));
 
-            if (!ReferenceEquals (edit_textbox, editor))
+            if (!ReferenceEquals (edit_control, editor))
                 return;
 
             editor.Select ();
 
-            if (!ReferenceEquals (edit_textbox, editor))
+            if (!ReferenceEquals (edit_control, editor))
                 return;
 
-            editor.SelectAll ();
+            (editor as TextBox)?.SelectAll ();
         }
 
         /// <summary>
@@ -955,10 +962,10 @@ namespace Majorsilence.Forms
 
         // Whether the specified cell is the one currently being edited (used by DataGridViewCell compat members).
         internal bool IsCellInEditMode (int rowIndex, int columnIndex)
-            => edit_textbox is not null && editing_row_index == rowIndex && editing_column_index == columnIndex;
+            => edit_control is not null && editing_row_index == rowIndex && editing_column_index == columnIndex;
 
         // The uncommitted text of the active editor, if any (used by DataGridViewCell.EditedFormattedValue).
-        internal string? CurrentEditValue => edit_textbox?.Text;
+        internal string? CurrentEditValue => edit_control?.Text;
 
         /// <summary>Raised when <see cref="IsCurrentCellDirty"/> changes.</summary>
         public event EventHandler? CurrentCellDirtyStateChanged;
@@ -974,10 +981,13 @@ namespace Majorsilence.Forms
             Justification = "TypeDescriptor is how WinForms resolves the bound member to write back to; a trimmed descriptor degrades to the reflection path alongside it.")]
         public bool EndEdit ()
         {
-            if (edit_textbox is null || editing_row_index < 0 || editing_column_index < 0)
+            if (edit_control is null || editing_row_index < 0 || editing_column_index < 0)
                 return false;
 
-            var new_value = edit_textbox.Text;
+            // The editor's value, not its text: a combo box commits its SelectedValue -- the id behind
+            // the displayed name -- which is what a lookup column stores (DGV-26).
+            var editor_value = EditorValue ();
+            var new_value = editor_value?.ToString () ?? string.Empty;
 
             // WinForms validation cycle: a handler can cancel the commit, keeping the cell in edit mode.
             var validatingArgs = new DataGridViewCellValidatingEventArgs (editing_column_index, editing_row_index, new_value);
@@ -1014,6 +1024,15 @@ namespace Majorsilence.Forms
             // DGV-10: without a handler the grid used to store the editor's raw string, so a column
             // declared ValueType = typeof (int) held "5" and every (int)cell.Value cast threw. Upstream
             // always parses to the cell's type; a handler only pre-empts it.
+            // A combo box commits what it SELECTED. Its SelectedValue is already the ValueMember it was
+            // bound by -- an int id, typically -- and there is no text to parse: routing it through the
+            // text path stored the id as a string, since an unbound lookup column declares no ValueType
+            // for the conversion to aim at (DGV-26).
+            if (!parsing_handled && edit_control is DataGridViewComboBoxEditingControl) {
+                parsed_value = editor_value;
+                parsing_handled = true;
+            }
+
             if (!parsing_handled) {
                 try {
                     parsed_value = ParseForCommit (editing_cell, new_value, desired_type);
@@ -1081,12 +1100,12 @@ namespace Majorsilence.Forms
             OnCellEndEdit (end_args);
 
             // Clean up the TextBox
-            edit_textbox.KeyDown -= EditTextBox_KeyDown;
-            edit_textbox.LostFocus -= EditTextBox_LostFocus;
-            edit_textbox.TextChanged -= EditTextBox_TextChanged;
-            Controls.Remove (edit_textbox);
-            edit_textbox.Dispose ();
-            edit_textbox = null;
+            edit_control.KeyDown -= EditTextBox_KeyDown;
+            edit_control.LostFocus -= EditTextBox_LostFocus;
+            edit_control.TextChanged -= EditTextBox_TextChanged;
+            Controls.Remove (edit_control);
+            edit_control.Dispose ();
+            edit_control = null;
             editing_row_index = -1;
             editing_column_index = -1;
             SetCurrentCellDirty (false);
@@ -1135,15 +1154,15 @@ namespace Majorsilence.Forms
         /// </summary>
         public void CancelEdit ()
         {
-            if (edit_textbox is null)
+            if (edit_control is null)
                 return;
 
-            edit_textbox.KeyDown -= EditTextBox_KeyDown;
-            edit_textbox.LostFocus -= EditTextBox_LostFocus;
-            edit_textbox.TextChanged -= EditTextBox_TextChanged;
-            Controls.Remove (edit_textbox);
-            edit_textbox.Dispose ();
-            edit_textbox = null;
+            edit_control.KeyDown -= EditTextBox_KeyDown;
+            edit_control.LostFocus -= EditTextBox_LostFocus;
+            edit_control.TextChanged -= EditTextBox_TextChanged;
+            Controls.Remove (edit_control);
+            edit_control.Dispose ();
+            edit_control = null;
 
             // Escape ends the edit as surely as Enter does, and the handlers that re-enable buttons or
             // clear an "editing" status live in CellEndEdit -- they used to stay stuck (DGV-09).
@@ -1160,7 +1179,7 @@ namespace Majorsilence.Forms
         // Repositions the editing TextBox after a scroll; cancels the edit if the cell has scrolled out of view.
         private void UpdateEditTextBoxPosition ()
         {
-            if (edit_textbox is null || editing_row_index < 0 || editing_column_index < 0)
+            if (edit_control is null || editing_row_index < 0 || editing_column_index < 0)
                 return;
 
             var cell_bounds = GetCellBounds (editing_row_index, editing_column_index);
@@ -1170,10 +1189,10 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            edit_textbox.Left = DeviceToLogicalUnits (cell_bounds.Left) + 1;
-            edit_textbox.Top = DeviceToLogicalUnits (cell_bounds.Top) + 1;
-            edit_textbox.Width = DeviceToLogicalUnits (cell_bounds.Width) - 2;
-            edit_textbox.Height = DeviceToLogicalUnits (cell_bounds.Height) - 2;
+            edit_control.Left = DeviceToLogicalUnits (cell_bounds.Left) + 1;
+            edit_control.Top = DeviceToLogicalUnits (cell_bounds.Top) + 1;
+            edit_control.Width = DeviceToLogicalUnits (cell_bounds.Width) - 2;
+            edit_control.Height = DeviceToLogicalUnits (cell_bounds.Height) - 2;
         }
 
         /// <summary>
@@ -1687,7 +1706,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets whether a cell is currently being edited.
         /// </summary>
-        public bool IsCurrentCellInEditMode => edit_textbox is not null;
+        public bool IsCurrentCellInEditMode => edit_control is not null;
 
         /// <summary>
         /// Raises the CellBeginEdit event.
@@ -2224,7 +2243,7 @@ namespace Majorsilence.Forms
                 return true;
 
             // WinForms commits the cell edit before validating the row it belongs to.
-            if (edit_textbox is not null && editing_row_index == rowIndex && !EndEdit ())
+            if (edit_control is not null && editing_row_index == rowIndex && !EndEdit ())
                 return false;
 
             var args = new DataGridViewCellCancelEventArgs (selected_column_index, rowIndex);
@@ -2365,8 +2384,8 @@ namespace Majorsilence.Forms
                 return;
 
             // If editing, end edit when clicking outside the editor
-            if (edit_textbox is not null) {
-                var edit_bounds = edit_textbox.ScaledBounds;
+            if (edit_control is not null) {
+                var edit_bounds = edit_control.ScaledBounds;
 
                 if (!edit_bounds.Contains (e.Location))
                     EndEdit ();
@@ -2881,8 +2900,16 @@ namespace Majorsilence.Forms
             // the display text; the renderer picks that up from the cell when we return null.
             var subclassText = cell.FormattedTextOverride;
 
-            if (_cellFormatting is null)
+            // A lookup column shows the DISPLAY member of the item its value matches, not the value --
+            // the CustomerId cell that should read as the customer's name (DGV-26).
+            var lookup = LookUpDisplayText (column, cell.Value);
+
+            if (_cellFormatting is null) {
+                if (lookup is not null)
+                    return lookup;
+
                 return subclassText is null ? FormatCellValue (cell.Value, cell.InheritedStyle, column) : null;
+            }
 
             var args = new DataGridViewCellFormattingEventArgs (columnIndex, rowIndex, cell.Value, typeof (string), cell.InheritedStyle);
             OnCellFormatting (args);

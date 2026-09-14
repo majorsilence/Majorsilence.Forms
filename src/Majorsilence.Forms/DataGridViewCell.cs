@@ -224,7 +224,12 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the formatted (display) value of this cell.</summary>
-        public object? FormattedValue => FormattedTextOverride ?? value?.ToString ();
+        public object? FormattedValue
+            // The lookup first: a combo-box cell's formatted value is the DISPLAY member of the item its
+            // value matches, which is what CellPainting handlers and PreferredSize read (DGV-26).
+            => FormattedTextOverride
+               ?? DataGridView.LookUpDisplayText (OwningColumn, value)
+               ?? value?.ToString ();
 
         /// <summary>
         /// An optional display-text override set by a formatting pass (e.g. RadGridView's CellFormatting
