@@ -201,14 +201,8 @@ namespace Majorsilence.Forms
         /// <summary>Called when a data-binding operation has finished.</summary>
         protected virtual void OnDataBindingComplete (DataGridViewBindingCompleteEventArgs e) { }
 
-        /// <summary>Called when the mouse moves over a cell.</summary>
-        protected virtual void OnCellMouseMove (DataGridViewCellMouseEventArgs e) { }
 
-        /// <summary>Called when a mouse button goes down over a cell.</summary>
-        protected virtual void OnCellMouseDown (DataGridViewCellMouseEventArgs e) { }
 
-        /// <summary>Called when a mouse button is released over a cell.</summary>
-        protected virtual void OnCellMouseUp (DataGridViewCellMouseEventArgs e) { }
 
         /// <summary>Paints the area behind the rows and columns.</summary>
         /// <remarks>A themed grid overrides this to draw its own background instead of the flat fill.</remarks>

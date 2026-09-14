@@ -577,7 +577,13 @@ namespace Majorsilence.Forms.Renderers
             if (column is DataGridViewImageColumn image_col) {
                 RenderImageCell (control, image_col, rowIndex, columnIndex, bounds, e);
             } else if (column is DataGridViewCheckBoxColumn || column.DisplaysAsCheckBox) {
-                RenderCheckBoxCell (e, bounds, value);
+                // The CELL's value through the column's TrueValue, not the formatted string: a "Y"/"N"
+                // flag column never rendered checked, because the test was for "True"/"1" (DGV-25).
+                var cell_value = rowIndex >= 0 && rowIndex < control.Rows.Count && columnIndex < control.Rows[rowIndex].Cells.Count
+                    ? control.Rows[rowIndex].Cells[columnIndex].Value
+                    : value;
+
+                RenderCheckBoxCell (e, bounds, DataGridView.IsCheckedValue (column, cell_value));
             } else if (column is DataGridViewButtonColumn btn_col) {
                 var btn_text = btn_col.UseColumnTextForButtonValue ? btn_col.HeaderText : value;
                 RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg);
@@ -689,7 +695,7 @@ namespace Majorsilence.Forms.Renderers
                 disabled: !control.Enabled);
         }
 
-        private static void RenderCheckBoxCell (PaintEventArgs e, Rectangle bounds, string value)
+        private static void RenderCheckBoxCell (PaintEventArgs e, Rectangle bounds, bool isChecked)
         {
             var size = Math.Min (bounds.Width, bounds.Height) - 6;
             var cx = bounds.Left + (bounds.Width - size) / 2;
@@ -698,9 +704,7 @@ namespace Majorsilence.Forms.Renderers
 
             e.Canvas.DrawRectangle (box, Theme.BorderLowColor);
 
-            var checked_ = value == "True" || value == "1" || value.Equals ("true", StringComparison.OrdinalIgnoreCase);
-
-            if (checked_) {
+            if (isChecked) {
                 var inset = box;
                 inset.Inflate (-3, -3);
                 e.Canvas.FillRectangle (inset, Theme.AccentColor);

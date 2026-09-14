@@ -197,6 +197,8 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a cell is clicked.</summary>
         public event DataGridViewCellEventHandler? CellClick;
 
+        // Raised from OnMouseUp via OnCellClick -- see DataGridView.MouseEvents.cs.
+
         /// <summary>Raised when the current cell moves off a cell. Mirrors WinForms DataGridView.CellLeave.</summary>
         public event DataGridViewCellEventHandler? CellLeave;
 
@@ -263,17 +265,9 @@ namespace Majorsilence.Forms
         /// <summary>Raised on a mouse click in a cell.</summary>
         public event DataGridViewCellMouseEventHandler? CellMouseClick;
 
-        /// <summary>Raised on a mouse double-click in a cell.</summary>
-        public event DataGridViewCellMouseEventHandler? CellMouseDoubleClick { add { } remove { } }
 
-        /// <summary>Raised on a mouse down in a cell.</summary>
-        public event DataGridViewCellMouseEventHandler? CellMouseDown { add { } remove { } }
 
-        /// <summary>Raised on a mouse up in a cell.</summary>
-        public event DataGridViewCellMouseEventHandler? CellMouseUp { add { } remove { } }
 
-        /// <summary>Raised when the mouse moves over a cell.</summary>
-        public event DataGridViewCellMouseEventHandler? CellMouseMove { add { } remove { } }
 
         /// <summary>Raised when the mouse enters a cell.</summary>
         public event DataGridViewCellEventHandler? CellMouseEnter;
@@ -360,8 +354,6 @@ namespace Majorsilence.Forms
         internal void RaiseRowsAdded (int rowIndex, int rowCount) => OnRowsAdded (new DataGridViewRowsAddedEventArgs (rowIndex, rowCount));
         internal void RaiseRowsRemoved (int rowIndex, int rowCount) => OnRowsRemoved (new DataGridViewRowsRemovedEventArgs (rowIndex, rowCount));
 
-        /// <summary>Raised when the user clicks a row header.</summary>
-        public event DataGridViewCellMouseEventHandler? RowHeaderMouseClick { add { } remove { } }
 
         private DataGridViewCellEventHandler? _rowEnter;
         /// <summary>Raised when a row becomes the current row.</summary>
@@ -374,8 +366,6 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a cell's content is clicked.</summary>
         public event DataGridViewCellEventHandler? CellContentClick;
 
-        /// <summary>Raised when a cell's content is double-clicked.</summary>
-        public event DataGridViewCellEventHandler? CellContentDoubleClick { add { } remove { } }
 
         private EventHandler<DataGridViewCellPaintingEventArgs>? _cellPainting;
         /// <summary>
@@ -406,8 +396,6 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a column header cell is clicked.</summary>
         public event DataGridViewCellMouseEventHandler? ColumnHeaderMouseClick;
 
-        /// <summary>Raised when a column header cell is double-clicked.</summary>
-        public event DataGridViewCellMouseEventHandler? ColumnHeaderMouseDoubleClick { add { } remove { } }
 
         /// <summary>Raised when the width of a column changes.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnWidthChanged { add { } remove { } }
@@ -418,8 +406,6 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the height of a row changes.</summary>
         public event DataGridViewRowEventHandler? RowHeightChanged { add { } remove { } }
 
-        /// <summary>Raised when a row header cell is double-clicked.</summary>
-        public event DataGridViewCellMouseEventHandler? RowHeaderMouseDoubleClick { add { } remove { } }
 
         /// <summary>Raised when the user is deleting a row. Fires before the row is deleted.</summary>
         public event DataGridViewRowEventHandler? UserAddedRow { add { } remove { } }
@@ -2278,6 +2264,8 @@ namespace Majorsilence.Forms
             var row = GetRowAtLocation (e.Location);
             var col = GetColumnAtLocation (e.Location);
 
+            RaiseCellDoubleClick (e);
+
             if (row >= 0 && col >= 0) {
                 OnCellDoubleClick (new DataGridViewCellEventArgs (col, row));
 
@@ -2367,6 +2355,11 @@ namespace Majorsilence.Forms
         {
             base.OnMouseDown (e);
             RouteHeaderMouseDown (e);
+
+            // Before anything the press does: upstream reports the press, then acts on it. This is the
+            // event the right-click-selects-the-clicked-row idiom hangs off, so it has to fire for
+            // every button, not just the left one the rest of this method handles.
+            RaiseCellMouseDown (e);
 
             if (!Enabled || !e.Button.HasFlag (MouseButtons.Left))
                 return;
@@ -2460,30 +2453,12 @@ namespace Majorsilence.Forms
                     TryBeginEditFromClick (row, col, was_already_current);
                 }
 
-                // Toggle check-box cells on click (covers DataGridViewCheckBoxColumn and any column
-                // that renders as a check box, e.g. the Telerik-compat GridViewCheckBoxColumn).
-                if (col >= 0 && col < Columns.Count
-                    && (Columns[col] is DataGridViewCheckBoxColumn || Columns[col].DisplaysAsCheckBox)
-                    && row < Rows.Count && col < Rows[row].Cells.Count) {
-                    var cell = Rows[row].Cells[col];
-
-                    if (!cell.ReadOnly) {
-                        var current = cell.Value is bool b ? b
-                            : string.Equals (cell.Value?.ToString (), "True", StringComparison.OrdinalIgnoreCase) || cell.Value?.ToString () == "1";
-                        cell.Value = !current;
-                        OnCellValueChanged (new DataGridViewCellEventArgs (col, row));
-                    }
-                }
-
-                var cellArgs = new DataGridViewCellEventArgs (col, row);
-                CellClick?.Invoke (this, cellArgs);
-
-                if (col >= 0) {
-                    OnCellMouseClick (new DataGridViewCellMouseEventArgs (col, row, e.Location.X - GetColumnDeviceLeft (col), e.Location.Y, e));
-                    // Raised after the check-box toggle above so the committed value is current.
-                    OnCellContentClick (cellArgs);
-                }
             }
+
+            // The click events -- CellClick, CellMouseClick, CellContentClick -- and the check-box
+            // toggle are raised from OnMouseUp, where upstream raises them (DGV-30). This records where
+            // the press landed so the release can tell a click from a drag.
+            mouse_down_target = TargetAt (e.Location);
         }
 
         /// <inheritdoc/>
@@ -2503,6 +2478,7 @@ namespace Majorsilence.Forms
         {
             base.OnMouseMove (e);
             RouteHeaderMouseMove (e);
+            RaiseCellMouseMove (e);
 
             if (is_resizing_column) {
                 var delta = e.Location.X - resize_start_x;
@@ -2572,6 +2548,13 @@ namespace Majorsilence.Forms
             RouteHeaderMouseUp (e);
             base.OnMouseUp (e);
 
+            // A resize drag is not a click: releasing after one must not toggle a check box or run a
+            // CellClick handler, so the click events are raised only when no resize was in progress.
+            if (!is_resizing_column && !is_resizing_row)
+                RaiseCellMouseUp (e);
+
+            mouse_down_target = null;
+
             if (is_resizing_column) {
                 is_resizing_column = false;
                 resize_column_index = -1;
@@ -2615,8 +2598,17 @@ namespace Majorsilence.Forms
 
             Guard.ThrowIfNull (e);
 
-            if (e.Handled || !Enabled || IsCurrentCellInEditMode)
+            if (e.Handled || !Enabled)
                 return;
+
+            // While an editor is open the editor owns the keyboard, except Enter -- which commits -- so
+            // navigation does not move the current cell out from under a half-typed value.
+            if (IsCurrentCellInEditMode) {
+                if (e.KeyCode == Keys.Enter && HandleNavigationKey (e))
+                    e.Handled = true;
+
+                return;
+            }
 
             if (e.KeyCode == Keys.F2) {
                 if (TryBeginEditFromF2 ())
@@ -2625,87 +2617,27 @@ namespace Majorsilence.Forms
                 return;
             }
 
+            // Navigation before the keystroke-opens-an-editor trigger, so Enter, Delete, the arrows and
+            // Tab are not treated as text to seed an editor with.
+            if (HandleNavigationKey (e)) {
+                e.Handled = true;
+                return;
+            }
+
             if (TryBeginEditFromKeystroke (e))
                 e.Handled = true;
         }
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// Navigation runs here, not on key-up, because a key-up handler cannot auto-repeat: holding an
+        /// arrow key moved one row and stopped (DGV-29).
+        /// </remarks>
         protected override void OnKeyUp (KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Down) {
-                if (selected_row_index < Rows.Count - 1) {
-                    SelectedRowIndex = selected_row_index + 1;
-                    EnsureRowVisible (selected_row_index);
-                    e.Handled = true;
-                    return;
-                }
-            }
-
-            if (e.KeyCode == Keys.Up) {
-                if (selected_row_index > 0) {
-                    SelectedRowIndex = selected_row_index - 1;
-                    EnsureRowVisible (selected_row_index);
-                    e.Handled = true;
-                    return;
-                }
-            }
-
-            if (e.KeyCode == Keys.PageDown) {
-                var new_index = Math.Min (selected_row_index + DisplayedRowCount (true), Rows.Count - 1);
-                SelectedRowIndex = new_index;
-                EnsureRowVisible (new_index);
-                e.Handled = true;
-                return;
-            }
-
-            if (e.KeyCode == Keys.PageUp) {
-                var new_index = Math.Max (selected_row_index - DisplayedRowCount (true), 0);
-                SelectedRowIndex = new_index;
-                EnsureRowVisible (new_index);
-                e.Handled = true;
-                return;
-            }
-
-            if (e.KeyCode == Keys.Home) {
-                SelectedRowIndex = 0;
-                EnsureRowVisible (0);
-                e.Handled = true;
-                return;
-            }
-
-            if (e.KeyCode == Keys.End) {
-                SelectedRowIndex = Rows.Count - 1;
-                EnsureRowVisible (Rows.Count - 1);
-                e.Handled = true;
-                return;
-            }
-
-            if (selection_mode != DataGridViewSelectionMode.FullRowSelect) {
-                if (e.KeyCode == Keys.Left && selected_column_index > 0) {
-                    SelectedColumnIndex = selected_column_index - 1;
-                    e.Handled = true;
-                    return;
-                }
-
-                if (e.KeyCode == Keys.Right && selected_column_index < Columns.Count - 1) {
-                    SelectedColumnIndex = selected_column_index + 1;
-                    e.Handled = true;
-                    return;
-                }
-
-                if (e.KeyCode == Keys.Tab) {
-                    if (e.Shift)
-                        NavigateToPreviousCell ();
-                    else
-                        NavigateToNextCell ();
-
-                    e.Handled = true;
-                    return;
-                }
-            }
-
             base.OnKeyUp (e);
         }
+
 
         /// <summary>
         /// Called when the row collection changes.

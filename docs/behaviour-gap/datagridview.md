@@ -56,8 +56,14 @@ renderer paints the style cascade and reads `GridColor`/`BackgroundColor`; sorti
 `AutoResize*` measure; every row comes from `RowTemplate`. `DGV-13` (the default-value flip) is
 deliberately left for its own branch — see the plan entry.
 
-**Still open in this file:** no P0s. `DGV-04`, `DGV-05`, `DGV-12`, `DGV-13`, `DGV-23`–`DGV-30`,
-`DGV-34`–`DGV-40` — see W5.5 and the `DGV-13` note.
+`DGV-25`, `DGV-29`, `DGV-30` are closed as of 2026-09-14 (`W5.5`): the cell mouse events are raised from
+one hit-test, the click events moved to mouse-up (and a drag is not a click), the keyboard moved to
+key-down with Enter/Delete/Ctrl+C/Home/End/Left/Right/`StandardTab`, and the check box commits through
+the write-back honouring `TrueValue`/`FalseValue` and the `ReadOnly` cascade. `DGV-26` (the combo-box
+column's `DisplayMember` lookup and combo editor) is left for its own branch — a different subsystem.
+
+**Still open in this file:** no P0s. `DGV-04`, `DGV-05`, `DGV-12`, `DGV-13`, `DGV-23`, `DGV-24`,
+`DGV-26`–`DGV-28`, `DGV-34`–`DGV-40`.
 
 ## Findings
 
@@ -253,7 +259,7 @@ deliberately left for its own branch — see the plan entry.
 - **Test:** `col.HeaderCell.Value = "X"` → `col.HeaderText == "X"`.
 - **Tests today:** none.
 
-### DGV-25 — Check-box column: toggles without dirty/commit, ignores `TrueValue/FalseValue`, no bound write-back, ignores column/grid `ReadOnly` — Cat A — P1 — High
+### DGV-25 — Check-box column: toggles without dirty/commit, ignores `TrueValue/FalseValue`, no bound write-back, ignores column/grid `ReadOnly` — Cat A — P1 — High — **CLOSED 2026-09-14 (W5.5)**
 - **Ours:** `OnMouseDown` flips `cell.Value` to a `bool` and raises `CellValueChanged` immediately, checking only `cell.ReadOnly` (`DataGridView.cs:2269-2282`); nothing writes to the data source (only `EndEdit` does); renderer treats only `"True"`/`"1"` as checked (`Renderer:591`); `TrueValue/FalseValue/IndeterminateValue/ThreeState` on column and cell are stored-only (`DataGridViewFamilyParity.cs:340-346`, `:406-415`).
 - **Upstream:** click → `SwitchFormattedValue` + `NotifyCurrentCellDirty(true)`; the value commits (and pushes to the bound item) on `CommitEdit`/cell leave; `GetFormattedValue` maps `TrueValue/FalseValue` to `CheckState` (`…/DataGridViewCheckBoxCell.cs:774-797`, `:564-585`); read-only cells don't toggle (`BeginEditInternal` gate).
 - **Impact:** Bound `bool` columns show the toggle but the object never changes and the next `ListChanged` reverts it; `TrueValue = "Y"` columns (char flags in DataTables) never render checked and toggling writes a `bool` into a string column; `grid.ReadOnly = true` still toggles.
@@ -285,7 +291,7 @@ deliberately left for its own branch — see the plan entry.
 - **Test:** click in a cell's padding → `CellClick` yes, `CellContentClick` no.
 - **Tests today:** none.
 
-### DGV-29 — Keyboard: handled on `KeyUp`; Enter, Delete, Ctrl+C, Home/End, Left/Right (FullRowSelect), Tab (FullRowSelect), `StandardTab`, `AllowUserToDeleteRows`, `UserDeletingRow`/`UserDeletedRow` — Cat A/B/D — P1 — High
+### DGV-29 — Keyboard: handled on `KeyUp`; Enter, Delete, Ctrl+C, Home/End, Left/Right (FullRowSelect), Tab (FullRowSelect), `StandardTab`, `AllowUserToDeleteRows`, `UserDeletingRow`/`UserDeletedRow` — Cat A/B/D — P1 — High — **CLOSED 2026-09-14 (W5.5)**
 - **Ours:** all navigation is in `OnKeyUp` (`DataGridView.cs:2412-2494`): Enter does nothing; Delete does nothing (`AllowUserToDeleteRows` stored-only 671-683; `UserDeletingRow`/`UserDeletedRow` fields never invoked 227-233); Ctrl+C not handled although `GetClipboardContent` works (2835); Home/End jump to first/last *row*; Left/Right/Tab are ignored in `FullRowSelect`; `StandardTab` stored (810).
 - **Upstream:** `ProcessEnterKey` commits and moves down (`…/DataGridView.Methods.cs:21395-21419`); `ProcessDeleteKey` removes selected rows with `UserDeletingRow`/`UserDeletedRow` (`:19924-19953`); Ctrl+C/Ctrl+Insert → `ProcessInsertKey` → clipboard (`:20091`, `:21853-21870`); Home/End move to first/last column (Ctrl+ to first/last cell, `:21543-21561`); Tab honours `StandardTab` (`:24339-24368`); all on key-down with auto-repeat.
 - **Impact:** Enter in a grid does nothing (users expect move-down/commit); Delete on a selected row does nothing; Ctrl+C copies nothing; holding an arrow key does not repeat; Home/End behave like Ctrl+Home/End.
@@ -293,7 +299,7 @@ deliberately left for its own branch — see the plan entry.
 - **Test:** select row 1, `OnKeyDown(Delete)` → `Rows.Count` decremented, both events raised; `OnKeyDown(Enter)` → `SelectedRowIndex + 1`.
 - **Tests today:** none.
 
-### DGV-30 — Mouse cell events never raised: `CellMouseDown/Up/Move/DoubleClick`, `RowHeaderMouseClick`, `RowHeaderMouseDoubleClick`, `ColumnHeaderMouseDoubleClick`, `CellContentDoubleClick`; `CellClick`/`ColumnHeaderMouseClick` raised on mouse-down — Cat D — P1 — High
+### DGV-30 — Mouse cell events never raised: `CellMouseDown/Up/Move/DoubleClick`, `RowHeaderMouseClick`, `RowHeaderMouseDoubleClick`, `ColumnHeaderMouseDoubleClick`, `CellContentDoubleClick`; `CellClick`/`ColumnHeaderMouseClick` raised on mouse-down — Cat D — P1 — High — **CLOSED 2026-09-14 (W5.5)**
 - **Ours:** `add { } remove { }` discards subscribers (`DataGridView.cs:258-267`, `:355`, `:369`, `:401`, `:413`); the protected `OnCellMouseDown/Up/Move` are empty and never called (`KryptonPortParity.cs:196-210`); `CellClick`/`CellMouseClick`/`ColumnHeaderMouseClick` fire inside `OnMouseDown` (2244, 2285-2288).
 - **Upstream:** raised from the mouse pipeline with cell-relative coordinates: `OnCellMouseDown` on down, `OnCellMouseUp`/`OnCellClick`/`OnCellMouseClick` on up, double-click variants on the second click (`…/DataGridView.Methods.cs:5805-5930`).
 - **Impact:** The right-click idiom `CellMouseDown += (s,e) => { if (e.Button == Right) CurrentCell = grid[e.ColumnIndex, e.RowIndex]; }` (context menu on the clicked row) never runs, so menus act on the wrong row; row-header click handlers never run; drag-select/drag-drop from `CellMouseMove` impossible.

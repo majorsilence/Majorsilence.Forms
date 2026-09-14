@@ -823,9 +823,35 @@ test measures and the click semantics of the selection tests, and four existing 
 values. It is a behaviour-defaults decision with a blast radius of its own, and belongs on its own branch
 where the fallout can be read in isolation.
 
-**W5.5 — `DataGridView` mouse and keyboard.** The 24 `add { } remove { }` events with existing trigger
-points; keyboard handled on `KeyUp` instead of `KeyDown`; Enter/Delete/Ctrl+C/Home/End/Tab.
-*Closes:* `DGV-29`, `DGV-30`, `DGV-25`, `DGV-26`.
+**W5.5 — `DataGridView` mouse and keyboard. — DONE except `DGV-26` (2026-09-14).** `DGV-29`, `DGV-30`,
+`DGV-25`. 26 tests, 23 neutralizations each producing a failure.
+*The mouse pipeline.* Eight cell-level events were `add { } remove { }` and three protected raisers were
+empty bodies nothing called. All are backed and raised from one place that answers "what is under this
+point" — a `MouseTarget` carrying the row, the column (**-1** for a header, as upstream) and
+cell-relative coordinates. `CellClick`, `CellMouseClick` and `CellContentClick` moved from mouse-**down**
+to mouse-**up**, where upstream raises them.
+*A click is a press and a release on the same cell.* The release records nothing if the press landed
+elsewhere: a drag across rows is not a click on either, and treating it as one would toggle a check box
+the user dragged over.
+*The keyboard moved to `OnKeyDown`.* A key-up handler cannot auto-repeat -- holding an arrow moved one
+row and stopped. Enter commits an edit or moves down; Delete removes the selected rows through
+`UserDeletingRow` (cancellable, per row) and `UserDeletedRow`, honouring `AllowUserToDeleteRows`;
+Ctrl+C/Ctrl+Insert reach the `GetClipboardContent ()` that was already implemented and that no key had
+ever called; Home/End move along the **row** and Ctrl+Home/End to the first/last cell -- the unmodified
+keys used to do what the modified ones mean; Left/Right work in every `SelectionMode`, not only the cell
+modes; and `StandardTab` leaves Tab to the form.
+*A bound Delete removes the ITEM, not the row* -- removing the row is undone by the next `ListChanged`
+(W5.3). The same lesson as W5.3's own: on a bound grid the list owns the rows.
+*The check box commits what it shows.* It assigned a `bool` straight into the cell, so a bound object
+never changed and the next rebind reverted the tick. It now goes through the notifying setter (W5.2a's
+write-back), marks the cell dirty around the commit so a `CurrentCellDirtyStateChanged` handler sees it
+(W5.2a/DGV-08), asks `IsCellEditable` so the grid's and column's `ReadOnly` get a veto and not only the
+cell's (DGV-07), and stores the column's `TrueValue`/`FalseValue` -- a `"Y"`/`"N"` flag column never
+rendered checked, because both the toggle and the renderer tested for `"True"`/`"1"`.
+***Not done: `DGV-26`***, the combo-box column: resolving a cell's value through
+`DisplayMember`/`ValueMember` for display, and hosting a `ComboBox` rather than a `TextBox` when editing
+one. It is a different subsystem -- value formatting plus a second editing-control type -- and wants its
+own branch.
 
 **W5.6 — `ListView` is not a list view. — DONE (2026-09-01)**
 `View` now selects the layout and the rendering: `Details` draws a header band from `Columns` and one
@@ -1505,7 +1531,7 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **Open:** **W5.5** (`DataGridView` mouse/keyboard) and `DGV-13`, **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. **Open:** `DGV-13` (default values) and `DGV-26` (combo-box column), **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
@@ -1513,6 +1539,30 @@ Suite: **4395 passing, 0 failing**, in Debug and Release, with system decoration
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.5 found
+
+**An event raised at the wrong end of a click is not a small difference.** `CellClick` fired from
+`OnMouseDown`. Everything the suite had passed, because nothing asserted *when*. The observable
+consequence is that a handler acting on a click ran with the button still down -- and, once the check box
+committed through the same path, that a drag beginning on a check box toggled it. Moving the three click
+events to mouse-up needed a second idea to go with it: **a click is a press and a release on the same
+cell**, so the release has to remember where the press landed. Without that the fix trades one wrong
+behaviour for another.
+
+**`add { } remove { }` is worse than a missing member, and the baseline already knew.** Eight of these
+sat in the inert-event baseline the whole time. The file is a list of facts, not a to-do list -- but
+these eight were a to-do list, and reading them as facts is what let them sit. Worth checking whether
+other baseline entries are load-bearing in the same way.
+
+**A key-up handler cannot repeat.** Holding an arrow key moved one row and stopped, which reads as a
+sluggish grid rather than as a missing feature -- the kind of defect users report as "it feels wrong"
+and nobody files. The move to key-down was mechanical; noticing that it *mattered* required reading the
+finding rather than the code.
+
+**Home and End did what Ctrl+Home and Ctrl+End mean.** Not "unimplemented" -- implemented, and bound to
+the wrong action, with the modified versions unbound. A test asserting "Home does something" would have
+passed. The finding named the specific behaviour, which is why it was catchable at all.
 
 ### What W5.4 found
 

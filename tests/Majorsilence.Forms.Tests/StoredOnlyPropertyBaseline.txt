@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 734 of 1201 public settable auto-properties (61%).
+# 731 of 1199 public settable auto-properties (60%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -138,7 +138,6 @@ Majorsilence.Forms.DataGridView.ShowCellErrors
 Majorsilence.Forms.DataGridView.ShowCellToolTips
 Majorsilence.Forms.DataGridView.ShowEditingIcon
 Majorsilence.Forms.DataGridView.ShowRowErrors
-Majorsilence.Forms.DataGridView.StandardTab
 Majorsilence.Forms.DataGridView.VirtualMode
 Majorsilence.Forms.DataGridViewBand.Index
 Majorsilence.Forms.DataGridViewButtonCell.FlatStyle
@@ -162,11 +161,9 @@ Majorsilence.Forms.DataGridViewCheckBoxCell.FalseValue
 Majorsilence.Forms.DataGridViewCheckBoxCell.FlatStyle
 Majorsilence.Forms.DataGridViewCheckBoxCell.IndeterminateValue
 Majorsilence.Forms.DataGridViewCheckBoxCell.TrueValue
-Majorsilence.Forms.DataGridViewCheckBoxColumn.FalseValue
 Majorsilence.Forms.DataGridViewCheckBoxColumn.FlatStyle
 Majorsilence.Forms.DataGridViewCheckBoxColumn.IndeterminateValue
 Majorsilence.Forms.DataGridViewCheckBoxColumn.ThreeState
-Majorsilence.Forms.DataGridViewCheckBoxColumn.TrueValue
 Majorsilence.Forms.DataGridViewComboBoxCell.AutoComplete
 Majorsilence.Forms.DataGridViewComboBoxCell.DisplayStyleForCurrentCellOnly
 Majorsilence.Forms.DataGridViewComboBoxCell.FlatStyle
