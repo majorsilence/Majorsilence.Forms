@@ -173,18 +173,9 @@ namespace Majorsilence.Forms
         public static void DrawFocusRectangle (Graphics graphics, Rectangle rectangle)
             => graphics.DrawFocusRectangle (rectangle);
 
-        /// <summary>Draws a focus rectangle using foreground and background colors. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Draws a focus rectangle using the given foreground and background colours.</summary>
         public static void DrawFocusRectangle (Graphics graphics, Rectangle rectangle, System.Drawing.Color foreColor, System.Drawing.Color backColor)
-            => graphics.DrawFocusRectangle (rectangle);
-
-        /// <summary>Draws a 3D border around a rectangle. Stub in Majorsilence.Forms.</summary>
-        public static void DrawBorder3D (Graphics graphics, Rectangle rectangle) { }
-
-        /// <summary>Draws a 3D border with the specified style. Stub in Majorsilence.Forms.</summary>
-        public static void DrawBorder3D (Graphics graphics, Rectangle rectangle, Border3DStyle style) { }
-
-        /// <summary>Draws a 3D border on the specified sides. Stub in Majorsilence.Forms.</summary>
-        public static void DrawBorder3D (Graphics graphics, Rectangle rectangle, Border3DStyle style, Border3DSide sides) { }
+            => graphics.DrawFocusRectangle (rectangle, foreColor, backColor);
 
         /// <inheritdoc cref="DrawBorder3D(Graphics,Rectangle)"/>
         public static void DrawBorder3D (Graphics graphics, int x, int y, int width, int height)
@@ -198,43 +189,17 @@ namespace Majorsilence.Forms
         public static void DrawBorder3D (Graphics graphics, int x, int y, int width, int height, Border3DStyle style, Border3DSide sides)
             => DrawBorder3D (graphics, new Rectangle (x, y, width, height), style, sides);
 
-        /// <summary>Draws a border around a rectangle. Stub in Majorsilence.Forms.</summary>
-        public static void DrawBorder (Graphics graphics, Rectangle bounds, System.Drawing.Color color, ButtonBorderStyle style) { }
-
-        /// <summary>Draws a border with different style on each side. Stub in Majorsilence.Forms.</summary>
-        public static void DrawBorder (Graphics graphics, Rectangle bounds,
-            System.Drawing.Color leftColor, int leftWidth, ButtonBorderStyle leftStyle,
-            System.Drawing.Color topColor, int topWidth, ButtonBorderStyle topStyle,
-            System.Drawing.Color rightColor, int rightWidth, ButtonBorderStyle rightStyle,
-            System.Drawing.Color bottomColor, int bottomWidth, ButtonBorderStyle bottomStyle) { }
-
-        /// <summary>Draws a button control. Stub in Majorsilence.Forms.</summary>
-        public static void DrawButton (Graphics graphics, Rectangle rectangle, ButtonState state) { }
-
         /// <summary>Draws a button control using x/y/width/height. Stub in Majorsilence.Forms.</summary>
         public static void DrawButton (Graphics graphics, int x, int y, int width, int height, ButtonState state)
             => DrawButton (graphics, new Rectangle (x, y, width, height), state);
-
-        /// <summary>Draws a standard check box. Stub in Majorsilence.Forms.</summary>
-        public static void DrawCheckBox (Graphics graphics, Rectangle rectangle, ButtonState state) { }
 
         /// <summary>Draws a check box using x/y/width/height. Stub in Majorsilence.Forms.</summary>
         public static void DrawCheckBox (Graphics graphics, int x, int y, int width, int height, ButtonState state)
             => DrawCheckBox (graphics, new Rectangle (x, y, width, height), state);
 
-        /// <summary>Draws a combo box drop-down button. Stub in Majorsilence.Forms.</summary>
-        public static void DrawComboButton (Graphics graphics, Rectangle rectangle, ButtonState state) { }
-
         /// <summary>Draws a combo box button using x/y/width/height. Stub in Majorsilence.Forms.</summary>
         public static void DrawComboButton (Graphics graphics, int x, int y, int width, int height, ButtonState state)
             => DrawComboButton (graphics, new Rectangle (x, y, width, height), state);
-
-        /// <summary>Draws a menu glyph. Stub in Majorsilence.Forms.</summary>
-        public static void DrawMenuGlyph (Graphics graphics, Rectangle rectangle, MenuGlyph glyph) { }
-
-        /// <summary>Draws a menu glyph in the given colours. Stub in Majorsilence.Forms.</summary>
-        public static void DrawMenuGlyph (Graphics graphics, Rectangle rectangle, MenuGlyph glyph,
-            System.Drawing.Color foreColor, System.Drawing.Color backColor) { }
 
         /// <inheritdoc cref="DrawMenuGlyph(Graphics,Rectangle,MenuGlyph)"/>
         public static void DrawMenuGlyph (Graphics graphics, int x, int y, int width, int height, MenuGlyph glyph)
@@ -267,29 +232,17 @@ namespace Majorsilence.Forms
                     graphics.FillRectangle (dotBrush, x, y, 1, 1);
         }
 
-        /// <summary>Draws a radio button. Stub in Majorsilence.Forms.</summary>
-        public static void DrawRadioButton (Graphics graphics, Rectangle rectangle, ButtonState state) { }
-
         /// <inheritdoc cref="DrawRadioButton(Graphics,Rectangle,ButtonState)"/>
         public static void DrawRadioButton (Graphics graphics, int x, int y, int width, int height, ButtonState state)
             => DrawRadioButton (graphics, new Rectangle (x, y, width, height), state);
-
-        /// <summary>Draws a scroll button. Stub in Majorsilence.Forms.</summary>
-        public static void DrawScrollButton (Graphics graphics, Rectangle rectangle, ScrollButton button, ButtonState state) { }
 
         /// <inheritdoc cref="DrawScrollButton(Graphics,Rectangle,ScrollButton,ButtonState)"/>
         public static void DrawScrollButton (Graphics graphics, int x, int y, int width, int height, ScrollButton button, ButtonState state)
             => DrawScrollButton (graphics, new Rectangle (x, y, width, height), button, state);
 
-        /// <summary>Draws a size grip. Stub in Majorsilence.Forms.</summary>
-        public static void DrawSizeGrip (Graphics graphics, System.Drawing.Color backColor, Rectangle bounds) { }
-
         /// <summary>Draws a size grip using x/y/width/height. Stub in Majorsilence.Forms.</summary>
         public static void DrawSizeGrip (Graphics graphics, System.Drawing.Color backColor, int x, int y, int width, int height)
             => DrawSizeGrip (graphics, backColor, new Rectangle (x, y, width, height));
-
-        /// <summary>Draws a string in its disabled/grayed state. Stub in Majorsilence.Forms.</summary>
-        public static void DrawStringDisabled (Graphics graphics, string s, Majorsilence.Forms.Drawing.Font font, System.Drawing.Color color, RectangleF layoutRectangle, Majorsilence.Forms.Drawing.StringFormat? format) { }
 
         /// <summary>Draws a string greyed out, the way a disabled control's text is drawn.</summary>
         /// <remarks>Unlike the StringFormat overload above this one draws: it lightens the colour
@@ -327,28 +280,35 @@ namespace Majorsilence.Forms
         }
 #pragma warning restore CA1416
 
-        /// <summary>Creates a color that is lighter than the given color.</summary>
-        public static System.Drawing.Color Light (System.Drawing.Color baseColor, float percOfLightLight = 10f)
-        {
-            var r = Math.Min (255, baseColor.R + (int)(percOfLightLight * 2.55f));
-            var g = Math.Min (255, baseColor.G + (int)(percOfLightLight * 2.55f));
-            var b = Math.Min (255, baseColor.B + (int)(percOfLightLight * 2.55f));
-            return System.Drawing.Color.FromArgb (baseColor.A, r, g, b);
-        }
+        // GFX-02. Two independent bugs, both fixed by going through HLSColor:
+        //
+        //  * The parameter is a 0.0-1.0 FRACTION, not a 0-100 percentage. Existing WinForms code calls
+        //    ControlPaint.Light (c, 0.5f) -- the documented form -- and got +1 per channel here, a
+        //    visually identical colour, so every hand-rolled bevel collapsed to flat.
+        //  * Linear RGB addition desaturates towards white or black. Moving luminosity in HLS keeps the
+        //    hue: Dark (Color.Red) is (128,0,0), not (230,0,0).
+        //
+        // Separate single-argument overloads rather than a default parameter, because the single-argument
+        // FORM has to exist for reflection and delegate binding -- a default parameter is not an overload.
 
-        /// <summary>Creates a color that is darker than the given color.</summary>
-        public static System.Drawing.Color Dark (System.Drawing.Color baseColor, float percOfDarkDark = 10f)
-        {
-            var r = Math.Max (0, baseColor.R - (int)(percOfDarkDark * 2.55f));
-            var g = Math.Max (0, baseColor.G - (int)(percOfDarkDark * 2.55f));
-            var b = Math.Max (0, baseColor.B - (int)(percOfDarkDark * 2.55f));
-            return System.Drawing.Color.FromArgb (baseColor.A, r, g, b);
-        }
+        /// <summary>Returns a lighter shade of the given colour.</summary>
+        public static System.Drawing.Color Light (System.Drawing.Color baseColor) => new HLSColor (baseColor).Lighter (0.5f);
 
-        /// <summary>Returns a color significantly lighter than the given base color.</summary>
-        public static System.Drawing.Color LightLight (System.Drawing.Color baseColor) => Light (baseColor, 40f);
+        /// <summary>Returns a lighter shade of the given colour, by the given fraction (0.0-1.0).</summary>
+        public static System.Drawing.Color Light (System.Drawing.Color baseColor, float percOfLightLight)
+            => new HLSColor (baseColor).Lighter (percOfLightLight);
 
-        /// <summary>Returns a color significantly darker than the given base color.</summary>
-        public static System.Drawing.Color DarkDark (System.Drawing.Color baseColor) => Dark (baseColor, 40f);
+        /// <summary>Returns a darker shade of the given colour.</summary>
+        public static System.Drawing.Color Dark (System.Drawing.Color baseColor) => new HLSColor (baseColor).Darker (0.5f);
+
+        /// <summary>Returns a darker shade of the given colour, by the given fraction (0.0-1.0).</summary>
+        public static System.Drawing.Color Dark (System.Drawing.Color baseColor, float percOfDarkDark)
+            => new HLSColor (baseColor).Darker (percOfDarkDark);
+
+        /// <summary>Returns a colour significantly lighter than the given base colour.</summary>
+        public static System.Drawing.Color LightLight (System.Drawing.Color baseColor) => new HLSColor (baseColor).Lighter (1.0f);
+
+        /// <summary>Returns a colour significantly darker than the given base colour.</summary>
+        public static System.Drawing.Color DarkDark (System.Drawing.Color baseColor) => new HLSColor (baseColor).Darker (1.0f);
     }
 }

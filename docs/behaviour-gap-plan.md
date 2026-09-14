@@ -1206,7 +1206,30 @@ Fix the fork above it in the same pass. `Application.RenderWithVisualStyles` ret
 branch and draws nothing**, never reaching the (also empty) `ControlPaint` fallback. Two literals that
 upstream derives from each other; assert the invariant in a test rather than the values.
 
-*Closes:* `GFX-01`, `GFX-02`, `GFX-03`, `GFX-38`.
+**— DONE (2026-09-14).** `GFX-01`, `GFX-02`, `GFX-03`, `GFX-38`. 38 tests, 16 neutralizations each
+producing a failure; 20 methods left the no-op baseline.
+*`GFX-02` first, because everything else depends on it.* `ControlPaint.HLSColor` is ported verbatim --
+integer maths on a 0-240 range, no Win32 -- and `Light`/`Dark`/`LightLight`/`DarkDark` go through it.
+Two defects in one: the parameter is a 0.0-1.0 **fraction**, so the documented `Light (c, 0.5f)` moved
+each channel by one and every hand-rolled bevel collapsed to flat; and linear RGB addition desaturates
+towards white or black instead of moving luminosity, so `Dark (Color.Red)` was (230,0,0) rather than
+(128,0,0). Separate single-argument overloads rather than a default parameter, because the one-argument
+*form* has to exist for reflection and delegate binding.
+*`GFX-01`: the twenty chrome methods paint,* from Skia primitives with no glyph font and no Win32
+`DrawFrameControl` bitmap. Borders (per-side colour, width and style; `Inset`/`Outset` as two-tone
+bevels), `DrawBorder3D` (the classic two-ring bevel, honouring `Border3DSide`), the button-faced family
+(`DrawButton`, `DrawCheckBox`, `DrawMixedCheckBox`, `DrawRadioButton`, `DrawComboButton`,
+`DrawScrollButton`, `DrawCaptionButton`), the menu glyphs, the designer furniture and `DrawSizeGrip`.
+`ButtonState` is honoured: `Pushed` swaps the bevel and offsets the glyph, `Inactive` greys it, `Flat`
+drops the bevel.
+*`GFX-03`:* the focus rectangle takes its colours (it was hardcoded black, so the indicator vanished on
+a dark theme -- an accessibility regression), strokes **inside** its rectangle rather than around it,
+and takes its dash phase from `(X + Y) % 2` so adjacent rectangles tile.
+*`GFX-38`:* `Application.RenderWithVisualStyles` is gated on `VisualStyleRenderer.IsSupported`, so the
+two are the same answer as upstream defines them. Reporting `false` is the honest answer while there is
+no visual-style engine: it sends the standard themed-or-classic fork to `ControlPaint`, which now paints.
+*One deliberate approximation:* `CaptionButton.Help` draws a filled dot rather than a question mark,
+which needs a font. Recorded rather than left blank.
 
 **W5.20 — The value controls are not implemented.** *(As measured 2026-08-25. The `MonthCalendar`
 half is closed — see **W5.20c** below.)*
@@ -1549,6 +1572,31 @@ Suite: **4395 passing, 0 failing**, in Debug and Release, with system decoration
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.19 found
+
+**A test that counts "pixels unlike the background" is blind to a control that fills itself.** The
+check-box and radio-button tests compared ink counts between the checked and unchecked states and got
+*the same number* -- 400 and 400 -- because both fill their well, so every pixel inside is already
+unlike the background and the glyph is lost in the total. Counting the **glyph's own colour** is the
+measurement; "something changed" was not.
+
+**A guard the loop condition already enforces is dead code, and the neutralization is what proved it.**
+`DrawSizeGrip` had a bounds clip inside its tick loop. Removing it changed no test -- including a test
+written specifically for a small grip -- because `offset + 3 < reach` already guarantees every tick is
+inside. Deleted, and the neutralization re-pointed at the loop condition, which is the thing actually
+holding the invariant. Same lesson as W5.2b's suppression flag, found the same way.
+
+**"Is this exact pixel ink" is too blunt for an off-by-one on a stroked edge.** The focus-rectangle test
+asserted that (10,10) was not inked, and passed whether the stroke ended at 9 or at 10 -- a 1px stroke
+centred on x=10 can round away from that pixel. Asserting the *rightmost inked column* as a number made
+the off-by-one visible. A boundary test has to measure the boundary, not sample beside it.
+
+**A finding's suggested test can be shorthand rather than the contract.** `GFX-02` says to assert
+`Dark (SystemColors.Control) == SystemColors.ControlDark`. Upstream maps the one-argument `Dark` to
+`Darker (0.5f)`, which takes the *interpolating* branch -- only `Darker (0f)` short-circuits to the exact
+system value. The implementation matching upstream failed the finding's assertion. The test now asserts
+what upstream actually defines, and says why in the test.
 
 ### What W5.5 found
 
