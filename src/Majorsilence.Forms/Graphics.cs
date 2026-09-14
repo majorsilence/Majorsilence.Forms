@@ -2276,11 +2276,40 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Draws a focus rectangle (stub — draws a dotted border).</summary>
         public void DrawFocusRectangle (Rectangle rect)
+            => DrawFocusRectangle (rect, Majorsilence.Forms.SystemColors.ControlText, Majorsilence.Forms.SystemColors.Control);
+
+        /// <summary>
+        /// Draws a dotted focus rectangle in the given foreground colour, dithered against the given
+        /// background.
+        /// </summary>
+        /// <remarks>
+        /// Three fixes over the hardcoded version (GFX-03). The colour was always black, so the focus
+        /// indicator vanished on a dark theme -- an accessibility regression, not a cosmetic one. The
+        /// stroke covered the full rectangle where upstream decrements the width and height, so a focus
+        /// rect drawn at ClientRectangle was clipped on the right and bottom. And the dash had no phase,
+        /// so adjacent rectangles did not tile: upstream picks it from (X + Y) % 2 so the corner pixel is
+        /// always penned.
+        /// </remarks>
+        public void DrawFocusRectangle (Rectangle rect, System.Drawing.Color foreColor, System.Drawing.Color backColor)
         {
-            if (_canvas is null) return;
-            using var paint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
-            paint.PathEffect = SKPathEffect.CreateDash ([1, 1], 0);
-            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
+            if (_canvas is null)
+                return;
+
+            // The dots are the XOR of the two colours, which is what makes them visible against either.
+            var colour = new SKColor (
+                (byte)(foreColor.R ^ backColor.R),
+                (byte)(foreColor.G ^ backColor.G),
+                (byte)(foreColor.B ^ backColor.B),
+                255);
+
+            using var paint = new SKPaint { Color = colour, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
+            paint.PathEffect = SKPathEffect.CreateDash ([1, 1], (rect.X + rect.Y) % 2);
+
+            // Inside the rectangle, not around it: a 10x10 focus rect strokes 0..9, not 0..10.
+            var right = Math.Max (rect.Left, rect.Right - 1);
+            var bottom = Math.Max (rect.Top, rect.Bottom - 1);
+
+            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, right, bottom), paint);
         }
 
         // --- SKColor overloads (internal usage) ---

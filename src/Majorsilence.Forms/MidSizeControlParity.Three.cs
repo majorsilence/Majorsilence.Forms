@@ -26,27 +26,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets the colour used to darken a control's background for contrast.</summary>
         public static Color ContrastControlDark => SystemColors.ControlDark;
 
-        /// <summary>Draws a caption button such as the close or minimise glyph.</summary>
-        public static void DrawCaptionButton (Graphics graphics, Rectangle rectangle, CaptionButton button, ButtonState state) { }
-
         /// <inheritdoc cref="DrawCaptionButton(Graphics,Rectangle,CaptionButton,ButtonState)"/>
         public static void DrawCaptionButton (Graphics graphics, int x, int y, int width, int height, CaptionButton button, ButtonState state)
             => DrawCaptionButton (graphics, new Rectangle (x, y, width, height), button, state);
-
-        /// <summary>Draws the grab handle of a container being resized in a designer.</summary>
-        public static void DrawContainerGrabHandle (Graphics graphics, Rectangle bounds) { }
-
-        /// <summary>Draws a designer grab handle.</summary>
-        public static void DrawGrabHandle (Graphics graphics, Rectangle rectangle, bool primary, bool enabled) { }
-
-        /// <summary>Draws the dashed frame that marks a locked designer control.</summary>
-        public static void DrawLockedFrame (Graphics graphics, Rectangle rectangle, bool primary) { }
-
-        /// <summary>Draws the frame around a selected designer control.</summary>
-        public static void DrawSelectionFrame (Graphics graphics, bool active, Rectangle outsideRect, Rectangle insideRect, Color backColor) { }
-
-        /// <summary>Draws a check box in its indeterminate state.</summary>
-        public static void DrawMixedCheckBox (Graphics graphics, Rectangle rectangle, ButtonState state) { }
 
         /// <inheritdoc cref="DrawMixedCheckBox(Graphics,Rectangle,ButtonState)"/>
         public static void DrawMixedCheckBox (Graphics graphics, int x, int y, int width, int height, ButtonState state)
@@ -77,12 +59,6 @@ namespace Majorsilence.Forms
         // behind a Skia surface and nothing to XOR against, so these do nothing rather than drawing
         // something that could never be erased -- which would leave artefacts on screen.
 
-        /// <summary>Draws a reversible frame, used for drag outlines. No-op in Majorsilence.Forms.</summary>
-        public static void DrawReversibleFrame (Rectangle rectangle, Color backColor, FrameStyle style) { }
-
-        /// <summary>Draws a reversible line. No-op in Majorsilence.Forms; see <see cref="DrawReversibleFrame"/>.</summary>
-        public static void DrawReversibleLine (Point start, Point end, Color backColor) { }
-
         /// <summary>Fills a reversible rectangle. No-op in Majorsilence.Forms; see <see cref="DrawReversibleFrame"/>.</summary>
         public static void FillReversibleRectangle (Rectangle rectangle, Color backColor) { }
 
@@ -97,6 +73,17 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc cref="CreateHBitmap16Bit"/>
         public static IntPtr CreateHBitmapTransparencyMask (Majorsilence.Forms.Drawing.Bitmap bitmap) => IntPtr.Zero;
+
+        // The reversible family stays a no-op, and is NOT part of GFX-01: these XOR straight onto the
+        // screen outside any paint cycle -- a drag outline that is erased by drawing it a second time.
+        // There is no screen device context here to XOR onto, and drawing into the control's own surface
+        // instead would leave something that could never be erased.
+
+        /// <summary>Draws a reversible frame, used for drag outlines. No-op in Majorsilence.Forms.</summary>
+        public static void DrawReversibleFrame (Rectangle rectangle, Color backColor, FrameStyle style) { }
+
+        /// <summary>Draws a reversible line. No-op in Majorsilence.Forms; see <see cref="DrawReversibleFrame"/>.</summary>
+        public static void DrawReversibleLine (Point start, Point end, Color backColor) { }
     }
 
     public partial class DataFormats

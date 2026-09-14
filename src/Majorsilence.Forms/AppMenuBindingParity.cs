@@ -48,7 +48,18 @@ namespace Majorsilence.Forms
         public static HighDpiMode HighDpiMode => HighDpiMode.PerMonitorV2;
 
         /// <summary>Gets whether controls are drawn with visual styles.</summary>
-        public static bool RenderWithVisualStyles => VisualStyleState != VisualStyleState.NoneEnabled;
+        /// <remarks>
+        /// Gated on <see cref="Majorsilence.Forms.VisualStyles.VisualStyleRenderer.IsSupported"/>, because the two are the same answer
+        /// by construction upstream and were opposite answers here (GFX-38). This said <c>true</c> while
+        /// <c>VisualStyleRenderer.DrawBackground</c> was an empty method, so the standard
+        /// <c>if (Application.RenderWithVisualStyles) … else ControlPaint.Draw…</c> fork that every
+        /// themed custom control is written around took the themed branch, drew nothing, and never
+        /// reached the classic fallback. Reporting <c>false</c> is the honest answer while this
+        /// framework has no visual-style engine: it sends that fork to <c>ControlPaint</c>, which since
+        /// GFX-01 actually paints.
+        /// </remarks>
+        public static bool RenderWithVisualStyles
+            => Majorsilence.Forms.VisualStyles.VisualStyleRenderer.IsSupported && VisualStyleState != VisualStyleState.NoneEnabled;
 
         /// <summary>Gets whether the application enabled visual styles.</summary>
         public static bool UseVisualStyles => RenderWithVisualStyles;
