@@ -28,7 +28,9 @@ namespace Majorsilence.Forms.Tests
 
             Assert.False (control.AutoSize);
             Assert.False (control.AutoEllipsis);
-            Assert.False (control.Multiline);
+            // SMP-14: a Label wraps by default. Upstream has no Multiline property at all and always
+            // word-wraps; ours keeps the property as an opt-out.
+            Assert.True (control.Multiline);
             Assert.Equal (BorderStyle.None, control.BorderStyle);
             Assert.Equal (FlatStyle.Standard, control.FlatStyle);
             Assert.Null (control.Image);

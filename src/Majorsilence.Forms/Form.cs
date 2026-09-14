@@ -207,7 +207,24 @@ namespace Majorsilence.Forms
         /// re-declares the property to narrow or hide it (<c>public new IButtonControl AcceptButton</c>)
         /// could not compile against a <see cref="Button"/>-typed one.
         /// </remarks>
-        public IButtonControl? AcceptButton { get; set; }
+        public IButtonControl? AcceptButton {
+            get => accept_button;
+            set {
+                if (ReferenceEquals (accept_button, value))
+                    return;
+
+                // SMP-07: the setter was a bare auto-property, so NotifyDefault -- which exists, and
+                // sets the IsDefault flag a renderer can draw the heavier border from -- was never
+                // called by anything. The default button on every dialog looked like all the others,
+                // leaving no way to see which one Enter would press. Upstream's UpdateDefaultButton
+                // does exactly this pair of calls.
+                accept_button?.NotifyDefault (false);
+                accept_button = value;
+                accept_button?.NotifyDefault (true);
+            }
+        }
+
+        private IButtonControl? accept_button;
 
         /// <summary>Gets or sets whether the form can be maximized.</summary>
         public bool AllowMaximize {

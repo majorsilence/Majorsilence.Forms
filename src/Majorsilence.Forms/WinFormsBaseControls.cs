@@ -123,6 +123,11 @@ namespace Majorsilence.Forms
             if (this is not IHaveGlyph)
                 return Size.Empty;
 
+            // SMP-03: a toggle button draws no glyph, so it must not be measured for one either --
+            // otherwise an AutoSize segmented control keeps a 13px column of empty space per item.
+            if (AppearanceCore == Appearance.Button)
+                return Size.Empty;
+
             if (Renderers.RenderManager.GetRenderer<Renderers.Renderer> (this) is not Renderers.IRenderGlyph renderer
                 || renderer.GlyphSize <= 0)
                 return Size.Empty;

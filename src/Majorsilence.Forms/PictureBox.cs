@@ -75,7 +75,15 @@ namespace Majorsilence.Forms
         /// </summary>
         public string? ImageLocation {
             get => image_location;
-            set => LoadInternal (value);
+            // Synchronously, as Load does (SMP-20): the async void this used to call returned before
+            // any bytes were read, so the Image was still null when the next line of the caller ran.
+            // A setter has no way to report a failure, so this records IsErrored where Load throws.
+            set {
+                if (image_location == value && (value is null || _skImage is not null))
+                    return;
+
+                LoadCore (value, rethrow: false);
+            }
         }
 
         /// <summary>Sets the image from a <see cref="Majorsilence.Forms.Drawing.Bitmap"/>.</summary>
@@ -98,54 +106,6 @@ namespace Majorsilence.Forms
         public bool IsErrored { get; private set; }
 
         /// <summary>
-        /// Loads the image at the specified path or URL and sets ImageLocation to it.
-        /// </summary>
-        public void Load (string url)
-        {
-            if (string.IsNullOrWhiteSpace (url))
-                throw new InvalidOperationException ("ImageLocation not specified.");
-
-            ImageLocation = url;
-        }
-
-        // Load image from path or URL and display it.
-        private async void LoadInternal (string? url)
-        {
-            if (image_location == url)
-                return;
-
-            if (url is null) {
-                image_location = null;
-                _systemImage = null;
-                _skImage?.Dispose ();
-                _skImage = null;
-                Invalidate ();
-                return;
-            }
-
-            IsErrored = false;
-            image_location = url;
-
-            try {
-                SKBitmap? bmp;
-                if (url.Contains ("://")) {
-                    var bytes = await Client.GetByteArrayAsync (url);
-                    bmp = SKBitmap.Decode (bytes);
-                } else
-                    bmp = SKBitmap.Decode (url);
-
-                _systemImage = null;
-                _skImage?.Dispose ();
-                _skImage = bmp;
-                UpdateSize ();
-                Invalidate ();
-            } catch (Exception) {
-                IsErrored = true;
-                Invalidate ();
-            }
-        }
-
-        /// <summary>
         /// Gets or sets a value indicated the sizing mode used.
         /// </summary>
         public PictureBoxSizeMode SizeMode {
@@ -156,7 +116,16 @@ namespace Majorsilence.Forms
 
                 if (size_mode != value) {
                     size_mode = value;
+
+                    // SMP-23: every arm of PictureBoxRenderer draws the image somewhere different, so
+                    // changing the mode changes the picture even when it changes no bound -- and
+                    // UpdateSize only ever resized under AutoSize. Without this the old painting stayed
+                    // on screen until something else invalidated: the "click Fit and nothing happens" bug.
+                    // AutoSize follows the mode as upstream does (PictureBox.cs:821-847), so a layout
+                    // container that consults AutoSize measures the box the way the mode implies.
+                    AutoSize = value == PictureBoxSizeMode.AutoSize;
                     UpdateSize ();
+                    Invalidate ();
                     OnSizeModeChanged (EventArgs.Empty);
                 }
             }
@@ -184,18 +153,6 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the image shown while the primary image is loading. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Forms.Drawing.Image? InitialImage { get; set; }
-
-        /// <summary>Loads the image from the specified URL asynchronously. Stub delegates to Load() in Majorsilence.Forms.</summary>
-        public void LoadAsync (string url) => Load (url);
-
-        /// <summary>Cancels a pending asynchronous image load. Stub in Majorsilence.Forms.</summary>
-        public void CancelAsync () { }
-
-        /// <summary>Raised when an asynchronous load completes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? LoadCompleted { add { } remove { } }
-
-        /// <summary>Raised to report progress of an asynchronous load. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? LoadProgressChanged { add { } remove { } }
 
         /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)

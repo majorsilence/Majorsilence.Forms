@@ -99,21 +99,41 @@ namespace Majorsilence.Forms
         private ProgressBarStyle _barStyle = ProgressBarStyle.Blocks;
 
         /// <summary>Gets or sets the progress bar display style. Shadows Control.Style for WinForms compatibility.</summary>
+        /// <remarks>
+        /// SMP-26: the renderer read none of these -- it filled one rectangle from <see cref="Value"/>
+        /// whatever the style said, so a <see cref="ProgressBarStyle.Marquee"/> bar (whose Value stays
+        /// at 0 by definition) was permanently empty.
+        /// </remarks>
         public new ProgressBarStyle Style {
             get => _barStyle;
-            set { _barStyle = value; Invalidate (); }
+            set {
+                if (_barStyle == value)
+                    return;
+
+                _barStyle = value;
+                UpdateMarqueeTimer ();
+                Invalidate ();
+            }
         }
 
         private int _marqueeAnimationSpeed = 100;
 
-        /// <summary>Gets or sets the animation speed (in ms) when Style is Marquee. Stub in Majorsilence.Forms.</summary>
+        /// <summary>
+        /// Gets or sets how often, in milliseconds, the marquee block advances when
+        /// <see cref="Style"/> is <see cref="ProgressBarStyle.Marquee"/>. Zero stops the animation,
+        /// as upstream's does.
+        /// </summary>
         public int MarqueeAnimationSpeed {
             get => _marqueeAnimationSpeed;
             set {
                 if (value < 0)
                     throw new ArgumentOutOfRangeException (nameof (MarqueeAnimationSpeed), $"Value '{value}' must be greater than or equal to 0.");
 
+                if (_marqueeAnimationSpeed == value)
+                    return;
+
                 _marqueeAnimationSpeed = value;
+                UpdateMarqueeTimer ();
             }
         }
 

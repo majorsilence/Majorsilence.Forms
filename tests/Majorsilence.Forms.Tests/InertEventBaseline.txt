@@ -38,8 +38,6 @@ Majorsilence.Forms.NotifyIcon.DoubleClick
 Majorsilence.Forms.NotifyIcon.MouseClick
 Majorsilence.Forms.NotifyIcon.MouseDoubleClick
 Majorsilence.Forms.NotifyIcon.MouseMove
-Majorsilence.Forms.PictureBox.LoadCompleted
-Majorsilence.Forms.PictureBox.LoadProgressChanged
 Majorsilence.Forms.PropertyGrid.PropertyValueChanged
 Majorsilence.Forms.PropertyGrid.SelectedGridItemChanged
 Majorsilence.Forms.PropertyGrid.SelectedObjectsChanged

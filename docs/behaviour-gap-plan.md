@@ -1426,13 +1426,53 @@ when the grid's leading padding was neutralized; neither did before. A date fixt
 accidentally degenerate in a way a numeric one cannot, and the neutralization pass is the only thing
 that surfaces it.
 
-**W5.21 — Buttons, labels and pictures.**
-`RadioButton` ignores `AutoCheck` and never manages `TabStop`; `Appearance`, `FlatStyle`/`FlatAppearance`
-are stored-only on `CheckBox`/`RadioButton`; button and label captions never word-wrap (`Label.Multiline`
-defaults false, so a long caption clips instead of wrapping — upstream wraps); `Label.BorderStyle` is
-never drawn; `PictureBox.Load()` is asynchronous and swallows failures, `SizeMode` does not invalidate.
-*Closes:* `SMP-01`, `SMP-02`, `SMP-03`, `SMP-05`, `SMP-13`, `SMP-14`, `SMP-15`, `SMP-20`, `SMP-21`,
-`SMP-23`, `SMP-26`, `SMP-29`, `SMP-07`.
+**W5.21 — Buttons, labels and pictures. — DONE (2026-09-14).**
+43 tests in `tests/Majorsilence.Forms.Tests/ButtonsLabelsPicturesTests.cs`, 22 neutralizations each
+producing a failure; 8 tests are labelled in-test as guards.
+*Closed:* `SMP-01`, `SMP-02`, `SMP-03`, `SMP-05`, `SMP-07`, `SMP-13`, `SMP-14`, `SMP-15`, `SMP-20`,
+`SMP-21`, `SMP-23`, `SMP-26`, `SMP-29` — and `SMP-04` and the `CheckedBackColor` half of `SMP-06`,
+which fell out of the fixes for `SMP-03` and `SMP-05` rather than being worked separately.
+
+- **The radio group became a group.** `UpdateSiblings` unchecked every sibling regardless of anyone's
+  `AutoCheck`, so the manually-managed group could never show what it was told to (`SMP-01`), and
+  nothing anywhere wrote `TabStop`, so a six-option group cost six tabs to cross instead of one and
+  tabbing in did not land on the checked option (`SMP-02`). Both are one routine upstream --
+  `PerformAutoUpdates` with `WipeTabStops` -- ported into `RadioButton.Group.cs` including its
+  `first_focus` flag, without which the sibling updates re-enter `WipeTabStops` and clear the tab stop
+  the same call has just set.
+- **`Appearance` and `FlatStyle` reached the renderer.** `Appearance.Button` now draws as a toggle
+  button -- no glyph, no glyph column in the preferred size, the latched state carried by the
+  background -- which is the segmented-control idiom (`SMP-03`); its setter raises `AppearanceChanged`
+  (`SMP-04`). `Button.ApplyFlatAppearance` moved up to `ButtonBase` so `CheckBox` and `RadioButton`
+  share it (`SMP-05`), and `FlatAppearance.CheckedBackColor` is honoured on the way past.
+- **Captions wrap.** Upstream ORs `WordBreak` unconditionally for the button family, so the three
+  renderers stopped pinning `maxLines: 1` (`SMP-13`) -- and the family's `IHaveTextAndImageAlign
+  .Multiline` had to become `true` with it, or the layout engine hands back a rectangle measured for
+  one line and the second is drawn outside it. `Label.Multiline` now defaults to `true`, because
+  upstream's `Label` has no such property and always wraps (`SMP-14`).
+- **`Label.BorderStyle` draws.** Mapped onto the instance style's border, which both paints the frame
+  and shrinks the text region -- the layout engine already deflates by `Style.Border` -- and is added
+  to the preferred size, as upstream's `GetBordersAndPadding` does (`SMP-15`).
+- **`PictureBox.Load` is synchronous and reports failures.** It assigned `ImageLocation`, whose setter
+  ran an `async void`: `pb.Load (path); var w = pb.Image.Width;` threw `NullReferenceException`, and a
+  `catch (FileNotFoundException)` around `Load` never caught. A missing local file was worse -- 
+  `SKBitmap.Decode (path)` returns null rather than throwing, so the box reported no error and painted
+  nothing (`SMP-20`). `LoadAsync`/`CancelAsync` are real, and the two async events stopped being
+  `add { } remove { }` -- they are now `AsyncCompletedEventHandler`/`ProgressChangedEventHandler`, the
+  types upstream uses and the ones migrated handler code compiles against (`SMP-21`). `SizeMode`
+  invalidates and keeps `AutoSize` in step (`SMP-23`).
+- **The three progress bar styles.** `Blocks` (the WinForms default) draws discrete chunks,
+  `Continuous` a solid fill, and `Marquee` a travelling block driven by a timer at
+  `MarqueeAnimationSpeed` and independent of `Value` -- the indeterminate bar used to render
+  permanently empty, so the app looked hung exactly when it was trying to say it was working
+  (`SMP-26`).
+- **`TrackBar.Value` stopped raising `Scroll`.** `Scroll` is the "the user moved it" signal; raising it
+  from the setter made a linked pair of sliders feed each other (`SMP-29`).
+
+*Not in scope, deliberately:* the `MouseDownBackColor` half of `SMP-06`. It needs a pressed state the
+framework does not have -- there are two style layers, `Style` and `StyleHover`, and no mouse-down
+tracking on `ButtonBase` -- so honouring it means adding that state, which is its own item rather than
+a line in this one. `SMP-06` stays open with only its `CheckedBackColor` half closed.
 
 **W5.22 — `SplitContainer` and `Splitter`. — DONE (2026-09-04)**
 All seven findings closed, the structural half included. `Panel1MinSize`/`Panel2MinSize` are now the
@@ -1601,7 +1641,7 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. `DGV-26` (combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **Open:** `DGV-13` (default values), **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #83, #88, #89. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. `DGV-26` (combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **W5.21** (buttons, labels, pictures) done 2026-09-14, closing 13 findings plus `SMP-04` and half of `SMP-06`. **Open:** `DGV-13` (default values), **W5.25** (scrolling containers) and the `MouseDownBackColor` half of `SMP-06` (no pressed state exists to read) — tracked as GitHub issues #83 and #89. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
@@ -1609,6 +1649,48 @@ Suite: **4395 passing, 0 failing**, in Debug and Release, with system decoration
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.21 found
+
+**A pixel probe cannot see absence in a control that fills itself.** "A toggle button draws no glyph"
+was written as "no ink in the glyph area" and failed at 58 pixels: an `Appearance.Button` control
+paints its own face over the whole control, so every region has ink in it whatever is drawn there. The
+claim had to be re-aimed at the preferred size, where the missing glyph column is a number. The same
+probe shape misled in W5.19, on the check box and radio glyph counts.
+
+**"Not the most common colour" is not a measure of fill.** A progress bar at 100% makes the fill itself
+the commonest colour in the bitmap, so the ink count reported a completely full bar as EMPTY and
+`quarter < full` failed with both at zero. Counting pixels of the named fill colour is the fix. A probe
+that infers what it is looking for from the image is only correct while that thing is in the minority.
+
+**A render comparison cannot detect a missing `Invalidate`.** `Changing_SizeMode_repaints` compared two
+renders and passed with the fix neutralized, because rendering rebuilds the bitmap from scratch and
+never consults whether the control asked to be repainted. Asserting on the `Invalidated` event is the
+only way to see it -- and the control has to be on a shown form, because `Control.Invalidate` returns
+early when it is not `Created`. Worth remembering for the whole class of "the setter forgot to
+invalidate" findings: the test has to watch the notification, not the picture.
+
+**One test passed for a reason it did not claim.** The wrapped-caption test asserted "more rows than
+the single word", and a caption clipped to one line gains a row from its ellipsis -- enough to pass
+with wrapping neutralized. A second LINE is what wrapping means, so the assertion became "about twice
+the height". A relational assertion still has to be relational about the right quantity.
+
+**Two assertions were vacuous because the themed default already matched.** The finding's own test for
+`SMP-05` is `FlatAppearance.BorderSize = 0` giving a border width of 0 -- which passes on a check box
+whether or not anything reads the property, because a check box has no themed border to begin with.
+Neutralization surfaced it; both tests now use a width the theme would never produce.
+
+**Neutralization found an unprotected enforcement point rather than a redundant one.** Removing the
+border fallback that gives `Appearance.Button` a frame broke no test, and an unchecked toggle button
+with no frame and no fill is an invisible control. Four items running have had neutralization find
+something review did not; this is the first time it was a gap in the tests rather than dead code in
+the fix.
+
+**A behaviour fix pulled a layout fact with it.** Making the three button renderers wrap was not
+enough: `IHaveTextAndImageAlign.Multiline` had to become `true` on the same three controls, because the
+layout engine hands back a rectangle measured for a single line when it is false, and the second line
+would have been drawn outside it. The renderer and the layout engine have to agree about how many
+lines there are.
 
 ### What W5.20b found
 
