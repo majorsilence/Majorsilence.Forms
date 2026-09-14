@@ -177,9 +177,14 @@ namespace Majorsilence.Forms
         public bool Sortable { get; set; } = true;
 
         /// <summary>
-        /// Gets or sets the sort order for this column.
+        /// Gets or sets the direction of the sort glyph on this column's header. This IS
+        /// <see cref="DataGridViewColumnHeaderCell.SortGlyphDirection"/> under this library's older
+        /// name: two fields drifted apart, and the renderer drew the one the grid did not set (DGV-16).
         /// </summary>
-        public SortOrder SortOrder { get; set; } = SortOrder.None;
+        public SortOrder SortOrder {
+            get => HeaderCell.SortGlyphDirection;
+            set => HeaderCell.SortGlyphDirection = value;
+        }
 
         /// <summary>
         /// Gets or sets an object that contains data to associate with the column.
@@ -199,10 +204,32 @@ namespace Majorsilence.Forms
         /// <remarks>NotSet is the default upstream, and it has to be: NotSet is what makes the column
         /// fall back to the grid's AutoSizeColumnsMode. Defaulting to None meant a column never
         /// inherited, so setting AutoSizeColumnsMode on the grid did nothing at all.</remarks>
-        public DataGridViewAutoSizeColumnMode AutoSizeMode { get; set; } = DataGridViewAutoSizeColumnMode.NotSet;
+        public DataGridViewAutoSizeColumnMode AutoSizeMode {
+            get => auto_size_mode;
+            set {
+                if (auto_size_mode == value)
+                    return;
+
+                auto_size_mode = value;
+                owner?.OnColumnsChanged ();      // Fill is applied by the layout pass (DGV-18)
+            }
+        }
+
+        private DataGridViewAutoSizeColumnMode auto_size_mode = DataGridViewAutoSizeColumnMode.NotSet;
 
         /// <summary>Gets or sets the relative fill weight for fill-mode auto-sizing. Stub.</summary>
-        public float FillWeight { get; set; } = 100f;
+        public float FillWeight {
+            get => fill_weight;
+            set {
+                if (fill_weight == value)
+                    return;
+
+                fill_weight = value;
+                owner?.OnColumnsChanged ();
+            }
+        }
+
+        private float fill_weight = 100f;
 
         /// <summary>Gets or sets whether the column is frozen to the left (does not scroll horizontally).</summary>
         public bool Frozen { get; set; }
@@ -225,8 +252,19 @@ namespace Majorsilence.Forms
             set { /* ordering not implemented */ }
         }
 
-        /// <summary>Gets or sets the column cell content alignment.</summary>
-        public ContentAlignment DefaultCellStyleAlignment { get; set; } = ContentAlignment.MiddleLeft;
+        /// <summary>
+        /// Gets or sets the alignment of this column's cells. This IS
+        /// <see cref="DataGridViewCellStyle.Alignment"/> on <see cref="DefaultCellStyle"/> under this
+        /// library's older name -- the renderer read this one and the public style was ignored, so
+        /// <c>Columns["Amount"].DefaultCellStyle.Alignment = MiddleRight</c>, the single most common
+        /// column customisation, left numbers left-aligned (DGV-21). The two enums share their values.
+        /// </summary>
+        public ContentAlignment DefaultCellStyleAlignment {
+            get => DefaultCellStyle.Alignment == DataGridViewContentAlignment.NotSet
+                ? ContentAlignment.MiddleLeft
+                : (ContentAlignment)(int)DefaultCellStyle.Alignment;
+            set => DefaultCellStyle.Alignment = (DataGridViewContentAlignment)(int)value;
+        }
 
         /// <summary>Gets or sets the alignment of the column header text.</summary>
         public ContentAlignment HeaderAlignment { get; set; } = ContentAlignment.MiddleLeft;
@@ -236,6 +274,10 @@ namespace Majorsilence.Forms
         /// Default false; check-box column types (including the Telerik-compat GridViewCheckBoxColumn) override.
         /// </summary>
         protected internal virtual bool DisplaysAsCheckBox => false;
+
+        // The layout pass sets Fill widths through here rather than the setter, whose OnColumnsChanged
+        // would call back into the layout that is running. MinimumWidth is enforced here, once.
+        internal void SetWidthFromLayout (int value) => width = Math.Max (value, MinimumWidth);
 
         /// <summary>
         /// Gets or sets the width, in pixels, of the column.
@@ -371,7 +413,6 @@ namespace Majorsilence.Forms
             target.PinnedRight = PinnedRight;
             target.DividerWidth = DividerWidth;
             target.CellTemplate = CellTemplate;
-            target.DefaultCellStyleAlignment = DefaultCellStyleAlignment;
             target.HeaderAlignment = HeaderAlignment;
         }
 

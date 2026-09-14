@@ -50,8 +50,14 @@ returns the new index *and* gives the row its cells, `DataSource` returns what w
 `DataMember` is followed, and the row events balance. `DGV-04` (the `Add (params …)` return types) is
 untouched: a public-signature change and its own finding.
 
-**Still open in this file:** no P0s. `DGV-04`, `DGV-05`, `DGV-12`–`DGV-13`, `DGV-16`–`DGV-19`,
-`DGV-21`–`DGV-30`, `DGV-34`–`DGV-40` — see W5.4 and W5.5.
+`DGV-16`–`DGV-19`, `DGV-21`, `DGV-22` are closed as of 2026-09-13 (`W5.4`), and #94 with them: the
+renderer paints the style cascade and reads `GridColor`/`BackgroundColor`; sorting is recorded, gated on
+`SortMode`, delegated to a sortable bound list, and consults `SortCompare`; `Fill` is a layout pass;
+`AutoResize*` measure; every row comes from `RowTemplate`. `DGV-13` (the default-value flip) is
+deliberately left for its own branch — see the plan entry.
+
+**Still open in this file:** no P0s. `DGV-04`, `DGV-05`, `DGV-12`, `DGV-13`, `DGV-23`–`DGV-30`,
+`DGV-34`–`DGV-40` — see W5.5 and the `DGV-13` note.
 
 ## Findings
 
@@ -175,7 +181,7 @@ untouched: a public-signature change and its own finding.
 - **Test:** `SelectedRowIndex = 1; ClearSelection();` → `CurrentRow == Rows[1]`, `SelectedRows` empty, `SelectionChanged` raised.
 - **Tests today:** `DataGridViewTests.ClearSelection_ResetsCurrentRowAndCell` (line 463) asserts the divergent `CurrentRow == null`.
 
-### DGV-16 — `SortedColumn`, `SortOrder`, `Sorted`, `HeaderCell.SortGlyphDirection`, `SortCompare` — Cat A/D/C — P1 — High
+### DGV-16 — `SortedColumn`, `SortOrder`, `Sorted`, `HeaderCell.SortGlyphDirection`, `SortCompare` — Cat A/D/C — P1 — High — **CLOSED 2026-09-13 (W5.4)**
 - **Ours:** `SortedColumn`/`SortOrder` have private setters that are never assigned (`DataGridView.cs:2936-2939`; grep shows no writer) so they are always `null`/`None`; `Sorted` under `CS0067` (932); `SortCompare` is `add { } remove { }` (440); `Sort(column, direction)` just reorders rows (2817-2823); the header-click path toggles the non-WinForms `column.SortOrder` (1630-1638) which the renderer draws (`Renderer:117`), while `HeaderCell.SortGlyphDirection` is stored-only (`RemainingMemberParity.cs:217`) and never drawn.
 - **Upstream:** `Sort` → `SortInternal` sets `SortedColumn`, `SortOrder`, clears/sets `HeaderCell.SortGlyphDirection`, raises `OnSorted`; `OnSortCompare` is consulted for unbound sorts (`…/DataGridView.Methods.cs:28156`, `:28251-28267`, `:18910-18929`).
 - **Impact:** The standard toggle `if (grid.SortedColumn == col && grid.SortOrder == Ascending) … Descending` always sees `null`; custom `SortCompare` (e.g. natural/numeric-string sorting) is ignored; programmatic sorts show no glyph; `Sorted` handlers (re-select row after sort) never run.
@@ -183,7 +189,7 @@ untouched: a public-signature change and its own finding.
 - **Test:** `Sort(col, Ascending)` → `SortedColumn == col`, `SortOrder == Ascending`, `col.HeaderCell.SortGlyphDirection == Ascending`, `Sorted` raised.
 - **Tests today:** `DataGridViewTypedValueTests.*_sort_*` (order only).
 
-### DGV-17 — Header-click sorting ignores `SortMode`; bound grids are sorted by reordering rows — Cat A — P1 — Medium
+### DGV-17 — Header-click sorting ignores `SortMode`; bound grids are sorted by reordering rows — Cat A — P1 — Medium — **CLOSED 2026-09-13 (W5.4)**
 - **Ours:** gate is the non-WinForms `column.Sortable` (default true) (`DataGridView.cs:2246`); `SortMode` is stored-only (`DataGridViewColumn.cs:115`) so `NotSortable`/`Programmatic` columns still sort; `SortByColumn` reorders `Rows` (2785-2803) even when bound, and the next `ListChanged` rebind (1718-1725) restores source order.
 - **Upstream:** `OnColumnHeaderMouseClick` sorts only when `CanSort(column)` (SortMode Automatic) and, when bound, only if the list `SupportsSorting`, via `IBindingList.ApplySort` (`…/DataGridView.Methods.cs:13641-13660`).
 - **Impact:** Programmatic-sort columns (custom sort on click) get double-sorted; a `DataView`-bound grid appears sorted until any edit, then snaps back.
@@ -191,7 +197,7 @@ untouched: a public-signature change and its own finding.
 - **Test:** `SortMode = Programmatic`, simulate header click → row order unchanged, `ColumnHeaderMouseClick` still raised.
 - **Tests today:** none.
 
-### DGV-18 — Auto-sizing: `AutoSizeColumnsMode` (incl. `Fill`), `AutoSizeRowsMode`, `AutoResizeColumn(s)`, `AutoResizeRow(s)`, `ColumnHeadersHeightSizeMode.AutoSize`, `RowHeadersWidthSizeMode` — Cat C/B — P1 — High
+### DGV-18 — Auto-sizing: `AutoSizeColumnsMode` (incl. `Fill`), `AutoSizeRowsMode`, `AutoResizeColumn(s)`, `AutoResizeRow(s)`, `ColumnHeadersHeightSizeMode.AutoSize`, `RowHeadersWidthSizeMode` — Cat C/B — P1 — High — **CLOSED 2026-09-13 (W5.4)**
 - **Ours:** setters store + `Invalidate` (`DataGridView.cs:463-510`, 794-807); `AutoResize*` → `Invalidate()` (2941-2960); `column.AutoSizeMode`/`FillWeight` stored (`DataGridViewColumn.cs:202-205`); `GetPreferredWidth`/`GetPreferredHeight` exist (`DataGridViewFamilyParity.cs:233`, `:159`) but nothing calls them.
 - **Upstream:** `AutoResizeColumns` measures (`…/DataGridView.Methods.cs:1927-1932`); `Fill` is redistributed by `FillWeight` on every layout (`AdjustFillingColumns` `:882`).
 - **Impact:** `AutoSizeColumnsMode = Fill` (present in most designer-built grids) leaves 100-px columns and a blank right band; `AllCells` leaves truncated text; `RowHeadersWidthSizeMode.AutoSizeToAllHeaders` does nothing. The compat matrix documents "only invalidates", but `Fill` is P1 by traffic.
@@ -199,7 +205,7 @@ untouched: a public-signature change and its own finding.
 - **Test:** 2 columns, `AutoSizeColumnsMode = Fill`, `Width = 400` → column widths sum to the content width, proportional to `FillWeight`.
 - **Tests today:** `DataGridViewTests.AutoSizeColumnsMode_Set_GetReturnsExpected` (store only).
 
-### DGV-19 — `RowTemplate` never used to create rows (`RowTemplate.Height`, `RowTemplate.DefaultCellStyle`) — Cat C — P1 — High
+### DGV-19 — `RowTemplate` never used to create rows (`RowTemplate.Height`, `RowTemplate.DefaultCellStyle`) — Cat C — P1 — High — **CLOSED 2026-09-13 (W5.4)**
 - **Ours:** `RowTemplate` is a settable field with no readers (`DataGridView.cs:2925-2930`); every add path does `new DataGridViewRow()` — `Rows.Add` overloads (`DataGridViewRowCollection.cs:35,49,64`), `Insert(int,int)` (`OverloadParity.Final.cs:107`), `RowCount` setter (3130), and the three bound-row builders (1762, 1818, 1835).
 - **Upstream:** all row creation goes through `RowTemplateClone` (`…/DataGridView.cs:3564-3572`; callers `…/DataGridViewRowCollection.cs:204,348,1367`, `…/DataGridView.DataConnection.cs:598`).
 - **Impact:** `dgv.RowTemplate.Height = 32;` (the WinForms way to set row height, emitted by the designer) does nothing; `RowTemplate.DefaultCellStyle`/`MinimumHeight`/`Resizable` are ignored.
@@ -215,7 +221,7 @@ untouched: a public-signature change and its own finding.
 - **Test:** 3 rows, `Rows[1].Visible = false` → `GetCellDisplayRectangle(0, 2, false).Y == old Y of row 1`; `GetRowAtLocation` at that Y returns 2; render and probe.
 - **Tests today:** `DataGridViewHookTests:721` asserts only the `InheritedState` flag.
 
-### DGV-21 — Cell painting ignores the style cascade: `DefaultCellStyle.Alignment/WrapMode/SelectionBackColor/SelectionForeColor/Padding`, `column.DefaultCellStyle.BackColor/ForeColor/Font`, `RowsDefaultCellStyle`, `row.DefaultCellStyle.ForeColor` — Cat C — P1 — High
+### DGV-21 — Cell painting ignores the style cascade: `DefaultCellStyle.Alignment/WrapMode/SelectionBackColor/SelectionForeColor/Padding`, `column.DefaultCellStyle.BackColor/ForeColor/Font`, `RowsDefaultCellStyle`, `row.DefaultCellStyle.ForeColor` — Cat C — P1 — High — **CLOSED 2026-09-13 (W5.4)**
 - **Ours:** `RenderCell` takes alignment from the non-WinForms `column.DefaultCellStyleAlignment` (`Renderers/DataGridViewRenderer.cs:487`, `DataGridViewColumn.cs:229`), colours/font from `cell.Style` (a `ControlStyle`) merged with a CellFormatting handler's style only (339, 374-399, 443-474), selection colour is fixed `Theme.ControlHighlightLowColor`/`Theme.AccentColor` (224, 457), `maxLines: 1` ignores `WrapMode` (528), row background honours `row.DefaultCellStyle.BackColor` and `AlternatingRowsDefaultCellStyle.BackgroundColor` only (227-236). `cell.InheritedStyle` (correctly cascaded, `DataGridViewCell.cs:234-259`) is passed to handlers but never used for drawing.
 - **Upstream:** cell paint uses `cellStyle.Alignment`, `WrapMode`, `SelectionBackColor/ForeColor`, `Padding`, `Font`, `BackColor/ForeColor` (`…/DataGridViewTextBoxCell.cs:139-232`, `:410-411`).
 - **Impact:** `Columns["Amount"].DefaultCellStyle.Alignment = MiddleRight` — the single most common column customisation — leaves numbers left-aligned; `DefaultCellStyle.SelectionBackColor` is ignored; `col.DefaultCellStyle.BackColor` only takes effect via a CellFormatting handler; `WrapMode = True` never wraps. (The matrix admits the column/row style gap; the alignment case is not mentioned.)
@@ -223,7 +229,7 @@ untouched: a public-signature change and its own finding.
 - **Test:** `Columns[0].DefaultCellStyle.Alignment = MiddleRight`; render "1" in a 200-px column; probe that ink is in the right third. Or expose the resolved alignment through `CellPainting.CellStyle` and assert.
 - **Tests today:** `DataGridViewHookTests.RowDefaultCellStyle_BackColor_IsActuallyPainted`, `Cell_InheritedStyle_MergesTheGridColumnAndRowCascade` (cascade only).
 
-### DGV-22 — `GridColor` and `BackgroundColor` never read by the renderer — Cat C — P1 — High
+### DGV-22 — `GridColor` and `BackgroundColor` never read by the renderer — Cat C — P1 — High — **CLOSED 2026-09-13 (W5.4)**
 - **Ours:** both store + raise + `Invalidate` (`DataGridView.cs:750-777`) with `Color.Empty` defaults; the renderer draws grid lines with `Theme.BorderLowColor` (`Renderers/DataGridViewRenderer.cs:253`, `:503-509`, `:516-521`) and never fills the area below the last row.
 - **Upstream:** grid lines use `GridPenColor` (default `SystemColors.WindowFrame`, `…/DataGridView.cs:2087`); the empty area is filled with `BackgroundColor` (default `AppWorkspace`).
 - **Impact:** Themed grids (`GridColor = Color.LightGray; BackgroundColor = Color.White`) — in nearly every styled app — render with theme colours and a theme-grey empty band.

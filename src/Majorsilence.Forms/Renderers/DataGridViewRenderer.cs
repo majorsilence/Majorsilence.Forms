@@ -192,6 +192,12 @@ namespace Majorsilence.Forms.Renderers
 
                 y += row_height;
             }
+
+            // Below the last row is the grid's BACKGROUND, not more grid. Filled only when the app set
+            // one: the default stays the theme's, so an unthemed grid looks as it did (DGV-22, recorded
+            // as a deviation -- upstream defaults to AppWorkspace).
+            if (!control.BackgroundColor.IsEmpty && y < contentArea.Bottom)
+                e.Canvas.FillRectangle (new Rectangle (contentArea.Left, y, contentArea.Width, contentArea.Bottom - y), ToSK (control.BackgroundColor));
         }
 
         /// <summary>
@@ -261,7 +267,7 @@ namespace Majorsilence.Forms.Renderers
             // border style says the cells have no bottom edge (CellBorderStyle.None / *Vertical).
             if (paint_parts.HasFlag (DataGridViewPaintParts.Border)
                 && control.AdvancedCellBorderStyle.Bottom != DataGridViewAdvancedCellBorderStyle.None)
-                e.Canvas.DrawLine (bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1, BorderColor (control.AdvancedCellBorderStyle.Bottom));
+                e.Canvas.DrawLine (bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1, BorderColor (control, control.AdvancedCellBorderStyle.Bottom));
 
             // Post-paint hook (WinForms RowPostPaint), after the row's cells and border are drawn.
             if (control.HasRowPostPaintHandlers) {
@@ -347,7 +353,12 @@ namespace Majorsilence.Forms.Renderers
 
             var the_cell = columnIndex < row.Cells.Count ? row.Cells[columnIndex] : null;
             var cell_value = formatted ?? the_cell?.FormattedTextOverride ?? the_cell?.Value?.ToString () ?? string.Empty;
-            var cell_style = MergeFormattingStyle (the_cell?.Style, handler_style);
+
+            // The CASCADED style -- grid, column, rows, alternating rows, row, cell -- not the cell's own.
+            // InheritedStyle was computed correctly and handed to handlers, but painting read cell.Style,
+            // so column.DefaultCellStyle.Alignment/BackColor and the selection colours did nothing
+            // (DGV-21). The handler's style still lays over it, for this frame only.
+            var cell_style = MergeFormattingStyle (WithInherited (the_cell), handler_style);
 
             // CellPainting (WinForms): a handler can draw the cell itself, call back into the grid's
             // default painting for the parts it does not draw, and set Handled to suppress the rest.
@@ -380,6 +391,56 @@ namespace Majorsilence.Forms.Renderers
                 RenderCell (control, column, cell_value, rowIndex, columnIndex, cell_rect, cell_style, e, paintParts);
         }
 
+        // The cell's own ControlStyle with its InheritedStyle's set values laid over it: colours, font,
+        // alignment, wrap mode, padding and the selection colours. A new object each paint, so nothing
+        // on the cell is mutated.
+        private static ControlStyle? WithInherited (DataGridViewCell? cell)
+        {
+            if (cell is null)
+                return null;
+
+            var inherited = cell.InheritedStyle;
+            var merged = new ControlStyle (cell.Style) {
+                BackgroundColor = cell.Style.BackgroundColor,
+                ForegroundColor = cell.Style.ForegroundColor,
+                Font = cell.Style.Font,
+                FontSize = cell.Style.FontSize,
+                Alignment = cell.Style.Alignment,
+                WrapMode = cell.Style.WrapMode,
+                Padding = cell.Style.Padding,
+                SelectionBackColor = cell.Style.SelectionBackColor,
+                SelectionForeColor = cell.Style.SelectionForeColor,
+            };
+
+            if (!inherited.BackColor.IsEmpty)
+                merged.BackColor = inherited.BackColor;
+
+            if (!inherited.ForeColor.IsEmpty)
+                merged.ForeColor = inherited.ForeColor;
+
+            if (inherited.Font is { } font) {
+                merged.Font = font.GetSKTypeface ();
+                merged.FontSize = (int)System.Math.Round (font.PixelSize);
+            }
+
+            if (inherited.Alignment != DataGridViewContentAlignment.NotSet)
+                merged.Alignment = inherited.Alignment;
+
+            if (inherited.WrapMode != DataGridViewTriState.NotSet)
+                merged.WrapMode = inherited.WrapMode;
+
+            if (inherited.Padding != Padding.Empty)
+                merged.Padding = inherited.Padding;
+
+            if (!inherited.SelectionBackColor.IsEmpty)
+                merged.SelectionBackColor = inherited.SelectionBackColor;
+
+            if (!inherited.SelectionForeColor.IsEmpty)
+                merged.SelectionForeColor = inherited.SelectionForeColor;
+
+            return merged;
+        }
+
         // Overlays the colors/font a CellFormatting handler set (System.Drawing-typed) onto the cell's own
         // style, for this paint only -- the cell object itself is never mutated.
         private static ControlStyle? MergeFormattingStyle (ControlStyle? cellStyle, DataGridViewCellStyle? handlerStyle)
@@ -392,7 +453,12 @@ namespace Majorsilence.Forms.Renderers
                 BackgroundColor = cellStyle?.BackgroundColor,
                 ForegroundColor = cellStyle?.ForegroundColor,
                 Font = cellStyle?.Font,
-                FontSize = cellStyle?.FontSize
+                FontSize = cellStyle?.FontSize,
+                Alignment = cellStyle?.Alignment ?? DataGridViewContentAlignment.NotSet,
+                WrapMode = cellStyle?.WrapMode ?? DataGridViewTriState.NotSet,
+                Padding = cellStyle?.Padding ?? Padding.Empty,
+                SelectionBackColor = cellStyle?.SelectionBackColor ?? System.Drawing.Color.Empty,
+                SelectionForeColor = cellStyle?.SelectionForeColor ?? System.Drawing.Color.Empty,
             };
 
             if (!handlerStyle.BackColor.IsEmpty)
@@ -460,7 +526,7 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw the cell's borders as described by the grid's advanced (per-edge) border style.
             if (paintParts.HasFlag (DataGridViewPaintParts.Border))
-                RenderCellBorders (control.AdvancedCellBorderStyle, bounds, e);
+                RenderCellBorders (control, control.AdvancedCellBorderStyle, bounds, e);
 
             // Draw cell selection for the cell and column modes. Every selected cell is outlined, not
             // just the current one -- which is what makes a Ctrl-clicked or SelectAll'd block visible.
@@ -481,13 +547,29 @@ namespace Majorsilence.Forms.Renderers
                 text_bounds.Width = Math.Max (0, text_bounds.Width - left_inset);
             }
 
-            // A `DataGridView::selection { color }` rule recolours the selected cell's text (the whole row
-            // in full-row mode); without one the cell keeps its own colour on the highlight, as before.
-            var in_selection = control.SelectedRowIndex == rowIndex
-                && (control.SelectionMode == DataGridViewSelectionMode.FullRowSelect || control.SelectedColumnIndex == columnIndex);
-            var fg = in_selection && DataGridView.DefaultSelectionStyle.ForegroundColor is { } selection_fg
-                ? selection_fg
-                : cellStyle?.ForegroundColor ?? control.DefaultCellStyle.ForegroundColor ?? Theme.ForegroundColor;
+            // Padding insets the text, as upstream's cellStyle.Padding does (DGV-21).
+            if (cellStyle is { } padded && padded.Padding != Padding.Empty) {
+                text_bounds.X += padded.Padding.Left;
+                text_bounds.Y += padded.Padding.Top;
+                text_bounds.Width = Math.Max (0, text_bounds.Width - padded.Padding.Horizontal);
+                text_bounds.Height = Math.Max (0, text_bounds.Height - padded.Padding.Vertical);
+            }
+
+            // Selected means SELECTED (W5.2b's predicates), not "is the current cell". The style
+            // cascade's SelectionBackColor/SelectionForeColor win when set; a
+            // `DataGridView::selection { color }` theme rule is the fallback; without either the cell
+            // keeps its own colour on the highlight, as before.
+            var in_selection = control.IsRowPaintedSelected (rowIndex) || control.IsCellPaintedSelected (rowIndex, columnIndex);
+
+            if (in_selection && paintParts.HasFlag (DataGridViewPaintParts.SelectionBackground)
+                && cellStyle is { } sel && !sel.SelectionBackColor.IsEmpty)
+                e.Canvas.FillRectangle (bounds, ToSK (sel.SelectionBackColor));
+
+            var fg = in_selection && cellStyle is { } sel_fg_style && !sel_fg_style.SelectionForeColor.IsEmpty
+                ? ToSK (sel_fg_style.SelectionForeColor)
+                : in_selection && DataGridView.DefaultSelectionStyle.ForegroundColor is { } selection_fg
+                    ? selection_fg
+                    : cellStyle?.ForegroundColor ?? control.DefaultCellStyle.ForegroundColor ?? Theme.ForegroundColor;
             var font = cellStyle?.Font ?? control.DefaultCellStyle.Font ?? Theme.UIFont;
             var font_size = cellStyle?.FontSize ?? control.DefaultCellStyle.FontSize ?? Theme.ItemFontSize;
             var scaled_font = control.LogicalToDeviceUnits (font_size);
@@ -502,7 +584,14 @@ namespace Majorsilence.Forms.Renderers
             } else if (column is DataGridViewComboBoxColumn) {
                 RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg);
             } else {
-                e.Canvas.DrawText (value, font, scaled_font, text_bounds, fg, column.DefaultCellStyleAlignment, maxLines: CellTextMaxLines (column));
+                // Alignment and wrapping from the cascade. The two alignment enums share their values, so
+                // the cast is exact; WrapMode == True lifts the single-line cap.
+                var alignment = cellStyle is { } aligned && aligned.Alignment != DataGridViewContentAlignment.NotSet
+                    ? (ContentAlignment)(int)aligned.Alignment
+                    : column.DefaultCellStyleAlignment;
+                var max_lines = cellStyle is { WrapMode: DataGridViewTriState.True } ? null : CellTextMaxLines (column);
+
+                e.Canvas.DrawText (value, font, scaled_font, text_bounds, fg, alignment, maxLines: max_lines);
             }
         }
 
@@ -513,29 +602,32 @@ namespace Majorsilence.Forms.Renderers
         /// by <see cref="RenderRow"/>); the left and top edges are only drawn when explicitly set, so a
         /// default grid does not double up lines between neighbouring cells.
         /// </summary>
-        protected virtual void RenderCellBorders (DataGridViewAdvancedBorderStyle borderStyle, Rectangle bounds, PaintEventArgs e)
+        protected virtual void RenderCellBorders (DataGridView control, DataGridViewAdvancedBorderStyle borderStyle, Rectangle bounds, PaintEventArgs e)
         {
+            Guard.ThrowIfNull (control);
             Guard.ThrowIfNull (borderStyle);
 
             if (borderStyle.Right != DataGridViewAdvancedCellBorderStyle.None)
-                e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, BorderColor (borderStyle.Right));
+                e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, BorderColor (control, borderStyle.Right));
 
             if (borderStyle.Left is not DataGridViewAdvancedCellBorderStyle.None and not DataGridViewAdvancedCellBorderStyle.NotSet)
-                e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Left, bounds.Bottom, BorderColor (borderStyle.Left));
+                e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Left, bounds.Bottom, BorderColor (control, borderStyle.Left));
 
             if (borderStyle.Top is not DataGridViewAdvancedCellBorderStyle.None and not DataGridViewAdvancedCellBorderStyle.NotSet)
-                e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Right, bounds.Top, BorderColor (borderStyle.Top));
+                e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Right, bounds.Top, BorderColor (control, borderStyle.Top));
         }
 
         // System.Drawing color (the DataGridViewCellStyle surface) to the Skia color the canvas wants.
         private static SKColor ToSK (System.Drawing.Color color) => new SKColor (color.R, color.G, color.B, color.A);
 
-        // Theme color for an edge style: sunken/raised edges read darker/lighter than a plain single line.
-        private static SKColor BorderColor (DataGridViewAdvancedCellBorderStyle style) => style switch {
+        // Colour for an edge style: sunken/raised edges read darker/lighter than a plain single line. A
+        // plain line is the grid line, and takes GridColor when the app set one -- it was stored,
+        // raised and never read, so every themed grid drew theme-coloured lines (DGV-22).
+        private static SKColor BorderColor (DataGridView control, DataGridViewAdvancedCellBorderStyle style) => style switch {
             DataGridViewAdvancedCellBorderStyle.Inset or DataGridViewAdvancedCellBorderStyle.InsetDouble => Theme.BorderMidColor,
             DataGridViewAdvancedCellBorderStyle.Outset or DataGridViewAdvancedCellBorderStyle.OutsetDouble
                 or DataGridViewAdvancedCellBorderStyle.OutsetPartial => Theme.BorderHighColor,
-            _ => Theme.BorderLowColor
+            _ => control.GridColor.IsEmpty ? Theme.BorderLowColor : ToSK (control.GridColor)
         };
 
         /// <summary>

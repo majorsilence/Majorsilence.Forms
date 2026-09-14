@@ -94,7 +94,10 @@ namespace Majorsilence.Forms
         // full bind and the ItemAdded path, so the two cannot drift apart.
         private DataGridViewRow BuildBoundRow (object item)
         {
-            var row = new DataGridViewRow ();
+            // From the template, so RowTemplate.Height -- the designer's way to set row height --
+            // applies to bound rows too (DGV-19). FillBoundRow adds the cells.
+            var row = (DataGridViewRow)row_template.Clone ();
+            row.Cells.Clear ();
             FillBoundRow (row, item);
             row.DataBoundItem = item;
             return row;

@@ -792,11 +792,36 @@ throws `ArgumentException` where it used to keep the *previous* list on screen a
 *Not done here:* `DGV-04` (the `Add (params object[])` overloads returning the row rather than an `int`)
 is a public-signature change and its own finding.
 
-**W5.4 — `DataGridView` styles, sizing and sorting.** Make the renderer read the WinForms properties
-instead of its private twins (`DefaultCellStyle.Alignment`, `HeaderCell.SortGlyphDirection`,
-`SortMode`, `row.Selected`, `GridColor`, `BackgroundColor`); implement `AutoSizeColumnsMode.Fill`,
-`AutoResize*`, `RowTemplate`, and record `SortedColumn`/`SortOrder`.
-*Closes:* `DGV-16`, `DGV-17`, `DGV-18`, `DGV-19`, `DGV-21`, `DGV-22`, `DGV-13`.
+**W5.4 — `DataGridView` styles, sizing and sorting. — DONE except `DGV-13` (2026-09-13).** `DGV-16`,
+`DGV-17`, `DGV-18`, `DGV-19`, `DGV-21`, `DGV-22`, and #94 folded in. 27 tests, 23 neutralizations each
+producing a failure.
+*The private twins are gone, not synchronised.* `Column.SortOrder` **is** `HeaderCell.SortGlyphDirection`
+and `Column.DefaultCellStyleAlignment` **is** `DefaultCellStyle.Alignment` (the two alignment enums share
+their values, so the alias is a cast). Two fields for one fact had drifted: the header click set one and
+the renderer drew it while the public one was stored and never read. RC-6 says delete the twin, and that
+is what made both findings a one-line change each.
+*The renderer paints the cascade.* `RenderRowCell` folds `cell.InheritedStyle` — grid, column, rows,
+alternating, row, cell — into the `ControlStyle` that `RenderCell` already takes, so renderer subclasses
+keep their signature and gain alignment, wrap, padding, and the selection colours. `GridColor` colours
+the plain grid line; `BackgroundColor` fills below the last row **only when set** — upstream defaults it
+to `AppWorkspace`, and this deliberately does not, so an unthemed grid looks as it did.
+*Sorting is recorded, gated and delegated.* `SortByColumn` records `SortedColumn`/`SortOrder` **before**
+moving rows, so a `ColumnHeaderMouseClick` handler reads the new order — that event is now raised *after*
+the sort, as upstream does, which the first version got wrong and a test caught. `SortMode` gates the
+header click. A bound list that `SupportsSorting` is asked to `ApplySort` itself, so a `DataView`'s order
+survives the next `ListChanged` instead of snapping back. `SortCompare` is real.
+*Fill is a layout pass.* `ApplyFillColumnWidths` runs from `UpdateScrollBars`, distributing the content
+width by `FillWeight`; the mode and weight setters trigger a layout, which the first version forgot —
+the property changed and nothing moved, the original defect in a new coat. `MinimumWidth` is enforced in
+exactly one place (`SetWidthFromLayout`); a second clamp in the distribution was removed because no test
+could tell the two apart.
+*Every row comes from `RowTemplate`* — `Rows.Add`, the value overloads, `Insert`, and both bound paths —
+and `RowHeight` is `RowTemplate.Height` under this library's older name.
+***Not done: `DGV-13`***, the default-value flip (`RowHeadersVisible = true`, header 30→23, rows 25→22,
+`RowHeaderSelect`, `MinimumWidth` 30→5, `DefaultSize`). It changes the geometry every DataGridView pixel
+test measures and the click semantics of the selection tests, and four existing tests codify the current
+values. It is a behaviour-defaults decision with a blast radius of its own, and belongs on its own branch
+where the fallout can be read in isolation.
 
 **W5.5 — `DataGridView` mouse and keyboard.** The 24 `add { } remove { }` events with existing trigger
 points; keyboard handled on `KeyUp` instead of `KeyDown`; Enter/Delete/Ctrl+C/Home/End/Tab.
@@ -1480,7 +1505,7 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) done 2026-09-13. **Open:** **W5.4**, **W5.5** (the rest of `DataGridView`), **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **Open:** **W5.5** (`DataGridView` mouse/keyboard) and `DGV-13`, **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
@@ -1488,6 +1513,48 @@ Suite: **4395 passing, 0 failing**, in Debug and Release, with system decoration
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.4 found
+
+**A property setter that raises its event but does not do the thing is the original defect wearing a
+new coat.** `AutoSizeColumnsMode = Fill` raised `AutoSizeColumnsModeChanged` and invalidated. The Fill
+distribution was written and correct, hooked into the layout pass — and the layout pass never ran,
+because nothing about *setting the mode* triggers a layout. The two Fill tests failed with columns at
+exactly their starting widths. A stored-only property was replaced by a property that was, from the
+outside, still stored-only until the window was next resized.
+
+**Two enforcement points for one invariant make both unprovable.** `MinimumWidth` was clamped in the
+Fill distribution *and* in the column's layout write. Neutralizing the first changed nothing, because
+the second caught it. Not a bug — a redundancy — but a redundancy no test can distinguish from a working
+implementation, which means the next person cannot tell which one is load-bearing. One was removed.
+
+**Raise the event after the state it describes has moved.** `ColumnHeaderMouseClick` was raised at the
+top of the header-click branch, before the sort. The standard handler reads `grid.SortOrder` in it, and
+saw the *previous* order. `DGV-16` had written this trap down in advance; the first version walked into
+it anyway. The test that caught it asserts what the handler *saw*, not what the grid ended up holding —
+the second is fine while the first is wrong.
+
+**`DataView.Sort` writes `"[name]"`.** Not a defect anywhere; a test asserting the exact string was
+wrong and now asserts containment. Recorded because the next test against a `DataView` sort expression
+will meet the same brackets.
+
+**A pixel test can encode the rasteriser it was written on.** The alignment test asserted "ink in the
+right third, none in the left", with ink as three channel thresholds. It passed on macOS and Linux and
+found **nothing at all** in the right third on Windows CI — the first platform divergence in this
+project that was neither font *height* nor window chrome, the two the gates already knob. Two changes,
+both of which the earlier pixel work should have reached on its own:
+*Ink is now defined relative to the cell's own background*, sampled from the cell, rather than by an
+absolute darkness threshold. How a rasteriser antialiases a glyph is its own business; that text differs
+from what it sits on is portable. (The probe also had to exclude the cell's borders, which are "not the
+background" too, and being at both edges dragged the mean to the middle wherever the text actually sat.)
+*And the assertion is now relational* — the ink's centre moves right by at least a third of the cell —
+with both centres in the failure message, so the next platform difference explains itself instead of
+needing a CI archaeology session.
+**A second test at a different boundary was the more valuable fix**, and the first version of it proved
+nothing: it asserted `CellPainting.CellStyle`, which already carried `InheritedStyle` before this work,
+so it passed against unmodified code. Re-pointed at the `ControlStyle` that `RenderCell` actually
+receives — the link this item created — it fails when the cascade is neutralized. Two tests, two links:
+one could pass while the renderer ignored what it was handed, the other while nothing reached it.
 
 ### What W5.3 found
 
