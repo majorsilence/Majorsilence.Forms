@@ -60,10 +60,13 @@ deliberately left for its own branch — see the plan entry.
 one hit-test, the click events moved to mouse-up (and a drag is not a click), the keyboard moved to
 key-down with Enter/Delete/Ctrl+C/Home/End/Left/Right/`StandardTab`, and the check box commits through
 the write-back honouring `TrueValue`/`FalseValue` and the `ReadOnly` cascade. `DGV-26` (the combo-box
-column's `DisplayMember` lookup and combo editor) is left for its own branch — a different subsystem.
+column's `DisplayMember` lookup and combo editor) followed on its own branch, also 2026-09-14: a lookup
+column displays the matching item's `DisplayMember`, and editing one hosts a
+`DataGridViewComboBoxEditingControl` that commits its `SelectedValue`. An unmatched value falls back to
+the value itself rather than raising `DataError` — a recorded deviation.
 
 **Still open in this file:** no P0s. `DGV-04`, `DGV-05`, `DGV-12`, `DGV-13`, `DGV-23`, `DGV-24`,
-`DGV-26`–`DGV-28`, `DGV-34`–`DGV-40`.
+`DGV-27`, `DGV-28`, `DGV-34`–`DGV-40`.
 
 ## Findings
 
@@ -267,7 +270,7 @@ column's `DisplayMember` lookup and combo editor) is left for its own branch —
 - **Test:** `BindingList<Item{bool Done}>`; simulate mouse-down on the cell → `items[0].Done == true`; `ReadOnly = true` → unchanged; `TrueValue="Y"` with value `"Y"` → `CellPainting.FormattedValue`/renderer shows checked.
 - **Tests today:** `DataGridViewLiveBindingTests.Bool_member_generates_a_checkbox_column` (column type only).
 
-### DGV-26 — Combo-box column shows the raw value, not the `DisplayMember` lookup; editor is a TextBox — Cat A — P1 — High
+### DGV-26 — Combo-box column shows the raw value, not the `DisplayMember` lookup; editor is a TextBox — Cat A — P1 — High — **CLOSED 2026-09-14 (W5.5)**
 - **Ours:** `RenderComboBoxCell` draws the formatted raw value (`Renderer:484-485`, `:606-617`); `DataSource/DisplayMember/ValueMember/Items` are stored-only (`DataGridViewCompat.cs:364-398`); `BeginEdit` always hosts a `TextBox` (`DataGridView.cs:150`) and `DataGridViewComboBoxEditingControl` (`MissingTypesParity.cs:335`) is never used.
 - **Upstream:** `GetFormattedValue` resolves the value through `DisplayMember`/`ValueMember` (`…/DataGridViewComboBoxCell.cs:948-975`) and raises `DataError` for unmatched values; editing hosts a combo box.
 - **Impact:** The universal lookup-column pattern (`CustomerId` shown as customer name) renders the id; editing offers free text instead of a list.

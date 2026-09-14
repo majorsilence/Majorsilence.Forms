@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 731 of 1199 public settable auto-properties (60%).
+# 730 of 1199 public settable auto-properties (60%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -360,7 +360,6 @@ Majorsilence.Forms.ListBox.UseCustomTabOffsets
 Majorsilence.Forms.ListBox.UseTabStops
 Majorsilence.Forms.ListControl.FormatInfo
 Majorsilence.Forms.ListControl.FormatString
-Majorsilence.Forms.ListControl.SelectedValue
 Majorsilence.Forms.ListView.Activation
 Majorsilence.Forms.ListView.AllowColumnReorder
 Majorsilence.Forms.ListView.AutoArrange
