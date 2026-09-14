@@ -53,8 +53,13 @@ untouched: a public-signature change and its own finding.
 `DGV-16`–`DGV-19`, `DGV-21`, `DGV-22` are closed as of 2026-09-13 (`W5.4`), and #94 with them: the
 renderer paints the style cascade and reads `GridColor`/`BackgroundColor`; sorting is recorded, gated on
 `SortMode`, delegated to a sortable bound list, and consults `SortCompare`; `Fill` is a layout pass;
-`AutoResize*` measure; every row comes from `RowTemplate`. `DGV-13` (the default-value flip) is
-deliberately left for its own branch — see the plan entry.
+`AutoResize*` measure; every row comes from `RowTemplate`. `DGV-13` (the default-value flip) followed
+on its own branch, closed 2026-09-14 (`W5.4` remainder): `RowHeadersVisible` defaults to `true`,
+`SelectionMode` to `RowHeaderSelect`, `RowHeadersWidth`/`ColumnHeadersHeight`/row height/`DefaultSize`
+to upstream's pixel values, and `Column.MinimumWidth` to 5. Flipping `SelectionMode`'s default off
+`FullRowSelect` exposed a second bug in the same finding's blast radius: `GetClipboardContent ()`
+tested `SelectionMode == FullRowSelect` literally instead of asking `SelectionIsRowBased`, so a row
+selected under the new `RowHeaderSelect` default copied nothing.
 
 `DGV-25`, `DGV-29`, `DGV-30` are closed as of 2026-09-14 (`W5.5`): the cell mouse events are raised from
 one hit-test, the click events moved to mouse-up (and a drag is not a click), the keyboard moved to
@@ -65,7 +70,7 @@ column displays the matching item's `DisplayMember`, and editing one hosts a
 `DataGridViewComboBoxEditingControl` that commits its `SelectedValue`. An unmatched value falls back to
 the value itself rather than raising `DataError` — a recorded deviation.
 
-**Still open in this file:** no P0s. `DGV-04`, `DGV-05`, `DGV-12`, `DGV-13`, `DGV-23`, `DGV-24`,
+**Still open in this file:** no P0s. `DGV-04`, `DGV-05`, `DGV-12`, `DGV-23`, `DGV-24`,
 `DGV-27`, `DGV-28`, `DGV-34`–`DGV-40`.
 
 ## Findings
@@ -166,13 +171,13 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** count `SelectionChanged` after `CurrentCell = grid[1,1]` == 1; `CurrentCell = null` → `CurrentCell is null`.
 - **Tests today:** `DataGridViewTests.CurrentCell_*` (getter only).
 
-### DGV-13 — Default values: `SelectionMode`, `RowHeadersVisible`, `RowHeadersWidth`, `ColumnHeadersHeight`, row height, `DefaultSize`, `Column.MinimumWidth` — Cat E — P1 — High
-- **Ours:** `SelectionMode = FullRowSelect` (`DataGridView.cs:32`), `row_headers_visible = false` (17), `row_headers_width = 40` (16), `header_height = 30` (14), `DefaultSize 450×300` (560), `DataGridViewRow.height = 25` (`DataGridViewRow.cs:10`), `Column.MinimumWidth = 30` and `Width` clamped to it (`DataGridViewColumn.cs:167`, `:246`); `ColumnHeadersHeight` min 10 (1513), `Row.Height` min 10 (`DataGridViewRow.cs:48`).
+### DGV-13 — Default values: `SelectionMode`, `RowHeadersVisible`, `RowHeadersWidth`, `ColumnHeadersHeight`, row height, `DefaultSize`, `Column.MinimumWidth` — Cat E — P1 — High — **CLOSED 2026-09-14 (W5.4 remainder)**
+- **Was:** `SelectionMode = FullRowSelect` (`DataGridView.cs:32`), `row_headers_visible = false` (17), `row_headers_width = 40` (16), `header_height = 30` (14), `DefaultSize 450×300` (560), `DataGridViewRow.height = 25` (`DataGridViewRow.cs:10`), `Column.MinimumWidth = 30` and `Width` clamped to it (`DataGridViewColumn.cs:167`, `:246`); `ColumnHeadersHeight` min 10 (1513), `Row.Height` min 10 (`DataGridViewRow.cs:48`).
 - **Upstream:** `RowHeaderSelect` (`…/DataGridView.cs:250`), `RowHeadersVisible = true` (`:450`), width 41 (`:305`), header height 23 (`:310`), `DefaultSize 240×150` (`:2117`), row height `DefaultFont.Height + 9` = 22 at 96 dpi (`…/DataGridViewRow.cs:157`), `MinimumWidth` default 5 (`…/DataGridViewColumn.cs:21,55`), header min 4, row min 3.
 - **Impact:** Designer code omits default-valued properties, so a form designed with row headers visible shows none here; a 24-px icon column (`Width = 24`) silently becomes 30; clicking a cell selects the whole row where WinForms selects the cell.
-- **Fix:** Flip the defaults to upstream's; clamp `Width` to `MinimumWidth` default 5; keep `RowHeight` (non-WinForms) as an alias for `RowTemplate.Height`.
-- **Test:** `new DataGridView()` → `RowHeadersVisible`, `SelectionMode == RowHeaderSelect`, `RowHeadersWidth == 41`, `ColumnHeadersHeight == 23`.
-- **Tests today:** `DataGridViewTests.Ctor_Default`, `DataGridViewRowTests.Height_SetDefault_IsTwentyFive`, `*_ClampsToMinimum` codify the divergent values.
+- **Fix:** Flipped the defaults to upstream's; `Width` clamps to `MinimumWidth` default 5; `RowHeight` (non-WinForms) stays an alias for `RowTemplate.Height`, now 22. `GetClipboardContent ()`'s row-selection check tested `SelectionMode == FullRowSelect` literally rather than the row-based predicate (`SelectionIsRowBased`) used everywhere else, so a row selected under the new `RowHeaderSelect` default copied nothing — caught by neutralizing the default and watching the existing clipboard tests go red.
+- **Test:** `new DataGridView()` → `RowHeadersVisible`, `SelectionMode == RowHeaderSelect`, `RowHeadersWidth == 41`, `ColumnHeadersHeight == 23`, `Size == (240, 150)`.
+- **Tests today:** `DataGridViewTests.Ctor_Default`, `DataGridViewRowTests.Ctor_Default`/`Height_SetDefault_IsTwentyTwo`, `*_ClampsToMinimum` pin the new values; 9 neutralizations verified to fail.
 
 ### DGV-14 — Multi-selection: `MultiSelect`, Ctrl/Shift-click, `row.Selected`/`cell.Selected` setters, `SelectedRows` order, `SelectedCells`, `SelectedColumns` — Cat C/A — P1 — High — **CLOSED 2026-09-09 (W5.2b)**
 - **Ours:** `MultiSelect` stored-only (`DataGridView.cs:735-747`); `OnMouseDown` always single-selects via `SelectedRowIndex` (2260-2267, no modifier check); `DataGridViewRow.Selected` / `DataGridViewCell.Selected` are auto-properties (`DataGridViewRow.cs:62`, `DataGridViewCell.cs:140`) — no `SelectionChanged`, no repaint, and the renderer highlights only `SelectedRowIndex` (`Renderers/DataGridViewRenderer.cs:223`, `:413`, `:456`); `SelectedCells` is derived from `SelectedRows` (2629-2638), so in `CellSelect` mode after `SelectAll` (2986-2989 sets `cell.Selected`) `SelectedCells` is empty; `SelectedColumns` returns a new empty collection (2978); `SelectedRows` is in index order.

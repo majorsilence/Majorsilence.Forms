@@ -480,12 +480,12 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void Left_and_Right_move_between_cells_in_every_selection_mode ()
         {
-            // They were ignored entirely in FullRowSelect, which is the default.
+            // They were ignored entirely in FullRowSelect.
             var grid = Grid (out var form, rows: 2, columns: 3);
             using var _form = form;
 
             try {
-                Assert.Equal (DataGridViewSelectionMode.FullRowSelect, grid.SelectionMode);
+                grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
                 grid.MoveCurrentCell (0, 0);
 
                 grid.Key (Keys.Right);

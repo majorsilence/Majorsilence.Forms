@@ -35,7 +35,7 @@ namespace Majorsilence.Forms.Tests
             Assert.NotNull (column.HeaderCell);
             Assert.Empty (column.HeaderText);
             Assert.Equal (0, column.DividerWidth);
-            Assert.Equal (30, column.MinimumWidth);
+            Assert.Equal (5, column.MinimumWidth);
             Assert.Empty (column.Name);
             Assert.False (column.ReadOnly);
             Assert.Equal (DataGridViewTriState.NotSet, column.Resizable);
@@ -60,7 +60,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Null (column.DataGridView);
             Assert.Equal (-1, column.Index);
             Assert.Equal (100, column.Width);
-            Assert.Equal (30, column.MinimumWidth);
+            Assert.Equal (5, column.MinimumWidth);
         }
 
         [Theory]
@@ -132,16 +132,16 @@ namespace Majorsilence.Forms.Tests
 
         [Theory]
         [InlineData (0)]
-        [InlineData (10)]
-        [InlineData (29)]
+        [InlineData (1)]
+        [InlineData (4)]
         [InlineData (-100)]
         public void Width_SetLessThanMinimumWidth_ClampsToMinimumWidth (int value)
         {
             var column = new DataGridViewColumn { Width = value };
 
-            // Default MinimumWidth is 30, so the width is clamped up.
-            Assert.Equal (30, column.Width);
-            Assert.Equal (30, column.MinimumWidth);
+            // Default MinimumWidth is 5, so the width is clamped up.
+            Assert.Equal (5, column.Width);
+            Assert.Equal (5, column.MinimumWidth);
         }
 
         [Fact]

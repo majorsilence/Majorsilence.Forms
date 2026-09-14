@@ -792,7 +792,7 @@ throws `ArgumentException` where it used to keep the *previous* list on screen a
 *Not done here:* `DGV-04` (the `Add (params object[])` overloads returning the row rather than an `int`)
 is a public-signature change and its own finding.
 
-**W5.4 — `DataGridView` styles, sizing and sorting. — DONE except `DGV-13` (2026-09-13).** `DGV-16`,
+**W5.4 — `DataGridView` styles, sizing and sorting. — DONE (2026-09-14, `DGV-13` on its own branch).** `DGV-16`,
 `DGV-17`, `DGV-18`, `DGV-19`, `DGV-21`, `DGV-22`, and #94 folded in. 27 tests, 23 neutralizations each
 producing a failure.
 *The private twins are gone, not synchronised.* `Column.SortOrder` **is** `HeaderCell.SortGlyphDirection`
@@ -817,11 +817,19 @@ exactly one place (`SetWidthFromLayout`); a second clamp in the distribution was
 could tell the two apart.
 *Every row comes from `RowTemplate`* — `Rows.Add`, the value overloads, `Insert`, and both bound paths —
 and `RowHeight` is `RowTemplate.Height` under this library's older name.
-***Not done: `DGV-13`***, the default-value flip (`RowHeadersVisible = true`, header 30→23, rows 25→22,
-`RowHeaderSelect`, `MinimumWidth` 30→5, `DefaultSize`). It changes the geometry every DataGridView pixel
-test measures and the click semantics of the selection tests, and four existing tests codify the current
-values. It is a behaviour-defaults decision with a blast radius of its own, and belongs on its own branch
-where the fallout can be read in isolation.
+**`DGV-13` — the default-value flip. — DONE (2026-09-14),** on its own branch as planned:
+`RowHeadersVisible = true`, header 30→23, rows 25→22, `RowHeaderSelect`, `MinimumWidth` 30→5,
+`DefaultSize` 450×300→240×150. It changed the geometry every DataGridView pixel test measures and the
+click semantics of the selection tests; nine existing tests that codified the old values were updated
+to the new ones (`Ctor_Default` in three test classes, the three `*_ClampsToMinimum` theories, and the
+`Width_SetLessThanMinimumWidth_ClampsToMinimumWidth`/`Height_Set_GetReturnsExpected` theories), plus a
+new assertion for `DefaultSize` (untested before). *Flipping `SelectionMode` off `FullRowSelect`
+exposed a second, independent bug in the same blast radius:* `GetClipboardContent ()`'s row-selection
+check compared `SelectionMode == DataGridViewSelectionMode.FullRowSelect` literally instead of asking
+`SelectionIsRowBased` — the predicate the rest of the selection code already uses for "a whole row is
+selected regardless of which row-based mode" — so `row.Selected` under the new `RowHeaderSelect`
+default (Ctrl+C, `GetClipboardContent_ReturnsSelectedCells_AsTextCsvAndHtml`) copied nothing. Fixed by
+routing that check through `SelectionIsRowBased` like the rest of `DataGridView.Selection.cs` does.
 
 **W5.5 — `DataGridView` mouse and keyboard. — DONE except `DGV-26` (2026-09-14).** `DGV-29`, `DGV-30`,
 `DGV-25`. 26 tests, 23 neutralizations each producing a failure.
@@ -1677,7 +1685,7 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. `DGV-26` (combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **W5.21** (buttons, labels, pictures) done 2026-09-14, closing 13 findings plus `SMP-04` and half of `SMP-06`. **W5.25** (scrolling containers) done 2026-09-14, closing the last four layout findings in the phase — **Phase 5 has no items left open.** **Open:** `DGV-13` (default values) and the `MouseDownBackColor` half of `SMP-06` (no pressed state exists to read) — tracked as GitHub issue #83. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) done 2026-09-13 and **W5.4** (styles, sizing, sorting, including the `DGV-13` default-value flip) done 2026-09-14. **W5.5** (mouse/keyboard, including the `DGV-26` combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **W5.21** (buttons, labels, pictures) done 2026-09-14, closing 13 findings plus `SMP-04` and half of `SMP-06`. **W5.25** (scrolling containers) done 2026-09-14, closing the last four layout findings in the phase — **Phase 5 has no items left open except the `MouseDownBackColor` half of `SMP-06`** (no pressed state exists on `ButtonBase` to read — needs its own item, see `SMP-06` in `simple-controls.md`). |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
@@ -1906,6 +1914,18 @@ nothing: it asserted `CellPainting.CellStyle`, which already carried `InheritedS
 so it passed against unmodified code. Re-pointed at the `ControlStyle` that `RenderCell` actually
 receives — the link this item created — it fails when the cascade is neutralized. Two tests, two links:
 one could pass while the renderer ignored what it was handed, the other while nothing reached it.
+
+**Flipping a default can be a second bug's cover.** `DGV-13` changed `SelectionMode`'s default from
+`FullRowSelect` to `RowHeaderSelect`. `GetClipboardContent ()` tested
+`SelectionMode == DataGridViewSelectionMode.FullRowSelect` by name rather than asking
+`SelectionIsRowBased` — the predicate `ReplaceSelectionWithCurrentCell` and `IsCellSelected` already use
+for "any row-based mode" — so a row selected under the old default copied fine and a row selected under
+the new one copied nothing. The finding never mentions clipboard copying; nothing about `DGV-13`'s own
+description would have caught it. It surfaced only because the full suite, not just the new test, was
+run against the flipped default and two existing tests (`Ctrl_C_copies_the_selection`,
+`GetClipboardContent_ReturnsSelectedCells_AsTextCsvAndHtml`) went from green to red. A default-value
+change earns a full-suite run, not just its own new assertions — the blast radius of "what reads this
+value" is bigger than the finding that named it.
 
 ### What W5.3 found
 
