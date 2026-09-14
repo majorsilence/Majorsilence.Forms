@@ -29,6 +29,9 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new DataGridView ();
 
+            // DefaultSize (upstream's DataGridView.cs:2117).
+            Assert.Equal (new Size (240, 150), control.Size);
+
             // Collections start empty but non-null.
             Assert.NotNull (control.Columns);
             Assert.NotNull (control.Rows);
@@ -38,7 +41,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (0, control.RowCount);
 
             // Selection defaults.
-            Assert.Equal (DataGridViewSelectionMode.FullRowSelect, control.SelectionMode);
+            Assert.Equal (DataGridViewSelectionMode.RowHeaderSelect, control.SelectionMode);
             Assert.True (control.MultiSelect);
             Assert.False (control.ReadOnly);
             Assert.Null (control.CurrentCell);
@@ -54,7 +57,9 @@ namespace Majorsilence.Forms.Tests
 
             // Header defaults.
             Assert.True (control.ColumnHeadersVisible);
-            Assert.False (control.RowHeadersVisible);
+            Assert.True (control.RowHeadersVisible);
+            Assert.Equal (41, control.RowHeadersWidth);
+            Assert.Equal (23, control.ColumnHeadersHeight);
             Assert.Equal (DataGridViewColumnHeadersHeightSizeMode.EnableResizing, control.ColumnHeadersHeightSizeMode);
             Assert.Equal (DataGridViewRowHeadersWidthSizeMode.EnableResizing, control.RowHeadersWidthSizeMode);
 
@@ -368,8 +373,9 @@ namespace Majorsilence.Forms.Tests
         [InlineData (10, 10)]
         [InlineData (23, 23)]
         [InlineData (100, 100)]
-        [InlineData (5, 10)]   // Clamped up to the minimum of 10.
-        [InlineData (0, 10)]
+        [InlineData (4, 4)]
+        [InlineData (3, 4)]    // Clamped up to the minimum of 4.
+        [InlineData (0, 4)]
         public void ColumnHeadersHeight_Set_ClampsToMinimum (int value, int expected)
         {
             using var control = new DataGridView { ColumnHeadersHeight = value };
@@ -392,8 +398,9 @@ namespace Majorsilence.Forms.Tests
 
         [Theory]
         [InlineData (10, 10)]
-        [InlineData (25, 25)]
-        [InlineData (5, 10)]   // Clamped up to the minimum of 10.
+        [InlineData (22, 22)]
+        [InlineData (3, 3)]
+        [InlineData (2, 3)]    // Clamped up to the minimum of 3.
         public void RowHeight_Set_ClampsToMinimum (int value, int expected)
         {
             using var control = new DataGridView { RowHeight = value };

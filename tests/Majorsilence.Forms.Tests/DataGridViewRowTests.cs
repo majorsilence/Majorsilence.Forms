@@ -32,7 +32,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Same (row.DefaultCellStyle, row.DefaultCellStyle);
             Assert.NotNull (row.HeaderCell);
             Assert.Same (row.HeaderCell, row.HeaderCell);
-            Assert.Equal (25, row.Height);
+            Assert.Equal (22, row.Height);
             Assert.Equal (-1, row.Index);
             Assert.False (row.IsNewRow);
             Assert.Equal (10, row.MinimumHeight);
@@ -114,11 +114,11 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Theory]
-        [InlineData (-1, 10)]
-        [InlineData (0, 10)]
-        [InlineData (5, 10)]
-        [InlineData (10, 10)]
-        [InlineData (11, 11)]
+        [InlineData (-1, 3)]
+        [InlineData (0, 3)]
+        [InlineData (2, 3)]
+        [InlineData (3, 3)]
+        [InlineData (4, 4)]
         [InlineData (100, 100)]
         public void Height_Set_GetReturnsExpected (int value, int expected)
         {
@@ -132,10 +132,10 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void Height_SetDefault_IsTwentyFive ()
+        public void Height_SetDefault_IsTwentyTwo ()
         {
             var row = new DataGridViewRow ();
-            Assert.Equal (25, row.Height);
+            Assert.Equal (22, row.Height);
         }
 
         [Theory]

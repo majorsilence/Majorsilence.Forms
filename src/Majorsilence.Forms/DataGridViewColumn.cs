@@ -164,7 +164,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the minimum width, in pixels, of the column.
         /// </summary>
-        public int MinimumWidth { get; set; } = 30;
+        public int MinimumWidth { get; set; } = 5;
 
         /// <summary>
         /// Gets the DataGridView control that contains this column.

@@ -11,9 +11,9 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class DataGridView : Control, System.ComponentModel.ISupportInitialize
     {
-        private int header_height = 30;
-        private int row_headers_width = 40;
-        private bool row_headers_visible;
+        private int header_height = 23;
+        private int row_headers_width = 41;
+        private bool row_headers_visible = true;
         private int top_index;
         private int horizontal_scroll_offset;
         private int selected_row_index = -1;
@@ -28,7 +28,7 @@ namespace Majorsilence.Forms
         private bool is_resizing_column;
         private bool is_resizing_row;
         private bool column_headers_visible = true;
-        private DataGridViewSelectionMode selection_mode = DataGridViewSelectionMode.FullRowSelect;
+        private DataGridViewSelectionMode selection_mode = DataGridViewSelectionMode.RowHeaderSelect;
         private bool read_only;
         private IList? data_source;
         // The hosted editor. A Control, not a TextBox, since DGV-26: a combo-box column edits in a combo
@@ -548,7 +548,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override Size DefaultSize => new Size (450, 300);
+        protected override Size DefaultSize => new Size (240, 150);
 
         /// <inheritdoc/>
         public new static readonly ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
@@ -1614,7 +1614,7 @@ namespace Majorsilence.Forms
             get => header_height;
             set {
                 if (header_height != value) {
-                    header_height = Math.Max (value, 10);
+                    header_height = Math.Max (value, 4);
                     Invalidate ();
                 }
             }
@@ -3002,7 +3002,7 @@ namespace Majorsilence.Forms
                 var any = false;
 
                 for (var c = 0; c < row.Cells.Count; c++) {
-                    if (!row.Cells[c].Selected && !(row.Selected && SelectionMode == DataGridViewSelectionMode.FullRowSelect))
+                    if (!row.Cells[c].Selected && !(row.Selected && SelectionIsRowBased))
                         continue;
 
                     if (c < Columns.Count && !Columns[c].Visible)

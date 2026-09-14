@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class DataGridViewRow
     {
-        private int height = 25;
+        private int height = 22;
         private DataGridView? owner;
 
         /// <summary>
@@ -45,7 +45,7 @@ namespace Majorsilence.Forms
             get => height;
             set {
                 if (height != value) {
-                    height = Math.Max (value, 10);
+                    height = Math.Max (value, 3);
                     owner?.OnRowsChanged ();
                 }
             }
