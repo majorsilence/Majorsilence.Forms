@@ -51,15 +51,6 @@ namespace Majorsilence.Forms
 
     public partial class NumericUpDown
     {
-        /// <summary>Gets or sets whether the control is in the middle of updating its own text.</summary>
-        /// <remarks>
-        /// WinForms declares this on <c>UpDownBase</c>, which every up-down derives from; here
-        /// <see cref="NumericUpDown"/> derives from <see cref="Control"/> directly, so it is declared on
-        /// both (see <see cref="UpDownBase.ChangingText"/>). It is a re-entrancy guard: while the control
-        /// pushes a new value into its edit box, the resulting TextChanged must not be mistaken for the
-        /// user typing.
-        /// </remarks>
-        protected bool ChangingText { get; set; }
     }
 
     public partial class ContextMenuStrip
