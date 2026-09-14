@@ -476,6 +476,59 @@ See Majorsilence Reporting's `MIGRATION-NOTES.md` (`D12`, dated 2026-09-13) for 
 write-up of all six as lived experience, including the exact fix applied at each call site — useful as
 worked examples if any of the above gets picked up here.
 
+## WinFormsShims.Compat: items 2-5 implemented, item 1 partially (2026-09-13)
+
+Implemented from the scoping above, same day:
+
+- **#2 (wrapper `IDisposable`)**: a pass-1b wrapper now implements `System.IDisposable` and forwards
+  `Dispose()` whenever the real type does, so `using (var b = new SolidBrush(...))` compiles.
+- **#3 (wrapper inherited members)**: wrapper member collection now walks the real type's full base
+  chain, not just its own declared members, so `Bitmap.Width`/`.Height` (declared on `Image`) forward
+  correctly, with the most-derived declaration winning on a hide/override.
+- **#4 (missing namespace mappings)**: added six more mappings --
+  `Majorsilence.Forms.Printing`/`.Design`/`.Design.Behavior`/`.Drawing.Drawing2D`/`.Drawing.Imaging`/
+  `.Drawing.Imaging.Metafiles`/`.Drawing.Text` -- to their real `System.*` counterparts. Verified via
+  `samples/WinFormsCompatDemo/CompatSurfaceCoverage.cs`, which now compiles `PrintDocument`,
+  `ComponentDesigner`, `Behavior`, `GraphicsPath`, `PixelFormat`, and `TextRenderingHint` from nothing
+  but real namespace names.
+- **#5 (no static surface for no-ctor types)**: a new pass 4b gives a type with no accessible
+  constructor at all (`Graphics`) a static-only facade forwarding its public static members --
+  `Graphics.FromHwnd`/`.FromImage` now resolve under `System.Drawing`, returning the real
+  Majorsilence.Forms type (there is still no compat instance type to return instead, honestly).
+
+**#1 (flat hierarchy / polymorphism), partially -- `Brush` only, not `Control`.** The scoping doc's
+tier (b) ("add implicit conversion operators... reusing the exact mechanism pass 1b already uses for
+Drawing wrappers") undersold the actual cost, found by trying it: C# allows at most one user-defined
+conversion per implicit conversion. A pass-1 *subclass* reaches a wrapped root for free (one built-in
+upcast, since it already inherits the real base, plus the root's own real-to-compat operator -- that's
+the promised "cheap" case, and it's real). But every concrete GDI+ brush (`SolidBrush`,
+`LinearGradientBrush`, ...) is itself a pass-1b *wrapper*, not a pass-1 subclass, since they're all
+sealed -- and two sibling wrappers can't chain their own conversions into each other; that needs two
+user-defined operators, which C# refuses. Fixed by emitting one extra, directly-computed bridging
+operator on every wrapper that has a forced root as a real ancestor
+(`SolidBrush -> Brush`, computed by walking `SolidBrush`'s real base chain during its own wrapper
+generation). Verified two ways: `samples/WinFormsCompatDemo/CompatSurfaceCoverage.cs` now does
+`Brush polymorphicBrush = brush;` (a `SolidBrush`) from nothing but real GDI+ names, and a standalone
+runtime check (`Brush b = solid; g.FillRectangle(b, ...)` through real `Graphics`, not just a compile
+check) actually painted the right pixel color, confirming the bridge produces a working instance, not
+just a type that happens to satisfy the compiler.
+
+**`Control` was tried the same way and reverted -- a real, demonstrated conflict, not a smaller
+version of the same fix.** Making `Control` a wrapper (sealed, so nothing can derive from it) broke
+`samples/WinFormsCompatDemo/BinaryRainPanel.cs`'s `RainCanvas : Control` outright (`CS0509: cannot
+derive from sealed type 'Control'`) -- the exact sample pass 5's event shadowing exists to validate,
+overriding `OnPaint` on a *directly*-subclassed `Control`. Unlike `Brush` (abstract in real GDI+, never
+meaningfully subclassed directly), `Control` is genuinely used both ways -- as a polymorphic storage
+type AND as something real code subclasses directly -- and those two goals are irreconcilable for the
+same type under C#'s single inheritance: it cannot simultaneously be subclassable by consumer code and
+be a wrapper with no subclassing of its own. `IsForcedPolymorphicRootNames` in
+`WinFormsCompatGenerator.cs` now lists only `Brush`, with the full reasoning (including the exact
+error hit) in a doc comment next to it, so this isn't rediscovered blind next time. `Control`'s gap is
+still exactly what the scoping entry above describes: qualify the variable as the real
+`Majorsilence.Forms.Control` instead. Tier (c) (full parallel wrapper hierarchy, deep enough to cover
+`Control` too) remains unattempted and is still the honest answer for that specific case -- see the
+scoping entry's own remarks on its cost.
+
 ## Wanted: screenshots from a desktop-hosted window
 
 **Status: a real gap, found while driving `samples/AutomationTarget` over the MCP server.** The WebDriver
