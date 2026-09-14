@@ -99,7 +99,7 @@ bolds through `IsBoldedDate`, so the `Add*BoldedDate` API shows, but the three a
 still the second store), `SMP-45` (the selection setters validating against the raw rather than the
 effective min/max — the new *gesture* paths do clamp to the effective range), the `TitleYear`/
 `TitleBackground` remainder of `SMP-43`, and the `CalendarDimensions` remainder of `SMP-46`.
-`DateTimePicker` (`SMP-39`, `SMP-40`, `SMP-41`) is untouched and is the other half of W5.20c.
+`DateTimePicker` (`SMP-39`, `SMP-40`, `SMP-41`) was the other half of W5.20c, closed 2026-09-14.
 
 ### SMP-01 — `RadioButton.Checked` / `UpdateSiblings` ignores `AutoCheck` — Cat A — P1 — High
 - **Ours:** `UpdateSiblings()` unchecks *every* sibling `RadioButton` on the parent, with no regard for either this button's `AutoCheck` or the sibling's `AutoCheck` (`src/Majorsilence.Forms/RadioButton.cs:315-323`). `AutoCheck` is a bare auto-property (`RadioButton.cs:39`) with no setter side-effect.
@@ -405,7 +405,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `Assert.Throws<ArgumentOutOfRangeException>(() => dud.SelectedIndex = 99);` and assert `SelectedItemChanged` fires on a valid assignment.
 - **Tests today:** none.
 
-### SMP-39 — `DateTimePicker` derives from `TextBox`; `Text` is free-form and never parsed back into `Value` — Cat E — P0 — High
+### SMP-39 — `DateTimePicker` derives from `TextBox`; `Text` is free-form and never parsed back into `Value` — Cat E — P0 — High — **CLOSED 2026-09-14 (W5.20c)**
 - **Ours:** `public partial class DateTimePicker : TextBox` (`src/Majorsilence.Forms/DateTimePicker.cs:24`). `UpdateText()` writes the formatted date into the inherited `Text` (`DateTimePicker.cs:190-199`), but nothing overrides `Text`'s setter, so the user (or code) can type anything and `Value` never changes.
 - **Upstream:** `public partial class DateTimePicker : Control` (`src/System.Windows.Forms/System/Windows/Forms/Controls/DateTimePicker/DateTimePicker.cs:23`), and `Text`'s setter parses: empty → `ResetValue()`, otherwise `Value = DateTime.Parse(value, CultureInfo.CurrentCulture)` (`DateTimePicker.cs:821-836`).
 - **Impact:** Two failures at once. (a) `dtp.Text = "2024-01-15";` — a common way to seed a picker from a string — displays the text but leaves `Value` at today, so the app saves the wrong date. (b) Because it *is* a TextBox, the user can delete the date and type "asdf"; nothing validates, and `Value` still reads today. It also pollutes the surface with `Multiline`, `PasswordChar`, `AcceptsReturn`, `CharacterCasing`, and makes `foreach (Control c in ...) if (c is TextBox t)` sweeps pick up every date picker on the form.
@@ -413,7 +413,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `dtp.Text = "2024-01-15"; Assert.Equal(new DateTime(2024,1,15), dtp.Value);` and `Assert.IsNotAssignableFrom<TextBox>(dtp)`.
 - **Tests today:** none.
 
-### SMP-40 — `DateTimePicker` has no drop-down calendar; `DropDown`/`CloseUp`/`FormatChanged` never raised — Cat B/D — P0 — High
+### SMP-40 — `DateTimePicker` has no drop-down calendar; `DropDown`/`CloseUp`/`FormatChanged` never raised — Cat B/D — P0 — High — **CLOSED 2026-09-14 (W5.20c)**
 - **Ours:** `OnPaint` draws a `▾` glyph in a 16px strip (`src/Majorsilence.Forms/DateTimePicker.cs:51-62`) but there is no `OnMouseDown`/hit-test for it and no popup anywhere. `DropDown` and `CloseUp` are declared under `#pragma warning disable CS0067` with the comment "raised once the popup pipeline exposes open/close notifications" (`DateTimePicker.cs:159-164`); `FormatChanged` is the same in `src/Majorsilence.Forms/TailParity.Two.cs:250-253` and the `Format` setter (`DateTimePicker.cs:81-87`) does not raise it.
 - **Upstream:** clicking the button opens a `MonthCalendar` popup, raising `DropDown` then `CloseUp`, and committing the picked date through `Value`; `Format`'s setter raises `OnFormatChanged`.
 - **Impact:** The drop-down arrow is painted but dead — the user has no mouse way to change the date, and (with SMP-39) no keyboard way either. A DateTimePicker in a migrated app is a read-only display of today's date.
@@ -421,7 +421,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Simulate a click in the button rect and assert `DropDown` fired; assert `Format = Short` raises `FormatChanged`.
 - **Tests today:** none.
 
-### SMP-41 — `DateTimePicker.ShowCheckBox`/`Checked`/`ShowUpDown`/`Calendar*` colours stored only — Cat C — P1 — High
+### SMP-41 — `DateTimePicker.ShowCheckBox`/`Checked`/`ShowUpDown`/`Calendar*` colours stored only — Cat C — P1 — High — **CLOSED 2026-09-14 (W5.20c)**
 - **Ours:** `ShowUpDown` (`src/Majorsilence.Forms/DateTimePicker.cs:90`), `ShowCheckBox` and `Checked` (`DateTimePicker.cs:172-176`), `CalendarFont`, `CalendarForeColor`, `CalendarMonthBackground`, `CalendarTitleForeColor`, `CalendarTitleBackColor` (`DateTimePicker.cs:92-93,178-188`), `CalendarTrailingForeColor` and `DropDownAlign` (`src/Majorsilence.Forms/TailParity.Two.cs:227-230`) — all auto-properties, most doc-commented "Stub in Majorsilence.Forms". `OnPaint` reads none of them.
 - **Upstream:** `ShowCheckBox` draws a checkbox at the left; when `Checked` is false the date text is greyed and the control is treated as "no value" (the standard nullable-date idiom); `ShowUpDown` replaces the drop-down button with a spin control.
 - **Impact:** The `ShowCheckBox` + `Checked` pattern is the *only* way WinForms expresses an optional date, and it is used on virtually every "date of X (optional)" field. Here the checkbox never draws, so the user can neither clear nor set the date, and code reading `dtp.Checked` always gets `true`, so nulls are written as today's date.

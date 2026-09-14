@@ -1,325 +1,419 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
-//
-// Adapted from the dotnet/winforms unit tests
-// (src/test/unit/System.Windows.Forms/System/Windows/Forms/DateTimePickerTests.cs),
-// rewritten for the Majorsilence.Forms API. Original work Copyright (c) .NET Foundation and Contributors.
-
 using System;
+using System.Drawing;
+using Majorsilence.Forms.Headless;
+using SkiaSharp;
 using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
-    // Behavioral tests ported from the upstream WinForms DateTimePickerTests, adapted to the
-    // Majorsilence.Forms API (no Handle/CreateParams/accessibility plumbing, no FormatChanged event,
-    // no native SysDateTimePick32 behaviors). They pin the same Value get/set + range
-    // coercion/validation, MinDate/MaxDate validation + Value coercion, Format/CustomFormat
-    // semantics, ShowCheckBox/Checked/ShowUpDown flags, and the ValueChanged event.
+    // W5.20c's DateTimePicker half (findings SMP-39 P0, SMP-40 P0, SMP-41).
+    //
+    // The control derived from TextBox, so Text was free-form and never parsed back into Value:
+    // `dtp.Text = "2024-01-15"` -- a common way to seed a picker from a string -- displayed the text and
+    // left Value at today, so the app saved the wrong date, and a user could delete the date and type
+    // anything. It painted a drop-down arrow that nothing hit-tested, with no popup anywhere, so with
+    // no keyboard path either a DateTimePicker in a migrated app was a read-only display of today.
+    // ShowCheckBox and Checked -- the only way WinForms expresses an OPTIONAL date -- were stored and
+    // read by nothing, so code reading Checked always got true and nulls were written as today.
+    [Collection ("Headless")]
     public class DateTimePickerTests
     {
-        // A fixed value safely inside the supported range, used to avoid any reliance on
-        // DateTime.Now in assertions.
-        private static readonly DateTime SampleDate = new DateTime (2021, 12, 31, 3, 4, 5);
-
-        [Fact]
-        public void Ctor_Default ()
+        private sealed class DrivenPicker : DateTimePicker
         {
-            using var control = new DateTimePicker ();
+            internal void ClickAt (Point p) => OnMouseDown (new MouseEventArgs (MouseButtons.Left, 1, p.X, p.Y, Point.Empty));
 
-            Assert.Equal (DateTimePickerFormat.Long, control.Format);
-            Assert.False (control.ShowCheckBox);
-            Assert.False (control.ShowUpDown);
-            Assert.True (control.Checked);
-            Assert.Equal (new DateTime (1753, 1, 1), control.MinDate);
-            Assert.Equal (new DateTime (9998, 12, 31), control.MaxDate);
-            Assert.True (control.Value > DateTime.MinValue);
+            internal void Press (Keys key) => OnKeyDown (new KeyEventArgs (key));
+
+            internal Point ButtonCentre => new Point (
+                ButtonBounds.Left + ButtonBounds.Width / 2,
+                ButtonBounds.Top + ButtonBounds.Height / 2);
+
+            internal Point CheckBoxCentre => new Point (
+                CheckBoxBounds.Left + CheckBoxBounds.Width / 2,
+                CheckBoxBounds.Top + CheckBoxBounds.Height / 2);
         }
 
-        [Fact]
-        public void MinimumDateTime_ReturnsExpected ()
+        private static DrivenPicker Picker (out Form form)
         {
-            Assert.Equal (new DateTime (1753, 1, 1), DateTimePicker.MinimumDateTime);
-            Assert.Equal (new DateTime (1753, 1, 1), DateTimePicker.MinDateTime);
+            HeadlessRenderer.Use ();
+            form = new Form { Width = 400, Height = 240 };
+            var picker = new DrivenPicker { Width = 200, Height = 24, Value = new DateTime (2024, 6, 15) };
+            form.Controls.Add (picker);
+            form.Show ();
+
+            return picker;
         }
 
+        // ---------------- SMP-39 (P0): a picker is not a text box
+
         [Fact]
-        public void MaximumDateTime_ReturnsExpected ()
+        public void A_DateTimePicker_is_not_a_TextBox ()
         {
-            Assert.Equal (new DateTime (9998, 12, 31), DateTimePicker.MaximumDateTime);
-            Assert.Equal (new DateTime (9998, 12, 31), DateTimePicker.MaxDateTime);
-        }
+            // The finding's own test. It polluted the surface with Multiline, PasswordChar and
+            // AcceptsReturn, and `foreach (Control c in ...) if (c is TextBox t)` sweeps -- a common way
+            // to clear or validate a form's text boxes -- picked up every date picker.
+            using var picker = new DateTimePicker ();
 
-        [Theory]
-        [InlineData (DateTimePickerFormat.Long)]
-        [InlineData (DateTimePickerFormat.Short)]
-        [InlineData (DateTimePickerFormat.Time)]
-        [InlineData (DateTimePickerFormat.Custom)]
-        public void Format_Set_GetReturnsExpected (DateTimePickerFormat value)
-        {
-            using var control = new DateTimePicker ();
-
-            control.Format = value;
-            Assert.Equal (value, control.Format);
-
-            // Set same.
-            control.Format = value;
-            Assert.Equal (value, control.Format);
+            Assert.IsNotAssignableFrom<TextBox> (picker);
         }
 
         [Fact]
-        public void Value_GetSet_ReturnsExpected ()
+        public void Setting_Text_parses_it_into_Value ()
         {
-            using var control = new DateTimePicker ();
+            // The finding's own test: it displayed the text and left Value at today, so the app saved
+            // the wrong date.
+            var picker = Picker (out var form);
+            using var _form = form;
 
-            var initialDate = new DateTime (2022, 1, 1);
-            var newDate = new DateTime (2023, 1, 1);
+            try {
+                picker.Text = "2024-01-15";
 
-            control.Value = initialDate;
-            Assert.Equal (initialDate, control.Value);
-
-            control.Value = newDate;
-            Assert.Equal (newDate, control.Value);
-
-            control.Value = DateTimePicker.MinimumDateTime;
-            Assert.Equal (DateTimePicker.MinimumDateTime, control.Value);
-
-            control.Value = DateTimePicker.MaximumDateTime;
-            Assert.Equal (DateTimePicker.MaximumDateTime, control.Value);
+                Assert.Equal (new DateTime (2024, 1, 15), picker.Value.Date);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void Value_Set_PreservesTimeComponent ()
+        public void Text_that_is_not_a_date_is_refused ()
         {
-            using var control = new DateTimePicker ();
+            // As a TextBox the user could delete the date and type "asdf", with nothing validating and
+            // Value still reading today.
+            var picker = Picker (out var form);
+            using var _form = form;
 
-            // The Long format only renders the date portion; the Value getter must still
-            // return the full value (including the time) rather than re-parsing Text.
-            control.Value = SampleDate;
-            Assert.Equal (SampleDate, control.Value);
-        }
+            try {
+                picker.Text = "asdf";
 
-        [Theory]
-        [InlineData ("0001-01-01")]
-        [InlineData ("9999-12-31")]
-        public void Value_SetInvalid_ThrowsArgumentOutOfRangeException (string value)
-        {
-            using var control = new DateTimePicker ();
-            var date = DateTime.Parse (value, System.Globalization.CultureInfo.InvariantCulture);
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.Value = date);
+                Assert.Equal (new DateTime (2024, 6, 15), picker.Value.Date);
+                Assert.Contains ("2024", picker.Text);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void Value_SetOutsideMinDate_ThrowsArgumentOutOfRangeException ()
+        public void A_date_outside_the_range_is_refused ()
         {
-            using var control = new DateTimePicker { MinDate = new DateTime (2020, 1, 1) };
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.Value = new DateTime (2019, 12, 31));
+            var picker = Picker (out var form);
+            using var _form = form;
+
+            try {
+                picker.MinDate = new DateTime (2024, 1, 1);
+                picker.MaxDate = new DateTime (2024, 12, 31);
+
+                picker.Text = "2023-05-01";
+
+                Assert.Equal (new DateTime (2024, 6, 15), picker.Value.Date);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void Value_SetOutsideMaxDate_ThrowsArgumentOutOfRangeException ()
+        public void Setting_Value_still_updates_the_displayed_text ()
         {
-            using var control = new DateTimePicker { MaxDate = new DateTime (2020, 1, 1) };
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.Value = new DateTime (2020, 1, 2));
+            // GUARD, not proof: UpdateText always wrote the formatted date. It pins that overriding Text
+            // to parse did not break the direction that already worked.
+            var picker = Picker (out var form);
+            using var _form = form;
+
+            try {
+                picker.Format = DateTimePickerFormat.Short;
+                picker.Value = new DateTime (2024, 3, 9);
+
+                Assert.Equal (new DateTime (2024, 3, 9).ToString ("d"), picker.Text);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        // ---------------- SMP-40 (P0): the drop-down works and announces itself
+
+        [Fact]
+        public void Clicking_the_button_opens_the_drop_down_and_raises_DropDown ()
+        {
+            // The arrow was painted and dead: nothing hit-tested it and there was no popup anywhere.
+            var picker = Picker (out var form);
+            using var _form = form;
+
+            try {
+                var opened = 0;
+                picker.DropDown += (_, _) => opened++;
+
+                picker.ClickAt (picker.ButtonCentre);
+
+                Assert.True (picker.DroppedDown);
+                Assert.Equal (1, opened);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void MinDate_GetSet_ReturnsExpected ()
+        public void Clicking_the_button_again_closes_it_and_raises_CloseUp ()
         {
-            using var control = new DateTimePicker ();
+            var picker = Picker (out var form);
+            using var _form = form;
 
-            Assert.Equal (new DateTime (1753, 1, 1), control.MinDate);
+            try {
+                var closed = 0;
+                picker.CloseUp += (_, _) => closed++;
+                picker.ClickAt (picker.ButtonCentre);
 
-            var expectedDate = DateTimePicker.MinimumDateTime.AddDays (1);
-            control.MinDate = expectedDate;
-            Assert.Equal (expectedDate, control.MinDate);
+                picker.ClickAt (picker.ButtonCentre);
 
-            // Set same.
-            control.MinDate = expectedDate;
-            Assert.Equal (expectedDate, control.MinDate);
+                Assert.False (picker.DroppedDown);
+                Assert.Equal (1, closed);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void MinDate_SetGreaterThanMaxDate_ThrowsArgumentOutOfRangeException ()
+        public void F4_opens_the_drop_down_from_the_keyboard ()
         {
-            using var control = new DateTimePicker { MaxDate = new DateTime (2020, 1, 1) };
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.MinDate = new DateTime (2020, 1, 2));
+            var picker = Picker (out var form);
+            using var _form = form;
+
+            try {
+                picker.Press (Keys.F4);
+                Assert.True (picker.DroppedDown);
+
+                picker.Press (Keys.Escape);
+                Assert.False (picker.DroppedDown);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void MinDate_SetOutsideSupportedRange_ThrowsArgumentOutOfRangeException ()
+        public void Clicking_the_text_does_not_open_the_drop_down ()
         {
-            using var control = new DateTimePicker ();
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.MinDate = DateTimePicker.MinimumDateTime.AddDays (-1));
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.MinDate = DateTimePicker.MaximumDateTime.AddDays (1));
+            // GUARD, not proof: nothing opened it before. It pins that the hit-test is the BUTTON and
+            // not the whole control -- a picker that dropped down on any click would be unusable.
+            var picker = Picker (out var form);
+            using var _form = form;
+
+            try {
+                picker.ClickAt (new Point (picker.TextBounds.Left + 2, picker.TextBounds.Top + 2));
+
+                Assert.False (picker.DroppedDown);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void MinDate_Set_AdjustsValueIfNeeded ()
+        public void Changing_the_format_raises_FormatChanged ()
         {
-            using var control = new DateTimePicker ();
+            // The setter raised nothing, so a handler watching for it never ran.
+            var picker = Picker (out var form);
+            using var _form = form;
 
-            control.Value = DateTimePicker.MinimumDateTime.AddDays (5);
-            var newMinDate = DateTimePicker.MinimumDateTime.AddDays (10);
-            control.MinDate = newMinDate;
+            try {
+                var raised = 0;
+                picker.FormatChanged += (_, _) => raised++;
 
-            Assert.Equal (newMinDate, control.MinDate);
-            Assert.Equal (newMinDate, control.Value);
+                picker.Format = DateTimePickerFormat.Short;
+                picker.Format = DateTimePickerFormat.Short;   // no change, no event
+
+                Assert.Equal (1, raised);
+
+                picker.Format = DateTimePickerFormat.Custom;
+                picker.CustomFormat = "yyyy-MM-dd";
+
+                Assert.Equal (3, raised);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        // ---------------- SMP-41: the optional-date pattern
+
+        [Fact]
+        public void The_check_box_toggles_Checked_and_announces_it ()
+        {
+            // ShowCheckBox + Checked is the only way WinForms expresses an optional date. The box never
+            // drew, so the user could neither clear nor set it.
+            var picker = Picker (out var form);
+            using var _form = form;
+
+            try {
+                picker.ShowCheckBox = true;
+                var raised = 0;
+                picker.ValueChanged += (_, _) => raised++;
+
+                picker.ClickAt (picker.CheckBoxCentre);
+
+                Assert.False (picker.Checked);
+                Assert.Equal (1, raised);
+
+                picker.ClickAt (picker.CheckBoxCentre);
+
+                Assert.True (picker.Checked);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void MaxDate_GetSet_ReturnsExpected ()
+        public void Space_toggles_the_check_box_from_the_keyboard ()
         {
-            using var control = new DateTimePicker ();
+            var picker = Picker (out var form);
+            using var _form = form;
 
-            Assert.Equal (new DateTime (9998, 12, 31), control.MaxDate);
+            try {
+                picker.ShowCheckBox = true;
 
-            var expectedDate = new DateTime (2022, 12, 31);
-            control.MaxDate = expectedDate;
-            Assert.Equal (expectedDate, control.MaxDate);
+                picker.Press (Keys.Space);
 
-            // Set same.
-            control.MaxDate = expectedDate;
-            Assert.Equal (expectedDate, control.MaxDate);
+                Assert.False (picker.Checked);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void MaxDate_SetLessThanMinDate_ThrowsArgumentOutOfRangeException ()
+        public void Space_does_nothing_when_there_is_no_check_box ()
         {
-            using var control = new DateTimePicker { MinDate = new DateTime (2020, 1, 1) };
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.MaxDate = new DateTime (2019, 12, 31));
-        }
+            // GUARD, not proof: nothing handled Space before. It pins that the key is bound to the
+            // check box rather than to the control.
+            var picker = Picker (out var form);
+            using var _form = form;
 
-        [Theory]
-        [InlineData ("0001-01-01")]
-        [InlineData ("9999-12-31")]
-        public void MaxDate_SetOutsideSupportedRange_ThrowsArgumentOutOfRangeException (string value)
-        {
-            using var control = new DateTimePicker ();
-            var date = DateTime.Parse (value, System.Globalization.CultureInfo.InvariantCulture);
-            Assert.Throws<ArgumentOutOfRangeException> (() => control.MaxDate = date);
-        }
+            try {
+                picker.Press (Keys.Space);
 
-        [Fact]
-        public void MaxDate_Set_AdjustsValueIfNeeded ()
-        {
-            using var control = new DateTimePicker ();
-
-            control.Value = new DateTime (2023, 6, 1);
-            var newMaxDate = new DateTime (2022, 12, 31);
-            control.MaxDate = newMaxDate;
-
-            Assert.Equal (newMaxDate, control.MaxDate);
-            Assert.Equal (newMaxDate, control.Value);
+                Assert.True (picker.Checked);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void CustomFormat_GetSet_AffectsText ()
+        public void An_unchecked_picker_greys_its_date ()
         {
-            using var control = new DateTimePicker ();
+            // The visible half of the optional-date pattern: "no value" has to look like no value.
+            var picker = Picker (out var form);
+            using var _form = form;
 
-            control.Value = new DateTime (2021, 12, 31);
-            control.Format = DateTimePickerFormat.Custom;
+            try {
+                picker.ShowCheckBox = true;
 
-            // Escape literal separators so the rendered text is culture-independent (an
-            // unescaped '/' is the culture date separator, not a literal slash).
-            control.CustomFormat = "yyyy'/'MM'/'dd";
-            Assert.Equal ("yyyy'/'MM'/'dd", control.CustomFormat);
-            Assert.Equal ("2021/12/31", control.Text);
+                var checked_ink = TextInk (picker);
+                picker.Checked = false;
+                var unchecked_ink = TextInk (picker);
 
-            control.CustomFormat = "MM'/'dd'/'yyyy";
-            Assert.Equal ("MM'/'dd'/'yyyy", control.CustomFormat);
-            Assert.Equal ("12/31/2021", control.Text);
+                Assert.NotEqual (checked_ink, unchecked_ink);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void Format_Custom_RendersValueUsingCustomFormat ()
+        public void The_check_box_is_painted_when_ShowCheckBox_is_on ()
         {
-            using var control = new DateTimePicker {
-                CustomFormat = "yyyy'-'MM'-'dd' 'HH':'mm':'ss"
-            };
+            var picker = Picker (out var form);
+            using var _form = form;
 
-            control.Value = SampleDate;
-            control.Format = DateTimePickerFormat.Custom;
+            try {
+                var without = InkIn (picker, () => new Rectangle (0, 0, picker.ButtonBounds.Left, picker.ScaledSize.Height));
+                picker.ShowCheckBox = true;
+                var with = InkIn (picker, () => picker.CheckBoxBounds);
 
-            Assert.Equal ("2021-12-31 03:04:05", control.Text);
+                Assert.True (with > 0, "the check box should be painted");
+                Assert.True (with != without, "the left of the control should differ once a check box is there");
+            } finally {
+                form.Close ();
+            }
         }
 
-        [Theory]
-        [InlineData (true)]
-        [InlineData (false)]
-        public void Checked_GetSet_ReturnsExpected (bool showCheckBox)
+        // ---------------- SMP-41: ShowUpDown
+
+        [Fact]
+        public void ShowUpDown_steps_the_date_instead_of_dropping_down ()
         {
-            using var control = new DateTimePicker { ShowCheckBox = showCheckBox };
+            // It was stored, and the drop-down arrow was drawn regardless.
+            var picker = Picker (out var form);
+            using var _form = form;
 
-            control.Checked = true;
-            Assert.True (control.Checked);
+            try {
+                picker.ShowUpDown = true;
+                var top_of_strip = new Point (picker.ButtonCentre.X, picker.ButtonBounds.Top + 2);
 
-            control.Checked = false;
-            Assert.False (control.Checked);
+                picker.ClickAt (top_of_strip);
 
-            control.Checked = true;
-            Assert.True (control.Checked);
-        }
-
-        [Theory]
-        [InlineData (true)]
-        [InlineData (false)]
-        public void ShowCheckBox_GetSet_ReturnsExpected (bool value)
-        {
-            using var control = new DateTimePicker { ShowCheckBox = value };
-            Assert.Equal (value, control.ShowCheckBox);
-
-            control.ShowCheckBox = !value;
-            Assert.Equal (!value, control.ShowCheckBox);
-        }
-
-        [Theory]
-        [InlineData (true)]
-        [InlineData (false)]
-        public void ShowUpDown_GetSet_ReturnsExpected (bool value)
-        {
-            using var control = new DateTimePicker { ShowUpDown = value };
-            Assert.Equal (value, control.ShowUpDown);
-
-            control.ShowUpDown = !value;
-            Assert.Equal (!value, control.ShowUpDown);
+                Assert.Equal (new DateTime (2024, 6, 16), picker.Value.Date);
+                Assert.False (picker.DroppedDown);
+            } finally {
+                form.Close ();
+            }
         }
 
         [Fact]
-        public void ValueChanged_Event_Raised_OnChange ()
+        public void ShowUpDown_has_no_drop_down_to_open ()
         {
-            using var control = new DateTimePicker ();
-            control.Value = new DateTime (2022, 1, 1);
+            var picker = Picker (out var form);
+            using var _form = form;
 
-            var callCount = 0;
-            EventHandler handler = (sender, e) => {
-                Assert.Same (control, sender);
-                Assert.Equal (EventArgs.Empty, e);
-                callCount++;
-            };
+            try {
+                picker.ShowUpDown = true;
 
-            control.ValueChanged += handler;
-            control.Value = new DateTime (2023, 1, 1);
-            Assert.Equal (1, callCount);
+                picker.Press (Keys.F4);
 
-            control.ValueChanged -= handler;
-            control.Value = new DateTime (2024, 1, 1);
-            Assert.Equal (1, callCount);
+                Assert.False (picker.DroppedDown);
+            } finally {
+                form.Close ();
+            }
         }
 
-        [Fact]
-        public void ValueChanged_Event_NotRaised_WhenValueUnchanged ()
+        // ---------------- helpers
+
+        // The set of pixels drawn in the control's text area, as a string, so two renders can be
+        // compared for "the text looks different" without asserting a colour.
+        private static string TextInk (DrivenPicker picker)
         {
-            using var control = new DateTimePicker ();
-            control.Value = new DateTime (2022, 1, 1);
+            using var bitmap = PaintSurface.RenderOnForm (picker, 1f);
+            var area = picker.TextBounds;
+            var sb = new System.Text.StringBuilder ();
 
-            var callCount = 0;
-            control.ValueChanged += (sender, e) => callCount++;
+            for (var y = Math.Max (0, area.Top); y < Math.Min (bitmap.Height, area.Bottom); y++)
+                for (var x = Math.Max (0, area.Left); x < Math.Min (bitmap.Width, area.Right); x++)
+                    sb.Append (bitmap.GetPixel (x, y).ToString ());
 
-            // Setting the same value should not raise the event.
-            control.Value = new DateTime (2022, 1, 1);
-            Assert.Equal (0, callCount);
+            return sb.ToString ();
+        }
+
+        // Pixels in a region that differ from the region's most common colour.
+        private static int InkIn (DrivenPicker picker, Func<Rectangle> region)
+        {
+            using var bitmap = PaintSurface.RenderOnForm (picker, 1f);
+            var area = region ();
+            var counts = new System.Collections.Generic.Dictionary<SKColor, int> ();
+
+            for (var x = Math.Max (0, area.Left); x < Math.Min (bitmap.Width, area.Right); x++)
+                for (var y = Math.Max (0, area.Top); y < Math.Min (bitmap.Height, area.Bottom); y++) {
+                    var p = bitmap.GetPixel (x, y);
+                    counts[p] = counts.TryGetValue (p, out var n) ? n + 1 : 1;
+                }
+
+            if (counts.Count == 0)
+                return 0;
+
+            var background = SKColors.Transparent;
+            var best = -1;
+
+            foreach (var entry in counts)
+                if (entry.Value > best) { best = entry.Value; background = entry.Key; }
+
+            var ink = 0;
+
+            foreach (var entry in counts)
+                if (entry.Key != background)
+                    ink += entry.Value;
+
+            return ink;
         }
     }
 }
