@@ -8,6 +8,11 @@ namespace Majorsilence.Forms.Tests
     // invisible-to-any-OS) Form, and its Timer is backed by HeadlessPlatformBackend's HeadlessTimer,
     // which posts its Tick callback through the backend's action queue rather than firing inline — tests
     // that exercise auto-close pump that queue with Application.DoEvents () after the delay elapses.
+    //
+    // That delivery is a System.Threading.Timer callback hopping onto the thread pool before it reaches
+    // the queue, so "when" is the runner's business, not ours: a fixed sleep followed by one pump raced
+    // a loaded Windows CI agent and drained an empty queue. Wait on the CONDITION with PumpUntil instead
+    // -- the assertion is still "the popup closes by itself", only the waiting is robust.
     public class RadDesktopAlertTests
     {
         [Fact]
@@ -72,8 +77,7 @@ namespace Majorsilence.Forms.Tests
             alert.Show ();
             Assert.True (alert.Popup.Visible);
 
-            System.Threading.Thread.Sleep (700);
-            Application.DoEvents ();
+            PumpUntil (() => !alert.Popup.Visible);
 
             Assert.False (alert.Popup.Visible);
         }
@@ -173,6 +177,26 @@ namespace Majorsilence.Forms.Tests
             alert.Dispose ();
 
             Assert.False (alert.Popup.Visible);
+        }
+
+        // Pumps the backend's action queue until `condition` holds or the deadline passes, then returns
+        // either way -- the caller asserts, so a timeout fails with the caller's own message rather than
+        // this helper's. The deadline is generous on purpose: it bounds a hang, it is not the timing
+        // being tested, and nothing waits it out when the timer behaves.
+        private static void PumpUntil (System.Func<bool> condition, int timeout_ms = 10_000)
+        {
+            var deadline = System.DateTime.UtcNow.AddMilliseconds (timeout_ms);
+
+            while (System.DateTime.UtcNow < deadline) {
+                Application.DoEvents ();
+
+                if (condition ())
+                    return;
+
+                System.Threading.Thread.Sleep (10);
+            }
+
+            Application.DoEvents ();
         }
     }
 }
