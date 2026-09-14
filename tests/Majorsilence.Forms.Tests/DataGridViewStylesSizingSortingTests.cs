@@ -5,6 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.Linq;
 using Majorsilence.Forms.Headless;
+using Majorsilence.Forms.Renderers;
 using SkiaSharp;
 using Xunit;
 
@@ -71,19 +72,33 @@ namespace Majorsilence.Forms.Tests
         // 0x0-bitmap trap the explicit 1f elsewhere guards against is for UNHOSTED controls.
         private static SKBitmap Render (DataGridView grid) => PaintSurface.RenderOnForm (grid);
 
-        private static int DarkInk (SKBitmap bitmap, Rectangle area)
+        // The mean x of the pixels that are not the background, or null when there are none.
+        //
+        // Ink is defined RELATIVE to the cell's own background, sampled from its top-left corner, rather
+        // than by an absolute darkness threshold: the threshold version passed on macOS and Linux and
+        // found nothing on Windows CI, because how a rasteriser antialiases a glyph is its own business.
+        // What is portable is that text differs from what it sits on.
+        private static double? InkCentreX (SKBitmap bitmap, Rectangle area)
         {
+            if (area.Left < 0 || area.Top < 0 || area.Right > bitmap.Width || area.Bottom > bitmap.Height)
+                return null;
+
+            var background = bitmap.GetPixel (area.Left + 1, area.Top + 1);
+            long sum = 0;
             var count = 0;
 
-            for (var x = Math.Max (0, area.Left); x < Math.Min (bitmap.Width, area.Right); x++)
-                for (var y = Math.Max (0, area.Top); y < Math.Min (bitmap.Height, area.Bottom); y++) {
+            for (var x = area.Left; x < area.Right; x++)
+                for (var y = area.Top; y < area.Bottom; y++) {
                     var p = bitmap.GetPixel (x, y);
+                    var difference = Math.Abs (p.Red - background.Red) + Math.Abs (p.Green - background.Green) + Math.Abs (p.Blue - background.Blue);
 
-                    if (p.Red < 96 && p.Green < 96 && p.Blue < 96)
+                    if (difference > 60) {
+                        sum += x;
                         count++;
+                    }
                 }
 
-            return count;
+            return count == 0 ? null : (double)sum / count;
         }
 
         // ---------------- DGV-16: a sort is recorded, glyphed and announced
@@ -490,18 +505,80 @@ namespace Majorsilence.Forms.Tests
                 grid.DefaultCellStyle.ForeColor = Color.Black;
 
                 using var left = Render (grid);
-                var cell = grid.GetCellBounds (0, 0);
-                var left_third = new Rectangle (cell.Left, cell.Top, cell.Width / 3, cell.Height);
-                var right_third = new Rectangle (cell.Right - cell.Width / 3, cell.Top, cell.Width / 3, cell.Height);
-                // Dark ink, not exact black: anti-aliasing leaves one fully-black pixel at scale 1 and
-                // none at scale 2, so an exact match measures the rasteriser rather than the layout.
-                Assert.True (DarkInk (left, left_third) > 0, "baseline: text starts on the left");
+                // The cell's INTERIOR: its border lines are "not the background" too, and being at both
+                // edges they drag the mean to the middle wherever the text actually sits.
+                var cell = Inner (grid.GetCellBounds (0, 0));
+                var centre_before = InkCentreX (left, cell);
+                Assert.True (centre_before is not null, "baseline: the cell should contain text");
 
                 grid.Columns[0].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
                 using var right = Render (grid);
+                var centre_after = InkCentreX (right, cell);
 
-                Assert.True (DarkInk (right, right_third) > 0, "right-aligned text should land in the right third");
-                Assert.Equal (0, DarkInk (right, left_third));
+                // Asserted as a relationship, not a region: the ink's centre moves right by at least a
+                // third of the cell. "Some ink in the right third and none in the left" held on macOS and
+                // Linux and failed on Windows CI, whose font puts the glyph somewhere else; where the ink
+                // ENDS UP is the font's business, that it MOVED is the layout's. The numbers are in the
+                // message so the next platform difference explains itself.
+                Assert.True (centre_after is not null, "right-aligned: the cell should still contain text");
+                Assert.True (centre_after > centre_before + cell.Width / 3,
+                    $"right-aligning should move the ink right by a third of the cell: centre {centre_before} -> {centre_after} in a {cell.Width}-px cell");
+            } finally {
+                form.Close ();
+            }
+        }
+
+        // A grid type of its own, so the capturing renderer below is registered for it and not for every
+        // other DataGridView test in the run.
+        private sealed class CascadeGrid : DataGridView { }
+
+        // Records the ControlStyle each cell is drawn with -- the cascade the renderer resolved, which
+        // is the link DGV-21 is about. Every RenderCell path funnels through the paintParts overload.
+        private sealed class CascadeRenderer : DataGridViewRenderer
+        {
+            public override Type Type => typeof (CascadeGrid);
+
+            public readonly Dictionary<int, ControlStyle?> StyleByColumn = new ();
+
+            protected override void RenderCell (DataGridView control, DataGridViewColumn column, string value, int rowIndex,
+                int columnIndex, Rectangle bounds, ControlStyle? cellStyle, PaintEventArgs e, DataGridViewPaintParts paintParts)
+            {
+                if (rowIndex == 0)
+                    StyleByColumn[columnIndex] = cellStyle;
+
+                base.RenderCell (control, column, value, rowIndex, columnIndex, bounds, cellStyle, e, paintParts);
+            }
+        }
+
+        [Fact]
+        public void The_resolved_cascade_is_what_the_renderer_is_handed ()
+        {
+            // The pixel test above proves the text MOVES; this proves the renderer was HANDED the
+            // cascaded style, with no dependency on how a platform rasterises a glyph. Asserted on the
+            // ControlStyle RenderCell receives, not on CellPainting.CellStyle -- that already carried
+            // InheritedStyle before this change, so asserting it would prove nothing new.
+            HeadlessRenderer.Use ();
+            var renderer = new CascadeRenderer ();
+            RenderManager.SetRenderer<CascadeGrid> (renderer);
+
+            using var form = new Form { Width = 520, Height = 340 };
+            var grid = new CascadeGrid { Width = 400, Height = 200 };
+            grid.Columns.Add (new DataGridViewColumn { HeaderText = "A", Width = 80 });
+            grid.Columns.Add (new DataGridViewColumn { HeaderText = "B", Width = 80 });
+            grid.Rows.Add ("x", "y");
+            grid.Columns[1].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            grid.Columns[1].DefaultCellStyle.BackColor = Color.Salmon;
+            form.Controls.Add (grid);
+            form.Show ();
+
+            try {
+                PaintSurface.RenderOnForm (grid).Dispose ();
+
+                Assert.Equal (DataGridViewContentAlignment.MiddleRight, renderer.StyleByColumn[1]?.Alignment);
+                // ToArgb, not the Color: a named colour and the ARGB it resolves to are equal in value
+                // and not equal as Color instances.
+                Assert.Equal (Color.Salmon.ToArgb (), renderer.StyleByColumn[1]?.BackColor.ToArgb ());
+                Assert.NotEqual (DataGridViewContentAlignment.MiddleRight, renderer.StyleByColumn[0]?.Alignment);
             } finally {
                 form.Close ();
             }

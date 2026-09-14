@@ -1538,6 +1538,24 @@ the second is fine while the first is wrong.
 wrong and now asserts containment. Recorded because the next test against a `DataView` sort expression
 will meet the same brackets.
 
+**A pixel test can encode the rasteriser it was written on.** The alignment test asserted "ink in the
+right third, none in the left", with ink as three channel thresholds. It passed on macOS and Linux and
+found **nothing at all** in the right third on Windows CI — the first platform divergence in this
+project that was neither font *height* nor window chrome, the two the gates already knob. Two changes,
+both of which the earlier pixel work should have reached on its own:
+*Ink is now defined relative to the cell's own background*, sampled from the cell, rather than by an
+absolute darkness threshold. How a rasteriser antialiases a glyph is its own business; that text differs
+from what it sits on is portable. (The probe also had to exclude the cell's borders, which are "not the
+background" too, and being at both edges dragged the mean to the middle wherever the text actually sat.)
+*And the assertion is now relational* — the ink's centre moves right by at least a third of the cell —
+with both centres in the failure message, so the next platform difference explains itself instead of
+needing a CI archaeology session.
+**A second test at a different boundary was the more valuable fix**, and the first version of it proved
+nothing: it asserted `CellPainting.CellStyle`, which already carried `InheritedStyle` before this work,
+so it passed against unmodified code. Re-pointed at the `ControlStyle` that `RenderCell` actually
+receives — the link this item created — it fails when the cascade is neutralized. Two tests, two links:
+one could pass while the renderer ignored what it was handed, the other while nothing reached it.
+
 ### What W5.3 found
 
 **A finding can name one defect and be caused by two.** `DGV-03` says `Rows.Add ()` returns `Count`
