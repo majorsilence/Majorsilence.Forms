@@ -361,6 +361,30 @@ namespace Majorsilence.Forms
         internal void RaiseRowsAdded (int rowIndex, int rowCount) => OnRowsAdded (new DataGridViewRowsAddedEventArgs (rowIndex, rowCount));
         internal void RaiseRowsRemoved (int rowIndex, int rowCount) => OnRowsRemoved (new DataGridViewRowsRemovedEventArgs (rowIndex, rowCount));
 
+        /// <summary>Raises the <see cref="ColumnWidthChanged"/> event.</summary>
+        protected virtual void OnColumnWidthChanged (DataGridViewColumnEventArgs e) => ColumnWidthChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="RowHeightChanged"/> event.</summary>
+        protected virtual void OnRowHeightChanged (DataGridViewRowEventArgs e) => RowHeightChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="ColumnSortModeChanged"/> event.</summary>
+        protected virtual void OnColumnSortModeChanged (DataGridViewColumnEventArgs e) => ColumnSortModeChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="ColumnHeadersHeightChanged"/> event.</summary>
+        protected virtual void OnColumnHeadersHeightChanged (EventArgs e) => ColumnHeadersHeightChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="RowHeadersWidthChanged"/> event.</summary>
+        protected virtual void OnRowHeadersWidthChanged (EventArgs e) => RowHeadersWidthChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="AutoSizeColumnModeChanged"/> event.</summary>
+        protected virtual void OnAutoSizeColumnModeChanged (DataGridViewAutoSizeColumnModeEventArgs e) => AutoSizeColumnModeChanged?.Invoke (this, e);
+
+        // Called by DataGridViewColumn/DataGridViewRow, which cannot reach the protected hooks directly.
+        internal void RaiseColumnWidthChanged (DataGridViewColumn column) => OnColumnWidthChanged (new DataGridViewColumnEventArgs (column));
+        internal void RaiseRowHeightChanged (DataGridViewRow row) => OnRowHeightChanged (new DataGridViewRowEventArgs (row));
+        internal void RaiseColumnSortModeChanged (DataGridViewColumn column) => OnColumnSortModeChanged (new DataGridViewColumnEventArgs (column));
+        internal void RaiseAutoSizeColumnModeChanged (DataGridViewColumn column, DataGridViewAutoSizeColumnMode previousMode) => OnAutoSizeColumnModeChanged (new DataGridViewAutoSizeColumnModeEventArgs (column, previousMode));
+
 
         private DataGridViewCellEventHandler? _rowEnter;
         /// <summary>Raised when a row becomes the current row.</summary>
@@ -405,32 +429,32 @@ namespace Majorsilence.Forms
 
 
         /// <summary>Raised when the width of a column changes.</summary>
-        public event EventHandler<DataGridViewColumnEventArgs>? ColumnWidthChanged { add { } remove { } }
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnWidthChanged;
 
         /// <summary>Raised when a new row is needed (virtual mode). Stub in Majorsilence.Forms.</summary>
         public event DataGridViewRowEventHandler? NewRowNeeded { add { } remove { } }
 
         /// <summary>Raised when the height of a row changes.</summary>
-        public event DataGridViewRowEventHandler? RowHeightChanged { add { } remove { } }
+        public event DataGridViewRowEventHandler? RowHeightChanged;
 
 
         /// <summary>Raised when the user is deleting a row. Fires before the row is deleted.</summary>
         public event DataGridViewRowEventHandler? UserAddedRow { add { } remove { } }
 
-        /// <summary>Raised when the sort glyph direction changes.</summary>
-        public event EventHandler<DataGridViewColumnEventArgs>? ColumnSortModeChanged { add { } remove { } }
+        /// <summary>Raised when a column's <see cref="DataGridViewColumn.SortMode"/> changes.</summary>
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnSortModeChanged;
 
         /// <summary>Raised when a column's display index changes.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnDisplayIndexChanged { add { } remove { } }
 
         /// <summary>Raised when the column header height changes.</summary>
-        public event EventHandler? ColumnHeadersHeightChanged { add { } remove { } }
+        public event EventHandler? ColumnHeadersHeightChanged;
 
         /// <summary>Raised when the row header width changes.</summary>
-        public event EventHandler? RowHeadersWidthChanged { add { } remove { } }
+        public event EventHandler? RowHeadersWidthChanged;
 
-        /// <summary>Raised when auto-sizing in a column finishes.</summary>
-        public event EventHandler<DataGridViewAutoSizeColumnModeEventArgs>? AutoSizeColumnModeChanged { add { } remove { } }
+        /// <summary>Raised when a column's <see cref="DataGridViewColumn.AutoSizeMode"/> changes.</summary>
+        public event EventHandler<DataGridViewAutoSizeColumnModeEventArgs>? AutoSizeColumnModeChanged;
 
         /// <summary>Raised in virtual mode to retrieve the value for a cell.</summary>
         public event EventHandler<DataGridViewCellValueEventArgs>? CellValueNeeded { add { } remove { } }
@@ -1616,6 +1640,7 @@ namespace Majorsilence.Forms
                 if (header_height != value) {
                     header_height = Math.Max (value, 4);
                     Invalidate ();
+                    OnColumnHeadersHeightChanged (EventArgs.Empty);
                 }
             }
         }
@@ -2722,6 +2747,7 @@ namespace Majorsilence.Forms
                     row_headers_width = Math.Max (value, 10);
                     UpdateScrollBars ();
                     Invalidate ();
+                    OnRowHeadersWidthChanged (EventArgs.Empty);
                 }
             }
         }
