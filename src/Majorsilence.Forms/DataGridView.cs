@@ -12,7 +12,6 @@ namespace Majorsilence.Forms
     public partial class DataGridView : Control, System.ComponentModel.ISupportInitialize
     {
         private int header_height = 30;
-        private int row_height = 25;
         private int row_headers_width = 40;
         private bool row_headers_visible;
         private int top_index;
@@ -446,8 +445,6 @@ namespace Majorsilence.Forms
         /// <summary>Raised in virtual mode to push a new cell value back to the data source.</summary>
         public event EventHandler<DataGridViewCellValueEventArgs>? CellValuePushed { add { } remove { } }
 
-        /// <summary>Raised to allow custom sorting comparison. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<DataGridViewSortCompareEventArgs>? SortCompare { add { } remove { } }
 
         /// <summary>
         /// Gets or sets whether column headers are visible.
@@ -478,6 +475,7 @@ namespace Majorsilence.Forms
 
                 auto_size_columns_mode = value;
                 OnAutoSizeColumnsModeChanged (new DataGridViewAutoSizeColumnsModeEventArgs ([]));
+                UpdateScrollBars ();
                 Invalidate ();
             }
         }
@@ -979,11 +977,8 @@ namespace Majorsilence.Forms
         /// <summary>Raised when <see cref="IsCurrentCellDirty"/> changes.</summary>
         public event EventHandler? CurrentCellDirtyStateChanged;
 
-#pragma warning disable CS0067
-
-        /// <summary>Raised after the grid finishes sorting. Declared for WinForms compat; the compat grid has no sort pipeline yet.</summary>
+        /// <summary>Raised after the grid finishes sorting.</summary>
         public event EventHandler? Sorted;
-#pragma warning restore CS0067
 
         /// <summary>
         /// Commits the current edit and hides the edit TextBox.
@@ -1844,18 +1839,12 @@ namespace Majorsilence.Forms
         {
             var column = Columns[columnIndex];
 
-            // Toggle sort order
-            var new_order = column.SortOrder == SortOrder.Ascending
+            // Toggle from the RECORDED sort, which is what upstream and the app's own toggle code read.
+            var new_order = ReferenceEquals (SortedColumn, column) && SortOrder == SortOrder.Ascending
                 ? SortOrder.Descending
                 : SortOrder.Ascending;
 
-            // Reset all other columns
-            foreach (var col in Columns)
-                col.SortOrder = SortOrder.None;
-
-            column.SortOrder = new_order;
-
-            // Sort the data
+            // SortByColumn records SortedColumn/SortOrder, moves the glyph and raises Sorted.
             SortByColumn (columnIndex, new_order);
 
             // Raise the event
@@ -2425,17 +2414,22 @@ namespace Majorsilence.Forms
                     var col = GetColumnAtLocation (e.Location);
 
                     if (col >= 0) {
-                        // Fires for every header click (WinForms uses rowIndex -1 for header cells),
-                        // not just sortable columns.
-                        OnColumnHeaderMouseClick (new DataGridViewCellMouseEventArgs (col, -1, e.Location.X - GetColumnDeviceLeft (col), e.Location.Y - client.Top, e));
-
                         // A header click is how a column gets selected from the UI, and the only way in
                         // ColumnHeaderSelect -- where clicking a cell selects the cell instead.
                         if (SelectionIsColumnBased)
                             SelectFromPointer (-1, col, e.Modifiers);
 
-                        if (Columns[col].Sortable)
+                        // SortMode is the gate, not just this library's Sortable: a Programmatic column
+                        // is one the app sorts itself in the click handler, and sorting it here too
+                        // sorted it twice (DGV-17).
+                        if (CanSortByHeaderClick (Columns[col]))
                             OnColumnHeaderClick (col);
+
+                        // Raised AFTER the sort, as upstream's OnColumnHeaderMouseClick does: the standard
+                        // handler reads grid.SortOrder here, and raising first showed it the previous
+                        // order (the ordering trap DGV-16 records). Fires for every header click
+                        // (WinForms uses rowIndex -1 for header cells), not just sortable columns.
+                        OnColumnHeaderMouseClick (new DataGridViewCellMouseEventArgs (col, -1, e.Location.X - GetColumnDeviceLeft (col), e.Location.Y - client.Top, e));
                     }
 
                     return;
@@ -2754,20 +2748,6 @@ namespace Majorsilence.Forms
         public DataGridViewRowCollection Rows { get; }
 
         /// <summary>
-        /// Gets or sets the default height, in pixels, of each row.
-        /// </summary>
-        public int RowHeight {
-            get => row_height;
-            set {
-                if (row_height != value) {
-                    row_height = Math.Max (value, 10);
-                    UpdateScrollBars ();
-                    Invalidate ();
-                }
-            }
-        }
-
-        /// <summary>
         /// Gets or sets whether the row header column is displayed.
         /// </summary>
         public bool RowHeadersVisible {
@@ -2816,7 +2796,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the scaled height of each data row.
         /// </summary>
-        internal int ScaledRowHeight => LogicalToDeviceUnits (row_height);
+        internal int ScaledRowHeight => LogicalToDeviceUnits (row_template.Height);
 
         /// <summary>
         /// Gets the scaled width of the row header column.
@@ -3039,38 +3019,6 @@ namespace Majorsilence.Forms
             UpdateScrollBars ();
         }
 
-        /// <summary>
-        /// Sorts the rows by the specified column.
-        /// </summary>
-        public void SortByColumn (int columnIndex, SortOrder order)
-        {
-            if (columnIndex < 0 || columnIndex >= Columns.Count || order == SortOrder.None || Rows.Count == 0)
-                return;
-
-            // Sort the rows in-place (note: List.Sort is not guaranteed to be stable)
-            var sorted = Rows.ToList ();
-
-            sorted.Sort ((a, b) => {
-                var raw_a = columnIndex < a.Cells.Count ? a.Cells[columnIndex].Value : null;
-                var raw_b = columnIndex < b.Cells.Count ? b.Cells[columnIndex].Value : null;
-
-                var cmp = CompareCellValues (raw_a, raw_b);
-                return order == SortOrder.Descending ? -cmp : cmp;
-            });
-
-            // Replace rows without triggering per-item change notifications
-            Rows.ReplaceAll (sorted);
-        }
-
-        /// <summary>Sorts the data by the specified column in the specified direction.</summary>
-        public void Sort (DataGridViewColumn column, System.ComponentModel.ListSortDirection direction)
-        {
-            var idx = Columns.IndexOf (column);
-
-            if (idx >= 0)
-                SortByColumn (idx, direction == System.ComponentModel.ListSortDirection.Ascending ? SortOrder.Ascending : SortOrder.Descending);
-        }
-
         /// <summary>Invalidates a specific cell, forcing it to repaint.</summary>
         public void InvalidateCell (int columnIndex, int rowIndex) => Invalidate ();
 
@@ -3181,32 +3129,7 @@ namespace Majorsilence.Forms
         /// <summary>Gets the index of the row for new records, or -1 if AllowUserToAddRows is false.</summary>
         public int NewRowIndex => AllowUserToAddRows ? Rows.Count : -1;
 
-        /// <summary>Gets or sets the column used for row headers. Stub in Majorsilence.Forms.</summary>
-        public DataGridViewColumn? SortedColumn { get; private set; }
 
-        /// <summary>Gets the sort order of the current sort. None if not sorted.</summary>
-        public SortOrder SortOrder { get; private set; } = SortOrder.None;
-
-        /// <summary>Adjusts the width of all columns to fit their contents. Stub in Majorsilence.Forms.</summary>
-        public void AutoResizeColumns () => Invalidate ();
-
-        /// <summary>Adjusts the width of all columns using the specified sizing mode. Stub in Majorsilence.Forms.</summary>
-        public void AutoResizeColumns (DataGridViewAutoSizeColumnsMode autoSizeColumnsMode) => Invalidate ();
-
-        /// <summary>Adjusts the width of the specified column to fit its contents. Stub in Majorsilence.Forms.</summary>
-        public void AutoResizeColumn (int columnIndex) => Invalidate ();
-
-        /// <summary>Adjusts the width of the specified column using the specified sizing mode. Stub in Majorsilence.Forms.</summary>
-        public void AutoResizeColumn (int columnIndex, DataGridViewAutoSizeColumnMode autoSizeColumnMode) => Invalidate ();
-
-        /// <summary>Adjusts the height of all rows to fit their contents. Stub in Majorsilence.Forms.</summary>
-        public void AutoResizeRows () => Invalidate ();
-
-        /// <summary>Adjusts the height of all rows using the specified sizing mode. Stub in Majorsilence.Forms.</summary>
-        public void AutoResizeRow (int rowIndex) => Invalidate ();
-
-        /// <summary>Adjusts the height of the specified row using the given sizing mode. Stub in Majorsilence.Forms.</summary>
-        public void AutoResizeRow (int rowIndex, DataGridViewAutoSizeRowMode autoSizeRowMode) => Invalidate ();
 
         /// <summary>Gets or sets the visual style of the grid's border.</summary>
         public BorderStyle BorderStyle {
@@ -3274,6 +3197,10 @@ namespace Majorsilence.Forms
         /// </summary>
         private void UpdateScrollBars ()
         {
+            // Fill columns take whatever width is left, so they are sized before anything measures the
+            // column total (DGV-18).
+            ApplyFillColumnWidths ();
+
             var client = GetContentArea ();
             var header_offset = RowsTopOffset;
             var content_height = client.Height - header_offset;
@@ -3293,15 +3220,19 @@ namespace Majorsilence.Forms
                 }
             }
 
-            // Vertical scrollbar
-            if (Rows.Count > visible_rows && visible_rows > 0) {
+            // Vertical scrollbar -- over the rows that TAKE SPACE. A hidden row cannot be scrolled to,
+            // so counting it (Rows.Count) let the thumb travel past the last visible row into blank
+            // space (#94).
+            var scrollable_rows = VisibleRowCount ();
+
+            if (scrollable_rows > visible_rows && visible_rows > 0) {
                 vscrollbar.Visible = true;
                 // Maximum is the *conceptual last item index* (see ScrollBar.EffectiveMaximum), not the
                 // last valid top_index -- with LargeChange set below to the page size, EffectiveMaximum
-                // works out to Rows.Count - visible_rows, which is what top_index actually clamps
+                // works out to scrollable_rows - visible_rows, which is what top_index actually clamps
                 // against. Setting Maximum to that directly left the thumb, which is positioned from
                 // EffectiveMaximum, reaching the end of the track a whole page early.
-                vscrollbar.Maximum = Math.Max (0, Rows.Count - 1);
+                vscrollbar.Maximum = Math.Max (0, scrollable_rows - 1);
                 vscrollbar.LargeChange = Math.Max (0, visible_rows);
             } else {
                 vscrollbar.Visible = false;
@@ -3368,7 +3299,7 @@ namespace Majorsilence.Forms
         public int RowCount {
             get => Rows.Count;
             set {
-                while (Rows.Count < value) Rows.Add ();
+                while (Rows.Count < value) Rows.Add ();   // Rows.Add builds from RowTemplate
                 while (Rows.Count > value && Rows.Count > 0) Rows.RemoveAt (Rows.Count - 1);
             }
         }

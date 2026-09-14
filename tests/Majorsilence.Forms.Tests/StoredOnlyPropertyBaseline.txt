@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 738 of 1203 public settable auto-properties (61%).
+# 734 of 1201 public settable auto-properties (61%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -138,8 +138,6 @@ Majorsilence.Forms.DataGridView.ShowCellErrors
 Majorsilence.Forms.DataGridView.ShowCellToolTips
 Majorsilence.Forms.DataGridView.ShowEditingIcon
 Majorsilence.Forms.DataGridView.ShowRowErrors
-Majorsilence.Forms.DataGridView.SortOrder
-Majorsilence.Forms.DataGridView.SortedColumn
 Majorsilence.Forms.DataGridView.StandardTab
 Majorsilence.Forms.DataGridView.VirtualMode
 Majorsilence.Forms.DataGridViewBand.Index
@@ -169,7 +167,6 @@ Majorsilence.Forms.DataGridViewCheckBoxColumn.FlatStyle
 Majorsilence.Forms.DataGridViewCheckBoxColumn.IndeterminateValue
 Majorsilence.Forms.DataGridViewCheckBoxColumn.ThreeState
 Majorsilence.Forms.DataGridViewCheckBoxColumn.TrueValue
-Majorsilence.Forms.DataGridViewColumnHeaderCell.SortGlyphDirection
 Majorsilence.Forms.DataGridViewComboBoxCell.AutoComplete
 Majorsilence.Forms.DataGridViewComboBoxCell.DisplayStyleForCurrentCellOnly
 Majorsilence.Forms.DataGridViewComboBoxCell.FlatStyle
@@ -208,7 +205,6 @@ Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.IsFirstDisplayedRow
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.IsLastVisibleRow
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.RowBounds
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.State
-Majorsilence.Forms.DataGridViewSortCompareEventArgs.SortResult
 Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlDataGridView
 Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlRowIndex
 Majorsilence.Forms.DateBoldEventArgs.DaysToBold

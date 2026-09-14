@@ -127,15 +127,6 @@ namespace Majorsilence.Forms
 
     public partial class DataGridView
     {
-        /// <summary>Resizes every row according to the given mode.</summary>
-        public void AutoResizeRows (DataGridViewAutoSizeRowsMode autoSizeRowsMode)
-        {
-            if (autoSizeRowsMode == DataGridViewAutoSizeRowsMode.None)
-                return;
-
-            AutoResizeRows ();
-        }
-
         /// <summary>Commits the current edit, reporting where the request came from.</summary>
         public bool EndEdit (DataGridViewDataErrorContexts context) => EndEdit ();
 

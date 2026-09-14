@@ -31,7 +31,6 @@ Majorsilence.Forms.DataGridView.RowHeaderMouseDoubleClick
 Majorsilence.Forms.DataGridView.RowHeadersWidthChanged
 Majorsilence.Forms.DataGridView.RowHeightChanged
 Majorsilence.Forms.DataGridView.RowStateChanged
-Majorsilence.Forms.DataGridView.SortCompare
 Majorsilence.Forms.DataGridView.UserAddedRow
 Majorsilence.Forms.FontDialog.Apply
 Majorsilence.Forms.Form.InputLanguageChanged

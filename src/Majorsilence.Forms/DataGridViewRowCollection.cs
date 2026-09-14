@@ -43,7 +43,8 @@ namespace Majorsilence.Forms
         public DataGridViewRow Add (params string[] values)
         {
             ThrowIfBound ();
-            var row = new DataGridViewRow ();
+            var row = (DataGridViewRow)owner.RowTemplate.Clone ();
+            row.Cells.Clear ();
 
             foreach (var value in values)
                 row.Cells.Add (value);
@@ -58,7 +59,8 @@ namespace Majorsilence.Forms
         public DataGridViewRow Add (params object[] values)
         {
             ThrowIfBound ();
-            var row = new DataGridViewRow ();
+            var row = (DataGridViewRow)owner.RowTemplate.Clone ();
+            row.Cells.Clear ();
 
             foreach (var value in values)
                 row.Cells.Add (value);
@@ -89,15 +91,7 @@ namespace Majorsilence.Forms
         // An empty row has one cell per column, as upstream's RowTemplate clone does. Without them the
         // finding's own idiom -- Rows[Rows.Add ()].Cells[0].Value = … -- still threw once the index
         // was right, on the Cells indexer instead (DGV-03).
-        private DataGridViewRow CreateEmptyRow ()
-        {
-            var row = new DataGridViewRow ();
-
-            for (var c = 0; c < owner.Columns.Count; c++)
-                row.Cells.Add (new DataGridViewCell ());
-
-            return row;
-        }
+        private DataGridViewRow CreateEmptyRow () => owner.CreateRowFromTemplate ();
 
         /// <summary>
         /// Returns the index of the specified row, or -1 if not found.
@@ -107,7 +101,8 @@ namespace Majorsilence.Forms
         /// <summary>Inserts a new row at the specified index with the given cell values.</summary>
         public void Insert (int rowIndex, params object[] values)
         {
-            var row = new DataGridViewRow ();
+            var row = (DataGridViewRow)owner.RowTemplate.Clone ();
+            row.Cells.Clear ();
             foreach (var value in values)
                 row.Cells.Add (value);
             Insert (rowIndex, row);
