@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 720 of 1197 public settable auto-properties (60%).
+# 707 of 1191 public settable auto-properties (59%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -224,7 +224,6 @@ Majorsilence.Forms.Design.ToolboxItem.DisplayName
 Majorsilence.Forms.Design.ToolboxItem.Locked
 Majorsilence.Forms.Design.ToolboxItem.TypeName
 Majorsilence.Forms.DomainUpDown.Sorted
-Majorsilence.Forms.DomainUpDown.Wrap
 Majorsilence.Forms.DragEventArgs.DropImageType
 Majorsilence.Forms.DragEventArgs.Effect
 Majorsilence.Forms.DragEventArgs.Message
@@ -414,14 +413,6 @@ Majorsilence.Forms.NavigationPaneItem.Padding
 Majorsilence.Forms.NavigationPaneItem.Tag
 Majorsilence.Forms.NotifyIcon.ContextMenuStrip
 Majorsilence.Forms.NotifyIcon.Tag
-Majorsilence.Forms.NumericUpDown.ChangingText
-Majorsilence.Forms.NumericUpDown.Hexadecimal
-Majorsilence.Forms.NumericUpDown.InterceptArrowKeys
-Majorsilence.Forms.NumericUpDown.ReadOnly
-Majorsilence.Forms.NumericUpDown.TextAlign
-Majorsilence.Forms.NumericUpDown.ThousandsSeparator
-Majorsilence.Forms.NumericUpDown.UpDownAlign
-Majorsilence.Forms.NumericUpDown.UserEdit
 Majorsilence.Forms.NumericUpDownAcceleration.Increment
 Majorsilence.Forms.OpenFileDialog.SelectReadOnly
 Majorsilence.Forms.OpenFileDialog.ShowPreview
@@ -712,10 +703,6 @@ Majorsilence.Forms.TreeView.ShowNodeToolTips
 Majorsilence.Forms.TreeView.ShowRootLines
 Majorsilence.Forms.TreeView.StateImageList
 Majorsilence.Forms.UpDownBase.ChangingText
-Majorsilence.Forms.UpDownBase.InterceptArrowKeys
-Majorsilence.Forms.UpDownBase.ReadOnly
-Majorsilence.Forms.UpDownBase.TextAlign
-Majorsilence.Forms.UpDownBase.UpDownAlign
 Majorsilence.Forms.UserControl.AutoValidate
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Part

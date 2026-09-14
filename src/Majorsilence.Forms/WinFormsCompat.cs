@@ -2701,9 +2701,50 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a control that allows the user to select a string from a collection by scrolling. Stub in Majorsilence.Forms.</summary>
-    public partial class DomainUpDown : NumericUpDown
+    /// <remarks>
+    /// Derives from <see cref="UpDownBase"/>, as upstream (SMP-37). It derived from
+    /// <see cref="NumericUpDown"/>, which meant it was painted by <c>NumericUpDownRenderer</c> -- so it
+    /// displayed the literal text <c>0</c> whatever its <see cref="Items"/> held, its arrows moved an
+    /// invisible number between 0 and 100 instead of stepping through the items, and it inherited a
+    /// nonsense public surface (<c>Minimum</c>, <c>Maximum</c>, <c>DecimalPlaces</c>, <c>Hexadecimal</c>,
+    /// <c>Increment</c>).
+    /// </remarks>
+    public partial class DomainUpDown : UpDownBase
     {
         private int _selectedIndex = -1;
+
+        /// <summary>Moves the selection to the previous item -- up the list, as upstream does.</summary>
+        public override void UpButton () => MoveSelection (-1);
+
+        /// <summary>Moves the selection to the next item.</summary>
+        public override void DownButton () => MoveSelection (1);
+
+        // Upstream's UpButton moves to the PREVIOUS item and DownButton to the next: the buttons move
+        // through the list in reading order, not through an index in numeric order.
+        private void MoveSelection (int delta)
+        {
+            if (Items.Count == 0)
+                return;
+
+            var next = _selectedIndex + delta;
+
+            if (next < 0)
+                next = Wrap ? Items.Count - 1 : 0;
+            else if (next >= Items.Count)
+                next = Wrap ? 0 : Items.Count - 1;
+
+            if (next == _selectedIndex)
+                return;
+
+            SelectedIndex = next;
+            OnSelectedItemChanged (EventArgs.Empty);
+        }
+
+        /// <summary>Raises the <see cref="SelectedItemChanged"/> event.</summary>
+        protected virtual void OnSelectedItemChanged (EventArgs e) => SelectedItemChanged?.Invoke (this, e);
+
+        /// <summary>The text this control displays: the selected item, or empty.</summary>
+        internal string DisplayText => SelectedItem?.ToString () ?? string.Empty;
 
         /// <summary>Gets the collection of items displayed in the control.</summary>
         /// <remarks>
@@ -2719,8 +2760,9 @@ namespace Majorsilence.Forms
         public int SelectedIndex {
             get => _selectedIndex;
             set {
-                _selectedIndex = value;
-                Text = value >= 0 && value < Items.Count ? Items[value]?.ToString () ?? string.Empty : string.Empty;
+                _selectedIndex = value < 0 || value >= Items.Count ? -1 : value;
+                Text = _selectedIndex >= 0 ? Items[_selectedIndex]?.ToString () ?? string.Empty : string.Empty;
+                Invalidate ();
             }
         }
 
@@ -2741,9 +2783,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when the selected item changes.</summary>
-#pragma warning disable CS0067 // Event is part of the WinForms-compat surface; not yet raised (stub).
         public event EventHandler? SelectedItemChanged;
-#pragma warning restore CS0067
     }
 
     /// <summary>Specifies the rendering mode for a ToolStrip.</summary>

@@ -311,7 +311,9 @@ namespace Majorsilence.Forms
         public LeftRightAlignment UpDownAlign { get; set; } = LeftRightAlignment.Right;
 
         /// <summary>Gets the height this control prefers, based on its font.</summary>
-        public int PreferredHeight => Font is null ? 20 : (int)Math.Ceiling (Font.Size * 2.2f);
+        /// <remarks>Virtual because a derived control can measure rather than estimate; the estimate
+        /// here is the fallback for one that does not.</remarks>
+        public virtual int PreferredHeight => Font is null ? 20 : (int)Math.Ceiling (Font.Size * 2.2f);
 
         /// <summary>Increments the value.</summary>
         public abstract void UpButton ();

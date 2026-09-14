@@ -45,7 +45,6 @@ Majorsilence.Forms.DataGridTextBox.KeyPress
 Majorsilence.Forms.DataGridTextBox.TextChanged
 Majorsilence.Forms.DataGridViewColumnCollection.CollectionChanged
 Majorsilence.Forms.Design.DesignerActionUIService.DesignerActionListsChanged
-Majorsilence.Forms.DomainUpDown.SelectedItemChanged
 Majorsilence.Forms.FolderBrowserDialog.HelpRequest
 Majorsilence.Forms.Form.AutoSizeChanged
 Majorsilence.Forms.Form.AutoValidateChanged

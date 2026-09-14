@@ -349,7 +349,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `nud.Increment = 5; nud.Value = 0;` simulate a click in `GetIncrementArea()`; assert `Value == 5`.
 - **Tests today:** none.
 
-### SMP-32 — `NumericUpDown` has no keyboard input at all — Cat B — P0 — High
+### SMP-32 — `NumericUpDown` has no keyboard input at all — Cat B — P0 — High — **CLOSED 2026-09-14 (W5.20b)**
 - **Ours:** there is no `OnKeyDown`, `OnKeyPress`, `OnKeyUp` or `ProcessDialogKey` in `src/Majorsilence.Forms/NumericUpDown.cs` or in any of its partials (`RemainingParity.cs:279`, `KryptonPortParity.Three.cs:52`). `InterceptArrowKeys` is a stored-only auto-property (`NumericUpDown.cs:100`), `ReadOnly` likewise (`NumericUpDown.cs:109`), `UserEdit` is doc-commented "Stub", and `Select(int,int)` is `{ }` (`NumericUpDown.cs:131`). The renderer draws `control.Value.ToString(format)` with no caret and no selection (`src/Majorsilence.Forms/Renderers/NumericUpDownRenderer.cs:24`).
 - **Upstream:** `NumericUpDown` is an editable text box with spin buttons: `UpDownBase.OnTextBoxKeyDown` routes Up/Down to `UpButton`/`DownButton` when `InterceptArrowKeys`, typing edits the text, and `ValidateEditText`/`OnLostFocus` parses it into `Value` (`Controls/UpDown/UpDownBase.cs`, `Controls/UpDown/NumericUpDown.cs`).
 - **Impact:** The user cannot type a number into a NumericUpDown — the only way to change it is clicking the arrows, one `1` at a time (see SMP-31). Arrow keys do nothing. On a data-entry form with a quantity or amount field this is a hard blocker. `ReadOnly = true` is also meaningless because there is no editing to block.
@@ -357,7 +357,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Focus the control, send `KeyPress('4')`, `KeyPress('2')`, then `OnLostFocus`; assert `Value == 42` and that `ValueChanged` fired once.
 - **Tests today:** none.
 
-### SMP-33 — `NumericUpDown` ignores `ThousandsSeparator`, `Hexadecimal`, `TextAlign`, `UpDownAlign`, `ForeColor` and `Font` — Cat C — P1 — High
+### SMP-33 — `NumericUpDown` ignores `ThousandsSeparator`, `Hexadecimal`, `TextAlign`, `UpDownAlign`, `ForeColor` and `Font` — Cat C — P1 — High — **CLOSED 2026-09-14 (W5.20b)**
 - **Ours:** the renderer builds the string as `"F" + DecimalPlaces` (or `"F0"`) and draws it with `Theme.UIFont`, `Theme.FontSize`, `Theme.ForegroundColor`, `ContentAlignment.MiddleLeft` (`src/Majorsilence.Forms/Renderers/NumericUpDownRenderer.cs:15-24`). Button areas are always at `Width - ButtonWidth` (`NumericUpDown.cs:226-227`), so `UpDownAlign = Left` does nothing. `TextAlign` and `UpDownAlign` are doc-commented "Stub in Majorsilence.Forms" (`NumericUpDown.cs:124-128`).
 - **Upstream:** `UpdateEditText` formats with `"N"`/`"F"` depending on `ThousandsSeparator`, or `ToString("X")` when `Hexadecimal`; `TextAlign` and `UpDownAlign` reposition the edit box and buttons; the hosted TextBox uses the control's `Font` and `ForeColor` (`Controls/UpDown/NumericUpDown.cs` `UpdateEditText`, `Controls/UpDown/UpDownBase.cs` `PositionControls`).
 - **Impact:** A currency field shows `1234567.00` instead of `1,234,567.00`; a `Hexadecimal = true` port-number box shows decimal; right-aligned numeric columns are all left-aligned; and — most visibly — setting `Font` on a NumericUpDown has **no effect at all**, so it does not scale with the rest of the form.
@@ -381,7 +381,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `((ISupportInitialize)nud).BeginInit(); nud.Value = 500; nud.Maximum = 1000; ((ISupportInitialize)nud).EndInit(); Assert.Equal(500, nud.Value);`
 - **Tests today:** none.
 
-### SMP-36 — `NumericUpDown` does not derive from `UpDownBase` — Cat E — P1 — High
+### SMP-36 — `NumericUpDown` does not derive from `UpDownBase` — Cat E — P1 — High — **CLOSED 2026-09-14 (W5.20b)**
 - **Ours:** `public partial class NumericUpDown : Control` (`src/Majorsilence.Forms/NumericUpDown.cs:9`). A separate `public abstract partial class UpDownBase : ContainerControl` exists (`src/Majorsilence.Forms/WinFormsBaseControls.cs:164`) but nothing derives from it — which is why `BorderStyle`, `ChangingText`, `OnTextBoxGotFocus/LostFocus/TextChanged` and `PreferredHeight` all had to be re-declared on `NumericUpDown` with apologetic comments (`NumericUpDown.cs:139-190`, `KryptonPortParity.Three.cs:52-62`).
 - **Upstream:** `NumericUpDown : UpDownBase : ContainerControl` and `DomainUpDown : UpDownBase`.
 - **Impact:** `(UpDownBase)nud` throws `InvalidCastException`; `if (c is UpDownBase u)` sweeps over a form's controls miss every spin box; third-party themers and designers that type against `UpDownBase` (Krypton does) don't see the control. Also `NumericUpDown` is not a `ContainerControl`, so it does not participate in `ActiveControl`/validation the way upstream does.
@@ -389,7 +389,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `Assert.IsAssignableFrom<UpDownBase>(new NumericUpDown());`
 - **Tests today:** none.
 
-### SMP-37 — `DomainUpDown` derives from `NumericUpDown` and renders a number, not its items — Cat E — P1 — High
+### SMP-37 — `DomainUpDown` derives from `NumericUpDown` and renders a number, not its items — Cat E — P1 — High — **CLOSED 2026-09-14 (W5.20b)**
 - **Ours:** `public partial class DomainUpDown : NumericUpDown` (`src/Majorsilence.Forms/WinFormsCompat.cs:2475`). It adds `Items`/`SelectedIndex`/`SelectedItem` but does **not** override `OnPaint`, `UpButton` or `DownButton`. `RenderManager.GetRenderer` walks up the base chain (`src/Majorsilence.Forms/Renderers/RenderManager.cs:59-67`), so a `DomainUpDown` is painted by `NumericUpDownRenderer`, which draws `control.Value.ToString("F0")` (`src/Majorsilence.Forms/Renderers/NumericUpDownRenderer.cs:21-24`).
 - **Upstream:** `DomainUpDown : UpDownBase`; `UpdateEditText` shows `Items[SelectedIndex].ToString()`, and `UpButton`/`DownButton` move `SelectedIndex` (honouring `Wrap`) — `src/System.Windows.Forms/System/Windows/Forms/Controls/UpDown/DomainUpDown.cs`.
 - **Impact:** A `DomainUpDown` displays the literal text `0` regardless of its `Items`, and its arrows change an invisible numeric `Value` between 0 and 100 rather than stepping through the items. It also inherits a nonsense public surface (`Minimum`, `Maximum`, `DecimalPlaces`, `Hexadecimal`, `Increment`, `Accelerations`). The control is unusable.

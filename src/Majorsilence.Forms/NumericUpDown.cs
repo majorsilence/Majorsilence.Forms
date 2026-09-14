@@ -6,7 +6,12 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a NumericUpDown spin box control.
     /// </summary>
-    public partial class NumericUpDown : Control, System.ComponentModel.ISupportInitialize
+    /// <remarks>
+    /// Derives from <see cref="UpDownBase"/>, as upstream (SMP-36). It derived from
+    /// <see cref="Control"/>, so <c>(UpDownBase)nud</c> threw, <c>if (c is UpDownBase)</c> sweeps missed
+    /// every spin box, and the members <c>UpDownBase</c> already declared had to be re-declared here.
+    /// </remarks>
+    public partial class NumericUpDown : UpDownBase, System.ComponentModel.ISupportInitialize
     {
         private decimal current_value;
         private decimal minimum;
@@ -36,7 +41,7 @@ namespace Majorsilence.Forms
         {
             base.OnLayout (e);
 
-            up_down_buttons?.SetBounds (Width - ButtonWidth, 0, ButtonWidth, Height);
+            up_down_buttons?.SetBounds (ButtonStripLeft, 0, ButtonWidth, Height);
         }
 
         void System.ComponentModel.ISupportInitialize.BeginInit () { }
@@ -96,17 +101,8 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the thousands separator is shown.</summary>
         public bool ThousandsSeparator { get; set; }
 
-        /// <summary>Gets or sets whether arrow keys increment/decrement the value.</summary>
-        public bool InterceptArrowKeys { get; set; } = true;
-
         /// <summary>Gets or sets whether the value is displayed in hexadecimal format.</summary>
         public bool Hexadecimal { get; set; }
-
-        /// <summary>Gets a value indicating whether the user has edited the text in the spin box. Stub in Majorsilence.Forms.</summary>
-        public bool UserEdit { get; protected set; }
-
-        /// <summary>Gets or sets whether the control is read-only.</summary>
-        public bool ReadOnly { get; set; }
 
         private decimal increment = 1;
 
@@ -121,15 +117,6 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the alignment of the text in the control. Stub in Majorsilence.Forms.</summary>
-        public HorizontalAlignment TextAlign { get; set; } = HorizontalAlignment.Left;
-
-        /// <summary>Gets or sets whether the up/down buttons are aligned to the left. Stub in Majorsilence.Forms.</summary>
-        public LeftRightAlignment UpDownAlign { get; set; } = LeftRightAlignment.Right;
-
-        /// <summary>Selects a range of text in the editable numeric text. No-op stub in Majorsilence.Forms.</summary>
-        public void Select (int start, int length) { }
-
         /// <summary>Raised when the value changes.</summary>
         public event EventHandler? ValueChanged;
 
@@ -138,7 +125,12 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the border drawn around the control. Declared here because
         /// System.Windows.Forms puts it on UpDownBase, which this control does not derive from.</summary>
-        public BorderStyle BorderStyle {
+        /// <remarks>
+        /// Deliberately hides <see cref="Panel.BorderStyle"/> rather than overriding it (the base is not
+        /// virtual): this one also drives <c>Style.Border.Width</c>, which is what makes the border
+        /// actually appear. Hiding is flagged here rather than left for the compiler to warn about.
+        /// </remarks>
+        public new BorderStyle BorderStyle {
             get => border_style;
             set {
                 if (border_style == value)
@@ -178,6 +170,9 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void OnLostFocus (EventArgs e)
         {
+            // Before the base, so a handler reading Value in a LostFocus or Validating handler sees the
+            // number the user typed rather than the one from before they typed it (SMP-32).
+            CommitEditText ();
             base.OnLostFocus (e);
             OnTextBoxLostFocus (this, e);
         }
@@ -190,7 +185,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Increments the value by the amount of the Increment property.</summary>
-        public void UpButton ()
+        public override void UpButton ()
         {
             decimal new_value;
 
@@ -204,7 +199,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Decrements the value by the amount of the Increment property.</summary>
-        public void DownButton ()
+        public override void DownButton ()
         {
             decimal new_value;
 
@@ -223,8 +218,12 @@ namespace Majorsilence.Forms
         /// <summary>Decrements the value by the Increment amount.</summary>
         public void PerformDecrement () => DownButton ();
 
-        internal Rectangle GetIncrementArea () => new Rectangle (Width - ButtonWidth, 0, ButtonWidth, Height / 2);
-        internal Rectangle GetDecrementArea () => new Rectangle (Width - ButtonWidth, Height / 2, ButtonWidth, Height - Height / 2);
+        // The strip's x follows UpDownAlign (SMP-33): it was always Width - ButtonWidth, so
+        // UpDownAlign = Left stored a value and moved nothing.
+        internal int ButtonStripLeft => UpDownAlign == LeftRightAlignment.Left ? 0 : Width - ButtonWidth;
+
+        internal Rectangle GetIncrementArea () => new Rectangle (ButtonStripLeft, 0, ButtonWidth, Height / 2);
+        internal Rectangle GetDecrementArea () => new Rectangle (ButtonStripLeft, Height / 2, ButtonWidth, Height - Height / 2);
         internal int ButtonWidth => LogicalToDeviceUnits (18);
 
         /// <inheritdoc/>
@@ -237,7 +236,7 @@ namespace Majorsilence.Forms
         /// Gets the height the control needs to fit one line of text at the current font, as
         /// <c>System.Windows.Forms.UpDownBase.PreferredHeight</c> does.
         /// </summary>
-        public int PreferredHeight
+        public override int PreferredHeight
             => (int)Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height)
                 + Padding.Top + Padding.Bottom + 4;   // 4px matches the default border/inset
 
@@ -254,8 +253,12 @@ namespace Majorsilence.Forms
         {
             var preferred = base.GetPreferredSizeCore (proposedSize);
 
-            if (preferred.Height <= 0)
-                preferred.Height = PreferredHeight;
+            // The height ALWAYS comes from the font, not only when the base reports zero. The base is a
+            // Panel since SMP-36, and a Panel sizes itself to its children -- this control's only child
+            // is its button strip, whose height is the control's own, so the base now answers with a
+            // small non-zero number and the old `<= 0` guard stopped firing. A spin box's height is a
+            // line of text either way.
+            preferred.Height = PreferredHeight;
 
             return preferred;
         }

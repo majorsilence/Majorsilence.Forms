@@ -1265,8 +1265,26 @@ above orders part of it, so it is being landed in pieces:
   12 tests, 11 verified to fail with their fix neutralized; 1 existing test inverted
   (`ScrollBarTests.Wheel_raises_Scroll_with_the_proposed_value_before_Value_updates`).
   `SMP-47` needed nothing: `PerformScroll` already raised `Scroll` for every path.
-- **W5.20b — `NumericUpDown` text entry (`SMP-32`, P0), and the `UpDownBase`/`DomainUpDown` shape
-  (`SMP-36`/`SMP-37`).** Not started. Deliberately after the structural fix, per the note above.
+- **W5.20b — `NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape. — DONE
+  (2026-09-14).** `SMP-32` (P0), `SMP-33`, `SMP-36`, `SMP-37`. 24 tests, 18 neutralizations each
+  producing a failure.
+  *`SMP-32`:* the control had no `OnKeyDown`, `OnKeyPress`, `OnKeyUp` or `ProcessDialogKey` anywhere --
+  a user could not type a number into it. It now carries its own edit text and caret: digits, the hex
+  letters, the culture's decimal separator and a leading minus are accepted (and only where they can
+  parse); Backspace, Delete, Home, End and the arrows edit and navigate; the arrows step the value when
+  `InterceptArrowKeys`; `ReadOnly` blocks typing but not the arrows, as upstream. **Parsing happens on
+  leave and on Enter, not per keystroke** -- a half-typed `1.` is not a number, and committing it would
+  snap the field under the user. `Select (int, int)` moves the caret; there is no selection *highlight*,
+  which is recorded rather than pretended.
+  *Typing REPLACES rather than appends,* because arriving at a spin box selects its text upstream. The
+  first version appended, and the test that read "7, type 42, expect 742" is what surfaced it.
+  *`SMP-33`:* the renderer reads the control's own `Font`, `ForeColor` and `TextAlign` -- setting `Font`
+  had no effect at all before, so a spin box did not scale with its form -- and the format comes from
+  `Hexadecimal`/`ThousandsSeparator`/`DecimalPlaces`. `UpDownAlign` moves the button strip.
+  *`SMP-36`/`SMP-37`:* `NumericUpDown` derives from `UpDownBase` and `DomainUpDown` from `UpDownBase`
+  rather than from `NumericUpDown`. `DomainUpDown` gets its own renderer and steps its `Items` with
+  `Wrap`, where it was painted by the numeric renderer and displayed the literal text `0` whatever its
+  items held.
 - **W5.20c — the date-picking UI: `MonthCalendar` and `DateTimePicker`. — DONE.** `MonthCalendar` half
   2026-09-04; `DateTimePicker` (`SMP-39` P0, `SMP-40` P0, `SMP-41`) 2026-09-14. 17 tests, each verified
   to fail with its fix neutralized. `MonthCalendar` detail below.
@@ -1583,7 +1601,7 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20c**'s `MonthCalendar` half, **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. `DGV-26` (combo-box column) done 2026-09-14. **Open:** `DGV-13` (default values), **W5.19** (`ControlPaint` chrome and the visual-styles fork), **W5.20b** (`NumericUpDown` text entry), **W5.20c**'s `DateTimePicker` half, **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #81–#89. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. `DGV-26` (combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **Open:** `DGV-13` (default values), **W5.21** (buttons, labels, pictures) and **W5.25** (scrolling containers) — tracked as GitHub issues #83, #88, #89. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
@@ -1591,6 +1609,31 @@ Suite: **4395 passing, 0 failing**, in Debug and Release, with system decoration
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.20b found
+
+**Changing a base class changes what a guard means.** `NumericUpDown.GetPreferredSizeCore` filled in
+the height only when the base reported zero. Once the base became `UpDownBase : ContainerControl :
+Panel`, the base started sizing itself to its children -- and this control has one, its button strip --
+so it answered with a small non-zero number and the guard stopped firing. A reparenting is not a
+type-level change only: every `if (the base said nothing)` in the derived class is a place the new
+base's behaviour arrives.
+
+**A test I wrote to describe the fix described the wrong behaviour.** "Value 7, type 42, expect 742"
+encoded appending, because that is what my first implementation did. WinForms selects a spin box's text
+when focus arrives, so typing replaces. The test failing for a *different* reason -- a second control
+that started at 0 -- is what made me look at what the number should be at all.
+
+**A clamp in the caller when the setter already clamps.** `CommitEditText` clamped to
+`Minimum`/`Maximum` before assigning `Value`, whose setter does the same. Neutralizing the caller's
+changed nothing. Removed; the neutralization now targets the setter. That is three items running --
+W5.2b's suppression flag, W5.19's grip clip, this -- where the *neutralization* found the redundancy
+rather than review.
+
+**A pixel test pinned to the control's own scale is a test of two things.** The font test passed at
+scale 1 and failed at `MF_HEADLESS_SCALE=2`, because its probe insets are in bitmap pixels and the
+bitmap had doubled. Rendering at a fixed `1f` -- the pattern W5.20d already used for the same reason --
+makes it a test of the font the renderer chose, which is what it is for.
 
 ### What W5.20c found
 
