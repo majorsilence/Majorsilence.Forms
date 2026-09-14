@@ -261,7 +261,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `p.Padding = new Padding(8); p.MinimumSize = new Size(50,50); p.Scale(new SizeF(2,2));` assert `Padding.All == 16` and `MinimumSize == (100,100)`; and that an overridden `ScaleControl` was invoked.
 - **Tests today:** none found for `ScaleControl`
 
-### LAY-22 — `TableLayoutPanel.CellPaint` / `OnCellPaint` / cell-border painting — Cat B — P1 — High
+### LAY-22 — `TableLayoutPanel.CellPaint` / `OnCellPaint` / cell-border painting — Cat B — P1 — High — **CLOSED 2026-09-14 (W5.25)**
 - **Ours:** The entire paint region of `TableLayoutPanel` is commented out — `CellPaint` event, `OnCellPaint`, the `OnLayout` override that invalidates, and `OnPaintBackground` which draws the borders (`src/Majorsilence.Forms/TableLayoutPanel.cs:305-480`, guarded by `// TODO: Custom Cell Paint`). `CellBorderStyle` *is* honoured by the layout engine (`src/Majorsilence.Forms/TableLayoutSettings.cs:66-76` sets `ContainerInfo.CellBorderWidth`, consumed throughout `Layout/TableLayout.cs`), so the gap is reserved but nothing is drawn in it.
 - **Upstream:** `CellPaint` at `src/System.Windows.Forms/System/Windows/Forms/Panels/TableLayoutPanel/TableLayoutPanel.cs:308`; `OnLayout` → `Invalidate()` at `:319`; `OnPaintBackground` draws every cell border per `CellBorderStyle` and raises `OnCellPaint` for each cell at `:330-400`.
 - **Impact:** `CellBorderStyle = Single/Inset/Outset` reserves the gap but paints nothing, so a grid-looking form migrates as a grid of floating controls with mysterious extra whitespace. `CellPaint` does not exist at all, so designer/user code hooking it fails to compile (and any custom cell backgrounds vanish).
@@ -320,7 +320,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** headless render with `FlatStyle.Flat` vs `Standard`; assert the frame pixels differ.
 - **Tests today:** none
 
-### LAY-28 — `Panel.BorderStyle` never drawn and never inset from the client area — Cat C — P1 — High
+### LAY-28 — `Panel.BorderStyle` never drawn and never inset from the client area — Cat C — P1 — High — **CLOSED 2026-09-14 (W5.25)**
 - **Ours:** `BorderStyle` validates and `Invalidate()`s (`src/Majorsilence.Forms/Panel.cs:71-81`), but `PanelRenderer.Render` is an **empty method body** (`src/Majorsilence.Forms/Renderers/PanelRenderer.cs:9-11`) and nothing subtracts the border from `ClientRectangle`/`DisplayRectangle`.
 - **Upstream:** `BorderStyle` is applied through `CreateParams` (`WS_BORDER` for `FixedSingle`, `WS_EX_CLIENTEDGE` for `Fixed3D`) and `UpdateStyles()`; the OS both draws the border and shrinks the client rectangle by 1 / 2 pixels per edge (`src/System.Windows.Forms/System/Windows/Forms/Panels/Panel.cs`, `BorderStyle` + `CreateParams`). `Panel.GetPreferredSizeCore` adds that border back via `SizeFromClientSize(Size.Empty)`.
 - **Impact:** `panel1.BorderStyle = FixedSingle` — the standard way to visually group controls without a GroupBox — shows nothing at all. In addition every child is 1-2px larger / offset relative to Windows because the client rectangle is not inset, so `Dock = Fill` children sit where the border should be.
@@ -328,7 +328,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** headless render `new Panel { BorderStyle = BorderStyle.FixedSingle, Size = new Size(50,50) }`; assert the pixel at (0,0) is the border colour and `panel.DisplayRectangle.Width == 48`.
 - **Tests today:** none
 
-### LAY-29 — `ScrollableControl.DisplayRectangle` does not carry the scroll offset or the content size — Cat A — P1 — High
+### LAY-29 — `ScrollableControl.DisplayRectangle` does not carry the scroll offset or the content size — Cat A — P1 — High — **CLOSED 2026-09-14 (W5.25)**
 - **Ours:** `DisplayRectangle` = `base.DisplayRectangle`, minus the scrollbar extents, deflated by `Padding` (`src/Majorsilence.Forms/ScrollableControl.cs:187-200`). Its origin is always the client origin; scrolling is implemented instead by physically moving children in `ScrollWindow` (`ScrollableControl.cs:335+`).
 - **Upstream:** `Rectangle rect = ClientRectangle; if (!_displayRect.IsEmpty) { rect.X = _displayRect.X; rect.Y = _displayRect.Y; if (HScroll) rect.Width = _displayRect.Width; if (VScroll) rect.Height = _displayRect.Height; } return LayoutUtils.DeflateRect(rect, Padding);` (`src/System.Windows.Forms/System/Windows/Forms/Scrolling/ScrollableControl.cs`, `DisplayRectangle`) — the origin is the **negative** scroll position and the width/height are the **scrollable content** extent, larger than the client area.
 - **Impact:** Two consequences. (a) Anything that reads `DisplayRectangle.Location` to convert between content and client coordinates (custom painting, hit-testing, `ScrollControlIntoView`-style math, third-party controls) gets `(0,0)` instead of `(-scrollX,-scrollY)` and mis-places content by exactly the scroll amount. (b) A `Dock = Fill` child inside an `AutoScroll` container is sized to the *visible* rectangle rather than the content rectangle, so it can never be the thing that makes the panel scroll.
@@ -336,7 +336,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `panel.AutoScroll = true;` with content taller than the panel; scroll down 50; assert `panel.DisplayRectangle.Y == -50` and `panel.DisplayRectangle.Height == contentHeight`.
 - **Tests today:** none
 
-### LAY-30 — `Control.ScrollControlIntoView(Control)` — Cat B — P1 — High
+### LAY-30 — `Control.ScrollControlIntoView(Control)` — Cat B — P1 — High — **CLOSED 2026-09-14 (W5.25)**
 - **Ours:** `public void ScrollControlIntoView (Control? activeControl) { }` — an empty body, and declared on `Control` rather than `ScrollableControl` (`src/Majorsilence.Forms/Control.Compat.cs:456`).
 - **Upstream:** `ScrollableControl.ScrollControlIntoView(Control activeControl)` computes the control's rectangle relative to the display rectangle, honours `AutoScrollMargin`, and calls `SetDisplayRectLocation`/`ScrollControlIntoView` up the parent chain (`src/System.Windows.Forms/System/Windows/Forms/Scrolling/ScrollableControl.cs`). It is also called internally from `ContainerControl` when focus moves, which is what makes tabbing into an off-screen control scroll it into view.
 - **Impact:** Tabbing (or `Focus()`) into a control below the fold of an `AutoScroll` panel leaves it invisible — a common, immediately-noticed defect on long data-entry forms. Explicit `panel.ScrollControlIntoView(txt)` calls also do nothing.

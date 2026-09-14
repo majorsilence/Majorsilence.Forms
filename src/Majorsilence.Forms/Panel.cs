@@ -57,13 +57,20 @@ namespace Majorsilence.Forms
         /// </para>
         /// <para>
         /// Upstream subtracts <c>SizeFromClientSize (Size.Empty)</c> as well, for the non-client
-        /// border a Win32 panel has. There is no analogue here: a panel's <see cref="BorderStyle"/> is
-        /// painted inside the client rectangle, so <see cref="Control.Padding"/> is the whole inset.
+        /// border a Win32 panel has. The analogue here is <see cref="BorderStyle"/>, which since
+        /// LAY-28 maps onto the instance style's border -- and <see cref="Control.ClientRectangle"/>
+        /// already deflates by that, so the engine is asked about the area inside the frame and the
+        /// border is added back below.
         /// </para>
         /// </remarks>
         internal override Size GetPreferredSizeCore (Size proposedSize)
         {
-            var totalPadding = Padding.Size;
+            var border = new Padding (
+                Style.Border.Left.GetWidth (),
+                Style.Border.Top.GetWidth (),
+                Style.Border.Right.GetWidth (),
+                Style.Border.Bottom.GetWidth ());
+            var totalPadding = Padding.Size + new Size (border.Horizontal, border.Vertical);
 
             return LayoutEngine.GetPreferredSize (this, proposedSize - totalPadding) + totalPadding;
         }
@@ -79,6 +86,18 @@ namespace Majorsilence.Forms
         private BorderStyle border_style = BorderStyle.None;
 
         /// <summary>Gets or sets the border style of the panel.</summary>
+        /// <remarks>
+        /// LAY-28: the setter validated and invalidated, and then nothing drew anything --
+        /// <c>PanelRenderer.Render</c> was an empty method body -- so <c>panel1.BorderStyle =
+        /// FixedSingle</c>, the standard way to group controls visually without a GroupBox, showed
+        /// nothing at all. Mapping it onto the instance style's border draws the frame AND insets the
+        /// client area, because <see cref="Control.ClientRectangle"/> and
+        /// <see cref="Control.DisplayRectangle"/> both deflate by <c>CurrentStyle.Border</c> -- which
+        /// is what Win32 does for <c>WS_BORDER</c>/<c>WS_EX_CLIENTEDGE</c>, and why a <c>Dock =
+        /// Fill</c> child used to sit 1-2px out from where Windows puts it.
+        /// <see cref="BorderStyle.None"/> clears the override rather than forcing zero, so a CSS theme
+        /// rule for <c>Panel</c> still decides.
+        /// </remarks>
         public BorderStyle BorderStyle {
             get => border_style;
             set {
@@ -87,6 +106,14 @@ namespace Majorsilence.Forms
 
                 if (border_style != value) {
                     border_style = value;
+                    Style.Border.Width = value switch {
+                        BorderStyle.FixedSingle => 1,
+                        BorderStyle.Fixed3D => 2,
+                        _ => null,
+                    };
+
+                    // The client area just changed size, so the children have to be placed again.
+                    PerformLayout ();
                     Invalidate ();
                 }
             }

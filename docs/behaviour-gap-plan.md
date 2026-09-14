@@ -1575,10 +1575,46 @@ engines are a faithful port.** What is broken is the wiring into them:
 W5.17 (text measurement — a button that finally measures its text needs the measurement to be right).
 *Leverage:* high. This is a small amount of wiring in front of a large amount of working machinery.
 
-**W5.25 — Scrolling containers.** `ScrollableControl.DisplayRectangle` carries neither the scroll offset
-nor the content size, and `ScrollControlIntoView` is a no-op — so an `AutoScroll` panel scrolls nothing
-into view. Plus `Panel.BorderStyle` never drawn or inset, and `TableLayoutPanel.CellPaint`/cell borders.
-*Closes:* `LAY-29`, `LAY-30`, `LAY-28`, `LAY-22`.
+**W5.25 — Scrolling containers. — DONE (2026-09-14).**
+18 tests in `tests/Majorsilence.Forms.Tests/ScrollingContainerTests.cs`, 12 neutralizations each
+producing a failure; 2 tests are labelled in-test as guards.
+*Closed:* `LAY-22`, `LAY-28`, `LAY-29`, `LAY-30`.
+
+- **`Panel.BorderStyle` draws and insets (`LAY-28`).** The setter validated and invalidated, and
+  `PanelRenderer.Render` was an empty method body, so the standard way to group controls without a
+  GroupBox showed nothing at all. Mapped onto the instance style's border, which both paints the frame
+  and shrinks the client area -- `ClientRectangle` and `DisplayRectangle` already deflate by
+  `CurrentStyle.Border`, which is what Win32 does for `WS_BORDER`/`WS_EX_CLIENTEDGE` and why a
+  `Dock = Fill` child used to sit 1-2px out from where Windows puts it. The border is added to the
+  preferred size too.
+- **`TableLayoutPanel` paints its cells (`LAY-22`).** The whole paint region was commented out behind a
+  `// TODO: Custom Cell Paint`: the layout engine honoured `CellBorderStyle` and reserved the gap
+  between cells, and nothing ever drew in it, so a grid-looking form migrated as a grid of floating
+  controls separated by mysterious whitespace. `OnPaintBackground` now walks the strips the engine
+  computed, raising `CellPaint` per cell and drawing that cell's border on top, and `OnLayout`
+  invalidates. `ControlPaint.PaintTableCellBorder` is new (internal, as upstream's is) and gives
+  `Inset` and `Outset` the same lines with the light and dark swapped.
+- **`AutoScrollMargin` and `ScrollControlIntoView` (`LAY-30`).** The margin was an auto-property while
+  `Recalculate` read a *private field of the same name that nothing ever wrote* -- stored, reported
+  back, applied to nothing. `ScrollControlIntoView` turned out not to be the empty body the finding
+  describes (it was implemented for the on-screen-keyboard path), but it ignored the margin, ignored
+  the horizontal axis entirely, and -- the headline impact -- nothing called it when focus moved, so
+  tabbing into a field below the fold still left it invisible. All three fixed; the focus call goes in
+  `ControlAdapter`'s focus-change walk, which is where upstream's `ContainerControl` does it.
+- **`DisplayRectangle` is the content coordinate space (`LAY-29`).** It reported the visible client
+  area with its origin always at the client origin. Upstream's carries the scroll offset as a negative
+  origin and the content extent as the size, which is the space every anchor delta in the layout engine
+  is expressed in -- so anything converting between content and client coordinates read `(0,0)` and
+  mis-placed by exactly the scroll amount.
+
+*A correction to the finding.* `LAY-29` proposes "letting the layout engine move children rather than
+`ScrollWindow`", i.e. replacing the scrolling model. That misreads upstream: `SetDisplayRectLocation`
+scrolls with `SW_SCROLLCHILDREN`, so the OS moves the child windows there too -- `_displayRect` is
+bookkeeping *alongside* the physical move, not a replacement for it. Keeping `ScrollWindow` and adding
+the origin/extent to `DisplayRectangle` is therefore the faithful port, and it is consistent by
+construction: a layout pass computes a child's position as (delta captured against the old origin) +
+(the new origin), which is where scrolling has already put it. The whole suite passed on the first run
+with the change in, which is the evidence that the two agree.
 
 ---
 
@@ -1641,7 +1677,7 @@ authoritative list and this table as the map of the big ones.
 | 2 — Focus, validation, `ActiveControl` | **Done.** One focus choke point running WinForms' sequence; validation can cancel; containers are containers again; 14 tests. |
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
-| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. `DGV-26` (combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **W5.21** (buttons, labels, pictures) done 2026-09-14, closing 13 findings plus `SMP-04` and half of `SMP-06`. **Open:** `DGV-13` (default values), **W5.25** (scrolling containers) and the `MouseDownBackColor` half of `SMP-06` (no pressed state exists to read) — tracked as GitHub issues #83 and #89. |
+| 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) and **W5.4** (styles, sizing, sorting — all but the `DGV-13` default-value flip) done 2026-09-13. **W5.5** (mouse/keyboard, all but the `DGV-26` combo-box column) done 2026-09-14. `DGV-26` (combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **W5.21** (buttons, labels, pictures) done 2026-09-14, closing 13 findings plus `SMP-04` and half of `SMP-06`. **W5.25** (scrolling containers) done 2026-09-14, closing the last four layout findings in the phase — **Phase 5 has no items left open.** **Open:** `DGV-13` (default values) and the `MouseDownBackColor` half of `SMP-06` (no pressed state exists to read) — tracked as GitHub issue #83. |
 | 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
@@ -1649,6 +1685,41 @@ Suite: **4395 passing, 0 failing**, in Debug and Release, with system decoration
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W5.25 found
+
+**The finding was wrong about upstream, and the correction made the item small.** `LAY-29` proposes
+replacing the scrolling model -- "letting the layout engine move children rather than `ScrollWindow`"
+-- which is a change to every container in the framework. But upstream's `SetDisplayRectLocation`
+scrolls with `SW_SCROLLCHILDREN`: the OS moves the child windows there too, and `_displayRect` is
+bookkeeping alongside that move rather than a replacement for it. Reading the upstream source the
+finding cites, rather than the finding's summary of it, turned a rearchitecture into a property
+getter. Worth doing before accepting any finding whose fix is "change the model".
+
+**A gate caught a coordinate-space bug that no review had.** `ScrollControlIntoView` compared
+`ClientRectangle` (device pixels) against child `Bounds` (logical), so on a 2x display it read the
+viewport as twice its logical height, decided the control already fitted, and scrolled too little.
+It has been that way since the method was written; only the `MF_HEADLESS_SCALE=2` configuration sees
+it. The repo's own rule -- `Bounds` is logical, `ClientRectangle` is device pixels -- is written down,
+and the code still mixed them.
+
+**Two of this item's four findings were stale, in the same direction.** `LAY-30` describes
+`ScrollControlIntoView` as "an empty body"; it had been implemented for the on-screen-keyboard path.
+`LAY-22` says `CellPaint` "does not exist at all, so designer/user code hooking it fails to compile";
+it exists in `RemainingMemberParity.cs`. In both cases the real gap was narrower and more specific
+than the finding, and in both cases it was still worth fixing -- the margin, the horizontal axis and
+the focus call for one; actually raising the event for the other.
+
+**The inert-event baseline cannot see a raiser that nothing calls.** `TableLayoutPanel.CellPaint` was
+never on it, because `OnCellPaint` does contain `CellPaint?.Invoke (...)` -- the scan looks for the
+invoke, not for whether anything reaches it. `OnCellPaint` was itself called from nowhere. A gate that
+watches for dead events has a blind spot exactly one level up, and the only thing that finds it is
+asking what calls the raiser.
+
+**A restore script silently reverted a fix.** The neutralization snapshot was taken before a CA1725
+fix, so restoring after each neutralization put the warning back -- and it only surfaced two gate runs
+later, in the Release build. Snapshot *after* the last edit, or re-run the compile gate straight after
+restoring.
 
 ### What W5.21 found
 
