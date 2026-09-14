@@ -1632,6 +1632,24 @@ with the change in, which is the evidence that the two agree.
 the trigger point that already exists. Work area by area against the W0.1/W0.2 baselines; each area is
 an independent branch. ~60 findings.
 
+**W6.1 — the `DataGridView` slice. — 6 of 14 done (2026-09-14).** `ColumnWidthChanged` (from
+`Column.Width`'s setter), `RowHeightChanged` (from `Row.Height`'s setter), `ColumnSortModeChanged`
+(from `Column.SortMode`, which went from a bare auto-property to one with change detection to get an
+owner hook), `ColumnHeadersHeightChanged`, `RowHeadersWidthChanged` (both from the matching
+`DataGridView` setter), and `AutoSizeColumnModeChanged` (from `Column.AutoSizeMode`'s setter, carrying
+the previous mode). Each is field-backed with a protected `On*` raiser, matching the
+`RaiseColumnAdded`/`RaiseRowsAdded` pattern `DataGridViewCollectionEventTests` already established. 7
+tests in `DataGridViewChangeEventsTests.cs`, each neutralized and verified to fail.
+*Left for their own item:* `RowStateChanged`/`CellStateChanged` — the trigger point (`Selected`) is
+real, but `SetRowSelected`/`SetCellSelected` are only the single-item path; every batch selection
+change (`Shift`-click ranges, `SelectAll`, `ClearSelection`) writes `SetSelectedCore` directly to keep
+the batch to one `SelectionChanged`, and would silently not fire either event. Also left:
+`CellValueNeeded`/`CellValuePushed` (`VirtualMode` is a plain property — no read/write path to raise
+them from), `DefaultValuesNeeded`/`NewRowNeeded`/`UserAddedRow` (tied to the new-row placeholder, which
+does not exist — `DGV-05`), and `ColumnDisplayIndexChanged` (`DisplayIndex`'s setter is a no-op — column
+reordering is not implemented). None of these four groups has a single obvious trigger point the way
+the six above did; each is its own finding, not a line in this sweep.
+
 **W6.2 — The stored-only sweep (RC-7).** For each entry in the W0.3 baseline, either wire it to its one
 consumer or record in the baseline *why* it is legitimately inert. Prefer deleting a private twin over
 keeping both (RC-6).
@@ -1686,7 +1704,7 @@ authoritative list and this table as the map of the big ones.
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
 | 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) done 2026-09-13 and **W5.4** (styles, sizing, sorting, including the `DGV-13` default-value flip) done 2026-09-14. **W5.5** (mouse/keyboard, including the `DGV-26` combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **W5.21** (buttons, labels, pictures) done 2026-09-14, closing 13 findings plus `SMP-04` and half of `SMP-06`. **W5.25** (scrolling containers) done 2026-09-14, closing the last four layout findings in the phase — **Phase 5 has no items left open except the `MouseDownBackColor` half of `SMP-06`** (no pressed state exists on `ButtonBase` to read — needs its own item, see `SMP-06` in `simple-controls.md`). |
-| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). W6.1–W6.4 not started — tracked as GitHub issues #90–#93. |
+| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). **W6.1 in progress:** the `DataGridView` slice done 2026-09-14 — `ColumnWidthChanged`, `RowHeightChanged`, `ColumnSortModeChanged`, `ColumnHeadersHeightChanged`, `RowHeadersWidthChanged`, `AutoSizeColumnModeChanged`, 6 of the area's 14 `InertEventBaseline` entries (`CellValueNeeded`/`CellValuePushed`, `DefaultValuesNeeded`/`NewRowNeeded`/`UserAddedRow` and `ColumnDisplayIndexChanged` are blocked on features that do not exist yet — `VirtualMode`, the new-row placeholder, column reordering — and `RowStateChanged`/`CellStateChanged` need the batch-selection paths handled, not just the single-item one; see `docs/behaviour-gap/datagridview.md`). Areas remaining in the ~52-entry `InertEventBaseline` and the 117-entry `UnraisedEventBaseline`, W6.2–W6.4 not started — tracked as GitHub issues #90–#93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero

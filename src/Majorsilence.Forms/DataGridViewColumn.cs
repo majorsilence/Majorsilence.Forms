@@ -112,7 +112,18 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the sort mode for this column.
         /// </summary>
-        public DataGridViewColumnSortMode SortMode { get; set; } = DataGridViewColumnSortMode.Automatic;
+        public DataGridViewColumnSortMode SortMode {
+            get => sort_mode;
+            set {
+                if (sort_mode == value)
+                    return;
+
+                sort_mode = value;
+                owner?.RaiseColumnSortModeChanged (this);
+            }
+        }
+
+        private DataGridViewColumnSortMode sort_mode = DataGridViewColumnSortMode.Automatic;
 
         /// <summary>
         /// Gets the bounding rectangle of the column header.
@@ -210,8 +221,10 @@ namespace Majorsilence.Forms
                 if (auto_size_mode == value)
                     return;
 
+                var previous_mode = auto_size_mode;
                 auto_size_mode = value;
                 owner?.OnColumnsChanged ();      // Fill is applied by the layout pass (DGV-18)
+                owner?.RaiseAutoSizeColumnModeChanged (this, previous_mode);
             }
         }
 
@@ -290,6 +303,7 @@ namespace Majorsilence.Forms
                 if (width != value) {
                     width = value;
                     owner?.OnColumnsChanged ();
+                    owner?.RaiseColumnWidthChanged (this);
                 }
             }
         }

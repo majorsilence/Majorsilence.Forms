@@ -47,6 +47,7 @@ namespace Majorsilence.Forms
                 if (height != value) {
                     height = Math.Max (value, 3);
                     owner?.OnRowsChanged ();
+                    owner?.RaiseRowHeightChanged (this);
                 }
             }
         }
