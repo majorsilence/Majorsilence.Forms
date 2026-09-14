@@ -268,30 +268,11 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void ApplyFlatAppearance ()
-        {
-            // Popup is flat until the pointer is over it, when it raises a Standard border.
-            var isFlat = FlatStyle == FlatStyle.Flat
-                      || (FlatStyle == FlatStyle.Popup && !(IsHovering && Enabled));
-
-            if (!isFlat) {
-                // Null lets the width fall back through the style chain to the themed default.
-                Style.Border.Width = null;
-                StyleHover.Border.Width = null;
-                return;
-            }
-
-            Style.Border.Width = FlatAppearance.BorderSize;
-            StyleHover.Border.Width = FlatAppearance.BorderSize;
-
-            if (FlatAppearance.BorderColor != System.Drawing.Color.Empty) {
-                Style.Border.Color = FlatAppearance.BorderColor.ToSKColor ();
-                StyleHover.Border.Color = FlatAppearance.BorderColor.ToSKColor ();
-            }
-
-            if (FlatAppearance.MouseOverBackColor != System.Drawing.Color.Empty)
-                StyleHover.BackgroundColor = FlatAppearance.MouseOverBackColor.ToSKColor ();
-        }
+        // SMP-07: upstream draws the default button's frame a second pixel thick
+        // (ButtonStandardAdapter's PaintUp -> DrawDefaultBorder). One pixel is genuinely what separates
+        // the form's default button from its neighbours on screen, and without it the user cannot see
+        // which button Enter will press.
+        private protected override int? DefaultBorderWidth => IsDefault ? 2 : null;
 
         /// <summary>
         /// Gets or sets the alignment of the text on the <see cref='Button'/>. Defaults to
@@ -329,7 +310,10 @@ namespace Majorsilence.Forms
             }
         }
 
-        bool IHaveTextAndImageAlign.Multiline => false;
+        // SMP-13: hands the renderer the full text region rather than a rectangle measured for one
+        // line, so a wrapped caption has somewhere to put its second line. Alignment is unaffected --
+        // the renderer still aligns the text within the region using TextAlign.
+        bool IHaveTextAndImageAlign.Multiline => true;
 
         /// <inheritdoc/>
         public override string ToString () => $"{base.ToString ()}, Text: {Text}";

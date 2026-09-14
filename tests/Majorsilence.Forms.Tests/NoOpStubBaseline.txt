@@ -86,7 +86,6 @@ Majorsilence.Forms.NativeWindow.ReleaseHandle/0
 Majorsilence.Forms.NumericUpDown.BeginInit/0
 Majorsilence.Forms.NumericUpDown.EndInit/0
 Majorsilence.Forms.PaintEventArgs.Dispose/0
-Majorsilence.Forms.PictureBox.CancelAsync/0
 Majorsilence.Forms.Printing.PreviewPrintController.OnEndPage/2
 Majorsilence.Forms.Printing.PreviewPrintController.OnEndPrint/2
 Majorsilence.Forms.Printing.PrintController.OnEndPage/2

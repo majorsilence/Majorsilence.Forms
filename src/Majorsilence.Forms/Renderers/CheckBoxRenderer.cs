@@ -24,6 +24,9 @@ namespace Majorsilence.Forms.Renderers
         {
             var layout = TextImageLayoutEngine.Layout (control);
 
+            // SMP-03: Appearance.Button draws the control as a toggle button -- no glyph, and the
+            // latched state carried by the background instead (see ButtonBase.ApplyFlatAppearance).
+            if (control.Appearance != Appearance.Button)
             ControlPaint.DrawCheckBox (e, layout.GlyphBounds, control.CheckState, !control.Enabled);
 
             // Draw the image
@@ -36,7 +39,9 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw the text (a CheckBox always interprets the '&' mnemonic prefix).
             if (control.Text.HasValue ())
-                e.Canvas.DrawMnemonicText (control.Text, layout.TextBounds, control, control.TextAlign, maxLines: 1, ellipsis: control.AutoEllipsis);
+                // SMP-13: see ButtonRenderer -- upstream wraps the whole button family's captions,
+                // and multi-line checkbox/radio labels are common on consent and option forms.
+                e.Canvas.DrawMnemonicText (control.Text, layout.TextBounds, control, control.TextAlign, maxLines: null, ellipsis: control.AutoEllipsis);
         }
     }
 }

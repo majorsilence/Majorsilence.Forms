@@ -32,6 +32,8 @@ namespace Majorsilence.Forms
 
         private BitVector32 _labelState;
 
+        private BorderStyle border_style = BorderStyle.None;
+
         /// <summary>
         /// Initializes a new instance of the Label class.
         /// </summary>
@@ -41,6 +43,14 @@ namespace Majorsilence.Forms
             SetControlBehavior (ControlBehaviors.Selectable, false);
 
             _labelState[s_stateUseMnemonic] = 1;
+
+            // SMP-14: upstream's Label has no Multiline property -- it ALWAYS word-wraps
+            // (Label.CreateTextFormatFlags, Controls/Labels/Label.cs:911-932, starts from
+            // ControlPaint.CreateTextFormatFlags which always sets WordBreak). Defaulting ours to false
+            // collapsed every description, warning and wrapped caption in a migrated form to one
+            // truncated line, and the app had no designer line to fix it with because the property does
+            // not exist upstream. It stays as an opt-OUT for code that wants a single line.
+            _labelState[s_stateMultiline] = 1;
 
             TabStop = false;
         }
@@ -102,7 +112,18 @@ namespace Majorsilence.Forms
                 height = Math.Max (height, image.Height);
             }
 
-            return new Size (width + Padding.Horizontal, height + Padding.Vertical);
+            // SMP-15: the border is part of what the label needs to be. Upstream's GetBordersAndPadding
+            // (Controls/Labels/Label.cs:285-300) takes it off the text rectangle, so an auto-sized
+            // label with a border has to ask for those pixels back or its caption loses them.
+            var border = new Padding (
+                Style.Border.Left.GetWidth (),
+                Style.Border.Top.GetWidth (),
+                Style.Border.Right.GetWidth (),
+                Style.Border.Bottom.GetWidth ());
+
+            return new Size (
+                width + Padding.Horizontal + border.Horizontal,
+                height + Padding.Vertical + border.Vertical);
         }
 
         /// <summary>
@@ -373,8 +394,37 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnTextAlignChanged (EventArgs e) => (Events[s_eventTextAlignChanged] as EventHandler)?.Invoke (this, e);
 
-        /// <summary>Gets or sets the border style for the label. Stub in Majorsilence.Forms (does not render borders).</summary>
-        public virtual BorderStyle BorderStyle { get; set; } = BorderStyle.None;
+        /// <summary>Gets or sets the border style for the label.</summary>
+        /// <remarks>
+        /// SMP-15: this was a bare auto-property that nothing read, so labels used as separators or as
+        /// the poor man's group box lost their frame entirely. Mapping it onto the instance style's
+        /// border both draws the frame and shrinks the text region by the same pixels -- the layout
+        /// engine deflates by <c>Style.Border</c> (<see cref="Layout.TextImageLayoutEngine"/>) -- which
+        /// is upstream's <c>GetBordersAndPadding</c> (Controls/Labels/Label.cs:285-300), 1px for
+        /// <see cref="BorderStyle.FixedSingle"/> and 2px for <see cref="BorderStyle.Fixed3D"/>.
+        /// <see cref="BorderStyle.None"/> clears the override rather than forcing zero, so a CSS theme
+        /// rule for <c>Label</c> still decides.
+        /// </remarks>
+        public virtual BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (border_style == value)
+                    return;
+
+                border_style = value;
+                Style.Border.Width = value switch {
+                    BorderStyle.FixedSingle => 1,
+                    BorderStyle.Fixed3D => 2,
+                    _ => null,
+                };
+
+                // The border changes the preferred size, so an auto-sized label has to re-measure.
+                if (Parent is not null)
+                    LayoutTransaction.DoLayoutIf (AutoSize, Parent, this, PropertyNames.BorderStyle);
+
+                Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets the flat style for the label. Stub in Majorsilence.Forms.</summary>
         public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;

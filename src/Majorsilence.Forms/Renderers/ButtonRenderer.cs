@@ -26,7 +26,11 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw the text (a Button always interprets the '&' mnemonic prefix).
             if (control.Text.HasValue ())
-                e.Canvas.DrawMnemonicText (control.Text, layout.TextBounds, control, control.TextAlign, maxLines: 1, ellipsis: control.AutoEllipsis);
+                // SMP-13: upstream ORs TextFormatFlags.WordBreak unconditionally for the button
+                // family (ControlPaint.CreateTextFormatFlags, Rendering/ControlPaint.cs:2640-2652), so
+                // a tall button with a two-word caption wraps. Pinned to one line, "Export Selected" on
+                // a 60x60 button came out clipped to a single ellipsised line.
+                e.Canvas.DrawMnemonicText (control.Text, layout.TextBounds, control, control.TextAlign, maxLines: null, ellipsis: control.AutoEllipsis);
         }
     }
 }

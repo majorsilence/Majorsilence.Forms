@@ -16,9 +16,9 @@ internal sealed class PropertyNames
     public const string Anchor = "Anchor";
     //public const string AutoScroll = "AutoScroll";
     public const string AutoSize = "AutoSize";
-    //public const string Appearance = "Appearance";
+    public const string Appearance = "Appearance";
     public const string AutoEllipsis = "AutoEllipsis";
-    //public const string BorderStyle = "BorderStyle";
+    public const string BorderStyle = "BorderStyle";
     public const string CellBorderStyle = "CellBorderStyle";
     public const string Bounds = "Bounds";
     public const string ChildIndex = "ChildIndex";

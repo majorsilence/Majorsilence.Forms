@@ -302,13 +302,19 @@ namespace Majorsilence.Forms
                 if (value < minimum || value > maximum)
                     throw new ArgumentOutOfRangeException (nameof (Value), $"'{value}' is not a valid value for 'Value'. 'Value' should be between 'Minimum' and 'Maximum'.");
 
-                SetValueCore (value, raiseScroll: true);
+                // SMP-29: Scroll means "the USER moved it". Upstream's setter raises only ValueChanged
+                // (TrackBar.cs:603-625); Scroll comes from the wheel handler and the reflected
+                // WM_HSCROLL/WM_VSCROLL, i.e. the gesture paths below. Apps drive a linked control from
+                // Scroll while writing Value back from code -- raising it here makes the pair re-entrant.
+                SetValueCore (value, raiseScroll: false);
             }
         }
 
         /// <summary>
-        /// Occurs when the control is scrolled by the user or programmatically through value changes
-        /// that should be treated as scroll interactions.
+        /// Occurs when the user moves the slider -- by dragging the thumb, clicking the track, the
+        /// arrow/page/Home/End keys or the wheel. Setting <see cref="Value"/> from code raises
+        /// <see cref="ValueChanged"/> only, as upstream does, so a handler here can drive a linked
+        /// control without the two feeding each other.
         /// </summary>
         public new event EventHandler? Scroll;
 

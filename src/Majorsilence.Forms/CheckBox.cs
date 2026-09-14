@@ -338,16 +338,62 @@ namespace Majorsilence.Forms
         /// </summary>
         public bool ThreeState { get; set; }
 
-        /// <summary>Gets or sets the appearance of the CheckBox. Stub in Majorsilence.Forms.</summary>
-        public Appearance Appearance { get; set; } = Appearance.Normal;
+        /// <summary>Gets or sets whether the control draws itself as a check box, or as a toggle button.</summary>
+        /// <remarks>
+        /// SMP-03: this was a stub nothing read, so the segmented-control idiom -- a row of
+        /// <see cref="Majorsilence.Forms.Appearance.Button"/> controls acting as a toolbar -- drew as
+        /// ordinary check boxs with no pressed state. SMP-04: the setter now raises
+        /// <see cref="AppearanceChanged"/>, which an auto-property had nowhere to do from.
+        /// </remarks>
+        public Appearance Appearance {
+            get => appearance;
+            set {
+                if (appearance == value)
+                    return;
 
-        /// <summary>Gets or sets the flat style appearance of the check box. Stub in Majorsilence.Forms.</summary>
+                appearance = value;
+
+                // The glyph's column is part of the preferred size, so gaining or losing it re-measures.
+                if (Parent is not null)
+                    LayoutTransaction.DoLayoutIf (AutoSize, Parent, this, PropertyNames.Appearance);
+
+                Invalidate ();
+                OnAppearanceChanged (EventArgs.Empty);
+            }
+        }
+
+        private Appearance appearance = Appearance.Normal;
+
+        /// <inheritdoc/>
+        internal override Appearance AppearanceCore => Appearance;
+
+        /// <inheritdoc/>
+        internal override bool IsLatched => CheckState != CheckState.Unchecked;
+
+        /// <inheritdoc/>
+        /// <remarks>Folds FlatStyle/FlatAppearance/Appearance in before the renderer sees the style.</remarks>
+        public override ControlStyle CurrentStyle {
+            get {
+                ApplyFlatAppearance ();
+                return base.CurrentStyle;
+            }
+        }
+
+        /// <summary>Gets or sets the flat style appearance of the check box.</summary>
+        /// <remarks>
+        /// SMP-05: stored only until now -- only <see cref="Button"/> folded FlatStyle and
+        /// <see cref="FlatAppearance"/> into its style chain, so a flat check box kept the themed
+        /// 3-D frame and the designer's FlatAppearance lines were inert.
+        /// </remarks>
         public override FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
 
-        /// <summary>Gets the appearance settings for a flat-style button. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets the appearance settings for a flat-style button.</summary>
         public override FlatButtonAppearance FlatAppearance { get; } = new FlatButtonAppearance ();
 
-        bool IHaveTextAndImageAlign.Multiline => false;
+        // SMP-13: hands the renderer the full text region rather than a rectangle measured for one
+        // line, so a wrapped caption has somewhere to put its second line. Alignment is unaffected --
+        // the renderer still aligns the text within the region using TextAlign.
+        bool IHaveTextAndImageAlign.Multiline => true;
 
         /// <inheritdoc/>
         public override string ToString () => $"{base.ToString ()}, CheckState: {(int)CheckState}";

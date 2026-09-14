@@ -32,12 +32,16 @@ namespace Majorsilence.Forms
         public RadioButton ()
         {
             SetControlBehavior (ControlBehaviors.InvalidateOnTextChanged);
+
+            // SMP-02: upstream's ctor does this (Controls/Buttons/RadioButton.cs:48). A radio button is
+            // not a tab stop in its own right; PerformAutoUpdates grants one to the checked member of
+            // the group.
+            TabStop = false;
         }
 
-        /// <summary>
-        /// Gets or sets a valud indicating if the RadioButton will respond to mouse clicks.
-        /// </summary>
-        public bool AutoCheck { get; set; } = true;
+        // Backing store for AutoCheck, whose setter lives in RadioButton.Group.cs because it drives
+        // the same group bookkeeping the Checked setter does.
+        private bool auto_check = true;
 
         /// <summary>
         /// Gets or sets a value indicating if text will be truncated with an ellipsis if it cannot fully fit in the <see cref='RadioButton'/>.
@@ -112,8 +116,7 @@ namespace Majorsilence.Forms
                     _radiobuttonState[s_stateChecked] = value ? 1 : 0;
                     Invalidate ();
 
-                    if (value)
-                        UpdateSiblings ();
+                    PerformAutoUpdates (false);
 
                     OnCheckedChanged (EventArgs.Empty);
                 }
@@ -296,13 +299,56 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the appearance of the RadioButton. Stub in Majorsilence.Forms.</summary>
-        public Appearance Appearance { get; set; } = Appearance.Normal;
+        /// <summary>Gets or sets whether the control draws itself as a radio button, or as a toggle button.</summary>
+        /// <remarks>
+        /// SMP-03: this was a stub nothing read, so the segmented-control idiom -- a row of
+        /// <see cref="Majorsilence.Forms.Appearance.Button"/> controls acting as a toolbar -- drew as
+        /// ordinary radio buttons with no pressed state. SMP-04: the setter now raises
+        /// <see cref="AppearanceChanged"/>, which an auto-property had nowhere to do from.
+        /// </remarks>
+        public Appearance Appearance {
+            get => appearance;
+            set {
+                if (appearance == value)
+                    return;
 
-        /// <summary>Gets or sets the flat style appearance of the radio button. Stub in Majorsilence.Forms.</summary>
+                appearance = value;
+
+                // The glyph's column is part of the preferred size, so gaining or losing it re-measures.
+                if (Parent is not null)
+                    LayoutTransaction.DoLayoutIf (AutoSize, Parent, this, PropertyNames.Appearance);
+
+                Invalidate ();
+                OnAppearanceChanged (EventArgs.Empty);
+            }
+        }
+
+        private Appearance appearance = Appearance.Normal;
+
+        /// <inheritdoc/>
+        internal override Appearance AppearanceCore => Appearance;
+
+        /// <inheritdoc/>
+        internal override bool IsLatched => Checked;
+
+        /// <inheritdoc/>
+        /// <remarks>Folds FlatStyle/FlatAppearance/Appearance in before the renderer sees the style.</remarks>
+        public override ControlStyle CurrentStyle {
+            get {
+                ApplyFlatAppearance ();
+                return base.CurrentStyle;
+            }
+        }
+
+        /// <summary>Gets or sets the flat style appearance of the radio button.</summary>
+        /// <remarks>
+        /// SMP-05: stored only until now -- only <see cref="Button"/> folded FlatStyle and
+        /// <see cref="FlatAppearance"/> into its style chain, so a flat radio button kept the themed
+        /// 3-D frame and the designer's FlatAppearance lines were inert.
+        /// </remarks>
         public override FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
 
-        /// <summary>Gets the appearance settings for a flat-style button. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets the appearance settings for a flat-style button.</summary>
         public override FlatButtonAppearance FlatAppearance { get; } = new FlatButtonAppearance ();
 
         /// <summary>Simulates a click on the radio button. Checks the button if AutoCheck is true.</summary>
@@ -311,16 +357,9 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override string ToString () => $"{base.ToString ()}, Checked: {Checked}";
 
-        bool IHaveTextAndImageAlign.Multiline => false;
-
-        // Uncheck any other RadioButtons on the Parent
-        private void UpdateSiblings ()
-        {
-            var siblings = Parent?.Controls.OfType<RadioButton> ().Where (rb => rb != this);
-
-            if (siblings != null)
-                foreach (var rb in siblings)
-                    rb.Checked = false;
-        }
+        // SMP-13: hands the renderer the full text region rather than a rectangle measured for one
+        // line, so a wrapped caption has somewhere to put its second line. Alignment is unaffected --
+        // the renderer still aligns the text within the region using TextAlign.
+        bool IHaveTextAndImageAlign.Multiline => true;
     }
 }

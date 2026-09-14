@@ -101,7 +101,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 `TitleBackground` remainder of `SMP-43`, and the `CalendarDimensions` remainder of `SMP-46`.
 `DateTimePicker` (`SMP-39`, `SMP-40`, `SMP-41`) was the other half of W5.20c, closed 2026-09-14.
 
-### SMP-01 — `RadioButton.Checked` / `UpdateSiblings` ignores `AutoCheck` — Cat A — P1 — High
+### SMP-01 — `RadioButton.Checked` / `UpdateSiblings` ignores `AutoCheck` — Cat A — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `UpdateSiblings()` unchecks *every* sibling `RadioButton` on the parent, with no regard for either this button's `AutoCheck` or the sibling's `AutoCheck` (`src/Majorsilence.Forms/RadioButton.cs:315-323`). `AutoCheck` is a bare auto-property (`RadioButton.cs:39`) with no setter side-effect.
 - **Upstream:** `PerformAutoUpdates` returns immediately when `!_autoCheck`, and only unchecks a sibling when `radioButton.AutoCheck && radioButton.Checked` (`src/System.Windows.Forms/System/Windows/Forms/Controls/Buttons/RadioButton.cs:411-441`). The `AutoCheck` setter itself calls `PerformAutoUpdates(false)` (`RadioButton.cs:60-71`).
 - **Impact:** The standard "manually managed radio group" pattern (`AutoCheck = false`, code decides who is checked) is broken: setting `Checked = true` on one member still wipes every other member, and a manual group can never show two checked buttons. Apps that mix an `AutoCheck=false` button into a group lose its state silently.
@@ -109,7 +109,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Two `RadioButton`s in a `Panel`, both `AutoCheck = false`; set `a.Checked = true; b.Checked = true;` and assert both remain `Checked`.
 - **Tests today:** none found for AutoCheck semantics.
 
-### SMP-02 — `RadioButton` never manages `TabStop` — Cat B — P1 — High
+### SMP-02 — `RadioButton` never manages `TabStop` — Cat B — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `RadioButton`'s ctor (`src/Majorsilence.Forms/RadioButton.cs:32-35`) does not set `TabStop = false`, and nothing anywhere writes `TabStop` on a radio button; `UpdateSiblings` (`RadioButton.cs:315`) only touches `Checked`.
 - **Upstream:** ctor sets `TabStop = false` (`Controls/Buttons/RadioButton.cs:48`); `PerformAutoUpdates` sets `TabStop = _isChecked` and `WipeTabStops` clears `TabStop` on every other radio button in the container (`RadioButton.cs:411-460`); `OnEnter` re-arms it (`RadioButton.cs:390-406`).
 - **Impact:** Every radio button in a group is an individual tab stop. Tabbing through a form with a 6-option group now takes 6 tabs instead of 1, and the group is not entered on the currently-checked option — the classic WinForms "one tab stop per group, arrow keys within" behaviour is gone. Very visible on any data-entry form.
@@ -117,7 +117,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Add three radios to a Panel, check the second, then assert `TabStop` is true only on the second.
 - **Tests today:** none.
 
-### SMP-03 — `RadioButton.Appearance` / `CheckBox.Appearance` stored only — Cat C — P1 — High
+### SMP-03 — `RadioButton.Appearance` / `CheckBox.Appearance` stored only — Cat C — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `public Appearance Appearance { get; set; } = Appearance.Normal;` explicitly marked "Stub in Majorsilence.Forms" (`src/Majorsilence.Forms/RadioButton.cs:299`, `src/Majorsilence.Forms/CheckBox.cs:342`). `grep -rn 'Appearance\.Button' src/` returns nothing — no renderer reads it. `RadioButtonRenderer`/`CheckBoxRenderer` always draw the glyph + label form.
 - **Upstream:** `Appearance.Button` swaps the whole rendering to a toggle button (`Controls/Buttons/RadioButton.cs:73-110`, and `ButtonInternal/CheckBoxBaseAdapter`/`ButtonStandardAdapter` selection in `ButtonBase.Adapter`).
 - **Impact:** Toolbar-style toggle groups (a very common WinForms idiom: `Appearance = Button` radio buttons acting as a segmented control) render as ordinary radio circles, so the UI looks nothing like the designer intended and there is no pressed-state feedback.
@@ -125,7 +125,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Headless render a `RadioButton { Appearance = Appearance.Button, Checked = true }` and assert the glyph circle is absent / the background is the pressed style.
 - **Tests today:** none.
 
-### SMP-04 — `AppearanceChanged` never raised — Cat D — P2 — High
+### SMP-04 — `AppearanceChanged` never raised — Cat D — P2 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `CheckBox.AppearanceChanged` / `RadioButton.AppearanceChanged` are declared in `src/Majorsilence.Forms/RemainingMemberParity.cs:91-106` with an `OnAppearanceChanged` raiser, but `Appearance` is an auto-property in both controls so the raiser is never invoked.
 - **Upstream:** the `Appearance` setter raises `OnAppearanceChanged` after invalidating (`Controls/Buttons/RadioButton.cs:73-110`, `Controls/Buttons/CheckBox.cs:~100`).
 - **Impact:** Handlers subscribed to `AppearanceChanged` never fire. Low traffic, but it is a natural trigger point that exists.
@@ -133,7 +133,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Subscribe, set `Appearance = Appearance.Button`, assert the handler ran once.
 - **Tests today:** none.
 
-### SMP-05 — `FlatStyle` / `FlatAppearance` unconsumed on CheckBox and RadioButton — Cat C — P1 — High
+### SMP-05 — `FlatStyle` / `FlatAppearance` unconsumed on CheckBox and RadioButton — Cat C — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** both controls override the property purely to store it (`src/Majorsilence.Forms/CheckBox.cs:345,348`, `src/Majorsilence.Forms/RadioButton.cs:302,305`), both doc-commented "Stub in Majorsilence.Forms". Only `Button` actually folds `FlatAppearance` into its style chain (`src/Majorsilence.Forms/Button.cs:264-294`). `FlatButtonAppearance` itself (`src/Majorsilence.Forms/WinFormsCompat.cs:3348-3364`) documents every member as a stub.
 - **Upstream:** `FlatStyle` picks the adapter (`ButtonBase.Adapter`), and `FlatAppearance.BorderSize/BorderColor/MouseOverBackColor/MouseDownBackColor/CheckedBackColor` are all consumed by `ButtonInternal/*FlatAdapter` when drawing.
 - **Impact:** A flat/borderless checkbox or radio button keeps the themed 3-D style; hover/down/checked custom colours never appear. Designer-emitted `FlatAppearance.*` lines are inert.
@@ -141,7 +141,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Set `FlatStyle = Flat; FlatAppearance.BorderSize = 0` on a CheckBox and assert the rendered border width is 0.
 - **Tests today:** none.
 
-### SMP-06 — `Button.FlatAppearance.MouseDownBackColor` / `CheckedBackColor` ignored — Cat C — P2 — High
+### SMP-06 — `Button.FlatAppearance.MouseDownBackColor` / `CheckedBackColor` ignored — Cat C — P2 — High — **PARTLY CLOSED 2026-09-14 (W5.21)**: `CheckedBackColor` is honoured on the whole button family; `MouseDownBackColor` still is not, because no pressed state exists to key it off — there are two style layers (`Style`/`StyleHover`) and no mouse-down tracking on `ButtonBase`.
 - **Ours:** `ApplyFlatAppearance()` reads only `BorderSize`, `BorderColor` and `MouseOverBackColor` (`src/Majorsilence.Forms/Button.cs:284-293`); `MouseDownBackColor` and `CheckedBackColor` are never read anywhere in `src/`.
 - **Upstream:** consumed in the flat adapter's `PaintDown`/`PaintUp` paths.
 - **Impact:** No pressed-state colour on flat buttons — a flat button looks completely inert while held down.
@@ -149,7 +149,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Render a flat button in the pressed state, assert the background equals `MouseDownBackColor`.
 - **Tests today:** none.
 
-### SMP-07 — `Form.AcceptButton` never calls `NotifyDefault`; `IsDefault` never rendered — Cat B — P1 — High
+### SMP-07 — `Form.AcceptButton` never calls `NotifyDefault`; `IsDefault` never rendered — Cat B — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `Form.AcceptButton` is a bare auto-property (`src/Majorsilence.Forms/Form.cs:188`). `Button.NotifyDefault` exists and sets `IsDefault` + `Invalidate` (`src/Majorsilence.Forms/RemainingMemberParity.cs:80-87`), but nothing ever calls it, and no renderer reads `IsDefault` (`grep IsDefault src/Majorsilence.Forms/Renderers/` → nothing).
 - **Upstream:** `Form.AcceptButton`'s setter calls `UpdateDefaultButton()`, which calls `NotifyDefault(true/false)`; `ButtonBase`/`Button` then draw the heavier default-button border, and focus moving between buttons re-targets the default (`Button.NotifyDefault`, `Form.UpdateDefaultButton`).
 - **Impact:** The default (OK) button on every dialog is visually indistinguishable from the others — users cannot see which button Enter will hit.
@@ -197,7 +197,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `Assert.Equal(Cursors.Default, new Button().Cursor)`.
 - **Tests today:** none.
 
-### SMP-13 — Button/CheckBox/RadioButton captions never word-wrap — Cat A — P1 — High
+### SMP-13 — Button/CheckBox/RadioButton captions never word-wrap — Cat A — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** all three renderers hard-code `maxLines: 1` (`src/Majorsilence.Forms/Renderers/ButtonRenderer.cs:29`, `CheckBoxRenderer.cs:39`, `RadioButtonRenderer.cs:40`).
 - **Upstream:** `ButtonBaseAdapter.CreateTextFormatFlags` → `ControlPaint.CreateTextFormatFlags`, which unconditionally ORs `TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl` (`src/System.Windows.Forms/System/Windows/Forms/Rendering/ControlPaint.cs:2640-2652`). Button text wraps to as many lines as the button is tall.
 - **Impact:** A tall button with a two-word caption ("Export\nSelected") that wrapped in WinForms now shows one clipped/ellipsised line. Same for multi-line checkbox labels, which are common on consent/option forms.
@@ -205,7 +205,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Render a 60x60 button with text "Export Selected" and assert two text lines are laid out.
 - **Tests today:** none.
 
-### SMP-14 — `Label` does not word-wrap by default (`Multiline` defaults false) — Cat E — P1 — High
+### SMP-14 — `Label` does not word-wrap by default (`Multiline` defaults false) — Cat E — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `Label.Multiline` is a Majorsilence-only property defaulting to `false` (`src/Majorsilence.Forms/Label.cs:277-289`; the ctor at `Label.cs:38-47` sets only `UseMnemonic`), and `LabelRenderer` passes `maxLines: control.Multiline ? null : 1` (`src/Majorsilence.Forms/Renderers/LabelRenderer.cs:45-47`).
 - **Upstream:** `Label` has no `Multiline` property at all — it *always* word-wraps (`Label.CreateTextFormatFlags` at `Controls/Labels/Label.cs:911-932` starts from `ControlPaint.CreateTextFormatFlags`, which always sets `WordBreak`, and only strips it when the text already fits).
 - **Impact:** Every multi-line label in a migrated app — descriptions, warnings, wrapped column captions — collapses to one line and is truncated. This is the single most visible layout regression for a text-heavy form, and the app has no `Multiline` line in its designer file to fix it because upstream has no such property.
@@ -213,7 +213,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Render a 100x60 label with a long sentence; assert more than one line is produced.
 - **Tests today:** none.
 
-### SMP-15 — `Label.BorderStyle` stored only, never drawn — Cat C — P1 — High
+### SMP-15 — `Label.BorderStyle` stored only, never drawn — Cat C — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `public virtual BorderStyle BorderStyle { get; set; } = BorderStyle.None;` (`src/Majorsilence.Forms/Label.cs:377`) — plain auto-property, no `Invalidate`, no layout. `LabelRenderer` (`src/Majorsilence.Forms/Renderers/LabelRenderer.cs`) draws only image + text; nothing in `src/Majorsilence.Forms/Renderers/` reads `Label.BorderStyle`.
 - **Upstream:** the setter invalidates and re-layouts (`Controls/Labels/Label.cs:205-225`), the border is painted, and `GetBordersAndPadding` shrinks the text rectangle by 1px (FixedSingle) / 2px (Fixed3D) (`Label.cs:285-300`), which also changes `PreferredSize`.
 - **Impact:** Labels used as separators/boxes (a common "poor man's group box" and status-strip idiom) lose their frame entirely, and text sits 1-2px off where it did.
@@ -253,7 +253,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Click a link with no handler and assert `Links[0].Visited` is still `false`.
 - **Tests today:** none.
 
-### SMP-20 — `PictureBox.Load()` is asynchronous and swallows failures — Cat A — P1 — High
+### SMP-20 — `PictureBox.Load()` is asynchronous and swallows failures — Cat A — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `Load(url)` just assigns `ImageLocation`, whose setter calls `private async void LoadInternal(...)` (`src/Majorsilence.Forms/PictureBox.cs:94-137`). The method returns before any bytes are read, and the `catch (Exception)` sets `IsErrored` and swallows. A missing *local* file is worse: `SKBitmap.Decode(path)` returns `null` without throwing, so `_skImage` becomes `null`, `IsErrored` stays `false`, and the box silently renders nothing.
 - **Upstream:** `PictureBox.Load()` is synchronous — it opens the stream, decodes, and `InstallNewImage` before returning, and rethrows on failure outside design mode (`src/System.Windows.Forms/System/Windows/Forms/Controls/PictureBox/PictureBox.cs:457-500`).
 - **Impact:** `pb.Load(path); int w = pb.Image.Width;` throws `NullReferenceException` because the load has not happened yet; and `try { pb.Load(path); } catch (FileNotFoundException) { ... }` never catches — an unhandled exception in an `async void` can instead tear the process down on some paths.
@@ -261,7 +261,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `Assert.Throws<...>(() => pb.Load("/does/not/exist.png"))`, and after a successful `Load` assert `pb.Image is not null` on the same thread.
 - **Tests today:** none.
 
-### SMP-21 — `PictureBox.LoadAsync` / `CancelAsync` / `LoadCompleted` / `LoadProgressChanged` are inert — Cat B/D — P1 — High
+### SMP-21 — `PictureBox.LoadAsync` / `CancelAsync` / `LoadCompleted` / `LoadProgressChanged` are inert — Cat B/D — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `LoadAsync(url) => Load(url)` (fire-and-forget), `CancelAsync() { }`, and both events are declared as `add { } remove { }` so subscriptions are *discarded at the add site* (`src/Majorsilence.Forms/PictureBox.cs:179-189`).
 - **Upstream:** `LoadAsync` runs a real async download, reports `LoadProgressChanged` and finally raises `LoadCompleted` with `AsyncCompletedEventArgs` carrying `Error`/`Cancelled`; `CancelAsync` cancels it (`Controls/PictureBox/PictureBox.cs`, `LoadAsync`/`CancelAsync`/`OnLoadCompleted`).
 - **Impact:** The whole async image pattern is dead: the completion handler that hides the spinner and shows the image never runs, and no exception surfaces. The `add { }` accessor form means even a `-=` is meaningless — an app cannot detect the failure at runtime.
@@ -277,7 +277,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Set `ErrorImage` to a known bitmap, `Load` a bad path, and assert the rendered pixels match it.
 - **Tests today:** none.
 
-### SMP-23 — `PictureBox.SizeMode` setter never `Invalidate()`s and does not sync `AutoSize` — Cat A — P1 — High
+### SMP-23 — `PictureBox.SizeMode` setter never `Invalidate()`s and does not sync `AutoSize` — Cat A — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** the setter calls `UpdateSize(); OnSizeModeChanged(...)` (`src/Majorsilence.Forms/PictureBox.cs:142-154`), and `UpdateSize` returns immediately when there is no image and otherwise only resizes for `AutoSize` (`PictureBox.cs:205-223`) — there is no `Invalidate()` on any path that doesn't change `Size`.
 - **Upstream:** the setter flips `AutoSize` / `ControlStyles.FixedHeight|FixedWidth`, saves `_savedSize`, then calls `AdjustSize(); Invalidate(); OnSizeModeChanged(...)` (`Controls/PictureBox/PictureBox.cs:821-847`).
 - **Impact:** Switching `SizeMode` from `Normal` to `Zoom`/`StretchImage`/`CenterImage` at runtime leaves the previously painted image on screen until something else invalidates the control — the classic "click Fit and nothing happens" bug. Also `AutoSize` stays `false` after `SizeMode = AutoSize`, so any layout container that consults `AutoSize` mis-measures the box.
@@ -301,7 +301,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `pb.Padding = new Padding(10)`, render, assert the image's first opaque pixel is at (10,10).
 - **Tests today:** none.
 
-### SMP-26 — `ProgressBar.Style` (Blocks/Continuous/Marquee) never rendered; Marquee shows an empty bar — Cat C — P1 — High
+### SMP-26 — `ProgressBar.Style` (Blocks/Continuous/Marquee) never rendered; Marquee shows an empty bar — Cat C — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** `ProgressBarRenderer.Render` computes `percent` from `Value` and fills one rectangle; it never reads `control.Style` (`src/Majorsilence.Forms/Renderers/ProgressBarRenderer.cs:9-21`). `MarqueeAnimationSpeed` is doc-commented "Stub in Majorsilence.Forms" (`src/Majorsilence.Forms/ProgressBar.cs:109-118`) and there is no timer anywhere.
 - **Upstream:** `ProgressBarStyle.Marquee` sends `PBM_SETMARQUEE` and the bar animates a travelling block independently of `Value`; `Blocks` draws segmented chunks, `Continuous` a solid fill.
 - **Impact:** The standard "indeterminate busy" progress bar (`Style = Marquee`, `Value` left at 0) renders as a permanently **empty** bar — the app looks hung. This is the most common non-default ProgressBar configuration in LOB apps.
@@ -325,7 +325,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Render a default ProgressBar and assert a 1px border ring exists.
 - **Tests today:** none.
 
-### SMP-29 — `TrackBar.Value` setter raises `Scroll` — Cat A — P1 — High
+### SMP-29 — `TrackBar.Value` setter raises `Scroll` — Cat A — P1 — High — **CLOSED 2026-09-14 (W5.21)**
 - **Ours:** the `Value` setter calls `SetValueCore(value, raiseScroll: true)` (`src/Majorsilence.Forms/TrackBar.cs:290-298`), and `SetValueCore` raises `OnScroll` then `OnValueChanged` (`TrackBar.cs:611-626`).
 - **Upstream:** the `Value` setter calls only `SetTrackBarPosition(); OnValueChanged(EventArgs.Empty);` (`src/System.Windows.Forms/System/Windows/Forms/Controls/TrackBar/TrackBar.cs:603-625`). `OnScroll` is raised **only** from user interaction — the wheel handler (`TrackBar.cs:970`) and the reflected `WM_HSCROLL/WM_VSCROLL` (`TrackBar.cs:1183`).
 - **Impact:** `Scroll` is the standard "the *user* moved it" signal. Apps use it to write settings, re-query, or drive a linked control while using `Value = x` to update the slider from code. With `Value` firing `Scroll`, the two feed each other — re-entrant updates, duplicate saves, and in linked-pair sliders an infinite loop.
