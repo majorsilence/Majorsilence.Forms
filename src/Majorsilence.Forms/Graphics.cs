@@ -348,8 +348,23 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets the visible clip bounds. Alias for ClipBounds in Majorsilence.Forms.</summary>
         public RectangleF VisibleClipBounds => ClipBounds;
 
-        /// <summary>Gets whether the visible clip region is empty. Always false in Majorsilence.Forms.</summary>
-        public bool IsVisibleClipEmpty => false;
+        /// <summary>Gets whether the visible clip region is empty -- nothing drawn now would appear.</summary>
+        /// <remarks>
+        /// W6.4 (RC-9): this used to be a bare <c>false</c>, which is the worst shape a state-reporting
+        /// member can take -- indistinguishable from a correct answer at the call site, and wrong
+        /// exactly when it matters. The standard use is the early-out <c>if (e.Graphics
+        /// .IsVisibleClipEmpty) return;</c> at the top of a paint handler, which a constant <c>false</c>
+        /// turns into "always draw", and a caller that trusted a clipped-away region to report empty
+        /// got told it was visible. <see cref="ClipBounds"/> has been real all along, so the answer was
+        /// available: an empty clip is one with no area.
+        /// </remarks>
+        public bool IsVisibleClipEmpty {
+            get {
+                var clip = VisibleClipBounds;
+
+                return clip.Width <= 0 || clip.Height <= 0;
+            }
+        }
 
         /// <summary>Gets or sets the unit of measure for page coordinates. Stub in Majorsilence.Forms — always Pixel.</summary>
         public Majorsilence.Forms.Drawing.GraphicsUnit PageUnit { get; set; } = Majorsilence.Forms.Drawing.GraphicsUnit.Pixel;
@@ -1402,14 +1417,30 @@ namespace Majorsilence.Forms.Drawing
             SetClipShadow (narrowed);
         }
 
-        /// <summary>Returns whether the specified point is within the clipping region. Always returns true in Majorsilence.Forms.</summary>
-        public bool IsVisible (Point point) => true;
+        /// <summary>Returns whether the specified point is within the clipping region.</summary>
+        /// <param name="point">The point to test, in the current coordinate space.</param>
+        /// <remarks>
+        /// W6.4 (RC-9): these three used to return a bare <c>true</c>. The whole purpose of the family
+        /// is to let a caller skip work that would be clipped away -- a custom-drawn control walking
+        /// rows, a chart skipping off-screen series -- so a constant <c>true</c> means the caller does
+        /// all the work it asked to avoid, and answers "visible" for a point that demonstrably is not.
+        /// <see cref="ClipBounds"/> is real, so the answer was available the whole time.
+        /// </remarks>
+        public bool IsVisible (Point point) => ClipBounds.Contains (point.X, point.Y);
 
-        /// <summary>Returns whether the specified rectangle is within the clipping region. Always returns true in Majorsilence.Forms.</summary>
-        public bool IsVisible (Rectangle rect) => true;
+        /// <summary>Returns whether any part of the specified rectangle is within the clipping region.</summary>
+        /// <param name="rect">The rectangle to test, in the current coordinate space.</param>
+        /// <inheritdoc cref="IsVisible(Point)" path="/remarks"/>
+        public bool IsVisible (Rectangle rect) => IsVisible ((RectangleF)rect);
 
-        /// <summary>Returns whether the specified rectangle is within the clipping region. Always returns true in Majorsilence.Forms.</summary>
-        public bool IsVisible (RectangleF rect) => true;
+        /// <summary>Returns whether any part of the specified rectangle is within the clipping region.</summary>
+        /// <param name="rect">The rectangle to test, in the current coordinate space.</param>
+        /// <remarks>
+        /// INTERSECTS the clip rather than being contained by it, which is what
+        /// <c>System.Drawing.Graphics.IsVisible</c> means: a rectangle half inside the clip is
+        /// partly visible, and a caller skipping it would leave a hole.
+        /// </remarks>
+        public bool IsVisible (RectangleF rect) => ClipBounds.IntersectsWith (rect);
 
         /// <summary>Applies a matrix transform to the current world transform.</summary>
         public void MultiplyTransform (Majorsilence.Forms.Drawing.Drawing2D.Matrix matrix)

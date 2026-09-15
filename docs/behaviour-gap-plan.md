@@ -1710,9 +1710,41 @@ Five members were on the wrong side of the boundary, every one of them invisible
   correct; it is simply unobservable until the indent is real. A separate finding, not a coordinate
   bug.
 
-**W6.4 — Getters that guess (RC-9).** Promote the drawing plan's rule to the whole layer: a member that
-*reports state* must compute it or throw, never return a plausible constant. Start with
-`MaskCompleted`, `RichTextBox.Rtf`, `FontFamily.IsStyleAvailable`, `ImageCodecInfo.GetImageDecoders`.
+**W6.4 — Getters that guess (RC-9). — DONE (2026-09-15).**
+6 tests in `tests/Majorsilence.Forms.Tests/GettersThatReportStateTests.cs`, 3 neutralizations each
+producing a failure; 2 tests labelled in-test as guards.
+
+*All four named starting points were already fixed by earlier items* -- `MaskCompleted` delegates to a
+real mask provider (W5.13), `RichTextBox.Rtf` serialises the document (W5.14),
+`FontFamily.IsStyleAvailable` queries the Skia typeface, and `ImageCodecInfo.GetImageDecoders` returns
+a real list with a doc explaining why it is a superset of the encoders. The item's own note predicted
+this. The work was therefore to *find* what still guesses.
+
+*Fixed:* four members of `Graphics`'s clipping family, all answerable from `ClipBounds`, which has been
+real the whole time. `IsVisibleClipEmpty` returned a bare `false` and the three `IsVisible` overloads a
+bare `true`. Between them they are the early-out every custom-drawn control is written around --
+`if (e.Graphics.IsVisibleClipEmpty) return;` and `if (!g.IsVisible (row)) continue;` -- so a constant
+answer means the control does all the work it asked to skip, and reports "visible" for a point that
+demonstrably is not. `IsVisible (Rectangle)` *intersects* the clip rather than being contained by it,
+which is what `System.Drawing` means: a rectangle half inside the clip is partly visible, and a caller
+skipping it on a containment test would leave a hole at the clip boundary.
+
+*Surveyed and deliberately left alone.* 39 public members return a bare literal, and most are not
+guesses at all: `IsReadOnly => false` on a mutable collection is a fact, `BatteryLifeRemaining => -1`
+is WinForms' documented "unknown", and the `SystemInformation`/`Design`/`VisualStyleRenderer`
+constants are already annotated with the reason no backend supplies them -- which is the rule's own
+"annotate why it cannot be computed" branch, already satisfied. Two are worth recording as *decisions*
+rather than omissions:
+
+- **`DataGridViewColumn.HasDefaultCellStyle => true`** stays `true`. It looks computable, and tracking
+  assignment would be easy -- but `ShouldSerializeDefaultCellStyle` consults it, and the common
+  designer form is in-place mutation (`col.DefaultCellStyle.BackColor = Red`), which no assignment flag
+  sees. Returning `false` there would silently drop the style from serialisation: a worse failure than
+  the over-serialisation it fixes. Honest computation needs a value comparison on
+  `DataGridViewCellStyle`, which does not exist yet.
+- **`TreeNode.IsEditing => false`** is true by construction -- there is no label editing in this layer
+  (`BeforeLabelEdit`/`AfterLabelEdit` are still inert, see W6.1) -- so the constant is correct and the
+  gap is that it read as computed. Annotated.
 
 **W6.5 — Matrix corrections.** The table above. Cheap; do it early so the docs stop overstating while
 the code catches up.
@@ -1756,7 +1788,7 @@ authoritative list and this table as the map of the big ones.
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
 | 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) done 2026-09-13 and **W5.4** (styles, sizing, sorting, including the `DGV-13` default-value flip) done 2026-09-14. **W5.5** (mouse/keyboard, including the `DGV-26` combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **W5.21** (buttons, labels, pictures) done 2026-09-14, closing 13 findings plus `SMP-04` and half of `SMP-06`. **W5.25** (scrolling containers) done 2026-09-14, closing the last four layout findings in the phase — **Phase 5 has no items left open except the `MouseDownBackColor` half of `SMP-06`** (no pressed state exists on `ButtonBase` to read — needs its own item, see `SMP-06` in `simple-controls.md`). |
-| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). **W6.1 in progress:** the `DataGridView` slice done 2026-09-14 — `ColumnWidthChanged`, `RowHeightChanged`, `ColumnSortModeChanged`, `ColumnHeadersHeightChanged`, `RowHeadersWidthChanged`, `AutoSizeColumnModeChanged`, 6 of the area's 14 `InertEventBaseline` entries (`CellValueNeeded`/`CellValuePushed`, `DefaultValuesNeeded`/`NewRowNeeded`/`UserAddedRow` and `ColumnDisplayIndexChanged` are blocked on features that do not exist yet — `VirtualMode`, the new-row placeholder, column reordering — and `RowStateChanged`/`CellStateChanged` need the batch-selection paths handled, not just the single-item one; see `docs/behaviour-gap/datagridview.md`). The `Control.BindingContextChanged` slice done 2026-09-15 — the setter half of `CTL-29`/`EVT-33`; the `AssignParent`/`CreateControl` cascade half is left open, pending a decision on what "handle created" means for a `Control` that has no handle. Areas remaining in the 45-entry `InertEventBaseline` and the 117-entry `UnraisedEventBaseline`, W6.2–W6.4 not started — tracked as GitHub issues #90–#93. **W6.3 done 2026-09-15** (coordinate-space audit): five public hit-test and rectangle members were in device pixels where `Bounds` and `MouseEventArgs` are logical — `ListBox.GetItemRectangle`, `ListView.HitTest`, `TreeView.HitTest`, `DataGridView.GetCellDisplayRectangle` and the column/row display rectangles — every one of them an exact no-op at scale 1. The rule (public members are logical; convert once at the boundary) is stated in `CoordinateSpaceTests`. Two findings raised and deferred: `LAY-31` (the `ListViewItem` bounds family, 33 call sites) and `LAY-32` (`TreeView`'s `PlusMinus` band is unreachable). **Open:** **W6.1**'s remaining slices, **W6.2** (stored-only sweep) and **W6.4** (getters that guess) — tracked as GitHub issues #90, #91 and #93. |
+| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). **W6.1 in progress:** the `DataGridView` slice done 2026-09-14 — `ColumnWidthChanged`, `RowHeightChanged`, `ColumnSortModeChanged`, `ColumnHeadersHeightChanged`, `RowHeadersWidthChanged`, `AutoSizeColumnModeChanged`, 6 of the area's 14 `InertEventBaseline` entries (`CellValueNeeded`/`CellValuePushed`, `DefaultValuesNeeded`/`NewRowNeeded`/`UserAddedRow` and `ColumnDisplayIndexChanged` are blocked on features that do not exist yet — `VirtualMode`, the new-row placeholder, column reordering — and `RowStateChanged`/`CellStateChanged` need the batch-selection paths handled, not just the single-item one; see `docs/behaviour-gap/datagridview.md`). The `Control.BindingContextChanged` slice done 2026-09-15 — the setter half of `CTL-29`/`EVT-33`; the `AssignParent`/`CreateControl` cascade half is left open, pending a decision on what "handle created" means for a `Control` that has no handle. Areas remaining in the 45-entry `InertEventBaseline` and the 117-entry `UnraisedEventBaseline`, W6.2–W6.4 not started — tracked as GitHub issues #90–#93. **W6.3 done 2026-09-15** (coordinate-space audit): five public hit-test and rectangle members were in device pixels where `Bounds` and `MouseEventArgs` are logical — `ListBox.GetItemRectangle`, `ListView.HitTest`, `TreeView.HitTest`, `DataGridView.GetCellDisplayRectangle` and the column/row display rectangles — every one of them an exact no-op at scale 1. The rule (public members are logical; convert once at the boundary) is stated in `CoordinateSpaceTests`. Two findings raised and deferred: `LAY-31` (the `ListViewItem` bounds family, 33 call sites) and `LAY-32` (`TreeView`'s `PlusMinus` band is unreachable). **W6.4 done 2026-09-15** (getters that guess): all four members the item named had already been fixed by earlier work, so the job was finding what still guessed — four members of `Graphics`'s clipping family (`IsVisibleClipEmpty` and the three `IsVisible` overloads), every one answerable from the real `ClipBounds`, and between them the early-out every custom-drawn control is written around. Of 39 members returning a bare literal, most are facts rather than guesses; two (`HasDefaultCellStyle`, `TreeNode.IsEditing`) are recorded as decisions with their reasons. **Open:** **W6.1**'s remaining slices, **W6.2** (stored-only sweep) — tracked as GitHub issues #90 and #91. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero

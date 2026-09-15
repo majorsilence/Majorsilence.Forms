@@ -74,6 +74,14 @@ namespace Majorsilence.Forms
         /// the rest). A column's <c>ShouldSerializeDefaultCellStyle</c> asks this before inspecting the
         /// style, which is what a designer serialiser and a themed column both call.
         /// </remarks>
+        /// <remarks>
+        /// W6.4 (RC-9): deliberately still `true`. Tracking assignment would be easy and would be
+        /// WRONG: the common designer form is in-place mutation (`col.DefaultCellStyle.BackColor =
+        /// Red`), which no assignment flag sees, so `ShouldSerializeDefaultCellStyle` would answer
+        /// false and the style would be silently dropped from serialisation -- a worse failure than the
+        /// over-serialisation it fixes. Computing it honestly needs a value comparison on
+        /// `DataGridViewCellStyle`, which does not exist yet.
+        /// </remarks>
         public bool HasDefaultCellStyle => true;
 
         /// <summary>Gets whether the column is currently on screen.</summary>
