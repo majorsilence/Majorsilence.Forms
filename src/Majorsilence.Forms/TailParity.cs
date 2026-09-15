@@ -65,6 +65,13 @@ namespace Majorsilence.Forms
         public string StateImageKey { get; set; } = string.Empty;
 
         /// <summary>Gets whether the node's label is being edited.</summary>
+        /// <remarks>
+        /// W6.4 (RC-9): false is the correct answer rather than a guess -- this layer has no label
+        /// editing at all, so a node is never being edited. (`TreeView.BeforeLabelEdit`/`AfterLabelEdit`
+        /// are still inert; see W6.1.) Recorded here because a bare constant on a state-reporting
+        /// member is indistinguishable from a computed one at the call site, and the reader deserves to
+        /// know which this is.
+        /// </remarks>
         public bool IsEditing => false;
 
         /// <summary>Gets whether every ancestor of this node is expanded.</summary>
