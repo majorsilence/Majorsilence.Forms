@@ -1,0 +1,26 @@
+# Events in Majorsilence.Forms.Telerik declared `add { } remove { }` -- they compile, accept
+# a handler and discard it, so the subscription silently never fires. Separate from
+# InertEventBaseline.txt so a core regression and a Telerik regression stay distinguishable.
+# See TelerikInertEventBaselineTests and issue #176 (step 1).
+#
+# 10 of 73 events a consumer can subscribe to.
+#
+# None of the #91 false-clean traps apply here, and that is a property of the shape rather
+# than of the scan: an empty accessor never stores the delegate, so no reachable raiser could
+# exist to be found. Unlike its two companions this gate asks exactly what the core one asks.
+#
+# With the 16 in TelerikUnraisedEventBaseline.txt that is 26 of 73 events that a
+# consumer can wire a handler to and never hear from. Shrinking the union is issue #176 step 2;
+# the highest-value entries there are the per-row and per-cell formatting events, which is how
+# Telerik LOB code colours its grids.
+# Regenerate with MAJORSILENCE_WRITE_INERT_EVENT_BASELINE=1.
+Majorsilence.Forms.Telerik.RadDateTimePicker.Opened
+Majorsilence.Forms.Telerik.RadPageView.PageCollapsed
+Majorsilence.Forms.Telerik.RadPageView.PageRemoving
+Majorsilence.Forms.Telerik.RadPropertyGrid.ContextMenuOpening
+Majorsilence.Forms.Telerik.RadPropertyGrid.Edited
+Majorsilence.Forms.Telerik.RadPropertyGrid.EditorInitialized
+Majorsilence.Forms.Telerik.RadPropertyGrid.EditorRequired
+Majorsilence.Forms.Telerik.RadPropertyGrid.ItemFormatting
+Majorsilence.Forms.Telerik.RadPropertyGrid.ItemMouseClick
+Majorsilence.Forms.Telerik.RadPropertyGrid.ItemValueChanged

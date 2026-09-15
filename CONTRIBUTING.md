@@ -132,7 +132,7 @@ say so in a comment so the next reader does not mistake it for proof.
 
 ### The baseline gates
 
-Four committed baselines pin how hollow the layer is, and shrinking them is the point. Each fails if an
+Committed baselines pin how hollow the layer is, and shrinking them is the point. Each fails if an
 entry is **added** (you introduced a new stub) and prompts if one is **removed** (you wired something
 up — regenerate and commit the smaller file):
 
@@ -142,13 +142,26 @@ up — regenerate and commit the smaller file):
 | `InertEventBaseline.txt` | events whose accessors are `add { } remove { }` | `MAJORSILENCE_WRITE_INERT_EVENT_BASELINE=1` |
 | `UnraisedEventBaseline.txt` | field-backed events nothing raises | `MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1` |
 | `StoredOnlyPropertyBaseline.txt` | settable auto-properties nothing reads | `MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1` |
+| `TelerikInertEventBaseline.txt` | the same, over `Majorsilence.Forms.Telerik` | `MAJORSILENCE_WRITE_INERT_EVENT_BASELINE=1` |
+| `TelerikUnraisedEventBaseline.txt` | " | `MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1` |
+| `TelerikStoredOnlyPropertyBaseline.txt` | " | `MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1` |
 
 ```bash
 MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1 dotnet test --filter "FullyQualifiedName~StoredOnly"
 ```
 
-Absence from a baseline is not a certificate: "read by code that is itself inert" needs transitive
-reachability, which the scanners do not do. They are the floor, not the ceiling.
+One switch rewrites both the core file and its Telerik counterpart, but the files stay separate so a
+core regression and a Telerik regression are never confused for each other.
+
+Absence from a **core** baseline is not a certificate: "read by code that is itself inert" needs
+transitive reachability, which those scanners do not do. They are the floor, not the ceiling.
+
+The three **Telerik** gates do walk that reachability — a liveness closure and a value-escape closure,
+because a layer built out of forwarders onto `MasterTemplate` reads clean to a single-hop scan when
+almost none of it does anything. Each Telerik baseline's header says trap by trap what its scan does
+and does not eliminate; read that before trusting the number. The two scans live side by side in
+`StubSurfaceScanner`, and the strict one can only ever find more, so the gap between them is the size
+of the blind spot.
 
 The **API gap gate** is separate: [`tools/Majorsilence.Forms.ApiDiff`](tools/Majorsilence.Forms.ApiDiff)
 diffs the public surface against the real reference assemblies by reflection. Both baselines are at

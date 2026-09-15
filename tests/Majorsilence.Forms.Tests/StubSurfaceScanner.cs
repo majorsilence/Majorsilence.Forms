@@ -13,6 +13,8 @@ namespace Majorsilence.Forms.Tests;
 /// Reads the built assembly's metadata and IL to find members that compile, run, and silently do
 /// nothing. Shared by the three baseline gates: <see cref="InertEventBaselineTests"/>,
 /// <see cref="UnraisedEventBaselineTests"/> and <see cref="StoredOnlyPropertyBaselineTests"/>.
+/// The scans here answer one hop; the other half of this class (StubSurfaceScanner.Reachability.cs)
+/// answers the same questions transitively for the Telerik gates, and says why that is needed there.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -31,7 +33,7 @@ namespace Majorsilence.Forms.Tests;
 /// exact.
 /// </para>
 /// </remarks>
-internal static class StubSurfaceScanner
+internal static partial class StubSurfaceScanner
 {
     /// <summary>An event whose add/remove accessors both have an empty body -- `add { } remove { }`.</summary>
     internal const string InertEventBaselineFileName = "InertEventBaseline.txt";
