@@ -126,7 +126,7 @@ namespace Majorsilence.Forms
             // second click of an already-selected row. The glyph test is in device units, like the
             // bounds it compares against -- the mouse arrives logical.
             var device = new Point (LogicalToDeviceUnits (e.Location.X), LogicalToDeviceUnits (e.Location.Y));
-            var on_glyph = GlyphBounds (GetItemRectangle (index)).Contains (device);
+            var on_glyph = GlyphBounds (GetItemRectangleDevice (index)).Contains (device);
 
             if (on_glyph || CheckOnClick || was_selected_before_click == index)
                 SetItemChecked (index, !GetItemChecked (index));

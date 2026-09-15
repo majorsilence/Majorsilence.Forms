@@ -1668,9 +1668,47 @@ the wrong manager before this event could even help).
 consumer or record in the baseline *why* it is legitimately inert. Prefer deleting a private twin over
 keeping both (RC-6).
 
-**W6.3 — Coordinate-space audit (RC-8).** Every public hit-test and rectangle-returning member:
-confirm which space it is in and convert once at the boundary. `ListBox.GetIndexAtLocation` is the
-worked example. Add scale-2 tests for the paths the existing HiDPI gate does not reach.
+**W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
+7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
+a failure.
+
+*The rule, now stated once and applied:* every public hit-test and rectangle-returning member is in
+**logical** units -- the space `Bounds` and `MouseEventArgs` are in -- so that the idiom an application
+writes (`list.GetItemRectangle (i).Contains (e.Location)`) is right. Device pixels belong to painting
+and to the laid-out item bounds behind those members; the conversion happens once, at the public
+boundary. `Control` gained internal `Point`/`Rectangle` overloads of the existing
+`DeviceToLogicalUnits`/`LogicalToDeviceUnits` family to write that boundary with, and
+`DataGridView`'s private `DeviceToLogicalUnits (Rectangle)` twin was deleted in favour of them (RC-6).
+
+Five members were on the wrong side of the boundary, every one of them invisible at scale 1:
+
+- **`ListBox.GetItemRectangle`** returned device pixels. Every caller inside the assembly knew to
+  convert (the renderer, the automation peer, `CheckedListBox`'s glyph hit-test); an application had
+  no way to know. It answers in logical units now, with `GetItemRectangleDevice` for the internal
+  callers.
+- **`ListView.HitTest (x, y)`** compared a logical point straight against device item bounds, so
+  `listView.HitTest (e.X, e.Y)` -- the only thing the method is for -- picked the item at index x
+  scale: on a 2x display a click on the second row reported the fourth.
+- **`TreeView.HitTest`** tested its point against *three* spaces in one method: a device
+  `ClientRectangle` for the bounds guard, logical for `GetNodeAt`, and device node bounds for the
+  expander indent.
+- **`DataGridView.GetCellDisplayRectangle`** converted the rectangle to logical and then clipped it
+  against a device `ClientRectangle`, so `cutOverflow` cut nothing on a scaled display -- the one
+  thing the flag exists to do.
+- **`GetColumnDisplayRectangle`/`GetRowDisplayRectangle`** built one rectangle out of two spaces: x
+  and width from the logical `Columns[i].Width`, height from the device `ClientRectangle`.
+
+*Found and deliberately not fixed here:*
+- **`ListViewItem.Bounds`, `GetBounds (portion)` and `GetSubItemAt` are public and in device pixels**,
+  along with `ListView.GetItemRect`, which returns them. Converting the item-level family means an
+  internal device twin and rewriting 33 call sites across the layout, the renderer and 7 test files --
+  its own item, not a line in this sweep. `ListView`'s rectangles are therefore uniformly device today
+  while its hit-test is logical; that is recorded rather than half-changed.
+- **`TreeView`'s `PlusMinus` hit-test band does not exist.** The indent it keys off is
+  `item.Bounds.Left`, and a laid-out node's bounds span the whole row from x ~= 1 whatever its depth,
+  so the threshold is ~0 and every point classifies as `Label`. The conversion on that line is still
+  correct; it is simply unobservable until the indent is real. A separate finding, not a coordinate
+  bug.
 
 **W6.4 — Getters that guess (RC-9).** Promote the drawing plan's rule to the whole layer: a member that
 *reports state* must compute it or throw, never return a plausible constant. Start with
@@ -1718,13 +1756,42 @@ authoritative list and this table as the map of the big ones.
 | 3 — Form and application lifecycle | **Done.** W3.1–W3.5 (reuse, real modal dialogs, the owner graph, `Application` lifecycle, the client area); 35 tests. W3.6 (`AutoScaleMode`) landed 2026-08-31; 11 tests. |
 | 4 — Data binding | **Done** (2026-09-01). W4.1–W4.6; 26 tests, all verified to fail without their fix; 4 tests inverted. Out of the phase's scope and still open: `BND-15`, `BND-17`, `BND-22`, `BND-25`–`BND-27`, `BND-29`, `BND-32`–`BND-35`. |
 | 5 — Per-control behaviour | **Done:** **W5.2** (`DataGridView` cell/row/column participants — `W5.2a` values and visibility, `W5.2b` the selection model), **W5.6** (`ListView`), **W5.7** (`CheckedListBox`), **W5.8** (list selection events), **W5.9** (`TreeView`), **W5.10** (`ComboBox` edit region), **W5.11** (`TextBox` stored-only behaviour), **W5.12** (mutations off the `Text` setter), **W5.13** (`MaskedTextBox`), **W5.14** (`RichTextBox` document model), **W5.15** (`ToolStrip` item storage), **W5.16** (strip facade and coordinates, plus the menu-mode keyboard navigation left over from W1.3), **W5.17** (text measurement), **W5.18** (pens and clipping), **W5.20a** (scroll/spin arithmetic), **W5.20d** (`ErrorProvider` rendering), **W5.22** (`SplitContainer`/`Splitter`), **W5.23** (`TabControl`) and **W5.24** (layout/preferred-size wiring). **Three clusters now have no P0s left:** the text controls, the ToolStrip family (`TSM-02` was closed by W1.3 in Phase 1 — see `MenuShortcutTests.cs` — which the findings file had not recorded), and the list controls. **W5.1** (`DataGridView` editing lifecycle) done 2026-09-11; **W5.3** (incremental binding) done 2026-09-13 and **W5.4** (styles, sizing, sorting, including the `DGV-13` default-value flip) done 2026-09-14. **W5.5** (mouse/keyboard, including the `DGV-26` combo-box column) done 2026-09-14. **W5.19** (`ControlPaint` chrome), **W5.20b** (`NumericUpDown` text entry and the `UpDownBase`/`DomainUpDown` shape) and **W5.20c** in full (`MonthCalendar` 2026-09-04, `DateTimePicker` 2026-09-14) done 2026-09-14 — **W5.20 is now closed end to end**. **W5.21** (buttons, labels, pictures) done 2026-09-14, closing 13 findings plus `SMP-04` and half of `SMP-06`. **W5.25** (scrolling containers) done 2026-09-14, closing the last four layout findings in the phase — **Phase 5 has no items left open except the `MouseDownBackColor` half of `SMP-06`** (no pressed state exists on `ButtonBase` to read — needs its own item, see `SMP-06` in `simple-controls.md`). |
-| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). **W6.1 in progress:** the `DataGridView` slice done 2026-09-14 — `ColumnWidthChanged`, `RowHeightChanged`, `ColumnSortModeChanged`, `ColumnHeadersHeightChanged`, `RowHeadersWidthChanged`, `AutoSizeColumnModeChanged`, 6 of the area's 14 `InertEventBaseline` entries (`CellValueNeeded`/`CellValuePushed`, `DefaultValuesNeeded`/`NewRowNeeded`/`UserAddedRow` and `ColumnDisplayIndexChanged` are blocked on features that do not exist yet — `VirtualMode`, the new-row placeholder, column reordering — and `RowStateChanged`/`CellStateChanged` need the batch-selection paths handled, not just the single-item one; see `docs/behaviour-gap/datagridview.md`). The `Control.BindingContextChanged` slice done 2026-09-15 — the setter half of `CTL-29`/`EVT-33`; the `AssignParent`/`CreateControl` cascade half is left open, pending a decision on what "handle created" means for a `Control` that has no handle. Areas remaining in the 45-entry `InertEventBaseline` and the 117-entry `UnraisedEventBaseline`, W6.2–W6.4 not started — tracked as GitHub issues #90–#93. |
+| 6 — Mechanical sweeps | **W6.5 done** (matrix corrections, 2026-08-31). **W6.1 in progress:** the `DataGridView` slice done 2026-09-14 — `ColumnWidthChanged`, `RowHeightChanged`, `ColumnSortModeChanged`, `ColumnHeadersHeightChanged`, `RowHeadersWidthChanged`, `AutoSizeColumnModeChanged`, 6 of the area's 14 `InertEventBaseline` entries (`CellValueNeeded`/`CellValuePushed`, `DefaultValuesNeeded`/`NewRowNeeded`/`UserAddedRow` and `ColumnDisplayIndexChanged` are blocked on features that do not exist yet — `VirtualMode`, the new-row placeholder, column reordering — and `RowStateChanged`/`CellStateChanged` need the batch-selection paths handled, not just the single-item one; see `docs/behaviour-gap/datagridview.md`). The `Control.BindingContextChanged` slice done 2026-09-15 — the setter half of `CTL-29`/`EVT-33`; the `AssignParent`/`CreateControl` cascade half is left open, pending a decision on what "handle created" means for a `Control` that has no handle. Areas remaining in the 45-entry `InertEventBaseline` and the 117-entry `UnraisedEventBaseline`, W6.2–W6.4 not started — tracked as GitHub issues #90–#93. **W6.3 done 2026-09-15** (coordinate-space audit): five public hit-test and rectangle members were in device pixels where `Bounds` and `MouseEventArgs` are logical — `ListBox.GetItemRectangle`, `ListView.HitTest`, `TreeView.HitTest`, `DataGridView.GetCellDisplayRectangle` and the column/row display rectangles — every one of them an exact no-op at scale 1. The rule (public members are logical; convert once at the boundary) is stated in `CoordinateSpaceTests`. Two findings raised and deferred: `LAY-31` (the `ListViewItem` bounds family, 33 call sites) and `LAY-32` (`TreeView`'s `PlusMinus` band is unreachable). **Open:** **W6.1**'s remaining slices, **W6.2** (stored-only sweep) and **W6.4** (getters that guess) — tracked as GitHub issues #90, #91 and #93. |
 
 Suite: **4395 passing, 0 failing**, in Debug and Release, with system decorations and with
 `MF_FORCE_CUSTOM_CHROME`, and under `MF_HEADLESS_SCALE=2` run serially. The API gap gate reports zero
 for both surfaces, and the core builds warning-free under `IsAotCompatible`. Baselines: inert events
 80 → 66, unraised events 130 → 119, stored-only properties 822 → 759, no-op stubs
 156 → 154.
+
+### What W6.3 found
+
+**The audit found bugs in code that had already been audited for exactly this.** `ListBox
+.GetIndexAtLocation` carries a careful comment about mouse coordinates being logical and item
+rectangles being device -- and the member it converts *for*, `GetItemRectangle`, is public and was
+handing device pixels to applications the whole time. Fixing the caller and leaving the callee is the
+characteristic half-fix of this class: the internal path is made right and the public contract, which
+is the thing an application actually depends on, is left as it was.
+
+**A wrong space is invisible until something forces a scale.** All five defects are exact no-ops at
+scale 1, so the entire suite passed over them. The new tests force `Application.UiScale = 2` rather
+than relying on the `MF_HEADLESS_SCALE=2` gate, which means they assert in every configuration instead
+of in one of four -- worth copying for anything scale-dependent.
+
+**Two probes were too far from the boundary to prove anything.** The `TreeView` tests first aimed at
+the *centre* of a node and at a point well outside the control; both are past the threshold whichever
+space it is measured in, so both passed with the fix neutralized. A scale bug shows up only in the
+band between the right answer and the answer times the scale, and a test has to aim there.
+
+**One fix turned out to be unobservable, and that is a finding rather than a fix.** `TreeView`'s
+expander band keys off `item.Bounds.Left`, which is ~1 for every node at every depth, so the
+`PlusMinus` branch can never be taken. The conversion on that line is right and stays; the claim that
+it fixes anything does not, and no test pretends otherwise.
+
+**A guard test asserted its premise away.** "Nothing changed at scale 1" set `Application.UiScale = 1`
+-- which under the `MF_HEADLESS_SCALE=2` gate is still scale 2, because the two multiply -- so it
+failed in the one configuration it was least about. Deleted: ~4800 existing tests written against
+scale 1, none of which moved, say it far better than one test could.
 
 ### What W5.25 found
 

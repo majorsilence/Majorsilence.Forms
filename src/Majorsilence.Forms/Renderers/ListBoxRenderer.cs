@@ -17,7 +17,7 @@ namespace Majorsilence.Forms.Renderers
             // and one extra row peeks in at the bottom. The Clip above trims both.
             for (var i = control.FirstVisibleIndex; i < Math.Min (control.Items.Count, control.FirstVisibleIndex + control.VisibleItemCount + 2); i++) {
                 var item = control.Items[i];
-                var bounds = control.GetItemRectangle (i);
+                var bounds = control.GetItemRectangleDevice (i);
 
                 RenderItem (control, item, i, bounds, e);
             }

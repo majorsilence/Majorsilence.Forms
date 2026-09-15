@@ -1057,6 +1057,27 @@ namespace Majorsilence.Forms
         public Size DeviceToLogicalUnits (Size value)
             => new Size (DeviceToLogicalUnits (value.Width), DeviceToLogicalUnits (value.Height));
 
+        // W6.3, the coordinate-space audit. Every public hit-test and rectangle-returning member is in
+        // LOGICAL units -- the space Bounds and MouseEventArgs are in, so that the idiom an application
+        // actually writes (`GetItemRectangle (i).Contains (e.Location)`) is right. Device pixels belong
+        // to painting and to the laid-out item bounds behind these members, so the conversion happens
+        // once, at the public boundary. These two overloads are what that boundary is written with.
+        internal Point DeviceToLogicalUnits (Point value)
+            => new Point (DeviceToLogicalUnits (value.X), DeviceToLogicalUnits (value.Y));
+
+        internal Rectangle DeviceToLogicalUnits (Rectangle value)
+            => new Rectangle (
+                DeviceToLogicalUnits (value.X), DeviceToLogicalUnits (value.Y),
+                DeviceToLogicalUnits (value.Width), DeviceToLogicalUnits (value.Height));
+
+        internal Point LogicalToDeviceUnits (Point value)
+            => new Point (LogicalToDeviceUnits (value.X), LogicalToDeviceUnits (value.Y));
+
+        internal Rectangle LogicalToDeviceUnits (Rectangle value)
+            => new Rectangle (
+                LogicalToDeviceUnits (value.X), LogicalToDeviceUnits (value.Y),
+                LogicalToDeviceUnits (value.Width), LogicalToDeviceUnits (value.Height));
+
         /// <summary>
         /// Converts an unscaled Padding to a scaled Padding.
         /// </summary>

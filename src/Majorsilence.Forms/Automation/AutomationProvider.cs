@@ -133,10 +133,10 @@ namespace Majorsilence.Forms.Automation
             var end = System.Math.Min (list.Items.Count, list.TopIndex + list.VisibleItemCount + 1);
 
             for (var index = System.Math.Max (0, list.TopIndex); index < end; index++) {
-                // GetItemRectangle is built from ClientRectangle and ScaledItemHeight, so it comes back in
+                // GetItemRectangleDevice is built from ClientRectangle and ScaledItemHeight, so it is in
                 // device pixels, while every Bounds in this tree is logical. Converting here is what keeps a
                 // click landing on the item on a scaled display rather than at 1/scale of it.
-                var device = list.GetItemRectangle (index);
+                var device = list.GetItemRectangleDevice (index);
                 if (device.Width <= 0 || device.Height <= 0)
                     continue;
 
