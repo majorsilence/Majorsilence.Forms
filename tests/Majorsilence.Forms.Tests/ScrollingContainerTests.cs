@@ -160,6 +160,32 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void A_negative_AutoScrollMargin_is_rejected_by_the_property ()
+        {
+            // LAY-32's other half, which W5.25 missed: upstream's property throws on a negative
+            // component. A negative margin silently accepted enlarges nothing and quietly mis-reports
+            // itself back to the caller forever.
+            using var host = new ScrollHost (childTop: 400);
+
+            Assert.Throws<ArgumentOutOfRangeException> (() => host.Panel.AutoScrollMargin = new Size (-1, 0));
+            Assert.Throws<ArgumentOutOfRangeException> (() => host.Panel.AutoScrollMargin = new Size (0, -1));
+            Assert.Equal (Size.Empty, host.Panel.AutoScrollMargin);
+        }
+
+        [Fact]
+        public void A_negative_SetAutoScrollMargin_is_clamped_rather_than_rejected ()
+        {
+            // The deliberate asymmetry, and upstream's: the property is what designer code assigns, so
+            // a negative there is a bug worth surfacing; the method is the programmatic path and has
+            // always been forgiving. Pinned because the obvious "tidy-up" is to make them agree.
+            using var host = new ScrollHost (childTop: 400);
+
+            host.Panel.SetAutoScrollMargin (-5, 12);
+
+            Assert.Equal (new Size (0, 12), host.Panel.AutoScrollMargin);
+        }
+
+        [Fact]
         public void ScrollControlIntoView_brings_a_child_below_the_fold_into_view ()
         {
             // The finding's own test: tabbing or Focus()ing into a control below the fold used to

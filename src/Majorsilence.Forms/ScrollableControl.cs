@@ -70,23 +70,49 @@ namespace Majorsilence.Forms
         /// brings a control into view.
         /// </summary>
         /// <remarks>
-        /// LAY-30: this was an auto-property, while <c>Recalculate</c> read a private field of the same
+        /// <para>
+        /// LAY-32: this was an auto-property, while <c>Recalculate</c> read a private field of the same
         /// name that nothing ever wrote -- so the margin was stored, reported back, and applied to
-        /// nothing. The two are now one store.
+        /// nothing. The two are now one store. (W5.25 landed that half and recorded it under
+        /// <c>LAY-30</c>, which was the wrong finding; it is this one.)
+        /// </para>
+        /// <para>
+        /// The property REJECTS a negative component where <see cref="SetAutoScrollMargin"/> CLAMPS it,
+        /// which looks inconsistent and is upstream's behaviour exactly: the property is what designer
+        /// code assigns and a negative there is a bug worth surfacing, while the method is the
+        /// programmatic path and has always been forgiving.
+        /// </para>
         /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">Either component of <paramref name="value"/> is negative.</exception>
         public Size AutoScrollMargin {
             get => auto_scroll_margin;
             set {
-                if (auto_scroll_margin == value)
-                    return;
+                if (value.Width < 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value.Width, $"'{value.Width}' is not a valid value for 'AutoScrollMargin.Width'. It must be greater than or equal to 0.");
 
-                auto_scroll_margin = value;
-                PerformLayout (this, nameof (AutoScrollMargin));
+                if (value.Height < 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value.Height, $"'{value.Height}' is not a valid value for 'AutoScrollMargin.Height'. It must be greater than or equal to 0.");
+
+                SetAutoScrollMarginCore (value);
             }
         }
 
         /// <summary>Sets the size of the auto-scroll margin around the control (WinForms compat for AutoScrollMargin property).</summary>
-        public void SetAutoScrollMargin (int x, int y) => AutoScrollMargin = new Size (x, y);
+        /// <param name="x">The horizontal margin. A negative value is clamped to zero.</param>
+        /// <param name="y">The vertical margin. A negative value is clamped to zero.</param>
+        public void SetAutoScrollMargin (int x, int y)
+            => SetAutoScrollMarginCore (new Size (Math.Max (0, x), Math.Max (0, y)));
+
+        // The one assignment point, so the property and the method cannot drift apart on what a change
+        // actually does -- only on what they accept.
+        private void SetAutoScrollMarginCore (Size value)
+        {
+            if (auto_scroll_margin == value)
+                return;
+
+            auto_scroll_margin = value;
+            PerformLayout (this, nameof (AutoScrollMargin));
+        }
 
         /// <summary>
         /// Gets or sets the minimum logical size of the auto-scroll area. Setting a non-empty value
