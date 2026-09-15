@@ -1,0 +1,48 @@
+# Field-backed events in Majorsilence.Forms.Telerik that nothing live ever raises -- a handler
+# really is stored, and never called. Separate from UnraisedEventBaseline.txt so a core
+# regression and a Telerik regression stay distinguishable. See
+# TelerikUnraisedEventBaselineTests and issue #176 (step 1).
+#
+# 16 of 62 field-backed events (73 events are subscribable in all; the rest are
+# either inert -- see TelerikInertEventBaseline.txt -- or aliases forwarding to another event).
+#
+# NOT comparable with the core file's number: this is a stricter scan, in two ways.
+#
+#  * Trap 3 from #91 -- an `OnXxx` raiser holding `Xxx?.Invoke` that nothing ever calls. The
+#    core scan looks for the field read and stops; it does not ask whether any call path
+#    reaches the raiser. Over this assembly it finds 13 where this one finds 16, and the
+#    difference is precisely that shape: RadTreeView.NodeFormatting, NodeCheckedChanged and
+#    NodeCheckedChanging each have a correct `protected internal virtual OnNodeXxx` that no
+#    code in the assembly calls.
+#  * Events written by hand over a private `_name` delegate field. The core scan only
+#    recognises the compiler-generated backing field, which carries the event's own name, so
+#    this layer's hand-written pairs -- most of RadGridView's grid events -- were examined by
+#    no gate at all: not inert, not field-like. The store is recovered from the adder instead
+#    (it has to load the field to combine into it), which brings them under the gate. All of
+#    them turn out to be raised, which is why seven events the #176 grep lists as dead are
+#    absent from this file: ChildViewExpanding, CommandCellClick, CurrentColumnChanged,
+#    CurrentRowChanged, RowFormatting, SelectedPageChanged and ViewCellFormatting are wired.
+#
+# Not covered: an event raised only from code that runs but achieves nothing (that needs
+# value-level dataflow, not reachability), and an event whose accessors forward to another
+# type's event -- an alias, where the aliased event is the one examined.
+#
+# Shrinking this list is the goal, and it is usually a one-line fix: for most entries the
+# trigger point already exists and simply is not called.
+# Regenerate with MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1.
+Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.SelectedValueChanged
+Majorsilence.Forms.Telerik.ContextMenuService.ContextMenuDisplaying
+Majorsilence.Forms.Telerik.DocumentTabStrip.SelectedIndexChanged
+Majorsilence.Forms.Telerik.RadDock.DockTabStripNeeded
+Majorsilence.Forms.Telerik.RadGridView.CreateCell
+Majorsilence.Forms.Telerik.RadGridView.CurrentRowChanging
+Majorsilence.Forms.Telerik.RadGridView.CustomFiltering
+Majorsilence.Forms.Telerik.RadGridView.DefaultValuesNeeded
+Majorsilence.Forms.Telerik.RadGridView.EditorRequired
+Majorsilence.Forms.Telerik.RadGridView.FilterPopupRequired
+Majorsilence.Forms.Telerik.RadGridView.GroupExpanding
+Majorsilence.Forms.Telerik.RadGridView.GroupSummaryEvaluate
+Majorsilence.Forms.Telerik.RadGridView.SortChanging
+Majorsilence.Forms.Telerik.RadTreeView.NodeCheckedChanged
+Majorsilence.Forms.Telerik.RadTreeView.NodeCheckedChanging
+Majorsilence.Forms.Telerik.RadTreeView.NodeFormatting
