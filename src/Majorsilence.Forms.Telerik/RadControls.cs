@@ -282,8 +282,17 @@ namespace Majorsilence.Forms.Telerik
         public RadElement DateTimePickerElement { get; } = new RadElement ();
         /// <summary>Raised before the value changes. Stub (fires alongside ValueChanged).</summary>
         public event EventHandler<ValueChangingEventArgs>? ValueChanging;
-        /// <summary>Raised when the drop-down calendar opens. Stub.</summary>
-        public event EventHandler? Opened { add { } remove { } }
+        /// <summary>Raised when the drop-down calendar opens.</summary>
+        /// <remarks>
+        /// An alias for the engine's <see cref="DateTimePicker.DropDown"/>, which became real in
+        /// W5.20c. The accessors were previously <c>add { } remove { }</c>, which DISCARDS the
+        /// delegate at the add site -- worse than a never-raised event, because even a later <c>-=</c>
+        /// is meaningless and nothing can detect the loss at runtime.
+        /// </remarks>
+        public event EventHandler? Opened {
+            add => DropDown += value;
+            remove => DropDown -= value;
+        }
     }
 
     /// <summary>Provides data for a Telerik toggle state change.</summary>

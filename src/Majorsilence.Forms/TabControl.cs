@@ -64,6 +64,18 @@ namespace Majorsilence.Forms
         // detects a TabPage being added directly and redirects to TabPages.Insert, which itself
         // calls back into Controls.Insert once the page is already recorded in TabPages -- the
         // Contains check below prevents that from looping.
+        /// <summary>
+        /// Called before a page is removed from <see cref="TabPages"/>, so a subclass can veto the
+        /// removal. Returns true to proceed. Default: always true.
+        /// </summary>
+        /// <param name="page">The page about to be removed.</param>
+        /// <remarks>
+        /// A seam rather than an event: WinForms has no cancellable page-removal event, so adding one
+        /// here would be inventing surface. The Telerik compat page view overrides this to raise its
+        /// <c>PageRemoving</c>, which does exist upstream.
+        /// </remarks>
+        protected internal virtual bool OnPageRemoving (TabPage page) => true;
+
         private sealed class TabControlControlCollection : ControlCollection
         {
             private readonly TabControl _owner;
