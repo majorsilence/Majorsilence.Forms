@@ -452,11 +452,33 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Compat stand-in for Telerik's DataGroup (grid grouping node).</summary>
     public class DataGroup
     {
+        // Set when the grid projects this group, so Expand/Collapse can reach the collapse state the
+        // grid actually paints from rather than flipping a local bool nobody reads.
+        internal IGridGroupOwner? Owner { get; set; }
+
         /// <summary>The group key.</summary>
         public object? Key { get; set; }
 
-        /// <summary>The rows in this group. Empty stub — the compat grid does not expose group row lists.</summary>
+        /// <summary>
+        /// The rows in this group -- the leaf rows beneath it, including those in nested groups.
+        /// </summary>
         public System.Collections.Generic.List<GridViewRowInfo> Items { get; } = new ();
+
+        /// <summary>
+        /// The groups nested directly inside this one, empty for a leaf group.
+        /// </summary>
+        /// <remarks>
+        /// The grid has always grouped to any depth (<c>GroupDescriptors</c> is a list), and
+        /// <see cref="DataGroup"/> was flat -- so multi-level grouping could not be described at all,
+        /// even once the projection existed.
+        /// </remarks>
+        public System.Collections.Generic.List<DataGroup> Groups { get; } = new ();
+
+        /// <summary>How deep this group sits: 0 for a top-level group.</summary>
+        public int Level { get; internal set; }
+
+        /// <summary>The value every row in this group shares, as displayed.</summary>
+        public string HeaderText { get; internal set; } = string.Empty;
 
         /// <summary>Gets the number of rows in the group.</summary>
         public int ItemCount => Items.Count;
@@ -464,14 +486,36 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the row at the specified index within the group.</summary>
         public GridViewRowInfo this[int index] => Items[index];
 
-        /// <summary>Telerik compat: whether the group is expanded. Stored (compat grid does not collapse groups).</summary>
-        public bool IsExpanded { get; set; } = true;
+        /// <summary>Gets or sets whether the group is expanded on screen.</summary>
+        public bool IsExpanded {
+            get => Owner is null ? _expanded : Owner.IsGroupExpanded (this);
+            set {
+                _expanded = value;
 
-        /// <summary>Telerik compat: expands the group. Stub.</summary>
+                Owner?.SetGroupExpanded (this, value);
+            }
+        }
+
+        private bool _expanded = true;
+
+        /// <summary>Expands the group.</summary>
         public void Expand () => IsExpanded = true;
 
-        /// <summary>Telerik compat: collapses the group. Stub.</summary>
+        /// <summary>Collapses the group.</summary>
         public void Collapse () => IsExpanded = false;
+    }
+
+    /// <summary>
+    /// How a <see cref="DataGroup"/> reaches the grid that produced it, so its expand state is the
+    /// grid's rather than a copy.
+    /// </summary>
+    internal interface IGridGroupOwner
+    {
+        /// <summary>Whether the grid currently shows this group expanded.</summary>
+        bool IsGroupExpanded (DataGroup group);
+
+        /// <summary>Expands or collapses the group on the grid and repaints.</summary>
+        void SetGroupExpanded (DataGroup group, bool expanded);
     }
 
     /// <summary>Provides data for RadDock tab-strip creation. Mirrors Telerik's shape.</summary>

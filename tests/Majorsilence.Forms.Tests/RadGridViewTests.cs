@@ -129,6 +129,103 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (1, (int)grid.Rows[2].Cells["Dept"].Value!);
         }
 
+        // ---- W6.1 / #176: RadGridView.Groups, which returned Array.Empty while grouping worked ----
+
+        [Fact]
+        public void Groups_is_empty_when_nothing_is_grouped ()
+        {
+            using var grid = Populated ();
+
+            Assert.Empty (grid.Groups);
+        }
+
+        [Fact]
+        public void Groups_projects_the_groups_the_grid_is_showing ()
+        {
+            // The whole finding: the grid groups, and the object model exposing the groups was empty,
+            // so a consumer counting or labelling them silently saw nothing.
+            using var grid = Populated ();
+            grid.EnableGrouping = true;
+            grid.GroupByColumn ("Dept");
+
+            var groups = grid.Groups.ToList ();
+
+            // Three departments in the fixture: 1 (Alice, Carol), 2 (Bob, Eve), 3 (Dave).
+            Assert.Equal (3, groups.Count);
+            Assert.Equal (5, groups.Sum (g => g.ItemCount));
+            Assert.All (groups, g => Assert.Equal (0, g.Level));
+        }
+
+        [Fact]
+        public void A_group_carries_its_own_rows ()
+        {
+            using var grid = Populated ();
+            grid.EnableGrouping = true;
+            grid.GroupByColumn ("Dept");
+
+            // Department 3 has exactly one member, Dave -- a group whose contents are checkable
+            // without depending on the ordering of the others.
+            var single = grid.Groups.Single (g => g.ItemCount == 1);
+
+            Assert.Equal ("Dave", single[0].Cells["Name"].Value?.ToString ());
+        }
+
+        [Fact]
+        public void Groups_nest_when_there_is_more_than_one_descriptor ()
+        {
+            // The grid has always grouped to any depth; DataGroup was flat, so multi-level grouping
+            // could not be described at all even once the projection existed.
+            using var grid = Populated ();
+            grid.EnableGrouping = true;
+            grid.GroupByColumn ("Dept");
+            grid.GroupByColumn ("Name");
+
+            var top = grid.Groups.ToList ();
+
+            Assert.Equal (3, top.Count);
+            Assert.All (top, g => Assert.NotEmpty (g.Groups));
+            Assert.All (top, g => Assert.All (g.Groups, inner => Assert.Equal (1, inner.Level)));
+
+            // Every leaf row appears once, at the bottom of the tree.
+            Assert.Equal (5, top.Sum (g => g.Groups.Sum (inner => inner.ItemCount)));
+        }
+
+        [Fact]
+        public void Collapsing_through_the_object_model_collapses_the_grid ()
+        {
+            // IsExpanded used to be a bool on a detached object: Collapse() flipped it and the grid
+            // carried on showing every row.
+            using var grid = Populated ();
+            grid.EnableGrouping = true;
+            grid.GroupByColumn ("Dept");
+
+            Assert.Equal (5, grid.RowCount);
+
+            var single = grid.Groups.Single (g => g.ItemCount == 1);
+            single.Collapse ();
+
+            Assert.Equal (4, grid.RowCount);
+            Assert.False (grid.Groups.Single (g => Equals (g.Key, single.Key)).IsExpanded);
+        }
+
+        [Fact]
+        public void The_object_model_reports_a_collapse_made_on_the_grid ()
+        {
+            // The other direction: collapsing through the grid has to show up here, or the two are
+            // separate states that agree only by luck.
+            using var grid = Populated ();
+            grid.EnableGrouping = true;
+            grid.GroupByColumn ("Dept");
+
+            grid.CollapseAllGroups ();
+
+            Assert.All (grid.Groups, g => Assert.False (g.IsExpanded));
+
+            grid.ExpandAllGroups ();
+
+            Assert.All (grid.Groups, g => Assert.True (g.IsExpanded));
+        }
+
         [Fact]
         public void CollapseAll_HidesChildren_ExpandAll_Restores ()
         {

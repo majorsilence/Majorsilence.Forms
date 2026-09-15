@@ -20,7 +20,7 @@ namespace Majorsilence.Forms.Telerik
     /// into the group panel, expand/collapse groups), <b>drag-to-reorder</b> columns, and
     /// <see cref="SaveLayout(string)"/>/<see cref="LoadLayout(string)"/> persistence to Telerik-shaped XML.
     /// </summary>
-    public partial class RadGridView : DataGridView
+    public partial class RadGridView : DataGridView, IGridGroupOwner
     {
         /// <summary>Top-level rows of the current view. Mirrors Telerik (no hierarchy here, so all rows).</summary>
         public GridViewRowInfoCollection ChildRows => Rows;
@@ -1089,17 +1089,7 @@ namespace Majorsilence.Forms.Telerik
             var colIndex = ColumnIndexByName (descriptor.PropertyName);
             var header = ColumnHeaderByName (descriptor.PropertyName);
 
-            // rows are pre-sorted by the group keys, so equal values are contiguous.
-            var i = 0;
-            while (i < rows.Count) {
-                var value = GetCellDisplay (rows[i], colIndex);
-                var members = new List<DataGridViewRow> ();
-
-                while (i < rows.Count && string.Equals (GetCellDisplay (rows[i], colIndex), value, StringComparison.CurrentCultureIgnoreCase)) {
-                    members.Add (rows[i]);
-                    i++;
-                }
-
+            foreach (var (value, members) in EnumerateGroupRuns (rows, colIndex)) {
                 var key = BuildGroupKey (parentKey, level, value);
 
                 // When AutoExpandGroups is off, a group collapses by default the first time it appears.
@@ -1131,8 +1121,99 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
+        // The one definition of "what a group is": a contiguous run of rows sharing a display value.
+        // Shared by the row builder above and the DataGroup projection below, so the object model can
+        // never describe a different grouping from the one on screen.
+        private IEnumerable<(string Value, List<DataGridViewRow> Members)> EnumerateGroupRuns (List<DataGridViewRow> rows, int colIndex)
+        {
+            // rows are pre-sorted by the group keys, so equal values are contiguous.
+            var i = 0;
+
+            while (i < rows.Count) {
+                var value = GetCellDisplay (rows[i], colIndex);
+                var members = new List<DataGridViewRow> ();
+
+                while (i < rows.Count && string.Equals (GetCellDisplay (rows[i], colIndex), value, StringComparison.CurrentCultureIgnoreCase)) {
+                    members.Add (rows[i]);
+                    i++;
+                }
+
+                yield return (value, members);
+            }
+        }
+
         private static string BuildGroupKey (string parentKey, int level, string value)
             => $"{parentKey}/{level}:{value}";
+
+        // ---- the DataGroup projection (RadGridViewCompatGaps.Groups) ----
+
+        // Built from the same filtered+sorted rows BuildDisplayRows starts from, and split by the same
+        // EnumerateGroupRuns, so the object model and the painted rows cannot disagree. Collapse state
+        // is deliberately NOT consulted while walking: a collapsed group still has its members, and a
+        // consumer asking "what is in this group" means the contents, not what happens to be visible.
+        private List<DataGroup> BuildDataGroups ()
+        {
+            if (GroupDescriptors.Count == 0)
+                return new List<DataGroup> ();
+
+            var rows = FilteredMaster ();
+
+            if (GroupDescriptors.Count > 0 || SortDescriptors.Count > 0)
+                rows = StableSort (rows);
+
+            return BuildDataGroupLevel (rows, 0, string.Empty);
+        }
+
+        private List<DataGroup> BuildDataGroupLevel (List<DataGridViewRow> rows, int level, string parentKey)
+        {
+            var groups = new List<DataGroup> ();
+
+            if (level >= GroupDescriptors.Count)
+                return groups;
+
+            var descriptor = GroupDescriptors[level];
+            var colIndex = ColumnIndexByName (descriptor.PropertyName);
+
+            foreach (var (value, members) in EnumerateGroupRuns (rows, colIndex)) {
+                var key = BuildGroupKey (parentKey, level, value);
+                var group = new DataGroup {
+                    Owner = this,
+                    Key = key,
+                    Level = level,
+                    HeaderText = value,
+                };
+
+                // Every leaf row beneath this group, not just the ones at this level -- which is what
+                // ItemCount has to count for a group that has nested groups under it.
+                foreach (var member in members)
+                    group.Items.Add (new GridViewDataRowInfo (member));
+
+                group.Groups.AddRange (BuildDataGroupLevel (members, level + 1, key));
+                groups.Add (group);
+            }
+
+            return groups;
+        }
+
+        /// <inheritdoc/>
+        bool IGridGroupOwner.IsGroupExpanded (DataGroup group)
+            => group?.Key is string key && !_collapsed.Contains (key);
+
+        /// <inheritdoc/>
+        void IGridGroupOwner.SetGroupExpanded (DataGroup group, bool expanded)
+        {
+            if (group?.Key is not string key)
+                return;
+
+            // The same set ToggleGroupRow and CollapseAllGroups drive, so collapsing through the object
+            // model and clicking the group header are the same act.
+            if (expanded)
+                _collapsed.Remove (key);
+            else
+                _collapsed.Add (key);
+
+            RebuildView ();
+        }
 
         // ── Name / value helpers ──
 

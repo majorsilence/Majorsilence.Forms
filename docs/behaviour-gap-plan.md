@@ -1650,6 +1650,27 @@ does not exist — `DGV-05`), and `ColumnDisplayIndexChanged` (`DisplayIndex`'s 
 reordering is not implemented). None of these four groups has a single obvious trigger point the way
 the six above did; each is its own finding, not a line in this sweep.
 
+**W6.1 — the Telerik `RadGridView.Groups` slice. — done (2026-09-15).** Part of #176. `Groups` returned
+`Array.Empty<DataGroup> ()` while grouping was advertised as working -- and grouping genuinely does
+work: `GroupByColumn`, the drag-to-group panel, multi-level descriptors, per-group footers and collapse
+state are all real and tested. Only the object model exposing them was missing, so a consumer walking
+`Groups` to count, label or collapse them silently saw nothing.
+
+It is projected on demand from the same filtered and sorted rows the display is built from, split by
+the same run-detection -- which was factored out of `BuildGroupLevel` into `EnumerateGroupRuns` so the
+object model cannot describe a different grouping from the one on screen. `DataGroup` gained the
+nesting the grid has always supported (it was flat, so multi-level grouping could not be represented at
+all even once the projection existed) and a back-reference to the grid, so `IsExpanded`/`Expand`/
+`Collapse` read and write the grid's own collapse set rather than a detached bool: collapsing through
+the object model and clicking the group header are now the same act, in both directions. 6 tests, 3
+neutralizations each producing a failure.
+
+*A note on the baseline.* Two of the new members, `DataGroup.HeaderText` and `Level`, went straight
+onto the Telerik stored-only baseline -- nothing in the assembly reads them, because they exist for a
+consumer to read. That is a legitimately inert entry rather than a defect, and recording it is what the
+baseline is for; it is also a reminder that adding a projection type adds stored-only surface by
+construction.
+
 **W6.1 — the `Control.BindingContextChanged` slice. — done (2026-09-15).** Closes the setter half of
 `CTL-29`/`EVT-33`. `BindingContextChanged` went from `add { } remove { }` to field-backed, and
 `OnBindingContextChanged` (an empty virtual in `KryptonPortParity.cs` — "Never raised by this layer")
