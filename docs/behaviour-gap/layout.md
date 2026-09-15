@@ -423,3 +423,18 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Members declared but never called from the framework's own code paths.** `Control.ScaleControl`, `DefaultLayout.ScaleAnchorInfo`, `Control.ScrollControlIntoView`. A "no internal caller" scan over `protected virtual`/`internal static` members would surface this class cheaply — they are the extension points migrated apps override and never see fire.
 - **Events declared with `add { } remove { }`.** `Splitter.SplitterMoved`/`SplitterMoving` (`src/Majorsilence.Forms/Splitter.cs:137,140`). This shape is strictly worse than a `#pragma warning disable CS0067` field-like event: the handler is discarded at subscription time and there is no way for a test or for reflection to observe that nothing is wired.
 - **Perf, not correctness:** `IArrangedElement.Children` is `IEnumerable<Control>` in our port (`src/Majorsilence.Forms/Control.Layout.cs:155`) where upstream uses an indexed `ArrangedElementCollection`, so every `children.Count()` / `children.ElementAt(i)` in the ported engines re-enumerates — `LayoutAnchoredControls`, `LayoutDockedControls` and `TryCalculatePreferredSize` are all O(n^2) per layout pass.
+
+### LAY-31 — `ListViewItem.Bounds` / `GetBounds` / `GetSubItemAt` and `ListView.GetItemRect` are public and in device pixels — Cat A — P1 — High
+- **Ours:** `ListView.LayoutRows`/`LayoutTiles` set item bounds from `ScaledRowHeight`, so every one of these public members answers in device pixels, while `Bounds` and `MouseEventArgs` elsewhere in the framework are logical (`src/Majorsilence.Forms/ListView.cs:228-271`, `ListViewParity.cs:621,636`).
+- **Upstream:** WinForms has one client-coordinate space; `ListViewItem.Bounds` is in it, and so is `e.Location`.
+- **Impact:** `listView.GetItemRect (i).Contains (e.Location)` and `item.GetSubItemAt (e.X, e.Y)` are wrong by the display scale on any HiDPI display — the same class W6.3 fixed for `ListBox`, `TreeView` and `DataGridView`. `ListView.HitTest` was fixed there; these were not.
+- **Fix:** Store the laid-out rectangle as an internal device-space `DeviceBounds` and have `Bounds`/`GetBounds`/`GetSubItemAt`/`GetItemRect` convert at the boundary, as `ListBox.GetItemRectangle`/`GetItemRectangleDevice` now do.
+- **Why not in W6.3:** 33 internal call sites across the layout, the renderer and 7 test files. Its own item, not a line in a sweep.
+- **Tests today:** `CoordinateSpaceTests` pins the members that were fixed; these are explicitly not covered.
+
+### LAY-32 — `TreeView.HitTest` can never report `PlusMinus` — Cat A — P2 — Medium
+- **Ours:** the expander band is `pt.X < item.Bounds.Left` (`src/Majorsilence.Forms/MidSizeControlParity.Two.cs:174-197`), and a laid-out node's `Bounds.Left` is ~1 whatever its depth — the rectangle spans the whole row — so the threshold is ~0 and every point in the control classifies as `Label`.
+- **Upstream:** the hit-test distinguishes the plus/minus glyph, the state image, the label and the indent, each from its own measured region.
+- **Impact:** the standard "did the user click the expander rather than the node?" test is unanswerable; a handler that uses it to toggle expansion never fires.
+- **Fix:** give the node's laid-out rectangle an indent (or expose the glyph rectangle the renderer already computes) and key the band off that.
+- **Tests today:** none — `CoordinateSpaceTests` records in a comment why it does not pin this.

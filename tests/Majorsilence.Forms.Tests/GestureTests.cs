@@ -250,12 +250,14 @@ public class GestureTests
             // Sub-row drag: FirstVisibleIndex unchanged, but item 0's rectangle is lifted above the top.
             form.HandleScrollGesture (at.X, at.Y, 0, -rowH / 4);
             Assert.Equal (0, list.FirstVisibleIndex);
-            Assert.True (list.GetItemRectangle (0).Y < list.ClientRectangle.Top,
+            // The device-space accessor, because these compare against ClientRectangle, which is in
+            // device pixels. GetItemRectangle itself answers in logical units as of W6.3.
+            Assert.True (list.GetItemRectangleDevice (0).Y < list.ClientRectangle.Top,
                 "sub-row drag should lift item 0 above the client top");
 
             // A whole-row programmatic scroll clears the sub-row remainder -- the anchored row sits flush.
             list.FirstVisibleIndex = 4;
-            Assert.Equal (list.ClientRectangle.Top, list.GetItemRectangle (4).Y);
+            Assert.Equal (list.ClientRectangle.Top, list.GetItemRectangleDevice (4).Y);
         } finally {
             form.Close ();
         }

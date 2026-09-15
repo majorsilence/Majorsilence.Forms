@@ -204,7 +204,8 @@ namespace Majorsilence.Forms.Tests
             var checks = 0;
             box.ItemCheck += (_, _) => checks++;
 
-            var row = box.GetItemRectangle (1);
+            // Device space: this indexes into a rendered bitmap. See W6.3.
+            var row = box.GetItemRectangleDevice (1);
             var glyph = box.GlyphBounds (row);
 
             // Clicks arrive in logical units; the glyph rectangle is device.
@@ -269,7 +270,7 @@ namespace Majorsilence.Forms.Tests
             // its left edge, so a column starting at x=0 counts that border as ink and the comparison
             // stops discriminating (which is how the first version of this test read 109 "ink" pixels
             // from a list box drawing no glyph).
-            var glyph = checkedBox.GlyphBounds (checkedBox.GetItemRectangle (0));
+            var glyph = checkedBox.GlyphBounds (checkedBox.GetItemRectangleDevice (0));
 
             Assert.True (InkIn (checkedBox, glyph) > 0,
                 "a checked item should draw a glyph before its text");

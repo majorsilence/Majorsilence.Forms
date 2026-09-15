@@ -187,6 +187,17 @@ namespace Majorsilence.Forms
         /// says whether the point was on the label, the image, or nothing at all.</remarks>
         public ListViewHitTestInfo HitTest (int x, int y)
         {
+            // W6.3: the point comes from a mouse handler and so is LOGICAL, as MouseEventArgs is,
+            // while the item bounds are laid out against ScaledRowHeight and are in DEVICE pixels.
+            // Compared directly, `listView.HitTest (e.X, e.Y)` -- the whole idiom this method exists
+            // for -- picked the item at index x scale, so on a 2x display a click on the second row
+            // reported the fourth. Converted once here; the loop below is device throughout. Mirrors
+            // ListBox.GetIndexAtLocation and TreeView.GetItemAtLocation.
+            var point = LogicalToDeviceUnits (new Point (x, y));
+
+            x = point.X;
+            y = point.Y;
+
             foreach (var item in Items) {
                 if (!item.Bounds.Contains (x, y))
                     continue;

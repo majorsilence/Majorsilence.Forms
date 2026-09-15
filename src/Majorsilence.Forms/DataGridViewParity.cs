@@ -507,8 +507,14 @@ namespace Majorsilence.Forms
                 if (Columns[i].Visible)
                     x += Columns[i].Width;
 
-            var rectangle = new Rectangle (x, 0, Columns[columnIndex].Width, ClientRectangle.Height);
-            return cutOverflow ? Rectangle.Intersect (rectangle, ClientRectangle) : rectangle;
+            // W6.3: x and Width come from Columns[i].Width and RowHeadersWidth, which are LOGICAL --
+            // and the height came straight from ClientRectangle, which is in DEVICE pixels. One
+            // rectangle, two spaces: on a scaled display the column came back the right width and
+            // twice the height, and cutOverflow clipped against a box twice the size of the control.
+            var client = DeviceToLogicalUnits (ClientRectangle);
+            var rectangle = new Rectangle (x, 0, Columns[columnIndex].Width, client.Height);
+
+            return cutOverflow ? Rectangle.Intersect (rectangle, client) : rectangle;
         }
 
         /// <summary>Returns the on-screen rectangle of a row, in client coordinates.</summary>
@@ -523,8 +529,12 @@ namespace Majorsilence.Forms
                 if (Rows[i].Visible)
                     y += Rows[i].Height;
 
-            var rectangle = new Rectangle (0, y, ClientRectangle.Width, Rows[rowIndex].Height);
-            return cutOverflow ? Rectangle.Intersect (rectangle, ClientRectangle) : rectangle;
+            // W6.3: as GetColumnDisplayRectangle above -- y and Height are logical, the width was
+            // device.
+            var client = DeviceToLogicalUnits (ClientRectangle);
+            var rectangle = new Rectangle (0, y, client.Width, Rows[rowIndex].Height);
+
+            return cutOverflow ? Rectangle.Intersect (rectangle, client) : rectangle;
         }
 
         /// <summary>Resizes the column header band to fit the tallest header.</summary>

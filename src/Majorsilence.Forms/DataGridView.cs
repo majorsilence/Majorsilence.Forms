@@ -1359,8 +1359,12 @@ namespace Majorsilence.Forms
         {
             var bounds = DeviceToLogicalUnits (GetCellBounds (rowIndex, columnIndex));
 
+            // W6.3: the clip has to be in the same space as the thing it clips. `bounds` has just been
+            // converted to logical and ClientRectangle is in DEVICE pixels, so on a scaled display the
+            // clip was twice the size it should be and cutOverflow cut nothing -- the method handed
+            // back a rectangle running off the control, which is the one thing the flag exists to stop.
             if (cutOverflow)
-                bounds = Rectangle.Intersect (bounds, ClientRectangle);
+                bounds = Rectangle.Intersect (bounds, DeviceToLogicalUnits (ClientRectangle));
 
             return bounds;
         }
@@ -1432,9 +1436,6 @@ namespace Majorsilence.Forms
             /// <summary>The part of the grid that was hit.</summary>
             public DataGridViewHitTestType Type { get; }
         }
-
-        private Rectangle DeviceToLogicalUnits (Rectangle r) =>
-            new Rectangle (DeviceToLogicalUnits (r.X), DeviceToLogicalUnits (r.Y), DeviceToLogicalUnits (r.Width), DeviceToLogicalUnits (r.Height));
 
         /// <summary>
         /// Gets the content area, accounting for scrollbars.

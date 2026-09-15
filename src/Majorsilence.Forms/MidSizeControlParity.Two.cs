@@ -173,7 +173,14 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="HitTest(int,int)"/>
         public TreeViewHitTestInfo HitTest (Point pt)
         {
-            if (!ClientRectangle.Contains (pt))
+            // W6.3: `pt` is logical, as MouseEventArgs is -- and this method used to test it against
+            // THREE different spaces. ClientRectangle is in device pixels (so the bounds check passed
+            // for points well outside the control on a scaled display), GetNodeAt takes logical, and
+            // the node Bounds the indent comes from are device. The last of those was the one a user
+            // saw: the expander indent measured twice its real width at scale 2, so clicks on a node's
+            // LABEL came back as PlusMinus and the standard "did they hit the expander?" test broke.
+            // Converted once here; everything below this line is logical.
+            if (!DeviceToLogicalUnits (ClientRectangle).Contains (pt))
                 return new TreeViewHitTestInfo (null, TreeViewHitTestLocations.None);
 
             // GetNodeAt returns the library's TreeNode; TreeNode is the WinForms-named subclass
@@ -186,7 +193,8 @@ namespace Majorsilence.Forms
 
             // The indent before a node's label is where the expand glyph and the state image live,
             // which is what lets a caller tell a click on the plus sign from a click on the label.
-            var indent = item.Bounds.Left;
+            // item.Bounds is the laid-out device-pixel rectangle, so it comes back to logical here.
+            var indent = DeviceToLogicalUnits (item.Bounds.Left);
 
             if (pt.X < indent)
                 return new TreeViewHitTestInfo (node, TreeViewHitTestLocations.PlusMinus);

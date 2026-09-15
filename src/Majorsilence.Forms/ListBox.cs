@@ -140,14 +140,12 @@ namespace Majorsilence.Forms
         /// <param name="location">The coordinates used to determine the index.</param>
         public int GetIndexAtLocation (Point location)
         {
-            // Mouse coordinates are logical (MouseEventArgs, like Bounds), while GetItemRectangle is built
-            // from ClientRectangle and ScaledItemHeight and is therefore in device pixels. Comparing the two
-            // directly picks the item at index/scale on a scaled display -- clicking the second row selects
-            // the first at scaling 2 -- so the point is converted before it is tested.
-            var device = new Point (LogicalToDeviceUnits (location.X), LogicalToDeviceUnits (location.Y));
+            // Both sides logical: the point comes from a mouse handler, and GetItemRectangle answers in
+            // the same space as of W6.3. The device-space rectangle behind it is GetItemRectangleDevice.
+            var device = LogicalToDeviceUnits (location);
 
             for (var i = top_index; i < Math.Min (Items.Count, top_index + VisibleItemCount + 1); i++)
-                if (GetItemRectangle (i).Contains (device))
+                if (GetItemRectangleDevice (i).Contains (device))
                     return i;
 
             return -1;
@@ -158,6 +156,20 @@ namespace Majorsilence.Forms
         /// </summary>
         /// <param name="index">The zero-based index of the desired item.</param>
         public Rectangle GetItemRectangle (int index)
+            => DeviceToLogicalUnits (GetItemRectangleDevice (index));
+
+        /// <summary>
+        /// The item's rectangle in device pixels -- the space the renderer, the hit-test and the
+        /// automation peer all work in.
+        /// </summary>
+        /// <remarks>
+        /// W6.3: <see cref="GetItemRectangle"/> used to return this directly. It is public, so the
+        /// idiom an application writes -- <c>GetItemRectangle (i).Contains (e.Location)</c>, with a
+        /// logical <c>MouseEventArgs</c> point -- was wrong by the display scale, while every caller
+        /// inside this assembly knew to convert. The public member now answers in logical units like
+        /// everything else that faces an application, and the internal callers use this instead.
+        /// </remarks>
+        internal Rectangle GetItemRectangleDevice (int index)
         {
             if (index < 0 || index >= Items.Count)
                 throw new ArgumentOutOfRangeException (nameof (index), "Index out of range.");
