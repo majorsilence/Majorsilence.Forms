@@ -98,8 +98,18 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// The single removal choke point -- <c>ClearItems</c> routes through here too -- so it is the
+        /// one place a subclass can be asked whether a removal may proceed. <see cref="TabControl
+        /// .OnPageRemoving"/> is a no-op here; the Telerik page view overrides it to raise a
+        /// cancellable event.
+        /// </remarks>
         protected override void RemoveItem (int index)
         {
+            // Asked BEFORE anything is unhooked, so a veto leaves the collection exactly as it was.
+            if (!owner.OnPageRemoving (this[index]))
+                return;
+
             base.RemoveItem (index);
 
             owner.Controls.RemoveAt (index);

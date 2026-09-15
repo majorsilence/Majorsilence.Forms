@@ -32,10 +32,43 @@ namespace Majorsilence.Forms.Telerik
             remove => SelectedIndexChanged -= value;
         }
 
-        /// <summary>Raised before a page is removed. Stub.</summary>
-        public event EventHandler<RadPageViewCancelEventArgs>? PageRemoving { add { } remove { } }
-        /// <summary>Raised when a page is collapsed. Stub.</summary>
-        public event EventHandler<RadPageViewEventArgs>? PageCollapsed { add { } remove { } }
+        /// <summary>
+        /// Raised before a page is removed, and able to veto it: set
+        /// <c>Cancel</c> to keep the page.
+        /// </summary>
+        /// <remarks>
+        /// The accessors were <c>add { } remove { }</c>, which discards the delegate at the add site,
+        /// so the "save before closing this tab?" prompt every document UI is built around never
+        /// appeared and the close was never vetoed.
+        /// </remarks>
+        public event EventHandler<RadPageViewCancelEventArgs>? PageRemoving;
+
+        /// <summary>Raises the <see cref="PageRemoving"/> event; returns false when a handler vetoed.</summary>
+        /// <param name="page">The page about to be removed.</param>
+        protected internal override bool OnPageRemoving (TabPage page)
+        {
+            if (PageRemoving is null)
+                return true;
+
+            var e = new RadPageViewCancelEventArgs { Page = page as RadPageViewPage };
+
+            PageRemoving (this, e);
+
+            return !e.Cancel;
+        }
+
+        // Real, and never raised -- deliberately. Telerik's PageCollapsed belongs to RadPageView's
+        // ExplorerBar/Outlook/Accordion modes, where a page's content region collapses in place. This
+        // page view is a TabControl, which has no collapse concept at all and exposes no Mode, so
+        // there is no moment at which a page collapses. Declared as a real event rather than
+        // `add { } remove { }` so a handler at least survives being attached.
+#pragma warning disable CS0067
+        /// <summary>
+        /// Raised when a page is collapsed. Never raised here: collapsing requires an accordion or
+        /// ExplorerBar page-view mode, which this compat page view does not implement.
+        /// </summary>
+        public event EventHandler<RadPageViewEventArgs>? PageCollapsed;
+#pragma warning restore CS0067
     }
 
     /// <summary>Telerik-compat page-view page. Backed by <see cref="Majorsilence.Forms.TabPage"/>.</summary>
