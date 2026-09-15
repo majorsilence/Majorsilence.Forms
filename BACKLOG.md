@@ -175,6 +175,19 @@ the legacy `ToolBar.Buttons` collection is not rendered at all, unlike `Items`.
 
 ## Telerik compat layer: genuinely deferred items
 
+- **Advanced grid filtering (the composite filter model).** The per-column popup already does two
+  conditions with And/Or, an Excel-style checklist and 11 operators, and the inline filter row and
+  quick search are real. What does not exist is the composite/nested descriptor tree, cross-column OR
+  (descriptors are combined with AND only), and Telerik's Filter Editor dialog. The data model and
+  evaluator are perhaps 230 lines; the dialog is 400-600 lines of bespoke absolute-positioned UI in a
+  layer that has no dialog-builder infrastructure. Deferred on the same reasoning as the scheduler
+  calendar grid below: too large and too behaviourally rich to fake, and the marginal gain over
+  two-condition filtering is small.
+- **`RadGridView.UseScrollbarsInHierarchy`.** Stored, with nothing to gate: a child view is a painted
+  read-only table, not a hosted grid, so there is no scroll region. Honouring it means building the
+  hosted child grid. The 320px height cap that silently drops rows past roughly the thirteenth is part
+  of the same gap.
+
 `Majorsilence.Forms.Telerik` (`src/Majorsilence.Forms/Telerik/*.cs`) now covers every heavyweight Telerik
 UI for WinForms surface previously tracked here (PDF viewer, rich text editor, spell checker, scheduler
 data-binding + printing, desktop alerts, grid export suite, ribbon). `NamespaceMap.UnmappedTelerikTypes`

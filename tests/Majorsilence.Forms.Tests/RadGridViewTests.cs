@@ -129,6 +129,135 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (1, (int)grid.Rows[2].Cells["Dept"].Value!);
         }
 
+        // ---- W6.1 / #176: the enable-flags, stored and read by nothing ----
+
+        [Fact]
+        public void CustomFiltering_decides_a_rows_visibility ()
+        {
+            // EnableCustomFiltering advertised an extension point whose event never fired, so setting
+            // it meant "no filtering beyond the descriptors" and rows the app meant to hide stayed on
+            // screen.
+            using var grid = Populated ();
+            grid.EnableCustomFiltering = true;
+            grid.CustomFiltering += (_, e) => {
+                var row = (GridViewRowInfo)e.Row!;
+
+                if (row.Cells["Name"].Value?.ToString () == "Bob") {
+                    e.Visible = false;
+                    e.Handled = true;
+                }
+            };
+
+            grid.RebuildView ();
+
+            Assert.Equal (4, grid.RowCount);
+            Assert.DoesNotContain ("Bob", Enumerable.Range (0, grid.RowCount).Select (i => Name (grid, i)));
+        }
+
+        [Fact]
+        public void CustomFiltering_is_not_consulted_when_the_flag_is_off ()
+        {
+            // The flag has to gate it, or an application that wired a handler defensively loses rows it
+            // never asked to lose.
+            using var grid = Populated ();
+            var raised = 0;
+            grid.CustomFiltering += (_, _) => raised++;
+
+            grid.RebuildView ();
+
+            Assert.Equal (0, raised);
+            Assert.Equal (5, grid.RowCount);
+        }
+
+        [Fact]
+        public void An_unhandled_CustomFiltering_leaves_the_descriptors_answer_alone ()
+        {
+            // GUARD, not proof: a handler that inspects without deciding must not hide everything.
+            using var grid = Populated ();
+            grid.EnableCustomFiltering = true;
+            grid.CustomFiltering += (_, _) => { };
+
+            grid.RebuildView ();
+
+            Assert.Equal (5, grid.RowCount);
+        }
+
+        [Fact]
+        public void SortChanging_can_veto_a_header_click_sort ()
+        {
+            // The sharpest of the six: the app sorts server-side and intercepts the click, and the grid
+            // silently sorted the page client-side instead. A wrong answer, not a missing callback.
+            using var grid = Populated ();
+            grid.EnableCustomSorting = true;
+            grid.SortChanging += (_, e) => e.Cancel = true;
+
+            grid.ToggleSort (grid.Columns["Salary"]!.Index);
+
+            Assert.Empty (grid.SortDescriptors);
+            Assert.Equal ("Alice", Name (grid, 0));
+        }
+
+        [Fact]
+        public void SortChanging_says_which_column_and_which_direction ()
+        {
+            // Cancel alone makes the extension point useless -- a handler cannot sort server-side
+            // without knowing what it was asked to sort.
+            using var grid = Populated ();
+            grid.EnableCustomSorting = true;
+            SortChangingEventArgs? seen = null;
+            grid.SortChanging += (_, e) => seen = e;
+
+            grid.ToggleSort (grid.Columns["Salary"]!.Index);
+
+            Assert.NotNull (seen);
+            Assert.Equal ("Salary", seen!.PropertyName);
+            Assert.Null (seen.OldDirection);
+            Assert.Equal (ListSortDirection.Ascending, seen.NewDirection);
+        }
+
+        [Fact]
+        public void SortChanging_is_not_consulted_when_the_flag_is_off ()
+        {
+            using var grid = Populated ();
+            var raised = 0;
+            grid.SortChanging += (_, _) => raised++;
+
+            grid.ToggleSort (grid.Columns["Salary"]!.Index);
+
+            Assert.Equal (0, raised);
+            Assert.Single (grid.SortDescriptors);
+        }
+
+        [Fact]
+        public void AllowColumnResize_forwards_to_the_engine ()
+        {
+            using var grid = Populated ();
+
+            grid.AllowColumnResize = false;
+
+            Assert.False (grid.AllowUserToResizeColumns);
+
+            grid.AllowUserToResizeColumns = true;
+
+            Assert.True (grid.AllowColumnResize);
+        }
+
+        [Fact]
+        public void AllowAutoSizeColumns_forwards_to_the_mode_that_already_worked ()
+        {
+            // Not merely inert: redundant with AutoSizeColumnsMode, which already does this, so the two
+            // could disagree.
+            using var grid = Populated ();
+
+            grid.AllowAutoSizeColumns = true;
+
+            Assert.Equal (GridViewAutoSizeColumnsMode.Fill, grid.AutoSizeColumnsMode);
+
+            grid.AutoSizeColumnsMode = GridViewAutoSizeColumnsMode.None;
+
+            Assert.False (grid.AllowAutoSizeColumns);
+        }
+
         // ---- W6.1 / #176: RadGridView.Groups, which returned Array.Empty while grouping worked ----
 
         [Fact]

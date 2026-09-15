@@ -932,7 +932,31 @@ namespace Majorsilence.Forms.Telerik
             if (!string.IsNullOrEmpty (_searchText))
                 rows = rows.Where (MatchesSearch);
 
+            // EnableCustomFiltering advertises an extension point: the application decides a row's
+            // visibility itself. It was stored and read by nothing, and CustomFiltering was never
+            // raised, so setting it meant "no filtering beyond the descriptors" -- rows the app
+            // intended to hide stayed on screen. This is the one place every row's visibility is
+            // decided, so it is the only place the event can honestly be raised from.
+            if (EnableCustomFiltering && CustomFiltering is not null)
+                rows = rows.Where (PassesCustomFilter);
+
             return rows.ToList ();
+        }
+
+        private bool PassesCustomFilter (DataGridViewRow row)
+        {
+            var args = new GridViewCustomFilteringEventArgs {
+                // Wrapped, not raw: a handler reads cells off it the same way RowFormatting's handler
+                // does, and the raw DataGridViewRow is not part of the Telerik surface.
+                Row = new GridViewDataRowInfo (row),
+                Visible = true,
+            };
+
+            OnCustomFiltering (args);
+
+            // Handled is the handler saying "I decided this one"; without it the descriptors' answer
+            // (already applied above) stands.
+            return !args.Handled || args.Visible;
         }
 
         // True if any visible column's display text contains the quick-search text.
@@ -1272,7 +1296,9 @@ namespace Majorsilence.Forms.Telerik
 
         // Cycles a column's sort: none → ascending → descending → none. When additive (Shift-click) the
         // column joins the existing multi-column sort instead of replacing it.
-        private void ToggleSort (int columnIndex, bool additive = false)
+        // internal, not private: the header-click sort path is otherwise only reachable through a
+        // mouse gesture, and RebuildView already sets the precedent for an internal test seam here.
+        internal void ToggleSort (int columnIndex, bool additive = false)
         {
             if (columnIndex < 0 || columnIndex >= base.Columns.Count)
                 return;
@@ -1284,6 +1310,28 @@ namespace Majorsilence.Forms.Telerik
             var name = !string.IsNullOrEmpty (column.Name) ? column.Name : column.HeaderText;
             var existing = SortDescriptors.Find (s => NameMatches (s.PropertyName, column));
             var previous = existing?.Direction;
+
+            // EnableCustomSorting advertises a veto: the application sorts server-side and intercepts
+            // the header click. It was stored and read by nothing, and SortChanging was never raised,
+            // so the grid sorted the page client-side instead -- silently substituting a different
+            // answer, which is a data bug rather than a missing callback.
+            if (EnableCustomSorting) {
+                var changing = new SortChangingEventArgs {
+                    ColumnIndex = columnIndex,
+                    PropertyName = name,
+                    OldDirection = previous,
+                    NewDirection = previous switch {
+                        null => ListSortDirection.Ascending,
+                        ListSortDirection.Ascending => ListSortDirection.Descending,
+                        _ => null,   // descending cycles back to unsorted
+                    },
+                };
+
+                OnSortChanging (changing);
+
+                if (changing.Cancel)
+                    return;
+            }
 
             _suspendRebuild = true;
 
@@ -1429,6 +1477,15 @@ namespace Majorsilence.Forms.Telerik
         /// <inheritdoc/>
         protected override void OnMouseMove (MouseEventArgs e)
         {
+            // EnableHotTracking gates a behaviour the engine performs unconditionally. Clearing the
+            // hovered row after the base pass is what "off" has to mean, since the highlight is painted
+            // from that index.
+            if (!EnableHotTracking) {
+                base.OnMouseMove (e);
+                HoveredRowIndex = -1;
+                return;
+            }
+
             if (_headerDragColumn >= 0 && e.Button == MouseButtons.Left) {
                 if (!DragActive && (Math.Abs (e.Location.X - _dragStart.X) > LogicalToDeviceUnits (DragThreshold)
                                  || Math.Abs (e.Location.Y - _dragStart.Y) > LogicalToDeviceUnits (DragThreshold)))
