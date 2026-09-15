@@ -155,6 +155,8 @@ namespace Majorsilence.Forms
             var bestDistance = long.MaxValue;
 
             foreach (var item in Items) {
+                // Logical both sides (LAY-38). This compared a logical x/y against device rectangles
+                // until the bounds moved, so it answered with the wrong item on a scaled display.
                 var centre = new Point (item.Bounds.X + item.Bounds.Width / 2, item.Bounds.Y + item.Bounds.Height / 2);
 
                 var inDirection = dir switch {
@@ -187,17 +189,10 @@ namespace Majorsilence.Forms
         /// says whether the point was on the label, the image, or nothing at all.</remarks>
         public ListViewHitTestInfo HitTest (int x, int y)
         {
-            // W6.3: the point comes from a mouse handler and so is LOGICAL, as MouseEventArgs is,
-            // while the item bounds are laid out against ScaledRowHeight and are in DEVICE pixels.
-            // Compared directly, `listView.HitTest (e.X, e.Y)` -- the whole idiom this method exists
-            // for -- picked the item at index x scale, so on a 2x display a click on the second row
-            // reported the fourth. Converted once here; the loop below is device throughout. Mirrors
-            // ListBox.GetIndexAtLocation and TreeView.GetItemAtLocation.
-            var point = LogicalToDeviceUnits (new Point (x, y));
-
-            x = point.X;
-            y = point.Y;
-
+            // Logical on both sides as of LAY-38: the point comes from a mouse handler, and the item
+            // bounds now answer in the same space. W6.3 converted the point to device here because the
+            // bounds were device; moving the conversion into ListViewItem.Bounds made that unnecessary
+            // and put the same fix behind every other public reader of those rectangles.
             foreach (var item in Items) {
                 if (!item.Bounds.Contains (x, y))
                     continue;
@@ -259,6 +254,8 @@ namespace Majorsilence.Forms
             if (endIndex < startIndex || endIndex >= Items.Count)
                 throw new ArgumentOutOfRangeException (nameof (endIndex));
 
+            // Control.Invalidate takes logical units (its no-arg form passes Bounds), which is what
+            // Items[i].Bounds is as of LAY-38 -- it used to pass a device rectangle here.
             for (var i = startIndex; i <= endIndex; i++)
                 Invalidate (Items[i].Bounds);
 
@@ -643,7 +640,12 @@ namespace Majorsilence.Forms
             };
         }
 
-        /// <summary>Returns the sub-item at the given control-relative point, or null.</summary>
+        /// <summary>Returns the sub-item at the given control-relative logical point, or null.</summary>
+        /// <remarks>
+        /// LAY-38: this walked a DEVICE-pixel <c>Bounds</c> using LOGICAL column widths, so the columns
+        /// it stepped through were the wrong size relative to the rectangle it started from. Both sides
+        /// are logical now.
+        /// </remarks>
         public ListViewSubItem? GetSubItemAt (int x, int y)
         {
             if (!Bounds.Contains (x, y) || Parent is null)

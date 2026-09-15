@@ -246,13 +246,19 @@ namespace Majorsilence.Forms
             if (View != View.Details)
                 return;
 
-            var x = item.Bounds.Left + ScaledCheckWidth;
+            // Device pixels throughout -- ScaledCheckWidth and ScaledColumnWidth are scaled, and so is
+            // the item rectangle this is laid out inside (LAY-38). The public Bounds converts out.
+            var device = item.DeviceBounds;
+            var x = device.Left + ScaledCheckWidth;
 
             for (var i = 0; i < Columns.Count; i++) {
                 var width = ScaledColumnWidth (Columns[i]);
 
-                if (i < item.SubItems.Count)
-                    item.SubItems[i].Bounds = new Rectangle (x, item.Bounds.Top, width, item.Bounds.Height);
+                if (i < item.SubItems.Count) {
+                    // The owner is what lets a sub-item find the display scale for its own conversion.
+                    item.SubItems[i].Owner = item;
+                    item.SubItems[i].DeviceBounds = new Rectangle (x, device.Top, width, device.Height);
+                }
 
                 x += width;
             }
