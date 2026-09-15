@@ -67,9 +67,24 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets the current bounding box of the item.
+        /// Gets the current bounding box of the item, in logical units -- the space
+        /// <see cref="Control.Bounds"/> and <see cref="MouseEventArgs"/> are in.
         /// </summary>
-        public Rectangle Bounds { get; private set; }
+        /// <remarks>
+        /// LAY-38: this used to report <see cref="DeviceBounds"/> directly. The layout lays items out
+        /// against <c>ScaledRowHeight</c>, so those are device pixels, and every caller inside this
+        /// assembly knows it -- an application does not, and
+        /// <c>listView.Items[i].Bounds.Contains (e.Location)</c> was wrong by the display scale. The
+        /// public member answers in the same space as the point an application has to hand.
+        /// </remarks>
+        public Rectangle Bounds
+            => Parent is { } parent ? parent.DeviceToLogicalUnits (DeviceBounds) : DeviceBounds;
+
+        /// <summary>
+        /// The laid-out rectangle in device pixels -- the space the renderer, the layout and the
+        /// hit-test all work in.
+        /// </summary>
+        internal Rectangle DeviceBounds { get; private set; }
 
         private Majorsilence.Forms.Drawing.Image? _image;
         private SKBitmap? _imageSK;
@@ -177,7 +192,9 @@ namespace Majorsilence.Forms
         /// </summary>
         public void SetBounds (int x, int y, int width, int height)
         {
-            Bounds = new Rectangle (x, y, width, height);
+            // The layout calls this with device-pixel values (see LAY-38); Bounds converts on the way
+            // back out.
+            DeviceBounds = new Rectangle (x, y, width, height);
         }
 
         /// <summary>
@@ -266,7 +283,14 @@ namespace Majorsilence.Forms
             /// to report here. Exists so code reading it (typically from inside a <c>DrawSubItem</c>
             /// handler that, today, never actually runs) compiles.
             /// </summary>
-            public Rectangle Bounds { get; internal set; }
+            public Rectangle Bounds
+                => Owner?.Parent is { } parent ? parent.DeviceToLogicalUnits (DeviceBounds) : DeviceBounds;
+
+            /// <summary>The laid-out sub-item rectangle in device pixels (LAY-38).</summary>
+            internal Rectangle DeviceBounds { get; set; }
+
+            /// <summary>The item this sub-item belongs to, so it can find the display scale.</summary>
+            internal ListViewItem? Owner { get; set; }
 
 #pragma warning disable CA1416
             /// <summary>Gets or sets the foreground color for this sub-item. Empty means use parent item color.</summary>

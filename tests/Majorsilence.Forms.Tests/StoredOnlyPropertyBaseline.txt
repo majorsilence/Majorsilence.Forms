@@ -4,7 +4,7 @@
 # somewhere other than that getter. See StoredOnlyPropertyBaselineTests and
 # docs/behaviour-gap-plan.md (RC-7).
 #
-# 704 of 1184 public settable auto-properties (59%).
+# 703 of 1182 public settable auto-properties (59%).
 #
 # This is a list of facts, not a to-do list. Some entries are legitimately inert (`Tag` is
 # app storage; the Win32 shell extras have no portable meaning) -- when that is the case,
@@ -382,7 +382,6 @@ Majorsilence.Forms.ListViewGroup.TitleImageKey
 Majorsilence.Forms.ListViewInsertionMark.AppearsAfterItem
 Majorsilence.Forms.ListViewInsertionMark.Bounds
 Majorsilence.Forms.ListViewInsertionMark.Color
-Majorsilence.Forms.ListViewItem+ListViewSubItem.Bounds
 Majorsilence.Forms.ListViewItem.Group
 Majorsilence.Forms.ListViewItem.IndentCount
 Majorsilence.Forms.ListViewItem.Position

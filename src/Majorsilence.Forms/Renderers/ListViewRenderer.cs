@@ -1,3 +1,6 @@
+// The renderer paints in DEVICE pixels, so every rectangle here is DeviceBounds rather than the
+// public logical Bounds (LAY-38). The two differ only when the display scale is not 1, which is
+// exactly when getting it wrong is invisible in a default test run.
 using System.Drawing;
 
 namespace Majorsilence.Forms.Renderers
@@ -26,7 +29,7 @@ namespace Majorsilence.Forms.Renderers
 
             foreach (var item in control.Items) {
                 // Items scrolled out of sight are laid out but not drawn.
-                if (item.Bounds.Bottom < area.Top || item.Bounds.Top > area.Bottom)
+                if (item.DeviceBounds.Bottom < area.Top || item.DeviceBounds.Top > area.Bottom)
                     continue;
 
                 RenderItem (control, item, e);
@@ -92,20 +95,20 @@ namespace Majorsilence.Forms.Renderers
             // FullRowSelect highlights the whole row; without it, only the first column, as upstream.
             if (item.Selected) {
                 var highlight = control.FullRowSelect || control.Columns.Count == 0
-                    ? item.Bounds
-                    : new Rectangle (item.Bounds.Left, item.Bounds.Top,
-                        control.ScaledCheckWidth + control.ScaledColumnWidth (control.Columns[0]), item.Bounds.Height);
+                    ? item.DeviceBounds
+                    : new Rectangle (item.DeviceBounds.Left, item.DeviceBounds.Top,
+                        control.ScaledCheckWidth + control.ScaledColumnWidth (control.Columns[0]), item.DeviceBounds.Height);
 
                 e.Canvas.FillRectangle (highlight, ListView.DefaultSelectionStyle.GetBackgroundColor ());
             }
 
             RenderCheckBox (control, item, e);
 
-            var x = item.Bounds.Left + control.ScaledCheckWidth;
+            var x = item.DeviceBounds.Left + control.ScaledCheckWidth;
 
             for (var i = 0; i < control.Columns.Count; i++) {
                 var width = control.ScaledColumnWidth (control.Columns[i]);
-                var cell = new Rectangle (x, item.Bounds.Top, width, item.Bounds.Height);
+                var cell = new Rectangle (x, item.DeviceBounds.Top, width, item.DeviceBounds.Height);
 
                 // Column 0 is the item's own Text; the rest are its subitems -- which is why every
                 // subitem was invisible while this drew item.Text only.
@@ -128,8 +131,8 @@ namespace Majorsilence.Forms.Renderers
             }
 
             if (control.GridLines)
-                e.Canvas.DrawLine (item.Bounds.Left, item.Bounds.Bottom - 1,
-                    item.Bounds.Right, item.Bounds.Bottom - 1, Theme.BorderLowColor);
+                e.Canvas.DrawLine (item.DeviceBounds.Left, item.DeviceBounds.Bottom - 1,
+                    item.DeviceBounds.Right, item.DeviceBounds.Bottom - 1, Theme.BorderLowColor);
         }
 
         /// <summary>Renders a single-line row for the List and SmallIcon views.</summary>
@@ -138,26 +141,26 @@ namespace Majorsilence.Forms.Renderers
             var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);
 
             if (item.Selected)
-                e.Canvas.FillRectangle (item.Bounds, ListView.DefaultSelectionStyle.GetBackgroundColor ());
+                e.Canvas.FillRectangle (item.DeviceBounds, ListView.DefaultSelectionStyle.GetBackgroundColor ());
 
             RenderCheckBox (control, item, e);
 
-            var x = item.Bounds.Left + control.ScaledCheckWidth;
+            var x = item.DeviceBounds.Left + control.ScaledCheckWidth;
 
             // SmallIcon shows the icon beside the text; List is text only.
             if (control.View == View.SmallIcon && item.ImageSK is not null) {
-                var size = Math.Min (item.Bounds.Height - e.LogicalToDeviceUnits (2), e.LogicalToDeviceUnits (16));
+                var size = Math.Min (item.DeviceBounds.Height - e.LogicalToDeviceUnits (2), e.LogicalToDeviceUnits (16));
                 var image = new Rectangle (x + e.LogicalToDeviceUnits (1),
-                    item.Bounds.Top + (item.Bounds.Height - size) / 2, size, size);
+                    item.DeviceBounds.Top + (item.DeviceBounds.Height - size) / 2, size, size);
 
                 e.Canvas.DrawBitmap (item.ImageSK, image);
                 x = image.Right + e.LogicalToDeviceUnits (3);
             }
 
-            var text_bounds = new Rectangle (x, item.Bounds.Top, item.Bounds.Right - x, item.Bounds.Height);
+            var text_bounds = new Rectangle (x, item.DeviceBounds.Top, item.DeviceBounds.Right - x, item.DeviceBounds.Height);
 
             e.Canvas.Save ();
-            e.Canvas.Clip (item.Bounds);
+            e.Canvas.Clip (item.DeviceBounds);
             e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, Padded (text_bounds, e),
                 Foreground (item, 0), ContentAlignment.MiddleLeft, maxLines: 1);
             e.Canvas.Restore ();
@@ -167,14 +170,14 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderTile (ListView control, ListViewItem item, PaintEventArgs e)
         {
             if (item.Selected)
-                e.Canvas.FillRectangle (item.Bounds, ListView.DefaultSelectionStyle.GetBackgroundColor ());
+                e.Canvas.FillRectangle (item.DeviceBounds, ListView.DefaultSelectionStyle.GetBackgroundColor ());
 
             RenderCheckBox (control, item, e);
 
             var image_size = e.LogicalToDeviceUnits (32);
-            var image_area = new Rectangle (item.Bounds.Left, item.Bounds.Top, item.Bounds.Width, item.Bounds.Width);
+            var image_area = new Rectangle (item.DeviceBounds.Left, item.DeviceBounds.Top, item.DeviceBounds.Width, item.DeviceBounds.Width);
             var image_bounds = DrawingExtensions.CenterSquare (image_area, image_size);
-            image_bounds.Y = item.Bounds.Top + e.LogicalToDeviceUnits (3);
+            image_bounds.Y = item.DeviceBounds.Top + e.LogicalToDeviceUnits (3);
 
             if (item.ImageSK != null)
                 e.Canvas.DrawBitmap (item.ImageSK, image_bounds);
@@ -183,9 +186,9 @@ namespace Majorsilence.Forms.Renderers
                 var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);
 
                 e.Canvas.Save ();
-                e.Canvas.Clip (item.Bounds);
+                e.Canvas.Clip (item.DeviceBounds);
 
-                var text_bounds = new Rectangle (item.Bounds.Left, image_bounds.Bottom + e.LogicalToDeviceUnits (3), item.Bounds.Width, item.Bounds.Bottom - image_bounds.Bottom - e.LogicalToDeviceUnits (3));
+                var text_bounds = new Rectangle (item.DeviceBounds.Left, image_bounds.Bottom + e.LogicalToDeviceUnits (3), item.DeviceBounds.Width, item.DeviceBounds.Bottom - image_bounds.Bottom - e.LogicalToDeviceUnits (3));
 
                 e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_bounds, Foreground (item, 0), ContentAlignment.MiddleCenter);
 
@@ -200,8 +203,8 @@ namespace Majorsilence.Forms.Renderers
                 return;
 
             var size = e.LogicalToDeviceUnits (13);
-            var box = new Rectangle (item.Bounds.Left + e.LogicalToDeviceUnits (2),
-                item.Bounds.Top + (item.Bounds.Height - size) / 2, size, size);
+            var box = new Rectangle (item.DeviceBounds.Left + e.LogicalToDeviceUnits (2),
+                item.DeviceBounds.Top + (item.DeviceBounds.Height - size) / 2, size, size);
 
             // The same glyph CheckBox draws, so the two cannot drift apart.
             ControlPaint.DrawCheckBox (e, box,
