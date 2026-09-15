@@ -777,6 +777,20 @@ namespace Majorsilence.Forms
         /// override of that real hook is reachable, rather than being shadowed by a same-named method
         /// taking this library's internal, Skia-carrying args type.
         /// </remarks>
+        /// <summary>
+        /// Called by the renderer for each node, before it is drawn, so a subclass can apply node-level
+        /// formatting (data-driven colours, a per-row font). Default no-op.
+        /// </summary>
+        /// <param name="item">The node about to be painted.</param>
+        /// <remarks>
+        /// Deliberately separate from <see cref="RaiseDrawNode"/>, which only runs in the two
+        /// <see cref="TreeViewDrawMode"/> owner-draw modes: a formatting hook has to run on every
+        /// ordinary paint or it is not a formatting hook. Mirrors
+        /// <c>DataGridView.RaiseRowFormatting</c>, which exists for exactly this reason.
+        /// </remarks>
+        protected internal virtual void RaiseNodeFormatting (TreeNode item) { }
+
+        /// <inheritdoc cref="OnDrawNode"/>
         protected internal virtual void RaiseDrawNode (TreeViewDrawEventArgs e)
         {
             Guard.ThrowIfNull (e);

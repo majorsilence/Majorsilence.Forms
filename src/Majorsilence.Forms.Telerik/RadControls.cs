@@ -369,6 +369,77 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Raises <see cref="NodeCheckedChanged"/> for the specified node.</summary>
         protected internal virtual void OnNodeCheckedChanged (RadTreeNode node) => NodeCheckedChanged?.Invoke (this, new TreeNodeCheckedEventArgs (node));
+
+        // W6.1, the Telerik dead-event sweep. The three raisers above were correct and complete, and
+        // NOTHING CALLED THEM -- which is why no `add { } remove { }` grep and no single-hop baseline
+        // scan ever flagged them: the events look alive from every angle except the one that matters.
+        // The engine underneath has had the real hooks since W5.9, so all three are forwards.
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Forwards the engine's cancellable check to <see cref="NodeCheckedChanging"/>. Without this a
+        /// consumer's veto handler on a checkbox tree simply did not run, and the check went through --
+        /// silently, because a cancelled event and an unwired one look identical from the handler's side.
+        /// </remarks>
+        protected override bool OnBeforeCheck (TreeViewCancelEventArgs e)
+        {
+            Guard.ThrowIfNull (e);
+
+            if (!base.OnBeforeCheck (e))
+                return false;
+
+            // A tree built through Nodes.Add (string) yields the WinForms-named subclass; one built
+            // from plain TreeNodes does not, and a Telerik-typed event cannot describe it.
+            if (e.Node is not RadTreeNode node)
+                return true;
+
+            return OnNodeCheckedChanging (node);
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Forwards the engine's post-check notification to <see cref="NodeCheckedChanged"/>.</remarks>
+        protected override void OnAfterCheck (TreeViewEventArgs e)
+        {
+            base.OnAfterCheck (e);
+
+            Guard.ThrowIfNull (e);
+
+            if (e.Node is RadTreeNode node)
+                OnNodeCheckedChanged (node);
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Raises <see cref="NodeFormatting"/> once per node as it is drawn, then writes the element's
+        /// appearance back onto the node before the default painting reads it -- the same shape as
+        /// <c>RadGridView.RaiseCellFormatting</c>. The element is a carrier: a handler sets properties
+        /// on it, and this is what makes those properties mean anything.
+        /// </remarks>
+        protected internal override void RaiseNodeFormatting (TreeNode item)
+        {
+            base.RaiseNodeFormatting (item);
+
+            if (NodeFormatting is null || item is not RadTreeNode node)
+                return;
+
+            var args = new TreeNodeFormattingEventArgs (node);
+
+            OnNodeFormatting (args);
+
+            // Empty means "the handler did not set this", so the node keeps what it had -- writing
+            // Color.Empty back would erase an appearance the application set another way.
+            if (args.VisualElement.ForeColor != System.Drawing.Color.Empty)
+                node.ForeColor = args.VisualElement.ForeColor;
+
+            if (args.VisualElement.BackColor != System.Drawing.Color.Empty)
+                node.BackColor = args.VisualElement.BackColor;
+
+            if (args.VisualElement.Font is { } font)
+                node.NodeFont = font;
+
+            if (args.VisualElement.Text.HasValue ())
+                node.Text = args.VisualElement.Text;
+        }
     }
 
     /// <summary>Telerik-compat tree node. Backed by <see cref="Majorsilence.Forms.TreeNode"/>.</summary>
