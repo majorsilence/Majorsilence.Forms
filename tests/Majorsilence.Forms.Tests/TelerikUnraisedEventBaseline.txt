@@ -3,14 +3,14 @@
 # regression and a Telerik regression stay distinguishable. See
 # TelerikUnraisedEventBaselineTests and issue #176 (step 1).
 #
-# 13 of 62 field-backed events (73 events are subscribable in all; the rest are
+# 11 of 62 field-backed events (73 events are subscribable in all; the rest are
 # either inert -- see TelerikInertEventBaseline.txt -- or aliases forwarding to another event).
 #
 # NOT comparable with the core file's number: this is a stricter scan, in two ways.
 #
 #  * Trap 3 from #91 -- an `OnXxx` raiser holding `Xxx?.Invoke` that nothing ever calls. The
 #    core scan looks for the field read and stops; it does not ask whether any call path
-#    reaches the raiser. Over this assembly it finds 13 where this one finds 13, and the
+#    reaches the raiser. Over this assembly it finds 11 where this one finds 11, and the
 #    difference is precisely that shape: RadTreeView.NodeFormatting, NodeCheckedChanged and
 #    NodeCheckedChanging each have a correct `protected internal virtual OnNodeXxx` that no
 #    code in the assembly calls.
@@ -36,10 +36,8 @@ Majorsilence.Forms.Telerik.DocumentTabStrip.SelectedIndexChanged
 Majorsilence.Forms.Telerik.RadDock.DockTabStripNeeded
 Majorsilence.Forms.Telerik.RadGridView.CreateCell
 Majorsilence.Forms.Telerik.RadGridView.CurrentRowChanging
-Majorsilence.Forms.Telerik.RadGridView.CustomFiltering
 Majorsilence.Forms.Telerik.RadGridView.DefaultValuesNeeded
 Majorsilence.Forms.Telerik.RadGridView.EditorRequired
 Majorsilence.Forms.Telerik.RadGridView.FilterPopupRequired
 Majorsilence.Forms.Telerik.RadGridView.GroupExpanding
 Majorsilence.Forms.Telerik.RadGridView.GroupSummaryEvaluate
-Majorsilence.Forms.Telerik.RadGridView.SortChanging
