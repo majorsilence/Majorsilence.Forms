@@ -352,7 +352,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `panel.DockPadding.All = 8; Assert.Equal(new Padding(8), panel.Padding);` and `Assert.Equal(panel.ClientRectangle.Width - 16, panel.DisplayRectangle.Width);`
 - **Tests today:** none
 
-### LAY-32 — `ScrollableControl.AutoScrollMargin` — Cat C — P2 — High
+### LAY-32 — `ScrollableControl.AutoScrollMargin` — Cat C — P2 — High — **CLOSED 2026-09-15**: the canvas-size and `PerformLayout` halves landed in W5.25 (recorded there under `LAY-30`, which was wrong — they are this finding), the negative validation here.
 - **Ours:** `public Size AutoScrollMargin { get; set; } = Size.Empty;` with the doc comment "the value is stored but not applied to layout" (`src/Majorsilence.Forms/ScrollableControl.cs:71`); `SetAutoScrollMargin(x, y)` just assigns it with no validation and no `PerformLayout` (`ScrollableControl.cs:74`). `CalculateCanvasSize`/`Recalculate` never read it.
 - **Upstream:** the setter throws `ArgumentOutOfRangeException` on a negative component and routes through `SetAutoScrollMargin`, which clamps to 0, stores, and calls `LayoutTransaction.DoLayout`; the margin is then added to the scrollable canvas so the last control is not flush against the edge and `ScrollControlIntoView` leaves that much slack (`src/System.Windows.Forms/System/Windows/Forms/Scrolling/ScrollableControl.cs`, `AutoScrollMargin`).
 - **Impact:** The bottom/right-most control in an AutoScroll panel is scrollable to exactly its edge instead of leaving the requested margin, and negative values are silently accepted.
@@ -424,7 +424,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Events declared with `add { } remove { }`.** `Splitter.SplitterMoved`/`SplitterMoving` (`src/Majorsilence.Forms/Splitter.cs:137,140`). This shape is strictly worse than a `#pragma warning disable CS0067` field-like event: the handler is discarded at subscription time and there is no way for a test or for reflection to observe that nothing is wired.
 - **Perf, not correctness:** `IArrangedElement.Children` is `IEnumerable<Control>` in our port (`src/Majorsilence.Forms/Control.Layout.cs:155`) where upstream uses an indexed `ArrangedElementCollection`, so every `children.Count()` / `children.ElementAt(i)` in the ported engines re-enumerates — `LayoutAnchoredControls`, `LayoutDockedControls` and `TryCalculatePreferredSize` are all O(n^2) per layout pass.
 
-### LAY-31 — `ListViewItem.Bounds` / `GetBounds` / `GetSubItemAt` and `ListView.GetItemRect` are public and in device pixels — Cat A — P1 — High
+### LAY-38 — `ListViewItem.Bounds` / `GetBounds` / `GetSubItemAt` and `ListView.GetItemRect` are public and in device pixels — Cat A — P1 — High
 - **Ours:** `ListView.LayoutRows`/`LayoutTiles` set item bounds from `ScaledRowHeight`, so every one of these public members answers in device pixels, while `Bounds` and `MouseEventArgs` elsewhere in the framework are logical (`src/Majorsilence.Forms/ListView.cs:228-271`, `ListViewParity.cs:621,636`).
 - **Upstream:** WinForms has one client-coordinate space; `ListViewItem.Bounds` is in it, and so is `e.Location`.
 - **Impact:** `listView.GetItemRect (i).Contains (e.Location)` and `item.GetSubItemAt (e.X, e.Y)` are wrong by the display scale on any HiDPI display — the same class W6.3 fixed for `ListBox`, `TreeView` and `DataGridView`. `ListView.HitTest` was fixed there; these were not.
@@ -432,7 +432,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Why not in W6.3:** 33 internal call sites across the layout, the renderer and 7 test files. Its own item, not a line in a sweep.
 - **Tests today:** `CoordinateSpaceTests` pins the members that were fixed; these are explicitly not covered.
 
-### LAY-32 — `TreeView.HitTest` can never report `PlusMinus` — Cat A — P2 — Medium
+### LAY-39 — `TreeView.HitTest` can never report `PlusMinus` — Cat A — P2 — Medium
 - **Ours:** the expander band is `pt.X < item.Bounds.Left` (`src/Majorsilence.Forms/MidSizeControlParity.Two.cs:174-197`), and a laid-out node's `Bounds.Left` is ~1 whatever its depth — the rectangle spans the whole row — so the threshold is ~0 and every point in the control classifies as `Label`.
 - **Upstream:** the hit-test distinguishes the plus/minus glyph, the state image, the label and the indent, each from its own measured region.
 - **Impact:** the standard "did the user click the expander rather than the node?" test is unanswerable; a handler that uses it to toggle expansion never fires.
