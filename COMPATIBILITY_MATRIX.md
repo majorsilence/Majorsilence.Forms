@@ -158,11 +158,16 @@ per-row:
   `ScaleBitmapLogicalToDevice`). These are wired, not declared: the corresponding events are real
   `Events`-backed properties (previously ~20 of them were `add { } remove { }` no-ops) and the
   `BackColor`/`ForeColor`/`Font`/`RightToLeft`/`CausesValidation`/`ImeMode` setters raise them on a
-  real value change. **Still thin:** hooks with no framework trigger yet — the drag set has no OS
-  drag source (`DoDragDrop` still returns `None`), so a derived control must raise those itself; and
-  `ChangeUICues`, `HelpRequested`, `QueryAccessibilityHelp`, `Scroll`, `DpiChangedBeforeParent`/
-  `DpiChangedAfterParent`, `BindingContextChanged` and `SystemColorsChanged` remain no-op stub
-  events with no `On*` hook. Derived-type-specific hooks (`OnSelectedIndexChanged`,
+  real value change, and (2026-09-15, `W6.1`) `BindingContext`'s setter now raises
+  `BindingContextChanged` the same way — though nothing subscribes to it yet to re-home a binding
+  (`BND-15`), and it does not cascade to children on reparenting the way upstream's does (`CTL-29`).
+  **Still thin:** hooks with no framework trigger yet — the drag set has no OS drag source
+  (`DoDragDrop` still returns `None`), so a derived control must raise those itself; `ChangeUICues`,
+  `HelpRequested`, `DpiChangedBeforeParent`/`DpiChangedAfterParent` have real `On*` hooks a derived
+  control or embedding host can call, but no backend wires them up automatically yet; and
+  `QueryAccessibilityHelp`, `Scroll` and `SystemColorsChanged` remain no-op stub events with no
+  `On*` hook at all — no accessibility tree, no generic scroll source, and no OS system-colour
+  notification exist to raise them from. Derived-type-specific hooks (`OnSelectedIndexChanged`,
   `OnCellPainting`, ...) are unchanged by this and are still mostly absent — see the per-row notes.
   `TabControl.OnDrawItem` is the exception that now works for real: setting `DrawMode` to either
   owner-draw value makes the tab strip raise `DrawItem` per tab (with the tab's bounds, index and

@@ -587,8 +587,8 @@ public partial class Control
     /// <summary>Raises the <see cref="DpiChangedBeforeParent"/> event.</summary>
     protected virtual void OnDpiChangedBeforeParent (EventArgs e) => DpiChangedBeforeParent?.Invoke (this, e);
 
-    /// <summary>Raised when the data binding context changes. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? BindingContextChanged { add { } remove { } }
+    /// <summary>Raised when the data binding context changes.</summary>
+    public event EventHandler? BindingContextChanged;
 
     /// <summary>Raised when the system colors change. Stub in Majorsilence.Forms.</summary>
     public event EventHandler? SystemColorsChanged { add { } remove { } }

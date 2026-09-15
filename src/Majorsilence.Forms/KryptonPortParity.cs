@@ -71,9 +71,8 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected virtual void OnDoubleClick (EventArgs e) { }
 
-        /// <summary>Called when the control's binding context has changed.</summary>
-        /// <remarks>Never raised by this layer; a data-bound control overrides it to rebind.</remarks>
-        protected virtual void OnBindingContextChanged (EventArgs e) { }
+        /// <summary>Raises the <see cref="BindingContextChanged"/> event.</summary>
+        protected virtual void OnBindingContextChanged (EventArgs e) => BindingContextChanged?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="StyleChanged"/> event.</summary>
         /// <remarks>Never raised: there is no window style to change. Present because a control that
