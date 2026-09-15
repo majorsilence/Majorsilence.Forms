@@ -35,8 +35,23 @@ namespace Majorsilence.Forms.Telerik
             set => MasterTemplate.VerticalScrollState = value;
         }
 
-        /// <summary>Telerik compat: the grouped rows. Stub: the compat grid does not expose group rows yet.</summary>
-        public IEnumerable<DataGroup> Groups => Array.Empty<DataGroup> ();
+        /// <summary>The grid's groups, as a tree: top-level groups, each with its nested groups.</summary>
+        /// <remarks>
+        /// <para>
+        /// This returned <c>Array.Empty</c> while grouping was advertised as working -- and grouping
+        /// genuinely does work: <c>GroupByColumn</c>, the drag-to-group panel, multi-level descriptors,
+        /// per-group footers and collapse state are all real and tested. It was only the object model
+        /// exposing them that was missing, so every consumer walking <c>Groups</c> to count, label or
+        /// collapse them silently saw nothing at all.
+        /// </para>
+        /// <para>
+        /// Projected on demand from the same filtered and sorted rows the display is built from, so it
+        /// cannot describe a different grouping from the one on screen. Each group's
+        /// <see cref="DataGroup.IsExpanded"/> reads and writes the grid's own collapse state rather
+        /// than a copy.
+        /// </para>
+        /// </remarks>
+        public IEnumerable<DataGroup> Groups => BuildDataGroups ();
 
         /// <summary>Telerik compat: the master view template (alias of <see cref="MasterTemplate"/>).</summary>
         public MasterGridViewTemplate MasterView => MasterTemplate;

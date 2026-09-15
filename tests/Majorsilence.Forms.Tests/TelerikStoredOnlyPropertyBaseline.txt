@@ -3,7 +3,7 @@
 # on purpose: a core regression and a Telerik regression have to stay distinguishable.
 # See TelerikStoredOnlyPropertyBaselineTests and issue #176 (step 1).
 #
-# 382 of 484 public settable auto-properties (78%).
+# 382 of 485 public settable auto-properties (78%).
 #
 # NOT comparable with the core file's number: this is a stricter scan. The core gate asks
 # one question -- is this backing field loaded anywhere other than its own getter -- and on
@@ -89,8 +89,8 @@ Majorsilence.Forms.Telerik.CurrentCellChangedEventArgs.OldCell
 Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.Cancel
 Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.NewRow
 Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.OldRow
-Majorsilence.Forms.Telerik.DataGroup.IsExpanded
-Majorsilence.Forms.Telerik.DataGroup.Key
+Majorsilence.Forms.Telerik.DataGroup.HeaderText
+Majorsilence.Forms.Telerik.DataGroup.Level
 Majorsilence.Forms.Telerik.DockTabStripNeededEventArgs.Strip
 Majorsilence.Forms.Telerik.DockWindowBase.AllowedDockState
 Majorsilence.Forms.Telerik.DockWindowBase.AutoScaleMode
