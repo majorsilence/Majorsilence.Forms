@@ -579,7 +579,13 @@ namespace Majorsilence.Forms
         /// </summary>
         public virtual BindingContext BindingContext {
             get => binding_context ?? Parent?.BindingContext ?? (binding_context = new BindingContext ());
-            set => binding_context = value;
+            set {
+                if (ReferenceEquals (binding_context, value))
+                    return;
+
+                binding_context = value;
+                OnBindingContextChanged (EventArgs.Empty);
+            }
         }
 
         // IBindableComponent declares the property nullable; this control's own getter never returns

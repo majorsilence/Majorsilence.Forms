@@ -667,19 +667,20 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
 - **Tests today:** none.
 
 ### EVT-33 — `Control.QueryAccessibilityHelp` and `Control.BindingContextChanged` — Cat D — P2 — High
-- **Ours:** both declared `{ add { } remove { } }`
+- **`BindingContextChanged` half — CLOSED 2026-09-15 (W6.1).** Field-backed, raised from the
+  `BindingContext` setter. See `control.md`'s `CTL-29` for the remaining cascade (`AssignParent`/
+  `CreateControl`) this finding's "Fix" line did not call out.
+- **`QueryAccessibilityHelp` half — still open.** No accessible-object tree is surfaced to any
+  platform layer (see `COMPATIBILITY_MATRIX.md`'s accessibility notes), so there is nothing to raise
+  it from; not a one-line wire-up.
+- **Ours (as measured):** both declared `{ add { } remove { } }`
   (`src/Majorsilence.Forms/Control.Events.cs`, last block) — handlers attach and are dropped.
 - **Upstream:** `BindingContextChanged` is raised from `Control.BindingContext`'s setter and cascades to
   children; `QueryAccessibilityHelp` from the accessible object.
-- **Natural trigger that already exists:** `Control` implements `IBindableComponent`
-  (`src/Majorsilence.Forms/Control.cs:12`) and has a `BindingContext` — its setter is the trigger.
-  (Detail belongs to the binding auditor; noted here only because the empty accessor is a
-  silent-drop, which is worse than absence.)
 - **Impact:** `BindingContextChanged` is how bound controls know to re-read their data source after a
   form's `BindingContext` is swapped (common in MDI/UserControl hosting).
-- **Fix:** back both with `Events`; raise `BindingContextChanged` from the `BindingContext` setter.
-- **Test:** binding auditor's area.
-- **Tests today:** see `binding.md`.
+- **Tests today:** `ControlExtensibilityHookTests.BindingContext_setter_*` (see `binding.md` for the
+  binding-runtime side, which still does not subscribe to the event).
 
 ### EVT-34 — `Control.OnLocationChanged` raises `LocationChanged` before `Move` — Cat A — P2 — High
 - **Ours:** `(Events[s_locationChangedEvent] as EventHandler)?.Invoke (this, e); OnMove (e);`

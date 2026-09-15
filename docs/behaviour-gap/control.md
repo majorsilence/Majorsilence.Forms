@@ -425,8 +425,8 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   handler → recorded, and `KeyDown` not raised.
 - **Tests today:** none.
 
-### CTL-29 — `Control.BindingContextChanged` / `OnBindingContextChanged` — Cat D — P2 — High
-- **Ours:** event is `add { } remove { }` (`src/Majorsilence.Forms/Control.Events.cs:591`); `OnBindingContextChanged` is
+### CTL-29 — `Control.BindingContextChanged` / `OnBindingContextChanged` — Cat D — P2 — High — **PARTIALLY CLOSED 2026-09-15 (W6.1)**
+- **Was:** event is `add { } remove { }` (`src/Majorsilence.Forms/Control.Events.cs:591`); `OnBindingContextChanged` is
   an empty virtual nothing calls (`KryptonPortParity.cs:76`); `BindingContext` setter stores only
   (`Control.Compat.cs:495-498`).
 - **Upstream:** raised from the `BindingContext` setter, from `CreateControl` and from `AssignParent` when the
@@ -435,8 +435,15 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   never bind; handlers attached to the event are silently dropped.
 - **Fix:** make it an `Events`-backed event; raise from the setter, from `CreateControl` when `binding_context is
   null && Parent is not null`, and cascade to children without a local context in `AssignParent`.
-- **Test:** attach handler, `c.BindingContext = new BindingContext()` → count 1; `panel.Controls.Add(c)` on a created
-  panel → count 1.
+- **Done:** the event is field-backed, `OnBindingContextChanged` invokes it, and the `BindingContext` setter raises
+  it on a real value change (a `ReferenceEquals` guard — matches the getter's own reference-based caching).
+- **Still open:** the `CreateControl`/`AssignParent` cascade — an unparented control whose *inherited* context
+  changes because it was reparented, or because it just became part of a created window, does not raise. That
+  needs this framework's nearest equivalent of "handle created" pinned down first (`Control` here has no window
+  handle of its own — see `docs/native-interop.md`), which is a bigger question than this sweep's "wire the
+  obvious setter" scope. Left for its own item.
+- **Test:** `ControlExtensibilityHookTests.BindingContext_setter_raises_OnBindingContextChanged_and_the_event`,
+  `BindingContext_setter_does_not_notify_when_the_value_is_unchanged`.
 - **Tests today:** none (WindowDataBindingParityTests covers Form-level binding).
 
 ### CTL-30 — `Control.ScrollControlIntoView` — Cat B — P2 — High

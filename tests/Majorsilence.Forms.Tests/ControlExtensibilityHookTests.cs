@@ -34,6 +34,7 @@ namespace Majorsilence.Forms.Tests
             protected override void OnRightToLeftChanged (EventArgs e) { Calls.Add (nameof (OnRightToLeftChanged)); base.OnRightToLeftChanged (e); }
             protected override void OnContextMenuStripChanged (EventArgs e) { Calls.Add (nameof (OnContextMenuStripChanged)); base.OnContextMenuStripChanged (e); }
             protected override void OnCursorChanged (EventArgs e) { Calls.Add (nameof (OnCursorChanged)); base.OnCursorChanged (e); }
+            protected override void OnBindingContextChanged (EventArgs e) { Calls.Add (nameof (OnBindingContextChanged)); base.OnBindingContextChanged (e); }
 
             // Drag-and-drop has no backend drag source yet, so expose the raisers.
             public void RaiseDragEnter (DragEventArgs e) => OnDragEnter (e);
@@ -482,6 +483,34 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (1, fired);
             Assert.Contains ("OnContextMenuStripChanged", control.Calls);
+        }
+
+        [Fact]
+        public void BindingContext_setter_raises_OnBindingContextChanged_and_the_event ()
+        {
+            using var control = new HookControl ();
+            var fired = 0;
+            control.BindingContextChanged += (s, e) => fired++;
+
+            control.BindingContext = new BindingContext ();
+
+            Assert.Equal (1, fired);
+            Assert.Contains ("OnBindingContextChanged", control.Calls);
+        }
+
+        [Fact]
+        public void BindingContext_setter_does_not_notify_when_the_value_is_unchanged ()
+        {
+            using var control = new HookControl ();
+            var context = new BindingContext ();
+            control.BindingContext = context;
+
+            var fired = 0;
+            control.BindingContextChanged += (s, e) => fired++;
+
+            control.BindingContext = context;
+
+            Assert.Equal (0, fired);
         }
 
         #endregion

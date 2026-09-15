@@ -6,7 +6,6 @@
 # usually already exists (a property setter, OnMouseDown, OnKeyUp, EndEdit, ListChanged).
 # Regenerate with MAJORSILENCE_WRITE_INERT_EVENT_BASELINE=1.
 Majorsilence.Forms.ComboBox.MeasureItem
-Majorsilence.Forms.Control.BindingContextChanged
 Majorsilence.Forms.Control.QueryAccessibilityHelp
 Majorsilence.Forms.Control.Scroll
 Majorsilence.Forms.Control.SystemColorsChanged
