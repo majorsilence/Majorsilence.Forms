@@ -3,14 +3,14 @@
 # on purpose: a core regression and a Telerik regression have to stay distinguishable.
 # See TelerikStoredOnlyPropertyBaselineTests and issue #176 (step 1).
 #
-# 384 of 484 public settable auto-properties (79%).
+# 382 of 484 public settable auto-properties (78%).
 #
 # NOT comparable with the core file's number: this is a stricter scan. The core gate asks
 # one question -- is this backing field loaded anywhere other than its own getter -- and on
 # this layer that reads clean over code that does nothing, because nearly every RadGridView
 # member is a hand-written forwarder onto MasterTemplate and the template's auto-property is
 # duly "read", by a getter whose own callers are nobody. Run the core scan over this
-# assembly and it finds 375; the two closures below find 384. The difference is
+# assembly and it finds 374; the two closures below find 382. The difference is
 # forwarding chains that end in mid-air, e.g. RadElement.ControlBounds ->
 # LightVisualElement.ControlBoundingRectangle -> nothing.
 #
@@ -302,7 +302,6 @@ Majorsilence.Forms.Telerik.RadGridView.SynchronizeCurrentRowInSplitMode
 Majorsilence.Forms.Telerik.RadGridView.ThemeName
 Majorsilence.Forms.Telerik.RadGridView.UseScrollbarsInHierarchy
 Majorsilence.Forms.Telerik.RadGroupBox.FooterText
-Majorsilence.Forms.Telerik.RadItem.Text
 Majorsilence.Forms.Telerik.RadItem.ToolTipText
 Majorsilence.Forms.Telerik.RadLabel.ThemeName
 Majorsilence.Forms.Telerik.RadListDataItem.Checked
@@ -424,7 +423,6 @@ Majorsilence.Forms.Telerik.ToolWindow.AutoHideSize
 Majorsilence.Forms.Telerik.ToolWindow.DocumentButtons
 Majorsilence.Forms.Telerik.ValueChangingEventArgs.NewValue
 Majorsilence.Forms.Telerik.ValueChangingEventArgs.OldValue
-Majorsilence.Forms.Telerik.VisualElement.Font
 Majorsilence.Forms.Telerik.VisualElement.TextAlignment
 Majorsilence.Forms.Telerik.WaitingBarContentElement.WaitingStyle
 Majorsilence.Forms.Telerik.WaitingBarSeparatorElement.Dash

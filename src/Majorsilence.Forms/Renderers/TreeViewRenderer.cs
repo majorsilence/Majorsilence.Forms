@@ -44,6 +44,10 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderItem (TreeView control, TreeNode item, PaintEventArgs e)
         {
+            // Before anything is read off the node, so a formatting hook can still change it. This
+            // runs on every paint, unlike the owner-draw events below.
+            control.RaiseNodeFormatting (item);
+
             // OwnerDrawAll hands over the whole node, background and focus cue included, so the
             // event has to come before anything is painted. OwnerDrawText keeps those and hands
             // over only the content -- hence the two checks rather than one.

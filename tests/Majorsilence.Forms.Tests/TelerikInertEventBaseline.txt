@@ -9,7 +9,7 @@
 # than of the scan: an empty accessor never stores the delegate, so no reachable raiser could
 # exist to be found. Unlike its two companions this gate asks exactly what the core one asks.
 #
-# With the 16 in TelerikUnraisedEventBaseline.txt that is 26 of 73 events that a
+# With the 13 in TelerikUnraisedEventBaseline.txt that is 23 of 73 events that a
 # consumer can wire a handler to and never hear from. Shrinking the union is issue #176 step 2;
 # the highest-value entries there are the per-row and per-cell formatting events, which is how
 # Telerik LOB code colours its grids.
