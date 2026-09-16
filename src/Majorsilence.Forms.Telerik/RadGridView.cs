@@ -176,14 +176,40 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Occurs when the current cell changes. Telerik-typed replacement of the base event.</summary>
         public new event EventHandler<CurrentCellChangedEventArgs>? CurrentCellChanged;
 
-#pragma warning disable CS0067 // Grouping-internals events: declared for source compat; the compat grid does not raise them.
-        /// <summary>Occurs when a group summary value is evaluated. Never raised by the compat grid.</summary>
+        /// <summary>
+        /// Occurs as each group summary value is evaluated, before it is formatted into the summary
+        /// row. A handler may replace <see cref="GroupSummaryEvaluationEventArgs.Value"/> or
+        /// <see cref="GroupSummaryEvaluationEventArgs.FormatString"/>.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="GroupSummaryEvaluationEventArgs.Group"/> is the group being summarised, or null
+        /// for a grand total from <see cref="SummaryRowsTop"/>/<see cref="SummaryRowsBottom"/> -- which
+        /// is what the property's own documentation says it means.
+        /// </remarks>
         public event EventHandler<GroupSummaryEvaluationEventArgs>? GroupSummaryEvaluate;
 
-        /// <summary>Occurs when a group is expanding or collapsing. Never raised by the compat grid.</summary>
+        /// <summary>
+        /// Occurs before a group expands or collapses. Setting
+        /// <see cref="GroupExpandingEventArgs.Cancel"/> leaves the group as it was.
+        /// </summary>
+        /// <remarks>
+        /// Raised for both routes into the same state: clicking a group header row, and
+        /// <see cref="DataGroup.Expand"/>/<see cref="DataGroup.Collapse"/> through the object model.
+        /// Not raised by <see cref="ExpandAllGroups"/>/<see cref="CollapseAllGroups"/>: those are bulk
+        /// operations, and a per-group veto part-way through one would leave the grid in a state the
+        /// caller did not ask for and cannot see.
+        /// </remarks>
         public event EventHandler<GroupExpandingEventArgs>? GroupExpanding;
 
+#pragma warning disable CS0067 // Grouping-internals events: declared for source compat; the compat grid does not raise them.
         /// <summary>Occurs when a cell visual element is created. Never raised by the compat grid (it has no element tree).</summary>
+        /// <remarks>
+        /// Telerik raises this so an application can substitute the element type used for a cell. This
+        /// grid renders cells directly rather than building a tree of visual elements, so there is no
+        /// creation to announce and nothing a handler could return that anything would read. Kept as a
+        /// real event -- a handler is retained and can be removed -- but it cannot be raised without an
+        /// element tree to raise it about.
+        /// </remarks>
         public event EventHandler<GridViewCreateCellEventArgs>? CreateCell;
 
         /// <summary>Occurs when a new row needs its default cell values. Never raised by the compat grid.</summary>
@@ -818,11 +844,19 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raised when the grid's row collection changes. Mirrors Telerik's RowsChanged.</summary>
         public event EventHandler<GridViewCollectionChangedEventArgs>? RowsChanged;
 
-        /// <summary>Raised when a column filter popup is required. Stub (never raised yet) - assignable
-        /// handlers keep legacy filter-popup wiring compiling.</summary>
-#pragma warning disable CS0067
+        /// <summary>
+        /// Raised before a column's filter popup is shown. Assigning
+        /// <see cref="FilterPopupRequiredEventArgs.FilterPopup"/> suppresses the built-in popup, so an
+        /// application can show its own instead.
+        /// </summary>
+        /// <remarks>
+        /// Telerik hands the handler its popup element to customise, and takes back whatever is left in
+        /// <c>FilterPopup</c>. There is no element tree here to hand over and no way to host an
+        /// arbitrary object as this grid's popup, so the half that is implementable is the half that
+        /// matters: the application is told which column was asked for, and can take over by supplying
+        /// something. A handler that leaves <c>FilterPopup</c> null gets the built-in popup, unchanged.
+        /// </remarks>
         public event EventHandler<FilterPopupRequiredEventArgs>? FilterPopupRequired;
-#pragma warning restore CS0067
 
         /// <summary>Raised after a cell edit commits, approximating Telerik's CellValidated sequence.</summary>
         public new event EventHandler<CellValidatedEventArgs>? CellValidated;
@@ -999,7 +1033,9 @@ namespace Majorsilence.Forms.Telerik
         }
 
         // Builds a summary (aggregate) row: a structural row carrying per-column computed display text.
-        private DataGridViewRow CreateSummaryRow (IEnumerable<GridViewSummaryItem> items, List<DataGridViewRow> data, int level = 0)
+        // groupKey identifies the group being summarised, and is null for a grand total over the whole
+        // grid -- which is the distinction GroupSummaryEvaluationEventArgs.Group documents.
+        private DataGridViewRow CreateSummaryRow (IEnumerable<GridViewSummaryItem> items, List<DataGridViewRow> data, int level = 0, string? groupKey = null)
         {
             var values = new Dictionary<int, string> ();
 
@@ -1007,14 +1043,14 @@ namespace Majorsilence.Forms.Telerik
                 var colIndex = ColumnIndexByName (item.Name);
                 if (colIndex < 0)
                     continue;
-                values[colIndex] = ComputeAggregate (item, colIndex, data);
+                values[colIndex] = ComputeAggregate (item, colIndex, data, groupKey);
             }
 
             return new DataGridViewRow { Tag = new GridSummaryRow { Values = values, Level = level } };
         }
 
         // Computes one aggregate over the column's values across the supplied rows, then formats it.
-        private string ComputeAggregate (GridViewSummaryItem item, int colIndex, List<DataGridViewRow> data)
+        private string ComputeAggregate (GridViewSummaryItem item, int colIndex, List<DataGridViewRow> data, string? groupKey = null)
         {
             object? result = item.Aggregate switch {
                 GridAggregateFunction.Count => data.Count,
@@ -1027,10 +1063,30 @@ namespace Majorsilence.Forms.Telerik
                 _ => null
             };
 
+            var format = item.FormatString;
+
+            // Raised whatever the aggregate came to, including null -- a handler supplying a value the
+            // built-in aggregates cannot express (a weighted average, a value from elsewhere) is the
+            // main reason Telerik has this event, and skipping the raise when result is null would shut
+            // exactly that case out.
+            if (GroupSummaryEvaluate is not null) {
+                var args = new GroupSummaryEvaluationEventArgs {
+                    SummaryItem = item,
+                    Group = groupKey is null ? null : FindDataGroup (groupKey),
+                    Value = result,
+                    FormatString = format,
+                };
+
+                GroupSummaryEvaluate.Invoke (this, args);
+
+                result = args.Value;
+                format = args.FormatString;
+            }
+
             if (result is null)
                 return string.Empty;
 
-            return string.IsNullOrEmpty (item.FormatString) ? result.ToString () ?? string.Empty : FormatValue (item.FormatString, result);
+            return string.IsNullOrEmpty (format) ? result.ToString () ?? string.Empty : FormatValue (format, result);
         }
 
         // Numeric cell values for a column (raw value when numeric, else parsed from display text).
@@ -1140,7 +1196,7 @@ namespace Majorsilence.Forms.Telerik
 
                     // Group footer: aggregate over the leaf group's rows.
                     if (level == GroupDescriptors.Count - 1 && GroupSummaryItems.Count > 0)
-                        result.Add (CreateSummaryRow (GroupSummaryItems, members, level + 1));
+                        result.Add (CreateSummaryRow (GroupSummaryItems, members, level + 1, key));
                 }
             }
         }
@@ -1230,7 +1286,11 @@ namespace Majorsilence.Forms.Telerik
                 return;
 
             // The same set ToggleGroupRow and CollapseAllGroups drive, so collapsing through the object
-            // model and clicking the group header are the same act.
+            // model and clicking the group header are the same act -- including the veto, which is why
+            // GroupExpanding is raised here too rather than only on the click path.
+            if (!RaiseGroupExpanding (group))
+                return;
+
             if (expanded)
                 _collapsed.Remove (key);
             else
@@ -1669,10 +1729,65 @@ namespace Majorsilence.Forms.Telerik
             if (row.Tag is not GridGroupRow info)
                 return;
 
+            if (!RaiseGroupExpanding (FindDataGroup (info.Key)))
+                return;
+
             if (!_collapsed.Remove (info.Key))
                 _collapsed.Add (info.Key);
 
             RebuildView ();
+        }
+
+        // Test seams for the two paths a mouse reaches: the group-header click and the filter-glyph
+        // click. Both sit behind mouse handlers that need a laid-out, hit-tested grid; driving the
+        // gesture itself is covered elsewhere, and what these exist for is the event contract.
+        //
+        // Returns false when there is no group row to toggle, so a fixture that was never grouped fails
+        // its test instead of passing it vacuously.
+        internal bool DriveFirstGroupToggle ()
+        {
+            foreach (DataGridViewRow row in base.Rows) {
+                if (!IsGroupRow (row))
+                    continue;
+
+                ToggleGroupRow (row);
+                return true;
+            }
+
+            return false;
+        }
+
+        internal void DriveFilterPopup (int columnIndex) => ShowFilterPopup (columnIndex);
+
+        // False when a handler cancelled. The DataGroup projection is only built when somebody is
+        // listening -- it walks every row, and the common case is no handler at all.
+        private bool RaiseGroupExpanding (DataGroup? group)
+        {
+            if (GroupExpanding is null)
+                return true;
+
+            var args = new GroupExpandingEventArgs { DataGroup = group };
+            GroupExpanding.Invoke (this, args);
+
+            return !args.Cancel;
+        }
+
+        // The projected group carrying this key, at any depth, or null if the projection has no such
+        // group (a summary row whose group has since been filtered out, say).
+        private DataGroup? FindDataGroup (string key)
+            => GroupExpanding is null && GroupSummaryEvaluate is null ? null : FindDataGroup (BuildDataGroups (), key);
+
+        private static DataGroup? FindDataGroup (List<DataGroup> groups, string key)
+        {
+            foreach (var group in groups) {
+                if (group.Key as string == key)
+                    return group;
+
+                if (FindDataGroup (group.Groups, key) is { } nested)
+                    return nested;
+            }
+
+            return null;
         }
 
         private void HandleGroupPanelMouseDown (Point location)
@@ -1698,6 +1813,17 @@ namespace Majorsilence.Forms.Telerik
                 return;
 
             var column = base.Columns[columnIndex];
+
+            if (FilterPopupRequired is not null) {
+                var popupArgs = new FilterPopupRequiredEventArgs { Column = column };
+                FilterPopupRequired.Invoke (this, popupArgs);
+
+                // The application supplied its own popup, so showing ours as well would put two filter
+                // UIs on screen for one click.
+                if (popupArgs.FilterPopup is not null)
+                    return;
+            }
+
             var name = !string.IsNullOrEmpty (column.Name) ? column.Name : column.HeaderText;
             var current = FilterDescriptors.Find (f => NameMatches (f.PropertyName, column));
 

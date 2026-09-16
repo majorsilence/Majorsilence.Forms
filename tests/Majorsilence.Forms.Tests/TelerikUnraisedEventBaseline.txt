@@ -39,7 +39,4 @@ Majorsilence.Forms.Telerik.RadDock.DockTabStripNeeded
 Majorsilence.Forms.Telerik.RadGridView.CreateCell
 Majorsilence.Forms.Telerik.RadGridView.DefaultValuesNeeded
 Majorsilence.Forms.Telerik.RadGridView.EditorRequired
-Majorsilence.Forms.Telerik.RadGridView.FilterPopupRequired
-Majorsilence.Forms.Telerik.RadGridView.GroupExpanding
-Majorsilence.Forms.Telerik.RadGridView.GroupSummaryEvaluate
 Majorsilence.Forms.Telerik.RadPageView.PageCollapsed

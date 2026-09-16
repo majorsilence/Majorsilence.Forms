@@ -114,7 +114,6 @@ Majorsilence.Forms.Telerik.EnumBinder.Target
 Majorsilence.Forms.Telerik.FilterDescriptor.IsFilterEditor
 Majorsilence.Forms.Telerik.FilterOperationContext.FieldName
 Majorsilence.Forms.Telerik.FilterPopupRequiredEventArgs.Column
-Majorsilence.Forms.Telerik.FilterPopupRequiredEventArgs.FilterPopup
 Majorsilence.Forms.Telerik.GridExportBase.ExportHierarchy
 Majorsilence.Forms.Telerik.GridExportBase.ExportVisualSettings
 Majorsilence.Forms.Telerik.GridExportBase.FileExtension
@@ -180,14 +179,11 @@ Majorsilence.Forms.Telerik.GridViewTemplate.AllowRowReorder
 Majorsilence.Forms.Telerik.GridViewTemplate.MultiSelect
 Majorsilence.Forms.Telerik.GridViewTemplate.ViewDefinition
 Majorsilence.Forms.Telerik.GroupDescriptor.Expression
-Majorsilence.Forms.Telerik.GroupExpandingEventArgs.Cancel
 Majorsilence.Forms.Telerik.GroupExpandingEventArgs.DataGroup
 Majorsilence.Forms.Telerik.GroupFieldElement.FieldName
 Majorsilence.Forms.Telerik.GroupFieldElement.Text
-Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.FormatString
 Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.Group
 Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.SummaryItem
-Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.Value
 Majorsilence.Forms.Telerik.HtmlExportSettings.DocumentExportLevel
 Majorsilence.Forms.Telerik.HtmlExportSettings.StylesExportMode
 Majorsilence.Forms.Telerik.LightVisualElement.GradientStyle
