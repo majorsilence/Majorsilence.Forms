@@ -1864,6 +1864,46 @@ there is a bug worth surfacing; the method is the programmatic path and has alwa
 and it is now implemented, tested, and pinned in both directions, because the obvious tidy-up is to
 make the two agree.
 
+### What the LAY-38 regression taught, and what W6.3 did not cover
+
+A regression shipped in `LAY-38` (#181) and was caught only when issue #96 sent me back into
+`ListView`: making `ListViewItem.Bounds` logical missed four hit-test sites in `ListView.cs` that
+convert the mouse point to device and compare against it, so **clicking a ListView item selected
+nothing at any display scale other than 1**. Review passed it and so did CI.
+
+**Why CI missed it.** The `MF_HEADLESS_SCALE=2` gate runs the whole suite, so it catches anything a
+test exercises at scale 2 — and no test drove a `ListView` click at all. The gate is only as good as
+the gestures the suite performs; a control with no click test has no scale coverage no matter how many
+configurations run.
+
+**W6.3's audit was narrower than its name.** It covered the list and grid controls' public hit-tests
+and rectangle members. It did not cover `Ribbon`, `MenuBase`/`MenuDropDown` or `ToolStrip`, whose
+hit-tests have the same shape: a logical point from a mouse handler tested against an item rectangle
+laid out in device pixels.
+
+**And static inspection does not settle it.** `MenuBase.GetItemAtLocation (e.Location)` reads exactly
+like the broken `ListView` code, and the menu path is *correct* — `MenuClickReproTests` drives a real
+click through the backend at scale 2 and passes. The only reliable detector is a scale-2 click test per
+control, which is what `ListView` lacked and menus had.
+
+So the open work here is **coverage, not a known defect**: an interactive control with no scale-2
+gesture test is unaudited, and the way to audit it is to write that test and watch what happens.
+
+**Ribbon was the first one audited that way, and it was broken.** `GetItemAtLocation` tested a logical
+`e.Location` against device item rectangles, so on a 2x display a ribbon click fired the wrong command
+or none at all. `Ribbon` had no tests of any kind. Fixed, with the scale-2 click test that found it.
+
+*Writing that test took three attempts, and the first two passed while proving nothing.* The first
+built the click point from `item.Bounds` — those are device, so a point derived from them matches them
+whatever the hit-test does. The second converted to logical but aimed at the FIRST item, whose logical
+centre happens to fall inside its own device rectangle because that rectangle is tall and near the
+origin. Only the third — aiming at the second item, and asserting **which** item fires — could tell a
+correct hit-test from a broken one, and it needs a guard asserting the fixture is genuinely one where
+the two readings disagree. A scale test that does not check its own premise is a tautology.
+
+`ToolStrip.GetItemAt` is the next candidate and a different question: it is public API with no internal
+mouse caller, so what matters is which space an application is expected to pass.
+
 ### What W6.3 found
 
 **The audit found bugs in code that had already been audited for exactly this.** `ListBox

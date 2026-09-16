@@ -39,10 +39,23 @@ namespace Majorsilence.Forms
 
         private MenuItem? GetItemAtLocation (Point location)
         {
-            return SelectedTabPage?.Groups.SelectMany (g => g.Items).FirstOrDefault (item => item.Bounds.Contains (location));
+            // The point comes from a mouse handler and is LOGICAL; the item rectangles are laid out in
+            // DEVICE pixels (RibbonRenderer adds device-scaled padding to them and paints with them).
+            // Compared directly, a click landed on whichever item happened to occupy the point at
+            // 1/scale of where it was aimed -- so on a 2x display the ribbon fired the wrong command,
+            // or none. Same defect the ListView hit-tests had; found by driving a click at scale 2,
+            // which is the only thing that shows it.
+            var device = new Point (LogicalToDeviceUnits (location.X), LogicalToDeviceUnits (location.Y));
+
+            return SelectedTabPage?.Groups.SelectMany (g => g.Items).FirstOrDefault (item => item.Bounds.Contains (device));
         }
 
         private RibbonTabPage? GetPageFromTab (TabStripItem? item) => TabPages.FirstOrDefault (p => p.TabStripItem == item);
+
+        /// <inheritdoc/>
+        // A test seam: OnMouseClick is protected, and Ribbon has no other way to drive a click.
+        internal void DriveClick (Point location)
+            => OnMouseClick (new MouseEventArgs (MouseButtons.Left, 1, location.X, location.Y, Point.Empty));
 
         /// <inheritdoc/>
         protected override void OnMouseClick (MouseEventArgs e)
