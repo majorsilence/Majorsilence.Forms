@@ -94,9 +94,7 @@ Majorsilence.Forms.Telerik.DataGroup.Level
 Majorsilence.Forms.Telerik.DockTabStripNeededEventArgs.Strip
 Majorsilence.Forms.Telerik.DockWindowBase.AllowedDockState
 Majorsilence.Forms.Telerik.DockWindowBase.AutoScaleMode
-Majorsilence.Forms.Telerik.DockWindowBase.CloseAction
 Majorsilence.Forms.Telerik.DockWindowBase.DefaultFloatingSize
-Majorsilence.Forms.Telerik.DockWindowBase.DockState
 Majorsilence.Forms.Telerik.DockWindowBase.PreviousDockState
 Majorsilence.Forms.Telerik.DockWindowBase.ToolCaptionButtons
 Majorsilence.Forms.Telerik.DockWindowEventArgs.DockWindow
