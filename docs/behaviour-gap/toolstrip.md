@@ -395,6 +395,14 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** `new ToolStrip { Items = { new MenuSeparatorItem() } }.Renderer = new ToolStripProfessionalRenderer()` does not throw.
 - **Tests today:** none.
 
+### TSM-39 — `ToolStrip.GetItemAt` never returns an item — Cat A — P1 — High — **CLOSED (2026-09-16)**
+- **Ours (before):** `GetItemAt` built its hit rectangle as `new Rectangle (item.Bounds.Location, item.Size)` (`ToolStripParity.cs:395-403`) — the laid-out *position* paired with the *requested* size. Those are separate stores here: `ToolStripItem.Size` is what the application asked for and layout never writes it (`WinFormsCompat.cs:1082-1091`, and its own remarks say so), so on a normally-built strip it is `0, 0`, the rectangle is empty, and `Contains` is false for every point. **The method returned null for every point, at every scale.** Where `Size` *had* been assigned it disagreed with the laid-out extent whenever `AutoSize` was on, which is the default.
+- **Upstream:** `ToolStrip.GetItemAt` tests `item.Bounds`; there `Size` writes into the same rectangle layout uses, so the two cannot disagree.
+- **Impact:** any application hit-testing a strip itself — custom drag/drop, context menus keyed to the item under the cursor, tooltips — got null and did nothing. Invisible to the rest of the framework because nothing internal calls it: `MenuBase.OnMouseClick` uses `GetItemAtLocation`, which was always correct.
+- **Fix (applied):** test `item.Bounds` directly, as the sibling `MenuBase.GetItemAtLocation` does.
+- **Coordinate space, settled:** the point is **logical** client coordinates — the space `MouseEventArgs.Location` arrives in. `MenuItem.Bounds` is logical (`WindowPoint.In` walks `Control.Left`/`Top` and adds `item.Bounds`, and `MenuClickReproTests` drives a real backend click through it at scale 2). This is the question W6.3 deferred; it is answered by the scale-2 test agreeing with a real click rather than by reading the source, which #189 showed is not reliable here.
+- **Tests today:** 7 in `ToolStripGetItemAtTests.cs`; 5 verified to fail with the fix neutralized. The other 2 are a premise assertion (`Size` really is unwritten by layout) and a null guard, both deliberately fix-independent.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.
 - `ToolTip.IsBalloon`/`UseAnimation`/`UseFading`/`ToolTipIcon`/`ToolTipTitle`/`StripAmpersands`/`ShowAlways`/`OwnerDraw`/`Draw`/`Popup` — comctl32 tooltip styling; cosmetic.
