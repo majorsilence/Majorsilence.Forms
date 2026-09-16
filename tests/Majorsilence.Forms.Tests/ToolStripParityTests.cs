@@ -90,6 +90,12 @@ namespace Majorsilence.Forms.Tests
             Assert.False (item.IsOnDropDown);   // a plain strip is not a drop-down
         }
 
+        // These two hand-set Size and SetBounds to the SAME rectangle, so the requested size and the
+        // laid-out bounds agree and the test passes whichever one GetItemAt reads. That is why this
+        // test existed, green, while GetItemAt returned null for every point on a real strip (the
+        // GetItemAt half of TSM-22): on a laid-out strip nothing writes Size, and the old hit
+        // rectangle was empty. ToolStripGetItemAtTests covers that case; these stay as the
+        // explicitly-sized pair.
         [Fact]
         public void GetItemAt_finds_the_item_under_a_point ()
         {

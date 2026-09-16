@@ -266,7 +266,11 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Impact:** `item.Width`/`item.Height` read 0 after layout; `GetItemAt` never finds an auto-sized item; setting `Size` does not re-layout.
 - **Fix:** make `Size` getter return `Bounds.Size` when the explicit size is empty; hit-test with `Bounds`; `PerformLayout` in the setter.
 - **Test:** `ToolStripTests`: after `SetBounds(0,0,50,20)`, `item.Width == 50` and `strip.GetItemAt(10,10)` is the item.
-- **Tests today:** `ToolStripParityTests.cs`/`MenuTests.cs` (GetItemAt with explicit `Size` only).
+- **Tests today:** `ToolStripItemSizeTests.cs` (6, 4 neutralization-verified); `ToolStripGetItemAtTests.cs` (5); `ToolStripParityTests.cs`/`MenuTests.cs` (GetItemAt with explicit `Size` only — these hand-set `Size` *and* `SetBounds` to the same rectangle, which is how they stayed green while `GetItemAt` found nothing).
+- **Note on the suggested fix above:** it proposed a hybrid getter (`Bounds.Size` only when the explicit size is empty). Upstream keeps one store instead, and that is what was done — the hybrid would have left two values that can still disagree.
+- **CLOSED (2026-09-16).** `Size` is now a view over `Bounds` in both directions, which is upstream's shape exactly (`ToolStripItem.cs:1807` — `get => Bounds.Size`, and a setter writing through `SetBounds`). `Width`/`Height`/`ContentRectangle` all delegate to `Size`, so one property closes all four. `GetItemAt` hit-tests `Bounds`; the point is **logical** client coordinates — the space `MouseEventArgs.Location` arrives in and the space the sibling `MenuBase.GetItemAtLocation` takes, asserted by a scale-2 test agreeing with a real backend click rather than read off the source.
+- **The recorded objection did not survive the merge.** `ToolStripItem.Height`'s remarks had argued that reading `Bounds` would answer 0 for an item never placed on a strip. That held only while the two were separate stores: the setter writes `Bounds` now, so a size assigned off-strip reads back unchanged. Pinned by its own test, because it is the reason the merge had been avoided.
+- **The two halves were one defect.** With a single store, `new Rectangle (Bounds.Location, Size)` and `Bounds` are the same rectangle, so the `GetItemAt` bug is structurally impossible however the hit-test is written — verified by restoring the old expression and watching nothing fail. The earlier fix treated the symptom; the split store was the cause.
 
 ### TSM-23 — `ToolStripSeparator` on `ToolStrip`/`MenuStrip` — Cat A — P2 — High
 - **Ours:** `ToolBarRenderer.Render` and `MenuRenderer.Render` special-case only `MenuSeparatorItem` (`Renderers/ToolBarRenderer.cs:13-17`, `MenuRenderer.cs:12-20`); a `ToolStripSeparator` (`WinFormsCompat.cs:1719`) is painted as a 6px-wide blank item that hover-highlights (`MenuBase.SetHover` only skips disabled). `MenuDropDownRenderer` does handle it.
@@ -394,14 +398,6 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Fix:** forward `Enabled` to `Control` in the host; delete the `Tag` shadow; use `Items.OfType<ToolStripItem>()`.
 - **Test:** `new ToolStrip { Items = { new MenuSeparatorItem() } }.Renderer = new ToolStripProfessionalRenderer()` does not throw.
 - **Tests today:** none.
-
-### TSM-39 — `ToolStrip.GetItemAt` never returns an item — Cat A — P1 — High — **CLOSED (2026-09-16)**
-- **Ours (before):** `GetItemAt` built its hit rectangle as `new Rectangle (item.Bounds.Location, item.Size)` (`ToolStripParity.cs:395-403`) — the laid-out *position* paired with the *requested* size. Those are separate stores here: `ToolStripItem.Size` is what the application asked for and layout never writes it (`WinFormsCompat.cs:1082-1091`, and its own remarks say so), so on a normally-built strip it is `0, 0`, the rectangle is empty, and `Contains` is false for every point. **The method returned null for every point, at every scale.** Where `Size` *had* been assigned it disagreed with the laid-out extent whenever `AutoSize` was on, which is the default.
-- **Upstream:** `ToolStrip.GetItemAt` tests `item.Bounds`; there `Size` writes into the same rectangle layout uses, so the two cannot disagree.
-- **Impact:** any application hit-testing a strip itself — custom drag/drop, context menus keyed to the item under the cursor, tooltips — got null and did nothing. Invisible to the rest of the framework because nothing internal calls it: `MenuBase.OnMouseClick` uses `GetItemAtLocation`, which was always correct.
-- **Fix (applied):** test `item.Bounds` directly, as the sibling `MenuBase.GetItemAtLocation` does.
-- **Coordinate space, settled:** the point is **logical** client coordinates — the space `MouseEventArgs.Location` arrives in. `MenuItem.Bounds` is logical (`WindowPoint.In` walks `Control.Left`/`Top` and adds `item.Bounds`, and `MenuClickReproTests` drives a real backend click through it at scale 2). This is the question W6.3 deferred; it is answered by the scale-2 test agreeing with a real click rather than by reading the source, which #189 showed is not reliable here.
-- **Tests today:** 7 in `ToolStripGetItemAtTests.cs`; 5 verified to fail with the fix neutralized. The other 2 are a premise assertion (`Size` really is unwritten by layout) and a null guard, both deliberately fix-independent.
 
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.
