@@ -146,6 +146,15 @@ up — regenerate and commit the smaller file):
 | `TelerikUnraisedEventBaseline.txt` | " | `MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1` |
 | `TelerikStoredOnlyPropertyBaseline.txt` | " | `MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1` |
 
+These files record **entries, not counts**. The headers deliberately carry no live totals: a
+whole-assembly number changes on every merge, so it collided with every open branch and turned a
+generated file into a source of hand-resolved conflicts — which is how conflict markers twice reached
+a commit. A dated snapshot of a total belongs in `docs/behaviour-gap-plan.md` beside the item that
+moved it; the current entry count is `grep -vc '^#\|^$'` on the file.
+
+When a rebase conflicts on one of these, do not hand-merge it: take either side, finish the rebase,
+then regenerate. The regenerated file is the only correct answer.
+
 ```bash
 MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1 dotnet test --filter "FullyQualifiedName~StoredOnly"
 ```
