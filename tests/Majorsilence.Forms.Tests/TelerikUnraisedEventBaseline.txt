@@ -3,14 +3,16 @@
 # regression and a Telerik regression stay distinguishable. See
 # TelerikUnraisedEventBaselineTests and issue #176 (step 1).
 #
-# 12 of 64 field-backed events (73 events are subscribable in all; the rest are
+# The entries below ARE the count; the denominators are not recorded here (see the core
+# baseline for why; dated snapshots live in docs/behaviour-gap-plan.md). Of the events a
+# consumer can subscribe to, the rest are
 # either inert -- see TelerikInertEventBaseline.txt -- or aliases forwarding to another event).
 #
 # NOT comparable with the core file's number: this is a stricter scan, in two ways.
 #
 #  * Trap 3 from #91 -- an `OnXxx` raiser holding `Xxx?.Invoke` that nothing ever calls. The
 #    core scan looks for the field read and stops; it does not ask whether any call path
-#    reaches the raiser. Over this assembly it finds 12 where this one finds 12, and the
+#    reaches the raiser. Over this assembly it finds fewer than this one does, and the
 #    difference is precisely that shape: RadTreeView.NodeFormatting, NodeCheckedChanged and
 #    NodeCheckedChanging each have a correct `protected internal virtual OnNodeXxx` that no
 #    code in the assembly calls.

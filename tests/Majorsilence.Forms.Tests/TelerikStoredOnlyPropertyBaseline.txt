@@ -3,14 +3,15 @@
 # on purpose: a core regression and a Telerik regression have to stay distinguishable.
 # See TelerikStoredOnlyPropertyBaselineTests and issue #176 (step 1).
 #
-# 378 of 487 public settable auto-properties (77%).
+# The entries below ARE the count; the denominator is not recorded here (see the core
+# baseline for why); dated snapshots live in docs/behaviour-gap-plan.md.
 #
 # NOT comparable with the core file's number: this is a stricter scan. The core gate asks
 # one question -- is this backing field loaded anywhere other than its own getter -- and on
 # this layer that reads clean over code that does nothing, because nearly every RadGridView
 # member is a hand-written forwarder onto MasterTemplate and the template's auto-property is
 # duly "read", by a getter whose own callers are nobody. Run the core scan over this
-# assembly and it finds 370; the two closures below find 378. The difference is
+# assembly and it finds fewer than the two closures below do. The difference is
 # forwarding chains that end in mid-air, e.g. RadElement.ControlBounds ->
 # LightVisualElement.ControlBoundingRectangle -> nothing.
 #
