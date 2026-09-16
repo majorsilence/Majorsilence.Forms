@@ -1864,6 +1864,34 @@ there is a bug worth surfacing; the method is the programmatic path and has alwa
 and it is now implemented, tested, and pinned in both directions, because the obvious tidy-up is to
 make the two agree.
 
+### What the LAY-38 regression taught, and what W6.3 did not cover
+
+A regression shipped in `LAY-38` (#181) and was caught only when issue #96 sent me back into
+`ListView`: making `ListViewItem.Bounds` logical missed four hit-test sites in `ListView.cs` that
+convert the mouse point to device and compare against it, so **clicking a ListView item selected
+nothing at any display scale other than 1**. Review passed it and so did CI.
+
+**Why CI missed it.** The `MF_HEADLESS_SCALE=2` gate runs the whole suite, so it catches anything a
+test exercises at scale 2 — and no test drove a `ListView` click at all. The gate is only as good as
+the gestures the suite performs; a control with no click test has no scale coverage no matter how many
+configurations run.
+
+**W6.3's audit was narrower than its name.** It covered the list and grid controls' public hit-tests
+and rectangle members. It did not cover `Ribbon`, `MenuBase`/`MenuDropDown` or `ToolStrip`, whose
+hit-tests have the same shape: a logical point from a mouse handler tested against an item rectangle
+laid out in device pixels.
+
+**And static inspection does not settle it.** `MenuBase.GetItemAtLocation (e.Location)` reads exactly
+like the broken `ListView` code, and the menu path is *correct* — `MenuClickReproTests` drives a real
+click through the backend at scale 2 and passes. The only reliable detector is a scale-2 click test per
+control, which is what `ListView` lacked and menus had.
+
+So the open work here is **coverage, not a known defect**: an interactive control with no scale-2
+gesture test is unaudited, and the way to audit it is to write that test and watch what happens. Ribbon
+is the strongest remaining candidate on static evidence (`RibbonRenderer` adds device-scaled padding to
+`item.Bounds` while `GetItemAtLocation` is handed `e.Location`), but it is unverified, and the menu case
+is the reason to verify rather than assume.
+
 ### What W6.3 found
 
 **The audit found bugs in code that had already been audited for exactly this.** `ListBox
