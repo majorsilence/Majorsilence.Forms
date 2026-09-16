@@ -287,6 +287,16 @@ namespace Majorsilence.Forms
 
         // Mouse coordinates are logical; item bounds are device. Same conversion, and the same
         // reason, as ListBox.GetIndexAtLocation.
+        // A test seam: OnMouseClick is protected, and the modifier-extended selection below can only be
+        // driven through a MouseEventArgs carrying its own keyData -- priming the static
+        // Control.ModifierKeys does not work, because MouseEventArgs' constructor assigns that static
+        // from its own keyData and so resets it to None.
+        internal void DriveClick (Point location, Keys modifiers = Keys.None)
+            => DriveClick (new MouseEventArgs (MouseButtons.Left, 1, location.X, location.Y, Point.Empty, keyData: modifiers));
+
+        /// <inheritdoc cref="DriveClick(Point, Keys)"/>
+        internal void DriveClick (MouseEventArgs e) => OnMouseClick (e);
+
         private Point ToDevice (Point location)
             => new Point (LogicalToDeviceUnits (location.X), LogicalToDeviceUnits (location.Y));
 
@@ -309,13 +319,16 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            var clicked_item = Items.FirstOrDefault (tp => tp.Bounds.Contains (location));
+            // DeviceBounds, because `location` is device (ToDevice above) -- LAY-38 made the public
+            // Bounds logical and these three hit-tests were missed, so a click landed nowhere near the
+            // item it was over on any display whose scale is not 1.
+            var clicked_item = Items.FirstOrDefault (tp => tp.DeviceBounds.Contains (location));
 
             if (clicked_item is null)
                 return;
 
             // The check box is its own hit target: clicking it toggles and does not re-select.
-            if (CheckBoxes && location.X < clicked_item.Bounds.Left + ScaledCheckWidth) {
+            if (CheckBoxes && location.X < clicked_item.DeviceBounds.Left + ScaledCheckWidth) {
                 clicked_item.Checked = !clicked_item.Checked;
                 return;
             }
@@ -324,9 +337,15 @@ namespace Majorsilence.Forms
 
             // Ctrl adds to the selection, Shift extends from the focused item -- both only when
             // MultiSelect allows it, which is what MultiSelect = false is for (LST-17).
-            if (MultiSelect && (ModifierKeys & Keys.Control) == Keys.Control)
+            //
+            // e.Modifiers, not the static Control.ModifierKeys: the modifiers that belong to THIS
+            // click are the ones carried on its event args, and the static is whatever is held down
+            // now -- which for a queued or replayed event is a different question. It also made both
+            // branches untestable, because MouseEventArgs' constructor assigns the static from its own
+            // keyData and so resets it to None (LST-27).
+            if (MultiSelect && (e.Modifiers & Keys.Control) == Keys.Control)
                 clicked_item.Selected = !clicked_item.Selected;
-            else if (MultiSelect && (ModifierKeys & Keys.Shift) == Keys.Shift && anchor_index >= 0)
+            else if (MultiSelect && (e.Modifiers & Keys.Shift) == Keys.Shift && anchor_index >= 0)
                 SelectRange (anchor_index, Items.IndexOf (clicked_item));
             else {
                 SelectedItem = clicked_item;
@@ -396,7 +415,7 @@ namespace Majorsilence.Forms
 
             LayoutItems ();
 
-            var clicked_item = Items.FirstOrDefault (tp => tp.Bounds.Contains (ToDevice (e.Location)));
+            var clicked_item = Items.FirstOrDefault (tp => tp.DeviceBounds.Contains (ToDevice (e.Location)));
 
             if (clicked_item != null) {
                 ItemDoubleClicked?.Invoke (this, new EventArgs<ListViewItem> (clicked_item));
@@ -670,7 +689,7 @@ namespace Majorsilence.Forms
 
             var location = ToDevice (new Point (x, y));
 
-            return Items.FirstOrDefault (i => i.Bounds.Contains (location));
+            return Items.FirstOrDefault (i => i.DeviceBounds.Contains (location));
         }
 
         /// <summary>Returns the first item whose text matches the specified string.</summary>
