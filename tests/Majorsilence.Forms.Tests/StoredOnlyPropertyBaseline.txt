@@ -493,13 +493,6 @@ Majorsilence.Forms.RichTextBox.ShowSelectionMargin
 Majorsilence.Forms.SaveFileDialog.CheckWriteAccess
 Majorsilence.Forms.SaveFileDialog.ExpandedMode
 Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange
-Majorsilence.Forms.ScrollPropertiesBase.Enabled
-Majorsilence.Forms.ScrollPropertiesBase.LargeChange
-Majorsilence.Forms.ScrollPropertiesBase.Maximum
-Majorsilence.Forms.ScrollPropertiesBase.Minimum
-Majorsilence.Forms.ScrollPropertiesBase.SmallChange
-Majorsilence.Forms.ScrollPropertiesBase.Value
-Majorsilence.Forms.ScrollPropertiesBase.Visible
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Bottom
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Left
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Right

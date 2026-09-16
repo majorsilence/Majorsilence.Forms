@@ -286,7 +286,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Provides access to the properties of the horizontal scrollbar.
         /// </summary>
-        public ScrollProperties HorizontalScrollProperties => new ScrollProperties (hscrollbar);
+        public HScrollProperties HorizontalScrollProperties => new HScrollProperties (hscrollbar);
 
         /// <inheritdoc/>
         protected override void OnLayout (LayoutEventArgs e)
@@ -431,12 +431,12 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Provides access to the properties of the vertical scrollbar.
         /// </summary>
-        public ScrollProperties VerticalScrollProperties => new ScrollProperties (vscrollbar);
+        public VScrollProperties VerticalScrollProperties => new VScrollProperties (vscrollbar);
 
         /// <summary>Gets the horizontal scroll properties (WinForms alias for HorizontalScrollProperties).</summary>
-        public ScrollProperties HorizontalScroll => HorizontalScrollProperties;
+        public HScrollProperties HorizontalScroll => HorizontalScrollProperties;
 
         /// <summary>Gets the vertical scroll properties (WinForms alias for VerticalScrollProperties).</summary>
-        public ScrollProperties VerticalScroll => VerticalScrollProperties;
+        public VScrollProperties VerticalScroll => VerticalScrollProperties;
     }
 }
