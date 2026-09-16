@@ -601,6 +601,38 @@ namespace Majorsilence.Forms
 
     public partial class ListViewGroupCollection
     {
+        // The control this collection belongs to, so an added group can be told which ListView it is
+        // in. ListViewGroup.ListView had an `internal set` that nothing ever called, which is why the
+        // property sat on the stored-only baseline reading as though it were wired.
+        private readonly ListView? owner;
+
+        /// <summary>Initializes an ownerless collection.</summary>
+        public ListViewGroupCollection () { }
+
+        internal ListViewGroupCollection (ListView owner) => this.owner = owner;
+
+        /// <inheritdoc/>
+        protected override void InsertItem (int index, ListViewGroup item)
+        {
+            Guard.ThrowIfNull (item);
+
+            base.InsertItem (index, item);
+
+            item.ListView = owner;
+            owner?.RefreshGroups ();
+        }
+
+        /// <inheritdoc/>
+        protected override void RemoveItem (int index)
+        {
+            var removed = this[index];
+
+            base.RemoveItem (index);
+
+            removed.ListView = null;
+            owner?.RefreshGroups ();
+        }
+
         /// <summary>Adds several groups at once.</summary>
         public void AddRange (params ListViewGroup[] groups)
         {
