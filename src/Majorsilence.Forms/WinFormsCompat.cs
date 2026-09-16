@@ -1076,29 +1076,40 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the name of this item.</summary>
         public string Name { get; set; } = string.Empty;
 
-        /// <summary>Gets or sets the requested size of this item.</summary>
-        /// <remarks>Honoured by <see cref="GetPreferredSize"/> when <see cref="AutoSize"/> is off,
-        /// which is what upstream does with it; with AutoSize on it is advisory, as there.</remarks>
+        /// <summary>Gets or sets the size of this item.</summary>
+        /// <remarks>
+        /// A view over <see cref="MenuItem.Bounds"/> in both directions, as upstream's is
+        /// (<c>ToolStripItem.cs:1807</c>: <c>get =&gt; Bounds.Size</c>, and a setter that writes the
+        /// size into <c>Bounds</c> via <c>SetBounds</c>).
+        ///
+        /// It used to be a store of its own, separate from the <c>Bounds</c> layout writes, which is
+        /// the rest of <c>TSM-22</c>: <see cref="Width"/>/<see cref="Height"/>/
+        /// <see cref="ToolStripItem.ContentRectangle"/> all read it, so they reported 0 for every item
+        /// laid out normally -- layout writes <c>Bounds</c> and nothing wrote this. The objection
+        /// recorded against merging them was that reading <c>Bounds</c> would answer 0 for an item that
+        /// has never been on a strip; that only held while the two were separate. Assigning here now
+        /// writes <c>Bounds</c>, so a size set before the item reaches a strip reads back unchanged.
+        ///
+        /// Honoured by <see cref="GetPreferredSize"/> when <see cref="AutoSize"/> is off, which is what
+        /// upstream does with it; with AutoSize on it is advisory, as there -- the next layout pass
+        /// measures and overwrites it.
+        /// </remarks>
         public virtual Size Size {
-            get => item_size;
+            get => Bounds.Size;
             set {
-                if (item_size == value)
+                if (Bounds.Size == value)
                     return;
 
-                item_size = value;
+                SetBounds (Bounds.X, Bounds.Y, value.Width, value.Height);
                 InvalidateItemLayout ();
             }
         }
 
-        private Size item_size;
-
         /// <summary>Gets or sets the height of this item. Mirrors WinForms ToolStripItem.Height.</summary>
         /// <remarks>
-        /// Reports the REQUESTED height, symmetric with <see cref="Width"/>. Upstream's getter reads
-        /// <c>Bounds</c>, because there <c>Size</c> writes into the same rectangle layout uses; here the
-        /// two are separate stores, and reporting the laid-out height would answer 0 for an item that
-        /// has never been on a strip. What was actually missing is in the setter's path: assigning it
-        /// now runs a layout pass, so the size reaches the box the renderer draws (<c>TSM-31</c>).
+        /// Reads the laid-out height, symmetric with <see cref="Width"/> and with upstream, now that
+        /// <see cref="Size"/> is a view over <c>Bounds</c> rather than a second store. Assigning runs a
+        /// layout pass, so the size reaches the box the renderer draws (<c>TSM-31</c>).
         /// </remarks>
         public new int Height {
             get => Size.Height;

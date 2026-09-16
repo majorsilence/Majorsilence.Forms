@@ -1901,8 +1901,10 @@ origin. Only the third — aiming at the second item, and asserting **which** it
 correct hit-test from a broken one, and it needs a guard asserting the fixture is genuinely one where
 the two readings disagree. A scale test that does not check its own premise is a tautology.
 
-`ToolStrip.GetItemAt` is the next candidate and a different question: it is public API with no internal
-mouse caller, so what matters is which space an application is expected to pass.
+`ToolStrip.GetItemAt` was taken next and is **done** — but the question above was the wrong one. The
+space was fine; the method was hit-testing the requested `ToolStripItem.Size` rather than the laid-out
+`Bounds`, so it returned null for every point at every scale. `TSM-22` had already recorded exactly
+that, in those words. See "What the `ToolStrip.GetItemAt` follow-up found".
 
 ### What W6.3 found
 
@@ -2846,11 +2848,21 @@ the layout path writes it. On any strip whose items were not explicitly sized �
 is `0, 0`, so the rectangle was empty and `GetItemAt` answered null for every point at every scale.
 Not a coordinate-space defect at all; an API that never answered.
 
+**The register already knew, and I wrote it up as a discovery anyway.** `TSM-22` says it plainly —
+"for AutoSize items `Size` is 0×0 so it returns null for everything" — and names the fix this change
+made. It was missed because the check for an existing finding was `grep -rn GetItemAt docs/ | head`,
+and `head` cut the output off two lines above the `toolstrip.md` hit. Third time in this plan that a
+finding has been duplicated or mis-attached (`LAY-31`/`LAY-32`, `W5.25`'s wrong closure). The habit that
+prevents it is not "grep first" — it was grepped — but **never truncating the search that decides
+whether something is already known.**
+
 **Why no test and no user had caught it.** Nothing inside the framework calls it: `MenuBase.OnMouseClick`
 routes through `GetItemAtLocation`, which was always correct. A member with no internal caller gets
 exactly as much verification as someone writes for it, and nobody had. That is the same shape as the
 dead events in W6.1 — correct-looking code, one level short of being reached — and it argues the
 remaining "public API, no internal caller" members deserve the same treatment rather than a reading.
+`TSM-22` having sat open with the defect correctly described is the other half of that argument: the
+finding existing is not the same as the finding being worked.
 
 **The space question, answered by cross-validation rather than by reading.** `MenuItem.Bounds` is
 logical, so the point is logical client coordinates — the space `MouseEventArgs.Location` arrives in.
@@ -2858,11 +2870,32 @@ The reason that is asserted by a scale-2 test agreeing with a real backend click
 from the source, is #189: `MenuBase.GetItemAtLocation` reads *identically* to the code that was broken
 in `Ribbon` and is correct. Reading cannot separate the two cases in this area; driving a click can.
 
-**Two of the seven tests deliberately survive neutralization,** and are labelled in-test as doing so: one
-asserts the premise the others rest on (layout really does leave `Size` empty), and one is a null guard
-that the old code satisfied trivially. Stating which tests are not proof is cheaper than rediscovering
-later that a green suite was green for the wrong reason — the recurring failure this plan has now
-recorded half a dozen times.
+**The follow-up closed the rest of TSM-22, and it turned out to be the same defect.** `Size` was a
+store of its own, separate from the `Bounds` layout writes; `Width`, `Height` and `ContentRectangle`
+all read it, so all three answered 0 for every normally laid-out item. Upstream has one store — `Size`
+is a view over `Bounds` in both directions — and taking that shape closes all four members with one
+property. It also makes the `GetItemAt` defect **structurally impossible**: with one store,
+`new Rectangle (Bounds.Location, Size)` and `Bounds` are the same rectangle, so the hit-test cannot
+disagree with the layout however it is written. Verified by restoring the old expression and watching
+nothing fail. The hit-test fix treated the symptom; the split store was the cause, and the register had
+them filed together under one finding all along.
+
+**A recorded objection is not the same as a settled one.** `ToolStripItem.Height`'s remarks argued
+against reading `Bounds`, on the grounds that it would answer 0 for an item never placed on a strip.
+That was true, and it stopped being true the moment the setter wrote `Bounds` instead of a private
+field — the objection described a consequence of the two-store design, not a reason for it. Worth
+noticing generally: a comment explaining why something *cannot* be done is evidence about the code as
+it stood when the comment was written, and deserves rechecking rather than deferring to.
+
+**Tests that stop being proof should say so rather than be left looking like proof.** The `GetItemAt`
+tests were written with two of seven deliberately surviving neutralization — a premise assertion and a
+null guard, both labelled. Merging the stores then invalidated the premise of two more (`Size` is no
+longer empty after layout, and assigning it no longer leaves `Bounds` alone), and made the remaining
+five unable to fail against the old hit-test at all. They were not quietly kept green: the two whose
+premise had gone were deleted, and the file now carries a note saying what the rest do and do not
+establish, with the guarding moved to `ToolStripItemSizeTests`. A suite that is green for a reason
+nobody has restated is the recurring failure this plan has now recorded half a dozen times, and a fix
+that makes older tests redundant is one of the ways it happens.
 
 ## Suggested execution order
 

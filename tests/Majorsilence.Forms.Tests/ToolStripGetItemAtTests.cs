@@ -5,10 +5,12 @@ using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
-    // ToolStrip.GetItemAt, carried over from the W6.3 hit-test audit as "public API with no internal
-    // mouse caller, so the question is which space an application is expected to pass".
+    // ToolStrip.GetItemAt -- the GetItemAt half of TSM-22, which had recorded the defect accurately
+    // ("for AutoSize items Size is 0x0 so it returns null for everything") and sat open. W6.3's
+    // hit-test audit separately carried it forward as "public API with no internal mouse caller, so
+    // the question is which space an application is expected to pass".
     //
-    // The space question turned out to be the smaller half. GetItemAt built its hit rectangle from
+    // That space question turned out to be the smaller half. GetItemAt built its hit rectangle from
     // `new Rectangle (item.Bounds.Location, item.Size)` -- the laid-out POSITION paired with the
     // requested SIZE. Those are two separate stores here (see ToolStripItem.Size's remarks): Size is
     // what the application asked for and stays 0,0 on an item nobody sized explicitly. An empty
@@ -21,6 +23,14 @@ namespace Majorsilence.Forms.Tests
     // that by agreeing with a real click driven through the backend, which is the check #189 showed
     // is the only reliable one here -- MenuBase reads identically to the code that was broken in
     // Ribbon and is correct, so reading cannot settle it.
+    //
+    // WHAT THESE PROVE NOW. Closing the REST of TSM-22 merged Size into Bounds, which makes the
+    // original defect structurally impossible: `new Rectangle (Bounds.Location, Size)` and `Bounds`
+    // are the same rectangle once there is one store. Verified rather than assumed -- restoring the
+    // old expression now leaves every test in this file green. So these are behaviour coverage for
+    // GetItemAt, and the record of which space it takes; they are no longer a guard against the bug
+    // that prompted them. ToolStripItemSizeTests holds the tests that fail if the stores split again,
+    // which is the thing actually left to guard.
     [Collection ("Headless")]
     public class ToolStripGetItemAtTests
     {
@@ -54,48 +64,6 @@ namespace Majorsilence.Forms.Tests
             try {
                 foreach (var item in strip.Items.Cast<ToolStripItem> ())
                     Assert.Same (item, strip.GetItemAt (Centre (item)));
-            } finally {
-                form.Close ();
-            }
-        }
-
-        [Fact]
-        public void The_items_really_were_never_sized ()
-        {
-            // The premise the test above rests on, asserted rather than assumed: Size is a separate
-            // store from the laid-out Bounds and nothing populates it during layout. Without this,
-            // "returns the item" could be passing on a strip that happened to have sizes.
-            using var strip = Built (out var form);
-
-            try {
-                foreach (var item in strip.Items.Cast<ToolStripItem> ()) {
-                    Assert.Equal (Size.Empty, item.Size);
-                    Assert.NotEqual (Size.Empty, item.Bounds.Size);
-                }
-            } finally {
-                form.Close ();
-            }
-        }
-
-        [Fact]
-        public void A_wrong_requested_size_does_not_move_the_hit_region ()
-        {
-            // Discriminates the fix from the old code in the one configuration where the old code
-            // answered anything at all. Setting Size makes the old rectangle non-empty, so a test that
-            // only sized items and asked for a hit would pass either way. Here Size is set to a
-            // deliberately wrong extent -- a sliver -- while AutoSize keeps the laid-out Bounds as they
-            // were. The old code would miss the item's real right-hand side and, at the far edge, hand
-            // back the wrong item; the fix ignores the request and tests where the item actually is.
-            using var strip = Built (out var form);
-
-            try {
-                var beta = (ToolStripItem)strip.Items[1];
-                var laid_out = beta.Bounds;
-
-                beta.Size = new Size (2, 2);
-
-                Assert.Equal (laid_out, beta.Bounds);
-                Assert.Same (beta, strip.GetItemAt (new Point (laid_out.Right - 1, laid_out.Top + laid_out.Height / 2)));
             } finally {
                 form.Close ();
             }
