@@ -48,7 +48,25 @@ namespace Majorsilence.Forms
         public bool RightToLeftLayout { get; set; }
 
         /// <summary>Gets or sets the size of tiles in tile view.</summary>
-        public Size TileSize { get; set; } = new Size (0, 0);
+        public Size TileSize {
+            get => tile_size;
+            set {
+                // The equality check comes BEFORE validation, as upstream's does: a designer writing
+                // the unset default back must not throw.
+                if (tile_size == value)
+                    return;
+
+                if (value.Width <= 0 || value.Height <= 0)
+                    throw new ArgumentOutOfRangeException (nameof (TileSize), value, "TileSize must be positive in both dimensions.");
+
+                tile_size = value;
+
+                PerformLayout ();
+                Invalidate ();
+            }
+        }
+
+        private Size tile_size;
 
         /// <summary>Gets or sets the image list used for group title images.</summary>
         public ImageList? GroupImageList { get; set; }

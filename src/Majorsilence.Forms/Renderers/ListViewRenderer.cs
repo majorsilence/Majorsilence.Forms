@@ -93,7 +93,7 @@ namespace Majorsilence.Forms.Renderers
             var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);
 
             // FullRowSelect highlights the whole row; without it, only the first column, as upstream.
-            if (item.Selected) {
+            if (ShowsSelection (control, item)) {
                 var highlight = control.FullRowSelect || control.Columns.Count == 0
                     ? item.DeviceBounds
                     : new Rectangle (item.DeviceBounds.Left, item.DeviceBounds.Top,
@@ -120,7 +120,7 @@ namespace Majorsilence.Forms.Renderers
                     e.Canvas.Save ();
                     e.Canvas.Clip (cell);
                     e.Canvas.DrawText (text, Theme.UIFont, font_size, Padded (cell, e),
-                        Foreground (item, i), Align (control.Columns[i].TextAlign), maxLines: 1);
+                        Foreground (item, i, ShowsSelection (control, item)), Align (control.Columns[i].TextAlign), maxLines: 1);
                     e.Canvas.Restore ();
                 }
 
@@ -162,14 +162,14 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.Save ();
             e.Canvas.Clip (item.DeviceBounds);
             e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, Padded (text_bounds, e),
-                Foreground (item, 0), ContentAlignment.MiddleLeft, maxLines: 1);
+                Foreground (item, 0, ShowsSelection (control, item)), ContentAlignment.MiddleLeft, maxLines: 1);
             e.Canvas.Restore ();
         }
 
         /// <summary>Renders a large-icon or tile item: the icon above centred text.</summary>
         protected virtual void RenderTile (ListView control, ListViewItem item, PaintEventArgs e)
         {
-            if (item.Selected)
+            if (ShowsSelection (control, item))
                 e.Canvas.FillRectangle (item.DeviceBounds, ListView.DefaultSelectionStyle.GetBackgroundColor ());
 
             RenderCheckBox (control, item, e);
@@ -190,7 +190,7 @@ namespace Majorsilence.Forms.Renderers
 
                 var text_bounds = new Rectangle (item.DeviceBounds.Left, image_bounds.Bottom + e.LogicalToDeviceUnits (3), item.DeviceBounds.Width, item.DeviceBounds.Bottom - image_bounds.Bottom - e.LogicalToDeviceUnits (3));
 
-                e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_bounds, Foreground (item, 0), ContentAlignment.MiddleCenter);
+                e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_bounds, Foreground (item, 0, ShowsSelection (control, item)), ContentAlignment.MiddleCenter);
 
                 e.Canvas.Restore ();
             }
@@ -212,7 +212,7 @@ namespace Majorsilence.Forms.Renderers
         }
 
         // A per-item or per-subitem ForeColor overrides the theme; Color.Empty means "use the theme".
-        private static SkiaSharp.SKColor Foreground (ListViewItem item, int column)
+        private static SkiaSharp.SKColor Foreground (ListViewItem item, int column, bool selected)
         {
             var color = column > 0 && column < item.SubItems.Count && item.SubItems[column].ForeColor != Color.Empty
                 ? item.SubItems[column].ForeColor
@@ -222,8 +222,19 @@ namespace Majorsilence.Forms.Renderers
                 return color.ToSKColor ();
 
             // A `ListView::selection { color }` rule recolours selected items' text.
-            return item.Selected && ListView.DefaultSelectionStyle.ForegroundColor is { } selection_fg ? selection_fg : Theme.ForegroundColor;
+            return selected && ListView.DefaultSelectionStyle.ForegroundColor is { } selection_fg ? selection_fg : Theme.ForegroundColor;
         }
+
+        /// <summary>Whether <paramref name="item"/> should be drawn as selected right now.</summary>
+        /// <remarks>
+        /// <see cref="ListView.HideSelection"/> was stored and read by nothing, so a list that had lost
+        /// focus went on showing its highlight and the property could not do the one thing it is for.
+        /// Upstream defaults it to <c>false</c> -- keep the highlight -- which is why this reads as a
+        /// double negative: the highlight disappears only when the application asked for that AND the
+        /// control does not have focus.
+        /// </remarks>
+        protected static bool ShowsSelection (ListView control, ListViewItem item)
+            => item.Selected && (control.Focused || !control.HideSelection);
 
         private static Rectangle Padded (Rectangle cell, PaintEventArgs e)
         {
