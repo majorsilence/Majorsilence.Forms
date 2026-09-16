@@ -484,7 +484,6 @@ Majorsilence.Forms.RichTextBox.EnableAutoDragDrop
 Majorsilence.Forms.RichTextBox.LanguageOption
 Majorsilence.Forms.RichTextBox.RichTextShortcutsEnabled
 Majorsilence.Forms.RichTextBox.RightMargin
-Majorsilence.Forms.RichTextBox.ScrollBars
 Majorsilence.Forms.RichTextBox.SelectionAlignment
 Majorsilence.Forms.RichTextBox.SelectionBullet
 Majorsilence.Forms.RichTextBox.SelectionCharOffset
@@ -494,7 +493,6 @@ Majorsilence.Forms.RichTextBox.SelectionProtected
 Majorsilence.Forms.RichTextBox.SelectionRightIndent
 Majorsilence.Forms.RichTextBox.SelectionTabs
 Majorsilence.Forms.RichTextBox.ShowSelectionMargin
-Majorsilence.Forms.RichTextBox.ZoomFactor
 Majorsilence.Forms.SaveFileDialog.CheckWriteAccess
 Majorsilence.Forms.SaveFileDialog.ExpandedMode
 Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange

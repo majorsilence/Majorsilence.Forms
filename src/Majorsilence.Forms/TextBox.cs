@@ -76,7 +76,9 @@ namespace Majorsilence.Forms
         }
 
         // The scaled height of the current font.
-        internal int CurrentFontSize => LogicalToDeviceUnits (GetEffectiveFontSize ());
+        // Virtual so RichTextBox can apply its ZoomFactor here: every caret, selection, scroll-step
+        // and measurement in this class reads it, so zooming in one place zooms all of them together.
+        internal virtual int CurrentFontSize => LogicalToDeviceUnits (GetEffectiveFontSize ());
 
         /// <summary>
         /// Gets the height a single-line TextBox should be to exactly fit one line of text at the

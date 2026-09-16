@@ -158,7 +158,20 @@ namespace Majorsilence.Forms.Telerik
             };
             base.CellBeginEdit += (_, e) => {
                 _editOldValue = CellValueAt (e.RowIndex, e.ColumnIndex);
-                _cellBeginEdit?.Invoke (this, new GridViewCellCancelEventArgs { RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex, Row = RowAt (e.RowIndex) });
+
+                if (_cellBeginEdit is null)
+                    return;
+
+                var args = new GridViewCellCancelEventArgs { RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex, Row = RowAt (e.RowIndex) };
+                _cellBeginEdit.Invoke (this, args);
+
+                // Telerik's CellBeginEdit is cancellable. This built the args, raised them and dropped
+                // the answer, so a handler refusing an edit -- a read-only cell decided at runtime, a
+                // row the user may not touch -- was ignored and the editor opened anyway. The base
+                // event honours its own Cancel (DataGridView.cs:148), so forwarding it is all that was
+                // missing.
+                if (args.Cancel)
+                    e.Cancel = true;
             };
             base.SelectionChanged += (_, e) => {
                 _selectionChanged?.Invoke (this, e);

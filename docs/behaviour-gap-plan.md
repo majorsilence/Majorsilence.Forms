@@ -1864,6 +1864,37 @@ expectation from the code under test cannot see a systematic error in it.
 derived from the renderer's constants, so they could not find the glyph at scaling 2; they now compare
 the item's whole box across two renders, which needs no background guess and no constant. 12 tests, 8
 neutralizations each producing a failure. Core stored-only properties 709 → 704.
+**W6.2 — the `RichTextBox` slice, and the first of the triage's two real vetoes. — done (2026-09-16).**
+
+**`RichTextBox.ScrollBars` was `TXT-26` one class down.** `TextBox` had a `public new ScrollBars`
+shadowing `ScrollControl.ScrollBars` — the property whose setter is what actually shows and hides the
+bars — and deleting it was `TXT-26`. `RichTextBox` still had the identical shadow, so **no rich text box
+ever displayed a scrollbar**, and a fresh control disagreed with itself: the property said `Both` while
+the bars followed the base's `None`. It survived the first fix because its type differs
+(`RichTextBoxScrollBars`), and a shadow that changes type is one the compiler cannot warn about. Worth
+remembering when a finding names a member rather than a shape: the same defect on a sibling type is not
+covered by fixing the one that was reported.
+
+**`ZoomFactor` did nothing.** `TextBox.CurrentFontSize` is now virtual and `RichTextBox` scales it, which
+is the one value every caret position, selection rectangle, scroll step and measurement in the base
+class reads — so zooming moves all of them together instead of leaving the text one size and the caret
+another. The setter also validates against upstream's exclusive `(0.015625, 64)` bounds, which it had
+accepted silently.
+
+**Eight of the control's eighteen entries are one cause** and were recorded, not swept: there is no
+paragraph model, so `SelectionAlignment`, the three indents, `SelectionTabs`, `SelectionBullet`,
+`BulletIndent` and `RightMargin` have nowhere to be stored or painted (`TXT-31`). Same shape as
+`LST-46`, and the second time in this sweep that a control's entry count has collapsed to a single
+missing feature.
+
+**The first real veto from the triage is closed.** `RadGridView` raised `CellBeginEdit`, built Telerik
+args, and dropped the answer — so a handler refusing an edit was ignored and the editor opened anyway.
+The base event honours its own `Cancel` (`DataGridView.cs:148`), so forwarding it was all that was
+missing. The second, `DataGridViewDataErrorEventArgs.Cancel`, is left as the triage recorded it: upstream's
+`Cancel` there means "do not restore the old value", which is tangled with a revert path this layer only
+partly has, and changing the default would alter behaviour a comment documents as deliberate.
+
+18 tests, 5 neutralizations each producing a failure. Core stored-only properties 704 → 702, Telerik 371 → 370.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing

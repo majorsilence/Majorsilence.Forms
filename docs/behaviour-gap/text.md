@@ -377,6 +377,34 @@ P0).
 - **Test:** `RichTextBox` with 100 lines, `Select (TextLength - 1, 1); SelectedText = "x";` → `SelectionStart == TextLength`, scroll position unchanged.
 - **Tests today:** `RichTextBoxTests.SelectionLength_SetWithSelectionStart_*`.
 
+## Status (2026-09-16, W6.2 — the RichTextBox stored-only slice)
+
+18 baseline entries. **Eight of them are one cause:** there is no paragraph model. `RichTextBox.Formatting.cs`
+tracks *character* runs (colour, bold, italic, underline) and nothing else, so `SelectionAlignment`,
+`SelectionIndent`, `SelectionHangingIndent`, `SelectionRightIndent`, `SelectionTabs`, `SelectionBullet`,
+`BulletIndent` and `RightMargin` have nowhere to be stored, let alone painted. Recorded as `TXT-31`
+rather than swept; it is a document-model feature in its own right, the same shape as `LST-46`.
+
+Two were wired.
+
+### TXT-29 — `RichTextBox.ScrollBars` shadowed the real one — Cat A — P1 — High — **CLOSED (2026-09-16)**
+- **Ours (before):** `public new RichTextBoxScrollBars ScrollBars { get; set; } = Both;` — a stored value shadowing `ScrollControl.ScrollBars`, whose setter is what actually shows and hides the two bars. **No `RichTextBox` ever displayed a scrollbar**, however much text it held, and a fresh control disagreed with itself: the property said `Both` while the bars followed the base's `None`.
+- **This is `TXT-26` one class down.** `TextBox` had the identical shadow and it was deleted when `TXT-26` was fixed. This one survived because the property type differs (`RichTextBoxScrollBars`, not `ScrollBars`), which is exactly what makes a `new` shadow hard to see — the compiler cannot warn about a shadow that is also a different type.
+- **Fix (applied):** the property maps onto the base on the way in and keeps its own value for the getter; the constructor seeds the base with `Both` so a fresh control agrees with its own default.
+- **Not yet honoured:** the `Forced*` variants. Upstream's "forced" means *show the bar even when the content fits*, and `UpdateScrollBars` combines what is wanted with what is needed with no third state. Preserved through the property, recorded here, not flattened silently.
+- **Tests today:** `RichTextBoxAndVetoStoredOnlyTests.cs` (10 for this finding; 2 neutralizations).
+
+### TXT-30 — `RichTextBox.ZoomFactor` did nothing — Cat A — P2 — High — **CLOSED (2026-09-16)**
+- **Ours (before):** a plain auto-property. Zooming a rich text box changed nothing on screen.
+- **Fix (applied):** `TextBox.CurrentFontSize` became `virtual` and `RichTextBox` overrides it to scale by `ZoomFactor`. That one value is read by every caret position, selection rectangle, scroll step and measurement in the base class, so zooming there moves all of them together rather than leaving the text one size and the caret another. The setter validates against upstream's exclusive `(0.015625, 64)` bounds, which it accepted silently before.
+- **Tests today:** same file (5 for this finding; 2 neutralizations, one a guard that the default is exactly 1:1 against a plain `TextBox`).
+
+### TXT-31 — no paragraph model, so eight `Selection*` members have nowhere to live — Cat A — P2 — Medium
+- **Ours:** character runs only (`RichTextBox.Formatting.cs`). Paragraph alignment, indents, hanging indents, right indents, tab stops and bullets are stored and consumed by nothing.
+- **Impact:** an application formatting paragraphs gets plain left-aligned text with no error — the same "it did nothing" shape as `Groups` on `ListView`.
+- **Fix:** a paragraph model beside the run list, and paragraph-aware layout. Sized as its own item.
+- **Tests today:** none.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `TextBox.MaxLength` default reads 0 (unlimited) vs upstream 32767, and negative values map to unlimited instead of throwing — pinned by `TextBoxTests.MaxLength_DefaultsToZero`; harmless unless an app reads it back.
 - Enter inserts `"\n"` where the Win32 edit control inserts `"\r\n"`, and `Lines` set joins with `"\n"` (upstream `Environment.NewLine`) — platform-consistent on macOS/Linux; only `Text.Contains ("\r\n")` style code notices.

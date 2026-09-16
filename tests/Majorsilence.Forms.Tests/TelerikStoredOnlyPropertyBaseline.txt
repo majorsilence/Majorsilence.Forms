@@ -120,7 +120,6 @@ Majorsilence.Forms.Telerik.GridTableElement.AlternatingRowColor
 Majorsilence.Forms.Telerik.GridTableElement.RowHeight
 Majorsilence.Forms.Telerik.GridTableElement.TableHeaderHeight
 Majorsilence.Forms.Telerik.GridTableElement.ViewElement
-Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.Cancel
 Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.Column
 Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.ColumnIndex
 Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.Row
