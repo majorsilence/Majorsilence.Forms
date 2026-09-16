@@ -395,7 +395,14 @@ public class StripHierarchyTests
 
         HeadlessRenderer.CapturePng (form, 500, 200);
 
-        var rect = strip.PaddedClientRectangle;
+        // In LOGICAL units. PaddedClientRectangle is device-scaled while item Bounds are logical --
+        // the mismatch MenuBase.LogicalClientRectangle exists for, and which StatusStrip.LayoutItems
+        // used to inherit by laying straight into the device rect. Comparing against the device rect
+        // hid that: both sides were wrong together, and identical at scaling 1. (W6.2, 2026-09-16.)
+        var device = strip.PaddedClientRectangle;
+        var rect = new Rectangle (
+            strip.DeviceToLogicalUnits (device.X), strip.DeviceToLogicalUnits (device.Y),
+            strip.DeviceToLogicalUnits (device.Width), strip.DeviceToLogicalUnits (device.Height));
 
         Assert.Equal (new Rectangle (rect.X, rect.Y, 150, rect.Height), ready.Bounds);
         Assert.Equal (Rectangle.Empty, hidden.Bounds);

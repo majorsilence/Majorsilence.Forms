@@ -1789,6 +1789,33 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the shortcut key is shown in the menu item. Stub in Majorsilence.Forms.</summary>
         public bool ShowShortcutKeys { get; set; } = true;
 
+        /// <summary>The shortcut text a drop-down menu shows to the right of this item's caption.</summary>
+        /// <remarks>
+        /// Empty when there is nothing to show, so the renderer has no special case. <see cref="ShortcutKeys"/>
+        /// has driven real key handling since W1.3; <see cref="ShowShortcutKeys"/> and
+        /// <see cref="ShortcutKeyDisplayString"/> are its DISPLAY half and were read by nothing, so every
+        /// ported menu showed a caption and no shortcut at all -- the accelerator worked and was invisible.
+        ///
+        /// <see cref="KeysConverter"/> already formatted a <see cref="Keys"/> the way a menu wants it
+        /// ("Ctrl+Shift+A", with Control written as Ctrl); its own comment says the text is what ends up
+        /// in a menu item. It was written for this and never called from here.
+        /// </remarks>
+        internal string ShortcutDisplayText {
+            get {
+                if (!ShowShortcutKeys)
+                    return string.Empty;
+
+                // An explicit string wins, which is the point of the property: "Del" where the key is
+                // Keys.Delete, or a localised caption.
+                if (!string.IsNullOrEmpty (ShortcutKeyDisplayString))
+                    return ShortcutKeyDisplayString;
+
+                return ShortcutKeys == Keys.None
+                    ? string.Empty
+                    : new KeysConverter ().ConvertToString (ShortcutKeys) ?? string.Empty;
+            }
+        }
+
         /// <summary>Gets whether this item has any drop-down items.</summary>
         public override bool HasDropDownItems => Items.Count > 0;
 
@@ -3262,21 +3289,48 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected override void LayoutItems ()
         {
-            var rect = PaddedClientRectangle;
+            // PaddedClientRectangle is DEVICE-scaled while item Bounds are LOGICAL, which is the
+            // mismatch MenuBase.LogicalClientRectangle exists for. Laying out straight into it stored
+            // device geometry in logical fields: at scaling 2 a 400px strip laid its items out 800
+            // logical units wide, so the last one sat far outside the bar. Exactly the class W6.3
+            // catalogued, and invisible at scaling 1 -- which is why it survived until the Spring
+            // arithmetic below made it show up in the MF_HEADLESS_SCALE=2 gate.
+            var device = PaddedClientRectangle;
+            var rect = new Rectangle (
+                DeviceToLogicalUnits (device.X), DeviceToLogicalUnits (device.Y),
+                DeviceToLogicalUnits (device.Width), DeviceToLogicalUnits (device.Height));
+
+            var visible = Items.Cast<MenuItem> ().Where (i => i.Visible).ToList ();
+
+            foreach (MenuItem item in Items)
+                if (!item.Visible)
+                    item.SetBounds (0, 0, 0, 0);
+
+            // ToolStripStatusLabel.Spring: the springing items share whatever width the fixed ones
+            // leave, which is how the status bar's right-hand labels stay pinned to the right edge as
+            // the window resizes. It was stored and read by nothing, so every item took a fixed width
+            // and a "spring" label sat next to its neighbour with a gap after it.
+            var springs = visible.Count (IsSpring);
+            var fixed_width = visible.Where (i => !IsSpring (i)).Sum (Width);
+            var spacing = ItemSpacing * Math.Max (0, visible.Count - 1);
+            var spring_width = springs == 0
+                ? 0
+                : Math.Max (0, (rect.Width - fixed_width - spacing) / springs);
+
             var x = rect.X;
 
-            foreach (var item in Items) {
-                if (!item.Visible) {
-                    item.SetBounds (0, 0, 0, 0);
-                    continue;
-                }
-
-                var width = item is ToolStripItem tsi && tsi.Size.Width > 0 ? tsi.Size.Width : DefaultItemWidth;
+            foreach (var item in visible) {
+                var width = IsSpring (item) ? spring_width : Width (item);
 
                 item.SetBounds (x, rect.Y, width, rect.Height);
 
                 x += width + ItemSpacing;
             }
+
+            static bool IsSpring (MenuItem item) => item is ToolStripStatusLabel label && label.Spring;
+
+            static int Width (MenuItem item)
+                => item is ToolStripItem tsi && tsi.Size.Width > 0 ? tsi.Size.Width : DefaultItemWidth;
         }
 
         /// <summary>Width used for an item that hasn't been given an explicit Size.</summary>

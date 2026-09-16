@@ -65,6 +65,22 @@ namespace Majorsilence.Forms.Renderers
             bounds.X += e.LogicalToDeviceUnits (28);
             e.Canvas.DrawMnemonicText (item.Text, Theme.UIFont, font_size, bounds, font_color, ContentAlignment.MiddleLeft);
 
+            // Shortcut text, right-aligned in the gutter the submenu arrow also uses. Drawn only when
+            // the item has no submenu, as upstream does -- an item cannot both open a menu and carry
+            // an accelerator, and drawing both would overlap them.
+            if (item is ToolStripMenuItem menu_item && !item.HasItems) {
+                var shortcut = menu_item.ShortcutDisplayText;
+
+                if (!string.IsNullOrEmpty (shortcut)) {
+                    var shortcut_bounds = item.Bounds;
+                    shortcut_bounds.Width -= e.LogicalToDeviceUnits (12);
+
+                    // Same colour as the caption, so a disabled item's shortcut greys out with it.
+                    e.Canvas.DrawText (shortcut, Theme.UIFont, font_size, shortcut_bounds, font_color,
+                        ContentAlignment.MiddleRight, maxLines: 1);
+                }
+            }
+
             // Dropdown Arrow
             if (item.HasItems) {
                 var arrow_bounds = DrawingExtensions.CenterSquare (item.Bounds, 16);

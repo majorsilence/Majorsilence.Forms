@@ -399,6 +399,36 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** `new ToolStrip { Items = { new MenuSeparatorItem() } }.Renderer = new ToolStripProfessionalRenderer()` does not throw.
 - **Tests today:** none.
 
+## Status (2026-09-16, W6.2 — the ToolStrip family stored-only slice)
+
+88 of the baseline's entries sit on this family. Five had a consumer next to them, and wiring them
+surfaced two coordinate-space defects that had nothing to do with the properties.
+
+**Wired (5).** `ToolStripMenuItem.ShowShortcutKeys` + `ShortcutKeyDisplayString` — the *display* half of
+a shortcut system that has really worked since W1.3, so every ported menu fired its accelerators and
+showed no shortcut text at all. `KeysConverter` already formatted a `Keys` the way a menu wants it, with
+a comment saying the text is what ends up in a menu item; it had never been called from here.
+`ToolStripDropDownButton.ShowDropDownArrow` — the arrow was drawn whenever an item had a submenu.
+`ToolStripStatusLabel.Spring` — every status item took a fixed width, so the right-hand labels never
+reached the right edge. `ToolStripItem.Alignment` — items were laid out left to right in declaration
+order whatever the property said.
+
+### TSM-40 — `StatusStrip.LayoutItems` laid out in device units — Cat A — P1 — High — **CLOSED (2026-09-16)**
+- **Ours (before):** `LayoutItems` laid items straight into `PaddedClientRectangle`, which is **device**-scaled, while item `Bounds` are **logical**. `MenuBase.LogicalClientRectangle` exists for exactly this and says so in its own remarks; `Menu` and `ToolBar` use it, `StatusStrip` did not.
+- **Impact:** at scaling 2 a 400px strip laid its items out across 800 logical units, so everything past the first item sat outside the bar. An exact no-op at scaling 1, which is why it survived.
+- **How it surfaced:** it did not surface from reading the code. The `Spring` arithmetic above put the strip's own width into a calculation for the first time, and the `MF_HEADLESS_SCALE=2` gate went red.
+- **The existing test hid it.** `StripHierarchyTests.StatusStrip_LaysItemsOutWhereItPaintsThem` compared the laid-out bounds against the same device `PaddedClientRectangle` the layout used — both sides wrong together, and identical at scaling 1. It now converts to logical first, with the reason in a comment.
+- **Tests today:** `ToolStripStoredOnlyTests.cs` (the `Spring` pair), `StripHierarchyTests` (corrected).
+
+### TSM-41 — `ToolBarRenderer`/`MenuDropDownRenderer` mix logical bounds with device constants — Cat A — P2 — High
+- **Ours:** the strip renderers paint into a canvas whose coordinates are **logical** (item `Bounds` are painted directly and menus render correctly at scaling 2), but position their details by subtracting **device**-converted constants from those logical edges — `item.Bounds.Right - e.LogicalToDeviceUnits (16) - 4` for the drop-down arrow (`ToolBarRenderer.cs:151`), `bounds.X += e.LogicalToDeviceUnits (28)` for the drop-down caption indent (`MenuDropDownRenderer.cs:65`), and the same shape in the separator and image paths.
+- **Impact:** every such offset grows with the display scale while the box it is measured against does not, so glyphs and indents drift inward as the scale rises — at scaling 2 the arrow sits roughly 16 logical units left of where it belongs. Cosmetic rather than functional, and invisible at scaling 1.
+- **How it surfaced:** two tests written for this slice sampled a rectangle derived from those same constants and could not find the glyph at scaling 2. They now sample the item's whole box, which is the question they were actually asking; the drift is recorded here rather than fixed in passing.
+- **Fix:** decide the canvas' unit once for this family and convert at one boundary, as `W6.3` did for the public hit-test members. Every constant in the three strip renderers is affected, so it is its own item.
+- **Tests today:** none directly.
+
+**Legitimately inert, recorded (the rest).** The `*RenderEventArgs` families (`ToolStripArrowRenderEventArgs`, `ToolStripItemTextRenderEventArgs`, `ToolStripGripRenderEventArgs`, the two panel ones — 21 entries) are outbound render-event data for a custom renderer; nothing in the assembly reads them back and nothing should. The `ToolStripDropDown` window attributes (`Opacity`, `AllowTransparency`, `DropShadowEnabled`, `TopLevel`), `ToolStripManager.VisualStylesEnabled`, `AllowClickThrough`, `RightToLeftAutoMirrorImage` and the `ToolStripLabel` link family remain P3 as already recorded below. `ToolStripItem.Overflow`, `ToolStrip.CanOverflow` and `OverflowButton` are blocked on overflow existing at all (`OverflowButton` is never assigned — already recorded in the matrix). `ToolStripItem.Font` is wirable but drags in the font pipeline (`Theme.UIFont` plus a size, not a `Font`), so it is left for the text-measurement area rather than done in passing.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.
 - `ToolTip.IsBalloon`/`UseAnimation`/`UseFading`/`ToolTipIcon`/`ToolTipTitle`/`StripAmpersands`/`ShowAlways`/`OwnerDraw`/`Draw`/`Popup` — comctl32 tooltip styling; cosmetic.
