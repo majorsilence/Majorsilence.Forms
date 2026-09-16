@@ -1887,10 +1887,22 @@ click through the backend at scale 2 and passes. The only reliable detector is a
 control, which is what `ListView` lacked and menus had.
 
 So the open work here is **coverage, not a known defect**: an interactive control with no scale-2
-gesture test is unaudited, and the way to audit it is to write that test and watch what happens. Ribbon
-is the strongest remaining candidate on static evidence (`RibbonRenderer` adds device-scaled padding to
-`item.Bounds` while `GetItemAtLocation` is handed `e.Location`), but it is unverified, and the menu case
-is the reason to verify rather than assume.
+gesture test is unaudited, and the way to audit it is to write that test and watch what happens.
+
+**Ribbon was the first one audited that way, and it was broken.** `GetItemAtLocation` tested a logical
+`e.Location` against device item rectangles, so on a 2x display a ribbon click fired the wrong command
+or none at all. `Ribbon` had no tests of any kind. Fixed, with the scale-2 click test that found it.
+
+*Writing that test took three attempts, and the first two passed while proving nothing.* The first
+built the click point from `item.Bounds` — those are device, so a point derived from them matches them
+whatever the hit-test does. The second converted to logical but aimed at the FIRST item, whose logical
+centre happens to fall inside its own device rectangle because that rectangle is tall and near the
+origin. Only the third — aiming at the second item, and asserting **which** item fires — could tell a
+correct hit-test from a broken one, and it needs a guard asserting the fixture is genuinely one where
+the two readings disagree. A scale test that does not check its own premise is a tautology.
+
+`ToolStrip.GetItemAt` is the next candidate and a different question: it is public API with no internal
+mouse caller, so what matters is which space an application is expected to pass.
 
 ### What W6.3 found
 
