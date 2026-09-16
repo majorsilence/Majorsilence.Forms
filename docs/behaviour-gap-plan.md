@@ -2833,6 +2833,37 @@ case on `(Alt | Control) == None`, so nobody claims Ctrl+Tab and focus stays put
 that, with the reasoning in a comment. Second time in this repo's history that checking upstream
 overturned a plausible hand-written assertion rather than the code.
 
+### What the `ToolStrip.GetItemAt` follow-up found
+
+W6.3's hit-test audit left this one open with a specific question: "public API with no internal mouse
+caller, so what matters is which space an application is expected to pass." The space turned out to be
+the smaller half of the answer.
+
+**The method never returned anything.** It built its hit rectangle from `item.Bounds.Location` paired
+with `item.Size`. Those look like the two halves of one rectangle and are two different stores:
+`Bounds` is where layout put the item, `Size` is the size the application *requested*, and nothing in
+the layout path writes it. On any strip whose items were not explicitly sized — the normal case — `Size`
+is `0, 0`, so the rectangle was empty and `GetItemAt` answered null for every point at every scale.
+Not a coordinate-space defect at all; an API that never answered.
+
+**Why no test and no user had caught it.** Nothing inside the framework calls it: `MenuBase.OnMouseClick`
+routes through `GetItemAtLocation`, which was always correct. A member with no internal caller gets
+exactly as much verification as someone writes for it, and nobody had. That is the same shape as the
+dead events in W6.1 — correct-looking code, one level short of being reached — and it argues the
+remaining "public API, no internal caller" members deserve the same treatment rather than a reading.
+
+**The space question, answered by cross-validation rather than by reading.** `MenuItem.Bounds` is
+logical, so the point is logical client coordinates — the space `MouseEventArgs.Location` arrives in.
+The reason that is asserted by a scale-2 test agreeing with a real backend click, rather than stated
+from the source, is #189: `MenuBase.GetItemAtLocation` reads *identically* to the code that was broken
+in `Ribbon` and is correct. Reading cannot separate the two cases in this area; driving a click can.
+
+**Two of the seven tests deliberately survive neutralization,** and are labelled in-test as doing so: one
+asserts the premise the others rest on (layout really does leave `Size` empty), and one is a null guard
+that the old code satisfied trivially. Stating which tests are not proof is cheaper than rediscovering
+later that a green suite was green for the wrong reason — the recurring failure this plan has now
+recorded half a dozen times.
+
 ## Suggested execution order
 
 The phases are dependency-ordered, but they are not all equally urgent and they do not all need the

@@ -392,12 +392,25 @@ namespace Majorsilence.Forms
         public LayoutSettings? LayoutSettings { get; set; }
 
         /// <summary>Returns the item at the given point within this strip, or null.</summary>
+        /// <param name="point">
+        /// A point in this strip's client coordinates, in LOGICAL units -- the same space
+        /// <see cref="MouseEventArgs.Location"/> arrives in, and the space
+        /// <see cref="MenuBase.GetItemAtLocation"/> takes.
+        /// </param>
+        /// <remarks>
+        /// Tests <see cref="MenuItem.Bounds"/>, the rectangle layout actually placed the item at.
+        /// This used to build its rectangle from <c>Bounds.Location</c> paired with
+        /// <see cref="ToolStripItem.Size"/>, which is a different store: Size is the size the
+        /// application REQUESTED, and stays <c>0, 0</c> on an item that was never explicitly sized --
+        /// so the hit rectangle was empty and this returned null for every point. Where Size had been
+        /// set it disagreed with the laid-out extent whenever AutoSize was on, which is the default.
+        /// </remarks>
         public ToolStripItem? GetItemAt (Point point)
         {
             foreach (ToolStripItem item in Items) {
                 if (!item.Available)
                     continue;
-                if (new Rectangle (item.Bounds.Location, item.Size).Contains (point))
+                if (item.Bounds.Contains (point))
                     return item;
             }
             return null;
