@@ -78,32 +78,94 @@ namespace Majorsilence.Forms.Telerik
         /// </summary>
         public T? GetService<T> () where T : class => GetService (typeof (T)) as T;
 
-        /// <summary>Docks the specified window. Hosts it as a child panel.</summary>
+        /// <summary>Docks the specified window, making it a child of this dock.</summary>
+        /// <remarks>
+        /// This used to do nothing but remember tool windows in a list. Nothing was ever parented, so a
+        /// window docked through this API never appeared, and <c>AllDocumentWindows</c> -- a real walk
+        /// of the control tree -- could not find a document that had been docked rather than added to a
+        /// tab strip by hand.
+        ///
+        /// Documents go into the document tab strip, which is the structure the designer generates and
+        /// the one <c>DockStrip</c> lays tabs out over; tool windows are parented to the dock itself.
+        /// A window that already has a parent is left where it is rather than reparented, so docking a
+        /// window twice is not a move.
+        /// </remarks>
         public void DockWindow (DockWindowBase window, DockPosition position = DockPosition.Fill)
         {
             if (window is ToolWindow tw && !_toolWindows.Contains (tw))
                 _toolWindows.Add (tw);
+
+            if (window.Parent is not null)
+                return;
+
+            if (window is DocumentWindow)
+                GetDefaultDocumentTabStrip (createIfMissing: true).Controls.Add (window);
+            else
+                Controls.Add (window);
         }
 
         /// <summary>Docks the specified window relative to another. Stub.</summary>
         public void DockWindow (DockWindowBase window, DockWindowBase relativeTo, DockPosition position) => DockWindow (window, position);
 
         /// <summary>Gets the windows in the specified state.</summary>
-        public IEnumerable<DockWindowBase> GetWindows (DockState state) => _toolWindows;
-        /// <summary>Gets all dock windows (Telerik-shaped collection with the ToolWindows view).</summary>
-        public DockWindowCollection DockWindows => new DockWindowCollection (_toolWindows);
+        /// <remarks>
+        /// The state argument used to be ignored entirely -- every call returned the same list of tool
+        /// windows, so asking for the floating windows and asking for the hidden ones gave the same
+        /// answer, and neither was right.
+        /// </remarks>
+        public IEnumerable<DockWindowBase> GetWindows (DockState state)
+            => AllDockWindows ().Where (w => w.DockState == state);
 
-        /// <summary>Closes the specified dock window: removes it from this dock and hides it.</summary>
+        /// <summary>Gets all dock windows (Telerik-shaped collection with the ToolWindows view).</summary>
+        public DockWindowCollection DockWindows => new DockWindowCollection (AllDockWindows ());
+
+        // Tool windows this dock was told about, plus every document in the control tree. Documents
+        // were missing before, so DockWindows.DocumentWindows was always empty however the dock was
+        // populated -- including by the designer-generated structure the rest of the layout reads.
+        private IEnumerable<DockWindowBase> AllDockWindows ()
+            => _toolWindows.Cast<DockWindowBase> ().Concat (AllDocumentWindows ());
+
+        /// <summary>Closes the specified dock window: removes it from this dock and closes it.</summary>
+        /// <remarks>
+        /// Honours the window's <see cref="DockWindowBase.CloseAction"/>, which was stored and never
+        /// read -- so a window configured to dispose on close was only hidden, and an application that
+        /// set <c>CloseAndDispose</c> to release a document's resources kept every one of them alive.
+        /// </remarks>
         public void CloseWindow (DockWindowBase window)
         {
             if (window is ToolWindow tool)
                 _toolWindows.Remove (tool);
 
-            window.Visible = false;
+            window.Close ();
         }
 
-        /// <summary>Gets the tab strip currently hosting document windows. Stub: a shared, always-empty strip.</summary>
-        public DocumentTabStrip GetDefaultDocumentTabStrip (bool createIfMissing) => _defaultDocumentTabStrip;
+        /// <summary>Gets the tab strip hosting document windows, creating one if asked to.</summary>
+        /// <remarks>
+        /// Returns the first strip inside <see cref="MainDocumentContainer"/> (or inside the dock, when
+        /// no main container has been set) -- the structure the designer generates and the one
+        /// <c>DockStrip</c> lays tabs out over. It used to return a strip that was never parented to
+        /// anything, so a document added through it was invisible and unreachable whatever the caller
+        /// did next.
+        /// </remarks>
+        public DocumentTabStrip GetDefaultDocumentTabStrip (bool createIfMissing)
+        {
+            var host = (Majorsilence.Forms.Control?)MainDocumentContainer ?? this;
+
+            foreach (Majorsilence.Forms.Control child in host.Controls)
+                if (child is DocumentTabStrip existing)
+                    return existing;
+
+            if (!createIfMissing)
+                return _defaultDocumentTabStrip;
+
+            var strip = new DocumentTabStrip ();
+            host.Controls.Add (strip);
+
+            return strip;
+        }
+
+        // Returned only when the caller asked not to create one. Detached, as it always was -- the
+        // alternative is a nullable return, which this API's Telerik shape does not have.
         private readonly DocumentTabStrip _defaultDocumentTabStrip = new ();
 
         /// <summary>Gets the document-window manager. Stub over the same window list DockWindows tracks.</summary>
@@ -152,8 +214,18 @@ namespace Majorsilence.Forms.Telerik
         public DockWindowCloseAction CloseAction { get; set; } = DockWindowCloseAction.Hide;
         /// <summary>Gets or sets the default floating size. Stub.</summary>
         public Size DefaultFloatingSize { get; set; }
-        /// <summary>Closes the window (hides it).</summary>
-        public void Close () => Visible = false;
+        /// <summary>Closes the window, honouring <see cref="CloseAction"/>.</summary>
+        /// <remarks>
+        /// <see cref="DockWindowCloseAction.Hide"/> hides it; <see cref="DockWindowCloseAction.CloseAndDispose"/>
+        /// disposes it. The property was stored and nothing read it, so closing always meant hiding.
+        /// </remarks>
+        public void Close ()
+        {
+            if (CloseAction == DockWindowCloseAction.CloseAndDispose)
+                CloseAndDispose ();
+            else
+                Visible = false;
+        }
         /// <summary>Closes and disposes the window.</summary>
         public void CloseAndDispose () { Visible = false; Dispose (); }
     }
