@@ -1896,6 +1896,40 @@ partly has, and changing the default would alter behaviour a comment documents a
 
 18 tests, 5 neutralizations each producing a failure. Core stored-only properties 704 → 702, Telerik 371 → 370.
 
+**W6.2 — the four-control sweep. — done (2026-09-16).** Part of #91, and deliberately wider than the
+per-control slices before it: seven entries across `TreeView`, `ListBox`, `SplitContainer` and
+`ListViewItem`, each a property the control stored and read nowhere.
+
+- **`TreeView.HideSelection`** — read by nothing, **and the default was wrong**. Upstream's `TreeView`
+  carries `[DefaultValue(true)]` and sets the flag in its constructor; upstream's `ListView` carries
+  `[DefaultValue(false)]` and does not. **The two siblings genuinely differ**, which is worth stating
+  because the `ListView` slice nearly "fixed" its `false` to match `ListBox` and `TextBox`. Both were
+  checked against the upstream source, one property at a time, and the answers disagreed.
+- **`TreeView.FullRowSelect`** — every tree highlighted the whole row, which is what `true` means while
+  the property defaults to `false`. An explorer-style tree therefore looked like a list.
+- **`TreeView.PathSeparator`** — `FullPath` hard-coded `"\\"`, so a tree told to use `"/"` still built
+  backslash paths and `FindNodeByFullPath` could not match one the application had constructed.
+- **`ListBox.Sorted`** — a sorted list box came out in insertion order. Sorted on the collection rather
+  than at paint, because `SelectedIndex` and every index-based API have to agree with the screen;
+  selection is preserved by value, since the index it sat at no longer means the same row.
+- **`ListBox.ScrollAlwaysVisible`** — `RC-6` exactly: a second store beside `ScrollbarAlwaysVisible`,
+  which is the one the scrollbar logic reads, so the property WinForms code actually writes did
+  nothing. The pair was already *named* in `StoredOnlyPropertyBaselineTests`' own header as a known
+  twin; it is one value now.
+- **`SplitContainer.IsSplitterFixed`** — a container the application had deliberately locked dragged
+  like any other.
+- **`ListViewItem.UseItemStyleForSubItems`** — the sub-item's own colour always won, which is the
+  `false` behaviour applied to every list whether it asked for it or not.
+
+**An existing theme test had to be corrected, and that is worth recording rather than burying.**
+`ThemeCssPartTests.TreeViewSelection_IsPaintedWithThePartColour` renders an unfocused tree and asserts
+the selection band covers a given area. Both of its premises became real properties here — an unfocused
+tree with the corrected `HideSelection` default shows no band, and `FullRowSelect = false` shrinks it to
+the label — so the test now pins both and goes on measuring the colour it is named for. It was not
+green by accident before; it was green because neither property did anything.
+
+15 tests, 8 neutralizations each producing a failure. Core stored-only properties 702 → 695.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

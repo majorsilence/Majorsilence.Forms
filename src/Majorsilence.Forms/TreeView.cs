@@ -303,7 +303,7 @@ namespace Majorsilence.Forms
         public bool FullRowSelect { get; set; }
 
         /// <summary>Gets or sets whether selections remain highlighted when the control loses focus. Stub in Majorsilence.Forms.</summary>
-        public bool HideSelection { get; set; }
+        public bool HideSelection { get; set; } = true;
 
         /// <summary>Gets or sets the height of each tree node row in pixels.</summary>
         /// <remarks>Drives the row height when set to a positive value (<c>LST-26</c>): it was stored

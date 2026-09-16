@@ -519,6 +519,35 @@ match `ListBox`/`TextBox`, where this layer defaults it to `true` — but upstre
 - **Still open:** the decorative half — `Footer`, `FooterAlignment`, `TaskLink`, `TitleImageIndex`, `TitleImageKey` and `GroupImageList` are still unread, as are `Name` and `Tag` (a key and application storage, arguably inert by definition). Grouping in the tile views is also not done; `LayoutTiles` is ungrouped. Baseline entries closed: 6 of the cluster's 14.
 - **Tests today:** `ListViewGroupingTests.cs` (12; 7 neutralizations, each producing a failure). `ListViewGroupTests.cs` is the pre-existing dotnet/winforms-derived ctor/defaults suite and is untouched.
 
+## Status (2026-09-16, W6.2 — the four-control sweep)
+
+Seven entries across `TreeView`, `ListBox`, `SplitContainer` and `ListViewItem`, all closed.
+
+- **`TreeView.HideSelection`** (`LST-47`) — unread **and wrong-defaulted**. Upstream's `TreeView` is
+  `[DefaultValue(true)]` and sets the flag in its constructor; upstream's `ListView` is
+  `[DefaultValue(false)]` and does not. The siblings differ, and each was checked against the upstream
+  source separately — the `ListView` slice had nearly changed its `false` to match `ListBox`/`TextBox`.
+- **`TreeView.FullRowSelect`** (`LST-48`) — the renderer filled `item.Bounds` unconditionally, which is
+  the `true` behaviour, while the property defaults to `false`. It now fills `GetTextBounds` instead
+  when the property is off.
+- **`TreeView.PathSeparator`** (`LST-49`) — `TreeViewItem.FullPath` hard-coded `"\\"`. A tree told to use
+  `"/"` reported backslash paths, so `FindNodeByFullPath` could not match one the application built.
+- **`ListBox.Sorted`** (`LST-50`) — sorted on the item collection, not at paint, so `SelectedIndex` and
+  every index-based API agree with the screen. Selection preserved by value.
+- **`ListBox.ScrollAlwaysVisible`** (`LST-51`, `RC-6`) — a second store beside `ScrollbarAlwaysVisible`,
+  the one `UpdateVerticalScrollBar` reads. The pair is already named in `StoredOnlyPropertyBaselineTests`'
+  header as a known twin; one value now, so which name a caller uses cannot change the answer.
+- **`SplitContainer.IsSplitterFixed`** (`LST-52`) — read in `Splitter_Drag`; the panels can still be
+  resized programmatically, the user just cannot drag the bar.
+- **`ListViewItem.UseItemStyleForSubItems`** (`LST-53`) — the sub-item's own colour always won, which is
+  the `false` behaviour applied to every list.
+
+**One existing test was corrected, not worked around.** `ThemeCssPartTests.TreeViewSelection_IsPaintedWithThePartColour`
+renders an unfocused tree and measures the selection band; with `HideSelection` corrected to default
+true and `FullRowSelect` honoured, an unfocused tree has no band and a focused one has a narrow one. The
+test now sets both explicitly and goes on measuring the colour it is named for. It had been green
+because neither property did anything.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `ListBox.UseTabStops` / `UseCustomTabOffsets` / `CustomTabOffsets` — tab expansion in native LB text; stored (`ListBox.cs:659`, `MidSizeControlParity.Three.cs:230-234`).
 - `ListBox.MultiColumn` / `ColumnWidth` / `HorizontalScrollbar` / `HorizontalExtent` / `IntegralHeight` — stored (`ListBox.cs:650-674`); niche layouts, portable in principle but rarely used in LOB code.

@@ -875,7 +875,47 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets whether items are sorted alphabetically.</summary>
-        public bool Sorted { get; set; }
+        /// <remarks>
+        /// Read by nothing before, so a sorted list box came out in insertion order. Sorting happens on
+        /// the item collection itself rather than at paint, because <see cref="SelectedIndex"/> and
+        /// every index-based API have to agree with what is on screen.
+        /// </remarks>
+        public bool Sorted {
+            get => sorted;
+            set {
+                if (sorted == value)
+                    return;
+
+                sorted = value;
+
+                if (sorted)
+                    SortItems ();
+            }
+        }
+
+        private bool sorted;
+
+        // Ordinal by display text, which is what ListBox.Sorted means: the strings the user reads, not
+        // the objects behind them. Selection is preserved by value, since the index it used to sit at
+        // no longer means the same row.
+        internal void SortItems ()
+        {
+            if (Items.Count < 2)
+                return;
+
+            var selected = SelectedItem;
+            var ordered = Items.Cast<object> ()
+                .OrderBy (GetItemText, System.StringComparer.CurrentCulture)
+                .ToList ();
+
+            Items.Clear ();
+
+            foreach (var item in ordered)
+                Items.Add (item);
+
+            if (selected is not null)
+                SelectedItem = selected;
+        }
 
         /// <summary>Gets or sets the height of each item when DrawMode is OwnerDrawFixed. Stub in Majorsilence.Forms.</summary>
         public virtual DrawMode DrawMode { get; set; } = DrawMode.Normal;
@@ -892,8 +932,17 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether tab stops are used in the ListBox. Stub in Majorsilence.Forms.</summary>
         public bool UseTabStops { get; set; } = true;
 
-        /// <summary>Gets or sets whether the ListBox always shows a scroll bar. Stub in Majorsilence.Forms.</summary>
-        public bool ScrollAlwaysVisible { get; set; }
+        /// <summary>Gets or sets whether the ListBox always shows a scroll bar.</summary>
+        /// <remarks>
+        /// The WinForms name for <see cref="ScrollbarAlwaysVisible"/>, and until now a second store
+        /// beside it: the scrollbar logic read the other one, so setting the property WinForms code
+        /// actually writes did nothing (<c>RC-6</c> — a private twin kept alongside the real member).
+        /// They are one value now, so which name a caller uses cannot change the answer.
+        /// </remarks>
+        public bool ScrollAlwaysVisible {
+            get => ScrollbarAlwaysVisible;
+            set => ScrollbarAlwaysVisible = value;
+        }
 
         /// <summary>Gets or sets whether a horizontal scrollbar is shown. Stub in Majorsilence.Forms.</summary>
         public bool HorizontalScrollbar { get; set; }

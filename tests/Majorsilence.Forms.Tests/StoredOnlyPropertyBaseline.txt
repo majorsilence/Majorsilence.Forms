@@ -346,8 +346,6 @@ Majorsilence.Forms.ListBox.HorizontalExtent
 Majorsilence.Forms.ListBox.HorizontalScrollbar
 Majorsilence.Forms.ListBox.IntegralHeight
 Majorsilence.Forms.ListBox.MultiColumn
-Majorsilence.Forms.ListBox.ScrollAlwaysVisible
-Majorsilence.Forms.ListBox.Sorted
 Majorsilence.Forms.ListBox.UseCustomTabOffsets
 Majorsilence.Forms.ListBox.UseTabStops
 Majorsilence.Forms.ListControl.FormatInfo
@@ -384,7 +382,6 @@ Majorsilence.Forms.ListViewItem.IndentCount
 Majorsilence.Forms.ListViewItem.Position
 Majorsilence.Forms.ListViewItem.StateImageIndex
 Majorsilence.Forms.ListViewItem.ToolTipText
-Majorsilence.Forms.ListViewItem.UseItemStyleForSubItems
 Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput
 Majorsilence.Forms.MaskedTextBox.BeepOnError
 Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat
@@ -511,7 +508,6 @@ Majorsilence.Forms.SplitContainer.AutoScrollMargin
 Majorsilence.Forms.SplitContainer.AutoScrollMinSize
 Majorsilence.Forms.SplitContainer.AutoScrollPosition
 Majorsilence.Forms.SplitContainer.BorderStyle
-Majorsilence.Forms.SplitContainer.IsSplitterFixed
 Majorsilence.Forms.SplitContainer.SplitterIncrement
 Majorsilence.Forms.Splitter.BorderStyle
 Majorsilence.Forms.StatusBar.ShowPanels
@@ -675,13 +671,10 @@ Majorsilence.Forms.ToolTip.UseFading
 Majorsilence.Forms.TreeNode.StateImageIndex
 Majorsilence.Forms.TreeNode.ToolTipText
 Majorsilence.Forms.TreeView.BorderStyle
-Majorsilence.Forms.TreeView.FullRowSelect
-Majorsilence.Forms.TreeView.HideSelection
 Majorsilence.Forms.TreeView.HotTracking
 Majorsilence.Forms.TreeView.ImageKey
 Majorsilence.Forms.TreeView.LabelEdit
 Majorsilence.Forms.TreeView.LineColor
-Majorsilence.Forms.TreeView.PathSeparator
 Majorsilence.Forms.TreeView.Scrollable
 Majorsilence.Forms.TreeView.SelectedImageKey
 Majorsilence.Forms.TreeView.ShowLines

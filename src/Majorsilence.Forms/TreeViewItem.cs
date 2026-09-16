@@ -415,7 +415,12 @@ namespace Majorsilence.Forms
                 if (Parent is null)
                     return Text;
 
-                return Parent.Parent is null ? Text : Parent.FullPath + "\\" + Text;
+                // TreeView.PathSeparator, which was stored and read by nothing: a tree told to use "/"
+                // still built backslash paths, so FindNodeByFullPath could not match a path the
+                // application had constructed itself.
+                var separator = TreeView?.PathSeparator ?? "\\";
+
+                return Parent.Parent is null ? Text : Parent.FullPath + separator + Text;
             }
         }
 
