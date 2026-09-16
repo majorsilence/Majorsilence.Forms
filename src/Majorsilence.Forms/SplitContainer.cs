@@ -297,8 +297,18 @@ namespace Majorsilence.Forms
         }
 
         // Handles the splitter's Drag event.
+        // Test seam: the drag gesture without a mouse. The splitter's own drag path needs a laid-out,
+        // hit-tested bar; what these tests are about is whether IsSplitterFixed is consulted.
+        internal void DriveSplitterDrag (Point delta) => Splitter_Drag (this, new EventArgs<Point> (delta));
+
         private void Splitter_Drag (object? sender, EventArgs<Point> e)
         {
+            // IsSplitterFixed pins the splitter: the panels can still be resized programmatically, the
+            // user just cannot drag the bar. It was stored and read by nothing, so a container the
+            // application had deliberately locked dragged like any other.
+            if (IsSplitterFixed)
+                return;
+
             var vertical = orientation == Orientation.Vertical;
             var before = SplitterDistance;
             var proposed = before - (vertical

@@ -261,9 +261,15 @@ namespace Majorsilence.Forms.Renderers
         // A per-item or per-subitem ForeColor overrides the theme; Color.Empty means "use the theme".
         private static SkiaSharp.SKColor Foreground (ListViewItem item, int column, bool selected)
         {
-            var color = column > 0 && column < item.SubItems.Count && item.SubItems[column].ForeColor != Color.Empty
-                ? item.SubItems[column].ForeColor
-                : item.ForeColor;
+            // UseItemStyleForSubItems (the WinForms default, true) means the sub-items take the item's
+            // appearance and their own is ignored; false lets each sub-item colour itself. It was read
+            // by nothing, so a sub-item's colour always won -- which is the FALSE behaviour, applied to
+            // every list whether it asked for it or not.
+            var color = item.UseItemStyleForSubItems
+                ? item.ForeColor
+                : column > 0 && column < item.SubItems.Count && item.SubItems[column].ForeColor != Color.Empty
+                    ? item.SubItems[column].ForeColor
+                    : item.ForeColor;
 
             if (color != Color.Empty)
                 return color.ToSKColor ();

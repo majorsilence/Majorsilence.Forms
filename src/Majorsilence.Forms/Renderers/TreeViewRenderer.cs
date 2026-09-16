@@ -59,7 +59,11 @@ namespace Majorsilence.Forms.Renderers
                     return;
             }
 
-            var is_selected = item == control.SelectedItem;
+            // HideSelection: a tree that has lost focus gives up its highlight. Read by nothing before,
+            // so the band stayed whatever the focus was -- and unlike ListView, whose upstream default
+            // is false, TreeView's upstream default is TRUE, so this is the shape most trees should
+            // have had all along. The two siblings genuinely differ; matching them would be the bug.
+            var is_selected = item == control.SelectedItem && (control.Focused || !control.HideSelection);
 
             // A node's own ForeColor/BackColor win over the theme; Color.Empty means "use the theme".
             // All three were stored and never read at paint, so bold "unread" and red "error" nodes
@@ -73,14 +77,20 @@ namespace Majorsilence.Forms.Renderers
             if (item.BackColor != System.Drawing.Color.Empty && !is_selected)
                 e.Canvas.FillRectangle (item.Bounds, item.BackColor.ToSKColor ());
 
-            if (is_selected)
+            // FullRowSelect: the whole row, or just the label. It was read by nothing, so every tree
+            // highlighted the full row -- which is what FullRowSelect = TRUE means, while the property
+            // defaults to false. An explorer-style tree therefore looked like a list.
+            if (is_selected) {
+                var highlight = control.FullRowSelect ? item.Bounds : GetTextBounds (control, item, e);
+
 #if NETSTANDARD2_0
                 // Style's static return type is the base ControlStyle here (no covariant returns on
                 // netstandard2.0); the instance is a TreeViewControlStyle.
-                e.Canvas.FillRectangle (item.Bounds, ((TreeView.TreeViewControlStyle) control.Style).GetSelectedItemBackgroundColor ());
+                e.Canvas.FillRectangle (highlight, ((TreeView.TreeViewControlStyle) control.Style).GetSelectedItemBackgroundColor ());
 #else
-                e.Canvas.FillRectangle (item.Bounds, control.Style.GetSelectedItemBackgroundColor ());
+                e.Canvas.FillRectangle (highlight, control.Style.GetSelectedItemBackgroundColor ());
 #endif
+            }
 
             if (is_selected && control.Focused && control.ShowFocusCues)
                 e.Canvas.DrawFocusRectangle (item.Bounds, e.LogicalToDeviceUnits (1));

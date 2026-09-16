@@ -270,7 +270,11 @@ namespace Majorsilence.Forms.Tests
             Theme.LoadFromCss ("TreeView::selection { background-color: #fe017f; }");
 
             using var form = new Form { Size = new System.Drawing.Size (300, 300) };
-            var tree = new TreeView { Left = 0, Top = 0, Width = 200, Height = 200 };
+            // This test is about the part COLOUR, not about which region carries it. Both of those are
+            // now real properties (W6.2): HideSelection defaults to true upstream, so an unfocused tree
+            // shows no band at all, and FullRowSelect defaults to false, so the band is the label only.
+            // Pinned here so the colour assertion keeps measuring the colour.
+            var tree = new TreeView { Left = 0, Top = 0, Width = 200, Height = 200, HideSelection = false, FullRowSelect = true };
             var node = tree.Items.Add ("Documents");
             tree.Items.Add ("Pictures");
             tree.SelectedNode = node;
