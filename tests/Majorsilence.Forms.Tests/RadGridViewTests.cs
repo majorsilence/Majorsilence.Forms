@@ -129,6 +129,85 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (1, (int)grid.Rows[2].Cells["Dept"].Value!);
         }
 
+        // ---- W6.1 / #176: CurrentRowChanging, the bypassed unsaved-changes guard ----
+
+        // RadGridView.Rows is shadowed and yields Telerik GridViewCellInfo, so moving the current
+        // cell goes through the base grid's own collection.
+        [Fact]
+        public void Moving_the_current_row_raises_CurrentRowChanging ()
+        {
+            using var grid = Populated ();
+            grid.CurrentCell = ((DataGridView)grid).Rows[0].Cells[0];
+
+            CurrentRowChangingEventArgs? seen = null;
+            grid.CurrentRowChanging += (_, e) => seen = e;
+
+            grid.CurrentCell = ((DataGridView)grid).Rows[2].Cells[0];
+
+            Assert.NotNull (seen);
+            Assert.Equal ("Alice", seen!.OldRow?.Cells["Name"].Value?.ToString ());
+            Assert.Equal ("Carol", seen.NewRow?.Cells["Name"].Value?.ToString ());
+        }
+
+        [Fact]
+        public void A_handler_can_keep_the_current_row ()
+        {
+            // The unsaved-changes guard: "you have unsaved edits, stay on this row?" The handler never
+            // ran, so the veto never happened and the move always went through.
+            using var grid = Populated ();
+            grid.CurrentCell = ((DataGridView)grid).Rows[0].Cells[0];
+            grid.CurrentRowChanging += (_, e) => e.Cancel = true;
+
+            grid.CurrentCell = ((DataGridView)grid).Rows[2].Cells[0];
+
+            Assert.Equal (0, grid.CurrentCell?.RowIndex);
+        }
+
+        [Fact]
+        public void Moving_within_the_same_row_does_not_raise_it ()
+        {
+            // It is a ROW change event. Raising it on a column move would fire the unsaved-changes
+            // prompt every time the user tabbed sideways.
+            using var grid = Populated ();
+            grid.CurrentCell = ((DataGridView)grid).Rows[0].Cells[0];
+            var raised = 0;
+            grid.CurrentRowChanging += (_, _) => raised++;
+
+            grid.CurrentCell = ((DataGridView)grid).Rows[0].Cells[1];
+
+            Assert.Equal (0, raised);
+            Assert.Equal (1, grid.CurrentCell?.ColumnIndex);
+        }
+
+        [Fact]
+        public void The_row_still_moves_with_no_handler ()
+        {
+            // GUARD, not proof: a seam defaulting to false would freeze the current row entirely,
+            // which is far worse than the bug being fixed.
+            using var grid = Populated ();
+            grid.CurrentCell = ((DataGridView)grid).Rows[0].Cells[0];
+
+            grid.CurrentCell = ((DataGridView)grid).Rows[2].Cells[0];
+
+            Assert.Equal (2, grid.CurrentCell?.RowIndex);
+        }
+
+        [Fact]
+        public void A_veto_leaves_CurrentRowChanged_unraised ()
+        {
+            // The pair has to agree: announcing a completed change that was vetoed is the failure the
+            // ordering of this seam exists to avoid.
+            using var grid = Populated ();
+            grid.CurrentCell = ((DataGridView)grid).Rows[0].Cells[0];
+            grid.CurrentRowChanging += (_, e) => e.Cancel = true;
+            var changed = 0;
+            grid.CurrentRowChanged += (_, _) => changed++;
+
+            grid.CurrentCell = ((DataGridView)grid).Rows[2].Cells[0];
+
+            Assert.Equal (0, changed);
+        }
+
         // ---- W6.1 / #176: the enable-flags, stored and read by nothing ----
 
         [Fact]

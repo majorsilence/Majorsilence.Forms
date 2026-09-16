@@ -87,7 +87,6 @@ Majorsilence.Forms.Telerik.ContextMenuOpeningEventArgs.ContextMenuProvider
 Majorsilence.Forms.Telerik.ContextMenuOpeningEventArgs.RowElement
 Majorsilence.Forms.Telerik.CurrentCellChangedEventArgs.NewCell
 Majorsilence.Forms.Telerik.CurrentCellChangedEventArgs.OldCell
-Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.Cancel
 Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.NewRow
 Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.OldRow
 Majorsilence.Forms.Telerik.DataGroup.HeaderText

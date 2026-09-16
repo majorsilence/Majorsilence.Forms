@@ -37,7 +37,6 @@ Majorsilence.Forms.Telerik.ContextMenuService.ContextMenuDisplaying
 Majorsilence.Forms.Telerik.DocumentTabStrip.SelectedIndexChanged
 Majorsilence.Forms.Telerik.RadDock.DockTabStripNeeded
 Majorsilence.Forms.Telerik.RadGridView.CreateCell
-Majorsilence.Forms.Telerik.RadGridView.CurrentRowChanging
 Majorsilence.Forms.Telerik.RadGridView.DefaultValuesNeeded
 Majorsilence.Forms.Telerik.RadGridView.EditorRequired
 Majorsilence.Forms.Telerik.RadGridView.FilterPopupRequired

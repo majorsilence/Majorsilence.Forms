@@ -2821,6 +2821,19 @@ namespace Majorsilence.Forms
         // things (DGV-14/DGV-15) and the pointer path needs to move one without replacing the other.
         private bool SetCurrentRowIndex (int value) => MoveCurrentCell (value, selected_column_index);
 
+        /// <summary>
+        /// Called when the current row is about to change, after everything else that could veto the
+        /// move has agreed. Return false to keep the current row. Default: always true.
+        /// </summary>
+        /// <param name="oldRowIndex">The row being left, or -1.</param>
+        /// <param name="newRowIndex">The row being moved to, or -1.</param>
+        /// <remarks>
+        /// A seam rather than an event: WinForms expresses this as <c>RowValidating</c> and adding a
+        /// second cancellable row-change event would be inventing surface. Telerik's
+        /// <c>CurrentRowChanging</c> does exist, so the compat grid overrides this to raise it.
+        /// </remarks>
+        protected internal virtual bool RaiseCurrentRowChanging (int oldRowIndex, int newRowIndex) => true;
+
         // The one place the current cell moves (DGV-11). Every path -- the two index setters, a click,
         // a keyboard move -- comes through here, so the leave/validate/enter/changed sequence runs once
         // per move rather than once per index that happened to change. Before this, CurrentCellChanged
@@ -2852,6 +2865,14 @@ namespace Majorsilence.Forms
                 OnCellValidated (new DataGridViewCellEventArgs (old_column, old_row));
                 OnCellLeave (new DataGridViewCellEventArgs (old_column, old_row));
             }
+
+            // The last thing that can stop the move, so "the row is about to change" is true by the
+            // time it is announced. Deliberately AFTER the validate/leave sequence rather than before
+            // it: raising first would tell a handler the row was changing and then let RowValidating
+            // cancel it, which is a false notification -- and a handler that vetoes here has the same
+            // effect a cancelling RowValidating would have had.
+            if (old_row != rowIndex && !RaiseCurrentRowChanging (old_row, rowIndex))
+                return false;
 
             selected_row_index = rowIndex;
             selected_column_index = columnIndex;
