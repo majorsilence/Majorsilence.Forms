@@ -88,9 +88,38 @@ namespace Majorsilence.Forms
             // Hidden items are excluded, as Menu, MenuDropDown and StatusStrip all already do. Laying
             // them out left a button that was painted but skipped by hit-testing -- a dead, visible
             // button -- which is what permission-based toolbar trimming produced (TSM-04).
-            StackLayoutEngine.HorizontalExpand.Layout (
-                LogicalClientRectangle,
-                Items.Cast<MenuItem> ().Where (i => i.Visible).Cast<ILayoutable> ());
+            var visible = Items.Cast<MenuItem> ().Where (i => i.Visible).ToList ();
+
+            StackLayoutEngine.HorizontalExpand.Layout (LogicalClientRectangle, visible.Cast<ILayoutable> ());
+
+            PinTrailingItems (visible);
+        }
+
+        // ToolStripItem.Alignment = Right pins an item to the strip's trailing edge -- the Help or
+        // Settings button that sits apart from the rest. It was stored and read by nothing, so every
+        // item was laid out left to right in declaration order whatever the property said.
+        //
+        // Applied after the stack layout rather than instead of it, so the items keep the widths that
+        // layout measured for them; only their X moves. Right-aligned items keep their relative order,
+        // which is why this walks backwards from the edge.
+        private void PinTrailingItems (List<MenuItem> visible)
+        {
+            var trailing = visible
+                .OfType<ToolStripItem> ()
+                .Where (item => item.Alignment == ToolStripItemAlignment.Right)
+                .ToList ();
+
+            if (trailing.Count == 0)
+                return;
+
+            var x = LogicalClientRectangle.Right;
+
+            for (var i = trailing.Count - 1; i >= 0; i--) {
+                var bounds = trailing[i].Bounds;
+
+                x -= bounds.Width;
+                trailing[i].SetBounds (x, bounds.Y, bounds.Width, bounds.Height);
+            }
         }
 
         /// <inheritdoc/>

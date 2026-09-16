@@ -146,13 +146,21 @@ namespace Majorsilence.Forms.Renderers
             if (!string.IsNullOrEmpty (item.Text))
                 e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_rect, font_color, text_align);
 
-            // Dropdown Arrow
-            if (item.HasItems) {
+            // Dropdown Arrow. ToolStripDropDownButton.ShowDropDownArrow turns it off -- a toolbar
+            // button that opens a menu but is drawn as a plain button, which is how icon-only
+            // "more actions" buttons are usually styled. It was stored and read by nothing, so the
+            // arrow was drawn whenever the item had a submenu whatever the property said.
+            if (item.HasItems && ShowsDropDownArrow (item)) {
                 var arrow_bounds = DrawingExtensions.CenterSquare (item.Bounds, 16);
                 var arrow_area = new Rectangle (item.Bounds.Right - e.LogicalToDeviceUnits (16) - 4, arrow_bounds.Top, 16, 16);
                 ControlPaint.DrawArrowGlyph (e, arrow_area, font_color, ArrowDirection.Down);
             }
         }
+
+        // Only ToolStripDropDownButton carries the flag; every other item type draws its arrow
+        // whenever it has a submenu, which is what upstream does too.
+        private static bool ShowsDropDownArrow (MenuItem item)
+            => item is not ToolStripDropDownButton button || button.ShowDropDownArrow;
 
         /// <summary>
         /// Renders a MenuSeparatorItem.
