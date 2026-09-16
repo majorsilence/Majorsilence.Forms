@@ -201,6 +201,26 @@ namespace Majorsilence.Forms.Tests
             return view;
         }
 
+        [Fact]
+        public void ListView_click_selects_the_item_under_the_pointer_when_scaled ()
+        {
+            using var view = Details ();
+            using var form = Scaled (2, view);
+
+            try {
+                PaintSurface.Render (view).Dispose ();
+
+                var bounds = view.Items[1].Bounds;   // logical, as of LAY-38
+                var point = new Point (bounds.Left + 30, bounds.Top + bounds.Height / 2);
+
+                view.DriveClick (point);
+
+                Assert.Same (view.Items[1], view.SelectedItems.Count > 0 ? view.SelectedItems[0] : null);
+            } finally {
+                form.Close ();
+            }
+        }
+
         // ---------------- TreeView
 
         // There is deliberately no test here for the PlusMinus/Label split. The indent it keys off is
