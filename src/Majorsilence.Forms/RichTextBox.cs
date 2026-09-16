@@ -15,6 +15,10 @@ namespace Majorsilence.Forms
         {
             // WinForms RichTextBox is multi-line by default (unlike the base TextBox).
             Multiline = true;
+
+            // The property's default has always said Both; without this the BASE default (None) was
+            // what the scrollbars actually followed, so a fresh control agreed with nothing.
+            base.ScrollBars = Forms.ScrollBars.Both;
         }
 
         /// <summary>
@@ -46,7 +50,36 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the scroll bars to show. Stub in Majorsilence.Forms (always shows vertical).</summary>
-        public new RichTextBoxScrollBars ScrollBars { get; set; } = RichTextBoxScrollBars.Both;
+        public new RichTextBoxScrollBars ScrollBars {
+            get => rich_scroll_bars;
+            set {
+                if (rich_scroll_bars == value)
+                    return;
+
+                rich_scroll_bars = value;
+                base.ScrollBars = ToScrollBars (value);
+            }
+        }
+
+        private RichTextBoxScrollBars rich_scroll_bars = RichTextBoxScrollBars.Both;
+
+        // TXT-26 all over again, one class down: `public new ... ScrollBars` was a stored value
+        // shadowing ScrollControl.ScrollBars, whose setter is what actually shows and hides the two
+        // bars -- so NO RichTextBox ever displayed a scrollbar, however much text it held. TextBox's
+        // identical shadow was deleted when TXT-26 was fixed; this one survived because the type
+        // differs, which is exactly what makes a `new` shadow hard to see.
+        //
+        // The Forced* variants map to the same pair. Upstream's "forced" means "show the bar even when
+        // the content fits", and UpdateScrollBars combines what is WANTED with what is NEEDED with no
+        // third state to express that, so the distinction is preserved on the way in and out but does
+        // not yet change what is shown. Recorded rather than silently flattened.
+        private static Forms.ScrollBars ToScrollBars (RichTextBoxScrollBars value)
+            => value switch {
+                RichTextBoxScrollBars.None => Forms.ScrollBars.None,
+                RichTextBoxScrollBars.Horizontal or RichTextBoxScrollBars.ForcedHorizontal => Forms.ScrollBars.Horizontal,
+                RichTextBoxScrollBars.Vertical or RichTextBoxScrollBars.ForcedVertical => Forms.ScrollBars.Vertical,
+                _ => Forms.ScrollBars.Both
+            };
 
         /// <summary>Gets or sets the selection start in the text.</summary>
         public new int SelectionStart {
@@ -220,7 +253,38 @@ namespace Majorsilence.Forms
         // document instead (TXT-35).
 
         /// <summary>Gets or sets the zoom factor. Stub in Majorsilence.Forms (always 1.0).</summary>
-        public float ZoomFactor { get; set; } = 1.0f;
+        public float ZoomFactor {
+            get => zoom_factor;
+            set {
+                // Upstream's bounds, exclusive at both ends (RichTextBox.cs:1469-1473). NaN is let
+                // through there too.
+                if (!float.IsNaN (value)) {
+                    if (value <= 0.015625f)
+                        throw new ArgumentOutOfRangeException (nameof (ZoomFactor), value, "ZoomFactor must be greater than 0.015625.");
+                    if (value >= 64.0f)
+                        throw new ArgumentOutOfRangeException (nameof (ZoomFactor), value, "ZoomFactor must be less than 64.");
+                }
+
+                if (zoom_factor == value)
+                    return;
+
+                zoom_factor = value;
+
+                PerformLayout ();
+                Invalidate ();
+            }
+        }
+
+        private float zoom_factor = 1.0f;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Where <see cref="ZoomFactor"/> takes effect. Every caret position, selection rectangle,
+        /// scroll step and text measurement in the base class reads this one value, so scaling it here
+        /// zooms all of them together instead of leaving the text one size and the caret another.
+        /// </remarks>
+        internal override int CurrentFontSize
+            => Math.Max (1, (int) Math.Round (base.CurrentFontSize * (float.IsNaN (ZoomFactor) ? 1.0f : ZoomFactor)));
 
         /// <summary>Gets or sets whether auto-drag-drop is enabled. Stub in Majorsilence.Forms.</summary>
         public bool EnableAutoDragDrop { get; set; }
