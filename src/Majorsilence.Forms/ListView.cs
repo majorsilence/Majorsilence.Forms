@@ -48,7 +48,7 @@ namespace Majorsilence.Forms
         // One "line" is a row in the row views and a whole tile row in the tile views, so the
         // scrollbar counts what the layout actually steps by.
         private int ScaledLineHeight
-            => IsRowView ? ScaledRowHeight : ScaledTileSize + LogicalToDeviceUnits (6);
+            => IsRowView ? ScaledRowHeight : ScaledTileHeight + LogicalToDeviceUnits (6);
 
         internal int ItemsPerLine {
             get {
@@ -156,7 +156,25 @@ namespace Majorsilence.Forms
                 : 0;
 
         /// <summary>The width of a large-icon tile, in device pixels.</summary>
-        internal int ScaledTileSize => LogicalToDeviceUnits (70);
+        /// <remarks>
+        /// Honours <see cref="TileSize"/> when the application set one. It used to be a hard-coded 70
+        /// and <c>TileSize</c> was stored and read by nothing, so the property that exists to size
+        /// tiles did not size them (<c>W6.2</c>).
+        /// </remarks>
+        internal int ScaledTileSize => LogicalToDeviceUnits (TileSize.Width > 0 ? TileSize.Width : DefaultTileExtent);
+
+        /// <summary>The height of a large-icon tile, in device pixels.</summary>
+        /// <remarks>
+        /// Separate from the width because <see cref="TileSize"/> is a <see cref="Size"/> and tiles are
+        /// not required to be square; the layout used one value for both, so an application asking for
+        /// a wide tile could not get one even once the size was read.
+        /// </remarks>
+        internal int ScaledTileHeight => LogicalToDeviceUnits (TileSize.Height > 0 ? TileSize.Height : DefaultTileExtent);
+
+        // The size a tile takes when the application has not asked for one. Upstream reads the real
+        // value back off the native control; there is none here, so this is the figure the layout has
+        // always used.
+        private const int DefaultTileExtent = 70;
 
         /// <summary>The width the check box column takes when <see cref="CheckBoxes"/> is set.</summary>
         internal int ScaledCheckWidth => CheckBoxes ? LogicalToDeviceUnits (18) : 0;
@@ -266,21 +284,22 @@ namespace Majorsilence.Forms
 
         private void LayoutTiles (Rectangle bounds)
         {
-            var item_size = ScaledTileSize;
+            var item_width = ScaledTileSize;
+            var item_height = ScaledTileHeight;
             var item_margin = LogicalToDeviceUnits (6);
 
             var x = bounds.Left;
-            var y = bounds.Top - top_index * (item_size + item_margin);
+            var y = bounds.Top - top_index * (item_height + item_margin);
 
             foreach (var item in Items) {
-                item.SetBounds (x, y, item_size, item_size);
-                x += item_size + item_margin;
+                item.SetBounds (x, y, item_width, item_height);
+                x += item_width + item_margin;
 
                 // Against the RIGHT EDGE, not the width: laid out from bounds.Left, comparing to
                 // Width wrapped a padded or scrolled list a column early.
-                if (x + item_size > bounds.Right) {
+                if (x + item_width > bounds.Right) {
                     x = bounds.Left;
-                    y += item_size + item_margin;
+                    y += item_height + item_margin;
                 }
             }
         }
@@ -751,7 +770,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets whether the state image list uses a compatible image behavior. Stub in Majorsilence.Forms.</summary>
-        public bool UseCompatibleStateImageBehavior { get; set; }
+        public bool UseCompatibleStateImageBehavior { get; set; } = true;
 
         /// <summary>Gets or sets the item that is currently focused.</summary>
         public ListViewItem? FocusedItem { get; set; }

@@ -440,6 +440,82 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** `item.Group = g` → `g.Items.Contains (item)`.
 - **Tests today:** `ListViewGroupTests.cs` (collection only).
 
+## Status (2026-09-16, W6.2 — the ListView stored-only slice)
+
+`ListView` carried 20 entries on `StoredOnlyPropertyBaseline.txt`, the most of any non-blocked control.
+W6.2 asks for each one to be wired to its consumer or recorded as legitimately inert. This is that
+record.
+
+**Wired (3):**
+
+- **`TileSize`** — `LST-44`. The tile layout used a hard-coded `70` for both dimensions, so the property
+  that exists to size tiles did not size them, and a non-square tile could not be expressed at all. The
+  layout now reads it for width and height separately, the stride steps by it, and the setter rejects a
+  non-positive size with `ArgumentOutOfRangeException` as upstream does. An unset `TileSize` still lays
+  out at 70, which matters more than the feature: reading it without a fallback would collapse every
+  tile on every list that never set one.
+- **`HideSelection`** — `LST-45`. The renderer painted the selection band whenever an item was selected,
+  so a list that had lost focus went on showing it. Read now by the band, the check box row and the text
+  colour together, since upstream draws a hidden selection as wholly unselected.
+- **`UseCompatibleStateImageBehavior`** — the **default** was wrong (`false`; upstream's constructor sets
+  the flag and the property carries `[DefaultValue(true)]`). Corrected. It stays on the baseline, and
+  correctly so: nothing reads it, because it selects between two .NET 1.1-era state-image behaviours
+  this layer does not implement either way. What an application could observe was the value it read
+  back, and that is now right.
+
+**Checked and deliberately not changed:** `HideSelection`'s own default. It reads as though it should
+match `ListBox`/`TextBox`, where this layer defaults it to `true` — but upstream's `ListView` carries
+`[DefaultValue(false)]` and does not set the flag in its constructor. `false` is correct here, and
+"fixing" it would have been the regression.
+
+**Legitimately inert, with the reason (17):**
+
+*Blocked on a feature that does not exist:*
+- `VirtualMode`, `VirtualListSize` — there is no virtual-mode data path; `CellValueNeeded`'s equivalents
+  are blocked on the same thing in W6.1.
+- `LabelEdit` — no in-place editing infrastructure, the same blocker as the PropertyGrid epic in #176.
+  `BeforeLabelEdit`/`AfterLabelEdit` are inert for this reason and already recorded.
+- `OwnerDraw` — needs `DrawItem`/`DrawSubItem` to be raised; the renderer has no owner-draw branch.
+- `AllowColumnReorder` — needs a column drag gesture.
+- `ShowGroups`, `GroupImageList`, and the whole 12-entry `ListViewGroup` family (`Header`, `Footer`,
+  `HeaderAlignment`, `FooterAlignment`, `Subtitle`, `TaskLink`, `TitleImageIndex`, `TitleImageKey`,
+  `CollapsedState`, `Name`, `Tag`, `ListView`) — **`Groups` is a collection nothing reads.** The renderer
+  has no group header, and the layout does not group. This is one feature, not 14 findings; recorded as
+  `LST-46` rather than swept, because wiring it is a rendering and layout feature in its own right.
+
+*Needs a mouse-state or tooltip pipeline the control does not have:*
+- `HotTracking`, `HoverSelection` — no hover tracking on items.
+- `ShowItemToolTips` — no per-item tooltip host.
+
+*Legacy or platform-specific:*
+- `Activation` — one/two-click activation is a shell setting with no portable equivalent.
+- `RightToLeftLayout` — RTL mirroring is not rendered anywhere in this layer.
+- `BackgroundImageTiled` — no background-image painting on this control.
+- `AutoArrange` — icon auto-arrangement; the layout always arranges.
+- `BorderStyle` — the border comes from the control's `ControlStyle`, which the theme owns; the property
+  is a second, unread way to ask for the same thing. Recorded rather than wired, because the right fix
+  is to decide which of the two owns it.
+- `StateImageList` — state images are not drawn; see `UseCompatibleStateImageBehavior` above.
+
+### LST-44 — `ListView.TileSize` ignored by the tile layout — Cat A — P2 — High — **CLOSED (2026-09-16)**
+- **Ours (before):** `ScaledTileSize => LogicalToDeviceUnits (70)` (`ListView.cs:159`), used for both the item rectangle and the stride; `TileSize` was a plain auto-property nothing read (`ListViewParity.cs:51`), and its setter accepted `0` or a negative size.
+- **Upstream:** `TileSize` round-trips through the native control and the setter throws `ArgumentOutOfRangeException` when either dimension is non-positive (`ListView.cs:1641-1700`).
+- **Fix (applied):** separate `ScaledTileSize`/`ScaledTileHeight` reading `TileSize` with a 70 fallback; the setter validates, then lays out and invalidates.
+- **Tests today:** `ListViewStoredOnlyTests.cs` (6 for this finding; 4 neutralization-verified, 2 labelled guards).
+
+### LST-45 — `ListView.HideSelection` not read by the renderer — Cat A — P2 — High — **CLOSED (2026-09-16)**
+- **Ours (before):** `RenderDetailsRow`/`RenderTile`/`Foreground` all branched on `item.Selected` alone, so focus never affected the highlight.
+- **Upstream:** the highlight is given up when the control loses focus and `HideSelection` is set; default `false`.
+- **Fix (applied):** one `ShowsSelection (control, item)` helper — `item.Selected && (control.Focused || !control.HideSelection)` — used by the band, the check box row and the text colour, so a hidden selection draws as wholly unselected.
+- **Tests today:** `ListViewStoredOnlyTests.cs` (3 for this finding; 2 neutralization-verified, 1 labelled guard covering the `false` default).
+
+### LST-46 — `ListView.Groups` is a collection nothing reads — Cat A — P2 — Medium
+- **Ours:** `Groups` exists (`ListView.cs:765`) and `ShowGroups` defaults true (`:512`), but `ListViewRenderer` contains no group code at all and `LayoutTiles`/the row layouts do not group. All 12 `ListViewGroup` members plus `ShowGroups` and `GroupImageList` sit on the stored-only baseline as one consequence.
+- **Upstream:** groups render as a titled band above their items, collapsible via `CollapsedState`.
+- **Impact:** an application that builds groups gets an ungrouped flat list with no error — the items are all present and in insertion order, so it reads as "grouping did nothing" rather than as a failure.
+- **Fix:** a rendering and layout feature, not a sweep: group header bands in the renderer, group-aware item layout, and `CollapsedState` driving which items are laid out. Sized as its own item deliberately.
+- **Tests today:** none.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `ListBox.UseTabStops` / `UseCustomTabOffsets` / `CustomTabOffsets` — tab expansion in native LB text; stored (`ListBox.cs:659`, `MidSizeControlParity.Three.cs:230-234`).
 - `ListBox.MultiColumn` / `ColumnWidth` / `HorizontalScrollbar` / `HorizontalExtent` / `IntegralHeight` — stored (`ListBox.cs:650-674`); niche layouts, portable in principle but rarely used in LOB code.
