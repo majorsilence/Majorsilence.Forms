@@ -18,6 +18,7 @@ namespace Majorsilence.Forms
         {
             Items = new ListViewItemCollection (this);
             Columns = new ColumnHeaderCollection (this);
+            groups = new ListViewGroupCollection (this);
 
             // A real scrollbar, as ListBox and TreeView have (LST-19). Without one, a list taller than
             // its control was simply truncated -- the remaining items laid out past the bottom edge with
@@ -61,7 +62,9 @@ namespace Majorsilence.Forms
             }
         }
 
-        private int LineCount => (Items.Count + ItemsPerLine - 1) / Math.Max (1, ItemsPerLine);
+        // Group header bands occupy a line each, so the scrollbar counts them: a grouped list that
+        // counted only items could not scroll far enough to reach its last row.
+        internal int LineCount => (Items.Count + ItemsPerLine - 1) / Math.Max (1, ItemsPerLine) + GroupBandCount;
 
         /// <summary>The number of whole lines that fit in the item area.</summary>
         internal int VisibleLineCount => Math.Max (1, ItemArea.Height / Math.Max (1, ScaledLineHeight));
@@ -239,22 +242,9 @@ namespace Majorsilence.Forms
             var bounds = ItemArea;
 
             if (IsRowView)
-                LayoutRows (bounds);
+                LayoutRowsGrouped (bounds);
             else
                 LayoutTiles (bounds);
-        }
-
-        private void LayoutRows (Rectangle bounds)
-        {
-            var row_height = ScaledRowHeight;
-            var y = bounds.Top - top_index * row_height;
-
-            foreach (var item in Items) {
-                item.SetBounds (bounds.Left, y, bounds.Width, row_height);
-                LayoutSubItems (item);
-
-                y += row_height;
-            }
         }
 
         // Per-cell rectangles for Details, so a DrawSubItem handler -- and any code reading
@@ -528,7 +518,18 @@ namespace Majorsilence.Forms
         private SortOrder sorting = SortOrder.None;
 
         /// <summary>Gets or sets whether items can be grouped. Stub in Majorsilence.Forms.</summary>
-        public bool ShowGroups { get; set; } = true;
+        public bool ShowGroups {
+            get => show_groups;
+            set {
+                if (show_groups == value)
+                    return;
+
+                show_groups = value;
+                RefreshGroups ();
+            }
+        }
+
+        private bool show_groups = true;
 
         /// <summary>Gets or sets whether labels are automatically arranged. Stub in Majorsilence.Forms.</summary>
         public bool AutoArrange { get; set; } = true;
@@ -781,7 +782,9 @@ namespace Majorsilence.Forms
         public int CountPerPage => VisibleLineCount * ItemsPerLine;
 
         /// <summary>Gets the collection of ListViewGroup objects assigned to the control.</summary>
-        public ListViewGroupCollection Groups { get; } = new ListViewGroupCollection ();
+        public ListViewGroupCollection Groups => groups;
+
+        private readonly ListViewGroupCollection groups;
 
         /// <summary>Prevents the control from drawing until EndUpdate is called.</summary>
         public new void BeginUpdate () => SuspendLayout ();

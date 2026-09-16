@@ -28,11 +28,20 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.Clip (area);
 
             foreach (var item in control.Items) {
-                // Items scrolled out of sight are laid out but not drawn.
+                // Items scrolled out of sight are laid out but not drawn. A collapsed group's items
+                // are laid out nowhere, so the empty rectangle fails this test and they are skipped
+                // by the same line rather than by a second rule.
                 if (item.DeviceBounds.Bottom < area.Top || item.DeviceBounds.Top > area.Bottom)
                     continue;
 
                 RenderItem (control, item, e);
+            }
+
+            foreach (var band in control.GroupBands) {
+                if (band.DeviceBounds.Bottom < area.Top || band.DeviceBounds.Top > area.Bottom)
+                    continue;
+
+                RenderGroupHeader (control, band.Group, band.DeviceBounds, e);
             }
 
             e.Canvas.Restore ();
@@ -73,6 +82,44 @@ namespace Majorsilence.Forms.Renderers
 
             e.Canvas.Restore ();
         }
+
+        /// <summary>Renders one group header band: its rule, its header text, and its subtitle.</summary>
+        /// <remarks>
+        /// <see cref="ListViewGroup.HeaderAlignment"/> and <see cref="ListViewGroup.Subtitle"/> are read
+        /// here; both were stored and consumed by nothing, along with the rest of the group family
+        /// (<c>LST-46</c>). The band is one row tall, which is what lets the scrolling arithmetic treat
+        /// it as an ordinary line.
+        /// </remarks>
+        protected virtual void RenderGroupHeader (ListView control, ListViewGroup group, Rectangle bounds, PaintEventArgs e)
+        {
+            var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);
+            var inset = e.LogicalToDeviceUnits (4);
+            var text = new Rectangle (bounds.Left + inset, bounds.Top, Math.Max (0, bounds.Width - inset * 2), bounds.Height);
+
+            e.Canvas.Save ();
+            e.Canvas.Clip (bounds);
+
+            var caption = string.IsNullOrEmpty (group.Subtitle)
+                ? group.Header
+                : $"{group.Header}  {group.Subtitle}";
+
+            e.Canvas.DrawText (caption, Theme.UIFontBold, font_size, text,
+                Theme.ForegroundColor, HeaderAlign (group.HeaderAlignment), maxLines: 1);
+
+            // The rule under the caption is what separates a band from a row at a glance; without it a
+            // header reads as just another item in bold.
+            e.Canvas.DrawLine (bounds.Left + inset, bounds.Bottom - 1, bounds.Right - inset, bounds.Bottom - 1,
+                Theme.BorderLowColor);
+
+            e.Canvas.Restore ();
+        }
+
+        private static ContentAlignment HeaderAlign (HorizontalAlignment alignment)
+            => alignment switch {
+                HorizontalAlignment.Center => ContentAlignment.MiddleCenter,
+                HorizontalAlignment.Right => ContentAlignment.MiddleRight,
+                _ => ContentAlignment.MiddleLeft
+            };
 
         /// <summary>
         /// Renders a ListViewItem in whichever shape the current view calls for.

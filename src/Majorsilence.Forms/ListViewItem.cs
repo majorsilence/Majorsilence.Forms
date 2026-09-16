@@ -185,7 +185,23 @@ namespace Majorsilence.Forms
         public SubItemCollection SubItems { get; }
 
         /// <summary>Gets or sets the group the item belongs to (stub).</summary>
-        public object? Group { get; set; }
+        public ListViewGroup? Group {
+            get => group;
+            set {
+                if (ReferenceEquals (group, value))
+                    return;
+
+                // Both sides are kept in step: upstream treats group.Items and item.Group as one
+                // relationship, and code that walks either has to see the same membership.
+                group?.Items.Remove (this);
+                group = value;
+                group?.Items.Add (this);
+
+                Parent?.RefreshGroups ();
+            }
+        }
+
+        private ListViewGroup? group;
 
         /// <summary>
         /// Sets the bounding box of the item. This is internal API and should not be called.
