@@ -116,10 +116,40 @@ namespace Majorsilence.Forms.Telerik
         /// <param name="e">The event data.</param>
         protected virtual void OnCustomFiltering (GridViewCustomFilteringEventArgs e) => CustomFiltering?.Invoke (this, e);
 
+        /// <summary>
+        /// Raised when the current row is about to change, after everything else that could stop the
+        /// move has agreed. Set <c>Cancel</c> to keep the current row.
+        /// </summary>
+        /// <remarks>
+        /// The unsaved-changes guard — "you have unsaved edits, stay on this row?" — is what this
+        /// event is for, and it never fired, so the guard was bypassed and the move always went
+        /// through. A cancelled event and an unwired one look identical from the handler's side, which
+        /// is why nothing surfaced it.
+        /// </remarks>
+        public event EventHandler<CurrentRowChangingEventArgs>? CurrentRowChanging;
+
+        /// <summary>Raises the <see cref="CurrentRowChanging"/> event.</summary>
+        /// <param name="e">The event data.</param>
+        protected virtual void OnCurrentRowChanging (CurrentRowChangingEventArgs e) => CurrentRowChanging?.Invoke (this, e);
+
+        /// <inheritdoc/>
+        protected internal override bool RaiseCurrentRowChanging (int oldRowIndex, int newRowIndex)
+        {
+            if (!base.RaiseCurrentRowChanging (oldRowIndex, newRowIndex))
+                return false;
+
+            if (CurrentRowChanging is null)
+                return true;
+
+            var e = new CurrentRowChangingEventArgs (RowAt (newRowIndex), RowAt (oldRowIndex));
+
+            OnCurrentRowChanging (e);
+
+            return !e.Cancel;
+        }
+
         // Still never raised; present so designer/handler code (AddHandler / Handles) compiles.
 #pragma warning disable CS0067
-        /// <summary>Raised before the current row changes. Stub (never raised).</summary>
-        public event EventHandler<CurrentRowChangingEventArgs>? CurrentRowChanging;
         /// <summary>Raised when a cell editor is required. Stub (never raised).</summary>
         public event EventHandler<GridViewCellCancelEventArgs>? EditorRequired;
 #pragma warning restore CS0067
