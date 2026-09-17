@@ -2138,6 +2138,35 @@ getter then honestly reports the column it actually reached. The test asked for 
 instead: asking for one the control cannot reach tests the clamp, not the property.
 
 5 tests, 2 neutralizations. Core stored-only properties 659 → 657; **153 candidates remain**.
+**W6.2 — wiring the candidates, batch 3. — done (2026-09-17).** Part of #91. All 155 remaining
+candidates were examined; two wired, one reverted.
+
+- **`DataGridViewRow.DividerHeight`** — extra space below a row, the usual way a grid separates groups.
+  Stored and read by nothing. Wiring it turned up **two parallel row-height computations**:
+  `GetRowDisplayRectangle` summed `Rows[i].Height` itself while the paint path went through
+  `RowDeviceHeight`. Putting the divider in one would have made the public rectangle disagree with
+  where the row is drawn, so both now go through one `RowTotalHeight`.
+- **`PictureBox.InitialImage`** — what the box shows *while* an async load runs. Set synchronously
+  before the load starts, which is also why it is demonstrable.
+
+**`PictureBox.ErrorImage` was attempted and reverted**, for the same reason as `TabControl.HotTrack` in
+batch 2: its moment is on the async failure path, which completes through `RunOnUiThread`, and no
+fixture in this suite can pump far enough to observe it — five seconds of `DoEvents` never sees
+`IsErrored` flip. The line is written and commented out at the exact point it belongs, so the next
+person with a pumping fixture has one line to add rather than a search to repeat.
+
+*The examination is the deliverable as much as the wiring.* Of the 155: about 10 are designer-host
+surface (`ControlDesigner`, `Adorner`, the `DesignerAction*` family, `ToolboxItem`) with no designer to
+consult them; 12 are the `TaskDialog` family; the `UseCompatibleTextRendering` group has no GDI/GDI+
+distinction to make; and the rest cluster behind the hover, editing, virtual-mode and printing features
+already recorded. **The wirable remainder is far smaller than the candidate count**, and each one costs
+an examination to tell which it is — this batch examined 155 and found two.
+
+*Two Release-only build failures and two scale-2 test failures in one batch.* CS1587 from a doc comment
+inserted between an existing one and its member; a `GetRowDisplayRectangle` assertion converting logical
+units to device. Both configurations earn their place in the gate set, repeatedly.
+
+6 tests, 3 neutralizations. Core stored-only properties 657 → 655; **153 candidates remain**.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing

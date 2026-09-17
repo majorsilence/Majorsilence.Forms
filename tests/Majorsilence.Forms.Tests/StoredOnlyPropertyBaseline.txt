@@ -184,7 +184,6 @@ Majorsilence.Forms.DataGridViewLinkCell.LinkBehavior    -- framework-written (ou
 Majorsilence.Forms.DataGridViewLinkCell.TrackVisitedState    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewLinkCell.UseColumnTextForLinkValue
 Majorsilence.Forms.DataGridViewLinkColumn.LinkBehavior    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewRow.DividerHeight
 Majorsilence.Forms.DataGridViewRowContextMenuStripNeededEventArgs.ContextMenuStrip    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowErrorTextNeededEventArgs.ErrorText    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.Height
@@ -403,7 +402,6 @@ Majorsilence.Forms.PageSetupDialog.MinMargins    -- framework-written (outbound 
 Majorsilence.Forms.PageSetupDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.ShowNetwork    -- framework-written (outbound state)
 Majorsilence.Forms.PictureBox.ErrorImage
-Majorsilence.Forms.PictureBox.InitialImage
 Majorsilence.Forms.PictureBox.WaitOnLoad    -- framework-written (outbound state)
 Majorsilence.Forms.PopupEventArgs.ToolTipSize
 Majorsilence.Forms.PreviewKeyDownEventArgs.IsInputKey
