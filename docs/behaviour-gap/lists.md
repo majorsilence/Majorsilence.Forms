@@ -622,10 +622,20 @@ distinguishes "ours is wrong" from "ours is right and the sibling differs".
   drift apart.
 - **Tests today:** none. Recorded so the count is not mistaken for 13 separate defects.
 
-### LST-60 — state images: 4 entries, one missing feature — Cat A — P3 — Low
-- `ListView.StateImageList`, `ListViewItem.StateImageIndex`, `TreeView.StateImageList` and
-  `TreeNode.StateImageIndex` are stored and read by nothing. State images are a second image slot drawn
-  beside the check box; neither renderer has one. One feature, four entries.
+### LST-60 — state images: 4 entries, one missing feature — Cat A — P3 — Low — **CLOSED (2026-09-17)**
+- **Ours (before):** `ListView.StateImageList`, `ListViewItem.StateImageIndex`, `TreeView.StateImageList`
+  and `TreeNode.StateImageIndex` were stored and read by nothing, so a list or tree using state images
+  showed ordinary check boxes instead. One missing image slot, four entries.
+- **Fix (applied):** a state image replaces the check glyph in the slot both renderers already draw, as
+  upstream does. One shared `ListViewRenderer.StateImage` helper resolves the image so the two renderers
+  cannot answer differently. An index outside the list falls back to the glyph rather than throwing —
+  an index and a list that disagree is an application mistake, and a paint path is the worst place to
+  surface it.
+- **Why this one was picked next:** it is genuinely self-contained, which `TXT-31` turned out not to be.
+  A second image in a slot that already exists, with no shared layout pipeline behind it.
+- **Tests today:** `StateImageTests.cs` (6; 4 neutralizations). Two are guards: that a list with no
+  state index still draws its check box (the default, and every checked list in existence), and that an
+  out-of-range index falls back rather than throwing.
 
 ### LST-61 — `TabControl.HotTrack` is unread, and not demonstrable — Cat A — P3 — Low
 - **Ours:** stored and consumed by nothing. `TabStripRenderer` styles a hovered tab whenever

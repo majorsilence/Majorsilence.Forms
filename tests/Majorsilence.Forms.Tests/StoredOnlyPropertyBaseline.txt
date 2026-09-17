@@ -349,7 +349,6 @@ Majorsilence.Forms.ListView.LabelWrap    -- framework-written (outbound state)
 Majorsilence.Forms.ListView.OwnerDraw
 Majorsilence.Forms.ListView.RightToLeftLayout
 Majorsilence.Forms.ListView.ShowItemToolTips
-Majorsilence.Forms.ListView.StateImageList
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- framework-written (outbound state)
 Majorsilence.Forms.ListView.VirtualListSize
 Majorsilence.Forms.ListView.VirtualMode
@@ -366,7 +365,6 @@ Majorsilence.Forms.ListViewInsertionMark.Bounds
 Majorsilence.Forms.ListViewInsertionMark.Color    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewItem.IndentCount
 Majorsilence.Forms.ListViewItem.Position
-Majorsilence.Forms.ListViewItem.StateImageIndex    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewItem.ToolTipText    -- framework-written (outbound state)
 Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput    -- framework-written (outbound state)
 Majorsilence.Forms.MaskedTextBox.BeepOnError
@@ -645,7 +643,6 @@ Majorsilence.Forms.ToolTip.ToolTipIcon    -- framework-written (outbound state)
 Majorsilence.Forms.ToolTip.ToolTipTitle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolTip.UseAnimation    -- framework-written (outbound state)
 Majorsilence.Forms.ToolTip.UseFading    -- framework-written (outbound state)
-Majorsilence.Forms.TreeNode.StateImageIndex    -- framework-written (outbound state)
 Majorsilence.Forms.TreeNode.ToolTipText    -- framework-written (outbound state)
 Majorsilence.Forms.TreeView.BorderStyle    -- framework-written (outbound state)
 Majorsilence.Forms.TreeView.HotTracking
@@ -654,7 +651,6 @@ Majorsilence.Forms.TreeView.LineColor    -- framework-written (outbound state)
 Majorsilence.Forms.TreeView.ShowLines    -- framework-written (outbound state)
 Majorsilence.Forms.TreeView.ShowNodeToolTips
 Majorsilence.Forms.TreeView.ShowRootLines    -- framework-written (outbound state)
-Majorsilence.Forms.TreeView.StateImageList
 Majorsilence.Forms.UpDownBase.ChangingText
 Majorsilence.Forms.UserControl.AutoValidate    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class    -- framework-written (outbound state)

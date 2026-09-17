@@ -253,10 +253,29 @@ namespace Majorsilence.Forms.Renderers
             var box = new Rectangle (item.DeviceBounds.Left + e.LogicalToDeviceUnits (2),
                 item.DeviceBounds.Top + (item.DeviceBounds.Height - size) / 2, size, size);
 
+            // A state image replaces the glyph when the list has a StateImageList and the item names an
+            // image in it -- which is what that pair is for, and what upstream draws in this slot.
+            // Both were stored and read by nothing, so a list using state images showed ordinary check
+            // boxes instead.
+            if (StateImage (control.StateImageList, item.StateImageIndex) is { } state) {
+                e.Canvas.DrawBitmap (state, box, !control.Enabled);
+                return;
+            }
+
             // The same glyph CheckBox draws, so the two cannot drift apart.
             ControlPaint.DrawCheckBox (e, box,
                 item.Checked ? CheckState.Checked : CheckState.Unchecked, !control.Enabled);
         }
+
+        /// <summary>The image a state-image index names, or null when there is none to draw.</summary>
+        /// <remarks>
+        /// Shared by this renderer and <c>TreeViewRenderer</c> so the two cannot answer differently.
+        /// An index outside the list is treated as "no state image" rather than throwing: an index and
+        /// a list that disagree is an application mistake, and a painting path is the worst place to
+        /// surface it.
+        /// </remarks>
+        internal static SkiaSharp.SKBitmap? StateImage (ImageList? images, int index)
+            => images is { } list && index >= 0 && index < list.Images.Count ? list.Images[index] : null;
 
         // A per-item or per-subitem ForeColor overrides the theme; Color.Empty means "use the theme".
         private static SkiaSharp.SKColor Foreground (ListViewItem item, int column, bool selected)
