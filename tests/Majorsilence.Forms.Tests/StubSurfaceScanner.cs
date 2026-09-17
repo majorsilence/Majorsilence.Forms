@@ -44,6 +44,11 @@ internal static partial class StubSurfaceScanner
     /// <summary>An auto-property whose backing field is read only by its own getter.</summary>
     internal const string StoredOnlyPropertyBaselineFileName = "StoredOnlyPropertyBaseline.txt";
 
+    /// <summary>
+    /// Appended to an entry the framework itself writes -- outbound state rather than a gap.
+    /// </summary>
+    internal const string WrittenMarker = "    -- framework-written (outbound state)";
+
     // ---------------------------------------------------------------------------------------------
     // Scans
     // ---------------------------------------------------------------------------------------------
@@ -200,7 +205,20 @@ internal static partial class StubSurfaceScanner
                 if (IsCalled (access, md, accessors.Getter, getter))
                     continue;
 
-                found.Add ($"{FullTypeName (md, type)}.{name}");
+                // Written by something other than its own setter = OUTBOUND STATE: the framework sets
+                // it for the application to read back (Form.Modal, WindowBase.Disposing). Marked rather
+                // than excluded, because the gate's question is still "does anything read this" -- but
+                // a sweep must not try to "wire" one, which is how a working property gets broken.
+                // Two ways the framework writes one: a direct stfld (possible only inside the declaring
+                // type) or a CALL to the setter, which is what `Modal = true;` compiles to when the
+                // setter is private. Missing the second was the first version's bug -- it marked none of
+                // the motivating cases, because every one of them goes through its own setter.
+                var writers = access.Writers.TryGetValue (fieldHandle, out var w) ? w : [];
+                var setter = md.GetMethodDefinition (accessors.Setter);
+                var frameworkWritten = writers.Any (m => m != accessors.Setter)
+                                    || IsCalled (access, md, accessors.Setter, setter);
+
+                found.Add ($"{FullTypeName (md, type)}.{name}{(frameworkWritten ? WrittenMarker : string.Empty)}");
             }
         }
 
@@ -231,6 +249,9 @@ internal static partial class StubSurfaceScanner
     {
         /// <summary>Per field, the methods that load it.</summary>
         public Dictionary<FieldDefinitionHandle, HashSet<MethodDefinitionHandle>> Readers { get; } = [];
+
+        /// <summary>Per field, the methods that store to it.</summary>
+        public Dictionary<FieldDefinitionHandle, HashSet<MethodDefinitionHandle>> Writers { get; } = [];
 
         /// <summary>Every method this assembly calls, where the call names a definition here.</summary>
         public HashSet<MethodDefinitionHandle> CalledMethods { get; } = [];
@@ -267,14 +288,16 @@ internal static partial class StubSurfaceScanner
                     if (!TryGetEntityHandle (token, out var handle))
                         continue;
 
-                    if (kind == TokenKind.FieldLoad) {
+                    if (kind is TokenKind.FieldLoad or TokenKind.FieldStore) {
                         // A MemberRef here names another assembly's field, which no gate cares about.
                         if (handle.Kind != HandleKind.FieldDefinition)
                             continue;
 
                         var fieldHandle = (FieldDefinitionHandle) handle;
-                        if (!map.Readers.TryGetValue (fieldHandle, out var set))
-                            map.Readers[fieldHandle] = set = [];
+                        var target = kind == TokenKind.FieldLoad ? map.Readers : map.Writers;
+
+                        if (!target.TryGetValue (fieldHandle, out var set))
+                            target[fieldHandle] = set = [];
                         set.Add (methodHandle);
                         continue;
                     }
@@ -304,12 +327,18 @@ internal static partial class StubSurfaceScanner
         return map;
     }
 
-    // ldfld / ldflda / ldsfld / ldsflda. stfld and stsfld are deliberately absent -- see the remarks
-    // on BuildFieldAccessMap.
+    // ldfld / ldflda / ldsfld / ldsflda.
     private const int OpLdfld = 0x7B;
     private const int OpLdflda = 0x7C;
     private const int OpLdsfld = 0x7E;
     private const int OpLdsflda = 0x7F;
+
+    // stfld / stsfld. Tracked separately from loads, and NOT as consumption: a property the framework
+    // writes but never reads is outbound state -- something set for the application to read back --
+    // which is the opposite of a gap. Telling the two apart is what stops a sweep "wiring" a property
+    // that already works (see docs/behaviour-gap/stored-only-triage.md).
+    private const int OpStfld = 0x7D;
+    private const int OpStsfld = 0x80;
 
     // call / callvirt / newobj, and the two that take a method's address to build a delegate.
     private const int OpCall = 0x28;
@@ -318,7 +347,7 @@ internal static partial class StubSurfaceScanner
     private const int OpLdftn = 0xFE06;
     private const int OpLdvirtftn = 0xFE07;
 
-    private enum TokenKind { FieldLoad, Call }
+    private enum TokenKind { FieldLoad, FieldStore, Call }
 
     /// <summary>
     /// Converts an IL token operand to a metadata handle, rejecting anything that is not one of the
@@ -397,6 +426,8 @@ internal static partial class StubSurfaceScanner
             if (offset + 4 <= il.Length) {
                 if (opcode is OpLdfld or OpLdflda or OpLdsfld or OpLdsflda)
                     yield return (TokenKind.FieldLoad, BitConverter.ToInt32 (il, offset));
+                else if (opcode is OpStfld or OpStsfld)
+                    yield return (TokenKind.FieldStore, BitConverter.ToInt32 (il, offset));
                 else if (opcode is OpCall or OpCallvirt or OpNewobj or OpLdftn or OpLdvirtftn)
                     yield return (TokenKind.Call, BitConverter.ToInt32 (il, offset));
             }

@@ -2054,6 +2054,33 @@ exercises them.
 
 5 tests, 2 neutralizations. Core stored-only properties 673 → 672.
 
+**W6.2 — the outbound-state split, measured rather than guessed. — done (2026-09-17).** Part of #91,
+and the answer to "what is actually left" rather than another slice.
+
+#202 established that some stored-only entries are **outbound state**: the framework writes them for the
+application to read back, so nothing reads the getter here and the scan flags them — and "wiring" one
+breaks a property that already works. That was three verified examples and a hand grep. It is now a
+fact the gate computes.
+
+`StubSurfaceScanner` tracks field STORES as well as loads, and marks every entry the framework writes
+with `-- framework-written (outbound state)`. **378 of the core baseline's 663 entries are marked: 57%
+of what remains is not a gap.** The real candidate count is **285**, not 663.
+
+*The first version of the detection was wrong, and the motivating cases caught it.* It counted only
+direct `stfld`, which is possible only inside the declaring type — and `Modal = true;` on a
+`{ get; private set; }` property compiles to a **setter call**. So it marked 281 entries and **not one of
+Form.Modal or WindowBase.Disposing**, the two cases the whole idea came from. Checking the examples that
+motivated a change against the change is worth the thirty seconds.
+
+*The marker is annotation, not assertion.* Whether a setter call survives as a call depends on the build
+configuration: the baseline regenerated in Debug failed in Release. The gate strips the note from both
+sides before comparing, so the two configurations cannot disagree about the answer while still recording
+it. Caught by the Release gate, which is the second time a configuration difference in IL has surfaced
+in this scanner (the first was `box` in the phase-0 walker).
+
+*Not done:* the Telerik baseline uses the deep-reachability scan, whose model does not track writes.
+Adding it is a second scanner's worth of work and is recorded rather than half-built.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
