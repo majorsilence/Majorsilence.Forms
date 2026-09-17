@@ -36,7 +36,23 @@ to every entry in the bucket at once.
 
 ## Why each non-candidate bucket is inert
 
-**Framework-written outbound state.** A property the framework *writes* for the application to read.
+**Framework-written outbound state — now marked mechanically in the baseline itself.** As of
+2026-09-17 the scanner reports this per entry: an entry the framework writes carries
+`-- framework-written (outbound state)` beside it. **378 of the core baseline's 663 entries are marked**,
+so **roughly 57% of what remains is not a gap at all.**
+
+The detection is two-part, and the first version got it wrong: a direct `stfld` is only possible inside
+the declaring type, and `Modal = true;` on a `{ get; private set; }` property compiles to a *setter
+call*, not a store. Marking only stores missed every motivating case. It counts both now.
+
+The note is **annotation, not assertion**: whether a setter call survives as a call depends on the build
+configuration, so Debug and Release disagree about it, and the gate strips the note from both sides
+before comparing. The gate's question is still "does anything read this".
+
+Not yet done on the Telerik side: that baseline uses the deep-reachability scan, whose model does not
+track writes. Recorded rather than half-built.
+
+**Framework-written outbound state (the original note).** A property the framework *writes* for the application to read.
 Nothing in the assembly reads the getter, which is exactly right — the reader is application code — so
 the scan flags it and it will never leave the baseline. **`Form.Modal` is the clearest case**: it is set
 by the dialog path (`Form.cs:1086`) and cleared on close (`:447`), and upstream's `Modal` is read-only

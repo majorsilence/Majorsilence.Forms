@@ -92,6 +92,13 @@ public class StoredOnlyPropertyBaselineTests
             .Select (l => l.Split (" --", StringSplitOptions.None)[0].Trim ())
             .ToList ();
 
+        // The generated "-- framework-written" note is ANNOTATION, not part of the assertion: whether a
+        // setter call survives as a call depends on the build configuration, so Release and Debug
+        // disagree about it. The gate's question is which properties are stored-only; the note says
+        // which of those are outbound state. Stripped from both sides so the two configurations cannot
+        // disagree about the answer.
+        actual = actual.Select (l => l.Split (" --", StringSplitOptions.None)[0].Trim ()).ToList ();
+
         var added = actual.Except (baseline).OrderBy (x => x, StringComparer.Ordinal).ToList ();
         var removed = baseline.Except (actual).OrderBy (x => x, StringComparer.Ordinal).ToList ();
 
