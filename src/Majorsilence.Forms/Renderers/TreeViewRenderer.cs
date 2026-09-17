@@ -113,9 +113,16 @@ namespace Majorsilence.Forms.Renderers
             // The check box, when the tree shows them: nothing drew one, so a permissions tree with
             // CheckBoxes = true showed no boxes at all (LST-24). Same ControlPaint entry point as
             // CheckBox and CheckedListBox, so the three cannot drift apart.
-            if (control.CheckBoxes)
-                ControlPaint.DrawCheckBox (e, control.CheckBounds (item),
-                    item.Checked ? CheckState.Checked : CheckState.Unchecked, !control.Enabled);
+            if (control.CheckBoxes) {
+                // A state image replaces the glyph, as it does on ListView and as upstream draws it.
+                // TreeView.StateImageList and TreeNode.StateImageIndex were both stored and read by
+                // nothing, so a tree using state images showed ordinary check boxes instead.
+                if (ListViewRenderer.StateImage (control.StateImageList, item.StateImageIndex) is { } state)
+                    e.Canvas.DrawBitmap (state, control.CheckBounds (item), !control.Enabled);
+                else
+                    ControlPaint.DrawCheckBox (e, control.CheckBounds (item),
+                        item.Checked ? CheckState.Checked : CheckState.Unchecked, !control.Enabled);
+            }
 
             if (control.ShowItemImages == true && ResolveImage (control, item, is_selected) is { } image) {
                 var image_bounds = GetImageBounds (control, item, e);

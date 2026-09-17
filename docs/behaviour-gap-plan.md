@@ -2189,6 +2189,23 @@ out. The recommendation was wrong in a way that only reading the pipeline could 
 scoping note above is what the next person needs so the mistake is not repeated.
 
 4 tests, 3 neutralizations. Core stored-only properties 655 → 654.
+**W6.2 — state images (`LST-60`). — done (2026-09-17).** Part of #91, and the second of the recorded
+mechanisms to be built. Four baseline entries closed by one change: `ListView.StateImageList`,
+`ListViewItem.StateImageIndex`, `TreeView.StateImageList` and `TreeNode.StateImageIndex` were stored and
+read by nothing, so a list or tree using state images showed ordinary check boxes instead.
+
+A state image now replaces the check glyph in the slot both renderers already draw, through one shared
+resolver so the two cannot answer differently. An index outside the list falls back to the glyph rather
+than throwing: an index and a list that disagree is an application mistake, and a paint path is the
+worst place to surface it.
+
+**Picked after the `TXT-31` correction, and on the strength of it.** The paragraph model was chosen first
+as "self-contained to one control" and was not, because `RichTextBox` shares `TextBox`'s single-block
+layout. This one genuinely is: a second image in a slot that already exists, with no shared pipeline
+behind it. The lesson generalises — *self-contained to one control* is a claim about the pipeline, not
+about the class, and it has to be checked against the pipeline.
+
+6 tests, 4 neutralizations. Core stored-only properties 654 → 650.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
