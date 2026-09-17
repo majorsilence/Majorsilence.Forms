@@ -627,6 +627,19 @@ distinguishes "ours is wrong" from "ours is right and the sibling differs".
   `TreeNode.StateImageIndex` are stored and read by nothing. State images are a second image slot drawn
   beside the check box; neither renderer has one. One feature, four entries.
 
+### LST-61 — `TabControl.HotTrack` is unread, and not demonstrable — Cat A — P3 — Low
+- **Ours:** stored and consumed by nothing. `TabStripRenderer` styles a hovered tab whenever
+  `item.Hovered`, which is the `HotTrack = true` behaviour applied whatever the property says; upstream
+  defaults it to `false`.
+- **Attempted and reverted (2026-09-17).** Gating the hover style on the owning `TabControl.HotTrack` is
+  a one-line change, but the default theme gives `TabStrip::item:hover` no background of its own, so a
+  hovered tab renders pixel-identical to an unhovered one. Colouring the part through CSS did not make
+  the difference observable either. Without a way to demonstrate the property doing anything, wiring it
+  would be an unverified claim.
+- **Fix:** give the hover part a default background in the theme (which is a theming decision, not a
+  sweep one), then the gate becomes testable and the one-line change lands with it.
+- **Tests today:** none.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `ListBox.UseTabStops` / `UseCustomTabOffsets` / `CustomTabOffsets` — tab expansion in native LB text; stored (`ListBox.cs:659`, `MidSizeControlParity.Three.cs:230-234`).
 - `ListBox.MultiColumn` / `ColumnWidth` / `HorizontalScrollbar` / `HorizontalExtent` / `IntegralHeight` — stored (`ListBox.cs:650-674`); niche layouts, portable in principle but rarely used in LOB code.
