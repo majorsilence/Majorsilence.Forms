@@ -465,7 +465,6 @@ Majorsilence.Forms.RichTextBox.DetectUrls    -- framework-written (outbound stat
 Majorsilence.Forms.RichTextBox.EnableAutoDragDrop
 Majorsilence.Forms.RichTextBox.LanguageOption    -- framework-written (outbound state)
 Majorsilence.Forms.RichTextBox.RichTextShortcutsEnabled    -- framework-written (outbound state)
-Majorsilence.Forms.RichTextBox.RightMargin
 Majorsilence.Forms.RichTextBox.SelectionAlignment    -- framework-written (outbound state)
 Majorsilence.Forms.RichTextBox.SelectionBullet
 Majorsilence.Forms.RichTextBox.SelectionCharOffset

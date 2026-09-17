@@ -254,7 +254,36 @@ namespace Majorsilence.Forms
         public bool ShowSelectionMargin { get; set; }
 
         /// <summary>Gets or sets the position of the right margin, in pixels; zero for none.</summary>
-        public int RightMargin { get; set; }
+        /// <remarks>
+        /// The wrapping width, whatever the control's own width is. It was stored and read by nothing,
+        /// so a rich text box told to wrap at 200px wrapped at whatever width it happened to be.
+        /// Upstream rejects a negative value outright; this one stored it.
+        /// </remarks>
+        public int RightMargin {
+            get => right_margin;
+            set {
+                if (value < 0)
+                    throw new System.ArgumentOutOfRangeException (nameof (RightMargin), value, "RightMargin cannot be negative.");
+
+                if (right_margin == value)
+                    return;
+
+                right_margin = value;
+
+                // Re-wrap now rather than at the next resize, which may never come.
+                document.Width = WrapWidth;
+                Invalidate ();
+            }
+        }
+
+        private int right_margin;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Zero means "wrap to the control", which is upstream's meaning and the default; any other
+        /// value is the wrapping width in pixels.
+        /// </remarks>
+        internal override int WrapWidth => right_margin > 0 ? right_margin : base.WrapWidth;
 
         /// <summary>Gets or sets the input-method options for the control.</summary>
         public RichTextBoxLanguageOptions LanguageOption { get; set; }

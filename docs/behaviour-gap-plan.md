@@ -2168,6 +2168,28 @@ units to device. Both configurations earn their place in the gate set, repeatedl
 
 6 tests, 3 neutralizations. Core stored-only properties 657 → 655; **153 candidates remain**.
 
+**W6.2 — the `RichTextBox` paragraph cluster, scoped and partly closed. — 2026-09-17.** Part of #91.
+Picked as the next mechanism on the grounds that it was self-contained to one control. **That was half
+right, and the correction is the useful part.**
+
+The *model* is self-contained. The *rendering* is not: `RichTextBox` shares `TextBox`'s pipeline, which
+builds **one `TextBlock` for the whole document** with a single alignment and wrap width. Per-paragraph
+alignment and indents mean one block per paragraph, which moves caret positioning, hit-testing,
+scrolling and the selection overlay — a text-subsystem change of the kind `W5.17` was rated high risk
+for. And a model on its own closes **no** baseline entry, because an entry leaves only when something
+reads it. So `TXT-31` stays open with its scope now stated rather than assumed.
+
+**`RightMargin` is separable and is closed.** It is the wrap width itself, which that one block already
+has: `TextBox.WrapWidth` is virtual now and `RichTextBox` overrides it. Zero keeps upstream's "wrap to
+the control" meaning — the default, so nothing changes for any existing box — and a negative value is
+rejected as upstream rejects it rather than stored.
+
+*Worth stating plainly:* I recommended this cluster as low-risk before checking how the text is laid
+out. The recommendation was wrong in a way that only reading the pipeline could have caught, and the
+scoping note above is what the next person needs so the mistake is not repeated.
+
+4 tests, 3 neutralizations. Core stored-only properties 655 → 654.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
