@@ -2081,6 +2081,38 @@ in this scanner (the first was `box` in the phase-0 walker).
 *Not done:* the Telerik baseline uses the deep-reachability scan, whose model does not track writes.
 Adding it is a second scanner's worth of work and is recorded rather than half-built.
 
+**W6.2 — wiring the candidates, batch 1. — done (2026-09-17).** Part of #91, and the start of working
+the list the outbound-state split produced rather than hunting for shapes.
+
+*The list is 158.* Of the 662 core entries: 377 are framework-written (not gaps), 127 fall in a
+structural bucket already recorded, and **158 are genuine candidates** across ~72 types. That is the
+real remaining W6.2 surface, and it will take several passes — this is the first.
+
+- **`DataGridViewCheckBoxCell.TrueValue`/`FalseValue`.** Only the COLUMN's mapping was ever consulted,
+  so a cell that overrode it was ticked by the column's rule — the opposite answer for the same value.
+  The cell's mapping now wins, on both the read and the write-back, with the column path untouched for
+  every grid that relies on it.
+- **`ButtonBase.Command`.** Stored and read by nothing, so a button bound to a command did nothing at
+  all when clicked — the WinForms 8 idiom, silently inert. Run after the `Click` handlers, as upstream
+  does, so a handler that reconfigures the button goes first.
+
+*Two candidates turned out not to be wirable, and are recorded rather than forced:*
+`ButtonBase.CommandParameter` has nowhere to go — `ICommandExecutor.Execute` takes no argument here, and
+giving the interface a parameterised overload is a public API decision, not a sweep. And
+`ToolStripItem.DoubleClickEnabled` gates an `OnDoubleClick` that **nothing calls**: `ToolStripItem` is
+not a `Control`, so gating it would be unobservable. That is the W6.1 category wearing a W6.2 costume,
+which the triage already recorded happening six times in the `Cancel` bucket.
+
+*A vacuous test the neutralization caught, again.* The `FalseValue` test set a cell's `FalseValue` and
+asserted the value read as unchecked — which the `"True"/"1"` fallback answers anyway, so it passed
+whether or not the property was read. It now sets the COLUMN to call the same value **true**, which is
+the only arrangement where the two answers differ.
+
+*And the Release gate earned its place.* Adding one `<param>` tag to an existing method requires tags
+for every parameter (CS1573, warnings-as-errors in Release). Debug built clean; Release did not.
+
+8 tests, 4 neutralizations. Core stored-only properties 662 → 659; **155 candidates remain**.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

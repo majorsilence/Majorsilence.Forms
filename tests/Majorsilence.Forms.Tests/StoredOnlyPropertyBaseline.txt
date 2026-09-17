@@ -50,7 +50,6 @@ Majorsilence.Forms.BindingCompleteEventArgs.Exception    -- framework-written (o
 Majorsilence.Forms.BindingSource.AllowEdit    -- framework-written (outbound state)
 Majorsilence.Forms.BindingSource.IsInitialized    -- framework-written (outbound state)
 Majorsilence.Forms.Button.UseCompatibleTextRendering
-Majorsilence.Forms.ButtonBase.Command
 Majorsilence.Forms.ButtonBase.CommandParameter
 Majorsilence.Forms.ButtonBase.UseCompatibleTextRendering
 Majorsilence.Forms.ButtonRenderer.RenderMatchingApplicationState    -- framework-written (outbound state)
@@ -159,10 +158,8 @@ Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Value    -- framework-writt
 Majorsilence.Forms.DataGridViewCellToolTipTextNeededEventArgs.ToolTipText    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellValueEventArgs.Value
 Majorsilence.Forms.DataGridViewCheckBoxCell.EditingCellValueChanged
-Majorsilence.Forms.DataGridViewCheckBoxCell.FalseValue
 Majorsilence.Forms.DataGridViewCheckBoxCell.FlatStyle    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCheckBoxCell.IndeterminateValue
-Majorsilence.Forms.DataGridViewCheckBoxCell.TrueValue
 Majorsilence.Forms.DataGridViewCheckBoxColumn.FlatStyle    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCheckBoxColumn.IndeterminateValue
 Majorsilence.Forms.DataGridViewCheckBoxColumn.ThreeState
