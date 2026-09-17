@@ -178,6 +178,51 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         "Graphics",
     };
 
+    /// <summary>
+    /// Telerik's compat layer is one flat namespace (<c>Majorsilence.Forms.Telerik</c>) standing in for
+    /// several real ones, so unlike every other mapping it needs the source namespace partitioned by
+    /// type name rather than taken wholesale. These are the names that do NOT belong in
+    /// <c>Telerik.WinControls.UI</c>, which is where the overwhelming majority live; each set is the
+    /// real namespace its members are declared in upstream.
+    ///
+    /// Emitting a name into more than one Telerik namespace would be worse than leaving it out: a file
+    /// importing both (routine — <c>Telerik.WinControls</c> and <c>.UI</c> together is the normal shape)
+    /// would get an ambiguity on every use. So the UI mapping excludes exactly the union of these.
+    /// </summary>
+    private static readonly HashSet<string> TelerikRootTypes = new(StringComparer.Ordinal)
+    {
+        "BorderBoxStyle", "ElementVisibility", "GradientStyles", "RadDropDownStyle", "RadItem",
+    };
+
+    private static readonly HashSet<string> TelerikDataTypes = new(StringComparer.Ordinal)
+    {
+        "GroupDescriptor", "SortDescriptor", "FilterDescriptor",
+    };
+
+    private static readonly HashSet<string> TelerikEnumerationTypes = new(StringComparer.Ordinal)
+    {
+        "ToggleState",
+    };
+
+    private static readonly HashSet<string> TelerikLayoutTypes = new(StringComparer.Ordinal)
+    {
+        "Dock",
+    };
+
+    private static readonly HashSet<string> TelerikDockingTypes = new(StringComparer.Ordinal)
+    {
+        "AutoHideGroup", "DockPosition", "DockState", "DockType", "DockWindow", "DockWindowPlaceholder",
+        "DocumentContainer", "DocumentTabStrip", "DocumentWindow", "RadDock", "SplitPanelSizeMode",
+        "ToolTabStrip", "ToolWindow",
+    };
+
+    private static readonly HashSet<string> TelerikNonUiTypes =
+        new(TelerikRootTypes
+            .Concat(TelerikDataTypes)
+            .Concat(TelerikEnumerationTypes)
+            .Concat(TelerikLayoutTypes)
+            .Concat(TelerikDockingTypes), StringComparer.Ordinal);
+
     private static void Execute(Compilation compilation, SourceProductionContext context)
     {
         var eventArgsType = compilation.GetTypeByMetadataName("System.EventArgs");
@@ -214,6 +259,34 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             new("Majorsilence.Forms", "System.Drawing", "Majorsilence.Forms")
             {
                 OnlyTypeNames = RelocatedToDrawing,
+            },
+            // Telerik, from the separate Majorsilence.Forms.Telerik assembly. One flat source namespace
+            // fans out to the real namespaces the types are declared in upstream (see TelerikRootTypes
+            // and friends); .UI takes everything not claimed by one of the others, because that is where
+            // the overwhelming majority of the surface lives.
+            new("Majorsilence.Forms.Telerik", "Telerik.WinControls.UI", "Majorsilence.Forms.Telerik")
+            {
+                ExcludeTypeNames = TelerikNonUiTypes,
+            },
+            new("Majorsilence.Forms.Telerik", "Telerik.WinControls", "Majorsilence.Forms.Telerik")
+            {
+                OnlyTypeNames = TelerikRootTypes,
+            },
+            new("Majorsilence.Forms.Telerik", "Telerik.WinControls.UI.Docking", "Majorsilence.Forms.Telerik")
+            {
+                OnlyTypeNames = TelerikDockingTypes,
+            },
+            new("Majorsilence.Forms.Telerik", "Telerik.WinControls.Data", "Majorsilence.Forms.Telerik")
+            {
+                OnlyTypeNames = TelerikDataTypes,
+            },
+            new("Majorsilence.Forms.Telerik", "Telerik.WinControls.Enumerations", "Majorsilence.Forms.Telerik")
+            {
+                OnlyTypeNames = TelerikEnumerationTypes,
+            },
+            new("Majorsilence.Forms.Telerik", "Telerik.WinControls.Layouts", "Majorsilence.Forms.Telerik")
+            {
+                OnlyTypeNames = TelerikLayoutTypes,
             },
         };
 
