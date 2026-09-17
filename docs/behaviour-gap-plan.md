@@ -2024,6 +2024,36 @@ only one of three image tests going red, which is what exposed it. Selecting fir
 7 tests, 3 neutralizations. Core stored-only properties 676 → 673, with 17 more accounted for as two
 recorded causes.
 
+**W6.2 — the remaining big types, and a category the triage had missed. — done (2026-09-17).** Part of
+#91. `Form`, `Control`, `WindowBase` and `ToolTip` hold 47 entries between them and looked like the last
+large seam. Most of it is not a seam at all, and finding out why is the result.
+
+**One real gap: `Form.ControlBox`.** A form that asked for no control box still got minimise, maximise
+and close. `FormTitleBar` had switches for minimise and maximise and none for close, so there was no way
+to express the one thing the property is for; it gains `AllowClose`, and `ControlBox` drives all three.
+It is a master switch rather than an override — turning it back on restores whatever `MinimizeBox` and
+`MaximizeBox` were set to, which has its own guard.
+
+**The category the triage had missed: framework-written outbound state.** `Form.Modal` is *already*
+set by the dialog path and cleared on close; nothing reads the getter in this assembly because the
+reader is application code, and upstream's `Modal` is read-only for exactly that reason.
+`WindowBase.Disposing` is the same. **These are not gaps, and a sweep that "wires" one changes a
+property that already works** — I started to do precisely that before checking whether the framework
+assigns it.
+
+That check is cheap and is now written into the triage document: *does the framework assign this
+member?* It is the mirror of the outbound `*EventArgs` data carriers already recorded there, and it
+matters most on exactly these types, where several entries are state rather than settings.
+
+*A test-configuration trap worth recording.* The `ControlBox` tests assert caption-button visibility,
+and in two of the four gate configurations the managed caption does not exist — the OS draws the chrome
+and the whole title bar is hidden. Asserting there would have been vacuous rather than wrong, which is
+the harder kind to notice. They guard on a managed caption being present and return early otherwise, and
+the neutralizations were run under `MF_FORCE_CUSTOM_CHROME=1`, which is the configuration that actually
+exercises them.
+
+5 tests, 2 neutralizations. Core stored-only properties 673 → 672.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

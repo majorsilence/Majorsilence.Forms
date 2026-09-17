@@ -298,7 +298,6 @@ Majorsilence.Forms.Form.AutoScale
 Majorsilence.Forms.Form.AutoScaleBaseSize
 Majorsilence.Forms.Form.AutoSizeMode
 Majorsilence.Forms.Form.CausesValidation
-Majorsilence.Forms.Form.ControlBox
 Majorsilence.Forms.Form.FormScreenCaptureMode
 Majorsilence.Forms.Form.HelpButton
 Majorsilence.Forms.Form.MaximizedBounds

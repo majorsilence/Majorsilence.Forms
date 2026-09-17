@@ -36,6 +36,17 @@ to every entry in the bucket at once.
 
 ## Why each non-candidate bucket is inert
 
+**Framework-written outbound state.** A property the framework *writes* for the application to read.
+Nothing in the assembly reads the getter, which is exactly right — the reader is application code — so
+the scan flags it and it will never leave the baseline. **`Form.Modal` is the clearest case**: it is set
+by the dialog path (`Form.cs:1086`) and cleared on close (`:447`), and upstream's `Modal` is read-only
+for precisely this reason. `WindowBase.Disposing` is the same shape (`WindowBase.cs:304`, `:347`).
+
+This category was missed when this document was first written, and it matters in both directions: these
+entries are not gaps, and a sweep that "wires" one is changing a property that already works. Checking
+whether the framework *assigns* a member is the cheap test — and worth doing before touching anything on
+`Form`, `Control` or `WindowBase`, where several entries are state rather than settings.
+
 **Outbound data carriers.** An `*EventArgs` property the framework *writes* so a handler can read it.
 Nothing in the assembly reads it back, which is exactly right — the reader is application code. This
 was recorded once before, when `DataGroup.HeaderText`/`Level` went straight onto the baseline in #183:

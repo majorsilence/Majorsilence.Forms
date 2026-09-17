@@ -135,6 +135,22 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Gets or sets whether the Close button is shown.
+        /// </summary>
+        /// <remarks>
+        /// Exists for <see cref="Form.ControlBox"/>, which turns the whole caption-button cluster off.
+        /// Minimise and maximise already had their own switches; close did not, so there was no way to
+        /// express the one thing ControlBox is for.
+        /// </remarks>
+        public bool AllowClose {
+            get => close_button.Visible;
+            set {
+                close_button.Visible = value && !native_overlay;
+                Invalidate ();
+            }
+        }
+
+        /// <summary>
         /// Gets or sets whether the Minimize button is shown.
         /// </summary>
         public bool AllowMinimize {
