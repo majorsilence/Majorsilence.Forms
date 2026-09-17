@@ -438,6 +438,20 @@ namespace Majorsilence.Forms.Renderers
             if (!inherited.SelectionForeColor.IsEmpty)
                 merged.SelectionForeColor = inherited.SelectionForeColor;
 
+            // A link cell paints its text in its link colour. LinkColor, VisitedLinkColor and
+            // LinkVisited were stored and read by nothing, so a DataGridViewLinkCell was drawn exactly
+            // like a text cell -- the whole visible difference between the two types was missing.
+            //
+            // Applied LAST so an explicit cell or inherited ForeColor still wins: an application that
+            // has coloured a particular cell means it, and upstream's link colours are a default for
+            // the type rather than an override of the style.
+            if (cell is DataGridViewLinkCell link && cell.Style.ForegroundColor is null && inherited.ForeColor.IsEmpty) {
+                var colour = link.LinkVisited ? link.VisitedLinkColor : link.LinkColor;
+
+                if (!colour.IsEmpty)
+                    merged.ForeColor = colour;
+            }
+
             return merged;
         }
 

@@ -628,7 +628,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets whether the selection is hidden when the control loses focus. Stub in Majorsilence.Forms.</summary>
-        public bool HideSelection { get; set; } = true;
+        public bool HideSelection { get; set; }
+
+        // Left unread deliberately. HideSelection is not an upstream ComboBox member, and this control
+        // has no list of its own to paint a selection in -- the drop-down is a separate control. The
+        // default is corrected from true to false so the property at least stops describing behaviour
+        // the control does not have; wiring it would mean inventing a paint site. Recorded in
+        // docs/behaviour-gap/lists.md rather than faked.
 
         // The four members below forward to the edit region unconditionally, including for
         // DropDownList where it is hidden. That is deliberate: one store means a style switch carries

@@ -118,7 +118,29 @@ namespace Majorsilence.Forms
         public string SelectedImageKey { get; set; } = string.Empty;
 
         /// <summary>Gets or sets whether the control shows scroll bars when it needs them.</summary>
-        public bool Scrollable { get; set; } = true;
+        /// <remarks>
+        /// Read by <c>UpdateVerticalScrollBar</c>. It was stored and consumed by nothing, so a tree told
+        /// not to scroll grew a bar anyway -- the fifth control found with a scrollbar-policy property
+        /// sitting beside scrollbar logic that never consults it, after <c>TextBox</c> (<c>TXT-26</c>),
+        /// <c>RichTextBox</c> (<c>TXT-29</c>), <c>ListBox</c>'s twin and <c>DataGridView</c>
+        /// (<c>DGV-40</c>).
+        /// </remarks>
+        public bool Scrollable {
+            get => scrollable;
+            set {
+                if (scrollable == value)
+                    return;
+
+                scrollable = value;
+
+                // LayoutItems, not PerformLayout: the bar's visibility is decided inside the tree's own
+                // item layout, which a container-level pass does not reach.
+                LayoutItems ();
+                Invalidate ();
+            }
+        }
+
+        private bool scrollable = true;
 
         /// <summary>Gets or sets whether a node's ToolTipText is shown on hover.</summary>
         public bool ShowNodeToolTips { get; set; }

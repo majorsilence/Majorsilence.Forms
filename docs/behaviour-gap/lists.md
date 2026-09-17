@@ -548,6 +548,46 @@ true and `FullRowSelect` honoured, an unfocused tree has no band and a focused o
 test now sets both explicitly and goes on measuring the colour it is named for. It had been green
 because neither property did anything.
 
+## Status (2026-09-17, W6.2 — worked by FAMILY rather than by control)
+
+Once the same shape had turned up three times, it was cheaper to grep the baseline for the shape than
+to keep walking controls.
+
+### The scrollbar-policy family — five controls, one shape
+A property saying which scrollbars are permitted, sitting beside scrollbar logic that never consults it.
+`TextBox` (`TXT-26`), `RichTextBox` (`TXT-29` — it survived `TXT-26` because its property type differs),
+`ListBox`'s `ScrollAlwaysVisible`/`ScrollbarAlwaysVisible` twin (`LST-51`), `DataGridView` (`DGV-40`) and
+now **`TreeView.Scrollable`** (`LST-54`, closed 2026-09-17). Every one was found separately, months
+apart, by someone working a different control. The remaining member is `ListBox.HorizontalScrollbar`,
+which needs horizontal scrolling to exist first and is recorded below rather than wired.
+
+### The `HideSelection` family — four controls, and they do not agree
+- `ListView` — upstream `[DefaultValue(false)]`. Ours was already right; #194 nearly "fixed" it.
+- `TreeView` — upstream `[DefaultValue(true)]` and set in the constructor. Ours was wrong; fixed in #198.
+- `DataGridView` — **not an upstream member at all** (`DGV-41`).
+- **`ListBox`** — also not an upstream member (`LST-55`, closed 2026-09-17). It defaulted to `true`
+  while nothing read it, so the property described behaviour the control did not have; honouring that
+  default on wiring would have taken the highlight off every unfocused list in existence. Default is
+  `false` now, so wiring changes nothing until an application asks. A decision, not parity.
+- `ComboBox` — the same invented member, and **left unread**: this control has no list of its own to
+  paint a selection in, so wiring it would mean inventing a paint site. Default corrected to `false` so
+  it stops describing behaviour the control lacks.
+
+**The lesson the family gives is the useful part:** four controls, one property name, and the right
+answer differs for each. Checking upstream per control is not pedantry here — it is the only thing that
+distinguishes "ours is wrong" from "ours is right and the sibling differs".
+
+### LST-56 — `BorderStyle` is unread on eight controls, for one reason — Cat A — P2 — Medium
+- **Ours:** `ListBox`, `ListView`, `TreeView`, `SplitContainer`, `Splitter`, `ToolBar`, `StatusBarPanel`
+  and `ToolStripStatusLabel` each declare a `BorderStyle` that nothing reads — eight baseline entries.
+- **One cause:** there is no control-level border model. `ControlStyle` has no border size or colour,
+  and each renderer draws whatever edges it wants from theme colours directly, so there is nowhere for a
+  `BorderStyle` to be honoured. Wiring it per control would mean adding border drawing to eight
+  renderers independently, which is how they would drift apart.
+- **Fix:** a border on `ControlStyle` (size + colour, themeable), drawn once in the base renderer, with
+  `BorderStyle` selecting between none/single/3D. Then all eight become forwards.
+- **Tests today:** none. Recorded here so the count is not mistaken for eight separate defects.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `ListBox.UseTabStops` / `UseCustomTabOffsets` / `CustomTabOffsets` — tab expansion in native LB text; stored (`ListBox.cs:659`, `MidSizeControlParity.Three.cs:230-234`).
 - `ListBox.MultiColumn` / `ColumnWidth` / `HorizontalScrollbar` / `HorizontalExtent` / `IntegralHeight` — stored (`ListBox.cs:650-674`); niche layouts, portable in principle but rarely used in LOB code.

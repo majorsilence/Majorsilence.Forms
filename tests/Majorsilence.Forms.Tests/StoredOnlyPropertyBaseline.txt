@@ -135,9 +135,7 @@ Majorsilence.Forms.DataGridTextBoxColumn.PropertyDescriptor
 Majorsilence.Forms.DataGridTextBoxColumn.TextBox
 Majorsilence.Forms.DataGridView.EnableHeadersVisualStyles
 Majorsilence.Forms.DataGridView.FirstDisplayedScrollingColumnIndex
-Majorsilence.Forms.DataGridView.HideSelection
 Majorsilence.Forms.DataGridView.HorizontalScrollingOffset
-Majorsilence.Forms.DataGridView.ScrollBars
 Majorsilence.Forms.DataGridView.ShowCellErrors
 Majorsilence.Forms.DataGridView.ShowCellToolTips
 Majorsilence.Forms.DataGridView.ShowEditingIcon
@@ -188,11 +186,8 @@ Majorsilence.Forms.DataGridViewImageColumn.ImageLayout
 Majorsilence.Forms.DataGridViewImageColumn.ValuesAreIcons
 Majorsilence.Forms.DataGridViewLinkCell.ActiveLinkColor
 Majorsilence.Forms.DataGridViewLinkCell.LinkBehavior
-Majorsilence.Forms.DataGridViewLinkCell.LinkColor
-Majorsilence.Forms.DataGridViewLinkCell.LinkVisited
 Majorsilence.Forms.DataGridViewLinkCell.TrackVisitedState
 Majorsilence.Forms.DataGridViewLinkCell.UseColumnTextForLinkValue
-Majorsilence.Forms.DataGridViewLinkCell.VisitedLinkColor
 Majorsilence.Forms.DataGridViewLinkColumn.LinkBehavior
 Majorsilence.Forms.DataGridViewRow.DividerHeight
 Majorsilence.Forms.DataGridViewRowContextMenuStripNeededEventArgs.ContextMenuStrip
@@ -341,7 +336,6 @@ Majorsilence.Forms.LinkLabel+Link.LinkData
 Majorsilence.Forms.LinkLabel+Link.Tag
 Majorsilence.Forms.ListBox.BorderStyle
 Majorsilence.Forms.ListBox.ColumnWidth
-Majorsilence.Forms.ListBox.HideSelection
 Majorsilence.Forms.ListBox.HorizontalExtent
 Majorsilence.Forms.ListBox.HorizontalScrollbar
 Majorsilence.Forms.ListBox.IntegralHeight
@@ -668,7 +662,6 @@ Majorsilence.Forms.TreeView.HotTracking
 Majorsilence.Forms.TreeView.ImageKey
 Majorsilence.Forms.TreeView.LabelEdit
 Majorsilence.Forms.TreeView.LineColor
-Majorsilence.Forms.TreeView.Scrollable
 Majorsilence.Forms.TreeView.SelectedImageKey
 Majorsilence.Forms.TreeView.ShowLines
 Majorsilence.Forms.TreeView.ShowNodeToolTips

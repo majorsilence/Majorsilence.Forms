@@ -924,7 +924,19 @@ namespace Majorsilence.Forms
         public bool IntegralHeight { get; set; } = true;
 
         /// <summary>Gets or sets whether the selection is hidden when the control loses focus. Stub in Majorsilence.Forms.</summary>
-        public bool HideSelection { get; set; } = true;
+        public bool HideSelection { get; set; }
+
+        /// <summary>Whether a selected item should be drawn selected right now.</summary>
+        /// <remarks>
+        /// <see cref="HideSelection"/> is NOT an upstream ListBox member -- upstream has it on
+        /// <c>ListView</c>, <c>TreeView</c> and <c>TextBoxBase</c> only -- so there is no upstream
+        /// default to match. It defaulted to <c>true</c> here while nothing read it, which meant the
+        /// property described behaviour the control did not have; honouring that default would have
+        /// taken the highlight off every unfocused list in existence. Default <c>false</c> now, so
+        /// wiring it changes nothing until an application asks for it, and the property finally means
+        /// what it says. Recorded as a decision, not parity.
+        /// </remarks>
+        internal bool ShowsSelection => Focused || !HideSelection;
 
         /// <summary>Gets or sets the horizontal extent to enable horizontal scrolling. Stub in Majorsilence.Forms.</summary>
         public int HorizontalExtent { get; set; }

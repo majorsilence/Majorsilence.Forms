@@ -437,7 +437,8 @@ namespace Majorsilence.Forms
         /// cell in <see cref="DataGridViewSelectionMode.CellSelect"/> does not light up its row.
         /// </summary>
         internal bool IsRowPaintedSelected (int rowIndex)
-            => SelectionIsRowBased
+            => ShowsSelection
+               && SelectionIsRowBased
                && rowIndex >= 0 && rowIndex < Rows.Count
                && Rows[rowIndex].Selected;
 
@@ -447,7 +448,10 @@ namespace Majorsilence.Forms
         /// </summary>
         internal bool IsCellPaintedSelected (int rowIndex, int columnIndex)
         {
-            if (SelectionIsRowBased || !IsCellAddress (rowIndex, columnIndex))
+            // HideSelection is checked in BOTH painted-selection helpers rather than at each paint
+            // site: the two together are what every renderer asks, so one of them missing it would
+            // hide the row band and leave the cell highlight behind.
+            if (!ShowsSelection || SelectionIsRowBased || !IsCellAddress (rowIndex, columnIndex))
                 return false;
 
             return Rows[rowIndex].Cells[columnIndex].Selected

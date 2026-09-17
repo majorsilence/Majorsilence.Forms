@@ -38,8 +38,9 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderItem (ListBox control, object item, int index, Rectangle bounds, PaintEventArgs e)
         {
-            // Draw selected background
-            var selected = control.Items.SelectedIndexes.Contains (index);
+            // Draw selected background. ShowsSelection is where HideSelection is read: a list that has
+            // lost focus gives up its highlight only when the application asked for that.
+            var selected = control.Items.SelectedIndexes.Contains (index) && control.ShowsSelection;
 
             if (selected)
                 e.Canvas.FillRectangle (bounds, ListBox.DefaultSelectionStyle.GetBackgroundColor ());
