@@ -248,8 +248,18 @@ namespace Majorsilence.Forms
         /// (<c>TrueValue = "Y"</c>) is the case the old <c>"True"</c>/<c>"1"</c> string test could not
         /// answer (DGV-25).
         /// </summary>
-        internal static bool IsCheckedValue (DataGridViewColumn column, object? value)
+        // `cell` is the one being tested, when there is one. DataGridViewCheckBoxCell.TrueValue and its
+        // siblings were stored and read by nothing -- only the COLUMN's were consulted -- so a cell that
+        // overrode the column's mapping was ticked by the column's rule instead. Upstream lets the
+        // cell's value win, which is the point of having it per cell.
+        internal static bool IsCheckedValue (DataGridViewColumn column, object? value, DataGridViewCell? cell = null)
         {
+            if (cell is DataGridViewCheckBoxCell { TrueValue: { } cell_yes })
+                return Matches (value, cell_yes);
+
+            if (cell is DataGridViewCheckBoxCell { FalseValue: { } cell_no } && Matches (value, cell_no))
+                return false;
+
             if (column is DataGridViewCheckBoxColumn { TrueValue: { } yes })
                 return Equals (value, yes) || string.Equals (value?.ToString (), yes.ToString (), StringComparison.OrdinalIgnoreCase);
 
@@ -260,6 +270,12 @@ namespace Majorsilence.Forms
 
             return string.Equals (text, "True", StringComparison.OrdinalIgnoreCase) || text == "1";
         }
+
+        // The same loose comparison the column path has always used: a bound "Y" column stores a
+        // string, and the configured value may be typed differently from what the binding produced.
+        private static bool Matches (object? value, object expected)
+            => Equals (value, expected)
+            || string.Equals (value?.ToString (), expected.ToString (), StringComparison.OrdinalIgnoreCase);
 
         // Flips a check-box cell and commits it through the same write-back an edit uses, so a bound
         // object actually changes. It used to assign a bool straight into the cell and announce it,
@@ -285,8 +301,8 @@ namespace Majorsilence.Forms
                 return;
 
             var cell = Rows[rowIndex].Cells[columnIndex];
-            var now_checked = !IsCheckedValue (column, cell.Value);
-            var next = NextCheckBoxValue (column, now_checked);
+            var now_checked = !IsCheckedValue (column, cell.Value, cell);
+            var next = NextCheckBoxValue (column, now_checked, cell);
 
             // Through the notifying setter, which pushes to the bound item and raises CellValueChanged
             // (W5.2a). Marked dirty first so a CurrentCellDirtyStateChanged handler -- the canonical
@@ -298,8 +314,17 @@ namespace Majorsilence.Forms
 
         // The value to store for a state, honouring the column's TrueValue/FalseValue so a "Y"/"N"
         // column stores "Y"/"N" rather than a bool.
-        private static object? NextCheckBoxValue (DataGridViewColumn column, bool isChecked)
+        private static object? NextCheckBoxValue (DataGridViewColumn column, bool isChecked, DataGridViewCell? cell = null)
         {
+            // The cell's own mapping wins over the column's, for the same reason it does when reading.
+            if (cell is DataGridViewCheckBoxCell per_cell) {
+                if (isChecked && per_cell.TrueValue is { } cell_yes)
+                    return cell_yes;
+
+                if (!isChecked && per_cell.FalseValue is { } cell_no)
+                    return cell_no;
+            }
+
             if (column is DataGridViewCheckBoxColumn box) {
                 if (isChecked && box.TrueValue is { } yes)
                     return yes;

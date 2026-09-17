@@ -593,11 +593,13 @@ namespace Majorsilence.Forms.Renderers
             } else if (column is DataGridViewCheckBoxColumn || column.DisplaysAsCheckBox) {
                 // The CELL's value through the column's TrueValue, not the formatted string: a "Y"/"N"
                 // flag column never rendered checked, because the test was for "True"/"1" (DGV-25).
-                var cell_value = rowIndex >= 0 && rowIndex < control.Rows.Count && columnIndex < control.Rows[rowIndex].Cells.Count
-                    ? control.Rows[rowIndex].Cells[columnIndex].Value
-                    : value;
+                var check_cell = rowIndex >= 0 && rowIndex < control.Rows.Count && columnIndex < control.Rows[rowIndex].Cells.Count
+                    ? control.Rows[rowIndex].Cells[columnIndex]
+                    : null;
 
-                RenderCheckBoxCell (e, bounds, DataGridView.IsCheckedValue (column, cell_value));
+                var cell_value = check_cell is not null ? check_cell.Value : value;
+
+                RenderCheckBoxCell (e, bounds, DataGridView.IsCheckedValue (column, cell_value, check_cell));
             } else if (column is DataGridViewButtonColumn btn_col) {
                 var btn_text = btn_col.UseColumnTextForButtonValue ? btn_col.HeaderText : value;
                 RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg);

@@ -40,7 +40,26 @@ namespace Majorsilence.Forms
         public ICommandExecutor? Command { get; set; }
 
         /// <summary>Gets or sets the parameter passed to <see cref="Command"/>.</summary>
+        /// <remarks>
+        /// Stored only, and it cannot be otherwise yet: <see cref="ICommandExecutor.Execute"/> takes no
+        /// argument here, so there is nowhere to pass it. Giving the interface a parameterised overload
+        /// is a public API change and its own decision, not something to slip into a sweep.
+        /// </remarks>
         public object? CommandParameter { get; set; }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Where <see cref="Command"/> is finally run. It was stored and read by nothing, so a button
+        /// bound to a command did nothing at all when clicked -- the WinForms 8 idiom, silently inert.
+        /// After the Click handlers, as upstream does: a handler that cancels or reconfigures the
+        /// button gets to run first.
+        /// </remarks>
+        protected override void OnClick (EventArgs e)
+        {
+            base.OnClick (e);
+
+            Command?.Execute ();
+        }
 
         // The command notifications. This layer stores the command rather than subscribing to it, so
         // there is nothing to relay yet; a derived button that wires its own command can raise them.
