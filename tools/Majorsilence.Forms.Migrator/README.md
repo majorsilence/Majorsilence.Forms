@@ -149,6 +149,31 @@ Everything else about the migration is unchanged — the `-windows` TFM suffix, 
 the vendor WinForms packages and VB's `MyType` are all still dealt with. Only the source rewrite is
 skipped (VB still gets its constructor injection, which `MyType=Empty` makes necessary either way).
 
+**One alias line per affected file.** The generated compat types are *flat*: compat `TextBox` derives
+from the real `Majorsilence.Forms.TextBox`, never from compat `Control`, because C# has one base class
+to give and the real one is what the layout and rendering internals need. So compat `Control` and compat
+`TextBox` are unrelated siblings, and `Dim c As Control = someTextBox` does not compile. Since every
+compat leaf transitively *is* a real `Majorsilence.Forms.Control`, one alias fixes every use site in the
+file at once:
+
+```vb
+Imports Control = Majorsilence.Forms.Control
+```
+
+The migrator adds that (and the C# `using` equivalent) to files that need it — assignment, parameter
+passing, `For Each`, `TypeOf`/`CType` and `List(Of …)` all then compile untouched.
+
+Two deliberate exclusions:
+
+- **`Form` is never aliased.** A migrated app's own forms derive from the compat `Form` in their own
+  source, so they genuinely are one and polymorphic storage already works. Aliasing it would retarget
+  every `Inherits Form` to the real base and cost those forms the compat enum-property and event
+  shadowing their Designer code is written against.
+- **A file that derives from the base by its bare name** (`Inherits Control`) is left alone and
+  reported, for the same reason — moving that class onto the real base would lose the same shadowing.
+  A fully-qualified `Inherits System.Windows.Forms.Control` is unaffected by an alias, so it does not
+  block one.
+
 Which to use:
 
 - **Rewrite (default)** — the migrated code names Majorsilence.Forms types directly and gets the whole
