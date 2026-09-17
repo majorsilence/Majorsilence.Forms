@@ -558,3 +558,38 @@ Avalonia can render a control tree to a `RenderTargetBitmap`, so the backend sea
 Documented as a boundary in `docs/automation.md` (level 2 and the limits table) and in the MCP tool's
 README until then. `tools/Majorsilence.Forms.Mcp` translates the raw message into an actionable one,
 because on its own it reads like a bug rather than a limit.
+
+## Reimplemented where the BCL is already cross-platform (found 2026-09-17)
+
+**Status: two concrete violations of "use the in-box type", found while pointing the compat shim at a
+large VB codebase.** The rule this layer otherwise follows well: a type that ships in-box and works on
+every platform should be used, not reimplemented. The whole cross-platform `System.Drawing` surface on
+net10.0 is ten types, read straight out of the targeting pack
+(`packs/Microsoft.NETCore.App.Ref/10.0.12/ref/net10.0/System.Drawing.Primitives.dll`): `Color`,
+`ColorTranslator`, `KnownColor`, `Point`, `PointF`, `Rectangle`, `RectangleF`, `Size`, `SizeF`,
+`SystemColors`. Eight of those ten this layer already uses as-is, and the `System.ComponentModel`
+primitives (`Component`, `IComponent`, `IContainer`, `ISite`, `EventHandlerList`, `CancelEventArgs`,
+...) are likewise used, not copied. `ComponentResourceManager` is reimplemented for a documented reason
+that still holds (the BCL one needs `BinaryFormatter` and GDI+), and everything in
+`System.Drawing.Common` -- `Font`, `Brush`, `Pen`, `Bitmap`, `Graphics`, `Icon` -- is genuinely
+Windows-only since .NET 7, so those stay. The two below are the exceptions.
+
+**1. `SystemColors` (`src/Majorsilence.Forms/SystemColors.cs`) duplicates the in-box
+`System.Drawing.SystemColors`.** It already returns BCL `System.Drawing.Color`, and its doc comment
+says the values are "mapped to Majorsilence.Forms theme colors" -- but the implementation is hard-coded
+constants (`ButtonFace => Color.FromArgb (240, 240, 240)`), so as written it delivers nothing the in-box
+type doesn't. It also costs something concrete now: because the BCL genuinely owns that name,
+`WinFormsShims.Compat` has to SKIP relocating it (a second declaration is `CS0104`/`BC30560` at every
+use site), so unmodified WinForms source binds to the BCL type regardless -- this copy is bypassed on
+that path. Either delete it in favour of the in-box type, or make it actually theme-derived, which is
+what the doc comment already promises and would be a real reason to keep it.
+
+**2. `ColorTranslator` is reimplemented twice, on a premise that is factually wrong.**
+`src/Majorsilence.Forms.Drawing.Common/ColorTranslator.cs` states it is a "Cross-platform replacement
+for `System.Drawing.ColorTranslator` (which is Windows-only in System.Drawing.Common)" -- it is not in
+System.Drawing.Common; it is in System.Drawing.Primitives, in-box and cross-platform, as the type list
+above shows. `src/Majorsilence.Forms/WinFormsCompat.cs` has a second copy whose own comment says it
+"wraps System.Drawing.ColorTranslator where available", which it does not -- it hand-rolls `FromHtml`.
+The two copies have already drifted: on empty input the Forms one returns `Color.Empty`, the Drawing one
+throws `ArgumentException`. Both already return BCL `Color`, so replacing them with the in-box type is
+close to a drop-in, and collapses three implementations of one function to one.

@@ -130,12 +130,53 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         public string SourceNamespace { get; }
         public string TargetNamespace { get; }
         public IReadOnlyList<string> AssemblyNames { get; }
+
+        /// <summary>
+        /// When set, the only type names this mapping claims out of <see cref="SourceNamespace"/>;
+        /// every other name in that namespace belongs to a different mapping. Set on both halves of a
+        /// RELOCATION -- a type Majorsilence.Forms keeps in one namespace but real code names in
+        /// another (<see cref="RelocatedToDrawing"/>) -- so the pair partitions the source namespace
+        /// rather than both claiming all of it.
+        /// </summary>
+        // Plain setters rather than `init`: this project targets netstandard2.0, which has no
+        // IsExternalInit for the compiler to bind an init accessor to.
+        public IReadOnlyCollection<string>? OnlyTypeNames { get; set; }
+
+        /// <summary>The complement of <see cref="OnlyTypeNames"/>: names this mapping leaves to another.</summary>
+        public IReadOnlyCollection<string>? ExcludeTypeNames { get; set; }
+
+        public bool ClaimsTypeName(string name)
+        {
+            if (OnlyTypeNames is not null)
+                return OnlyTypeNames.Contains(name);
+            if (ExcludeTypeNames is not null)
+                return !ExcludeTypeNames.Contains(name);
+            return true;
+        }
         public CompatSets Sets { get; } = new();
 
         // Also seeded up front with any type the compilation already has in TargetNamespace (see
         // Execute), so this generator never tries to redeclare a real one and collide with it.
         public HashSet<string> EmittedNames { get; } = new(StringComparer.Ordinal);
     }
+
+    /// <summary>
+    /// Types this layer keeps in <c>Majorsilence.Forms</c> that real WinForms source names under
+    /// <c>System.Drawing</c> -- the set the Migrator's own rules call "WinForms-compat types
+    /// Majorsilence relocates". A namespace mapping is otherwise wholesale, so without this an
+    /// unmodified consumer writing <c>System.Drawing.ContentAlignment</c> gets "not a member of
+    /// System.Drawing" even though the type exists and is fully supported.
+    /// </summary>
+    private static readonly HashSet<string> RelocatedToDrawing = new(StringComparer.Ordinal)
+    {
+        "ContentAlignment",
+        "SystemColors",
+        "SystemBrushes",
+        "SystemPens",
+        "SystemFonts",
+        "ColorTranslator",
+        "Graphics",
+    };
 
     private static void Execute(Compilation compilation, SourceProductionContext context)
     {
@@ -145,7 +186,10 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
 
         var mappings = new List<NamespaceMapping>
         {
-            new("Majorsilence.Forms", "System.Windows.Forms", "Majorsilence.Forms"),
+            new("Majorsilence.Forms", "System.Windows.Forms", "Majorsilence.Forms")
+            {
+                ExcludeTypeNames = RelocatedToDrawing,
+            },
             new("Majorsilence.Forms.Drawing", "System.Drawing", "Majorsilence.Forms", "Majorsilence.Forms.Drawing.Common"),
             // The Drawing root is only the first of several namespaces ordinary WinForms source
             // imports.  Keep their mappings independent: FindMapping deliberately matches an exact
@@ -158,6 +202,19 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             new("Majorsilence.Forms.Printing", "System.Drawing.Printing", "Majorsilence.Forms"),
             new("Majorsilence.Forms.Design", "System.ComponentModel.Design", "Majorsilence.Forms"),
             new("Majorsilence.Forms.Design.Behavior", "System.Windows.Forms.Design.Behavior", "Majorsilence.Forms"),
+            // The relocation half of the first mapping: these live in Majorsilence.Forms (this layer
+            // pulled them out of the drawing library the way WinForms itself never did), but real
+            // WinForms source names them under System.Drawing, which is where an unmodified consumer
+            // looks. Emitting them into System.Windows.Forms *as well* would be worse than useless -- a
+            // file importing both namespaces, routine in Designer-generated code, would get CS0104 on
+            // the bare name -- so the first mapping excludes exactly this set. Deliberately LAST: it
+            // shares a target namespace with the Drawing mapping above, and the de-duplication below
+            // lets the established mapping win, so this one only ever fills a genuine gap (Majorsilence
+            // has both a Forms and a Drawing ColorTranslator; the Drawing one keeps System.Drawing).
+            new("Majorsilence.Forms", "System.Drawing", "Majorsilence.Forms")
+            {
+                OnlyTypeNames = RelocatedToDrawing,
+            },
         };
 
         var typeMembersByMapping = new Dictionary<NamespaceMapping, List<INamedTypeSymbol>>();
@@ -170,7 +227,7 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
                 if (assembly is null)
                     continue;
                 if (FindNamespace(assembly.GlobalNamespace, mapping.SourceNamespace) is { } ns)
-                    members.AddRange(ns.GetTypeMembers());
+                    members.AddRange(ns.GetTypeMembers().Where(t => mapping.ClaimsTypeName(t.Name)));
             }
             typeMembersByMapping[mapping] = members;
 
@@ -188,6 +245,46 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             // WinForms assembly) would show up as a plain, easy-to-diagnose CS0101 rather than being
             // silently avoided -- an acceptable PoC tradeoff over a much more expensive full-syntax
             // scan to detect it in advance.
+        }
+
+        // Two mappings may share a target namespace (the relocation mapping lands in System.Drawing,
+        // where Majorsilence.Forms.Drawing's own mapping already emits). The same simple name coming
+        // from both would be a duplicate type -- and, before the compiler ever saw it, a duplicate
+        // AddSource hint name, which is a hard generator failure that silently drops the ENTIRE output.
+        // Earlier mapping wins; a later one only fills names the earlier left unclaimed.
+        for (var i = 1; i < mappings.Count; i++)
+        {
+            var claimedEarlier = new HashSet<string>(StringComparer.Ordinal);
+            for (var j = 0; j < i; j++)
+            {
+                if (mappings[j].TargetNamespace != mappings[i].TargetNamespace)
+                    continue;
+                foreach (var earlier in typeMembersByMapping[mappings[j]])
+                    claimedEarlier.Add(earlier.Name);
+            }
+
+            if (claimedEarlier.Count == 0)
+                continue;
+
+            typeMembersByMapping[mappings[i]] = typeMembersByMapping[mappings[i]]
+                .Where(t => !claimedEarlier.Contains(t.Name))
+                .ToList();
+        }
+
+        // A relocation mapping (and only a relocation mapping) also has to yield to a type the BCL
+        // itself already puts in the target namespace: System.Drawing.Primitives genuinely ships
+        // SystemColors and ColorTranslator, so emitting a second one is an outright ambiguity
+        // (BC30560/CS0104) at every use site rather than a helpful addition. This is the narrow,
+        // curated version of the compilation-seeding the other passes deliberately avoid -- see the
+        // gathering step's remarks for why seeding wholesale would block valid declarations instead.
+        foreach (var mapping in mappings)
+        {
+            if (mapping.OnlyTypeNames is null)
+                continue;
+
+            typeMembersByMapping[mapping] = typeMembersByMapping[mapping]
+                .Where(t => compilation.GetTypeByMetadataName(mapping.TargetNamespace + "." + t.Name) is null)
+                .ToList();
         }
 
         if (typeMembersByMapping[mappings[0]].Count == 0)
@@ -311,6 +408,44 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
             }
         }
 
+        // Pass 1c: public structs -> a compat struct holding the real value, with an implicit conversion
+        // in each direction. Structs are the one shape passes 1 and 1b both miss by construction -- pass
+        // 1 subclasses (impossible), pass 1b wraps a reference -- which left ordinary Designer code
+        // naming `System.Windows.Forms.Padding` with no type to resolve to at all. They register in the
+        // same Sets.Wrappers as pass 1b because they present the identical contract to TryTranslateType:
+        // a distinct compat type that converts to and from the original with no cast text anywhere.
+        // Collected across all mappings before any body is generated, for pass 1b's own reason -- a
+        // struct's forwarded members can name types from any mapping.
+        var structCandidatesByMapping = new Dictionary<NamespaceMapping, List<(INamedTypeSymbol Type, List<IMethodSymbol> Ctors)>>();
+        foreach (var mapping in mappings)
+        {
+            var structCandidates = new List<(INamedTypeSymbol Type, List<IMethodSymbol> Ctors)>();
+            foreach (var type in typeMembersByMapping[mapping])
+            {
+                if (!IsEligibleStruct(type))
+                    continue;
+
+                var ctors = GetAccessibleConstructors(compilation, type)
+                    .Where(c => c.DeclaredAccessibility == Accessibility.Public && c.Parameters.Length > 0)
+                    .ToList();
+
+                if (!mapping.EmittedNames.Add(type.Name))
+                    continue;
+
+                mapping.Sets.Wrappers.Add(type);
+                structCandidates.Add((type, ctors));
+            }
+            structCandidatesByMapping[mapping] = structCandidates;
+        }
+        foreach (var mapping in mappings)
+        {
+            foreach (var (type, ctors) in structCandidatesByMapping[mapping])
+            {
+                var source = GenerateStructSource(type, ctors, mapping, mappings);
+                context.AddSource(HintName(mapping, type.Name, "Struct.g"), SourceText.From(source, Encoding.UTF8));
+            }
+        }
+
         // Pass "event families" -- WinForms mapping only; Control has no Drawing-mapping analog. See
         // DiscoverEventFamilies for why this is scoped to exactly what Control itself can reach, and
         // BACKLOG.md for why the shadow has to be re-emitted per subclass rather than solved once.
@@ -373,6 +508,32 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
 
                 var source = GenerateEventShadowFileSource(type, winFormsMapping, blocks);
                 context.AddSource(HintName(winFormsMapping, type.Name, "Events.g"), SourceText.From(source, Encoding.UTF8));
+            }
+        }
+
+        // Pass 5b: enum-typed property shadowing, every mapping. Pass 2 gives each source enum a compat
+        // copy so it can be NAMED under the target namespace, but a pass-1 subclass still inherits every
+        // enum-typed property with its ORIGINAL enum type -- so the single most common line in
+        // Designer-generated code (`panel.Dock = DockStyle.Top;`, where BOTH names resolve to the compat
+        // namespace) does not compile: the copy and the original are unrelated types that merely share
+        // values. Shadow each such inherited property with a compat-typed one casting in both
+        // directions, per subclass, for exactly the flat-hierarchy reason pass 5 shadows events per
+        // subclass rather than once on a shared compat Control.
+        //
+        // Scoped to enums on purpose. The same shape would work for a property typed to a pass-1
+        // subclass, but handing one back out is a reference downcast whose failure mode is a silent
+        // null (see TypeTranslation.IsReferenceDowncast); an enum-to-enum cast cannot fail, so this
+        // pass is safe in a way the general case is not.
+        foreach (var mapping in mappings)
+        {
+            foreach (var type in mapping.Sets.Subclasses)
+            {
+                var blocks = CollectEnumPropertyShadowBlocks(type, mappings);
+                if (blocks.Count == 0)
+                    continue;
+
+                var source = GenerateEnumPropertyShadowFileSource(type, mapping, blocks);
+                context.AddSource(HintName(mapping, type.Name, "EnumProps.g"), SourceText.From(source, Encoding.UTF8));
             }
         }
 
@@ -720,6 +881,95 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
     /// level -- the conversion operators do the real work, invisibly, wherever the language would
     /// already insert an implicit conversion (argument passing, assignment, a return statement).
     /// </summary>
+    /// <summary>
+    /// A public, non-generic, non-nested struct -- <c>Padding</c>, <c>TableLayoutPanelCellPosition</c>,
+    /// ... -- which pass 1 cannot subclass and pass 1b cannot wrap by reference. Unlike those passes,
+    /// no constructor is required: the conversions and forwarded members are worth emitting for a
+    /// struct that only has field initializers. <c>ref struct</c>s are excluded, since one cannot be
+    /// stored in the compat struct's field nor round-tripped through a conversion operator.
+    /// </summary>
+    private static bool IsEligibleStruct(INamedTypeSymbol type)
+    {
+        if (type.DeclaredAccessibility != Accessibility.Public)
+            return false;
+        if (type.TypeKind != TypeKind.Struct)
+            return false;
+        if (type.IsGenericType || type.IsRefLikeType)
+            return false;
+        if (type.ContainingType is not null)
+            return false;
+
+        return true;
+    }
+
+    /// <summary>
+    /// The struct counterpart of <see cref="GenerateWrapperSource"/>: same hold-the-real-value and
+    /// forward-every-translatable-member shape, reusing the very same member formatters (both emit
+    /// against the <c>Inner</c> property), but emitted as a <c>readonly struct</c> so value semantics
+    /// survive, and with non-nullable conversion operators, since a struct is never null.
+    /// </summary>
+    private static string GenerateStructSource(INamedTypeSymbol type, List<IMethodSymbol> ctors, NamespaceMapping mapping, IReadOnlyList<NamespaceMapping> mappings)
+    {
+        var originalRef = "global::" + mapping.SourceNamespace + "." + type.Name;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- holds the real Majorsilence.Forms");
+        sb.AppendLine("// struct and forwards every translatable member to it, with an implicit conversion in each");
+        sb.AppendLine("// direction so a compat value interoperates with the original with no cast needed anywhere.");
+        sb.AppendLine("// Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {mapping.TargetNamespace}");
+        sb.AppendLine("{");
+        // A mutable struct over a mutable FIELD, deliberately, not a readonly struct over a property:
+        // the forwarded setters this shares with the reference wrapper assign through `Inner`
+        // (`Inner.All = value;`), and a property getter hands back a copy that cannot be assigned to
+        // (CS1612). It also matches the shape of the types being mirrored -- real WinForms `Padding`
+        // is itself a mutable struct.
+        sb.AppendLine($"    public struct {type.Name}");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        internal {originalRef} Inner;");
+        sb.AppendLine($"        internal {type.Name} ({originalRef} inner) => Inner = inner;");
+        sb.AppendLine();
+
+        foreach (var ctor in ctors)
+        {
+            if (!TryBuildForwardedParameters(ctor.Parameters, isExtensionMethod: false, mappings, out var parameterList, out var argumentList))
+                continue;
+
+            sb.AppendLine($"        public {type.Name} ({parameterList}) : this (new {originalRef} ({argumentList})) {{ }}");
+        }
+        sb.AppendLine();
+
+        // Same derived-declaration-wins walk as the reference wrapper, though a struct's base chain is
+        // only ever ValueType/object, so in practice this sees the struct's own members.
+        var emittedMembers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var member in type.GetMembers())
+        {
+            if (!TryGetWrapperMemberKey(member, out var key) || !emittedMembers.Add(key))
+                continue;
+
+            string? block = member switch
+            {
+                IMethodSymbol method => TryFormatWrapperMethod(method, mapping, mappings),
+                IPropertySymbol property => TryFormatWrapperProperty(property, mapping, mappings),
+                _ => null,
+            };
+
+            if (block is not null)
+                sb.Append(block);
+        }
+
+        sb.AppendLine($"        public static implicit operator {originalRef} ({type.Name} compat) => compat.Inner;");
+        sb.AppendLine($"        public static implicit operator {type.Name} ({originalRef} original) => new {type.Name} (original);");
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
     private static string GenerateWrapperSource(INamedTypeSymbol type, List<IMethodSymbol> ctors, NamespaceMapping mapping, IReadOnlyList<NamespaceMapping> mappings)
     {
         var originalRef = "global::" + mapping.SourceNamespace + "." + type.Name;
@@ -1043,7 +1293,10 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         var display = ns.ToDisplayString();
         foreach (var mapping in mappings)
         {
-            if (display == mapping.SourceNamespace)
+            // ClaimsTypeName, not just the namespace: two mappings can share a source namespace and
+            // partition it by type name (see RelocatedToDrawing), and a relocated type has to translate
+            // to the namespace it was actually emitted into.
+            if (display == mapping.SourceNamespace && mapping.ClaimsTypeName(type.Name))
                 return mapping;
         }
         return null;
@@ -1717,6 +1970,102 @@ public sealed class WinFormsCompatGenerator : IIncrementalGenerator
         sb.AppendLine();
         sb.AppendLine($"        public new event {delegateCompat}? {family.EventName};");
         sb.AppendLine();
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Every public, non-static, non-indexer property reachable on <paramref name="type"/>'s base chain
+    /// whose type is a mapped enum (pass 2) -- the set a pass-1 subclass has to shadow for
+    /// <c>control.Dock = DockStyle.Fill;</c> to compile. Walks derived-to-base with the most-derived
+    /// declaration of a given name winning, and consumes a name even when its type ISN'T a mapped enum,
+    /// so a derived non-enum property correctly suppresses a base enum one of the same name.
+    /// </summary>
+    private static List<string> CollectEnumPropertyShadowBlocks(INamedTypeSymbol type, IReadOnlyList<NamespaceMapping> mappings)
+    {
+        var blocks = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        // Starts at `type` itself, not its base: `type` is the REAL Majorsilence.Forms type the compat
+        // subclass derives from, so its own declarations are inherited by the subclass too -- and they
+        // are the most-derived ones, which matters wherever a name is re-declared with a different enum
+        // (RichTextBox.ScrollBars is RichTextBoxScrollBars; TextBoxBase.ScrollBars is ScrollBars).
+        for (var t = type; t is not null; t = t.BaseType)
+        {
+            foreach (var property in t.GetMembers().OfType<IPropertySymbol>())
+            {
+                if (property.IsStatic || property.IsIndexer)
+                    continue;
+                if (property.DeclaredAccessibility != Accessibility.Public)
+                    continue;
+                if (!seen.Add(property.Name))
+                    continue;
+
+                if (!IsMappedEnum(property.Type, mappings))
+                    continue;
+                if (!TryTranslateType(property.Type, mappings, out var translation))
+                    continue;
+
+                // An accessor the consumer can't reach is not worth shadowing, and re-declaring it
+                // public here would widen it. init-only is excluded for the same reason it can't be
+                // forwarded: assigning it outside an object initializer is illegal.
+                var getter = property.GetMethod is { DeclaredAccessibility: Accessibility.Public };
+                var setter = property.SetMethod is { DeclaredAccessibility: Accessibility.Public, IsInitOnly: false };
+                if (!getter && !setter)
+                    continue;
+
+                blocks.Add(GenerateEnumPropertyShadowBlock(property.Name, translation, getter, setter));
+            }
+        }
+
+        return blocks;
+    }
+
+    /// <summary>True when <paramref name="type"/> (or, if nullable, the type it wraps) is an enum this
+    /// generator emitted a pass-2 copy of, and so needs a cast to cross between the two namespaces.</summary>
+    private static bool IsMappedEnum(ITypeSymbol type, IReadOnlyList<NamespaceMapping> mappings)
+    {
+        var candidate = type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+            ? nullable.TypeArguments[0]
+            : type;
+
+        return candidate is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+            && FindMapping(enumType, mappings) is { } mapping
+            && mapping.Sets.Enums.Contains(enumType);
+    }
+
+    private static string GenerateEnumPropertyShadowBlock(string name, TypeTranslation translation, bool getter, bool setter)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"        public new {translation.CompatDisplay} {name}");
+        sb.AppendLine("        {");
+        if (getter)
+            sb.AppendLine($"            get => ({translation.CompatDisplay})base.{name};");
+        if (setter)
+            sb.AppendLine($"            set => base.{name} = ({translation.OriginalDisplay})value;");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        return sb.ToString();
+    }
+
+    private static string GenerateEnumPropertyShadowFileSource(INamedTypeSymbol type, NamespaceMapping mapping, List<string> blocks)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("// <auto-generated>");
+        sb.AppendLine("// Generated by Majorsilence.Forms.WinFormsShims.Compat -- another part of this type's partial");
+        sb.AppendLine("// subclass: shadows inherited enum-typed properties with the compat namespace's own enum");
+        sb.AppendLine("// copies, so Designer-generated assignments compile unchanged. Do not edit.");
+        sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {mapping.TargetNamespace}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public partial class {type.Name}");
+        sb.AppendLine("    {");
+        foreach (var block in blocks)
+            sb.Append(block);
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
         return sb.ToString();
     }
 
