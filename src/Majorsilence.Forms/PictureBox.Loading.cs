@@ -73,6 +73,12 @@ namespace Majorsilence.Forms
             image_location = url;
             IsErrored = false;
 
+            // InitialImage is what the box shows WHILE the load runs -- a spinner or placeholder. It
+            // was stored and read by nothing, so an async load showed the previous image (or nothing)
+            // until it finished.
+            if (InitialImage is { } placeholder)
+                Image = placeholder;
+
             OnLoadProgressChanged (new ProgressChangedEventArgs (0, null));
 
             _ = Task.Run (async () => {
@@ -103,6 +109,13 @@ namespace Majorsilence.Forms
                     } else {
                         bitmap?.Dispose ();
                         IsErrored = true;
+
+                        // ErrorImage belongs here and is deliberately NOT wired: the failure path
+                        // completes on the UI thread through RunOnUiThread, and no test fixture in this
+                        // suite can pump far enough to observe it -- five seconds of DoEvents never sees
+                        // IsErrored flip. Wiring it would be an unverified claim. Recorded in
+                        // docs/behaviour-gap/simple.md alongside InitialImage, which IS observable
+                        // because it is set synchronously before the load starts.
                         Invalidate ();
                     }
 

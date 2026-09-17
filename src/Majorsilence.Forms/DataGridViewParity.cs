@@ -527,12 +527,12 @@ namespace Majorsilence.Forms
 
             for (var i = 0; i < rowIndex; i++)
                 if (Rows[i].Visible)
-                    y += Rows[i].Height;
+                    y += RowTotalHeight (i);
 
             // W6.3: as GetColumnDisplayRectangle above -- y and Height are logical, the width was
             // device.
             var client = DeviceToLogicalUnits (ClientRectangle);
-            var rectangle = new Rectangle (0, y, client.Width, Rows[rowIndex].Height);
+            var rectangle = new Rectangle (0, y, client.Width, RowTotalHeight (rowIndex));
 
             return cutOverflow ? Rectangle.Intersect (rectangle, client) : rectangle;
         }

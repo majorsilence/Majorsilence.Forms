@@ -1593,9 +1593,22 @@ namespace Majorsilence.Forms
         /// to forget, which is how `Column.Visible` came to be honoured in some places and not others
         /// (finding <c>DGV-20</c>).
         /// </remarks>
+        // A row's full LOGICAL height: its own height plus its DividerHeight, which is extra space
+        // BELOW the row and part of its total height as upstream counts it -- the usual way a grid
+        // separates groups of rows. DividerHeight was stored and read by nothing, so setting it did
+        // nothing at all.
+        //
+        // One definition, because there were two: GetRowDisplayRectangle summed Rows[i].Height itself
+        // while the paint path went through RowDeviceHeight. Wiring DividerHeight into one of them
+        // would have made the public rectangle disagree with where the row is actually drawn.
+        internal int RowTotalHeight (int rowIndex)
+            => rowIndex >= 0 && rowIndex < Rows.Count
+                ? Rows[rowIndex].Height + Math.Max (0, Rows[rowIndex].DividerHeight)
+                : 0;
+
         internal int RowDeviceHeight (int rowIndex)
             => rowIndex >= 0 && rowIndex < Rows.Count && Rows[rowIndex].Visible
-                ? LogicalToDeviceUnits (Rows[rowIndex].Height)
+                ? LogicalToDeviceUnits (RowTotalHeight (rowIndex))
                 : 0;
 
         /// <summary>Called by <see cref="DataGridViewRow.Visible"/> when a row is shown or hidden.</summary>
