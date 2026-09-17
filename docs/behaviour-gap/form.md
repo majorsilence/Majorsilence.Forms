@@ -338,6 +338,41 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** `SystemInformation.CaptionHeight == new Form().TitleBar.PreferredHeight`.
 - **Tests today:** `SystemInformationTests.cs` (pins the constants).
 
+## Status (2026-09-17, W6.2 — Form, Control, WindowBase, ToolTip)
+
+47 entries between the four types. One was a real gap; the rest fall into three groups, recorded here so
+the count is not mistaken for 47 defects.
+
+### FRM-30 — `Form.ControlBox` was read by nothing — Cat A — P2 — High — **CLOSED (2026-09-17)**
+- **Ours (before):** stored and consumed by nothing, so a form that asked for no control box still got
+  minimise, maximise and close. `FormTitleBar` had `AllowMinimize` and `AllowMaximize` and **no switch
+  for close**, so the one thing `ControlBox` is for could not be expressed.
+- **Fix (applied):** `FormTitleBar.AllowClose`, and `ControlBox` drives all three. A master switch, not
+  an override: turning it back on restores whatever `MinimizeBox`/`MaximizeBox` were set to.
+- **Tests today:** `W62RemainingTypesTests.cs` (3 for this finding; 2 neutralizations). They guard on a
+  managed caption existing — in two of the four gate configurations the OS draws the chrome and the
+  title bar is hidden, where the assertions would be vacuous rather than wrong.
+
+### Framework-written outbound state — not gaps
+`Form.Modal` is set by the dialog path (`Form.cs:1086`) and cleared on close (`:447`);
+`WindowBase.Disposing` is set at the top of teardown and cleared at the end (`WindowBase.cs:304`, `:347`).
+Nothing reads either getter here because the reader is application code — upstream's `Modal` is
+read-only for the same reason. **A sweep that "wires" one of these changes a property that already
+works.** Both are pinned by tests so a later pass does not try. See the new category in
+`docs/behaviour-gap/stored-only-triage.md`.
+
+### Blocked on a window-manager feature
+`AllowTransparency`, `TransparencyKey`, `MaximizedBounds`, `MdiChildrenMinimizedAnchorBottom`,
+`FormScreenCaptureMode`, `Control.Region` — each needs a backend capability this layer does not expose.
+
+### Legacy, accessibility, or infrastructure with no consumer
+`AutoScale`/`AutoScaleBaseSize` (obsolete upstream), `CheckForIllegalCrossThreadCalls` (no thread checks
+exist), `DoubleBuffered` (the headless and Skia paths always buffer), `HScroll`/`VScroll` (protected on
+upstream's `ScrollableControl`, public here, and meaningless on a plain `Control`), the
+`Accessible*`/`IsAccessible` family, and `WindowBase`'s `Anchor`/`Margin`/`TabIndex`/`AutoSize` — which
+have no meaning on a top-level window, since `WindowBase` is not a `Control` and has no parent to lay
+out within. `ToolTip`'s nine are the comctl32 styling already rated P3 below.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `WindowBase.WndProc` / `DefWndProc` / `OnNotifyMessage` — never called; there is no Win32 message pump (`WindowBase.Compat.cs:12-17`, `WindowBase.cs:1586`).
 - `WindowBase.Handle => GetHashCode() | 1` vs `IWin32Window.Handle => IntPtr.Zero` on the same Form (`WindowBase.cs:669`, `Form.cs:750`) — two different fake handles for one window; nothing portable consumes an HWND.

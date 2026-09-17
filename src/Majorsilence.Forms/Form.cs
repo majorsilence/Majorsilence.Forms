@@ -2086,7 +2086,31 @@ namespace Majorsilence.Forms
         public System.Drawing.Rectangle RestoreBounds => Bounds;
 
         /// <summary>Gets or sets whether the form is displayed in the Windows taskbar.</summary>
-        public bool ControlBox { get; set; } = true;
+        public bool ControlBox {
+            get => control_box;
+            set {
+                if (control_box == value)
+                    return;
+
+                control_box = value;
+                ApplyControlBox ();
+            }
+        }
+
+        private bool control_box = true;
+
+        // ControlBox turns the whole caption-button cluster off -- the shape a tool window or a
+        // splash screen wants. It was stored and read by nothing, so a form that asked for no control
+        // box still got minimise, maximise and close.
+        //
+        // MinimizeBox and MaximizeBox keep their own say: ControlBox = false hides everything, and
+        // turning it back on restores whatever those two were set to rather than forcing all three on.
+        private void ApplyControlBox ()
+        {
+            TitleBar.AllowClose = control_box;
+            TitleBar.AllowMinimize = control_box && MinimizeBox;
+            TitleBar.AllowMaximize = control_box && MaximizeBox;
+        }
 
         /// <summary>Gets or sets the help button visibility in the title bar. Stub in Majorsilence.Forms.</summary>
         public bool HelpButton { get; set; }
