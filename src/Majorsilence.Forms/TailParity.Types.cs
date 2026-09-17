@@ -198,41 +198,24 @@ namespace Majorsilence.Forms
         protected internal void Clear () => bindings.Clear ();
     }
 
-    /// <summary>The scroll state of one axis of a scrollable control.</summary>
-    /// <remarks>WinForms splits this into HScrollProperties and VScrollProperties so a control can
-    /// expose HorizontalScroll and VerticalScroll separately; the behaviour is identical.</remarks>
-    public class ScrollPropertiesBase
-    {
-        /// <summary>Gets or sets whether the scroll bar is enabled.</summary>
-        public bool Enabled { get; set; } = true;
-
-        /// <summary>Gets or sets the amount scrolled by a large step.</summary>
-        public int LargeChange { get; set; } = 10;
-
-        /// <summary>Gets or sets the highest scroll value.</summary>
-        public int Maximum { get; set; } = 100;
-
-        /// <summary>Gets or sets the lowest scroll value.</summary>
-        public int Minimum { get; set; }
-
-        /// <summary>Gets or sets the amount scrolled by a small step.</summary>
-        public int SmallChange { get; set; } = 1;
-
-        /// <summary>Gets or sets the current scroll position.</summary>
-        public int Value { get; set; }
-
-        /// <summary>Gets or sets whether the scroll bar is shown.</summary>
-        public bool Visible { get; set; }
-    }
+    // ScrollPropertiesBase was a parallel, dead copy of ScrollProperties: seven auto-properties with no
+    // connection to any scrollbar, while the live ScrollProperties -- which forwards to a real one and
+    // is what ScrollableControl.HorizontalScroll/VerticalScroll return -- sat beside it. So
+    // `panel.VerticalScroll.Value = 50` worked, and anything typed as HScrollProperties silently did
+    // nothing. RC-6 ("prefer deleting a private twin over keeping both"), and upstream has no
+    // ScrollPropertiesBase at all: it is ScrollProperties with HScrollProperties/VScrollProperties
+    // derived from it, which is the shape below now.
 
     /// <summary>The horizontal scroll state of a scrollable control.</summary>
-    public class HScrollProperties : ScrollPropertiesBase
+    public class HScrollProperties : ScrollProperties
     {
+        internal HScrollProperties (ScrollBar scrollbar) : base (scrollbar) { }
     }
 
     /// <summary>The vertical scroll state of a scrollable control.</summary>
-    public class VScrollProperties : ScrollPropertiesBase
+    public class VScrollProperties : ScrollProperties
     {
+        internal VScrollProperties (ScrollBar scrollbar) : base (scrollbar) { }
     }
 
     /// <summary>The custom places shown in the sidebar of a file dialog.</summary>

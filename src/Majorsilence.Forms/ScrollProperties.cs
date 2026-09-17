@@ -7,7 +7,7 @@
     {
         private readonly ScrollBar scrollbar;
 
-        internal ScrollProperties (ScrollBar scrollbar)
+        private protected ScrollProperties (ScrollBar scrollbar)
         {
             this.scrollbar = scrollbar;
         }

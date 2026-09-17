@@ -1929,6 +1929,30 @@ the label — so the test now pins both and goes on measuring the colour it is n
 green by accident before; it was green because neither property did anything.
 
 15 tests, 8 neutralizations each producing a failure. Core stored-only properties 702 → 695.
+**W6.2 — the dead scroll-properties family. — done (2026-09-16).** Part of #91. Seven baseline entries
+closed by one change, because they were one fact.
+
+`ScrollPropertiesBase` was a **parallel, dead copy** of `ScrollProperties`: seven auto-properties with no
+connection to any scrollbar, with `HScrollProperties`/`VScrollProperties` derived from it — while the
+live `ScrollProperties`, which forwards to a real `ScrollBar` and is what
+`ScrollableControl.HorizontalScroll`/`VerticalScroll` actually return, sat in its own file beside it.
+
+So `panel.VerticalScroll.Value = 50` worked, and anything an application declared as
+`HScrollProperties` silently did nothing. `RC-6` exactly — "prefer deleting a private twin over keeping
+both" — and **upstream settles the shape**: it has `ScrollProperties` with `HScrollProperties` and
+`VScrollProperties` derived from it, and no `ScrollPropertiesBase` at all. The invented base type is
+deleted, the two real ones derive from the live class, and `ScrollableControl` returns upstream's types.
+`ApiDiff` reports no new gaps, which is the expected direction: removing a type upstream does not have
+and matching its return types makes the surface closer, not further.
+
+*A test-shaped lesson.* Three members — `Maximum`, `LargeChange`, `SmallChange` — plus `Visible` are
+owned by the layout on an `AutoScroll` panel and recomputed from the content, so the first version of
+the forwarding test was measuring `AutoScroll` rather than the forwarding. It uses a plain panel now.
+`Visible` still cannot be asserted independently, because the control owns it in both directions; that
+line is labelled in-test as exercised-not-proved rather than dressed up, and the other six carry the
+proof.
+
+6 tests, 2 neutralizations. Core stored-only properties 695 → 688.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
