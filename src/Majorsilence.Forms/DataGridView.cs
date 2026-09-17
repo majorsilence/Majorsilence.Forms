@@ -3320,10 +3320,65 @@ namespace Majorsilence.Forms
         private ScrollBars scroll_bars = ScrollBars.Both;
 
         /// <summary>Gets or sets the horizontal scrolling offset in pixels. Stub in Majorsilence.Forms.</summary>
-        public int HorizontalScrollingOffset { get; set; }
+        public int HorizontalScrollingOffset {
+            get => horizontal_scroll_offset;
+            set {
+                // RC-6 again, and the second twin of this exact kind after ListBox's
+                // ScrollAlwaysVisible: the grid already had a live horizontal offset
+                // (`horizontal_scroll_offset`, exposed internally as HorizontalScrollOffset) and this
+                // WinForms-named property stored a second one that nothing read. Migrated code sets the
+                // name that did nothing -- reading it back gave whatever had been assigned while the
+                // grid scrolled independently.
+                var clamped = Math.Max (0, value);
+
+                if (horizontal_scroll_offset == clamped)
+                    return;
+
+                horizontal_scroll_offset = clamped;
+
+                // Through the scrollbar when it is showing, so the thumb and the offset cannot
+                // disagree; its ValueChanged writes the field back and repaints.
+                if (hscrollbar.Visible)
+                    hscrollbar.Value = Math.Min (clamped, hscrollbar.EffectiveMaximum);
+                else
+                    Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets the first column index that is displayed.</summary>
-        public int FirstDisplayedScrollingColumnIndex { get; set; }
+        public int FirstDisplayedScrollingColumnIndex {
+            get {
+                // The first scrollable column whose right edge is past the scroll offset -- what the
+                // user sees at the left of the scrolling region. Stored and read by nothing before, so
+                // it answered whatever had last been assigned, or 0 on a grid nobody had assigned it on.
+                var x = 0;
+
+                for (var i = 0; i < Columns.Count; i++) {
+                    if (!Columns[i].Visible || Columns[i].Frozen)
+                        continue;
+
+                    x += LogicalToDeviceUnits (Columns[i].Width);
+
+                    if (x > horizontal_scroll_offset)
+                        return i;
+                }
+
+                return -1;
+            }
+            set {
+                // Scrolls so that column sits at the left edge, which is what assigning it means.
+                var x = 0;
+
+                for (var i = 0; i < Columns.Count && i < value; i++) {
+                    if (!Columns[i].Visible || Columns[i].Frozen)
+                        continue;
+
+                    x += LogicalToDeviceUnits (Columns[i].Width);
+                }
+
+                HorizontalScrollingOffset = x;
+            }
+        }
 
         /// <summary>Gets or sets whether the grid is in virtual mode. Stub in Majorsilence.Forms.</summary>
         public bool VirtualMode { get; set; }

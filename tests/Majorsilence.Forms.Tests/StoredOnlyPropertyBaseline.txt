@@ -133,8 +133,6 @@ Majorsilence.Forms.DataGridTextBoxColumn.NullText
 Majorsilence.Forms.DataGridTextBoxColumn.PropertyDescriptor
 Majorsilence.Forms.DataGridTextBoxColumn.TextBox    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridView.EnableHeadersVisualStyles    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridView.FirstDisplayedScrollingColumnIndex
-Majorsilence.Forms.DataGridView.HorizontalScrollingOffset
 Majorsilence.Forms.DataGridView.ShowCellErrors    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridView.ShowCellToolTips    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridView.ShowEditingIcon    -- framework-written (outbound state)

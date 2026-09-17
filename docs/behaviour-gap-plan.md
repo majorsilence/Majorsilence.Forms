@@ -2113,6 +2113,32 @@ for every parameter (CS1573, warnings-as-errors in Release). Debug built clean; 
 
 8 tests, 4 neutralizations. Core stored-only properties 662 → 659; **155 candidates remain**.
 
+**W6.2 — wiring the candidates, batch 2. — done (2026-09-17).** Part of #91. Two entries wired, one
+attempted and reverted, and the reverted one is the part worth reading.
+
+- **`DataGridView.HorizontalScrollingOffset`** — `RC-6` again, and the **second twin of this exact
+  kind** after `ListBox.ScrollAlwaysVisible`. The grid already had a live horizontal offset
+  (`horizontal_scroll_offset`, exposed internally as `HorizontalScrollOffset`) and this WinForms-named
+  property stored a second one nothing read: migrated code set the name that did nothing while the grid
+  scrolled independently. It forwards now, through the scrollbar when one is showing so the thumb and
+  the offset cannot disagree.
+- **`DataGridView.FirstDisplayedScrollingColumnIndex`** — answered whatever had last been assigned, or
+  0 on a grid nobody had assigned it on. It is computed from the offset now, and assigning it scrolls.
+
+**`TabControl.HotTrack` was attempted and reverted.** The gating is one line, and every tab control
+hot-tracks today — which is the `true` behaviour applied whatever the property says. But the default
+theme gives `TabStrip::item:hover` no background, so a hovered tab is pixel-identical to an unhovered
+one and **nothing about the property is observable**; colouring the part through CSS did not make it
+observable either. A wiring that cannot be demonstrated is not a wiring, so it is recorded rather than
+claimed. Reverting cost less than the two failed attempts to test it.
+
+*The scale-2 gate caught a test asserting something the control cannot do.* `FirstDisplayedScrollingColumnIndex = 2`
+is unreachable at `MF_HEADLESS_SCALE=2` — the visible width is smaller, the scrollbar clamps, and the
+getter then honestly reports the column it actually reached. The test asked for a reachable column
+instead: asking for one the control cannot reach tests the clamp, not the property.
+
+5 tests, 2 neutralizations. Core stored-only properties 659 → 657; **153 candidates remain**.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
