@@ -1241,9 +1241,15 @@ namespace Majorsilence.Forms
 
         // Determines scrollbar visibility and values using a pre-computed visible child count.
         // Called from LayoutItems() after the single-pass traversal to avoid a second traversal.
+        // Test seam: the bar is private, and whether it is SHOWN is the whole question Scrollable
+        // decides.
+        internal bool VerticalScrollBarVisible => vscrollbar.Visible;
+
         private void UpdateVerticalScrollBar (int childCount)
         {
-            if (Items.Count == 0 || ScaledItemHeight * childCount <= ScaledHeight) {
+            // Scrollable says whether the tree is ALLOWED a bar; the item count says whether it NEEDS
+            // one. See the property's remarks -- it is the fifth of this family found dead.
+            if (!Scrollable || Items.Count == 0 || ScaledItemHeight * childCount <= ScaledHeight) {
                 vscrollbar.Visible = false;
                 top_index = 0;
                 _scrollOffsetPx = 0;

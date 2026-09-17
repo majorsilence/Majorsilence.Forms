@@ -403,6 +403,26 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** simulate header click → in the handler `SortOrder == Ascending`.
 - **Tests today:** none.
 
+## Status (2026-09-16, W6.2 — the DataGridView stored-only slice)
+
+Five entries closed, five recorded.
+
+### DGV-40 — `ScrollBars` was read by nothing — Cat A — P1 — High — **CLOSED (2026-09-16)**
+- **Ours (before):** `public ScrollBars ScrollBars { get; set; } = ScrollBars.Both;`, with `UpdateScrollBars` deciding visibility purely from whether the content overflowed. A grid told to scroll vertically only still grew a horizontal bar.
+- **This is the FOURTH member of the family found dead** — after `TextBox` (`TXT-26`), `RichTextBox` (`TXT-29`, which survived `TXT-26` because its property type differs) and `ListBox`'s `ScrollAlwaysVisible` twin. Four controls, four separate discoveries, one shape: a scrollbar-policy property beside scrollbar logic that never consults it.
+- **Fix (applied):** `WantsVerticalScrollBar`/`WantsHorizontalScrollBar` gate the two `Visible = true` branches, so the property says which bars are *allowed* and the content still says which are *needed*. The setter recomputes, because a property whose only job is to show or hide a bar cannot wait for an unrelated layout.
+- **Tests today:** `DataGridViewStoredOnlyTests.cs` (5; 1 neutralization killing 3, plus an allows-but-does-not-force guard).
+
+### DGV-41 — `HideSelection` was read by nothing — Cat A — P2 — High — **CLOSED (2026-09-16)**
+- **Not an upstream member.** Upstream has `HideSelection` on `ListView`, `TreeView` and `TextBoxBase`; its `DataGridView` has none, so there is no upstream default to match and none to copy from the siblings either — `ListView`'s is false and `TreeView`'s is true.
+- **Decision:** it is in this layer's surface and named exactly like three siblings that now work, so it behaves the way an application reading that name would expect rather than silently doing nothing. Default `false` (keep the highlight), as the less surprising of the two for a member upstream does not define. Recorded as a decision rather than left to look like parity.
+- **Fix (applied):** both `IsRowPaintedSelected` and `IsCellPaintedSelected` consult it — one of them missing it would hide the row band and leave the cell highlight behind.
+
+### DGV-42 — `DataGridViewLinkCell` was painted as a text cell — Cat A — P2 — High — **PARTLY CLOSED (2026-09-16)**
+- **Ours (before):** the renderer had no link-cell branch at all, so the whole visible difference between a link cell and a text cell was missing. Seven members sat on the baseline as one consequence.
+- **Fix (applied):** the per-cell style builder gives a `DataGridViewLinkCell` its `LinkColor`, or `VisitedLinkColor` when `LinkVisited`. Applied last, and only when neither the cell's own style nor its inherited style set a foreground — an application that has coloured a cell means it, and upstream's link colours are a default for the type rather than an override.
+- **Still open (4):** `ActiveLinkColor` needs a pressed state, `LinkBehavior` needs underline support in the text path, `TrackVisitedState` needs the cell click to set `LinkVisited`, and `UseColumnTextForLinkValue` needs the column's text to reach the cell. Those are a link-interaction feature rather than a sweep, and are recorded as such.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `DataGridViewRow.Frozen`, `Row.DividerHeight`, `Column.DividerWidth` — stored-only; frozen rows and dividers are cosmetic layout extras rarely used.
 - `EnableHeadersVisualStyles` — Win32 theme toggle; ours always honours `ColumnHeadersDefaultCellStyle` (the *more* useful behaviour), so no portable divergence worth fixing.

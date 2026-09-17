@@ -3202,6 +3202,20 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Updates the scrollbars based on the current content.
         /// </summary>
+        // ScrollBars says which bars the grid is ALLOWED to show; the arithmetic below says which are
+        // NEEDED. It was stored and read by nothing, so a grid told to scroll vertically only still
+        // grew a horizontal bar -- the fourth member of this family to be found dead, after
+        // TextBox (TXT-26), RichTextBox (TXT-29) and ListBox's twin.
+        // Test seams: both bars are private, and whether they are SHOWN is the whole question
+        // ScrollBars decides.
+        internal bool VerticalScrollBarVisible => vscrollbar.Visible;
+
+        internal bool HorizontalScrollBarVisible => hscrollbar.Visible;
+
+        private bool WantsVerticalScrollBar => ScrollBars is ScrollBars.Vertical or ScrollBars.Both;
+
+        private bool WantsHorizontalScrollBar => ScrollBars is ScrollBars.Horizontal or ScrollBars.Both;
+
         private void UpdateScrollBars ()
         {
             // Fill columns take whatever width is left, so they are sized before anything measures the
@@ -3232,7 +3246,7 @@ namespace Majorsilence.Forms
             // space (#94).
             var scrollable_rows = VisibleRowCount ();
 
-            if (scrollable_rows > visible_rows && visible_rows > 0) {
+            if (scrollable_rows > visible_rows && visible_rows > 0 && WantsVerticalScrollBar) {
                 vscrollbar.Visible = true;
                 // Maximum is the *conceptual last item index* (see ScrollBar.EffectiveMaximum), not the
                 // last valid top_index -- with LargeChange set below to the page size, EffectiveMaximum
@@ -3255,7 +3269,7 @@ namespace Majorsilence.Forms
             var scrollable_total = TotalColumnsWidth - pinned_width;
             var scrollable_available = available_width - pinned_width;
 
-            if (scrollable_total > scrollable_available && scrollable_available > 0) {
+            if (scrollable_total > scrollable_available && scrollable_available > 0 && WantsHorizontalScrollBar) {
                 hscrollbar.Visible = true;
                 // Maximum is the *conceptual total extent minus one* (see ScrollBar.EffectiveMaximum),
                 // not the last valid scroll offset -- with LargeChange set below to the page size,
@@ -3288,7 +3302,22 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets which scroll bars are displayed. Stub in Majorsilence.Forms.</summary>
-        public ScrollBars ScrollBars { get; set; } = ScrollBars.Both;
+        public ScrollBars ScrollBars {
+            get => scroll_bars;
+            set {
+                if (scroll_bars == value)
+                    return;
+
+                scroll_bars = value;
+
+                // Takes effect immediately: a property whose only job is to show or hide a bar has to
+                // recompute them, or the change waits for whatever unrelated event lays out next.
+                UpdateScrollBars ();
+                Invalidate ();
+            }
+        }
+
+        private ScrollBars scroll_bars = ScrollBars.Both;
 
         /// <summary>Gets or sets the horizontal scrolling offset in pixels. Stub in Majorsilence.Forms.</summary>
         public int HorizontalScrollingOffset { get; set; }
@@ -3299,8 +3328,19 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the grid is in virtual mode. Stub in Majorsilence.Forms.</summary>
         public bool VirtualMode { get; set; }
 
-        /// <summary>Gets or sets whether the selection highlight is hidden when the control loses focus. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the selection highlight is hidden when the control loses focus.</summary>
+        /// <remarks>
+        /// Not an upstream <c>DataGridView</c> member -- upstream has it on <c>ListView</c>,
+        /// <c>TreeView</c> and <c>TextBoxBase</c> only, so there is no upstream default to match. It is
+        /// in this layer's surface, named exactly like three siblings that now work, so it behaves the
+        /// way an application reading that name would expect rather than silently doing nothing.
+        /// Default <c>false</c> -- keep the highlight -- which is the less surprising of the two for a
+        /// member upstream does not define.
+        /// </remarks>
         public bool HideSelection { get; set; }
+
+        /// <summary>Whether a selected cell should be drawn selected right now.</summary>
+        internal bool ShowsSelection => Focused || !HideSelection;
 
         /// <summary>Gets or sets the number of rows in the grid. Setting adds/removes rows to reach the count.</summary>
         public int RowCount {

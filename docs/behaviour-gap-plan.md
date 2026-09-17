@@ -1945,6 +1945,15 @@ deleted, the two real ones derive from the live class, and `ScrollableControl` r
 `ApiDiff` reports no new gaps, which is the expected direction: removing a type upstream does not have
 and matching its return types makes the surface closer, not further.
 
+*The same branch then took the `DataGridView` slice* — five more entries. `ScrollBars` is the **fourth**
+member of that family found dead, after `TextBox` (`TXT-26`), `RichTextBox` (`TXT-29`) and `ListBox`'s
+twin: four controls, four separate discoveries, one shape — a scrollbar-policy property sitting beside
+scrollbar logic that never consults it. `HideSelection` is **not an upstream `DataGridView` member at
+all**, so there was no default to match and none to copy from the siblings either (`ListView`'s is false,
+`TreeView`'s is true); it is wired to the obvious semantics and recorded as a decision rather than left
+to look like parity. And `DataGridViewLinkCell` was painted exactly like a text cell — the three colour
+members are live now, the four interaction ones are recorded as a feature (`DGV-42`).
+
 *A test-shaped lesson.* Three members — `Maximum`, `LargeChange`, `SmallChange` — plus `Visible` are
 owned by the layout on an `AutoScroll` panel and recomputed from the content, so the first version of
 the forwarding test was measuring `AutoScroll` rather than the forwarding. It uses a plain panel now.
@@ -1953,6 +1962,43 @@ line is labelled in-test as exercised-not-proved rather than dressed up, and the
 proof.
 
 6 tests, 2 neutralizations. Core stored-only properties 695 → 688.
+
+**W6.2 — the `DataGridView` slice, then worked by FAMILY. — done (2026-09-17).** Part of #91. Seven
+entries, and a change of method that is the point of the item.
+
+*The `DataGridView` slice (5).* `ScrollBars` was read by nothing, so a grid told to scroll vertically
+only still grew a horizontal bar. `HideSelection` is **not an upstream `DataGridView` member**, so there
+was no default to match and none to copy from the siblings either; it is wired to the obvious semantics
+with the decision recorded rather than left to look like parity. `DataGridViewLinkCell` was painted
+exactly like a text cell — the three colour members are live now, the four interaction ones recorded as
+a feature (`DGV-42`).
+
+*Then the method changed.* By this point the same shape had been found five times in five controls, so
+the next move was to grep the baseline **for the shape** rather than walk another control:
+
+- **The scrollbar-policy family.** A property saying which bars are permitted, beside logic that never
+  consults it: `TextBox` (`TXT-26`), `RichTextBox` (`TXT-29`), `ListBox`'s twin (`LST-51`),
+  `DataGridView` (`DGV-40`) and `TreeView.Scrollable` (`LST-54`, closed here). Five controls, found
+  separately, months apart, by whoever happened to be working that control. Searching for the shape
+  found the fifth in minutes.
+- **The `HideSelection` family — and it does not agree with itself.** `ListView` is upstream-false and
+  was already right; `TreeView` is upstream-true and was wrong; `DataGridView` and `ListBox` are not
+  upstream members at all; `ComboBox` is the same and is left unread because it has no list of its own
+  to paint. Four controls, one property name, four different right answers. **Checking upstream per
+  control is the only thing that separates "ours is wrong" from "ours is right and the sibling differs"**
+  — and this sweep has now made both mistakes' opposites available to compare.
+- **`BorderStyle` is eight entries and one cause** (`LST-56`): there is no control-level border model, so
+  there is nowhere for the property to be honoured. Recorded rather than wired eight times, which is how
+  eight renderers would drift apart.
+
+*A process note worth keeping.* Two edits in this slice silently did not apply — the target property
+lived in a parity file rather than the control's own — and the build still succeeded, because the code
+that would have used them was equally absent. It was caught by grepping for the new text **after**
+writing rather than trusting the absence of an error. That is the same habit the conflict-marker
+incidents earlier in this plan produced, and it is worth stating that it pays off on ordinary edits too.
+
+6 tests in the families file plus 12 in the `DataGridView` one, 7 neutralizations between them. Core
+stored-only properties 683 → 676.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
