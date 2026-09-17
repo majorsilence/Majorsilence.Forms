@@ -1999,6 +1999,30 @@ incidents earlier in this plan produced, and it is worth stating that it pays of
 
 6 tests in the families file plus 12 in the `DataGridView` one, 7 neutralizations between them. Core
 stored-only properties 683 → 676.
+**W6.2 — two more shapes. — done (2026-09-17).** Part of #91, continuing to work by shape rather than
+by control.
+
+- **`TreeView.ImageKey`/`SelectedImageKey`** (`LST-57`). `ResolveImage` resolves by key, then by index.
+  The index chain falls back to the tree's own default; the key chain never did — so a tree naming its
+  default icon by key showed no icon at all. **The method's own remark said "each falls back to the
+  tree's own default"**, describing behaviour only half of which existed. Worth noting as its own small
+  lesson: the comment was accurate about intent and wrong about the code, and nothing had ever checked.
+- **`ListView.Activation`** (`LST-58`). Only double-click raised `ItemActivate`, so `OneClick` — the
+  entire point of the property — behaved exactly like `Standard`. The double-click path now skips
+  activating in `OneClick` mode, or one gesture would deliver two activations.
+- **Per-item tooltips are 13 entries and one missing host** (`LST-59`). Eight controls, thirteen
+  properties, all waiting on the same thing: the `ToolTip` component can show a tip for a *control*, and
+  nothing maps a hover over a cell, item, node, tab or strip button to a tip. Recorded, not wired eight
+  times.
+- **State images are 4 entries and one missing feature** (`LST-60`).
+
+*A test that passed for the wrong reason, caught by the neutralization rather than by review.* The
+selected-image test selected the node *after* capturing the baseline render, so the selection band alone
+changed the row and the comparison passed whether or not the key was read. The neutralization run showed
+only one of three image tests going red, which is what exposed it. Selecting first isolates the image.
+
+7 tests, 3 neutralizations. Core stored-only properties 676 → 673, with 17 more accounted for as two
+recorded causes.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing

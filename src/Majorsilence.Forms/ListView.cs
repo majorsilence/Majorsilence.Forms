@@ -360,6 +360,14 @@ namespace Majorsilence.Forms
                 SelectedItem = clicked_item;
                 anchor_index = Items.IndexOf (clicked_item);
             }
+
+            // Activation says which gesture activates an item. It was stored and read by nothing, so
+            // only a double click ever activated -- a list set to OneClick, which is the whole point of
+            // the property, behaved exactly like a Standard one. A modified click extends the selection
+            // rather than activating, which is why this sits after the branch above rather than beside
+            // the hit test.
+            if (Activation == ItemActivation.OneClick && (e.Modifiers & (Keys.Control | Keys.Shift)) == Keys.None)
+                OnItemActivate (EventArgs.Empty);
         }
 
         private int anchor_index = -1;
@@ -431,7 +439,11 @@ namespace Majorsilence.Forms
 
                 // WinForms' own name for this, and the one migrated code subscribes: double-click (or
                 // Enter) ACTIVATES an item. It was declared with discarding accessors (LST-18).
-                OnItemActivate (EventArgs.Empty);
+                //
+                // Not when Activation is OneClick: the single click that opened this double click has
+                // already activated, and firing again would deliver two activations for one gesture.
+                if (Activation != ItemActivation.OneClick)
+                    OnItemActivate (EventArgs.Empty);
             }
         }
 
