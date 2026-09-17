@@ -587,6 +587,45 @@ distinguishes "ours is wrong" from "ours is right and the sibling differs".
 - **Fix:** a border on `ControlStyle` (size + colour, themeable), drawn once in the base renderer, with
   `BorderStyle` selecting between none/single/3D. Then all eight become forwards.
 - **Tests today:** none. Recorded here so the count is not mistaken for eight separate defects.
+## Status (2026-09-17, W6.2 — two more shapes)
+
+### LST-57 — the `TreeView` image-key fallback was half-implemented — Cat A — P2 — High — **CLOSED (2026-09-17)**
+- **Ours (before):** `TreeViewRenderer.ResolveImage` resolves a node's icon by key, then by index. The
+  index chain falls back to the tree's own `SelectedImageIndex`/`ImageIndex`; **the key chain did not** —
+  `TreeView.ImageKey` and `TreeView.SelectedImageKey` were stored and read by nothing, so a tree that
+  named its default icon by key instead of index showed no icon at all.
+- **The method's own remark said otherwise:** "each falls back to the tree's own default". It described
+  the intended behaviour, and only half of it existed. A comment is not a test.
+- **Fix (applied):** the key chain gains the same two fallbacks, in the same order.
+- **Tests today:** `W62ShapesTests.cs` (3; 1 neutralization killing 2, plus a guard that a node's own key still wins).
+
+### LST-58 — `ListView.Activation` was read by nothing — Cat A — P2 — High — **CLOSED (2026-09-17)**
+- **Ours (before):** only `OnDoubleClick` raised `ItemActivate`, so a list set to `ItemActivation.OneClick`
+  — the entire point of the property — behaved exactly like a `Standard` one.
+- **Fix (applied):** a single click activates when `Activation` is `OneClick`, and the double-click path
+  skips activating in that mode so one gesture does not deliver two activations. A modified click
+  (Ctrl/Shift) extends the selection instead, which is why the check sits after the selection branch.
+- **Tests today:** same file (4; 2 neutralizations, plus a premise test that `Standard` really does not
+  activate on one click and a guard that a click on empty space activates nothing).
+
+### LST-59 — per-item tooltips: 13 entries, one missing host — Cat A — P2 — Medium
+- **Ours:** `DataGridView.ShowCellToolTips`, `ListView.ShowItemToolTips`, `ListViewItem.ToolTipText`,
+  `StatusBarPanel.ToolTipText`, `TabControl.ShowToolTips`, `TabPage.ToolTipText`, `ToolBar.ShowToolTips`,
+  `ToolBarButton.ToolTipText`, `ToolStrip.ShowItemToolTips`, `ToolStripItem.ToolTipText`,
+  `TreeNode.ToolTipText`, `TreeView.ShowNodeToolTips` and `DataGridViewCellToolTipTextNeededEventArgs.ToolTipText`
+  are all stored and read by nothing — **13 baseline entries across 8 controls**.
+- **One cause:** the `ToolTip` component exists and can show a tip for a *control* (`ToolTip.Show (text, window)`),
+  but nothing maps a hover over a sub-element — a cell, an item, a node, a tab, a strip button — to a tip.
+  Every one of these properties is waiting on that same hover-to-text pipeline.
+- **Fix:** one hover hook per control feeding a shared "tip text at this point" seam, then each property
+  is a forward. Sized as its own item; wiring it eight times separately is how eight controls would
+  drift apart.
+- **Tests today:** none. Recorded so the count is not mistaken for 13 separate defects.
+
+### LST-60 — state images: 4 entries, one missing feature — Cat A — P3 — Low
+- `ListView.StateImageList`, `ListViewItem.StateImageIndex`, `TreeView.StateImageList` and
+  `TreeNode.StateImageIndex` are stored and read by nothing. State images are a second image slot drawn
+  beside the check box; neither renderer has one. One feature, four entries.
 
 ## Low-priority / Win32-only (P3) — one line each
 - `ListBox.UseTabStops` / `UseCustomTabOffsets` / `CustomTabOffsets` — tab expansion in native LB text; stored (`ListBox.cs:659`, `MidSizeControlParity.Three.cs:230-234`).

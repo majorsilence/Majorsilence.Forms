@@ -344,7 +344,6 @@ Majorsilence.Forms.ListBox.UseCustomTabOffsets
 Majorsilence.Forms.ListBox.UseTabStops
 Majorsilence.Forms.ListControl.FormatInfo
 Majorsilence.Forms.ListControl.FormatString
-Majorsilence.Forms.ListView.Activation
 Majorsilence.Forms.ListView.AllowColumnReorder
 Majorsilence.Forms.ListView.AutoArrange
 Majorsilence.Forms.ListView.BackgroundImageTiled
@@ -659,10 +658,8 @@ Majorsilence.Forms.TreeNode.StateImageIndex
 Majorsilence.Forms.TreeNode.ToolTipText
 Majorsilence.Forms.TreeView.BorderStyle
 Majorsilence.Forms.TreeView.HotTracking
-Majorsilence.Forms.TreeView.ImageKey
 Majorsilence.Forms.TreeView.LabelEdit
 Majorsilence.Forms.TreeView.LineColor
-Majorsilence.Forms.TreeView.SelectedImageKey
 Majorsilence.Forms.TreeView.ShowLines
 Majorsilence.Forms.TreeView.ShowNodeToolTips
 Majorsilence.Forms.TreeView.ShowRootLines

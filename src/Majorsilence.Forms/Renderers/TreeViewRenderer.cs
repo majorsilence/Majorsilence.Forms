@@ -160,8 +160,15 @@ namespace Majorsilence.Forms.Renderers
 
             // A selected node prefers its selected-image slot, falling back to the normal one, and each
             // falls back to the tree's own default -- the order upstream resolves in.
+            // The remark above says each falls back to the tree's own default. That was true of the
+            // INDEX chain below and had never been implemented for the key chain: TreeView.ImageKey and
+            // TreeView.SelectedImageKey were stored and read by nothing, so a tree that named its
+            // default icon by key instead of index showed no icon at all. The comment described the
+            // behaviour; the code only had half of it.
             var key = isSelected && item.SelectedImageKey.HasValue () ? item.SelectedImageKey
                 : item.ImageKey.HasValue () ? item.ImageKey
+                : isSelected && control.SelectedImageKey.HasValue () ? control.SelectedImageKey
+                : control.ImageKey.HasValue () ? control.ImageKey
                 : null;
 
             if (key is not null)
