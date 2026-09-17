@@ -128,9 +128,40 @@ Because of that, the migrator only flags what genuinely can't be carried across:
 | `--package-version <v>` | NuGet version for package references. Defaults to the migrator's own version — the tool and the packages ship from the same release. |
 | `--repo-root <dir>` | Repo root for resolving `--references project` paths. |
 | `--map <file>` | JSON file of extra namespace mappings (repeatable). |
+| `--shims` | Don't rewrite namespaces — reference the compat shim generator instead (see below). |
 | `--strict` | Exit non-zero if any manual-review warning is produced (CI gate). |
 | `--report <file>` | Path for the Markdown report (default `migration-report.md` by the output). |
 | `--no-report` | Don't write the report. |
+
+## Keeping the namespaces (`--shims`)
+
+By default the migrator rewrites `System.Windows.Forms` to `Majorsilence.Forms` throughout. `--shims`
+does the opposite: it leaves every namespace exactly as written and references
+[`Majorsilence.Forms.WinFormsShims.Compat`](../../src/Majorsilence.Forms.WinFormsShims.Compat/), a source
+generator that emits a `System.Windows.Forms`/`System.Drawing`-namespaced compat surface for the source
+to resolve against.
+
+```
+majorsilence-migrate ./LegacyApp --shims
+```
+
+Everything else about the migration is unchanged — the `-windows` TFM suffix, `UseWindowsForms`/`UseWPF`,
+the vendor WinForms packages and VB's `MyType` are all still dealt with. Only the source rewrite is
+skipped (VB still gets its constructor injection, which `MyType=Empty` makes necessary either way).
+
+Which to use:
+
+- **Rewrite (default)** — the migrated code names Majorsilence.Forms types directly and gets the whole
+  API surface. Best for a codebase you own end to end and are willing to change in one go.
+- **`--shims`** — no source churn at all. Best for a large codebase, or one whose own public API exposes
+  WinForms types and so cannot be rewritten without breaking its consumers. The cost is that the compat
+  surface is generated and has documented gaps — read that package's README before committing to it.
+
+> **Visual Basic needs one extra step.** The shim is a C#-only Roslyn generator (shipped under
+> `analyzers/dotnet/cs`), so a `.vbproj` referencing the package gets nothing generated. Add a small C#
+> class library that references the package — its only job is to carry the generated types — and
+> reference *that* from the VB projects, so `Imports System.Windows.Forms` resolves against it. The
+> migrator warns per VB project as a reminder.
 
 ## Custom mappings
 

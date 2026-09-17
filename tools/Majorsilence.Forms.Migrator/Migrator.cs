@@ -378,9 +378,11 @@ internal sealed class Migrator
             : SourceLanguage.CSharp;
         var vbConstructor = _vbConstructorPlan.GetValueOrDefault(path, VbConstructorMode.Auto);
 
-        var result = _options.Engine == SourceEngine.Roslyn
-            ? ConvertSourceWithRoslyn(path, text, _customMap, language, vbConstructor)
-            : SourceConverter.Convert(text, _customMap, language, vbConstructor, _options.DualBuild);
+        var result = _options.Shims
+            ? ConvertSourceForShims(text, language, vbConstructor)
+            : _options.Engine == SourceEngine.Roslyn
+                ? ConvertSourceWithRoslyn(path, text, _customMap, language, vbConstructor)
+                : SourceConverter.Convert(text, _customMap, language, vbConstructor, _options.DualBuild);
 
         foreach (var w in result.Warnings)
             _warnings.Add($"{Rel(path)}: {w}");
@@ -392,6 +394,26 @@ internal sealed class Migrator
         Console.WriteLine($"  [src ] {Rel(path)}");
         MaybePrintDiff(Rel(path), text, result.Text);
         WriteResult(path, result.Text);
+    }
+
+    /// <summary>
+    /// The <c>--shims</c> source path: no namespace rewriting at all, because leaving the namespaces
+    /// alone is the entire point -- the compat surface the project now references resolves them.
+    ///
+    /// VB still gets the constructor injection, which is NOT part of the namespace rewrite and is still
+    /// required: the project converter forces <c>MyType=Empty</c> either way (VB's My framework reaches
+    /// for <c>Microsoft.VisualBasic.Devices.Computer</c> and friends, which have no cross-platform
+    /// implementation for the shim to stand in for), and that is what removes VB's implicit WinForms
+    /// constructor in the first place.
+    /// </summary>
+    private static SourceConverter.Result ConvertSourceForShims(string text, SourceLanguage language, VbConstructorMode vbConstructor)
+    {
+        if (language != SourceLanguage.VisualBasic)
+            return new SourceConverter.Result(text, Changed: false, Warnings: []);
+
+        var warnings = new List<string>();
+        var converted = SourceConverter.ApplyVbConstructor(text, vbConstructor, warnings.Add);
+        return new SourceConverter.Result(converted, Changed: !string.Equals(converted, text, StringComparison.Ordinal), Warnings: warnings);
     }
 
     /// <summary>

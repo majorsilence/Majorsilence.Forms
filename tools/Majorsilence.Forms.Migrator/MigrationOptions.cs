@@ -110,4 +110,24 @@ internal sealed class MigrationOptions
     /// scope: only the plain import line itself is made conditional, not every rewritten reference in a file.
     /// </summary>
     public bool DualBuild { get; init; }
+
+    /// <summary>
+    /// Leave source namespaces alone and reference <c>Majorsilence.Forms.WinFormsShims.Compat</c>
+    /// instead, so <c>System.Windows.Forms</c> / <c>System.Drawing</c> source compiles as written
+    /// against a generated compat surface. The project-file half of the migration is unchanged --
+    /// the <c>-windows</c> TFM suffix, <c>UseWindowsForms</c>/<c>UseWPF</c>, the vendor WinForms
+    /// packages and (for VB) <c>MyType</c> are all still dealt with; only the namespace rewriting
+    /// is skipped.
+    ///
+    /// The trade is fidelity for churn: a rewritten codebase names Majorsilence.Forms types directly
+    /// and gets the whole surface, whereas the shim surface is generated and has documented gaps (see
+    /// that package's README). Worth it for a large codebase, or one whose own public API exposes
+    /// WinForms types and so cannot be rewritten without breaking its consumers.
+    ///
+    /// VB carries one extra caveat the migrator warns about per project: the shim is a C#-only Roslyn
+    /// generator shipped under <c>analyzers/dotnet/cs</c>, so a <c>.vbproj</c> referencing the package
+    /// gets nothing from it. VB consumes the surface by referencing a C# assembly that hosts the
+    /// generator instead.
+    /// </summary>
+    public bool Shims { get; init; }
 }

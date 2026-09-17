@@ -71,6 +71,18 @@ internal static class ProjectConverter
                 "VB application framework can't be toggled via a preprocessor symbol) — converted normally, " +
                 "same as without --dual-build");
 
+        // --shims leaves the namespaces in place for a GENERATOR to satisfy, and that generator is
+        // C#-only: [Generator] with no LanguageNames argument, shipped under analyzers/dotnet/cs. A
+        // .vbproj referencing the package therefore compiles against nothing and fails on every
+        // System.Windows.Forms name. The package reference is still added (it carries the
+        // Majorsilence.Forms runtime dependency, which the project does need), but the surface has to
+        // come from a C# assembly that hosts the generator and is referenced from here.
+        if (options.Shims && isVisualBasic)
+            warnings.Add("--shims: this is a C#-only source generator (analyzers/dotnet/cs), so the package " +
+                "reference alone generates nothing for a Visual Basic project — reference a C# assembly that " +
+                "hosts the generator (a class library whose only job is to carry its output) from this project " +
+                "instead, so Imports System.Windows.Forms resolves against that assembly");
+
         if (!dualBuild)
         {
             // The Windows-desktop SDK itself. Left in place it warns on every build of the converted
@@ -450,7 +462,13 @@ internal static class ProjectConverter
             Backend.Headless => "Majorsilence.Forms.Headless",
             _ => "Majorsilence.Forms.Avalonia",
         };
-        var packages = new[] { "Majorsilence.Forms", backendCore };
+        // --shims swaps the plain runtime reference for the generator package. It is not an addition:
+        // the generator brings Majorsilence.Forms along as a package dependency (deliberately not a
+        // DevelopmentDependency, precisely so that runtime reference flows), and the generated types
+        // derive from it. The backend still has to be referenced explicitly either way.
+        var packages = options.Shims
+            ? new[] { "Majorsilence.Forms.WinFormsShims.Compat", backendCore }
+            : new[] { "Majorsilence.Forms", backendCore };
 
         var itemGroup = new XElement(ns + "ItemGroup");
 
