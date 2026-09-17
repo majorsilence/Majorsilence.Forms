@@ -428,8 +428,15 @@ namespace Majorsilence.Forms
         {
             base.OnSizeChanged (e);
 
-            document.Width = PaddedClientRectangle.Width;
+            document.Width = WrapWidth;
         }
+
+        /// <summary>The width text wraps and aligns within.</summary>
+        /// <remarks>
+        /// Virtual so <see cref="RichTextBox.RightMargin"/> can narrow it: upstream's right margin is a
+        /// wrapping width in pixels, independent of how wide the control is.
+        /// </remarks>
+        internal virtual int WrapWidth => PaddedClientRectangle.Width;
 
         /// <summary>
         /// Gets or sets a character to display instead of the actual text.

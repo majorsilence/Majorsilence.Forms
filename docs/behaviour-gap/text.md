@@ -403,7 +403,17 @@ Two were wired.
 - **Ours:** character runs only (`RichTextBox.Formatting.cs`). Paragraph alignment, indents, hanging indents, right indents, tab stops and bullets are stored and consumed by nothing.
 - **Impact:** an application formatting paragraphs gets plain left-aligned text with no error — the same "it did nothing" shape as `Groups` on `ListView`.
 - **Fix:** a paragraph model beside the run list, and paragraph-aware layout. Sized as its own item.
-- **Tests today:** none.
+- **Scoped properly 2026-09-17, and it is bigger than "one control".** `RichTextBox` shares `TextBox`'s
+  rendering pipeline, which builds **one `TextBlock` for the whole document** with a single alignment
+  and a single wrap width (`TextBoxDocument.GetTextBlock`). Per-paragraph alignment and indents mean one
+  block per paragraph, which moves caret positioning, hit-testing, scrolling and the selection overlay —
+  a text-subsystem change of the kind `W5.17` was rated high-risk for, not a sweep entry. The model
+  alone would not close any baseline entry, because an entry leaves only when something *reads* it.
+- **`RightMargin` is separable and is CLOSED (2026-09-17).** It is the wrap width itself, which the one
+  block already has: `TextBox.WrapWidth` is virtual now and `RichTextBox` overrides it, with zero
+  keeping upstream's "wrap to the control" meaning and a negative value rejected as upstream rejects it.
+  The remaining seven stay open.
+- **Tests today:** `RichTextBoxRightMarginTests.cs` (4; 3 neutralizations).
 
 ## Low-priority / Win32-only (P3) — one line each
 - `TextBox.MaxLength` default reads 0 (unlimited) vs upstream 32767, and negative values map to unlimited instead of throwing — pinned by `TextBoxTests.MaxLength_DefaultsToZero`; harmless unless an app reads it back.
