@@ -74,4 +74,143 @@ public class ShimsTests
 
         Assert.DoesNotContain (result.Warnings, w => w.Contains ("--shims"));
     }
+
+    // --- the polymorphic-base alias: the one source edit --shims makes ------------------------------
+
+    [Fact]
+    public void Aliases_Control_when_used_as_a_variable_type ()
+    {
+        var src = """
+            Imports System.Windows.Forms
+
+            Public Class Probe
+                Public Sub Clear(pnl As Panel)
+                    For Each ctl As Control In pnl.Controls
+                        ctl.Enabled = False
+                    Next
+                End Sub
+            End Class
+            """;
+
+        var result = SourceConverter.AddPolymorphicBaseAliases (src, SourceLanguage.VisualBasic, out var inherited);
+
+        Assert.Contains ("Imports Control = Majorsilence.Forms.Control", result);
+        Assert.Empty (inherited);
+        // Everything else is untouched — that is the point of --shims.
+        Assert.Contains ("For Each ctl As Control In pnl.Controls", result);
+        Assert.Contains ("Imports System.Windows.Forms", result);
+    }
+
+    [Fact]
+    public void Leaves_Form_alone ()
+    {
+        // Form is NOT aliased: a migrated app's forms derive from the compat Form in their own source,
+        // so polymorphic storage already works, and aliasing would retarget every `Inherits Form`.
+        var src = """
+            Imports System.Windows.Forms
+
+            Public Class Probe
+                Public Sub Show(owner As Form)
+                End Sub
+            End Class
+            """;
+
+        var result = SourceConverter.AddPolymorphicBaseAliases (src, SourceLanguage.VisualBasic, out _);
+
+        Assert.DoesNotContain ("Imports Form =", result);
+    }
+
+    [Fact]
+    public void Does_not_alias_a_base_the_file_inherits_by_its_bare_name ()
+    {
+        // Aliasing here would move the class onto the real base and lose the compat event/enum
+        // shadowing its Designer code is written against.
+        var src = """
+            Imports System.Windows.Forms
+
+            Public Class MyCanvas
+                Inherits Control
+
+                Private Sub Use(other As Control)
+                End Sub
+            End Class
+            """;
+
+        var result = SourceConverter.AddPolymorphicBaseAliases (src, SourceLanguage.VisualBasic, out var inherited);
+
+        Assert.DoesNotContain ("Imports Control =", result);
+        Assert.Contains ("Control", inherited);
+    }
+
+    [Fact]
+    public void A_qualified_Inherits_does_not_block_the_alias ()
+    {
+        // `Inherits System.Windows.Forms.Control` keeps naming the compat type whatever the bare name
+        // means, so there is nothing to protect and the alias is safe.
+        var src = """
+            Imports System.Windows.Forms
+
+            Public Class MyCanvas
+                Inherits System.Windows.Forms.Control
+
+                Private Sub Use(other As Control)
+                End Sub
+            End Class
+            """;
+
+        var result = SourceConverter.AddPolymorphicBaseAliases (src, SourceLanguage.VisualBasic, out var inherited);
+
+        Assert.Contains ("Imports Control = Majorsilence.Forms.Control", result);
+        Assert.Empty (inherited);
+    }
+
+    [Fact]
+    public void Does_not_alias_a_name_the_file_declares_itself ()
+    {
+        var src = """
+            Imports System.Windows.Forms
+
+            Public Class Control
+            End Class
+            """;
+
+        var result = SourceConverter.AddPolymorphicBaseAliases (src, SourceLanguage.VisualBasic, out _);
+
+        Assert.DoesNotContain ("Imports Control =", result);
+    }
+
+    [Fact]
+    public void Does_not_add_a_duplicate_alias_on_a_second_run ()
+    {
+        var src = """
+            Imports System.Windows.Forms
+            Imports Control = Majorsilence.Forms.Control
+
+            Public Class Probe
+                Private Sub Use(c As Control)
+                End Sub
+            End Class
+            """;
+
+        var result = SourceConverter.AddPolymorphicBaseAliases (src, SourceLanguage.VisualBasic, out _);
+
+        Assert.Equal (src, result);
+    }
+
+    [Fact]
+    public void Emits_a_CSharp_alias_for_a_CSharp_file ()
+    {
+        var src = """
+            using System.Windows.Forms;
+
+            public class Probe
+            {
+                void Use(Control c) { }
+            }
+            """;
+
+        var result = SourceConverter.AddPolymorphicBaseAliases (src, SourceLanguage.CSharp, out _);
+
+        Assert.Contains ("using Control = global::Majorsilence.Forms.Control;", result);
+    }
 }

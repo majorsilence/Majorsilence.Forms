@@ -889,6 +889,73 @@ internal static class SourceConverter
             + text[(anchor.Index + anchor.Length)..];
     }
 
+    /// <summary>
+    /// The one source edit <c>--shims</c> makes: an alias pointing a polymorphic base type's bare name
+    /// at the real Majorsilence.Forms base (see <see cref="NamespaceMap.PolymorphicCompatBases"/> for
+    /// why the compat one can't hold a leaf). One line per affected file, nothing else touched — the
+    /// same "one alias beats qualifying every use site" reasoning as
+    /// <see cref="AddAmbiguityAliases"/>, which this deliberately mirrors.
+    /// </summary>
+    /// <param name="inheritedBases">
+    /// Receives any base this file INHERITS by its bare name, which is why no alias was added for it:
+    /// retargeting that name would move the class onto the real base and cost it the compat
+    /// enum-property and event shadowing a Designer file depends on. The caller reports these, because
+    /// such a file keeps the gap and a human has to decide what to do about it.
+    /// </param>
+    internal static string AddPolymorphicBaseAliases(string text, SourceLanguage language, out List<string> inheritedBases)
+    {
+        inheritedBases = [];
+
+        var anchor = LastImportOrAliasLine(text);
+        var declaration = anchor is null ? NamespaceDeclaration.Match(text) : Match.Empty;
+        if (anchor is null && !declaration.Success)
+            return text;
+
+        var isVb = language == SourceLanguage.VisualBasic;
+        var indent = anchor?.Groups["indent"].Success == true ? anchor.Groups["indent"].Value : "";
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+
+        var aliases = new List<string>();
+
+        foreach (var type in NamespaceMap.PolymorphicCompatBases.OrderBy(t => t, StringComparer.Ordinal))
+        {
+            if (!UsedUnqualified(text, type) || DeclaresType(text, type))
+                continue;
+
+            // Already aliased (a re-run over an already-converted tree).
+            if (Regex.IsMatch(text, $@"(?m)^[ \t]*(global[ \t]+)?(using|Imports)[ \t]+{Regex.Escape(type)}[ \t]*="))
+                continue;
+
+            if (InheritsBareType(text, type))
+            {
+                inheritedBases.Add(type);
+                continue;
+            }
+
+            aliases.Add(isVb
+                ? $"{indent}Imports {type} = Majorsilence.Forms.{type}"
+                : $"{indent}using {type} = global::Majorsilence.Forms.{type};");
+        }
+
+        if (aliases.Count == 0)
+            return text;
+
+        if (anchor is null)
+            return text[..declaration.Index] + string.Join(newline, aliases) + newline + newline
+                + text[declaration.Index..];
+
+        return text[..(anchor.Index + anchor.Length)] + newline + string.Join(newline, aliases)
+            + text[(anchor.Index + anchor.Length)..];
+    }
+
+    // Whether the file derives from this type by its BARE name — `Inherits Control` (VB) or
+    // `: Control` / `: Control, IFoo` (C#). A fully-qualified base is unaffected by an alias and so
+    // does not count: `Inherits System.Windows.Forms.Form` keeps naming the compat type either way,
+    // which is exactly why Form needs no special handling here.
+    private static bool InheritsBareType(string text, string typeName) =>
+        Regex.IsMatch(text, $@"(?m)^[ \t]*Inherits[ \t]+{Regex.Escape(typeName)}[ \t]*$")
+        || Regex.IsMatch(text, $@"(?m)^[^\r\n]*\b(class|record)[ \t]+\w+[ \t]*:[ \t]*{Regex.Escape(typeName)}\b");
+
     // A namespace declaration, block or file-scoped, C# or VB.
     private static readonly Regex NamespaceDeclaration =
         new(@"(?m)^[ \t]*(namespace|Namespace)[ \t]+(?<name>[\w.]+)", RegexOptions.Compiled);

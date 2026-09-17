@@ -342,4 +342,30 @@ internal static class NamespaceMap
         "SystemEvents", "UserPreferenceChangedEventArgs", "UserPreferenceCategory",
         "UserPreferenceChangedEventHandler",
     };
+
+    /// <summary>
+    /// Base types that, under <c>--shims</c>, a variable can never usefully be typed to in the compat
+    /// namespace — so the alias pass points the bare name at the real Majorsilence.Forms base instead.
+    ///
+    /// The reason is the shim generator's flat hierarchy: every generated leaf derives from its own
+    /// same-named REAL type (compat <c>TextBox</c> : real <c>TextBox</c>), never from the generated
+    /// <c>Control</c>, because C# has one base class to give and the real one is what the layout and
+    /// rendering internals need. So compat <c>Control</c> and compat <c>TextBox</c> are unrelated
+    /// siblings, and <c>Dim c As Control = someTextBox</c> does not compile. Every compat leaf
+    /// transitively IS a real <c>Majorsilence.Forms.Control</c>, so aliasing the bare name to that
+    /// fixes assignment, parameter passing, <c>For Each</c>, <c>TypeOf</c>/<c>CType</c> and
+    /// <c>List(Of …)</c> in one line per file, with no other edit.
+    ///
+    /// <para><b><c>Form</c> is deliberately absent</b>, despite being used this way far more often. A
+    /// migrated app's own forms derive from the compat <c>Form</c> in their own source, so they
+    /// genuinely are one and polymorphic storage already works. Aliasing it would instead retarget
+    /// every <c>Inherits Form</c> to the real base and cost those forms the compat enum-property and
+    /// event shadowing their Designer code is written against — breaking far more than it fixes. Only
+    /// a base whose instances are the GENERATOR's leaves, rather than the consumer's own subclasses,
+    /// belongs here.</para>
+    /// </summary>
+    public static readonly HashSet<string> PolymorphicCompatBases = new(StringComparer.Ordinal)
+    {
+        "Control", "TextBoxBase",
+    };
 }

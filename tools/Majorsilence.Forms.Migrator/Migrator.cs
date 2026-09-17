@@ -408,11 +408,18 @@ internal sealed class Migrator
     /// </summary>
     private static SourceConverter.Result ConvertSourceForShims(string text, SourceLanguage language, VbConstructorMode vbConstructor)
     {
-        if (language != SourceLanguage.VisualBasic)
-            return new SourceConverter.Result(text, Changed: false, Warnings: []);
-
         var warnings = new List<string>();
-        var converted = SourceConverter.ApplyVbConstructor(text, vbConstructor, warnings.Add);
+        var converted = text;
+
+        if (language == SourceLanguage.VisualBasic)
+            converted = SourceConverter.ApplyVbConstructor(converted, vbConstructor, warnings.Add);
+
+        converted = SourceConverter.AddPolymorphicBaseAliases(converted, language, out var inheritedBases);
+        foreach (var type in inheritedBases)
+            warnings.Add($"derives from '{type}' by its bare name, so it was left unaliased — an alias would move " +
+                $"this class onto the real Majorsilence.Forms.{type} and cost it the compat enum-property and event " +
+                $"shadowing. Any polymorphic use of '{type}' in this file still needs the real base named explicitly.");
+
         return new SourceConverter.Result(converted, Changed: !string.Equals(converted, text, StringComparison.Ordinal), Warnings: warnings);
     }
 
