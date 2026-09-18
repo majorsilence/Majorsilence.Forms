@@ -1440,6 +1440,7 @@ namespace Majorsilence.Forms
             }
 
             hover_raised = false;
+            HideItemToolTip ();
             (Events[s_mouseLeaveEvent] as EventHandler)?.Invoke (this, e);
         }
 
@@ -1455,6 +1456,60 @@ namespace Majorsilence.Forms
                 hover_raised = true;
                 OnMouseHover (EventArgs.Empty);
             }
+
+            UpdateItemToolTip (e.Location);
+        }
+
+        /// <summary>
+        /// The tool-tip text for the sub-element under <paramref name="location"/>, or null when there
+        /// is none. Return null -- the default -- for a control with no sub-elements.
+        /// </summary>
+        /// <remarks>
+        /// The one seam behind every per-item tool tip (<c>LST-59</c>). <see cref="ToolTip.SetToolTip(Control, string)"/>
+        /// associates text with a whole CONTROL and shows it on <c>MouseEnter</c>, which cannot express
+        /// a tip that changes as the pointer moves within one control -- a cell, an item, a node, a tab,
+        /// a strip button. Thirteen properties across eight controls were stored and read by nothing for
+        /// want of this.
+        ///
+        /// <paramref name="location"/> is in the same LOGICAL units as
+        /// <see cref="MouseEventArgs.Location"/>, so an override hit-tests with the same public members
+        /// an application would.
+        /// </remarks>
+        internal virtual string? GetToolTipText (System.Drawing.Point location) => null;
+
+        // Shown through one shared ToolTip rather than one per control: the popup is modeless and only
+        // ever one is up, and a per-control instance would leak a window per control that ever showed a
+        // tip.
+        private static readonly ToolTip item_tooltip = new ();
+
+        private string? shown_item_tip;
+
+        private void UpdateItemToolTip (System.Drawing.Point location)
+        {
+            var text = GetToolTipText (location);
+
+            // Only on CHANGE: re-showing the same tip on every mouse-move would re-create the popup
+            // continuously and make it flicker under the pointer.
+            if (string.Equals (text, shown_item_tip, StringComparison.Ordinal))
+                return;
+
+            shown_item_tip = text;
+
+            if (string.IsNullOrEmpty (text))
+                item_tooltip.HideItemTip ();
+            else
+                item_tooltip.ShowItemTip (this, text!, location);
+        }
+
+        // A tip belongs to the pointer being inside the control; leaving takes it away, and clears the
+        // remembered text so re-entering the same item shows it again.
+        private void HideItemToolTip ()
+        {
+            if (shown_item_tip is null)
+                return;
+
+            shown_item_tip = null;
+            item_tooltip.HideItemTip ();
         }
 
         /// <summary>

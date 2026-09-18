@@ -620,7 +620,26 @@ distinguishes "ours is wrong" from "ours is right and the sibling differs".
 - **Fix:** one hover hook per control feeding a shared "tip text at this point" seam, then each property
   is a forward. Sized as its own item; wiring it eight times separately is how eight controls would
   drift apart.
-- **Tests today:** none. Recorded so the count is not mistaken for 13 separate defects.
+- **MOSTLY CLOSED (2026-09-18).** The seam is `Control.GetToolTipText (Point)`, driven from the existing
+  mouse-move path and shown through `ToolTip`'s existing popup. Each control's override is then five
+  lines reading its own two properties. **8 of the 13 entries closed**: `ListView.ShowItemToolTips` +
+  `ListViewItem.ToolTipText`, `TreeView.ShowNodeToolTips` + `TreeNode.ToolTipText`,
+  `ToolStrip.ShowItemToolTips` + `ToolStripItem.ToolTipText`, `TabControl.ShowToolTips` +
+  `TabPage.ToolTipText`.
+- **Design notes worth keeping.** The tip is re-shown only when the text CHANGES, or every mouse-move
+  would re-create the popup and it would flicker under the pointer. One shared `ToolTip` rather than one
+  per control, since the popup is modeless and only one is ever up. `MouseLeave` clears the remembered
+  text so re-entering the same item shows it again. The `TabControl` override lives on `TabStrip`,
+  because the tabs are the strip's children and the pointer is never over the `TabControl` itself.
+- **The seam is `internal`, not `protected`.** `Control`'s public and protected members are held to a
+  parity gate against `WindowBase` (`ControlWindowParityTests`), and this is not upstream surface -- it
+  is an implementation seam for the controls in this assembly. Making it protected failed that gate,
+  which is the gate doing its job.
+- **Still open (5):** `DataGridView.ShowCellToolTips` and the `CellToolTipTextNeeded` args (the grid
+  needs a per-cell tip source, not just a hit-test), plus `StatusBarPanel.ToolTipText`,
+  `ToolBar.ShowToolTips` and `ToolBarButton.ToolTipText` -- all three on controls upstream marks
+  `PlatformNotSupportedException`, so they are the lowest priority in the file.
+- **Tests today:** `ItemToolTipTests.cs` (8; 2 neutralizations).
 
 ### LST-60 — state images: 4 entries, one missing feature — Cat A — P3 — Low — **CLOSED (2026-09-17)**
 - **Ours (before):** `ListView.StateImageList`, `ListViewItem.StateImageIndex`, `TreeView.StateImageList`

@@ -419,6 +419,14 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="GetItemAt(Point)"/>
         public ToolStripItem? GetItemAt (int x, int y) => GetItemAt (new Point (x, y));
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// <see cref="ShowItemToolTips"/> and <see cref="ToolStripItem.ToolTipText"/>, both stored and
+        /// read by nothing before (<c>LST-59</c>).
+        /// </remarks>
+        internal override string? GetToolTipText (Point location)
+            => ShowItemToolTips ? GetItemAt (location)?.ToolTipText : null;
+
         /// <summary>
         /// Returns the next selectable item from <paramref name="start"/> in the given direction,
         /// wrapping at the ends as WinForms does.

@@ -370,6 +370,14 @@ namespace Majorsilence.Forms
                 OnItemActivate (EventArgs.Empty);
         }
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// <see cref="ShowItemToolTips"/> and <see cref="ListViewItem.ToolTipText"/>, both stored and
+        /// read by nothing before (<c>LST-59</c>).
+        /// </remarks>
+        internal override string? GetToolTipText (System.Drawing.Point location)
+            => ShowItemToolTips ? GetItemAt (location.X, location.Y)?.ToolTipText : null;
+
         private int anchor_index = -1;
 
         // Puts the given line at the top, clamped to what there is to scroll. TopItem's setter and
