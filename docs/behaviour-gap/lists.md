@@ -577,16 +577,33 @@ which needs horizontal scrolling to exist first and is recorded below rather tha
 answer differs for each. Checking upstream per control is not pedantry here — it is the only thing that
 distinguishes "ours is wrong" from "ours is right and the sibling differs".
 
-### LST-56 — `BorderStyle` is unread on eight controls, for one reason — Cat A — P2 — Medium
-- **Ours:** `ListBox`, `ListView`, `TreeView`, `SplitContainer`, `Splitter`, `ToolBar`, `StatusBarPanel`
-  and `ToolStripStatusLabel` each declare a `BorderStyle` that nothing reads — eight baseline entries.
-- **One cause:** there is no control-level border model. `ControlStyle` has no border size or colour,
-  and each renderer draws whatever edges it wants from theme colours directly, so there is nowhere for a
-  `BorderStyle` to be honoured. Wiring it per control would mean adding border drawing to eight
-  renderers independently, which is how they would drift apart.
-- **Fix:** a border on `ControlStyle` (size + colour, themeable), drawn once in the base renderer, with
-  `BorderStyle` selecting between none/single/3D. Then all eight become forwards.
-- **Tests today:** none. Recorded here so the count is not mistaken for eight separate defects.
+### LST-56 — `BorderStyle` is unread on eight controls, for one reason — Cat A — P2 — Medium — **CLOSED for the six controls (2026-09-18)**
+- **Ours (before):** `ListBox`, `ListView`, `TreeView`, `SplitContainer`, `Splitter`, `ToolBar`,
+  `StatusBarPanel` and `ToolStripStatusLabel` each declared a `BorderStyle` that nothing read — eight
+  baseline entries.
+- **The original write-up here was wrong, and the correction is the useful part.** It said "there is no
+  control-level border model. `ControlStyle` has no border size or colour", and proposed building one.
+  `ControlStyle.Border` has existed all along — a `ControlBorderStyle` with per-side width, colour and
+  radius (`BorderStyle.cs`), read by `Control.ClientRectangle` and `DisplayRectangle` to inset the
+  canvas. `TextBoxBase` has always mapped its own `BorderStyle` onto it in one line. The gap was never a
+  missing model; it was six controls not using the model beside them. **A finding that proposes building
+  something should start by grepping for it** — this one would have stayed P2-Medium indefinitely on the
+  strength of a claim that was never checked.
+- **Fix (applied):** that one line moved to `Control.ApplyBorderStyle`, and the six `Control` subclasses
+  forward to it. `None` clears the frame; `FixedSingle` and `Fixed3D` both draw the themed 1px one,
+  because the backend has no sunken-edge primitive to tell them apart. `ListBox`, `ListView` and
+  `TreeView` apply their declared `Fixed3D` default in their constructors, so the property rather than
+  the theme is the source of truth.
+- **The visual change is one control.** `ListBox` and `TreeView` already set `Border.Width = 1` in their
+  own `DefaultStyle`, so they agreed with `Fixed3D` by accident; `ListView` did not, and now draws the
+  border upstream gives it. No existing test changed behaviour.
+- **Two entries are NOT wired, and they are not the same kind of thing.** `StatusBarPanel` is a
+  `Component` and `ToolStripStatusLabel` is a `ToolStripItem` — neither is a `Control`, so neither has a
+  `Style` to write. `ToolStripStatusLabel` additionally has `BorderSides` (per-side, `Border3DStyle`),
+  which needs the strip's item renderer rather than a control style. Both stay in the baseline.
+- **Tests today:** `ControlBorderStyleTests.cs` (8; three neutralizations — removing the mapping fails
+  all 8, making it only ever clear fails all 8, dropping the constructor default fails `ListView`, which
+  is the only control it is load-bearing for).
 ## Status (2026-09-17, W6.2 — two more shapes)
 
 ### LST-57 — the `TreeView` image-key fallback was half-implemented — Cat A — P2 — High — **CLOSED (2026-09-17)**

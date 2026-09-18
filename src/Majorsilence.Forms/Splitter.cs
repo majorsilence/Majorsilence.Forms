@@ -34,8 +34,19 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
 
-        /// <summary>Gets or sets the border style of the splitter. Stub.</summary>
-        public BorderStyle BorderStyle { get; set; }
+        private BorderStyle border_style = BorderStyle.None;
+
+        /// <summary>Gets or sets the border drawn around the splitter.</summary>
+        public BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (border_style == value)
+                    return;
+
+                border_style = value;
+                ApplyBorderStyle (value);
+            }
+        }
 
         /// <summary>
         /// Raised when the user drags the Splitter.

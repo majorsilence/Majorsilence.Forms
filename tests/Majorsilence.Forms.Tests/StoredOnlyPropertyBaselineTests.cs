@@ -46,6 +46,37 @@ namespace Majorsilence.Forms.Tests;
 // Regenerate with MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1.
 public class StoredOnlyPropertyBaselineTests
 {
+    // The "-- framework-written (outbound state)" note is what tells a sweep to leave an entry alone,
+    // so it has to be right in both directions. The baseline gate above strips it before comparing
+    // (Debug and Release IL disagree about whether a setter call survives), which left the note itself
+    // with no coverage at all -- and it was wrong for 219 of the entries that carried it.
+    //
+    // The bug: an auto-property with an initializer has its backing field written by the constructor,
+    // and a constructor is "a method other than the setter". Every `public Foo Bar { get; set; } = x;`
+    // was therefore reported as state the framework writes for applications to read back, which is the
+    // one category a stored-only sweep must not touch. ListBox.BorderStyle and five others carried the
+    // note while being exactly the plain unwired stubs this file exists to find.
+    [Fact]
+    public void FrameworkWrittenNoteSeparatesOutboundStateFromInitialisers ()
+    {
+        var scanned = StubSurfaceScanner.ScanStoredOnlyProperties (typeof (Control).Assembly.Location);
+
+        static string? Find (System.Collections.Generic.List<string> lines, string name)
+            => lines.FirstOrDefault (l => l.Split (" --", StringSplitOptions.None)[0].Trim () == name);
+
+        // Genuinely outbound: the framework assigns Modal so an application can read it back, and
+        // nothing else reads the field. Wiring one of these is how a working property gets broken.
+        var modal = Find (scanned, "Majorsilence.Forms.Form.Modal");
+        Assert.NotNull (modal);
+        Assert.Contains ("framework-written", modal);
+
+        // Merely initialised: `public DrawMode DrawMode { get; set; } = DrawMode.Normal;` is written by
+        // ComboBox's constructor and by nothing else. That is a stub, not outbound state.
+        var drawMode = Find (scanned, "Majorsilence.Forms.ComboBox.DrawMode");
+        Assert.NotNull (drawMode);
+        Assert.DoesNotContain ("framework-written", drawMode);
+    }
+
     [Fact]
     public void NoNewStoredOnlyProperties ()
     {

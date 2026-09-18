@@ -27,6 +27,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public ListBox ()
         {
+            ApplyBorderStyle (border_style);
             // Through CreateItemCollection so a derived list can substitute its own collection type --
             // which is how CheckedListBox returns one that tracks check state alongside each item.
             Items = CreateItemCollection ();

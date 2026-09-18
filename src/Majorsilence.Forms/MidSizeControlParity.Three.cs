@@ -206,8 +206,19 @@ namespace Majorsilence.Forms
 
     public partial class ListBox
     {
+        private BorderStyle border_style = BorderStyle.Fixed3D;
+
         /// <summary>Gets or sets the border drawn around the control.</summary>
-        public BorderStyle BorderStyle { get; set; } = BorderStyle.Fixed3D;
+        public BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (border_style == value)
+                    return;
+
+                border_style = value;
+                ApplyBorderStyle (value);
+            }
+        }
 
         /// <summary>Gets the height a single item is drawn at by default.</summary>
         public const int DefaultItemHeight = 13;

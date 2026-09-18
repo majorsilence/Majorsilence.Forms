@@ -215,7 +215,7 @@ internal static partial class StubSurfaceScanner
                 // the motivating cases, because every one of them goes through its own setter.
                 var writers = access.Writers.TryGetValue (fieldHandle, out var w) ? w : [];
                 var setter = md.GetMethodDefinition (accessors.Setter);
-                var frameworkWritten = writers.Any (m => m != accessors.Setter)
+                var frameworkWritten = writers.Any (m => m != accessors.Setter && !IsCtor (md, m))
                                     || IsCalled (access, md, accessors.Setter, setter);
 
                 found.Add ($"{FullTypeName (md, type)}.{name}{(frameworkWritten ? WrittenMarker : string.Empty)}");
@@ -224,6 +224,9 @@ internal static partial class StubSurfaceScanner
 
         return Normalise (found);
     }
+
+    private static bool IsCtor (MetadataReader md, MethodDefinitionHandle handle)
+        => md.GetString (md.GetMethodDefinition (handle).Name) is ".ctor" or ".cctor";
 
     /// <summary>
     /// Whether anything in the assembly calls this accessor. A virtual accessor is also treated as

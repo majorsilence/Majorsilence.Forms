@@ -38,12 +38,25 @@ to every entry in the bucket at once.
 
 **Framework-written outbound state — now marked mechanically in the baseline itself.** As of
 2026-09-17 the scanner reports this per entry: an entry the framework writes carries
-`-- framework-written (outbound state)` beside it. **378 of the core baseline's 663 entries are marked**,
-so **roughly 57% of what remains is not a gap at all.**
+`-- framework-written (outbound state)` beside it. **147 of the core baseline's 637 entries are marked**,
+so **roughly 23% of what remains is not a gap at all.**
 
 The detection is two-part, and the first version got it wrong: a direct `stfld` is only possible inside
 the declaring type, and `Modal = true;` on a `{ get; private set; }` property compiles to a *setter
 call*, not a store. Marking only stores missed every motivating case. It counts both now.
+
+**The second version was wrong too, in the opposite direction, and that one mattered more.** "Written by
+a method other than its own setter" counts the **constructor**, and an auto-property with an initializer
+— `public DrawMode DrawMode { get; set; } = DrawMode.Normal;` — has its backing field written by exactly
+that. So every initialized auto-property was reported as outbound state: the one category a sweep is
+told not to touch. The figure quoted here was **378 of 663**; the true figure is **147**. Constructors
+are excluded as of 2026-09-18, which moved **219 entries back into scope**.
+
+It was found by wiring six of them. `ListBox.BorderStyle` and its five siblings (LST-56) all carried the
+marker and were all plain unwired stubs. A marker that says "do not touch this" is worth testing on both
+sides, and it had none — it is annotation, which the baseline gate strips, so nothing asserted it. It
+does now: `StoredOnlyPropertyBaselineTests.FrameworkWrittenNoteSeparatesOutboundStateFromInitialisers`
+pins `Form.Modal` marked and `ComboBox.DrawMode` unmarked.
 
 The note is **annotation, not assertion**: whether a setter call survives as a call depends on the build
 configuration, so Debug and Release disagree about it, and the gate strips the note from both sides

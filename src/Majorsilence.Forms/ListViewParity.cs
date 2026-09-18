@@ -30,8 +30,19 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets how items are aligned when they are arranged.</summary>
         public ListViewAlignment Alignment { get; set; } = ListViewAlignment.Top;
 
+        private BorderStyle border_style = BorderStyle.Fixed3D;
+
         /// <summary>Gets or sets the border drawn around the control.</summary>
-        public BorderStyle BorderStyle { get; set; } = BorderStyle.Fixed3D;
+        public BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (border_style == value)
+                    return;
+
+                border_style = value;
+                ApplyBorderStyle (value);
+            }
+        }
 
         /// <summary>Gets or sets whether the background image is tiled.</summary>
         public bool BackgroundImageTiled { get; set; }

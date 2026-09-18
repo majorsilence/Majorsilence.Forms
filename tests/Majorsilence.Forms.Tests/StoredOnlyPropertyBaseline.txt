@@ -27,11 +27,11 @@
 # Auto-properties only: a property with hand-written accessors is invisible here, so the
 # real figure is higher.
 # Regenerate with MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1.
-Majorsilence.Forms.AmbientProperties.BackColor    -- framework-written (outbound state)
+Majorsilence.Forms.AmbientProperties.BackColor
 Majorsilence.Forms.AmbientProperties.Cursor
 Majorsilence.Forms.AmbientProperties.Font
-Majorsilence.Forms.AmbientProperties.ForeColor    -- framework-written (outbound state)
-Majorsilence.Forms.Application.SafeTopLevelCaptionFormat    -- framework-written (outbound state)
+Majorsilence.Forms.AmbientProperties.ForeColor
+Majorsilence.Forms.Application.SafeTopLevelCaptionFormat
 Majorsilence.Forms.ApplicationContext.Tag
 Majorsilence.Forms.Backends.FolderDialogRequest.InitialDirectory    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.FolderDialogRequest.Title    -- framework-written (outbound state)
@@ -47,12 +47,12 @@ Majorsilence.Forms.Backends.SaveFileRequest.Title    -- framework-written (outbo
 Majorsilence.Forms.BindingCompleteEventArgs.BindingCompleteState    -- framework-written (outbound state)
 Majorsilence.Forms.BindingCompleteEventArgs.ErrorText    -- framework-written (outbound state)
 Majorsilence.Forms.BindingCompleteEventArgs.Exception    -- framework-written (outbound state)
-Majorsilence.Forms.BindingSource.AllowEdit    -- framework-written (outbound state)
+Majorsilence.Forms.BindingSource.AllowEdit
 Majorsilence.Forms.BindingSource.IsInitialized    -- framework-written (outbound state)
 Majorsilence.Forms.Button.UseCompatibleTextRendering
 Majorsilence.Forms.ButtonBase.CommandParameter
 Majorsilence.Forms.ButtonBase.UseCompatibleTextRendering
-Majorsilence.Forms.ButtonRenderer.RenderMatchingApplicationState    -- framework-written (outbound state)
+Majorsilence.Forms.ButtonRenderer.RenderMatchingApplicationState
 Majorsilence.Forms.CheckedListBox.ThreeDCheckBoxes
 Majorsilence.Forms.CheckedListBox.UseCompatibleTextRendering
 Majorsilence.Forms.ColorDialog.AllowFullOpen    -- framework-written (outbound state)
@@ -60,24 +60,24 @@ Majorsilence.Forms.ColorDialog.AnyColor    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.FullOpen    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.SolidColorOnly    -- framework-written (outbound state)
-Majorsilence.Forms.ColumnHeader.DisplayIndex    -- framework-written (outbound state)
+Majorsilence.Forms.ColumnHeader.DisplayIndex
 Majorsilence.Forms.ColumnHeader.Index    -- framework-written (outbound state)
 Majorsilence.Forms.ColumnWidthChangingEventArgs.NewWidth    -- framework-written (outbound state)
-Majorsilence.Forms.ComboBox.DrawMode    -- framework-written (outbound state)
+Majorsilence.Forms.ComboBox.DrawMode
 Majorsilence.Forms.ComboBox.HideSelection
 Majorsilence.Forms.CommonDialog.Tag
 Majorsilence.Forms.ContextMenuStrip.ShowCheckMargin
-Majorsilence.Forms.ContextMenuStrip.ShowImageMargin    -- framework-written (outbound state)
+Majorsilence.Forms.ContextMenuStrip.ShowImageMargin
 Majorsilence.Forms.Control.AccessibleDefaultActionDescription
 Majorsilence.Forms.Control.AllowDrop
 Majorsilence.Forms.Control.AutoScrollOffset
 Majorsilence.Forms.Control.CheckForIllegalCrossThreadCalls
-Majorsilence.Forms.Control.DoubleBuffered    -- framework-written (outbound state)
+Majorsilence.Forms.Control.DoubleBuffered
 Majorsilence.Forms.Control.HScroll
-Majorsilence.Forms.Control.IsAccessible    -- framework-written (outbound state)
+Majorsilence.Forms.Control.IsAccessible
 Majorsilence.Forms.Control.MouseButtons
 Majorsilence.Forms.Control.Region
-Majorsilence.Forms.Control.UseVisualStyleBackColor    -- framework-written (outbound state)
+Majorsilence.Forms.Control.UseVisualStyleBackColor
 Majorsilence.Forms.Control.VScroll
 Majorsilence.Forms.ControlBindingsCollection.BindableComponent    -- framework-written (outbound state)
 Majorsilence.Forms.ControlBindingsCollection.DefaultDataSourceUpdateMode
@@ -121,53 +121,53 @@ Majorsilence.Forms.DataGridTableStyle.LinkColor    -- framework-written (outboun
 Majorsilence.Forms.DataGridTableStyle.ReadOnly
 Majorsilence.Forms.DataGridTableStyle.SelectionBackColor    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridTableStyle.SelectionForeColor    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridTextBox.IsInEditOrNavigateMode    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridTextBox.IsInEditOrNavigateMode
 Majorsilence.Forms.DataGridTextBox.Location
 Majorsilence.Forms.DataGridTextBox.MaxLength
 Majorsilence.Forms.DataGridTextBox.Parent
 Majorsilence.Forms.DataGridTextBox.Visible
 Majorsilence.Forms.DataGridTextBoxColumn.Alignment
-Majorsilence.Forms.DataGridTextBoxColumn.Format    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridTextBoxColumn.Format
 Majorsilence.Forms.DataGridTextBoxColumn.FormatInfo
 Majorsilence.Forms.DataGridTextBoxColumn.NullText
 Majorsilence.Forms.DataGridTextBoxColumn.PropertyDescriptor
 Majorsilence.Forms.DataGridTextBoxColumn.TextBox    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridView.EnableHeadersVisualStyles    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridView.ShowCellErrors    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridView.ShowCellToolTips    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridView.ShowEditingIcon    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridView.ShowRowErrors    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridView.ShowCellErrors
+Majorsilence.Forms.DataGridView.ShowCellToolTips
+Majorsilence.Forms.DataGridView.ShowEditingIcon
+Majorsilence.Forms.DataGridView.ShowRowErrors
 Majorsilence.Forms.DataGridView.VirtualMode
-Majorsilence.Forms.DataGridViewBand.Index    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewButtonCell.FlatStyle    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewBand.Index
+Majorsilence.Forms.DataGridViewButtonCell.FlatStyle
 Majorsilence.Forms.DataGridViewButtonCell.UseColumnTextForButtonValue
-Majorsilence.Forms.DataGridViewButtonColumn.FlatStyle    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewButtonColumn.FlatStyle
 Majorsilence.Forms.DataGridViewCell.ColumnInfo
-Majorsilence.Forms.DataGridViewCellContextMenuStripNeededEventArgs.ContextMenuStrip    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewCellContextMenuStripNeededEventArgs.ContextMenuStrip
 Majorsilence.Forms.DataGridViewCellEditEventArgs.Cancel
 Majorsilence.Forms.DataGridViewCellErrorTextNeededEventArgs.ErrorText    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewCellPaintingEventArgs.AdvancedBorderStyle    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewCellPaintingEventArgs.AdvancedBorderStyle
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.CellStyle    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.ClipBounds    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.ErrorText    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Graphics    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.State
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Value    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewCellToolTipTextNeededEventArgs.ToolTipText    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewCellToolTipTextNeededEventArgs.ToolTipText
 Majorsilence.Forms.DataGridViewCellValueEventArgs.Value
 Majorsilence.Forms.DataGridViewCheckBoxCell.EditingCellValueChanged
-Majorsilence.Forms.DataGridViewCheckBoxCell.FlatStyle    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewCheckBoxCell.FlatStyle
 Majorsilence.Forms.DataGridViewCheckBoxCell.IndeterminateValue
-Majorsilence.Forms.DataGridViewCheckBoxColumn.FlatStyle    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewCheckBoxColumn.FlatStyle
 Majorsilence.Forms.DataGridViewCheckBoxColumn.IndeterminateValue
 Majorsilence.Forms.DataGridViewCheckBoxColumn.ThreeState
-Majorsilence.Forms.DataGridViewComboBoxCell.AutoComplete    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewComboBoxCell.AutoComplete
 Majorsilence.Forms.DataGridViewComboBoxCell.DisplayStyleForCurrentCellOnly
-Majorsilence.Forms.DataGridViewComboBoxCell.FlatStyle    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewComboBoxColumn.AutoComplete    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewComboBoxColumn.DisplayStyle    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewComboBoxCell.FlatStyle
+Majorsilence.Forms.DataGridViewComboBoxColumn.AutoComplete
+Majorsilence.Forms.DataGridViewComboBoxColumn.DisplayStyle
 Majorsilence.Forms.DataGridViewComboBoxColumn.DisplayStyleForCurrentCellOnly
-Majorsilence.Forms.DataGridViewComboBoxColumn.MaxDropDownItems    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewComboBoxColumn.MaxDropDownItems
 Majorsilence.Forms.DataGridViewComboBoxColumn.Sorted
 Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlDataGridView    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlRowIndex    -- framework-written (outbound state)
@@ -177,15 +177,15 @@ Majorsilence.Forms.DataGridViewElement.DataGridView
 Majorsilence.Forms.DataGridViewImageCell.Description
 Majorsilence.Forms.DataGridViewImageCell.ValueIsIcon
 Majorsilence.Forms.DataGridViewImageColumn.Icon
-Majorsilence.Forms.DataGridViewImageColumn.ImageLayout    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewImageColumn.ImageLayout
 Majorsilence.Forms.DataGridViewImageColumn.ValuesAreIcons    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewLinkCell.ActiveLinkColor    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewLinkCell.LinkBehavior    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewLinkCell.TrackVisitedState    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewLinkCell.ActiveLinkColor
+Majorsilence.Forms.DataGridViewLinkCell.LinkBehavior
+Majorsilence.Forms.DataGridViewLinkCell.TrackVisitedState
 Majorsilence.Forms.DataGridViewLinkCell.UseColumnTextForLinkValue
-Majorsilence.Forms.DataGridViewLinkColumn.LinkBehavior    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewRowContextMenuStripNeededEventArgs.ContextMenuStrip    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewRowErrorTextNeededEventArgs.ErrorText    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewLinkColumn.LinkBehavior
+Majorsilence.Forms.DataGridViewRowContextMenuStripNeededEventArgs.ContextMenuStrip
+Majorsilence.Forms.DataGridViewRowErrorTextNeededEventArgs.ErrorText
 Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.Height
 Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.MinimumHeight
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.ClipBounds    -- framework-written (outbound state)
@@ -196,28 +196,28 @@ Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.IsLastVisibleRow    -- fram
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.RowBounds    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.State    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlDataGridView
-Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlRowIndex    -- framework-written (outbound state)
-Majorsilence.Forms.DateBoldEventArgs.DaysToBold    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlRowIndex
+Majorsilence.Forms.DateBoldEventArgs.DaysToBold
 Majorsilence.Forms.Design.Behavior.Adorner.BehaviorService
-Majorsilence.Forms.Design.Behavior.Adorner.Enabled    -- framework-written (outbound state)
+Majorsilence.Forms.Design.Behavior.Adorner.Enabled
 Majorsilence.Forms.Design.CollectionEditor+CollectionForm.Items    -- framework-written (outbound state)
 Majorsilence.Forms.Design.ControlDesigner.AllowDrop
 Majorsilence.Forms.Design.ControlDesigner.AutoResizeHandles
 Majorsilence.Forms.Design.DesignerActionItem.AllowAssociate
-Majorsilence.Forms.Design.DesignerActionItem.ShowItemInSourceView    -- framework-written (outbound state)
+Majorsilence.Forms.Design.DesignerActionItem.ShowItemInSourceView
 Majorsilence.Forms.Design.DesignerActionList.AutoShow
 Majorsilence.Forms.Design.DesignerActionPropertyItem.RelatedComponent
 Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.DirectoryPath    -- framework-written (outbound state)
-Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.StartLocation    -- framework-written (outbound state)
-Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.Style    -- framework-written (outbound state)
+Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.StartLocation
+Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.Style
 Majorsilence.Forms.Design.ParentControlDesigner.DrawGrid
-Majorsilence.Forms.Design.ParentControlDesigner.GridSize    -- framework-written (outbound state)
+Majorsilence.Forms.Design.ParentControlDesigner.GridSize
 Majorsilence.Forms.Design.ToolboxItem.Bitmap
 Majorsilence.Forms.Design.ToolboxItem.DisplayName
 Majorsilence.Forms.Design.ToolboxItem.Locked
 Majorsilence.Forms.Design.ToolboxItem.TypeName    -- framework-written (outbound state)
 Majorsilence.Forms.DomainUpDown.Sorted
-Majorsilence.Forms.DragEventArgs.DropImageType    -- framework-written (outbound state)
+Majorsilence.Forms.DragEventArgs.DropImageType
 Majorsilence.Forms.DragEventArgs.Effect    -- framework-written (outbound state)
 Majorsilence.Forms.DragEventArgs.Message
 Majorsilence.Forms.DragEventArgs.MessageReplacementToken
@@ -226,15 +226,15 @@ Majorsilence.Forms.DrawListViewItemEventArgs.DrawDefault
 Majorsilence.Forms.DrawListViewSubItemEventArgs.DrawDefault
 Majorsilence.Forms.DrawTreeNodeEventArgs.Canvas    -- framework-written (outbound state)
 Majorsilence.Forms.DrawTreeNodeEventArgs.TreeView    -- framework-written (outbound state)
-Majorsilence.Forms.Drawing.BufferedGraphicsContext.MaximumBuffer    -- framework-written (outbound state)
-Majorsilence.Forms.Drawing.Graphics.CompositingQuality    -- framework-written (outbound state)
-Majorsilence.Forms.Drawing.Graphics.InterpolationMode    -- framework-written (outbound state)
-Majorsilence.Forms.Drawing.Graphics.PageScale    -- framework-written (outbound state)
-Majorsilence.Forms.Drawing.Graphics.PageUnit    -- framework-written (outbound state)
-Majorsilence.Forms.Drawing.Graphics.PixelOffsetMode    -- framework-written (outbound state)
+Majorsilence.Forms.Drawing.BufferedGraphicsContext.MaximumBuffer
+Majorsilence.Forms.Drawing.Graphics.CompositingQuality
+Majorsilence.Forms.Drawing.Graphics.InterpolationMode
+Majorsilence.Forms.Drawing.Graphics.PageScale
+Majorsilence.Forms.Drawing.Graphics.PageUnit
+Majorsilence.Forms.Drawing.Graphics.PixelOffsetMode
 Majorsilence.Forms.Drawing.Graphics.RenderingOrigin
-Majorsilence.Forms.Drawing.Graphics.TextContrast    -- framework-written (outbound state)
-Majorsilence.Forms.Drawing.Graphics.TextRenderingHint    -- framework-written (outbound state)
+Majorsilence.Forms.Drawing.Graphics.TextContrast
+Majorsilence.Forms.Drawing.Graphics.TextRenderingHint
 Majorsilence.Forms.Drawing.SkiaGraphics.DpiX    -- framework-written (outbound state)
 Majorsilence.Forms.Drawing.SkiaGraphics.DpiY    -- framework-written (outbound state)
 Majorsilence.Forms.ErrorProvider.ContainerControl
@@ -243,8 +243,8 @@ Majorsilence.Forms.ErrorProvider.DataSource    -- framework-written (outbound st
 Majorsilence.Forms.ErrorProvider.Icon
 Majorsilence.Forms.ErrorProvider.Tag
 Majorsilence.Forms.FileDialog.AddExtension    -- framework-written (outbound state)
-Majorsilence.Forms.FileDialog.AddToRecent    -- framework-written (outbound state)
-Majorsilence.Forms.FileDialog.AutoUpgradeEnabled    -- framework-written (outbound state)
+Majorsilence.Forms.FileDialog.AddToRecent
+Majorsilence.Forms.FileDialog.AutoUpgradeEnabled
 Majorsilence.Forms.FileDialog.CheckFileExists    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.CheckPathExists    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.ClientGuid
@@ -257,20 +257,20 @@ Majorsilence.Forms.FileDialog.ReadOnlyChecked    -- framework-written (outbound 
 Majorsilence.Forms.FileDialog.RestoreDirectory    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.ShowHiddenFiles
-Majorsilence.Forms.FileDialog.ShowPinnedPlaces    -- framework-written (outbound state)
+Majorsilence.Forms.FileDialog.ShowPinnedPlaces
 Majorsilence.Forms.FileDialog.ShowReadOnly    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.SupportMultiDottedExtensions    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.ValidateNames    -- framework-written (outbound state)
-Majorsilence.Forms.FlatButtonAppearance.MouseDownBackColor    -- framework-written (outbound state)
-Majorsilence.Forms.FolderBrowserDialog.AddToRecent    -- framework-written (outbound state)
-Majorsilence.Forms.FolderBrowserDialog.AutoUpgradeEnabled    -- framework-written (outbound state)
+Majorsilence.Forms.FlatButtonAppearance.MouseDownBackColor
+Majorsilence.Forms.FolderBrowserDialog.AddToRecent
+Majorsilence.Forms.FolderBrowserDialog.AutoUpgradeEnabled
 Majorsilence.Forms.FolderBrowserDialog.ClientGuid
 Majorsilence.Forms.FolderBrowserDialog.Multiselect
 Majorsilence.Forms.FolderBrowserDialog.OkRequiresInteraction
 Majorsilence.Forms.FolderBrowserDialog.RootFolder    -- framework-written (outbound state)
 Majorsilence.Forms.FolderBrowserDialog.ShowHiddenFiles
 Majorsilence.Forms.FolderBrowserDialog.ShowNewFolderButton    -- framework-written (outbound state)
-Majorsilence.Forms.FolderBrowserDialog.ShowPinnedPlaces    -- framework-written (outbound state)
+Majorsilence.Forms.FolderBrowserDialog.ShowPinnedPlaces
 Majorsilence.Forms.FolderBrowserDialog.UseDescriptionForTitle    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.AllowScriptChange    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.AllowSimulations    -- framework-written (outbound state)
@@ -290,88 +290,86 @@ Majorsilence.Forms.Form.AllowDrop
 Majorsilence.Forms.Form.AllowTransparency
 Majorsilence.Forms.Form.AutoScale
 Majorsilence.Forms.Form.AutoScaleBaseSize
-Majorsilence.Forms.Form.AutoSizeMode    -- framework-written (outbound state)
-Majorsilence.Forms.Form.CausesValidation    -- framework-written (outbound state)
-Majorsilence.Forms.Form.FormScreenCaptureMode    -- framework-written (outbound state)
+Majorsilence.Forms.Form.AutoSizeMode
+Majorsilence.Forms.Form.CausesValidation
+Majorsilence.Forms.Form.FormScreenCaptureMode
 Majorsilence.Forms.Form.HelpButton
 Majorsilence.Forms.Form.MaximizedBounds
-Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom    -- framework-written (outbound state)
+Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom
 Majorsilence.Forms.Form.Modal    -- framework-written (outbound state)
-Majorsilence.Forms.Form.ShowIcon    -- framework-written (outbound state)
-Majorsilence.Forms.Form.TransparencyKey    -- framework-written (outbound state)
+Majorsilence.Forms.Form.ShowIcon
+Majorsilence.Forms.Form.TransparencyKey
 Majorsilence.Forms.GiveFeedbackEventArgs.CursorOffset
 Majorsilence.Forms.GiveFeedbackEventArgs.DragImage
 Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultCursors    -- framework-written (outbound state)
 Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultDragImage
 Majorsilence.Forms.GridItem.Expanded
-Majorsilence.Forms.GridItem.Label    -- framework-written (outbound state)
-Majorsilence.Forms.GridItem.Name    -- framework-written (outbound state)
+Majorsilence.Forms.GridItem.Label
+Majorsilence.Forms.GridItem.Name
 Majorsilence.Forms.GridItem.Parent
 Majorsilence.Forms.GridItem.PropertyDescriptor
 Majorsilence.Forms.GridItem.Tag
 Majorsilence.Forms.GridItem.Value
-Majorsilence.Forms.GroupBox.FlatStyle    -- framework-written (outbound state)
-Majorsilence.Forms.GroupBox.UseCompatibleTextRendering    -- framework-written (outbound state)
-Majorsilence.Forms.GroupBoxRenderer.RenderMatchingApplicationState    -- framework-written (outbound state)
+Majorsilence.Forms.GroupBox.FlatStyle
+Majorsilence.Forms.GroupBox.UseCompatibleTextRendering
+Majorsilence.Forms.GroupBoxRenderer.RenderMatchingApplicationState
 Majorsilence.Forms.HelpEventArgs.Handled
-Majorsilence.Forms.HelpProvider.HelpNamespace    -- framework-written (outbound state)
+Majorsilence.Forms.HelpProvider.HelpNamespace
 Majorsilence.Forms.HelpProvider.Tag
 Majorsilence.Forms.HtmlElementErrorEventArgs.Handled
 Majorsilence.Forms.HtmlElementEventArgs.BubbleEvent
 Majorsilence.Forms.HtmlElementEventArgs.ReturnValue
-Majorsilence.Forms.ImageList.ColorDepth    -- framework-written (outbound state)
+Majorsilence.Forms.ImageList.ColorDepth
 Majorsilence.Forms.ImageList.Tag
-Majorsilence.Forms.ImageList.TransparentColor    -- framework-written (outbound state)
-Majorsilence.Forms.Label.FlatStyle    -- framework-written (outbound state)
-Majorsilence.Forms.Label.LiveSetting    -- framework-written (outbound state)
+Majorsilence.Forms.ImageList.TransparentColor
+Majorsilence.Forms.Label.FlatStyle
+Majorsilence.Forms.Label.LiveSetting
 Majorsilence.Forms.Label.UseCompatibleTextRendering
 Majorsilence.Forms.LinkLabel+Link.LinkData    -- framework-written (outbound state)
 Majorsilence.Forms.LinkLabel+Link.Tag
-Majorsilence.Forms.ListBox.BorderStyle    -- framework-written (outbound state)
 Majorsilence.Forms.ListBox.ColumnWidth
 Majorsilence.Forms.ListBox.HorizontalExtent
 Majorsilence.Forms.ListBox.HorizontalScrollbar
-Majorsilence.Forms.ListBox.IntegralHeight    -- framework-written (outbound state)
+Majorsilence.Forms.ListBox.IntegralHeight
 Majorsilence.Forms.ListBox.MultiColumn
 Majorsilence.Forms.ListBox.UseCustomTabOffsets
-Majorsilence.Forms.ListBox.UseTabStops    -- framework-written (outbound state)
+Majorsilence.Forms.ListBox.UseTabStops
 Majorsilence.Forms.ListControl.FormatInfo
-Majorsilence.Forms.ListControl.FormatString    -- framework-written (outbound state)
+Majorsilence.Forms.ListControl.FormatString
 Majorsilence.Forms.ListView.AllowColumnReorder
-Majorsilence.Forms.ListView.AutoArrange    -- framework-written (outbound state)
+Majorsilence.Forms.ListView.AutoArrange
 Majorsilence.Forms.ListView.BackgroundImageTiled
-Majorsilence.Forms.ListView.BorderStyle    -- framework-written (outbound state)
 Majorsilence.Forms.ListView.GroupImageList
 Majorsilence.Forms.ListView.HotTracking
 Majorsilence.Forms.ListView.HoverSelection
 Majorsilence.Forms.ListView.LabelEdit
-Majorsilence.Forms.ListView.LabelWrap    -- framework-written (outbound state)
+Majorsilence.Forms.ListView.LabelWrap
 Majorsilence.Forms.ListView.OwnerDraw
 Majorsilence.Forms.ListView.RightToLeftLayout
-Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- framework-written (outbound state)
+Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior
 Majorsilence.Forms.ListView.VirtualListSize
 Majorsilence.Forms.ListView.VirtualMode
-Majorsilence.Forms.ListViewGroup.Footer    -- framework-written (outbound state)
+Majorsilence.Forms.ListViewGroup.Footer
 Majorsilence.Forms.ListViewGroup.FooterAlignment
 Majorsilence.Forms.ListViewGroup.ListView    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewGroup.Name    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewGroup.Tag
-Majorsilence.Forms.ListViewGroup.TaskLink    -- framework-written (outbound state)
-Majorsilence.Forms.ListViewGroup.TitleImageIndex    -- framework-written (outbound state)
-Majorsilence.Forms.ListViewGroup.TitleImageKey    -- framework-written (outbound state)
+Majorsilence.Forms.ListViewGroup.TaskLink
+Majorsilence.Forms.ListViewGroup.TitleImageIndex
+Majorsilence.Forms.ListViewGroup.TitleImageKey
 Majorsilence.Forms.ListViewInsertionMark.AppearsAfterItem
 Majorsilence.Forms.ListViewInsertionMark.Bounds
-Majorsilence.Forms.ListViewInsertionMark.Color    -- framework-written (outbound state)
+Majorsilence.Forms.ListViewInsertionMark.Color
 Majorsilence.Forms.ListViewItem.IndentCount
 Majorsilence.Forms.ListViewItem.Position
-Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput    -- framework-written (outbound state)
+Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput
 Majorsilence.Forms.MaskedTextBox.BeepOnError
-Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat    -- framework-written (outbound state)
+Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat
 Majorsilence.Forms.MaskedTextBox.HidePromptOnLeave
 Majorsilence.Forms.MaskedTextBox.RejectInputOnFirstFailure
 Majorsilence.Forms.MeasureItemEventArgs.ItemHeight
 Majorsilence.Forms.MeasureItemEventArgs.ItemWidth
-Majorsilence.Forms.Media.SoundPlayer.LoadTimeout    -- framework-written (outbound state)
+Majorsilence.Forms.Media.SoundPlayer.LoadTimeout
 Majorsilence.Forms.Media.SoundPlayer.Tag
 Majorsilence.Forms.MenuItem.BarBreak
 Majorsilence.Forms.MenuItem.Break
@@ -382,70 +380,70 @@ Majorsilence.Forms.MessageBox.DefaultButton
 Majorsilence.Forms.MonthCalendar.AnnuallyBoldedDates    -- framework-written (outbound state)
 Majorsilence.Forms.MonthCalendar.BoldedDates    -- framework-written (outbound state)
 Majorsilence.Forms.MonthCalendar.MonthlyBoldedDates    -- framework-written (outbound state)
-Majorsilence.Forms.NavigationPaneItem.Padding    -- framework-written (outbound state)
+Majorsilence.Forms.NavigationPaneItem.Padding
 Majorsilence.Forms.NavigationPaneItem.Tag
 Majorsilence.Forms.NotifyIcon.ContextMenuStrip
 Majorsilence.Forms.NotifyIcon.Tag
 Majorsilence.Forms.NumericUpDownAcceleration.Increment    -- framework-written (outbound state)
 Majorsilence.Forms.OpenFileDialog.SelectReadOnly
 Majorsilence.Forms.OpenFileDialog.ShowPreview
-Majorsilence.Forms.PageSetupDialog.AllowMargins    -- framework-written (outbound state)
-Majorsilence.Forms.PageSetupDialog.AllowOrientation    -- framework-written (outbound state)
-Majorsilence.Forms.PageSetupDialog.AllowPaper    -- framework-written (outbound state)
-Majorsilence.Forms.PageSetupDialog.AllowPrinter    -- framework-written (outbound state)
+Majorsilence.Forms.PageSetupDialog.AllowMargins
+Majorsilence.Forms.PageSetupDialog.AllowOrientation
+Majorsilence.Forms.PageSetupDialog.AllowPaper
+Majorsilence.Forms.PageSetupDialog.AllowPrinter
 Majorsilence.Forms.PageSetupDialog.EnableMetric    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.MinMargins    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.ShowNetwork    -- framework-written (outbound state)
 Majorsilence.Forms.PictureBox.ErrorImage
-Majorsilence.Forms.PictureBox.WaitOnLoad    -- framework-written (outbound state)
+Majorsilence.Forms.PictureBox.WaitOnLoad
 Majorsilence.Forms.PopupEventArgs.ToolTipSize
 Majorsilence.Forms.PreviewKeyDownEventArgs.IsInputKey
 Majorsilence.Forms.PrintDialog.AllowCurrentPage    -- framework-written (outbound state)
-Majorsilence.Forms.PrintDialog.AllowPrintToFile    -- framework-written (outbound state)
+Majorsilence.Forms.PrintDialog.AllowPrintToFile
 Majorsilence.Forms.PrintDialog.AllowSelection
 Majorsilence.Forms.PrintDialog.AllowSomePages
 Majorsilence.Forms.PrintDialog.PrintToFile    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.ShowNetwork    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.UseEXDialog    -- framework-written (outbound state)
-Majorsilence.Forms.PrintPreviewControl.AutoZoom    -- framework-written (outbound state)
-Majorsilence.Forms.PrintPreviewControl.Columns    -- framework-written (outbound state)
+Majorsilence.Forms.PrintPreviewControl.AutoZoom
+Majorsilence.Forms.PrintPreviewControl.Columns
 Majorsilence.Forms.PrintPreviewControl.Document
-Majorsilence.Forms.PrintPreviewControl.Rows    -- framework-written (outbound state)
+Majorsilence.Forms.PrintPreviewControl.Rows
 Majorsilence.Forms.PrintPreviewControl.UseAntiAlias
-Majorsilence.Forms.PrintPreviewControl.Zoom    -- framework-written (outbound state)
-Majorsilence.Forms.PrintPreviewDialog.UseAntiAlias    -- framework-written (outbound state)
+Majorsilence.Forms.PrintPreviewControl.Zoom
+Majorsilence.Forms.PrintPreviewDialog.UseAntiAlias
 Majorsilence.Forms.PrintPreviewDialog.UseWaitCursor
 Majorsilence.Forms.Printing.PaperSize.PaperName    -- framework-written (outbound state)
 Majorsilence.Forms.Printing.PreviewPrintController.UseAntiAlias
 Majorsilence.Forms.Printing.PrintDocument.OriginAtMargins
-Majorsilence.Forms.Printing.PrintDocument.PrintController    -- framework-written (outbound state)
-Majorsilence.Forms.Printing.PrintEventArgs.PrintAction    -- framework-written (outbound state)
-Majorsilence.Forms.ProfessionalColorTable.UseSystemColors    -- framework-written (outbound state)
+Majorsilence.Forms.Printing.PrintDocument.PrintController
+Majorsilence.Forms.Printing.PrintEventArgs.PrintAction
+Majorsilence.Forms.ProfessionalColorTable.UseSystemColors
 Majorsilence.Forms.PropertyGrid.BrowsableAttributes
-Majorsilence.Forms.PropertyGrid.CanShowVisualStyleGlyphs    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.CategoryForeColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.CategorySplitterColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.CommandsActiveLinkColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.CommandsBackColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.CommandsBorderColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.CommandsDisabledLinkColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.CommandsForeColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.CommandsLinkColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.CommandsVisibleIfAvailable    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.DisabledItemForeColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.HelpBackColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.HelpBorderColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.HelpForeColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.HelpVisible    -- framework-written (outbound state)
+Majorsilence.Forms.PropertyGrid.CanShowVisualStyleGlyphs
+Majorsilence.Forms.PropertyGrid.CategoryForeColor
+Majorsilence.Forms.PropertyGrid.CategorySplitterColor
+Majorsilence.Forms.PropertyGrid.CommandsActiveLinkColor
+Majorsilence.Forms.PropertyGrid.CommandsBackColor
+Majorsilence.Forms.PropertyGrid.CommandsBorderColor
+Majorsilence.Forms.PropertyGrid.CommandsDisabledLinkColor
+Majorsilence.Forms.PropertyGrid.CommandsForeColor
+Majorsilence.Forms.PropertyGrid.CommandsLinkColor
+Majorsilence.Forms.PropertyGrid.CommandsVisibleIfAvailable
+Majorsilence.Forms.PropertyGrid.DisabledItemForeColor
+Majorsilence.Forms.PropertyGrid.HelpBackColor
+Majorsilence.Forms.PropertyGrid.HelpBorderColor
+Majorsilence.Forms.PropertyGrid.HelpForeColor
+Majorsilence.Forms.PropertyGrid.HelpVisible
 Majorsilence.Forms.PropertyGrid.LargeButtons
-Majorsilence.Forms.PropertyGrid.SelectedItemWithFocusBackColor    -- framework-written (outbound state)
-Majorsilence.Forms.PropertyGrid.SelectedItemWithFocusForeColor    -- framework-written (outbound state)
+Majorsilence.Forms.PropertyGrid.SelectedItemWithFocusBackColor
+Majorsilence.Forms.PropertyGrid.SelectedItemWithFocusForeColor
 Majorsilence.Forms.PropertyGrid.ToolStripRenderer
-Majorsilence.Forms.PropertyGrid.ToolbarVisible    -- framework-written (outbound state)
+Majorsilence.Forms.PropertyGrid.ToolbarVisible
 Majorsilence.Forms.PropertyGrid.UseCompatibleTextRendering
-Majorsilence.Forms.PropertyGrid.ViewBorderColor    -- framework-written (outbound state)
+Majorsilence.Forms.PropertyGrid.ViewBorderColor
 Majorsilence.Forms.PropertyTabChangedEventArgs.NewTab
 Majorsilence.Forms.PropertyTabChangedEventArgs.OldTab
 Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpKeyword
@@ -457,22 +455,22 @@ Majorsilence.Forms.RetrieveVirtualItemEventArgs.Item
 Majorsilence.Forms.RibbonItemGroup.Text    -- framework-written (outbound state)
 Majorsilence.Forms.RichTextBox.AutoWordSelection
 Majorsilence.Forms.RichTextBox.BulletIndent
-Majorsilence.Forms.RichTextBox.DetectUrls    -- framework-written (outbound state)
+Majorsilence.Forms.RichTextBox.DetectUrls
 Majorsilence.Forms.RichTextBox.EnableAutoDragDrop
-Majorsilence.Forms.RichTextBox.LanguageOption    -- framework-written (outbound state)
-Majorsilence.Forms.RichTextBox.RichTextShortcutsEnabled    -- framework-written (outbound state)
-Majorsilence.Forms.RichTextBox.SelectionAlignment    -- framework-written (outbound state)
+Majorsilence.Forms.RichTextBox.LanguageOption
+Majorsilence.Forms.RichTextBox.RichTextShortcutsEnabled
+Majorsilence.Forms.RichTextBox.SelectionAlignment
 Majorsilence.Forms.RichTextBox.SelectionBullet
 Majorsilence.Forms.RichTextBox.SelectionCharOffset
 Majorsilence.Forms.RichTextBox.SelectionHangingIndent
 Majorsilence.Forms.RichTextBox.SelectionIndent
 Majorsilence.Forms.RichTextBox.SelectionProtected
 Majorsilence.Forms.RichTextBox.SelectionRightIndent
-Majorsilence.Forms.RichTextBox.SelectionTabs    -- framework-written (outbound state)
+Majorsilence.Forms.RichTextBox.SelectionTabs
 Majorsilence.Forms.RichTextBox.ShowSelectionMargin
-Majorsilence.Forms.SaveFileDialog.CheckWriteAccess    -- framework-written (outbound state)
-Majorsilence.Forms.SaveFileDialog.ExpandedMode    -- framework-written (outbound state)
-Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange    -- framework-written (outbound state)
+Majorsilence.Forms.SaveFileDialog.CheckWriteAccess
+Majorsilence.Forms.SaveFileDialog.ExpandedMode
+Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Bottom    -- framework-written (outbound state)
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Left    -- framework-written (outbound state)
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Right    -- framework-written (outbound state)
@@ -480,23 +478,21 @@ Majorsilence.Forms.SearchForVirtualItemEventArgs.Index
 Majorsilence.Forms.SplitContainer.AutoScrollMargin
 Majorsilence.Forms.SplitContainer.AutoScrollMinSize
 Majorsilence.Forms.SplitContainer.AutoScrollPosition
-Majorsilence.Forms.SplitContainer.BorderStyle    -- framework-written (outbound state)
-Majorsilence.Forms.SplitContainer.SplitterIncrement    -- framework-written (outbound state)
-Majorsilence.Forms.Splitter.BorderStyle
+Majorsilence.Forms.SplitContainer.SplitterIncrement
 Majorsilence.Forms.StatusBar.ShowPanels
-Majorsilence.Forms.StatusBar.SizingGrip    -- framework-written (outbound state)
-Majorsilence.Forms.StatusBarPanel.Alignment    -- framework-written (outbound state)
-Majorsilence.Forms.StatusBarPanel.AutoSize    -- framework-written (outbound state)
-Majorsilence.Forms.StatusBarPanel.BorderStyle    -- framework-written (outbound state)
+Majorsilence.Forms.StatusBar.SizingGrip
+Majorsilence.Forms.StatusBarPanel.Alignment
+Majorsilence.Forms.StatusBarPanel.AutoSize
+Majorsilence.Forms.StatusBarPanel.BorderStyle
 Majorsilence.Forms.StatusBarPanel.Icon
-Majorsilence.Forms.StatusBarPanel.MinWidth    -- framework-written (outbound state)
+Majorsilence.Forms.StatusBarPanel.MinWidth
 Majorsilence.Forms.StatusBarPanel.Parent
-Majorsilence.Forms.StatusBarPanel.Style    -- framework-written (outbound state)
+Majorsilence.Forms.StatusBarPanel.Style
 Majorsilence.Forms.StatusBarPanel.Tag
 Majorsilence.Forms.StatusBarPanel.Text    -- framework-written (outbound state)
-Majorsilence.Forms.StatusBarPanel.ToolTipText    -- framework-written (outbound state)
-Majorsilence.Forms.StatusBarPanel.Width    -- framework-written (outbound state)
-Majorsilence.Forms.TabControl.Appearance    -- framework-written (outbound state)
+Majorsilence.Forms.StatusBarPanel.ToolTipText
+Majorsilence.Forms.StatusBarPanel.Width
+Majorsilence.Forms.TabControl.Appearance
 Majorsilence.Forms.TabControl.HotTrack
 Majorsilence.Forms.TabControl.Multiline
 Majorsilence.Forms.TabControl.RightToLeftLayout
@@ -507,7 +503,7 @@ Majorsilence.Forms.TaskDialogCommandLinkButton.DescriptionText    -- framework-w
 Majorsilence.Forms.TaskDialogControl.Tag
 Majorsilence.Forms.TaskDialogExpander.CollapsedButtonText
 Majorsilence.Forms.TaskDialogExpander.ExpandedButtonText
-Majorsilence.Forms.TaskDialogExpander.Position    -- framework-written (outbound state)
+Majorsilence.Forms.TaskDialogExpander.Position
 Majorsilence.Forms.TaskDialogFootnote.Icon
 Majorsilence.Forms.TaskDialogPage.AllowCancel
 Majorsilence.Forms.TaskDialogPage.AllowMinimize
@@ -516,157 +512,155 @@ Majorsilence.Forms.TaskDialogPage.EnableLinks
 Majorsilence.Forms.TaskDialogPage.RightToLeftLayout
 Majorsilence.Forms.TaskDialogPage.SizeToContent
 Majorsilence.Forms.TaskDialogProgressBar.MarqueeSpeed
-Majorsilence.Forms.TaskDialogProgressBar.Maximum    -- framework-written (outbound state)
+Majorsilence.Forms.TaskDialogProgressBar.Maximum
 Majorsilence.Forms.TaskDialogProgressBar.Minimum
 Majorsilence.Forms.TaskDialogProgressBar.State    -- framework-written (outbound state)
 Majorsilence.Forms.TaskDialogProgressBar.Value
-Majorsilence.Forms.TaskDialogRadioButton.Enabled    -- framework-written (outbound state)
-Majorsilence.Forms.TimePicker.MaxValue    -- framework-written (outbound state)
-Majorsilence.Forms.TimePicker.MinValue    -- framework-written (outbound state)
+Majorsilence.Forms.TaskDialogRadioButton.Enabled
+Majorsilence.Forms.TimePicker.MaxValue
+Majorsilence.Forms.TimePicker.MinValue
 Majorsilence.Forms.Timer.Tag
-Majorsilence.Forms.ToolBar.Appearance    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBar.BorderStyle    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBar.ButtonSize    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBar.Divider    -- framework-written (outbound state)
+Majorsilence.Forms.ToolBar.Appearance
+Majorsilence.Forms.ToolBar.ButtonSize
+Majorsilence.Forms.ToolBar.Divider
 Majorsilence.Forms.ToolBar.DropDownArrows
 Majorsilence.Forms.ToolBar.ShowToolTips
-Majorsilence.Forms.ToolBar.TextAlign    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBar.Wrappable    -- framework-written (outbound state)
+Majorsilence.Forms.ToolBar.TextAlign
+Majorsilence.Forms.ToolBar.Wrappable
 Majorsilence.Forms.ToolBarButton.DropDownMenu
-Majorsilence.Forms.ToolBarButton.Enabled    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBarButton.ImageIndex    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBarButton.ImageKey    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBarButton.Name    -- framework-written (outbound state)
+Majorsilence.Forms.ToolBarButton.Enabled
+Majorsilence.Forms.ToolBarButton.ImageIndex
+Majorsilence.Forms.ToolBarButton.ImageKey
+Majorsilence.Forms.ToolBarButton.Name
 Majorsilence.Forms.ToolBarButton.Parent
 Majorsilence.Forms.ToolBarButton.PartialPush
 Majorsilence.Forms.ToolBarButton.Pushed
 Majorsilence.Forms.ToolBarButton.Rectangle
-Majorsilence.Forms.ToolBarButton.Style    -- framework-written (outbound state)
+Majorsilence.Forms.ToolBarButton.Style
 Majorsilence.Forms.ToolBarButton.Tag
 Majorsilence.Forms.ToolBarButton.Text    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBarButton.ToolTipText    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBarButton.Visible    -- framework-written (outbound state)
+Majorsilence.Forms.ToolBarButton.ToolTipText
+Majorsilence.Forms.ToolBarButton.Visible
 Majorsilence.Forms.ToolStrip.AllowClickThrough
 Majorsilence.Forms.ToolStrip.AllowItemReorder
-Majorsilence.Forms.ToolStrip.AllowMerge    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.CanOverflow    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.DefaultDropDownDirection    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.GripMargin    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.GripVisible    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.ImageScalingSize    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStrip.AllowMerge
+Majorsilence.Forms.ToolStrip.CanOverflow
+Majorsilence.Forms.ToolStrip.DefaultDropDownDirection
+Majorsilence.Forms.ToolStrip.GripMargin
+Majorsilence.Forms.ToolStrip.GripVisible
+Majorsilence.Forms.ToolStrip.ImageScalingSize
 Majorsilence.Forms.ToolStrip.IsCurrentlyDragging    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStrip.LayoutSettings
-Majorsilence.Forms.ToolStrip.LayoutStyle    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.Orientation    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStrip.LayoutStyle
+Majorsilence.Forms.ToolStrip.Orientation
 Majorsilence.Forms.ToolStrip.OverflowButton
 Majorsilence.Forms.ToolStrip.RenderMode    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStrip.Stretch
-Majorsilence.Forms.ToolStrip.TextDirection    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStrip.TextDirection
 Majorsilence.Forms.ToolStripArrowRenderEventArgs.ArrowColor    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripArrowRenderEventArgs.ArrowRectangle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripArrowRenderEventArgs.Direction
 Majorsilence.Forms.ToolStripButton.ImageTransparentColor
-Majorsilence.Forms.ToolStripContentPanel.RenderMode    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripContentPanel.RenderMode
 Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.Handled
 Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.ToolStripContentPanel
-Majorsilence.Forms.ToolStripControlHost.ControlAlign    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripControlHost.ControlAlign
 Majorsilence.Forms.ToolStripDropDown.AllowTransparency
-Majorsilence.Forms.ToolStripDropDown.AutoClose    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripDropDown.DropShadowEnabled    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripDropDown.AutoClose
+Majorsilence.Forms.ToolStripDropDown.DropShadowEnabled
 Majorsilence.Forms.ToolStripDropDown.IsAutoGenerated    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripDropDown.Opacity    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripDropDown.TopLevel    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripDropDownItem.DropDownDirection    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripDropDownMenu.LayoutStyle    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripDropDown.Opacity
+Majorsilence.Forms.ToolStripDropDown.TopLevel
+Majorsilence.Forms.ToolStripDropDownItem.DropDownDirection
+Majorsilence.Forms.ToolStripDropDownMenu.LayoutStyle
 Majorsilence.Forms.ToolStripDropDownMenu.ShowCheckMargin
-Majorsilence.Forms.ToolStripDropDownMenu.ShowImageMargin    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripDropDownMenu.ShowImageMargin
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripBounds    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripDisplayStyle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripStyle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItem.AllowDrop
-Majorsilence.Forms.ToolStripItem.Anchor    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripItem.Anchor
 Majorsilence.Forms.ToolStripItem.AutoToolTip
 Majorsilence.Forms.ToolStripItem.CommandParameter
-Majorsilence.Forms.ToolStripItem.Dock    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripItem.Dock
 Majorsilence.Forms.ToolStripItem.DoubleClickEnabled
 Majorsilence.Forms.ToolStripItem.Font    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.ImageAlign    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.ImageTransparentColor    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripItem.ImageAlign
+Majorsilence.Forms.ToolStripItem.ImageTransparentColor
 Majorsilence.Forms.ToolStripItem.IsDisposed    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.MergeAction    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.MergeIndex    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.Overflow    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripItem.MergeAction
+Majorsilence.Forms.ToolStripItem.MergeIndex
+Majorsilence.Forms.ToolStripItem.Overflow
 Majorsilence.Forms.ToolStripItem.RightToLeft    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItem.RightToLeftAutoMirrorImage
 Majorsilence.Forms.ToolStripItem.TextDirection    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.Text    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextAlign    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextColor    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextDirection    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextDirection
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFont    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFormat    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextRectangle    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripLabel.ActiveLinkColor    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripLabel.ActiveLinkColor
 Majorsilence.Forms.ToolStripLabel.IsLink
-Majorsilence.Forms.ToolStripLabel.LinkBehavior    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripLabel.LinkColor    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripLabel.LinkBehavior
+Majorsilence.Forms.ToolStripLabel.LinkColor
 Majorsilence.Forms.ToolStripLabel.LinkVisited
-Majorsilence.Forms.ToolStripLabel.VisitedLinkColor    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripManager.RenderMode    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripLabel.VisitedLinkColor
+Majorsilence.Forms.ToolStripManager.RenderMode
 Majorsilence.Forms.ToolStripManager.Renderer
-Majorsilence.Forms.ToolStripManager.VisualStylesEnabled    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripMenuItem.MergeAction    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripMenuItem.MergeIndex    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripManager.VisualStylesEnabled
+Majorsilence.Forms.ToolStripMenuItem.MergeAction
+Majorsilence.Forms.ToolStripMenuItem.MergeIndex
 Majorsilence.Forms.ToolStripPanel.Locked
-Majorsilence.Forms.ToolStripPanel.RenderMode    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripPanel.RowMargin    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripPanel.RenderMode
+Majorsilence.Forms.ToolStripPanel.RowMargin
 Majorsilence.Forms.ToolStripPanelRenderEventArgs.Handled
 Majorsilence.Forms.ToolStripPanelRow.Margin
 Majorsilence.Forms.ToolStripProfessionalRenderer.ColorTable    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripProfessionalRenderer.RoundedEdges    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripProfessionalRenderer.RoundedEdges
 Majorsilence.Forms.ToolStripSplitButton.DefaultItem
-Majorsilence.Forms.ToolStripStatusLabel.BorderSides    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripStatusLabel.BorderStyle    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripStatusLabel.LiveSetting    -- framework-written (outbound state)
+Majorsilence.Forms.ToolStripStatusLabel.BorderSides
+Majorsilence.Forms.ToolStripStatusLabel.BorderStyle
+Majorsilence.Forms.ToolStripStatusLabel.LiveSetting
 Majorsilence.Forms.ToolTip.IsBalloon
 Majorsilence.Forms.ToolTip.OwnerDraw
 Majorsilence.Forms.ToolTip.ShowAlways
 Majorsilence.Forms.ToolTip.StripAmpersands
 Majorsilence.Forms.ToolTip.Tag
-Majorsilence.Forms.ToolTip.ToolTipIcon    -- framework-written (outbound state)
-Majorsilence.Forms.ToolTip.ToolTipTitle    -- framework-written (outbound state)
-Majorsilence.Forms.ToolTip.UseAnimation    -- framework-written (outbound state)
-Majorsilence.Forms.ToolTip.UseFading    -- framework-written (outbound state)
-Majorsilence.Forms.TreeView.BorderStyle    -- framework-written (outbound state)
+Majorsilence.Forms.ToolTip.ToolTipIcon
+Majorsilence.Forms.ToolTip.ToolTipTitle
+Majorsilence.Forms.ToolTip.UseAnimation
+Majorsilence.Forms.ToolTip.UseFading
 Majorsilence.Forms.TreeView.HotTracking
 Majorsilence.Forms.TreeView.LabelEdit
-Majorsilence.Forms.TreeView.LineColor    -- framework-written (outbound state)
-Majorsilence.Forms.TreeView.ShowLines    -- framework-written (outbound state)
-Majorsilence.Forms.TreeView.ShowRootLines    -- framework-written (outbound state)
+Majorsilence.Forms.TreeView.LineColor
+Majorsilence.Forms.TreeView.ShowLines
+Majorsilence.Forms.TreeView.ShowRootLines
 Majorsilence.Forms.UpDownBase.ChangingText
-Majorsilence.Forms.UserControl.AutoValidate    -- framework-written (outbound state)
+Majorsilence.Forms.UserControl.AutoValidate
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Part    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.State    -- framework-written (outbound state)
-Majorsilence.Forms.WebBrowser.AllowNavigation    -- framework-written (outbound state)
-Majorsilence.Forms.WebBrowser.AllowWebBrowserDrop    -- framework-written (outbound state)
+Majorsilence.Forms.WebBrowser.AllowNavigation
+Majorsilence.Forms.WebBrowser.AllowWebBrowserDrop
 Majorsilence.Forms.WebBrowser.DocumentStream
 Majorsilence.Forms.WebBrowser.IsOffline
-Majorsilence.Forms.WebBrowser.IsWebBrowserContextMenuEnabled    -- framework-written (outbound state)
+Majorsilence.Forms.WebBrowser.IsWebBrowserContextMenuEnabled
 Majorsilence.Forms.WebBrowser.ObjectForScripting
-Majorsilence.Forms.WebBrowser.ScriptErrorsSuppressed    -- framework-written (outbound state)
-Majorsilence.Forms.WebBrowser.ScrollBarsEnabled    -- framework-written (outbound state)
-Majorsilence.Forms.WebBrowser.WebBrowserShortcutsEnabled    -- framework-written (outbound state)
+Majorsilence.Forms.WebBrowser.ScriptErrorsSuppressed
+Majorsilence.Forms.WebBrowser.ScrollBarsEnabled
+Majorsilence.Forms.WebBrowser.WebBrowserShortcutsEnabled
 Majorsilence.Forms.WindowBase.AccessibleDefaultActionDescription
 Majorsilence.Forms.WindowBase.AccessibleRole    -- framework-written (outbound state)
-Majorsilence.Forms.WindowBase.Anchor    -- framework-written (outbound state)
+Majorsilence.Forms.WindowBase.Anchor
 Majorsilence.Forms.WindowBase.AutoSize
 Majorsilence.Forms.WindowBase.Disposing    -- framework-written (outbound state)
-Majorsilence.Forms.WindowBase.DoubleBuffered    -- framework-written (outbound state)
-Majorsilence.Forms.WindowBase.IsAccessible    -- framework-written (outbound state)
-Majorsilence.Forms.WindowBase.Margin    -- framework-written (outbound state)
+Majorsilence.Forms.WindowBase.DoubleBuffered
+Majorsilence.Forms.WindowBase.IsAccessible
+Majorsilence.Forms.WindowBase.Margin
 Majorsilence.Forms.WindowBase.StartPosition    -- framework-written (outbound state)
 Majorsilence.Forms.WindowBase.TabIndex
 Majorsilence.Forms.WindowBase.Tag
-Majorsilence.Forms.WindowsFormsSynchronizationContext.AutoInstall    -- framework-written (outbound state)
-SkiaSharp.Views.Desktop.SKGLControl.VSync    -- framework-written (outbound state)
+Majorsilence.Forms.WindowsFormsSynchronizationContext.AutoInstall
+SkiaSharp.Views.Desktop.SKGLControl.VSync

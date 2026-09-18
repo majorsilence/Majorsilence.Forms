@@ -105,8 +105,19 @@ namespace Majorsilence.Forms
 
     public partial class TreeView
     {
+        private BorderStyle border_style = BorderStyle.Fixed3D;
+
         /// <summary>Gets or sets the border drawn around the control.</summary>
-        public BorderStyle BorderStyle { get; set; } = BorderStyle.Fixed3D;
+        public BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (border_style == value)
+                    return;
+
+                border_style = value;
+                ApplyBorderStyle (value);
+            }
+        }
 
         /// <summary>Gets or sets the colour of the lines joining nodes.</summary>
         public Color LineColor { get; set; } = Color.Empty;

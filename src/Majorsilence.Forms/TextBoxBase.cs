@@ -114,10 +114,8 @@ namespace Majorsilence.Forms
                     return;
 
                 border_style = value;
-                Style.Border.Width = value == BorderStyle.None ? 0 : 1;
+                ApplyBorderStyle (value);
                 OnBorderStyleChanged (EventArgs.Empty);
-                PerformLayout ();
-                Invalidate ();
             }
         }
 
