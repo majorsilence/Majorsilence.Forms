@@ -2207,6 +2207,35 @@ about the class, and it has to be checked against the pipeline.
 
 6 tests, 4 neutralizations. Core stored-only properties 654 → 650.
 
+**W6.2 — the per-item tool-tip host (`LST-59`). — mostly done (2026-09-18).** Part of #91, and the
+largest of the recorded mechanisms: 13 entries across 8 controls, all waiting on the same missing thing.
+
+`ToolTip.SetToolTip` associates text with a whole CONTROL and shows it on `MouseEnter`, which cannot
+express a tip that changes as the pointer moves *within* one control. The seam is
+`Control.GetToolTipText (Point)`, driven from the mouse-move path that already exists and shown through
+`ToolTip`'s existing popup; each control's override is then five lines reading its own two properties.
+**8 of the 13 closed** — `ListView`, `TreeView`, `ToolStrip` and `TabControl`, each with its flag and its
+per-item text.
+
+*Three design points that are not obvious and are now in the finding.* The tip is re-shown only when the
+text CHANGES, or every mouse-move re-creates the popup and it flickers under the pointer. One shared
+`ToolTip` instance, since the popup is modeless and only one is ever up. And the `TabControl` override
+lives on `TabStrip`, because the tabs are the strip's children — the pointer is never over the
+`TabControl` itself when it is over a tab.
+
+*The seam is `internal`, not `protected`, and a gate decided that.* `Control`'s public and protected
+members are held to a parity gate against `WindowBase`; making the seam protected failed it immediately.
+It is not upstream surface — it is an implementation seam for the controls in this assembly — so
+`internal` is both what the gate wants and what it should have been.
+
+*Four gate failures in one batch, every one of them mine:* the parity gate above, an ambiguous `cref`
+(`SetToolTip` has two overloads), a doc comment my insertion displaced from `TreeView.GetItemAtLocation`,
+and a scale-2 failure from building a LOGICAL point out of `TreeNode.Bounds`, which is DEVICE. The last
+is the fourth time this session a test of mine has mixed those two spaces, and every one was caught by
+the same gate rather than by review.
+
+8 tests, 2 neutralizations. Core stored-only properties 650 → 642.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

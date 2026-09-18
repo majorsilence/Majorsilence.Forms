@@ -348,7 +348,6 @@ Majorsilence.Forms.ListView.LabelEdit
 Majorsilence.Forms.ListView.LabelWrap    -- framework-written (outbound state)
 Majorsilence.Forms.ListView.OwnerDraw
 Majorsilence.Forms.ListView.RightToLeftLayout
-Majorsilence.Forms.ListView.ShowItemToolTips
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- framework-written (outbound state)
 Majorsilence.Forms.ListView.VirtualListSize
 Majorsilence.Forms.ListView.VirtualMode
@@ -365,7 +364,6 @@ Majorsilence.Forms.ListViewInsertionMark.Bounds
 Majorsilence.Forms.ListViewInsertionMark.Color    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewItem.IndentCount
 Majorsilence.Forms.ListViewItem.Position
-Majorsilence.Forms.ListViewItem.ToolTipText    -- framework-written (outbound state)
 Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput    -- framework-written (outbound state)
 Majorsilence.Forms.MaskedTextBox.BeepOnError
 Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat    -- framework-written (outbound state)
@@ -502,8 +500,6 @@ Majorsilence.Forms.TabControl.Appearance    -- framework-written (outbound state
 Majorsilence.Forms.TabControl.HotTrack
 Majorsilence.Forms.TabControl.Multiline
 Majorsilence.Forms.TabControl.RightToLeftLayout
-Majorsilence.Forms.TabControl.ShowToolTips
-Majorsilence.Forms.TabPage.ToolTipText    -- framework-written (outbound state)
 Majorsilence.Forms.TabPage.UseVisualStyleBackColor
 Majorsilence.Forms.TabStripItem.Tag
 Majorsilence.Forms.TaskDialogButton.ShowShieldIcon
@@ -564,7 +560,6 @@ Majorsilence.Forms.ToolStrip.LayoutStyle    -- framework-written (outbound state
 Majorsilence.Forms.ToolStrip.Orientation    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStrip.OverflowButton
 Majorsilence.Forms.ToolStrip.RenderMode    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.ShowItemToolTips    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStrip.Stretch
 Majorsilence.Forms.ToolStrip.TextDirection    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripArrowRenderEventArgs.ArrowColor    -- framework-written (outbound state)
@@ -604,7 +599,6 @@ Majorsilence.Forms.ToolStripItem.Overflow    -- framework-written (outbound stat
 Majorsilence.Forms.ToolStripItem.RightToLeft    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItem.RightToLeftAutoMirrorImage
 Majorsilence.Forms.ToolStripItem.TextDirection    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.ToolTipText    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.Text    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextAlign    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextColor    -- framework-written (outbound state)
@@ -643,13 +637,11 @@ Majorsilence.Forms.ToolTip.ToolTipIcon    -- framework-written (outbound state)
 Majorsilence.Forms.ToolTip.ToolTipTitle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolTip.UseAnimation    -- framework-written (outbound state)
 Majorsilence.Forms.ToolTip.UseFading    -- framework-written (outbound state)
-Majorsilence.Forms.TreeNode.ToolTipText    -- framework-written (outbound state)
 Majorsilence.Forms.TreeView.BorderStyle    -- framework-written (outbound state)
 Majorsilence.Forms.TreeView.HotTracking
 Majorsilence.Forms.TreeView.LabelEdit
 Majorsilence.Forms.TreeView.LineColor    -- framework-written (outbound state)
 Majorsilence.Forms.TreeView.ShowLines    -- framework-written (outbound state)
-Majorsilence.Forms.TreeView.ShowNodeToolTips
 Majorsilence.Forms.TreeView.ShowRootLines    -- framework-written (outbound state)
 Majorsilence.Forms.UpDownBase.ChangingText
 Majorsilence.Forms.UserControl.AutoValidate    -- framework-written (outbound state)

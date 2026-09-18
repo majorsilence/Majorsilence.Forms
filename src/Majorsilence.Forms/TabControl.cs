@@ -103,6 +103,9 @@ namespace Majorsilence.Forms
 
         private TabPage? GetPageFromTab (TabStripItem? item) => TabPages.FirstOrDefault (p => p.TabStripItem == item);
 
+        // The strip owns the hover, so it needs the page behind a tab to read its ToolTipText.
+        internal TabPage? PageFor (TabStripItem? item) => GetPageFromTab (item);
+
         /// <summary>
         /// Raises the SelectedIndexChanged event.
         /// </summary>

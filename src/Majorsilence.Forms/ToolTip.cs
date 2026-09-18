@@ -211,6 +211,15 @@ namespace Majorsilence.Forms
 
         private void Control_MouseDown (object? sender, MouseEventArgs e) => HidePopup ();
 
+        // The per-ITEM entry points. Control drives these from its mouse-move path when a control
+        // reports tip text for the point under the cursor -- a cell, an item, a node, a tab, a strip
+        // button. SetToolTip's MouseEnter/MouseLeave pair cannot express that: the text has to change
+        // as the pointer moves WITHIN one control, and the popup has to follow it.
+        internal void ShowItemTip (Control control, string text, System.Drawing.Point at)
+            => ShowPopup (control, text, at);
+
+        internal void HideItemTip () => HidePopup ();
+
         private void ShowPopup (Control control, string text, System.Drawing.Point at)
         {
             try {

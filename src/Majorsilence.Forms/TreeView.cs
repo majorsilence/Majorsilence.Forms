@@ -179,6 +179,10 @@ namespace Majorsilence.Forms
             }
         }
 
+        // ShowNodeToolTips and TreeNode.ToolTipText, both stored and read by nothing before (LST-59).
+        internal override string? GetToolTipText (Point location)
+            => ShowNodeToolTips ? GetItemAtLocation (location)?.ToolTipText : null;
+
         /// <summary>
         /// Returns the TreeNode at the specified location.
         /// </summary>

@@ -85,6 +85,21 @@ namespace Majorsilence.Forms
         // Returns the tab at the specified location.
         private TabStripItem? GetTabAtLocation (Point location) => Tabs.FirstOrDefault (tp => tp.Bounds.Contains (location));
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// <see cref="TabControl.ShowToolTips"/> and <see cref="TabPage.ToolTipText"/>, both stored and
+        /// read by nothing before (<c>LST-59</c>). The override lives here rather than on
+        /// <c>TabControl</c> because the strip is the control the pointer is actually over -- the tabs
+        /// are its children, not the tab control's.
+        /// </remarks>
+        internal override string? GetToolTipText (Point location)
+        {
+            if (OwnerTabControl is not { ShowToolTips: true } owner)
+                return null;
+
+            return owner.PageFor (GetTabAtLocation (location))?.ToolTipText;
+        }
+
         /// <summary>Gets the number of tab rows currently displayed (tabs wrap when they overflow).</summary>
         public int RowCount { get; private set; } = 1;
 
