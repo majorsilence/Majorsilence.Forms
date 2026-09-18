@@ -2285,6 +2285,43 @@ ends. It now has one, holding `Form.Modal` marked and `ComboBox.DrawMode` unmark
 8 tests, 3 neutralizations on the border wiring plus 1 on the scanner fix. Core stored-only properties
 643 → 637, and ~219 entries move back into scope.
 
+**W6.2 — the first of the reopened entries. — done (2026-09-18).** Part of #91, and the first pass
+over the ~219 entries the framework-written fix put back in scope. Both clusters below were invisible
+to the previous sweeps for exactly that reason: every property involved is an initialised
+auto-property, so the marker called them outbound state and said to leave them alone.
+
+- **`TreeView` drew no connector lines at any setting** (`LST-62`, 3 entries). `ShowLines`,
+  `ShowRootLines` and `LineColor` were stored and read by nothing, and the renderer had no line code at
+  all — so the three were indistinguishable from each other, not merely inert. The ancestor pass is the
+  part worth noting: a node's own gutter is easy, but keeping a branch continuous down the left of its
+  children needs a walk up the parents asking which of them still has a sibling below.
+- **Five members of the `ListViewGroup` header family** (`LST-63`, 6 entries with `GroupImageList`).
+  `Footer` places a second band after the group's items — one row tall, like the header, so the scroll
+  model still sees uniform lines. `TaskLink` closed an unraised event with it.
+
+*An existing test decided a geometry question, correctly.* The tree's horizontal stub first ran half an
+indent step to the right and broke `A_checked_node_draws_a_glyph_where_an_unchecked_tree_draws_nothing`
+— that check rectangle is the only evidence that test has of a box. Upstream's stub stops at the glyph,
+so the failure was pointing at the code, not at itself.
+
+*A neutralization found a hole in the tests rather than in the code,* which is the outcome this practice
+is actually for. Removing the collapse rule from `HasFooter` broke nothing, because the layout already
+skips collapsed groups by another route — while `GroupBandCount`, which the scrollbar reads, counted a
+band that was never placed. The fix was an assertion of the invariant the two share
+(`LineCount == Items.Count + GroupBands.Count`), not a third code path.
+
+**And a second gate has the same blind spot the stored-only one had.** `GroupTaskLinkClick` was declared
+with a raiser nothing called, and `ScanUnraisedEvents` did not list it — the scan asks whether the
+backing field is READ by something other than the add/remove accessors, and `OnGroupTaskLinkClick` reads
+it. **Any event with a conventional `protected virtual OnX` raiser is invisible to that gate, however
+unreachable the raiser is.** A source-level count puts it at **73 `OnX` raisers that nothing in `src/`
+calls**, against the 109 the gate lists; some of those are legitimately for derived types to call, so
+the number is an upper bound until it is done properly in IL. That is the same transitive-reachability
+limit already recorded for the stored-only gate, and it is now recorded for this one — measured, not
+built, because it is a scanner's worth of work and this pass is about wiring.
+
+13 tests, 12 neutralizations. Core stored-only properties 637 → 628.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

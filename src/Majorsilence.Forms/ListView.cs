@@ -329,6 +329,14 @@ namespace Majorsilence.Forms
                 return;
             }
 
+            // A group's task link is a hit target of its own, above the items: it sits in a band, so no
+            // item covers it, and the event it raises was declared and never raised from anywhere.
+            if (GroupTaskLinkAt (location) is { } linked) {
+                OnGroupTaskLinkClick (new ListViewGroupEventArgs (Groups.IndexOf (linked)));
+
+                return;
+            }
+
             // DeviceBounds, because `location` is device (ToDevice above) -- LAY-38 made the public
             // Bounds logical and these three hit-tests were missed, so a click landed nowhere near the
             // item it was over on any display whose scale is not 1.

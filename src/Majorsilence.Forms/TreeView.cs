@@ -323,7 +323,8 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the separator character used in node paths.</summary>
         public string PathSeparator { get; set; } = "\\";
 
-        /// <summary>Gets or sets whether lines are drawn between tree nodes. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether lines are drawn between tree nodes.</summary>
+        /// <remarks>Honoured by <see cref="Renderers.TreeViewRenderer.RenderLines"/>.</remarks>
         public bool ShowLines { get; set; } = true;
 
         /// <summary>Gets or sets whether expand/collapse buttons are shown. Stub in Majorsilence.Forms.</summary>
@@ -335,7 +336,9 @@ namespace Majorsilence.Forms
             set => ShowDropdownGlyph = value;
         }
 
-        /// <summary>Gets or sets whether root-level tree lines are drawn. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether root-level tree lines are drawn.</summary>
+        /// <remarks>Suppresses the lines at root level. Unlike upstream it does not also hide the root
+        /// glyphs or re-indent the children; see <c>LST-61</c>.</remarks>
         public bool ShowRootLines { get; set; } = true;
 
         /// <summary>Gets or sets the ImageList for tree item images.</summary>

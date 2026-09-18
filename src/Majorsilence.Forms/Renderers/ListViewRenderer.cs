@@ -41,7 +41,10 @@ namespace Majorsilence.Forms.Renderers
                 if (band.DeviceBounds.Bottom < area.Top || band.DeviceBounds.Top > area.Bottom)
                     continue;
 
-                RenderGroupHeader (control, band.Group, band.DeviceBounds, e);
+                if (band.IsFooter)
+                    RenderGroupFooter (control, band.Group, band.DeviceBounds, e);
+                else
+                    RenderGroupHeader (control, band.Group, band.DeviceBounds, e);
             }
 
             e.Canvas.Restore ();
@@ -99,6 +102,33 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.Save ();
             e.Canvas.Clip (bounds);
 
+            // The header's own image, from the list's GroupImageList. TitleImageIndex and
+            // TitleImageKey were both stored and read by nothing, so a group that named an icon showed
+            // none -- and the key was the more likely of the two to be used, since that is what the
+            // designer writes.
+            if (TitleImage (control, group) is { } title_image) {
+                var side = Math.Min (title_image.Height, bounds.Height - inset);
+                var image_bounds = new Rectangle (text.Left, bounds.Top + (bounds.Height - side) / 2, side, side);
+
+                e.Canvas.DrawBitmap (title_image, image_bounds);
+
+                // The caption starts after the image rather than under it.
+                text = new Rectangle (image_bounds.Right + inset, text.Top,
+                    Math.Max (0, text.Right - image_bounds.Right - inset), text.Height);
+            }
+
+            // The task link is drawn right-aligned and takes its space out of the caption's, so a long
+            // header cannot run underneath it. ListView.GroupTaskLinkBounds keeps the same rectangle
+            // for the click that raises GroupTaskLinkClick -- one arithmetic, two readers.
+            if (!string.IsNullOrEmpty (group.TaskLink)) {
+                var link = control.GroupTaskLinkBounds (group, bounds);
+
+                e.Canvas.DrawText (group.TaskLink, Theme.UIFont, font_size, link,
+                    Theme.AccentColor, ContentAlignment.MiddleRight, maxLines: 1);
+
+                text = new Rectangle (text.Left, text.Top, Math.Max (0, link.Left - text.Left - inset), text.Height);
+            }
+
             var caption = string.IsNullOrEmpty (group.Subtitle)
                 ? group.Header
                 : $"{group.Header}  {group.Subtitle}";
@@ -112,6 +142,51 @@ namespace Majorsilence.Forms.Renderers
                 Theme.BorderLowColor);
 
             e.Canvas.Restore ();
+        }
+
+        /// <summary>Renders one group footer band: the group's <see cref="ListViewGroup.Footer"/>.</summary>
+        /// <remarks>
+        /// Placed after the group's items rather than under its header, which is where upstream puts it
+        /// and the only placement that makes <see cref="ListViewGroup.FooterAlignment"/> mean anything
+        /// separate from <see cref="ListViewGroup.HeaderAlignment"/>. Like the header it is exactly one
+        /// row tall, so the scroll arithmetic still sees uniform lines -- see <c>ListView.Groups.cs</c>.
+        /// </remarks>
+        protected virtual void RenderGroupFooter (ListView control, ListViewGroup group, Rectangle bounds, PaintEventArgs e)
+        {
+            var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);
+            var inset = e.LogicalToDeviceUnits (4);
+            var text = new Rectangle (bounds.Left + inset, bounds.Top, Math.Max (0, bounds.Width - inset * 2), bounds.Height);
+
+            e.Canvas.Save ();
+            e.Canvas.Clip (bounds);
+
+            e.Canvas.DrawText (group.Footer, Theme.UIFont, font_size, text,
+                Theme.ForegroundColor, HeaderAlign (group.FooterAlignment), maxLines: 1);
+
+            e.Canvas.Restore ();
+        }
+
+        /// <summary>The drawn width of a group's task-link text, in device pixels.</summary>
+        /// <remarks>Lives here rather than on the control because the font and size are the renderer's
+        /// to choose; <see cref="ListView.GroupTaskLinkBounds"/> is the only caller.</remarks>
+        internal static float MeasureLinkWidth (ListView control, string text)
+            => TextMeasurer.MeasureText (text, Theme.UIFont, control.LogicalToDeviceUnits (Theme.ItemFontSize)).Width;
+
+        // The group header's image: by key first, then by index, which is the order every other image
+        // pair in this renderer resolves in.
+        private static SkiaSharp.SKBitmap? TitleImage (ListView control, ListViewGroup group)
+        {
+            if (control.GroupImageList is not { } images)
+                return null;
+
+            if (!string.IsNullOrEmpty (group.TitleImageKey)) {
+                var index = images.Images.IndexOfKey (group.TitleImageKey);
+
+                if (index >= 0)
+                    return StateImage (images, index);
+            }
+
+            return StateImage (images, group.TitleImageIndex);
         }
 
         private static ContentAlignment HeaderAlign (HorizontalAlignment alignment)
