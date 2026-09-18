@@ -103,6 +103,8 @@ namespace Majorsilence.Forms.Renderers
                     return;
             }
 
+            RenderLines (control, item, e);
+
             if (control.ShowDropdownGlyph == true) {
                 var glyph_bounds = GetGlyphBounds (control, item);
 
@@ -187,6 +189,83 @@ namespace Majorsilence.Forms.Renderers
                 : control.ImageIndex;
 
             return index >= 0 && index < images.Count ? images[index] : null;
+        }
+
+        /// <summary>
+        /// Draws the lines joining a node to its parent and to its siblings.
+        /// </summary>
+        /// <remarks>
+        /// <para><see cref="TreeView.ShowLines"/>, <see cref="TreeView.ShowRootLines"/> and
+        /// <see cref="TreeView.LineColor"/> were all stored and read by nothing: no connector was drawn
+        /// at any setting, so a hierarchy read as a flat indented list and the three properties were
+        /// indistinguishable from each other (<c>LST-61</c>).</para>
+        /// <para>Each node draws in its OWN gutter -- the vertical strip its glyph sits in -- plus a
+        /// full-height run in every ANCESTOR gutter whose node still has a sibling below it. That is
+        /// what makes a deep branch continuous down the left of its children instead of restarting at
+        /// every row, and it is why this cannot be done from the node alone.</para>
+        /// <para>Scope, stated rather than implied: <c>ShowRootLines = false</c> suppresses the lines at
+        /// root level, but does NOT also hide the root glyphs or re-indent the children, which is what
+        /// upstream additionally does. Those are layout changes; this is the paint half. The remainder
+        /// is recorded in <c>LST-61</c> rather than half-built here.</para>
+        /// </remarks>
+        protected virtual void RenderLines (TreeView control, TreeNode item, PaintEventArgs e)
+        {
+            if (!control.ShowLines)
+                return;
+
+            var colour = control.LineColor != System.Drawing.Color.Empty
+                ? control.LineColor.ToSKColor ()
+                : Theme.BorderMidColor;
+
+            var thickness = e.LogicalToDeviceUnits (1);
+            var step = control.LogicalToDeviceUnits (control.Indent > 0 ? control.Indent : INDENT_SIZE);
+            var half_glyph = control.LogicalToDeviceUnits (GLYPH_SIZE) / 2;
+
+            var top = item.Bounds.Top;
+            var bottom = item.Bounds.Bottom;
+            var middle = top + item.Bounds.Height / 2;
+
+            // The centre of the gutter a node at this depth sits in -- the same arithmetic
+            // GetIndentStart uses, plus half a glyph, so the run passes through the glyph rather than
+            // beside it whether or not one is drawn.
+            int Centre (int level) => item.Bounds.Left + level * step + 2 + half_glyph;
+
+            var level = item.IndentLevel;
+
+            if (level > 0 || control.ShowRootLines) {
+                var x = Centre (level);
+
+                // Upward: to whatever is above in this gutter. A first root node has nothing above it,
+                // so it starts at its own centre; every other node continues a run already in progress.
+                if (item.PrevNode is not null || item.Parent is not null)
+                    e.Canvas.DrawLine (x, top, x, middle, colour, thickness);
+
+                // Downward: only when a sibling follows, or the run would hang past the last child.
+                if (item.NextNode is not null)
+                    e.Canvas.DrawLine (x, middle, x, bottom, colour, thickness);
+
+                // The stub out to the node's glyph, stopping at the right edge of its own gutter. It
+                // must NOT run on to the content: the check box starts exactly there, and a stub that
+                // crossed it would put ink in an unchecked tree's check rectangle -- which is the only
+                // evidence TreeViewBehaviourTests has that a box was drawn at all.
+                e.Canvas.DrawLine (x, middle, x + half_glyph, middle, colour, thickness);
+            }
+
+            // Ancestor gutters: a full-height run wherever that ancestor has a sibling still to come,
+            // which is the part a per-node view cannot see.
+            for (var ancestor = item.Parent; ancestor is not null; ancestor = ancestor.Parent) {
+                var ancestor_level = ancestor.IndentLevel;
+
+                if (ancestor_level == 0 && !control.ShowRootLines)
+                    continue;
+
+                if (ancestor.NextNode is null)
+                    continue;
+
+                var x = Centre (ancestor_level);
+
+                e.Canvas.DrawLine (x, top, x, bottom, colour, thickness);
+            }
         }
 
         /// <summary>

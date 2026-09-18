@@ -686,6 +686,51 @@ distinguishes "ours is wrong" from "ours is right and the sibling differs".
   sweep one), then the gate becomes testable and the one-line change lands with it.
 - **Tests today:** none.
 
+## Status (2026-09-18, W6.2 — the reopened entries)
+
+### LST-62 — `TreeView` drew no connector lines at any setting — Cat A — P2 — High — **CLOSED (2026-09-18)**
+- **Ours (before):** `ShowLines`, `ShowRootLines` and `LineColor` were all stored and read by nothing,
+  and `TreeViewRenderer` had no line code at all. A hierarchy therefore read as a flat indented list,
+  and — the part that makes this worse than a single stub — **the three properties were
+  indistinguishable from each other**: nothing an application set to any of them changed a pixel.
+- **Fix (applied):** `TreeViewRenderer.RenderLines`. Each node draws in its own gutter (the strip its
+  glyph sits in) plus a full-height run in every **ancestor** gutter whose node still has a sibling
+  below it. The ancestor pass is what makes a deep branch continuous down the left of its children
+  instead of restarting at each row, and it is the half a per-node view cannot compute.
+- **The stub length was decided by an existing test, correctly.** The first version ran the horizontal
+  stub half an indent step to the right, into the check-box rectangle — and
+  `TreeViewBehaviourTests.A_checked_node_draws_a_glyph_where_an_unchecked_tree_draws_nothing` failed,
+  because that rectangle is its only evidence a box was drawn. Upstream's stub stops at the glyph, so
+  shortening it to the gutter edge was the right geometry rather than a test accommodation.
+- **Scope, stated rather than implied:** `ShowRootLines = false` suppresses the root-level lines but
+  does not also hide the root glyphs or re-indent the children, which upstream additionally does. Those
+  are layout changes; this is the paint half.
+- **Tests today:** `TreeViewLineTests.cs` (5; 4 neutralizations — one per property plus the ancestor
+  pass). The measurement is the finding's own lesson: ink is counted only where a connector is the sole
+  thing that draws — an **ancestor's** gutter on a **descendant's** row. The first version sampled whole
+  columns and read the node text as a connector, reporting 99 pixels of "line" with `ShowLines` off.
+
+### LST-63 — five members of the `ListViewGroup` header family were unread — Cat A — P2 — Medium — **CLOSED (2026-09-18)**
+- **Ours (before):** `LST-46` built the group bands and wired `Header`, `Subtitle` and
+  `HeaderAlignment`. `TitleImageIndex`, `TitleImageKey`, `TaskLink`, `Footer` and `FooterAlignment` were
+  left stored and read by nothing — every one of them something a group header is supposed to show.
+  `ListView.GroupImageList` came free with the first two.
+- **Fix (applied):** the title image draws at the left of the band (key first, then index, the order
+  every other image pair in the renderer resolves in) and the caption starts after it. `Footer` places a
+  **second band** after the group's items, which is where upstream puts it and the only placement that
+  makes `FooterAlignment` mean anything distinct from `HeaderAlignment`. Both bands stay exactly one row
+  tall, so the scroll arithmetic still sees uniform lines.
+- **`TaskLink` closed an unraised event with it.** `GroupTaskLinkClick` was declared with a raiser that
+  nothing called. The link's rectangle lives in `ListView.GroupTaskLinkBounds` and is read by both the
+  renderer that draws it and the click that raises the event, so the two cannot disagree about where it
+  is — the failure mode that makes a link look right and do nothing.
+- **A neutralization found a hole in the tests, not in the code.** Removing the collapse rule from
+  `HasFooter` broke nothing: `LayoutRowsGrouped` already `continue`s past a collapsed group, so the band
+  count was right either way — while `GroupBandCount`, which the scrollbar reads through `LineCount`,
+  silently counted a footer that was never placed. The assertion that catches it is the invariant
+  itself: `LineCount == Items.Count + GroupBands.Count`.
+- **Tests today:** `ListViewGroupHeaderTests.cs` (9; 8 neutralizations).
+
 ## Low-priority / Win32-only (P3) — one line each
 - `ListBox.UseTabStops` / `UseCustomTabOffsets` / `CustomTabOffsets` — tab expansion in native LB text; stored (`ListBox.cs:659`, `MidSizeControlParity.Three.cs:230-234`).
 - `ListBox.MultiColumn` / `ColumnWidth` / `HorizontalScrollbar` / `HorizontalExtent` / `IntegralHeight` — stored (`ListBox.cs:650-674`); niche layouts, portable in principle but rarely used in LOB code.

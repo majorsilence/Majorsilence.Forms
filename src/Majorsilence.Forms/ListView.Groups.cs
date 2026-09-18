@@ -20,14 +20,18 @@ namespace Majorsilence.Forms
         /// <summary>A laid-out group header, in device pixels.</summary>
         internal sealed class GroupBand
         {
-            internal GroupBand (ListViewGroup group, Rectangle deviceBounds)
+            internal GroupBand (ListViewGroup group, Rectangle deviceBounds, bool isFooter = false)
             {
                 Group = group;
                 DeviceBounds = deviceBounds;
+                IsFooter = isFooter;
             }
 
             internal ListViewGroup Group { get; }
             internal Rectangle DeviceBounds { get; }
+
+            /// <summary>Whether this band is the group's footer rather than its header.</summary>
+            internal bool IsFooter { get; }
         }
 
         private readonly List<GroupBand> group_bands = new ();
@@ -75,7 +79,57 @@ namespace Majorsilence.Forms
 
         // The number of lines grouping adds: one per band. Kept separate so LineCount stays readable
         // and so the scrollbar counts what the layout actually places.
-        internal int GroupBandCount => IsGrouped ? GroupRuns ().Count (run => run.Group is not null) : 0;
+        //
+        // A group with a Footer places a SECOND band, so this is not simply the group count -- and it
+        // has to agree with LayoutRowsGrouped exactly or the scrollbar and the rows disagree about how
+        // far the list runs. Both read HasFooter, which is the single place the rule lives.
+        internal int GroupBandCount
+            => IsGrouped
+                ? GroupRuns ().Where (run => run.Group is not null)
+                    .Sum (run => 1 + (HasFooter (run.Group!) ? 1 : 0))
+                : 0;
+
+        // A collapsed group shows no footer: the footer belongs to the items, and they are not there.
+        private static bool HasFooter (ListViewGroup group)
+            => !string.IsNullOrEmpty (group.Footer) && group.CollapsedState != ListViewGroupCollapsedState.Collapsed;
+
+        /// <summary>
+        /// The rectangle a group's task link occupies inside its header band, in device pixels.
+        /// </summary>
+        /// <remarks>
+        /// Shared by the renderer that draws the link and the click that raises
+        /// <see cref="GroupTaskLinkClick"/>, so the two cannot disagree about where it is -- the
+        /// failure mode that makes a link look right and do nothing.
+        /// </remarks>
+        internal Rectangle GroupTaskLinkBounds (ListViewGroup group, Rectangle band)
+        {
+            if (string.IsNullOrEmpty (group.TaskLink))
+                return Rectangle.Empty;
+
+            var inset = LogicalToDeviceUnits (4);
+
+            // Measured rather than guessed at a fixed width: a short link would otherwise claim a strip
+            // of empty header that swallows clicks meant for the caption.
+            var width = System.Math.Min (
+                LogicalToDeviceUnits (8) + (int)Renderers.ListViewRenderer.MeasureLinkWidth (this, group.TaskLink),
+                System.Math.Max (0, band.Width / 2));
+
+            return new Rectangle (band.Right - inset - width, band.Top, width, band.Height);
+        }
+
+        /// <summary>The group whose task link covers this device point, or null.</summary>
+        internal ListViewGroup? GroupTaskLinkAt (Point location)
+        {
+            foreach (var band in group_bands) {
+                if (band.IsFooter || string.IsNullOrEmpty (band.Group.TaskLink))
+                    continue;
+
+                if (GroupTaskLinkBounds (band.Group, band.DeviceBounds).Contains (location))
+                    return band.Group;
+            }
+
+            return null;
+        }
 
         /// <summary>Re-lays out and repaints after the group set or a group's state changed.</summary>
         internal void RefreshGroups ()
@@ -127,6 +181,11 @@ namespace Majorsilence.Forms
                     item.SetBounds (bounds.Left, y, bounds.Width, row_height);
                     LayoutSubItems (item);
 
+                    y += row_height;
+                }
+
+                if (group is not null && HasFooter (group)) {
+                    group_bands.Add (new GroupBand (group, new Rectangle (bounds.Left, y, bounds.Width, row_height), isFooter: true));
                     y += row_height;
                 }
             }

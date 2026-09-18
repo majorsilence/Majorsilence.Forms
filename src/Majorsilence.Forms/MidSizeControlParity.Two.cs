@@ -120,6 +120,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the colour of the lines joining nodes.</summary>
+        /// <remarks><see cref="Color.Empty"/> -- the default -- means the theme picks the colour.</remarks>
         public Color LineColor { get; set; } = Color.Empty;
 
         /// <summary>Gets or sets the image list key for a node's default image.</summary>
