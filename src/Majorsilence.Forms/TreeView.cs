@@ -29,6 +29,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public TreeView ()
         {
+            ApplyBorderStyle (border_style);
             root_item = new TreeNode (this) {
                 Expanded = true
             };

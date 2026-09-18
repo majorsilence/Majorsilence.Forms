@@ -1987,9 +1987,10 @@ the next move was to grep the baseline **for the shape** rather than walk anothe
   to paint. Four controls, one property name, four different right answers. **Checking upstream per
   control is the only thing that separates "ours is wrong" from "ours is right and the sibling differs"**
   — and this sweep has now made both mistakes' opposites available to compare.
-- **`BorderStyle` is eight entries and one cause** (`LST-56`): there is no control-level border model, so
-  there is nowhere for the property to be honoured. Recorded rather than wired eight times, which is how
-  eight renderers would drift apart.
+- **`BorderStyle` is eight entries and one cause** (`LST-56`): recorded rather than wired eight times,
+  which is how eight renderers would drift apart. *(The cause recorded here — "there is no control-level
+  border model" — was wrong; `ControlStyle.Border` already existed and `TextBoxBase` already used it.
+  Corrected and closed in W6.2's border slice below.)*
 
 *A process note worth keeping.* Two edits in this slice silently did not apply — the target property
 lived in a parity file rather than the control's own — and the build still succeeded, because the code
@@ -2066,6 +2067,10 @@ fact the gate computes.
 with `-- framework-written (outbound state)`. **378 of the core baseline's 663 entries are marked: 57%
 of what remains is not a gap.** The real candidate count is **285**, not 663.
 
+> **Superseded (2026-09-18).** Both numbers were wrong: the marker counted constructor writes, so every
+> auto-property with an initializer was called outbound state. The true figure is **147 of 637**, and the
+> candidate count is correspondingly ~219 higher. See W6.2's border slice below.
+
 *The first version of the detection was wrong, and the motivating cases caught it.* It counted only
 direct `stfld`, which is possible only inside the declaring type — and `Modal = true;` on a
 `{ get; private set; }` property compiles to a **setter call**. So it marked 281 entries and **not one of
@@ -2087,6 +2092,10 @@ the list the outbound-state split produced rather than hunting for shapes.
 *The list is 158.* Of the 662 core entries: 377 are framework-written (not gaps), 127 fall in a
 structural bucket already recorded, and **158 are genuine candidates** across ~72 types. That is the
 real remaining W6.2 surface, and it will take several passes — this is the first.
+
+> **Superseded (2026-09-18).** The 377 was a scanner bug (constructor writes counted as framework
+> writes), so the candidate list was never 158 — it is roughly 219 larger. The passes below are still
+> correct about what they wired; it is the *denominator* that was wrong.
 
 - **`DataGridViewCheckBoxCell.TrueValue`/`FalseValue`.** Only the COLUMN's mapping was ever consulted,
   so a cell that overrode it was ticked by the column's rule — the opposite answer for the same value.
@@ -2235,6 +2244,46 @@ is the fourth time this session a test of mine has mixed those two spaces, and e
 the same gate rather than by review.
 
 8 tests, 2 neutralizations. Core stored-only properties 650 → 642.
+
+**W6.2 — the border model (`LST-56`), and the scanner bug it exposed. — done (2026-09-18).** Part of
+#91, and the last of the recorded mechanisms: 8 entries, one cause.
+
+*The finding was wrong about the cause, which is the part worth keeping.* `LST-56` said "there is no
+control-level border model. `ControlStyle` has no border size or colour", and proposed building one —
+a themeable border drawn in the base renderer, rated Medium and parked for months on that basis.
+`ControlStyle.Border` has existed all along: per-side width, colour and radius, read by
+`Control.ClientRectangle` and `DisplayRectangle` to inset the canvas, and `TextBoxBase` has always
+mapped its `BorderStyle` onto it in **one line**. The work was extracting that line to
+`Control.ApplyBorderStyle` and calling it from six controls. **A finding that proposes building
+something should begin by grepping for it.**
+
+`None` clears the frame; `FixedSingle` and `Fixed3D` both draw the themed 1px one, because the backend
+has no sunken-edge primitive to separate them. `ListBox`, `ListView` and `TreeView` apply their declared
+`Fixed3D` default in their constructors so the property, not the theme, is the source of truth — and
+only `ListView` changes appearance because of it, since the other two already set `Border.Width = 1` in
+their own `DefaultStyle` and agreed with `Fixed3D` by coincidence. The whole suite was green for the
+change before any test of it was written, which is what made the visual-default worry answerable rather
+than a judgement call.
+
+*Two of the eight are not `Control`s and stay in the baseline.* `StatusBarPanel` is a `Component`,
+`ToolStripStatusLabel` is a `ToolStripItem`; neither has a `Style`, and the latter's per-side
+`BorderSides` needs the strip's item renderer. That is a different mechanism, not a sixth forward.
+
+**And the six carried `-- framework-written (outbound state)` — the marker that tells a sweep to leave
+an entry alone.** They were plain unwired stubs. The heuristic is "written by a method other than its
+own setter", and a **constructor** is such a method: every `public Foo Bar { get; set; } = x;` was
+therefore classified as state the framework writes for applications to read back. **219 of the 366
+marked entries were false positives**; the true count is 147. Every figure this plan quoted from that
+marker — "378 of 663, 57% is not a gap", "the list is 158" — was wrong, and both are now annotated as
+superseded rather than edited away.
+
+*The marker had no test, because it is annotation.* The baseline gate strips it from both sides (Debug
+and Release disagree about whether a setter call survives), so nothing ever asserted it in either
+direction — and a value that decides what a sweep skips is exactly the kind that needs pinning at both
+ends. It now has one, holding `Form.Modal` marked and `ComboBox.DrawMode` unmarked.
+
+8 tests, 3 neutralizations on the border wiring plus 1 on the scanner fix. Core stored-only properties
+643 → 637, and ~219 entries move back into scope.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing

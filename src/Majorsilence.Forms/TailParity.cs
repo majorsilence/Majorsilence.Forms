@@ -208,8 +208,19 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether buttons are drawn flat or raised.</summary>
         public ToolBarAppearance Appearance { get; set; } = ToolBarAppearance.Normal;
 
+        private BorderStyle border_style = BorderStyle.None;
+
         /// <summary>Gets or sets the border drawn around the toolbar.</summary>
-        public BorderStyle BorderStyle { get; set; } = BorderStyle.None;
+        public BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (border_style == value)
+                    return;
+
+                border_style = value;
+                ApplyBorderStyle (value);
+            }
+        }
 
         /// <summary>Gets or sets whether the toolbar shows a divider above it.</summary>
         public bool Divider { get; set; } = true;
@@ -237,8 +248,19 @@ namespace Majorsilence.Forms
 
     public partial class SplitContainer
     {
+        private BorderStyle border_style = BorderStyle.None;
+
         /// <summary>Gets or sets the border drawn around the container.</summary>
-        public BorderStyle BorderStyle { get; set; } = BorderStyle.None;
+        public BorderStyle BorderStyle {
+            get => border_style;
+            set {
+                if (border_style == value)
+                    return;
+
+                border_style = value;
+                ApplyBorderStyle (value);
+            }
+        }
 
         /// <summary>Gets or sets whether the container scrolls when its contents do not fit.</summary>
         public virtual bool AutoScroll { get; set; }

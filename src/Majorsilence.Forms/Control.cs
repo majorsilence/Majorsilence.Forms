@@ -142,6 +142,21 @@ namespace Majorsilence.Forms
         public void BringToFront () => UpdateZOrder ();
 
         /// <summary>
+        /// Maps a WinForms <see cref="BorderStyle"/> onto the style-sheet border the renderers and
+        /// <see cref="ClientRectangle"/> actually read. <see cref="BorderStyle.None"/> clears the frame;
+        /// <c>FixedSingle</c> and <c>Fixed3D</c> both draw the themed 1px one, since the backend has no
+        /// separate sunken-edge primitive to tell the two apart. This is the same mapping
+        /// <see cref="TextBoxBase.BorderStyle"/> has always applied, factored out so every control that
+        /// exposes the property honours it identically.
+        /// </summary>
+        internal void ApplyBorderStyle (BorderStyle value)
+        {
+            Style.Border.Width = value == BorderStyle.None ? 0 : 1;
+            PerformLayout ();
+            Invalidate ();
+        }
+
+        /// <summary>
         /// Updates this control's position in its parent's z-order to match its current index. WinForms
         /// exposes this as the protected primitive <see cref="BringToFront"/> is built on, for a control
         /// that needs to re-sync its z-order (e.g. after reparenting itself) without the rest of what a

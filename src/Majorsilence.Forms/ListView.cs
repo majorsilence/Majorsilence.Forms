@@ -16,6 +16,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public ListView ()
         {
+            ApplyBorderStyle (border_style);
             Items = new ListViewItemCollection (this);
             Columns = new ColumnHeaderCollection (this);
             groups = new ListViewGroupCollection (this);
