@@ -412,11 +412,7 @@ namespace Majorsilence.Forms
                     return;
 
                 border_style = value;
-                Style.Border.Width = value switch {
-                    BorderStyle.FixedSingle => 1,
-                    BorderStyle.Fixed3D => 2,
-                    _ => null,
-                };
+                ApplyBorder ();
 
                 // The border changes the preferred size, so an auto-sized label has to re-measure.
                 if (Parent is not null)
@@ -426,7 +422,37 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the flat style for the label. Stub in Majorsilence.Forms.</summary>
-        public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
+        /// <summary>Gets or sets how the label's border is drawn.</summary>
+        /// <remarks>
+        /// <see cref="FlatStyle.Flat"/> draws a single-line border even where
+        /// <see cref="BorderStyle.Fixed3D"/> would otherwise ask for a two-pixel one -- upstream's
+        /// flat labels have no sunken edge. It was stored and read by nothing, so a flat label was
+        /// drawn exactly like a standard one (<c>SMP-09</c>). <see cref="FlatStyle.Popup"/> is flat
+        /// until hovered upstream; a Label is not an interactive control here and tracks no hover for
+        /// this purpose, so it is treated as flat and that is recorded rather than approximated.
+        /// </remarks>
+        public FlatStyle FlatStyle {
+            get => flat_style;
+            set {
+                if (flat_style == value)
+                    return;
+
+                flat_style = value;
+                ApplyBorder ();
+                Invalidate ();
+            }
+        }
+
+        private FlatStyle flat_style = FlatStyle.Standard;
+
+        // BorderStyle says whether there is a border and how heavy; FlatStyle says whether the heavy
+        // one is allowed. Both setters route here so neither can be applied without the other being
+        // consulted -- the shape that made BorderStyle's old inline switch silently ignore FlatStyle.
+        private void ApplyBorder ()
+            => Style.Border.Width = border_style switch {
+                BorderStyle.FixedSingle => 1,
+                BorderStyle.Fixed3D => flat_style is FlatStyle.Flat or FlatStyle.Popup ? 1 : 2,
+                _ => null,
+            };
     }
 }

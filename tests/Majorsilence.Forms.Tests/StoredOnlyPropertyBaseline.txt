@@ -313,7 +313,6 @@ Majorsilence.Forms.HtmlElementEventArgs.ReturnValue
 Majorsilence.Forms.ImageList.ColorDepth
 Majorsilence.Forms.ImageList.Tag
 Majorsilence.Forms.ImageList.TransparentColor
-Majorsilence.Forms.Label.FlatStyle
 Majorsilence.Forms.Label.LiveSetting
 Majorsilence.Forms.Label.UseCompatibleTextRendering
 Majorsilence.Forms.LinkLabel+Link.LinkData    -- framework-written (outbound state)
@@ -333,7 +332,6 @@ Majorsilence.Forms.ListView.BackgroundImageTiled
 Majorsilence.Forms.ListView.HotTracking
 Majorsilence.Forms.ListView.HoverSelection
 Majorsilence.Forms.ListView.LabelEdit
-Majorsilence.Forms.ListView.LabelWrap
 Majorsilence.Forms.ListView.OwnerDraw
 Majorsilence.Forms.ListView.RightToLeftLayout
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior

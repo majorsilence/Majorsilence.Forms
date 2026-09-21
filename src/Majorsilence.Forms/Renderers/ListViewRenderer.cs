@@ -312,7 +312,13 @@ namespace Majorsilence.Forms.Renderers
 
                 var text_bounds = new Rectangle (item.DeviceBounds.Left, image_bounds.Bottom + e.LogicalToDeviceUnits (3), item.DeviceBounds.Width, item.DeviceBounds.Bottom - image_bounds.Bottom - e.LogicalToDeviceUnits (3));
 
-                e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_bounds, Foreground (item, 0, ShowsSelection (control, item)), ContentAlignment.MiddleCenter);
+                // LabelWrap was stored and read by nothing, so a tile caption always wrapped -- the
+                // property's whole purpose is to stop it, and a list of long file names looked the
+                // same either way (LST-64). Null means "as many lines as fit", which is what wrapping
+                // is here; 1 caps it.
+                e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_bounds,
+                    Foreground (item, 0, ShowsSelection (control, item)), ContentAlignment.MiddleCenter,
+                    maxLines: control.LabelWrap ? null : 1);
 
                 e.Canvas.Restore ();
             }
