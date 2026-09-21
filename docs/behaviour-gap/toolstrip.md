@@ -420,12 +420,42 @@ order whatever the property said.
 - **The existing test hid it.** `StripHierarchyTests.StatusStrip_LaysItemsOutWhereItPaintsThem` compared the laid-out bounds against the same device `PaddedClientRectangle` the layout used — both sides wrong together, and identical at scaling 1. It now converts to logical first, with the reason in a comment.
 - **Tests today:** `ToolStripStoredOnlyTests.cs` (the `Spring` pair), `StripHierarchyTests` (corrected).
 
-### TSM-41 — `ToolBarRenderer`/`MenuDropDownRenderer` mix logical bounds with device constants — Cat A — P2 — High
-- **Ours:** the strip renderers paint into a canvas whose coordinates are **logical** (item `Bounds` are painted directly and menus render correctly at scaling 2), but position their details by subtracting **device**-converted constants from those logical edges — `item.Bounds.Right - e.LogicalToDeviceUnits (16) - 4` for the drop-down arrow (`ToolBarRenderer.cs:151`), `bounds.X += e.LogicalToDeviceUnits (28)` for the drop-down caption indent (`MenuDropDownRenderer.cs:65`), and the same shape in the separator and image paths.
-- **Impact:** every such offset grows with the display scale while the box it is measured against does not, so glyphs and indents drift inward as the scale rises — at scaling 2 the arrow sits roughly 16 logical units left of where it belongs. Cosmetic rather than functional, and invisible at scaling 1.
-- **How it surfaced:** two tests written for this slice sampled a rectangle derived from those same constants and could not find the glyph at scaling 2. They now sample the item's whole box, which is the question they were actually asking; the drift is recorded here rather than fixed in passing.
-- **Fix:** decide the canvas' unit once for this family and convert at one boundary, as `W6.3` did for the public hit-test members. Every constant in the three strip renderers is affected, so it is its own item.
-- **Tests today:** none directly.
+### TSM-41 — the strip renderers paint logical bounds into a device canvas — Cat A — P1 — High — **RE-DIAGNOSED (2026-09-21)**
+- **Ours:** `ToolBarRenderer` and `MenuDropDownRenderer` hand `item.Bounds` -- which is **logical** --
+  straight to a canvas whose coordinates are **device**. At scaling 2 every strip item is therefore
+  painted at **half its proper size, in the top-left quadrant of the strip**, and the device-converted
+  offsets around it (the 28-unit caption indent, the 16-unit arrow gutter) overflow the half-size box
+  they are measured against.
+- **The previous diagnosis was backwards, and this is the important part.** It read: *"the canvas'
+  coordinates are logical (item `Bounds` are painted directly and menus render correctly at scaling 2)
+  ... the bug is the device-converted constants"*, rated **P2, cosmetic**, "glyphs and indents drift
+  inward as the scale rises". Both halves are wrong: the canvas is device, the constants are correct,
+  and it is the bounds that are unconverted. **Anyone following the old entry would have removed the
+  conversions -- making the constants agree with the wrong thing and leaving the strip half-size.**
+- **How it was settled, because inference had already produced two wrong answers.** An item's hover
+  fill is `item.Bounds` passed straight to `FillRectangle`, so diffing a hovered render against an
+  unhovered one gives the item's painted rectangle in device pixels with no font, padding or chrome in
+  the way. At `MF_HEADLESS_SCALE=2`, for a `62 x 30` logical item:
+
+  | hypothesis | predicted rectangle | measured |
+  |---|---|---|
+  | device canvas (bounds unconverted) | `0,0,62,30` | **`0,0,62,30`** |
+  | logical canvas (finding's premise) | `0,0,124,60` | — |
+
+  Reproduced by `StripRendererUnitTests`, which keeps the measurement rather than the argument.
+- **Raised to P1, and it is a prerequisite.** `TSM-45` (`ShowImageMargin`) was wired, tested and
+  reverted because of it: the caption indent is `LogicalToDeviceUnits (28)` = 56 device against a
+  62-device item, so the caption lands past the item's own right edge and no property can be observed.
+  Any gap in this family will behave the same way -- passing three gates and failing the scale-2 one.
+- **Fix:** convert at the paint boundary -- the renderer takes `item.Bounds` into device once and uses
+  that throughout -- keeping `Bounds` logical for hit-testing, which `W6.3` requires and `TSM-22`
+  depends on. The complication is `GetPreferredItemSize`, which already device-converts its padding and
+  font while `LayoutItems` lays out into `LogicalClientRectangle`: **paint and measure have to be
+  decided together**, and that is why this is still its own item rather than something to fold into a
+  wiring batch.
+- **Tests today:** `StripRendererUnitTests.cs` (3). Two are **characterization** tests -- they assert
+  what the code does now, so the defect cannot be fixed silently; fixing TSM-41 turns them red and they
+  are inverted, not deleted.
 
 **Legitimately inert, recorded (the rest).** The `*RenderEventArgs` families (`ToolStripArrowRenderEventArgs`, `ToolStripItemTextRenderEventArgs`, `ToolStripGripRenderEventArgs`, the two panel ones — 21 entries) are outbound render-event data for a custom renderer; nothing in the assembly reads them back and nothing should. The `ToolStripDropDown` window attributes (`Opacity`, `AllowTransparency`, `DropShadowEnabled`, `TopLevel`), `ToolStripManager.VisualStylesEnabled`, `AllowClickThrough`, `RightToLeftAutoMirrorImage` remain P3 as already recorded below. (The `ToolStripLabel` link family was listed here too, and was closed by `TSM-42` — it was never inert, only unimplemented.) `ToolStripItem.Overflow`, `ToolStrip.CanOverflow` and `OverflowButton` are blocked on overflow existing at all (`OverflowButton` is never assigned — already recorded in the matrix). `ToolStripItem.Font` is wirable but drags in the font pipeline (`Theme.UIFont` plus a size, not a `Font`), so it is left for the text-measurement area rather than done in passing.
 
@@ -497,18 +527,23 @@ order whatever the property said.
 - **Wired, tested, reverted (2026-09-21).** The change is one read in
   `MenuDropDownRenderer.RenderItem`, which already computes the caption's indent, and it is correct at
   scaling 1 with a test that fails when it is removed. At `MF_HEADLESS_SCALE=2` the behaviour cannot be
-  observed: the indent is `e.LogicalToDeviceUnits (28)` measured from a **logical** edge (`TSM-41`), so
-  the gutter becomes 56 logical units and the caption is pushed off the menu whatever this property
-  says.
+  observed: the indent is `e.LogicalToDeviceUnits (28)` = 56 **device** units, while the item box it is
+  measured against is `item.Bounds` -- logical, and handed to a device canvas unconverted, so 62 device
+  units wide (`TSM-41`). The caption therefore starts past the item's own right edge whatever this
+  property says.
 - **Why this matters beyond one entry:** `TSM-41` was rated cosmetic — "glyphs and indents drift inward
-  as the scale rises". It is now a **prerequisite**: at least one gap cannot be closed until the strip
-  renderers' units are decided, and any test written for such a gap will pass three gates and fail the
-  fourth.
-- **Fix:** `TSM-41` first — decide the canvas' unit for this family and convert at one boundary. The
-  evidence that it is logical is that `ToolBarRenderer` fills `item.Bounds` directly and menus render
-  correctly at scale 2 today; the counter-consideration is that `GetPreferredItemSize` feeds layout
-  from the same constants, so paint and measure have to be decided together. Then this becomes the
-  one-line read it looks like.
+  as the scale rises" — and is now **P1**, re-diagnosed by measurement. At least one gap cannot be
+  closed until the strip renderers' units are decided, and any test written for such a gap will pass
+  three gates and fail the fourth.
+- **Fix:** `TSM-41` first — convert `item.Bounds` to device at the paint boundary, keeping `Bounds`
+  logical for hit-testing. Then this becomes the one-line read it looks like.
+- **This entry originally said** *"the evidence that it is logical is that `ToolBarRenderer` fills
+  `item.Bounds` directly and menus render correctly at scale 2 today"*, repeating `TSM-41`'s premise.
+  **Measured false the same day**: the canvas is device and nobody had ever measured a menu at scale 2.
+  Corrected here rather than deleted, because a wrong reason that was written down twice and believed
+  by two readings is worth seeing.
+- **The prerequisite claim above survives the correction, and is stronger for it.** `TSM-41` is not a
+  drift of a few pixels; the whole strip is painted at `1/scale`.
 - **Tests today:** none (the two written for it were removed with the wiring).
 
 ## Low-priority / Win32-only (P3) — one line each

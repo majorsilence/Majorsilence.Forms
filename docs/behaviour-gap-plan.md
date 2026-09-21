@@ -2458,6 +2458,40 @@ session*: `MenuItem.Bounds` is logical and the bitmap is device. The reflex to c
 automatic.
 
 5 tests, 5 neutralizations. Core stored-only properties 611 → 609.
+**TSM-41 re-diagnosed by measurement, not fixed. — 2026-09-21.** Part of #91. Taken up because
+`TSM-45` showed it blocking a wiring; the first thing found was that the finding itself was backwards.
+
+*What it said:* the strip renderers paint into a canvas whose coordinates are **logical** — "item
+`Bounds` are painted directly and menus render correctly at scaling 2" — and the bug is their
+device-converted constants. Rated **P2, cosmetic**: "glyphs and indents drift inward as the scale
+rises".
+
+*What is true:* the canvas is **device**. `item.Bounds` is logical and is handed to it unconverted, so
+at scaling 2 **every strip item is painted at half its proper size in the top-left quadrant of the
+strip**. The constants were right all along. Now **P1**.
+
+*How it was settled, after inference had already produced two wrong answers — the finding's and mine.*
+An item's hover fill is `item.Bounds` passed straight to `FillRectangle`, so diffing a hovered render
+against an unhovered one yields the item's painted rectangle in device pixels with nothing else in the
+way. For a `62 x 30` logical item at `MF_HEADLESS_SCALE=2` the device-canvas hypothesis predicts
+`0,0,62,30` and the logical one `0,0,124,60`; the measurement is `0,0,62,30`. One render diff decided
+what two rounds of code-reading had got wrong in opposite directions.
+
+**I did not fix it, deliberately.** The correction is to convert at the paint boundary while keeping
+`Bounds` logical for hit-testing (`W6.3`, `TSM-22`), but `GetPreferredItemSize` already device-converts
+its padding and font while `LayoutItems` lays out into `LogicalClientRectangle` — so paint and measure
+have to be decided together, and doing that correctly is a different piece of work from establishing
+which way round the bug is. Shipping the diagnosis separately means the next person starts from a
+measurement instead of a plausible sentence.
+
+*The lesson is the one this plan keeps relearning, in its strongest form yet.* The original finding
+gave a reason for its conclusion — "menus render correctly at scaling 2" — which read as evidence and
+was not: nobody had measured a menu at scaling 2. It then sat for weeks at the wrong priority, and it
+came within one commit of being "fixed" in the wrong direction, by me, in the previous batch. **A
+finding that asserts a fact should say how the fact was checked**, and where it cannot, the first job
+of whoever picks it up is to check it.
+
+3 tests, 2 of them characterization tests so the defect cannot be fixed silently. No baseline change.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
