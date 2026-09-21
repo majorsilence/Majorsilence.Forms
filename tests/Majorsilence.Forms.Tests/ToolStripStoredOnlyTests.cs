@@ -291,6 +291,7 @@ namespace Majorsilence.Forms.Tests
 
             try {
                 var before = help.Bounds.Left;
+                var first_before = first.Bounds.Left;
 
                 help.Alignment = ToolStripItemAlignment.Right;
                 strip.PerformLayout ();
@@ -299,8 +300,10 @@ namespace Majorsilence.Forms.Tests
                 Assert.True (help.Bounds.Left > before, $"not moved right: {before} -> {help.Bounds.Left}");
                 Assert.Equal (strip.DeviceToLogicalUnits (strip.ClientRectangle.Right), help.Bounds.Right);
 
-                // The left-aligned item keeps its place.
-                Assert.Equal (0, first.Bounds.Left);
+                // The left-aligned item keeps its place -- compared against where it actually was,
+                // not against 0. The strip's leading edge is no longer x=0 now that a drag grip is
+                // reserved there (TSM-43), and this assertion was never about that edge's coordinate.
+                Assert.Equal (first_before, first.Bounds.Left);
             } finally {
                 form.Close ();
             }

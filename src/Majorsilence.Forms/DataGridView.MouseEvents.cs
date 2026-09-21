@@ -204,12 +204,44 @@ namespace Majorsilence.Forms
             // The check-box toggle commits here, so the value CellClick handlers read is the new one.
             ToggleCheckBoxCell (target.RowIndex, target.ColumnIndex);
 
+            // TrackVisitedState: clicking a link marks it visited, which is the only thing that ever
+            // sets LinkVisited in an ordinary application -- without it the visited colour was
+            // reachable only by assigning LinkVisited by hand, so the whole visited/unvisited
+            // distinction was inert in practice even after the colours were wired (DGV-43).
+            MarkLinkVisited (target.RowIndex, target.ColumnIndex);
+
             OnCellClick (cell_args);
             OnCellMouseClick (args);
             OnCellContentClick (cell_args);
         }
 
         private MouseTarget? mouse_down_target;
+
+        /// <summary>Whether the mouse is currently held down on this cell.</summary>
+        /// <remarks>
+        /// The renderer's window onto <see cref="mouse_down_target"/>, which is what makes
+        /// <see cref="DataGridViewLinkCell.ActiveLinkColor"/> expressible here -- the strip has no
+        /// equivalent, which is why its own ActiveLinkColor stays unwired (TSM-42).
+        /// </remarks>
+        internal bool IsPressedCell (int rowIndex, int columnIndex)
+            => mouse_down_target is { IsCell: true } pressed
+               && pressed.RowIndex == rowIndex
+               && pressed.ColumnIndex == columnIndex;
+
+        // The cell's own TrackVisitedState wins; a cell created by the column inherits the column's
+        // through CopyStateTo, so reading the cell alone is right for both.
+        private void MarkLinkVisited (int rowIndex, int columnIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= Rows.Count || columnIndex < 0 || columnIndex >= Rows[rowIndex].Cells.Count)
+                return;
+
+            if (Rows[rowIndex].Cells[columnIndex] is not DataGridViewLinkCell { TrackVisitedState: true, LinkVisited: false } link)
+                return;
+
+            link.LinkVisited = true;
+
+            Invalidate ();
+        }
 
         private void RaiseCellMouseMove (MouseEventArgs e)
         {

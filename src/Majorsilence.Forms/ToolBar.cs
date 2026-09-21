@@ -90,10 +90,35 @@ namespace Majorsilence.Forms
             // button -- which is what permission-based toolbar trimming produced (TSM-04).
             var visible = Items.Cast<MenuItem> ().Where (i => i.Visible).ToList ();
 
-            StackLayoutEngine.HorizontalExpand.Layout (LogicalClientRectangle, visible.Cast<ILayoutable> ());
+            // The grip is drawn in a band reserved out of the layout rectangle rather than painted
+            // over the first item: GripVisible and GripMargin were stored and read by nothing, so a
+            // strip that asked for a drag grip got no grip AND no space for one (TSM-43).
+            var area = LogicalClientRectangle;
+            var grip = GripBandWidth;
+
+            if (grip > 0)
+                area = new System.Drawing.Rectangle (area.Left + grip, area.Top, System.Math.Max (0, area.Width - grip), area.Height);
+
+            StackLayoutEngine.HorizontalExpand.Layout (area, visible.Cast<ILayoutable> ());
 
             PinTrailingItems (visible);
         }
+
+        /// <summary>
+        /// The logical width reserved at the strip's leading edge for the drag grip, or 0 when none is
+        /// shown. Read by both <see cref="LayoutItems"/> and the renderer, so the space reserved and
+        /// the space painted cannot disagree.
+        /// </summary>
+        internal virtual int GripBandWidth => 0;
+
+        /// <summary>
+        /// The rectangle the grip is drawn in -- the same one <see cref="LayoutItems"/> measures
+        /// against, exposed for the renderer because <c>LogicalClientRectangle</c> is protected.
+        /// </summary>
+        internal System.Drawing.Rectangle GripBandBounds => LogicalClientRectangle;
+
+        /// <summary>The width of the grip's dotted rule itself, excluding its margin.</summary>
+        internal const int GripRuleWidth = 3;
 
         // ToolStripItem.Alignment = Right pins an item to the strip's trailing edge -- the Help or
         // Settings button that sits apart from the rest. It was stored and read by nothing, so every

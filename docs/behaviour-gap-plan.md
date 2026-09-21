@@ -2357,6 +2357,48 @@ constructor-write marker and the `OnX`-raiser blind spot) rather than inside a w
 
 8 tests, 5 neutralizations. Core stored-only properties 628 → 623.
 
+**W6.2 — the reopened entries, batch 3. — done (2026-09-21).** Part of #91. Three mechanisms in one
+pass: the `DataGridView` link family (`DGV-43`, 4), the strip's drag grip (`TSM-43`, 2) and
+`ToolStrip.ImageScalingSize` (`TSM-44`, 1).
+
+*The same property, decided both ways, one control apart.* `ActiveLinkColor` is wired on
+`DataGridViewLinkCell` and deliberately not on `ToolStripLabel`. The grid tracks `mouse_down_target`,
+so "while the link is held down" is a state that exists there; the strip tracks no button state at all,
+so on `ToolStripLabel` the same property has no moment at which it could apply. **The call is made by
+what state the control has, not by the property's name** — and having made it both ways in two days is
+the clearest statement of that rule this plan has.
+
+*One helper now serves all three link surfaces.* `LinkLabel`, `ToolStripLabel` and
+`DataGridViewLinkCell` were written at different times against the same enum, and `SystemDefault` is
+the DEFAULT value of every one of those properties — a surface resolving it differently would be wrong
+in the common case, not an edge one. `Renderers.LinkRendering` holds the resolution and the underline
+geometry; TSM-42 asserted the two should not drift and this is what makes that true.
+
+*I wrote a recorded bug into new code, and the gate caught it.* `RenderGrip` measured
+device-converted offsets from a logical edge — `TSM-41` exactly, which I had read an hour earlier — so
+the grip drifted right with the scale and at `MF_HEADLESS_SCALE=2` left its band and drew nothing.
+Knowing a finding exists is not the same as applying it while writing.
+
+*And I lost work to `git checkout --`.* Reverting one neutralization that way discarded an entire
+uncommitted change — the `GripBandWidth` override — and the next three neutralizations then ran
+against a tree missing the feature they were meant to break, reporting failures that proved nothing.
+The rule already written in this plan is to restore from the scratchpad snapshot, never from git, and
+the reason is precisely this: git does not know which of the working tree's changes were the
+neutralization.
+
+*Two more vacuous tests, both caught by neutralization rather than review.* The grip-paint test
+measured a window that followed the band, so with the grip off it asked about a zero-width rectangle —
+and `ToolBar`'s own 1px bottom rule crosses the band, so the positive half passed with nothing drawn
+either. Both halves were true of a strip with no grip at all. That is five vacuous tests found this way
+across the last three passes, every one of them measuring something adjacent to the thing it named.
+
+**Two default appearances change**, both toward upstream: an ordinary `ToolStrip` now reserves and
+draws a drag grip, so its items start 7 logical units in, and item images are drawn in the declared
+16×16 box rather than a hard-coded 20. `MenuStrip` and `StatusStrip` are exempt from the grip, checked
+against `dotnet/winforms`' constructors rather than assumed.
+
+16 tests, 10 neutralizations. Core stored-only properties 623 → 616.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

@@ -373,6 +373,16 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the space around the move grip.</summary>
         public Padding GripMargin { get; set; } = new (2);
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Both knobs are honoured: upstream derives <c>GripVisible</c> from <c>GripStyle</c>, while
+        /// this layer declares them separately, so a strip that turned either one off gets no grip.
+        /// </remarks>
+        internal override int GripBandWidth
+            => GripVisible && GripStyle == ToolStripGripStyle.Visible
+                ? GripMargin.Horizontal + GripRuleWidth
+                : 0;
+
         /// <summary>Gets the bounds of the move grip.</summary>
         public Rectangle GripRectangle => GripStyle == ToolStripGripStyle.Visible ? new Rectangle (0, 0, 6, Height) : Rectangle.Empty;
 

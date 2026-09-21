@@ -444,3 +444,26 @@ Five entries closed, five recorded.
 - **"Store then whole-rebind" data binding**: `OnBoundListChanged` ignores `ListChangedType`; every change is a full column+row regeneration (DGV-31/33), which is also why `RowsAdded` never fires for bound rows and `RowsRemoved` fires spuriously.
 - **Editing is a single hard-coded `TextBox`**: no per-column editor type, no dirty flag, no `ParseFormattedValue`, no `DataError` — the entire editing surface (`BeginEdit(bool)`, `EditMode`, `EditingControl`, `IsCurrentCellDirty`, `NotifyCurrentCellDirty`, `RefreshEdit`, `CommitEdit`) is stubbed around it.
 - **Divergent defaults are codified by existing tests** (`Ctor_Default`, `Height_SetDefault_IsTwentyFive`, `*_ClampsToMinimum`, `NewRowIndex_ReflectsAllowUserToAddRows`, `ClearSelection_ResetsCurrentRowAndCell`, `CellParsing_NotHandled_StoresTheEditedTextAsBefore`, `GetClipboardContent_UsesTheFormattedValue`) — the fixer must update these alongside the code.
+
+### DGV-43 — four members of the link-cell family were unread — Cat A — P2 — Medium — **CLOSED (2026-09-21)**
+- **Ours (before):** an earlier slice wired the link COLOURS. `LinkCell.LinkBehavior`,
+  `LinkColumn.LinkBehavior`, `LinkCell.TrackVisitedState` and `LinkCell.ActiveLinkColor` were left
+  stored and read by nothing, so every link cell drew without an underline whatever either
+  `LinkBehavior` said, and `LinkVisited` could only ever be reached by assigning it by hand — which
+  made the visited colour, already wired, inert in any real application.
+- **Fix (applied):** the cell's `LinkBehavior` wins and falls through to the column's while it is
+  `SystemDefault`, so a column can set the behaviour once for every link in it. A click marks the link
+  visited when `TrackVisitedState` allows. `ActiveLinkColor` applies while the cell is held down, and
+  outranks visited — it says what is happening now rather than what happened before.
+- **The same property, the opposite call, on the control next door.** `ToolStripLabel.ActiveLinkColor`
+  is deliberately NOT wired (`TSM-42`) because nothing tracks a pressed strip item. `DataGridView`
+  tracks `mouse_down_target`, so here the property is expressible and is wired. The decision is made by
+  what state each control actually has, not by the property's name.
+- **Hover is not tracked per cell**, so `LinkBehavior.HoverUnderline` resolves to "not underlined"
+  here. Stated rather than faked.
+- **One helper now serves all three link surfaces.** `LinkLabel`, `ToolStripLabel` and this were
+  written at different times against the same enum, and `SystemDefault` — the default value of every
+  one of those properties — had to resolve identically in all three or the common case would differ by
+  control. `Renderers.LinkRendering` holds that resolution and the underline geometry.
+- **Tests today:** `DataGridViewLinkCellTests.cs` (8; 5 neutralizations).
+

@@ -458,6 +458,38 @@ order whatever the property said.
   renders that differ only in `LinkBehavior`. And the ink helper measured against the strip's background
   rather than the item's, so on a hovered item every pixel counted as ink and the metric saturated.
 
+### TSM-43 — the strip's drag grip was neither reserved nor drawn — Cat A — P2 — Medium — **CLOSED (2026-09-21)**
+- **Ours (before):** `GripVisible` and `GripMargin` were stored and read by nothing, and no renderer
+  drew a grip. A strip that asked for one got no grip **and no space for one**.
+- **Fix (applied):** `ToolBar.GripBandWidth` reserves a band out of the rectangle `LayoutItems`
+  measures against, and `ToolBarRenderer.RenderGrip` paints into the same band. One number, two
+  readers — a grip painted from its own constant would sit on top of the first item.
+- **Two bars correctly get no grip, checked against upstream rather than assumed.**
+  `dotnet/winforms`' `MenuStrip` and `StatusStrip` constructors each set
+  `GripStyle = ToolStripGripStyle.Hidden` (a menu bar and a status bar are not draggable), while
+  `ToolStrip`'s own default is `Visible`. Both constructors here now say the same.
+  `StripHierarchyTests.ToolStripMembers_HaveWinFormsDefaults` asserted `Visible` for all three strips
+  — ToolStrip's default applied blanket to two subclasses that override it — and is corrected per type.
+- **The default does change appearance:** an ordinary `ToolStrip`'s items now start 7 logical units in,
+  behind a grip, which is what upstream draws.
+- **I wrote TSM-41's bug into the new code and the scale-2 gate caught it.** `RenderGrip` first
+  measured device-converted offsets from a logical edge; the grip drifted right as the scale rose and
+  at `MF_HEADLESS_SCALE=2` left its own band entirely and drew nothing. This canvas is logical —
+  `RenderItem` fills `item.Bounds` directly — so the offsets are now plain logical numbers.
+- **Tests today:** `ToolStripGripTests.cs` (8 with TSM-44; 5 neutralizations).
+- **One test was vacuous and a neutralization caught it.** "The grip is drawn in the band" measured ink
+  in a window that followed the band, so with the grip off it asked about a zero-width rectangle — and
+  `ToolBar`'s own 1px bottom rule crosses the band, so the positive half passed with nothing drawn
+  either. It now uses a fixed window measured while the grip is on, stopping short of that rule.
+
+### TSM-44 — `ToolStrip.ImageScalingSize` was ignored — Cat A — P2 — Low — **CLOSED (2026-09-21)**
+- **Ours (before):** every scaled item image was drawn in a hard-coded 20×20 box, so a strip asking for
+  24 or 32px icons got 20px ones. The property already declared upstream's 16×16 default and nothing
+  read it.
+- **Fix (applied):** the box comes from the strip. `ToolStripItemImageScaling.None` still means "the
+  bitmap's own size", as before.
+- **Tests today:** in `ToolStripGripTests.cs` (2; 1 neutralization).
+
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.
 - `ToolTip.IsBalloon`/`UseAnimation`/`UseFading`/`ToolTipIcon`/`ToolTipTitle`/`StripAmpersands`/`ShowAlways`/`OwnerDraw`/`Draw`/`Popup` — comctl32 tooltip styling; cosmetic.

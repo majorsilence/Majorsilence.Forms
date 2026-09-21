@@ -2297,6 +2297,15 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class MenuStrip : Menu
     {
+        /// <summary>Initializes a new instance of the MenuStrip class.</summary>
+        public MenuStrip ()
+        {
+            // A menu bar is not draggable. Upstream's MenuStrip constructor sets exactly this, and
+            // carries [DefaultValue(ToolStripGripStyle.Hidden)] to match -- checked against
+            // dotnet/winforms rather than assumed, since ToolStrip's own default is Visible (TSM-43).
+            GripStyle = ToolStripGripStyle.Hidden;
+        }
+
         /// <summary>Gets or sets the ToolStripMenuItem for the MDI window list. Stub in Majorsilence.Forms.</summary>
         public ToolStripMenuItem? MdiWindowListItem { get; set; }
     }
@@ -3256,6 +3265,11 @@ namespace Majorsilence.Forms
         {
             // Overrides the Top dock ToolBar sets for bars -- a status strip lives at the bottom.
             Dock = DockStyle.Bottom;
+
+            // A status strip is not draggable, so it gets no grip -- upstream's StatusStrip sets this
+            // in its own constructor for the same reason. Stated here rather than special-cased in
+            // ToolBar.GripBandWidth, so the rule stays "the strip decides" (TSM-43).
+            GripStyle = ToolStripGripStyle.Hidden;
             SetControlBehavior (ControlBehaviors.InvalidateOnTextChanged);
         }
 

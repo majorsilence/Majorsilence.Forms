@@ -179,11 +179,7 @@ Majorsilence.Forms.DataGridViewImageCell.ValueIsIcon
 Majorsilence.Forms.DataGridViewImageColumn.Icon
 Majorsilence.Forms.DataGridViewImageColumn.ImageLayout
 Majorsilence.Forms.DataGridViewImageColumn.ValuesAreIcons    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewLinkCell.ActiveLinkColor
-Majorsilence.Forms.DataGridViewLinkCell.LinkBehavior
-Majorsilence.Forms.DataGridViewLinkCell.TrackVisitedState
 Majorsilence.Forms.DataGridViewLinkCell.UseColumnTextForLinkValue
-Majorsilence.Forms.DataGridViewLinkColumn.LinkBehavior
 Majorsilence.Forms.DataGridViewRowContextMenuStripNeededEventArgs.ContextMenuStrip
 Majorsilence.Forms.DataGridViewRowErrorTextNeededEventArgs.ErrorText
 Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.Height
@@ -540,9 +536,6 @@ Majorsilence.Forms.ToolStrip.AllowItemReorder
 Majorsilence.Forms.ToolStrip.AllowMerge
 Majorsilence.Forms.ToolStrip.CanOverflow
 Majorsilence.Forms.ToolStrip.DefaultDropDownDirection
-Majorsilence.Forms.ToolStrip.GripMargin
-Majorsilence.Forms.ToolStrip.GripVisible
-Majorsilence.Forms.ToolStrip.ImageScalingSize
 Majorsilence.Forms.ToolStrip.IsCurrentlyDragging    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStrip.LayoutSettings
 Majorsilence.Forms.ToolStrip.LayoutStyle

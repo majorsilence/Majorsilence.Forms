@@ -446,7 +446,12 @@ namespace Majorsilence.Forms.Renderers
             // has coloured a particular cell means it, and upstream's link colours are a default for
             // the type rather than an override of the style.
             if (cell is DataGridViewLinkCell link && cell.Style.ForegroundColor is null && inherited.ForeColor.IsEmpty) {
-                var colour = link.LinkVisited ? link.VisitedLinkColor : link.LinkColor;
+                // ActiveLinkColor wins while the cell is held down -- the pressed state outranks
+                // visited, because it describes what is happening now rather than what happened
+                // before. It was stored and read by nothing (DGV-43).
+                var colour = link.DataGridView?.IsPressedCell (link.RowIndex, link.ColumnIndex) == true ? link.ActiveLinkColor
+                    : link.LinkVisited ? link.VisitedLinkColor
+                    : link.LinkColor;
 
                 if (!colour.IsEmpty)
                     merged.ForeColor = colour;
@@ -614,7 +619,38 @@ namespace Majorsilence.Forms.Renderers
                 var max_lines = cellStyle is { WrapMode: DataGridViewTriState.True } ? null : CellTextMaxLines (column);
 
                 e.Canvas.DrawText (value, font, scaled_font, text_bounds, fg, alignment, maxLines: max_lines);
+
+                // A link cell is underlined as well as coloured. LinkBehavior was stored on both the
+                // cell and the column and read by neither, so every link cell drew without one
+                // whatever either said (DGV-43). Hover is not tracked per cell here, so HoverUnderline
+                // resolves to "not underlined" -- stated in the finding rather than faked.
+                if (LinkCellUnderlines (control, column, rowIndex, columnIndex)) {
+                    var measured = TextMeasurer.MeasureText (value, font, scaled_font);
+                    var text_size = new Size ((int) Math.Ceiling (measured.Width), (int) Math.Ceiling (measured.Height));
+                    var run = Renderers.LinkRendering.UnderlineRun (text_bounds, text_size, alignment);
+                    var thickness = Math.Max (1, control.LogicalToDeviceUnits (1));
+
+                    e.Canvas.DrawLine (run.X, Math.Min (text_bounds.Bottom, run.Y) - thickness,
+                        run.X + run.Width, Math.Min (text_bounds.Bottom, run.Y) - thickness, fg, thickness);
+                }
             }
+        }
+
+        // The CELL's LinkBehavior wins; SystemDefault on the cell falls through to the COLUMN's, which
+        // is what lets a column set the behaviour once for every link in it. Both were unread.
+        private static bool LinkCellUnderlines (DataGridView control, DataGridViewColumn column, int rowIndex, int columnIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= control.Rows.Count || columnIndex >= control.Rows[rowIndex].Cells.Count)
+                return false;
+
+            if (control.Rows[rowIndex].Cells[columnIndex] is not DataGridViewLinkCell link)
+                return false;
+
+            var behavior = link.LinkBehavior != LinkBehavior.SystemDefault ? link.LinkBehavior
+                : column is DataGridViewLinkColumn link_column ? link_column.LinkBehavior
+                : LinkBehavior.SystemDefault;
+
+            return Renderers.LinkRendering.ShouldUnderline (behavior, hovered: false);
         }
 
         /// <summary>

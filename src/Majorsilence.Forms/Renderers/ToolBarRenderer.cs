@@ -10,6 +10,8 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (ToolBar control, PaintEventArgs e)
         {
+            RenderGrip (control, e);
+
             foreach (var item in control.Items) {
                 // See ToolBar.LayoutItems: a hidden item has no box, so painting it drew it at
                 // whatever bounds it last had (TSM-04).
@@ -21,6 +23,37 @@ namespace Majorsilence.Forms.Renderers
                 else
                     RenderItem (control, item, e);
             }
+        }
+
+        /// <summary>
+        /// Renders the strip's drag grip into the band <see cref="ToolBar.GripBandWidth"/> reserved.
+        /// </summary>
+        /// <remarks>
+        /// Drawn as the dotted vertical rule a toolbar grip conventionally is. The band's width comes
+        /// from the control, not from a constant here, so the space layout kept free and the space
+        /// painted are the same number (TSM-43).
+        /// </remarks>
+        protected virtual void RenderGrip (ToolBar control, PaintEventArgs e)
+        {
+            var band = control.GripBandWidth;
+
+            if (band <= 0)
+                return;
+
+            // Every number here is LOGICAL, because this canvas is: RenderItem fills item.Bounds --
+            // which are logical -- directly. Converting the offsets to device while measuring them
+            // from a logical edge is TSM-41's bug, and writing it here made the grip drift out of its
+            // own band and vanish entirely at MF_HEADLESS_SCALE=2.
+            var margin = control is ToolStrip strip ? strip.GripMargin : new Padding (2);
+            var bounds = control.GripBandBounds;
+            var x = bounds.Left + margin.Left + ToolBar.GripRuleWidth / 2;
+            var top = bounds.Top + margin.Top + 2;
+            var bottom = bounds.Bottom - margin.Bottom - 2;
+            var step = 3;
+            var dot = 1;
+
+            for (var y = top; y < bottom; y += step)
+                e.Canvas.FillRectangle (new Rectangle (x, y, dot, dot), Theme.BorderMidColor);
         }
 
         /// <summary>
@@ -75,9 +108,15 @@ namespace Majorsilence.Forms.Renderers
             if (image != null) {
                 // ImageScaling.None means "draw it at its own size" -- the whole point of assigning a
                 // large glyph to a large button. Anything else gets the standard strip icon box.
+                // ToolStrip.ImageScalingSize is the box a scaled item image is drawn in. It was
+                // stored and read by nothing, so every icon was drawn at a hard-coded 20 and a strip
+                // that asked for 24px or 32px icons got 20px ones (TSM-44). Upstream's default is
+                // 16x16, which is what the property already declares.
+                var box = (control as ToolStrip)?.ImageScalingSize ?? new Size (20, 20);
+
                 image_size = strip_item?.ImageScaling == ToolStripItemImageScaling.None
                     ? new Size (image.Width, image.Height)
-                    : new Size (e.LogicalToDeviceUnits (20), e.LogicalToDeviceUnits (20));
+                    : new Size (e.LogicalToDeviceUnits (box.Width), e.LogicalToDeviceUnits (box.Height));
 
                 // Never overflow the content box, however big the source bitmap is.
                 image_size.Width = Math.Min (image_size.Width, content.Width);
@@ -157,8 +196,8 @@ namespace Majorsilence.Forms.Renderers
 
                 // Drawn as a line under the text rather than as a font style, matching
                 // LinkLabelRenderer -- the two link surfaces should not underline differently.
-                if (is_link && ShouldUnderline (link!, item.Hovered) && !text_size.IsEmpty) {
-                    var run = UnderlineRun (text_rect, text_size, text_align);
+                if (is_link && LinkRendering.ShouldUnderline (link!.LinkBehavior, item.Hovered) && !text_size.IsEmpty) {
+                    var run = LinkRendering.UnderlineRun (text_rect, text_size, text_align);
                     var thickness = Math.Max (1, e.LogicalToDeviceUnits (1));
                     var y = Math.Min (text_rect.Bottom, run.Y) - thickness;
 
@@ -184,41 +223,6 @@ namespace Majorsilence.Forms.Renderers
         // baseline with that reason recorded in TSM-42.
         private static SkiaSharp.SKColor LinkColour (ToolStripLabel link)
             => (link.LinkVisited ? link.VisitedLinkColor : link.LinkColor).ToSKColor ();
-
-        // SystemDefault means "underline", the same resolution LinkLabel.ShouldUnderline applies.
-        private static bool ShouldUnderline (ToolStripLabel link, bool hovered)
-            => (link.LinkBehavior == LinkBehavior.SystemDefault ? LinkBehavior.AlwaysUnderline : link.LinkBehavior) switch {
-                LinkBehavior.AlwaysUnderline => true,
-                LinkBehavior.HoverUnderline => hovered,
-                LinkBehavior.NeverUnderline => false,
-                _ => true
-            };
-
-        // The underline spans the TEXT, not the text rectangle, so it has to follow the same
-        // horizontal alignment DrawText used -- an underline the full width of the box would sit
-        // under empty space on a centred or right-aligned label.
-        private static Rectangle UnderlineRun (Rectangle bounds, Size text, ContentAlignment align)
-        {
-            var width = Math.Min (text.Width, bounds.Width);
-
-            var x = align switch {
-                ContentAlignment.TopCenter or ContentAlignment.MiddleCenter or ContentAlignment.BottomCenter
-                    => bounds.Left + Math.Max (0, (bounds.Width - width) / 2),
-                ContentAlignment.TopRight or ContentAlignment.MiddleRight or ContentAlignment.BottomRight
-                    => bounds.Right - width,
-                _ => bounds.Left
-            };
-
-            var y = align switch {
-                ContentAlignment.TopLeft or ContentAlignment.TopCenter or ContentAlignment.TopRight
-                    => bounds.Top + text.Height,
-                ContentAlignment.BottomLeft or ContentAlignment.BottomCenter or ContentAlignment.BottomRight
-                    => bounds.Bottom,
-                _ => bounds.Top + (bounds.Height + text.Height) / 2
-            };
-
-            return new Rectangle (x, y, width, 0);
-        }
 
         // Only ToolStripDropDownButton carries the flag; every other item type draws its arrow
         // whenever it has a submenu, which is what upstream does too.
