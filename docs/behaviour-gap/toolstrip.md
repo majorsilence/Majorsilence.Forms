@@ -490,6 +490,27 @@ order whatever the property said.
   bitmap's own size", as before.
 - **Tests today:** in `ToolStripGripTests.cs` (2; 1 neutralization).
 
+### TSM-45 — `ShowImageMargin` is blocked by TSM-41, not by its own difficulty — Cat A — P2 — Medium
+- **Ours:** `ContextMenuStrip.ShowImageMargin` and `ToolStripDropDownMenu.ShowImageMargin` are two
+  declarations of one piece of state, both stored and read by nothing, so every drop-down reserves the
+  28-unit icon gutter and a text-only context menu carries it for nothing.
+- **Wired, tested, reverted (2026-09-21).** The change is one read in
+  `MenuDropDownRenderer.RenderItem`, which already computes the caption's indent, and it is correct at
+  scaling 1 with a test that fails when it is removed. At `MF_HEADLESS_SCALE=2` the behaviour cannot be
+  observed: the indent is `e.LogicalToDeviceUnits (28)` measured from a **logical** edge (`TSM-41`), so
+  the gutter becomes 56 logical units and the caption is pushed off the menu whatever this property
+  says.
+- **Why this matters beyond one entry:** `TSM-41` was rated cosmetic — "glyphs and indents drift inward
+  as the scale rises". It is now a **prerequisite**: at least one gap cannot be closed until the strip
+  renderers' units are decided, and any test written for such a gap will pass three gates and fail the
+  fourth.
+- **Fix:** `TSM-41` first — decide the canvas' unit for this family and convert at one boundary. The
+  evidence that it is logical is that `ToolBarRenderer` fills `item.Bounds` directly and menus render
+  correctly at scale 2 today; the counter-consideration is that `GetPreferredItemSize` feeds layout
+  from the same constants, so paint and measure have to be decided together. Then this becomes the
+  one-line read it looks like.
+- **Tests today:** none (the two written for it were removed with the wiring).
+
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.
 - `ToolTip.IsBalloon`/`UseAnimation`/`UseFading`/`ToolTipIcon`/`ToolTipTitle`/`StripAmpersands`/`ShowAlways`/`OwnerDraw`/`Draw`/`Popup` — comctl32 tooltip styling; cosmetic.

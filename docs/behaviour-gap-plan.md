@@ -2422,6 +2422,43 @@ conflicted. Rebasing auto-merged the generated file correctly and left the confl
 different findings to the same tail. Regenerating afterwards confirmed the merged file was already
 right. The rule's value is that it removes the temptation to hand-merge the generated file at all.
 
+**W6.2 — the reopened entries, batch 5. — done (2026-09-21).** Part of #91. Two entries wired, and a
+third reverted for a reason worth more than the entry.
+
+- **`ListView.LabelWrap`** (`LST-64`). A tile caption always wrapped; stopping it is the property's
+  only purpose, so a list of long file names looked identical at either setting.
+- **`Label.FlatStyle`** (`SMP-09`). A flat label drew the standard two-pixel `Fixed3D` border.
+
+Neither changes a default: each property's default produces exactly the drawing that was already
+there, and only the non-default value was unreachable.
+
+*The `Label` pair had to be made commutative, and a neutralization is what said so.* `BorderStyle`
+decides whether there is a border and how heavy; `FlatStyle` decides whether the heavy one is allowed.
+Applying the width from `BorderStyle`'s setter alone — which is what the code did — meant a label whose
+`FlatStyle` was assigned afterwards kept the standard border, and a designer emits the two in whichever
+order it likes. Both setters now route through one `ApplyBorder`, and a test asserts the two orders
+land in the same place.
+
+**`ShowImageMargin` was wired, tested, and then reverted — and that is the finding (`TSM-45`).** The
+change is one read in the method that already indents the caption, and it works at scaling 1. At
+`MF_HEADLESS_SCALE=2` it cannot be demonstrated at all: the indent is
+`e.LogicalToDeviceUnits (28)` added to a **logical** edge — `TSM-41`, recorded weeks ago — so at scale
+2 the gutter becomes 56 logical units and pushes the caption off the menu entirely. **This is the first
+time TSM-41 has been shown to BLOCK a wiring rather than merely look wrong at high DPI**, which raises
+it from cosmetic to a prerequisite.
+
+*I started fixing it and stopped.* Removing the conversions in `RenderItem` is probably right — that
+canvas is logical, as `ToolBarRenderer` filling `item.Bounds` directly demonstrates — but it changes
+the check glyph, image, caption, shortcut and submenu arrow together, and `GetPreferredItemSize` feeds
+layout from the same constants. Twenty sites on the strength of my own inference, inside an unrelated
+wiring batch, is how a subsystem gets broken quietly. It stays `TSM-41`'s job.
+
+*And the scale-2 gate caught a logical/device mix in my test before that, for the sixth time this
+session*: `MenuItem.Bounds` is logical and the bitmap is device. The reflex to check is still not
+automatic.
+
+5 tests, 5 neutralizations. Core stored-only properties 611 → 609.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
