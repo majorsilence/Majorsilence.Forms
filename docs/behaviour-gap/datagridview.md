@@ -467,3 +467,20 @@ Five entries closed, five recorded.
   control. `Renderers.LinkRendering` holds that resolution and the underline geometry.
 - **Tests today:** `DataGridViewLinkCellTests.cs` (8; 5 neutralizations).
 
+### DGV-44 — `FlatStyle` was unread on every cell type that has one — Cat A — P2 — Medium — **CLOSED (2026-09-21)**
+- **Ours (before):** five baseline entries — `DataGridViewButtonCell`, `ButtonColumn`,
+  `CheckBoxCell`, `CheckBoxColumn` and `ComboBoxCell` — and one cause: no cell renderer had ever read
+  `FlatStyle`, so every button, check box and combo cell drew its 3D chrome whatever the property said.
+- **Fix (applied):** `Flat` suppresses the chrome and keeps the content. A flat button loses its frame
+  but keeps its caption; a flat check box loses its box but keeps the tick; a flat combo loses the
+  separator rule but keeps the arrow. Suppressing the content as well would leave a cell that says
+  nothing, which is not what flat means anywhere in WinForms.
+- **The column pushes into its cells rather than being consulted at paint**, which is where upstream
+  keeps it. A renderer that read the column would override a cell set individually, defeating the
+  cell-level property; and the setter has to reach cells that already exist, not only ones created
+  afterwards, because the designer's line runs after the rows are built.
+- **`Popup` counts as flat here.** Upstream raises a Popup frame while the pointer is over the control,
+  and this grid tracks no hovered CELL — the same limit `LinkBehavior.HoverUnderline` hits in
+  `DGV-43`. Recorded rather than approximated with something that is not hover.
+- **Tests today:** `DataGridViewFlatStyleTests.cs` (7; 5 neutralizations, including one that pins
+  `System` as *not* flat — it is the value most easily swept into the flat branch by accident).
