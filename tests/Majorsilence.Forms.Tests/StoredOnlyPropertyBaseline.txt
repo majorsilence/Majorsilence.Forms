@@ -596,11 +596,6 @@ Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFont    -- framework-wri
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFormat    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextRectangle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripLabel.ActiveLinkColor
-Majorsilence.Forms.ToolStripLabel.IsLink
-Majorsilence.Forms.ToolStripLabel.LinkBehavior
-Majorsilence.Forms.ToolStripLabel.LinkColor
-Majorsilence.Forms.ToolStripLabel.LinkVisited
-Majorsilence.Forms.ToolStripLabel.VisitedLinkColor
 Majorsilence.Forms.ToolStripManager.RenderMode
 Majorsilence.Forms.ToolStripManager.Renderer
 Majorsilence.Forms.ToolStripManager.VisualStylesEnabled
