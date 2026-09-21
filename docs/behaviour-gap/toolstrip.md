@@ -427,7 +427,36 @@ order whatever the property said.
 - **Fix:** decide the canvas' unit once for this family and convert at one boundary, as `W6.3` did for the public hit-test members. Every constant in the three strip renderers is affected, so it is its own item.
 - **Tests today:** none directly.
 
-**Legitimately inert, recorded (the rest).** The `*RenderEventArgs` families (`ToolStripArrowRenderEventArgs`, `ToolStripItemTextRenderEventArgs`, `ToolStripGripRenderEventArgs`, the two panel ones — 21 entries) are outbound render-event data for a custom renderer; nothing in the assembly reads them back and nothing should. The `ToolStripDropDown` window attributes (`Opacity`, `AllowTransparency`, `DropShadowEnabled`, `TopLevel`), `ToolStripManager.VisualStylesEnabled`, `AllowClickThrough`, `RightToLeftAutoMirrorImage` and the `ToolStripLabel` link family remain P3 as already recorded below. `ToolStripItem.Overflow`, `ToolStrip.CanOverflow` and `OverflowButton` are blocked on overflow existing at all (`OverflowButton` is never assigned — already recorded in the matrix). `ToolStripItem.Font` is wirable but drags in the font pipeline (`Theme.UIFont` plus a size, not a `Font`), so it is left for the text-measurement area rather than done in passing.
+**Legitimately inert, recorded (the rest).** The `*RenderEventArgs` families (`ToolStripArrowRenderEventArgs`, `ToolStripItemTextRenderEventArgs`, `ToolStripGripRenderEventArgs`, the two panel ones — 21 entries) are outbound render-event data for a custom renderer; nothing in the assembly reads them back and nothing should. The `ToolStripDropDown` window attributes (`Opacity`, `AllowTransparency`, `DropShadowEnabled`, `TopLevel`), `ToolStripManager.VisualStylesEnabled`, `AllowClickThrough`, `RightToLeftAutoMirrorImage` remain P3 as already recorded below. (The `ToolStripLabel` link family was listed here too, and was closed by `TSM-42` — it was never inert, only unimplemented.) `ToolStripItem.Overflow`, `ToolStrip.CanOverflow` and `OverflowButton` are blocked on overflow existing at all (`OverflowButton` is never assigned — already recorded in the matrix). `ToolStripItem.Font` is wirable but drags in the font pipeline (`Theme.UIFont` plus a size, not a `Font`), so it is left for the text-measurement area rather than done in passing.
+
+## Status (2026-09-21, W6.2 — the reopened entries)
+
+### TSM-42 — the `ToolStripLabel` link family was never drawn — Cat A — P2 — Medium — **CLOSED (2026-09-21)**
+- **Ours (before):** six consecutive baseline entries — `IsLink`, `LinkColor`, `VisitedLinkColor`,
+  `LinkVisited`, `LinkBehavior`, `ActiveLinkColor` — and **one cause**: nothing in `ToolBarRenderer` had
+  ever heard of `IsLink`, so a label built as a hyperlink drew as a plain caption and all six were
+  indistinguishable from each other.
+- **This was previously filed as P3 "niche", twice, and that was the wrong call.** It is one `if` in the
+  one place that already draws item text, next to a `LinkLabel` implementation that had solved the same
+  problem. The P3 rating came from the property count looking like six separate small things; seeing
+  them as one mechanism is what made it a half-hour job. Both P3 entries are struck below.
+- **Fix (applied):** `RenderItem` resolves a link colour (`LinkVisited` chooses between `LinkColor` and
+  `VisitedLinkColor`) and draws the underline as a line under the text, matching `LinkLabelRenderer` so
+  the two link surfaces cannot underline differently. `SystemDefault` resolves to `AlwaysUnderline`, the
+  same resolution `LinkLabel.ShouldUnderline` uses. A disabled link keeps the disabled colour and gets
+  no underline — it must not advertise an action that cannot be taken.
+- **`ActiveLinkColor` is deliberately NOT wired and stays in the baseline.** Upstream uses it while the
+  link is held down, and **nothing in this layer tracks a pressed strip item**: `MenuBase` handles
+  `MouseMove` and `MouseLeave` and no button state at all. There is no moment at which the colour could
+  apply, so wiring it would be an unverifiable claim — the same call made for `TabControl.HotTrack`
+  (`LST-61`) and `PictureBox.ErrorImage`. A test pins the absence, and should be replaced by a real one
+  if a press state is ever added.
+- **Tests today:** `ToolStripLabelLinkTests.cs` (8; 5 neutralizations).
+- **Two of the eight tests were vacuous when first written, and neutralization caught both.** The hover
+  test compared a hovered render against an unhovered one — which differ because hovering swaps the
+  item's *background*, so it passed with the entire link feature removed; it now compares two hovered
+  renders that differ only in `LinkBehavior`. And the ink helper measured against the strip's background
+  rather than the item's, so on a hovered item every pixel counted as ink and the metric saturated.
 
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.
@@ -437,7 +466,7 @@ order whatever the property said.
 - `ToolStripManager.VisualStylesEnabled`, `SaveSettings`/`LoadSettings` — uxtheme and per-user settings store.
 - `ToolStripItem.RightToLeftAutoMirrorImage`, `RightToLeft`, `TextDirection` (Vertical90/270) — RTL/vertical text not rendered; niche.
 - `ToolStripItem.Anchor`/`Dock`/`BackgroundImage`/`BackgroundImageLayout`/`ImageTransparentColor` — stored; upstream mostly ignores them for strip layout too.
-- `ToolStripLabel.IsLink`/`LinkColor`/`VisitedLinkColor`/`ActiveLinkColor`/`LinkBehavior` — not drawn as a link; niche.
+- ~~`ToolStripLabel.IsLink`/`LinkColor`/`VisitedLinkColor`/`LinkBehavior` — not drawn as a link; niche.~~ **Wrong call, closed by TSM-42 (2026-09-21)** — one `if` in the existing text path. `ActiveLinkColor` alone remains, blocked on a pressed state existing.
 - `ToolStripDropDownButton.ShowDropDownArrow`, `ToolStripSplitButton.DropDownButtonWidth` (rendering) — arrow always drawn when `HasItems`; cosmetic.
 - `StatusStrip.SizingGrip`/`SizeGripBounds` — grip not drawn; window resize is handled by the OS frame.
 - `MenuItem.OwnerDraw`/`DrawItem`/`MeasureItem`, `StatusBar.DrawItem` — legacy owner-draw; upstream .NET unsupported.

@@ -41,7 +41,16 @@ namespace Majorsilence.Forms.Renderers
             var background_color = item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ();
             e.Canvas.FillRectangle (item.Bounds, background_color);
 
-            var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
+            // A ToolStripLabel with IsLink draws as a hyperlink: the link colours and the underline
+            // were all stored and read by nothing, so `new ToolStripLabel { IsLink = true }` was
+            // indistinguishable from a plain caption (TSM-42). Disabled still wins -- a link you
+            // cannot click should not be advertising itself.
+            var link = item.Enabled ? item as ToolStripLabel : null;
+            var is_link = link is { IsLink: true };
+
+            var font_color = !item.Enabled ? Theme.ForegroundDisabledColor
+                : is_link ? LinkColour (link!)
+                : item_style.GetForegroundColor ();
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
             var pad = e.LogicalToDeviceUnits (8);
 
@@ -143,8 +152,19 @@ namespace Majorsilence.Forms.Renderers
             if (image is not null && !image_rect.IsEmpty)
                 e.Canvas.DrawBitmap (image, image_rect, !item.Enabled);
 
-            if (!string.IsNullOrEmpty (item.Text))
+            if (!string.IsNullOrEmpty (item.Text)) {
                 e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_rect, font_color, text_align);
+
+                // Drawn as a line under the text rather than as a font style, matching
+                // LinkLabelRenderer -- the two link surfaces should not underline differently.
+                if (is_link && ShouldUnderline (link!, item.Hovered) && !text_size.IsEmpty) {
+                    var run = UnderlineRun (text_rect, text_size, text_align);
+                    var thickness = Math.Max (1, e.LogicalToDeviceUnits (1));
+                    var y = Math.Min (text_rect.Bottom, run.Y) - thickness;
+
+                    e.Canvas.DrawLine (run.X, y, run.X + run.Width, y, font_color, thickness);
+                }
+            }
 
             // Dropdown Arrow. ToolStripDropDownButton.ShowDropDownArrow turns it off -- a toolbar
             // button that opens a menu but is drawn as a plain button, which is how icon-only
@@ -155,6 +175,49 @@ namespace Majorsilence.Forms.Renderers
                 var arrow_area = new Rectangle (item.Bounds.Right - e.LogicalToDeviceUnits (16) - 4, arrow_bounds.Top, 16, 16);
                 ControlPaint.DrawArrowGlyph (e, arrow_area, font_color, ArrowDirection.Down);
             }
+        }
+
+        // LinkVisited picks the visited colour. ActiveLinkColor -- the colour WinForms uses while the
+        // link is held down -- is deliberately NOT read: nothing in this layer tracks a pressed strip
+        // item (MenuBase handles MouseMove and MouseLeave and no button state at all), so there is no
+        // moment at which it could apply. Wiring it would be an unverifiable claim; it stays in the
+        // baseline with that reason recorded in TSM-42.
+        private static SkiaSharp.SKColor LinkColour (ToolStripLabel link)
+            => (link.LinkVisited ? link.VisitedLinkColor : link.LinkColor).ToSKColor ();
+
+        // SystemDefault means "underline", the same resolution LinkLabel.ShouldUnderline applies.
+        private static bool ShouldUnderline (ToolStripLabel link, bool hovered)
+            => (link.LinkBehavior == LinkBehavior.SystemDefault ? LinkBehavior.AlwaysUnderline : link.LinkBehavior) switch {
+                LinkBehavior.AlwaysUnderline => true,
+                LinkBehavior.HoverUnderline => hovered,
+                LinkBehavior.NeverUnderline => false,
+                _ => true
+            };
+
+        // The underline spans the TEXT, not the text rectangle, so it has to follow the same
+        // horizontal alignment DrawText used -- an underline the full width of the box would sit
+        // under empty space on a centred or right-aligned label.
+        private static Rectangle UnderlineRun (Rectangle bounds, Size text, ContentAlignment align)
+        {
+            var width = Math.Min (text.Width, bounds.Width);
+
+            var x = align switch {
+                ContentAlignment.TopCenter or ContentAlignment.MiddleCenter or ContentAlignment.BottomCenter
+                    => bounds.Left + Math.Max (0, (bounds.Width - width) / 2),
+                ContentAlignment.TopRight or ContentAlignment.MiddleRight or ContentAlignment.BottomRight
+                    => bounds.Right - width,
+                _ => bounds.Left
+            };
+
+            var y = align switch {
+                ContentAlignment.TopLeft or ContentAlignment.TopCenter or ContentAlignment.TopRight
+                    => bounds.Top + text.Height,
+                ContentAlignment.BottomLeft or ContentAlignment.BottomCenter or ContentAlignment.BottomRight
+                    => bounds.Bottom,
+                _ => bounds.Top + (bounds.Height + text.Height) / 2
+            };
+
+            return new Rectangle (x, y, width, 0);
         }
 
         // Only ToolStripDropDownButton carries the flag; every other item type draws its arrow

@@ -2322,6 +2322,41 @@ built, because it is a scanner's worth of work and this pass is about wiring.
 
 13 tests, 12 neutralizations. Core stored-only properties 637 → 628.
 
+**W6.2 — the reopened entries, batch 2. — done (2026-09-21).** Part of #91. 212 of the reopened
+entries remained; this takes the `ToolStripLabel` link family (`TSM-42`, 5 of 6).
+
+*The finding worth keeping is about triage, not rendering.* This family was filed as **P3 "niche"** in
+two separate places in `toolstrip.md`, and stayed there through several sweeps. It is one `if` in the
+one method that already draws item text, beside a `LinkLabel` implementation that had solved the
+identical problem. **The P3 rating came from counting six properties instead of seeing one mechanism**
+— the same misreading that kept `LST-56`'s border model parked on a claim nobody had checked. Both
+stale P3 records are struck rather than quietly deleted.
+
+`ActiveLinkColor` is the sixth and stays in the baseline: upstream uses it while the link is held down,
+and nothing in this layer tracks a pressed strip item — `MenuBase` handles `MouseMove` and `MouseLeave`
+and no button state at all. Same call as `TabControl.HotTrack` and `PictureBox.ErrorImage`: a property
+whose effect cannot be demonstrated does not get wired. A test pins the absence and says what should
+replace it.
+
+*Two of the eight tests were vacuous as first written, and both were caught by neutralization rather
+than by review.* The hover test compared hovered against unhovered — which differ because hovering
+swaps the item's background, so it passed with the whole feature removed. And the ink helper measured
+against the STRIP's background instead of the ITEM's, so on a hovered item every pixel counted as ink
+and the metric saturated at the item's area, where an underline cannot move it. Both are now stated in
+the test file, because the correct measurement is the non-obvious part of testing a renderer.
+
+**A third gate contradicts itself, found while recording the `ActiveLinkColor` reason.** The
+stored-only baseline's header says to annotate a deliberately-inert entry with a trailing `-- reason`
+beside it, and `StoredOnlyPropertyBaselineTests` is written to read such notes. But `WriteBaseline` is
+`File.WriteAllLines([..header, ..entries])` — regeneration keeps the header and discards every
+annotation, and regeneration happens on **every** wiring PR. So the convention the file documents
+cannot survive contact with the workflow, which is why the file contains exactly zero hand-written
+notes despite instructing people to add them. Recorded, not fixed: making notes durable means merging
+them on write, which is a scanner change and belongs with the other two scanner findings (the
+constructor-write marker and the `OnX`-raiser blind spot) rather than inside a wiring pass.
+
+8 tests, 5 neutralizations. Core stored-only properties 628 → 623.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
