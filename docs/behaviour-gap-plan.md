@@ -2316,7 +2316,9 @@ backing field is READ by something other than the add/remove accessors, and `OnG
 it. **Any event with a conventional `protected virtual OnX` raiser is invisible to that gate, however
 unreachable the raiser is.** A source-level count puts it at **73 `OnX` raisers that nothing in `src/`
 calls**, against the 109 the gate lists; some of those are legitimately for derived types to call, so
-the number is an upper bound until it is done properly in IL. That is the same transitive-reachability
+the number is an upper bound until it is done properly in IL. *(Done on 2026-09-21, and the estimate
+was low: the IL scan found **106** and the baseline went 109 → 215. The source-level count could only
+see `protected On*` raisers; the real population includes other shapes.)* That is the same transitive-reachability
 limit already recorded for the stored-only gate, and it is now recorded for this one — measured, not
 built, because it is a scanner's worth of work and this pass is about wiring.
 
@@ -2458,6 +2460,44 @@ session*: `MenuItem.Bounds` is logical and the bitmap is device. The reflex to c
 automatic.
 
 5 tests, 5 neutralizations. Core stored-only properties 611 → 609.
+
+**The unraised-event gate was blind to its most common shape. — fixed (2026-09-21).** Part of #91,
+and the second of the scanner findings this sweep turned up.
+
+*The rule was "nothing reads the backing field".* But
+`protected virtual void OnFoo (EventArgs e) => Foo?.Invoke (this, e);` **does** read it — so every
+event with a conventional raiser counted as raised, however unreachable that raiser was. Upstream calls
+those from message handling; this layer has no pump, so a raiser nothing calls is an event that never
+fires. A reader now has to be reachable itself.
+
+**The baseline went 109 → 215.** The gate was hiding **106** dead events — very nearly as many as it
+reported. `Control.ClientSizeChanged` is the clearest: `OnClientSizeChanged` exists, reads the field,
+and the only other mention of it in the assembly is `// OnClientSizeChanged (EventArgs.Empty);`, still
+commented out at `Control.Layout.cs:662`. `Control.ChangeUICues`, `Application.Idle`,
+`Application.ThreadException` and `ContainerControl.AutoValidateChanged` are the same shape.
+
+*My own estimate of this was low, and the way it was low is instructive.* Batch 2 recorded "73 `OnX`
+raisers that nothing in `src/` calls" from a source-level grep, described as an upper bound. It was a
+**lower** bound: the grep could only match `protected void On*`, and the real population includes
+raisers with other shapes and other names. A regex over source is not a substitute for reading IL, and
+calling the result an upper bound made it sound safer than it was.
+
+*The check is ONE HOP and that is stated in the gate.* A raiser called only by other dead code still
+counts as reachable. Erring that way keeps working events out of the baseline — the same direction
+`IsCalled` already errs for virtual accessors — and full transitive reachability is the follow-up,
+which would also subsume the stored-only gate's known "read by code that is itself inert" limit.
+
+**And the annotation convention was broken in three places at once, which is why the files had none.**
+Every baseline header instructs the reader to annotate a deliberately-inert entry rather than delete
+it, and `StoredOnlyPropertyBaselineTests` is written to read such notes. But `WriteBaseline` was
+`File.WriteAllLines([..header, ..entries])` — regeneration kept the header and discarded every
+annotation — **and** this gate compared raw lines, so the moment anyone did annotate an entry it read
+as removed and re-added. Three independent mechanisms had to agree and none of them did; the observable
+result was a file full of instructions nobody had ever successfully followed. Notes are now carried
+over on regeneration (a generated note wins, being derived from current IL), and the comparison strips
+them. The first real one records where `ClientSizeChanged`'s raise is commented out.
+
+5 tests, 3 neutralizations. `UnraisedEventBaseline` 109 → 215; no other baseline moves.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing

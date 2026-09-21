@@ -131,9 +131,20 @@ internal static partial class StubSurfaceScanner
                 if (!fieldsByName.TryGetValue (name, out var fieldHandle))
                     continue;
 
+                // A read of the backing field is only a RAISE if the method doing the reading can
+                // itself be reached. Without that test the gate was blind to its most common shape:
+                // `protected virtual void OnFoo (EventArgs e) => Foo?.Invoke (this, e);` reads the
+                // field, so every event with a conventional raiser counted as raised -- however
+                // unreachable that raiser was. Upstream calls those from message handling; this layer
+                // has no pump, so a raiser nothing calls means an event that never fires.
+                //
+                // ONE HOP, and that is a stated limit: a raiser called only by other dead code still
+                // counts as reachable here. Erring that way keeps working events out of the baseline,
+                // which is the same direction IsCalled already errs for virtual accessors.
                 var readers = access.Readers.TryGetValue (fieldHandle, out var r) ? r : [];
                 var raisedBySomething = readers.Any (m =>
-                    m != accessors.Adder && m != accessors.Remover);
+                    m != accessors.Adder && m != accessors.Remover
+                    && IsCalled (access, md, m, md.GetMethodDefinition (m)));
 
                 if (!raisedBySomething)
                     found.Add ($"{FullTypeName (md, type)}.{name}");
@@ -572,6 +583,55 @@ internal static partial class StubSurfaceScanner
             .Where (l => l.Length > 0)
             .ToList ();
 
+    /// <summary>
+    /// Writes a baseline, carrying over any hand-written <c>-- reason</c> note already beside an entry.
+    /// </summary>
+    /// <remarks>
+    /// <para>The baselines instruct the reader to annotate a deliberately-inert entry rather than
+    /// delete it, and <c>StoredOnlyPropertyBaselineTests</c> is written to read such notes. This method
+    /// used to be <c>File.WriteAllLines([..header, ..entries])</c>, which kept the header and dropped
+    /// every annotation -- and regeneration happens on essentially every wiring change, so the
+    /// convention could not survive contact with the workflow. The files contained exactly zero
+    /// hand-written notes while telling people to add them.</para>
+    /// <para>A note the SCANNER generates for an entry wins, because it is derived from the current
+    /// IL and a stale hand note about the same entry would be worse than none. Anything else is
+    /// carried over verbatim.</para>
+    /// </remarks>
     internal static void WriteBaseline (string path, IEnumerable<string> header, IEnumerable<string> entries)
-        => File.WriteAllLines (path, [.. header, .. entries]);
+    {
+        var notes = ExistingNotes (path);
+
+        File.WriteAllLines (path, [.. header, .. entries.Select (entry => Reannotate (entry, notes))]);
+    }
+
+    // entry name -> the trailing "    -- ..." exactly as it was written.
+    private static Dictionary<string, string> ExistingNotes (string path)
+    {
+        var notes = new Dictionary<string, string> (StringComparer.Ordinal);
+
+        if (!File.Exists (path))
+            return notes;
+
+        foreach (var line in File.ReadAllLines (path)) {
+            if (line.StartsWith ('#') || line.Length == 0)
+                continue;
+
+            var at = line.IndexOf (" --", StringComparison.Ordinal);
+
+            if (at < 0)
+                continue;
+
+            // Re-emitted in the canonical form the generated marker uses, so a carried-over note and
+            // a generated one line up in the same column rather than drifting by however many spaces
+            // the last editor happened to type.
+            notes[line[..at].Trim ()] = "    " + line[at..].TrimStart ();
+        }
+
+        return notes;
+    }
+
+    private static string Reannotate (string entry, Dictionary<string, string> notes)
+        => entry.Contains (" --", StringComparison.Ordinal)
+            ? entry
+            : notes.TryGetValue (entry.Trim (), out var note) ? entry + note : entry;
 }
