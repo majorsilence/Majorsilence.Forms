@@ -2,11 +2,11 @@ name: Release Packages
 
 # Builds the Majorsilence.Forms NuGet packages -- including majorsilence-migrate,
 # which ships as a .NET tool package (Majorsilence.Forms.Migrator) and nothing else.
-# Runs on tags (v*) for a real release, on demand via the Actions tab, and on
+# Runs on a version tag for a real release, on demand via the Actions tab, and on
 # PRs / main pushes that touch packable code as a smoke test.
 #
-# - Tag push (v1.2.3)        -> packs everything, uploads artifacts, creates a
-#                               DRAFT GitHub Release.
+# - Tag push (v1.2.3 or      -> packs everything, uploads artifacts, creates a
+#   1.2.3)                      DRAFT GitHub Release.
 # - workflow_dispatch        -> same, with an overridable version.
 # - pull_request / main push -> packs only, to verify nothing is broken.
 #
@@ -19,8 +19,15 @@ on:
     # Tags always trigger a real release. (Note: path filters are intentionally
     # omitted here — combining `paths` with `tags` can cause tag pushes to be
     # skipped, and a release must never be silently filtered out.)
+    #
+    # BOTH spellings, because this repo has used both: v0.3 through v26.0.24 carry the
+    # prefix, and everything from 26.0.24-a to 26.0.52 does not. Only 'v*' was listed, so
+    # the thirteen bare tags matched nothing and released nothing -- a tag push that looks
+    # exactly like a release and silently does not run is the worst shape this can fail in,
+    # which is why the list is permissive rather than a rule about how to name a tag.
     tags:
       - 'v*'
+      - '[0-9]*'
     branches:
       - main
   pull_request:
@@ -82,8 +89,11 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            # Tag like refs/tags/v1.2.3 -> 1.2.3
+          # Any tag that got this far matched the `on.push.tags` filters above, so the
+          # test is "is this a tag" rather than a second copy of the naming rule -- one
+          # place decides what a release tag looks like, and it is the trigger.
+          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # refs/tags/v1.2.3 -> 1.2.3, and refs/tags/1.2.3 -> 1.2.3 (the strip is a no-op).
             VERSION="${GITHUB_REF_NAME#v}"
             echo "is_release=true" >> "$GITHUB_OUTPUT"
           elif [ -n "${{ github.event.inputs.version }}" ]; then
