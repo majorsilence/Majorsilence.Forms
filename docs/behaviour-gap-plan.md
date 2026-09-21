@@ -2398,6 +2398,29 @@ draws a drag grip, so its items start 7 logical units in, and item images are dr
 against `dotnet/winforms`' constructors rather than assumed.
 
 16 tests, 10 neutralizations. Core stored-only properties 623 → 616.
+**W6.2 — the reopened entries, batch 4. — done (2026-09-21).** Part of #91. The grid's `FlatStyle`
+family (`DGV-44`, 5 entries): three cell types and two columns, none of which had ever been read, so
+every button, check box and combo cell drew its 3D chrome whatever the property said.
+
+*The shape is the one this sweep keeps finding:* five properties that look like five small gaps and
+are one missing `if` in the place that already draws the chrome. What took the time was not the flat
+branch but deciding **where the value lives** — the column pushes into its cells rather than being
+consulted at paint, because a renderer reading the column would silently override a cell set
+individually, which is the entire purpose of the cell-level property.
+
+*Two limits stated rather than approximated.* `Popup` counts as flat, because upstream raises its frame
+under the pointer and this grid tracks no hovered cell — the same limit `HoverUnderline` hit in
+`DGV-43` a batch earlier. And `System` is explicitly **not** flat; it is the value most easily swept
+into the flat branch by accident, so a neutralization pins it.
+
+7 tests, 5 neutralizations. Core stored-only properties 616 → 611.
+
+*The baseline conflict CONTRIBUTING warns about happened, and the rule worked.* This branch and the
+batch-3 one both regenerated `StoredOnlyPropertyBaseline.txt` from `main`, and the second to land
+conflicted. Rebasing auto-merged the generated file correctly and left the conflicts in the two
+**hand-written** docs instead — where both sides were wanted, because two branches had appended
+different findings to the same tail. Regenerating afterwards confirmed the merged file was already
+right. The rule's value is that it removes the temptation to hand-merge the generated file at all.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing

@@ -236,8 +236,35 @@ namespace Majorsilence.Forms
 
     public partial class DataGridViewButtonColumn
     {
+        private FlatStyle flat_style = FlatStyle.Standard;
+
         /// <summary>Gets or sets the flat-style appearance of the column's buttons.</summary>
-        public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
+        /// <remarks>
+        /// Assigning pushes the value into every cell the column already has, which is where upstream
+        /// keeps it and where the renderer reads it. A column consulted at paint instead would lose to
+        /// a cell that had been set individually -- the whole point of the cell-level property
+        /// (<c>DGV-44</c>).
+        /// </remarks>
+        public FlatStyle FlatStyle {
+            get => flat_style;
+            set {
+                if (flat_style == value)
+                    return;
+
+                flat_style = value;
+
+                if (DataGridView is { } grid) {
+                    var index = Index;
+
+                    if (index >= 0)
+                        foreach (var row in grid.Rows)
+                            if (index < row.Cells.Count && row.Cells[index] is DataGridViewButtonCell cell)
+                                cell.FlatStyle = value;
+
+                    grid.Invalidate ();
+                }
+            }
+        }
     }
 
     public partial class DataGridViewColumnHeaderCell

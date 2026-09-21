@@ -604,12 +604,13 @@ namespace Majorsilence.Forms.Renderers
 
                 var cell_value = check_cell is not null ? check_cell.Value : value;
 
-                RenderCheckBoxCell (e, bounds, DataGridView.IsCheckedValue (column, cell_value, check_cell));
+                RenderCheckBoxCell (e, bounds, DataGridView.IsCheckedValue (column, cell_value, check_cell),
+                    CellIsFlat (control, rowIndex, columnIndex));
             } else if (column is DataGridViewButtonColumn btn_col) {
                 var btn_text = btn_col.UseColumnTextForButtonValue ? btn_col.HeaderText : value;
-                RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg);
+                RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
             } else if (column is DataGridViewComboBoxColumn) {
-                RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg);
+                RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
             } else {
                 // Alignment and wrapping from the cascade. The two alignment enums share their values, so
                 // the cast is exact; WrapMode == True lifts the single-line cap.
@@ -747,14 +748,17 @@ namespace Majorsilence.Forms.Renderers
                 disabled: !control.Enabled);
         }
 
-        private static void RenderCheckBoxCell (PaintEventArgs e, Rectangle bounds, bool isChecked)
+        private static void RenderCheckBoxCell (PaintEventArgs e, Rectangle bounds, bool isChecked, bool flat = false)
         {
             var size = Math.Min (bounds.Width, bounds.Height) - 6;
             var cx = bounds.Left + (bounds.Width - size) / 2;
             var cy = bounds.Top + (bounds.Height - size) / 2;
             var box = new Rectangle (cx, cy, size, size);
 
-            e.Canvas.DrawRectangle (box, Theme.BorderLowColor);
+            // Flat: no box outline. The tick still draws, so a checked flat cell is still readable --
+            // suppressing both would make the cell say nothing at all.
+            if (!flat)
+                e.Canvas.DrawRectangle (box, Theme.BorderLowColor);
 
             if (isChecked) {
                 var inset = box;
@@ -763,13 +767,45 @@ namespace Majorsilence.Forms.Renderers
             }
         }
 
-        private static void RenderButtonCell (PaintEventArgs e, Rectangle bounds, string text, SKTypeface font, int fontSize, SKColor fg)
+        private static void RenderButtonCell (PaintEventArgs e, Rectangle bounds, string text, SKTypeface font, int fontSize, SKColor fg, bool flat = false)
         {
-            e.Canvas.DrawRectangle (bounds, Theme.BorderLowColor);
+            if (!flat)
+                e.Canvas.DrawRectangle (bounds, Theme.BorderLowColor);
+
             e.Canvas.DrawText (text, font, fontSize, bounds, fg, ContentAlignment.MiddleCenter, maxLines: 1);
         }
 
-        private static void RenderComboBoxCell (PaintEventArgs e, Rectangle bounds, string value, SKTypeface font, int fontSize, SKColor fg)
+        /// <summary>
+        /// Whether a cell's <c>FlatStyle</c> means "draw no chrome".
+        /// </summary>
+        /// <remarks>
+        /// <para>The five <c>FlatStyle</c> members of the button, check-box and combo-box cell types
+        /// were stored and read by nothing, so every one of those cells drew its 3D frame whatever the
+        /// property said (<c>DGV-44</c>).</para>
+        /// <para><c>Popup</c> is flat here. Upstream raises a Popup frame while the pointer is over the
+        /// control, and this grid tracks no hovered CELL -- the same limit
+        /// <see cref="LinkBehavior.HoverUnderline"/> runs into on a link cell. Stated rather than
+        /// approximated with something that is not hover.</para>
+        /// </remarks>
+        private static bool IsFlatCell (FlatStyle style)
+            => style is FlatStyle.Flat or FlatStyle.Popup;
+
+        // The CELL's value, which is where upstream keeps it -- a column's setter pushes into its
+        // cells rather than being consulted at paint.
+        private static bool CellIsFlat (DataGridView control, int rowIndex, int columnIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= control.Rows.Count || columnIndex < 0 || columnIndex >= control.Rows[rowIndex].Cells.Count)
+                return false;
+
+            return control.Rows[rowIndex].Cells[columnIndex] switch {
+                DataGridViewButtonCell button => IsFlatCell (button.FlatStyle),
+                DataGridViewCheckBoxCell check => IsFlatCell (check.FlatStyle),
+                DataGridViewComboBoxCell combo => IsFlatCell (combo.FlatStyle),
+                _ => false
+            };
+        }
+
+        private static void RenderComboBoxCell (PaintEventArgs e, Rectangle bounds, string value, SKTypeface font, int fontSize, SKColor fg, bool flat = false)
         {
             var arrow_size = 10;
             var text_rect = new Rectangle (bounds.Left, bounds.Top, bounds.Width - arrow_size - 4, bounds.Height);
@@ -778,7 +814,11 @@ namespace Majorsilence.Forms.Renderers
             // Draw dropdown arrow
             var ax = bounds.Right - arrow_size;
             var ay = bounds.Top + (bounds.Height - arrow_size) / 2;
-            e.Canvas.DrawLine (bounds.Right - arrow_size - 2, bounds.Top, bounds.Right - arrow_size - 2, bounds.Bottom, Theme.BorderLowColor);
+            // Flat: no separator rule before the arrow. The arrow itself stays -- it is what marks the
+            // cell as a drop-down at all.
+            if (!flat)
+                e.Canvas.DrawLine (bounds.Right - arrow_size - 2, bounds.Top, bounds.Right - arrow_size - 2, bounds.Bottom, Theme.BorderLowColor);
+
             e.Canvas.DrawText ("▾", font, fontSize, new Rectangle (ax - 2, ay - 2, arrow_size + 4, arrow_size + 4), fg, ContentAlignment.MiddleCenter);
         }
 
