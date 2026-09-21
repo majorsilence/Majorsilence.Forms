@@ -71,7 +71,14 @@ public class StripHierarchyTests
         Assert.Null (strip.Renderer);
         Assert.Equal (ToolStripRenderMode.ManagerRenderMode, strip.RenderMode);
         Assert.Equal (ToolStripLayoutStyle.HorizontalStackWithOverflow, strip.LayoutStyle);
-        Assert.Equal (ToolStripGripStyle.Visible, strip.GripStyle);
+        // Per type, not one blanket answer -- this line used to assert Visible for all three, which
+        // is ToolStrip's default and NOT what two of these three carry. Checked against
+        // dotnet/winforms: MenuStrip's and StatusStrip's constructors each set Hidden (a menu bar and
+        // a status bar are not draggable); ToolStripDropDown carries [DefaultValue(Hidden)] but sets
+        // nothing, so ContextMenuStrip keeps the inherited Visible here.
+        Assert.Equal (
+            strip is MenuStrip or StatusStrip ? ToolStripGripStyle.Hidden : ToolStripGripStyle.Visible,
+            strip.GripStyle);
         Assert.False (strip.Stretch);
         Assert.True (strip.CanOverflow);
         Assert.Equal (new Size (16, 16), strip.ImageScalingSize);
