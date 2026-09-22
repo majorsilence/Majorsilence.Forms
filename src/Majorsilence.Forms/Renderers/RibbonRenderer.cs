@@ -63,9 +63,9 @@ namespace Majorsilence.Forms.Renderers
             var padding = e.LogicalToDeviceUnits (item.Padding);
             var background_color = item.Selected ? Theme.ControlHighlightMidColor : item.Hovered ? Theme.ControlHighlightLowColor : control.GetEffectiveBackgroundColor ();
 
-            canvas.FillRectangle (item.Bounds, background_color);
+            canvas.FillRectangle (item.DeviceBounds, background_color);
 
-            var image_area_bounds = new Rectangle (item.Bounds.Left + padding.Left, item.Bounds.Top + padding.Top, item.Bounds.Width - padding.Horizontal, e.LogicalToDeviceUnits (MINIMUM_ITEM_SIZE));
+            var image_area_bounds = new Rectangle (item.DeviceBounds.Left + padding.Left, item.DeviceBounds.Top + padding.Top, item.DeviceBounds.Width - padding.Horizontal, e.LogicalToDeviceUnits (MINIMUM_ITEM_SIZE));
             var final_image_bounds = DrawingExtensions.CenterSquare (image_area_bounds, e.LogicalToDeviceUnits (IMAGE_SIZE));
 
             if (item.ImageSK != null)
@@ -75,9 +75,9 @@ namespace Majorsilence.Forms.Renderers
                 var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);
 
                 canvas.Save ();
-                canvas.Clip (item.Bounds);
+                canvas.Clip (item.DeviceBounds);
 
-                var text_bounds = new Rectangle (item.Bounds.Left, image_area_bounds.Bottom, item.Bounds.Width, item.Bounds.Bottom - image_area_bounds.Bottom);
+                var text_bounds = new Rectangle (item.DeviceBounds.Left, image_area_bounds.Bottom, item.DeviceBounds.Width, item.DeviceBounds.Bottom - image_area_bounds.Bottom);
                 canvas.DrawText (item.Text, Theme.UIFont, font_size, text_bounds, item.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor, ContentAlignment.MiddleCenter);
 
                 canvas.Restore ();
@@ -90,13 +90,13 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderMenuSeparatorItem (Ribbon control, RibbonTabPage tabPage, RibbonItemGroup group, MenuSeparatorItem item, PaintEventArgs e)
         {
             // Background
-            e.Canvas.FillRectangle (item.Bounds, control.GetEffectiveBackgroundColor ());
+            e.Canvas.FillRectangle (item.DeviceBounds, control.GetEffectiveBackgroundColor ());
 
-            var center = item.Bounds.GetCenter ();
+            var center = item.DeviceBounds.GetCenter ();
             var thickness = e.LogicalToDeviceUnits (1);
             var padding = e.LogicalToDeviceUnits (item.Padding);
 
-            e.Canvas.DrawLine (center.X, item.Bounds.Y + padding.Top, center.X, item.Bounds.Bottom - padding.Bottom, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
+            e.Canvas.DrawLine (center.X, item.DeviceBounds.Y + padding.Top, center.X, item.DeviceBounds.Bottom - padding.Bottom, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
         }
 
         /// <summary>

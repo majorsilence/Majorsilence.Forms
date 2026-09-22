@@ -2614,6 +2614,42 @@ test that pins one has to expect that. Replaced with `Control.RegionChanged`, sa
 
 5 tests, 2 neutralizations. `UnraisedEventBaseline` 215 → 214, with 31 of the remainder now marked as
 correctly inert -- the real remaining surface is **183**, not 215.
+**TSM-41, closed properly this time, and gated. — 2026-09-22.** Part of #91.
+
+**I closed this a day early with two of seven renderers fixed.** The finding named
+`ToolBarRenderer` and `MenuDropDownRenderer`; I fixed those, marked it CLOSED, and did not check
+whether anything else painted the same way. Five more did: `MenuRenderer`, `RibbonRenderer`,
+`StatusStripRenderer`, `TabStripRenderer` and `NavigationPaneRenderer`. A `MenuStrip` item measured
+`50x26` in an `800x52` bitmap where its device box was `100x52` — the same defect, in a control anyone
+would have called core. (`TreeViewRenderer` also paints `item.Bounds` and is genuinely fine:
+`TreeNode.Bounds` is already device.)
+
+All seven are converted now. The five `MenuItem`-based ones go through `MenuItem.DeviceBounds`;
+`TabStripItem` and `NavigationPaneItem` have no owner reference and so cannot carry a device box, and
+their renderers convert through the control at the top of `RenderItem`. `TabStripRenderer`'s
+owner-draw path stays logical deliberately — that rectangle is handed to application code.
+
+**The seven edits are not the fix; the gate is.** `StripPaintSpaceTests` renders five item-hosting
+controls and asserts each item's painted rectangle is its logical box times the display scale.
+Reverting any single renderer fails exactly its own case — verified one at a time, seven
+neutralizations. **Fixing renderers individually is how the next one gets missed, and that has now
+happened twice on this finding.** The lesson is not "check the other renderers"; it is that a defect
+which is a *property of a whole family* needs a test over the family, and writing one costs less than
+the second round of cleanup did.
+
+*Most of the work was finding a lever per host.* Hover fills the item background on four of the five.
+`StatusStrip` paints no item background — status panels are not interactive — so it is measured with a
+`ToolStripProgressBar` driven `Minimum` to `Maximum`, which its renderer fills across the item; and it
+needs a second item beside the bar, because alone the bar springs to the whole strip and the fill
+measures nothing. That last detail is what defeated the first attempt at covering `StatusStrip`, and
+why the first version of this gate shipped with a hole in it.
+
+*One real oddity found and recorded rather than fixed:* `NavigationPane` lays its items out **151
+logical units wide inside an 80-wide pane**, so the device box overruns the control and the painted
+fill is clipped. The gate clamps its expectation to the control for that reason. That is a layout
+question for `NavigationPane`, not a paint-space one.
+
+5 gate cases, 7 neutralizations. No baseline change.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing

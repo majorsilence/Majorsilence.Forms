@@ -18,7 +18,7 @@ namespace Majorsilence.Forms.Renderers
                 if (!item.Visible)
                     continue;
 
-                var item_bounds = item.Bounds;
+                var item_bounds = item.DeviceBounds;
 
                 // An item hosting a real control draws nothing of its own -- the control is a child of the
                 // strip and paints itself over this rectangle. Drawing the item's Text as well shows

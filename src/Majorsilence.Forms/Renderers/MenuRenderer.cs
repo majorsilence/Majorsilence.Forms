@@ -29,13 +29,13 @@ namespace Majorsilence.Forms.Renderers
             // Background
             var item_style = item.Hovered || item.IsDropDownOpened ? Menu.DefaultItemHoverStyle : Menu.DefaultItemStyle;
             var background_color = item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ();
-            e.Canvas.FillRectangle (item.Bounds, background_color);
+            e.Canvas.FillRectangle (item.DeviceBounds, background_color);
 
             // Text
             var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
 
-            e.Canvas.DrawMnemonicText (item.Text, Theme.UIFont, font_size, item.Bounds, font_color, ContentAlignment.MiddleCenter);
+            e.Canvas.DrawMnemonicText (item.Text, Theme.UIFont, font_size, item.DeviceBounds, font_color, ContentAlignment.MiddleCenter);
         }
 
         /// <summary>
@@ -44,13 +44,13 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderMenuSeparatorItem (Menu control, MenuSeparatorItem item, PaintEventArgs e)
         {
             // Background
-            e.Canvas.FillRectangle (item.Bounds, control.GetEffectiveBackgroundColor ());
+            e.Canvas.FillRectangle (item.DeviceBounds, control.GetEffectiveBackgroundColor ());
 
-            var center = item.Bounds.GetCenter ();
+            var center = item.DeviceBounds.GetCenter ();
             var thickness = e.LogicalToDeviceUnits (1);
             var padding = e.LogicalToDeviceUnits (item.Padding);
 
-            e.Canvas.DrawLine (center.X, item.Bounds.Top + padding.Top, center.X, item.Bounds.Bottom - padding.Bottom, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
+            e.Canvas.DrawLine (center.X, item.DeviceBounds.Top + padding.Top, center.X, item.DeviceBounds.Bottom - padding.Bottom, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
         }
 
         /// <summary>
@@ -65,7 +65,7 @@ namespace Majorsilence.Forms.Renderers
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
             var text_size = (int)Math.Round (TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), Theme.UIFont, font_size).Width);
 
-            return new Size (text_size + padding, item.Bounds.Height);
+            return new Size (text_size + padding, item.DeviceBounds.Height);
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace Majorsilence.Forms.Renderers
             var padding = control.LogicalToDeviceUnits (item.Padding.Horizontal);
             var thickness = control.LogicalToDeviceUnits (1);
 
-            return new Size (thickness + padding, item.Bounds.Height);
+            return new Size (thickness + padding, item.DeviceBounds.Height);
         }
     }
 }
