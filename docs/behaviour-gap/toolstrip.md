@@ -616,7 +616,7 @@ order whatever the property said.
   until a neutralization caught it: the item-relative check sat at the strip's origin, where
   item-relative and strip-relative coordinates coincide. The item is now pushed off the origin first.
 
-### TSM-47 — `ToolStrip.Items.Insert` inserts in the facade and *appends* in the strip — Cat A — P1 — High
+### TSM-47 — `ToolStrip.Items.Insert` inserts in the facade and *appends* in the strip — Cat A — P1 — High — **CLOSED (2026-09-22)**
 - **Ours:** `ToolStrip.Items` is a facade (`CreateItemsFacade`) over the root `MenuItemCollection` that
   layout and paint actually read. It forwards through two callbacks only --
   `ItemAddedCallback = item => base_items.Add (item)` and `ItemRemovedCallback` -- so **`Insert (index,
@@ -629,10 +629,17 @@ order whatever the property said.
 - **How it surfaced:** a `LocationChanged` test in `TSM-46` inserted an item ahead of an existing one and
   asserted the existing one moved. It did not, and the probe written to see why found the two lists
   disagreeing.
-- **Fix:** an insert-aware callback, or have the facade *be* a view over the root collection rather than
-  a copy of it. `SetItem` and `IndexOf` should be checked for the same drift at the same time. Not done
-  here -- this pass is event wiring, and a collection-identity fix wants its own tests.
-- **Tests today:** none; the probe is in `TSM-46`'s record above.
+- **Fix (applied):** the facade's `ItemAddedCallback` became an index-aware `ItemInsertedCallback`,
+  wired to `base_items.Insert (index, item)`. `SetItem` forwards as remove-then-insert *at the same
+  index* -- the removal shifts both lists identically, so the index is still right. `RemoveItem` and
+  `ClearItems` were already order-preserving.
+- **Why the index-aware forward is safe:** it depends on the two lists sharing an index space, which
+  holds only if nothing writes to the root collection behind the facade. A sweep found no such write
+  on a `ToolStrip`. The root collection derives from the facade type, so the forwarded insert lands in
+  `MenuItemCollection.InsertItem` and picks up `Parent` and `NotifyItemAdded` exactly as an `Add` did.
+- **Tests today:** `ToolStripItemsOrderTests.cs` (6; 2 neutralizations). One compares the facade and
+  the root collection as *sequences* directly -- the invariant the bug broke, which paint can only
+  show indirectly.
 
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.

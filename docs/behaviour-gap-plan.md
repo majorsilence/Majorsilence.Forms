@@ -2745,6 +2745,22 @@ sweep.
 11 tests, 8 neutralizations. `UnraisedEventBaseline` 211 → 203; stored-only 605 → 604 (no real
 closure).
 
+**TSM-47 fixed: `ToolStrip.Items.Insert` now inserts on screen too. — 2026-09-22.** Part of #91.
+Opened by the previous batch's probe; closed the same day, because the fix turned out to be one
+callback's signature.
+
+`ToolStrip.Items` is a facade over the root collection that layout and paint read, and it forwarded
+every insertion through `ItemAddedCallback = item => base_items.Add (item)` -- the index dropped on the
+floor. The callback is now `(index, item) => base_items.Insert (index, item)`, and `SetItem` forwards
+as remove-then-insert at the same index. Safe because nothing writes to the root collection behind the
+facade on a `ToolStrip` (checked), so the two index spaces cannot drift.
+
+*The test that matters compares the two collections as sequences*, not through paint: paint shows the
+symptom, the sequence comparison states the invariant. Both are present; a fix that lined the pixels up
+by accident would fail the second.
+
+6 tests, 2 neutralizations. No baseline change.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
