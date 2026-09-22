@@ -641,6 +641,22 @@ order whatever the property said.
   the root collection as *sequences* directly -- the invariant the bug broke, which paint can only
   show indirectly.
 
+### TSM-48 — nothing routes strip painting through `ToolStripRenderer.Draw*` — Cat A — P1 — High
+- **Ours:** `ToolStripRenderer` has the full upstream shape -- `DrawArrow`, `DrawButtonBackground`,
+  `DrawItemText` and the rest, each raising its `Render*` event and calling its `OnRender*` hook. **No
+  code in the assembly calls any of them.** `ToolBarRenderer`, `MenuDropDownRenderer` and the other strip
+  renderers paint directly. So `ToolStrip.Renderer`, `RenderMode = Professional`, a custom
+  `ToolStripRenderer` subclass, and all 19 `Render*` events are inert together -- one cause, not
+  nineteen.
+- **Why it is P1:** custom strip rendering is common in the WinForms code this layer exists to host
+  (every "dark theme" toolbar does it), and it fails silently -- the subclass compiles, is assigned, and
+  is never consulted.
+- **Fix:** the strip renderers consult `strip.Renderer` (or the mode's default) and route each part
+  through the matching `Draw*`, honouring `e.Handled`/`ArrowRectangle` etc. as upstream does. A real
+  piece of work with its own tests; the 19 baseline entries are annotated as blocked on it rather than
+  wired one by one, which would be nineteen different ways of not fixing the pipeline.
+- **Tests today:** none.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.
 - `ToolTip.IsBalloon`/`UseAnimation`/`UseFading`/`ToolTipIcon`/`ToolTipTitle`/`StripAmpersands`/`ShowAlways`/`OwnerDraw`/`Draw`/`Popup` — comctl32 tooltip styling; cosmetic.

@@ -2760,6 +2760,35 @@ symptom, the sequence comparison states the invariant. Both are present; a fix t
 by accident would fail the second.
 
 6 tests, 2 neutralizations. No baseline change.
+**W6.1 — the grid's sixteen band/cell events, one ListView event, and the renderer pipeline recorded.
+— 2026-09-22.** Part of #91. `DGV-45` and `LST-65` closed; `TSM-48` opened.
+
+Sixteen `DataGridView` `*Changed` events had protected raisers nothing called; the properties live on the
+column, row and cell, whose setters told nobody. Internal `Notify*` doors on the grid now let them, as
+upstream's setters do. `ColumnStateChanged` names the flag that moved. `Row.HeaderCell` gained the setter
+upstream has, without which its event could not exist.
+
+*A change-check that swallowed every change.* `Row.DefaultCellStyle` compared by value, and
+`DataGridViewCellStyle` compares by value, so a new style equalled the default and the event never fired
+-- an existing test broke alongside mine, and a neutralization now pins it. **An object-typed property
+changes on replacement**; `ReferenceEquals` is the right test for it, and the generic template that
+produced the wrong one is a reminder that a template is only as right as its least-common case.
+
+*`ListView.GroupCollapsedStateChanged` came with a behaviour fix.* `LST-46` honoured collapse in layout
+but nothing re-laid-out when the property changed, so collapsing did nothing on screen. The setter now
+notifies and refreshes; a neutralization proves the refresh is load-bearing.
+
+**`TSM-48`: the 19 `ToolStripRenderer.Render*` events are one gap, not nineteen.** Nothing routes strip
+painting through `Draw*`, so `RenderMode`, a custom renderer and every `Render*` event are inert
+together -- and silently, since the subclass compiles and is assigned. P1, recorded with the 19 entries
+annotated as blocked on it. Wiring them individually would be nineteen ways of not fixing the pipeline.
+
+*Two honest counts.* The unraised baseline falls **203 → 186**, all seventeen real. The stored-only
+baseline falls 604 → 603 -- and this one **is** real: `ListViewGroup.ListView` left because the collapse
+setter now reads it. The fourteen band/cell auto-properties I converted were never in that baseline;
+layout and paint already read them.
+
+20 tests, 7 neutralizations.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing

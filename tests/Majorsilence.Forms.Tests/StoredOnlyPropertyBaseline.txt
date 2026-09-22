@@ -334,7 +334,6 @@ Majorsilence.Forms.ListView.RightToLeftLayout
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior
 Majorsilence.Forms.ListView.VirtualListSize
 Majorsilence.Forms.ListView.VirtualMode
-Majorsilence.Forms.ListViewGroup.ListView    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewGroup.Name    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewGroup.Tag
 Majorsilence.Forms.ListViewInsertionMark.AppearsAfterItem

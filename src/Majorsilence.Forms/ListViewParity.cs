@@ -330,6 +330,13 @@ namespace Majorsilence.Forms
         /// <summary>Raises the <see cref="GroupCollapsedStateChanged"/> event.</summary>
         protected virtual void OnGroupCollapsedStateChanged (ListViewGroupEventArgs e) => GroupCollapsedStateChanged?.Invoke (this, e);
 
+        // The group -> list door: the raiser is protected and the group is another class.
+        internal void NotifyGroupCollapsedStateChanged (ListViewGroup group)
+        {
+            OnGroupCollapsedStateChanged (new ListViewGroupEventArgs (Groups.IndexOf (group)));
+            RefreshGroups ();
+        }
+
         /// <summary>Raises the <see cref="GroupTaskLinkClick"/> event.</summary>
         protected virtual void OnGroupTaskLinkClick (ListViewGroupEventArgs e) => GroupTaskLinkClick?.Invoke (this, e);
 
@@ -585,8 +592,24 @@ namespace Majorsilence.Forms
 
     public partial class ListViewGroup
     {
+        private ListViewGroupCollapsedState collapsed_state = ListViewGroupCollapsedState.Default;
+
         /// <summary>Gets or sets whether the group is collapsed.</summary>
-        public ListViewGroupCollapsedState CollapsedState { get; set; } = ListViewGroupCollapsedState.Default;
+        /// <remarks>
+        /// Notifies the owning list, which raises <see cref="ListView.GroupCollapsedStateChanged"/> --
+        /// declared with a raiser nothing called (W6.1, LST-65) -- and re-lays out, so collapsing a
+        /// group hides its items without the caller having to know about RefreshGroups.
+        /// </remarks>
+        public ListViewGroupCollapsedState CollapsedState {
+            get => collapsed_state;
+            set {
+                if (collapsed_state == value)
+                    return;
+
+                collapsed_state = value;
+                ListView?.NotifyGroupCollapsedStateChanged (this);
+            }
+        }
 
         /// <summary>Gets or sets the text shown below the group's items.</summary>
         public string Footer { get; set; } = string.Empty;

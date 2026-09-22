@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 ﻿using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -184,6 +185,7 @@ namespace Majorsilence.Forms
                 // Records that a style was set on this cell rather than inherited, which is what
                 // HasStyle reports; the initial value is not an assignment.
                 has_explicit_style = true;
+                DataGridView?.NotifyCellStyleChanged (this);
             }
         }
 
@@ -241,11 +243,35 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether this cell is read-only.</summary>
         public bool ReadOnly { get; set; }
 
-        /// <summary>Gets or sets the tooltip text for this cell.</summary>
-        public string ToolTipText { get; set; } = string.Empty;
+        private string tool_tip_text = string.Empty;
 
-        /// <summary>Gets or sets the error message text for this cell. Stub in Majorsilence.Forms.</summary>
-        public string ErrorText { get; set; } = string.Empty;
+        /// <summary>Gets or sets the tooltip text for this cell.</summary>
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public string ToolTipText {
+            get => tool_tip_text;
+            set {
+                if (EqualityComparer<string>.Default.Equals (tool_tip_text, value))
+                    return;
+
+                tool_tip_text = value;
+                DataGridView?.NotifyCellToolTipTextChanged (this);
+            }
+        }
+
+        private string error_text = string.Empty;
+
+        /// <summary>Gets or sets the error message text for this cell.</summary>
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public string ErrorText {
+            get => error_text;
+            set {
+                if (EqualityComparer<string>.Default.Equals (error_text, value))
+                    return;
+
+                error_text = value;
+                DataGridView?.NotifyCellErrorTextChanged (this);
+            }
+        }
 
         /// <summary>Gets or sets whether this cell is visible. Stub in Majorsilence.Forms.</summary>
         public bool Visible { get; set; } = true;

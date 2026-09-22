@@ -731,6 +731,15 @@ distinguishes "ours is wrong" from "ours is right and the sibling differs".
   itself: `LineCount == Items.Count + GroupBands.Count`.
 - **Tests today:** `ListViewGroupHeaderTests.cs` (9; 8 neutralizations).
 
+### LST-65 — `ListView.GroupCollapsedStateChanged` was never raised, and collapsing did nothing — Cat A — P2 — Medium — **CLOSED (2026-09-22)**
+- **Ours (before):** `ListViewGroup.CollapsedState` was an auto-property. `LST-46`'s layout honoured it
+  -- but only on the next `RefreshGroups ()`, which nothing called for it, so collapsing a group changed
+  nothing on screen until something else re-laid-out; and the event had a raiser nothing called.
+- **Fix (applied):** the setter notifies the owning list, which raises the event with the group's
+  index and re-lays-out. Collapsing a group now hides its items with no help from the caller.
+- **Tests today:** in `DataGridViewBandChangeEventsTests.cs` (1; 2 neutralizations -- one for the
+  event, one proving the re-layout is not optional).
+
 ## Low-priority / Win32-only (P3) — one line each
 - `ListBox.UseTabStops` / `UseCustomTabOffsets` / `CustomTabOffsets` — tab expansion in native LB text; stored (`ListBox.cs:659`, `MidSizeControlParity.Three.cs:230-234`).
 - `ListBox.MultiColumn` / `ColumnWidth` / `HorizontalScrollbar` / `HorizontalExtent` / `IntegralHeight` — stored (`ListBox.cs:650-674`); niche layouts, portable in principle but rarely used in LOB code.

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 ﻿using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -29,9 +30,21 @@ namespace Majorsilence.Forms
         public DataGridViewCellCollection Cells { get; }
 
         /// <summary>
-        /// Gets the header cell for this row.
+        /// Gets or sets the header cell for this row.
         /// </summary>
-        public DataGridViewRowHeaderCell HeaderCell { get; } = new DataGridViewRowHeaderCell ();
+        /// <remarks>Settable, as upstream's is; a replacement notifies the grid (W6.1, DGV-45).</remarks>
+        public DataGridViewRowHeaderCell HeaderCell {
+            get => header_cell;
+            set {
+                if (ReferenceEquals (header_cell, value))
+                    return;
+
+                header_cell = value ?? new DataGridViewRowHeaderCell ();
+                DataGridView?.NotifyRowHeaderCellChanged (this);
+            }
+        }
+
+        private DataGridViewRowHeaderCell header_cell = new DataGridViewRowHeaderCell ();
 
         /// <summary>
         /// Gets the DataGridView that contains this row.
@@ -119,11 +132,39 @@ namespace Majorsilence.Forms
 
         private bool read_only;
 
+        private int minimum_height = 10;
+
         /// <summary>Gets or sets the minimum height for this row.</summary>
-        public int MinimumHeight { get; set; } = 10;
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public int MinimumHeight {
+            get => minimum_height;
+            set {
+                if (EqualityComparer<int>.Default.Equals (minimum_height, value))
+                    return;
+
+                minimum_height = value;
+                DataGridView?.NotifyRowMinimumHeightChanged (this);
+            }
+        }
+
+        private DataGridViewCellStyle default_cell_style = new DataGridViewCellStyle ();
 
         /// <summary>Gets or sets the default cell style applied to cells in this row.</summary>
-        public DataGridViewCellStyle DefaultCellStyle { get; set; } = new DataGridViewCellStyle ();
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public DataGridViewCellStyle DefaultCellStyle {
+            get => default_cell_style;
+            set {
+                // ReferenceEquals, not value equality: DataGridViewCellStyle compares by value, so a
+                // freshly constructed style "equals" the default one and a value comparison swallowed
+                // every replacement -- the event never fired at all. Upstream fires on assignment of a
+                // different instance, whatever its contents.
+                if (ReferenceEquals (default_cell_style, value))
+                    return;
+
+                default_cell_style = value ?? new DataGridViewCellStyle ();
+                DataGridView?.NotifyRowDefaultCellStyleChanged (this);
+            }
+        }
 
         /// <summary>Gets or sets whether this row is visible.</summary>
         /// <remarks>
@@ -160,8 +201,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets a value indicating whether this row is frozen (cannot scroll). Stub in Majorsilence.Forms.</summary>
         public bool Frozen { get; set; }
 
-        /// <summary>Gets or sets the error text for this row. Stub in Majorsilence.Forms.</summary>
-        public string ErrorText { get; set; } = string.Empty;
+        private string error_text = string.Empty;
+
+        /// <summary>Gets or sets the error text for this row.</summary>
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public string ErrorText {
+            get => error_text;
+            set {
+                if (EqualityComparer<string>.Default.Equals (error_text, value))
+                    return;
+
+                error_text = value;
+                DataGridView?.NotifyRowErrorTextChanged (this);
+            }
+        }
 
         /// <summary>
         /// Gets the style used for this row: the grid's <see cref="DataGridView.DefaultCellStyle"/>, then
