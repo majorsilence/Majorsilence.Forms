@@ -484,10 +484,11 @@ order whatever the property said.
   item -- and it needs a second item beside the bar, because alone the bar springs to the full strip
   and the fill measures nothing. `TabStripItem.Hovered` and `NavigationPaneItem.Hovered` are computed
   from their collections' `HoveredIndex`, not settable on the item.
-- **One genuine oddity surfaced and is recorded rather than fixed:** `NavigationPane` lays its items
-  out **151 logical units wide inside an 80-wide pane**, so an item's device box runs off the control
-  and the painted fill is clipped at the edge. The gate clamps its expectation to the control for that
-  reason. That overflow is a layout question for `NavigationPane`, not a paint-space one.
+- **One genuine oddity surfaced here and was fixed next (2026-09-22):** `NavigationPane` laid its items
+  out **151 logical units wide inside an 80-wide pane**, so an item's device box ran off the control
+  and the painted fill was clipped. It laid out against `ClientRectangle` -- **device** -- while the
+  layout engine writes **logical** bounds: the same confusion as `TSM-41` one layer down, and the only
+  layout in the assembly measuring against the scaled rectangle. See `NavigationPaneLayoutTests`.
 - **Tests today:** `StripPaintSpaceTests.cs` (5 hosts, 7 neutralizations) and
   `StripRendererUnitTests.cs` (3), inverted from the characterization pair that
   documented the defect -- the mechanism worked exactly as intended: the fix turned both red and they

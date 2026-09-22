@@ -2690,6 +2690,27 @@ its merits and not smuggled in as a rebase workaround.
 
 8 tests, 4 neutralizations. `UnraisedEventBaseline` 214 → 211; stored-only 607 → 605, of which **none
 is a real closure**.
+**NavigationPane laid out against the scaled rectangle. — fixed (2026-09-22).** Part of #91. Found
+while building `TSM-41`'s gate, recorded there as an oddity, fixed here.
+
+`NavigationPane.LayoutItems` passed `ClientRectangle` -- **device** -- to a layout engine that writes
+**logical** item bounds, so every item received a logical width equal to the pane's *device* width. At
+`MF_HEADLESS_SCALE=2` that is **151 logical units inside an 80-wide pane**: items overran the control
+and their painted fill was clipped at its edge. Exact at scaling 1.
+
+*It is `TSM-41` one layer down.* That finding was about painting a logical box into a device canvas;
+this is laying out into a device box and recording the result as logical. Same two spaces, same
+invisibility at scale 1, opposite direction. `Menu.LayoutItems` has always used
+`LogicalClientRectangle`, and a sweep of the assembly found this was **the only** layout measuring
+against the scaled rectangle — which is why one line fixes it.
+
+*The gate found it without being aimed at it.* `StripPaintSpaceTests` had to clamp its expectation to
+the control to accommodate the overflow, and writing that clamp is what made the overflow visible. A
+test that has to make an allowance for something is worth reading twice: the allowance is usually
+describing a defect. The clamp stays, because "a paint probe cannot measure outside the control" is
+true regardless, but its comment now says the allowance is no longer load-bearing.
+
+4 tests, 1 neutralization. No baseline change.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
