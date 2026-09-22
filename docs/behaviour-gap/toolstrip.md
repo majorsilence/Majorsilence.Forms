@@ -593,6 +593,47 @@ order whatever the property said.
 - **Tests today:** in `ReopenedBatch5Tests.cs` (2; 2 neutralizations), one per declaring type -- a
   renderer reading only one of the two would leave the other inert.
 
+### TSM-46 — eight `ToolStripItem` events were declared and raised by nothing — Cat A — P2 — Medium — **CLOSED (2026-09-22)**
+- **Ours (before):** `TextChanged`, `BackColorChanged`, `ForeColorChanged`, `RightToLeftChanged`,
+  `LocationChanged`, `SelectedChanged`, `OwnerChanged` and `MouseMove` sat behind the `CS0067` pragma at
+  the top of `ToolStripParity.cs`. `dotnet/winforms` raises every one from the corresponding setter or
+  path (`ToolStripItem.cs`: 534, 888, 1682, 1868, 828/3161, 3205, 3247), checked before writing any of
+  this.
+- **The shape, and why it is two layers:** the state lives on `MenuItem` (this library's base type) and
+  the events on `ToolStripItem` (the WinForms face). `MenuItem` gained four internal no-op seams --
+  `OnTextChangedCore`, `OnLocationChangedCore`, `OnHoveredChangedCore`, `OnParentChangedCore` -- called
+  from `Text`, `SetBounds`, `Hovered` and `Parent`; `ToolStripItem` overrides them to raise. A plain
+  `MenuItem` has no subscribers to tell, which is why the seams are empty there.
+- **Three details that are not obvious.** `LocationChanged` compares the *location* only: layout re-runs
+  `SetBounds` on every paint, so anything looser fires every frame. `SelectedChanged` is the hover
+  transition in both directions -- upstream's `Selected` *is* the hover/keyboard-selected state.
+  `MouseMove` is delivered **item-relative**, as upstream's per-item mouse events are; the strip's
+  point has the item's own logical origin subtracted.
+- **`MouseHover` is NOT wired.** Upstream raises it from `WM_MOUSEHOVER`, a rest timer. There is no
+  such timer here, so there is no moment at which it could truthfully fire; raising it on plain
+  movement would be a different event under the right name. Recorded, not faked.
+- **Tests today:** `ToolStripItemChangeEventsTests.cs` (11; 8 neutralizations). One test was vacuous
+  until a neutralization caught it: the item-relative check sat at the strip's origin, where
+  item-relative and strip-relative coordinates coincide. The item is now pushed off the origin first.
+
+### TSM-47 — `ToolStrip.Items.Insert` inserts in the facade and *appends* in the strip — Cat A — P1 — High
+- **Ours:** `ToolStrip.Items` is a facade (`CreateItemsFacade`) over the root `MenuItemCollection` that
+  layout and paint actually read. It forwards through two callbacks only --
+  `ItemAddedCallback = item => base_items.Add (item)` and `ItemRemovedCallback` -- so **`Insert (index,
+  item)` inserts at `index` in the facade and `Add`s to the end of the real list.** Measured: after
+  `Items.Insert (0, "New")` on a strip holding "Open", the facade enumerates `New, Open` and layout
+  places `Open` at x=0 and `New` at x=62.
+- **Impact:** any code that inserts a strip item by position -- a plug-in adding a button before "Help",
+  a designer reordering -- gets the right collection order and the wrong screen order, with no error.
+  `Insert` is the WinForms way to position an item; it is exactly the call migrated code makes.
+- **How it surfaced:** a `LocationChanged` test in `TSM-46` inserted an item ahead of an existing one and
+  asserted the existing one moved. It did not, and the probe written to see why found the two lists
+  disagreeing.
+- **Fix:** an insert-aware callback, or have the facade *be* a view over the root collection rather than
+  a copy of it. `SetItem` and `IndexOf` should be checked for the same drift at the same time. Not done
+  here -- this pass is event wiring, and a collection-identity fix wants its own tests.
+- **Tests today:** none; the probe is in `TSM-46`'s record above.
+
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.
 - `ToolTip.IsBalloon`/`UseAnimation`/`UseFading`/`ToolTipIcon`/`ToolTipTitle`/`StripAmpersands`/`ShowAlways`/`OwnerDraw`/`Draw`/`Popup` — comctl32 tooltip styling; cosmetic.
