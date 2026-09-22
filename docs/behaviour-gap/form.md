@@ -353,6 +353,29 @@ the count is not mistaken for 47 defects.
   managed caption existing — in two of the four gate configurations the OS draws the chrome and the
   title bar is hidden, where the assertions would be vacuous rather than wrong.
 
+### FRM-40 — `Form.BackColorChanged` / `ForeColorChanged` / `CursorChanged` / `TextChanged` never fired for the form's own property — Cat A — P1 — High — **CLOSED (2026-09-22)**
+- **Ours (before):** `WindowBase` declared the three colour/cursor events with `add`/`remove` accessors
+  that forwarded to the root content control's events, while `BackColor`, `ForeColor` and `Cursor` wrote
+  the *window's* style and cursor. `form.BackColor = Color.Red` therefore changed the window and told no
+  subscriber; only `form.Controls.Owner.BackColor = …` did. `Form.Text` set the backend title and the
+  caption and never called `WindowBase.OnTextChanged`. `Form.CausesValidation` was a stored bool while
+  `CausesValidationChanged` listened to the adapter. `PrintPreviewDialog` then redeclared nine of these
+  events with `new` as plain fields (WinForms redeclares them to hide them from the designer, but
+  forwards to the base), so on the dialog even the content-root path was cut.
+- **Why the scanner missed it:** an event with accessors has no backing field to scan, so the unraised
+  scan never saw the four window events; the dialog's fields it did see (`PrintPreviewDialog.*` ×10).
+- **Fix (applied):** the three events subscribe both the window's own list and the content root's, and
+  the setters raise on a real change (compared as the stored `SKColor`: `Color.Red` and the same ARGB read
+  back are not `Equal`). `Text` raises `OnTextChanged`. `CausesValidation` forwards to the adapter. The
+  dialog's nine redeclarations forward to the base; its `DockChanged`, and `Form.AutoSizeChanged` /
+  `MarginChanged` / `TabIndexChanged`, fire from `WindowBase` seams.
+- **Tests today:** `ShadowAndEntryPointEventTests.cs` (10 dialog, 5 form, 3 seam; neutralized in three
+  rounds). `WindowControlEventForwardingTests.BackColorChanged_reaches_a_Form_handler` still passes,
+  which is what kept the content-root subscription.
+- **Still stored:** `WindowBase.AutoSize`, `Margin`, `TabIndex`, `Dock` are read by no layout -- a
+  top-level window has no parent to consume them, as the property remarks say. They notify now; that is
+  all that changed.
+
 ### Framework-written outbound state — not gaps
 `Form.Modal` is set by the dialog path (`Form.cs:1086`) and cleared on close (`:447`);
 `WindowBase.Disposing` is set at the top of teardown and cleared at the end (`WindowBase.cs:304`, `:347`).

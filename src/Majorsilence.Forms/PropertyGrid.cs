@@ -83,8 +83,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the toolbar is visible. Stub in Majorsilence.Forms.</summary>
         public bool ToolbarVisible { get; set; } = true;
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private PropertySort property_sort = PropertySort.CategorizedAlphabetical;
+
         /// <summary>Gets or sets the sort order for properties.</summary>
-        public PropertySort PropertySort { get; set; } = PropertySort.CategorizedAlphabetical;
+        public PropertySort PropertySort {
+            get => property_sort;
+            set {
+                if (property_sort == value)
+                    return;
+
+                property_sort = value;
+                OnPropertySortChanged (EventArgs.Empty);
+            }
+        }
 
         /// <summary>Raised when the selected property changes.</summary>
         public event EventHandler? SelectedGridItemChanged { add { } remove { } }

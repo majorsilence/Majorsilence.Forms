@@ -657,6 +657,9 @@ order whatever the property said.
   `MenuDropDownRenderer`. Resolution follows upstream: an assigned `Renderer`, else the `RenderMode`
   shell, else `ToolStripManager`. Fifteen of the nineteen events now fire; the four that remain
   (overflow button, sizing grip, the two panel backgrounds) are parts no strip paints yet.
+  Their four `Render*` events left the unraised baseline on 2026-09-22 when the scanner learnt that a
+  public `Draw*` is an entry point an application can call -- they are raised, by that route. The paint
+  gap is unchanged and stays here; the baseline no longer tracks it.
 - **One deliberate divergence.** Upstream's base renderer does the default painting and an override
   suppresses it by not calling `base`. Here the built-in painting stays where it is and remains the
   default; an override says "done" by setting `Handled` on the item or arrow args -- a flag **added**

@@ -455,10 +455,15 @@ namespace Majorsilence.Forms
         public Cursor? Cursor {
             get => current_cursor;
             set {
+                if (current_cursor == value)
+                    return;
+
                 current_cursor = value;
 
                 if (override_cursor is null)
                     Backend?.SetCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+
+                cursor_changed?.Invoke (this, EventArgs.Empty);
             }
         }
 
@@ -482,9 +487,20 @@ namespace Majorsilence.Forms
         /// value is stored but has no effect.</summary>
         public bool DoubleBuffered { get; set; } = true;
 
+        private Padding margin = new Padding (3);
+
         /// <summary>WinForms compatibility: the window's outer margin. Stored for designer parity;
         /// top-level windows have no layout parent to consume it.</summary>
-        public Padding Margin { get; set; } = new Padding (3);
+        public Padding Margin {
+            get => margin;
+            set {
+                if (margin == value)
+                    return;
+
+                margin = value;
+                OnMarginChangedCore ();
+            }
+        }
 
         /// <summary>Raised when the window's client area is double-clicked. Mirrors WinForms
         /// Form.DoubleClick; forwards to the root control adapter.</summary>
@@ -1374,23 +1390,41 @@ namespace Majorsilence.Forms
             remove => adapter.MouseCaptureChanged -= value;
         }
 
-        /// <summary>Raised when the background colour changes. Mirrors <c>Control.BackColorChanged</c>; forwards to the root control adapter.</summary>
+        // Subscribes both the window's own list and the root content control's. The window's
+        // BackColor writes the WINDOW's own state (its style, its cursor) while the old forward listened
+        // only to the content control's, so `form.BackColor = x` never reached a `form.BackColorChanged` subscriber,
+        // on any Form, ever (W6.1). A change on the content root still arrives as it always did.
+        /// <summary>Raised when <see cref="BackColor"/> changes, or the root content control's does.</summary>
         public event EventHandler? BackColorChanged {
-            add => ContentRoot.BackColorChanged += value;
-            remove => ContentRoot.BackColorChanged -= value;
+            add { back_color_changed += value; ContentRoot.BackColorChanged += value; }
+            remove { back_color_changed -= value; ContentRoot.BackColorChanged -= value; }
         }
 
-        /// <summary>Raised when the foreground colour changes. Mirrors <c>Control.ForeColorChanged</c>; forwards to the root control adapter.</summary>
+        private EventHandler? back_color_changed;
+
+        // Subscribes both the window's own list and the root content control's. The window's
+        // ForeColor writes the WINDOW's own state (its style, its cursor) while the old forward listened
+        // only to the content control's, so `form.ForeColor = x` never reached a `form.ForeColorChanged` subscriber,
+        // on any Form, ever (W6.1). A change on the content root still arrives as it always did.
+        /// <summary>Raised when <see cref="ForeColor"/> changes, or the root content control's does.</summary>
         public event EventHandler? ForeColorChanged {
-            add => ContentRoot.ForeColorChanged += value;
-            remove => ContentRoot.ForeColorChanged -= value;
+            add { fore_color_changed += value; ContentRoot.ForeColorChanged += value; }
+            remove { fore_color_changed -= value; ContentRoot.ForeColorChanged -= value; }
         }
 
-        /// <summary>Raised when the cursor changes. Mirrors <c>Control.CursorChanged</c>; forwards to the root control adapter.</summary>
+        private EventHandler? fore_color_changed;
+
+        // Subscribes both the window's own list and the root content control's. The window's
+        // Cursor writes the WINDOW's own state (its style, its cursor) while the old forward listened
+        // only to the content control's, so `form.Cursor = x` never reached a `form.CursorChanged` subscriber,
+        // on any Form, ever (W6.1). A change on the content root still arrives as it always did.
+        /// <summary>Raised when <see cref="Cursor"/> changes, or the root content control's does.</summary>
         public event EventHandler? CursorChanged {
-            add => adapter.CursorChanged += value;
-            remove => adapter.CursorChanged -= value;
+            add { cursor_changed += value; adapter.CursorChanged += value; }
+            remove { cursor_changed -= value; adapter.CursorChanged -= value; }
         }
+
+        private EventHandler? cursor_changed;
 
         /// <summary>Raised when the padding changes. Mirrors <c>Control.PaddingChanged</c>; forwards to the root control adapter.</summary>
         public event EventHandler? PaddingChanged {
@@ -2460,8 +2494,14 @@ namespace Majorsilence.Forms
         public virtual System.Drawing.Color BackColor {
             get => Style.BackgroundColor?.ToDrawingColor () ?? Style.GetBackgroundColor ().ToDrawingColor ();
             set {
+                // Compare the stored SKColor, not the System.Drawing.Color: Color.Red and the same ARGB read
+                // back from the style are not Equal (named vs. unnamed), so the Color compare never matched.
+                if (Style.BackgroundColor == value.ToSKColor ())
+                    return;
+
                 Style.BackgroundColor = value.ToSKColor ();
                 Invalidate ();
+                back_color_changed?.Invoke (this, EventArgs.Empty);
             }
         }
 
@@ -2472,16 +2512,31 @@ namespace Majorsilence.Forms
         public virtual System.Drawing.Color ForeColor {
             get => Style.ForegroundColor?.ToDrawingColor () ?? Style.GetForegroundColor ().ToDrawingColor ();
             set {
+                if (Style.ForegroundColor == value.ToSKColor ())
+                    return;
+
                 Style.ForegroundColor = value.ToSKColor ();
                 Invalidate ();
+                fore_color_changed?.Invoke (this, EventArgs.Empty);
             }
         }
 
         /// <summary>Gets the default background color of a window. Matches <see cref="Control.DefaultBackColor"/>.</summary>
         public static System.Drawing.Color DefaultBackColor => SystemColors.Control;
 
+        private bool auto_size;
+
         /// <summary>Gets or sets whether the window automatically sizes itself to fit its content. Stub.</summary>
-        public bool AutoSize { get; set; }
+        public bool AutoSize {
+            get => auto_size;
+            set {
+                if (auto_size == value)
+                    return;
+
+                auto_size = value;
+                OnAutoSizeChangedCore ();
+            }
+        }
 
         // ── Control-parity surface ───────────────────────────────────────────────
         // Form sits on a separate inheritance branch from Control (see the layout/handle/color
@@ -2498,18 +2553,49 @@ namespace Majorsilence.Forms
         /// </summary>
         public AnchorStyles Anchor { get; set; } = AnchorStyles.Top | AnchorStyles.Left;
 
+        private DockStyle dock = DockStyle.None;
+
         /// <summary>
         /// Gets or sets which container edge the window is docked to. Stored for designer and source
         /// parity; a top-level window has no layout parent to dock into.
         /// </summary>
-        public DockStyle Dock { get; set; } = DockStyle.None;
+        public DockStyle Dock {
+            get => dock;
+            set {
+                if (dock == value)
+                    return;
+
+                dock = value;
+                OnDockChangedCore ();
+            }
+        }
+
+        private int tab_index;
 
         /// <summary>
         /// Gets or sets the tab order of the window within its container. Stored for designer and
         /// source parity; a top-level window is not part of a parent's tab order (use the child
         /// controls' own <see cref="Control.TabIndex"/> for tabbing inside the window).
         /// </summary>
-        public int TabIndex { get; set; }
+        public int TabIndex {
+            get => tab_index;
+            set {
+                if (tab_index == value)
+                    return;
+
+                tab_index = value;
+                OnTabIndexChangedCore ();
+            }
+        }
+
+        // Stored properties whose *Changed events live on a subclass (Form declares AutoSizeChanged,
+        // MarginChanged and TabIndexChanged; PrintPreviewDialog declares DockChanged). The setters
+        // above notify through these seams so the events fire without hoisting them up here, where
+        // WinForms does not declare them either.
+        internal virtual void OnAutoSizeChangedCore () { }
+        internal virtual void OnMarginChangedCore () { }
+        internal virtual void OnDockChangedCore () { }
+        internal virtual void OnTabIndexChangedCore () { }
 
         /// <summary>
         /// Gets or sets the padding inside the window's client area. Forwarded to the root control

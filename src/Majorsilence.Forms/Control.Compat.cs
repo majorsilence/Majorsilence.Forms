@@ -801,8 +801,20 @@ namespace Majorsilence.Forms
         /// <summary>Notifies the accessibility client application of a specified event. Stub in Majorsilence.Forms.</summary>
         public void AccessibilityNotifyClients (AccessibleEvents accEvent, int childID) { }
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private Majorsilence.Forms.Drawing.Region? region;
+
         /// <summary>Gets or sets the window region associated with the control. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Forms.Drawing.Region? Region { get; set; }
+        public Majorsilence.Forms.Drawing.Region? Region {
+            get => region;
+            set {
+                if (ReferenceEquals (region, value))
+                    return;
+
+                region = value;
+                OnRegionChanged (EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets whether this control is currently in design mode. Always false in Majorsilence.Forms.</summary>
         public new bool DesignMode => false;

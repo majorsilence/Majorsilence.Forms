@@ -142,9 +142,17 @@ internal static partial class StubSurfaceScanner
                 // counts as reachable here. Erring that way keeps working events out of the baseline,
                 // which is the same direction IsCalled already errs for virtual accessors.
                 var readers = access.Readers.TryGetValue (fieldHandle, out var r) ? r : [];
+                // A reader counts as reaching the raise if it is CALLED -- or if it is an entry point an
+                // application calls: a public/protected property accessor or method that is not an
+                // `On*` raiser. The one-hop rule (#222) was written for `protected virtual OnFoo`, which
+                // exists to be called BY THE FRAMEWORK and is dead when the framework never does. A
+                // public setter that raises its own event exists to be called BY THE APPLICATION, and
+                // treating it as unreachable listed ToolStripContentPanel.RendererChanged,
+                // TaskDialogExpander.ExpandedChanged and every RightToLeftLayout setter that already
+                // raised -- eleven false positives in one batch.
                 var raisedBySomething = readers.Any (m =>
                     m != accessors.Adder && m != accessors.Remover
-                    && IsCalled (access, md, m, md.GetMethodDefinition (m)));
+                    && (IsEntryPoint (md, m) || IsCalled (access, md, m, md.GetMethodDefinition (m))));
 
                 if (!raisedBySomething)
                     found.Add ($"{FullTypeName (md, type)}.{name}");
@@ -513,6 +521,22 @@ internal static partial class StubSurfaceScanner
             2 => il[0] == 0x00 && il[1] == 0x2A,
             _ => false,
         };
+    }
+
+    // Public or protected, and either a property accessor or a method not named On*: something an
+    // application reaches directly, as opposed to a raiser the framework is supposed to call.
+    private static bool IsEntryPoint (MetadataReader md, MethodDefinitionHandle handle)
+    {
+        var method = md.GetMethodDefinition (handle);
+
+        if (!IsPublicOrProtected (method.Attributes))
+            return false;
+
+        var name = md.GetString (method.Name);
+
+        return name.StartsWith ("get_", StringComparison.Ordinal)
+            || name.StartsWith ("set_", StringComparison.Ordinal)
+            || !name.StartsWith ("On", StringComparison.Ordinal);
     }
 
     private static bool IsPublicOrProtected (MethodAttributes attributes)

@@ -293,8 +293,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether tabs are highlighted when mouse hovers. Stub in Majorsilence.Forms.</summary>
         public bool HotTrack { get; set; }
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private bool right_to_left_layout;
+
         /// <summary>Gets or sets a value indicating whether right-to-left mirror placement is turned on. Stub in Majorsilence.Forms.</summary>
-        public bool RightToLeftLayout { get; set; }
+        public bool RightToLeftLayout {
+            get => right_to_left_layout;
+            set {
+                if (right_to_left_layout == value)
+                    return;
+
+                right_to_left_layout = value;
+                RightToLeftLayoutChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets the number of tabs in the tab strip.</summary>
         public int TabCount => TabPages.Count;

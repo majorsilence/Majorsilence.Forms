@@ -145,7 +145,12 @@ namespace Majorsilence.Forms
         public event EventHandler? Leave;
 
         /// <summary>Gets or sets whether the form causes validation to be performed on any controls that require validation when it receives focus. Matches Control.CausesValidation.</summary>
-        public bool CausesValidation { get; set; } = true;
+        // Forwards to the root adapter, which is where WindowBase.CausesValidationChanged listens: a stored
+        // value here left PrintPreviewDialog.CausesValidationChanged (and the window's own) silent (W6.1).
+        public bool CausesValidation {
+            get => adapter.CausesValidation;
+            set => adapter.CausesValidation = value;
+        }
 
         // Validating is on WindowBase now, forwarded to the root adapter alongside Validated so the pair
         // cannot come from different objects. It used to be a discarding stub here (`add { } remove { }`),
@@ -1304,8 +1309,20 @@ namespace Majorsilence.Forms
             PerformAutoScale ();
         }
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private AutoValidate auto_validate = AutoValidate.EnablePreventFocusChange;
+
         /// <summary>Gets or sets how the form performs implicit validation when focus leaves a child control.</summary>
-        public AutoValidate AutoValidate { get; set; } = AutoValidate.EnablePreventFocusChange;
+        public AutoValidate AutoValidate {
+            get => auto_validate;
+            set {
+                if (auto_validate == value)
+                    return;
+
+                auto_validate = value;
+                AutoValidateChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
 
         /// <summary>Validates all selectable child controls, returning false if any handler cancelled.</summary>
         /// <remarks>
@@ -1433,6 +1450,7 @@ namespace Majorsilence.Forms
                     text = value;
                     Backend.Title = text;
                     TitleBar.Text = text;
+                    OnTextChanged (EventArgs.Empty);
                 }
             }
         }
@@ -1666,13 +1684,30 @@ namespace Majorsilence.Forms
             get => form_corner_preference;
             set {
                 SourceGenerated.EnumValidator.Validate (value);
+
+                if (form_corner_preference == value)
+                    return;
+
                 form_corner_preference = value;
+                FormCornerPreferenceChanged?.Invoke (this, EventArgs.Empty);
             }
         }
         private FormCornerPreference form_corner_preference = FormCornerPreference.Default;
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private System.Drawing.Rectangle maximized_bounds;
+
         /// <summary>Gets or sets the bounds the form uses when maximized. Stored but not enforced in Majorsilence.Forms.</summary>
-        public System.Drawing.Rectangle MaximizedBounds { get; set; }
+        public System.Drawing.Rectangle MaximizedBounds {
+            get => maximized_bounds;
+            set {
+                if (maximized_bounds == value)
+                    return;
+
+                maximized_bounds = value;
+                MaximizedBoundsChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets or sets the base size used for autoscaling. Legacy WinForms designer property; stored no-op.</summary>
         public System.Drawing.Size AutoScaleBaseSize { get; set; }

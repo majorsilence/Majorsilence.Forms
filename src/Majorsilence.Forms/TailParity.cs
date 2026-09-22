@@ -36,8 +36,23 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the image list the button takes its image from.</summary>
         public virtual ImageList? ImageList { get; set; }
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private ICommandExecutor? command;
+
         /// <summary>Gets or sets the command run when the button is clicked.</summary>
-        public ICommandExecutor? Command { get; set; }
+        public ICommandExecutor? Command {
+            get => command;
+            set {
+                if (ReferenceEquals (command, value))
+                    return;
+
+                command = value;
+                CommandChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
+
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private object? command_parameter;
 
         /// <summary>Gets or sets the parameter passed to <see cref="Command"/>.</summary>
         /// <remarks>
@@ -45,7 +60,16 @@ namespace Majorsilence.Forms
         /// argument here, so there is nowhere to pass it. Giving the interface a parameterised overload
         /// is a public API change and its own decision, not something to slip into a sweep.
         /// </remarks>
-        public object? CommandParameter { get; set; }
+        public object? CommandParameter {
+            get => command_parameter;
+            set {
+                if (ReferenceEquals (command_parameter, value))
+                    return;
+
+                command_parameter = value;
+                CommandParameterChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
 
         /// <inheritdoc/>
         /// <remarks>

@@ -58,7 +58,7 @@ public class UnraisedEventBaselineTests
         // provoke, so the example had to be replaced. An example is a live claim about the code: when
         // the code is fixed the example expires, and a test that pins one has to expect that.
         Assert.Contains ("Majorsilence.Forms.Control.ChangeUICues", scanned.Select (Name));
-        Assert.Contains ("Majorsilence.Forms.Control.RegionChanged", scanned.Select (Name));
+        Assert.Contains ("Majorsilence.Forms.Control.DpiChangedAfterParent", scanned.Select (Name));
 
         // And the other direction, which is what stops the rule being "flag everything with a raiser":
         // ListView.GroupTaskLinkClick has the same shape and its raiser IS called (from the cell-click
@@ -68,6 +68,19 @@ public class UnraisedEventBaselineTests
 
     // The baselines tell the reader to annotate a deliberately-inert entry rather than delete it, and
     // regeneration used to throw every annotation away -- which is why the files contained none.
+    [Fact]
+    public void AnEventRaisedFromAPublicSetterCountsAsRaised ()
+    {
+        var scanned = StubSurfaceScanner.ScanUnraisedEvents (typeof (Control).Assembly.Location);
+
+        // The one-hop rule above is for raisers the FRAMEWORK is supposed to call. A public setter that
+        // raises its own event is an entry point the APPLICATION calls, and nothing in this assembly
+        // has to: Form.TabStop and TaskDialogExpander.Expanded both raised on every change and were
+        // listed as unraised for a whole release because no framework code assigns them (W6.1).
+        Assert.DoesNotContain ("Majorsilence.Forms.Form.TabStopChanged", scanned.Select (Name));
+        Assert.DoesNotContain ("Majorsilence.Forms.TaskDialogExpander.ExpandedChanged", scanned.Select (Name));
+    }
+
     [Fact]
     public void RegeneratingABaselineKeepsHandWrittenNotes ()
     {

@@ -2827,6 +2827,68 @@ Closed in `toolstrip.md` on the rebase that brought #230's record in.
 
 7 tests, 6 neutralizations.
 
+**W6.1 — the scanner's entry-point rule, PrintPreviewDialog's ten shadows, four window events no Form ever
+raised, and thirteen stored setters. — 2026-09-22.** Part of #91. `FRM-40` opened and closed.
+
+*The scanner rule.* The unraised-event scan credited a reader only if something in the assembly CALLED it.
+That rule was written for `protected virtual OnFoo`, which exists to be called by the framework and is
+dead when the framework never does. A public setter that raises its own event exists to be called by the
+application, and nothing in the assembly has to -- and twenty-three entries were exactly that false
+positive: `Form.TabStopChanged`, `TaskDialogExpander.ExpandedChanged`, five `RightToLeftLayoutChanged`
+setters, `Application.Idle` (`Application.RaiseIdle` is public, as upstream's is), `MenuItem.Select`
+(`PerformSelect`), `ToolStripContentPanel`/`ToolStripPanel.RendererChanged`, `TimePicker.ValueChanged`,
+`PrintPreviewControl.StartPageChanged`, the DataGrid collections' `CollectionChanged` (public `Add`),
+and the four `ToolStripRenderer.Render*` events #231 annotated -- `Draw*` is a public entry point, so
+they are raised; the *paint* gap stays open under TSM-48's remainder. `StubSurfaceScanner.IsEntryPoint`
+now counts a public/protected property accessor, or a public/protected method not named `On*`, as
+reaching the raise. `AnEventRaisedFromAPublicSetterCountsAsRaised` pins two of them.
+
+*Shadows.* `PrintPreviewDialog` redeclared nine events with `new` as plain fields -- `BackColorChanged`,
+`BackgroundImageChanged`, `BackgroundImageLayoutChanged`, `CausesValidationChanged`, `CursorChanged`,
+`ForeColorChanged`, `PaddingChanged`, `RightToLeftChanged`, `TextChanged`. WinForms redeclares them too,
+to hide them from the designer, but forwards each to the base; here they raised nothing, so a
+subscription on the dialog heard nothing that the same subscription on any other Form heard (LST-28's
+shape, on a window). They forward now. `DockChanged`, and `Form.AutoSizeChanged` / `MarginChanged` /
+`TabIndexChanged`, had their property on `WindowBase` and their event on the subclass, with nothing in
+between; four internal `On*ChangedCore` seams connect them.
+
+*Found underneath: four window events no Form ever raised.* Testing the forwards showed the base was as
+silent as the shadow. `WindowBase.BackColorChanged`, `ForeColorChanged` and `CursorChanged` forwarded to
+the root content control's events while `BackColor`, `ForeColor` and `Cursor` wrote the *window's* style
+and cursor -- so `form.BackColor = x` never reached a `form.BackColorChanged` subscriber. `Form.Text`
+never called `OnTextChanged`. `Form.CausesValidation` was stored while its event listened to the
+adapter. The scanner could see none of this: an event with `add`/`remove` accessors has no field to
+scan, and this is the second such family after #231's render args -- the accessor-event blind spot is
+now a known one. The three events subscribe both the window's own list and the content root's (a
+colour set on the content root still arrives, as `WindowControlEventForwardingTests` always required);
+`Text` raises; `CausesValidation` forwards to the adapter. Recorded as `FRM-40`.
+
+*Thirteen stored setters* now notify: `Form.AutoValidate` / `MaximizedBounds` / `FormCornerPreference`,
+`UserControl.AutoValidate` and `ContainerControl.AutoValidate` (through the `OnAutoValidateChanged`
+raisers that already existed), `Control.Region` (`OnRegionChanged`), `ToolStrip.LayoutStyle`,
+`ToolStrip.Renderer` (`OnRendererChanged` and `RendererChanged` -- the setter did everything but tell
+anyone), `ToolStripManager.Renderer` (the static event), `ToolStripSplitButton.DefaultItem`,
+`ToolStripItem.CommandParameter`, `ButtonBase.Command` / `CommandParameter`, `PropertyGrid.PropertySort`
+(`OnPropertySortChanged`), `TabControl.RightToLeftLayout`. Three more entries were annotated rather than
+wired: `DataGridTextBox.KeyPress` / `TextChanged` (upstream's binary-compat stub, missed by #230's
+regex), `Control.StyleChanged` (Win32 style bits) and `Form.DpiChanged` (no DPI-change path). The gate
+test's live example moved from `Control.RegionChanged`, now wired, to `Control.DpiChangedAfterParent`.
+
+*Two counts, one of them mostly hollow.* The unraised baseline falls **171 → 120**: 28 wired, 23
+reclassified by the rule (they were always raised; the scan was wrong about them), 34 annotated remain.
+The stored-only baseline falls **593 → 580**, and only one of the thirteen is a closure --
+`Form.CausesValidation` now reaches the adapter. The other twelve (`WindowBase.AutoSize` / `Margin` /
+`TabIndex`, `Control.Region`, `ToolStrip.LayoutStyle`, `ToolStripSplitButton.DefaultItem`, the two
+`CommandParameter`s, `Form.MaximizedBounds`, `TabControl.RightToLeftLayout`, `UserControl.AutoValidate`,
+`ToolStripItem.CommandParameter`) left because a hand-written setter is invisible to the auto-property
+scan, exactly the hazard #226 named; they are still read by nothing that lays out or paints, and the
+stored-only baseline now understates by twelve. Their events firing is the whole of the improvement.
+
+35 tests plus one inverted characterization (`Auto_validate_changed_can_be_raised` had pinned the
+silence at 0; it expects 1 now), 5 neutralization rounds (the scanner rule; the nine forwards plus the Dock seam; the four
+WindowBase seams with the colour, cursor and Text raises; `CausesValidation`; every raise line in the
+thirteen setters at once -- all sixteen of their tests failed).
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
