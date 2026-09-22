@@ -28,6 +28,7 @@ namespace Majorsilence.Forms.Backends
             // fontconfig is not thread-safe; doing this here (not on a background thread) avoids
             // lock contention with the render loop.
             Majorsilence.Forms.Theme.WarmupFonts ();
+            HookDispatcherExceptions ();
         }
 
         /// <inheritdoc/>
@@ -51,6 +52,7 @@ namespace Majorsilence.Forms.Backends
             await AvaloniaBootstrap.EnsureInitializedBrowserAsync (hostElementId).ConfigureAwait (true);
             AvaloniaSynchronizationContext.InstallIfNeeded ();
             Majorsilence.Forms.Theme.WarmupFonts ();
+            HookDispatcherExceptions ();
         }
 
         /// <inheritdoc/>
@@ -61,6 +63,36 @@ namespace Majorsilence.Forms.Backends
             => throw new PlatformNotSupportedException (
                 "The Avalonia browser backend has no blocking main loop; Application.RunBrowserAsync never calls this.");
 #endif
+
+        private static bool dispatcher_hooked;
+
+        /// <summary>
+        /// Route exceptions that escape a dispatcher operation to <see cref="Majorsilence.Forms.Application.ThreadException"/>,
+        /// the way the Gtk4 and headless backends route the ones that escape their own loops.
+        /// </summary>
+        /// <remarks>
+        /// Without this the Avalonia backend is the only one where a throwing event handler kills the
+        /// process: Dispatcher.MainLoop does not catch per-operation exceptions, so one escapes the loop
+        /// and the runtime aborts. It arrives by two routes -- a handler that throws directly, and less
+        /// obviously Task.ThrowAsync reposting an unobserved Task exception onto the UI
+        /// SynchronizationContext, which is how an async void Load handler's failure gets here.
+        ///
+        /// Marking it Handled keeps the app running: WinForms' UnhandledExceptionMode.Automatic, and what
+        /// an app's own error dialog expects. With no ThreadException subscriber, Handled stays false so
+        /// the exception still surfaces rather than being swallowed.
+        /// </remarks>
+        private static void HookDispatcherExceptions ()
+        {
+            if (dispatcher_hooked)
+                return;
+
+            dispatcher_hooked = true;
+
+            Dispatcher.UIThread.UnhandledException += (_, e) => {
+                if (Majorsilence.Forms.Application.RaiseThreadException (e.Exception))
+                    e.Handled = true;
+            };
+        }
 
         /// <inheritdoc/>
         public void Stop () { /* Loop exit is driven by the cancellation token passed to RunMainLoop. */ }
