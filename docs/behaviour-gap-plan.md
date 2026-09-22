@@ -2533,6 +2533,43 @@ them. The first real one records where `ClientSizeChanged`'s raise is commented 
 
 5 tests, 3 neutralizations. `UnraisedEventBaseline` 109 → 215; no other baseline moves.
 
+**W6.1 — the first of the reachability-revealed events, and 31 that are not gaps. — 2026-09-22.**
+Part of #91. The first pass over the 215-entry unraised-event baseline that #222 produced.
+
+**`Control.ClientSizeChanged` was ported and then commented out.** The line sat directly beneath the
+`OnSizeChanged` it belongs next to, alongside a `//PerformLayout (...); // TESTING` line someone never
+restored. `dotnet/winforms`' `Control.SetBoundsCore` has exactly that `if (newSize)` block, in that
+order, with both raises live. Uncommented, and it covers `ClientSize`'s setter too, which routes
+through `Size` -- upstream's second raise site, `SetClientSizeCore`, has no separate equivalent here.
+This is the first event the reachability fix surfaced to be wired: the old gate could not see it,
+because `OnClientSizeChanged` reads the backing field and that counted as "raised".
+
+**And 31 entries are not gaps at all, which is the more useful half.** The pre-`DataGridView` family --
+`DataGrid`, `DataGridTableStyle`, `DataGridColumnStyle`, `DataGridBoolColumn` and friends -- looked like
+the richest mechanical cluster in the baseline: auto-properties, `*Changed` events beside them, 26 of
+them carrying the comment "Not raised by this layer". I had the transform half-written. **Then I read
+upstream.** `dotnet/winforms` ships that entire family from `Controls/Unsupported/DataGrid/`, marked
+`[Obsolete]`, `[EditorBrowsable(Never)]` and "provided for binary compatibility ... not intended to be
+used directly": the constructors throw `PlatformNotSupportedException`, the properties are
+`get => throw null; set { }`, and the events are `add { } remove { }`. **Upstream raises nothing
+either.** Wiring them would have been a divergence dressed as parity -- 12 of the 18 files in that
+folder throw, and the rest are enums.
+
+*This is the first substantive use of the annotation mechanism `#222` made durable*, and a good
+argument for having fixed it: the 31 entries now carry
+`-- upstream ships this family as binary-compat stubs; it raises nothing either` beside them, and a
+regeneration proved the note survives. Before `#222` that sentence would have been deleted by the next
+wiring PR and someone would have started the same transform again.
+
+*A test of mine expired because the code was fixed, which is the gate working.* `#222` pinned
+`Control.ClientSizeChanged` as its example of an event whose only reader is an uncalled raiser -- the
+best example available, because the raise was visibly commented out. Wiring it broke that test one day
+later. An example is a live claim about the code; when the code is corrected the example expires, and a
+test that pins one has to expect that. Replaced with `Control.RegionChanged`, same shape.
+
+5 tests, 2 neutralizations. `UnraisedEventBaseline` 215 → 214, with 31 of the remainder now marked as
+correctly inert -- the real remaining surface is **183**, not 215.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

@@ -22,42 +22,41 @@ Majorsilence.Forms.ButtonBase.CommandParameterChanged
 Majorsilence.Forms.CommonDialog.HelpRequest
 Majorsilence.Forms.ContainerControl.AutoValidateChanged
 Majorsilence.Forms.Control.ChangeUICues
-Majorsilence.Forms.Control.ClientSizeChanged    -- the raise is commented out at Control.Layout.cs:662
 Majorsilence.Forms.Control.DpiChangedAfterParent
 Majorsilence.Forms.Control.DpiChangedBeforeParent
 Majorsilence.Forms.Control.HelpRequested
 Majorsilence.Forms.Control.RegionChanged
 Majorsilence.Forms.Control.StyleChanged
-Majorsilence.Forms.DataGrid.BackButtonClick
-Majorsilence.Forms.DataGrid.BackgroundColorChanged
-Majorsilence.Forms.DataGrid.BorderStyleChanged
-Majorsilence.Forms.DataGrid.CaptionVisibleChanged
-Majorsilence.Forms.DataGrid.DataSourceChanged
-Majorsilence.Forms.DataGrid.FlatModeChanged
-Majorsilence.Forms.DataGrid.Navigate
-Majorsilence.Forms.DataGrid.ReadOnlyChanged
-Majorsilence.Forms.DataGrid.ShowParentDetailsButtonClick
-Majorsilence.Forms.DataGridBoolColumn.AllowNullChanged
-Majorsilence.Forms.DataGridBoolColumn.FalseValueChanged
-Majorsilence.Forms.DataGridBoolColumn.TrueValueChanged
-Majorsilence.Forms.DataGridColumnStyle.FontChanged
-Majorsilence.Forms.DataGridColumnStyle.HeaderTextChanged
-Majorsilence.Forms.DataGridColumnStyle.MappingNameChanged
-Majorsilence.Forms.DataGridColumnStyle.NullTextChanged
-Majorsilence.Forms.DataGridColumnStyle.ReadOnlyChanged
-Majorsilence.Forms.DataGridColumnStyle.WidthChanged
-Majorsilence.Forms.DataGridTableStyle.AllowSortingChanged
-Majorsilence.Forms.DataGridTableStyle.AlternatingBackColorChanged
-Majorsilence.Forms.DataGridTableStyle.BackColorChanged
-Majorsilence.Forms.DataGridTableStyle.ForeColorChanged
-Majorsilence.Forms.DataGridTableStyle.GridLineColorChanged
-Majorsilence.Forms.DataGridTableStyle.HeaderBackColorChanged
-Majorsilence.Forms.DataGridTableStyle.HeaderForeColorChanged
-Majorsilence.Forms.DataGridTableStyle.LinkColorChanged
-Majorsilence.Forms.DataGridTableStyle.MappingNameChanged
-Majorsilence.Forms.DataGridTableStyle.ReadOnlyChanged
-Majorsilence.Forms.DataGridTableStyle.SelectionBackColorChanged
-Majorsilence.Forms.DataGridTableStyle.SelectionForeColorChanged
+Majorsilence.Forms.DataGrid.BackButtonClick    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGrid.BackgroundColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGrid.BorderStyleChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGrid.CaptionVisibleChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGrid.DataSourceChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGrid.FlatModeChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGrid.Navigate    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGrid.ReadOnlyChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGrid.ShowParentDetailsButtonClick    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridBoolColumn.AllowNullChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridBoolColumn.FalseValueChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridBoolColumn.TrueValueChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridColumnStyle.FontChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridColumnStyle.HeaderTextChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridColumnStyle.MappingNameChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridColumnStyle.NullTextChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridColumnStyle.ReadOnlyChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridColumnStyle.WidthChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.AllowSortingChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.AlternatingBackColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.BackColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.ForeColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.GridLineColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.HeaderBackColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.HeaderForeColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.LinkColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.MappingNameChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.ReadOnlyChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.SelectionBackColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTableStyle.SelectionForeColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridTextBox.KeyPress
 Majorsilence.Forms.DataGridTextBox.TextChanged
 Majorsilence.Forms.DataGridView.CancelRowEdit
@@ -108,7 +107,7 @@ Majorsilence.Forms.Form.ResizeBegin
 Majorsilence.Forms.Form.ResizeEnd
 Majorsilence.Forms.Form.TabIndexChanged
 Majorsilence.Forms.Form.TabStopChanged
-Majorsilence.Forms.GridTableStylesCollection.CollectionChanged
+Majorsilence.Forms.GridTableStylesCollection.CollectionChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.ImageList.RecreateHandle
 Majorsilence.Forms.ListControl.Format
 Majorsilence.Forms.ListControl.FormatInfoChanged
