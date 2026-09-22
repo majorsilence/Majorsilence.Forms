@@ -81,10 +81,10 @@ namespace Majorsilence.Forms.Tests
             container.AutoValidateChanged += (_, _) => raised++;
             container.AutoValidate = AutoValidate.Disable;
 
-            // The event exists for source compatibility; what matters is that a handler attaches and
-            // the property still round-trips.
+            // Characterized the silence until W6.1 wired the setter through OnAutoValidateChanged; the
+            // property round-trips and the handler hears the change, as upstream's does.
             Assert.Equal (AutoValidate.Disable, container.AutoValidate);
-            Assert.Equal (0, raised);
+            Assert.Equal (1, raised);
         }
 
         [Fact]

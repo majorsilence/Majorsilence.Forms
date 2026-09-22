@@ -50,7 +50,6 @@ Majorsilence.Forms.BindingCompleteEventArgs.Exception    -- framework-written (o
 Majorsilence.Forms.BindingSource.AllowEdit
 Majorsilence.Forms.BindingSource.IsInitialized    -- framework-written (outbound state)
 Majorsilence.Forms.Button.UseCompatibleTextRendering
-Majorsilence.Forms.ButtonBase.CommandParameter
 Majorsilence.Forms.ButtonBase.UseCompatibleTextRendering
 Majorsilence.Forms.ButtonRenderer.RenderMatchingApplicationState
 Majorsilence.Forms.CheckedListBox.ThreeDCheckBoxes
@@ -75,7 +74,6 @@ Majorsilence.Forms.Control.DoubleBuffered
 Majorsilence.Forms.Control.HScroll
 Majorsilence.Forms.Control.IsAccessible
 Majorsilence.Forms.Control.MouseButtons
-Majorsilence.Forms.Control.Region
 Majorsilence.Forms.Control.UseVisualStyleBackColor
 Majorsilence.Forms.Control.VScroll
 Majorsilence.Forms.ControlBindingsCollection.BindableComponent    -- framework-written (outbound state)
@@ -281,10 +279,8 @@ Majorsilence.Forms.Form.AllowTransparency
 Majorsilence.Forms.Form.AutoScale
 Majorsilence.Forms.Form.AutoScaleBaseSize
 Majorsilence.Forms.Form.AutoSizeMode
-Majorsilence.Forms.Form.CausesValidation
 Majorsilence.Forms.Form.FormScreenCaptureMode
 Majorsilence.Forms.Form.HelpButton
-Majorsilence.Forms.Form.MaximizedBounds
 Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom
 Majorsilence.Forms.Form.Modal    -- framework-written (outbound state)
 Majorsilence.Forms.Form.ShowIcon
@@ -474,7 +470,6 @@ Majorsilence.Forms.StatusBarPanel.Width
 Majorsilence.Forms.TabControl.Appearance
 Majorsilence.Forms.TabControl.HotTrack
 Majorsilence.Forms.TabControl.Multiline
-Majorsilence.Forms.TabControl.RightToLeftLayout
 Majorsilence.Forms.TabPage.UseVisualStyleBackColor
 Majorsilence.Forms.TabStripItem.Tag
 Majorsilence.Forms.TaskDialogButton.ShowShieldIcon
@@ -527,7 +522,6 @@ Majorsilence.Forms.ToolStrip.CanOverflow
 Majorsilence.Forms.ToolStrip.DefaultDropDownDirection
 Majorsilence.Forms.ToolStrip.IsCurrentlyDragging    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStrip.LayoutSettings
-Majorsilence.Forms.ToolStrip.LayoutStyle
 Majorsilence.Forms.ToolStrip.Orientation
 Majorsilence.Forms.ToolStrip.OverflowButton
 Majorsilence.Forms.ToolStrip.Stretch
@@ -552,7 +546,6 @@ Majorsilence.Forms.ToolStripGripRenderEventArgs.GripStyle    -- framework-writte
 Majorsilence.Forms.ToolStripItem.AllowDrop
 Majorsilence.Forms.ToolStripItem.Anchor
 Majorsilence.Forms.ToolStripItem.AutoToolTip
-Majorsilence.Forms.ToolStripItem.CommandParameter
 Majorsilence.Forms.ToolStripItem.Dock
 Majorsilence.Forms.ToolStripItem.DoubleClickEnabled
 Majorsilence.Forms.ToolStripItem.ImageAlign
@@ -578,7 +571,6 @@ Majorsilence.Forms.ToolStripPanelRenderEventArgs.Handled
 Majorsilence.Forms.ToolStripPanelRow.Margin
 Majorsilence.Forms.ToolStripProfessionalRenderer.ColorTable    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripProfessionalRenderer.RoundedEdges
-Majorsilence.Forms.ToolStripSplitButton.DefaultItem
 Majorsilence.Forms.ToolStripStatusLabel.BorderSides
 Majorsilence.Forms.ToolStripStatusLabel.BorderStyle
 Majorsilence.Forms.ToolStripStatusLabel.LiveSetting
@@ -594,7 +586,6 @@ Majorsilence.Forms.ToolTip.UseFading
 Majorsilence.Forms.TreeView.HotTracking
 Majorsilence.Forms.TreeView.LabelEdit
 Majorsilence.Forms.UpDownBase.ChangingText
-Majorsilence.Forms.UserControl.AutoValidate
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Part    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.State    -- framework-written (outbound state)
@@ -610,13 +601,10 @@ Majorsilence.Forms.WebBrowser.WebBrowserShortcutsEnabled
 Majorsilence.Forms.WindowBase.AccessibleDefaultActionDescription
 Majorsilence.Forms.WindowBase.AccessibleRole    -- framework-written (outbound state)
 Majorsilence.Forms.WindowBase.Anchor
-Majorsilence.Forms.WindowBase.AutoSize
 Majorsilence.Forms.WindowBase.Disposing    -- framework-written (outbound state)
 Majorsilence.Forms.WindowBase.DoubleBuffered
 Majorsilence.Forms.WindowBase.IsAccessible
-Majorsilence.Forms.WindowBase.Margin
 Majorsilence.Forms.WindowBase.StartPosition    -- framework-written (outbound state)
-Majorsilence.Forms.WindowBase.TabIndex
 Majorsilence.Forms.WindowBase.Tag
 Majorsilence.Forms.WindowsFormsSynchronizationContext.AutoInstall
 SkiaSharp.Views.Desktop.SKGLControl.VSync

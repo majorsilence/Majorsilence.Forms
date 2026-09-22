@@ -7,26 +7,20 @@
 # most of these have a trigger point that already exists in the framework.
 # Regenerate with MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1.
 Majorsilence.Forms.Application.EnterThreadModal
-Majorsilence.Forms.Application.Idle
 Majorsilence.Forms.Application.LeaveThreadModal
 Majorsilence.Forms.Application.ThreadException
 Majorsilence.Forms.Application.ThreadExit
 Majorsilence.Forms.BindingContext.CollectionChanged
 Majorsilence.Forms.BindingManagerBase.DataError
 Majorsilence.Forms.BindingSource.DataError
-Majorsilence.Forms.BindingSource.Initialized
 Majorsilence.Forms.BindingsCollection.CollectionChanging
 Majorsilence.Forms.ButtonBase.CommandCanExecuteChanged
-Majorsilence.Forms.ButtonBase.CommandChanged
-Majorsilence.Forms.ButtonBase.CommandParameterChanged
 Majorsilence.Forms.CommonDialog.HelpRequest
-Majorsilence.Forms.ContainerControl.AutoValidateChanged
 Majorsilence.Forms.Control.ChangeUICues
 Majorsilence.Forms.Control.DpiChangedAfterParent
 Majorsilence.Forms.Control.DpiChangedBeforeParent
 Majorsilence.Forms.Control.HelpRequested
-Majorsilence.Forms.Control.RegionChanged
-Majorsilence.Forms.Control.StyleChanged
+Majorsilence.Forms.Control.StyleChanged    -- Win32 style bits (WM_STYLECHANGED); no equivalent state here
 Majorsilence.Forms.DataGrid.BackButtonClick    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGrid.BackgroundColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGrid.BorderStyleChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
@@ -42,7 +36,6 @@ Majorsilence.Forms.DataGridBoolColumn.TrueValueChanged    -- upstream ships this
 Majorsilence.Forms.DataGridColumnStyle.FontChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridColumnStyle.HeaderTextChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridColumnStyle.MappingNameChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
-Majorsilence.Forms.DataGridColumnStyle.NullTextChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridColumnStyle.ReadOnlyChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridColumnStyle.WidthChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridTableStyle.AllowSortingChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
@@ -57,8 +50,8 @@ Majorsilence.Forms.DataGridTableStyle.MappingNameChanged    -- upstream ships th
 Majorsilence.Forms.DataGridTableStyle.ReadOnlyChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridTableStyle.SelectionBackColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridTableStyle.SelectionForeColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
-Majorsilence.Forms.DataGridTextBox.KeyPress
-Majorsilence.Forms.DataGridTextBox.TextChanged
+Majorsilence.Forms.DataGridTextBox.KeyPress    -- upstream ships this family as binary-compat stubs; it raises nothing either
+Majorsilence.Forms.DataGridTextBox.TextChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridView.CancelRowEdit
 Majorsilence.Forms.DataGridView.CellContextMenuStripChanged
 Majorsilence.Forms.DataGridView.CellContextMenuStripNeeded
@@ -74,24 +67,15 @@ Majorsilence.Forms.DataGridView.RowHeightInfoNeeded
 Majorsilence.Forms.DataGridView.RowHeightInfoPushed
 Majorsilence.Forms.DataGridView.RowUnshared
 Majorsilence.Forms.DataGridViewColumnCollection.CollectionChanged
-Majorsilence.Forms.DateTimePicker.RightToLeftLayoutChanged
 Majorsilence.Forms.Design.DesignerActionUIService.DesignerActionListsChanged
 Majorsilence.Forms.FileDialog.FileOk
 Majorsilence.Forms.FolderBrowserDialog.HelpRequest
-Majorsilence.Forms.Form.AutoSizeChanged
-Majorsilence.Forms.Form.AutoValidateChanged
-Majorsilence.Forms.Form.DpiChanged
-Majorsilence.Forms.Form.FormCornerPreferenceChanged
+Majorsilence.Forms.Form.DpiChanged    -- no DPI-change path; the headless scale is fixed for the process
 Majorsilence.Forms.Form.HelpButtonClicked
-Majorsilence.Forms.Form.MarginChanged
-Majorsilence.Forms.Form.MaximizedBoundsChanged
 Majorsilence.Forms.Form.MenuComplete
 Majorsilence.Forms.Form.MenuStart
 Majorsilence.Forms.Form.ResizeBegin
 Majorsilence.Forms.Form.ResizeEnd
-Majorsilence.Forms.Form.TabIndexChanged
-Majorsilence.Forms.Form.TabStopChanged
-Majorsilence.Forms.GridTableStylesCollection.CollectionChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.ImageList.RecreateHandle
 Majorsilence.Forms.ListControl.Format
 Majorsilence.Forms.ListView.AfterLabelEdit
@@ -105,45 +89,22 @@ Majorsilence.Forms.ListView.ItemMouseHover
 Majorsilence.Forms.ListView.SearchForVirtualItem
 Majorsilence.Forms.ListView.VirtualItemsSelectionRangeChanged
 Majorsilence.Forms.MaskedTextBox.IsOverwriteModeChanged
-Majorsilence.Forms.Media.SoundPlayer.LoadCompleted
 Majorsilence.Forms.MenuItem.DrawItem
 Majorsilence.Forms.MenuItem.MeasureItem
-Majorsilence.Forms.MenuItem.Select
-Majorsilence.Forms.MonthCalendar.RightToLeftLayoutChanged
-Majorsilence.Forms.PrintPreviewControl.StartPageChanged
-Majorsilence.Forms.PrintPreviewDialog.BackColorChanged
-Majorsilence.Forms.PrintPreviewDialog.BackgroundImageChanged
-Majorsilence.Forms.PrintPreviewDialog.BackgroundImageLayoutChanged
-Majorsilence.Forms.PrintPreviewDialog.CausesValidationChanged
-Majorsilence.Forms.PrintPreviewDialog.CursorChanged
-Majorsilence.Forms.PrintPreviewDialog.DockChanged
-Majorsilence.Forms.PrintPreviewDialog.ForeColorChanged
-Majorsilence.Forms.PrintPreviewDialog.PaddingChanged
-Majorsilence.Forms.PrintPreviewDialog.RightToLeftChanged
-Majorsilence.Forms.PrintPreviewDialog.TextChanged
 Majorsilence.Forms.Printing.PrintDocument.QueryPageSettings
-Majorsilence.Forms.PropertyGrid.PropertySortChanged
 Majorsilence.Forms.PropertyGrid.PropertyTabChanged
 Majorsilence.Forms.RichTextBox.ImeChange
 Majorsilence.Forms.RichTextBox.Protected
 Majorsilence.Forms.StatusBar.DrawItem
 Majorsilence.Forms.StatusBar.PanelClick
 Majorsilence.Forms.SystemEvents.DisplaySettingsChanged
-Majorsilence.Forms.TabControl.RightToLeftLayoutChanged
-Majorsilence.Forms.TaskDialogExpander.ExpandedChanged
 Majorsilence.Forms.TaskDialogPage.HelpRequest
 Majorsilence.Forms.TaskDialogPage.LinkClicked
-Majorsilence.Forms.TimePicker.ValueChanged
 Majorsilence.Forms.ToolBar.ButtonDropDown
 Majorsilence.Forms.ToolStrip.LayoutCompleted
-Majorsilence.Forms.ToolStrip.LayoutStyleChanged
-Majorsilence.Forms.ToolStrip.RendererChanged
 Majorsilence.Forms.ToolStripContentPanel.Load
-Majorsilence.Forms.ToolStripContentPanel.RendererChanged
 Majorsilence.Forms.ToolStripDropDownItem.DropDownItemClicked
 Majorsilence.Forms.ToolStripItem.CommandCanExecuteChanged
-Majorsilence.Forms.ToolStripItem.CommandChanged
-Majorsilence.Forms.ToolStripItem.CommandParameterChanged
 Majorsilence.Forms.ToolStripItem.DragDrop
 Majorsilence.Forms.ToolStripItem.DragEnter
 Majorsilence.Forms.ToolStripItem.DragLeave
@@ -152,26 +113,14 @@ Majorsilence.Forms.ToolStripItem.GiveFeedback
 Majorsilence.Forms.ToolStripItem.MouseHover
 Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp
 Majorsilence.Forms.ToolStripItem.QueryContinueDrag
-Majorsilence.Forms.ToolStripManager.RendererChanged
-Majorsilence.Forms.ToolStripPanel.RendererChanged
 Majorsilence.Forms.ToolStripProgressBar.KeyDown
 Majorsilence.Forms.ToolStripProgressBar.KeyPress
 Majorsilence.Forms.ToolStripProgressBar.KeyUp
-Majorsilence.Forms.ToolStripProgressBar.RightToLeftLayoutChanged
 Majorsilence.Forms.ToolStripProgressBar.Validated
 Majorsilence.Forms.ToolStripProgressBar.Validating
-Majorsilence.Forms.ToolStripRenderer.RenderOverflowButtonBackground    -- no strip paints this part yet (overflow button / sizing grip / panel backgrounds); routes through Draw* when one does
-Majorsilence.Forms.ToolStripRenderer.RenderStatusStripSizingGrip    -- no strip paints this part yet (overflow button / sizing grip / panel backgrounds); routes through Draw* when one does
-Majorsilence.Forms.ToolStripRenderer.RenderToolStripContentPanelBackground    -- no strip paints this part yet (overflow button / sizing grip / panel backgrounds); routes through Draw* when one does
-Majorsilence.Forms.ToolStripRenderer.RenderToolStripPanelBackground    -- no strip paints this part yet (overflow button / sizing grip / panel backgrounds); routes through Draw* when one does
 Majorsilence.Forms.ToolStripSplitButton.ButtonDoubleClick
-Majorsilence.Forms.ToolStripSplitButton.DefaultItemChanged
-Majorsilence.Forms.ToolStripTextBox.TextBoxTextAlignChanged
 Majorsilence.Forms.ToolTip.Draw
 Majorsilence.Forms.ToolTip.Popup
-Majorsilence.Forms.TrackBar.RightToLeftLayoutChanged
-Majorsilence.Forms.TreeView.RightToLeftLayoutChanged
-Majorsilence.Forms.UserControl.AutoValidateChanged
 Majorsilence.Forms.WebBrowser.EncryptionLevelChanged
 Majorsilence.Forms.WebBrowser.FileDownload
 Majorsilence.Forms.WebBrowser.NewWindow

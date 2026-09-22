@@ -157,6 +157,14 @@ Largest candidate types, which is where the remaining W6.2 work is:
 A count here is still not a count of defects — `ListView`'s 20 were six causes — but it is the right
 place to start, and each type should be triaged the way `ListView` was before anything is wired.
 
+## A falling count is not always a closure
+
+The scan sees auto-properties only. Converting one to a hand-written notifying setter removes it from
+the baseline whether or not anything now *reads* it -- #226 named the hazard, and the 2026-09-22 event
+batch was the large case: twelve of thirteen departures (`WindowBase.AutoSize`/`Margin`/`TabIndex`,
+`Control.Region`, `ToolStrip.LayoutStyle`, the `CommandParameter`s and the rest) fire an event now and
+are still consumed by no layout or paint. Read the plan entry for a batch before crediting its count.
+
 ## How to regenerate
 
 The buckets are derived from the two baseline files plus a scan of upstream's `Controls/Unsupported/`

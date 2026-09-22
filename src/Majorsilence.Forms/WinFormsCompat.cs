@@ -1696,8 +1696,20 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance with the specified text and image.</summary>
         public ToolStripSplitButton (string text, Majorsilence.Forms.Drawing.Image? image) { Text = text; Image = image; }
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private ToolStripItem? default_item;
+
         /// <summary>Gets or sets the default item clicked when the button portion is clicked. Stub in Majorsilence.Forms.</summary>
-        public new ToolStripItem? DefaultItem { get; set; }
+        public new ToolStripItem? DefaultItem {
+            get => default_item;
+            set {
+                if (ReferenceEquals (default_item, value))
+                    return;
+
+                default_item = value;
+                DefaultItemChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets the width of the drop-down button portion. Stub in Majorsilence.Forms.</summary>
         public int DropDownButtonWidth { get; set; } = 11;
@@ -2524,6 +2536,8 @@ namespace Majorsilence.Forms
                     return;
 
                 renderer = value;
+                OnRendererChanged (EventArgs.Empty);
+                RendererChanged?.Invoke (this, EventArgs.Empty);
 
                 if (value is null)
                     return;
@@ -2544,8 +2558,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether items can overflow to a dropdown. Stub in Majorsilence.Forms.</summary>
         public bool CanOverflow { get; set; } = true;
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private ToolStripLayoutStyle layout_style = ToolStripLayoutStyle.HorizontalStackWithOverflow;
+
         /// <summary>Gets or sets the layout style. Stub in Majorsilence.Forms.</summary>
-        public ToolStripLayoutStyle LayoutStyle { get; set; } = ToolStripLayoutStyle.HorizontalStackWithOverflow;
+        public ToolStripLayoutStyle LayoutStyle {
+            get => layout_style;
+            set {
+                if (layout_style == value)
+                    return;
+
+                layout_style = value;
+                LayoutStyleChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets or sets the ImageList this strip's items index into.</summary>
         /// <remarks>
@@ -3275,8 +3301,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the global render mode for ToolStrip controls. Stub in Majorsilence.Forms.</summary>
         public static ToolStripManagerRenderMode RenderMode { get; set; } = ToolStripManagerRenderMode.Professional;
 
+        private static ToolStripRenderer? renderer;
+
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
         /// <summary>Gets or sets the global renderer for ToolStrip controls. Stub in Majorsilence.Forms.</summary>
-        public static ToolStripRenderer? Renderer { get; set; }
+        public static ToolStripRenderer? Renderer {
+            get => renderer;
+            set {
+                if (ReferenceEquals (renderer, value))
+                    return;
+
+                renderer = value;
+                RendererChanged?.Invoke (null, EventArgs.Empty);
+            }
+        }
 
         /// <summary>Merges the source toolstrip into the target toolstrip. Stub in Majorsilence.Forms.</summary>
         public static bool Merge (ToolStrip sourceToolStrip, ToolStrip targetToolStrip) => false;

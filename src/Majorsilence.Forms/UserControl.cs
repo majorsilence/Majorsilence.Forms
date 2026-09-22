@@ -101,8 +101,20 @@ namespace Majorsilence.Forms
             ArmAutoScale ();
         }
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private AutoValidate auto_validate = AutoValidate.EnablePreventFocusChange;
+
         /// <summary>Gets or sets how the UserControl validates its children. Stub in Majorsilence.Forms.</summary>
-        public AutoValidate AutoValidate { get; set; } = AutoValidate.EnablePreventFocusChange;
+        public AutoValidate AutoValidate {
+            get => auto_validate;
+            set {
+                if (auto_validate == value)
+                    return;
+
+                auto_validate = value;
+                OnAutoValidateChanged (EventArgs.Empty);
+            }
+        }
 
         private Control? active_control;
 
@@ -175,11 +187,23 @@ namespace Majorsilence.Forms
         public bool ActivateControl (Control active)
             => ContainerFocus.SetActiveControl (this, active, ref active_control);
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private AutoValidate auto_validate = AutoValidate.EnablePreventFocusChange;
+
         /// <summary>Gets or sets how the container validates its children.</summary>
         /// <remarks>Consulted by the focus choke point in <c>ControlAdapter</c>: <c>Disable</c> skips
         /// the validation cycle entirely, and <c>EnableAllowFocusChange</c> runs it but lets focus move
         /// even when a handler cancels.</remarks>
-        public AutoValidate AutoValidate { get; set; } = AutoValidate.EnablePreventFocusChange;
+        public AutoValidate AutoValidate {
+            get => auto_validate;
+            set {
+                if (auto_validate == value)
+                    return;
+
+                auto_validate = value;
+                OnAutoValidateChanged (EventArgs.Empty);
+            }
+        }
 
         private AutoScaleMode _autoScaleMode = AutoScaleMode.Font;
         private System.Drawing.SizeF _autoScaleDimensions;

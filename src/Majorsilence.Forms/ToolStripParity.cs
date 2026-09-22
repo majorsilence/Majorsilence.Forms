@@ -203,8 +203,20 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private object? command_parameter;
+
         /// <summary>Gets or sets the parameter passed to <see cref="Command"/>.</summary>
-        public object? CommandParameter { get; set; }
+        public object? CommandParameter {
+            get => command_parameter;
+            set {
+                if (ReferenceEquals (command_parameter, value))
+                    return;
+
+                command_parameter = value;
+                CommandParameterChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets or sets the accessible name reported for this item.</summary>
         public string? AccessibleName { get; set; }

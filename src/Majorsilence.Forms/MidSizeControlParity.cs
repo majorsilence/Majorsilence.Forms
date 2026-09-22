@@ -553,39 +553,70 @@ namespace Majorsilence.Forms
         // Ones that existed only because the window side LACKED the member are deleted rather than
         // shadowed as that gap closes: an inert stub in front of a working forward is worse than nothing.
         // ContextMenuStripChanged, ImeModeChanged, ImeMode and AccessibleRole went that way.
-#pragma warning disable CS0067
-        /// <summary>Not raised: the dialog does not support restyling.</summary>
-        public new event EventHandler? BackColorChanged;
+        // WinForms redeclares each of these with `new` and forwards to the base -- the redeclaration is
+        // a designer-visibility trick, not a different event. Until W6.1 the redeclarations here were
+        // plain fields that nothing raised, so subscribing on the dialog silently heard nothing while
+        // the same subscription on any other Form worked (LST-28's shape, on a window).
+        /// <summary>Forwards to the inherited <c>BackColorChanged</c>; redeclared for designer parity, as WinForms does.</summary>
+        public new event EventHandler? BackColorChanged {
+            add => base.BackColorChanged += value;
+            remove => base.BackColorChanged -= value;
+        }
 
-        /// <inheritdoc cref="BackColorChanged"/>
-        public new event EventHandler? BackgroundImageChanged;
+        /// <summary>Forwards to the inherited <c>BackgroundImageChanged</c>; redeclared for designer parity, as WinForms does.</summary>
+        public new event EventHandler? BackgroundImageChanged {
+            add => base.BackgroundImageChanged += value;
+            remove => base.BackgroundImageChanged -= value;
+        }
 
-        /// <inheritdoc cref="BackColorChanged"/>
-        public new event EventHandler? BackgroundImageLayoutChanged;
+        /// <summary>Forwards to the inherited <c>BackgroundImageLayoutChanged</c>; redeclared for designer parity, as WinForms does.</summary>
+        public new event EventHandler? BackgroundImageLayoutChanged {
+            add => base.BackgroundImageLayoutChanged += value;
+            remove => base.BackgroundImageLayoutChanged -= value;
+        }
 
-        /// <inheritdoc cref="BackColorChanged"/>
-        public new event EventHandler? CausesValidationChanged;
+        /// <summary>Forwards to the inherited <c>CausesValidationChanged</c>; redeclared for designer parity, as WinForms does.</summary>
+        public new event EventHandler? CausesValidationChanged {
+            add => base.CausesValidationChanged += value;
+            remove => base.CausesValidationChanged -= value;
+        }
 
-        /// <inheritdoc cref="BackColorChanged"/>
-        public new event EventHandler? CursorChanged;
+        /// <summary>Forwards to the inherited <c>CursorChanged</c>; redeclared for designer parity, as WinForms does.</summary>
+        public new event EventHandler? CursorChanged {
+            add => base.CursorChanged += value;
+            remove => base.CursorChanged -= value;
+        }
 
-        /// <inheritdoc cref="BackColorChanged"/>
+        /// <summary>Forwards to the inherited <c>ForeColorChanged</c>; redeclared for designer parity, as WinForms does.</summary>
+        public new event EventHandler? ForeColorChanged {
+            add => base.ForeColorChanged += value;
+            remove => base.ForeColorChanged -= value;
+        }
+
+        /// <summary>Forwards to the inherited <c>PaddingChanged</c>; redeclared for designer parity, as WinForms does.</summary>
+        public new event EventHandler? PaddingChanged {
+            add => base.PaddingChanged += value;
+            remove => base.PaddingChanged -= value;
+        }
+
+        /// <summary>Forwards to the inherited <c>RightToLeftChanged</c>; redeclared for designer parity, as WinForms does.</summary>
+        public new event EventHandler? RightToLeftChanged {
+            add => base.RightToLeftChanged += value;
+            remove => base.RightToLeftChanged -= value;
+        }
+
+        /// <summary>Forwards to the inherited <c>TextChanged</c>; redeclared for designer parity, as WinForms does.</summary>
+        public new event EventHandler? TextChanged {
+            add => base.TextChanged += value;
+            remove => base.TextChanged -= value;
+        }
+
+        /// <summary>Raised when <see cref="WindowBase.Dock"/> changes.</summary>
         public event EventHandler? DockChanged;
 
-        /// <inheritdoc cref="BackColorChanged"/>
-        public new event EventHandler? ForeColorChanged;
-
-        /// <inheritdoc cref="BackColorChanged"/>
-        public new event EventHandler? PaddingChanged;
-
-        /// <inheritdoc cref="BackColorChanged"/>
-        public new event EventHandler? RightToLeftChanged;
-
-        /// <inheritdoc cref="BackColorChanged"/>
-        public new event EventHandler? TextChanged;
+        internal override void OnDockChangedCore () => DockChanged?.Invoke (this, EventArgs.Empty);
 
         // VisibleChanged was a stub here too; it now comes from WindowBase, which actually raises it.
-#pragma warning restore CS0067
     }
 
     public partial class ScrollableControl

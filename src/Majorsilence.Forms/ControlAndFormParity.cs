@@ -606,26 +606,30 @@ namespace Majorsilence.Forms
         // Declared and raisable, not raised by the framework yet -- said here rather than left for a
         // caller to discover by waiting for an event that never arrives.
 #pragma warning disable CS0067
-        /// <summary>Raised when the form's automatic sizing changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when <see cref="WindowBase.AutoSize"/> changes.</summary>
         public event EventHandler? AutoSizeChanged;
 
-        /// <summary>Raised when AutoValidate changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when <see cref="Form.AutoValidate"/> changes.</summary>
         public event EventHandler? AutoValidateChanged;
 
-        /// <summary>Raised when the form's corner preference changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when <see cref="Form.FormCornerPreference"/> changes.</summary>
         public event EventHandler? FormCornerPreferenceChanged;
 
-        /// <summary>Raised when the form's margin changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when <see cref="WindowBase.Margin"/> changes.</summary>
         public event EventHandler? MarginChanged;
 
-        /// <summary>Raised when MaximizedBounds changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when <see cref="Form.MaximizedBounds"/> changes.</summary>
         public event EventHandler? MaximizedBoundsChanged;
 
-        /// <summary>Raised when the tab index changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when <see cref="WindowBase.TabIndex"/> changes.</summary>
         public event EventHandler? TabIndexChanged;
 
         /// <summary>Raised when a menu is about to be shown. Not raised by this layer yet.</summary>
         public event EventHandler? MenuStart;
+
+        internal override void OnAutoSizeChangedCore () => AutoSizeChanged?.Invoke (this, EventArgs.Empty);
+        internal override void OnMarginChangedCore () => MarginChanged?.Invoke (this, EventArgs.Empty);
+        internal override void OnTabIndexChangedCore () => TabIndexChanged?.Invoke (this, EventArgs.Empty);
 
         /// <summary>Raised when a menu has closed. Not raised by this layer yet.</summary>
         public event EventHandler? MenuComplete;
