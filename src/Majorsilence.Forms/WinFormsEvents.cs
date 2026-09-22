@@ -1723,11 +1723,30 @@ namespace Majorsilence.Forms
     /// <summary>Provides data for the tool strip arrow render event.</summary>
     public class ToolStripArrowRenderEventArgs : EventArgs
     {
+        /// <summary>
+        /// Set by a custom <see cref="ToolStripRenderer"/> to say it painted this part itself, so the
+        /// strip's built-in painting for it is skipped.
+        /// </summary>
+        /// <remarks>
+        /// Not on upstream's args. Upstream's BASE renderer does the default painting and a custom
+        /// renderer suppresses it by not calling <c>base</c>; here the built-in painting stays in the
+        /// strip renderers and this flag is how an override says "done" (TSM-48). Backgrounds and text
+        /// an override merely restyles need no flag -- the default painting reads the args back.
+        /// </remarks>
+        public bool Handled { get; set; }
+
         /// <summary>Initializes a new instance of the <see cref="ToolStripArrowRenderEventArgs"/> class.</summary>
         public ToolStripArrowRenderEventArgs (Graphics g, ToolStripItem toolStripItem, Rectangle arrowRectangle, Color arrowColor, ArrowDirection arrowDirection)
         {
+            // Three of the five parameters used to be dropped on the floor: Graphics and Item stayed
+            // null and Direction stayed default, so the first renderer to read e.Item threw. Nothing
+            // had ever called this constructor until the strip renderers were routed through Draw*
+            // (TSM-48), which is the only reason it survived.
+            Graphics = g;
+            Item = toolStripItem;
             ArrowRectangle = arrowRectangle;
             ArrowColor = arrowColor;
+            Direction = arrowDirection;
         }
 
         /// <summary>Gets or sets the arrow rectangle.</summary>
@@ -1754,10 +1773,26 @@ namespace Majorsilence.Forms
     /// <summary>Provides data for the tool strip item render event.</summary>
     public class ToolStripItemRenderEventArgs : EventArgs
     {
+        /// <summary>
+        /// Set by a custom <see cref="ToolStripRenderer"/> to say it painted this part itself, so the
+        /// strip's built-in painting for it is skipped.
+        /// </summary>
+        /// <remarks>
+        /// Not on upstream's args. Upstream's BASE renderer does the default painting and a custom
+        /// renderer suppresses it by not calling <c>base</c>; here the built-in painting stays in the
+        /// strip renderers and this flag is how an override says "done" (TSM-48). Backgrounds and text
+        /// an override merely restyles need no flag -- the default painting reads the args back.
+        /// </remarks>
+        public bool Handled { get; set; }
+
         /// <summary>Initializes a new instance of the <see cref="ToolStripItemRenderEventArgs"/> class.</summary>
         public ToolStripItemRenderEventArgs (Graphics g, ToolStripItem item)
         {
+            // Graphics used to be dropped and ToolStrip never set, the same way the arrow args lost
+            // theirs (TSM-48). ToolStrip is the item's owner, as upstream's is.
+            Graphics = g;
             Item = item;
+            ToolStrip = item.Owner!;
         }
 
         /// <summary>Gets the graphics.</summary>

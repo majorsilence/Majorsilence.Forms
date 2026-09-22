@@ -530,12 +530,8 @@ Majorsilence.Forms.ToolStrip.LayoutSettings
 Majorsilence.Forms.ToolStrip.LayoutStyle
 Majorsilence.Forms.ToolStrip.Orientation
 Majorsilence.Forms.ToolStrip.OverflowButton
-Majorsilence.Forms.ToolStrip.RenderMode    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStrip.Stretch
 Majorsilence.Forms.ToolStrip.TextDirection
-Majorsilence.Forms.ToolStripArrowRenderEventArgs.ArrowColor    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripArrowRenderEventArgs.ArrowRectangle    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripArrowRenderEventArgs.Direction
 Majorsilence.Forms.ToolStripButton.ImageTransparentColor
 Majorsilence.Forms.ToolStripContentPanel.RenderMode
 Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.Handled
@@ -559,7 +555,6 @@ Majorsilence.Forms.ToolStripItem.AutoToolTip
 Majorsilence.Forms.ToolStripItem.CommandParameter
 Majorsilence.Forms.ToolStripItem.Dock
 Majorsilence.Forms.ToolStripItem.DoubleClickEnabled
-Majorsilence.Forms.ToolStripItem.Font    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItem.ImageAlign
 Majorsilence.Forms.ToolStripItem.ImageTransparentColor
 Majorsilence.Forms.ToolStripItem.IsDisposed    -- framework-written (outbound state)
@@ -568,16 +563,11 @@ Majorsilence.Forms.ToolStripItem.MergeIndex
 Majorsilence.Forms.ToolStripItem.Overflow
 Majorsilence.Forms.ToolStripItem.RightToLeftAutoMirrorImage
 Majorsilence.Forms.ToolStripItem.TextDirection    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItemTextRenderEventArgs.Text    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextAlign    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextColor    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextDirection
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFont    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFormat    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextRectangle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripLabel.ActiveLinkColor
-Majorsilence.Forms.ToolStripManager.RenderMode
-Majorsilence.Forms.ToolStripManager.Renderer
 Majorsilence.Forms.ToolStripManager.VisualStylesEnabled
 Majorsilence.Forms.ToolStripMenuItem.MergeAction
 Majorsilence.Forms.ToolStripMenuItem.MergeIndex

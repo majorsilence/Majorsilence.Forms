@@ -641,7 +641,7 @@ order whatever the property said.
   the root collection as *sequences* directly -- the invariant the bug broke, which paint can only
   show indirectly.
 
-### TSM-48 — nothing routes strip painting through `ToolStripRenderer.Draw*` — Cat A — P1 — High
+### TSM-48 — nothing routes strip painting through `ToolStripRenderer.Draw*` — Cat A — P1 — High — **CLOSED (2026-09-22)**
 - **Ours:** `ToolStripRenderer` has the full upstream shape -- `DrawArrow`, `DrawButtonBackground`,
   `DrawItemText` and the rest, each raising its `Render*` event and calling its `OnRender*` hook. **No
   code in the assembly calls any of them.** `ToolBarRenderer`, `MenuDropDownRenderer` and the other strip
@@ -651,11 +651,24 @@ order whatever the property said.
 - **Why it is P1:** custom strip rendering is common in the WinForms code this layer exists to host
   (every "dark theme" toolbar does it), and it fails silently -- the subclass compiles, is assigned, and
   is never consulted.
-- **Fix:** the strip renderers consult `strip.Renderer` (or the mode's default) and route each part
-  through the matching `Draw*`, honouring `e.Handled`/`ArrowRectangle` etc. as upstream does. A real
-  piece of work with its own tests; the 19 baseline entries are annotated as blocked on it rather than
-  wired one by one, which would be nineteen different ways of not fixing the pipeline.
-- **Tests today:** none.
+- **Fix (applied):** `Renderers.StripRendererBridge` offers every part -- strip background and border,
+  grip, each item's background by type, image, text, check, image margin, separator, arrow -- to the
+  resolved renderer before the built-in painting, from both `ToolBarRenderer` and
+  `MenuDropDownRenderer`. Resolution follows upstream: an assigned `Renderer`, else the `RenderMode`
+  shell, else `ToolStripManager`. Fifteen of the nineteen events now fire; the four that remain
+  (overflow button, sizing grip, the two panel backgrounds) are parts no strip paints yet.
+- **One deliberate divergence.** Upstream's base renderer does the default painting and an override
+  suppresses it by not calling `base`. Here the built-in painting stays where it is and remains the
+  default; an override says "done" by setting `Handled` on the item or arrow args -- a flag **added**
+  for the purpose, not present upstream. Restyling needs no flag: the default painting reads back
+  `TextColor`/`TextRectangle`/`ArrowRectangle`/`ArrowColor`, which is the ordinary WinForms idiom of
+  recolouring in `OnRenderItemText` and calling `base`.
+- **Two constructors had been discarding their arguments since they were written.**
+  `ToolStripArrowRenderEventArgs` kept the rectangle and colour and dropped `Graphics`, `Item` and
+  `Direction`; `ToolStripItemRenderEventArgs` dropped `Graphics` and never set `ToolStrip`. The first
+  custom renderer to read `e.Item` threw -- in the first test written for this. Nothing had ever
+  constructed them, which is the only reason it went unnoticed.
+- **Tests today:** `StripRendererPipelineTests.cs` (7; 6 neutralizations).
 
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.
