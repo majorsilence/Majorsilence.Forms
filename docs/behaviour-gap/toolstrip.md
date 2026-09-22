@@ -420,7 +420,7 @@ order whatever the property said.
 - **The existing test hid it.** `StripHierarchyTests.StatusStrip_LaysItemsOutWhereItPaintsThem` compared the laid-out bounds against the same device `PaddedClientRectangle` the layout used — both sides wrong together, and identical at scaling 1. It now converts to logical first, with the reason in a comment.
 - **Tests today:** `ToolStripStoredOnlyTests.cs` (the `Spring` pair), `StripHierarchyTests` (corrected).
 
-### TSM-41 — the strip renderers paint logical bounds into a device canvas — Cat A — P1 — High — **RE-DIAGNOSED (2026-09-21)**
+### TSM-41 — the strip renderers paint logical bounds into a device canvas — Cat A — P1 — High — **CLOSED (2026-09-21)**
 - **Ours:** `ToolBarRenderer` and `MenuDropDownRenderer` hand `item.Bounds` -- which is **logical** --
   straight to a canvas whose coordinates are **device**. At scaling 2 every strip item is therefore
   painted at **half its proper size, in the top-left quadrant of the strip**, and the device-converted
@@ -447,15 +447,29 @@ order whatever the property said.
   reverted because of it: the caption indent is `LogicalToDeviceUnits (28)` = 56 device against a
   62-device item, so the caption lands past the item's own right edge and no property can be observed.
   Any gap in this family will behave the same way -- passing three gates and failing the scale-2 one.
-- **Fix:** convert at the paint boundary -- the renderer takes `item.Bounds` into device once and uses
-  that throughout -- keeping `Bounds` logical for hit-testing, which `W6.3` requires and `TSM-22`
-  depends on. The complication is `GetPreferredItemSize`, which already device-converts its padding and
-  font while `LayoutItems` lays out into `LogicalClientRectangle`: **paint and measure have to be
-  decided together**, and that is why this is still its own item rather than something to fold into a
-  wiring batch.
-- **Tests today:** `StripRendererUnitTests.cs` (3). Two are **characterization** tests -- they assert
-  what the code does now, so the defect cannot be fixed silently; fixing TSM-41 turns them red and they
-  are inverted, not deleted.
+- **Fix (applied):** `MenuItem.DeviceBounds` converts once, and the paint paths of `ToolBarRenderer`
+  and `MenuDropDownRenderer` use it throughout (33 sites). `Bounds` stays logical for hit-testing,
+  which `W6.3` requires and `TSM-22` depends on.
+- **The "paint and measure must be decided together" worry dissolved on inspection, and the answer was
+  already written down.** `MenuItem.GetPreferredSize` wraps every renderer's `GetPreferredItemSize` in
+  `owner.DeviceToLogicalUnits (...)`, with a comment saying exactly why: *"Every renderer below measures
+  text at the DEVICE font size ... and returns a size in those units. Item bounds are logical, so the
+  result is converted back here rather than in each renderer -- one place, and it cannot be forgotten by
+  the next renderer added."* The measure side had had this boundary all along. **Paint was the only half
+  missing it**, so there was nothing to co-decide -- only a convention to follow.
+- **Two more bugs of the same family turned up while doing it.** `GetPreferredItemSize` returns device
+  units and was comparing against `item.Bounds.Height` (logical) -- fixed by the same substitution. And
+  it sized images from a hard-coded `20` while `RenderItem` had been changed to honour
+  `ImageScalingSize` (`TSM-44`), so measure and paint disagreed about how much room an icon needs: a
+  strip with 32px icons measured its items as though they were 20px.
+- **Tests today:** `StripRendererUnitTests.cs` (3), inverted from the characterization pair that
+  documented the defect -- the mechanism worked exactly as intended: the fix turned both red and they
+  became real assertions rather than being deleted.
+- **The fix exposed four of my own tests that were passing for the wrong reason.**
+  `ToolStripLabelLinkTests` sampled `label.Bounds` against the bitmap and passed at scaling 2 *because*
+  the renderer was painting the logical box into the device canvas -- test and code wrong the same way,
+  cancelling out. They now use `DeviceBounds`. A test can only be trusted at a scale it has been run
+  at against code that is right at that scale.
 
 **Legitimately inert, recorded (the rest).** The `*RenderEventArgs` families (`ToolStripArrowRenderEventArgs`, `ToolStripItemTextRenderEventArgs`, `ToolStripGripRenderEventArgs`, the two panel ones — 21 entries) are outbound render-event data for a custom renderer; nothing in the assembly reads them back and nothing should. The `ToolStripDropDown` window attributes (`Opacity`, `AllowTransparency`, `DropShadowEnabled`, `TopLevel`), `ToolStripManager.VisualStylesEnabled`, `AllowClickThrough`, `RightToLeftAutoMirrorImage` remain P3 as already recorded below. (The `ToolStripLabel` link family was listed here too, and was closed by `TSM-42` — it was never inert, only unimplemented.) `ToolStripItem.Overflow`, `ToolStrip.CanOverflow` and `OverflowButton` are blocked on overflow existing at all (`OverflowButton` is never assigned — already recorded in the matrix). `ToolStripItem.Font` is wirable but drags in the font pipeline (`Theme.UIFont` plus a size, not a `Font`), so it is left for the text-measurement area rather than done in passing.
 
@@ -520,7 +534,7 @@ order whatever the property said.
   bitmap's own size", as before.
 - **Tests today:** in `ToolStripGripTests.cs` (2; 1 neutralization).
 
-### TSM-45 — `ShowImageMargin` is blocked by TSM-41, not by its own difficulty — Cat A — P2 — Medium
+### TSM-45 — `ShowImageMargin` is blocked by TSM-41, not by its own difficulty — Cat A — P2 — Medium — **CLOSED (2026-09-21)**
 - **Ours:** `ContextMenuStrip.ShowImageMargin` and `ToolStripDropDownMenu.ShowImageMargin` are two
   declarations of one piece of state, both stored and read by nothing, so every drop-down reserves the
   28-unit icon gutter and a text-only context menu carries it for nothing.
@@ -544,7 +558,12 @@ order whatever the property said.
   by two readings is worth seeing.
 - **The prerequisite claim above survives the correction, and is stronger for it.** `TSM-41` is not a
   drift of a few pixels; the whole strip is painted at `1/scale`.
-- **Tests today:** none (the two written for it were removed with the wiring).
+- **Wired for the second time and kept (2026-09-21),** immediately after `TSM-41` was fixed. The
+  change is the same one read it always was; what changed is that the indent and the box it is measured
+  against are now in the same space, so the behaviour is observable at scaling 2 and the tests removed
+  with the first attempt are back.
+- **Tests today:** in `ReopenedBatch5Tests.cs` (2; 2 neutralizations), one per declaring type -- a
+  renderer reading only one of the two would leave the other inert.
 
 ## Low-priority / Win32-only (P3) — one line each
 - `NotifyIcon.ShowBalloonTip`/`BalloonTip*` events — shell balloon notifications; no portable equivalent beyond the tray seam in TSM-19.

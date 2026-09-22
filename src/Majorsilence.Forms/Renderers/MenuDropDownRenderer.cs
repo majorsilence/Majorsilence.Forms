@@ -31,7 +31,7 @@ namespace Majorsilence.Forms.Renderers
             // Background
             var item_style = item.Hovered || item.IsDropDownOpened ? MenuDropDown.DefaultItemHoverStyle : MenuDropDown.DefaultItemStyle;
             var background_color = item_style.GetBackgroundColor ();
-            e.Canvas.FillRectangle (item.Bounds, background_color);
+            e.Canvas.FillRectangle (item.DeviceBounds, background_color);
 
             // A check mark goes in the image gutter, which is the 28px inset the text starts after.
             // Nothing drew one before, so a checked menu item was indistinguishable from an unchecked
@@ -39,8 +39,8 @@ namespace Majorsilence.Forms.Renderers
             // and an image gets the check: that is the state, where the image is decoration.
             if (item.Checked) {
                 var glyph = e.LogicalToDeviceUnits (12);
-                var centred = DrawingExtensions.CenterSquare (item.Bounds, glyph);
-                var glyph_rect = new Rectangle (item.Bounds.Left + e.LogicalToDeviceUnits (8), centred.Top, glyph, glyph);
+                var centred = DrawingExtensions.CenterSquare (item.DeviceBounds, glyph);
+                var glyph_rect = new Rectangle (item.DeviceBounds.Left + e.LogicalToDeviceUnits (8), centred.Top, glyph, glyph);
 
                 // ControlPaint.DrawMenuGlyph is one of the Graphics-based WinForms-compat stubs and
                 // paints nothing; the check box and radio painters are the real ones this framework
@@ -53,16 +53,24 @@ namespace Majorsilence.Forms.Renderers
                     ControlPaint.DrawCheckBox (e, glyph_rect, CheckState.Checked, !item.Enabled);
             } else if (item.ImageSK != null) {
                 var image_size = e.LogicalToDeviceUnits (16);
-                var image_bounds = DrawingExtensions.CenterSquare (item.Bounds, image_size);
-                var image_rect = new Rectangle (item.Bounds.Left + e.LogicalToDeviceUnits (6), image_bounds.Top, image_size, image_size);
+                var image_bounds = DrawingExtensions.CenterSquare (item.DeviceBounds, image_size);
+                var image_rect = new Rectangle (item.DeviceBounds.Left + e.LogicalToDeviceUnits (6), image_bounds.Top, image_size, image_size);
                 e.Canvas.DrawBitmap (item.ImageSK, image_rect, !item.Enabled);
             }
 
             // Text
             var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
-            var bounds = item.Bounds;
-            bounds.X += e.LogicalToDeviceUnits (28);
+            var bounds = item.DeviceBounds;
+
+            // ShowImageMargin collapses the gutter the icons sit in, which is what a text-only context
+            // menu asks for. Both declarations of it -- ContextMenuStrip's and
+            // ToolStripDropDownMenu's -- were stored and read by nothing, so every drop-down carried
+            // 28 units of empty space (TSM-45). This was wired once before and reverted: the indent is
+            // device and the box it was measured against was logical, so at scaling 2 the caption
+            // landed past the item's right edge whatever the property said. TSM-41 is what made it
+            // expressible.
+            bounds.X += e.LogicalToDeviceUnits (ShowsImageMargin (control) ? 28 : 6);
             e.Canvas.DrawMnemonicText (item.Text, Theme.UIFont, font_size, bounds, font_color, ContentAlignment.MiddleLeft);
 
             // Shortcut text, right-aligned in the gutter the submenu arrow also uses. Drawn only when
@@ -72,7 +80,7 @@ namespace Majorsilence.Forms.Renderers
                 var shortcut = menu_item.ShortcutDisplayText;
 
                 if (!string.IsNullOrEmpty (shortcut)) {
-                    var shortcut_bounds = item.Bounds;
+                    var shortcut_bounds = item.DeviceBounds;
                     shortcut_bounds.Width -= e.LogicalToDeviceUnits (12);
 
                     // Same colour as the caption, so a disabled item's shortcut greys out with it.
@@ -83,8 +91,8 @@ namespace Majorsilence.Forms.Renderers
 
             // Dropdown Arrow
             if (item.HasItems) {
-                var arrow_bounds = DrawingExtensions.CenterSquare (item.Bounds, 16);
-                var arrow_area = new Rectangle (item.Bounds.Right - e.LogicalToDeviceUnits (16) - 4, arrow_bounds.Top, 16, 16);
+                var arrow_bounds = DrawingExtensions.CenterSquare (item.DeviceBounds, 16);
+                var arrow_area = new Rectangle (item.DeviceBounds.Right - e.LogicalToDeviceUnits (16) - 4, arrow_bounds.Top, 16, 16);
                 ControlPaint.DrawArrowGlyph (e, arrow_area, font_color, ArrowDirection.Right);
             }
         }
@@ -94,13 +102,13 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderMenuSeparatorItem (MenuDropDown control, ToolStripSeparator item, PaintEventArgs e)
         {
-            e.Canvas.FillRectangle (item.Bounds, Theme.ControlLowColor);
+            e.Canvas.FillRectangle (item.DeviceBounds, Theme.ControlLowColor);
 
-            var center = item.Bounds.GetCenter ();
+            var center = item.DeviceBounds.GetCenter ();
             var thickness = e.LogicalToDeviceUnits (1);
             var padding = e.LogicalToDeviceUnits (item.Padding);
 
-            e.Canvas.DrawLine (item.Bounds.X + padding.Top, center.Y, item.Bounds.Right - padding.Right, center.Y, Theme.ControlHighlightLowColor, thickness);
+            e.Canvas.DrawLine (item.DeviceBounds.X + padding.Top, center.Y, item.DeviceBounds.Right - padding.Right, center.Y, Theme.ControlHighlightLowColor, thickness);
         }
 
         /// <summary>
@@ -109,13 +117,13 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderMenuSeparatorItem (MenuDropDown control, MenuSeparatorItem item, PaintEventArgs e)
         {
             // Background
-            e.Canvas.FillRectangle (item.Bounds, Theme.ControlLowColor);
+            e.Canvas.FillRectangle (item.DeviceBounds, Theme.ControlLowColor);
 
-            var center = item.Bounds.GetCenter ();
+            var center = item.DeviceBounds.GetCenter ();
             var thickness = e.LogicalToDeviceUnits (1);
             var padding = e.LogicalToDeviceUnits (item.Padding);
 
-            e.Canvas.DrawLine (item.Bounds.X + padding.Top, center.Y, item.Bounds.Right - padding.Right, center.Y, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
+            e.Canvas.DrawLine (item.DeviceBounds.X + padding.Top, center.Y, item.DeviceBounds.Right - padding.Right, center.Y, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
         }
 
         /// <summary>
@@ -144,7 +152,7 @@ namespace Majorsilence.Forms.Renderers
             var padding = control.LogicalToDeviceUnits (item.Padding.Vertical);
             var thickness = control.LogicalToDeviceUnits (1);
 
-            return new Size (item.Bounds.Width, thickness + padding);
+            return new Size (item.DeviceBounds.Width, thickness + padding);
         }
 
         /// <summary>
@@ -155,7 +163,23 @@ namespace Majorsilence.Forms.Renderers
             var padding = control.LogicalToDeviceUnits (item.Padding.Vertical);
             var thickness = control.LogicalToDeviceUnits (1);
 
-            return new Size (item.Bounds.Width, thickness + padding);
+            return new Size (item.DeviceBounds.Width, thickness + padding);
         }
+
+        /// <summary>
+        /// Whether this drop-down reserves the image gutter.
+        /// </summary>
+        /// <remarks>
+        /// Declared separately on <see cref="ContextMenuStrip"/> and
+        /// <see cref="ToolStripDropDownMenu"/> -- two properties for one piece of state, so both are
+        /// read here and either one turning it off collapses the gutter. Anything else (a plain
+        /// <see cref="MenuDropDown"/>, a submenu) keeps it, as it always has.
+        /// </remarks>
+        private static bool ShowsImageMargin (MenuDropDown control)
+            => control switch {
+                ContextMenuStrip menu => menu.ShowImageMargin,
+                ToolStripDropDownMenu drop => drop.ShowImageMargin,
+                _ => true
+            };
     }
 }

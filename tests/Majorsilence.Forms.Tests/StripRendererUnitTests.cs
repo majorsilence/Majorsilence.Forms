@@ -4,18 +4,17 @@ using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
-    // TSM-41, re-diagnosed. The finding said the strip renderers paint into a canvas whose coordinates
-    // are LOGICAL and that the bug is their device-converted constants. Measurement says the opposite:
-    // the canvas is DEVICE, the constants are right, and it is `item.Bounds` -- which is logical -- that
-    // is handed to the canvas unconverted.
+    // TSM-41, fixed. The strip renderers paint into a canvas whose coordinates are DEVICE, and
+    // `item.Bounds` is LOGICAL because it is also the hit-test space (W6.3, TSM-22). Paint used to hand
+    // the logical box straight to the device canvas, so at scaling 2 every strip item was drawn at half
+    // its proper size in the strip's top-left quadrant. It now converts through
+    // `MenuItem.DeviceBounds`, matching the measure side, which has always converted at its own
+    // boundary (`MenuItem.GetPreferredSize`).
     //
-    // The consequence is far worse than the "glyphs drift inward" the finding describes: at scaling 2
-    // every strip item is painted at HALF its proper size, in the top-left quadrant of the strip.
-    //
-    // These are characterization tests. They assert what the code does TODAY, not what it should do,
-    // and they exist so that the defect cannot be fixed silently: fixing TSM-41 must turn the two
-    // `Documents` tests red, at which point they are inverted rather than deleted. The measurement
-    // itself is the valuable part -- it is how the diagnosis was settled, and it is cheap to re-run.
+    // These were CHARACTERIZATION tests -- they asserted the defect, so that fixing it could not go
+    // unnoticed. The fix turned both red, and they are inverted here rather than deleted: the
+    // measurement they are built on is the thing that settled the diagnosis, after two rounds of
+    // code-reading had got the direction wrong in opposite ways.
     [Collection ("Headless")]
     public class StripRendererUnitTests
     {
@@ -62,69 +61,53 @@ namespace Majorsilence.Forms.Tests
             return Rectangle.FromLTRB (x0, y0, x1 + 1, y1 + 1);
         }
 
-        // At scaling 1 there is nothing to tell apart, which is the whole reason this survived: every
-        // gate but the scale-2 one is blind to it.
+        // The item is painted where its bounds say, in the canvas' own units -- at every scale. At
+        // scaling 1 the two spaces coincide, which is the whole reason this survived: every gate but
+        // the scale-2 one is blind to it.
         [Fact]
-        public void At_scale_one_the_item_is_painted_at_its_bounds ()
+        public void An_item_is_painted_at_its_device_bounds ()
         {
             var strip = Strip (out var form, out var button);
 
             using (form) {
-                if (strip.LogicalToDeviceUnits (10) != 10)
-                    return; // running under MF_HEADLESS_SCALE; the scale-2 test below is the one that applies
-
-                Assert.Equal (button.Bounds, PaintedItemRect (strip, button));
+                Assert.Equal (button.DeviceBounds, PaintedItemRect (strip, button));
             }
         }
 
-        // Documents TSM-41. The painted rectangle equals the LOGICAL bounds measured in DEVICE pixels,
-        // which is to say the item is drawn at 1/scale of its proper size. When TSM-41 is fixed this
-        // must fail; invert it to expect LogicalToDeviceUnits(button.Bounds) and delete this comment.
+        // The specific regression, stated in the terms the old bug was in: the painted box must scale
+        // with the display, not stay at its logical size. Fails if DeviceBounds is reverted to Bounds.
         [Fact]
-        public void Documents_that_a_scaled_strip_paints_its_items_half_size ()
+        public void The_painted_box_grows_with_the_display_scale ()
         {
             var strip = Strip (out var form, out var button);
 
             using (form) {
                 var scale = strip.LogicalToDeviceUnits (10) / 10;
-
-                if (scale == 1)
-                    return; // only meaningful under MF_HEADLESS_SCALE=2
-
                 var painted = PaintedItemRect (strip, button);
 
-                Assert.Equal (button.Bounds, painted);
+                Assert.Equal (button.Bounds.Width * scale, painted.Width);
+                Assert.Equal (button.Bounds.Height * scale, painted.Height);
 
-                // And explicitly NOT the rectangle it should occupy.
-                var correct = new Rectangle (
-                    strip.LogicalToDeviceUnits (button.Bounds.Left), strip.LogicalToDeviceUnits (button.Bounds.Top),
-                    strip.LogicalToDeviceUnits (button.Bounds.Width), strip.LogicalToDeviceUnits (button.Bounds.Height));
-
-                Assert.NotEqual (correct, painted);
+                if (scale > 1)
+                    Assert.NotEqual (button.Bounds, painted);
             }
         }
 
-        // The concrete cost, and why TSM-41 is a prerequisite rather than a cosmetic item: the caption's
-        // indent IS device-converted (28 -> 56 at scale 2) while the box it is measured against is not,
-        // so the caption is pushed past the item's own right edge. This is what stopped
-        // ContextMenuStrip.ShowImageMargin being wired (TSM-45).
+        // What TSM-45 was blocked on: the caption indent is device-converted, so it only makes sense
+        // against a device-sized item. It must stay comfortably inside the item at any scale --
+        // previously 56 device units against a 62-device item, which put the caption past the edge.
         [Fact]
-        public void Documents_that_the_caption_indent_outgrows_the_item_when_scaled ()
+        public void The_caption_indent_stays_inside_the_item_at_any_scale ()
         {
             var strip = Strip (out var form, out var button);
 
             using (form) {
-                var scale = strip.LogicalToDeviceUnits (10) / 10;
-
-                if (scale == 1)
-                    return;
-
                 var painted = PaintedItemRect (strip, button);
                 var menu_indent = strip.LogicalToDeviceUnits (28);
 
-                Assert.True (menu_indent > painted.Width * 3 / 4,
-                    $"The drop-down caption indent ({menu_indent}) no longer dwarfs the painted item " +
-                    $"({painted.Width}) -- if TSM-41 is fixed, retire this test with it.");
+                Assert.True (menu_indent < painted.Width,
+                    $"The drop-down caption indent ({menu_indent}) does not fit inside a painted item " +
+                    $"({painted.Width}); TSM-41 has regressed.");
             }
         }
     }

@@ -7,17 +7,15 @@ namespace Majorsilence.Forms.Tests
     // W6.2, the reopened entries -- three unrelated properties that happen to be cheap, each a single
     // read in a place that already draws the thing:
     //
-    //   ListView.LabelWrap   LST-64  a tile caption always wrapped
-    //   Label.FlatStyle      SMP-09  a flat label drew a standard border
+    //   ListView.LabelWrap                  LST-64  a tile caption always wrapped
+    //   Label.FlatStyle                     SMP-09  a flat label drew a standard border
+    //   ContextMenuStrip.ShowImageMargin    TSM-45  the icon gutter was always reserved
+    //   ToolStripDropDownMenu.ShowImageMargin       (the same state, declared twice)
     //
-    // ShowImageMargin was wired here too and then REVERTED: see TSM-45. It works at scaling 1 and
-    // cannot be demonstrated at scaling 2, because the drop-down's text indent is a device-converted
-    // constant added to a logical edge (TSM-41) -- at scale 2 the gutter becomes 56 logical units and
-    // pushes the caption off the menu. Fixing that is a units decision for the whole strip-renderer
-    // family, not something to slip into a wiring batch.
-    //
-    // None of them changes a default: each property's default value produces exactly the drawing that
-    // was there before, and only the non-default value was unreachable.
+    // ShowImageMargin was wired here, reverted, and wired again. The revert is on the record in
+    // TSM-45: it works at scaling 1 and could not be demonstrated at scaling 2, because the caption's
+    // indent is device while the item box it was measured against was logical. Fixing TSM-41 -- the
+    // renderers now paint at `MenuItem.DeviceBounds` -- is what made it expressible.
     [Collection ("Headless")]
     public class ReopenedBatch5Tests
     {
@@ -54,6 +52,80 @@ namespace Majorsilence.Forms.Tests
 
                 Assert.True (wrapped > ItemInk (view, item),
                     "Turning LabelWrap off drew as much text as wrapping did.");
+            }
+        }
+
+        // ---------------- ShowImageMargin (TSM-45)
+
+        [Fact]
+        public void A_context_menu_without_an_image_margin_starts_its_text_further_left ()
+        {
+            var menu = new ContextMenuStrip ();
+            menu.Items.Add (new ToolStripMenuItem ("Paste"));
+
+            Assert.True (menu.ShowImageMargin);
+            var indented = TextStart (menu);
+
+            menu.ShowImageMargin = false;
+
+            Assert.True (TextStart (menu) < indented,
+                "Collapsing the image margin did not move the caption left.");
+        }
+
+        // The same state is declared on two types; a renderer reading only one would leave the other
+        // inert, which is the shape this sweep keeps finding.
+        [Fact]
+        public void A_drop_down_menu_honours_its_own_ShowImageMargin ()
+        {
+            var menu = new ToolStripDropDownMenu ();
+            menu.Items.Add (new ToolStripMenuItem ("Paste"));
+
+            var indented = TextStart (menu);
+
+            menu.ShowImageMargin = false;
+
+            Assert.True (TextStart (menu) < indented);
+        }
+
+        // The x of the first ink on the caption's row.
+        private static int TextStart (MenuDropDown menu)
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { Width = 400, Height = 300 };
+            var host = new Panel { Left = 10, Top = 10, Width = 100, Height = 40 };
+            form.Controls.Add (host);
+            form.Show ();
+
+            menu.Show (host, new Point (10, 10));
+
+            try {
+                using var bitmap = PaintSurface.Render (menu);
+                var item = menu.Items[0].DeviceBounds;
+
+                // Only the item's own row band, and only past the popup's frame: the drop-down draws a
+                // border down its left edge, so a whole-bitmap scan finds that every time and the
+                // answer never moves. The gutter is empty here -- no item has an image -- so the first
+                // ink inside the band is the caption. DeviceBounds, because the bitmap is device
+                // (TSM-41).
+                // Sampled from INSIDE the item, just under its top-left corner and above the
+                // vertically-centred caption -- not from the bitmap's corner, which is outside the
+                // item and a different colour, so every column of the item then reads as ink and the
+                // measurement saturates. (Exactly the mistake ToolStripLabelLinkTests made.)
+                var background = bitmap.GetPixel (System.Math.Max (item.Left, 0) + 1, System.Math.Max (item.Top, 0) + 1);
+                var from = System.Math.Max (item.Left, 0) + menu.LogicalToDeviceUnits (4);
+                var top = System.Math.Max (item.Top, 0);
+                var bottom = System.Math.Min (item.Bottom, bitmap.Height);
+
+                for (var x = from; x < bitmap.Width; x++)
+                    for (var y = top; y < bottom; y++)
+                        if (bitmap.GetPixel (x, y) != background)
+                            return x;
+
+                return int.MaxValue;
+            } finally {
+                Application.ClosePopups ();
+                form.Close ();
             }
         }
 

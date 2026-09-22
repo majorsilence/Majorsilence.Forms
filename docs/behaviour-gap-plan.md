@@ -2532,6 +2532,51 @@ over on regeneration (a generated note wins, being derived from current IL), and
 them. The first real one records where `ClientSizeChanged`'s raise is commented out.
 
 5 tests, 3 neutralizations. `UnraisedEventBaseline` 109 → 215; no other baseline moves.
+**TSM-41 fixed, and TSM-45 with it. — done (2026-09-21).** Part of #91. The diagnosis shipped
+separately; this is the correction it pointed at.
+
+`MenuItem.DeviceBounds` converts once and the paint paths of `ToolBarRenderer` and
+`MenuDropDownRenderer` use it throughout (33 sites). `Bounds` stays logical, because it is also the
+hit-test space (`W6.3`, `TSM-22`). Strip items are now painted at their real size on a scaled display
+instead of at `1/scale` in the strip's top-left quadrant.
+
+**The reason I gave for not fixing it immediately turned out not to exist, and the answer was already
+in the file.** I wrote that "paint and measure have to be decided together" because
+`GetPreferredItemSize` device-converts while `LayoutItems` lays out in logical space. But
+`MenuItem.GetPreferredSize` wraps every renderer's measure call in `owner.DeviceToLogicalUnits (...)`,
+with a comment stating the rule outright: *"Every renderer below measures text at the DEVICE font size
+... Item bounds are logical, so the result is converted back here rather than in each renderer -- one
+place, and it cannot be forgotten by the next renderer added."* The convention was settled and
+documented; **paint was simply the one path that never followed it.** There was nothing to co-decide.
+Two rounds of reading this code produced two wrong conclusions about it, and both times the correction
+was twenty lines away in a comment.
+
+*Two more instances of the same family fell out.* `GetPreferredItemSize` returns device units and was
+comparing against `item.Bounds.Height` -- logical -- so the same substitution fixed it. And it sized
+images from a hard-coded `20` while `RenderItem` had been changed to honour `ImageScalingSize`
+(`TSM-44`, mine, two batches ago): measure and paint disagreed about how much room an icon needs, so a
+strip with 32px icons measured its items as though they were 20px. **Wiring a property into the paint
+path without checking the measure path is its own recurring mistake**, and it is now on the record as
+one.
+
+**`TSM-45` closed on the same branch.** `ShowImageMargin` is the same one-line read it was when I wired
+and reverted it in batch 5; what changed is that the indent and the box it is measured against are in
+the same space, so the behaviour is observable at scaling 2. Two entries, and the clearest possible
+demonstration that TSM-41 was a prerequisite rather than a cosmetic item.
+
+**The characterization tests did their job.** Both went red on the fix and were inverted into real
+assertions. One of the two would have been vacuous on its own -- `An_item_is_painted_at_its_device_bounds`
+compares against `DeviceBounds`, so reverting the seam moves both sides and it still passes; only
+`The_painted_box_grows_with_the_display_scale`, which multiplies the logical box by the scale itself,
+catches that. Written deliberately as a pair, and the neutralization confirmed which half carries it.
+
+**And the fix exposed four of my own tests that had been passing for the wrong reason.**
+`ToolStripLabelLinkTests` sampled `label.Bounds` against a device bitmap and passed at scaling 2
+*because* the renderer was painting the logical box into the device canvas -- test and code wrong the
+same way, cancelling out. That is the seventh logical/device mix this sweep has found in a test, and
+the first where the test only passed because the code was also broken.
+
+5 tests changed or added, 4 neutralizations. Core stored-only properties 609 → 607.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
