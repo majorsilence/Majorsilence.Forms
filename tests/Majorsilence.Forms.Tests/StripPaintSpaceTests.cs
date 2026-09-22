@@ -59,11 +59,12 @@ namespace Majorsilence.Forms.Tests
             // overdrawn by the panel's own chrome, so its fill measures 118 of a 120-wide item. The
             // tolerance is irrelevant to what this gate is for: the bug it catches is off by a FACTOR
             // of the scale, 120 against 60, not by a pixel or two.
-            // Clipped to the control, because nothing can be painted outside it -- and at least one
-            // host needs that: NavigationPane lays its items out 151 logical units wide inside an
-            // 80-wide pane, so the device box runs off the edge and the measurable fill stops there.
-            // (That overflow is a real oddity in that control's layout and nothing to do with this
-            // gate, which is why it is clamped rather than asserted around.)
+            // Clipped to the control, because nothing can be painted outside it. This was added for
+            // NavigationPane, which used to lay its items out 151 logical units wide inside an 80-wide
+            // pane -- that is fixed now (it laid out against the DEVICE client rectangle while the
+            // layout engine writes LOGICAL bounds; see NavigationPaneLayoutTests). The clamp stays
+            // because it is the correct statement of what a paint probe can measure, not because any
+            // host still needs it.
             var expected = Rectangle.Intersect (
                 new Rectangle (logical.Left * scale, logical.Top * scale, logical.Width * scale, logical.Height * scale),
                 new Rectangle (0, 0, probe.Control.LogicalToDeviceUnits (probe.Control.Width),

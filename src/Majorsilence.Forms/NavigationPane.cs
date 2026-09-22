@@ -39,7 +39,13 @@ public class NavigationPane : Control
     // Layout the items.
     private void LayoutItems ()
     {
-        StackLayoutEngine.VerticalExpand.Layout (ClientRectangle, Items.Cast<ILayoutable> ());
+        // DisplayRectangle, not ClientRectangle: the layout engine writes LOGICAL item bounds, and
+        // ClientRectangle is DEVICE. Laying out into the device box gave every item a logical width of
+        // the pane's DEVICE width -- 151 logical units inside an 80-wide pane at MF_HEADLESS_SCALE=2,
+        // so items overran the control and their painted fill was clipped at its edge. Exact at
+        // scaling 1, which is why it survived. Menu.LayoutItems uses LogicalClientRectangle for the
+        // same reason; this was the only layout in the assembly measuring against the scaled box.
+        StackLayoutEngine.VerticalExpand.Layout (DisplayRectangle, Items.Cast<ILayoutable> ());
     }
 
     /// <inheritdoc/>
