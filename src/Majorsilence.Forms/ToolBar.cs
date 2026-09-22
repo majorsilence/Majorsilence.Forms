@@ -102,7 +102,11 @@ namespace Majorsilence.Forms
             StackLayoutEngine.HorizontalExpand.Layout (area, visible.Cast<ILayoutable> ());
 
             PinTrailingItems (visible);
+            OnLayoutCompletedCore ();
         }
+
+        // ToolStrip raises LayoutCompleted from this; the layout itself lives here (W6.1 sweep).
+        internal virtual void OnLayoutCompletedCore () { }
 
         /// <summary>
         /// The logical width reserved at the strip's leading edge for the drag grip, or 0 when none is

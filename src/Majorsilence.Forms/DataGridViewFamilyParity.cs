@@ -105,8 +105,20 @@ namespace Majorsilence.Forms
         public AccessibleObject AccessibilityObject
             => accessibility_object ??= new DataGridViewRowAccessibleObject (this);
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1 sweep).
+        private ContextMenuStrip? context_menu_strip;
+
         /// <summary>Gets or sets the context menu shown when this row's header is right-clicked.</summary>
-        public virtual ContextMenuStrip? ContextMenuStrip { get; set; }
+        public virtual ContextMenuStrip? ContextMenuStrip {
+            get => context_menu_strip;
+            set {
+                if (ReferenceEquals (context_menu_strip, value))
+                    return;
+
+                context_menu_strip = value;
+                DataGridView?.NotifyRowContextMenuStripChanged (this);
+            }
+        }
 
         /// <summary>Gets or sets the height of the divider below this row.</summary>
         public int DividerHeight { get; set; }
@@ -211,8 +223,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets the type of cell this column creates.</summary>
         public Type CellType => CellTemplate?.GetType () ?? typeof (DataGridViewTextBoxCell);
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1 sweep).
+        private ContextMenuStrip? context_menu_strip;
+
         /// <summary>Gets or sets the context menu shown when this column's header is right-clicked.</summary>
-        public virtual ContextMenuStrip? ContextMenuStrip { get; set; }
+        public virtual ContextMenuStrip? ContextMenuStrip {
+            get => context_menu_strip;
+            set {
+                if (ReferenceEquals (context_menu_strip, value))
+                    return;
+
+                context_menu_strip = value;
+                DataGridView?.NotifyColumnContextMenuStripChanged (this);
+            }
+        }
 
         /// <summary>Gets or sets the site of this column.</summary>
         public ISite? Site { get; set; }
@@ -264,9 +288,7 @@ namespace Majorsilence.Forms
     public partial class DataGridViewColumnCollection
     {
         /// <summary>Raised when columns are added to or removed from the collection.</summary>
-#pragma warning disable CS0067
         public event CollectionChangeEventHandler? CollectionChanged;
-#pragma warning restore CS0067
 
         /// <summary>Returns how many columns match the filter.</summary>
         public int GetColumnCount (DataGridViewElementStates includeFilter)

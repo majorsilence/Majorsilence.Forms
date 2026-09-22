@@ -92,6 +92,8 @@ namespace Majorsilence.Forms
         /// button, which is a path that does work.</remarks>
         protected virtual void OnHelpRequested (HelpEventArgs hevent) => HelpRequested?.Invoke (this, hevent);
 
+        internal void RaiseHelpRequested (HelpEventArgs hevent) => OnHelpRequested (hevent);
+
         /// <summary>Raised when the user asks for help on the window.</summary>
         /// <inheritdoc cref="OnHelpRequested"/>
         public event HelpEventHandler? HelpRequested;

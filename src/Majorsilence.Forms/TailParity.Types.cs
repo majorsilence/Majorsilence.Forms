@@ -189,13 +189,28 @@ namespace Majorsilence.Forms
         public Binding? this[int index] => bindings[index] as Binding;
 
         /// <summary>Adds a binding.</summary>
-        protected internal void Add (Binding binding) => bindings.Add (binding);
+        protected internal void Add (Binding binding)
+        {
+            OnCollectionChanging (new CollectionChangeEventArgs (CollectionChangeAction.Add, binding));
+            bindings.Add (binding);
+            OnCollectionChanged (new CollectionChangeEventArgs (CollectionChangeAction.Add, binding));
+        }
 
         /// <summary>Removes a binding.</summary>
-        protected internal void Remove (Binding binding) => bindings.Remove (binding);
+        protected internal void Remove (Binding binding)
+        {
+            OnCollectionChanging (new CollectionChangeEventArgs (CollectionChangeAction.Remove, binding));
+            bindings.Remove (binding);
+            OnCollectionChanged (new CollectionChangeEventArgs (CollectionChangeAction.Remove, binding));
+        }
 
         /// <summary>Removes every binding.</summary>
-        protected internal void Clear () => bindings.Clear ();
+        protected internal void Clear ()
+        {
+            OnCollectionChanging (new CollectionChangeEventArgs (CollectionChangeAction.Refresh, null));
+            bindings.Clear ();
+            OnCollectionChanged (new CollectionChangeEventArgs (CollectionChangeAction.Refresh, null));
+        }
     }
 
     // ScrollPropertiesBase was a parallel, dead copy of ScrollProperties: seven auto-properties with no

@@ -8,6 +8,9 @@ namespace Majorsilence.Forms
     public partial class DataGridView
     {
         internal void NotifyColumnNameChanged (DataGridViewColumn c) => OnColumnNameChanged (new DataGridViewColumnEventArgs (c));
+        internal void NotifyColumnContextMenuStripChanged (DataGridViewColumn c) => OnColumnContextMenuStripChanged (new DataGridViewColumnEventArgs (c));
+        internal void NotifyRowContextMenuStripChanged (DataGridViewRow r) => OnRowContextMenuStripChanged (new DataGridViewRowEventArgs (r));
+        internal void NotifyCellContextMenuStripChanged (DataGridViewCell c) => OnCellContextMenuStripChanged (new DataGridViewCellEventArgs (c.ColumnIndex, c.RowIndex));
         internal void NotifyColumnDataPropertyNameChanged (DataGridViewColumn c) => OnColumnDataPropertyNameChanged (new DataGridViewColumnEventArgs (c));
         internal void NotifyColumnToolTipTextChanged (DataGridViewColumn c) => OnColumnToolTipTextChanged (new DataGridViewColumnEventArgs (c));
         internal void NotifyColumnMinimumWidthChanged (DataGridViewColumn c) => OnColumnMinimumWidthChanged (new DataGridViewColumnEventArgs (c));

@@ -3426,6 +3426,8 @@ namespace Majorsilence.Forms
 
             static int Width (MenuItem item)
                 => item is ToolStripItem tsi && tsi.Size.Width > 0 ? tsi.Size.Width : DefaultItemWidth;
+
+            OnLayoutCompletedCore ();
         }
 
         /// <summary>Width used for an item that hasn't been given an explicit Size.</summary>

@@ -36,16 +36,17 @@ namespace Majorsilence.Forms.Printing
         /// <summary>Raised after the last page is printed.</summary>
         public event EventHandler? EndPrint;
 
-        /// <summary>Raised before each page is printed to allow per-page settings changes. Stub in Majorsilence.Forms.</summary>
-#pragma warning disable CS0067 // Event is part of the WinForms-compat surface; not yet raised (printing is a stub).
+        /// <summary>Raised before each page is printed to allow per-page settings changes; cancelling stops the job.</summary>
         public event EventHandler<QueryPageSettingsEventArgs>? QueryPageSettings;
-#pragma warning restore CS0067
 
         /// <summary>Gets or sets whether the origin of the graphics object is at the user-defined margins. Stub in Majorsilence.Forms.</summary>
         public bool OriginAtMargins { get; set; }
 
         /// <summary>Raises the PrintPage event.</summary>
         protected virtual void OnPrintPage (PrintPageEventArgs e) => PrintPage?.Invoke (this, e);
+
+        /// <summary>Raises <see cref="QueryPageSettings"/>.</summary>
+        protected virtual void OnQueryPageSettings (QueryPageSettingsEventArgs e) => QueryPageSettings?.Invoke (this, e);
 
         /// <summary>Raises the BeginPrint event.</summary>
         protected virtual void OnBeginPrint (EventArgs e) => BeginPrint?.Invoke (this, e);
@@ -122,6 +123,14 @@ namespace Majorsilence.Forms.Printing
                 bool has_more;
 
                 do {
+                    // Upstream asks before every page; a cancelled query ends the job (W6.1 sweep).
+                    var query = new QueryPageSettingsEventArgs (settings);
+                    OnQueryPageSettings (query);
+
+
+                    if (query.Cancel)
+                        break;
+
                     var page_canvas = document.BeginPage (width_points, height_points);
                     page_canvas.Scale (scale);
 

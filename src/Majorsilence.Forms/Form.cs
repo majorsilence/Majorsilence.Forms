@@ -1013,8 +1013,13 @@ namespace Majorsilence.Forms
         // dialog can receive and handle input events without deadlocking the UI thread.
         internal static T RunModal<T> (Task<T> modalTask)
         {
-            Backends.Platform.Backend.RunModalLoop (modalTask);
-            return modalTask.GetAwaiter ().GetResult ();
+            Application.RaiseEnterThreadModal ();
+            try {
+                Backends.Platform.Backend.RunModalLoop (modalTask);
+                return modalTask.GetAwaiter ().GetResult ();
+            } finally {
+                Application.RaiseLeaveThreadModal ();
+            }
         }
 
         /// <summary>Called when the theme changes.</summary>

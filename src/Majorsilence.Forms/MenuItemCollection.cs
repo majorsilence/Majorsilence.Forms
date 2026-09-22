@@ -98,6 +98,7 @@ namespace Majorsilence.Forms
             // so hanging the notifications here is what makes ItemAdded and ItemClicked work on a
             // MenuStrip and a ContextMenuStrip, which bypass the facade entirely (TSM-08).
             (item.OwnerControl as ToolStrip)?.NotifyItemAdded (item);
+            owner.OnChildItemAddedCore (item);
         }
 
         /// <inheritdoc/>
@@ -113,6 +114,7 @@ namespace Majorsilence.Forms
             item.Parent = null;
 
             strip?.NotifyItemRemoved (item);
+            owner.OnChildItemRemovedCore (item);
         }
 
         /// <inheritdoc/>

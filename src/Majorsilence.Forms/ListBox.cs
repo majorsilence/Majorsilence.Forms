@@ -255,7 +255,7 @@ namespace Majorsilence.Forms
         public override string GetItemText (object? item)
         {
             // Property descriptors first so DataRowView columns resolve; see DataSourceBinding.
-            return DataSourceBinding.DisplayText (item, _displayMember);
+            return ApplyFormat (item, DataSourceBinding.DisplayText (item, _displayMember));
         }
 
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]

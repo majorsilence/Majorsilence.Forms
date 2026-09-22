@@ -239,7 +239,19 @@ namespace Majorsilence.Forms
                 popup_label.Style.ForegroundColor = ForeColor.ToSKColor ();
 
                 var measured = TextMeasurer.MeasureText (text, Theme.UIFont, Theme.FontSize);
-                popup.Size = new Size ((int)measured.Width + 16, (int)measured.Height + 10);
+                var size = new Size ((int)measured.Width + 16, (int)measured.Height + 10);
+
+                // Upstream asks before every show and a cancelled Popup shows nothing (W6.1 sweep).
+                var popup_args = new PopupEventArgs (window as IWin32Window ?? control, control, IsBalloon, size);
+                Popup?.Invoke (this, popup_args);
+
+
+                if (popup_args.Cancel) {
+                    HidePopup ();
+                    return;
+                }
+
+                popup.Size = size;
 
                 // Offset below/right of the cursor like a standard tooltip.
                 popup.Show (control, at.X + 12, at.Y + 18);

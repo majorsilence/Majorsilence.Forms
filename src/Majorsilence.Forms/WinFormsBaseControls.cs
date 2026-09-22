@@ -342,7 +342,21 @@ namespace Majorsilence.Forms
                 return item.ToString () ?? string.Empty;
 
             var property = item.GetType ().GetProperty (DisplayMember);
-            return property?.GetValue (item)?.ToString () ?? item.ToString () ?? string.Empty;
+            return ApplyFormat (item, property?.GetValue (item)?.ToString () ?? item.ToString () ?? string.Empty);
+        }
+
+        /// <summary>
+        /// Offers an item's display text to <see cref="Format"/> when <see cref="FormattingEnabled"/> is
+        /// set, as upstream does on every item it displays; the handler's <c>Value</c> wins.
+        /// </summary>
+        internal string ApplyFormat (object? item, string text)
+        {
+            if (!FormattingEnabled || item is null)
+                return text;
+
+            var e = new ListControlConvertEventArgs (text, typeof (string), item);
+            OnFormat (e);
+            return e.Value?.ToString () ?? string.Empty;
         }
 
         /// <summary>Raises the <see cref="DataSourceChanged"/> event.</summary>
@@ -416,6 +430,30 @@ namespace Majorsilence.Forms
         public virtual ToolStripDropDown DropDown {
             get => dropDown ??= CreateDefaultDropDown ();
             set => dropDown = value;
+        }
+
+        // DropDownItems is this item's own Items here (the ToolStripDropDown object is a separate
+        // shell), so a child's Click is relayed from that collection as DropDownItemClicked, which is
+        // what upstream raises for a click on any of DropDownItems. Until the W6.1 sweep the event was
+        // declared and raised by nothing.
+        internal override void OnChildItemAddedCore (MenuItem child)
+        {
+            base.OnChildItemAddedCore (child);
+            if (child is ToolStripItem item)
+                item.Click += RelayDropDownItemClicked;
+        }
+
+        internal override void OnChildItemRemovedCore (MenuItem child)
+        {
+            base.OnChildItemRemovedCore (child);
+            if (child is ToolStripItem item)
+                item.Click -= RelayDropDownItemClicked;
+        }
+
+        private void RelayDropDownItemClicked (object? sender, EventArgs e)
+        {
+            if (sender is ToolStripItem item)
+                OnDropDownItemClicked (new ToolStripItemClickedEventArgs (item));
         }
 
         /// <summary>Gets the items in this item's drop-down.</summary>

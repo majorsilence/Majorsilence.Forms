@@ -2005,7 +2005,23 @@ namespace Majorsilence.Forms
             if (Enabled) {
                 OnPreviewKeyDown (new PreviewKeyDownEventArgs (e.KeyData));
                 OnKeyDown (e);
+
+                // F1 is WM_HELP: HelpRequested walks up the parents until one handles it, then the
+                // window hears it (W6.1 sweep).
+                if (!e.Handled && e.KeyData == Keys.F1)
+                    RaiseHelpRequested ();
             }
+        }
+
+        internal void RaiseHelpRequested ()
+        {
+            var help = new HelpEventArgs (MousePosition);
+
+            for (Control? control = this; control is not null && !help.Handled; control = control.Parent)
+                control.OnHelpRequested (help);
+
+            if (!help.Handled)
+                FindForm ()?.RaiseHelpRequested (help);
         }
 
         /// <summary>

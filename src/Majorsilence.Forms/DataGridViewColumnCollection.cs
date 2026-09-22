@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Collections.ObjectModel;
 
 namespace Majorsilence.Forms
@@ -167,6 +168,8 @@ namespace Majorsilence.Forms
 
             foreach (var column in removedColumns)
                 owner.RaiseColumnRemoved (column);
+
+            CollectionChanged?.Invoke (this, new CollectionChangeEventArgs (CollectionChangeAction.Refresh, null));
         }
 
         /// <inheritdoc/>
@@ -184,11 +187,13 @@ namespace Majorsilence.Forms
             // OnColumnsChanged is the internal relayout notification; this is the public WinForms
             // event, which derived grids override to decorate the new column.
             owner.RaiseColumnAdded (item);
+            CollectionChanged?.Invoke (this, new CollectionChangeEventArgs (CollectionChangeAction.Add, item));
         }
 
         /// <inheritdoc/>
         protected override void RemoveItem (int index)
         {
+            var removed = index >= 0 && index < Count ? this[index] : null;
             if (is_projection) {
                 base.RemoveItem (index);
                 return;
@@ -199,6 +204,9 @@ namespace Majorsilence.Forms
             base.RemoveItem (index);
             owner.OnColumnsChanged ();
             owner.RaiseColumnRemoved (removedColumn);
+
+            if (removed is not null)
+                CollectionChanged?.Invoke (this, new CollectionChangeEventArgs (CollectionChangeAction.Remove, removed));
         }
 
         /// <inheritdoc/>

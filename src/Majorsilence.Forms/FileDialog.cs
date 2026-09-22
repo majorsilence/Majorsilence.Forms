@@ -168,6 +168,19 @@ namespace Majorsilence.Forms
         /// thread and completes on it, so blocking that thread hangs the application with no dialog
         /// ever on screen.
         /// </remarks>
-        public DialogResult ShowDialogSync (Form owner) => Form.RunModal (ShowDialogAsync (owner));
+        public DialogResult ShowDialogSync (Form owner)
+        {
+            var result = Form.RunModal (ShowDialogAsync (owner));
+
+            if (result != DialogResult.OK)
+                return result;
+
+            // Upstream raises FileOk before the dialog closes and a cancelling handler keeps it open. The
+            // native dialog has closed by now, so a cancel turns the answer into Cancel instead (W6.1).
+            var ok = new System.ComponentModel.CancelEventArgs ();
+            OnFileOk (ok);
+
+            return ok.Cancel ? DialogResult.Cancel : DialogResult.OK;
+        }
     }
 }

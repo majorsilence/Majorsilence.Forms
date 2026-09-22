@@ -218,6 +218,7 @@ namespace Majorsilence.Forms
 
             OnExit?.Invoke (null, EventArgs.Empty);
             ApplicationExit?.Invoke (null, EventArgs.Empty);
+            RaiseThreadExit ();
 
             _mainLoopCancellationTokenSource?.Cancel ();
         }

@@ -394,10 +394,15 @@ namespace Majorsilence.Forms
         /// <summary>Raised when <see cref="Renderer"/> changes.</summary>
         public event EventHandler? RendererChanged;
 
-        /// <summary>Raised when the panel is loaded.</summary>
-#pragma warning disable CS0067
+        /// <summary>Raised once the panel is created, as upstream raises it on first handle creation.</summary>
         public event EventHandler? Load;
-#pragma warning restore CS0067
+
+        /// <inheritdoc/>
+        protected override void OnCreateControl ()
+        {
+            base.OnCreateControl ();
+            Load?.Invoke (this, EventArgs.Empty);
+        }
     }
 
     /// <summary>The drop-down that holds a strip's overflowed items.</summary>
