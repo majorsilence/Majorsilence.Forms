@@ -165,6 +165,13 @@ batch was the large case: twelve of thirteen departures (`WindowBase.AutoSize`/`
 `Control.Region`, `ToolStrip.LayoutStyle`, the `CommandParameter`s and the rest) fire an event now and
 are still consumed by no layout or paint. Read the plan entry for a batch before crediting its count.
 
+## State after the 2026-09-22 sweep
+
+Every line of the stored-only baseline now carries a reason (`-- ...`): what would read it, why nothing
+does, or which feature it waits on. The per-type table above is the dated snapshot from before that pass;
+the plan entry "W6.2 — the sweep" lists the 26 that were read, the annotation classes, and the remainder
+grouped by feature. A new entry appearing without a reason is the signal this baseline exists to give.
+
 ## How to regenerate
 
 The buckets are derived from the two baseline files plus a scan of upstream's `Controls/Unsupported/`

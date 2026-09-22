@@ -370,6 +370,11 @@ namespace Majorsilence.Forms.Renderers
                     Value = the_cell?.Value,
                     FormattedValue = cell_value,
                     ErrorText = the_cell?.ErrorText ?? string.Empty,
+                    // The cell's state flags, which a handler reads to paint selection or read-only
+                    // differently (W6.2 sweep).
+                    State = DataGridViewElementStates.Visible | DataGridViewElementStates.Displayed
+                        | (the_cell?.Selected == true ? DataGridViewElementStates.Selected : DataGridViewElementStates.None)
+                        | (the_cell?.ReadOnly == true ? DataGridViewElementStates.ReadOnly : DataGridViewElementStates.None),
                     CellStyle = the_cell?.InheritedStyle,
                     PaintParts = paintParts
                 };
@@ -610,7 +615,8 @@ namespace Majorsilence.Forms.Renderers
                 var btn_text = btn_col.UseColumnTextForButtonValue ? btn_col.HeaderText : value;
                 RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
             } else if (column is DataGridViewComboBoxColumn) {
-                RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
+                RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex),
+                    showButton: ShowsComboButton (control, (DataGridViewComboBoxColumn)column, rowIndex, columnIndex));
             } else {
                 // Alignment and wrapping from the cascade. The two alignment enums share their values, so
                 // the cast is exact; WrapMode == True lifts the single-line cap.
@@ -805,8 +811,24 @@ namespace Majorsilence.Forms.Renderers
             };
         }
 
-        private static void RenderComboBoxCell (PaintEventArgs e, Rectangle bounds, string value, SKTypeface font, int fontSize, SKColor fg, bool flat = false)
+        // DisplayStyle.Nothing hides the drop-down button; DisplayStyleForCurrentCellOnly keeps it for
+        // the current cell alone (W6.2 sweep).
+        private static bool ShowsComboButton (DataGridView control, DataGridViewComboBoxColumn column, int rowIndex, int columnIndex)
         {
+            if (column.DisplayStyle == DataGridViewComboBoxDisplayStyle.Nothing)
+                return false;
+
+            return !column.DisplayStyleForCurrentCellOnly
+                || (control.CurrentCell is { } current && current.RowIndex == rowIndex && current.ColumnIndex == columnIndex);
+        }
+
+        private static void RenderComboBoxCell (PaintEventArgs e, Rectangle bounds, string value, SKTypeface font, int fontSize, SKColor fg, bool flat = false, bool showButton = true)
+        {
+            if (!showButton) {
+                e.Canvas.DrawText (value, font, fontSize, bounds, fg, ContentAlignment.MiddleLeft, maxLines: 1);
+                return;
+            }
+
             var arrow_size = 10;
             var text_rect = new Rectangle (bounds.Left, bounds.Top, bounds.Width - arrow_size - 4, bounds.Height);
             e.Canvas.DrawText (value, font, fontSize, text_rect, fg, ContentAlignment.MiddleLeft, maxLines: 1);

@@ -492,7 +492,15 @@ namespace Majorsilence.Forms
         /// read by nothing before (<c>LST-59</c>).
         /// </remarks>
         internal override string? GetToolTipText (Point location)
-            => ShowItemToolTips ? GetItemAt (location)?.ToolTipText : null;
+        {
+            if (!ShowItemToolTips || GetItemAt (location) is not { } item)
+                return null;
+
+            // AutoToolTip: an item with no ToolTipText of its own shows its Text, as upstream does.
+            return !string.IsNullOrEmpty (item.ToolTipText) ? item.ToolTipText
+                : item is ToolStripItem { AutoToolTip: true } strip_item ? strip_item.Text
+                : null;
+        }
 
         /// <summary>
         /// Returns the next selectable item from <paramref name="start"/> in the given direction,

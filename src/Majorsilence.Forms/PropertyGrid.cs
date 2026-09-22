@@ -200,10 +200,15 @@ namespace Majorsilence.Forms
             var fore_color = new SKColor (ViewForeColor.R, ViewForeColor.G, ViewForeColor.B);
             var cat_back = new SKColor (Theme.ControlMidColor.Red, Theme.ControlMidColor.Green,
                 Theme.ControlMidColor.Blue, 255);
-            var sel_back = new SKColor (Theme.AccentColor.Red, Theme.AccentColor.Green,
-                Theme.AccentColor.Blue, Theme.AccentColor.Alpha);
-            var sel_fore = new SKColor (Theme.ForegroundColorOnAccent.Red, Theme.ForegroundColorOnAccent.Green,
-                Theme.ForegroundColorOnAccent.Blue, 255);
+            // With focus the selection takes SelectedItemWithFocusBackColor/ForeColor, as upstream's does;
+            // without it the theme's accent stays, since upstream's unfocused grey is not a property (W6.2 sweep).
+            var sel_back = Focused
+                ? new SKColor (SelectedItemWithFocusBackColor.R, SelectedItemWithFocusBackColor.G, SelectedItemWithFocusBackColor.B, SelectedItemWithFocusBackColor.A)
+                : new SKColor (Theme.AccentColor.Red, Theme.AccentColor.Green, Theme.AccentColor.Blue, Theme.AccentColor.Alpha);
+            var sel_fore = Focused
+                ? new SKColor (SelectedItemWithFocusForeColor.R, SelectedItemWithFocusForeColor.G, SelectedItemWithFocusForeColor.B, SelectedItemWithFocusForeColor.A)
+                : new SKColor (Theme.ForegroundColorOnAccent.Red, Theme.ForegroundColorOnAccent.Green, Theme.ForegroundColorOnAccent.Blue, 255);
+            var cat_fore = new SKColor (CategoryForeColor.R, CategoryForeColor.G, CategoryForeColor.B, CategoryForeColor.A);
 
             for (var i = 0; i < _entries.Count; i++) {
                 var row_y = scroll_y + i * ROW_HEIGHT;
@@ -218,7 +223,7 @@ namespace Majorsilence.Forms
                     g.FillRectangle (new Rectangle (row_rect.X, row_rect.Y, row_rect.Width, row_rect.Height), cat_back);
                     g.DrawText (entry.Name, Theme.UIFont, 10,
                         new Rectangle (row_rect.X + 4, row_rect.Y, row_rect.Width - 4, row_rect.Height),
-                        Theme.ForegroundColor, ContentAlignment.MiddleLeft);
+                        cat_fore, ContentAlignment.MiddleLeft);
                 } else {
                     var is_selected = i == _selected_index;
                     var row_bg = is_selected ? sel_back : back_color;

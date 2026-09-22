@@ -199,10 +199,12 @@ namespace Majorsilence.Forms.Renderers
         /// read here and either one turning it off collapses the gutter. Anything else (a plain
         /// <see cref="MenuDropDown"/>, a submenu) keeps it, as it always has.
         /// </remarks>
-        private static bool ShowsImageMargin (MenuDropDown control)
+        // Either margin keeps the gutter: with the image margin off and the check margin on, upstream
+        // still reserves the column for check marks (W6.2 sweep).
+        internal static bool ShowsImageMargin (MenuDropDown control)
             => control switch {
-                ContextMenuStrip menu => menu.ShowImageMargin,
-                ToolStripDropDownMenu drop => drop.ShowImageMargin,
+                ContextMenuStrip menu => menu.ShowImageMargin || menu.ShowCheckMargin,
+                ToolStripDropDownMenu drop => drop.ShowImageMargin || drop.ShowCheckMargin,
                 _ => true
             };
     }

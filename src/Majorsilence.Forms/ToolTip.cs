@@ -14,6 +14,9 @@ namespace Majorsilence.Forms
         private PopupWindow? popup;
         private Label? popup_label;
 
+        internal Size? PopupSize => popup?.Size;
+        internal string? PopupText => popup_label?.Text;
+
         /// <summary>Initializes a new instance of ToolTip.</summary>
         public ToolTip () { }
 
@@ -234,6 +237,14 @@ namespace Majorsilence.Forms
                     popup_label.Style.Border.Width = 1;
                 }
 
+                // StripAmpersands drops the mnemonic marker a caller copied from a button's Text;
+                // ToolTipTitle heads the tip on its own line (W6.2 sweep).
+                if (StripAmpersands)
+                    text = text.Replace ("&&", "\u0001").Replace ("&", string.Empty).Replace ("\u0001", "&");
+
+                if (!string.IsNullOrEmpty (ToolTipTitle))
+                    text = ToolTipTitle + Environment.NewLine + text;
+
                 popup_label.Text = text;
                 popup_label.Style.BackgroundColor = BackColor.ToSKColor ();
                 popup_label.Style.ForegroundColor = ForeColor.ToSKColor ();
@@ -251,7 +262,8 @@ namespace Majorsilence.Forms
                     return;
                 }
 
-                popup.Size = size;
+                // A handler may resize the tip through the args, as upstream honours (W6.2 sweep).
+                popup.Size = popup_args.ToolTipSize;
 
                 // Offset below/right of the cursor like a standard tooltip.
                 popup.Show (control, at.X + 12, at.Y + 18);

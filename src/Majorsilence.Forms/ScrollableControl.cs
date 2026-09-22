@@ -353,6 +353,10 @@ namespace Majorsilence.Forms
             right_edge = Math.Max (right_edge, 0);
             bottom_edge = Math.Max (bottom_edge, 0);
 
+            // The flags upstream's ScrollableControl exposes as HScroll/VScroll (W6.2 sweep).
+            HScroll = hscroll_visible;
+            VScroll = vscroll_visible;
+
             if (!vscroll_visible)
                 vscrollbar.Value = 0;
             if (!hscroll_visible)

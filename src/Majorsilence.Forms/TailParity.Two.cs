@@ -300,8 +300,19 @@ namespace Majorsilence.Forms
 
     public partial class DomainUpDown
     {
+        // Sorting the items in place, as upstream keeps the list sorted while Sorted is on. Items added
+        // afterwards are not re-sorted (W6.2 sweep).
+        private bool sorted;
+
         /// <summary>Gets or sets whether the items are kept in alphabetical order.</summary>
-        public bool Sorted { get; set; }
+        public bool Sorted {
+            get => sorted;
+            set {
+                sorted = value;
+                if (value)
+                    Items.Sort ();
+            }
+        }
 
         /// <summary>Gets or sets whether moving past the last item wraps to the first.</summary>
         public bool Wrap { get; set; }

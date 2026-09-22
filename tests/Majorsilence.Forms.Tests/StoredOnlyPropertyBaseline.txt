@@ -27,12 +27,12 @@
 # Auto-properties only: a property with hand-written accessors is invisible here, so the
 # real figure is higher.
 # Regenerate with MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1.
-Majorsilence.Forms.AmbientProperties.BackColor
-Majorsilence.Forms.AmbientProperties.Cursor
-Majorsilence.Forms.AmbientProperties.Font
-Majorsilence.Forms.AmbientProperties.ForeColor
-Majorsilence.Forms.Application.SafeTopLevelCaptionFormat
-Majorsilence.Forms.ApplicationContext.Tag
+Majorsilence.Forms.AmbientProperties.BackColor    -- site-ambient values; there is no ISite chain to consult them
+Majorsilence.Forms.AmbientProperties.Cursor    -- site-ambient values; there is no ISite chain to consult them
+Majorsilence.Forms.AmbientProperties.Font    -- site-ambient values; there is no ISite chain to consult them
+Majorsilence.Forms.AmbientProperties.ForeColor    -- site-ambient values; there is no ISite chain to consult them
+Majorsilence.Forms.Application.SafeTopLevelCaptionFormat    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.ApplicationContext.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.Backends.FolderDialogRequest.InitialDirectory    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.FolderDialogRequest.Title    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.OpenFileRequest.AllowMultiple    -- framework-written (outbound state)
@@ -47,67 +47,63 @@ Majorsilence.Forms.Backends.SaveFileRequest.Title    -- framework-written (outbo
 Majorsilence.Forms.BindingCompleteEventArgs.BindingCompleteState    -- framework-written (outbound state)
 Majorsilence.Forms.BindingCompleteEventArgs.ErrorText    -- framework-written (outbound state)
 Majorsilence.Forms.BindingCompleteEventArgs.Exception    -- framework-written (outbound state)
-Majorsilence.Forms.BindingSource.AllowEdit
 Majorsilence.Forms.BindingSource.IsInitialized    -- framework-written (outbound state)
-Majorsilence.Forms.Button.UseCompatibleTextRendering
-Majorsilence.Forms.ButtonBase.UseCompatibleTextRendering
-Majorsilence.Forms.ButtonRenderer.RenderMatchingApplicationState
-Majorsilence.Forms.CheckedListBox.ThreeDCheckBoxes
-Majorsilence.Forms.CheckedListBox.UseCompatibleTextRendering
+Majorsilence.Forms.Button.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.ButtonBase.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.ButtonRenderer.RenderMatchingApplicationState    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.CheckedListBox.ThreeDCheckBoxes    -- check glyphs are flat in every style; no 3D variant to select
+Majorsilence.Forms.CheckedListBox.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.ColorDialog.AllowFullOpen    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.AnyColor    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.FullOpen    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.SolidColorOnly    -- framework-written (outbound state)
-Majorsilence.Forms.ColumnHeader.DisplayIndex
+Majorsilence.Forms.ColumnHeader.DisplayIndex    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ColumnHeader.Index    -- framework-written (outbound state)
 Majorsilence.Forms.ColumnWidthChangingEventArgs.NewWidth    -- framework-written (outbound state)
-Majorsilence.Forms.ComboBox.DrawMode
-Majorsilence.Forms.ComboBox.HideSelection
-Majorsilence.Forms.CommonDialog.Tag
-Majorsilence.Forms.ContextMenuStrip.ShowCheckMargin
-Majorsilence.Forms.Control.AccessibleDefaultActionDescription
-Majorsilence.Forms.Control.AllowDrop
-Majorsilence.Forms.Control.AutoScrollOffset
-Majorsilence.Forms.Control.CheckForIllegalCrossThreadCalls
-Majorsilence.Forms.Control.DoubleBuffered
-Majorsilence.Forms.Control.HScroll
-Majorsilence.Forms.Control.IsAccessible
-Majorsilence.Forms.Control.MouseButtons
-Majorsilence.Forms.Control.UseVisualStyleBackColor
-Majorsilence.Forms.Control.VScroll
+Majorsilence.Forms.ComboBox.DrawMode    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
+Majorsilence.Forms.ComboBox.HideSelection    -- not an upstream ComboBox member; left unread deliberately (see ComboBox.cs)
+Majorsilence.Forms.CommonDialog.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.Control.AccessibleDefaultActionDescription    -- accessibility metadata; no accessible-object tree
+Majorsilence.Forms.Control.AllowDrop    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.Control.AutoScrollOffset    -- needs ScrollControlIntoView to consult it
+Majorsilence.Forms.Control.CheckForIllegalCrossThreadCalls    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.Control.DoubleBuffered    -- every surface is double-buffered by the Skia pipeline; nothing to switch
+Majorsilence.Forms.Control.HScroll    -- framework-written (outbound state)
+Majorsilence.Forms.Control.IsAccessible    -- accessibility metadata; no accessible-object tree
+Majorsilence.Forms.Control.UseVisualStyleBackColor    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.Control.VScroll    -- framework-written (outbound state)
 Majorsilence.Forms.ControlBindingsCollection.BindableComponent    -- framework-written (outbound state)
-Majorsilence.Forms.ControlBindingsCollection.DefaultDataSourceUpdateMode
-Majorsilence.Forms.CreateParams.Caption
-Majorsilence.Forms.CreateParams.ClassName
-Majorsilence.Forms.CreateParams.ClassStyle
-Majorsilence.Forms.CreateParams.ExStyle
-Majorsilence.Forms.CreateParams.Height
-Majorsilence.Forms.CreateParams.Param
-Majorsilence.Forms.CreateParams.Parent
-Majorsilence.Forms.CreateParams.Style
-Majorsilence.Forms.CreateParams.Width
-Majorsilence.Forms.CreateParams.X
-Majorsilence.Forms.CreateParams.Y
+Majorsilence.Forms.CreateParams.Caption    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.ClassName    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.ClassStyle    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.ExStyle    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.Height    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.Param    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.Parent    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.Style    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.Width    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.X    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.CreateParams.Y    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.CurrencyManager.List    -- framework-written (outbound state)
-Majorsilence.Forms.Cursor.Clip
-Majorsilence.Forms.Cursor.Current
-Majorsilence.Forms.Cursor.HotSpot
-Majorsilence.Forms.Cursor.Tag
-Majorsilence.Forms.DataGrid.AllowSorting
-Majorsilence.Forms.DataGrid.CaptionFont
-Majorsilence.Forms.DataGrid.FlatMode
+Majorsilence.Forms.Cursor.Clip    -- cursor clipping and hot-spots belong to the OS cursor
+Majorsilence.Forms.Cursor.Current    -- needs a process-wide cursor override on the active window (WindowBase.OverrideCursor is per window)
+Majorsilence.Forms.Cursor.HotSpot    -- cursor clipping and hot-spots belong to the OS cursor
+Majorsilence.Forms.Cursor.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.DataGrid.AllowSorting    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGrid.CaptionFont    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGrid.FlatMode    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
 Majorsilence.Forms.DataGrid.GridLineColor    -- framework-written (outbound state)
-Majorsilence.Forms.DataGrid.GridLineStyle
+Majorsilence.Forms.DataGrid.GridLineStyle    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
 Majorsilence.Forms.DataGrid.HeaderFont    -- framework-written (outbound state)
 Majorsilence.Forms.DataGrid.LinkColor    -- framework-written (outbound state)
-Majorsilence.Forms.DataGrid.ParentRowsBackColor
-Majorsilence.Forms.DataGrid.ParentRowsForeColor
-Majorsilence.Forms.DataGrid.PreferredColumnWidth
-Majorsilence.Forms.DataGridBoolColumn.AllowNull
-Majorsilence.Forms.DataGridBoolColumn.NullValue
-Majorsilence.Forms.DataGridColumnStyle.DataGridTableStyle
-Majorsilence.Forms.DataGridTableStyle.AllowSorting
+Majorsilence.Forms.DataGrid.ParentRowsBackColor    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGrid.ParentRowsForeColor    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGrid.PreferredColumnWidth    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridBoolColumn.AllowNull    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridBoolColumn.NullValue    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridColumnStyle.DataGridTableStyle    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTableStyle.AllowSorting    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
 Majorsilence.Forms.DataGridTableStyle.AlternatingBackColor    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridTableStyle.BackColor    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridTableStyle.ForeColor    -- framework-written (outbound state)
@@ -115,67 +111,64 @@ Majorsilence.Forms.DataGridTableStyle.GridLineColor    -- framework-written (out
 Majorsilence.Forms.DataGridTableStyle.HeaderBackColor    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridTableStyle.HeaderForeColor    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridTableStyle.LinkColor    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridTableStyle.ReadOnly
+Majorsilence.Forms.DataGridTableStyle.ReadOnly    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
 Majorsilence.Forms.DataGridTableStyle.SelectionBackColor    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridTableStyle.SelectionForeColor    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridTextBox.IsInEditOrNavigateMode
-Majorsilence.Forms.DataGridTextBox.Location
-Majorsilence.Forms.DataGridTextBox.MaxLength
-Majorsilence.Forms.DataGridTextBox.Parent
-Majorsilence.Forms.DataGridTextBox.Visible
-Majorsilence.Forms.DataGridTextBoxColumn.Alignment
-Majorsilence.Forms.DataGridTextBoxColumn.Format
-Majorsilence.Forms.DataGridTextBoxColumn.FormatInfo
-Majorsilence.Forms.DataGridTextBoxColumn.NullText
-Majorsilence.Forms.DataGridTextBoxColumn.PropertyDescriptor
+Majorsilence.Forms.DataGridTextBox.IsInEditOrNavigateMode    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTextBox.Location    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTextBox.MaxLength    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTextBox.Parent    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTextBox.Visible    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTextBoxColumn.Alignment    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTextBoxColumn.Format    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTextBoxColumn.FormatInfo    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTextBoxColumn.NullText    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
+Majorsilence.Forms.DataGridTextBoxColumn.PropertyDescriptor    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
 Majorsilence.Forms.DataGridTextBoxColumn.TextBox    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridView.EnableHeadersVisualStyles    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridView.ShowCellErrors
-Majorsilence.Forms.DataGridView.ShowCellToolTips
-Majorsilence.Forms.DataGridView.ShowEditingIcon
-Majorsilence.Forms.DataGridView.ShowRowErrors
-Majorsilence.Forms.DataGridView.VirtualMode
-Majorsilence.Forms.DataGridViewBand.Index
-Majorsilence.Forms.DataGridViewButtonCell.UseColumnTextForButtonValue
-Majorsilence.Forms.DataGridViewCell.ColumnInfo
-Majorsilence.Forms.DataGridViewCellContextMenuStripNeededEventArgs.ContextMenuStrip
-Majorsilence.Forms.DataGridViewCellEditEventArgs.Cancel
+Majorsilence.Forms.DataGridView.ShowCellErrors    -- blocked on error-glyph painting (W6.1 remainder: *ErrorTextNeeded)
+Majorsilence.Forms.DataGridView.ShowCellToolTips    -- the grid has no cell tooltip path
+Majorsilence.Forms.DataGridView.ShowEditingIcon    -- the row header draws no editing pencil
+Majorsilence.Forms.DataGridView.ShowRowErrors    -- blocked on error-glyph painting (W6.1 remainder: *ErrorTextNeeded)
+Majorsilence.Forms.DataGridView.VirtualMode    -- blocked on virtual mode (stored)
+Majorsilence.Forms.DataGridViewBand.Index    -- framework-written owner/index slot; the grid keeps its own indices
+Majorsilence.Forms.DataGridViewButtonCell.UseColumnTextForButtonValue    -- needs the cell text source to fall back to the column's Text
+Majorsilence.Forms.DataGridViewCell.ColumnInfo    -- framework-written owner/index slot; the grid keeps its own indices
+Majorsilence.Forms.DataGridViewCellContextMenuStripNeededEventArgs.ContextMenuStrip    -- event-args slot for a *Needed event that is not raised (unraised baseline)
+Majorsilence.Forms.DataGridViewCellEditEventArgs.Cancel    -- event-args slot; the raiser does not consult it (CellEndEdit/DataError are not cancellable here)
 Majorsilence.Forms.DataGridViewCellErrorTextNeededEventArgs.ErrorText    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewCellPaintingEventArgs.AdvancedBorderStyle
+Majorsilence.Forms.DataGridViewCellPaintingEventArgs.AdvancedBorderStyle    -- advanced cell borders are not modelled; every cell has the one-pixel grid line
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.CellStyle    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.ClipBounds    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.ErrorText    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Graphics    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewCellPaintingEventArgs.State
+Majorsilence.Forms.DataGridViewCellPaintingEventArgs.State    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Value    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewCellToolTipTextNeededEventArgs.ToolTipText
-Majorsilence.Forms.DataGridViewCellValueEventArgs.Value
-Majorsilence.Forms.DataGridViewCheckBoxCell.EditingCellValueChanged
-Majorsilence.Forms.DataGridViewCheckBoxCell.IndeterminateValue
-Majorsilence.Forms.DataGridViewCheckBoxColumn.IndeterminateValue
-Majorsilence.Forms.DataGridViewCheckBoxColumn.ThreeState
-Majorsilence.Forms.DataGridViewComboBoxCell.AutoComplete
-Majorsilence.Forms.DataGridViewComboBoxCell.DisplayStyleForCurrentCellOnly
-Majorsilence.Forms.DataGridViewComboBoxColumn.AutoComplete
-Majorsilence.Forms.DataGridViewComboBoxColumn.DisplayStyle
-Majorsilence.Forms.DataGridViewComboBoxColumn.DisplayStyleForCurrentCellOnly
-Majorsilence.Forms.DataGridViewComboBoxColumn.MaxDropDownItems
-Majorsilence.Forms.DataGridViewComboBoxColumn.Sorted
+Majorsilence.Forms.DataGridViewCellToolTipTextNeededEventArgs.ToolTipText    -- event-args slot for a *Needed event that is not raised (unraised baseline)
+Majorsilence.Forms.DataGridViewCellValueEventArgs.Value    -- event-args slot for a *Needed event that is not raised (unraised baseline)
+Majorsilence.Forms.DataGridViewCheckBoxCell.EditingCellValueChanged    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
+Majorsilence.Forms.DataGridViewCheckBoxCell.IndeterminateValue    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
+Majorsilence.Forms.DataGridViewCheckBoxColumn.IndeterminateValue    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
+Majorsilence.Forms.DataGridViewCheckBoxColumn.ThreeState    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
+Majorsilence.Forms.DataGridViewComboBoxCell.AutoComplete    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
+Majorsilence.Forms.DataGridViewComboBoxCell.DisplayStyleForCurrentCellOnly    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
+Majorsilence.Forms.DataGridViewComboBoxColumn.AutoComplete    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
+Majorsilence.Forms.DataGridViewComboBoxColumn.Sorted    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
 Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlDataGridView    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlRowIndex    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlValueChanged
-Majorsilence.Forms.DataGridViewDataErrorEventArgs.Cancel
-Majorsilence.Forms.DataGridViewElement.DataGridView
-Majorsilence.Forms.DataGridViewImageCell.Description
-Majorsilence.Forms.DataGridViewImageCell.ValueIsIcon
-Majorsilence.Forms.DataGridViewImageColumn.Icon
-Majorsilence.Forms.DataGridViewImageColumn.ImageLayout
+Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlValueChanged    -- IDataGridViewEditingControl plumbing the grid writes directly rather than through the interface
+Majorsilence.Forms.DataGridViewDataErrorEventArgs.Cancel    -- event-args slot; the raiser does not consult it (CellEndEdit/DataError are not cancellable here)
+Majorsilence.Forms.DataGridViewElement.DataGridView    -- framework-written owner/index slot; the grid keeps its own indices
+Majorsilence.Forms.DataGridViewImageCell.Description    -- image cells draw the image only; icons, layout and description are not modelled
+Majorsilence.Forms.DataGridViewImageCell.ValueIsIcon    -- image cells draw the image only; icons, layout and description are not modelled
+Majorsilence.Forms.DataGridViewImageColumn.Icon    -- image cells draw the image only; icons, layout and description are not modelled
+Majorsilence.Forms.DataGridViewImageColumn.ImageLayout    -- image cells draw the image only; icons, layout and description are not modelled
 Majorsilence.Forms.DataGridViewImageColumn.ValuesAreIcons    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewLinkCell.UseColumnTextForLinkValue
-Majorsilence.Forms.DataGridViewRowContextMenuStripNeededEventArgs.ContextMenuStrip
-Majorsilence.Forms.DataGridViewRowErrorTextNeededEventArgs.ErrorText
-Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.Height
-Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.MinimumHeight
+Majorsilence.Forms.DataGridViewLinkCell.UseColumnTextForLinkValue    -- needs the cell text source to fall back to the column's Text
+Majorsilence.Forms.DataGridViewRowContextMenuStripNeededEventArgs.ContextMenuStrip    -- event-args slot for a *Needed event that is not raised (unraised baseline)
+Majorsilence.Forms.DataGridViewRowErrorTextNeededEventArgs.ErrorText    -- event-args slot for a *Needed event that is not raised (unraised baseline)
+Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.Height    -- blocked on virtual mode (stored)
+Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.MinimumHeight    -- blocked on virtual mode (stored)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.ClipBounds    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.ErrorText    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.InheritedRowStyle    -- framework-written (outbound state)
@@ -183,82 +176,81 @@ Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.IsFirstDisplayedRow    -- f
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.IsLastVisibleRow    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.RowBounds    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.State    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlDataGridView
-Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlRowIndex
-Majorsilence.Forms.DateBoldEventArgs.DaysToBold
-Majorsilence.Forms.Design.Behavior.Adorner.BehaviorService
-Majorsilence.Forms.Design.Behavior.Adorner.Enabled
+Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlDataGridView    -- IDataGridViewEditingControl plumbing the grid writes directly rather than through the interface
+Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlRowIndex    -- IDataGridViewEditingControl plumbing the grid writes directly rather than through the interface
+Majorsilence.Forms.DateBoldEventArgs.DaysToBold    -- MonthCalendar has no bolded-days query
+Majorsilence.Forms.Design.Behavior.Adorner.BehaviorService    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.Behavior.Adorner.Enabled    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.CollectionEditor+CollectionForm.Items    -- framework-written (outbound state)
-Majorsilence.Forms.Design.ControlDesigner.AllowDrop
-Majorsilence.Forms.Design.ControlDesigner.AutoResizeHandles
-Majorsilence.Forms.Design.DesignerActionItem.AllowAssociate
-Majorsilence.Forms.Design.DesignerActionItem.ShowItemInSourceView
-Majorsilence.Forms.Design.DesignerActionList.AutoShow
-Majorsilence.Forms.Design.DesignerActionPropertyItem.RelatedComponent
+Majorsilence.Forms.Design.ControlDesigner.AllowDrop    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.ControlDesigner.AutoResizeHandles    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.DesignerActionItem.AllowAssociate    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.DesignerActionItem.ShowItemInSourceView    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.DesignerActionList.AutoShow    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.DesignerActionPropertyItem.RelatedComponent    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.DirectoryPath    -- framework-written (outbound state)
-Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.StartLocation
-Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.Style
-Majorsilence.Forms.Design.ParentControlDesigner.DrawGrid
-Majorsilence.Forms.Design.ParentControlDesigner.GridSize
-Majorsilence.Forms.Design.ToolboxItem.Bitmap
-Majorsilence.Forms.Design.ToolboxItem.DisplayName
-Majorsilence.Forms.Design.ToolboxItem.Locked
+Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.StartLocation    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.FolderNameEditor+FolderBrowser.Style    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.ParentControlDesigner.DrawGrid    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.ParentControlDesigner.GridSize    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.ToolboxItem.Bitmap    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.ToolboxItem.DisplayName    -- design-time type; there is no designer host
+Majorsilence.Forms.Design.ToolboxItem.Locked    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.ToolboxItem.TypeName    -- framework-written (outbound state)
-Majorsilence.Forms.DomainUpDown.Sorted
-Majorsilence.Forms.DragEventArgs.DropImageType
+Majorsilence.Forms.DragEventArgs.DropImageType    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.DragEventArgs.Effect    -- framework-written (outbound state)
-Majorsilence.Forms.DragEventArgs.Message
-Majorsilence.Forms.DragEventArgs.MessageReplacementToken
-Majorsilence.Forms.DrawListViewColumnHeaderEventArgs.DrawDefault
-Majorsilence.Forms.DrawListViewItemEventArgs.DrawDefault
-Majorsilence.Forms.DrawListViewSubItemEventArgs.DrawDefault
+Majorsilence.Forms.DragEventArgs.Message    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.DragEventArgs.MessageReplacementToken    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.DrawListViewColumnHeaderEventArgs.DrawDefault    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
+Majorsilence.Forms.DrawListViewItemEventArgs.DrawDefault    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
+Majorsilence.Forms.DrawListViewSubItemEventArgs.DrawDefault    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.DrawTreeNodeEventArgs.Canvas    -- framework-written (outbound state)
 Majorsilence.Forms.DrawTreeNodeEventArgs.TreeView    -- framework-written (outbound state)
-Majorsilence.Forms.Drawing.BufferedGraphicsContext.MaximumBuffer
-Majorsilence.Forms.Drawing.Graphics.CompositingQuality
-Majorsilence.Forms.Drawing.Graphics.InterpolationMode
-Majorsilence.Forms.Drawing.Graphics.PageScale
-Majorsilence.Forms.Drawing.Graphics.PageUnit
-Majorsilence.Forms.Drawing.Graphics.PixelOffsetMode
-Majorsilence.Forms.Drawing.Graphics.RenderingOrigin
-Majorsilence.Forms.Drawing.Graphics.TextContrast
-Majorsilence.Forms.Drawing.Graphics.TextRenderingHint
+Majorsilence.Forms.Drawing.BufferedGraphicsContext.MaximumBuffer    -- every surface is double-buffered by the Skia pipeline; nothing to switch
+Majorsilence.Forms.Drawing.Graphics.CompositingQuality    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
+Majorsilence.Forms.Drawing.Graphics.InterpolationMode    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
+Majorsilence.Forms.Drawing.Graphics.PageScale    -- needs a unit transform on Graphics; every caller today draws in pixels
+Majorsilence.Forms.Drawing.Graphics.PageUnit    -- needs a unit transform on Graphics; every caller today draws in pixels
+Majorsilence.Forms.Drawing.Graphics.PixelOffsetMode    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
+Majorsilence.Forms.Drawing.Graphics.RenderingOrigin    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
+Majorsilence.Forms.Drawing.Graphics.TextContrast    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
+Majorsilence.Forms.Drawing.Graphics.TextRenderingHint    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
 Majorsilence.Forms.Drawing.SkiaGraphics.DpiX    -- framework-written (outbound state)
 Majorsilence.Forms.Drawing.SkiaGraphics.DpiY    -- framework-written (outbound state)
-Majorsilence.Forms.ErrorProvider.ContainerControl
+Majorsilence.Forms.ErrorProvider.ContainerControl    -- the error glyph is drawn, not an Icon image; the container is the errored control's parent
 Majorsilence.Forms.ErrorProvider.DataMember    -- framework-written (outbound state)
 Majorsilence.Forms.ErrorProvider.DataSource    -- framework-written (outbound state)
-Majorsilence.Forms.ErrorProvider.Icon
-Majorsilence.Forms.ErrorProvider.Tag
+Majorsilence.Forms.ErrorProvider.Icon    -- the error glyph is drawn, not an Icon image; the container is the errored control's parent
+Majorsilence.Forms.ErrorProvider.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.FileDialog.AddExtension    -- framework-written (outbound state)
-Majorsilence.Forms.FileDialog.AddToRecent
-Majorsilence.Forms.FileDialog.AutoUpgradeEnabled
+Majorsilence.Forms.FileDialog.AddToRecent    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.FileDialog.AutoUpgradeEnabled    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FileDialog.CheckFileExists    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.CheckPathExists    -- framework-written (outbound state)
-Majorsilence.Forms.FileDialog.ClientGuid
+Majorsilence.Forms.FileDialog.ClientGuid    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FileDialog.CreatePrompt    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.DereferenceLinks    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.FilterIndex    -- framework-written (outbound state)
-Majorsilence.Forms.FileDialog.OkRequiresInteraction
+Majorsilence.Forms.FileDialog.OkRequiresInteraction    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FileDialog.OverwritePrompt    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.ReadOnlyChecked    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.RestoreDirectory    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.ShowHelp    -- framework-written (outbound state)
-Majorsilence.Forms.FileDialog.ShowHiddenFiles
-Majorsilence.Forms.FileDialog.ShowPinnedPlaces
+Majorsilence.Forms.FileDialog.ShowHiddenFiles    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.FileDialog.ShowPinnedPlaces    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FileDialog.ShowReadOnly    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.SupportMultiDottedExtensions    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.ValidateNames    -- framework-written (outbound state)
-Majorsilence.Forms.FlatButtonAppearance.MouseDownBackColor
-Majorsilence.Forms.FolderBrowserDialog.AddToRecent
-Majorsilence.Forms.FolderBrowserDialog.AutoUpgradeEnabled
-Majorsilence.Forms.FolderBrowserDialog.ClientGuid
-Majorsilence.Forms.FolderBrowserDialog.Multiselect
-Majorsilence.Forms.FolderBrowserDialog.OkRequiresInteraction
+Majorsilence.Forms.FlatButtonAppearance.MouseDownBackColor    -- no pressed style on ButtonBase; hover is the only transient state
+Majorsilence.Forms.FolderBrowserDialog.AddToRecent    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.FolderBrowserDialog.AutoUpgradeEnabled    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.FolderBrowserDialog.ClientGuid    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.FolderBrowserDialog.Multiselect    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.FolderBrowserDialog.OkRequiresInteraction    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FolderBrowserDialog.RootFolder    -- framework-written (outbound state)
-Majorsilence.Forms.FolderBrowserDialog.ShowHiddenFiles
+Majorsilence.Forms.FolderBrowserDialog.ShowHiddenFiles    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FolderBrowserDialog.ShowNewFolderButton    -- framework-written (outbound state)
-Majorsilence.Forms.FolderBrowserDialog.ShowPinnedPlaces
+Majorsilence.Forms.FolderBrowserDialog.ShowPinnedPlaces    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FolderBrowserDialog.UseDescriptionForTitle    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.AllowScriptChange    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.AllowSimulations    -- framework-written (outbound state)
@@ -267,342 +259,324 @@ Majorsilence.Forms.FontDialog.AllowVerticalFonts    -- framework-written (outbou
 Majorsilence.Forms.FontDialog.Color    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.FixedPitchOnly    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.FontMustExist    -- framework-written (outbound state)
-Majorsilence.Forms.FontDialog.ScriptsOnly
+Majorsilence.Forms.FontDialog.ScriptsOnly    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FontDialog.ShowApply    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.ShowColor    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.ShowEffects    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.ShowHelp    -- framework-written (outbound state)
-Majorsilence.Forms.Form.AccessibleDescription
-Majorsilence.Forms.Form.AccessibleName
-Majorsilence.Forms.Form.AllowDrop
-Majorsilence.Forms.Form.AllowTransparency
-Majorsilence.Forms.Form.AutoScale
-Majorsilence.Forms.Form.AutoScaleBaseSize
-Majorsilence.Forms.Form.AutoSizeMode
-Majorsilence.Forms.Form.FormScreenCaptureMode
-Majorsilence.Forms.Form.HelpButton
-Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom
+Majorsilence.Forms.Form.AccessibleDescription    -- accessibility metadata; no accessible-object tree
+Majorsilence.Forms.Form.AccessibleName    -- accessibility metadata; no accessible-object tree
+Majorsilence.Forms.Form.AllowDrop    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.Form.AllowTransparency    -- needs a backend window capability (per-pixel transparency / shadow)
+Majorsilence.Forms.Form.AutoScale    -- legacy .NET 1.x autoscale; AutoScaleMode/Dimensions are the live path
+Majorsilence.Forms.Form.AutoScaleBaseSize    -- legacy .NET 1.x autoscale; AutoScaleMode/Dimensions are the live path
+Majorsilence.Forms.Form.AutoSizeMode    -- a top-level window has no parent to size or anchor against; AutoSize is a stub
+Majorsilence.Forms.Form.FormScreenCaptureMode    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.Form.HelpButton    -- needs a help button in the managed caption (W6.1 remainder: HelpButtonClicked)
+Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom    -- MDI child minimisation / window list are not modelled
 Majorsilence.Forms.Form.Modal    -- framework-written (outbound state)
-Majorsilence.Forms.Form.ShowIcon
-Majorsilence.Forms.Form.TransparencyKey
-Majorsilence.Forms.GiveFeedbackEventArgs.CursorOffset
-Majorsilence.Forms.GiveFeedbackEventArgs.DragImage
+Majorsilence.Forms.Form.ShowIcon    -- needs a caption icon in the managed title bar (FormTitleBar draws none)
+Majorsilence.Forms.Form.TransparencyKey    -- needs a backend window capability (per-pixel transparency / shadow)
+Majorsilence.Forms.GiveFeedbackEventArgs.CursorOffset    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.GiveFeedbackEventArgs.DragImage    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultCursors    -- framework-written (outbound state)
-Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultDragImage
-Majorsilence.Forms.GridItem.Expanded
-Majorsilence.Forms.GridItem.Label
-Majorsilence.Forms.GridItem.Name
-Majorsilence.Forms.GridItem.Parent
-Majorsilence.Forms.GridItem.PropertyDescriptor
-Majorsilence.Forms.GridItem.Tag
-Majorsilence.Forms.GridItem.Value
-Majorsilence.Forms.GroupBox.FlatStyle
-Majorsilence.Forms.GroupBox.UseCompatibleTextRendering
-Majorsilence.Forms.GroupBoxRenderer.RenderMatchingApplicationState
-Majorsilence.Forms.HelpProvider.HelpNamespace
-Majorsilence.Forms.HelpProvider.Tag
-Majorsilence.Forms.HtmlElementErrorEventArgs.Handled
-Majorsilence.Forms.HtmlElementEventArgs.BubbleEvent
-Majorsilence.Forms.HtmlElementEventArgs.ReturnValue
-Majorsilence.Forms.ImageList.ColorDepth
-Majorsilence.Forms.ImageList.Tag
-Majorsilence.Forms.ImageList.TransparentColor
-Majorsilence.Forms.Label.LiveSetting
-Majorsilence.Forms.Label.UseCompatibleTextRendering
+Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultDragImage    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.GridItem.Expanded    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.GridItem.Label    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.GridItem.Name    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.GridItem.Parent    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.GridItem.PropertyDescriptor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.GridItem.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.GridItem.Value    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.GroupBox.FlatStyle    -- the group border is a single line in every style; nothing to select
+Majorsilence.Forms.GroupBox.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.GroupBoxRenderer.RenderMatchingApplicationState    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.HelpProvider.HelpNamespace    -- no help viewer to open
+Majorsilence.Forms.HelpProvider.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.HtmlElementErrorEventArgs.Handled    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.HtmlElementEventArgs.BubbleEvent    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.HtmlElementEventArgs.ReturnValue    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.ImageList.ColorDepth    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.ImageList.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.ImageList.TransparentColor    -- needs a colour-key filter on draw
+Majorsilence.Forms.Label.LiveSetting    -- accessibility metadata; no accessible-object tree
+Majorsilence.Forms.Label.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.LinkLabel+Link.LinkData    -- framework-written (outbound state)
-Majorsilence.Forms.LinkLabel+Link.Tag
-Majorsilence.Forms.ListBox.ColumnWidth
-Majorsilence.Forms.ListBox.HorizontalExtent
-Majorsilence.Forms.ListBox.HorizontalScrollbar
-Majorsilence.Forms.ListBox.IntegralHeight
-Majorsilence.Forms.ListBox.MultiColumn
-Majorsilence.Forms.ListBox.UseCustomTabOffsets
-Majorsilence.Forms.ListBox.UseTabStops
-Majorsilence.Forms.ListView.AllowColumnReorder
-Majorsilence.Forms.ListView.AutoArrange
-Majorsilence.Forms.ListView.BackgroundImageTiled
-Majorsilence.Forms.ListView.HotTracking
-Majorsilence.Forms.ListView.HoverSelection
-Majorsilence.Forms.ListView.LabelEdit
-Majorsilence.Forms.ListView.OwnerDraw
-Majorsilence.Forms.ListView.RightToLeftLayout
-Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior
-Majorsilence.Forms.ListView.VirtualListSize
-Majorsilence.Forms.ListView.VirtualMode
+Majorsilence.Forms.LinkLabel+Link.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.ListBox.ColumnWidth    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
+Majorsilence.Forms.ListBox.HorizontalExtent    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
+Majorsilence.Forms.ListBox.HorizontalScrollbar    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
+Majorsilence.Forms.ListBox.IntegralHeight    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
+Majorsilence.Forms.ListBox.MultiColumn    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
+Majorsilence.Forms.ListBox.UseCustomTabOffsets    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
+Majorsilence.Forms.ListBox.UseTabStops    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
+Majorsilence.Forms.ListView.AllowColumnReorder    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
+Majorsilence.Forms.ListView.AutoArrange    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
+Majorsilence.Forms.ListView.BackgroundImageTiled    -- blocked on background-image painting: no control paints BackgroundImage yet
+Majorsilence.Forms.ListView.HotTracking    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
+Majorsilence.Forms.ListView.HoverSelection    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
+Majorsilence.Forms.ListView.LabelEdit    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
+Majorsilence.Forms.ListView.OwnerDraw    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
+Majorsilence.Forms.ListView.RightToLeftLayout    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
+Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- .NET 1.1 state-image behaviour switch; neither behaviour is implemented (W6.2 ListView slice)
+Majorsilence.Forms.ListView.VirtualListSize    -- blocked on virtual mode (stored)
+Majorsilence.Forms.ListView.VirtualMode    -- blocked on virtual mode (stored)
 Majorsilence.Forms.ListViewGroup.Name    -- framework-written (outbound state)
-Majorsilence.Forms.ListViewGroup.Tag
-Majorsilence.Forms.ListViewInsertionMark.AppearsAfterItem
-Majorsilence.Forms.ListViewInsertionMark.Bounds
-Majorsilence.Forms.ListViewInsertionMark.Color
-Majorsilence.Forms.ListViewItem.IndentCount
-Majorsilence.Forms.ListViewItem.Position
-Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput
-Majorsilence.Forms.MaskedTextBox.BeepOnError
-Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat
-Majorsilence.Forms.MaskedTextBox.HidePromptOnLeave
-Majorsilence.Forms.MaskedTextBox.RejectInputOnFirstFailure
-Majorsilence.Forms.MeasureItemEventArgs.ItemHeight
-Majorsilence.Forms.MeasureItemEventArgs.ItemWidth
-Majorsilence.Forms.Media.SoundPlayer.LoadTimeout
-Majorsilence.Forms.Media.SoundPlayer.Tag
-Majorsilence.Forms.MenuItem.BarBreak
-Majorsilence.Forms.MenuItem.Break
-Majorsilence.Forms.MenuStrip.MdiWindowListItem
+Majorsilence.Forms.ListViewGroup.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.ListViewInsertionMark.AppearsAfterItem    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.ListViewInsertionMark.Bounds    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.ListViewInsertionMark.Color    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.ListViewItem.IndentCount    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
+Majorsilence.Forms.ListViewItem.Position    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput    -- mask-engine option for paste/copy paths that take the default
+Majorsilence.Forms.MaskedTextBox.BeepOnError    -- no beep API
+Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat    -- mask-engine option for paste/copy paths that take the default
+Majorsilence.Forms.MaskedTextBox.RejectInputOnFirstFailure    -- mask-engine option for paste/copy paths that take the default
+Majorsilence.Forms.MeasureItemEventArgs.ItemHeight    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
+Majorsilence.Forms.MeasureItemEventArgs.ItemWidth    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
+Majorsilence.Forms.Media.SoundPlayer.LoadTimeout    -- loads are synchronous
+Majorsilence.Forms.Media.SoundPlayer.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.MenuItem.BarBreak    -- legacy menu column breaks; drop-downs lay out in one column
+Majorsilence.Forms.MenuItem.Break    -- legacy menu column breaks; drop-downs lay out in one column
+Majorsilence.Forms.MenuStrip.MdiWindowListItem    -- MDI child minimisation / window list are not modelled
 Majorsilence.Forms.Message.HWnd    -- framework-written (outbound state)
-Majorsilence.Forms.Message.Result
-Majorsilence.Forms.MessageBox.DefaultButton
+Majorsilence.Forms.Message.Result    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.MessageBox.DefaultButton    -- the default button is a per-call argument; this static mirrors a designer setting
 Majorsilence.Forms.MonthCalendar.AnnuallyBoldedDates    -- framework-written (outbound state)
 Majorsilence.Forms.MonthCalendar.BoldedDates    -- framework-written (outbound state)
 Majorsilence.Forms.MonthCalendar.MonthlyBoldedDates    -- framework-written (outbound state)
-Majorsilence.Forms.NavigationPaneItem.Padding
-Majorsilence.Forms.NavigationPaneItem.Tag
-Majorsilence.Forms.NotifyIcon.ContextMenuStrip
-Majorsilence.Forms.NotifyIcon.Tag
+Majorsilence.Forms.NavigationPaneItem.Padding    -- pane items use the pane's item padding
+Majorsilence.Forms.NavigationPaneItem.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.NotifyIcon.ContextMenuStrip    -- needs a tray backend capability
+Majorsilence.Forms.NotifyIcon.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.NumericUpDownAcceleration.Increment    -- framework-written (outbound state)
-Majorsilence.Forms.OpenFileDialog.SelectReadOnly
-Majorsilence.Forms.OpenFileDialog.ShowPreview
-Majorsilence.Forms.PageSetupDialog.AllowMargins
-Majorsilence.Forms.PageSetupDialog.AllowOrientation
-Majorsilence.Forms.PageSetupDialog.AllowPaper
-Majorsilence.Forms.PageSetupDialog.AllowPrinter
+Majorsilence.Forms.OpenFileDialog.SelectReadOnly    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.OpenFileDialog.ShowPreview    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.PageSetupDialog.AllowMargins    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.PageSetupDialog.AllowOrientation    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.PageSetupDialog.AllowPaper    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.PageSetupDialog.AllowPrinter    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.PageSetupDialog.EnableMetric    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.MinMargins    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.ShowNetwork    -- framework-written (outbound state)
-Majorsilence.Forms.PictureBox.ErrorImage
-Majorsilence.Forms.PictureBox.WaitOnLoad
-Majorsilence.Forms.PopupEventArgs.ToolTipSize
-Majorsilence.Forms.PreviewKeyDownEventArgs.IsInputKey
+Majorsilence.Forms.PictureBox.ErrorImage    -- no asynchronous image loading (LoadAsync)
+Majorsilence.Forms.PictureBox.WaitOnLoad    -- no asynchronous image loading (LoadAsync)
+Majorsilence.Forms.PreviewKeyDownEventArgs.IsInputKey    -- needs PreviewKeyDown ahead of dialog-key processing; today it runs after
 Majorsilence.Forms.PrintDialog.AllowCurrentPage    -- framework-written (outbound state)
-Majorsilence.Forms.PrintDialog.AllowPrintToFile
-Majorsilence.Forms.PrintDialog.AllowSelection
-Majorsilence.Forms.PrintDialog.AllowSomePages
+Majorsilence.Forms.PrintDialog.AllowPrintToFile    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.PrintDialog.AllowSelection    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.PrintDialog.AllowSomePages    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.PrintDialog.PrintToFile    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.ShowNetwork    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.UseEXDialog    -- framework-written (outbound state)
-Majorsilence.Forms.PrintPreviewControl.AutoZoom
-Majorsilence.Forms.PrintPreviewControl.Columns
-Majorsilence.Forms.PrintPreviewControl.Document
-Majorsilence.Forms.PrintPreviewControl.Rows
-Majorsilence.Forms.PrintPreviewControl.UseAntiAlias
-Majorsilence.Forms.PrintPreviewControl.Zoom
-Majorsilence.Forms.PrintPreviewDialog.UseAntiAlias
-Majorsilence.Forms.PrintPreviewDialog.UseWaitCursor
+Majorsilence.Forms.PrintPreviewControl.AutoZoom    -- the preview control has no page renderer yet
+Majorsilence.Forms.PrintPreviewControl.Columns    -- the preview control has no page renderer yet
+Majorsilence.Forms.PrintPreviewControl.Document    -- the preview control has no page renderer yet
+Majorsilence.Forms.PrintPreviewControl.Rows    -- the preview control has no page renderer yet
+Majorsilence.Forms.PrintPreviewControl.UseAntiAlias    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
+Majorsilence.Forms.PrintPreviewControl.Zoom    -- the preview control has no page renderer yet
+Majorsilence.Forms.PrintPreviewDialog.UseAntiAlias    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
+Majorsilence.Forms.PrintPreviewDialog.UseWaitCursor    -- the preview control has no page renderer yet
 Majorsilence.Forms.Printing.PaperSize.PaperName    -- framework-written (outbound state)
-Majorsilence.Forms.Printing.PreviewPrintController.UseAntiAlias
-Majorsilence.Forms.Printing.PrintDocument.OriginAtMargins
-Majorsilence.Forms.Printing.PrintDocument.PrintController
-Majorsilence.Forms.Printing.PrintEventArgs.PrintAction
-Majorsilence.Forms.ProfessionalColorTable.UseSystemColors
-Majorsilence.Forms.PropertyGrid.BrowsableAttributes
-Majorsilence.Forms.PropertyGrid.CanShowVisualStyleGlyphs
-Majorsilence.Forms.PropertyGrid.CategoryForeColor
-Majorsilence.Forms.PropertyGrid.CategorySplitterColor
-Majorsilence.Forms.PropertyGrid.CommandsActiveLinkColor
-Majorsilence.Forms.PropertyGrid.CommandsBackColor
-Majorsilence.Forms.PropertyGrid.CommandsBorderColor
-Majorsilence.Forms.PropertyGrid.CommandsDisabledLinkColor
-Majorsilence.Forms.PropertyGrid.CommandsForeColor
-Majorsilence.Forms.PropertyGrid.CommandsLinkColor
-Majorsilence.Forms.PropertyGrid.CommandsVisibleIfAvailable
-Majorsilence.Forms.PropertyGrid.DisabledItemForeColor
-Majorsilence.Forms.PropertyGrid.HelpBackColor
-Majorsilence.Forms.PropertyGrid.HelpBorderColor
-Majorsilence.Forms.PropertyGrid.HelpForeColor
-Majorsilence.Forms.PropertyGrid.HelpVisible
-Majorsilence.Forms.PropertyGrid.LargeButtons
-Majorsilence.Forms.PropertyGrid.SelectedItemWithFocusBackColor
-Majorsilence.Forms.PropertyGrid.SelectedItemWithFocusForeColor
-Majorsilence.Forms.PropertyGrid.ToolStripRenderer
-Majorsilence.Forms.PropertyGrid.ToolbarVisible
-Majorsilence.Forms.PropertyGrid.UseCompatibleTextRendering
-Majorsilence.Forms.PropertyGrid.ViewBorderColor
-Majorsilence.Forms.PropertyTabChangedEventArgs.NewTab
-Majorsilence.Forms.PropertyTabChangedEventArgs.OldTab
-Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpKeyword
-Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpNamespace
-Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpString
+Majorsilence.Forms.Printing.PreviewPrintController.UseAntiAlias    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
+Majorsilence.Forms.Printing.PrintDocument.OriginAtMargins    -- needs the page canvas origin moved to the margin; PrintPage draws in page coordinates today
+Majorsilence.Forms.Printing.PrintDocument.PrintController    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
+Majorsilence.Forms.Printing.PrintEventArgs.PrintAction    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
+Majorsilence.Forms.ProfessionalColorTable.UseSystemColors    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.PropertyGrid.BrowsableAttributes    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.CanShowVisualStyleGlyphs    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.PropertyGrid.CategorySplitterColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.CommandsActiveLinkColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.CommandsBackColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.CommandsBorderColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.CommandsDisabledLinkColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.CommandsForeColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.CommandsLinkColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.CommandsVisibleIfAvailable    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.DisabledItemForeColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.HelpBackColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.HelpBorderColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.HelpForeColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.HelpVisible    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.LargeButtons    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.ToolStripRenderer    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.ToolbarVisible    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.PropertyGrid.ViewBorderColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyTabChangedEventArgs.NewTab    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyTabChangedEventArgs.OldTab    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpKeyword    -- accessibility metadata; no accessible-object tree
+Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpNamespace    -- accessibility metadata; no accessible-object tree
+Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpString    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.QueryContinueDragEventArgs.Action    -- framework-written (outbound state)
 Majorsilence.Forms.QuestionEventArgs.Response    -- framework-written (outbound state)
-Majorsilence.Forms.RetrieveVirtualItemEventArgs.Item
+Majorsilence.Forms.RetrieveVirtualItemEventArgs.Item    -- blocked on virtual mode (stored)
 Majorsilence.Forms.RibbonItemGroup.Text    -- framework-written (outbound state)
-Majorsilence.Forms.RichTextBox.AutoWordSelection
-Majorsilence.Forms.RichTextBox.BulletIndent
-Majorsilence.Forms.RichTextBox.DetectUrls
-Majorsilence.Forms.RichTextBox.EnableAutoDragDrop
-Majorsilence.Forms.RichTextBox.LanguageOption
-Majorsilence.Forms.RichTextBox.RichTextShortcutsEnabled
-Majorsilence.Forms.RichTextBox.SelectionAlignment
-Majorsilence.Forms.RichTextBox.SelectionBullet
-Majorsilence.Forms.RichTextBox.SelectionCharOffset
-Majorsilence.Forms.RichTextBox.SelectionHangingIndent
-Majorsilence.Forms.RichTextBox.SelectionIndent
-Majorsilence.Forms.RichTextBox.SelectionProtected
-Majorsilence.Forms.RichTextBox.SelectionRightIndent
-Majorsilence.Forms.RichTextBox.SelectionTabs
-Majorsilence.Forms.RichTextBox.ShowSelectionMargin
-Majorsilence.Forms.SaveFileDialog.CheckWriteAccess
-Majorsilence.Forms.SaveFileDialog.ExpandedMode
-Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange
+Majorsilence.Forms.RichTextBox.AutoWordSelection    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.BulletIndent    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.DetectUrls    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.EnableAutoDragDrop    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.RichTextBox.LanguageOption    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.RichTextShortcutsEnabled    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.SelectionAlignment    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.SelectionBullet    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.SelectionCharOffset    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.SelectionHangingIndent    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.SelectionIndent    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.SelectionProtected    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.SelectionRightIndent    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.SelectionTabs    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.ShowSelectionMargin    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.SaveFileDialog.CheckWriteAccess    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.SaveFileDialog.ExpandedMode    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
+Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Bottom    -- framework-written (outbound state)
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Left    -- framework-written (outbound state)
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Right    -- framework-written (outbound state)
-Majorsilence.Forms.SearchForVirtualItemEventArgs.Index
-Majorsilence.Forms.SplitContainer.AutoScrollMargin
-Majorsilence.Forms.SplitContainer.AutoScrollMinSize
-Majorsilence.Forms.SplitContainer.AutoScrollPosition
-Majorsilence.Forms.SplitContainer.SplitterIncrement
-Majorsilence.Forms.StatusBar.ShowPanels
-Majorsilence.Forms.StatusBar.SizingGrip
-Majorsilence.Forms.StatusBarPanel.Alignment
-Majorsilence.Forms.StatusBarPanel.AutoSize
-Majorsilence.Forms.StatusBarPanel.BorderStyle
-Majorsilence.Forms.StatusBarPanel.Icon
-Majorsilence.Forms.StatusBarPanel.MinWidth
-Majorsilence.Forms.StatusBarPanel.Parent
-Majorsilence.Forms.StatusBarPanel.Style
-Majorsilence.Forms.StatusBarPanel.Tag
+Majorsilence.Forms.SearchForVirtualItemEventArgs.Index    -- blocked on virtual mode (stored)
+Majorsilence.Forms.SplitContainer.AutoScrollMargin    -- the split panels do not scroll
+Majorsilence.Forms.SplitContainer.AutoScrollMinSize    -- the split panels do not scroll
+Majorsilence.Forms.SplitContainer.AutoScrollPosition    -- the split panels do not scroll
+Majorsilence.Forms.SplitContainer.SplitterIncrement    -- the split panels do not scroll
+Majorsilence.Forms.StatusBar.ShowPanels    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBar.SizingGrip    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBarPanel.Alignment    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBarPanel.AutoSize    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBarPanel.BorderStyle    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBarPanel.Icon    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBarPanel.MinWidth    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBarPanel.Parent    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBarPanel.Style    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBarPanel.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.StatusBarPanel.Text    -- framework-written (outbound state)
-Majorsilence.Forms.StatusBarPanel.ToolTipText
-Majorsilence.Forms.StatusBarPanel.Width
-Majorsilence.Forms.TabControl.Appearance
-Majorsilence.Forms.TabControl.HotTrack
-Majorsilence.Forms.TabControl.Multiline
-Majorsilence.Forms.TabPage.UseVisualStyleBackColor
-Majorsilence.Forms.TabStripItem.Tag
-Majorsilence.Forms.TaskDialogButton.ShowShieldIcon
+Majorsilence.Forms.StatusBarPanel.ToolTipText    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.StatusBarPanel.Width    -- blocked on StatusBar panels: the renderer draws Text only
+Majorsilence.Forms.TabControl.Appearance    -- needs a tab feature: button-style tabs, hover colour or multi-row tabs
+Majorsilence.Forms.TabControl.HotTrack    -- needs a tab feature: button-style tabs, hover colour or multi-row tabs
+Majorsilence.Forms.TabControl.Multiline    -- needs a tab feature: button-style tabs, hover colour or multi-row tabs
+Majorsilence.Forms.TabPage.UseVisualStyleBackColor    -- GDI/visual-styles rendering switch; one text and theme pipeline here
+Majorsilence.Forms.TabStripItem.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.TaskDialogButton.ShowShieldIcon    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
 Majorsilence.Forms.TaskDialogCommandLinkButton.DescriptionText    -- framework-written (outbound state)
-Majorsilence.Forms.TaskDialogControl.Tag
-Majorsilence.Forms.TaskDialogExpander.CollapsedButtonText
-Majorsilence.Forms.TaskDialogExpander.ExpandedButtonText
-Majorsilence.Forms.TaskDialogExpander.Position
-Majorsilence.Forms.TaskDialogFootnote.Icon
-Majorsilence.Forms.TaskDialogPage.AllowCancel
-Majorsilence.Forms.TaskDialogPage.AllowMinimize
+Majorsilence.Forms.TaskDialogControl.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.TaskDialogExpander.Position    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
+Majorsilence.Forms.TaskDialogFootnote.Icon    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
 Majorsilence.Forms.TaskDialogPage.BoundDialog    -- framework-written (outbound state)
-Majorsilence.Forms.TaskDialogPage.EnableLinks
-Majorsilence.Forms.TaskDialogPage.RightToLeftLayout
-Majorsilence.Forms.TaskDialogPage.SizeToContent
-Majorsilence.Forms.TaskDialogProgressBar.MarqueeSpeed
-Majorsilence.Forms.TaskDialogProgressBar.Maximum
-Majorsilence.Forms.TaskDialogProgressBar.Minimum
+Majorsilence.Forms.TaskDialogPage.EnableLinks    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
+Majorsilence.Forms.TaskDialogPage.RightToLeftLayout    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
+Majorsilence.Forms.TaskDialogPage.SizeToContent    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
+Majorsilence.Forms.TaskDialogProgressBar.MarqueeSpeed    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
+Majorsilence.Forms.TaskDialogProgressBar.Maximum    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
+Majorsilence.Forms.TaskDialogProgressBar.Minimum    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
 Majorsilence.Forms.TaskDialogProgressBar.State    -- framework-written (outbound state)
-Majorsilence.Forms.TaskDialogProgressBar.Value
-Majorsilence.Forms.TaskDialogRadioButton.Enabled
-Majorsilence.Forms.TimePicker.MaxValue
-Majorsilence.Forms.TimePicker.MinValue
-Majorsilence.Forms.Timer.Tag
-Majorsilence.Forms.ToolBar.Appearance
-Majorsilence.Forms.ToolBar.ButtonSize
-Majorsilence.Forms.ToolBar.Divider
-Majorsilence.Forms.ToolBar.DropDownArrows
-Majorsilence.Forms.ToolBar.ShowToolTips
-Majorsilence.Forms.ToolBar.TextAlign
-Majorsilence.Forms.ToolBar.Wrappable
-Majorsilence.Forms.ToolBarButton.DropDownMenu
-Majorsilence.Forms.ToolBarButton.Enabled
-Majorsilence.Forms.ToolBarButton.ImageIndex
-Majorsilence.Forms.ToolBarButton.ImageKey
-Majorsilence.Forms.ToolBarButton.Name
-Majorsilence.Forms.ToolBarButton.Parent
-Majorsilence.Forms.ToolBarButton.PartialPush
-Majorsilence.Forms.ToolBarButton.Pushed
-Majorsilence.Forms.ToolBarButton.Rectangle
-Majorsilence.Forms.ToolBarButton.Style
-Majorsilence.Forms.ToolBarButton.Tag
+Majorsilence.Forms.TaskDialogProgressBar.Value    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
+Majorsilence.Forms.Timer.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.ToolBar.Appearance    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBar.ButtonSize    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBar.Divider    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBar.DropDownArrows    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBar.ShowToolTips    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBar.TextAlign    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBar.Wrappable    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.DropDownMenu    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.Enabled    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.ImageIndex    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.ImageKey    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.Name    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.Parent    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.PartialPush    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.Pushed    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.Rectangle    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.Style    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.ToolBarButton.Text    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBarButton.ToolTipText
-Majorsilence.Forms.ToolBarButton.Visible
-Majorsilence.Forms.ToolStrip.AllowClickThrough
-Majorsilence.Forms.ToolStrip.AllowItemReorder
-Majorsilence.Forms.ToolStrip.AllowMerge
-Majorsilence.Forms.ToolStrip.CanOverflow
-Majorsilence.Forms.ToolStrip.DefaultDropDownDirection
+Majorsilence.Forms.ToolBarButton.ToolTipText    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.Visible    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolStrip.AllowClickThrough    -- there is no inactive-window click swallow to see through
+Majorsilence.Forms.ToolStrip.AllowItemReorder    -- blocked on item drag/drop (W6.1 remainder)
+Majorsilence.Forms.ToolStrip.AllowMerge    -- blocked on ToolStripManager.Merge (not implemented)
+Majorsilence.Forms.ToolStrip.CanOverflow    -- blocked on overflow: items past the edge are clipped, not collected
+Majorsilence.Forms.ToolStrip.DefaultDropDownDirection    -- drop-downs open below/right only
 Majorsilence.Forms.ToolStrip.IsCurrentlyDragging    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.LayoutSettings
-Majorsilence.Forms.ToolStrip.Orientation
-Majorsilence.Forms.ToolStrip.OverflowButton
-Majorsilence.Forms.ToolStrip.Stretch
-Majorsilence.Forms.ToolStrip.TextDirection
-Majorsilence.Forms.ToolStripButton.ImageTransparentColor
-Majorsilence.Forms.ToolStripContentPanel.RenderMode
-Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.Handled
-Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.ToolStripContentPanel
-Majorsilence.Forms.ToolStripControlHost.ControlAlign
-Majorsilence.Forms.ToolStripDropDown.AllowTransparency
-Majorsilence.Forms.ToolStripDropDown.AutoClose
-Majorsilence.Forms.ToolStripDropDown.DropShadowEnabled
+Majorsilence.Forms.ToolStrip.LayoutSettings    -- blocked on vertical/flow strip layout and rafting panels
+Majorsilence.Forms.ToolStrip.Orientation    -- blocked on vertical/flow strip layout and rafting panels
+Majorsilence.Forms.ToolStrip.OverflowButton    -- blocked on overflow: items past the edge are clipped, not collected
+Majorsilence.Forms.ToolStrip.Stretch    -- blocked on vertical/flow strip layout and rafting panels
+Majorsilence.Forms.ToolStrip.TextDirection    -- blocked on vertical/flow strip layout and rafting panels
+Majorsilence.Forms.ToolStripButton.ImageTransparentColor    -- needs a colour-key filter on draw
+Majorsilence.Forms.ToolStripContentPanel.RenderMode    -- panel backgrounds are not routed through a renderer (TSM-48 remainder)
+Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.Handled    -- renderer-args slot for a part no strip paints yet (TSM-48 remainder)
+Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.ToolStripContentPanel    -- renderer-args slot for a part no strip paints yet (TSM-48 remainder)
+Majorsilence.Forms.ToolStripControlHost.ControlAlign    -- needs alignment inside the item box; images and hosted controls fill it
+Majorsilence.Forms.ToolStripDropDown.AllowTransparency    -- needs a backend window capability (per-pixel transparency / shadow)
+Majorsilence.Forms.ToolStripDropDown.AutoClose    -- drop-downs always close on an outside click
+Majorsilence.Forms.ToolStripDropDown.DropShadowEnabled    -- needs a backend window capability (per-pixel transparency / shadow)
 Majorsilence.Forms.ToolStripDropDown.IsAutoGenerated    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripDropDown.Opacity
-Majorsilence.Forms.ToolStripDropDown.TopLevel
-Majorsilence.Forms.ToolStripDropDownItem.DropDownDirection
-Majorsilence.Forms.ToolStripDropDownMenu.LayoutStyle
-Majorsilence.Forms.ToolStripDropDownMenu.ShowCheckMargin
+Majorsilence.Forms.ToolStripDropDown.Opacity    -- needs a backend window capability (per-pixel transparency / shadow)
+Majorsilence.Forms.ToolStripDropDown.TopLevel    -- needs a backend window capability (per-pixel transparency / shadow)
+Majorsilence.Forms.ToolStripDropDownItem.DropDownDirection    -- drop-downs open below/right only
+Majorsilence.Forms.ToolStripDropDownMenu.LayoutStyle    -- drop-down menus lay out vertically only
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripBounds    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripDisplayStyle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripStyle    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.AllowDrop
-Majorsilence.Forms.ToolStripItem.Anchor
-Majorsilence.Forms.ToolStripItem.AutoToolTip
-Majorsilence.Forms.ToolStripItem.Dock
-Majorsilence.Forms.ToolStripItem.DoubleClickEnabled
-Majorsilence.Forms.ToolStripItem.ImageAlign
-Majorsilence.Forms.ToolStripItem.ImageTransparentColor
+Majorsilence.Forms.ToolStripItem.AllowDrop    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.ToolStripItem.Anchor    -- items are stacked by the strip; anchor/dock apply inside a rafting panel only
+Majorsilence.Forms.ToolStripItem.Dock    -- items are stacked by the strip; anchor/dock apply inside a rafting panel only
+Majorsilence.Forms.ToolStripItem.DoubleClickEnabled    -- the strip does not detect item double-clicks (W6.1 remainder: ButtonDoubleClick)
+Majorsilence.Forms.ToolStripItem.ImageAlign    -- needs alignment inside the item box; images and hosted controls fill it
+Majorsilence.Forms.ToolStripItem.ImageTransparentColor    -- needs a colour-key filter on draw
 Majorsilence.Forms.ToolStripItem.IsDisposed    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.MergeAction
-Majorsilence.Forms.ToolStripItem.MergeIndex
-Majorsilence.Forms.ToolStripItem.Overflow
-Majorsilence.Forms.ToolStripItem.RightToLeftAutoMirrorImage
+Majorsilence.Forms.ToolStripItem.MergeAction    -- blocked on ToolStripManager.Merge (not implemented)
+Majorsilence.Forms.ToolStripItem.MergeIndex    -- blocked on ToolStripManager.Merge (not implemented)
+Majorsilence.Forms.ToolStripItem.Overflow    -- blocked on overflow: items past the edge are clipped, not collected
+Majorsilence.Forms.ToolStripItem.RightToLeftAutoMirrorImage    -- no RTL image mirroring
 Majorsilence.Forms.ToolStripItem.TextDirection    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextAlign    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextDirection
+Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextDirection    -- renderer-args slot for a part no strip paints yet (TSM-48 remainder)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFont    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFormat    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripLabel.ActiveLinkColor
-Majorsilence.Forms.ToolStripManager.VisualStylesEnabled
-Majorsilence.Forms.ToolStripMenuItem.MergeAction
-Majorsilence.Forms.ToolStripMenuItem.MergeIndex
-Majorsilence.Forms.ToolStripPanel.Locked
-Majorsilence.Forms.ToolStripPanel.RenderMode
-Majorsilence.Forms.ToolStripPanel.RowMargin
-Majorsilence.Forms.ToolStripPanelRenderEventArgs.Handled
-Majorsilence.Forms.ToolStripPanelRow.Margin
+Majorsilence.Forms.ToolStripLabel.ActiveLinkColor    -- no pressed state on strip items (TSM-42)
+Majorsilence.Forms.ToolStripManager.VisualStylesEnabled    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.ToolStripMenuItem.MergeAction    -- blocked on ToolStripManager.Merge (not implemented)
+Majorsilence.Forms.ToolStripMenuItem.MergeIndex    -- blocked on ToolStripManager.Merge (not implemented)
+Majorsilence.Forms.ToolStripPanel.Locked    -- blocked on vertical/flow strip layout and rafting panels
+Majorsilence.Forms.ToolStripPanel.RenderMode    -- blocked on vertical/flow strip layout and rafting panels
+Majorsilence.Forms.ToolStripPanel.RowMargin    -- blocked on vertical/flow strip layout and rafting panels
+Majorsilence.Forms.ToolStripPanelRenderEventArgs.Handled    -- renderer-args slot for a part no strip paints yet (TSM-48 remainder)
+Majorsilence.Forms.ToolStripPanelRow.Margin    -- blocked on vertical/flow strip layout and rafting panels
 Majorsilence.Forms.ToolStripProfessionalRenderer.ColorTable    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripProfessionalRenderer.RoundedEdges
-Majorsilence.Forms.ToolStripStatusLabel.BorderSides
-Majorsilence.Forms.ToolStripStatusLabel.BorderStyle
-Majorsilence.Forms.ToolStripStatusLabel.LiveSetting
-Majorsilence.Forms.ToolTip.OwnerDraw
-Majorsilence.Forms.ToolTip.ShowAlways
-Majorsilence.Forms.ToolTip.StripAmpersands
-Majorsilence.Forms.ToolTip.Tag
-Majorsilence.Forms.ToolTip.ToolTipIcon
-Majorsilence.Forms.ToolTip.ToolTipTitle
-Majorsilence.Forms.ToolTip.UseAnimation
-Majorsilence.Forms.ToolTip.UseFading
-Majorsilence.Forms.TreeView.HotTracking
-Majorsilence.Forms.TreeView.LabelEdit
-Majorsilence.Forms.UpDownBase.ChangingText
+Majorsilence.Forms.ToolStripProfessionalRenderer.RoundedEdges    -- the professional renderer draws square edges only
+Majorsilence.Forms.ToolStripStatusLabel.LiveSetting    -- accessibility metadata; no accessible-object tree
+Majorsilence.Forms.ToolTip.OwnerDraw    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
+Majorsilence.Forms.ToolTip.ShowAlways    -- tips already show whether or not the window is active
+Majorsilence.Forms.ToolTip.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.ToolTip.ToolTipIcon    -- no icon glyphs in the tip
+Majorsilence.Forms.ToolTip.UseAnimation    -- tips appear without animation
+Majorsilence.Forms.ToolTip.UseFading    -- tips appear without animation
+Majorsilence.Forms.TreeView.HotTracking    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
+Majorsilence.Forms.TreeView.LabelEdit    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
+Majorsilence.Forms.UpDownBase.ChangingText    -- no framework text-update path sets it; the spinners assign Text directly
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Part    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.State    -- framework-written (outbound state)
-Majorsilence.Forms.WebBrowser.AllowNavigation
-Majorsilence.Forms.WebBrowser.AllowWebBrowserDrop
-Majorsilence.Forms.WebBrowser.DocumentStream
-Majorsilence.Forms.WebBrowser.IsOffline
-Majorsilence.Forms.WebBrowser.IsWebBrowserContextMenuEnabled
-Majorsilence.Forms.WebBrowser.ObjectForScripting
-Majorsilence.Forms.WebBrowser.ScriptErrorsSuppressed
-Majorsilence.Forms.WebBrowser.ScrollBarsEnabled
-Majorsilence.Forms.WebBrowser.WebBrowserShortcutsEnabled
-Majorsilence.Forms.WindowBase.AccessibleDefaultActionDescription
+Majorsilence.Forms.WebBrowser.AllowNavigation    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.AllowWebBrowserDrop    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.DocumentStream    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.IsOffline    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.IsWebBrowserContextMenuEnabled    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.ObjectForScripting    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.ScriptErrorsSuppressed    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.ScrollBarsEnabled    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.WebBrowserShortcutsEnabled    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WindowBase.AccessibleDefaultActionDescription    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.WindowBase.AccessibleRole    -- framework-written (outbound state)
-Majorsilence.Forms.WindowBase.Anchor
+Majorsilence.Forms.WindowBase.Anchor    -- a top-level window has no parent to size or anchor against; AutoSize is a stub
 Majorsilence.Forms.WindowBase.Disposing    -- framework-written (outbound state)
-Majorsilence.Forms.WindowBase.DoubleBuffered
-Majorsilence.Forms.WindowBase.IsAccessible
+Majorsilence.Forms.WindowBase.DoubleBuffered    -- every surface is double-buffered by the Skia pipeline; nothing to switch
+Majorsilence.Forms.WindowBase.IsAccessible    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.WindowBase.StartPosition    -- framework-written (outbound state)
-Majorsilence.Forms.WindowBase.Tag
-Majorsilence.Forms.WindowsFormsSynchronizationContext.AutoInstall
+Majorsilence.Forms.WindowBase.Tag    -- user-data slot; upstream reads it nowhere either
+Majorsilence.Forms.WindowsFormsSynchronizationContext.AutoInstall    -- Win32 handle/window-class detail; no equivalent here
 SkiaSharp.Views.Desktop.SKGLControl.VSync
