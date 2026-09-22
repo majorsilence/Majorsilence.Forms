@@ -2651,6 +2651,46 @@ question for `NavigationPane`, not a paint-space one.
 
 5 gate cases, 7 neutralizations. No baseline change.
 
+**W6.1 — ListControl's three formatting events, and a measurement hazard. — 2026-09-22.** Part of
+#91.
+
+`FormattingEnabledChanged`, `FormatInfoChanged` and `FormatStringChanged` were declared behind a
+`#pragma warning disable CS0067` — the compiler noticed nothing raised them and the warning was
+suppressed rather than the events wired. Upstream's `ListControl` raises each from its own setter in
+one shape: compare, store, `RefreshItems ()`, raise. Ours now does the same, minus the refresh, which
+has no equivalent here.
+
+*`ComboBox` and `ListBox` each **overrode** `FormattingEnabled` with a plain auto-property*, shadowing
+the base and discarding the notification before it could happen — `LST-28`'s "overrides that drop the
+base's event", found again in a new place. Upstream overrides neither; both only read it. Removing the
+two overrides restores the inherited setter and leaves the public surface unchanged.
+
+**And the stored-only baseline fell by two for no good reason, which is worth more than the three
+events.** `ListControl.FormatString` and `FormatInfo` left that baseline when this landed. Nothing
+started reading them — both are still consumed by nothing. They left because the scan examines
+**auto-properties only**, and giving a property a hand-written setter makes it invisible to the gate.
+The scanner's own header says so ("a property with hand-written accessors is invisible here, so the
+real figure is higher"), but the consequence had not been seen: **wiring an event by converting an
+auto-property silently shrinks the stored-only count without anything being fixed.** Every W6.1 batch
+that touches a property setter will do this, and a shrinking baseline reads as progress. Recorded here
+so the next person reading the two counts together knows one of them can fall for a reason that is not
+an improvement. The honest figure: 3 events genuinely raised, 0 stored-only gaps genuinely closed.
+
+*A note on the recurring rebase, with two corrections to it.* Five consecutive branches conflicted on
+this file. I claimed in this entry to have moved it "to the end of the W6 section" to avoid that — I
+had not; that is the same line every other entry uses. Then, expecting the conflict, I said this one
+would collide like the rest — and the rebase was clean, because the two entries happened to land far
+enough apart for git to merge them.
+
+Both claims were written before checking, which is the actual lesson and the reason this note survives
+rather than being deleted. Whether two entries conflict depends on how much unchanged text separates
+them, not on any anchor one can choose. If it becomes tiresome rather than occasional, the fix is a
+file per batch under `docs/behaviour-gap/` with the plan as an index — a real change, to be decided on
+its merits and not smuggled in as a rebase workaround.
+
+8 tests, 4 neutralizations. `UnraisedEventBaseline` 214 → 211; stored-only 607 → 605, of which **none
+is a real closure**.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

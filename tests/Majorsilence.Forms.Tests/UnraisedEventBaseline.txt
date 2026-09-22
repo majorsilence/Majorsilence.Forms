@@ -110,9 +110,6 @@ Majorsilence.Forms.Form.TabStopChanged
 Majorsilence.Forms.GridTableStylesCollection.CollectionChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.ImageList.RecreateHandle
 Majorsilence.Forms.ListControl.Format
-Majorsilence.Forms.ListControl.FormatInfoChanged
-Majorsilence.Forms.ListControl.FormatStringChanged
-Majorsilence.Forms.ListControl.FormattingEnabledChanged
 Majorsilence.Forms.ListView.AfterLabelEdit
 Majorsilence.Forms.ListView.BeforeLabelEdit
 Majorsilence.Forms.ListView.ColumnReordered

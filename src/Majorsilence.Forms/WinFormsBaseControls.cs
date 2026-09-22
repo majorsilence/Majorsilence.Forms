@@ -209,8 +209,6 @@ namespace Majorsilence.Forms
         /// <summary>Occurs when the <see cref="ValueMember"/> changes.</summary>
         public event EventHandler? ValueMemberChanged;
 
-#pragma warning disable CS0067 // Declared so handlers compile and can subscribe; nothing raises these
-                               // yet -- the documented stub shape, see COMPATIBILITY_MATRIX.md.
         /// <summary>Occurs when <see cref="FormattingEnabled"/> changes.</summary>
         public event EventHandler? FormattingEnabledChanged;
 
@@ -219,7 +217,15 @@ namespace Majorsilence.Forms
 
         /// <summary>Occurs when <see cref="FormatString"/> changes.</summary>
         public event EventHandler? FormatStringChanged;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="FormattingEnabledChanged"/> event.</summary>
+        protected virtual void OnFormattingEnabledChanged (EventArgs e) => FormattingEnabledChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="FormatInfoChanged"/> event.</summary>
+        protected virtual void OnFormatInfoChanged (EventArgs e) => FormatInfoChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="FormatStringChanged"/> event.</summary>
+        protected virtual void OnFormatStringChanged (EventArgs e) => FormatStringChanged?.Invoke (this, e);
 
         /// <summary>Occurs when an item's display text is being formatted.</summary>
         public event ListControlConvertEventHandler? Format;
@@ -263,14 +269,63 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the value of the selected item, taken from <see cref="ValueMember"/>.</summary>
         public virtual object? SelectedValue { get; set; }
 
+        private bool formatting_enabled;
+        private string format_string = string.Empty;
+        private IFormatProvider? format_info;
+
         /// <summary>Gets or sets whether item text is formatted for display.</summary>
-        public virtual bool FormattingEnabled { get; set; }
+        /// <remarks>
+        /// The three formatting properties notify on change, as upstream's <c>ListControl</c> does --
+        /// each of its setters compares, stores, refreshes and raises. All three events were declared
+        /// here behind a <c>CS0067</c> pragma and raised by nothing, so a data-bound control watching
+        /// for a formatting change never heard about one (<c>W6.1</c>).
+        ///
+        /// Upstream also calls <c>RefreshItems ()</c> between the store and the raise; there is no such
+        /// method on this <c>ListControl</c>, and the three properties are additionally unread by the
+        /// display path here -- a separate gap, recorded in the stored-only baseline. Raising the event
+        /// is the half this finding is about, and it is worth having on its own: it is what a binding
+        /// layer subscribes to.
+        /// </remarks>
+        public virtual bool FormattingEnabled {
+            get => formatting_enabled;
+            set {
+                if (formatting_enabled == value)
+                    return;
+
+                formatting_enabled = value;
+                OnFormattingEnabledChanged (EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets or sets the format string applied to item text.</summary>
-        public string FormatString { get; set; } = string.Empty;
+        /// <remarks>
+        /// Null collapses to empty before the comparison, as upstream does (<c>value ??= string.Empty</c>),
+        /// so assigning null to an already-empty format string is not a change.
+        /// </remarks>
+        public string FormatString {
+            get => format_string;
+            set {
+                value ??= string.Empty;
+
+                if (format_string == value)
+                    return;
+
+                format_string = value;
+                OnFormatStringChanged (EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets or sets the format provider applied to item text.</summary>
-        public IFormatProvider? FormatInfo { get; set; }
+        public IFormatProvider? FormatInfo {
+            get => format_info;
+            set {
+                if (ReferenceEquals (format_info, value))
+                    return;
+
+                format_info = value;
+                OnFormatInfoChanged (EventArgs.Empty);
+            }
+        }
 
         /// <summary>
         /// Returns the text to display for an item, honoring <see cref="DisplayMember"/> when the item
