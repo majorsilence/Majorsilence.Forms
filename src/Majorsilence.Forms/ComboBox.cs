@@ -264,11 +264,6 @@ namespace Majorsilence.Forms
         /// <summary>Raises the <see cref="DropDown"/> event.</summary>
         protected virtual void OnDropDown (EventArgs e) => DropDown?.Invoke (this, e);
 
-        /// <summary>
-        /// Gets or sets whether items are formatted before display (WinForms compatibility stub).
-        /// </summary>
-        public override bool FormattingEnabled { get; set; }
-
         /// <summary>Gets or sets the data source for the ComboBox.</summary>
         public override object? DataSource {
             get => _dataSource;

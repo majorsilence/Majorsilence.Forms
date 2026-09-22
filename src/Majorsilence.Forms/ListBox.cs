@@ -963,9 +963,6 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the ListBox displays items in multiple columns. Stub in Majorsilence.Forms.</summary>
         public bool MultiColumn { get; set; }
 
-        /// <summary>Gets or sets whether formatting is applied to the DisplayMember. Stub in Majorsilence.Forms.</summary>
-        public override bool FormattingEnabled { get; set; }
-
         /// <summary>Gets or sets the width of each column in a multi-column ListBox. Stub in Majorsilence.Forms.</summary>
         public int ColumnWidth { get; set; }
 

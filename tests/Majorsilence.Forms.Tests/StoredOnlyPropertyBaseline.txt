@@ -323,8 +323,6 @@ Majorsilence.Forms.ListBox.IntegralHeight
 Majorsilence.Forms.ListBox.MultiColumn
 Majorsilence.Forms.ListBox.UseCustomTabOffsets
 Majorsilence.Forms.ListBox.UseTabStops
-Majorsilence.Forms.ListControl.FormatInfo
-Majorsilence.Forms.ListControl.FormatString
 Majorsilence.Forms.ListView.AllowColumnReorder
 Majorsilence.Forms.ListView.AutoArrange
 Majorsilence.Forms.ListView.BackgroundImageTiled
