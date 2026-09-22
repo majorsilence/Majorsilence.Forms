@@ -40,17 +40,18 @@ namespace Majorsilence.Forms.Renderers
             if (band <= 0)
                 return;
 
-            // Every number here is LOGICAL, because this canvas is: RenderItem fills item.Bounds --
-            // which are logical -- directly. Converting the offsets to device while measuring them
-            // from a logical edge is TSM-41's bug, and writing it here made the grip drift out of its
-            // own band and vanish entirely at MF_HEADLESS_SCALE=2.
+            // DEVICE throughout, like the rest of this canvas. GripBandBounds is logical because
+            // LayoutItems measures against it, so it is converted here -- the one place that needs the
+            // other space. (This block was written in logical units when TSM-41 was believed to say
+            // the canvas was logical; it agreed with the items only because they were wrong the same
+            // way.)
             var margin = control is ToolStrip strip ? strip.GripMargin : new Padding (2);
             var bounds = control.GripBandBounds;
-            var x = bounds.Left + margin.Left + ToolBar.GripRuleWidth / 2;
-            var top = bounds.Top + margin.Top + 2;
-            var bottom = bounds.Bottom - margin.Bottom - 2;
-            var step = 3;
-            var dot = 1;
+            var x = e.LogicalToDeviceUnits (bounds.Left + margin.Left + ToolBar.GripRuleWidth / 2);
+            var top = e.LogicalToDeviceUnits (bounds.Top + margin.Top + 2);
+            var bottom = e.LogicalToDeviceUnits (bounds.Bottom - margin.Bottom - 2);
+            var step = Math.Max (2, e.LogicalToDeviceUnits (3));
+            var dot = Math.Max (1, e.LogicalToDeviceUnits (1));
 
             for (var y = top; y < bottom; y += step)
                 e.Canvas.FillRectangle (new Rectangle (x, y, dot, dot), Theme.BorderMidColor);
@@ -72,7 +73,7 @@ namespace Majorsilence.Forms.Renderers
             // the item reacts under the pointer.
             var item_style = item.Hovered || item.IsDropDownOpened || item.Checked ? ToolBar.DefaultItemHoverStyle : ToolBar.DefaultItemStyle;
             var background_color = item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ();
-            e.Canvas.FillRectangle (item.Bounds, background_color);
+            e.Canvas.FillRectangle (item.DeviceBounds, background_color);
 
             // A ToolStripLabel with IsLink draws as a hyperlink: the link colours and the underline
             // were all stored and read by nothing, so `new ToolStripLabel { IsLink = true }` was
@@ -97,10 +98,10 @@ namespace Majorsilence.Forms.Renderers
             // never runs underneath the glyph.
             var arrow_gutter = item.HasItems ? e.LogicalToDeviceUnits (16) + 4 : 0;
             var content = new Rectangle (
-                item.Bounds.Left + pad,
-                item.Bounds.Top,
-                Math.Max (0, item.Bounds.Width - (pad * 2) - arrow_gutter),
-                item.Bounds.Height);
+                item.DeviceBounds.Left + pad,
+                item.DeviceBounds.Top,
+                Math.Max (0, item.DeviceBounds.Width - (pad * 2) - arrow_gutter),
+                item.DeviceBounds.Height);
 
             var image = item.ImageSK;
             var image_size = Size.Empty;
@@ -210,8 +211,8 @@ namespace Majorsilence.Forms.Renderers
             // "more actions" buttons are usually styled. It was stored and read by nothing, so the
             // arrow was drawn whenever the item had a submenu whatever the property said.
             if (item.HasItems && ShowsDropDownArrow (item)) {
-                var arrow_bounds = DrawingExtensions.CenterSquare (item.Bounds, 16);
-                var arrow_area = new Rectangle (item.Bounds.Right - e.LogicalToDeviceUnits (16) - 4, arrow_bounds.Top, 16, 16);
+                var arrow_bounds = DrawingExtensions.CenterSquare (item.DeviceBounds, 16);
+                var arrow_area = new Rectangle (item.DeviceBounds.Right - e.LogicalToDeviceUnits (16) - 4, arrow_bounds.Top, 16, 16);
                 ControlPaint.DrawArrowGlyph (e, arrow_area, font_color, ArrowDirection.Down);
             }
         }
@@ -235,13 +236,13 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderMenuSeparatorItem (ToolBar control, MenuSeparatorItem item, PaintEventArgs e)
         {
             // Background
-            e.Canvas.FillRectangle (item.Bounds, control.GetEffectiveBackgroundColor ());
+            e.Canvas.FillRectangle (item.DeviceBounds, control.GetEffectiveBackgroundColor ());
 
-            var center = item.Bounds.GetCenter ();
+            var center = item.DeviceBounds.GetCenter ();
             var thickness = e.LogicalToDeviceUnits (1);
             var padding = e.LogicalToDeviceUnits (item.Padding);
 
-            e.Canvas.DrawLine (center.X, item.Bounds.Top + padding.Top + thickness, center.X, item.Bounds.Bottom - padding.Bottom - thickness, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
+            e.Canvas.DrawLine (center.X, item.DeviceBounds.Top + padding.Top + thickness, center.X, item.DeviceBounds.Bottom - padding.Bottom - thickness, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
         }
 
         /// <summary>
@@ -260,11 +261,17 @@ namespace Majorsilence.Forms.Renderers
             var strip_item = item as ToolStripItem;
             var image_size = Size.Empty;
 
-            if (item.ImageSK is not null)
-                // Match RenderItem: an unscaled image occupies its natural size, not the 20px box.
+            if (item.ImageSK is not null) {
+                // Match RenderItem exactly: an unscaled image occupies its natural size, and a scaled
+                // one the strip's ImageScalingSize. This read a hard-coded 20 while RenderItem was
+                // changed to honour the property (TSM-44), so measure and paint disagreed about how
+                // much room an icon needs -- a 32px strip measured items as though its icons were 20.
+                var box = (control as ToolStrip)?.ImageScalingSize ?? new Size (20, 20);
+
                 image_size = strip_item?.ImageScaling == ToolStripItemImageScaling.None
                     ? new Size (item.ImageSK.Width, item.ImageSK.Height)
-                    : new Size (control.LogicalToDeviceUnits (20), control.LogicalToDeviceUnits (20));
+                    : new Size (control.LogicalToDeviceUnits (box.Width), control.LogicalToDeviceUnits (box.Height));
+            }
 
             var stacked = strip_item?.TextImageRelation is TextImageRelation.ImageAboveText
                                                          or TextImageRelation.TextAboveImage;
@@ -287,7 +294,7 @@ namespace Majorsilence.Forms.Renderers
 
             // Height was previously the item's current box, which made a strip's preferred height
             // depend on whatever it had already been given rather than on its content.
-            return new Size (width, Math.Max (height + control.LogicalToDeviceUnits (item.Padding.Vertical), item.Bounds.Height));
+            return new Size (width, Math.Max (height + control.LogicalToDeviceUnits (item.Padding.Vertical), item.DeviceBounds.Height));
         }
 
         /// <summary>
@@ -298,7 +305,7 @@ namespace Majorsilence.Forms.Renderers
             var padding = control.LogicalToDeviceUnits (item.Padding.Horizontal);
             var thickness = control.LogicalToDeviceUnits (1);
 
-            return new Size (thickness + padding, item.Bounds.Height);
+            return new Size (thickness + padding, item.DeviceBounds.Height);
         }
     }
 }

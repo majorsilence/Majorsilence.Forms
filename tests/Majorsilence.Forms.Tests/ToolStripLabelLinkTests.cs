@@ -210,11 +210,14 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
-        // MenuItem.Bounds is DEVICE, and so is the bitmap, so no conversion belongs here.
+        // MenuItem.Bounds is LOGICAL; the bitmap is DEVICE. DeviceBounds is the renderer's own space
+        // (TSM-41). These two helpers used Bounds and still passed at scaling 2 -- because the
+        // renderer was painting the logical box into the device canvas, so the test was wrong in
+        // exactly the way the code was. Fixing TSM-41 is what exposed them.
         private static bool HasPixel (ToolStrip strip, ToolStripLabel label, System.Func<SkiaSharp.SKColor, bool> match)
         {
             using var bitmap = PaintSurface.Render (strip);
-            var bounds = label.Bounds;
+            var bounds = label.DeviceBounds;
 
             for (var y = bounds.Top; y < bounds.Bottom && y < bitmap.Height; y++)
                 for (var x = bounds.Left; x < bounds.Right && x < bitmap.Width; x++)
@@ -232,7 +235,7 @@ namespace Majorsilence.Forms.Tests
         private static int Ink (ToolStrip strip, ToolStripLabel label)
         {
             using var bitmap = PaintSurface.Render (strip);
-            var bounds = label.Bounds;
+            var bounds = label.DeviceBounds;
             var background = bitmap.GetPixel (bounds.Left + 1, bounds.Top + 1);
             var ink = 0;
 

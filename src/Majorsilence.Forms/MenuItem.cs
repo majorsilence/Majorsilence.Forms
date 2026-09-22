@@ -48,6 +48,25 @@ namespace Majorsilence.Forms
         /// </summary>
         public Rectangle Bounds { get; private set; }
 
+        /// <summary>
+        /// The item's laid-out box in DEVICE pixels -- the space the strip renderers paint in.
+        /// </summary>
+        /// <remarks>
+        /// <para><see cref="Bounds"/> is LOGICAL, because it is also the hit-test space (<c>W6.3</c>,
+        /// <c>TSM-22</c>). The renderers measure at the device font size and position everything with
+        /// device-converted offsets -- see the note on <c>GetPreferredSize</c> below, which converts
+        /// their result back at one boundary. Paint had no such boundary: it handed the logical box
+        /// straight to a device canvas, so at scaling 2 every item was drawn at half its size in the
+        /// strip's top-left quadrant (<c>TSM-41</c>).</para>
+        /// <para>Identity at scaling 1, which is why it went unnoticed for so long.</para>
+        /// </remarks>
+        internal Rectangle DeviceBounds
+            => OwnerControl is { } owner
+                ? new Rectangle (
+                    owner.LogicalToDeviceUnits (Bounds.Left), owner.LogicalToDeviceUnits (Bounds.Top),
+                    owner.LogicalToDeviceUnits (Bounds.Width), owner.LogicalToDeviceUnits (Bounds.Height))
+                : Bounds;
+
         /// <summary>Gets the width of this menu item's bounding box.</summary>
         public int Width => Bounds.Width;
 

@@ -67,7 +67,6 @@ Majorsilence.Forms.ComboBox.DrawMode
 Majorsilence.Forms.ComboBox.HideSelection
 Majorsilence.Forms.CommonDialog.Tag
 Majorsilence.Forms.ContextMenuStrip.ShowCheckMargin
-Majorsilence.Forms.ContextMenuStrip.ShowImageMargin
 Majorsilence.Forms.Control.AccessibleDefaultActionDescription
 Majorsilence.Forms.Control.AllowDrop
 Majorsilence.Forms.Control.AutoScrollOffset
@@ -554,7 +553,6 @@ Majorsilence.Forms.ToolStripDropDown.TopLevel
 Majorsilence.Forms.ToolStripDropDownItem.DropDownDirection
 Majorsilence.Forms.ToolStripDropDownMenu.LayoutStyle
 Majorsilence.Forms.ToolStripDropDownMenu.ShowCheckMargin
-Majorsilence.Forms.ToolStripDropDownMenu.ShowImageMargin
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripBounds    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripDisplayStyle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripStyle    -- framework-written (outbound state)
