@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 ﻿using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -50,12 +51,36 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the name used to identify this column.
         /// </summary>
-        public string Name { get; set; } = string.Empty;
+        private string name = string.Empty;
+
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public string Name {
+            get => name;
+            set {
+                if (EqualityComparer<string>.Default.Equals (name, value))
+                    return;
+
+                name = value;
+                DataGridView?.NotifyColumnNameChanged (this);
+            }
+        }
 
         /// <summary>
         /// Gets or sets the data source property name for this column.
         /// </summary>
-        public string DataPropertyName { get; set; } = string.Empty;
+        private string data_property_name = string.Empty;
+
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public string DataPropertyName {
+            get => data_property_name;
+            set {
+                if (EqualityComparer<string>.Default.Equals (data_property_name, value))
+                    return;
+
+                data_property_name = value;
+                DataGridView?.NotifyColumnDataPropertyNameChanged (this);
+            }
+        }
 
         /// <summary>
         /// Gets or sets the data type of the values in this column's cells. WinForms compatibility —
@@ -89,25 +114,64 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets whether cells in this column are read-only.
         /// </summary>
-        public bool ReadOnly { get; set; }
+        private bool read_only;
+
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public bool ReadOnly {
+            get => read_only;
+            set {
+                if (EqualityComparer<bool>.Default.Equals (read_only, value))
+                    return;
+
+                read_only = value;
+                DataGridView?.NotifyColumnStateChanged (this, DataGridViewElementStates.ReadOnly);
+            }
+        }
 
         /// <summary>
         /// Gets or sets the tooltip text for this column.
         /// </summary>
-        public string ToolTipText { get; set; } = string.Empty;
+        private string tool_tip_text = string.Empty;
+
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public string ToolTipText {
+            get => tool_tip_text;
+            set {
+                if (EqualityComparer<string>.Default.Equals (tool_tip_text, value))
+                    return;
+
+                tool_tip_text = value;
+                DataGridView?.NotifyColumnToolTipTextChanged (this);
+            }
+        }
 
         /// <summary>
         /// Gets or sets the default cell style for this column.
         /// </summary>
         public virtual DataGridViewCellStyle DefaultCellStyle {
             get => default_cell_style;
-            set => default_cell_style = value ?? new DataGridViewCellStyle ();
+            set {
+                default_cell_style = value ?? new DataGridViewCellStyle ();
+                DataGridView?.NotifyColumnDefaultCellStyleChanged (this);
+            }
         }
 
         /// <summary>
         /// Gets or sets whether the column is resizable.
         /// </summary>
-        public DataGridViewTriState Resizable { get; set; } = DataGridViewTriState.NotSet;
+        private DataGridViewTriState resizable = DataGridViewTriState.NotSet;
+
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public DataGridViewTriState Resizable {
+            get => resizable;
+            set {
+                if (EqualityComparer<DataGridViewTriState>.Default.Equals (resizable, value))
+                    return;
+
+                resizable = value;
+                DataGridView?.NotifyColumnStateChanged (this, DataGridViewElementStates.Resizable);
+            }
+        }
 
         /// <summary>
         /// Gets or sets the sort mode for this column.
@@ -149,6 +213,7 @@ namespace Majorsilence.Forms
             set {
                 header_cell = value ?? new DataGridViewColumnHeaderCell ();
                 header_cell.owning_column = this;
+                DataGridView?.NotifyColumnHeaderCellChanged (this);
             }
         }
 
@@ -175,7 +240,19 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the minimum width, in pixels, of the column.
         /// </summary>
-        public int MinimumWidth { get; set; } = 5;
+        private int minimum_width = 5;
+
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public int MinimumWidth {
+            get => minimum_width;
+            set {
+                if (EqualityComparer<int>.Default.Equals (minimum_width, value))
+                    return;
+
+                minimum_width = value;
+                DataGridView?.NotifyColumnMinimumWidthChanged (this);
+            }
+        }
 
         /// <summary>
         /// Gets the DataGridView control that contains this column.
@@ -202,8 +279,20 @@ namespace Majorsilence.Forms
         /// </summary>
         public object? Tag { get; set; }
 
+        private bool visible = true;
+
         /// <summary>Gets or sets whether the column is visible.</summary>
-        public bool Visible { get; set; } = true;
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public bool Visible {
+            get => visible;
+            set {
+                if (EqualityComparer<bool>.Default.Equals (visible, value))
+                    return;
+
+                visible = value;
+                DataGridView?.NotifyColumnStateChanged (this, DataGridViewElementStates.Visible);
+            }
+        }
 
         /// <summary>Telerik-style alias of <see cref="Visible"/> (GridViewColumn.IsVisible).</summary>
         public bool IsVisible {
@@ -244,8 +333,20 @@ namespace Majorsilence.Forms
 
         private float fill_weight = 100f;
 
+        private bool frozen;
+
         /// <summary>Gets or sets whether the column is frozen to the left (does not scroll horizontally).</summary>
-        public bool Frozen { get; set; }
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public bool Frozen {
+            get => frozen;
+            set {
+                if (EqualityComparer<bool>.Default.Equals (frozen, value))
+                    return;
+
+                frozen = value;
+                DataGridView?.NotifyColumnStateChanged (this, DataGridViewElementStates.Frozen);
+            }
+        }
 
         /// <summary>
         /// Whether the column is pinned to the right edge (does not scroll horizontally). Telerik-only
@@ -253,8 +354,20 @@ namespace Majorsilence.Forms
         /// </summary>
         internal bool PinnedRight { get; set; }
 
-        /// <summary>Gets or sets the width of the column divider. Stub in Majorsilence.Forms.</summary>
-        public int DividerWidth { get; set; }
+        private int divider_width;
+
+        /// <summary>Gets or sets the width of the column divider.</summary>
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        public int DividerWidth {
+            get => divider_width;
+            set {
+                if (EqualityComparer<int>.Default.Equals (divider_width, value))
+                    return;
+
+                divider_width = value;
+                DataGridView?.NotifyColumnDividerWidthChanged (this);
+            }
+        }
 
         /// <summary>Gets or sets the template used to create new cells. Stub in Majorsilence.Forms.</summary>
         public virtual DataGridViewCell? CellTemplate { get; set; }

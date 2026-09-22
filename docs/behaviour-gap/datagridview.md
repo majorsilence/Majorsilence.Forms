@@ -484,3 +484,23 @@ Five entries closed, five recorded.
   `DGV-43`. Recorded rather than approximated with something that is not hover.
 - **Tests today:** `DataGridViewFlatStyleTests.cs` (7; 5 neutralizations, including one that pins
   `System` as *not* flat — it is the value most easily swept into the flat branch by accident).
+
+### DGV-45 — sixteen band/cell `*Changed` events had raisers nothing called — Cat A — P2 — Medium — **CLOSED (2026-09-22)**
+- **Ours (before):** `ColumnNameChanged`, `ColumnDataPropertyNameChanged`, `ColumnToolTipTextChanged`,
+  `ColumnMinimumWidthChanged`, `ColumnDividerWidthChanged`, `ColumnDefaultCellStyleChanged`,
+  `ColumnHeaderCellChanged`, `ColumnStateChanged`, `RowMinimumHeightChanged`, `RowDividerHeightChanged`,
+  `RowDefaultCellStyleChanged`, `RowErrorTextChanged`, `RowHeaderCellChanged`, `CellStyleChanged`,
+  `CellToolTipTextChanged`, `CellErrorTextChanged` -- every one with a `protected virtual OnXxx` on the
+  grid that nothing called. The properties they describe live on `DataGridViewColumn`, `DataGridViewRow`
+  and `DataGridViewCell`, whose setters stored the value and told nobody.
+- **Fix (applied):** internal `Notify*` doors on the grid (`DataGridView.Notifications.cs`) that build
+  the args and call the protected raiser; the band/cell setters call them on change, as upstream's do.
+  `ColumnStateChanged` carries *which* flag moved (`Visible`/`Frozen`/`ReadOnly`/`Resizable`) so a
+  handler need not guess. `DataGridViewRow.HeaderCell` gained a setter -- upstream's is settable, and
+  `RowHeaderCellChanged` cannot fire without one.
+- **One mistake caught by an existing test and a neutralization together.** `Row.DefaultCellStyle` used
+  a value comparison for its change-check; `DataGridViewCellStyle` compares by value, so a freshly
+  constructed style equalled the default and every replacement was swallowed -- the event never fired,
+  and `DataGridViewRowTests.DefaultCellStyle_Set_GetReturnsExpected` broke too. An object-typed
+  property changes on *replacement*; it now uses `ReferenceEquals`, as upstream effectively does.
+- **Tests today:** `DataGridViewBandChangeEventsTests.cs` (20; 7 neutralizations).
