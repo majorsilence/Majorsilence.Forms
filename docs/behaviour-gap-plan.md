@@ -2691,6 +2691,39 @@ its merits and not smuggled in as a rebase workaround.
 8 tests, 4 neutralizations. `UnraisedEventBaseline` 214 → 211; stored-only 607 → 605, of which **none
 is a real closure**.
 
+**W6.1 — ToolStripItem's eight dead events, and a collection bug found on the way. — 2026-09-22.**
+Part of #91. `TSM-46` closed; `TSM-47` opened.
+
+Eight `ToolStripItem` events -- seven `*Changed` plus `MouseMove` -- were declared behind a `CS0067`
+pragma and raised by nothing. Upstream raises each from its setter or mouse path, checked line by line
+before writing. `MenuItem` (the base) announces through four internal seams and `ToolStripItem` (the
+WinForms face) raises; `MouseMove` is delivered item-relative as upstream does. `MouseHover` is left
+unwired: upstream fires it from a rest timer that does not exist here, and firing it on movement would
+be a different event under the right name.
+
+**A test wrote a bug report.** To show `LocationChanged` firing from layout I inserted an item at index
+0 and asserted the existing item moved right. It did not. The probe found `ToolStrip.Items` -- a facade
+over the root collection layout reads -- forwards `Insert` through an **`Add`** callback: the facade
+says `New, Open`, the strip lays out `Open, New`. Migrated code positions items with `Insert`; it gets
+the right collection order and the wrong screen order, silently. Recorded as **`TSM-47`, P1**, not fixed
+here -- a collection-identity fix wants its own tests, and this pass is event wiring.
+
+*Two measurement notes.* First, the stored-only baseline drops by one -- `ToolStripItem.RightToLeft` --
+and it is **not a closure**: the property is still read by nothing; it left because it now has a
+hand-written setter, the hazard recorded in #226. (`ForeColor`/`BackColor` were never in that baseline;
+the renderers read them.) Second, a **false negative in the unraised-event gate**: `ToolStripItem.MouseEnter`
+is raised by nothing in the assembly yet is absent from the baseline, because `IsCalled`'s
+virtual-name fallback sees `WindowBase.OnMouseEnter` called and credits the unrelated raiser of the
+same name. That fallback exists to keep working overrides out of the baseline, and here it keeps a
+dead event out too. Full reachability would resolve it; noted alongside the one-hop limit.
+
+*One test was vacuous until a neutralization caught it* -- the item-relative `MouseMove` check sat at
+the strip's origin, where item-relative and strip-relative coordinates coincide. Eighth such catch this
+sweep.
+
+11 tests, 8 neutralizations. `UnraisedEventBaseline` 211 → 203; stored-only 605 → 604 (no real
+closure).
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
