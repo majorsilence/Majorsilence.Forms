@@ -299,7 +299,6 @@ Majorsilence.Forms.GridItem.Value
 Majorsilence.Forms.GroupBox.FlatStyle
 Majorsilence.Forms.GroupBox.UseCompatibleTextRendering
 Majorsilence.Forms.GroupBoxRenderer.RenderMatchingApplicationState
-Majorsilence.Forms.HelpEventArgs.Handled
 Majorsilence.Forms.HelpProvider.HelpNamespace
 Majorsilence.Forms.HelpProvider.Tag
 Majorsilence.Forms.HtmlElementErrorEventArgs.Handled
@@ -574,7 +573,6 @@ Majorsilence.Forms.ToolStripProfessionalRenderer.RoundedEdges
 Majorsilence.Forms.ToolStripStatusLabel.BorderSides
 Majorsilence.Forms.ToolStripStatusLabel.BorderStyle
 Majorsilence.Forms.ToolStripStatusLabel.LiveSetting
-Majorsilence.Forms.ToolTip.IsBalloon
 Majorsilence.Forms.ToolTip.OwnerDraw
 Majorsilence.Forms.ToolTip.ShowAlways
 Majorsilence.Forms.ToolTip.StripAmpersands

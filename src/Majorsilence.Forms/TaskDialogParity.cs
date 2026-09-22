@@ -140,6 +140,14 @@ namespace Majorsilence.Forms
 
                 var captured = button;
                 control.Click += (_, _) => {
+                    // The standard Help button asks the page for help and leaves the dialog open, as
+                    // upstream's does (W6.1 sweep). Standard buttons here are told apart by text.
+                    if (captured.Text == TaskDialogButton.Help.Text) {
+                        page.RaiseHelpRequest ();
+
+                        return;
+                    }
+
                     choose (captured);
                     captured.PerformClick ();
 
@@ -672,6 +680,8 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the user asks for help.</summary>
 #pragma warning disable CS0067
         public event EventHandler? HelpRequest;
+
+        internal void RaiseHelpRequest () => HelpRequest?.Invoke (this, EventArgs.Empty);
 
         /// <summary>Raised when a hyperlink in the text is clicked. Not raised: the composed dialog
         /// draws its text as a label, which has no links to click.</summary>

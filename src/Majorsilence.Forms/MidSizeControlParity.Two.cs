@@ -356,8 +356,23 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the culture used to format and parse the value.</summary>
         public IFormatProvider? FormatProvider { get; set; }
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1 sweep).
+        private InsertKeyMode insert_key_mode = InsertKeyMode.Default;
+
         /// <summary>Gets or sets whether typing inserts or overwrites.</summary>
-        public InsertKeyMode InsertKeyMode { get; set; } = InsertKeyMode.Default;
+        public InsertKeyMode InsertKeyMode {
+            get => insert_key_mode;
+            set {
+                if (insert_key_mode == value)
+                    return;
+
+                var was_overwrite = IsOverwriteMode;
+                insert_key_mode = value;
+
+                if (IsOverwriteMode != was_overwrite)
+                    IsOverwriteModeChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
 
         /// <summary>Gets whether typing currently overwrites.</summary>
         /// <remarks>Default follows the keyboard's Insert state, which this layer does not track, so

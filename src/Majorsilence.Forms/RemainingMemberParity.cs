@@ -406,6 +406,8 @@ namespace Majorsilence.Forms
             base.OnActivated ();
 
             OnMenuActivate (EventArgs.Empty);
+            FindForm ()?.RaiseMenuStart ();
+
         }
 
         /// <inheritdoc cref="OnActivated"/>
@@ -414,6 +416,8 @@ namespace Majorsilence.Forms
             base.OnDeactivated ();
 
             OnMenuDeactivate (EventArgs.Empty);
+            FindForm ()?.RaiseMenuComplete ();
+
         }
 
         /// <summary>Raises the <see cref="MenuDeactivate"/> event.</summary>

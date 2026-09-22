@@ -633,6 +633,9 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when a menu has closed. Not raised by this layer yet.</summary>
         public event EventHandler? MenuComplete;
+
+        internal void RaiseMenuStart () => MenuStart?.Invoke (this, EventArgs.Empty);
+        internal void RaiseMenuComplete () => MenuComplete?.Invoke (this, EventArgs.Empty);
 #pragma warning restore CS0067
 
         /// <summary>Raises the <see cref="HelpButtonClicked"/> event.</summary>

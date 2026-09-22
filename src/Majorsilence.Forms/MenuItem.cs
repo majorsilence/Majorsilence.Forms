@@ -263,6 +263,11 @@ namespace Majorsilence.Forms
         /// </summary>
         public MenuItemCollection Items => items ??= new MenuItemCollection (this);
 
+        // Told by the collection above as children come and go; ToolStripDropDownItem relays their
+        // clicks as DropDownItemClicked (W6.1 sweep).
+        internal virtual void OnChildItemAddedCore (MenuItem child) { }
+        internal virtual void OnChildItemRemovedCore (MenuItem child) { }
+
         /// <summary>
         /// Gets or sets the margin of this menu item.
         /// </summary>

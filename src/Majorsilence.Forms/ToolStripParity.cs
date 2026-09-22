@@ -106,6 +106,8 @@ namespace Majorsilence.Forms
         /// <summary>Occurs when the bound command's executability changes.</summary>
         public event EventHandler? CommandCanExecuteChanged;
 
+        private void OnCommandCanExecuteChangedRelay (object? sender, EventArgs e) => CommandCanExecuteChanged?.Invoke (this, e);
+
         /// <summary>Occurs when <see cref="CommandParameter"/> changes.</summary>
         public event EventHandler? CommandParameterChanged;
 #pragma warning restore CS0067
@@ -198,7 +200,13 @@ namespace Majorsilence.Forms
             set {
                 if (ReferenceEquals (command, value))
                     return;
+
+                // Relay the command's CanExecuteChanged as our own, as upstream does (W6.1 sweep).
+                if (command is not null)
+                    command.CanExecuteChanged -= OnCommandCanExecuteChangedRelay;
                 command = value;
+                if (command is not null)
+                    command.CanExecuteChanged += OnCommandCanExecuteChangedRelay;
                 CommandChanged?.Invoke (this, EventArgs.Empty);
             }
         }
@@ -394,6 +402,8 @@ namespace Majorsilence.Forms
 #pragma warning disable CS0067 // No framework trigger yet; see the file header.
         /// <summary>Occurs when the layout of this strip completes.</summary>
         public event EventHandler? LayoutCompleted;
+
+        internal override void OnLayoutCompletedCore () => LayoutCompleted?.Invoke (this, EventArgs.Empty);
 
         /// <summary>Occurs when <see cref="LayoutStyle"/> changes.</summary>
         public event EventHandler? LayoutStyleChanged;

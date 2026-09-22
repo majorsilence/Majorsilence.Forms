@@ -293,6 +293,7 @@ namespace Majorsilence.Forms
                         : new PropertyManager { DataSource = dataSource };
 
                     managers[key] = manager;
+                    CollectionChanged?.Invoke (this, new System.ComponentModel.CollectionChangeEventArgs (System.ComponentModel.CollectionChangeAction.Add, dataSource));
                 }
 
                 return manager;

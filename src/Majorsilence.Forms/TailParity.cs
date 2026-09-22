@@ -46,7 +46,11 @@ namespace Majorsilence.Forms
                 if (ReferenceEquals (command, value))
                     return;
 
+                if (command is not null)
+                    command.CommandCanExecuteChanged -= OnCommandCanExecuteChangedRelay;
                 command = value;
+                if (command is not null)
+                    command.CommandCanExecuteChanged += OnCommandCanExecuteChangedRelay;
                 CommandChanged?.Invoke (this, EventArgs.Empty);
             }
         }
@@ -96,6 +100,8 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the command's ability to run changes. Not raised by this layer yet.</summary>
         public event EventHandler? CommandCanExecuteChanged;
+
+        private void OnCommandCanExecuteChangedRelay (object? sender, EventArgs e) => CommandCanExecuteChanged?.Invoke (this, e);
 #pragma warning restore CS0067
     }
 

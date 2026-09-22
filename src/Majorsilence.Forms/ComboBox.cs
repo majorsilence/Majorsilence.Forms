@@ -796,7 +796,7 @@ namespace Majorsilence.Forms
         public override string GetItemText (object? item)
         {
             // Property descriptors first so DataRowView columns resolve; see DataSourceBinding.
-            return DataSourceBinding.DisplayText (item, DisplayMember);
+            return ApplyFormat (item, DataSourceBinding.DisplayText (item, DisplayMember));
         }
 
         /// <summary>Finds the first item that exactly matches the given string (case-insensitive).</summary>

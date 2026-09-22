@@ -2889,6 +2889,80 @@ silence at 0; it expects 1 now), 5 neutralization rounds (the scanner rule; the 
 WindowBase seams with the colour, cursor and Text raises; `CausesValidation`; every raise line in the
 thirteen setters at once -- all sixteen of their tests failed).
 
+**W6.1 — the sweep: every remaining unraised event triaged in one pass; 28 wired, 31 annotated, 27 named.
+— 2026-09-22.** Part of #91. Closes the unraised-event side of W6.1 as a *backlog*: what is left is a
+finite list of mechanisms, below, not a queue of entries to open one by one.
+
+*Why one sweep now.* The entries left after #232 were the residue that no earlier batch had reached, and
+each earlier batch had spent most of its time triaging entries that turned out not to be gaps. So this
+pass triaged all 86 first -- one grep pass over every hook site -- and then did the whole of the bucket
+that had a hook site in reach, annotated the whole of the bucket that never will, and wrote the third
+bucket down. Three buckets, and every entry is in exactly one.
+
+*Wired (28).* `DataGridView.Cell/Column/RowContextMenuStripChanged` (notifying setters through three more
+`Notify*` doors, #230's shape); `ToolStripItem.CommandCanExecuteChanged` and `ButtonBase.CommandCanExecuteChanged`
+(the `Command` setters relay the command's own event, as upstream does); `Application.EnterThreadModal` /
+`LeaveThreadModal` (bracketing `Form.RunModal`) and `ThreadExit` (after `ApplicationExit` in `Exit`); 
+`ToolStripDropDownItem.DropDownItemClicked` (relayed from the item's own `DropDownItems` -- here that is
+the item's `Items`, and the `ToolStripDropDown` object is a separate shell, so the relay hangs off the
+collection through two `MenuItem` seams); `ToolStrip.LayoutCompleted` (a seam at the end of `ToolBar` and
+`StatusStrip` layout); `PrintDocument.QueryPageSettings` (before every page; cancel ends the job);
+`MaskedTextBox.IsOverwriteModeChanged`; `ListControl.Format` (offered from every `GetItemText`, including
+the `ListBox` and `ComboBox` overrides, when `FormattingEnabled`); `DataGridViewColumnCollection.CollectionChanged`
+(Add/Remove/Refresh); `BindingsCollection.CollectionChanging` and its `CollectionChanged` (the base type --
+`ControlBindingsCollection` is a `Collection<Binding>` and never was one); `BindingContext.CollectionChanged`
+(upstream raises it from `Add`, contrary to what an earlier note here assumed); the five `ToolStripProgressBar`
+key/validation events (forwards to the hosted bar, as a control host does); `ToolStripContentPanel.Load`
+(`OnCreateControl`); `FileDialog.FileOk` (raised after an accepted native dialog; a cancel turns the
+answer into Cancel, since the dialog has already closed); `Control.HelpRequested` and `WindowBase.HelpRequested`
+(F1 walks up the parents until handled, then the window -- WM_HELP); `Form.MenuStart` / `MenuComplete`
+(from the `MenuStrip`'s activation); `TaskDialogPage.HelpRequest` (the Help button asks the page and
+leaves the dialog open); `ToolTip.Popup` (asked with the measured size before every show; cancel shows
+nothing). Two stored-only entries left as a side effect and are real reads: `HelpEventArgs.Handled`
+(the walk stops on it) and `ToolTip.IsBalloon` (in the popup args).
+
+*Annotated (31).* Not gaps, or blocked on a stored mode the way the note says: `WebBrowser` ×4 (no
+engine), `DesignerActionUIService`, `ImageList.RecreateHandle`, `SystemEvents.DisplaySettingsChanged`,
+`RichTextBox.ImeChange` / `Protected`, `Control.ChangeUICues` / `DpiChangedBeforeParent` / `DpiChangedAfterParent`,
+`CommonDialog` / `FolderBrowserDialog.HelpRequest`, `ToolStripItem.QueryAccessibilityHelp`,
+`DataGridView.RowUnshared` (rows are never shared), `StatusBar.DrawItem` / `PanelClick` (panels are not
+rendered), `ToolBar.ButtonDropDown` (legacy `Buttons` surface), `PropertyGrid.PropertyTabChanged`,
+`TaskDialogPage.LinkClicked`, `Application.ThreadException` (no exception boundary around the pump;
+`OnThreadException` is public and raises it), and the virtual-mode and owner-draw families:
+`ListView.SearchForVirtualItem` / `VirtualItemsSelectionRangeChanged`, `DataGridView.CancelRowEdit` /
+`RowHeightInfoNeeded` / `RowHeightInfoPushed`, `MenuItem.DrawItem` / `MeasureItem`, `ListView.DrawColumnHeader`
+/ `DrawSubItem`. Each carries its reason in the baseline.
+
+*Needs a mechanism (27) -- the W6.1 remainder, in full.* Each is a feature, not a raise:
+- **DataGridView** (7): `CellContextMenuStripNeeded` / `RowContextMenuStripNeeded` (a right-click
+  context-menu path that consults the cell first), `CellErrorTextNeeded` / `RowErrorTextNeeded` (error
+  glyph painting asking on demand), `ColumnDividerDoubleClick` / `RowDividerDoubleClick` (divider
+  hit-testing), `CellStyleContentChanged` (a `DataGridViewCellStyle` that tells its owner when it changes).
+- **ListView** (6): `BeforeLabelEdit` / `AfterLabelEdit` (in-place label editing), `ColumnReordered`
+  (header drag), `ColumnWidthChanging` (header resize drag -- `ColumnWidthChanged` has no caller either),
+  `ItemDrag`, `ItemMouseHover` (a rest timer).
+- **ToolStripItem** (7): the five drag events plus `QueryContinueDrag` (item-level drag/drop;
+  `AllowItemReorder` is stored), `MouseHover` (the same rest timer as `ItemMouseHover`).
+- **Form** (3): `HelpButtonClicked` (a help button in the managed caption; `HelpButton` is stored),
+  `ResizeBegin` / `ResizeEnd` (backend resize-drag notifications).
+- **Binding** (2): `BindingSource.DataError` / `BindingManagerBase.DataError` (the `BindingRuntime`
+  catch sites report `BindingComplete` today; routing the manager's error needs the manager in hand).
+- **Other** (2): `ToolStripSplitButton.ButtonDoubleClick` (`ToolStripItem.OnDoubleClick` has no caller
+  -- the strip does not detect double-clicks on items), `ToolTip.Draw` (owner-drawn tips; `OwnerDraw`
+  is stored).
+
+*Counts.* Unraised **120 → 91**: 28 wired, one (`ToolStrip.LayoutCompleted`'s twin on `StatusStrip`)
+was the same fix, 65 annotated, **27 real and named above**. Stored-only **580 → 578**, both real reads.
+
+28 tests. Neutralized in three rounds -- collections and doors; relays, seams and forwards; the
+single-site raises -- and each round's own tests failed; the rounds ran cumulatively rather than
+independently because the restore step between them failed on the machine, so the evidence is the
+*growth* of the failure list per round (6, then +6, then +16), which still attributes every test to its
+mechanism.
+
+*Not tested:* `Application.ThreadExit`. `Application.Exit` closes every open form and cancels the main
+loop, which cannot run inside a shared test process; the raise is one line after `ApplicationExit`.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

@@ -44,8 +44,20 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Notifies on change; the event was declared and raised by nothing (W6.1 sweep).
+        private ContextMenuStrip? context_menu_strip;
+
         /// <summary>Gets or sets the context menu shown when this cell is right-clicked.</summary>
-        public virtual ContextMenuStrip? ContextMenuStrip { get; set; }
+        public virtual ContextMenuStrip? ContextMenuStrip {
+            get => context_menu_strip;
+            set {
+                if (ReferenceEquals (context_menu_strip, value))
+                    return;
+
+                context_menu_strip = value;
+                DataGridView?.NotifyCellContextMenuStripChanged (this);
+            }
+        }
 
         /// <summary>Gets whether the cell is currently on screen.</summary>
         public virtual bool Displayed => Visible && DataGridView is not null && !Bounds.IsEmpty;

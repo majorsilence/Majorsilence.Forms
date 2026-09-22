@@ -420,23 +420,36 @@ namespace Majorsilence.Forms
         /// <summary>Raised when <see cref="RightToLeftLayout"/> changes.</summary>
         public event EventHandler? RightToLeftLayoutChanged;
 
-        // A progress bar takes no keyboard input and has nothing to validate; WinForms declares these
-        // only so the designer can hide them.
-#pragma warning disable CS0067
-        /// <summary>Not raised: a progress bar takes no keyboard input.</summary>
-        public event KeyEventHandler? KeyDown;
+        // WinForms redeclares these on the host and forwards to the hosted control; until the W6.1
+        // sweep they were plain fields here that nothing raised.
+        /// <summary>Forwards to the hosted <see cref="ProgressBar"/>'s <c>KeyDown</c>, as a control host does.</summary>
+        public event KeyEventHandler? KeyDown {
+            add => ProgressBar.KeyDown += value;
+            remove => ProgressBar.KeyDown -= value;
+        }
 
-        /// <inheritdoc cref="KeyDown"/>
-        public event KeyPressEventHandler? KeyPress;
+        /// <summary>Forwards to the hosted <see cref="ProgressBar"/>'s <c>KeyPress</c>, as a control host does.</summary>
+        public event KeyPressEventHandler? KeyPress {
+            add => ProgressBar.KeyPress += value;
+            remove => ProgressBar.KeyPress -= value;
+        }
 
-        /// <inheritdoc cref="KeyDown"/>
-        public event KeyEventHandler? KeyUp;
+        /// <summary>Forwards to the hosted <see cref="ProgressBar"/>'s <c>KeyUp</c>, as a control host does.</summary>
+        public event KeyEventHandler? KeyUp {
+            add => ProgressBar.KeyUp += value;
+            remove => ProgressBar.KeyUp -= value;
+        }
 
-        /// <summary>Not raised: a progress bar has nothing to validate.</summary>
-        public event EventHandler? Validated;
+        /// <summary>Forwards to the hosted <see cref="ProgressBar"/>'s <c>Validated</c>, as a control host does.</summary>
+        public event EventHandler? Validated {
+            add => ProgressBar.Validated += value;
+            remove => ProgressBar.Validated -= value;
+        }
 
-        /// <inheritdoc cref="Validated"/>
-        public event System.ComponentModel.CancelEventHandler? Validating;
-#pragma warning restore CS0067
+        /// <summary>Forwards to the hosted <see cref="ProgressBar"/>'s <c>Validating</c>, as a control host does.</summary>
+        public event System.ComponentModel.CancelEventHandler? Validating {
+            add => ProgressBar.Validating += value;
+            remove => ProgressBar.Validating -= value;
+        }
     }
 }
