@@ -175,13 +175,20 @@ public class StoredOnlySweepTests
         using var grid = ComboGrid (column);
         using var with = PaintSurface.Render (grid);
         var cell = grid.GetCellDisplayRectangle (0, 0, false);
-        var button_probe = new Point (cell.Right - 6, cell.Top + cell.Height / 2);
-        var probe = grid.LogicalToDeviceUnits (new Rectangle (button_probe, new Size (1, 1))).Location;
 
         column.DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing;
         using var without = PaintSurface.Render (grid);
 
-        Assert.NotEqual (with.GetPixel (probe.X, probe.Y), without.GetPixel (probe.X, probe.Y));
+        // The arrow lives in the right-hand band of the cell; where exactly its strokes fall depends on
+        // the platform's font metrics (a single probe pixel missed on Linux), so compare the whole band.
+        var band = grid.LogicalToDeviceUnits (new Rectangle (cell.Right - 20, cell.Top, 20, cell.Height));
+        var differing = 0;
+        for (var y = band.Top; y < band.Bottom; y++)
+            for (var x = band.Left; x < band.Right; x++)
+                if (with.GetPixel (x, y) != without.GetPixel (x, y))
+                    differing++;
+
+        Assert.True (differing > 0, "hiding the drop-down button changed no pixel in the button band");
     }
 
     [Fact]
