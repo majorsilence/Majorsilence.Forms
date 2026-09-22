@@ -160,25 +160,10 @@ Majorsilence.Forms.ToolStripProgressBar.KeyUp
 Majorsilence.Forms.ToolStripProgressBar.RightToLeftLayoutChanged
 Majorsilence.Forms.ToolStripProgressBar.Validated
 Majorsilence.Forms.ToolStripProgressBar.Validating
-Majorsilence.Forms.ToolStripRenderer.RenderArrow    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderButtonBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderDropDownButtonBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderImageMargin    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderItemBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderItemCheck    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderItemImage    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderItemText    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderLabelBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderMenuItemBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderOverflowButtonBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderSeparator    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderSplitButtonBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderStatusStripSizingGrip    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderToolStripBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderToolStripBorder    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderToolStripContentPanelBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderToolStripPanelBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
-Majorsilence.Forms.ToolStripRenderer.RenderToolStripStatusLabelBackground    -- blocked on TSM-48: nothing routes strip painting through ToolStripRenderer.Draw*, so RenderMode/custom renderers cannot fire these
+Majorsilence.Forms.ToolStripRenderer.RenderOverflowButtonBackground    -- no strip paints this part yet (overflow button / sizing grip / panel backgrounds); routes through Draw* when one does
+Majorsilence.Forms.ToolStripRenderer.RenderStatusStripSizingGrip    -- no strip paints this part yet (overflow button / sizing grip / panel backgrounds); routes through Draw* when one does
+Majorsilence.Forms.ToolStripRenderer.RenderToolStripContentPanelBackground    -- no strip paints this part yet (overflow button / sizing grip / panel backgrounds); routes through Draw* when one does
+Majorsilence.Forms.ToolStripRenderer.RenderToolStripPanelBackground    -- no strip paints this part yet (overflow button / sizing grip / panel backgrounds); routes through Draw* when one does
 Majorsilence.Forms.ToolStripSplitButton.ButtonDoubleClick
 Majorsilence.Forms.ToolStripSplitButton.DefaultItemChanged
 Majorsilence.Forms.ToolStripTextBox.TextBoxTextAlignChanged

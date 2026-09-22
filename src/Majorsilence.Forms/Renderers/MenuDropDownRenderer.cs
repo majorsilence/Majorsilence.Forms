@@ -10,17 +10,29 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (MenuDropDown control, PaintEventArgs e)
         {
+            // TSM-48: the drop-down's parts go through its ToolStripRenderer too. Only a
+            // ToolStripSeparator can be offered to DrawSeparator -- its args require that type, and a
+            // MenuSeparatorItem is not one.
+            StripRendererBridge.Background (control, e);
+
+            // The icon gutter, offered once for the whole drop-down as upstream does.
+            if (ShowsImageMargin (control))
+                StripRendererBridge.ImageMargin (control, new Rectangle (0, 0, e.LogicalToDeviceUnits (28), control.ClientRectangle.Height), e);
+
             foreach (var item in control.Items) {
                 if (!item.Visible)
                     continue;
 
                 if (item is MenuSeparatorItem msi)
                     RenderMenuSeparatorItem (control, msi, e);
-                else if (item is ToolStripSeparator tss)
+                else if (item is ToolStripSeparator tss) {
+                    StripRendererBridge.Separator (control, tss, vertical: false, e);
                     RenderMenuSeparatorItem (control, tss, e);
-                else
+                } else
                     RenderItem (control, item, e);
             }
+
+            StripRendererBridge.Border (control, e);
         }
 
         /// <summary>
@@ -31,7 +43,9 @@ namespace Majorsilence.Forms.Renderers
             // Background
             var item_style = item.Hovered || item.IsDropDownOpened ? MenuDropDown.DefaultItemHoverStyle : MenuDropDown.DefaultItemStyle;
             var background_color = item_style.GetBackgroundColor ();
-            e.Canvas.FillRectangle (item.DeviceBounds, background_color);
+
+            if (!StripRendererBridge.ItemBackground (control, item, e))
+                e.Canvas.FillRectangle (item.DeviceBounds, background_color);
 
             // A check mark goes in the image gutter, which is the 28px inset the text starts after.
             // Nothing drew one before, so a checked menu item was indistinguishable from an unchecked
@@ -47,7 +61,9 @@ namespace Majorsilence.Forms.Renderers
                 // draws every other check with. Upstream's menu tick has no box around it, which is a
                 // cosmetic difference from what a Win32 menu draws and the same glyph the rest of this
                 // toolkit uses for the same meaning.
-                if (item is ToolStripMenuItem { RadioCheck: true })
+                if (StripRendererBridge.Check (control, item, glyph_rect, e)) {
+                    // the renderer drew the check itself
+                } else if (item is ToolStripMenuItem { RadioCheck: true })
                     ControlPaint.DrawRadioButton (e, glyph_rect.Location, CheckState.Checked, !item.Enabled);
                 else
                     ControlPaint.DrawCheckBox (e, glyph_rect, CheckState.Checked, !item.Enabled);
@@ -55,7 +71,9 @@ namespace Majorsilence.Forms.Renderers
                 var image_size = e.LogicalToDeviceUnits (16);
                 var image_bounds = DrawingExtensions.CenterSquare (item.DeviceBounds, image_size);
                 var image_rect = new Rectangle (item.DeviceBounds.Left + e.LogicalToDeviceUnits (6), image_bounds.Top, image_size, image_size);
-                e.Canvas.DrawBitmap (item.ImageSK, image_rect, !item.Enabled);
+
+                if (!StripRendererBridge.Image (control, item, image_rect, e))
+                    e.Canvas.DrawBitmap (item.ImageSK, image_rect, !item.Enabled);
             }
 
             // Text
@@ -71,7 +89,11 @@ namespace Majorsilence.Forms.Renderers
             // landed past the item's right edge whatever the property said. TSM-41 is what made it
             // expressible.
             bounds.X += e.LogicalToDeviceUnits (ShowsImageMargin (control) ? 28 : 6);
-            e.Canvas.DrawMnemonicText (item.Text, Theme.UIFont, font_size, bounds, font_color, ContentAlignment.MiddleLeft);
+            if (StripRendererBridge.Text (control, item, item.Text, bounds, font_color, e) is { } tp) {
+                bounds = tp.rect;
+                font_color = tp.colour;
+                e.Canvas.DrawMnemonicText (tp.text, Theme.UIFont, font_size, bounds, font_color, ContentAlignment.MiddleLeft);
+            }
 
             // Shortcut text, right-aligned in the gutter the submenu arrow also uses. Drawn only when
             // the item has no submenu, as upstream does -- an item cannot both open a menu and carry
@@ -93,7 +115,9 @@ namespace Majorsilence.Forms.Renderers
             if (item.HasItems) {
                 var arrow_bounds = DrawingExtensions.CenterSquare (item.DeviceBounds, 16);
                 var arrow_area = new Rectangle (item.DeviceBounds.Right - e.LogicalToDeviceUnits (16) - 4, arrow_bounds.Top, 16, 16);
-                ControlPaint.DrawArrowGlyph (e, arrow_area, font_color, ArrowDirection.Right);
+
+                if (StripRendererBridge.Arrow (control, item, arrow_area, font_color, ArrowDirection.Right, e) is { } ap)
+                    ControlPaint.DrawArrowGlyph (e, ap.rect, ap.colour, ap.direction);
             }
         }
 

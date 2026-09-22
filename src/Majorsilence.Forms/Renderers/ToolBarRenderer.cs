@@ -10,6 +10,10 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (ToolBar control, PaintEventArgs e)
         {
+            // TSM-48: every part goes through the strip's ToolStripRenderer first. See
+            // StripRendererBridge for the contract.
+            StripRendererBridge.Background (control, e);
+
             RenderGrip (control, e);
 
             foreach (var item in control.Items) {
@@ -23,6 +27,8 @@ namespace Majorsilence.Forms.Renderers
                 else
                     RenderItem (control, item, e);
             }
+
+            StripRendererBridge.Border (control, e);
         }
 
         /// <summary>
@@ -39,6 +45,8 @@ namespace Majorsilence.Forms.Renderers
 
             if (band <= 0)
                 return;
+
+            StripRendererBridge.Grip (control, control.LogicalToDeviceUnits (new Rectangle (control.GripBandBounds.Left, control.GripBandBounds.Top, band, control.GripBandBounds.Height)), e);
 
             // DEVICE throughout, like the rest of this canvas. GripBandBounds is logical because
             // LayoutItems measures against it, so it is converted here -- the one place that needs the
@@ -73,7 +81,9 @@ namespace Majorsilence.Forms.Renderers
             // the item reacts under the pointer.
             var item_style = item.Hovered || item.IsDropDownOpened || item.Checked ? ToolBar.DefaultItemHoverStyle : ToolBar.DefaultItemStyle;
             var background_color = item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ();
-            e.Canvas.FillRectangle (item.DeviceBounds, background_color);
+            // The renderer sees the item first; Handled means it painted the background itself.
+            if (!StripRendererBridge.ItemBackground (control, item, e))
+                e.Canvas.FillRectangle (item.DeviceBounds, background_color);
 
             // A ToolStripLabel with IsLink draws as a hyperlink: the link colours and the underline
             // were all stored and read by nothing, so `new ToolStripLabel { IsLink = true }` was
@@ -189,11 +199,17 @@ namespace Majorsilence.Forms.Renderers
                 }
             }
 
-            if (image is not null && !image_rect.IsEmpty)
+            if (image is not null && !image_rect.IsEmpty && !StripRendererBridge.Image (control, item, image_rect, e))
                 e.Canvas.DrawBitmap (image, image_rect, !item.Enabled);
 
-            if (!string.IsNullOrEmpty (item.Text)) {
-                e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_rect, font_color, text_align);
+            // The renderer may recolour, move or take over the text. Null back means it took over.
+            var text_parts = string.IsNullOrEmpty (item.Text) ? null
+                : StripRendererBridge.Text (control, item, item.Text, text_rect, font_color, e);
+
+            if (text_parts is { } tp) {
+                text_rect = tp.rect;
+                font_color = tp.colour;
+                e.Canvas.DrawText (tp.text, Theme.UIFont, font_size, text_rect, font_color, text_align);
 
                 // Drawn as a line under the text rather than as a font style, matching
                 // LinkLabelRenderer -- the two link surfaces should not underline differently.
@@ -213,7 +229,9 @@ namespace Majorsilence.Forms.Renderers
             if (item.HasItems && ShowsDropDownArrow (item)) {
                 var arrow_bounds = DrawingExtensions.CenterSquare (item.DeviceBounds, 16);
                 var arrow_area = new Rectangle (item.DeviceBounds.Right - e.LogicalToDeviceUnits (16) - 4, arrow_bounds.Top, 16, 16);
-                ControlPaint.DrawArrowGlyph (e, arrow_area, font_color, ArrowDirection.Down);
+
+                if (StripRendererBridge.Arrow (control, item, arrow_area, font_color, ArrowDirection.Down, e) is { } ap)
+                    ControlPaint.DrawArrowGlyph (e, ap.rect, ap.colour, ap.direction);
             }
         }
 

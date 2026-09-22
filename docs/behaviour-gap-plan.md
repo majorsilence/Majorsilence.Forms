@@ -2790,6 +2790,43 @@ layout and paint already read them.
 
 20 tests, 7 neutralizations.
 
+**TSM-48 fixed: strip painting now routes through `ToolStripRenderer`. — 2026-09-22.** Part of #91.
+The P1 recorded in the previous batch; the biggest single unlock left.
+
+`ToolStripRenderer` had every upstream `Draw*` method, each raising its event and calling its hook, and
+nothing called any of them. `StripRendererBridge` now offers every part to the resolved renderer first
+-- strip background and border, grip, each item's background by type, image, text, check, image margin,
+separator, arrow -- from both `ToolBarRenderer` and `MenuDropDownRenderer`. Resolution follows
+upstream: an assigned `Renderer` wins, `RenderMode` picks a shell, `ManagerRenderMode` defers to
+`ToolStripManager`. Every strip routes through *something*, so the events fire for all of them.
+
+**One deliberate divergence, stated rather than hidden.** Upstream's base renderer does the default
+painting and an override suppresses it by not calling `base`. Here the built-in painting stays in the
+strip renderers and remains the default, and an override says "done" by setting `Handled` on the item
+or arrow args -- a flag **added** for the purpose. Restyling needs no flag: the default painting reads
+`TextColor`/`ArrowRectangle` back, which is the common WinForms idiom of recolouring in
+`OnRenderItemText` and calling `base`. I first wrote that the flag already existed; a member scrape had
+run past one class into the next. The compiler corrected me.
+
+**Two constructors had been dropping their arguments for as long as they existed.**
+`ToolStripArrowRenderEventArgs` stored the rectangle and colour and discarded `Graphics`, `Item` and
+`Direction`; `ToolStripItemRenderEventArgs` discarded `Graphics` and never set `ToolStrip`. Every
+custom renderer that read `e.Item` would have thrown -- and none ever ran, which is the only reason
+nobody knew. The file already carried a comment about `Graphics` having once been dropped the same way
+in a third class. Routing found them in the first test.
+
+*Scope honestly:* four of the nineteen events stay in the baseline -- overflow button, sizing grip and
+the two panel backgrounds are parts no strip paints yet -- annotated as such. `MouseHover`-style timing
+is not involved here; these are pure paint parts.
+
+*Two honest counts.* Unraised **203 → 188**: fifteen real. Stored-only **604 → 594**, and every one is a
+genuine read: `ToolStrip.RenderMode`, the manager's `Renderer`/`RenderMode`, `ToolStripItem.Font`, and
+the six args properties the bridge now reads back after the override has had them.
+
+Closed in `toolstrip.md` on the rebase that brought #230's record in.
+
+7 tests, 6 neutralizations.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
