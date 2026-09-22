@@ -59,6 +59,35 @@ namespace Majorsilence.Forms.Tests
 
         private static string Name (RadGridView grid, int i) => grid.Rows[i].Cells["Name"].Value?.ToString () ?? "";
 
+        // Binding a RadGridView auto-generates its columns. They must be Telerik-shaped: Columns is
+        // typed as GridViewDataColumn, so a base WinForms column makes the indexer and the enumerator
+        // throw InvalidCastException the moment app code formats the grid after binding.
+        [Fact]
+        public void BoundColumns_AreTelerikShaped ()
+        {
+            var table = new DataTable ();
+            table.Columns.Add ("Code", typeof (string));
+            table.Columns.Add ("Active", typeof (bool));
+            table.Columns.Add ("Amount", typeof (decimal));
+            table.Columns.Add ("Posted", typeof (System.DateTime));
+            table.Rows.Add ("A1", true, 10.5m, System.DateTime.Today);
+
+            using var grid = new RadGridView { AutoGenerateColumns = true, DataSource = table };
+
+            Assert.Equal (4, grid.Columns.Count);
+
+            // The indexer, by name and by position, and the enumerator: each one used to throw.
+            Assert.NotNull (grid.Columns["Code"]);
+            Assert.NotNull (grid.Columns[0]);
+            // Assert.All enumerates, which is the GetEnumerator path that used to throw.
+            Assert.All (grid.Columns, c => Assert.IsAssignableFrom<GridViewDataColumn> (c));
+
+            // Per-type shapes, so a bool still renders as a checkbox and a date still formats as one.
+            Assert.IsType<GridViewCheckBoxColumn> (grid.Columns["Active"]);
+            Assert.IsType<GridViewDecimalColumn> (grid.Columns["Amount"]);
+            Assert.IsType<GridViewDateTimeColumn> (grid.Columns["Posted"]);
+        }
+
         [Fact]
         public void DataRows_Unaffected_WithoutTransform ()
         {

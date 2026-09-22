@@ -239,6 +239,49 @@ namespace Majorsilence.Forms.Telerik
         public new event EventHandler<RowValidatingEventArgs>? RowValidating;
 
         /// <inheritdoc/>
+        /// <summary>
+        /// Auto-generate Telerik-shaped columns, so every member of <see cref="Columns"/> really is a
+        /// <see cref="GridViewDataColumn"/>.
+        /// </summary>
+        /// <remarks>
+        /// The base grid generates plain WinForms columns, which is right for a DataGridView and wrong
+        /// here: GridViewColumnCollection is typed as GridViewDataColumn, so a bound RadGridView threw
+        /// InvalidCastException from its indexer and its enumerator the first time app code touched
+        /// Columns -- which is what every "format the columns after binding" helper does. Real Telerik
+        /// owns column creation the same way and never puts a foreign column type in this collection.
+        ///
+        /// Image-typed members are the one exception: they still come back as DataGridViewImageColumn,
+        /// because the renderer selects the image path on that concrete type and there is no
+        /// Telerik-shaped image column to put in its place. An auto-generated image column in a
+        /// RadGridView therefore still fails the Telerik-typed accessors. No legacy grid binds one
+        /// today (it needs an Image or byte[] member); giving the renderer an image hook the way it
+        /// already has DisplaysAsCheckBox is the fix when one appears.
+        /// </remarks>
+        protected override DataGridViewColumn CreateBoundColumn (string member, Type? memberType)
+        {
+            var type = memberType is null ? null : Nullable.GetUnderlyingType (memberType) ?? memberType;
+
+            // Let the base build anything we have no Telerik-shaped equivalent for.
+            if (type is not null
+                && (typeof (Majorsilence.Forms.Drawing.Image).IsAssignableFrom (type) || type == typeof (byte[])))
+                return base.CreateBoundColumn (member, memberType);
+
+            var generated = base.CreateBoundColumn (member, memberType);
+
+            GridViewDataColumn column = type == typeof (bool) ? new GridViewCheckBoxColumn ()
+                : type == typeof (decimal) ? new GridViewDecimalColumn ()
+                : type == typeof (DateTime) ? new GridViewDateTimeColumn ()
+                : new GridViewTextBoxColumn ();
+
+            // Same identity the base assigned: Name and DataPropertyName both carry the member name so
+            // Columns[name] still matches after app code reassigns HeaderText.
+            column.HeaderText = generated.HeaderText;
+            column.Name = generated.Name;
+            column.DataPropertyName = generated.DataPropertyName;
+            column.Width = generated.Width;
+            return column;
+        }
+
         protected override void OnRowValidating (DataGridViewCellCancelEventArgs e)
         {
             Guard.ThrowIfNull (e);
