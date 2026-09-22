@@ -659,8 +659,14 @@ public partial class Control
                 _resizedWhileLayoutSuspended = true;
 
             OnSizeChanged (EventArgs.Empty);
-            // OnClientSizeChanged (EventArgs.Empty);
-            //PerformLayout (this, nameof (Bounds)); // TESTING
+
+            // Beside OnSizeChanged, which is where dotnet/winforms raises it too -- see Control.cs'
+            // SetBoundsCore, whose `if (newSize)` block is this one, in this order. The line was
+            // ported and then commented out next to a `// TESTING` line, so ClientSizeChanged never
+            // fired at all and a control watching its client area for a resize was never told
+            // (W6.1). ClientSize's setter routes through Size, so this covers that path as well --
+            // upstream's second raise site, SetClientSizeCore, has no separate equivalent here.
+            OnClientSizeChanged (EventArgs.Empty);
             // Clear PreferredSize cache for this control
             CommonProperties.xClearPreferredSizeCache (this);
             LayoutTransaction.DoLayout (Parent, this, PropertyNames.Bounds);
