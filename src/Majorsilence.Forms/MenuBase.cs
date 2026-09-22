@@ -268,7 +268,13 @@ namespace Majorsilence.Forms
         {
             base.OnMouseMove (e);
 
-            SetHover (GetItemAtLocation (e.Location));
+            var item = GetItemAtLocation (e.Location);
+
+            SetHover (item);
+
+            // The per-item MouseMove, declared on ToolStripItem and raised by nothing (W6.1). After
+            // SetHover so a handler that reads Selected sees the state the pointer just produced.
+            (item as ToolStripItem)?.RaiseMouseMove (e);
         }
 
         /// <inheritdoc/>

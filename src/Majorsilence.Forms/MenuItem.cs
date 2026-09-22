@@ -192,10 +192,34 @@ namespace Majorsilence.Forms
                 child.HideDropDown ();
         }
 
+        private bool hovered;
+
         /// <summary>
         /// Gets a value indicating the mouse cursor is currently hovering over this menu item.
         /// </summary>
-        public bool Hovered { get; internal set; }
+        /// <remarks>
+        /// Notifies on change so <c>ToolStripItem.SelectedChanged</c> can fire: upstream's
+        /// <c>Selected</c> IS the hovered/keyboard-selected state, and its event was declared here and
+        /// raised by nothing (W6.1). Both transitions notify, as upstream does.
+        /// </remarks>
+        public bool Hovered {
+            get => hovered;
+            internal set {
+                if (hovered == value)
+                    return;
+
+                hovered = value;
+                OnHoveredChangedCore ();
+            }
+        }
+
+        // The notification seams. MenuItem is this library's base type and ToolStripItem the
+        // WinForms-facing one; the events live on the latter, the state on the former, so the former
+        // announces and the latter raises. No-ops here -- a plain MenuItem has no subscribers to tell.
+        internal virtual void OnTextChangedCore () { }
+        internal virtual void OnLocationChangedCore () { }
+        internal virtual void OnHoveredChangedCore () { }
+        internal virtual void OnParentChangedCore () { }
 
         private Majorsilence.Forms.Drawing.Image? _image;
         private SKBitmap? _imageSK;
@@ -300,7 +324,23 @@ namespace Majorsilence.Forms
         /// <summary>
         /// The parent menu item this item belongs to, if any.
         /// </summary>
-        public MenuItem? Parent { get; internal set; }
+        private MenuItem? parent;
+
+        /// <summary>Gets the item this one belongs to, or null for a root.</summary>
+        /// <remarks>
+        /// Notifies on change so <c>ToolStripItem.OwnerChanged</c> can fire: an item's owning strip is
+        /// reached through this chain, so moving between strips is a Parent change (W6.1).
+        /// </remarks>
+        public MenuItem? Parent {
+            get => parent;
+            internal set {
+                if (ReferenceEquals (parent, value))
+                    return;
+
+                parent = value;
+                OnParentChangedCore ();
+            }
+        }
 
         // The control this MenuItem is parented to, for example a MenuDropDown or a Menu
         internal Control? ParentControl { get; set; }
@@ -332,7 +372,15 @@ namespace Majorsilence.Forms
         /// </remarks>
         public virtual void SetBounds (int x, int y, int width, int height, BoundsSpecified specified = BoundsSpecified.All)
         {
+            var moved = Bounds.Location != new Point (x, y);
+
             Bounds = new Rectangle (x, y, width, height);
+
+            // Location only, as upstream: a resize that leaves the top-left where it was is not a
+            // move, and layout re-runs SetBounds on every pass, so anything looser would fire on
+            // every paint.
+            if (moved)
+                OnLocationChangedCore ();
         }
 
         /// <summary>
@@ -393,6 +441,7 @@ namespace Majorsilence.Forms
 
                 OwnerControl?.PerformLayout ();
                 OwnerControl?.Invalidate ();
+                OnTextChangedCore ();
             }
         }
 

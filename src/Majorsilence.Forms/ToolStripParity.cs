@@ -286,6 +286,41 @@ namespace Majorsilence.Forms
         /// <summary>Raises the <see cref="OwnerChanged"/> event.</summary>
         protected virtual void OnOwnerChanged (EventArgs e) => OwnerChanged?.Invoke (this, e);
 
+        /// <summary>Raises the <see cref="TextChanged"/> event.</summary>
+        protected virtual void OnTextChanged (EventArgs e) => TextChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="LocationChanged"/> event.</summary>
+        protected virtual void OnLocationChanged (EventArgs e) => LocationChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="SelectedChanged"/> event.</summary>
+        protected virtual void OnSelectedChanged (EventArgs e) => SelectedChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="BackColorChanged"/> event.</summary>
+        protected virtual void OnBackColorChanged (EventArgs e) => BackColorChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="ForeColorChanged"/> event.</summary>
+        protected virtual void OnForeColorChanged (EventArgs e) => ForeColorChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="RightToLeftChanged"/> event.</summary>
+        protected virtual void OnRightToLeftChanged (EventArgs e) => RightToLeftChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="MouseMove"/> event.</summary>
+        protected virtual void OnMouseMove (MouseEventArgs e) => MouseMove?.Invoke (this, e);
+
+        // The MenuItem seams, routed to the WinForms-named raisers above. Seven of these events were
+        // declared behind the CS0067 pragma at the top of this class and raised by nothing (W6.1);
+        // upstream raises every one of them from the corresponding setter.
+        internal override void OnTextChangedCore () => OnTextChanged (EventArgs.Empty);
+        internal override void OnLocationChangedCore () => OnLocationChanged (EventArgs.Empty);
+        internal override void OnHoveredChangedCore () => OnSelectedChanged (EventArgs.Empty);
+        internal override void OnParentChangedCore () => OnOwnerChanged (EventArgs.Empty);
+
+        // Called from MenuBase.OnMouseMove with the strip's logical point; upstream's item-level
+        // MouseMove is ITEM-relative, so the item's own logical origin is subtracted first.
+        internal void RaiseMouseMove (MouseEventArgs e)
+            => OnMouseMove (new MouseEventArgs (e.Button, e.Clicks,
+                e.X - Bounds.Left, e.Y - Bounds.Top, e.Delta));
+
         /// <summary>Raises the <see cref="Paint"/> event.</summary>
         protected virtual void OnPaint (PaintEventArgs e) => Paint?.Invoke (this, e);
 

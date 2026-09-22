@@ -1237,14 +1237,51 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the text align within the item. Stub in Majorsilence.Forms.</summary>
         public virtual ContentAlignment TextAlign { get; set; } = ContentAlignment.MiddleCenter;
 
-        /// <summary>Gets or sets the right-to-left mode. Stub in Majorsilence.Forms.</summary>
-        public RightToLeft RightToLeft { get; set; } = RightToLeft.No;
+        private RightToLeft right_to_left = RightToLeft.No;
+        private System.Drawing.Color fore_color = System.Drawing.Color.Empty;
+        private System.Drawing.Color back_color = System.Drawing.Color.Empty;
 
-        /// <summary>Gets or sets the foreground color of this item. Stub in Majorsilence.Forms.</summary>
-        public virtual System.Drawing.Color ForeColor { get; set; } = System.Drawing.Color.Empty;
+        /// <summary>Gets or sets the right-to-left mode.</summary>
+        /// <remarks>Notifies on change (W6.1). Not read by layout or paint here; upstream's Inherit
+        /// resolution against the owning strip is not modelled, so the compare is on the stored value.</remarks>
+        public RightToLeft RightToLeft {
+            get => right_to_left;
+            set {
+                if (right_to_left == value)
+                    return;
 
-        /// <summary>Gets or sets the background color of this item. Stub in Majorsilence.Forms.</summary>
-        public virtual System.Drawing.Color BackColor { get; set; } = System.Drawing.Color.Empty;
+                right_to_left = value;
+                OnRightToLeftChanged (EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Gets or sets the foreground color of this item.</summary>
+        /// <remarks>Notifies on change (W6.1); read by the strip renderers.</remarks>
+        public virtual System.Drawing.Color ForeColor {
+            get => fore_color;
+            set {
+                if (fore_color == value)
+                    return;
+
+                fore_color = value;
+                OnForeColorChanged (EventArgs.Empty);
+                OwnerControl?.Invalidate ();
+            }
+        }
+
+        /// <summary>Gets or sets the background color of this item.</summary>
+        /// <remarks>Notifies on change (W6.1); read by the strip renderers.</remarks>
+        public virtual System.Drawing.Color BackColor {
+            get => back_color;
+            set {
+                if (back_color == value)
+                    return;
+
+                back_color = value;
+                OnBackColorChanged (EventArgs.Empty);
+                OwnerControl?.Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets the font for this item. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Forms.Drawing.Font? Font { get; set; }

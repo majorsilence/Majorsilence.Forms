@@ -158,7 +158,6 @@ Majorsilence.Forms.ToolStrip.RendererChanged
 Majorsilence.Forms.ToolStripContentPanel.Load
 Majorsilence.Forms.ToolStripContentPanel.RendererChanged
 Majorsilence.Forms.ToolStripDropDownItem.DropDownItemClicked
-Majorsilence.Forms.ToolStripItem.BackColorChanged
 Majorsilence.Forms.ToolStripItem.CommandCanExecuteChanged
 Majorsilence.Forms.ToolStripItem.CommandChanged
 Majorsilence.Forms.ToolStripItem.CommandParameterChanged
@@ -166,17 +165,10 @@ Majorsilence.Forms.ToolStripItem.DragDrop
 Majorsilence.Forms.ToolStripItem.DragEnter
 Majorsilence.Forms.ToolStripItem.DragLeave
 Majorsilence.Forms.ToolStripItem.DragOver
-Majorsilence.Forms.ToolStripItem.ForeColorChanged
 Majorsilence.Forms.ToolStripItem.GiveFeedback
-Majorsilence.Forms.ToolStripItem.LocationChanged
 Majorsilence.Forms.ToolStripItem.MouseHover
-Majorsilence.Forms.ToolStripItem.MouseMove
-Majorsilence.Forms.ToolStripItem.OwnerChanged
 Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp
 Majorsilence.Forms.ToolStripItem.QueryContinueDrag
-Majorsilence.Forms.ToolStripItem.RightToLeftChanged
-Majorsilence.Forms.ToolStripItem.SelectedChanged
-Majorsilence.Forms.ToolStripItem.TextChanged
 Majorsilence.Forms.ToolStripManager.RendererChanged
 Majorsilence.Forms.ToolStripPanel.RendererChanged
 Majorsilence.Forms.ToolStripProgressBar.KeyDown
