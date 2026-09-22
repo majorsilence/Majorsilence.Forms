@@ -2185,7 +2185,10 @@ namespace Majorsilence.Forms
     public partial class ToolStripItemCollection : Collection<MenuItem>
     {
         /// <summary>Invoked when an item is added (lets the owning ToolStrip raise ItemAdded).</summary>
-        internal Action<MenuItem>? ItemAddedCallback;
+        // Index-aware, because the facade and the collection it mirrors have to stay in the SAME
+        // order: layout and paint read the mirror, applications read the facade. Forwarding an insert
+        // as an Add put the item last on screen while the facade reported it first (TSM-47).
+        internal Action<int, MenuItem>? ItemInsertedCallback;
 
         /// <summary>Invoked when an item is removed (lets the owning ToolStrip unmirror it).</summary>
         internal Action<MenuItem>? ItemRemovedCallback;
@@ -2194,7 +2197,7 @@ namespace Majorsilence.Forms
         protected override void InsertItem (int index, MenuItem item)
         {
             base.InsertItem (index, item);
-            ItemAddedCallback?.Invoke (item);
+            ItemInsertedCallback?.Invoke (index, item);
         }
 
         /// <inheritdoc/>
@@ -2219,8 +2222,11 @@ namespace Majorsilence.Forms
         {
             var old = this[index];
             base.SetItem (index, item);
+            // Remove-then-insert at the same index: the removal shifts both lists identically, so the
+            // index is still right for the insert, and the mirror ends up with the replacement exactly
+            // where the facade has it rather than at the end.
             ItemRemovedCallback?.Invoke (old);
-            ItemAddedCallback?.Invoke (item);
+            ItemInsertedCallback?.Invoke (index, item);
         }
 
         /// <summary>Adds a range of items to the collection.</summary>
@@ -2415,7 +2421,7 @@ namespace Majorsilence.Forms
             // through this facade at all (TSM-08). They hang off the collection every path shares
             // instead -- see NotifyItemAdded, called from MenuItemCollection.InsertItem.
             return new ToolStripItemCollection {
-                ItemAddedCallback = item => base_items.Add (item),
+                ItemInsertedCallback = (index, item) => base_items.Insert (index, item),
                 ItemRemovedCallback = item => base_items.Remove (item),
             };
         }
