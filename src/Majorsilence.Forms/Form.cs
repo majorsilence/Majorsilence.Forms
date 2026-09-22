@@ -2150,13 +2150,25 @@ namespace Majorsilence.Forms
             TitleBar.AllowClose = control_box;
             TitleBar.AllowMinimize = control_box && MinimizeBox;
             TitleBar.AllowMaximize = control_box && MaximizeBox;
+            TitleBar.AllowHelp = control_box && help_button;
         }
 
         /// <summary>Gets or sets the help button visibility in the title bar. Stub in Majorsilence.Forms.</summary>
-        public bool HelpButton { get; set; }
+        public bool HelpButton {
+            get => help_button;
+            set {
+                help_button = value;
+                ApplyControlBox ();
+            }
+        }
+
+        private bool help_button;
 
         /// <summary>Gets or sets whether to display the icon in the title bar. Stub in Majorsilence.Forms.</summary>
-        public bool ShowIcon { get; set; } = true;
+        public bool ShowIcon {
+            get => TitleBar.ShowImage;
+            set => TitleBar.ShowImage = value;
+        }
 
         /// <summary>Raises the Load event.</summary>
         /// <remarks>

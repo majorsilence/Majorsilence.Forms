@@ -1260,6 +1260,12 @@ namespace Majorsilence.Forms
     /// <summary>Provides data for the data grid view row error text needed event.</summary>
     public class DataGridViewRowErrorTextNeededEventArgs : EventArgs
     {
+        internal DataGridViewRowErrorTextNeededEventArgs (int rowIndex, string errorText)
+        {
+            RowIndex = rowIndex;
+            ErrorText = errorText;
+        }
+
         /// <summary>Gets the row index.</summary>
         public int RowIndex { get; }
         /// <summary>Gets or sets the error text.</summary>

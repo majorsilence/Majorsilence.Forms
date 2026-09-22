@@ -3021,6 +3021,47 @@ control's page renderer; `PrintDocument.OriginAtMargins`; pressed state on `Butt
 before patching and the tree compared against it after restore (the W6.1 sweep's harness fault is
 fixed: the file list is an array).
 
+**W6 mechanisms, first chunk: the hover rest-timer, DataGridView error glyphs, the caption's help
+button and icon switch, and ListView.BackgroundImageTiled. — 2026-09-22.** Part of #91. The first pass
+through the two sweeps' "needs a mechanism" lists, taken by cluster: one mechanism each, clearing every
+entry that waited on it.
+
+*The hover rest-timer.* `Control.MouseHover` fired on entry and once, because there was no timer; a
+"show a tip once the pointer settles" handler fired the instant the pointer crossed the edge. `Control`
+now arms a `Timer` at `SystemInformation.MouseHoverTime` on entry and on every move, and raises
+`MouseHover` when it elapses -- once per rest until `ResetMouseEventArgs` re-arms it or the pointer
+leaves and returns (TME_HOVER's shape). `RaiseHoverAfterRest` is the seam a test uses instead of waiting.
+On the rest: `ListView.ItemMouseHover` names the item under the pointer and `HoverSelection` selects it;
+a strip's hovered `ToolStripItem` raises its `MouseHover`. `ControlExtensibilityHookTests.MouseEnter_raises_MouseHover`
+had pinned the old behaviour and now expects the rest instead. Clears `ListView.ItemMouseHover`,
+`ToolStripItem.MouseHover`, `ListView.HoverSelection`. Still open in the cluster: `ListView.HotTracking`,
+`TreeView.HotTracking`, `TabControl.HotTrack` -- those need a hovered-item *visual*, not the timer.
+
+*DataGridView error glyphs.* `ErrorText` reached the paint args and was drawn by nobody. A red disc with
+a bar now sits at the right edge of a cell with error text (`ShowCellErrors`) and in the row header of a
+row with error text (`ShowRowErrors`), under `DataGridViewPaintParts.ErrorIcon`. `CellErrorTextNeeded` /
+`RowErrorTextNeeded` are asked first, for a bound or virtual grid with a handler attached, as upstream
+does. Clears four entries and reads `VirtualMode` for the first time.
+
+*The managed caption.* `Form.HelpButton` shows a `?` caption button; clicking it raises
+`HelpButtonClicked` and, unless cancelled, the form's `HelpRequested` -- upstream's help mode collapsed
+to its one observable outcome. `ControlBox = false` hides it with the rest. `Form.ShowIcon` drives the
+title bar's image switch. Both were stored. Under system decorations the title bar is hidden and the
+test guards on that, as FRM-30's do.
+
+*ListView.BackgroundImageTiled.* The W6.2 sweep annotated this "blocked on background-image painting:
+no control paints BackgroundImage yet" -- **wrong**: `Control.PaintBackgroundImage` has painted it, in
+every `ImageLayout`, since the splash-screen fix. The property now maps onto `BackgroundImageLayout`
+(`Tile` / `None`) and a `ListView` defaults to off, as upstream's does. The annotation was a triage
+error made from a grep that matched nothing because the painter lives in `Control.Compat.cs`; the
+lesson is the same one the coordinate audit taught -- confirm a "nothing does X" claim by finding
+where X *would* be, not by failing to find it.
+
+*Counts.* Unraised **91 → 86** (22 real remain). Stored-only **552 → 543**, all nine real reads.
+
+11 tests (one existing test inverted); four neutralization rounds, each failing exactly its own tests,
+snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

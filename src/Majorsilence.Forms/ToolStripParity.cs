@@ -79,6 +79,8 @@ namespace Majorsilence.Forms
         /// <summary>Occurs when the mouse rests over the item.</summary>
         public event EventHandler? MouseHover;
 
+        internal void RaiseMouseHover () => MouseHover?.Invoke (this, EventArgs.Empty);
+
         /// <summary>Occurs when a drag-and-drop operation completes over the item.</summary>
         public event DragEventHandler? DragDrop;
 

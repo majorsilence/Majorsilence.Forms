@@ -291,14 +291,16 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void MouseEnter_raises_MouseHover ()
+        public void MouseHover_fires_once_the_pointer_has_rested ()
         {
             using var control = new HookControl { Width = 50, Height = 50 };
             var fired = 0;
             control.MouseHover += (s, e) => fired++;
 
             control.RaiseMouseEnter (Mouse ());
+            Assert.Equal (0, fired); // entry arms the rest timer; it does not hover yet (W6 mechanisms)
 
+            control.RaiseHoverAfterRest ();
             Assert.Equal (1, fired);
             Assert.Contains ("OnMouseHover", control.Calls);
         }

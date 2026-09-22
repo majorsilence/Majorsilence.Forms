@@ -126,17 +126,13 @@ Majorsilence.Forms.DataGridTextBoxColumn.NullText    -- upstream ships the DataG
 Majorsilence.Forms.DataGridTextBoxColumn.PropertyDescriptor    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
 Majorsilence.Forms.DataGridTextBoxColumn.TextBox    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridView.EnableHeadersVisualStyles    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridView.ShowCellErrors    -- blocked on error-glyph painting (W6.1 remainder: *ErrorTextNeeded)
 Majorsilence.Forms.DataGridView.ShowCellToolTips    -- the grid has no cell tooltip path
 Majorsilence.Forms.DataGridView.ShowEditingIcon    -- the row header draws no editing pencil
-Majorsilence.Forms.DataGridView.ShowRowErrors    -- blocked on error-glyph painting (W6.1 remainder: *ErrorTextNeeded)
-Majorsilence.Forms.DataGridView.VirtualMode    -- blocked on virtual mode (stored)
 Majorsilence.Forms.DataGridViewBand.Index    -- framework-written owner/index slot; the grid keeps its own indices
 Majorsilence.Forms.DataGridViewButtonCell.UseColumnTextForButtonValue    -- needs the cell text source to fall back to the column's Text
 Majorsilence.Forms.DataGridViewCell.ColumnInfo    -- framework-written owner/index slot; the grid keeps its own indices
 Majorsilence.Forms.DataGridViewCellContextMenuStripNeededEventArgs.ContextMenuStrip    -- event-args slot for a *Needed event that is not raised (unraised baseline)
 Majorsilence.Forms.DataGridViewCellEditEventArgs.Cancel    -- event-args slot; the raiser does not consult it (CellEndEdit/DataError are not cancellable here)
-Majorsilence.Forms.DataGridViewCellErrorTextNeededEventArgs.ErrorText    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.AdvancedBorderStyle    -- advanced cell borders are not modelled; every cell has the one-pixel grid line
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.CellStyle    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.ClipBounds    -- framework-written (outbound state)
@@ -166,7 +162,6 @@ Majorsilence.Forms.DataGridViewImageColumn.ImageLayout    -- image cells draw th
 Majorsilence.Forms.DataGridViewImageColumn.ValuesAreIcons    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewLinkCell.UseColumnTextForLinkValue    -- needs the cell text source to fall back to the column's Text
 Majorsilence.Forms.DataGridViewRowContextMenuStripNeededEventArgs.ContextMenuStrip    -- event-args slot for a *Needed event that is not raised (unraised baseline)
-Majorsilence.Forms.DataGridViewRowErrorTextNeededEventArgs.ErrorText    -- event-args slot for a *Needed event that is not raised (unraised baseline)
 Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.Height    -- blocked on virtual mode (stored)
 Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.MinimumHeight    -- blocked on virtual mode (stored)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.ClipBounds    -- framework-written (outbound state)
@@ -272,10 +267,8 @@ Majorsilence.Forms.Form.AutoScale    -- legacy .NET 1.x autoscale; AutoScaleMode
 Majorsilence.Forms.Form.AutoScaleBaseSize    -- legacy .NET 1.x autoscale; AutoScaleMode/Dimensions are the live path
 Majorsilence.Forms.Form.AutoSizeMode    -- a top-level window has no parent to size or anchor against; AutoSize is a stub
 Majorsilence.Forms.Form.FormScreenCaptureMode    -- Win32 handle/window-class detail; no equivalent here
-Majorsilence.Forms.Form.HelpButton    -- needs a help button in the managed caption (W6.1 remainder: HelpButtonClicked)
 Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom    -- MDI child minimisation / window list are not modelled
 Majorsilence.Forms.Form.Modal    -- framework-written (outbound state)
-Majorsilence.Forms.Form.ShowIcon    -- needs a caption icon in the managed title bar (FormTitleBar draws none)
 Majorsilence.Forms.Form.TransparencyKey    -- needs a backend window capability (per-pixel transparency / shadow)
 Majorsilence.Forms.GiveFeedbackEventArgs.CursorOffset    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.GiveFeedbackEventArgs.DragImage    -- no drag/drop pipeline (DoDragDrop returns None)
@@ -312,9 +305,7 @@ Majorsilence.Forms.ListBox.UseCustomTabOffsets    -- needs a list-box feature: m
 Majorsilence.Forms.ListBox.UseTabStops    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
 Majorsilence.Forms.ListView.AllowColumnReorder    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.AutoArrange    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
-Majorsilence.Forms.ListView.BackgroundImageTiled    -- blocked on background-image painting: no control paints BackgroundImage yet
 Majorsilence.Forms.ListView.HotTracking    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
-Majorsilence.Forms.ListView.HoverSelection    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.LabelEdit    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.OwnerDraw    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.ListView.RightToLeftLayout    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent

@@ -526,6 +526,10 @@ namespace Majorsilence.Forms.Renderers
                 using var paint = new SKPaint { Color = DataGridView.DefaultRowHeaderStyle.GetForegroundColor (), IsAntialias = true };
                 e.Canvas.DrawPath (path, paint);
             }
+
+            // The row's error glyph, in the header, when the grid shows row errors (W6 mechanisms).
+            if (control.ShowRowErrors && !string.IsNullOrEmpty (control.ResolveRowErrorText (row, rowIndex)))
+                RenderErrorGlyph (e, bounds);
         }
 
         /// <summary>
@@ -641,7 +645,33 @@ namespace Majorsilence.Forms.Renderers
                         run.X + run.Width, Math.Min (text_bounds.Bottom, run.Y) - thickness, fg, thickness);
                 }
             }
+
+            // The error glyph: a red disc with a bar, at the cell's right edge, when the cell has error
+            // text and the grid shows cell errors (W6 mechanisms). Painted last so it sits over content.
+            if (control.ShowCellErrors && paintParts.HasFlag (DataGridViewPaintParts.ErrorIcon)) {
+                var cell = rowIndex >= 0 && rowIndex < control.Rows.Count && columnIndex < control.Rows[rowIndex].Cells.Count ? control.Rows[rowIndex].Cells[columnIndex] : null;
+                var error = control.ResolveCellErrorText (cell, rowIndex, columnIndex);
+
+                if (!string.IsNullOrEmpty (error))
+                    RenderErrorGlyph (e, bounds);
+            }
         }
+
+        internal static void RenderErrorGlyph (PaintEventArgs e, Rectangle bounds)
+        {
+            var size = Math.Min (e.LogicalToDeviceUnits (12), Math.Max (4, bounds.Height - 4));
+            var x = bounds.Right - size - e.LogicalToDeviceUnits (3);
+            var y = bounds.Top + (bounds.Height - size) / 2;
+            var radius = size / 2;
+
+            e.Canvas.FillCircle (x + radius, y + radius, radius, ErrorGlyphColor);
+
+            var bar_width = Math.Max (1, size / 6);
+            e.Canvas.FillRectangle (new Rectangle (x + radius - bar_width / 2, y + size / 4, bar_width, size / 3), SKColors.White);
+            e.Canvas.FillRectangle (new Rectangle (x + radius - bar_width / 2, y + size - size / 4 - bar_width, bar_width, bar_width), SKColors.White);
+        }
+
+        internal static readonly SKColor ErrorGlyphColor = new SKColor (0xE0, 0x1B, 0x24);
 
         // The CELL's LinkBehavior wins; SystemDefault on the cell falls through to the COLUMN's, which
         // is what lets a column set the behaviour once for every link in it. Both were unread.

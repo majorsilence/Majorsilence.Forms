@@ -16,6 +16,7 @@ namespace Majorsilence.Forms
         private readonly TitleBarButton minimize_button;
         private readonly TitleBarButton maximize_button;
         private readonly TitleBarButton close_button;
+        private readonly TitleBarButton help_button;
         private readonly PictureBox form_image;
         private Control? overlay_spacer;
 
@@ -56,6 +57,9 @@ namespace Majorsilence.Forms
 
             close_button = Controls.AddImplicitControl (new TitleBarButton (TitleBarButton.TitleBarButtonGlyph.Close));
             close_button.Click += (o, e) => { FindForm ()?.Close (); };
+            // Form.HelpButton's button: hidden until asked for, as upstream's is (W6 mechanisms).
+            help_button = Controls.AddImplicitControl (new TitleBarButton (TitleBarButton.TitleBarButtonGlyph.Help) { Visible = false });
+            help_button.Click += (o, e) => FindForm ()?.RaiseHelpButtonClicked ();
 
             form_image = Controls.AddImplicitControl (new PictureBox {
                 Width = DefaultSize.Height,
@@ -97,6 +101,7 @@ namespace Majorsilence.Forms
             // using the accent color.
             minimize_button.Visible = !native_overlay;
             maximize_button.Visible = !native_overlay;
+            help_button.Visible = allow_help && !native_overlay;
             close_button.Visible = !native_overlay;
 
             if (native_overlay && overlay_spacer is null) {
@@ -150,6 +155,20 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>Whether the caption shows a help button; <see cref="Form.HelpButton"/> drives it.</summary>
+        public bool AllowHelp {
+            get => allow_help;
+            set {
+                allow_help = value;
+                help_button.Visible = value && !native_overlay;
+                Invalidate ();
+            }
+        }
+
+        private bool allow_help;
+
+        internal Control HelpButtonControl => help_button;
+
         /// <summary>
         /// Gets or sets whether the Minimize button is shown.
         /// </summary>
@@ -169,7 +188,8 @@ namespace Majorsilence.Forms
                 ? (overlay_spacer?.Width ?? 0)
                 : (close_button.Visible ? close_button.Width : 0)
                     + (maximize_button.Visible ? maximize_button.Width : 0)
-                    + (minimize_button.Visible ? minimize_button.Width : 0);
+                    + (minimize_button.Visible ? minimize_button.Width : 0)
+                    + (help_button.Visible ? help_button.Width : 0);
 
         // The preferred title-bar height, used to size the extended (merged) title-bar region.
         internal int PreferredHeight => CaptionHeight;
@@ -352,6 +372,10 @@ namespace Majorsilence.Forms
                     case TitleBarButtonGlyph.Restore:
                         ControlPaint.DrawRestoreGlyph (e, glyph_bounds);
                         break;
+                    case TitleBarButtonGlyph.Help:
+                        e.Canvas.DrawText ("?", Theme.UIFont, e.LogicalToDeviceUnits (Theme.FontSize + 2), ClientRectangle,
+                            Theme.ForegroundColorOnAccent, ContentAlignment.MiddleCenter);
+                        break;
                 }
             }
 
@@ -363,7 +387,8 @@ namespace Majorsilence.Forms
                 Close,
                 Minimize,
                 Maximize,
-                Restore
+                Restore,
+                Help
             }
         }
     }

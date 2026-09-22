@@ -1420,14 +1420,44 @@ namespace Majorsilence.Forms
 
             (Events[s_mouseEnterEvent] as EventHandler)?.Invoke (this, e);
 
-            // Majorsilence.Forms has no hover timer, so hover fires once per entry -- unless the
-            // handler re-arms it with ResetMouseEventArgs.
+            // MouseHover fires once the pointer has RESTED for SystemInformation.MouseHoverTime, as
+            // upstream's does (TME_HOVER). Until W6 it fired on entry, which made "show a tip after the
+            // pointer settles" fire the instant the pointer crossed the edge.
+            ArmHoverTimer ();
+        }
+
+        // Whether MouseHover has already been raised for the current time inside this control; a
+        // handler re-arms it with ResetMouseEventArgs.
+        private bool hover_raised;
+        private Timer? hover_timer;
+
+        private void ArmHoverTimer ()
+        {
+            if (hover_raised)
+                return;
+
+            hover_timer ??= new Timer { Interval = SystemInformation.MouseHoverTime };
+            hover_timer.Tick -= OnHoverTimerTick;
+            hover_timer.Tick += OnHoverTimerTick;
+            hover_timer.Stop ();
+            hover_timer.Start ();
+        }
+
+        private void OnHoverTimerTick (object? sender, EventArgs e)
+        {
+            hover_timer?.Stop ();
+            RaiseHoverAfterRest ();
+        }
+
+        // The rest period has elapsed (or a test says so): raise MouseHover once until re-armed.
+        internal void RaiseHoverAfterRest ()
+        {
+            if (hover_raised)
+                return;
+
             hover_raised = true;
             OnMouseHover (EventArgs.Empty);
         }
-
-        // Whether MouseHover has already been raised for the current time inside this control.
-        private bool hover_raised;
 
         /// <summary>
         /// Re-arms mouse hover so <see cref="MouseHover"/> can be raised again without the pointer
@@ -1455,6 +1485,7 @@ namespace Majorsilence.Forms
             }
 
             hover_raised = false;
+            hover_timer?.Stop ();
             HideItemToolTip ();
             (Events[s_mouseLeaveEvent] as EventHandler)?.Invoke (this, e);
         }
@@ -1466,11 +1497,8 @@ namespace Majorsilence.Forms
         {
             (Events[s_mouseMoveEvent] as MouseEventHandler)?.Invoke (this, e);
 
-            // Only after ResetMouseEventArgs has re-armed it; otherwise hover stays once-per-entry.
-            if (!hover_raised) {
-                hover_raised = true;
-                OnMouseHover (EventArgs.Empty);
-            }
+            // Movement restarts the rest period; after ResetMouseEventArgs it can fire again.
+            ArmHoverTimer ();
 
             UpdateItemToolTip (e.Location);
         }
@@ -2927,6 +2955,11 @@ namespace Majorsilence.Forms
         /// </summary>
         protected override void Dispose (bool disposing)
         {
+            if (disposing) {
+                hover_timer?.Dispose ();
+                hover_timer = null;
+            }
+
             if (!disposedValue) {
                 // Only on an explicit Dispose -- never from the finalizer, where running user
                 // handlers is not safe. Mirrors WinForms' handle teardown notification.
