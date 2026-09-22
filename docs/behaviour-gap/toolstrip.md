@@ -420,7 +420,7 @@ order whatever the property said.
 - **The existing test hid it.** `StripHierarchyTests.StatusStrip_LaysItemsOutWhereItPaintsThem` compared the laid-out bounds against the same device `PaddedClientRectangle` the layout used — both sides wrong together, and identical at scaling 1. It now converts to logical first, with the reason in a comment.
 - **Tests today:** `ToolStripStoredOnlyTests.cs` (the `Spring` pair), `StripHierarchyTests` (corrected).
 
-### TSM-41 — the strip renderers paint logical bounds into a device canvas — Cat A — P1 — High — **CLOSED (2026-09-21)**
+### TSM-41 — the strip renderers paint logical bounds into a device canvas — Cat A — P1 — High — **CLOSED (2026-09-22, after being closed prematurely on 2026-09-21)**
 - **Ours:** `ToolBarRenderer` and `MenuDropDownRenderer` hand `item.Bounds` -- which is **logical** --
   straight to a canvas whose coordinates are **device**. At scaling 2 every strip item is therefore
   painted at **half its proper size, in the top-left quadrant of the strip**, and the device-converted
@@ -462,7 +462,34 @@ order whatever the property said.
   it sized images from a hard-coded `20` while `RenderItem` had been changed to honour
   `ImageScalingSize` (`TSM-44`), so measure and paint disagreed about how much room an icon needs: a
   strip with 32px icons measured its items as though they were 20px.
-- **Tests today:** `StripRendererUnitTests.cs` (3), inverted from the characterization pair that
+- **It was marked CLOSED with two of SEVEN renderers fixed, and that was wrong.** `ToolBarRenderer`
+  and `MenuDropDownRenderer` were the two the finding happened to name; nobody checked the rest.
+  `MenuRenderer`, `RibbonRenderer`, `StatusStripRenderer`, `TabStripRenderer` and
+  `NavigationPaneRenderer` were all doing the identical thing -- a `MenuStrip` item measured `50x26`
+  in an `800x52` bitmap where its device box was `100x52`. `TreeViewRenderer` also paints
+  `item.Bounds`, and is the one that is genuinely fine: `TreeNode.Bounds` is already device.
+- **All seven are now converted.** The `MenuItem`-based five go through `MenuItem.DeviceBounds`.
+  `TabStripItem` and `NavigationPaneItem` have no owner reference and so cannot carry a device box of
+  their own; their renderers convert through the control instead, once at the top of `RenderItem`.
+  `TabStripRenderer`'s owner-draw path is deliberately left logical -- that rectangle goes to
+  application code, where the logical box is the contract.
+- **The real fix is the gate, not the seven edits.** `StripPaintSpaceTests` renders `ToolStrip`,
+  `MenuStrip`, `StatusStrip`, `TabStrip` and `NavigationPane` and asserts each item's painted rectangle
+  is its logical box times the display scale, at whatever scale the run uses. Reverting any one
+  renderer fails exactly its own case, which was verified one at a time. Fixing renderers
+  individually is precisely how the next one gets missed -- twice now.
+- **Each host needed its own lever**, and finding them was most of the work. Hover fills the item
+  background on four of the five; `StatusStrip` paints no item background at all, so it is measured
+  with a `ToolStripProgressBar` driven from `Minimum` to `Maximum`, which its renderer fills across the
+  item -- and it needs a second item beside the bar, because alone the bar springs to the full strip
+  and the fill measures nothing. `TabStripItem.Hovered` and `NavigationPaneItem.Hovered` are computed
+  from their collections' `HoveredIndex`, not settable on the item.
+- **One genuine oddity surfaced and is recorded rather than fixed:** `NavigationPane` lays its items
+  out **151 logical units wide inside an 80-wide pane**, so an item's device box runs off the control
+  and the painted fill is clipped at the edge. The gate clamps its expectation to the control for that
+  reason. That overflow is a layout question for `NavigationPane`, not a paint-space one.
+- **Tests today:** `StripPaintSpaceTests.cs` (5 hosts, 7 neutralizations) and
+  `StripRendererUnitTests.cs` (3), inverted from the characterization pair that
   documented the defect -- the mechanism worked exactly as intended: the fix turned both red and they
   became real assertions rather than being deleted.
 - **The fix exposed four of my own tests that were passing for the wrong reason.**
