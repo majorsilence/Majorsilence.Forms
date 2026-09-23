@@ -88,6 +88,24 @@ namespace Majorsilence.Forms.Tests
             Assert.IsType<GridViewDateTimeColumn> (grid.Columns["Posted"]);
         }
 
+        // An image member used to be the one type that stayed a base WinForms column, because the
+        // renderer selected the image path on the concrete DataGridViewImageColumn type -- which cannot
+        // also be a GridViewDataColumn. The renderer now routes on a column-level hook instead.
+        [Fact]
+        public void Bound_image_columns_are_Telerik_shaped_too ()
+        {
+            var table = new DataTable ();
+            table.Columns.Add ("Code", typeof (string));
+            table.Columns.Add ("Photo", typeof (byte[]));
+            table.Rows.Add ("A1", new byte[] { 1, 2, 3 });
+
+            using var grid = new RadGridView { AutoGenerateColumns = true, DataSource = table };
+
+            Assert.Equal (2, grid.Columns.Count);
+            Assert.All (grid.Columns, c => Assert.IsAssignableFrom<GridViewDataColumn> (c));
+            Assert.IsType<GridViewImageColumn> (grid.Columns["Photo"]);
+        }
+
         [Fact]
         public void DataRows_Unaffected_WithoutTransform ()
         {

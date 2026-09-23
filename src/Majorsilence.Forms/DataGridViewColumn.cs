@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 ﻿using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -406,6 +406,24 @@ namespace Majorsilence.Forms
         /// Default false; check-box column types (including the Telerik-compat GridViewCheckBoxColumn) override.
         /// </summary>
         protected internal virtual bool DisplaysAsCheckBox => false;
+
+        /// <summary>
+        /// When true, the renderer draws the cell's image instead of text. Default false; image column
+        /// types override.
+        /// </summary>
+        /// <remarks>
+        /// The companion to <see cref="DisplaysAsCheckBox"/>, and it exists for the same reason: the
+        /// renderer used to select the image path on the concrete DataGridViewImageColumn type, so an
+        /// image column that had to derive from something else -- a Telerik-compat column, which must be
+        /// a GridViewDataColumn to belong to RadGridView's Columns collection -- could not render as one.
+        /// </remarks>
+        protected internal virtual bool DisplaysAsImage => false;
+
+        /// <summary>
+        /// The column-level fallback image, used when a cell has no image of its own. Null unless an
+        /// image column type supplies one.
+        /// </summary>
+        protected internal virtual Majorsilence.Forms.Drawing.Image? ColumnImage => null;
 
         // The layout pass sets Fill widths through here rather than the setter, whose OnColumnsChanged
         // would call back into the layout that is running. MinimumWidth is enforced here, once.
