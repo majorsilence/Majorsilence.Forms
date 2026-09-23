@@ -3131,6 +3131,29 @@ colour is the whole of it. Still open in the cluster: nothing.
 7 tests; three neutralization rounds (double-click raises; hot tracking; the colour helper alone), each
 failing exactly its own tests, snapshot verified before and after.
 
+**W6 mechanisms, fourth chunk: the ListView header divider drag. — 2026-09-23.** Part of #91.
+
+`ColumnWidthChanging` and `ColumnWidthChanged` had raisers nothing called, because nothing in the list
+could change a column's width but code -- and even `ColumnHeader.Width = x` told nobody. The header's
+dividers are draggable now: a press within 4 logical pixels of a column's right edge in the header
+band starts a resize, every move raises `ColumnWidthChanging` with the proposed width (cancellable; a
+handler may substitute `NewWidth`, which is how a snap works), and the width that takes goes through
+`ColumnHeader.Width`, whose setter now invalidates the list and raises `ColumnWidthChanged` -- so the
+programmatic path fires it too. The release that ends a drag is not a `ColumnClick`, as upstream has
+it. The nested `ListView.ColumnHeaderCollection` already gave each header its `ListView`, which is what
+the setter notifies through.
+
+*Not done:* the west-east cursor over a divider, and column reordering (`AllowColumnReorder`,
+`ColumnReordered`, `DisplayIndex`), which is a header drag of a different kind and stays on the list.
+
+*Counts.* Unraised **120 → 119**. Stored-only **539 → 537**.
+
+Also in this change: the package version moves 26.1.0 → **26.2.0** (26.1.0 is the latest published
+release), and the project template's `msformsVersion` pin moves to 26.1.0, the last version on the feed.
+
+6 tests; three neutralization rounds (the drag's ask-and-set; the setter's notification; the click
+suppression), each failing exactly its own tests, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

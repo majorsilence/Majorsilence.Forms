@@ -311,6 +311,92 @@ namespace Majorsilence.Forms
         private Point ToDevice (Point location)
             => new Point (LogicalToDeviceUnits (location.X), LogicalToDeviceUnits (location.Y));
 
+        internal void NotifyColumnWidthChanged (ColumnHeader column)
+        {
+            Invalidate ();
+            OnColumnWidthChanged (new ColumnWidthChangedEventArgs (column.Index));
+        }
+
+        // ── header divider resize (W6) ─────────────────────────────────────────────────────────────
+        // Dragging the divider at a column's right edge resizes it: ColumnWidthChanging on every
+        // notification (cancellable), ColumnWidthChanged through the Width setter when it takes.
+        private int resize_column = -1;
+        private int resize_start_x;
+        private int resize_start_width;
+        private bool suppress_header_click;
+
+        // The column whose right-edge divider is under the device-space point, or -1.
+        internal int HeaderDividerAt (Point location)
+        {
+            if (ScaledHeaderHeight <= 0 || location.Y >= PaddedClientRectangle.Top + ScaledHeaderHeight)
+                return -1;
+
+            var edge = ItemArea.Left + ScaledCheckWidth;
+            var zone = LogicalToDeviceUnits (4);
+
+            for (var i = 0; i < Columns.Count; i++) {
+                edge += ScaledColumnWidth (Columns[i]);
+
+                if (Math.Abs (location.X - edge) <= zone)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnMouseDown (MouseEventArgs e)
+        {
+            base.OnMouseDown (e);
+
+            if (e.Button != MouseButtons.Left)
+                return;
+
+            LayoutItems ();
+            var column = HeaderDividerAt (ToDevice (e.Location));
+
+            if (column < 0)
+                return;
+
+            resize_column = column;
+            resize_start_x = e.X;
+            resize_start_width = DeviceToLogicalUnits (ScaledColumnWidth (Columns[column]));
+            suppress_header_click = false;
+            Capture = true;
+        }
+
+        private void TrackHeaderResize (MouseEventArgs e)
+        {
+            if (resize_column < 0)
+                return;
+
+            var proposed = Math.Max (0, resize_start_width + (e.X - resize_start_x));
+            var column = Columns[resize_column];
+
+            if (proposed == column.Width)
+                return;
+
+            var changing = new ColumnWidthChangingEventArgs (resize_column, proposed, false);
+            OnColumnWidthChanging (changing);
+
+            if (changing.Cancel)
+                return;
+
+            suppress_header_click = true;
+            column.Width = changing.NewWidth;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnMouseUp (MouseEventArgs e)
+        {
+            base.OnMouseUp (e);
+
+            if (resize_column >= 0) {
+                resize_column = -1;
+                Capture = false;
+            }
+        }
+
         /// <inheritdoc/>
         // The item under the pointer, for HotTracking's hot colour (W6). Tracked here rather than in the
         // renderer so a change repaints only when the hot item actually moves.
@@ -320,6 +406,7 @@ namespace Majorsilence.Forms
         protected override void OnMouseMove (MouseEventArgs e)
         {
             base.OnMouseMove (e);
+            TrackHeaderResize (e);
             SetHotItem (HotTracking ? GetItemAt (e.X, e.Y) : null);
         }
 
@@ -350,6 +437,12 @@ namespace Majorsilence.Forms
 
             // A click in the header band is a column click, not an item click (LST-18).
             if (ScaledHeaderHeight > 0 && location.Y < PaddedClientRectangle.Top + ScaledHeaderHeight) {
+                // The release that ends a divider drag is not a header click (W6).
+                if (suppress_header_click) {
+                    suppress_header_click = false;
+                    return;
+                }
+
                 var column = ColumnIndexAt (location.X);
 
                 if (column >= 0 && HeaderStyle == ColumnHeaderStyle.Clickable)
@@ -982,8 +1075,21 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the column header text.</summary>
         public string Text { get; set; } = string.Empty;
 
+        // A width change tells the owning list, which raises ColumnWidthChanged and repaints (W6). -1
+        // and -2 keep their auto-size meanings.
+        private int width = 60;
+
         /// <summary>Gets or sets the width of the column in pixels.</summary>
-        public int Width { get; set; } = 60;
+        public int Width {
+            get => width;
+            set {
+                if (width == value)
+                    return;
+
+                width = value;
+                ListView?.NotifyColumnWidthChanged (this);
+            }
+        }
 
         /// <summary>Gets or sets the horizontal alignment of items in this column.</summary>
         public HorizontalAlignment TextAlign { get; set; }

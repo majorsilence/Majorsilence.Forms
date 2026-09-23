@@ -59,8 +59,6 @@ Majorsilence.Forms.ColorDialog.FullOpen    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.SolidColorOnly    -- framework-written (outbound state)
 Majorsilence.Forms.ColumnHeader.DisplayIndex    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
-Majorsilence.Forms.ColumnHeader.Index    -- framework-written (outbound state)
-Majorsilence.Forms.ColumnWidthChangingEventArgs.NewWidth    -- framework-written (outbound state)
 Majorsilence.Forms.ComboBox.DrawMode    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.ComboBox.HideSelection    -- not an upstream ComboBox member; left unread deliberately (see ComboBox.cs)
 Majorsilence.Forms.CommonDialog.Tag    -- user-data slot; upstream reads it nowhere either

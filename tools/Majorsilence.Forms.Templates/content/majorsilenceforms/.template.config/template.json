@@ -33,7 +33,7 @@
     "msformsVersion": {
       "type": "parameter",
       "datatype": "string",
-      "defaultValue": "26.0.52",
+      "defaultValue": "26.1.0",
       "replaces": "MSFORMS_PACKAGE_VERSION",
       "description": "The Majorsilence.Forms NuGet package version to reference. This LAGS the repo version in Directory.Build.props on purpose: the template scaffolds a project that restores from nuget.org, so it can only name a version already PUBLISHED there. Bump it after a release goes out, never in the same change that sets the new version -- doing that fails CI's `template` job with NU1102."
     },
