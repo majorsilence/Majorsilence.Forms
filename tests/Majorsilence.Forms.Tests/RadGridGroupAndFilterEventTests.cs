@@ -282,6 +282,9 @@ namespace Majorsilence.Forms.Tests
                 Assert.NotNull (announced);
                 Assert.Equal ("Salary", announced!.Name);
             } finally {
+                // The built-in popup outlives a closed form (a gap in its own right, see the plan); close
+                // it so the sibling test's premise -- no active popup -- holds whatever the run order.
+                Application.ActivePopupWindow?.Close ();
                 form.Close ();
             }
         }

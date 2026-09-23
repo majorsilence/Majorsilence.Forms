@@ -3062,6 +3062,48 @@ where X *would* be, not by failing to find it.
 11 tests (one existing test inverted); four neutralization rounds, each failing exactly its own tests,
 snapshot verified before and after.
 
+**W6 mechanisms, second chunk: the 45 events that discarded their handlers. — 2026-09-22.** Part of
+#91. Every event declared `{ add { } remove { } }` -- tracked until now in `InertEventBaseline.txt` --
+is a real event. A subscription to any of them used to be thrown away: `tree.NodeMouseHover += h`
+compiled, ran, and `h` was never stored, let alone called. The inert baseline is **empty** and must
+stay so (`NoNewInertEvents` fails on the first new one); the events now show in the unraised baseline
+with a reason each, where the honest state was always meant to be recorded.
+
+*Wired (8).* `TreeView.NodeMouseHover` rides the rest-timer; `Control.SystemColorsChanged` fires from
+`OnThemeChanged` (a theme change is this layer's WM_SYSCOLORCHANGE); `DataGridView.RowStateChanged` /
+`CellStateChanged` fire from the selection paths with `Selected` named as the state that moved;
+`PropertyGrid.SelectedObjectsChanged` and `SelectedGridItemChanged` fire from the setter and the row
+click. And `ToolStripLabel.MouseEnter` / `MouseLeave`, redeclared with `new` and discarding -- forwarding
+them to the base exposed that **`ToolStripItem.MouseEnter` / `MouseLeave` were never raised either**:
+the unraised scan had credited them to a same-named method on another type (the false negative noted
+in W6.1). `MenuBase.SetHover` raises the pair at the hover seam now -- not in `OnHoverChanged`, which a
+subclass may override without calling base -- so every strip item's enter/leave fire, not only the
+label's. The scan still credits the two to the wrong method, so the baseline does not record their
+change; the test does.
+
+*Now honestly unraised (37), each with its reason on the baseline line:* NotifyIcon ×8 (tray backend),
+WebBrowser ×6, the DataGridView new-row trio (`IsNewRow` is always false; `NewRowIndex` is a count),
+`ColumnDisplayIndexChanged` (`DisplayIndex` is not implemented), virtual-mode ×4, `MeasureItem` ×2,
+`QueryAccessibilityHelp` ×2, `Control.Scroll` (not an upstream Control member), `ToolStripControlHost.ContentChanged`
+(not an upstream member at all), `FontDialog.Apply`, `Form.InputLanguage*`, `ToolBar.ButtonClick`,
+`RichTextBox.ContentsResized`, `TreeView` label edit and `ItemDrag`, `PropertyGrid.PropertyValueChanged`
+(the grid is read-only).
+
+*Counts.* Inert **45 → 0**. Unraised **86 → 123** -- a rise, and the right direction: 37 entries that
+were hidden behind a discarding accessor are listed with reasons, and the 22 unannotated ones are the
+W6.1 remainder unchanged. Stored-only unchanged.
+
+*Found on the way: a closed popup stayed the active popup.* Running the suite in Debug turned up an
+order-dependent failure in `RadGridGroupAndFilterEventTests` that pre-dates this chunk: `PopupWindow.Close()`
+hid the window and raised `Closed` but never cleared `Application.ActivePopupWindow` -- only `Hide` and
+`Dispose` did -- so a grid's filter popup closed through `Close()` stayed registered until something
+else took its place, and the next test asserting "no active popup" failed whenever it ran second. The
+Release run happened to order the two tests the other way, which is why CI never saw it. `RunBackendClosed`
+clears the registration now, and a `PopupWindow` closes with the window it was opened for (its parent's
+`Closed`), as a drop-down or tip does in WinForms. Two tests pin both.
+
+8 tests; three neutralization rounds, each failing exactly its own tests, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

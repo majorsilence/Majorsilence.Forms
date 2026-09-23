@@ -891,8 +891,10 @@ namespace Majorsilence.Forms
         /// <summary>Raises the DrawItem event.</summary>
         protected virtual void OnDrawItem (DrawItemEventArgs e) => DrawItem?.Invoke (this, e);
 
+#pragma warning disable CS0067
         /// <summary>Raised when an owner-drawn element needs to be measured. Stub in Majorsilence.Forms.</summary>
-        public event MeasureItemEventHandler? MeasureItem { add { } remove { } }
+        public event MeasureItemEventHandler? MeasureItem;
+#pragma warning restore CS0067
 
         /// <summary>Finds the first item starting with the given string (case-insensitive).</summary>
         public int FindString (string s, int startIndex = -1)
