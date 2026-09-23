@@ -688,11 +688,13 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the number of virtual list items when VirtualMode is true. Stub in Majorsilence.Forms.</summary>
         public int VirtualListSize { get; set; }
 
+#pragma warning disable CS0067
         /// <summary>Raised when virtual mode items need to be retrieved. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<RetrieveVirtualItemEventArgs>? RetrieveVirtualItem { add { } remove { } }
+        public event EventHandler<RetrieveVirtualItemEventArgs>? RetrieveVirtualItem;
 
         /// <summary>Raised when virtual items need to be cached. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<CacheVirtualItemsEventArgs>? CacheVirtualItems { add { } remove { } }
+        public event EventHandler<CacheVirtualItemsEventArgs>? CacheVirtualItems;
+#pragma warning restore CS0067
 
         /// <summary>Scrolls the specified item into view.</summary>
         /// <remarks>Real as of W5.6 (LST-19); it was an <c>Invalidate</c>, so the standard

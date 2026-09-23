@@ -436,8 +436,10 @@ namespace Majorsilence.Forms
         /// <summary>Pastes the clipboard's contents in the given format.</summary>
         public void Paste (DataFormats.Format clipFormat) => base.Paste ();
 
+#pragma warning disable CS0067
         /// <summary>Raised when the control's contents are resized. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<ContentsResizedEventArgs>? ContentsResized { add { } remove { } }
+        public event EventHandler<ContentsResizedEventArgs>? ContentsResized;
+#pragma warning restore CS0067
 
         /// <summary>Raised when the user clicks a link in the RichTextBox. Stub in Majorsilence.Forms.</summary>
         public event LinkClickedEventHandler? LinkClicked;

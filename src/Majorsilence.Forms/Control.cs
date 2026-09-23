@@ -1836,6 +1836,10 @@ namespace Majorsilence.Forms
         {
             SetState (States.IsDirty, true);
 
+            // A theme change is this layer's WM_SYSCOLORCHANGE: the system colours a control paints with
+            // have changed, so SystemColorsChanged fires here (W6; it used to discard its handlers).
+            OnSystemColorsChanged (e);
+
             // Recurse so nested controls also repaint with the new theme. Each control only redraws its
             // back buffer when it (not just an ancestor) is dirty, so every descendant must be marked.
             foreach (var child in Controls.GetAllControls ())

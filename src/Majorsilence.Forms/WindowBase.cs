@@ -96,6 +96,12 @@ namespace Majorsilence.Forms
                 OnVisibleChanged (EventArgs.Empty);
             }
 
+            // A closed popup is no longer the active one. Hide and Dispose already say so; Close ran
+            // neither, so a popup closed through Close() stayed registered until something else took
+            // its place (W6; found through an order-dependent test).
+            if (Application.ActivePopupWindow == this)
+                Application.ActivePopupWindow = null;
+
             OnClosed (EventArgs.Empty);
 
             // WinForms raises FormClosed after the form has closed, for every close path -- programmatic
@@ -2386,10 +2392,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the window is visible to accessibility clients.</summary>
         public bool IsAccessible { get; set; } = true;
 
+#pragma warning disable CS0067
         /// <summary>Raised when an accessibility client requests help for the window.</summary>
         /// <remarks>Never raised, as on Control: there is no accessibility client to ask. Present because
         /// designer code binds it.</remarks>
-        public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp { add { } remove { } }
+        public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp;
+#pragma warning restore CS0067
 
         // The adapter forwards its layout pass to this window only once the window has been shown (see
         // ControlAdapter.OnLayout, which explains why). An explicit PerformLayout/ResumeLayout from the

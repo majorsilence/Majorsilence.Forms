@@ -65,6 +65,8 @@ namespace Majorsilence.Forms
                 ClearSelectionCore ();
 
             row.SetSelectedCore (value, value ? ++selection_sequence : 0);
+            // The state that moved was Selected; upstream names it in the args (W6).
+            OnRowStateChanged (row.Index, new DataGridViewRowStateChangedEventArgs (row, DataGridViewElementStates.Selected));
             NotifySelectionChanged ();
         }
 
@@ -82,6 +84,7 @@ namespace Majorsilence.Forms
                 ClearSelectionCore ();
 
             cell.SetSelectedCore (value, value ? ++selection_sequence : 0);
+            OnCellStateChanged (new DataGridViewCellStateChangedEventArgs (cell, DataGridViewElementStates.Selected));
             NotifySelectionChanged ();
         }
 

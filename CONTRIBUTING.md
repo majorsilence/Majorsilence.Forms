@@ -139,7 +139,7 @@ up — regenerate and commit the smaller file):
 | Gate | Records | Regenerate with |
 |---|---|---|
 | `NoOpStubBaseline.txt` | empty-bodied public `void` methods | `MAJORSILENCE_WRITE_STUB_BASELINE=1` |
-| `InertEventBaseline.txt` | events whose accessors are `add { } remove { }` | `MAJORSILENCE_WRITE_INERT_EVENT_BASELINE=1` |
+| `InertEventBaseline.txt` | events whose accessors are `add { } remove { }` -- **empty since 2026-09-22 and kept empty**: declare a real event and let it appear in the unraised baseline with a reason instead | `MAJORSILENCE_WRITE_INERT_EVENT_BASELINE=1` |
 | `UnraisedEventBaseline.txt` | field-backed events nothing raises | `MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1` |
 | `StoredOnlyPropertyBaseline.txt` | settable auto-properties nothing reads | `MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1` |
 | `TelerikInertEventBaseline.txt` | the same, over `Majorsilence.Forms.Telerik` | `MAJORSILENCE_WRITE_INERT_EVENT_BASELINE=1` |

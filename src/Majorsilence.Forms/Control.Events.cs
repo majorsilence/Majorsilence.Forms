@@ -549,8 +549,10 @@ public partial class Control
     /// </remarks>
     public event HelpEventHandler? HelpRequested;
 
+#pragma warning disable CS0067
     /// <summary>Raised when component is being queried for help. Stub in Majorsilence.Forms.</summary>
-    public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp { add { } remove { } }
+    public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp;
+#pragma warning restore CS0067
 
     /// <summary>Raised when the user clicks the control with the mouse (typed mouse variant of <see cref="Click"/>).</summary>
     public event MouseEventHandler? MouseClick {
@@ -564,8 +566,10 @@ public partial class Control
         remove => Events.RemoveHandler (s_mouseDoubleClickEvent, value);
     }
 
+#pragma warning disable CS0067
     /// <summary>Raised when the user scrolls the control. Stub in Majorsilence.Forms.</summary>
-    public event ScrollEventHandler? Scroll { add { } remove { } }
+    public event ScrollEventHandler? Scroll;
+#pragma warning restore CS0067
 
     /// <summary>Raised when the DPI scaling of the control changes.</summary>
     /// <remarks>
@@ -591,5 +595,5 @@ public partial class Control
     public event EventHandler? BindingContextChanged;
 
     /// <summary>Raised when the system colors change. Stub in Majorsilence.Forms.</summary>
-    public event EventHandler? SystemColorsChanged { add { } remove { } }
+    public event EventHandler? SystemColorsChanged;
 }

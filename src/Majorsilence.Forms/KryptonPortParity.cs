@@ -58,7 +58,7 @@ namespace Majorsilence.Forms
         /// <summary>Raises the <see cref="SystemColorsChanged"/> event.</summary>
         /// <remarks>Never raised by this layer -- no system-colour change notification is delivered --
         /// but a themed control overrides it to rebuild its palette.</remarks>
-        protected virtual void OnSystemColorsChanged (EventArgs e) { }
+        protected virtual void OnSystemColorsChanged (EventArgs e) => SystemColorsChanged?.Invoke (this, e);
 
         /// <summary>
         /// Raises the DoubleClick event, the WinForms-shaped overload that carries no mouse position.

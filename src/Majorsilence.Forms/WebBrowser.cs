@@ -147,23 +147,25 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the page posts a message back to the host (e.g. via <c>window.invokeCSharpAction</c>).</summary>
         public event EventHandler<WebViewMessageEventArgs>? WebMessageReceived;
 
+#pragma warning disable CS0067
         /// <summary>Raised when a navigation has completed. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<WebBrowserNavigatedEventArgs>? Navigated { add { } remove { } }
+        public event EventHandler<WebBrowserNavigatedEventArgs>? Navigated;
 
         /// <summary>Raised before a navigation starts. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<WebBrowserNavigatingEventArgs>? Navigating { add { } remove { } }
+        public event EventHandler<WebBrowserNavigatingEventArgs>? Navigating;
 
         /// <summary>Raised when the CanGoBack or CanGoForward property changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? CanGoBackChanged { add { } remove { } }
+        public event EventHandler? CanGoBackChanged;
 
         /// <summary>Raised when the CanGoForward property changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? CanGoForwardChanged { add { } remove { } }
+        public event EventHandler? CanGoForwardChanged;
 
         /// <summary>Raised when the DocumentTitle property changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? DocumentTitleChanged { add { } remove { } }
+        public event EventHandler? DocumentTitleChanged;
 
         /// <summary>Raised when the StatusText property changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? StatusTextChanged { add { } remove { } }
+        public event EventHandler? StatusTextChanged;
+#pragma warning restore CS0067
 
         private void OnNavigationCompleted (object? sender, WebViewNavigationCompletedEventArgs e)
         {
