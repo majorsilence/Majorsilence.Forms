@@ -47,6 +47,56 @@ public class FocusSequenceTests
             Location = new Point (10, 10 + (tabIndex * 40)),
         };
 
+    // Upstream cannot focus a control on a form that is not displayed yet, so Focus() inside a Load
+    // handler is a no-op there and the focus events arrive after the window is up. This fork marks the
+    // window visible before Load (so a Load handler sees a real client rectangle), which used to let the
+    // whole Leave/LostFocus/Enter/GotFocus sequence run inside Load -- against handlers whose own fields
+    // are still being set up, and for a control that had never actually had focus.
+    [Fact]
+    public void Focus_from_a_Load_handler_is_raised_after_Load_returns ()
+    {
+        HeadlessRenderer.Use ();
+
+        using var form = new Form { Size = new Size (400, 300) };
+        var a = AddBox (form, 0);
+        var b = AddBox (form, 1);
+
+        var during_load = new System.Collections.Generic.List<string> ();
+        var raised = new System.Collections.Generic.List<string> ();
+        var in_load = false;
+
+        void Record (string name)
+        {
+            raised.Add (name);
+
+            if (in_load)
+                during_load.Add (name);
+        }
+
+        a.GotFocus += (_, _) => Record ("a.GotFocus");
+        a.LostFocus += (_, _) => Record ("a.LostFocus");
+        b.GotFocus += (_, _) => Record ("b.GotFocus");
+        b.LostFocus += (_, _) => Record ("b.LostFocus");
+
+        form.Load += (_, _) => {
+            in_load = true;
+            a.Focus ();
+            b.Focus ();
+            in_load = false;
+        };
+
+        form.Show ();
+
+        // The point of the fix: no focus event reached a handler while Load was still running.
+        Assert.Empty (during_load);
+
+        // The last request wins, and it arrives as a plain focus gain: no LostFocus for a control that
+        // never actually held focus.
+        Assert.Equal (new[] { "b.GotFocus" }, raised);
+        Assert.True (b.Focused);
+        Assert.False (a.Focused);
+    }
+
     [Fact]
     public void The_leaving_control_is_heard_before_the_entering_one ()
     {
