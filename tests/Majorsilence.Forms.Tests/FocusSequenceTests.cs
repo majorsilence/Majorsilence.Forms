@@ -97,6 +97,50 @@ public class FocusSequenceTests
         Assert.False (a.Focused);
     }
 
+    // The same guarantee for a HOSTED form. A non-top-level form never reaches
+    // EnsureShownBookkeeping -- it loads from Form.TryShowHosted -- which is the path every MDI child
+    // takes. Guarding only the top-level path left the common case raising focus events inside Load.
+    [Fact]
+    public void Focus_from_a_Load_handler_is_deferred_for_a_hosted_form_too ()
+    {
+        HeadlessRenderer.Use ();
+
+        using var form = new Form { Size = new Size (400, 300), TopLevel = false };
+        var a = AddBox (form, 0);
+        var b = AddBox (form, 1);
+
+        var during_load = new System.Collections.Generic.List<string> ();
+        var raised = new System.Collections.Generic.List<string> ();
+        var in_load = false;
+
+        void Record (string name)
+        {
+            raised.Add (name);
+
+            if (in_load)
+                during_load.Add (name);
+        }
+
+        a.GotFocus += (_, _) => Record ("a.GotFocus");
+        a.LostFocus += (_, _) => Record ("a.LostFocus");
+        b.GotFocus += (_, _) => Record ("b.GotFocus");
+        b.LostFocus += (_, _) => Record ("b.LostFocus");
+
+        form.Load += (_, _) => {
+            in_load = true;
+            a.Focus ();
+            b.Focus ();
+            in_load = false;
+        };
+
+        form.Show ();
+
+        Assert.Empty (during_load);
+        Assert.Equal (new[] { "b.GotFocus" }, raised);
+        Assert.True (b.Focused);
+        Assert.False (a.Focused);
+    }
+
     [Fact]
     public void The_leaving_control_is_heard_before_the_entering_one ()
     {

@@ -1839,7 +1839,7 @@ namespace Majorsilence.Forms
             // with no parent simply is not on screen.
             if (!TopLevel && !IsFrameHosted) {
                 visible = true;
-                EnsureLoaded ();
+                RaiseLoadDeferringFocus ();
 
                 if (!shown) {
                     MarkHandleCreated ();

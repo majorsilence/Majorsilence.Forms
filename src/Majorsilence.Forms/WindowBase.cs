@@ -2283,20 +2283,7 @@ namespace Majorsilence.Forms
                 adapter.CreateControl ();
             }
 
-            // Load is raised with `visible` already true (see above), which is deliberate but leaves one
-            // WinForms behaviour unreachable: upstream a control cannot take focus while the form is not
-            // yet displayed, so Focus() inside a Load handler is a no-op and the focus events land after
-            // the window is up. Here they would run synchronously, against a handler's half-initialised
-            // state. Hold focus changes for the duration of Load and apply the last one afterwards.
-            raising_load = true;
-
-            try {
-                EnsureLoaded ();        // WinForms raises Load around the window's first display.
-            } finally {
-                raising_load = false;
-            }
-
-            adapter.ApplyDeferredFocus ();
+            RaiseLoadDeferringFocus ();  // WinForms raises Load around the window's first display.
 
             // Assume active the moment we ask the backend to show one of our own windows, rather than
             // waiting for its real Activated event (which, empirically, can arrive either before or
@@ -2341,6 +2328,35 @@ namespace Majorsilence.Forms
 
         /// <summary>True while this window is raising Load. Focus changes are held until it returns.</summary>
         internal bool raising_load;
+
+        /// <summary>
+        /// Raise Load with focus changes held, then apply the one the handler asked for.
+        /// </summary>
+        /// <remarks>
+        /// Load is raised with <c>visible</c> already true, which is deliberate -- a Load handler should
+        /// see a real client rectangle -- but it leaves one upstream behaviour unreachable: there a
+        /// control cannot take focus while the form is not displayed yet, so Focus() inside Load is a
+        /// no-op and the focus events land after the window is up. Raising them synchronously runs them
+        /// against a handler's half-initialised state, and raises LostFocus for a control that never
+        /// actually held focus.
+        ///
+        /// Every path that raises Load must come through here. There is more than one: a hosted,
+        /// non-top-level form never reaches EnsureShownBookkeeping and loads from
+        /// <see cref="Form.TryShowHosted"/> instead -- which is the path every MDI child takes, so
+        /// guarding only the top-level path left the common case unguarded.
+        /// </remarks>
+        internal void RaiseLoadDeferringFocus ()
+        {
+            raising_load = true;
+
+            try {
+                EnsureLoaded ();
+            } finally {
+                raising_load = false;
+            }
+
+            adapter.ApplyDeferredFocus ();
+        }
 
         /// <summary>Gets or sets whether the window is displayed. Setting mirrors WinForms semantics:
         /// true shows the window, false hides it.</summary>
