@@ -24,10 +24,7 @@ public class FormOverridableHooksTests
         protected override void OnDragEnter (DragEventArgs e) { DragEnterCount++; base.OnDragEnter (e); }
         protected override void OnDragDrop (DragEventArgs e) { DragDropCount++; base.OnDragDrop (e); }
 
-        // Exposed so a test can drive the protected hooks; nothing in the library raises the drag ones
-        // yet (no OS drag source), so this is the only way to prove an override is reachable.
-        public void RaiseDragEnter (DragEventArgs e) => OnDragEnter (e);
-        public void RaiseDragDrop (DragEventArgs e) => OnDragDrop (e);
+        // The drag raisers are Form's own internal ones now; the in-process drag session calls them.
     }
 
     [Fact]

@@ -56,8 +56,6 @@ Majorsilence.Forms.Form.DpiChanged    -- no DPI-change path; the headless scale 
 Majorsilence.Forms.Form.InputLanguageChanged    -- no input-language switching path
 Majorsilence.Forms.Form.InputLanguageChanging    -- no input-language switching path
 Majorsilence.Forms.ImageList.RecreateHandle    -- Win32 handle lifecycle; images are managed objects here
-Majorsilence.Forms.MenuItem.DrawItem    -- blocked on MenuItem.OwnerDraw (stored; MenuDropDownRenderer paints every item)
-Majorsilence.Forms.MenuItem.MeasureItem    -- blocked on MenuItem.OwnerDraw (stored; MenuDropDownRenderer paints every item)
 Majorsilence.Forms.NotifyIcon.BalloonTipClicked    -- needs a tray backend capability
 Majorsilence.Forms.NotifyIcon.BalloonTipClosed    -- needs a tray backend capability
 Majorsilence.Forms.NotifyIcon.BalloonTipShown    -- needs a tray backend capability
@@ -76,13 +74,7 @@ Majorsilence.Forms.TaskDialogPage.LinkClicked    -- page text renders as plain l
 Majorsilence.Forms.ToolBar.ButtonClick    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items
 Majorsilence.Forms.ToolBar.ButtonDropDown    -- legacy ToolBar.Buttons surface; strips here use ToolStripDropDownButton, which has DropDownOpening
 Majorsilence.Forms.ToolStripControlHost.ContentChanged    -- not an upstream member; nothing defines what it would mean
-Majorsilence.Forms.ToolStripItem.DragDrop
-Majorsilence.Forms.ToolStripItem.DragEnter
-Majorsilence.Forms.ToolStripItem.DragLeave
-Majorsilence.Forms.ToolStripItem.DragOver
-Majorsilence.Forms.ToolStripItem.GiveFeedback
 Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
-Majorsilence.Forms.ToolStripItem.QueryContinueDrag
 Majorsilence.Forms.WebBrowser.CanGoBackChanged    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.CanGoForwardChanged    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.DocumentTitleChanged    -- no browser engine; the control is a placeholder

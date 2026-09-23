@@ -755,6 +755,10 @@ namespace Majorsilence.Forms
         // The end of a size or move drag the window itself started; Form raises ResizeEnd here.
         internal virtual void EndSizeMove () { }
 
+        // The drag-and-drop session's cursor feedback: the backend cursor, not a control's Cursor
+        // property, so nothing an application set is disturbed.
+        internal void SetDragCursor (Cursor cursor) => Backend.SetCursor (cursor.CursorType);
+
         internal virtual bool HandleMouseMove (int x, int y)
         {
             Backend.SetCursor (current_cursor?.CursorType ?? Backends.CursorType.Arrow);
@@ -1320,6 +1324,12 @@ namespace Majorsilence.Forms
 
             // A size or move drag that began on this window ends with the button (Form.ResizeEnd).
             EndSizeMove ();
+
+            // The release that ends a drag-and-drop is the drop, not a MouseUp or a Click (W6).
+            if (DragDropSession.Active is { } drag) {
+                drag.Release (this, new System.Drawing.Point (DeviceToLogical (x), DeviceToLogical (y)), keys);
+                return;
+            }
             int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
             TrackCursorPosition (lx, ly);
@@ -1362,6 +1372,12 @@ namespace Majorsilence.Forms
             int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
             TrackCursorPosition (lx, ly);
+
+            // A drag in progress owns the pointer: its targets see DragOver, not MouseMove (W6).
+            if (DragDropSession.Active is { } drag) {
+                drag.Track (this, new System.Drawing.Point (lx, ly), buttons, keys);
+                return;
+            }
 
             if (Filtered (WindowMessages.WM_MOUSEMOVE, System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
                 return;
@@ -1746,6 +1762,13 @@ namespace Majorsilence.Forms
 
         private bool HandleKeyDownCore (Keys keys)
         {
+            // Escape during a drag-and-drop cancels it (through the source's QueryContinueDrag), as
+            // the OLE loop does; no other key reaches the controls while the drag owns the pointer.
+            if (DragDropSession.Active is { } drag && (keys & Keys.KeyCode) == Keys.Escape) {
+                drag.Escape ();
+                return true;
+            }
+
             // wParam is the virtual-key code on Windows, which is what Keys already encodes.
             if (Filtered (WindowMessages.WM_KEYDOWN, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
                 return true;

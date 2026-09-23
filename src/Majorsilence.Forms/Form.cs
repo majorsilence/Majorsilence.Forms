@@ -1599,23 +1599,26 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets whether the form accepts data dragged onto it. Stub in
-        /// Majorsilence.Forms -- matches Control.AllowDrop/DragEnter/DragDrop, which are also
-        /// stubs (DoDragDrop always returns DragDropEffects.None, and the drag events never
-        /// fire); provided so ported code compiles against Form the same as it does Control.</summary>
+        /// <summary>Gets or sets whether the form accepts data dragged onto it.</summary>
+        /// <remarks>Read by the drag-and-drop session as of W6 mechanisms: when no control under the
+        /// pointer accepts drops, a form that does is the target of <see cref="DragEnter"/>,
+        /// <see cref="DragOver"/> and <see cref="DragDrop"/>.</remarks>
         public bool AllowDrop { get; set; }
+
+        // The drag-and-drop session's doors to the hooks below.
+        internal void RaiseDragEnter (DragEventArgs e) => OnDragEnter (e);
+        internal void RaiseDragOver (DragEventArgs e) => OnDragOver (e);
+        internal void RaiseDragDrop (DragEventArgs e) => OnDragDrop (e);
 
         // Real handler storage rather than `{ add { } remove { } }`, which discarded the handler
         // outright: `form.DragEnter += h` looked wired up and h was thrown away, so an override of
-        // OnDragEnter could never be reached even once a backend does raise these. Nothing raises them
-        // yet (there is no OS drag source -- DoDragDrop returns None), so they are still "declared and
-        // never fired", which is the documented stub shape; the difference is that the handler and the
-        // overridable hook now exist to be called.
+        // OnDragEnter could never be reached even once something raised these. The in-process drag
+        // session raises them as of W6 mechanisms when the form itself is the drop target.
         private DragEventHandler? drag_enter;
         private DragEventHandler? drag_over;
         private DragEventHandler? drag_drop;
 
-        /// <summary>Raised when a drag-and-drop operation enters the form. Never fires yet — see <see cref="AllowDrop"/>.</summary>
+        /// <summary>Raised when a drag-and-drop operation enters the form; see <see cref="AllowDrop"/>.</summary>
         public event DragEventHandler? DragEnter {
             add => drag_enter += value;
             remove => drag_enter -= value;

@@ -400,7 +400,10 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the accessible description of the control. Stub in Majorsilence.Forms.</summary>
         public string? AccessibleDescription { get; set; }
 
-        /// <summary>Gets or sets whether the control accepts drag-and-drop data. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the control accepts data the user drags onto it.</summary>
+        /// <remarks>Read by the drag-and-drop session as of W6 mechanisms: the deepest control under the
+        /// pointer that has this set is the target of <see cref="DragEnter"/>, <see cref="DragOver"/>,
+        /// <see cref="DragLeave"/> and <see cref="DragDrop"/>.</remarks>
         public virtual bool AllowDrop { get; set; }
 
         /// <summary>Causes all validation in the control hierarchy to occur. Always returns true in Majorsilence.Forms.</summary>
@@ -458,7 +461,15 @@ namespace Majorsilence.Forms
         protected virtual ImeMode DefaultImeMode => ImeMode.NoControl;
 
         /// <summary>Begins a drag-and-drop operation. Stub in Majorsilence.Forms — always returns None.</summary>
-        public DragDropEffects DoDragDrop (object data, DragDropEffects allowedEffects) => DragDropEffects.None;
+        public DragDropEffects DoDragDrop (object data, DragDropEffects allowedEffects)
+        {
+            // Real as of W6 mechanisms: an in-process session (DragDropSession) takes over the window's
+            // pointer events and this blocks in the nested loop until the drop, the cancel or Escape,
+            // returning the effect the target chose -- upstream's contract, without an OLE source.
+            var session = DragDropSession.Begin (this, data, allowedEffects);
+
+            return Form.RunModal (session.Completion);
+        }
 
         /// <summary>Forces the control and its children to repaint.</summary>
         public void Update () => Invalidate ();

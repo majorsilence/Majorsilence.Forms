@@ -1,3 +1,4 @@
+using System;
 ﻿using System.Drawing;
 using Majorsilence.Forms.Renderers;
 
@@ -270,10 +271,160 @@ namespace Majorsilence.Forms
             SetHover (null);
         }
 
+        // ── drag-and-drop over the strip (W6 mechanisms) ──────────────────────────────────────────
+        // The strip is the Control the session targets; the item under the pointer that AllowDrop is
+        // who the application subscribed on, so the four drag events are forwarded to it, with enter and
+        // leave raised as the item under the pointer changes. A dragged ToolStripItem from a strip that
+        // allows reordering is the strip's own affair: it is accepted as a Move and dropped into place.
+        private ToolStripItem? drag_over_item;
+
+        // The pointer in this strip's client coordinates: the session's own figure while it is the
+        // one delivering the event, the screen round trip otherwise (a test driving OnDragEnter directly).
+        private Point DragClientPoint (DragEventArgs e)
+            => DragDropSession.Active is { } session ? session.TargetClientPoint : PointToClient (new Point (e.X, e.Y));
+
+        private ToolStripItem? DropItemAt (DragEventArgs e)
+            => GetItemAtLocation (DragClientPoint (e)) is ToolStripItem { AllowDrop: true } item ? item : null;
+
+        private static bool IsReorderDrag (DragEventArgs e)
+            => e.Data?.GetData (typeof (ToolStripItem)) is ToolStripItem { OwnerControl: ToolStrip { AllowItemReorder: true } };
+
+        /// <inheritdoc/>
+        protected override void OnDragEnter (DragEventArgs e)
+        {
+            base.OnDragEnter (e);
+            ForwardDrag (e, entering: true);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnDragOver (DragEventArgs e)
+        {
+            base.OnDragOver (e);
+            ForwardDrag (e, entering: false);
+        }
+
+        private void ForwardDrag (DragEventArgs e, bool entering)
+        {
+            if (this is ToolStrip { AllowItemReorder: true } && IsReorderDrag (e))
+                e.Effect = DragDropEffects.Move & (e.AllowedEffect | DragDropEffects.Move);
+
+            var item = DropItemAt (e);
+
+            if (!ReferenceEquals (item, drag_over_item)) {
+                drag_over_item?.RaiseDragLeave ();
+                drag_over_item = item;
+                item?.RaiseDragEnter (e);
+            } else if (item is not null && !entering)
+                item.RaiseDragOver (e);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnDragLeave (EventArgs e)
+        {
+            base.OnDragLeave (e);
+            drag_over_item?.RaiseDragLeave ();
+            drag_over_item = null;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnDragDrop (DragEventArgs e)
+        {
+            base.OnDragDrop (e);
+
+            var item = drag_over_item ?? DropItemAt (e);
+            drag_over_item = null;
+
+            if (this is ToolStrip { AllowItemReorder: true } && e.Data?.GetData (typeof (ToolStripItem)) is ToolStripItem dragged
+                && dragged.OwnerControl is ToolStrip { AllowItemReorder: true } from) {
+                MoveItemTo (dragged, from, DragClientPoint (e));
+                e.Effect = DragDropEffects.Move;
+                return;
+            }
+
+            item?.RaiseDragDrop (e);
+        }
+
+        // The slot under a strip-logical point: before the item there, or at the end past the last.
+        private void MoveItemTo (ToolStripItem dragged, MenuBase from, Point location)
+        {
+            var target = Items.FirstOrDefault (i => i.Visible && !ReferenceEquals (i, dragged) && i.Bounds.Contains (location));
+            var index = target is null ? Items.Count : Items.IndexOf (target);
+
+            var current = Items.IndexOf (dragged);
+
+            if (ReferenceEquals (from, this) && current >= 0 && current < index)
+                index--;
+
+            // Through the ToolStrip facade where there is one: applications read that collection,
+            // and it mirrors into this one, not the other way round (TSM-47).
+            RemoveFromStrip (from, dragged);
+            InsertIntoStrip (this, Math.Max (0, Math.Min (index, Items.Count)), dragged);
+            Invalidate ();
+        }
+
+        private static void RemoveFromStrip (MenuBase strip, MenuItem item)
+        {
+            if (strip is ToolStrip facade)
+                facade.Items.Remove (item);
+            else
+                strip.Items.Remove (item);
+        }
+
+        private static void InsertIntoStrip (MenuBase strip, int index, MenuItem item)
+        {
+            if (strip is ToolStrip facade)
+                facade.Items.Insert (index, item);
+            else
+                strip.Items.Insert (index, item);
+        }
+
+        // Alt + drag on an item starts the reorder drag once the pointer has moved past the threshold.
+        private ToolStripItem? reorder_candidate;
+        private Point reorder_origin;
+
+        /// <inheritdoc/>
+        protected override void OnMouseDown (MouseEventArgs e)
+        {
+            base.OnMouseDown (e);
+
+            reorder_candidate = this is ToolStrip { AllowItemReorder: true } && e.Button == MouseButtons.Left
+                && (e.Modifiers & Keys.Alt) == Keys.Alt
+                ? GetItemAtLocation (e.Location) as ToolStripItem
+                : null;
+            reorder_origin = e.Location;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnMouseUp (MouseEventArgs e)
+        {
+            base.OnMouseUp (e);
+            reorder_candidate = null;
+        }
+
+        private void TrackItemReorder (MouseEventArgs e)
+        {
+            if (reorder_candidate is not { } item || e.Button == MouseButtons.None)
+                return;
+
+            var threshold = SystemInformation.DragSize;
+
+            if (Math.Abs (e.X - reorder_origin.X) <= threshold.Width && Math.Abs (e.Y - reorder_origin.Y) <= threshold.Height)
+                return;
+
+            reorder_candidate = null;
+
+            // Non-blocking on purpose: the strip needs no result, it handles the drop itself.
+            var data = new DataObject ();
+            data.SetData (typeof (ToolStripItem), item);
+            DragDropSession.Begin (this, data, DragDropEffects.Move, item);
+        }
+
         /// <inheritdoc/>
         protected override void OnMouseMove (MouseEventArgs e)
         {
             base.OnMouseMove (e);
+
+            TrackItemReorder (e);
 
             var item = GetItemAtLocation (e.Location);
 

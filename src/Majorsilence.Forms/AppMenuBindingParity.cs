@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Collections;
 using System.ComponentModel;
 using System.Linq;
@@ -279,15 +280,63 @@ namespace Majorsilence.Forms
         /// <summary>Raised before the item's submenu is shown.</summary>
         public event EventHandler? Popup;
 
-        // Owner-draw painting is done by the renderers rather than by raising these, so they are
-        // declared and raisable but not raised by the framework yet.
-#pragma warning disable CS0067
-        /// <summary>Raised when an owner-drawn item must be painted. Not raised by this layer yet.</summary>
+        /// <summary>Raised when an owner-drawn item must be painted.</summary>
+        /// <remarks>Real as of W6 mechanisms: the drop-down renderer raises it, with the item's device
+        /// rectangle and state, for every item whose <see cref="OwnerDraw"/> is set, and paints nothing
+        /// itself for that item -- upstream's contract for an owner-drawn menu item.</remarks>
         public event DrawItemEventHandler? DrawItem;
 
-        /// <summary>Raised when an owner-drawn item must be measured. Not raised by this layer yet.</summary>
+        /// <summary>Raised when an owner-drawn item must be measured.</summary>
+        /// <remarks>Real as of W6 mechanisms: <see cref="GetPreferredSize"/> asks it, starting from the
+        /// renderer's own measurement, for an item whose <see cref="OwnerDraw"/> is set; the answer's
+        /// <c>ItemWidth</c>/<c>ItemHeight</c> are in logical pixels.</remarks>
         public event MeasureItemEventHandler? MeasureItem;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="DrawItem"/> event.</summary>
+        protected virtual void OnDrawItem (DrawItemEventArgs e) => DrawItem?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="MeasureItem"/> event.</summary>
+        protected virtual void OnMeasureItem (MeasureItemEventArgs e) => MeasureItem?.Invoke (this, e);
+
+        // The renderer's door: true when the item painted itself (OwnerDraw), so the default is skipped.
+        internal bool RaiseDrawItem (Rectangle deviceBounds, PaintEventArgs e)
+        {
+            if (!OwnerDraw || OwnerControl is not { } owner)
+                return false;
+
+            var state = DrawItemState.None;
+
+            if (Hovered || IsDropDownOpened)
+                state |= DrawItemState.Selected;
+            if (!Enabled)
+                state |= DrawItemState.Disabled;
+            if (Checked)
+                state |= DrawItemState.Checked;
+
+            var index = (owner as MenuBase)?.Items.IndexOf (this) ?? -1;
+
+            OnDrawItem (new DrawItemEventArgs (e.Graphics, owner.Font, deviceBounds, index, state, owner.ForeColor, owner.BackColor));
+
+            return true;
+        }
+
+        // GetPreferredSize's door: the measured size, or the handler's answer for an owner-drawn item.
+        internal Size MeasureOwnerDrawn (Size measured)
+        {
+            if (!OwnerDraw || OwnerControl is not { } owner)
+                return measured;
+
+            var args = new MeasureItemEventArgs (MeasureCanvas, (owner as MenuBase)?.Items.IndexOf (this) ?? -1) {
+                ItemWidth = measured.Width,
+                ItemHeight = measured.Height,
+            };
+
+            OnMeasureItem (args);
+
+            return new Size (Math.Max (1, args.ItemWidth), Math.Max (1, args.ItemHeight));
+        }
+
+        private static readonly SkiaSharp.SKCanvas MeasureCanvas = new (new SkiaSharp.SKBitmap (1, 1));
 
         /// <summary>Raises the <see cref="Popup"/> event.</summary>
         protected virtual void OnPopup (EventArgs e) => Popup?.Invoke (this, e);

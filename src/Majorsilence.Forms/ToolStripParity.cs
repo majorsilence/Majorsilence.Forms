@@ -87,22 +87,53 @@ namespace Majorsilence.Forms
         internal void RaiseMouseLeave () => OnMouseLeave (EventArgs.Empty);
 
         /// <summary>Occurs when a drag-and-drop operation completes over the item.</summary>
+        /// <remarks>Real as of W6 mechanisms: the owning strip forwards its own drag events to the item
+        /// under the pointer when the item's <see cref="AllowDrop"/> is set.</remarks>
         public event DragEventHandler? DragDrop;
 
         /// <summary>Occurs when a drag enters the item.</summary>
+        /// <inheritdoc cref="DragDrop" path="/remarks"/>
         public event DragEventHandler? DragEnter;
 
         /// <summary>Occurs while a drag is over the item.</summary>
+        /// <inheritdoc cref="DragDrop" path="/remarks"/>
         public event DragEventHandler? DragOver;
 
         /// <summary>Occurs when a drag leaves the item.</summary>
+        /// <inheritdoc cref="DragDrop" path="/remarks"/>
         public event EventHandler? DragLeave;
 
         /// <summary>Occurs during a drag to let the source set the cursor.</summary>
+        /// <remarks>Real as of W6 mechanisms: raised on every pointer move of a drag this item started
+        /// through <see cref="DoDragDrop(object, DragDropEffects)"/>.</remarks>
         public event GiveFeedbackEventHandler? GiveFeedback;
 
         /// <summary>Occurs during a drag to let the source cancel it.</summary>
+        /// <inheritdoc cref="GiveFeedback" path="/remarks"/>
         public event QueryContinueDragEventHandler? QueryContinueDrag;
+
+        /// <summary>Begins a drag-and-drop operation with this item as the source.</summary>
+        /// <remarks>Real as of W6 mechanisms; the same in-process session as
+        /// <see cref="Control.DoDragDrop(object, DragDropEffects)"/>, with this item receiving <see cref="GiveFeedback"/> and
+        /// <see cref="QueryContinueDrag"/>. Returns <see cref="DragDropEffects.None"/> when the item is
+        /// not on a strip.</remarks>
+        public DragDropEffects DoDragDrop (object data, DragDropEffects allowedEffects)
+        {
+            if (OwnerControl is not { } owner)
+                return DragDropEffects.None;
+
+            var session = DragDropSession.Begin (owner, data, allowedEffects, this);
+
+            return Form.RunModal (session.Completion);
+        }
+
+        // The strip's forwarding (MenuBase.OnDrag*) and the session's feedback reach the field events here.
+        internal void RaiseDragEnter (DragEventArgs e) => DragEnter?.Invoke (this, e);
+        internal void RaiseDragOver (DragEventArgs e) => DragOver?.Invoke (this, e);
+        internal void RaiseDragDrop (DragEventArgs e) => DragDrop?.Invoke (this, e);
+        internal void RaiseDragLeave () => DragLeave?.Invoke (this, EventArgs.Empty);
+        internal void RaiseGiveFeedback (GiveFeedbackEventArgs e) => GiveFeedback?.Invoke (this, e);
+        internal void RaiseQueryContinueDrag (QueryContinueDragEventArgs e) => QueryContinueDrag?.Invoke (this, e);
 
         /// <summary>Occurs when an accessibility client requests help.</summary>
         public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp;
@@ -168,6 +199,9 @@ namespace Majorsilence.Forms
         public bool DoubleClickEnabled { get; set; }
 
         /// <summary>Gets or sets whether the item accepts data dragged onto it.</summary>
+        /// <remarks>Read as of W6 mechanisms: the owning strip forwards a drag over the item to the
+        /// item's own <see cref="DragEnter"/> / <see cref="DragOver"/> / <see cref="DragLeave"/> /
+        /// <see cref="DragDrop"/> when this is set.</remarks>
         public virtual bool AllowDrop { get; set; }
 
         /// <summary>Gets or sets which edges of the container the item is anchored to.</summary>
@@ -270,15 +304,6 @@ namespace Majorsilence.Forms
             // assigning a second, competing flag.
             SelectedChanged?.Invoke (this, EventArgs.Empty);
         }
-
-        /// <summary>
-        /// Begins a drag-and-drop operation with this item as the source.
-        /// </summary>
-        /// <remarks>
-        /// Returns <see cref="DragDropEffects.None"/>: there is no OS drag source in this layer yet,
-        /// which is the same position <c>Control.DoDragDrop</c> is in (see COMPATIBILITY_MATRIX.md).
-        /// </remarks>
-        public DragDropEffects DoDragDrop (object data, DragDropEffects allowedEffects) => DragDropEffects.None;
 
         /// <summary>Resets the background color to its default.</summary>
         public virtual void ResetBackColor () => BackColor = Color.Empty;
@@ -431,6 +456,10 @@ namespace Majorsilence.Forms
         public bool AllowClickThrough { get; set; }
 
         /// <summary>Gets or sets whether the user can reorder items by dragging.</summary>
+        /// <remarks>Read as of W6 mechanisms: with Alt held, dragging an item past the drag threshold
+        /// starts a drag of that item, and dropping it on the strip moves it to the slot under the
+        /// pointer -- upstream's Alt-drag reorder. A drag from another strip that also allows
+        /// reordering moves the item across, as upstream's does.</remarks>
         public bool AllowItemReorder { get; set; }
 
         /// <summary>Gets or sets whether this strip's items can be merged into another strip.</summary>

@@ -286,8 +286,55 @@ namespace Majorsilence.Forms
         internal override int CurrentFontSize
             => Math.Max (1, (int) Math.Round (base.CurrentFontSize * (float.IsNaN (ZoomFactor) ? 1.0f : ZoomFactor)));
 
-        /// <summary>Gets or sets whether auto-drag-drop is enabled. Stub in Majorsilence.Forms.</summary>
-        public bool EnableAutoDragDrop { get; set; }
+        /// <summary>Gets or sets whether text dragged onto the box is inserted at the caret without a handler.</summary>
+        /// <remarks>Read as of W6 mechanisms: setting it makes the box a drop target (<see cref="Control.AllowDrop"/>)
+        /// that accepts text data as a copy and inserts it at the selection. Dragging text OUT of the
+        /// box is not started automatically; call <see cref="Control.DoDragDrop(object, DragDropEffects)"/> for that.</remarks>
+        public bool EnableAutoDragDrop {
+            get => enable_auto_drag_drop;
+            set {
+                enable_auto_drag_drop = value;
+
+                if (value)
+                    AllowDrop = true;
+            }
+        }
+
+        private bool enable_auto_drag_drop;
+
+        /// <inheritdoc/>
+        protected override void OnDragEnter (DragEventArgs e)
+        {
+            base.OnDragEnter (e);
+            AcceptDraggedText (e);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnDragOver (DragEventArgs e)
+        {
+            base.OnDragOver (e);
+            AcceptDraggedText (e);
+        }
+
+        private void AcceptDraggedText (DragEventArgs e)
+        {
+            if (enable_auto_drag_drop && !ReadOnly && DraggedText (e) is not null && e.AllowedEffect.HasFlag (DragDropEffects.Copy))
+                e.Effect = DragDropEffects.Copy;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnDragDrop (DragEventArgs e)
+        {
+            base.OnDragDrop (e);
+
+            if (enable_auto_drag_drop && !ReadOnly && DraggedText (e) is { } text) {
+                SelectedText = text;
+                e.Effect = DragDropEffects.Copy;
+            }
+        }
+
+        private static string? DraggedText (DragEventArgs e)
+            => e.Data?.GetData (DataFormats.Text.Name) as string ?? e.Data?.GetData (typeof (string)) as string;
 
         /// <summary>Gets or sets the right-edge indentation of the selection. Stub in Majorsilence.Forms.</summary>
         public int SelectionRightIndent { get; set; }

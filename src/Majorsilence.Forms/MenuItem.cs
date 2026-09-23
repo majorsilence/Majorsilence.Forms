@@ -148,7 +148,7 @@ namespace Majorsilence.Forms
                 return owner.DeviceToLogicalUnits (menu_renderer.GetPreferredItemSize (menu, this, proposedSize));
 
             if (owner is MenuDropDown mdd && renderer is MenuDropDownRenderer mdd_renderer)
-                return owner.DeviceToLogicalUnits (mdd_renderer.GetPreferredItemSize (mdd, this, proposedSize));
+                return MeasureOwnerDrawn (owner.DeviceToLogicalUnits (mdd_renderer.GetPreferredItemSize (mdd, this, proposedSize)));
 
             if (owner is ToolBar tb && renderer is ToolBarRenderer tb_renderer)
                 return owner.DeviceToLogicalUnits (tb_renderer.GetPreferredItemSize (tb, this, proposedSize));
@@ -470,8 +470,21 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether this is the default item. Stub in Majorsilence.Forms.</summary>
         public bool DefaultItem { get; set; }
 
-        /// <summary>Gets or sets whether the item is drawn by the owner. Stub in Majorsilence.Forms.</summary>
-        public bool OwnerDraw { get; set; }
+        /// <summary>Gets or sets whether the item is drawn by the owner.</summary>
+        /// <remarks>Read as of W6 mechanisms: an owner-drawn item on a drop-down is painted through
+        /// <see cref="DrawItem"/> and measured through <see cref="MeasureItem"/>.</remarks>
+        public bool OwnerDraw {
+            get => owner_draw;
+            set {
+                if (owner_draw == value)
+                    return;
+
+                owner_draw = value;
+                OwnerControl?.Invalidate ();
+            }
+        }
+
+        private bool owner_draw;
 
         /// <summary>Gets or sets whether the item appears as a radio button when checked. Stub in Majorsilence.Forms.</summary>
         public bool RadioCheck { get; set; }

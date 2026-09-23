@@ -154,7 +154,11 @@ namespace Majorsilence.Forms
         public ImageList? GroupImageList { get; set; }
 
         /// <summary>Gets the insertion mark used during a drag-reorder.</summary>
-        public ListViewInsertionMark InsertionMark => insertion_mark ??= new ListViewInsertionMark ();
+        /// <remarks>Drawn as of W6 mechanisms: set <see cref="ListViewInsertionMark.Index"/> (typically
+        /// from <see cref="ListViewInsertionMark.NearestIndex"/> in a <c>DragOver</c> handler) and the
+        /// renderer draws a line before -- or, with <see cref="ListViewInsertionMark.AppearsAfterItem"/>,
+        /// after -- that item, in the mark's <see cref="ListViewInsertionMark.Color"/>.</remarks>
+        public ListViewInsertionMark InsertionMark => insertion_mark ??= new ListViewInsertionMark (this);
 
         /// <summary>Gets the items that are currently selected.</summary>
         public SelectedListViewItemCollection SelectedItems => new SelectedListViewItemCollection (this);
@@ -663,20 +667,99 @@ namespace Majorsilence.Forms
     /// <summary>The line a <see cref="ListView"/> draws to show where a dragged item would land.</summary>
     public class ListViewInsertionMark
     {
-        /// <summary>Gets or sets whether the mark is drawn after the item at <see cref="Index"/>.</summary>
-        public bool AppearsAfterItem { get; set; }
+        private readonly ListView owner;
+        private bool appears_after_item;
+        private Color color = Color.Black;
+        private int index = -1;
 
-        /// <summary>Gets the bounds of the mark.</summary>
-        public Rectangle Bounds { get; internal set; }
+        internal ListViewInsertionMark (ListView owner) => this.owner = owner;
+
+        /// <summary>Gets or sets whether the mark is drawn after the item at <see cref="Index"/> rather than before it.</summary>
+        public bool AppearsAfterItem {
+            get => appears_after_item;
+            set {
+                if (appears_after_item == value)
+                    return;
+
+                appears_after_item = value;
+                owner.Invalidate ();
+            }
+        }
+
+        /// <summary>Gets the mark's rectangle in logical units, from the list's last layout; empty when hidden.</summary>
+        public Rectangle Bounds => owner.DeviceToLogicalUnits (DeviceBounds);
+
+        /// <summary>The mark's rectangle in device pixels: a thin line before or after the item, across
+        /// the row in the row views and down the tile in the icon views.</summary>
+        internal Rectangle DeviceBounds {
+            get {
+                if (index < 0 || index >= owner.Items.Count)
+                    return Rectangle.Empty;
+
+                var item = owner.Items[index].DeviceBounds;
+                var thickness = System.Math.Max (1, owner.LogicalToDeviceUnits (2));
+
+                if (owner.IsRowView) {
+                    var y = appears_after_item ? item.Bottom - thickness : item.Top;
+                    return new Rectangle (item.Left, y, item.Width, thickness);
+                }
+
+                var x = appears_after_item ? item.Right - thickness : item.Left;
+                return new Rectangle (x, item.Top, thickness, item.Height);
+            }
+        }
 
         /// <summary>Gets or sets the colour the mark is drawn in.</summary>
-        public Color Color { get; set; } = Color.Black;
+        public Color Color {
+            get => color;
+            set {
+                if (color == value)
+                    return;
 
-        /// <summary>Gets or sets the index of the item the mark is drawn next to, or -1 for no mark.</summary>
-        public int Index { get; set; } = -1;
+                color = value;
+                owner.Invalidate ();
+            }
+        }
 
-        /// <summary>Returns the index of the item nearest the given point.</summary>
-        public int NearestIndex (Point pt) => Index;
+        /// <summary>Gets or sets the index of the item the mark is drawn beside; -1 hides it.</summary>
+        public int Index {
+            get => index;
+            set {
+                if (index == value)
+                    return;
+
+                index = value;
+                owner.Invalidate ();
+            }
+        }
+
+        /// <summary>Returns the index of the item nearest the given point (logical units), or -1 when the list is empty.</summary>
+        public int NearestIndex (Point pt)
+        {
+            owner.LayoutItems ();
+
+            var device = new Point (owner.LogicalToDeviceUnits (pt.X), owner.LogicalToDeviceUnits (pt.Y));
+            var nearest = -1;
+            var best = long.MaxValue;
+
+            for (var i = 0; i < owner.Items.Count; i++) {
+                var bounds = owner.Items[i].DeviceBounds;
+
+                if (bounds.IsEmpty)
+                    continue;
+
+                var dx = (long)System.Math.Max (0, System.Math.Max (bounds.Left - device.X, device.X - bounds.Right));
+                var dy = (long)System.Math.Max (0, System.Math.Max (bounds.Top - device.Y, device.Y - bounds.Bottom));
+                var distance = dx * dx + dy * dy;
+
+                if (distance < best) {
+                    best = distance;
+                    nearest = i;
+                }
+            }
+
+            return nearest;
+        }
     }
 
     public partial class ListViewGroup

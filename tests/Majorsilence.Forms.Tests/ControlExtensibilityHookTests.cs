@@ -36,13 +36,9 @@ namespace Majorsilence.Forms.Tests
             protected override void OnCursorChanged (EventArgs e) { Calls.Add (nameof (OnCursorChanged)); base.OnCursorChanged (e); }
             protected override void OnBindingContextChanged (EventArgs e) { Calls.Add (nameof (OnBindingContextChanged)); base.OnBindingContextChanged (e); }
 
-            // Drag-and-drop has no backend drag source yet, so expose the raisers.
-            public void RaiseDragEnter (DragEventArgs e) => OnDragEnter (e);
-            public void RaiseDragOver (DragEventArgs e) => OnDragOver (e);
-            public void RaiseDragDrop (DragEventArgs e) => OnDragDrop (e);
+            // The drag-and-drop raisers are Control's own internal ones now (the in-process session
+            // calls them); only the leave shape differs.
             public void RaiseDragLeave () => OnDragLeave (EventArgs.Empty);
-            public void RaiseGiveFeedback (GiveFeedbackEventArgs e) => OnGiveFeedback (e);
-            public void RaiseQueryContinueDrag (QueryContinueDragEventArgs e) => OnQueryContinueDrag (e);
 
             public void RaisePrint (PaintEventArgs e) => OnPrint (e);
 
