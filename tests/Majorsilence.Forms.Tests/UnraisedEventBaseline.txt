@@ -75,7 +75,6 @@ Majorsilence.Forms.ListView.AfterLabelEdit
 Majorsilence.Forms.ListView.BeforeLabelEdit
 Majorsilence.Forms.ListView.CacheVirtualItems    -- blocked on ListView.VirtualMode (stored)
 Majorsilence.Forms.ListView.ColumnReordered
-Majorsilence.Forms.ListView.ColumnWidthChanging
 Majorsilence.Forms.ListView.DrawColumnHeader    -- blocked on ListView.OwnerDraw (stored)
 Majorsilence.Forms.ListView.DrawSubItem    -- blocked on ListView.OwnerDraw (stored)
 Majorsilence.Forms.ListView.ItemDrag
