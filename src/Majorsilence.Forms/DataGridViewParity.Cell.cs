@@ -105,7 +105,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Returns the context menu this cell uses, falling back to its row, column and grid.</summary>
         public virtual ContextMenuStrip? GetInheritedContextMenuStrip (int rowIndex)
-            => ContextMenuStrip ?? DataGridView?.ContextMenuStrip;
+            => DataGridView is { } grid ? grid.ResolveCellContextMenuStrip (this, rowIndex) : ContextMenuStrip;
 
         /// <summary>Returns the cell's state combined with the state it inherits from its row and column.</summary>
         public virtual DataGridViewElementStates GetInheritedState (int rowIndex)

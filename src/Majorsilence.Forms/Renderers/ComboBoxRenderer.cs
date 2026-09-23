@@ -28,8 +28,14 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw the text of the selected item -- unless the control has an editable region, in which
             // case the child TextBox is painting it, and painting it here too double-draws it (LST-07).
-            if (!control.IsEditable && control.Items.SelectedItem != null)
-                e.Canvas.DrawText (control.GetItemText (control.Items.SelectedItem), text_area, control, ContentAlignment.MiddleLeft, maxLines: 1);
+            if (!control.IsEditable && control.Items.SelectedItem != null) {
+                // Owner draw (W6 mechanisms): the selected item in the edit area is the application's
+                // to paint, with ComboBoxEdit in the state, as upstream.
+                if (control.DrawMode != DrawMode.Normal)
+                    control.RaiseEditAreaDrawItem (text_area, e);
+                else
+                    e.Canvas.DrawText (control.GetItemText (control.Items.SelectedItem), text_area, control, ContentAlignment.MiddleLeft, maxLines: 1);
+            }
 
             // Draw the drop down glyph
             var button_bounds = GetDropDownButtonArea (control, e);

@@ -70,11 +70,12 @@ public class StoredOnlyPropertyBaselineTests
         Assert.NotNull (modal);
         Assert.Contains ("framework-written", modal);
 
-        // Merely initialised: `public DrawMode DrawMode { get; set; } = DrawMode.Normal;` is written by
-        // ComboBox's constructor and by nothing else. That is a stub, not outbound state.
-        var drawMode = Find (scanned, "Majorsilence.Forms.ComboBox.DrawMode");
-        Assert.NotNull (drawMode);
-        Assert.DoesNotContain ("framework-written", drawMode);
+        // Merely initialised: `public bool UseCompatibleStateImageBehavior { get; set; } = true;` is
+        // written by ListView's constructor and by nothing else. That is a stub, not outbound state.
+        // (ComboBox.DrawMode was the example until W6 mechanisms wired it.)
+        var initialised = Find (scanned, "Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior");
+        Assert.NotNull (initialised);
+        Assert.DoesNotContain ("framework-written", initialised);
     }
 
     [Fact]

@@ -12,10 +12,43 @@ namespace Majorsilence.Forms
     {
         private readonly Dictionary<Control, string> tips = new ();
         private PopupWindow? popup;
-        private Label? popup_label;
+        private TipLabel? popup_label;
+        private Control? associated_control;
+        private IWin32Window? associated_window;
 
         internal Size? PopupSize => popup?.Size;
         internal string? PopupText => popup_label?.Text;
+        internal Label? PopupLabel => popup_label;
+
+        // OwnerDraw (W6 mechanisms). The tip's label paints itself unless the application asked to
+        // draw the tip, in which case its paint pass becomes the Draw event: the label's canvas, the
+        // control the tip is for, and the tip's rectangle and text. Popup has already been asked and
+        // may have resized the tip, so Bounds is the size the handler will actually be given.
+        private sealed class TipLabel : Label
+        {
+            internal ToolTip? Owner { get; set; }
+
+            protected override void OnPaint (PaintEventArgs e)
+            {
+                if (Owner is { OwnerDraw: true } owner && owner.RaiseDraw (this, e))
+                    return;
+
+                base.OnPaint (e);
+            }
+        }
+
+        internal bool RaiseDraw (Control surface, PaintEventArgs e)
+        {
+            if (Draw is null || associated_control is null)
+                return false;
+
+            var bounds = new Rectangle (0, 0, surface.ScaledWidth, surface.ScaledHeight);
+
+            Draw (this, new DrawToolTipEventArgs (e.Graphics, associated_window ?? associated_control, associated_control,
+                bounds, surface.Text, BackColor, ForeColor, surface.Font));
+
+            return true;
+        }
 
         /// <summary>Initializes a new instance of ToolTip.</summary>
         public ToolTip () { }
@@ -233,9 +266,12 @@ namespace Majorsilence.Forms
 
                 if (popup is null || popup_label is null) {
                     popup = new PopupWindow (window);
-                    popup_label = popup.Controls.Add (new Label { Dock = DockStyle.Fill });
+                    popup_label = popup.Controls.Add (new TipLabel { Dock = DockStyle.Fill, Owner = this });
                     popup_label.Style.Border.Width = 1;
                 }
+
+                associated_control = control;
+                associated_window = window as IWin32Window;
 
                 // StripAmpersands drops the mnemonic marker a caller copied from a button's Text;
                 // ToolTipTitle heads the tip on its own line (W6.2 sweep).

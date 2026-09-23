@@ -162,7 +162,8 @@ namespace Majorsilence.Forms
             => DataGridView?.Rows.GetRowState (rowIndex) ?? DataGridViewElementStates.None;
 
         /// <summary>Returns the context menu this row uses, falling back to the grid's.</summary>
-        public ContextMenuStrip? GetContextMenuStrip (int rowIndex) => ContextMenuStrip ?? DataGridView?.ContextMenuStrip;
+        public ContextMenuStrip? GetContextMenuStrip (int rowIndex)
+            => DataGridView is { } grid ? grid.ResolveRowContextMenuStrip (this, rowIndex) : ContextMenuStrip;
 
         /// <summary>Returns this row's error text.</summary>
         public string GetErrorText (int rowIndex) => ErrorText;

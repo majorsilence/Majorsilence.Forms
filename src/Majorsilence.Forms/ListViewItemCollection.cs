@@ -1,3 +1,4 @@
+using System;
 ﻿using System.Collections.ObjectModel;
 using SkiaSharp;
 
@@ -13,6 +14,32 @@ namespace Majorsilence.Forms
         internal ListViewItemCollection (ListView owner)
         {
             this.owner = owner;
+        }
+
+        /// <summary>Gets the item at an index; in virtual mode this asks
+        /// <see cref="ListView.RetrieveVirtualItem"/> for the index first (W6 mechanisms).</summary>
+        /// <remarks>Hides the base indexer, which cannot be overridden: every read through this
+        /// collection's own type resolves the slot, and the base's enumerator hands out whatever each
+        /// slot holds, which is how the layout and the renderer see placeholders they then resolve.</remarks>
+        public new ListViewItem this[int index] {
+            get {
+                owner.ResolveVirtualItem (index);
+                return base[index];
+            }
+            set => base[index] = value;
+        }
+
+        // The slot's current occupant without resolving it, and whether it is still a placeholder.
+        internal ListViewItem RawAt (int index) => base[index];
+
+        internal bool PlaceholderAt (int index) => base[index].IsVirtualPlaceholder;
+
+        // In virtual mode the application supplies items on demand and this collection is only a set of
+        // slots; upstream throws on every mutation but the control's own.
+        private void GuardVirtual ()
+        {
+            if (owner.VirtualMode && !owner.VirtualFill)
+                throw new InvalidOperationException ("Items cannot be added to or removed from a ListView in VirtualMode; set VirtualListSize and handle RetrieveVirtualItem.");
         }
 
         /// <summary>
@@ -78,6 +105,8 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void ClearItems ()
         {
+            GuardVirtual ();
+
             foreach (var item in Items)
                 item.Parent = null;
 
@@ -89,6 +118,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void InsertItem (int index, ListViewItem item)
         {
+            GuardVirtual ();
             base.InsertItem (index, item);
 
             item.Parent = owner;
@@ -98,7 +128,9 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void RemoveItem (int index)
         {
-            var item = this[index];
+            GuardVirtual ();
+
+            var item = RawAt (index);
 
             base.RemoveItem (index);
 

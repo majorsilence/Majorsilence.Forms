@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Drawing;
 using System.Globalization;
@@ -56,50 +57,134 @@ namespace Majorsilence.Forms
             Guard.ThrowIfNull (dataGridViewCellStyle);
             ApplyStyle (dataGridViewCellStyle);
         }
-
         /// <summary>Gets or sets the background color.</summary>
-        public Color BackColor { get; set; } = Color.Empty;
+        public Color BackColor {
+            get => back_color;
+            set {
+                if (EqualityComparer<Color>.Default.Equals (back_color, value))
+                    return;
+
+                back_color = value;
+                OnChanged ();
+            }
+        }
+
+        private Color back_color = Color.Empty;
 
         /// <summary>Gets or sets the foreground color.</summary>
-        public Color ForeColor { get; set; } = Color.Empty;
+        public Color ForeColor {
+            get => fore_color;
+            set {
+                if (EqualityComparer<Color>.Default.Equals (fore_color, value))
+                    return;
+
+                fore_color = value;
+                OnChanged ();
+            }
+        }
+
+        private Color fore_color = Color.Empty;
 
         /// <summary>Gets or sets the format string applied to cell content.</summary>
         public string Format {
             get => format ?? string.Empty;
-            set => format = string.IsNullOrEmpty (value) ? string.Empty : value;
+            set {
+                format = string.IsNullOrEmpty (value) ? string.Empty : value;
+                OnChanged ();
+            }
         }
         private string format = string.Empty;
 
         /// <summary>Gets or sets the object used to provide culture-specific formatting of cell values.</summary>
         public System.IFormatProvider FormatProvider {
             get => format_provider ?? CultureInfo.CurrentCulture;
-            set => format_provider = value;
+            set {
+                format_provider = value;
+                OnChanged ();
+            }
         }
 
         /// <summary>Gets a value indicating whether the <see cref="FormatProvider"/> property has been set.</summary>
         public bool IsFormatProviderDefault => format_provider is null;
-
         /// <summary>Gets or sets the selection background color.</summary>
-        public Color SelectionBackColor { get; set; } = Color.Empty;
+        public Color SelectionBackColor {
+            get => selection_back_color;
+            set {
+                if (EqualityComparer<Color>.Default.Equals (selection_back_color, value))
+                    return;
+
+                selection_back_color = value;
+                OnChanged ();
+            }
+        }
+
+        private Color selection_back_color = Color.Empty;
 
         /// <summary>Gets or sets the selection foreground color.</summary>
-        public Color SelectionForeColor { get; set; } = Color.Empty;
+        public Color SelectionForeColor {
+            get => selection_fore_color;
+            set {
+                if (EqualityComparer<Color>.Default.Equals (selection_fore_color, value))
+                    return;
+
+                selection_fore_color = value;
+                OnChanged ();
+            }
+        }
+
+        private Color selection_fore_color = Color.Empty;
 
         /// <summary>Gets or sets the font used to display text. Stub in Majorsilence.Forms.</summary>
 #pragma warning disable CA1416
-        public Majorsilence.Forms.Drawing.Font? Font { get; set; }
-#pragma warning restore CA1416
 
+        public Majorsilence.Forms.Drawing.Font? Font {
+            get => font;
+            set {
+                if (EqualityComparer<Majorsilence.Forms.Drawing.Font?>.Default.Equals (font, value))
+                    return;
+
+                font = value;
+                OnChanged ();
+            }
+        }
+
+        private Majorsilence.Forms.Drawing.Font? font;
+#pragma warning restore CA1416
         /// <summary>Gets or sets how cell content is aligned within the cell.</summary>
-        public DataGridViewContentAlignment Alignment { get; set; } = DataGridViewContentAlignment.NotSet;
+        public DataGridViewContentAlignment Alignment {
+            get => alignment;
+            set {
+                if (EqualityComparer<DataGridViewContentAlignment>.Default.Equals (alignment, value))
+                    return;
+
+                alignment = value;
+                OnChanged ();
+            }
+        }
+
+        private DataGridViewContentAlignment alignment = DataGridViewContentAlignment.NotSet;
 
         /// <summary>Gets or sets how text is wrapped within a cell.</summary>
-        public DataGridViewTriState WrapMode { get; set; } = DataGridViewTriState.NotSet;
+        public DataGridViewTriState WrapMode {
+            get => wrap_mode;
+            set {
+                if (EqualityComparer<DataGridViewTriState>.Default.Equals (wrap_mode, value))
+                    return;
+
+                wrap_mode = value;
+                OnChanged ();
+            }
+        }
+
+        private DataGridViewTriState wrap_mode = DataGridViewTriState.NotSet;
 
         /// <summary>Gets or sets the value displayed when a cell's value is null.</summary>
         public object? NullValue {
             get => null_value;
-            set => null_value = value;
+            set {
+                null_value = value;
+                OnChanged ();
+            }
         }
 
         /// <summary>Gets a value indicating whether the <see cref="NullValue"/> property is set to its default value (the empty string).</summary>
@@ -108,17 +193,31 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the value stored in the data source when the user enters a null value.</summary>
         public object? DataSourceNullValue {
             get => data_source_null_value;
-            set => data_source_null_value = value;
+            set {
+                data_source_null_value = value;
+                OnChanged ();
+            }
         }
 
         /// <summary>Gets a value indicating whether the <see cref="DataSourceNullValue"/> property is set to its default value (<see cref="DBNull.Value"/>).</summary>
         public bool IsDataSourceNullValueDefault => ReferenceEquals (data_source_null_value, DBNull.Value);
-
         /// <summary>Gets or sets an object that contains additional data associated with the style.</summary>
-        public object? Tag { get; set; }
+        public object? Tag {
+            get => tag;
+            set {
+                if (EqualityComparer<object?>.Default.Equals (tag, value))
+                    return;
 
-        /// <summary>Gets the scope of the style. Always <see cref="DataGridViewCellStyleScopes.None"/> in Majorsilence.Forms.</summary>
-        public DataGridViewCellStyleScopes Scope => DataGridViewCellStyleScopes.None;
+                tag = value;
+                OnChanged ();
+            }
+        }
+
+        private object? tag;
+
+        /// <summary>Gets the scope at which this style is applied: the column or row that handed it out,
+        /// or <see cref="DataGridViewCellStyleScopes.None"/> for a free-standing style.</summary>
+        public DataGridViewCellStyleScopes Scope => scope;
 
         /// <summary>Gets or sets the padding within the cell. Negative values are clamped to zero.</summary>
         public Padding Padding {
@@ -132,8 +231,23 @@ namespace Majorsilence.Forms
                         Math.Max (0, value.Bottom));
 
                 padding = value;
+                OnChanged ();
             }
         }
+
+        // CellStyleContentChanged (W6 mechanisms). A style learns which grid it belongs to, and at
+        // what scope, when a column or row hands it out; every setter above then tells that grid.
+        // Upstream tracks the same thing with AddScope/RemoveScope on the style.
+        private DataGridView? owner;
+        private DataGridViewCellStyleScopes scope;
+
+        internal void Attach (DataGridView? grid, DataGridViewCellStyleScopes styleScope)
+        {
+            owner = grid;
+            scope = styleScope;
+        }
+
+        private void OnChanged () => owner?.NotifyCellStyleContentChanged (this, scope);
 
         /// <summary>Copies the values from the supplied style into this style.</summary>
         public void ApplyStyle (DataGridViewCellStyle dataGridViewCellStyle)

@@ -34,6 +34,15 @@ namespace Majorsilence.Forms.Renderers
                 if (item.DeviceBounds.Bottom < area.Top || item.DeviceBounds.Top > area.Bottom)
                     continue;
 
+                // Owner draw (W6 mechanisms): the application paints the item unless its handler asks
+                // for the default; in Details view a declined item is then offered cell by cell.
+                if (control.OwnerDraw && !control.RaiseDrawItem (item, e)) {
+                    if (control.View == View.Details)
+                        RenderOwnerDrawnCells (control, item, e);
+
+                    continue;
+                }
+
                 RenderItem (control, item, e);
             }
 
@@ -74,9 +83,16 @@ namespace Majorsilence.Forms.Renderers
 
             var x = band.Left + control.ScaledCheckWidth;
 
-            foreach (var column in control.Columns) {
+            // Display order, so a reordered column's header sits over its cells (W6 mechanisms).
+            foreach (var column in control.DisplayColumns) {
                 var width = control.ScaledColumnWidth (column);
                 var cell = new Rectangle (x, band.Top, width, height);
+
+                // Owner draw: the header cell is the application's unless it asks for the default.
+                if (control.OwnerDraw && !control.RaiseDrawColumnHeader (column, cell, e)) {
+                    x += width;
+                    continue;
+                }
 
                 e.Canvas.DrawText (column.Text ?? string.Empty, Theme.UIFont, font_size,
                     Padded (cell, e), Theme.ForegroundColor, Align (column.TextAlign), maxLines: 1);
@@ -218,12 +234,14 @@ namespace Majorsilence.Forms.Renderers
         {
             var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);
 
-            // FullRowSelect highlights the whole row; without it, only the first column, as upstream.
+            var display = control.DisplayColumns;
+
+            // FullRowSelect highlights the whole row; without it, only the first displayed column, as upstream.
             if (ShowsSelection (control, item)) {
-                var highlight = control.FullRowSelect || control.Columns.Count == 0
+                var highlight = control.FullRowSelect || display.Count == 0
                     ? item.DeviceBounds
                     : new Rectangle (item.DeviceBounds.Left, item.DeviceBounds.Top,
-                        control.ScaledCheckWidth + control.ScaledColumnWidth (control.Columns[0]), item.DeviceBounds.Height);
+                        control.ScaledCheckWidth + control.ScaledColumnWidth (display[0]), item.DeviceBounds.Height);
 
                 e.Canvas.FillRectangle (highlight, ListView.DefaultSelectionStyle.GetBackgroundColor ());
             }
@@ -232,26 +250,12 @@ namespace Majorsilence.Forms.Renderers
 
             var x = item.DeviceBounds.Left + control.ScaledCheckWidth;
 
-            for (var i = 0; i < control.Columns.Count; i++) {
-                var width = control.ScaledColumnWidth (control.Columns[i]);
+            // Display order (W6 mechanisms): the cell for column.Index is drawn where its header is.
+            foreach (var column in display) {
+                var width = control.ScaledColumnWidth (column);
                 var cell = new Rectangle (x, item.DeviceBounds.Top, width, item.DeviceBounds.Height);
 
-                // Column 0 is the item's own Text; the rest are its subitems -- which is why every
-                // subitem was invisible while this drew item.Text only.
-                var text = i == 0
-                    ? item.Text
-                    : i < item.SubItems.Count ? item.SubItems[i].Text : string.Empty;
-
-                if (!string.IsNullOrEmpty (text)) {
-                    e.Canvas.Save ();
-                    e.Canvas.Clip (cell);
-                    e.Canvas.DrawText (text, Theme.UIFont, font_size, Padded (cell, e),
-                        ItemForeColour (control, item, Foreground (item, i, ShowsSelection (control, item))), Align (control.Columns[i].TextAlign), maxLines: 1);
-                    e.Canvas.Restore ();
-                }
-
-                if (control.GridLines)
-                    e.Canvas.DrawLine (cell.Right - 1, cell.Top, cell.Right - 1, cell.Bottom, Theme.BorderLowColor);
+                RenderDetailsCell (control, item, column, cell, e);
 
                 x += width;
             }
@@ -259,6 +263,47 @@ namespace Majorsilence.Forms.Renderers
             if (control.GridLines)
                 e.Canvas.DrawLine (item.DeviceBounds.Left, item.DeviceBounds.Bottom - 1,
                     item.DeviceBounds.Right, item.DeviceBounds.Bottom - 1, Theme.BorderLowColor);
+        }
+
+        /// <summary>Renders one Details cell: the column's text for the item, and its grid line.</summary>
+        protected virtual void RenderDetailsCell (ListView control, ListViewItem item, ColumnHeader column, Rectangle cell, PaintEventArgs e)
+        {
+            var font_size = e.LogicalToDeviceUnits (Theme.ItemFontSize);
+            var i = column.Index;
+
+            // Column 0 is the item's own Text; the rest are its subitems -- which is why every
+            // subitem was invisible while this drew item.Text only.
+            var text = i == 0
+                ? item.Text
+                : i < item.SubItems.Count ? item.SubItems[i].Text : string.Empty;
+
+            if (!string.IsNullOrEmpty (text)) {
+                e.Canvas.Save ();
+                e.Canvas.Clip (cell);
+                e.Canvas.DrawText (text, Theme.UIFont, font_size, Padded (cell, e),
+                    ItemForeColour (control, item, Foreground (item, i, ShowsSelection (control, item))), Align (column.TextAlign), maxLines: 1);
+                e.Canvas.Restore ();
+            }
+
+            if (control.GridLines)
+                e.Canvas.DrawLine (cell.Right - 1, cell.Top, cell.Right - 1, cell.Bottom, Theme.BorderLowColor);
+        }
+
+        // An owner-drawn item whose handler declined the default: each cell is offered to DrawSubItem,
+        // and painted by the default path only when that handler asks for it.
+        private void RenderOwnerDrawnCells (ListView control, ListViewItem item, PaintEventArgs e)
+        {
+            var x = item.DeviceBounds.Left + control.ScaledCheckWidth;
+
+            foreach (var column in control.DisplayColumns) {
+                var width = control.ScaledColumnWidth (column);
+                var cell = new Rectangle (x, item.DeviceBounds.Top, width, item.DeviceBounds.Height);
+
+                if (control.RaiseDrawSubItem (item, column, cell, e))
+                    RenderDetailsCell (control, item, column, cell, e);
+
+                x += width;
+            }
         }
 
         /// <summary>Renders a single-line row for the List and SmallIcon views.</summary>

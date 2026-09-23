@@ -29,6 +29,11 @@ namespace Majorsilence.Forms
             popup_listbox = new PopupList { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true };
             popup_listbox.SelectedIndexChanged += ListBox_SelectedIndexChanged;
 
+            // Owner draw (W6 mechanisms): the drop-down list is a ListBox, so its DrawItem and
+            // MeasureItem ARE the combo's -- re-announced from here, with this control as the sender.
+            popup_listbox.DrawItem += (_, e) => OnDrawItem (e);
+            popup_listbox.MeasureItem += (_, e) => OnMeasureItem (e);
+
             // The inner list holds the items but the DATA SOURCE belongs to the combo, so the combo does
             // its own tracking; the inner list's own tracker never sees a source.
             source_tracker = new DataSourceBinding.ListSourceTracker (
@@ -250,11 +255,15 @@ namespace Majorsilence.Forms
             => (int)Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height) + Padding.Top + Padding.Bottom + 6;
 
         /// <summary>Gets the height of the item at the specified index.</summary>
-        /// <remarks>Every item is the same height here; <see cref="DrawMode"/>'s variable-height mode
-        /// is not implemented, so the index is accepted and validated but does not change the answer.</remarks>
+        /// <remarks>In <see cref="DrawMode.OwnerDrawVariable"/> this is the height <see cref="MeasureItem"/>
+        /// answered for the item (W6 mechanisms); otherwise every item is <see cref="ItemHeight"/>.</remarks>
         public int GetItemHeight (int index)
         {
             Guard.ThrowIfNegative (index);
+
+            if (DrawMode == DrawMode.OwnerDrawVariable && index < Items.Count)
+                return popup_listbox.DeviceToLogicalUnits (popup_listbox.ItemHeightDeviceAt (index));
+
             return ItemHeight;
         }
 
@@ -876,25 +885,60 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the drawing mode for the elements of the ComboBox. Stub in Majorsilence.Forms.</summary>
-        public DrawMode DrawMode { get; set; } = DrawMode.Normal;
+        /// <summary>Gets or sets the drawing mode for the elements of the ComboBox.</summary>
+        /// <remarks>Read as of W6 mechanisms: forwarded to the drop-down list, whose owner-draw path
+        /// raises this control's <see cref="DrawItem"/> and <see cref="MeasureItem"/>; the selected
+        /// item in the edit area of a <see cref="ComboBoxStyle.DropDownList"/> is owner-drawn too, with
+        /// <see cref="DrawItemState.ComboBoxEdit"/>.</remarks>
+        public DrawMode DrawMode {
+            get => popup_listbox.DrawMode;
+            set {
+                if (popup_listbox.DrawMode == value)
+                    return;
+
+                popup_listbox.DrawMode = value;
+                Invalidate ();
+            }
+        }
 
         /// <summary>Raised when an owner-drawn element needs to be drawn.</summary>
         /// <remarks>
-        /// The event is real and <see cref="OnDrawItem"/> is overridable, so a control deriving from
-        /// ComboBox to paint its own items compiles and its hook is reachable. The built-in item
-        /// rendering does not yet call it, so an owner-drawn combo still paints normally — see the
-        /// compatibility matrix.
+        /// Raised as of W6 mechanisms: for each visible drop-down item while <see cref="DrawMode"/> is
+        /// an owner-draw mode, and for the selected item in the edit area of a drop-down list.
         /// </remarks>
         public event DrawItemEventHandler? DrawItem;
 
         /// <summary>Raises the DrawItem event.</summary>
         protected virtual void OnDrawItem (DrawItemEventArgs e) => DrawItem?.Invoke (this, e);
 
-#pragma warning disable CS0067
-        /// <summary>Raised when an owner-drawn element needs to be measured. Stub in Majorsilence.Forms.</summary>
-        public event MeasureItemEventHandler? MeasureItem;
-#pragma warning restore CS0067
+        /// <summary>Raised in <see cref="DrawMode.OwnerDrawVariable"/> to ask the height of an item.</summary>
+        /// <remarks>Real as of W6 mechanisms; forwarded from the drop-down list, see <see cref="ListBox.MeasureItem"/>.</remarks>
+        public event MeasureItemEventHandler? MeasureItem {
+            add {
+                measure_item += value;
+                // The list measured through this control before the handler existed; ask again.
+                popup_listbox.RefreshItems ();
+            }
+            remove => measure_item -= value;
+        }
+
+        private MeasureItemEventHandler? measure_item;
+
+        /// <summary>Raises the <see cref="MeasureItem"/> event.</summary>
+        protected virtual void OnMeasureItem (MeasureItemEventArgs e) => measure_item?.Invoke (this, e);
+
+        // The renderer's door to DrawItem for the edit area (W6 mechanisms).
+        internal void RaiseEditAreaDrawItem (Rectangle bounds, PaintEventArgs e)
+        {
+            var state = DrawItemState.ComboBoxEdit;
+
+            if (Selected && ShowFocusCues)
+                state |= DrawItemState.Focus;
+            if (!Enabled)
+                state |= DrawItemState.Disabled;
+
+            OnDrawItem (new DrawItemEventArgs (e.Graphics, Font, bounds, SelectedIndex, state, ForeColor, BackColor));
+        }
 
         /// <summary>Finds the first item starting with the given string (case-insensitive).</summary>
         public int FindString (string s, int startIndex = -1)

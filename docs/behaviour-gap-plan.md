@@ -3154,6 +3154,85 @@ release), and the project template's `msformsVersion` pin moves to 26.1.0, the l
 6 tests; three neutralization rounds (the drag's ask-and-set; the setter's notification; the click
 suppression), each failing exactly its own tests, snapshot verified before and after.
 
+**W6 mechanisms, fifth chunk: nine mechanisms in one sweep. — 2026-09-23.** Part of #91.
+
+Asked to fix more at once, this chunk takes every remaining unannotated line of the unraised baseline
+and the stored-only lines blocked on the same mechanisms, grouped by what each needed:
+
+- **Owner drawing.** `ListView.OwnerDraw` is read by the renderer: every header cell goes through
+  `DrawColumnHeader`, every visible item through `DrawItem`, and an item whose handler declined the
+  default is offered cell by cell through `DrawSubItem` (only for sub-items that exist, as upstream);
+  `DrawDefault` on any of the three hands that part back to the built-in painting. `ListBox.DrawMode`
+  and `ComboBox.DrawMode` raise `DrawItem` for each visible item with its selected/focused/disabled/hot
+  state; `OwnerDrawVariable` asks `MeasureItem` per item and lays the rows out from the answers (a
+  handler attached after the items exist is asked afresh). The combo's drop-down list re-announces
+  through the combo, and a `DropDownList`'s edit area is owner-drawn with `ComboBoxEdit`.
+  `ToolTip.OwnerDraw` turns the tip's paint pass into `Draw`. `StatusBar.ShowPanels` lays the panels
+  out (fixed, `Contents`, `Spring`; `MinWidth`; the `SizingGrip` square reserved) and draws each one's
+  border, icon and aligned text -- or raises `DrawItem` for an `OwnerDraw` panel; `PanelClick` names the
+  panel under a click and `ToolTipText` is the panel's tip. Eleven `StatusBarPanel` properties stop
+  being stored-only in one go.
+- **Label editing.** `ListView.LabelEdit` / `TreeView.LabelEdit`: `BeginEdit` (which throws when the
+  list forbids it, as upstream) and F2 put a `LabelEditBox` -- a text box that claims Enter and Escape
+  -- over the label; `BeforeLabelEdit` may refuse; `AfterLabelEdit` sees the typed text, or a null
+  label for a cancel, and may refuse that too. `TreeNode.EndEdit (cancel)` and `IsEditing` are real.
+- **ListView column reordering.** `AllowColumnReorder`: a header drag past the drag threshold asks
+  cancellable `ColumnReordered` on release and moves the column's `DisplayIndex`; setting
+  `DisplayIndex` on a column in a list renumbers the others. Every piece of header and cell geometry
+  walks `DisplayColumns`, so the header, its divider and its cells move together while
+  `SubItems[column.Index]` stays put. The west-east cursor over a divider, left over from the fourth chunk.
+- **`ItemDrag`** on both lists: raised once per press when the pointer moves past
+  `SystemInformation.DragSize` with a button held over an item. (The drag/drop pipeline it hands off
+  to is still the W6.1 remainder: `DoDragDrop` returns `None`.)
+- **ListView virtual mode.** `VirtualMode`/`VirtualListSize` hold one placeholder per index; reading
+  `Items[i]`, painting or hit-testing resolves a slot through `RetrieveVirtualItem` once (the visible
+  run is announced with `CacheVirtualItems` first), `FindItemWithText` asks `SearchForVirtualItem`, a
+  Shift range reports once through `VirtualItemsSelectionRangeChanged`, and `Items` refuses adds and
+  removes as upstream does. The collection hides the base indexer to get the lazy resolve, and the
+  placeholders cost one object per index -- tens of thousands of rows, not millions.
+- **DataGridView.** An unbound grid in `VirtualMode` reads every `Cell.Value` through
+  `CellValueNeeded`, pushes writes and editor commits through `CellValuePushed` (then raises
+  `CellValueChanged`), asks `RowHeightInfoNeeded` for a row's height and offers `RowHeightInfoPushed`
+  (Handled keeps the row's own figure), and raises `CancelRowEdit` from `CancelEdit`. Bound or
+  virtual, `GetInheritedContextMenuStrip`/`GetContextMenuStrip` ask `CellContextMenuStripNeeded` /
+  `RowContextMenuStripNeeded`, and a right press over a cell opens the cell's menu when it differs from
+  the grid's. `DataGridViewCellStyle` learns its owner and scope when a column or row hands it out, so
+  `Columns[i].DefaultCellStyle.BackColor = …` raises `CellStyleContentChanged` with `Column` scope
+  (`Scope` stops being a constant).
+- **`Form.ResizeBegin`/`ResizeEnd`.** A border press, a caption drag, or the public `Begin*Drag`
+  methods raise `ResizeBegin` (upstream's `WM_ENTERSIZEMOVE` covers moves too); the pointer release
+  that follows raises `ResizeEnd`, through a `WindowBase.EndSizeMove` hook.
+- **`BindingManagerBase.DataError` / `BindingSource.DataError`.** An exception escaping a push or a
+  commit (`EndCurrentEdit`) is offered to the manager's handler and forwarded to the owning source.
+  *Deliberate divergence:* upstream swallows the exception whether or not anyone listens; here it
+  propagates when nobody does, so a data error cannot vanish silently. Conversion failures a binding
+  handles itself still go through `BindingComplete`.
+- **`Application.ThreadException`.** Every backend entry point into a window (`WindowBase.Handle*`
+  for pointer, key and text input) and `Timer.OnTick` run inside an exception filter that reports to
+  `ThreadException` when a handler is attached and lets the exception propagate otherwise -- and
+  `SetUnhandledExceptionMode (ThrowException)`, an empty method until now, stands the boundary aside.
+
+*Counts.* Unraised **119 → 88** (31 events real; every remaining line carries a reason). Stored-only
+**537 → 505** (32 properties read; no new lines). No-op stubs **131 → 126** (`SetUnhandledExceptionMode`
+×2, `ListViewItem.BeginEdit`, `TreeNode.BeginEdit`/`EndEdit`). The note test that pinned
+`ComboBox.DrawMode` as its "merely initialised" example pins `ListView.UseCompatibleStateImageBehavior` now.
+
+*Not done:* the drag/drop pipeline (`DoDragDrop`, `ToolStripItem.Drag*`/`GiveFeedback`/
+`QueryContinueDrag`, `ToolStrip.AllowItemReorder`), the DataGridView new-row object
+(`DefaultValuesNeeded`/`NewRowNeeded`/`UserAddedRow`) and `ColumnDisplayIndexChanged`, `MenuItem`
+owner draw, the legacy `ToolBar.Buttons` surface, and the DGV divider hit-test coordinate
+fix noted under RC-8. In virtual mode the row's `Index` is a list search, so a very large virtual
+grid pays for it on every height read.
+
+Also in this change: the package version moves 26.2.0 → **26.3.0** (26.2.0 is the latest published
+release), and the project template's `msformsVersion` pin moves to 26.2.0.
+
+34 tests in three files; three neutralization rounds by cluster (ListView; TreeView / StatusBar /
+ToolTip / ListBox / ComboBox; grid / binding / application / form) -- each round neutralized the raise
+sites at runtime rather than reverting files, so the tests still compiled, and each failed exactly its
+cluster's positive tests (13, 10 and 8) while the negative tests stayed green; snapshot verified
+before and after every round.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

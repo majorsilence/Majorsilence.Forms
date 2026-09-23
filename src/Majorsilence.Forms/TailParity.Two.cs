@@ -262,20 +262,20 @@ namespace Majorsilence.Forms
         public object? Tag { get; set; }
 
         /// <summary>Gets or sets whether the application draws the tooltip.</summary>
+        /// <remarks>Read as of W6 mechanisms: while set, the tip's paint pass raises <see cref="Draw"/>
+        /// instead of drawing the text, and draws nothing itself.</remarks>
         public bool OwnerDraw { get; set; }
 
         /// <summary>Returns whether this tooltip can provide a tip for the given object.</summary>
         public bool CanExtend (object? target) => target is Control;
 
-        // Owner-drawn tooltips are painted by the backends' own popup, which does not call back into
-        // application code, so neither of these is raised yet.
-#pragma warning disable CS0067
-        /// <summary>Raised when an owner-drawn tooltip must be painted. Not raised by this layer yet.</summary>
+        /// <summary>Raised when an owner-drawn tooltip must be painted.</summary>
+        /// <remarks>Real as of W6 mechanisms: raised from the tip window's paint pass while
+        /// <see cref="OwnerDraw"/> is set, after <see cref="Popup"/> has sized the tip.</remarks>
         public event DrawToolTipEventHandler? Draw;
 
         /// <summary>Raised before a tooltip is shown. Not raised by this layer yet.</summary>
         public event PopupEventHandler? Popup;
-#pragma warning restore CS0067
     }
 
     public partial class ImageList

@@ -752,6 +752,9 @@ namespace Majorsilence.Forms
 
         internal virtual bool HandleMouseDown (int x, int y) => false;
 
+        // The end of a size or move drag the window itself started; Form raises ResizeEnd here.
+        internal virtual void EndSizeMove () { }
+
         internal virtual bool HandleMouseMove (int x, int y)
         {
             Backend.SetCursor (current_cursor?.CursorType ?? Backends.CursorType.Arrow);
@@ -1265,7 +1268,18 @@ namespace Majorsilence.Forms
             return true;
         }
 
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
+        {
+            try {
+                HandlePointerPressedCore (button, x, y, keys);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            
+            }
+        }
+
+        private void HandlePointerPressedCore (MouseButtons button, int x, int y, Keys keys)
         {
             Control.MouseButtons |= button; // the process-wide button state Control.MouseButtons reports (W6.2 sweep)
             int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
@@ -1289,9 +1303,23 @@ namespace Majorsilence.Forms
             adapter.RaiseMouseDown (ev);
         }
 
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
+            try {
+                HandlePointerReleasedCore (button, x, y, keys);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            
+            }
+        }
+
+        private void HandlePointerReleasedCore (MouseButtons button, int x, int y, Keys keys)
+        {
             Control.MouseButtons &= ~button;
+
+            // A size or move drag that began on this window ends with the button (Form.ResizeEnd).
+            EndSizeMove ();
             int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
             TrackCursorPosition (lx, ly);
@@ -1318,7 +1346,18 @@ namespace Majorsilence.Forms
             adapter.RaiseClick (ev);
         }
 
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
+        {
+            try {
+                HandlePointerMovedCore (buttons, x, y, keys);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            
+            }
+        }
+
+        private void HandlePointerMovedCore (MouseButtons buttons, int x, int y, Keys keys)
         {
             int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
@@ -1341,7 +1380,18 @@ namespace Majorsilence.Forms
             adapter.RaiseMouseMove (ev);
         }
 
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerWheel (MouseButtons buttons, int x, int y, System.Drawing.Point delta, Keys keys)
+        {
+            try {
+                HandlePointerWheelCore (buttons, x, y, delta, keys);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            
+            }
+        }
+
+        private void HandlePointerWheelCore (MouseButtons buttons, int x, int y, System.Drawing.Point delta, Keys keys)
         {
             // Convert device pixels to logical units here, once, like the other pointer handlers --
             // otherwise on a scaled display the wheel event hit-tests device coordinates against
@@ -1548,7 +1598,18 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the mouse wheel turns over this window.</summary>
         public event MouseEventHandler? MouseWheel;
 
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerExited (MouseButtons buttons, int x, int y, Keys keys)
+        {
+            try {
+                HandlePointerExitedCore (buttons, x, y, keys);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            
+            }
+        }
+
+        private void HandlePointerExitedCore (MouseButtons buttons, int x, int y, Keys keys)
         {
             var ev = new MouseEventArgs (buttons, 0, x, y, System.Drawing.Point.Empty, keyData: keys);
             adapter.RaiseMouseLeave (ev);
@@ -1569,20 +1630,64 @@ namespace Majorsilence.Forms
         // this boundary once. Identity at scaling 1, which is why routing device coordinates against
         // logical Bounds went unnoticed until Android (RenderScaling ~2.6) exercised these paths.
 
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandleLongPress (int x, int y)
+        {
+            try {
+                HandleLongPressCore (x, y);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            
+            }
+        }
+
+        private void HandleLongPressCore (int x, int y)
             => adapter.RaiseLongPress (new LongPressEventArgs (DeviceToLogical (x), DeviceToLogical (y)));
 
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePinch (int x, int y, double scale, double angle, double angleDelta)
+        {
+            try {
+                HandlePinchCore (x, y, scale, angle, angleDelta);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            
+            }
+        }
+
+        private void HandlePinchCore (int x, int y, double scale, double angle, double angleDelta)
             => adapter.RaisePinch (new PinchGestureEventArgs (DeviceToLogical (x), DeviceToLogical (y), scale, angle, angleDelta));
 
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandleSwipe (int x, int y, double velocityX, double velocityY, SwipeDirection direction)
+        {
+            try {
+                HandleSwipeCore (x, y, velocityX, velocityY, direction);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            
+            }
+        }
+
+        private void HandleSwipeCore (int x, int y, double velocityX, double velocityY, SwipeDirection direction)
             => adapter.RaiseSwipe (new SwipeGestureEventArgs (
                 DeviceToLogical (x), DeviceToLogical (y),
                 velocityX / DeviceScaleOrOne, velocityY / DeviceScaleOrOne, direction));
 
         private double _scrollGestureRemainderX, _scrollGestureRemainderY;
 
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandleScrollGesture (int x, int y, int deltaX, int deltaY)
+        {
+            try {
+                HandleScrollGestureCore (x, y, deltaX, deltaY);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            
+            }
+        }
+
+        private void HandleScrollGestureCore (int x, int y, int deltaX, int deltaY)
         {
             // The delta arrives in device pixels and a touch drag delivers it a few pixels at a time,
             // so rounding each fragment to a whole logical pixel on its own loses a large fraction of a
@@ -1628,7 +1733,18 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Routes a key-down. Returns true if handled (the backend should suppress further native processing).</summary>
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal bool HandleKeyDown (Keys keys)
+        {
+            try {
+                return HandleKeyDownCore (keys);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+                return false;
+            }
+        }
+
+        private bool HandleKeyDownCore (Keys keys)
         {
             // wParam is the virtual-key code on Windows, which is what Keys already encodes.
             if (Filtered (WindowMessages.WM_KEYDOWN, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
@@ -1699,7 +1815,18 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Routes a key-up. Returns true if handled.</summary>
+        // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
+        // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal bool HandleKeyUp (Keys keys)
+        {
+            try {
+                return HandleKeyUpCore (keys);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+                return false;
+            }
+        }
+
+        private bool HandleKeyUpCore (Keys keys)
         {
             if (Filtered (WindowMessages.WM_KEYUP, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
                 return true;
@@ -1721,7 +1848,17 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Routes text input. Returns true if handled.</summary>
+        // See HandlePointerPressed: the same exception boundary, for text input.
         internal bool HandleTextInput (string text)
+        {
+            try {
+                return HandleTextInputCore (text);
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+                return false;
+            }
+        }
+
+        private bool HandleTextInputCore (string text)
         {
             if (string.IsNullOrEmpty (text))
                 return false;

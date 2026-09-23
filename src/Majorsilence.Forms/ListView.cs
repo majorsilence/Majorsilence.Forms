@@ -188,6 +188,27 @@ namespace Majorsilence.Forms
         // a grid of tiles (LargeIcon, Tile).
         internal bool IsRowView => View is View.Details or View.List or View.SmallIcon;
 
+        /// <summary>The columns in the order they are displayed: by <see cref="ColumnHeader.DisplayIndex"/>,
+        /// with an unset index falling back to the column's own position (W6 mechanisms).</summary>
+        /// <remarks>Every piece of header and cell geometry walks this, so a reordered column moves its
+        /// header, its divider and its cells together while <c>SubItems[column.Index]</c> stays put.</remarks>
+        internal IReadOnlyList<ColumnHeader> DisplayColumns
+            => Columns.OrderBy (c => c.DisplayIndex >= 0 ? c.DisplayIndex : c.Index).ThenBy (c => c.Index).ToList ();
+
+        /// <summary>Moves a column to a new display position, shifting the others to keep the order dense.</summary>
+        internal void SetColumnDisplayIndex (ColumnHeader header, int displayIndex)
+        {
+            var order = DisplayColumns.ToList ();
+
+            order.Remove (header);
+            order.Insert (Math.Max (0, Math.Min (displayIndex, order.Count)), header);
+
+            for (var i = 0; i < order.Count; i++)
+                order[i].SetDisplayIndexInternal (i);
+
+            Invalidate ();
+        }
+
         /// <summary>The width of a column, resolving the -1 (fit content) and -2 (fit header) sentinels.</summary>
         internal int ScaledColumnWidth (ColumnHeader column)
         {
@@ -261,10 +282,12 @@ namespace Majorsilence.Forms
             var device = item.DeviceBounds;
             var x = device.Left + ScaledCheckWidth;
 
-            for (var i = 0; i < Columns.Count; i++) {
-                var width = ScaledColumnWidth (Columns[i]);
+            // Display order: a reordered column's cells sit where its header does (W6 mechanisms).
+            foreach (var column in DisplayColumns) {
+                var width = ScaledColumnWidth (column);
+                var i = column.Index;
 
-                if (i < item.SubItems.Count) {
+                if (i >= 0 && i < item.SubItems.Count) {
                     // The owner is what lets a sub-item find the display scale for its own conversion.
                     item.SubItems[i].Owner = item;
                     item.SubItems[i].DeviceBounds = new Rectangle (x, device.Top, width, device.Height);
@@ -334,35 +357,122 @@ namespace Majorsilence.Forms
             var edge = ItemArea.Left + ScaledCheckWidth;
             var zone = LogicalToDeviceUnits (4);
 
-            for (var i = 0; i < Columns.Count; i++) {
-                edge += ScaledColumnWidth (Columns[i]);
+            foreach (var column in DisplayColumns) {
+                edge += ScaledColumnWidth (column);
 
                 if (Math.Abs (location.X - edge) <= zone)
-                    return i;
+                    return column.Index;
             }
 
             return -1;
         }
+
+        // ── header reorder drag (W6 mechanisms) ───────────────────────────────────────────────────
+        // A press on a header (not on a divider) with AllowColumnReorder set arms a reorder; moving
+        // past the drag threshold makes it one; the release asks ColumnReordered and, unless
+        // cancelled, moves the column's DisplayIndex to the slot under the pointer.
+        private int reorder_column = -1;
+        private int reorder_start_x;
+        private bool reorder_active;
+
+        // ── ItemDrag (W6 mechanisms) ──────────────────────────────────────────────────────────────
+        // A press on an item remembers it; the first move past SystemInformation.DragSize while the
+        // button is held raises ItemDrag once for that press, which is when upstream raises it.
+        private ListViewItem? drag_candidate;
+        private Point drag_origin;
+        private bool item_drag_raised;
 
         /// <inheritdoc/>
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
 
+            LayoutItems ();
+
+            var device = ToDevice (e.Location);
+            var in_header = ScaledHeaderHeight > 0 && device.Y < PaddedClientRectangle.Top + ScaledHeaderHeight;
+
+            if (!in_header) {
+                drag_candidate = Items.FirstOrDefault (i => i.DeviceBounds.Contains (device));
+                drag_origin = e.Location;
+                item_drag_raised = false;
+            }
+
             if (e.Button != MouseButtons.Left)
                 return;
 
-            LayoutItems ();
-            var column = HeaderDividerAt (ToDevice (e.Location));
+            var column = HeaderDividerAt (device);
 
-            if (column < 0)
+            if (column >= 0) {
+                resize_column = column;
+                resize_start_x = e.X;
+                resize_start_width = DeviceToLogicalUnits (ScaledColumnWidth (Columns[column]));
+                suppress_header_click = false;
+                Capture = true;
+                return;
+            }
+
+            if (in_header && AllowColumnReorder && ColumnIndexAt (device.X) is >= 0 and var header) {
+                reorder_column = header;
+                reorder_start_x = e.X;
+                reorder_active = false;
+                Capture = true;
+            }
+        }
+
+        private void TrackHeaderReorder (MouseEventArgs e)
+        {
+            if (reorder_column < 0 || reorder_active)
                 return;
 
-            resize_column = column;
-            resize_start_x = e.X;
-            resize_start_width = DeviceToLogicalUnits (ScaledColumnWidth (Columns[column]));
-            suppress_header_click = false;
-            Capture = true;
+            if (Math.Abs (e.X - reorder_start_x) > SystemInformation.DragSize.Width)
+                reorder_active = true;
+        }
+
+        private void EndHeaderReorder (MouseEventArgs e)
+        {
+            if (reorder_column < 0)
+                return;
+
+            var header = Columns[reorder_column];
+            var active = reorder_active;
+
+            reorder_column = -1;
+            reorder_active = false;
+            Capture = false;
+
+            if (!active)
+                return;
+
+            // The release that ends a drag is not a header click, as with a divider drag.
+            suppress_header_click = true;
+
+            var order = DisplayColumns.ToList ();
+            var old_slot = order.IndexOf (header);
+            var new_slot = DisplaySlotAt (ToDevice (e.Location).X);
+
+            if (old_slot == new_slot)
+                return;
+
+            var args = new ColumnReorderedEventArgs (old_slot, new_slot, header);
+            OnColumnReordered (args);
+
+            if (!args.Cancel)
+                SetColumnDisplayIndex (header, new_slot);
+        }
+
+        private void TrackItemDrag (MouseEventArgs e)
+        {
+            if (drag_candidate is null || item_drag_raised || e.Button == MouseButtons.None)
+                return;
+
+            var threshold = SystemInformation.DragSize;
+
+            if (Math.Abs (e.X - drag_origin.X) <= threshold.Width && Math.Abs (e.Y - drag_origin.Y) <= threshold.Height)
+                return;
+
+            item_drag_raised = true;
+            OnItemDrag (new ItemDragEventArgs (e.Button, drag_candidate));
         }
 
         private void TrackHeaderResize (MouseEventArgs e)
@@ -395,9 +505,13 @@ namespace Majorsilence.Forms
                 resize_column = -1;
                 Capture = false;
             }
+
+            EndHeaderReorder (e);
+
+            drag_candidate = null;
+            item_drag_raised = false;
         }
 
-        /// <inheritdoc/>
         // The item under the pointer, for HotTracking's hot colour (W6). Tracked here rather than in the
         // renderer so a change repaints only when the hot item actually moves.
         internal ListViewItem? HotItem { get; private set; }
@@ -407,7 +521,25 @@ namespace Majorsilence.Forms
         {
             base.OnMouseMove (e);
             TrackHeaderResize (e);
+            TrackHeaderReorder (e);
+            TrackItemDrag (e);
+            UpdateDividerCursor (e.Location);
             SetHotItem (HotTracking ? GetItemAt (e.X, e.Y) : null);
+        }
+
+        // The west-east cursor over a header divider, and for the whole of a resize drag; put back only
+        // if this control set it, so an application's own cursor is left alone (W6 mechanisms).
+        private bool showing_divider_cursor;
+
+        private void UpdateDividerCursor (Point location)
+        {
+            var over_divider = resize_column >= 0 || (ScaledHeaderHeight > 0 && HeaderDividerAt (ToDevice (location)) >= 0);
+
+            if (over_divider == showing_divider_cursor)
+                return;
+
+            showing_divider_cursor = over_divider;
+            Cursor = over_divider ? Cursors.VSplit : Cursors.Default;
         }
 
         /// <inheritdoc/>
@@ -415,6 +547,115 @@ namespace Majorsilence.Forms
         {
             base.OnMouseLeave (e);
             SetHotItem (null);
+
+            if (showing_divider_cursor && resize_column < 0) {
+                showing_divider_cursor = false;
+                Cursor = Cursors.Default;
+            }
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>F2 begins editing the focused item's label when <see cref="LabelEdit"/> allows it,
+        /// as upstream does (W6 mechanisms).</remarks>
+        protected override void OnKeyDown (KeyEventArgs e)
+        {
+            base.OnKeyDown (e);
+
+            if (!e.Handled && e.KeyCode == Keys.F2 && LabelEdit && FocusedItem is { } focused) {
+                BeginLabelEdit (focused);
+                e.Handled = true;
+            }
+        }
+
+        // ── label editing (W6 mechanisms) ─────────────────────────────────────────────────────────
+        // ListViewItem.BeginEdit and F2 put a LabelEditBox over the item's label. BeforeLabelEdit may
+        // refuse; AfterLabelEdit sees the typed text (or null for a cancelled edit, as upstream passes)
+        // and may refuse that too, in which case the item keeps its text.
+        private LabelEditBox? label_editor;
+        private ListViewItem? editing_item;
+
+        /// <summary>The in-place editor while a label is being edited; null otherwise.</summary>
+        internal TextBox? LabelEditor => editing_item is null ? null : label_editor;
+
+        /// <summary>The item whose label is being edited, or null.</summary>
+        internal ListViewItem? EditingItem => editing_item;
+
+        internal void BeginLabelEdit (ListViewItem item)
+        {
+            if (!LabelEdit)
+                throw new InvalidOperationException ("LabelEdit must be true to edit an item's label.");
+
+            if (!ReferenceEquals (item.ListView, this))
+                return;
+
+            EndLabelEdit (commit: true);
+
+            var before = new LabelEditEventArgs (item.Index);
+            OnBeforeLabelEdit (before);
+
+            if (before.CancelEdit)
+                return;
+
+            LayoutItems ();
+
+            if (label_editor is null) {
+                label_editor = new LabelEditBox { Visible = false };
+                label_editor.Commit = () => EndLabelEdit (commit: true);
+                label_editor.Cancel = () => EndLabelEdit (commit: false);
+                Controls.Add (label_editor);
+            }
+
+            editing_item = item;
+            label_editor.Bounds = DeviceToLogicalUnits (LabelDeviceBounds (item));
+            label_editor.Text = item.Text;
+            label_editor.Visible = true;
+            label_editor.SelectAll ();
+            label_editor.Focus ();
+        }
+
+        // The rectangle the label occupies, in device pixels: the first display column's cell in
+        // Details, the text after the check box (and small image) in the other row views, and the
+        // caption band under the icon in the tile views.
+        private Rectangle LabelDeviceBounds (ListViewItem item)
+        {
+            var bounds = item.DeviceBounds;
+            var left = bounds.Left + ScaledCheckWidth;
+
+            if (View == View.Details && DisplayColumns.Count > 0)
+                return new Rectangle (left, bounds.Top, ScaledColumnWidth (DisplayColumns[0]), bounds.Height);
+
+            if (IsRowView) {
+                if (View == View.SmallIcon && item.ImageSK is not null)
+                    left += LogicalToDeviceUnits (20);
+
+                return new Rectangle (left, bounds.Top, Math.Max (0, bounds.Right - left), bounds.Height);
+            }
+
+            var caption_top = bounds.Top + LogicalToDeviceUnits (38);
+
+            return new Rectangle (bounds.Left, caption_top, bounds.Width, Math.Max (0, bounds.Bottom - caption_top));
+        }
+
+        internal void EndLabelEdit (bool commit)
+        {
+            if (editing_item is null || label_editor is null)
+                return;
+
+            // Cleared first: hiding the editor drops its focus, which would otherwise re-enter here.
+            var item = editing_item;
+            var text = label_editor.Text;
+
+            editing_item = null;
+            label_editor.Visible = false;
+
+            var after = new LabelEditEventArgs (item.Index, commit ? text : null);
+            OnAfterLabelEdit (after);
+
+            if (commit && !after.CancelEdit && after.Label is { } label)
+                item.Text = label;
+
+            Invalidate ();
+            Focus ();
         }
 
         private void SetHotItem (ListViewItem? item)
@@ -535,6 +776,18 @@ namespace Majorsilence.Forms
             var start = Math.Min (from, to);
             var end = Math.Max (from, to);
 
+            // Virtual mode reports a range as one notification rather than one per item, as upstream
+            // does (W6 mechanisms). The items outside the range are deselected the same way.
+            if (VirtualMode) {
+                for (var i = 0; i < Items.Count; i++)
+                    Items.RawAt (i).SetSelectedInternal (i >= start && i <= end);
+
+                Invalidate ();
+                OnVirtualItemsSelectionRangeChanged (new ListViewVirtualItemsSelectionRangeChangedEventArgs (start, end, true));
+                OnSelectedIndexChanged (EventArgs.Empty);
+                return;
+            }
+
             selection_batch++;
 
             try {
@@ -552,16 +805,35 @@ namespace Majorsilence.Forms
         {
             var offset = ItemArea.Left + ScaledCheckWidth;
 
-            for (var i = 0; i < Columns.Count; i++) {
-                var width = ScaledColumnWidth (Columns[i]);
+            foreach (var column in DisplayColumns) {
+                var width = ScaledColumnWidth (column);
 
                 if (x >= offset && x < offset + width)
-                    return i;
+                    return column.Index;
 
                 offset += width;
             }
 
             return -1;
+        }
+
+        // The display slot a header dropped at device x lands in: the slot of the column under the
+        // pointer, or the last slot past the final column.
+        private int DisplaySlotAt (int x)
+        {
+            var order = DisplayColumns;
+            var offset = ItemArea.Left + ScaledCheckWidth;
+
+            for (var slot = 0; slot < order.Count; slot++) {
+                var width = ScaledColumnWidth (order[slot]);
+
+                if (x < offset + width)
+                    return slot;
+
+                offset += width;
+            }
+
+            return Math.Max (0, order.Count - 1);
         }
 
         /// <inheritdoc/>
@@ -592,6 +864,7 @@ namespace Majorsilence.Forms
             base.OnPaint (e);
 
             UpdateVerticalScrollBar ();
+            ResolveVisibleVirtualItems ();
             LayoutItems ();
 
             RenderManager.Render (this, e);
@@ -691,7 +964,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the activation method for items. Stub in Majorsilence.Forms.</summary>
         public ItemActivation Activation { get; set; } = ItemActivation.Standard;
 
-        /// <summary>Gets or sets whether the user can reorder columns. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the user can reorder columns by dragging their headers.</summary>
+        /// <remarks>Read as of W6 mechanisms: a header drag past the drag threshold asks
+        /// <see cref="ColumnReordered"/> on release and moves the column's <see cref="ColumnHeader.DisplayIndex"/>.</remarks>
         public bool AllowColumnReorder { get; set; }
 
         /// <summary>Gets the collection of column headers for Details view.</summary>
@@ -754,6 +1029,8 @@ namespace Majorsilence.Forms
         protected virtual void OnItemActivate (EventArgs e) => ItemActivate?.Invoke (this, e);
 
         /// <summary>Raised when the user begins dragging a list item.</summary>
+        /// <remarks>Real as of W6 mechanisms: raised once per press when the pointer moves past
+        /// <see cref="SystemInformation.DragSize"/> with a button held over an item.</remarks>
         public event EventHandler<ItemDragEventArgs>? ItemDrag;
 
         /// <summary>Raises the <see cref="ItemDrag"/> event.</summary>
@@ -765,13 +1042,16 @@ namespace Majorsilence.Forms
         /// <summary>Raises the <see cref="ItemChecked"/> event.</summary>
         protected virtual void OnItemChecked (ItemCheckedEventArgs e) => ItemChecked?.Invoke (this, e);
 
-        /// <summary>Raised before a label is edited.</summary>
+        /// <summary>Raised before a label is edited; <see cref="LabelEditEventArgs.CancelEdit"/> refuses.</summary>
+        /// <remarks>Real as of W6 mechanisms; see <see cref="LabelEdit"/>.</remarks>
         public event EventHandler<LabelEditEventArgs>? BeforeLabelEdit;
 
         /// <summary>Raises the <see cref="BeforeLabelEdit"/> event.</summary>
         protected virtual void OnBeforeLabelEdit (LabelEditEventArgs e) => BeforeLabelEdit?.Invoke (this, e);
 
-        /// <summary>Raised after a label is edited.</summary>
+        /// <summary>Raised after a label is edited, with the new text -- or a null
+        /// <see cref="LabelEditEventArgs.Label"/> for a cancelled edit, as upstream passes.</summary>
+        /// <remarks>Real as of W6 mechanisms; <see cref="LabelEditEventArgs.CancelEdit"/> keeps the old text.</remarks>
         public event EventHandler<LabelEditEventArgs>? AfterLabelEdit;
 
         /// <summary>Raises the <see cref="AfterLabelEdit"/> event.</summary>
@@ -788,7 +1068,10 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the selected items are still highlighted when focus leaves. Stub in Majorsilence.Forms.</summary>
         public bool HideSelection { get; set; }
 
-        /// <summary>Gets or sets whether labels can be edited in place. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether item labels can be edited in place.</summary>
+        /// <remarks>Read as of W6 mechanisms: <see cref="ListViewItem.BeginEdit"/> and F2 on the focused
+        /// item open an editor over the label, asking <see cref="BeforeLabelEdit"/> first and reporting
+        /// through <see cref="AfterLabelEdit"/>.</remarks>
         public bool LabelEdit { get; set; }
 
         /// <summary>Gets or sets whether item labels wrap. Stub in Majorsilence.Forms.</summary>
@@ -803,19 +1086,137 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether item tooltips are shown. Stub in Majorsilence.Forms.</summary>
         public bool ShowItemToolTips { get; set; }
 
-        /// <summary>Gets or sets the virtual mode (no real items, populated via events). Stub in Majorsilence.Forms.</summary>
-        public bool VirtualMode { get; set; }
+        /// <summary>Gets or sets whether the list is in virtual mode: <see cref="VirtualListSize"/> items,
+        /// supplied on demand through <see cref="RetrieveVirtualItem"/>.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms. In virtual mode <see cref="Items"/> holds one placeholder per
+        /// index and refuses adds and removes; reading <c>Items[i]</c>, painting, or hit-testing
+        /// resolves an index through <see cref="RetrieveVirtualItem"/> (the visible run is announced
+        /// with <see cref="CacheVirtualItems"/> first), <see cref="FindItemWithText(string)"/> asks
+        /// <see cref="SearchForVirtualItem"/>, and a range selection reports through
+        /// <see cref="VirtualItemsSelectionRangeChanged"/>. The placeholders cost one small object per
+        /// index, so this is for tens of thousands of rows rather than millions.
+        /// </remarks>
+        public bool VirtualMode {
+            get => virtual_mode;
+            set {
+                if (virtual_mode == value)
+                    return;
 
-        /// <summary>Gets or sets the number of virtual list items when VirtualMode is true. Stub in Majorsilence.Forms.</summary>
-        public int VirtualListSize { get; set; }
+                virtual_mode = value;
+                RebuildVirtualItems ();
+            }
+        }
 
-#pragma warning disable CS0067
-        /// <summary>Raised when virtual mode items need to be retrieved. Stub in Majorsilence.Forms.</summary>
+        private bool virtual_mode;
+
+        /// <summary>Gets or sets the number of items when <see cref="VirtualMode"/> is set.</summary>
+        /// <remarks>Real as of W6 mechanisms: setting it (re)creates the placeholders, so every index is
+        /// asked of <see cref="RetrieveVirtualItem"/> afresh.</remarks>
+        public int VirtualListSize {
+            get => virtual_list_size;
+            set {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, "VirtualListSize cannot be negative.");
+
+                if (virtual_list_size == value)
+                    return;
+
+                virtual_list_size = value;
+
+                if (VirtualMode)
+                    RebuildVirtualItems ();
+            }
+        }
+
+        private int virtual_list_size;
+
+        /// <summary>Raised in virtual mode to supply the item at an index.</summary>
+        /// <remarks>Real as of W6 mechanisms; see <see cref="VirtualMode"/>. A handler that supplies no
+        /// item leaves an empty placeholder in that slot.</remarks>
         public event EventHandler<RetrieveVirtualItemEventArgs>? RetrieveVirtualItem;
 
-        /// <summary>Raised when virtual items need to be cached. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised in virtual mode before a run of items is retrieved, naming the range.</summary>
+        /// <remarks>Real as of W6 mechanisms: raised for the visible run before each paint that still
+        /// has unresolved items in it.</remarks>
         public event EventHandler<CacheVirtualItemsEventArgs>? CacheVirtualItems;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="RetrieveVirtualItem"/> event.</summary>
+        protected virtual void OnRetrieveVirtualItem (RetrieveVirtualItemEventArgs e) => RetrieveVirtualItem?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="CacheVirtualItems"/> event.</summary>
+        protected virtual void OnCacheVirtualItems (CacheVirtualItemsEventArgs e) => CacheVirtualItems?.Invoke (this, e);
+
+        // True while this control itself is filling or swapping Items in virtual mode, which is the
+        // one mutation the collection allows there.
+        internal bool VirtualFill { get; private set; }
+
+        private void RebuildVirtualItems ()
+        {
+            VirtualFill = true;
+
+            try {
+                Items.Clear ();
+
+                if (VirtualMode)
+                    for (var i = 0; i < virtual_list_size; i++)
+                        Items.Add (new ListViewItem { IsVirtualPlaceholder = true });
+            } finally {
+                VirtualFill = false;
+            }
+
+            Invalidate ();
+        }
+
+        /// <summary>Resolves the placeholder at <paramref name="index"/> through <see cref="RetrieveVirtualItem"/>, once.</summary>
+        internal void ResolveVirtualItem (int index)
+        {
+            if (!VirtualMode || index < 0 || index >= Items.Count || !Items.PlaceholderAt (index))
+                return;
+
+            var e = new RetrieveVirtualItemEventArgs (index);
+            OnRetrieveVirtualItem (e);
+
+            if (e.Item is not { } item)
+                return;
+
+            // The slot's selection and check state belong to the INDEX, as upstream keeps them.
+            var placeholder = Items.RawAt (index);
+            item.SetSelectedInternal (placeholder.Selected);
+            item.SetCheckedInternal (placeholder.Checked);
+
+            VirtualFill = true;
+
+            try {
+                Items[index] = item;
+            } finally {
+                VirtualFill = false;
+            }
+        }
+
+        // Before a paint: announce the visible run, then resolve whatever in it is still a placeholder.
+        private void ResolveVisibleVirtualItems ()
+        {
+            if (!VirtualMode || Items.Count == 0)
+                return;
+
+            var per_line = Math.Max (1, ItemsPerLine);
+            var first = Math.Max (0, Math.Min (Items.Count - 1, top_index * per_line));
+            var last = Math.Max (first, Math.Min (Items.Count - 1, (top_index + VisibleLineCount + 1) * per_line - 1));
+
+            var unresolved = false;
+
+            for (var i = first; i <= last && !unresolved; i++)
+                unresolved = Items.PlaceholderAt (i);
+
+            if (!unresolved)
+                return;
+
+            OnCacheVirtualItems (new CacheVirtualItemsEventArgs (first, last));
+
+            for (var i = first; i <= last; i++)
+                ResolveVirtualItem (i);
+        }
 
         /// <summary>Scrolls the specified item into view.</summary>
         /// <remarks>Real as of W5.6 (LST-19); it was an <c>Invalidate</c>, so the standard
@@ -866,8 +1267,27 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Returns the first item whose text matches the specified string.</summary>
-        public ListViewItem? FindItemWithText (string text) =>
-            Items.FirstOrDefault (i => string.Equals (i.Text, text, StringComparison.OrdinalIgnoreCase));
+        /// <remarks>In <see cref="VirtualMode"/> the application answers through
+        /// <see cref="SearchForVirtualItem"/> (a prefix text search from index 0, as upstream frames
+        /// it) and the item at the index it names is returned (W6 mechanisms).</remarks>
+        public ListViewItem? FindItemWithText (string text)
+        {
+            if (VirtualMode)
+                return SearchVirtual (text, includeSubItems: false, startIndex: 0, isPrefixSearch: true);
+
+            return Items.FirstOrDefault (i => string.Equals (i.Text, text, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // The virtual-mode half of every FindItemWithText overload: the application answers, and the
+        // index it names is resolved and returned.
+        internal ListViewItem? SearchVirtual (string text, bool includeSubItems, int startIndex, bool isPrefixSearch)
+        {
+            var search = new SearchForVirtualItemEventArgs (true, isPrefixSearch, includeSubItems, text, Point.Empty,
+                SearchDirectionHint.Down, startIndex);
+            OnSearchForVirtualItem (search);
+
+            return search.Index >= 0 && search.Index < Items.Count ? Items[search.Index] : null;
+        }
 
         /// <summary>Clears all currently selected items.</summary>
         public void ClearSelection ()
@@ -1104,7 +1524,23 @@ namespace Majorsilence.Forms
         public object? Tag { get; set; }
 
         /// <summary>Gets or sets the display index of the column in the ListView.</summary>
-        public int DisplayIndex { get; set; } = -1;
+        /// <remarks>Read as of W6 mechanisms: the header, dividers and cells are laid out in display
+        /// order, and setting this on a column that belongs to a list moves it there and renumbers the
+        /// others, as upstream does. A header drag with <see cref="ListView.AllowColumnReorder"/> set
+        /// arrives here through <see cref="ListView.ColumnReordered"/>.</remarks>
+        public int DisplayIndex {
+            get => display_index;
+            set {
+                if (ListView is { } list)
+                    list.SetColumnDisplayIndex (this, value);
+                else
+                    display_index = value;
+            }
+        }
+
+        private int display_index = -1;
+
+        internal void SetDisplayIndexInternal (int value) => display_index = value;
 
         /// <summary>Adjusts the column width based on the specified sizing mode. Stub in Majorsilence.Forms.</summary>
         public void AutoResize (ColumnHeaderAutoResizeStyle headerAutoResize) { }

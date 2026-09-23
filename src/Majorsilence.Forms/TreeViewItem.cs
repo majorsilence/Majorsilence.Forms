@@ -97,11 +97,23 @@ namespace Majorsilence.Forms
                 Expand ();
         }
 
-        /// <summary>Begins editing the label of this tree node. Stub in Majorsilence.Forms.</summary>
-        public void BeginEdit () { }
+        /// <summary>Begins editing the label of this tree node.</summary>
+        /// <remarks>Real as of W6 mechanisms; see <see cref="TreeView.LabelEdit"/>. Throws when the node
+        /// is not in a tree or the tree does not allow label editing, as upstream does.</remarks>
+        public void BeginEdit ()
+        {
+            if (TreeView is not { } tree)
+                throw new InvalidOperationException ("The node must belong to a TreeView before its label can be edited.");
 
-        /// <summary>Ends the editing of the label of this tree node. Stub in Majorsilence.Forms.</summary>
-        public void EndEdit (bool cancel) { }
+            tree.BeginLabelEdit (this);
+        }
+
+        /// <summary>Ends the editing of the label of this tree node, keeping or discarding the typed text.</summary>
+        public void EndEdit (bool cancel)
+        {
+            if (TreeView is { } tree && ReferenceEquals (tree.EditingNode, this))
+                tree.EndLabelEdit (commit: !cancel);
+        }
 
         /// <summary>
         /// Gets or sets a context menu to display when the item is right-clicked.

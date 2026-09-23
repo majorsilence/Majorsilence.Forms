@@ -114,14 +114,8 @@ namespace Majorsilence.Forms
         public string StateImageKey { get; set; } = string.Empty;
 
         /// <summary>Gets whether the node's label is being edited.</summary>
-        /// <remarks>
-        /// W6.4 (RC-9): false is the correct answer rather than a guess -- this layer has no label
-        /// editing at all, so a node is never being edited. (`TreeView.BeforeLabelEdit`/`AfterLabelEdit`
-        /// are still inert; see W6.1.) Recorded here because a bare constant on a state-reporting
-        /// member is indistinguishable from a computed one at the call site, and the reader deserves to
-        /// know which this is.
-        /// </remarks>
-        public bool IsEditing => false;
+        /// <remarks>Real as of W6 mechanisms: true between <see cref="BeginEdit"/> and the end of the edit.</remarks>
+        public bool IsEditing => TreeView is { } tree && ReferenceEquals (tree.EditingNode, this);
 
         /// <summary>Gets whether every ancestor of this node is expanded.</summary>
         public bool IsVisible {
@@ -388,11 +382,17 @@ namespace Majorsilence.Forms
 
         internal void RaiseBindingComplete (BindingCompleteEventArgs e) => BindingComplete?.Invoke (this, e);
 
-        // A raisable seam; this layer reports errors through BindingComplete rather than here.
-#pragma warning disable CS0067
-        /// <summary>Raised when a data error occurs. Not raised by this layer yet.</summary>
+        /// <summary>Raised when an exception escapes a binding push or a commit of the current item.</summary>
+        /// <remarks>Real as of W6 mechanisms: <c>PushDataToBindings</c> and <see cref="EndCurrentEdit"/>
+        /// offer the exception here (and to the owning <see cref="BindingSource.DataError"/>). It
+        /// propagates when nothing is attached -- a deliberate divergence from upstream, which swallows
+        /// it. Conversion failures a binding handles itself still go through
+        /// <see cref="BindingComplete"/>, as upstream.</remarks>
         public event BindingManagerDataErrorEventHandler? DataError;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="DataError"/> event.</summary>
+        protected internal void OnDataError (Exception e)
+            => DataError?.Invoke (this, new BindingManagerDataErrorEventArgs (e));
 
         /// <summary>Raised when the current item changes, or changes in place.</summary>
         public event EventHandler? CurrentItemChanged;

@@ -50,22 +50,78 @@ namespace Majorsilence.Forms
     public partial class StatusBar
     {
         /// <summary>Gets or sets whether the sizing grip is drawn in the corner.</summary>
-        public bool SizingGrip { get; set; } = true;
+        /// <remarks>Drawn, and its square reserved out of the panel layout, as of W6 mechanisms.</remarks>
+        public bool SizingGrip {
+            get => sizing_grip;
+            set {
+                if (sizing_grip == value)
+                    return;
 
-        // Owner-drawn panels are painted by this layer's renderer, which does not call back into
-        // application code, so Draw is declared and raisable but not raised. PanelClick is the same:
-        // panel hit-testing runs through the strip's own item routing.
-#pragma warning disable CS0067
-        /// <summary>Raised when an owner-drawn panel must be painted. Not raised by this layer yet.</summary>
+                sizing_grip = value;
+                Invalidate ();
+            }
+        }
+
+        private bool sizing_grip = true;
+
+        /// <summary>Raised when an owner-drawn panel must be painted.</summary>
+        /// <remarks>Real as of W6 mechanisms: the renderer raises it for every panel whose
+        /// <see cref="StatusBarPanel.Style"/> is <see cref="StatusBarPanelStyle.OwnerDraw"/> while
+        /// <see cref="ShowPanels"/> is set, with the panel's device rectangle.</remarks>
         public event StatusBarDrawItemEventHandler? DrawItem;
 
-        /// <summary>Raised when a panel is clicked. Not raised by this layer yet.</summary>
+        /// <summary>Raised when a panel is clicked.</summary>
+        /// <remarks>Real as of W6 mechanisms: a click inside a laid-out panel names it.</remarks>
         public event StatusBarPanelClickEventHandler? PanelClick;
-#pragma warning restore CS0067
 
         /// <summary>The panels of a <see cref="StatusBar"/>.</summary>
         public class StatusBarPanelCollection : System.Collections.ObjectModel.Collection<StatusBarPanel>
         {
+            private readonly StatusBar? owner;
+
+            /// <summary>Initializes an unowned collection.</summary>
+            public StatusBarPanelCollection () { }
+
+            /// <summary>Initializes the collection for the given status bar, which repaints as panels change.</summary>
+            public StatusBarPanelCollection (StatusBar owner) => this.owner = owner;
+
+            /// <inheritdoc/>
+            protected override void InsertItem (int index, StatusBarPanel item)
+            {
+                Guard.ThrowIfNull (item);
+                base.InsertItem (index, item);
+                item.Parent = owner;
+                owner?.Invalidate ();
+            }
+
+            /// <inheritdoc/>
+            protected override void RemoveItem (int index)
+            {
+                this[index].Parent = null;
+                base.RemoveItem (index);
+                owner?.Invalidate ();
+            }
+
+            /// <inheritdoc/>
+            protected override void SetItem (int index, StatusBarPanel item)
+            {
+                Guard.ThrowIfNull (item);
+                this[index].Parent = null;
+                base.SetItem (index, item);
+                item.Parent = owner;
+                owner?.Invalidate ();
+            }
+
+            /// <inheritdoc/>
+            protected override void ClearItems ()
+            {
+                foreach (var panel in this)
+                    panel.Parent = null;
+
+                base.ClearItems ();
+                owner?.Invalidate ();
+            }
+
             /// <summary>Adds a panel showing the given text.</summary>
             public StatusBarPanel Add (string text)
             {

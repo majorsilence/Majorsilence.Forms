@@ -175,6 +175,13 @@ namespace Majorsilence.Forms
 
         private bool checked_state;
 
+        // The state a virtual-mode slot carries over when its placeholder is replaced (ListView.ResolveVirtualItem).
+        internal void SetCheckedInternal (bool value) => checked_state = value;
+
+        /// <summary>True for the empty stand-in a virtual-mode list holds at an index it has not yet
+        /// asked <see cref="ListView.RetrieveVirtualItem"/> for (W6 mechanisms).</summary>
+        internal bool IsVirtualPlaceholder { get; set; }
+
         /// <summary>Gets or sets the foreground color.</summary>
         public Color ForeColor { get; set; } = Color.Empty;
 
@@ -251,8 +258,16 @@ namespace Majorsilence.Forms
         /// <summary>Ensures the item is scrolled into view.</summary>
         public void EnsureVisible () => Parent?.EnsureVisible (Index);
 
-        /// <summary>Begins in-place editing of the item's label. Stub in Majorsilence.Forms.</summary>
-        public void BeginEdit () { }
+        /// <summary>Begins in-place editing of the item's label.</summary>
+        /// <remarks>Real as of W6 mechanisms; see <see cref="ListView.LabelEdit"/>. Throws when the item
+        /// is not in a list or the list does not allow label editing, as upstream does.</remarks>
+        public void BeginEdit ()
+        {
+            if (Parent is not { } list)
+                throw new InvalidOperationException ("The item must belong to a ListView before its label can be edited.");
+
+            list.BeginLabelEdit (this);
+        }
 
         /// <summary>Removes this item from its parent ListView.</summary>
         public void Remove () => Parent?.Items.Remove (this);
@@ -293,11 +308,8 @@ namespace Majorsilence.Forms
             public object? Tag { get; set; }
 
             /// <summary>
-            /// Gets the sub-item's bounding rectangle. Stub: always <see cref="Rectangle.Empty"/> --
-            /// owner-draw <c>ListView</c> support (<c>DrawItem</c>/<c>DrawSubItem</c>/<c>DrawColumnHeader</c>,
-            /// see COMPATIBILITY_MATRIX.md) isn't wired up yet, so nothing computes a real per-cell layout
-            /// to report here. Exists so code reading it (typically from inside a <c>DrawSubItem</c>
-            /// handler that, today, never actually runs) compiles.
+            /// Gets the sub-item's bounding rectangle in logical units, from the list's last Details
+            /// layout; <see cref="Rectangle.Empty"/> before the first layout or in the other views.
             /// </summary>
             public Rectangle Bounds
                 => Owner?.Parent is { } parent ? parent.DeviceToLogicalUnits (DeviceBounds) : DeviceBounds;

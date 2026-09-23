@@ -177,12 +177,11 @@ namespace Majorsilence.Forms
 
             var client = ClientRectangle;
 
-            index -= top_index;
-
             // Subtract the sub-row touch-scroll offset so a fluid drag moves items by the pixel;
             // item[top_index] is then partly above client.Top and the renderer clips it there.
-            var top = index * ScaledItemHeight + client.Top - (int) Math.Round (_scrollOffsetPx);
-            return new Rectangle (client.Left, top, client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0), Math.Min (ScaledItemHeight, client.Bottom - top));
+            var height = ItemHeightDeviceAt (index);
+            var top = ItemOffsetDevice (index) + client.Top - (int) Math.Round (_scrollOffsetPx);
+            return new Rectangle (client.Left, top, client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0), Math.Min (height, client.Bottom - top));
         }
 
         /// <summary>
@@ -274,7 +273,19 @@ namespace Majorsilence.Forms
         }
 
         // The height that would be needed to display all items.
-        private int NeededHeightForItems => ScaledItemHeight * Items.Count;
+        private int NeededHeightForItems {
+            get {
+                if (draw_mode != DrawMode.OwnerDrawVariable)
+                    return ScaledItemHeight * Items.Count;
+
+                var total = 0;
+
+                for (var i = 0; i < Items.Count; i++)
+                    total += ItemHeightDeviceAt (i);
+
+                return total;
+            }
+        }
 
         /// <inheritdoc/>
         protected override void OnKeyUp (KeyEventArgs e) => ChangeSelection (() => KeyUpCore (e));
@@ -918,8 +929,88 @@ namespace Majorsilence.Forms
                 SelectedItem = selected;
         }
 
-        /// <summary>Gets or sets the height of each item when DrawMode is OwnerDrawFixed. Stub in Majorsilence.Forms.</summary>
-        public virtual DrawMode DrawMode { get; set; } = DrawMode.Normal;
+        /// <summary>Gets or sets how the items are drawn: by the control, or by the application.</summary>
+        /// <remarks>
+        /// Read as of W6 mechanisms. In either owner-draw mode the renderer raises <see cref="DrawItem"/>
+        /// for every visible item instead of painting it; <see cref="DrawMode.OwnerDrawVariable"/> also
+        /// asks <see cref="MeasureItem"/> for each item's height and lays the rows out from the answers.
+        /// </remarks>
+        public virtual DrawMode DrawMode {
+            get => draw_mode;
+            set {
+                if (draw_mode == value)
+                    return;
+
+                draw_mode = value;
+                variable_heights = null;
+                Invalidate ();
+            }
+        }
+
+        private DrawMode draw_mode = DrawMode.Normal;
+
+        // OwnerDrawVariable (W6 mechanisms): one measured height per item, in LOGICAL pixels as the
+        // handler answers them, taken from MeasureItem and refreshed when the item count changes.
+        // Logical, not device: the list can be measured before it is parented, when its scale is not
+        // yet the window's, and a device-space cache would then be wrong by that factor. The canvas
+        // handed to the event is a scratch surface: upstream gives a Graphics for measuring text
+        // against, nothing more.
+        private List<int>? variable_heights;
+        private static readonly SkiaSharp.SKCanvas MeasureCanvas = new (new SkiaSharp.SKBitmap (1, 1));
+
+        /// <summary>The height of one item in device pixels: the fixed height, or the measured one in
+        /// <see cref="DrawMode.OwnerDrawVariable"/>.</summary>
+        internal int ItemHeightDeviceAt (int index)
+        {
+            // With nobody to ask, the answer is the fixed height and nothing is cached -- so a handler
+            // attached after the items were added is still asked, which the count-keyed cache alone
+            // would have missed.
+            if (draw_mode != DrawMode.OwnerDrawVariable || measure_item is null)
+                return ScaledItemHeight;
+
+            EnsureVariableHeights ();
+
+            return index >= 0 && index < variable_heights!.Count ? LogicalToDeviceUnits (variable_heights[index]) : ScaledItemHeight;
+        }
+
+        private void EnsureVariableHeights ()
+        {
+            if (variable_heights is { } heights && heights.Count == Items.Count)
+                return;
+
+            variable_heights = new List<int> (Items.Count);
+
+            for (var i = 0; i < Items.Count; i++) {
+                var e = new MeasureItemEventArgs (MeasureCanvas, i) { ItemHeight = ItemHeight };
+                OnMeasureItem (e);
+                variable_heights.Add (Math.Max (1, e.ItemHeight));
+            }
+        }
+
+        // The top of item[index] relative to item[top_index], in device pixels, for either mode.
+        private int ItemOffsetDevice (int index)
+        {
+            if (draw_mode != DrawMode.OwnerDrawVariable)
+                return (index - top_index) * ScaledItemHeight;
+
+            var offset = 0;
+
+            if (index >= top_index)
+                for (var i = top_index; i < index; i++)
+                    offset += ItemHeightDeviceAt (i);
+            else
+                for (var i = index; i < top_index; i++)
+                    offset -= ItemHeightDeviceAt (i);
+
+            return offset;
+        }
+
+        /// <summary>Re-measures the items: <see cref="MeasureItem"/> is asked again for every item.</summary>
+        public void RefreshItems ()
+        {
+            variable_heights = null;
+            Invalidate ();
+        }
 
         /// <summary>Gets or sets whether the control height resizes to avoid showing partial items. Stub in Majorsilence.Forms.</summary>
         public bool IntegralHeight { get; set; } = true;
@@ -1092,20 +1183,41 @@ namespace Majorsilence.Forms
             }
         }
 
-#pragma warning disable CS0067
-        /// <summary>Raised when items are added. Stub in Majorsilence.Forms.</summary>
-        public event MeasureItemEventHandler? MeasureItem;
-#pragma warning restore CS0067
+        /// <summary>Raised in <see cref="DrawMode.OwnerDrawVariable"/> to ask the height of an item.</summary>
+        /// <remarks>Real as of W6 mechanisms: raised once per item when the rows are laid out, and
+        /// again after <see cref="RefreshItems"/> or a change in the item count. The answer's
+        /// <see cref="MeasureItemEventArgs.ItemHeight"/> is in logical pixels, like <see cref="ItemHeight"/>.</remarks>
+        public event MeasureItemEventHandler? MeasureItem {
+            add {
+                measure_item += value;
+                // Heights measured before this handler existed are not its answers.
+                variable_heights = null;
+            }
+            remove => measure_item -= value;
+        }
+
+        private MeasureItemEventHandler? measure_item;
+
+        /// <summary>Raises the <see cref="MeasureItem"/> event.</summary>
+        protected virtual void OnMeasureItem (MeasureItemEventArgs e) => measure_item?.Invoke (this, e);
+
+        // The renderer's door to DrawItem (W6 mechanisms): the item's device rectangle and state.
+        internal void RaiseDrawItem (int index, Rectangle bounds, DrawItemState state, PaintEventArgs e)
+        {
+            var back = (state & DrawItemState.Selected) != 0 ? SystemColors.Highlight : BackColor;
+            var fore = (state & DrawItemState.Selected) != 0 ? SystemColors.HighlightText : ForeColor;
+
+            OnDrawItem (new DrawItemEventArgs (e.Graphics, Font, bounds, index, state, fore, back));
+        }
 
         /// <summary>Raised when an item needs to be drawn (OwnerDraw).</summary>
         /// <remarks>
         /// Real now, and typed with WinForms' own <see cref="DrawItemEventHandler"/> -- it was
         /// <c>EventHandler&lt;DrawItemEventArgs&gt;</c> with empty accessors, which meant a handler
         /// attached the WinForms way (<c>+= new DrawItemEventHandler(...)</c>) failed to compile at all,
-        /// and one attached some other way was silently dropped. Not yet raised by the renderer -- this
-        /// layer's own <c>ListBoxRenderer</c> always paints items itself -- so <see cref="DrawMode"/> is
-        /// still a stored value with no effect on what's drawn; only the WinForms-shaped override point
-        /// exists so ported owner-draw code compiles. <see cref="OnDrawItem"/> is public enough to call.
+        /// and one attached some other way was silently dropped. Raised by the renderer as of W6
+        /// mechanisms for every visible item while <see cref="DrawMode"/> is an owner-draw mode, with the
+        /// item's device rectangle and its selected / focused / disabled / hot state.
         /// </remarks>
         public event DrawItemEventHandler? DrawItem;
 
@@ -1158,6 +1270,26 @@ namespace Majorsilence.Forms
         /// <summary>
         /// The number of full items that can be shown at a time.
         /// </summary>
-        public int VisibleItemCount => ClientRectangle.Height / ScaledItemHeight;
+        public int VisibleItemCount {
+            get {
+                if (draw_mode != DrawMode.OwnerDrawVariable)
+                    return ClientRectangle.Height / ScaledItemHeight;
+
+                // Variable heights: count the whole rows that fit from the top row down.
+                var remaining = ClientRectangle.Height;
+                var count = 0;
+
+                for (var i = top_index; i < Items.Count; i++) {
+                    remaining -= ItemHeightDeviceAt (i);
+
+                    if (remaining < 0)
+                        break;
+
+                    count++;
+                }
+
+                return count;
+            }
+        }
     }
 }

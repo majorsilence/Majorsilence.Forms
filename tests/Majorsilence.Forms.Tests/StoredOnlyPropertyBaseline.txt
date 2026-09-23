@@ -58,8 +58,6 @@ Majorsilence.Forms.ColorDialog.AnyColor    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.FullOpen    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.ColorDialog.SolidColorOnly    -- framework-written (outbound state)
-Majorsilence.Forms.ColumnHeader.DisplayIndex    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
-Majorsilence.Forms.ComboBox.DrawMode    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.ComboBox.HideSelection    -- not an upstream ComboBox member; left unread deliberately (see ComboBox.cs)
 Majorsilence.Forms.CommonDialog.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.Control.AccessibleDefaultActionDescription    -- accessibility metadata; no accessible-object tree
@@ -129,7 +127,6 @@ Majorsilence.Forms.DataGridView.ShowEditingIcon    -- the row header draws no ed
 Majorsilence.Forms.DataGridViewBand.Index    -- framework-written owner/index slot; the grid keeps its own indices
 Majorsilence.Forms.DataGridViewButtonCell.UseColumnTextForButtonValue    -- needs the cell text source to fall back to the column's Text
 Majorsilence.Forms.DataGridViewCell.ColumnInfo    -- framework-written owner/index slot; the grid keeps its own indices
-Majorsilence.Forms.DataGridViewCellContextMenuStripNeededEventArgs.ContextMenuStrip    -- event-args slot for a *Needed event that is not raised (unraised baseline)
 Majorsilence.Forms.DataGridViewCellEditEventArgs.Cancel    -- event-args slot; the raiser does not consult it (CellEndEdit/DataError are not cancellable here)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.AdvancedBorderStyle    -- advanced cell borders are not modelled; every cell has the one-pixel grid line
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.CellStyle    -- framework-written (outbound state)
@@ -139,7 +136,6 @@ Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Graphics    -- framework-wr
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.State    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Value    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellToolTipTextNeededEventArgs.ToolTipText    -- event-args slot for a *Needed event that is not raised (unraised baseline)
-Majorsilence.Forms.DataGridViewCellValueEventArgs.Value    -- event-args slot for a *Needed event that is not raised (unraised baseline)
 Majorsilence.Forms.DataGridViewCheckBoxCell.EditingCellValueChanged    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
 Majorsilence.Forms.DataGridViewCheckBoxCell.IndeterminateValue    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
 Majorsilence.Forms.DataGridViewCheckBoxColumn.IndeterminateValue    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
@@ -159,9 +155,6 @@ Majorsilence.Forms.DataGridViewImageColumn.Icon    -- image cells draw the image
 Majorsilence.Forms.DataGridViewImageColumn.ImageLayout    -- image cells draw the image only; icons, layout and description are not modelled
 Majorsilence.Forms.DataGridViewImageColumn.ValuesAreIcons    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewLinkCell.UseColumnTextForLinkValue    -- needs the cell text source to fall back to the column's Text
-Majorsilence.Forms.DataGridViewRowContextMenuStripNeededEventArgs.ContextMenuStrip    -- event-args slot for a *Needed event that is not raised (unraised baseline)
-Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.Height    -- blocked on virtual mode (stored)
-Majorsilence.Forms.DataGridViewRowHeightInfoNeededEventArgs.MinimumHeight    -- blocked on virtual mode (stored)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.ClipBounds    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.ErrorText    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.InheritedRowStyle    -- framework-written (outbound state)
@@ -194,9 +187,6 @@ Majorsilence.Forms.DragEventArgs.DropImageType    -- no drag/drop pipeline (DoDr
 Majorsilence.Forms.DragEventArgs.Effect    -- framework-written (outbound state)
 Majorsilence.Forms.DragEventArgs.Message    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.DragEventArgs.MessageReplacementToken    -- no drag/drop pipeline (DoDragDrop returns None)
-Majorsilence.Forms.DrawListViewColumnHeaderEventArgs.DrawDefault    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
-Majorsilence.Forms.DrawListViewItemEventArgs.DrawDefault    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
-Majorsilence.Forms.DrawListViewSubItemEventArgs.DrawDefault    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.DrawTreeNodeEventArgs.Canvas    -- framework-written (outbound state)
 Majorsilence.Forms.DrawTreeNodeEventArgs.TreeView    -- framework-written (outbound state)
 Majorsilence.Forms.Drawing.BufferedGraphicsContext.MaximumBuffer    -- every surface is double-buffered by the Skia pipeline; nothing to switch
@@ -301,14 +291,9 @@ Majorsilence.Forms.ListBox.IntegralHeight    -- needs a list-box feature: multi-
 Majorsilence.Forms.ListBox.MultiColumn    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
 Majorsilence.Forms.ListBox.UseCustomTabOffsets    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
 Majorsilence.Forms.ListBox.UseTabStops    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
-Majorsilence.Forms.ListView.AllowColumnReorder    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.AutoArrange    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
-Majorsilence.Forms.ListView.LabelEdit    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
-Majorsilence.Forms.ListView.OwnerDraw    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.ListView.RightToLeftLayout    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- .NET 1.1 state-image behaviour switch; neither behaviour is implemented (W6.2 ListView slice)
-Majorsilence.Forms.ListView.VirtualListSize    -- blocked on virtual mode (stored)
-Majorsilence.Forms.ListView.VirtualMode    -- blocked on virtual mode (stored)
 Majorsilence.Forms.ListViewGroup.Name    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewGroup.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.ListViewInsertionMark.AppearsAfterItem    -- no drag/drop pipeline (DoDragDrop returns None)
@@ -320,7 +305,6 @@ Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput    -- mask-engine option for
 Majorsilence.Forms.MaskedTextBox.BeepOnError    -- no beep API
 Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat    -- mask-engine option for paste/copy paths that take the default
 Majorsilence.Forms.MaskedTextBox.RejectInputOnFirstFailure    -- mask-engine option for paste/copy paths that take the default
-Majorsilence.Forms.MeasureItemEventArgs.ItemHeight    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.MeasureItemEventArgs.ItemWidth    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.Media.SoundPlayer.LoadTimeout    -- loads are synchronous
 Majorsilence.Forms.Media.SoundPlayer.Tag    -- user-data slot; upstream reads it nowhere either
@@ -400,7 +384,6 @@ Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpNamespace    -- accessibi
 Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpString    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.QueryContinueDragEventArgs.Action    -- framework-written (outbound state)
 Majorsilence.Forms.QuestionEventArgs.Response    -- framework-written (outbound state)
-Majorsilence.Forms.RetrieveVirtualItemEventArgs.Item    -- blocked on virtual mode (stored)
 Majorsilence.Forms.RibbonItemGroup.Text    -- framework-written (outbound state)
 Majorsilence.Forms.RichTextBox.AutoWordSelection    -- plain text buffer with one format; no per-range attributes to read this against
 Majorsilence.Forms.RichTextBox.BulletIndent    -- plain text buffer with one format; no per-range attributes to read this against
@@ -423,24 +406,11 @@ Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange    -- Win32 handle/windo
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Bottom    -- framework-written (outbound state)
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Left    -- framework-written (outbound state)
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Right    -- framework-written (outbound state)
-Majorsilence.Forms.SearchForVirtualItemEventArgs.Index    -- blocked on virtual mode (stored)
 Majorsilence.Forms.SplitContainer.AutoScrollMargin    -- the split panels do not scroll
 Majorsilence.Forms.SplitContainer.AutoScrollMinSize    -- the split panels do not scroll
 Majorsilence.Forms.SplitContainer.AutoScrollPosition    -- the split panels do not scroll
 Majorsilence.Forms.SplitContainer.SplitterIncrement    -- the split panels do not scroll
-Majorsilence.Forms.StatusBar.ShowPanels    -- blocked on StatusBar panels: the renderer draws Text only
-Majorsilence.Forms.StatusBar.SizingGrip    -- blocked on StatusBar panels: the renderer draws Text only
-Majorsilence.Forms.StatusBarPanel.Alignment    -- blocked on StatusBar panels: the renderer draws Text only
-Majorsilence.Forms.StatusBarPanel.AutoSize    -- blocked on StatusBar panels: the renderer draws Text only
-Majorsilence.Forms.StatusBarPanel.BorderStyle    -- blocked on StatusBar panels: the renderer draws Text only
-Majorsilence.Forms.StatusBarPanel.Icon    -- blocked on StatusBar panels: the renderer draws Text only
-Majorsilence.Forms.StatusBarPanel.MinWidth    -- blocked on StatusBar panels: the renderer draws Text only
-Majorsilence.Forms.StatusBarPanel.Parent    -- blocked on StatusBar panels: the renderer draws Text only
-Majorsilence.Forms.StatusBarPanel.Style    -- blocked on StatusBar panels: the renderer draws Text only
 Majorsilence.Forms.StatusBarPanel.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.StatusBarPanel.Text    -- framework-written (outbound state)
-Majorsilence.Forms.StatusBarPanel.ToolTipText    -- blocked on StatusBar panels: the renderer draws Text only
-Majorsilence.Forms.StatusBarPanel.Width    -- blocked on StatusBar panels: the renderer draws Text only
 Majorsilence.Forms.TabControl.Appearance    -- needs a tab feature: button-style tabs, hover colour or multi-row tabs
 Majorsilence.Forms.TabControl.Multiline    -- needs a tab feature: button-style tabs, hover colour or multi-row tabs
 Majorsilence.Forms.TabPage.UseVisualStyleBackColor    -- GDI/visual-styles rendering switch; one text and theme pipeline here
@@ -535,13 +505,11 @@ Majorsilence.Forms.ToolStripPanelRow.Margin    -- blocked on vertical/flow strip
 Majorsilence.Forms.ToolStripProfessionalRenderer.ColorTable    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripProfessionalRenderer.RoundedEdges    -- the professional renderer draws square edges only
 Majorsilence.Forms.ToolStripStatusLabel.LiveSetting    -- accessibility metadata; no accessible-object tree
-Majorsilence.Forms.ToolTip.OwnerDraw    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.ToolTip.ShowAlways    -- tips already show whether or not the window is active
 Majorsilence.Forms.ToolTip.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.ToolTip.ToolTipIcon    -- no icon glyphs in the tip
 Majorsilence.Forms.ToolTip.UseAnimation    -- tips appear without animation
 Majorsilence.Forms.ToolTip.UseFading    -- tips appear without animation
-Majorsilence.Forms.TreeView.LabelEdit    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.UpDownBase.ChangingText    -- no framework text-update path sets it; the spinners assign Text directly
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Part    -- framework-written (outbound state)

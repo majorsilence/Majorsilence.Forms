@@ -283,13 +283,89 @@ namespace Majorsilence.Forms
             Invalidate ();
         }
 
-#pragma warning disable CS0067
-        /// <summary>WinForms compatibility: raised after a node label is edited.</summary>
+        /// <summary>Raised after a node label is edited, with the new text -- or a null
+        /// <see cref="NodeLabelEditEventArgs.Label"/> for a cancelled edit, as upstream passes.</summary>
+        /// <remarks>Real as of W6 mechanisms; <see cref="NodeLabelEditEventArgs.CancelEdit"/> keeps the old text.</remarks>
         public event EventHandler<NodeLabelEditEventArgs>? AfterLabelEdit;
 
-        /// <summary>WinForms compatibility: raised before a node label is edited.</summary>
+        /// <summary>Raised before a node label is edited; <see cref="NodeLabelEditEventArgs.CancelEdit"/> refuses.</summary>
+        /// <remarks>Real as of W6 mechanisms; see <see cref="LabelEdit"/>.</remarks>
         public event EventHandler<NodeLabelEditEventArgs>? BeforeLabelEdit;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="BeforeLabelEdit"/> event.</summary>
+        protected virtual void OnBeforeLabelEdit (NodeLabelEditEventArgs e) => BeforeLabelEdit?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="AfterLabelEdit"/> event.</summary>
+        protected virtual void OnAfterLabelEdit (NodeLabelEditEventArgs e) => AfterLabelEdit?.Invoke (this, e);
+
+        // ── label editing (W6 mechanisms) ─────────────────────────────────────────────────────────
+        // TreeNode.BeginEdit and F2 put a LabelEditBox over the node's text; TreeNode.EndEdit and the
+        // editor's own keys end it. Same shape as ListView's.
+        private LabelEditBox? label_editor;
+        private TreeNode? editing_node;
+
+        /// <summary>The in-place editor while a label is being edited; null otherwise.</summary>
+        internal TextBox? LabelEditor => editing_node is null ? null : label_editor;
+
+        /// <summary>The node whose label is being edited, or null.</summary>
+        internal TreeNode? EditingNode => editing_node;
+
+        internal void BeginLabelEdit (TreeNode node)
+        {
+            if (!LabelEdit)
+                throw new InvalidOperationException ("LabelEdit must be true to edit a node's label.");
+
+            if (!ReferenceEquals (node.TreeView, this))
+                return;
+
+            EndLabelEdit (commit: true);
+
+            var before = new NodeLabelEditEventArgs (node);
+            OnBeforeLabelEdit (before);
+
+            if (before.CancelEdit)
+                return;
+
+            LayoutItems ();
+
+            if (label_editor is null) {
+                label_editor = new LabelEditBox { Visible = false };
+                label_editor.Commit = () => EndLabelEdit (commit: true);
+                label_editor.Cancel = () => EndLabelEdit (commit: false);
+                Controls.Add (label_editor);
+            }
+
+            var text_bounds = RenderManager.GetRenderer<Renderers.TreeViewRenderer> ()!.TextBoundsFor (this, node);
+
+            editing_node = node;
+            label_editor.Bounds = DeviceToLogicalUnits (text_bounds);
+            label_editor.Text = node.Text;
+            label_editor.Visible = true;
+            label_editor.SelectAll ();
+            label_editor.Focus ();
+        }
+
+        internal void EndLabelEdit (bool commit)
+        {
+            if (editing_node is null || label_editor is null)
+                return;
+
+            // Cleared first: hiding the editor drops its focus, which would otherwise re-enter here.
+            var node = editing_node;
+            var text = label_editor.Text;
+
+            editing_node = null;
+            label_editor.Visible = false;
+
+            var after = new NodeLabelEditEventArgs (node, commit ? text : null);
+            OnAfterLabelEdit (after);
+
+            if (commit && !after.CancelEdit && after.Label is { } label)
+                node.Text = label;
+
+            Invalidate ();
+            Focus ();
+        }
 
         /// <summary>WinForms compatibility: raised when the user clicks a node with the mouse.</summary>
         public event TreeNodeMouseClickEventHandler? NodeMouseClick;
@@ -311,10 +387,51 @@ namespace Majorsilence.Forms
                 NodeMouseHover?.Invoke (this, new TreeNodeMouseHoverEventArgs (node));
         }
 
-#pragma warning disable CS0067
-        /// <summary>Raised when the user begins dragging a node. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised when the user begins dragging a node.</summary>
+        /// <remarks>Real as of W6 mechanisms: raised once per press when the pointer moves past
+        /// <see cref="SystemInformation.DragSize"/> with a button held over a node.</remarks>
         public event EventHandler<ItemDragEventArgs>? ItemDrag;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="ItemDrag"/> event.</summary>
+        protected virtual void OnItemDrag (ItemDragEventArgs e) => ItemDrag?.Invoke (this, e);
+
+        // ItemDrag (W6 mechanisms): the pressed node, and whether this press has already announced.
+        private TreeNode? drag_candidate;
+        private Point drag_origin;
+        private bool item_drag_raised;
+
+        /// <inheritdoc/>
+        protected override void OnMouseDown (MouseEventArgs e)
+        {
+            base.OnMouseDown (e);
+
+            drag_candidate = GetNodeAt (e.Location);
+            drag_origin = e.Location;
+            item_drag_raised = false;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnMouseUp (MouseEventArgs e)
+        {
+            base.OnMouseUp (e);
+
+            drag_candidate = null;
+            item_drag_raised = false;
+        }
+
+        private void TrackItemDrag (MouseEventArgs e)
+        {
+            if (drag_candidate is null || item_drag_raised || e.Button == MouseButtons.None)
+                return;
+
+            var threshold = SystemInformation.DragSize;
+
+            if (Math.Abs (e.X - drag_origin.X) <= threshold.Width && Math.Abs (e.Y - drag_origin.Y) <= threshold.Height)
+                return;
+
+            item_drag_raised = true;
+            OnItemDrag (new ItemDragEventArgs (e.Button, drag_candidate));
+        }
 
         /// <summary>Gets or sets whether check boxes appear next to tree items.</summary>
         public bool CheckBoxes { get; set; }
@@ -332,7 +449,10 @@ namespace Majorsilence.Forms
         /// divided by the measured height, so the two disagreed.</remarks>
         public int ItemHeight { get; set; } = 20;
 
-        /// <summary>Gets or sets whether in-place label editing is enabled. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether in-place label editing is enabled.</summary>
+        /// <remarks>Read as of W6 mechanisms: <see cref="TreeNode.BeginEdit"/> and F2 on the selected node
+        /// open an editor over the label, asking <see cref="BeforeLabelEdit"/> first and reporting
+        /// through <see cref="AfterLabelEdit"/>.</remarks>
         public bool LabelEdit { get; set; }
 
         /// <summary>Gets or sets the separator character used in node paths.</summary>
@@ -662,7 +782,6 @@ namespace Majorsilence.Forms
             return !e.Cancel;
         }
 
-        /// <inheritdoc/>
         // The node under the pointer, for HotTracking's hot colour (W6).
         internal TreeNode? HotNode { get; private set; }
 
@@ -670,6 +789,7 @@ namespace Majorsilence.Forms
         protected override void OnMouseMove (MouseEventArgs e)
         {
             base.OnMouseMove (e);
+            TrackItemDrag (e);
             SetHotNode (HotTracking ? GetNodeAt (e.Location) : null);
         }
 
@@ -896,6 +1016,13 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void OnKeyDown (KeyEventArgs e)
         {
+            // F2 edits the selected node's label when LabelEdit allows it, as upstream (W6 mechanisms).
+            if (e.KeyCode == Keys.F2 && LabelEdit && SelectedNode is { } edit_target) {
+                BeginLabelEdit (edit_target);
+                e.Handled = true;
+                return;
+            }
+
             // PERF: Anything using GetVisibleItems () could probably be written more efficiently
             // Down moves down one visible node
             if (e.KeyCode == Keys.Down) {

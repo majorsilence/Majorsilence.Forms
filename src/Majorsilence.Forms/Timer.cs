@@ -106,7 +106,14 @@ namespace Majorsilence.Forms
         {
             if (platformTimer is null) {
                 platformTimer = Platform.Backend.CreateTimer ();
-                platformTimer.Tick += () => OnTick (EventArgs.Empty);
+                platformTimer.Tick += () => {
+                    // The same exception boundary the window's input entry points have: a Tick handler
+                    // that throws reports through Application.ThreadException when one is attached.
+                    try {
+                        OnTick (EventArgs.Empty);
+                    } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+                    }
+                };
             }
 
             platformTimer.IntervalMilliseconds = interval;
