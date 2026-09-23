@@ -7,6 +7,9 @@ namespace Majorsilence.Forms.Tests
     // Characterisation tests for layout/positioning defects seen on the Avalonia backend that do not
     // occur on real WinForms. Each asserts the invariant the upstream control guarantees, so a failure
     // here names the defect rather than describing a screenshot.
+    // Same collection as the other tests that touch HeadlessRenderer.ChromeOffset: it is a global
+    // static, so running alongside them means a title bar appears halfway through a measurement.
+    [Collection ("Headless")]
     public class MacQaLayoutTests
     {
         private static Form ShowFormAt (int x, int y, int w = 600, int h = 400)
@@ -71,6 +74,32 @@ namespace Majorsilence.Forms.Tests
 
             var expected = form.PointToScreen (new Point (picker.Left, picker.Bottom));
             Assert.Equal (expected, popup!.Location);
+        }
+
+        // The same anchoring must hold when the platform draws a title bar: the popup is placed in screen
+        // coordinates, so counting the chrome twice would drop it a caption's height below the field.
+        [Fact]
+        public void DateTimePicker_drop_down_is_anchored_under_the_field_with_window_chrome ()
+        {
+            HeadlessRenderer.Use ();
+            HeadlessRenderer.ChromeOffset = new Size (0, 32);
+
+            try {
+                using var form = new Form { Size = new Size (600, 400), StartPosition = FormStartPosition.Manual };
+                form.Show ();
+                form.Location = new Point (300, 200);
+
+                var picker = new DateTimePicker { Location = new Point (40, 60), Size = new Size (120, 22) };
+                form.Controls.Add (picker);
+
+                picker.DroppedDown = true;
+
+                var popup = Application.ActivePopupWindow;
+                Assert.NotNull (popup);
+                Assert.Equal (form.PointToScreen (new Point (picker.Left, picker.Bottom)), popup!.Location);
+            } finally {
+                HeadlessRenderer.ChromeOffset = Size.Empty;
+            }
         }
 
         // Same guarantee for a field inside a container: a GroupBox is what the reported forms use, and
