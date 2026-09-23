@@ -34,9 +34,14 @@ namespace Majorsilence.Forms.Headless
         // behind Form.TopLevel.
         public bool IsShown { get; private set; }
 
+        // How many times the backend was actually asked to show this window. One form must never raise
+        // two window surfaces: input lands on one and painting goes to the other.
+        public int ShowCount { get; private set; }
+
         public void Show ()
         {
             IsShown = true;
+            ShowCount++;
             _owner.OnBackendActivated ();
         }
 

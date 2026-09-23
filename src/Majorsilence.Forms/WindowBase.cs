@@ -2115,6 +2115,16 @@ namespace Majorsilence.Forms
         /// <summary>Displays the window to the user.</summary>
         public void Show ()
         {
+            // Upstream, showing a window that is already shown does nothing -- Form.Show sets Visible,
+            // which is already true. Here it used to run the whole first-show path again and hand one
+            // form a SECOND backend window. Both surfaces stay alive: input goes to the newer one on
+            // top while the controls keep painting into the first, so the top window looks like an
+            // empty shadow and typing into it appears in the one underneath. Calling Show twice is
+            // ordinary in application code -- a factory that shows the form and a configure callback
+            // that also calls Show -- and is harmless upstream.
+            if (visible)
+                return;
+
             if (TryShowHosted ())
                 return;
 
