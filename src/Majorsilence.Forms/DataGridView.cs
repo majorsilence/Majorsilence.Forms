@@ -1920,7 +1920,13 @@ namespace Majorsilence.Forms
         /// Columns[name] indexer matches Name OR HeaderText, and app code routinely reassigns HeaderText
         /// and then looks the column up again by its original field name.
         /// </remarks>
-        private DataGridViewColumn CreateBoundColumn (string member, Type? memberType)
+        /// <remarks>
+        /// Virtual so a derived grid can auto-generate its OWN column type. RadGridView must: its
+        /// Columns collection is typed as Telerik's GridViewDataColumn, so a base WinForms column
+        /// generated here would make every Columns[...] and every enumeration of it throw
+        /// InvalidCastException.
+        /// </remarks>
+        protected virtual DataGridViewColumn CreateBoundColumn (string member, Type? memberType)
         {
             var type = memberType is null ? null : Nullable.GetUnderlyingType (memberType) ?? memberType;
 
