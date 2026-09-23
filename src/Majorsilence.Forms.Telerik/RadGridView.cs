@@ -238,7 +238,6 @@ namespace Majorsilence.Forms.Telerik
         /// </summary>
         public new event EventHandler<RowValidatingEventArgs>? RowValidating;
 
-        /// <inheritdoc/>
         /// <summary>
         /// Auto-generate Telerik-shaped columns, so every member of <see cref="Columns"/> really is a
         /// <see cref="GridViewDataColumn"/>.
@@ -282,6 +281,7 @@ namespace Majorsilence.Forms.Telerik
             return column;
         }
 
+        /// <inheritdoc/>
         protected override void OnRowValidating (DataGridViewCellCancelEventArgs e)
         {
             Guard.ThrowIfNull (e);
