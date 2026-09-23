@@ -55,15 +55,30 @@ namespace Majorsilence.Forms
         /// Gets or sets the height, in pixels, of the row.
         /// </summary>
         public int Height {
-            get => height;
+            get {
+                // An unbound virtual-mode grid asks the application for row heights (W6 mechanisms).
+                if (owner is { IsVirtualUnbound: true } virtual_grid && Index is >= 0 and var index)
+                    return virtual_grid.RaiseRowHeightInfoNeeded (index, height, MinimumRowHeight);
+
+                return height;
+            }
             set {
+                // ...and is told about a change first; a handler that stores it itself marks the push
+                // Handled and the row keeps its own figure for the next Needed to overwrite.
+                if (owner is { IsVirtualUnbound: true } virtual_grid && Index is >= 0 and var pushed_index
+                    && virtual_grid.RaiseRowHeightInfoPushed (pushed_index, value, MinimumRowHeight))
+                    return;
+
                 if (height != value) {
-                    height = Math.Max (value, 3);
+                    height = Math.Max (value, MinimumRowHeight);
                     owner?.OnRowsChanged ();
                     owner?.RaiseRowHeightChanged (this);
                 }
             }
         }
+
+        // The floor the setter has always applied; named so the RowHeightInfo pair can report it.
+        private const int MinimumRowHeight = 3;
 
         /// <summary>
         /// Gets the index of this row in the DataGridView.
@@ -152,7 +167,11 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the default cell style applied to cells in this row.</summary>
         /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
         public DataGridViewCellStyle DefaultCellStyle {
-            get => default_cell_style;
+            get {
+                // See DataGridViewColumn.DefaultCellStyle: attached on every read (W6 mechanisms).
+                default_cell_style.Attach (owner, DataGridViewCellStyleScopes.Row);
+                return default_cell_style;
+            }
             set {
                 // ReferenceEquals, not value equality: DataGridViewCellStyle compares by value, so a
                 // freshly constructed style "equals" the default one and a value comparison swallowed
@@ -162,6 +181,7 @@ namespace Majorsilence.Forms
                     return;
 
                 default_cell_style = value ?? new DataGridViewCellStyle ();
+                default_cell_style.Attach (owner, DataGridViewCellStyleScopes.Row);
                 DataGridView?.NotifyRowDefaultCellStyleChanged (this);
             }
         }

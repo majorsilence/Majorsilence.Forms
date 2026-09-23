@@ -548,6 +548,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when a thread exception occurs that is not otherwise handled.</summary>
+        /// <remarks>
+        /// Raised by the exception boundary around every pointer, key and timer dispatch into the
+        /// window (<c>WindowBase.Handle*</c>, <c>Timer.OnTick</c>) as of W6 mechanisms: an exception
+        /// escaping an event handler reaches the handler attached here instead of unwinding the
+        /// backend's message loop. With no handler attached, or under
+        /// <see cref="UnhandledExceptionMode.ThrowException"/>, it propagates exactly as before.
+        /// </remarks>
         public static event System.Threading.ThreadExceptionEventHandler? ThreadException;
 
         /// <summary>Raised when the application is about to exit.</summary>
@@ -576,6 +583,11 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal static bool RaiseThreadException (Exception exception)
         {
+            // ThrowException means exactly that: the application asked for exceptions to propagate,
+            // so the boundary stands aside even when a handler is attached (W6 mechanisms).
+            if (unhandled_exception_mode == UnhandledExceptionMode.ThrowException)
+                return false;
+
             var handler = ThreadException;
 
             if (handler is null)
@@ -587,11 +599,18 @@ namespace Majorsilence.Forms
             return true;
         }
 
-        /// <summary>Sets the default exception handler for unhandled exceptions. Stub in Majorsilence.Forms.</summary>
-        public static void SetUnhandledExceptionMode (UnhandledExceptionMode mode) { }
+        private static UnhandledExceptionMode unhandled_exception_mode = UnhandledExceptionMode.Automatic;
+
+        /// <summary>Sets how an exception that escapes an event handler is dealt with.</summary>
+        /// <remarks>
+        /// Read by the input and timer boundaries (W6 mechanisms): <see cref="UnhandledExceptionMode.ThrowException"/>
+        /// lets the exception propagate; the other modes report it through <see cref="ThreadException"/>
+        /// when a handler is attached and propagate it when none is. It was an empty method.
+        /// </remarks>
+        public static void SetUnhandledExceptionMode (UnhandledExceptionMode mode) => unhandled_exception_mode = mode;
 
         /// <inheritdoc cref="SetUnhandledExceptionMode(UnhandledExceptionMode)"/>
-        public static void SetUnhandledExceptionMode (UnhandledExceptionMode mode, bool threadScope) { }
+        public static void SetUnhandledExceptionMode (UnhandledExceptionMode mode, bool threadScope) => unhandled_exception_mode = mode;
 
         // Copy-on-write so FilterMessage can walk the list without holding the lock: a filter is free
         // to add or remove filters while being called, which would otherwise mutate the collection

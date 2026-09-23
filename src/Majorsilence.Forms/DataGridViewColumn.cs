@@ -149,9 +149,15 @@ namespace Majorsilence.Forms
         /// Gets or sets the default cell style for this column.
         /// </summary>
         public virtual DataGridViewCellStyle DefaultCellStyle {
-            get => default_cell_style;
+            get {
+                // Attached on every read, not once: the column may join its grid after the style was
+                // handed out, and the attachment is two field writes (CellStyleContentChanged, W6).
+                default_cell_style.Attach (DataGridView, DataGridViewCellStyleScopes.Column);
+                return default_cell_style;
+            }
             set {
                 default_cell_style = value ?? new DataGridViewCellStyle ();
+                default_cell_style.Attach (DataGridView, DataGridViewCellStyleScopes.Column);
                 DataGridView?.NotifyColumnDefaultCellStyleChanged (this);
             }
         }

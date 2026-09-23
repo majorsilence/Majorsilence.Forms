@@ -209,8 +209,26 @@ namespace Majorsilence.Forms
         /// silently reverted it (finding <c>DGV-02</c>, P0).
         /// </remarks>
         public object? Value {
-            get => value;
+            get {
+                // An unbound virtual-mode grid keeps no values: the application answers every read
+                // (W6 mechanisms). The stored value is offered as the default so a handler that does
+                // not know the cell can leave it alone.
+                if (owner?.DataGridView is { IsVirtualUnbound: true } virtual_grid && RowIndex >= 0 && ColumnIndex >= 0)
+                    return virtual_grid.RaiseCellValueNeeded (ColumnIndex, RowIndex, value);
+
+                return value;
+            }
             set {
+                // ...and every write is pushed to it rather than stored. The grid's own notification
+                // still runs so CellValueChanged follows the push, as it does upstream.
+                if (owner?.DataGridView is { IsVirtualUnbound: true } virtual_grid && RowIndex >= 0 && ColumnIndex >= 0) {
+                    var pushed_old = Value;
+
+                    virtual_grid.RaiseCellValuePushed (ColumnIndex, RowIndex, value);
+                    virtual_grid.NotifyCellValueSet (this, pushed_old);
+                    return;
+                }
+
                 if (Equals (this.value, value))
                     return;
 
@@ -230,8 +248,8 @@ namespace Majorsilence.Forms
             // The lookup first: a combo-box cell's formatted value is the DISPLAY member of the item its
             // value matches, which is what CellPainting handlers and PreferredSize read (DGV-26).
             => FormattedTextOverride
-               ?? DataGridView.LookUpDisplayText (OwningColumn, value)
-               ?? value?.ToString ();
+               ?? DataGridView.LookUpDisplayText (OwningColumn, Value)
+               ?? Value?.ToString ();
 
         /// <summary>
         /// An optional display-text override set by a formatting pass (e.g. RadGridView's CellFormatting

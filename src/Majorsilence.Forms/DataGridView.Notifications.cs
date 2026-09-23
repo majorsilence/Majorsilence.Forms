@@ -1,3 +1,4 @@
+using System;
 namespace Majorsilence.Forms
 {
     // The band/cell -> grid notification seams (W6.1, DGV-45). Sixteen of the grid's *Changed events
@@ -37,6 +38,79 @@ namespace Majorsilence.Forms
         internal void NotifyColumnContextMenuStripChanged (DataGridViewColumn c) => OnColumnContextMenuStripChanged (new DataGridViewColumnEventArgs (c));
         internal void NotifyRowContextMenuStripChanged (DataGridViewRow r) => OnRowContextMenuStripChanged (new DataGridViewRowEventArgs (r));
         internal void NotifyCellContextMenuStripChanged (DataGridViewCell c) => OnCellContextMenuStripChanged (new DataGridViewCellEventArgs (c.ColumnIndex, c.RowIndex));
+
+        // CellStyleContentChanged (W6 mechanisms): a column's or row's DefaultCellStyle reports its
+        // own property changes here; see DataGridViewCellStyle.Attach.
+        internal void NotifyCellStyleContentChanged (DataGridViewCellStyle style, DataGridViewCellStyleScopes scope)
+            => OnCellStyleContentChanged (new DataGridViewCellStyleContentChangedEventArgs (style, scope));
+
+        // The *ContextMenuStripNeeded pair (W6 mechanisms), gated like the *ErrorTextNeeded pair: upstream
+        // raises them for a bound or virtual grid, where the cell's own property may be empty because
+        // the application supplies menus on demand. The handler starts from the stored menu and may
+        // replace it; the grid's own menu is the final fallback, as GetInheritedContextMenuStrip's was.
+        internal ContextMenuStrip? ResolveCellContextMenuStrip (DataGridViewCell cell, int rowIndex)
+        {
+            var strip = cell.ContextMenuStrip;
+
+            if (CellContextMenuStripNeeded is not null && (VirtualMode || DataSource is not null) && rowIndex >= 0 && cell.ColumnIndex >= 0) {
+                var e = new DataGridViewCellContextMenuStripNeededEventArgs (cell.ColumnIndex, rowIndex) { ContextMenuStrip = strip! };
+                OnCellContextMenuStripNeeded (e);
+                strip = e.ContextMenuStrip;
+            }
+
+            if (strip is not null)
+                return strip;
+
+            var row = rowIndex >= 0 && rowIndex < Rows.Count ? Rows[rowIndex] : null;
+
+            return row is not null ? ResolveRowContextMenuStrip (row, rowIndex) : ContextMenuStrip;
+        }
+
+        internal ContextMenuStrip? ResolveRowContextMenuStrip (DataGridViewRow row, int rowIndex)
+        {
+            var strip = row.ContextMenuStrip;
+
+            if (RowContextMenuStripNeeded is not null && (VirtualMode || DataSource is not null) && rowIndex >= 0) {
+                var e = new DataGridViewRowContextMenuStripNeededEventArgs (rowIndex) { ContextMenuStrip = strip! };
+                OnRowContextMenuStripNeeded (e);
+                strip = e.ContextMenuStrip;
+            }
+
+            return strip ?? ContextMenuStrip;
+        }
+
+        // Virtual mode (W6 mechanisms). An unbound grid in VirtualMode keeps no cell values of its own:
+        // a read asks CellValueNeeded and a write reports through CellValuePushed, and row heights go
+        // through the RowHeightInfo pair the same way. A BOUND grid in VirtualMode keeps reading its
+        // source, as upstream's does.
+        internal bool IsVirtualUnbound => VirtualMode && DataSource is null;
+
+        internal object? RaiseCellValueNeeded (int columnIndex, int rowIndex, object? stored)
+        {
+            var e = new DataGridViewCellValueEventArgs (columnIndex, rowIndex) { Value = stored };
+            OnCellValueNeeded (e);
+
+            return e.Value;
+        }
+
+        internal void RaiseCellValuePushed (int columnIndex, int rowIndex, object? value)
+            => OnCellValuePushed (new DataGridViewCellValueEventArgs (columnIndex, rowIndex) { Value = value });
+
+        internal int RaiseRowHeightInfoNeeded (int rowIndex, int height, int minimumHeight)
+        {
+            var e = new DataGridViewRowHeightInfoNeededEventArgs (rowIndex, height, minimumHeight);
+            OnRowHeightInfoNeeded (e);
+
+            return Math.Max (e.Height, e.MinimumHeight);
+        }
+
+        internal bool RaiseRowHeightInfoPushed (int rowIndex, int height, int minimumHeight)
+        {
+            var e = new DataGridViewRowHeightInfoPushedEventArgs (rowIndex, height, minimumHeight);
+            OnRowHeightInfoPushed (e);
+
+            return e.Handled;
+        }
         internal void NotifyColumnDataPropertyNameChanged (DataGridViewColumn c) => OnColumnDataPropertyNameChanged (new DataGridViewColumnEventArgs (c));
         internal void NotifyColumnToolTipTextChanged (DataGridViewColumn c) => OnColumnToolTipTextChanged (new DataGridViewColumnEventArgs (c));
         internal void NotifyColumnMinimumWidthChanged (DataGridViewColumn c) => OnColumnMinimumWidthChanged (new DataGridViewColumnEventArgs (c));

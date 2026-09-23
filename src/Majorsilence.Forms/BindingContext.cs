@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.ComponentModel;
 
@@ -149,9 +150,40 @@ namespace Majorsilence.Forms
         // ReadValue only, never by the machinery (BND-23).
         internal void PushDataToBindings ()
         {
-            foreach (Binding? binding in Bindings)
-                binding?.PushValue ();
+            foreach (Binding? binding in Bindings) {
+                try {
+                    binding?.PushValue ();
+                } catch (Exception e) when (ReportDataError (e)) {
+                    // Reported through DataError; the remaining bindings still get their push.
+                }
+            }
         }
+
+        // DataError (W6 mechanisms): an exception a push or a commit throws is offered to the
+        // DataError handler, as upstream's CurrencyManager does around PushData/EndCurrentEdit.
+        //
+        // A DELIBERATE divergence: upstream swallows the exception whether or not anyone listens. Here
+        // it propagates when nobody does -- the filter returns false and the catch never runs -- so a
+        // caller that never subscribed sees exactly the exception it saw before, and a data error
+        // cannot vanish silently. A BindingSource that owns this manager forwards to its own DataError
+        // through DataErrorForwarder, and counts as a listener only when IT has one.
+        private bool ReportDataError (Exception e)
+        {
+            var handled = false;
+
+            if (DataError is not null) {
+                OnDataError (e);
+                handled = true;
+            }
+
+            if (DataErrorForwarder is { } forward && forward (e))
+                handled = true;
+
+            return handled;
+        }
+
+        // Set by BindingSource; answers whether a listener took the error.
+        internal Func<Exception, bool>? DataErrorForwarder { get; set; }
 
         /// <summary>Raised when <see cref="Position"/> changes.</summary>
         public event EventHandler? PositionChanged;
@@ -171,10 +203,15 @@ namespace Majorsilence.Forms
         /// </remarks>
         public void EndCurrentEdit ()
         {
-            foreach (Binding? binding in Bindings)
-                binding?.WriteValue ();
+            try {
+                foreach (Binding? binding in Bindings)
+                    binding?.WriteValue ();
 
-            (Current as IEditableObject)?.EndEdit ();
+                (Current as IEditableObject)?.EndEdit ();
+            } catch (Exception e) when (ReportDataError (e)) {
+                // Reported through DataError, as upstream does; see ReportDataError.
+                return;
+            }
 
             if (list is ICancelAddNew cancellable && position >= 0)
                 cancellable.EndNew (position);

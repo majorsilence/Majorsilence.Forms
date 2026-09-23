@@ -289,6 +289,9 @@ namespace Majorsilence.Forms.Renderers
         /// Gets the bounds of the item image.
         /// </summary>
         protected virtual Rectangle GetImageBounds (TreeView control, TreeNode item, PaintEventArgs e)
+            => ImageBoundsFor (control, item);
+
+        private Rectangle ImageBoundsFor (TreeView control, TreeNode item)
         {
             if (!control.ShowItemImages || ResolveImage (control, item, item == control.SelectedItem) is null)
                 return Rectangle.Empty;
@@ -299,13 +302,18 @@ namespace Majorsilence.Forms.Renderers
             left_index += control.ScaledCheckWidth;
             var image_area = new Rectangle (left_index, item.Bounds.Top, item.Bounds.Height, item.Bounds.Height);
 
-            return DrawingExtensions.CenterSquare (image_area, e.LogicalToDeviceUnits (IMAGE_SIZE));
+            return DrawingExtensions.CenterSquare (image_area, control.LogicalToDeviceUnits (IMAGE_SIZE));
         }
 
         /// <summary>
         /// Gets the bounds of the item text.
         /// </summary>
         protected virtual Rectangle GetTextBounds (TreeView control, TreeNode item, PaintEventArgs e)
+            => TextBoundsFor (control, item);
+
+        /// <summary>The node's text rectangle in device pixels, computed outside a paint pass -- for the
+        /// label editor (W6 mechanisms). The same arithmetic <see cref="GetTextBounds"/> uses.</summary>
+        internal Rectangle TextBoundsFor (TreeView control, TreeNode item)
         {
             var show_glyph = control.ShowDropdownGlyph;
             var show_image = control.ShowItemImages;
@@ -314,9 +322,9 @@ namespace Majorsilence.Forms.Renderers
                 return new Rectangle (GetIndentStart (control, item), item.Bounds.Top, item.Bounds.Width - GetIndentStart (control, item), item.Bounds.Height);
 
             // One of these will be valid because we handled the other case above
-            var padding = e.LogicalToDeviceUnits (6);
+            var padding = control.LogicalToDeviceUnits (6);
             var has_image = show_image && ResolveImage (control, item, item == control.SelectedItem) is not null;
-            var used_bounds = has_image ? GetImageBounds (control, item, e) : GetGlyphBounds (control, item);
+            var used_bounds = has_image ? ImageBoundsFor (control, item) : GetGlyphBounds (control, item);
             var left = System.Math.Max (used_bounds.Right, has_image ? used_bounds.Right : used_bounds.Right + control.ScaledCheckWidth);
 
             return new Rectangle (left + padding, item.Bounds.Top, item.Bounds.Right - left - padding, item.Bounds.Height);

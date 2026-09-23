@@ -56,7 +56,7 @@ It was found by wiring six of them. `ListBox.BorderStyle` and its five siblings 
 marker and were all plain unwired stubs. A marker that says "do not touch this" is worth testing on both
 sides, and it had none — it is annotation, which the baseline gate strips, so nothing asserted it. It
 does now: `StoredOnlyPropertyBaselineTests.FrameworkWrittenNoteSeparatesOutboundStateFromInitialisers`
-pins `Form.Modal` marked and `ComboBox.DrawMode` unmarked.
+pins `Form.Modal` marked and `ListView.UseCompatibleStateImageBehavior` unmarked (it pinned `ComboBox.DrawMode` until W6 mechanisms wired that).
 
 The note is **annotation, not assertion**: whether a setter call survives as a call depends on the build
 configuration, so Debug and Release disagree about it, and the gate strips the note from both sides

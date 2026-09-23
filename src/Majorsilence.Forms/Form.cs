@@ -335,7 +335,38 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Begins dragging the window to move it.</summary>
-        public void BeginMoveDrag () => Backend.BeginMoveDrag ();
+        /// <remarks>Raises <see cref="ResizeBegin"/> first, as upstream does for a move as well as a
+        /// resize (<c>WM_ENTERSIZEMOVE</c> covers both); the matching <see cref="ResizeEnd"/> follows
+        /// the pointer release that ends the drag.</remarks>
+        public void BeginMoveDrag ()
+        {
+            BeginSizeMove ();
+            Backend.BeginMoveDrag ();
+        }
+
+        // ResizeBegin/ResizeEnd (W6 mechanisms). Upstream raises them from WM_ENTERSIZEMOVE and
+        // WM_EXITSIZEMOVE; here the start is the gesture that asks the backend to drag (a border press,
+        // the caption, or the public Begin*Drag methods) and the end is the pointer release that
+        // follows it. One flag, so a caption drag that hands off to the backend cannot begin twice.
+        private bool size_move_active;
+
+        private void BeginSizeMove ()
+        {
+            if (size_move_active)
+                return;
+
+            size_move_active = true;
+            OnResizeBegin (EventArgs.Empty);
+        }
+
+        internal override void EndSizeMove ()
+        {
+            if (!size_move_active)
+                return;
+
+            size_move_active = false;
+            OnResizeEnd (EventArgs.Empty);
+        }
 
         /// <summary>Begins dragging the given window edge to resize the window.</summary>
         /// <remarks>
@@ -345,7 +376,11 @@ namespace Majorsilence.Forms
         /// (<c>ReleaseCapture</c> then <c>WM_NCLBUTTONDOWN</c>), which has no equivalent off Windows,
         /// so ported code needs a managed way to ask for the same gesture.
         /// </remarks>
-        public void BeginResizeDrag (Backends.WindowEdge edge) => Backend.BeginResizeDrag (edge);
+        public void BeginResizeDrag (Backends.WindowEdge edge)
+        {
+            BeginSizeMove ();
+            Backend.BeginResizeDrag (edge);
+        }
 
         /// <summary>Gets or sets the bounds of the Window.</summary>
         public new System.Drawing.Rectangle Bounds {
@@ -538,23 +573,23 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the form is first shown (WinForms compatibility alias; raised together with Shown).</summary>
         public event EventHandler? Load;
 
-        /// <summary>Raised when the user begins to resize the form.</summary>
-        /// <remarks>No backend reports the start of a user resize drag yet, so this does not fire on its
-        /// own; it is a real event rather than a discard so that ported code which overrides
-        /// <see cref="OnResizeBegin"/> compiles and runs once a backend can raise it.</remarks>
+        /// <summary>Raised when the user begins to resize or move the form.</summary>
+        /// <remarks>Raised when a border press, a caption drag or <see cref="BeginResizeDrag"/> /
+        /// <see cref="BeginMoveDrag"/> hands a size-move gesture to the backend (W6 mechanisms); upstream
+        /// raises it from <c>WM_ENTERSIZEMOVE</c>, which covers moves too. A programmatic
+        /// <see cref="Size"/> change does not raise it, matching upstream.</remarks>
         public event EventHandler? ResizeBegin;
 
         /// <summary>Raises the <see cref="ResizeBegin"/> event.</summary>
         protected virtual void OnResizeBegin (EventArgs e) => ResizeBegin?.Invoke (this, e);
 
-        /// <summary>Raised when the user finishes resizing the form. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised when the user finishes resizing or moving the form.</summary>
+        /// <remarks>Raised by the pointer release that ends a gesture <see cref="ResizeBegin"/>
+        /// announced (W6 mechanisms). A backend whose window system owns the drag delivers that release
+        /// when the drag returns to the window.</remarks>
         public event EventHandler? ResizeEnd;
 
-        /// <summary>
-        /// Raises the ResizeEnd event. Nothing in Majorsilence.Forms detects the end of a user resize
-        /// drag yet, so this never fires on its own -- it exists so ported code that overrides it
-        /// compiles, and so a backend that can report drag-end has somewhere to raise it.
-        /// </summary>
+        /// <summary>Raises the <see cref="ResizeEnd"/> event.</summary>
         protected virtual void OnResizeEnd (EventArgs e) => ResizeEnd?.Invoke (this, e);
 
         /// <summary>
@@ -814,14 +849,14 @@ namespace Majorsilence.Forms
             var element = GetElementAtLocation (x, y);
 
             switch (element) {
-                case WindowElement.TopBorder:         Backend.BeginResizeDrag (Backends.WindowEdge.North);     return true;
-                case WindowElement.RightBorder:       Backend.BeginResizeDrag (Backends.WindowEdge.East);      return true;
-                case WindowElement.BottomBorder:      Backend.BeginResizeDrag (Backends.WindowEdge.South);     return true;
-                case WindowElement.LeftBorder:        Backend.BeginResizeDrag (Backends.WindowEdge.West);      return true;
-                case WindowElement.TopLeftCorner:     Backend.BeginResizeDrag (Backends.WindowEdge.NorthWest); return true;
-                case WindowElement.TopRightCorner:    Backend.BeginResizeDrag (Backends.WindowEdge.NorthEast); return true;
-                case WindowElement.BottomLeftCorner:  Backend.BeginResizeDrag (Backends.WindowEdge.SouthWest); return true;
-                case WindowElement.BottomRightCorner: Backend.BeginResizeDrag (Backends.WindowEdge.SouthEast); return true;
+                case WindowElement.TopBorder:         BeginResizeDrag (Backends.WindowEdge.North);     return true;
+                case WindowElement.RightBorder:       BeginResizeDrag (Backends.WindowEdge.East);      return true;
+                case WindowElement.BottomBorder:      BeginResizeDrag (Backends.WindowEdge.South);     return true;
+                case WindowElement.LeftBorder:        BeginResizeDrag (Backends.WindowEdge.West);      return true;
+                case WindowElement.TopLeftCorner:     BeginResizeDrag (Backends.WindowEdge.NorthWest); return true;
+                case WindowElement.TopRightCorner:    BeginResizeDrag (Backends.WindowEdge.NorthEast); return true;
+                case WindowElement.BottomLeftCorner:  BeginResizeDrag (Backends.WindowEdge.SouthWest); return true;
+                case WindowElement.BottomRightCorner: BeginResizeDrag (Backends.WindowEdge.SouthEast); return true;
             }
 
             return false;

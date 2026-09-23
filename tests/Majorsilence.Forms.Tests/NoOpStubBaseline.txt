@@ -10,8 +10,6 @@ Majorsilence.Forms.AccessibleObject.DoDefaultAction/0
 Majorsilence.Forms.AccessibleObject.Select/1
 Majorsilence.Forms.Application.EnableVisualStyles/0
 Majorsilence.Forms.Application.SetCompatibleTextRenderingDefault/1
-Majorsilence.Forms.Application.SetUnhandledExceptionMode/1
-Majorsilence.Forms.Application.SetUnhandledExceptionMode/2
 Majorsilence.Forms.Backends.IWindowBackend.SetCaptionRegions/1
 Majorsilence.Forms.Backends.IWindowBackend.SetExtendClientIntoTitleBar/2
 Majorsilence.Forms.Backends.IWindowBackend.SetShaped/1
@@ -76,7 +74,6 @@ Majorsilence.Forms.HelpProvider.SetHelpNavigator/2
 Majorsilence.Forms.HelpProvider.SetShowHelp/2
 Majorsilence.Forms.ImageCollection.SetKeyName/2
 Majorsilence.Forms.ImageListStreamer.Dispose/0
-Majorsilence.Forms.ListViewItem.BeginEdit/0
 Majorsilence.Forms.Media.SoundPlayer.Load/0
 Majorsilence.Forms.NativeWindow.AssignHandle/1
 Majorsilence.Forms.NativeWindow.CreateHandle/1
@@ -116,8 +113,6 @@ Majorsilence.Forms.ToolStripPanel.BeginInit/0
 Majorsilence.Forms.ToolTip.SetToolTip/2
 Majorsilence.Forms.TrackBar.BeginInit/0
 Majorsilence.Forms.TrackBar.EndInit/0
-Majorsilence.Forms.TreeNode.BeginEdit/0
-Majorsilence.Forms.TreeNode.EndEdit/1
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/2
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/3
 Majorsilence.Forms.WebBrowser.GoBack/0

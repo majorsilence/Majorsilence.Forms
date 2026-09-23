@@ -98,6 +98,10 @@ namespace Majorsilence.Forms
             if (string.IsNullOrEmpty (text))
                 return null;
 
+            // Virtual mode: the application answers through SearchForVirtualItem (W6 mechanisms).
+            if (VirtualMode)
+                return SearchVirtual (text, includeSubItemsInSearch, startIndex, isPrefixSearch);
+
             for (var i = startIndex; i < Items.Count; i++) {
                 var item = Items[i];
 

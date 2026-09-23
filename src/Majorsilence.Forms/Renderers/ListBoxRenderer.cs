@@ -42,6 +42,24 @@ namespace Majorsilence.Forms.Renderers
             // lost focus gives up its highlight only when the application asked for that.
             var selected = control.Items.SelectedIndexes.Contains (index) && control.ShowsSelection;
 
+            // Owner draw (W6 mechanisms): the application paints the item; nothing here does.
+            if (control.DrawMode != DrawMode.Normal) {
+                var state = DrawItemState.None;
+
+                if (selected)
+                    state |= DrawItemState.Selected;
+                if (control.Selected && control.ShowFocusCues && control.Items.FocusedIndex == index)
+                    state |= DrawItemState.Focus;
+                if (!control.Enabled)
+                    state |= DrawItemState.Disabled;
+                if (control.Items.HoveredIndex == index)
+                    state |= DrawItemState.HotLight;
+
+                bounds.Height = control.ItemHeightDeviceAt (index);
+                control.RaiseDrawItem (index, bounds, state, e);
+                return;
+            }
+
             if (selected)
                 e.Canvas.FillRectangle (bounds, ListBox.DefaultSelectionStyle.GetBackgroundColor ());
 
@@ -54,7 +72,7 @@ namespace Majorsilence.Forms.Renderers
                 e.Canvas.DrawFocusRectangle (bounds, 1);
 
             // This fixes text positioning for partially shown items
-            bounds.Height = control.ScaledItemHeight;
+            bounds.Height = control.ItemHeightDeviceAt (index);
             bounds.Inflate (-4, 0);
 
             // Draw text

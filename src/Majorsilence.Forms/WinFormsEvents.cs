@@ -1221,8 +1221,15 @@ namespace Majorsilence.Forms
     /// <summary>Provides data for the data grid view cell style content changed event.</summary>
     public class DataGridViewCellStyleContentChangedEventArgs : EventArgs
     {
+        /// <summary>Initializes a new instance for the style that changed and the scope it applies at.</summary>
+        public DataGridViewCellStyleContentChangedEventArgs (DataGridViewCellStyle dataGridViewCellStyle, DataGridViewCellStyleScopes cellStyleScope)
+        {
+            CellStyle = dataGridViewCellStyle;
+            CellStyleScope = cellStyleScope;
+        }
+
         /// <summary>Gets the cell style.</summary>
-        public DataGridViewCellStyle CellStyle { get; } = default!;
+        public DataGridViewCellStyle CellStyle { get; }
         /// <summary>Gets the cell style scope.</summary>
         public DataGridViewCellStyleScopes CellStyleScope { get; }
     }
@@ -1275,6 +1282,14 @@ namespace Majorsilence.Forms
     /// <summary>Provides data for the data grid view row height info needed event.</summary>
     public class DataGridViewRowHeightInfoNeededEventArgs : EventArgs
     {
+        // Internal, as upstream's is: the grid builds these when a virtual-mode row's height is read.
+        internal DataGridViewRowHeightInfoNeededEventArgs (int rowIndex, int height, int minimumHeight)
+        {
+            RowIndex = rowIndex;
+            Height = height;
+            MinimumHeight = minimumHeight;
+        }
+
         /// <summary>Gets the row index.</summary>
         public int RowIndex { get; }
         /// <summary>Gets or sets the height.</summary>
@@ -1286,6 +1301,14 @@ namespace Majorsilence.Forms
     /// <summary>Provides data for the data grid view row height info pushed event.</summary>
     public class DataGridViewRowHeightInfoPushedEventArgs : HandledEventArgs
     {
+        // Internal, as upstream's is: the grid builds these when a virtual-mode row's height is set.
+        internal DataGridViewRowHeightInfoPushedEventArgs (int rowIndex, int height, int minimumHeight)
+        {
+            RowIndex = rowIndex;
+            Height = height;
+            MinimumHeight = minimumHeight;
+        }
+
         /// <summary>Gets the row index.</summary>
         public int RowIndex { get; }
         /// <summary>Gets the height.</summary>
@@ -1679,6 +1702,7 @@ namespace Majorsilence.Forms
             StartingPoint = startingPoint;
             Direction = direction;
             StartIndex = startIndex;
+            Index = -1;
         }
 
         /// <summary>Gets the is text search.</summary>

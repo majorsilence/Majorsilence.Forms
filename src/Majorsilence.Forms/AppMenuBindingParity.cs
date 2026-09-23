@@ -327,6 +327,7 @@ namespace Majorsilence.Forms
             manager.CurrentItemChanged += (_, _) => OnCurrentItemChanged (EventArgs.Empty);
             manager.PositionChanged += (_, _) => OnPositionChanged (EventArgs.Empty);
             manager.BindingComplete += (_, e) => BindingComplete?.Invoke (this, e);
+            manager.DataErrorForwarder = ReportDataError;
 
             return manager;
         }
@@ -491,11 +492,24 @@ namespace Majorsilence.Forms
         /// currency manager (BND-18).</summary>
         public event BindingCompleteEventHandler? BindingComplete;
 
-        // A raisable seam; errors are reported through BindingComplete rather than here.
-#pragma warning disable CS0067
-        /// <summary>Raised when a data error occurs. Not raised by this layer yet.</summary>
+        /// <summary>Raised when the currency manager reports a data error; forwarded from
+        /// <see cref="BindingManagerBase.DataError"/> (W6 mechanisms).</summary>
         public event BindingManagerDataErrorEventHandler? DataError;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="DataError"/> event.</summary>
+        protected virtual void OnDataError (BindingManagerDataErrorEventArgs e) => DataError?.Invoke (this, e);
+
+        // The manager's forwarder: true only when a listener is attached here, so an error nobody
+        // hears still propagates (see BindingManagerBase.ReportDataError).
+        private bool ReportDataError (Exception exception)
+        {
+            if (DataError is null)
+                return false;
+
+            OnDataError (new BindingManagerDataErrorEventArgs (exception));
+
+            return true;
+        }
 
         /// <summary>Raises the <see cref="AddingNew"/> event.</summary>
         protected virtual void OnAddingNew (AddingNewEventArgs e) => AddingNew?.Invoke (this, e);

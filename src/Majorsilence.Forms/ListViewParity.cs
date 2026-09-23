@@ -57,9 +57,74 @@ namespace Majorsilence.Forms
         public bool HotTracking { get; set; }
 
         /// <summary>Gets or sets whether the control's items are drawn by the application.</summary>
-        /// <remarks>Setting this is what makes <see cref="DrawItem"/>, <see cref="DrawSubItem"/> and
-        /// <see cref="DrawColumnHeader"/> meaningful; the renderer consults it before drawing.</remarks>
-        public bool OwnerDraw { get; set; }
+        /// <remarks>Read by the renderer as of W6 mechanisms: while set, every header cell goes through
+        /// <see cref="DrawColumnHeader"/>, every visible item through <see cref="DrawItem"/> and -- when
+        /// that handler leaves <c>DrawDefault</c> false in Details view -- every cell through
+        /// <see cref="DrawSubItem"/>. A handler that sets <c>DrawDefault</c> gets the built-in painting
+        /// for that part, as upstream.</remarks>
+        public bool OwnerDraw {
+            get => owner_draw;
+            set {
+                if (owner_draw == value)
+                    return;
+
+                owner_draw = value;
+                Invalidate ();
+            }
+        }
+
+        private bool owner_draw;
+
+        // The renderer's doors to the three owner-draw events. Each answers DrawDefault: true means
+        // "paint this part yourself after all".
+        internal bool RaiseDrawItem (ListViewItem item, PaintEventArgs e)
+        {
+            var args = new DrawListViewItemEventArgs (e.Graphics, item, item.DeviceBounds, item.Index, ItemStateOf (item));
+            OnDrawItem (args);
+
+            return args.DrawDefault;
+        }
+
+        internal bool RaiseDrawSubItem (ListViewItem item, ColumnHeader column, Rectangle cell, PaintEventArgs e)
+        {
+            // Upstream raises this only for sub-items that exist; a column past the item's last
+            // sub-item has nothing to hand the handler.
+            if (column.Index < 0 || column.Index >= item.SubItems.Count)
+                return false;
+
+            var args = new DrawListViewSubItemEventArgs (e.Graphics, cell, item, item.SubItems[column.Index], item.Index,
+                column.Index, column, ItemStateOf (item));
+            OnDrawSubItem (args);
+
+            return args.DrawDefault;
+        }
+
+        internal bool RaiseDrawColumnHeader (ColumnHeader column, Rectangle cell, PaintEventArgs e)
+        {
+            var args = new DrawListViewColumnHeaderEventArgs (e.Graphics, cell, column.Index, column,
+                ListViewItemStates.Default, ForeColor, BackColor, Font);
+            OnDrawColumnHeader (args);
+
+            return args.DrawDefault;
+        }
+
+        private ListViewItemStates ItemStateOf (ListViewItem item)
+        {
+            var state = ListViewItemStates.Default;
+
+            if (item.Selected)
+                state |= ListViewItemStates.Selected;
+            if (ReferenceEquals (FocusedItem, item))
+                state |= ListViewItemStates.Focused;
+            if (item.Checked)
+                state |= ListViewItemStates.Checked;
+            if (ReferenceEquals (HotItem, item))
+                state |= ListViewItemStates.Hot;
+            if (!Enabled)
+                state |= ListViewItemStates.Grayed;
+
+            return state;
+        }
 
         /// <summary>Gets or sets whether the control lays out right to left when RightToLeft is set.</summary>
         public bool RightToLeftLayout { get; set; }

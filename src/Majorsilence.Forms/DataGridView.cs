@@ -475,13 +475,22 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a column's <see cref="DataGridViewColumn.AutoSizeMode"/> changes.</summary>
         public event EventHandler<DataGridViewAutoSizeColumnModeEventArgs>? AutoSizeColumnModeChanged;
 
-#pragma warning disable CS0067
         /// <summary>Raised in virtual mode to retrieve the value for a cell.</summary>
+        /// <remarks>Real as of W6 mechanisms: an unbound grid with <see cref="VirtualMode"/> set asks
+        /// this on every read of <see cref="DataGridViewCell.Value"/> (and so of the painted text).</remarks>
         public event EventHandler<DataGridViewCellValueEventArgs>? CellValueNeeded;
 
         /// <summary>Raised in virtual mode to push a new cell value back to the data source.</summary>
+        /// <remarks>Real as of W6 mechanisms: an unbound grid with <see cref="VirtualMode"/> set reports a
+        /// write to <see cref="DataGridViewCell.Value"/> -- a commit from the editor included -- here
+        /// instead of storing it.</remarks>
         public event EventHandler<DataGridViewCellValueEventArgs>? CellValuePushed;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="CellValueNeeded"/> event.</summary>
+        protected virtual void OnCellValueNeeded (DataGridViewCellValueEventArgs e) => CellValueNeeded?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="CellValuePushed"/> event.</summary>
+        protected virtual void OnCellValuePushed (DataGridViewCellValueEventArgs e) => CellValuePushed?.Invoke (this, e);
 
 
         /// <summary>
@@ -1209,6 +1218,12 @@ namespace Majorsilence.Forms
             edit_control.Dispose ();
             edit_control = null;
 
+            // In virtual mode the application owns the row's data, so it is asked to roll the row back
+            // (W6 mechanisms). Response reports whether anything in the row had been committed, which
+            // is what IsCurrentCellDirty tracks here.
+            if (IsVirtualUnbound)
+                OnCancelRowEdit (new QuestionEventArgs (IsCurrentCellDirty));
+
             // Escape ends the edit as surely as Enter does, and the handlers that re-enable buttons or
             // clear an "editing" status live in CellEndEdit -- they used to stay stuck (DGV-09).
             var cancelled_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
@@ -1795,6 +1810,27 @@ namespace Majorsilence.Forms
         /// <see cref="TryPushValueToBoundItem"/>) while the notification happens once, in whichever
         /// path the caller actually used.
         /// </remarks>
+        private bool ShowCellContextMenuStrip (Point location)
+        {
+            var row_index = GetRowAtLocation (location);
+            var column_index = GetColumnAtLocation (location);
+
+            if (row_index < 0 || row_index >= Rows.Count)
+                return false;
+
+            var row = Rows[row_index];
+            var strip = column_index >= 0 && column_index < row.Cells.Count
+                ? row.Cells[column_index].GetInheritedContextMenuStrip (row_index)
+                : ResolveRowContextMenuStrip (row, row_index);
+
+            if (strip is null || ReferenceEquals (strip, ContextMenuStrip))
+                return false;
+
+            strip.Show (this, location);
+
+            return true;
+        }
+
         internal void NotifyCellValueSet (DataGridViewCell cell, object? oldValue)
         {
             if (suppress_cell_value_notification) {
@@ -2471,6 +2507,12 @@ namespace Majorsilence.Forms
             // event the right-click-selects-the-clicked-row idiom hangs off, so it has to fire for
             // every button, not just the left one the rest of this method handles.
             RaiseCellMouseDown (e);
+
+            // A right press opens the cell's own menu -- its ContextMenuStrip, the row's, or what a
+            // CellContextMenuStripNeeded handler supplies (W6 mechanisms). The grid-level menu is the
+            // base class's job, so only a menu that differs from it is shown here.
+            if (e.Button == MouseButtons.Right && ShowCellContextMenuStrip (e.Location))
+                return;
 
             if (!Enabled || !e.Button.HasFlag (MouseButtons.Left))
                 return;
@@ -3446,8 +3488,27 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets whether the grid is in virtual mode. Stub in Majorsilence.Forms.</summary>
-        public bool VirtualMode { get; set; }
+        /// <summary>Gets or sets whether the grid is in virtual mode.</summary>
+        /// <remarks>
+        /// Read as of W6 mechanisms: an UNBOUND grid in virtual mode keeps no cell values -- reads raise
+        /// <see cref="CellValueNeeded"/>, writes raise <see cref="CellValuePushed"/>, row heights go through
+        /// <see cref="RowHeightInfoNeeded"/> / <see cref="RowHeightInfoPushed"/>, and a cancelled edit raises
+        /// <see cref="CancelRowEdit"/>. It also enables the <c>*ContextMenuStripNeeded</c> and
+        /// <c>*ErrorTextNeeded</c> events, as it does upstream. Rows are still added through
+        /// <see cref="Rows"/>; <c>RowCount</c>-driven row creation is the same collection.
+        /// </remarks>
+        public bool VirtualMode {
+            get => virtual_mode;
+            set {
+                if (virtual_mode == value)
+                    return;
+
+                virtual_mode = value;
+                Invalidate ();
+            }
+        }
+
+        private bool virtual_mode;
 
         /// <summary>Gets or sets whether the selection highlight is hidden when the control loses focus.</summary>
         /// <remarks>
