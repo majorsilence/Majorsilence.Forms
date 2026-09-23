@@ -2343,6 +2343,32 @@ namespace Majorsilence.Forms
         {
             base.OnDoubleClick (e);
 
+            // A double-click on a column or row divider is the auto-size gesture: the event first, and
+            // the resize unless a handler says Handled (W6). Dividers are where the resize drag starts.
+            var divider_column = GetResizeColumnAtLocation (e.Location);
+
+            if (divider_column >= 0) {
+                var args = new DataGridViewColumnDividerDoubleClickEventArgs (divider_column, new HandledMouseEventArgs (e.Button, e.Clicks, e.X, e.Y, e.Delta));
+                OnColumnDividerDoubleClick (args);
+
+                if (!args.Handled)
+                    AutoResizeColumn (divider_column);
+
+                return;
+            }
+
+            var divider_row = GetResizeRowAtLocation (e.Location);
+
+            if (divider_row >= 0) {
+                var args = new DataGridViewRowDividerDoubleClickEventArgs (divider_row, new HandledMouseEventArgs (e.Button, e.Clicks, e.X, e.Y, e.Delta));
+                OnRowDividerDoubleClick (args);
+
+                if (!args.Handled)
+                    AutoResizeRow (divider_row);
+
+                return;
+            }
+
             if (read_only || !Enabled)
                 return;
 

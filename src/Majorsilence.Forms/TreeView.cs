@@ -663,6 +663,33 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        // The node under the pointer, for HotTracking's hot colour (W6).
+        internal TreeNode? HotNode { get; private set; }
+
+        /// <inheritdoc/>
+        protected override void OnMouseMove (MouseEventArgs e)
+        {
+            base.OnMouseMove (e);
+            SetHotNode (HotTracking ? GetNodeAt (e.Location) : null);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnMouseLeave (EventArgs e)
+        {
+            base.OnMouseLeave (e);
+            SetHotNode (null);
+        }
+
+        private void SetHotNode (TreeNode? node)
+        {
+            if (ReferenceEquals (HotNode, node))
+                return;
+
+            HotNode = node;
+            Invalidate ();
+        }
+
+        /// <inheritdoc/>
         protected override void OnMouseClick (MouseEventArgs e)
         {
             var item = GetItemAtLocation (e.Location);

@@ -78,6 +78,10 @@ namespace Majorsilence.Forms.Renderers
             var font_color = !item.Enabled || !control.Enabled
                 ? Theme.ForegroundDisabledColor
                 : item_style.TryGetForegroundColor () ?? control.GetEffectiveForegroundColor ();
+
+            // TabControl.HotTrack: the hovered tab's text takes the hot-track colour (W6).
+            if (item.Hovered && item.Enabled && control.OwnerTabControl is { HotTrack: true })
+                font_color = SystemColors.HotTrack.ToSKColor ();
             var font = control.GetEffectiveFont ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
 

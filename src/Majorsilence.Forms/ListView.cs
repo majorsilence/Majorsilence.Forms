@@ -312,6 +312,34 @@ namespace Majorsilence.Forms
             => new Point (LogicalToDeviceUnits (location.X), LogicalToDeviceUnits (location.Y));
 
         /// <inheritdoc/>
+        // The item under the pointer, for HotTracking's hot colour (W6). Tracked here rather than in the
+        // renderer so a change repaints only when the hot item actually moves.
+        internal ListViewItem? HotItem { get; private set; }
+
+        /// <inheritdoc/>
+        protected override void OnMouseMove (MouseEventArgs e)
+        {
+            base.OnMouseMove (e);
+            SetHotItem (HotTracking ? GetItemAt (e.X, e.Y) : null);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnMouseLeave (EventArgs e)
+        {
+            base.OnMouseLeave (e);
+            SetHotItem (null);
+        }
+
+        private void SetHotItem (ListViewItem? item)
+        {
+            if (ReferenceEquals (HotItem, item))
+                return;
+
+            HotItem = item;
+            Invalidate ();
+        }
+
+        /// <inheritdoc/>
         protected override void OnMouseClick (MouseEventArgs e)
         {
             base.OnMouseClick (e);
