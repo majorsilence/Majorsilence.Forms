@@ -307,6 +307,14 @@ namespace Majorsilence.Forms
             var y = bounds.Top - top_index * (item_height + item_margin);
 
             foreach (var item in Items) {
+                // A placed item (ListViewItem.Position, with AutoArrange off) sits where it was put and
+                // takes no slot in the flow (W6 mechanisms).
+                if (!AutoArrange && item.PlacedPosition is { } placed) {
+                    // Client coordinates, as Position reads them back: the item area's padding is not added.
+                    item.SetBounds (LogicalToDeviceUnits (placed.X), LogicalToDeviceUnits (placed.Y) - top_index * (item_height + item_margin), item_width, item_height);
+                    continue;
+                }
+
                 item.SetBounds (x, y, item_width, item_height);
                 x += item_width + item_margin;
 
@@ -955,7 +963,9 @@ namespace Majorsilence.Forms
 
         private bool show_groups = true;
 
-        /// <summary>Gets or sets whether labels are automatically arranged. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether icons are automatically arranged into the flow.</summary>
+        /// <remarks>Read as of W6 mechanisms: with it off, an item whose <see cref="ListViewItem.Position"/>
+        /// was set stays where it was put.</remarks>
         public bool AutoArrange { get; set; } = true;
 
         /// <summary>Gets or sets the style of column headers. Stub in Majorsilence.Forms.</summary>

@@ -252,8 +252,25 @@ namespace Majorsilence.Forms
         /// <summary>Gets the ListView that contains this item (same as Parent).</summary>
         public ListView? ListView => Parent;
 
-        /// <summary>Gets or sets the position of this item in virtual coordinates. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Point Position { get; set; }
+        /// <summary>Gets or sets the item's position in the list's client area, in logical units.</summary>
+        /// <remarks>Real as of W6 mechanisms: reads the laid-out location, and a value set on an item in
+        /// a list whose <see cref="ListView.AutoArrange"/> is off places its tile at exactly that client
+        /// location on the next layout -- upstream's free-placement behaviour for the icon views. A row
+        /// view arranges its rows regardless, as upstream does.</remarks>
+        public System.Drawing.Point Position {
+            get => Parent is not null && !Parent.AutoArrange && placed_position is { } placed ? placed
+                : Parent is null && placed_position is { } detached ? detached
+                : Bounds.Location;
+            set {
+                placed_position = value;
+                Parent?.Invalidate ();
+            }
+        }
+
+        /// <summary>Where the application put the item, when it did; null means "arranged by the list".</summary>
+        internal System.Drawing.Point? PlacedPosition => placed_position;
+
+        private System.Drawing.Point? placed_position;
 
         /// <summary>Ensures the item is scrolled into view.</summary>
         public void EnsureVisible () => Parent?.EnsureVisible (Index);

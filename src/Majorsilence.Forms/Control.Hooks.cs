@@ -219,6 +219,14 @@ public partial class Control
     /// <summary>Raises the <see cref="QueryContinueDrag"/> event.</summary>
     protected virtual void OnQueryContinueDrag (QueryContinueDragEventArgs e) => (Events[s_queryContinueDragEvent] as QueryContinueDragEventHandler)?.Invoke (this, e);
 
+    // The drag-and-drop session's doors to the protected hooks above (W6 mechanisms).
+    internal void RaiseDragEnter (DragEventArgs e) => OnDragEnter (e);
+    internal void RaiseDragOver (DragEventArgs e) => OnDragOver (e);
+    internal void RaiseDragDrop (DragEventArgs e) => OnDragDrop (e);
+    internal void RaiseDragLeave (EventArgs e) => OnDragLeave (e);
+    internal void RaiseGiveFeedback (GiveFeedbackEventArgs e) => OnGiveFeedback (e);
+    internal void RaiseQueryContinueDrag (QueryContinueDragEventArgs e) => OnQueryContinueDrag (e);
+
     #endregion
 
     #region Printing

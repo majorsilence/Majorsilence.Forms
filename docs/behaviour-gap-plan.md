@@ -3233,6 +3233,56 @@ sites at runtime rather than reverting files, so the tests still compiled, and e
 cluster's positive tests (13, 10 and 8) while the negative tests stayed green; snapshot verified
 before and after every round.
 
+**W6 mechanisms, sixth chunk: the drag-and-drop pipeline, MenuItem owner draw, RC-8 divider fix. — 2026-09-23.** Part of #91.
+
+- **The pipeline.** `Control.DoDragDrop` (and `ToolStripItem.DoDragDrop`) start an in-process
+  `DragDropSession` and block in the nested loop until it completes, returning the effect the target
+  chose -- upstream's contract without an OLE source. While a session is active the window's pointer
+  entry points hand every move and release to it: a move finds the target (the deepest visible,
+  enabled control under the pointer whose `AllowDrop` is set, else a `Form` whose `AllowDrop` is set),
+  raises `DragEnter` / `DragOver` / `DragLeave` as the target changes (a fresh target's `Effect` starts
+  at `None`, so a handler that never sets it gets no drop, as upstream), then `GiveFeedback` and
+  `QueryContinueDrag` on the source (the default cursors are the no-drop sign and the arrow, set on the
+  backend so no control's `Cursor` is disturbed); the release asks `QueryContinueDrag` with `Drop` and
+  raises `DragDrop`; Escape asks with `Cancel`. `DragEventArgs.X`/`Y` are screen coordinates through
+  the target's own `PointToScreen`, so its `PointToClient` gives back the point under the pointer.
+  Non-`IDataObject` data is wrapped as upstream wraps it (a string under `Text` and `typeof (string)`).
+  Drags stay inside the process and the window; drag images and drop descriptions are not drawn
+  (the six `DragEventArgs`/`GiveFeedbackEventArgs` slots for them are re-annotated so).
+- **Consumers.** A strip forwards its drag events to the item under the pointer whose
+  `ToolStripItem.AllowDrop` is set, raising the item's enter/leave as the item changes.
+  `ToolStrip.AllowItemReorder`: Alt-drag on an item past the drag threshold starts a (non-blocking)
+  drag of the item, and dropping on the strip moves it to the slot under the pointer -- through the
+  `ToolStrip.Items` facade, which mirrors one way into the base collection (TSM-47), a trap this chunk
+  fell into once. `ListView.InsertionMark` is real (`Index`, `AppearsAfterItem`, `Color`, `Bounds`,
+  `NearestIndex` from the layout) and the renderer draws it; `ListViewItem.Position` reads the
+  laid-out location and, with `AutoArrange` off, places a tile at exactly that client point.
+  `RichTextBox.EnableAutoDragDrop` makes the box a drop target that inserts dropped text at the
+  selection as a copy (dragging text out is not started automatically).
+- **MenuItem owner draw.** `MenuItem.OwnerDraw` routes a drop-down item's paint through `DrawItem`
+  (device rectangle, selected/disabled/checked state, nothing painted by the renderer) and its
+  measurement through `MeasureItem`, starting from the renderer's own size.
+- **RC-8.** The DataGridView divider hit-tests compared the logical mouse point against device
+  geometry, so on a scaled display the resize zone sat at half the column's width and a drag's delta
+  was in the wrong space; the callers convert to device first and the drag arithmetic stays in one
+  space. Found by the W6.3 audit, fixed here.
+
+*Found, not fixed:* every `MenuBase`-derived strip is painted twice per paint pass --
+`ScrollableControl.OnPaint` runs the renderer and `MenuBase.OnPaint` runs it again after `base.OnPaint`.
+Harmless on screen, a doubled paint cost, and an owner-draw handler sees two `DrawItem`s per frame.
+
+*Counts.* Unraised **88 → 80** (the six `ToolStripItem` drag events, `MenuItem.DrawItem`/`MeasureItem`).
+Stored-only **505 → 490** (`AllowDrop` ×3, `AllowItemReorder`, the `InsertionMark` trio, `Position`,
+`AutoArrange`, `EnableAutoDragDrop`, `MeasureItemEventArgs.ItemWidth`, and the three drag args the
+session now writes).
+
+*Not done:* cross-process (OLE) drag and drop and drag images; the DataGridView new-row object
+(`DefaultValuesNeeded` / `NewRowNeeded` / `UserAddedRow`, `ColumnDisplayIndexChanged`); the legacy
+`ToolBar.Buttons` surface; the double paint above.
+
+12 tests; two neutralization rounds (the session's raises; the consumers), failing 8 and 6 of the 12,
+snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

@@ -431,10 +431,10 @@ public partial class Control
     /// </summary>
     public event EventHandler? Validated;
 
-    // Drag-and-drop: Majorsilence.Forms has no OS drag source yet (DoDragDrop returns None), so
-    // nothing in the framework raises these. They are real, Events-backed events with real
-    // OnDragEnter/OnDragOver/... hooks, so a derived control can raise and override them and a
-    // future backend can drive them without another API change.
+    // Drag-and-drop: raised by the in-process DragDropSession behind DoDragDrop as of W6
+    // mechanisms -- the target's four from the pointer's travel over controls that AllowDrop, the
+    // source's GiveFeedback and QueryContinueDrag on every move. Events-backed, with real
+    // OnDragEnter/OnDragOver/... hooks a derived control overrides.
 
     /// <summary>Raised when a drag-and-drop operation enters the control.</summary>
     public event DragEventHandler? DragEnter {

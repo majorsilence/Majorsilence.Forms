@@ -40,6 +40,10 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderItem (MenuDropDown control, MenuItem item, PaintEventArgs e)
         {
+            // Owner draw (W6 mechanisms): the application paints the whole item, background included.
+            if (item.RaiseDrawItem (item.DeviceBounds, e))
+                return;
+
             // Background
             var item_style = item.Hovered || item.IsDropDownOpened ? MenuDropDown.DefaultItemHoverStyle : MenuDropDown.DefaultItemStyle;
             var background_color = item_style.GetBackgroundColor ();

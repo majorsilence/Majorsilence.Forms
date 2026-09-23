@@ -61,7 +61,6 @@ Majorsilence.Forms.ColorDialog.SolidColorOnly    -- framework-written (outbound 
 Majorsilence.Forms.ComboBox.HideSelection    -- not an upstream ComboBox member; left unread deliberately (see ComboBox.cs)
 Majorsilence.Forms.CommonDialog.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.Control.AccessibleDefaultActionDescription    -- accessibility metadata; no accessible-object tree
-Majorsilence.Forms.Control.AllowDrop    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.Control.AutoScrollOffset    -- needs ScrollControlIntoView to consult it
 Majorsilence.Forms.Control.CheckForIllegalCrossThreadCalls    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.Control.DoubleBuffered    -- every surface is double-buffered by the Skia pipeline; nothing to switch
@@ -168,7 +167,6 @@ Majorsilence.Forms.DateBoldEventArgs.DaysToBold    -- MonthCalendar has no bolde
 Majorsilence.Forms.Design.Behavior.Adorner.BehaviorService    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.Behavior.Adorner.Enabled    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.CollectionEditor+CollectionForm.Items    -- framework-written (outbound state)
-Majorsilence.Forms.Design.ControlDesigner.AllowDrop    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.ControlDesigner.AutoResizeHandles    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.DesignerActionItem.AllowAssociate    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.DesignerActionItem.ShowItemInSourceView    -- design-time type; there is no designer host
@@ -183,10 +181,9 @@ Majorsilence.Forms.Design.ToolboxItem.Bitmap    -- design-time type; there is no
 Majorsilence.Forms.Design.ToolboxItem.DisplayName    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.ToolboxItem.Locked    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.ToolboxItem.TypeName    -- framework-written (outbound state)
-Majorsilence.Forms.DragEventArgs.DropImageType    -- no drag/drop pipeline (DoDragDrop returns None)
-Majorsilence.Forms.DragEventArgs.Effect    -- framework-written (outbound state)
-Majorsilence.Forms.DragEventArgs.Message    -- no drag/drop pipeline (DoDragDrop returns None)
-Majorsilence.Forms.DragEventArgs.MessageReplacementToken    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.DragEventArgs.DropImageType    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
+Majorsilence.Forms.DragEventArgs.Message    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
+Majorsilence.Forms.DragEventArgs.MessageReplacementToken    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
 Majorsilence.Forms.DrawTreeNodeEventArgs.Canvas    -- framework-written (outbound state)
 Majorsilence.Forms.DrawTreeNodeEventArgs.TreeView    -- framework-written (outbound state)
 Majorsilence.Forms.Drawing.BufferedGraphicsContext.MaximumBuffer    -- every surface is double-buffered by the Skia pipeline; nothing to switch
@@ -249,7 +246,6 @@ Majorsilence.Forms.FontDialog.ShowEffects    -- framework-written (outbound stat
 Majorsilence.Forms.FontDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.Form.AccessibleDescription    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.Form.AccessibleName    -- accessibility metadata; no accessible-object tree
-Majorsilence.Forms.Form.AllowDrop    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.Form.AllowTransparency    -- needs a backend window capability (per-pixel transparency / shadow)
 Majorsilence.Forms.Form.AutoScale    -- legacy .NET 1.x autoscale; AutoScaleMode/Dimensions are the live path
 Majorsilence.Forms.Form.AutoScaleBaseSize    -- legacy .NET 1.x autoscale; AutoScaleMode/Dimensions are the live path
@@ -258,10 +254,9 @@ Majorsilence.Forms.Form.FormScreenCaptureMode    -- Win32 handle/window-class de
 Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom    -- MDI child minimisation / window list are not modelled
 Majorsilence.Forms.Form.Modal    -- framework-written (outbound state)
 Majorsilence.Forms.Form.TransparencyKey    -- needs a backend window capability (per-pixel transparency / shadow)
-Majorsilence.Forms.GiveFeedbackEventArgs.CursorOffset    -- no drag/drop pipeline (DoDragDrop returns None)
-Majorsilence.Forms.GiveFeedbackEventArgs.DragImage    -- no drag/drop pipeline (DoDragDrop returns None)
-Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultCursors    -- framework-written (outbound state)
-Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultDragImage    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.GiveFeedbackEventArgs.CursorOffset    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
+Majorsilence.Forms.GiveFeedbackEventArgs.DragImage    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
+Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultDragImage    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
 Majorsilence.Forms.GridItem.Expanded    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
 Majorsilence.Forms.GridItem.Label    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
 Majorsilence.Forms.GridItem.Name    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
@@ -291,21 +286,15 @@ Majorsilence.Forms.ListBox.IntegralHeight    -- needs a list-box feature: multi-
 Majorsilence.Forms.ListBox.MultiColumn    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
 Majorsilence.Forms.ListBox.UseCustomTabOffsets    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
 Majorsilence.Forms.ListBox.UseTabStops    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
-Majorsilence.Forms.ListView.AutoArrange    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.RightToLeftLayout    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- .NET 1.1 state-image behaviour switch; neither behaviour is implemented (W6.2 ListView slice)
 Majorsilence.Forms.ListViewGroup.Name    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewGroup.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.ListViewInsertionMark.AppearsAfterItem    -- no drag/drop pipeline (DoDragDrop returns None)
-Majorsilence.Forms.ListViewInsertionMark.Bounds    -- no drag/drop pipeline (DoDragDrop returns None)
-Majorsilence.Forms.ListViewInsertionMark.Color    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.ListViewItem.IndentCount    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
-Majorsilence.Forms.ListViewItem.Position    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput    -- mask-engine option for paste/copy paths that take the default
 Majorsilence.Forms.MaskedTextBox.BeepOnError    -- no beep API
 Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat    -- mask-engine option for paste/copy paths that take the default
 Majorsilence.Forms.MaskedTextBox.RejectInputOnFirstFailure    -- mask-engine option for paste/copy paths that take the default
-Majorsilence.Forms.MeasureItemEventArgs.ItemWidth    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.Media.SoundPlayer.LoadTimeout    -- loads are synchronous
 Majorsilence.Forms.Media.SoundPlayer.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.MenuItem.BarBreak    -- legacy menu column breaks; drop-downs lay out in one column
@@ -382,13 +371,11 @@ Majorsilence.Forms.PropertyTabChangedEventArgs.OldTab    -- the grid paints name
 Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpKeyword    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpNamespace    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpString    -- accessibility metadata; no accessible-object tree
-Majorsilence.Forms.QueryContinueDragEventArgs.Action    -- framework-written (outbound state)
 Majorsilence.Forms.QuestionEventArgs.Response    -- framework-written (outbound state)
 Majorsilence.Forms.RibbonItemGroup.Text    -- framework-written (outbound state)
 Majorsilence.Forms.RichTextBox.AutoWordSelection    -- plain text buffer with one format; no per-range attributes to read this against
 Majorsilence.Forms.RichTextBox.BulletIndent    -- plain text buffer with one format; no per-range attributes to read this against
 Majorsilence.Forms.RichTextBox.DetectUrls    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.EnableAutoDragDrop    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.RichTextBox.LanguageOption    -- plain text buffer with one format; no per-range attributes to read this against
 Majorsilence.Forms.RichTextBox.RichTextShortcutsEnabled    -- plain text buffer with one format; no per-range attributes to read this against
 Majorsilence.Forms.RichTextBox.SelectionAlignment    -- plain text buffer with one format; no per-range attributes to read this against
@@ -452,7 +439,6 @@ Majorsilence.Forms.ToolBarButton.Text    -- framework-written (outbound state)
 Majorsilence.Forms.ToolBarButton.ToolTipText    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
 Majorsilence.Forms.ToolBarButton.Visible    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
 Majorsilence.Forms.ToolStrip.AllowClickThrough    -- there is no inactive-window click swallow to see through
-Majorsilence.Forms.ToolStrip.AllowItemReorder    -- blocked on item drag/drop (W6.1 remainder)
 Majorsilence.Forms.ToolStrip.AllowMerge    -- blocked on ToolStripManager.Merge (not implemented)
 Majorsilence.Forms.ToolStrip.CanOverflow    -- blocked on overflow: items past the edge are clipped, not collected
 Majorsilence.Forms.ToolStrip.DefaultDropDownDirection    -- drop-downs open below/right only
@@ -478,7 +464,6 @@ Majorsilence.Forms.ToolStripDropDownMenu.LayoutStyle    -- drop-down menus lay o
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripBounds    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripDisplayStyle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripStyle    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.AllowDrop    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.ToolStripItem.Anchor    -- items are stacked by the strip; anchor/dock apply inside a rafting panel only
 Majorsilence.Forms.ToolStripItem.Dock    -- items are stacked by the strip; anchor/dock apply inside a rafting panel only
 Majorsilence.Forms.ToolStripItem.ImageAlign    -- needs alignment inside the item box; images and hosted controls fill it

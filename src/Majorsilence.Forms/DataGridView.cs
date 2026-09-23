@@ -1554,8 +1554,13 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the resize column index if the mouse is near a column border.
         /// </summary>
-        private int GetResizeColumnAtLocation (Point location)
+        // Both divider hit-tests take DEVICE coordinates: the geometry they compare against (the content
+        // area, GetColumnDeviceLeft, RowDeviceHeight) is device, and the mouse arrives logical. The
+        // callers convert, which is the RC-8 rule; they used to pass e.Location straight through, so on
+        // a scaled display the divider zone sat at half the column's width (W6 mechanisms).
+        private int GetResizeColumnAtLocation (Point deviceLocation)
         {
+            var location = deviceLocation;
             var client = GetContentArea ();
             var header_rect = new Rectangle (client.Left, client.Top, client.Width, ScaledHeaderHeight);
 
@@ -1587,8 +1592,10 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the row index if the mouse is near a row border in the row header area.
         /// </summary>
-        private int GetResizeRowAtLocation (Point location)
+        private int GetResizeRowAtLocation (Point deviceLocation)
         {
+            var location = deviceLocation;
+
             if (!row_headers_visible)
                 return -1;
 
@@ -2381,7 +2388,7 @@ namespace Majorsilence.Forms
 
             // A double-click on a column or row divider is the auto-size gesture: the event first, and
             // the resize unless a handler says Handled (W6). Dividers are where the resize drag starts.
-            var divider_column = GetResizeColumnAtLocation (e.Location);
+            var divider_column = GetResizeColumnAtLocation (LogicalToDeviceUnits (e.Location));
 
             if (divider_column >= 0) {
                 var args = new DataGridViewColumnDividerDoubleClickEventArgs (divider_column, new HandledMouseEventArgs (e.Button, e.Clicks, e.X, e.Y, e.Delta));
@@ -2393,7 +2400,7 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            var divider_row = GetResizeRowAtLocation (e.Location);
+            var divider_row = GetResizeRowAtLocation (LogicalToDeviceUnits (e.Location));
 
             if (divider_row >= 0) {
                 var args = new DataGridViewRowDividerDoubleClickEventArgs (divider_row, new HandledMouseEventArgs (e.Button, e.Clicks, e.X, e.Y, e.Delta));
@@ -2527,12 +2534,12 @@ namespace Majorsilence.Forms
 
             // Check for column resize
             if (ColumnHeadersVisible && AllowUserToResizeColumns) {
-                var resize_col = GetResizeColumnAtLocation (e.Location);
+                var resize_col = GetResizeColumnAtLocation (LogicalToDeviceUnits (e.Location));
 
                 if (resize_col >= 0) {
                     is_resizing_column = true;
                     resize_column_index = resize_col;
-                    resize_start_x = e.Location.X;
+                    resize_start_x = LogicalToDeviceUnits (e.Location.X);
                     resize_start_width = LogicalToDeviceUnits (Columns[resize_col].Width);
                     return;
                 }
@@ -2540,12 +2547,12 @@ namespace Majorsilence.Forms
 
             // Check for row resize
             if (row_headers_visible && AllowUserToResizeRows) {
-                var resize_row = GetResizeRowAtLocation (e.Location);
+                var resize_row = GetResizeRowAtLocation (LogicalToDeviceUnits (e.Location));
 
                 if (resize_row >= 0) {
                     is_resizing_row = true;
                     resize_row_index = resize_row;
-                    resize_start_y = e.Location.Y;
+                    resize_start_y = LogicalToDeviceUnits (e.Location.Y);
                     resize_start_height = LogicalToDeviceUnits (Rows[resize_row].Height);
                     return;
                 }
@@ -2634,7 +2641,8 @@ namespace Majorsilence.Forms
             RaiseCellMouseMove (e);
 
             if (is_resizing_column) {
-                var delta = e.Location.X - resize_start_x;
+                // Device on both sides (RC-8): the start x and the width were device, the delta was not.
+                var delta = LogicalToDeviceUnits (e.Location.X) - resize_start_x;
                 var new_width = DeviceToLogicalUnits (resize_start_width + delta);
                 Columns[resize_column_index].Width = new_width;
                 UpdateScrollBars ();
@@ -2642,7 +2650,7 @@ namespace Majorsilence.Forms
             }
 
             if (is_resizing_row) {
-                var delta = e.Location.Y - resize_start_y;
+                var delta = LogicalToDeviceUnits (e.Location.Y) - resize_start_y;
                 var new_height = DeviceToLogicalUnits (resize_start_height + delta);
                 Rows[resize_row_index].Height = Math.Max (new_height, 10);
                 UpdateScrollBars ();
@@ -2651,7 +2659,7 @@ namespace Majorsilence.Forms
 
             // Update cursor for column resize zones
             if (ColumnHeadersVisible && AllowUserToResizeColumns) {
-                var resize_col = GetResizeColumnAtLocation (e.Location);
+                var resize_col = GetResizeColumnAtLocation (LogicalToDeviceUnits (e.Location));
 
                 if (resize_col >= 0) {
                     if (Cursor != Cursors.SizeWestEast)
@@ -2665,7 +2673,7 @@ namespace Majorsilence.Forms
 
             // Update cursor for row resize zones
             if (row_headers_visible && AllowUserToResizeRows) {
-                var resize_row = GetResizeRowAtLocation (e.Location);
+                var resize_row = GetResizeRowAtLocation (LogicalToDeviceUnits (e.Location));
 
                 if (resize_row >= 0) {
                     if (Cursor != Cursors.SizeNorthSouth)

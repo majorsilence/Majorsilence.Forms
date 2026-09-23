@@ -56,6 +56,10 @@ namespace Majorsilence.Forms.Renderers
                     RenderGroupHeader (control, band.Group, band.DeviceBounds, e);
             }
 
+            // The insertion mark, over the rows it sits between (W6 mechanisms).
+            if (control.InsertionMark.DeviceBounds is { IsEmpty: false } mark)
+                e.Canvas.FillRectangle (mark, control.InsertionMark.Color.ToSKColor ());
+
             e.Canvas.Restore ();
 
             // After the rows, so a row scrolled up under the header cannot overdraw it.
