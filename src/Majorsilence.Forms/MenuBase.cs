@@ -256,6 +256,13 @@ namespace Majorsilence.Forms
         protected virtual void OnItemClicked (MouseEventArgs e, MenuItem item) { }
 
         /// <inheritdoc/>
+        protected override void OnDoubleClick (MouseEventArgs e)
+        {
+            base.OnDoubleClick (e);
+            (GetItemAtLocation (e.Location) as ToolStripItem)?.RaiseDoubleClick (e);
+        }
+
+        /// <inheritdoc/>
         protected override void OnMouseLeave (EventArgs e)
         {
             base.OnMouseLeave (e);

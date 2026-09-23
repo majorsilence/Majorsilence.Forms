@@ -3104,6 +3104,33 @@ clears the registration now, and a `PopupWindow` closes with the window it was o
 
 8 tests; three neutralization rounds, each failing exactly its own tests, snapshot verified before and after.
 
+**W6 mechanisms, third chunk: item double-clicks, grid divider double-clicks, and the hot-tracking
+visuals. — 2026-09-23.** Part of #91. Two more clusters from the sweeps' remainder lists.
+
+*Double-clicks.* A strip's double-click reaches the item under the pointer: `ToolStripItem.DoubleClick`
+fires when `DoubleClickEnabled` is set and otherwise a double-click stays two clicks, as upstream has it
+(`DoubleClickEnabled` was stored). `ToolStripSplitButton.ButtonDoubleClick` fires for the button part
+only -- `ButtonBounds` decides, not the drop-down arrow. On the grid, a double-click on a column or row
+divider raises `ColumnDividerDoubleClick` / `RowDividerDoubleClick` and then auto-sizes the column or
+row unless the handler set `Handled`; the dividers are the same zones the resize drag starts in.
+
+*One thing noticed there, not fixed here:* the grid's divider hit-tests (`GetResizeColumnAtLocation`,
+`GetResizeRowAtLocation`) compare the event location against **device** geometry while mouse event
+locations are logical, so at scale 2 the resize drag and now the double-click find the divider at the
+wrong x. Pre-existing in the drag; the tests locate the divider the way the code does and say so. It
+belongs to the coordinate audit's list (RC-8) and should be fixed at the hit-test, not per caller.
+
+*Hot tracking.* `ListView.HotItem` and `TreeView.HotNode` follow the pointer while `HotTracking` is on
+(mouse move sets, leave clears, and only a change repaints); the renderers paint that item's text in
+`SystemColors.HotTrack`. `TabControl.HotTrack` colours the hovered tab's text the same way through the
+strip's renderer. Upstream also underlines; the text pipeline has no underline for these yet, so the
+colour is the whole of it. Still open in the cluster: nothing.
+
+*Counts.* Unraised **123 → 120**. Stored-only **543 → 539**, all real reads.
+
+7 tests; three neutralization rounds (double-click raises; hot tracking; the colour helper alone), each
+failing exactly its own tests, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

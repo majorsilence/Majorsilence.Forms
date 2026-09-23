@@ -54,11 +54,9 @@ Majorsilence.Forms.DataGridView.CellStyleContentChanged
 Majorsilence.Forms.DataGridView.CellValueNeeded    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.CellValuePushed    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.ColumnDisplayIndexChanged    -- blocked on column ordering: DisplayIndex is not implemented
-Majorsilence.Forms.DataGridView.ColumnDividerDoubleClick
 Majorsilence.Forms.DataGridView.DefaultValuesNeeded    -- blocked on the new-row object: IsNewRow is always false and NewRowIndex is a count
 Majorsilence.Forms.DataGridView.NewRowNeeded    -- blocked on the new-row object: IsNewRow is always false and NewRowIndex is a count
 Majorsilence.Forms.DataGridView.RowContextMenuStripNeeded
-Majorsilence.Forms.DataGridView.RowDividerDoubleClick
 Majorsilence.Forms.DataGridView.RowHeightInfoNeeded    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.RowHeightInfoPushed    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.RowUnshared    -- rows are never shared here; there is nothing to unshare
@@ -113,7 +111,6 @@ Majorsilence.Forms.ToolStripItem.DragOver
 Majorsilence.Forms.ToolStripItem.GiveFeedback
 Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
 Majorsilence.Forms.ToolStripItem.QueryContinueDrag
-Majorsilence.Forms.ToolStripSplitButton.ButtonDoubleClick
 Majorsilence.Forms.ToolTip.Draw
 Majorsilence.Forms.TreeView.AfterLabelEdit    -- needs in-place label editing (W6.1 remainder)
 Majorsilence.Forms.TreeView.BeforeLabelEdit    -- needs in-place label editing (W6.1 remainder)

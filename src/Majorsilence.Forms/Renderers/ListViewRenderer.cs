@@ -54,6 +54,10 @@ namespace Majorsilence.Forms.Renderers
                 RenderHeader (control, e);
         }
 
+        // HotTracking: the item under the pointer takes the hot-track colour, as upstream's does (W6).
+        internal static SkiaSharp.SKColor ItemForeColour (ListView control, ListViewItem item, SkiaSharp.SKColor fallback)
+            => control.HotTracking && ReferenceEquals (control.HotItem, item) ? SystemColors.HotTrack.ToSKColor () : fallback;
+
         /// <summary>Renders the Details header band from <see cref="ListView.Columns"/>.</summary>
         protected virtual void RenderHeader (ListView control, PaintEventArgs e)
         {
@@ -242,7 +246,7 @@ namespace Majorsilence.Forms.Renderers
                     e.Canvas.Save ();
                     e.Canvas.Clip (cell);
                     e.Canvas.DrawText (text, Theme.UIFont, font_size, Padded (cell, e),
-                        Foreground (item, i, ShowsSelection (control, item)), Align (control.Columns[i].TextAlign), maxLines: 1);
+                        ItemForeColour (control, item, Foreground (item, i, ShowsSelection (control, item))), Align (control.Columns[i].TextAlign), maxLines: 1);
                     e.Canvas.Restore ();
                 }
 

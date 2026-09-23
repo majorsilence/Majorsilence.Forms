@@ -72,6 +72,7 @@ namespace Majorsilence.Forms.Renderers
                 ? Theme.ForegroundDisabledColor
                 : item.ForeColor != System.Drawing.Color.Empty ? item.ForeColor.ToSKColor ()
                 : is_selected && TreeView.DefaultSelectionStyle.ForegroundColor is { } selection_fg ? selection_fg
+                : control.HotTracking && ReferenceEquals (control.HotNode, item) ? SystemColors.HotTrack.ToSKColor () // W6
                 : Theme.ForegroundColor;
 
             if (item.BackColor != System.Drawing.Color.Empty && !is_selected)

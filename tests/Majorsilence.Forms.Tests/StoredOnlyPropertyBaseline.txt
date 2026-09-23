@@ -305,7 +305,6 @@ Majorsilence.Forms.ListBox.UseCustomTabOffsets    -- needs a list-box feature: m
 Majorsilence.Forms.ListBox.UseTabStops    -- needs a list-box feature: multi-column, horizontal scrolling, integral height or tab stops
 Majorsilence.Forms.ListView.AllowColumnReorder    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.AutoArrange    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
-Majorsilence.Forms.ListView.HotTracking    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.LabelEdit    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.ListView.OwnerDraw    -- blocked on owner-draw: the Draw*/MeasureItem events are not raised
 Majorsilence.Forms.ListView.RightToLeftLayout    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
@@ -445,7 +444,6 @@ Majorsilence.Forms.StatusBarPanel.Text    -- framework-written (outbound state)
 Majorsilence.Forms.StatusBarPanel.ToolTipText    -- blocked on StatusBar panels: the renderer draws Text only
 Majorsilence.Forms.StatusBarPanel.Width    -- blocked on StatusBar panels: the renderer draws Text only
 Majorsilence.Forms.TabControl.Appearance    -- needs a tab feature: button-style tabs, hover colour or multi-row tabs
-Majorsilence.Forms.TabControl.HotTrack    -- needs a tab feature: button-style tabs, hover colour or multi-row tabs
 Majorsilence.Forms.TabControl.Multiline    -- needs a tab feature: button-style tabs, hover colour or multi-row tabs
 Majorsilence.Forms.TabPage.UseVisualStyleBackColor    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.TabStripItem.Tag    -- user-data slot; upstream reads it nowhere either
@@ -515,7 +513,6 @@ Majorsilence.Forms.ToolStripGripRenderEventArgs.GripStyle    -- framework-writte
 Majorsilence.Forms.ToolStripItem.AllowDrop    -- no drag/drop pipeline (DoDragDrop returns None)
 Majorsilence.Forms.ToolStripItem.Anchor    -- items are stacked by the strip; anchor/dock apply inside a rafting panel only
 Majorsilence.Forms.ToolStripItem.Dock    -- items are stacked by the strip; anchor/dock apply inside a rafting panel only
-Majorsilence.Forms.ToolStripItem.DoubleClickEnabled    -- the strip does not detect item double-clicks (W6.1 remainder: ButtonDoubleClick)
 Majorsilence.Forms.ToolStripItem.ImageAlign    -- needs alignment inside the item box; images and hosted controls fill it
 Majorsilence.Forms.ToolStripItem.ImageTransparentColor    -- needs a colour-key filter on draw
 Majorsilence.Forms.ToolStripItem.IsDisposed    -- framework-written (outbound state)
@@ -546,7 +543,6 @@ Majorsilence.Forms.ToolTip.Tag    -- user-data slot; upstream reads it nowhere e
 Majorsilence.Forms.ToolTip.ToolTipIcon    -- no icon glyphs in the tip
 Majorsilence.Forms.ToolTip.UseAnimation    -- tips appear without animation
 Majorsilence.Forms.ToolTip.UseFading    -- tips appear without animation
-Majorsilence.Forms.TreeView.HotTracking    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.TreeView.LabelEdit    -- needs a list feature: label editing, header drag, hover tracking, icon arrangement, column order or indent
 Majorsilence.Forms.UpDownBase.ChangingText    -- no framework text-update path sets it; the spinners assign Text directly
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class    -- framework-written (outbound state)

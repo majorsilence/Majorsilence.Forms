@@ -1739,6 +1739,17 @@ namespace Majorsilence.Forms
             // as a button-portion click (the common case app handlers care about).
             ButtonClick?.Invoke (this, EventArgs.Empty);
         }
+
+        /// <inheritdoc/>
+        /// <remarks>A double-click on the button part (not the drop-down arrow) is ButtonDoubleClick, as
+        /// upstream raises it; needs DoubleClickEnabled like every item double-click (W6).</remarks>
+        protected override void OnDoubleClick (EventArgs e)
+        {
+            base.OnDoubleClick (e);
+
+            if (e is MouseEventArgs mouse && ButtonBounds.Contains (mouse.X - Bounds.X, mouse.Y - Bounds.Y))
+                OnButtonDoubleClick (e);
+        }
     }
 
     /// <summary>

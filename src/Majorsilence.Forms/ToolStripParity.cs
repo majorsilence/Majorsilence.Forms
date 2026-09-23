@@ -354,6 +354,14 @@ namespace Majorsilence.Forms
         /// <summary>Raises the <see cref="DoubleClick"/> event.</summary>
         protected virtual void OnDoubleClick (EventArgs e) => DoubleClick?.Invoke (this, e);
 
+        // The strip's double-click reaches the item under the pointer here. Upstream raises the item's
+        // DoubleClick only with DoubleClickEnabled; otherwise a double-click is two clicks (W6).
+        internal void RaiseDoubleClick (MouseEventArgs e)
+        {
+            if (DoubleClickEnabled)
+                OnDoubleClick (e);
+        }
+
         /// <summary>Raises the <see cref="MouseDown"/> event.</summary>
         protected virtual void OnMouseDown (MouseEventArgs e)
         {
