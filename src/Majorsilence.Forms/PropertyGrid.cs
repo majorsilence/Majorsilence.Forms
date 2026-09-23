@@ -37,9 +37,13 @@ namespace Majorsilence.Forms
         public object? SelectedObject {
             get => _selected_object;
             set {
+                if (ReferenceEquals (_selected_object, value))
+                    return;
+
                 _selected_object = value;
                 RebuildEntries ();
                 Invalidate ();
+                SelectedObjectsChanged?.Invoke (this, EventArgs.Empty);
             }
         }
 
@@ -99,13 +103,15 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raised when the selected property changes.</summary>
-        public event EventHandler? SelectedGridItemChanged { add { } remove { } }
+        public event EventHandler? SelectedGridItemChanged;
 
         /// <summary>Raised when the selected object changes.</summary>
-        public event EventHandler? SelectedObjectsChanged { add { } remove { } }
+        public event EventHandler? SelectedObjectsChanged;
 
+#pragma warning disable CS0067
         /// <summary>Raised when a property value changes.</summary>
-        public event PropertyValueChangedEventHandler? PropertyValueChanged { add { } remove { } }
+        public event PropertyValueChangedEventHandler? PropertyValueChanged;
+#pragma warning restore CS0067
 
         /// <summary>Gets the currently selected grid item. Stub in Majorsilence.Forms — always returns null (PropertyGrid has no per-row selection tracking yet).</summary>
         public GridItem? SelectedGridItem => null;
@@ -173,9 +179,12 @@ namespace Majorsilence.Forms
             var y = e.Y - AutoScrollPosition.Y;
             var row = y / ROW_HEIGHT;
 
-            if (row >= 0 && row < _entries.Count && !_entries[row].IsCategory) {
+            if (row >= 0 && row < _entries.Count && !_entries[row].IsCategory && row != _selected_index) {
                 _selected_index = row;
                 Invalidate ();
+                // The grid has no GridItem tree yet, so SelectedGridItem stays null; the selection
+                // moving is still the event's meaning (W6).
+                SelectedGridItemChanged?.Invoke (this, EventArgs.Empty);
             }
         }
 

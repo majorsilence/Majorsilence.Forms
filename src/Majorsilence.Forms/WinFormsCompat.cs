@@ -1487,11 +1487,17 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets a value indicating whether the link has been visited. Stub in Majorsilence.Forms.</summary>
         public bool LinkVisited { get; set; }
 
-        /// <summary>Raised when the pointer enters the label. Stub in Majorsilence.Forms (never fires).</summary>
-        public new event EventHandler? MouseEnter { add { } remove { } }
+        /// <summary>Forwards to the inherited <c>MouseEnter</c>; redeclared as WinForms does (it used to discard its handlers).</summary>
+        public new event EventHandler? MouseEnter {
+            add => base.MouseEnter += value;
+            remove => base.MouseEnter -= value;
+        }
 
-        /// <summary>Raised when the pointer leaves the label. Stub in Majorsilence.Forms (never fires).</summary>
-        public new event EventHandler? MouseLeave { add { } remove { } }
+        /// <summary>Forwards to the inherited <c>MouseLeave</c>; redeclared as WinForms does (it used to discard its handlers).</summary>
+        public new event EventHandler? MouseLeave {
+            add => base.MouseLeave += value;
+            remove => base.MouseLeave -= value;
+        }
     }
 
     /// <summary>
@@ -1601,8 +1607,10 @@ namespace Majorsilence.Forms
         // The last size explicitly assigned to this host (via Size or the resx). Empty until one is.
         private protected System.Drawing.Size PreferredSizeOverride { get; private set; }
 
+#pragma warning disable CS0067
         /// <summary>Raised when the hosted control's content changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? ContentChanged { add { } remove { } }
+        public event EventHandler? ContentChanged;
+#pragma warning restore CS0067
 
         /// <summary>Raised when the hosted control receives focus. Forwards to the hosted control.</summary>
         public event EventHandler? GotFocus { add => Control.GotFocus += value; remove => Control.GotFocus -= value; }

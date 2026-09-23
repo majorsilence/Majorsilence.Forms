@@ -81,6 +81,11 @@ namespace Majorsilence.Forms
 
         internal void RaiseMouseHover () => MouseHover?.Invoke (this, EventArgs.Empty);
 
+        // Raised by the strip as its hovered item changes (W6); the events were declared and, the scan
+        // said, raised -- by a same-named method on another type. They were not.
+        internal void RaiseMouseEnter () => OnMouseEnter (EventArgs.Empty);
+        internal void RaiseMouseLeave () => OnMouseLeave (EventArgs.Empty);
+
         /// <summary>Occurs when a drag-and-drop operation completes over the item.</summary>
         public event DragEventHandler? DragDrop;
 

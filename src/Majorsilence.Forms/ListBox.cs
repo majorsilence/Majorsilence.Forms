@@ -1092,8 +1092,10 @@ namespace Majorsilence.Forms
             }
         }
 
+#pragma warning disable CS0067
         /// <summary>Raised when items are added. Stub in Majorsilence.Forms.</summary>
-        public event MeasureItemEventHandler? MeasureItem { add { } remove { } }
+        public event MeasureItemEventHandler? MeasureItem;
+#pragma warning restore CS0067
 
         /// <summary>Raised when an item needs to be drawn (OwnerDraw).</summary>
         /// <remarks>

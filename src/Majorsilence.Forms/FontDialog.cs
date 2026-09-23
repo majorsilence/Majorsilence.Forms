@@ -145,8 +145,10 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the Help button is shown. Stub in Majorsilence.Forms.</summary>
         public bool ShowHelp { get; set; }
 
+#pragma warning disable CS0067
         /// <summary>Raised when the Apply button is clicked. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler? Apply { add { } remove { } }
+        public event EventHandler? Apply;
+#pragma warning restore CS0067
 
         /// <summary>Resets all dialog options to their default values.</summary>
         public virtual void Reset ()

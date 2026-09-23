@@ -315,8 +315,10 @@ namespace Majorsilence.Forms
         /// <summary>Raised after a row has been validated (i.e. <see cref="RowValidating"/> was not cancelled).</summary>
         public event DataGridViewCellEventHandler? RowValidated { add => _rowValidated += value; remove => _rowValidated -= value; }
 
+#pragma warning disable CS0067
         /// <summary>Raised to supply default values for new rows.</summary>
-        public event DataGridViewRowEventHandler? DefaultValuesNeeded { add { } remove { } }
+        public event DataGridViewRowEventHandler? DefaultValuesNeeded;
+#pragma warning restore CS0067
 
         // Real handler storage rather than `{ add { } remove { } }`, which discarded the handler: the
         // event looked wired up and nothing could ever be called, so neither a subscriber nor an
@@ -421,10 +423,16 @@ namespace Majorsilence.Forms
         public event EventHandler<DataGridViewCellParsingEventArgs>? CellParsing { add => _cellParsing += value; remove => _cellParsing -= value; }
 
         /// <summary>Raised when the state of a row changes.</summary>
-        public event DataGridViewRowStateChangedEventHandler? RowStateChanged { add { } remove { } }
+        public event DataGridViewRowStateChangedEventHandler? RowStateChanged;
+
+        /// <summary>Raises <see cref="RowStateChanged"/>.</summary>
+        protected virtual void OnRowStateChanged (int rowIndex, DataGridViewRowStateChangedEventArgs e) => RowStateChanged?.Invoke (this, e);
 
         /// <summary>Raised when the state of a cell changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<DataGridViewCellStateChangedEventArgs>? CellStateChanged { add { } remove { } }
+        public event EventHandler<DataGridViewCellStateChangedEventArgs>? CellStateChanged;
+
+        /// <summary>Raises <see cref="CellStateChanged"/>.</summary>
+        protected virtual void OnCellStateChanged (DataGridViewCellStateChangedEventArgs e) => CellStateChanged?.Invoke (this, e);
 
         /// <summary>Raised when a cell enters editing mode and the editing control is about to be shown. Stub in Majorsilence.Forms.</summary>
         public event DataGridViewEditingControlShowingEventHandler? EditingControlShowing;
@@ -436,21 +444,27 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the width of a column changes.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnWidthChanged;
 
+#pragma warning disable CS0067
         /// <summary>Raised when a new row is needed (virtual mode). Stub in Majorsilence.Forms.</summary>
-        public event DataGridViewRowEventHandler? NewRowNeeded { add { } remove { } }
+        public event DataGridViewRowEventHandler? NewRowNeeded;
+#pragma warning restore CS0067
 
         /// <summary>Raised when the height of a row changes.</summary>
         public event DataGridViewRowEventHandler? RowHeightChanged;
 
 
+#pragma warning disable CS0067
         /// <summary>Raised when the user is deleting a row. Fires before the row is deleted.</summary>
-        public event DataGridViewRowEventHandler? UserAddedRow { add { } remove { } }
+        public event DataGridViewRowEventHandler? UserAddedRow;
+#pragma warning restore CS0067
 
         /// <summary>Raised when a column's <see cref="DataGridViewColumn.SortMode"/> changes.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnSortModeChanged;
 
+#pragma warning disable CS0067
         /// <summary>Raised when a column's display index changes.</summary>
-        public event EventHandler<DataGridViewColumnEventArgs>? ColumnDisplayIndexChanged { add { } remove { } }
+        public event EventHandler<DataGridViewColumnEventArgs>? ColumnDisplayIndexChanged;
+#pragma warning restore CS0067
 
         /// <summary>Raised when the column header height changes.</summary>
         public event EventHandler? ColumnHeadersHeightChanged;
@@ -461,11 +475,13 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a column's <see cref="DataGridViewColumn.AutoSizeMode"/> changes.</summary>
         public event EventHandler<DataGridViewAutoSizeColumnModeEventArgs>? AutoSizeColumnModeChanged;
 
+#pragma warning disable CS0067
         /// <summary>Raised in virtual mode to retrieve the value for a cell.</summary>
-        public event EventHandler<DataGridViewCellValueEventArgs>? CellValueNeeded { add { } remove { } }
+        public event EventHandler<DataGridViewCellValueEventArgs>? CellValueNeeded;
 
         /// <summary>Raised in virtual mode to push a new cell value back to the data source.</summary>
-        public event EventHandler<DataGridViewCellValueEventArgs>? CellValuePushed { add { } remove { } }
+        public event EventHandler<DataGridViewCellValueEventArgs>? CellValuePushed;
+#pragma warning restore CS0067
 
 
         /// <summary>

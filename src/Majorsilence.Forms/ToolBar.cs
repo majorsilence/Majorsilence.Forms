@@ -13,8 +13,10 @@ namespace Majorsilence.Forms
         /// <summary>Gets the collection of ToolBarButtons in this toolbar.</summary>
         public ToolBarButtonCollection Buttons => _buttons ??= new ToolBarButtonCollection ();
 
+#pragma warning disable CS0067
         /// <summary>Fires when a ToolBarButton is clicked.</summary>
-        public event EventHandler<ToolBarButtonClickEventArgs>? ButtonClick { add { } remove { } }
+        public event EventHandler<ToolBarButtonClickEventArgs>? ButtonClick;
+#pragma warning restore CS0067
 
         private ImageList? image_list;
 

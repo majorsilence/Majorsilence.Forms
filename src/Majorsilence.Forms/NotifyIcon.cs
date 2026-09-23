@@ -60,29 +60,31 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the context menu that appears when the user right-clicks the icon.</summary>
         public ContextMenuStrip? ContextMenuStrip { get; set; }
 
+#pragma warning disable CS0067
         /// <summary>Occurs when the user clicks the icon.</summary>
-        public event EventHandler? Click { add { } remove { } }
+        public event EventHandler? Click;
 
         /// <summary>Occurs when the user double-clicks the icon.</summary>
-        public event EventHandler? DoubleClick { add { } remove { } }
+        public event EventHandler? DoubleClick;
 
         /// <summary>Occurs when the user clicks the icon with the mouse.</summary>
-        public event EventHandler<MouseEventArgs>? MouseClick { add { } remove { } }
+        public event EventHandler<MouseEventArgs>? MouseClick;
 
         /// <summary>Occurs when the user double-clicks the icon with the mouse.</summary>
-        public event EventHandler<MouseEventArgs>? MouseDoubleClick { add { } remove { } }
+        public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
         /// <summary>Occurs when the user moves the mouse over the icon.</summary>
-        public event EventHandler<MouseEventArgs>? MouseMove { add { } remove { } }
+        public event EventHandler<MouseEventArgs>? MouseMove;
 
         /// <summary>Occurs when the balloon tip is clicked.</summary>
-        public event EventHandler? BalloonTipClicked { add { } remove { } }
+        public event EventHandler? BalloonTipClicked;
 
         /// <summary>Occurs when the balloon tip closes.</summary>
-        public event EventHandler? BalloonTipClosed { add { } remove { } }
+        public event EventHandler? BalloonTipClosed;
 
         /// <summary>Occurs when the balloon tip is shown.</summary>
-        public event EventHandler? BalloonTipShown { add { } remove { } }
+        public event EventHandler? BalloonTipShown;
+#pragma warning restore CS0067
 
         private string _balloonTipTitle = string.Empty;
         private string _balloonTipText = string.Empty;

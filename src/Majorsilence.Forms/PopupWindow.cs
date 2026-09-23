@@ -21,11 +21,24 @@ namespace Majorsilence.Forms
             StartPosition = FormStartPosition.Manual;
 
             parent_form = parentForm;
+
+            // A popup dies with the window it was opened for, as a drop-down or tip does in WinForms.
+            // Without this a grid's filter popup outlived its closed form and stayed registered as
+            // Application.ActivePopupWindow (W6; it made an unrelated test order-dependent).
+            parent_form.Closed += OnParentClosed;
             // NOTE: deliberately NOT dismissing on the parent's Deactivated. Opening this popup
             // deactivates the parent as a side effect, so that fires immediately and would close the
             // popup we just opened. Dismissal is handled generically by the posted, activation-
             // cancellable close in WindowBase.OnBackendDeactivated (see
             // Application.ScheduleClosePopupsOnDeactivate), driven by THIS popup's own deactivation.
+        }
+
+        private void OnParentClosed (object? sender, EventArgs e)
+        {
+            parent_form.Closed -= OnParentClosed;
+
+            if (!IsDisposed)
+                Close ();
         }
 
         /// <inheritdoc/>

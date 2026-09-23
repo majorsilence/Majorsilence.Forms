@@ -487,6 +487,18 @@ namespace Majorsilence.Forms
             (Items.FirstOrDefault (i => i.Hovered) as ToolStripItem)?.RaiseMouseHover ();
         }
 
+        // The hovered item changing is the item-level MouseLeave/MouseEnter pair (W6). Raised here, at
+        // the hover seam, rather than in OnHoverChanged, which a subclass may override without calling
+        // base. The unraised scan had credited these two to a same-named method on another type.
+        private static void RaiseItemEnterLeave (MenuItem? old, MenuItem? item)
+        {
+            if (ReferenceEquals (old, item))
+                return;
+
+            (old as ToolStripItem)?.RaiseMouseLeave ();
+            (item as ToolStripItem)?.RaiseMouseEnter ();
+        }
+
         // Sets the specified item (or none) as the active hover.
         private void SetHover (MenuItem? item)
         {
@@ -500,7 +512,8 @@ namespace Majorsilence.Forms
                 }
 
                 if (item == null) {
-                    OnHoverChanged (old, item);
+                    RaiseItemEnterLeave (old, item);
+                OnHoverChanged (old, item);
                     return;
                 }
             }
@@ -511,7 +524,8 @@ namespace Majorsilence.Forms
             item.Hovered = true;
 
             Invalidate (item.Bounds);
-            OnHoverChanged (old, item);
+            RaiseItemEnterLeave (old, item);
+                OnHoverChanged (old, item);
         }
     }
 }

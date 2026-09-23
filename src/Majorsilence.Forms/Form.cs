@@ -611,11 +611,13 @@ namespace Majorsilence.Forms
         /// <summary>Raises the <see cref="DpiChanged"/> event.</summary>
         protected virtual void OnDpiChanged (DpiChangedEventArgs e) => DpiChanged?.Invoke (this, e);
 
+#pragma warning disable CS0067
         /// <summary>Raised when the input language changes. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<InputLanguageChangedEventArgs>? InputLanguageChanged { add { } remove { } }
+        public event EventHandler<InputLanguageChangedEventArgs>? InputLanguageChanged;
 
         /// <summary>Raised when the input language is changing. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<InputLanguageChangingEventArgs>? InputLanguageChanging { add { } remove { } }
+        public event EventHandler<InputLanguageChangingEventArgs>? InputLanguageChanging;
+#pragma warning restore CS0067
 
         /// <summary>Raised when the form is first displayed to the user.</summary>
         public new event EventHandler? Shown {

@@ -283,11 +283,13 @@ namespace Majorsilence.Forms
             Invalidate ();
         }
 
+#pragma warning disable CS0067
         /// <summary>WinForms compatibility: raised after a node label is edited.</summary>
-        public event EventHandler<NodeLabelEditEventArgs>? AfterLabelEdit { add { } remove { } }
+        public event EventHandler<NodeLabelEditEventArgs>? AfterLabelEdit;
 
         /// <summary>WinForms compatibility: raised before a node label is edited.</summary>
-        public event EventHandler<NodeLabelEditEventArgs>? BeforeLabelEdit { add { } remove { } }
+        public event EventHandler<NodeLabelEditEventArgs>? BeforeLabelEdit;
+#pragma warning restore CS0067
 
         /// <summary>WinForms compatibility: raised when the user clicks a node with the mouse.</summary>
         public event TreeNodeMouseClickEventHandler? NodeMouseClick;
@@ -296,10 +298,23 @@ namespace Majorsilence.Forms
         public event TreeNodeMouseClickEventHandler? NodeMouseDoubleClick;
 
         /// <summary>WinForms compatibility: raised when the mouse enters a node.</summary>
-        public event EventHandler<TreeNodeMouseHoverEventArgs>? NodeMouseHover { add { } remove { } }
+        public event EventHandler<TreeNodeMouseHoverEventArgs>? NodeMouseHover;
 
+        /// <inheritdoc/>
+        /// <remarks>The rested pointer names a node: NodeMouseHover, as upstream raises it. Until W6 the
+        /// event discarded its handlers.</remarks>
+        protected override void OnMouseHover (EventArgs e)
+        {
+            base.OnMouseHover (e);
+
+            if (GetNodeAt (LastMousePosition) is { } node)
+                NodeMouseHover?.Invoke (this, new TreeNodeMouseHoverEventArgs (node));
+        }
+
+#pragma warning disable CS0067
         /// <summary>Raised when the user begins dragging a node. Stub in Majorsilence.Forms.</summary>
-        public event EventHandler<ItemDragEventArgs>? ItemDrag { add { } remove { } }
+        public event EventHandler<ItemDragEventArgs>? ItemDrag;
+#pragma warning restore CS0067
 
         /// <summary>Gets or sets whether check boxes appear next to tree items.</summary>
         public bool CheckBoxes { get; set; }

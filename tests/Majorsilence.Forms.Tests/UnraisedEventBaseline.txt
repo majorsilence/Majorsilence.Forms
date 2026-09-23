@@ -9,10 +9,13 @@
 Majorsilence.Forms.Application.ThreadException    -- no exception boundary around the message pump; Application.OnThreadException is public and raises it
 Majorsilence.Forms.BindingManagerBase.DataError
 Majorsilence.Forms.BindingSource.DataError
+Majorsilence.Forms.ComboBox.MeasureItem    -- blocked on owner-draw: DrawMode is stored
 Majorsilence.Forms.CommonDialog.HelpRequest    -- native dialogs; no help button to click
 Majorsilence.Forms.Control.ChangeUICues    -- Win32 UI cues (WM_UPDATEUISTATE); no equivalent state
 Majorsilence.Forms.Control.DpiChangedAfterParent    -- no DPI-change path; the headless scale is fixed for the process
 Majorsilence.Forms.Control.DpiChangedBeforeParent    -- no DPI-change path; the headless scale is fixed for the process
+Majorsilence.Forms.Control.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
+Majorsilence.Forms.Control.Scroll    -- not an upstream Control member; ScrollableControl.Scroll is the one that fires
 Majorsilence.Forms.Control.StyleChanged    -- Win32 style bits (WM_STYLECHANGED); no equivalent state here
 Majorsilence.Forms.DataGrid.BackButtonClick    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGrid.BackgroundColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
@@ -48,37 +51,61 @@ Majorsilence.Forms.DataGridTextBox.TextChanged    -- upstream ships this family 
 Majorsilence.Forms.DataGridView.CancelRowEdit    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.CellContextMenuStripNeeded
 Majorsilence.Forms.DataGridView.CellStyleContentChanged
+Majorsilence.Forms.DataGridView.CellValueNeeded    -- blocked on DataGridView.VirtualMode (stored)
+Majorsilence.Forms.DataGridView.CellValuePushed    -- blocked on DataGridView.VirtualMode (stored)
+Majorsilence.Forms.DataGridView.ColumnDisplayIndexChanged    -- blocked on column ordering: DisplayIndex is not implemented
 Majorsilence.Forms.DataGridView.ColumnDividerDoubleClick
+Majorsilence.Forms.DataGridView.DefaultValuesNeeded    -- blocked on the new-row object: IsNewRow is always false and NewRowIndex is a count
+Majorsilence.Forms.DataGridView.NewRowNeeded    -- blocked on the new-row object: IsNewRow is always false and NewRowIndex is a count
 Majorsilence.Forms.DataGridView.RowContextMenuStripNeeded
 Majorsilence.Forms.DataGridView.RowDividerDoubleClick
 Majorsilence.Forms.DataGridView.RowHeightInfoNeeded    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.RowHeightInfoPushed    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.RowUnshared    -- rows are never shared here; there is nothing to unshare
+Majorsilence.Forms.DataGridView.UserAddedRow    -- blocked on the new-row object: IsNewRow is always false and NewRowIndex is a count
 Majorsilence.Forms.Design.DesignerActionUIService.DesignerActionListsChanged    -- design-time service; there is no designer host
 Majorsilence.Forms.FolderBrowserDialog.HelpRequest    -- native dialogs; no help button to click
+Majorsilence.Forms.FontDialog.Apply    -- native dialog; no Apply button to click
 Majorsilence.Forms.Form.DpiChanged    -- no DPI-change path; the headless scale is fixed for the process
+Majorsilence.Forms.Form.InputLanguageChanged    -- no input-language switching path
+Majorsilence.Forms.Form.InputLanguageChanging    -- no input-language switching path
 Majorsilence.Forms.Form.ResizeBegin
 Majorsilence.Forms.Form.ResizeEnd
 Majorsilence.Forms.ImageList.RecreateHandle    -- Win32 handle lifecycle; images are managed objects here
+Majorsilence.Forms.ListBox.MeasureItem    -- blocked on owner-draw: DrawMode is stored
 Majorsilence.Forms.ListView.AfterLabelEdit
 Majorsilence.Forms.ListView.BeforeLabelEdit
+Majorsilence.Forms.ListView.CacheVirtualItems    -- blocked on ListView.VirtualMode (stored)
 Majorsilence.Forms.ListView.ColumnReordered
 Majorsilence.Forms.ListView.ColumnWidthChanging
 Majorsilence.Forms.ListView.DrawColumnHeader    -- blocked on ListView.OwnerDraw (stored)
 Majorsilence.Forms.ListView.DrawSubItem    -- blocked on ListView.OwnerDraw (stored)
 Majorsilence.Forms.ListView.ItemDrag
+Majorsilence.Forms.ListView.RetrieveVirtualItem    -- blocked on ListView.VirtualMode (stored)
 Majorsilence.Forms.ListView.SearchForVirtualItem    -- blocked on ListView.VirtualMode (stored)
 Majorsilence.Forms.ListView.VirtualItemsSelectionRangeChanged    -- blocked on ListView.VirtualMode (stored)
 Majorsilence.Forms.MenuItem.DrawItem    -- blocked on MenuItem.OwnerDraw (stored; MenuDropDownRenderer paints every item)
 Majorsilence.Forms.MenuItem.MeasureItem    -- blocked on MenuItem.OwnerDraw (stored; MenuDropDownRenderer paints every item)
+Majorsilence.Forms.NotifyIcon.BalloonTipClicked    -- needs a tray backend capability
+Majorsilence.Forms.NotifyIcon.BalloonTipClosed    -- needs a tray backend capability
+Majorsilence.Forms.NotifyIcon.BalloonTipShown    -- needs a tray backend capability
+Majorsilence.Forms.NotifyIcon.Click    -- needs a tray backend capability
+Majorsilence.Forms.NotifyIcon.DoubleClick    -- needs a tray backend capability
+Majorsilence.Forms.NotifyIcon.MouseClick    -- needs a tray backend capability
+Majorsilence.Forms.NotifyIcon.MouseDoubleClick    -- needs a tray backend capability
+Majorsilence.Forms.NotifyIcon.MouseMove    -- needs a tray backend capability
 Majorsilence.Forms.PropertyGrid.PropertyTabChanged    -- no property tabs
+Majorsilence.Forms.PropertyGrid.PropertyValueChanged    -- the grid is read-only; no value editing
+Majorsilence.Forms.RichTextBox.ContentsResized    -- the box lays itself out; no content-size notification to relay
 Majorsilence.Forms.RichTextBox.ImeChange    -- IME composition; no IME path
 Majorsilence.Forms.RichTextBox.Protected    -- no protected-text ranges to defend
 Majorsilence.Forms.StatusBar.DrawItem    -- blocked on StatusBar panels: ShowPanels is stored and the renderer draws Text only
 Majorsilence.Forms.StatusBar.PanelClick    -- blocked on StatusBar panels: ShowPanels is stored and the renderer draws Text only
 Majorsilence.Forms.SystemEvents.DisplaySettingsChanged    -- no OS display-settings hook
 Majorsilence.Forms.TaskDialogPage.LinkClicked    -- page text renders as plain labels; no link parsing
+Majorsilence.Forms.ToolBar.ButtonClick    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items
 Majorsilence.Forms.ToolBar.ButtonDropDown    -- legacy ToolBar.Buttons surface; strips here use ToolStripDropDownButton, which has DropDownOpening
+Majorsilence.Forms.ToolStripControlHost.ContentChanged    -- not an upstream member; nothing defines what it would mean
 Majorsilence.Forms.ToolStripItem.DragDrop
 Majorsilence.Forms.ToolStripItem.DragEnter
 Majorsilence.Forms.ToolStripItem.DragLeave
@@ -88,7 +115,17 @@ Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp    -- accessibility infr
 Majorsilence.Forms.ToolStripItem.QueryContinueDrag
 Majorsilence.Forms.ToolStripSplitButton.ButtonDoubleClick
 Majorsilence.Forms.ToolTip.Draw
+Majorsilence.Forms.TreeView.AfterLabelEdit    -- needs in-place label editing (W6.1 remainder)
+Majorsilence.Forms.TreeView.BeforeLabelEdit    -- needs in-place label editing (W6.1 remainder)
+Majorsilence.Forms.TreeView.ItemDrag    -- no drag/drop pipeline (DoDragDrop returns None)
+Majorsilence.Forms.WebBrowser.CanGoBackChanged    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.CanGoForwardChanged    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.DocumentTitleChanged    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.EncryptionLevelChanged    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.FileDownload    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.Navigated    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.Navigating    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.NewWindow    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.ProgressChanged    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WebBrowser.StatusTextChanged    -- no browser engine; the control is a placeholder
+Majorsilence.Forms.WindowBase.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
