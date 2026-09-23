@@ -45,7 +45,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets whether the background image is tiled.</summary>
-        public bool BackgroundImageTiled { get; set; }
+        /// <remarks>Upstream's ListView has this switch in place of BackgroundImageLayout: on, the image
+        /// tiles; off, it is drawn once at the top-left. It maps onto the layout the base paints with
+        /// (W6 mechanisms); the default is off, as upstream's is.</remarks>
+        public bool BackgroundImageTiled {
+            get => BackgroundImageLayout == ImageLayout.Tile;
+            set => BackgroundImageLayout = value ? ImageLayout.Tile : ImageLayout.None;
+        }
 
         /// <summary>Gets or sets whether items are highlighted as the pointer passes over them.</summary>
         public bool HotTracking { get; set; }
@@ -319,6 +325,24 @@ namespace Majorsilence.Forms
 
         /// <summary>Raises the <see cref="ItemMouseHover"/> event.</summary>
         protected virtual void OnItemMouseHover (ListViewItemMouseHoverEventArgs e) => ItemMouseHover?.Invoke (this, e);
+
+        /// <inheritdoc/>
+        /// <remarks>The rested pointer names an item: ItemMouseHover, and with HoverSelection the item
+        /// is selected, as upstream does (W6 mechanisms).</remarks>
+        protected override void OnMouseHover (EventArgs e)
+        {
+            base.OnMouseHover (e);
+
+            var item = GetItemAt (LastMousePosition.X, LastMousePosition.Y);
+
+            if (item is null)
+                return;
+
+            if (HoverSelection)
+                item.Selected = true;
+
+            OnItemMouseHover (new ListViewItemMouseHoverEventArgs (item));
+        }
 
         /// <summary>Raises the <see cref="VirtualItemsSelectionRangeChanged"/> event.</summary>
         protected virtual void OnVirtualItemsSelectionRangeChanged (ListViewVirtualItemsSelectionRangeChangedEventArgs e)

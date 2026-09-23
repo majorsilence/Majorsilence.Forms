@@ -40,10 +40,29 @@ namespace Majorsilence.Forms.Renderers
                     e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_bounds, Theme.ForegroundColor, ContentAlignment.MiddleLeft, maxLines: 1);
                 }
 
+                // A status label's border: BorderStyle turns it on, BorderSides picks the edges. Every
+                // 3D style draws as the one-pixel line this renderer uses everywhere (W6.2 sweep).
+                if (item is ToolStripStatusLabel { BorderStyle: not Border3DStyle.None, BorderSides: not ToolStripStatusLabelBorderSides.None } label)
+                    RenderLabelBorder (e, item_bounds, label.BorderSides);
+
                 // Stop once we've run off the right-hand edge of the bar.
                 if (item_bounds.Right + StatusStrip.ItemSpacing >= control.ClientRectangle.Right)
                     break;
             }
+        }
+
+        private static void RenderLabelBorder (PaintEventArgs e, Rectangle bounds, ToolStripStatusLabelBorderSides sides)
+        {
+            var colour = Theme.BorderLowColor;
+
+            if (sides.HasFlag (ToolStripStatusLabelBorderSides.Left))
+                e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Left, bounds.Bottom - 1, colour);
+            if (sides.HasFlag (ToolStripStatusLabelBorderSides.Top))
+                e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Right - 1, bounds.Top, colour);
+            if (sides.HasFlag (ToolStripStatusLabelBorderSides.Right))
+                e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom - 1, colour);
+            if (sides.HasFlag (ToolStripStatusLabelBorderSides.Bottom))
+                e.Canvas.DrawLine (bounds.Left, bounds.Bottom - 1, bounds.Right - 1, bounds.Bottom - 1, colour);
         }
     }
 }

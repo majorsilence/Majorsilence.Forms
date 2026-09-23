@@ -16,6 +16,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public ListView ()
         {
+            BackgroundImageLayout = ImageLayout.None; // BackgroundImageTiled defaults to off
             ApplyBorderStyle (border_style);
             Items = new ListViewItemCollection (this);
             Columns = new ColumnHeaderCollection (this);

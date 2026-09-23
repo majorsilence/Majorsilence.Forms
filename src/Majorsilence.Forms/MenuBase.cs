@@ -478,6 +478,15 @@ namespace Majorsilence.Forms
         /// while from a menu hanging off the bar Left walks the bar and Escape leaves menu mode.</remarks>
         internal bool IsNestedDropDown => DropDownOwnerItem?.OwnerControl is MenuDropDown;
 
+        /// <inheritdoc/>
+        /// <remarks>The strip's rest timer names the hovered item: its MouseHover fires, as upstream's
+        /// does (W6 mechanisms).</remarks>
+        protected override void OnMouseHover (EventArgs e)
+        {
+            base.OnMouseHover (e);
+            (Items.FirstOrDefault (i => i.Hovered) as ToolStripItem)?.RaiseMouseHover ();
+        }
+
         // Sets the specified item (or none) as the active hover.
         private void SetHover (MenuItem? item)
         {

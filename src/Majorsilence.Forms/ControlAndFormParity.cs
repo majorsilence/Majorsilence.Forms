@@ -635,6 +635,17 @@ namespace Majorsilence.Forms
         public event EventHandler? MenuComplete;
 
         internal void RaiseMenuStart () => MenuStart?.Invoke (this, EventArgs.Empty);
+
+        // The caption's help button: HelpButtonClicked first, and unless a handler cancels, the form's
+        // HelpRequested -- upstream's help mode collapsed to its one observable outcome (W6 mechanisms).
+        internal void RaiseHelpButtonClicked ()
+        {
+            var e = new System.ComponentModel.CancelEventArgs ();
+            OnHelpButtonClicked (e);
+
+            if (!e.Cancel)
+                RaiseHelpRequested (new HelpEventArgs (Control.MousePosition));
+        }
         internal void RaiseMenuComplete () => MenuComplete?.Invoke (this, EventArgs.Empty);
 #pragma warning restore CS0067
 

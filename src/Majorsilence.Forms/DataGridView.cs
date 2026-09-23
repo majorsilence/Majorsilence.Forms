@@ -141,6 +141,11 @@ namespace Majorsilence.Forms
                 ? Rows[rowIndex].Cells[columnIndex].Value?.ToString () ?? string.Empty
                 : string.Empty;
 
+            // A bound list that forbids editing forbids it here too (IBindingList.AllowEdit; a
+            // BindingSource's AllowEdit is that flag) -- W6.2 sweep.
+            if (bound_list is { AllowEdit: false })
+                return;
+
             // Raise CellBeginEdit event
             var begin_args = new DataGridViewCellCancelEventArgs (columnIndex, rowIndex);
             OnCellBeginEdit (begin_args);

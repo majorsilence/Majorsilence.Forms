@@ -370,6 +370,11 @@ namespace Majorsilence.Forms.Renderers
                     Value = the_cell?.Value,
                     FormattedValue = cell_value,
                     ErrorText = the_cell?.ErrorText ?? string.Empty,
+                    // The cell's state flags, which a handler reads to paint selection or read-only
+                    // differently (W6.2 sweep).
+                    State = DataGridViewElementStates.Visible | DataGridViewElementStates.Displayed
+                        | (the_cell?.Selected == true ? DataGridViewElementStates.Selected : DataGridViewElementStates.None)
+                        | (the_cell?.ReadOnly == true ? DataGridViewElementStates.ReadOnly : DataGridViewElementStates.None),
                     CellStyle = the_cell?.InheritedStyle,
                     PaintParts = paintParts
                 };
@@ -521,6 +526,10 @@ namespace Majorsilence.Forms.Renderers
                 using var paint = new SKPaint { Color = DataGridView.DefaultRowHeaderStyle.GetForegroundColor (), IsAntialias = true };
                 e.Canvas.DrawPath (path, paint);
             }
+
+            // The row's error glyph, in the header, when the grid shows row errors (W6 mechanisms).
+            if (control.ShowRowErrors && !string.IsNullOrEmpty (control.ResolveRowErrorText (row, rowIndex)))
+                RenderErrorGlyph (e, bounds);
         }
 
         /// <summary>
@@ -610,7 +619,8 @@ namespace Majorsilence.Forms.Renderers
                 var btn_text = btn_col.UseColumnTextForButtonValue ? btn_col.HeaderText : value;
                 RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
             } else if (column is DataGridViewComboBoxColumn) {
-                RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
+                RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex),
+                    showButton: ShowsComboButton (control, (DataGridViewComboBoxColumn)column, rowIndex, columnIndex));
             } else {
                 // Alignment and wrapping from the cascade. The two alignment enums share their values, so
                 // the cast is exact; WrapMode == True lifts the single-line cap.
@@ -635,7 +645,33 @@ namespace Majorsilence.Forms.Renderers
                         run.X + run.Width, Math.Min (text_bounds.Bottom, run.Y) - thickness, fg, thickness);
                 }
             }
+
+            // The error glyph: a red disc with a bar, at the cell's right edge, when the cell has error
+            // text and the grid shows cell errors (W6 mechanisms). Painted last so it sits over content.
+            if (control.ShowCellErrors && paintParts.HasFlag (DataGridViewPaintParts.ErrorIcon)) {
+                var cell = rowIndex >= 0 && rowIndex < control.Rows.Count && columnIndex < control.Rows[rowIndex].Cells.Count ? control.Rows[rowIndex].Cells[columnIndex] : null;
+                var error = control.ResolveCellErrorText (cell, rowIndex, columnIndex);
+
+                if (!string.IsNullOrEmpty (error))
+                    RenderErrorGlyph (e, bounds);
+            }
         }
+
+        internal static void RenderErrorGlyph (PaintEventArgs e, Rectangle bounds)
+        {
+            var size = Math.Min (e.LogicalToDeviceUnits (12), Math.Max (4, bounds.Height - 4));
+            var x = bounds.Right - size - e.LogicalToDeviceUnits (3);
+            var y = bounds.Top + (bounds.Height - size) / 2;
+            var radius = size / 2;
+
+            e.Canvas.FillCircle (x + radius, y + radius, radius, ErrorGlyphColor);
+
+            var bar_width = Math.Max (1, size / 6);
+            e.Canvas.FillRectangle (new Rectangle (x + radius - bar_width / 2, y + size / 4, bar_width, size / 3), SKColors.White);
+            e.Canvas.FillRectangle (new Rectangle (x + radius - bar_width / 2, y + size - size / 4 - bar_width, bar_width, bar_width), SKColors.White);
+        }
+
+        internal static readonly SKColor ErrorGlyphColor = new SKColor (0xE0, 0x1B, 0x24);
 
         // The CELL's LinkBehavior wins; SystemDefault on the cell falls through to the COLUMN's, which
         // is what lets a column set the behaviour once for every link in it. Both were unread.
@@ -805,8 +841,24 @@ namespace Majorsilence.Forms.Renderers
             };
         }
 
-        private static void RenderComboBoxCell (PaintEventArgs e, Rectangle bounds, string value, SKTypeface font, int fontSize, SKColor fg, bool flat = false)
+        // DisplayStyle.Nothing hides the drop-down button; DisplayStyleForCurrentCellOnly keeps it for
+        // the current cell alone (W6.2 sweep).
+        private static bool ShowsComboButton (DataGridView control, DataGridViewComboBoxColumn column, int rowIndex, int columnIndex)
         {
+            if (column.DisplayStyle == DataGridViewComboBoxDisplayStyle.Nothing)
+                return false;
+
+            return !column.DisplayStyleForCurrentCellOnly
+                || (control.CurrentCell is { } current && current.RowIndex == rowIndex && current.ColumnIndex == columnIndex);
+        }
+
+        private static void RenderComboBoxCell (PaintEventArgs e, Rectangle bounds, string value, SKTypeface font, int fontSize, SKColor fg, bool flat = false, bool showButton = true)
+        {
+            if (!showButton) {
+                e.Canvas.DrawText (value, font, fontSize, bounds, fg, ContentAlignment.MiddleLeft, maxLines: 1);
+                return;
+            }
+
             var arrow_size = 10;
             var text_rect = new Rectangle (bounds.Left, bounds.Top, bounds.Width - arrow_size - 4, bounds.Height);
             e.Canvas.DrawText (value, font, fontSize, text_rect, fg, ContentAlignment.MiddleLeft, maxLines: 1);

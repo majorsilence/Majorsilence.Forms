@@ -91,12 +91,17 @@ namespace Majorsilence.Forms
 
         // Lays the page out as an ordinary Form. Kept deliberately plain: the point is that the
         // buttons work and the chosen one comes back, not that it looks like the Windows dialog.
-        private static Form Build (TaskDialogPage page, Action<TaskDialogButton> choose)
+        internal static Form Build (TaskDialogPage page, Action<TaskDialogButton> choose)
         {
             var form = new Form {
                 Text = page.Caption ?? string.Empty,
                 Width = 420,
                 Height = 220,
+                // AllowCancel gives the caption its close button; AllowMinimize its minimise button. Both
+                // off (the upstream defaults) leaves a caption with no boxes at all (W6.2 sweep).
+                ControlBox = page.AllowCancel || page.AllowMinimize,
+                MinimizeBox = page.AllowMinimize,
+                MaximizeBox = false,
             };
 
             var y = 12;
@@ -112,10 +117,26 @@ namespace Majorsilence.Forms
             }
 
             foreach (var radio in page.RadioButtons) {
-                var control = new RadioButton { Text = radio.Text ?? string.Empty, Left = 12, Top = y, Width = 396, Checked = radio.Checked };
+                var control = new RadioButton { Text = radio.Text ?? string.Empty, Left = 12, Top = y, Width = 396, Checked = radio.Checked, Enabled = radio.Enabled };
                 control.CheckedChanged += (_, _) => radio.Checked = control.Checked;
                 form.Controls.Add (control);
                 y += 24;
+            }
+
+            if (page.Expander is { Text: { Length: > 0 } } expander) {
+                // The expander: a toggle button whose caption follows Expanded, over a details label
+                // that shows only while expanded (W6.2 sweep).
+                var details = new Label { Text = expander.Text, Left = 12, Top = y + 28, Width = 396, Height = 40, Visible = expander.Expanded };
+                var toggle = new Button { Left = 12, Top = y, Width = 120, Height = 24 };
+                toggle.Text = expander.Expanded ? expander.ExpandedButtonText ?? "Hide details" : expander.CollapsedButtonText ?? "See details";
+                toggle.Click += (_, _) => {
+                    expander.Expanded = !expander.Expanded;
+                    details.Visible = expander.Expanded;
+                    toggle.Text = expander.Expanded ? expander.ExpandedButtonText ?? "Hide details" : expander.CollapsedButtonText ?? "See details";
+                };
+                form.Controls.Add (toggle);
+                form.Controls.Add (details);
+                y += expander.Expanded ? 74 : 28;
             }
 
             if (page.Verification is { } verification) {

@@ -84,6 +84,7 @@ namespace Majorsilence.Forms
                 EditingControlDataGridView = this,
                 EditingControlRowIndex = editing_row_index,
                 DropDownStyle = ComboBoxStyle.DropDownList,
+                MaxDropDownItems = combo.MaxDropDownItems, // the column's list shape reaches the editor (W6.2 sweep)
             };
 
             if (combo.DataSource is { } source) {

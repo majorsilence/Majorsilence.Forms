@@ -1261,6 +1261,7 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
+            Control.MouseButtons |= button; // the process-wide button state Control.MouseButtons reports (W6.2 sweep)
             int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
             TrackCursorPosition (lx, ly);
@@ -1284,6 +1285,7 @@ namespace Majorsilence.Forms
 
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
+            Control.MouseButtons &= ~button;
             int lx = DeviceToLogical (x), ly = DeviceToLogical (y);
 
             TrackCursorPosition (lx, ly);

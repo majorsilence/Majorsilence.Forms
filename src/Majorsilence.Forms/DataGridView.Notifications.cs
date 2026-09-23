@@ -8,6 +8,32 @@ namespace Majorsilence.Forms
     public partial class DataGridView
     {
         internal void NotifyColumnNameChanged (DataGridViewColumn c) => OnColumnNameChanged (new DataGridViewColumnEventArgs (c));
+
+        // Error text for painting. Upstream asks the *ErrorTextNeeded handler only for a bound or virtual
+        // grid, and only when one is attached; otherwise the stored ErrorText stands (W6 mechanisms).
+        internal string ResolveCellErrorText (DataGridViewCell? cell, int rowIndex, int columnIndex)
+        {
+            var text = cell?.ErrorText ?? string.Empty;
+
+            if (CellErrorTextNeeded is null || !(VirtualMode || DataSource is not null) || rowIndex < 0 || columnIndex < 0)
+                return text;
+
+            var e = new DataGridViewCellErrorTextNeededEventArgs (columnIndex, rowIndex, text);
+            OnCellErrorTextNeeded (e);
+            return e.ErrorText ?? string.Empty;
+        }
+
+        internal string ResolveRowErrorText (DataGridViewRow row, int rowIndex)
+        {
+            var text = row.ErrorText ?? string.Empty;
+
+            if (RowErrorTextNeeded is null || !(VirtualMode || DataSource is not null) || rowIndex < 0)
+                return text;
+
+            var e = new DataGridViewRowErrorTextNeededEventArgs (rowIndex, text);
+            OnRowErrorTextNeeded (e);
+            return e.ErrorText ?? string.Empty;
+        }
         internal void NotifyColumnContextMenuStripChanged (DataGridViewColumn c) => OnColumnContextMenuStripChanged (new DataGridViewColumnEventArgs (c));
         internal void NotifyRowContextMenuStripChanged (DataGridViewRow r) => OnRowContextMenuStripChanged (new DataGridViewRowEventArgs (r));
         internal void NotifyCellContextMenuStripChanged (DataGridViewCell c) => OnCellContextMenuStripChanged (new DataGridViewCellEventArgs (c.ColumnIndex, c.RowIndex));

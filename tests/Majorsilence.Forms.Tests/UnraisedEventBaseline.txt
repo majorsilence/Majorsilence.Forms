@@ -47,19 +47,16 @@ Majorsilence.Forms.DataGridTextBox.KeyPress    -- upstream ships this family as 
 Majorsilence.Forms.DataGridTextBox.TextChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridView.CancelRowEdit    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.CellContextMenuStripNeeded
-Majorsilence.Forms.DataGridView.CellErrorTextNeeded
 Majorsilence.Forms.DataGridView.CellStyleContentChanged
 Majorsilence.Forms.DataGridView.ColumnDividerDoubleClick
 Majorsilence.Forms.DataGridView.RowContextMenuStripNeeded
 Majorsilence.Forms.DataGridView.RowDividerDoubleClick
-Majorsilence.Forms.DataGridView.RowErrorTextNeeded
 Majorsilence.Forms.DataGridView.RowHeightInfoNeeded    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.RowHeightInfoPushed    -- blocked on DataGridView.VirtualMode (stored)
 Majorsilence.Forms.DataGridView.RowUnshared    -- rows are never shared here; there is nothing to unshare
 Majorsilence.Forms.Design.DesignerActionUIService.DesignerActionListsChanged    -- design-time service; there is no designer host
 Majorsilence.Forms.FolderBrowserDialog.HelpRequest    -- native dialogs; no help button to click
 Majorsilence.Forms.Form.DpiChanged    -- no DPI-change path; the headless scale is fixed for the process
-Majorsilence.Forms.Form.HelpButtonClicked
 Majorsilence.Forms.Form.ResizeBegin
 Majorsilence.Forms.Form.ResizeEnd
 Majorsilence.Forms.ImageList.RecreateHandle    -- Win32 handle lifecycle; images are managed objects here
@@ -70,7 +67,6 @@ Majorsilence.Forms.ListView.ColumnWidthChanging
 Majorsilence.Forms.ListView.DrawColumnHeader    -- blocked on ListView.OwnerDraw (stored)
 Majorsilence.Forms.ListView.DrawSubItem    -- blocked on ListView.OwnerDraw (stored)
 Majorsilence.Forms.ListView.ItemDrag
-Majorsilence.Forms.ListView.ItemMouseHover
 Majorsilence.Forms.ListView.SearchForVirtualItem    -- blocked on ListView.VirtualMode (stored)
 Majorsilence.Forms.ListView.VirtualItemsSelectionRangeChanged    -- blocked on ListView.VirtualMode (stored)
 Majorsilence.Forms.MenuItem.DrawItem    -- blocked on MenuItem.OwnerDraw (stored; MenuDropDownRenderer paints every item)
@@ -88,7 +84,6 @@ Majorsilence.Forms.ToolStripItem.DragEnter
 Majorsilence.Forms.ToolStripItem.DragLeave
 Majorsilence.Forms.ToolStripItem.DragOver
 Majorsilence.Forms.ToolStripItem.GiveFeedback
-Majorsilence.Forms.ToolStripItem.MouseHover
 Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
 Majorsilence.Forms.ToolStripItem.QueryContinueDrag
 Majorsilence.Forms.ToolStripSplitButton.ButtonDoubleClick

@@ -79,6 +79,8 @@ namespace Majorsilence.Forms
         /// <summary>Occurs when the mouse rests over the item.</summary>
         public event EventHandler? MouseHover;
 
+        internal void RaiseMouseHover () => MouseHover?.Invoke (this, EventArgs.Empty);
+
         /// <summary>Occurs when a drag-and-drop operation completes over the item.</summary>
         public event DragEventHandler? DragDrop;
 
@@ -492,7 +494,15 @@ namespace Majorsilence.Forms
         /// read by nothing before (<c>LST-59</c>).
         /// </remarks>
         internal override string? GetToolTipText (Point location)
-            => ShowItemToolTips ? GetItemAt (location)?.ToolTipText : null;
+        {
+            if (!ShowItemToolTips || GetItemAt (location) is not { } item)
+                return null;
+
+            // AutoToolTip: an item with no ToolTipText of its own shows its Text, as upstream does.
+            return !string.IsNullOrEmpty (item.ToolTipText) ? item.ToolTipText
+                : item is ToolStripItem { AutoToolTip: true } strip_item ? strip_item.Text
+                : null;
+        }
 
         /// <summary>
         /// Returns the next selectable item from <paramref name="start"/> in the given direction,

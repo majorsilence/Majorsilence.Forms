@@ -265,7 +265,10 @@ namespace Majorsilence.Forms
         /// <summary>Adds a new binding to the collection.</summary>
         public Binding Add (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled = false)
         {
-            var binding = new Binding (propertyName, dataSource, dataMember, formattingEnabled);
+            var binding = new Binding (propertyName, dataSource, dataMember, formattingEnabled) {
+                // The collection's default applies to a binding added without a mode of its own (W6.2 sweep).
+                DataSourceUpdateMode = DefaultDataSourceUpdateMode,
+            };
             Add (binding);
             return binding;
         }

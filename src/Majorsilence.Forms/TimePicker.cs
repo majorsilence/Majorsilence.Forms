@@ -26,8 +26,10 @@ namespace Majorsilence.Forms
             }
             set {
                 if (value.HasValue) {
-                    this.value = value.Value;
-                    Text = value.Value.ToString ("HH:mm");
+                    // MinValue/MaxValue bound the value, as DateTimePicker's do (W6.2 sweep).
+                    var clamped = value.Value < MinValue ? MinValue : value.Value > MaxValue ? MaxValue : value.Value;
+                    this.value = clamped;
+                    Text = clamped.ToString ("HH:mm");
                     ValueChanged?.Invoke (this, EventArgs.Empty);
                 }
             }

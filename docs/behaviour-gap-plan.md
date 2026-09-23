@@ -2963,6 +2963,105 @@ mechanism.
 *Not tested:* `Application.ThreadExit`. `Application.Exit` closes every open form and cancels the main
 loop, which cannot run inside a shared test process; the raise is one line after `ApplicationExit`.
 
+**W6.2 — the sweep: every remaining stored-only entry triaged in one pass; 26 read, 412 annotated, the
+rest named by feature. — 2026-09-22.** Part of #91. Closes W6.2 as a *backlog* the same way the W6.1
+sweep closed the unraised side: the baseline now carries a reason on every line, and what is left is a
+list of features, not a queue of entries.
+
+*Method.* 437 unannotated entries across ~140 types. One grep pass over the consumers each family would
+need -- renderers, editors, the TaskDialog builder, the tooltip popup, the scroll recalculation -- then
+three buckets: wire what has a consumer within reach, annotate what never will (or is blocked on a mode
+that is itself stored) with the reason on the baseline line, and name the rest by the feature it needs.
+
+*Wired (26 properties, 19 tests).* `TimePicker.MinValue`/`MaxValue` clamp `Value`; `ToolStripItem.AutoToolTip`
+falls back to the item's `Text` in `ToolStrip.GetToolTipText`; `ContextMenuStrip`/`ToolStripDropDownMenu.ShowCheckMargin`
+keeps the gutter when the image margin is off; `ToolStripStatusLabel.BorderStyle`/`BorderSides` draw the
+chosen edges; `ToolTip.StripAmpersands` and `ToolTipTitle` shape the shown text and `PopupEventArgs.ToolTipSize`
+is read back so a `Popup` handler can resize the tip; `Control.MouseButtons` follows the pointer
+buttons through `WindowBase`; `ControlBindingsCollection.DefaultDataSourceUpdateMode` stamps new bindings;
+`DataGridViewComboBoxColumn.DisplayStyle`/`DisplayStyleForCurrentCellOnly` hide the drop-down button and
+`MaxDropDownItems` reaches the editor; a `BindingSource` with `AllowEdit = false` stops `BeginEdit` (via
+`IBindingList.AllowEdit`, which is what upstream consults); `TaskDialogPage.AllowCancel`/`AllowMinimize`
+shape the caption boxes, `TaskDialogRadioButton.Enabled` reaches its control, and the `TaskDialogExpander`
+is built (toggle button with `CollapsedButtonText`/`ExpandedButtonText` over a details label);
+`MaskedTextBox.HidePromptOnLeave` hides prompts while unfocused; `PropertyGrid.SelectedItemWithFocusBackColor`/
+`ForeColor` colour the focused selection and `CategoryForeColor` the category text; `DomainUpDown.Sorted`
+sorts the items. Three more are written rather than read and stay listed as framework-written outbound
+state: `Control.HScroll`/`VScroll` (set from the scrollbar recalculation) and `DataGridViewCellPaintingEventArgs.State`
+(set for the handler with the cell's Selected/ReadOnly/Displayed flags).
+
+*Annotated (412), by class -- each line carries its reason:* `Tag` slots (18); WebBrowser/Html (12);
+design-time types (14); Win32 handle/class details -- `CreateParams` ×11, `Message.Result`, the
+cross-thread and DPI switches (17); GDI/visual-styles switches -- `UseCompatibleTextRendering` ×6,
+`UseVisualStyleBackColor`, `RenderMatchingApplicationState` (11); GDI+ `Graphics` quality knobs (8);
+`DoubleBuffered` (3 -- Skia always is); the DataGrid family (22), legacy `ToolBar.Buttons` (20), StatusBar
+panels (12), legacy menu breaks (2); native picker options across seven dialog types (25);
+accessibility metadata (13); drag/drop (12 -- `DoDragDrop` returns None); virtual mode (7); owner-draw
+(9); `RichTextBox` per-range formatting (15); the PropertyGrid's help/commands/toolbar/tabs surface and
+`GridItem` (25); event-args slots for events that are not raised (14); ToolStrip overflow, merge,
+vertical layout, rafting panels and transparency (33); list, tab, tree and list-box features (25);
+TaskDialog links, icons, shields and progress bar (9); the remainder singly.
+
+*Needs a feature -- the W6.2 remainder, grouped.* Overflow and merge for strips; vertical/flow strip
+layout and rafting panels; background-image painting (no control paints `BackgroundImage`); list label
+editing, header drag and reorder, hover tracking, icon arrangement and indent; list-box multi-column,
+horizontal scrolling, integral height and tab stops; tab appearance/hot-track/multiline; PropertyGrid
+help pane, commands pane, toolbar, tabs and `GridItem` tree; DataGridView error glyphs, cell tooltips,
+editing pencil, three-state check cells, image-cell layout, combo autocomplete/sorting, column-text
+fallback for link/button cells; TaskDialog size-to-content, links, footnote icon, shield glyph, progress
+bar; managed caption icon and help button; per-pixel window transparency and drop shadows (backend);
+native-dialog option forwarding (backend); a process-wide `Cursor.Current`; colour-key image filters;
+`PreviewKeyDown` ahead of dialog-key processing; `Graphics.PageUnit`/`PageScale`; the print preview
+control's page renderer; `PrintDocument.OriginAtMargins`; pressed state on `ButtonBase` and strip items.
+
+*Counts.* Stored-only **578 → 552**, all 26 departures real reads. Every remaining line is annotated
+(412 this pass; 141 before). Unraised unchanged at 91.
+
+19 tests; three neutralization rounds, each failing exactly its own tests, with the snapshot verified
+before patching and the tree compared against it after restore (the W6.1 sweep's harness fault is
+fixed: the file list is an array).
+
+**W6 mechanisms, first chunk: the hover rest-timer, DataGridView error glyphs, the caption's help
+button and icon switch, and ListView.BackgroundImageTiled. — 2026-09-22.** Part of #91. The first pass
+through the two sweeps' "needs a mechanism" lists, taken by cluster: one mechanism each, clearing every
+entry that waited on it.
+
+*The hover rest-timer.* `Control.MouseHover` fired on entry and once, because there was no timer; a
+"show a tip once the pointer settles" handler fired the instant the pointer crossed the edge. `Control`
+now arms a `Timer` at `SystemInformation.MouseHoverTime` on entry and on every move, and raises
+`MouseHover` when it elapses -- once per rest until `ResetMouseEventArgs` re-arms it or the pointer
+leaves and returns (TME_HOVER's shape). `RaiseHoverAfterRest` is the seam a test uses instead of waiting.
+On the rest: `ListView.ItemMouseHover` names the item under the pointer and `HoverSelection` selects it;
+a strip's hovered `ToolStripItem` raises its `MouseHover`. `ControlExtensibilityHookTests.MouseEnter_raises_MouseHover`
+had pinned the old behaviour and now expects the rest instead. Clears `ListView.ItemMouseHover`,
+`ToolStripItem.MouseHover`, `ListView.HoverSelection`. Still open in the cluster: `ListView.HotTracking`,
+`TreeView.HotTracking`, `TabControl.HotTrack` -- those need a hovered-item *visual*, not the timer.
+
+*DataGridView error glyphs.* `ErrorText` reached the paint args and was drawn by nobody. A red disc with
+a bar now sits at the right edge of a cell with error text (`ShowCellErrors`) and in the row header of a
+row with error text (`ShowRowErrors`), under `DataGridViewPaintParts.ErrorIcon`. `CellErrorTextNeeded` /
+`RowErrorTextNeeded` are asked first, for a bound or virtual grid with a handler attached, as upstream
+does. Clears four entries and reads `VirtualMode` for the first time.
+
+*The managed caption.* `Form.HelpButton` shows a `?` caption button; clicking it raises
+`HelpButtonClicked` and, unless cancelled, the form's `HelpRequested` -- upstream's help mode collapsed
+to its one observable outcome. `ControlBox = false` hides it with the rest. `Form.ShowIcon` drives the
+title bar's image switch. Both were stored. Under system decorations the title bar is hidden and the
+test guards on that, as FRM-30's do.
+
+*ListView.BackgroundImageTiled.* The W6.2 sweep annotated this "blocked on background-image painting:
+no control paints BackgroundImage yet" -- **wrong**: `Control.PaintBackgroundImage` has painted it, in
+every `ImageLayout`, since the splash-screen fix. The property now maps onto `BackgroundImageLayout`
+(`Tile` / `None`) and a `ListView` defaults to off, as upstream's does. The annotation was a triage
+error made from a grep that matched nothing because the painter lives in `Control.Compat.cs`; the
+lesson is the same one the coordinate audit taught -- confirm a "nothing does X" claim by finding
+where X *would* be, not by failing to find it.
+
+*Counts.* Unraised **91 → 86** (22 real remain). Stored-only **552 → 543**, all nine real reads.
+
+11 tests (one existing test inverted); four neutralization rounds, each failing exactly its own tests,
+snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

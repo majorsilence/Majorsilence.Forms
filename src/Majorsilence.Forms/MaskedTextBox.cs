@@ -19,6 +19,29 @@ namespace Majorsilence.Forms
     /// </remarks>
     public partial class MaskedTextBox : TextBox
     {
+        // HidePromptOnLeave: the prompt characters show while the box has focus and vanish when it
+        // loses it, as upstream does; the mask itself is untouched (W6.2 sweep).
+        // What the box is showing right now (Text strips prompts per TextMaskFormat).
+        internal string DisplayText => base.Text;
+
+        /// <inheritdoc/>
+        protected override void OnLostFocus (EventArgs e)
+        {
+            base.OnLostFocus (e);
+
+            if (HidePromptOnLeave && provider is not null)
+                base.Text = provider.ToString (false, true);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnGotFocus (EventArgs e)
+        {
+            base.OnGotFocus (e);
+
+            if (HidePromptOnLeave && provider is not null)
+                base.Text = provider.ToDisplayString ();
+        }
+
         private string _mask = string.Empty;
         private System.ComponentModel.MaskedTextProvider? provider;
 
