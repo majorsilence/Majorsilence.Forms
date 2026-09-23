@@ -249,25 +249,21 @@ namespace Majorsilence.Forms.Telerik
         /// Columns -- which is what every "format the columns after binding" helper does. Real Telerik
         /// owns column creation the same way and never puts a foreign column type in this collection.
         ///
-        /// Image-typed members are the one exception: they still come back as DataGridViewImageColumn,
-        /// because the renderer selects the image path on that concrete type and there is no
-        /// Telerik-shaped image column to put in its place. An auto-generated image column in a
-        /// RadGridView therefore still fails the Telerik-typed accessors. No legacy grid binds one
-        /// today (it needs an Image or byte[] member); giving the renderer an image hook the way it
-        /// already has DisplaysAsCheckBox is the fix when one appears.
+        /// Image-typed members included: they generate a GridViewImageColumn, which renders through the
+        /// column-level DisplaysAsImage hook rather than by being a concrete DataGridViewImageColumn --
+        /// a type it cannot also derive from and still belong to this collection.
         /// </remarks>
         protected override DataGridViewColumn CreateBoundColumn (string member, Type? memberType)
         {
             var type = memberType is null ? null : Nullable.GetUnderlyingType (memberType) ?? memberType;
 
-            // Let the base build anything we have no Telerik-shaped equivalent for.
-            if (type is not null
-                && (typeof (Majorsilence.Forms.Drawing.Image).IsAssignableFrom (type) || type == typeof (byte[])))
-                return base.CreateBoundColumn (member, memberType);
-
             var generated = base.CreateBoundColumn (member, memberType);
 
-            GridViewDataColumn column = type == typeof (bool) ? new GridViewCheckBoxColumn ()
+            var isImage = type is not null
+                && (typeof (Majorsilence.Forms.Drawing.Image).IsAssignableFrom (type) || type == typeof (byte[]));
+
+            GridViewDataColumn column = isImage ? new GridViewImageColumn ()
+                : type == typeof (bool) ? new GridViewCheckBoxColumn ()
                 : type == typeof (decimal) ? new GridViewDecimalColumn ()
                 : type == typeof (DateTime) ? new GridViewDateTimeColumn ()
                 : new GridViewTextBoxColumn ();
@@ -3242,6 +3238,24 @@ namespace Majorsilence.Forms.Telerik
                 return null;
             }
         }
+    }
+
+    /// <summary>Telerik-compat image column. Renders its cells as images through the DisplaysAsImage
+    /// hook, while still being a <see cref="GridViewDataColumn"/> so it belongs in RadGridView's Columns
+    /// collection -- which a DataGridViewImageColumn cannot be.</summary>
+    public class GridViewImageColumn : GridViewDataColumn
+    {
+        /// <summary>Initializes a new instance.</summary>
+        public GridViewImageColumn () { }
+        /// <summary>Initializes a new instance bound to the specified field.</summary>
+        public GridViewImageColumn (string fieldName) { FieldName = fieldName; Name = fieldName; }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// No column-level fallback image: the cells carry their own values, which is the shape a bound
+        /// image column takes. Adding a settable Image here would be API nothing reads.
+        /// </remarks>
+        protected internal override bool DisplaysAsImage => true;
     }
 
     /// <summary>Telerik-compat check-box column.</summary>

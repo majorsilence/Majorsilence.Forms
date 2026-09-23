@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System;
 using System.Drawing;
 using System.Globalization;
@@ -389,6 +389,12 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the image displayed in the column. Stub in Majorsilence.Forms.</summary>
         public Majorsilence.Forms.Drawing.Image? Image { get; set; }
+
+        /// <inheritdoc/>
+        protected internal override bool DisplaysAsImage => true;
+
+        /// <inheritdoc/>
+        protected internal override Majorsilence.Forms.Drawing.Image? ColumnImage => Image;
 
         /// <summary>Gets or sets the description of the image. Stub in Majorsilence.Forms.</summary>
         public string Description { get; set; } = string.Empty;

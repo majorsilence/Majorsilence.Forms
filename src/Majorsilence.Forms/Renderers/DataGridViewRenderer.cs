@@ -604,6 +604,10 @@ namespace Majorsilence.Forms.Renderers
 
             if (column is DataGridViewImageColumn image_col) {
                 RenderImageCell (control, image_col, rowIndex, columnIndex, bounds, e);
+            } else if (column.DisplaysAsImage) {
+                // An image column that is not a DataGridViewImageColumn -- a Telerik-compat one has to
+                // derive from GridViewDataColumn instead, to belong to RadGridView's Columns collection.
+                RenderImageCellCore (control, column.ColumnImage, rowIndex, columnIndex, bounds, e);
             } else if (column is DataGridViewCheckBoxColumn || column.DisplaysAsCheckBox) {
                 // The CELL's value through the column's TrueValue, not the formatted string: a "Y"/"N"
                 // flag column never rendered checked, because the test was for "True"/"1" (DGV-25).
@@ -749,8 +753,20 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderImageCell (DataGridView control, DataGridViewImageColumn column,
             int rowIndex, int columnIndex, Rectangle bounds, PaintEventArgs e)
         {
-            Guard.ThrowIfNull (control);
             Guard.ThrowIfNull (column);
+
+            RenderImageCellCore (control, column.Image, rowIndex, columnIndex, bounds, e);
+        }
+
+        /// <summary>
+        /// Draws an image cell given the column's fallback image, without requiring a concrete
+        /// <see cref="DataGridViewImageColumn"/> -- so a column that reports
+        /// <c>DisplaysAsImage</c> from another branch of the hierarchy renders identically.
+        /// </summary>
+        protected virtual void RenderImageCellCore (DataGridView control, Majorsilence.Forms.Drawing.Image? columnImage,
+            int rowIndex, int columnIndex, Rectangle bounds, PaintEventArgs e)
+        {
+            Guard.ThrowIfNull (control);
             Guard.ThrowIfNull (e);
 
             object? raw = null;
@@ -761,7 +777,7 @@ namespace Majorsilence.Forms.Renderers
                     raw = cells[columnIndex].Value;
             }
 
-            var image = raw as Majorsilence.Forms.Drawing.Image ?? column.Image;
+            var image = raw as Majorsilence.Forms.Drawing.Image ?? columnImage;
             var bitmap = image?.GetSKBitmap ();
 
             if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
