@@ -98,6 +98,27 @@ namespace Majorsilence.Forms
         // Upstream has the same problem and solves it the same way (ContainerControl's s_stateValidating).
         private bool changing_focus;
 
+        // Focus requested while the window was raising Load; applied by ApplyDeferredFocus once it returns.
+        private Control? deferred_focus;
+        private bool has_deferred_focus;
+
+        /// <summary>
+        /// Runs the focus change a Load handler asked for, now that Load has returned. No-op when Load
+        /// did not touch focus, which is the usual case.
+        /// </summary>
+        internal void ApplyDeferredFocus ()
+        {
+            if (!has_deferred_focus)
+                return;
+
+            has_deferred_focus = false;
+
+            var target = deferred_focus;
+            deferred_focus = null;
+
+            ChangeFocus (target);
+        }
+
         /// <summary>
         /// Moves focus from the current control to <paramref name="value"/>, running WinForms' sequence:
         /// Leave up the leaving chain, the validation cycle between the two, then Enter down the
@@ -123,6 +144,17 @@ namespace Majorsilence.Forms
             // interleaving two half-finished sequences.
             if (changing_focus) {
                 selected_control = value;
+                return;
+            }
+
+            // Focus asked for from inside a Load handler. Record it and raise nothing: upstream cannot
+            // focus a control on a form that is not displayed yet, so no focus event reaches a Load
+            // handler there. selected_control is deliberately left alone, so when this runs for real
+            // after Load there is no "leaving" control and no LostFocus fires for one that never had
+            // focus -- which is exactly the event that was reaching half-initialised handlers.
+            if (ParentForm is { raising_load: true }) {
+                deferred_focus = value;
+                has_deferred_focus = true;
                 return;
             }
 
