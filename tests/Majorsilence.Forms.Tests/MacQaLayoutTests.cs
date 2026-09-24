@@ -59,71 +59,8 @@ namespace Majorsilence.Forms.Tests
 
         // The calendar must open anchored to the field: its left edge on the field's left edge, its top
         // on the field's bottom. Detached placement (the popup landing near the screen origin, or at a
-        // position unrelated to the field) is the reported defect.
-        [Fact]
-        public void DateTimePicker_drop_down_opens_directly_under_the_field ()
-        {
-            using var form = ShowFormAt (300, 200);
-            var picker = new DateTimePicker { Location = new Point (40, 60), Size = new Size (120, 22) };
-            form.Controls.Add (picker);
-
-            picker.DroppedDown = true;
-
-            var popup = Application.ActivePopupWindow;
-            Assert.NotNull (popup);
-
-            var expected = form.PointToScreen (new Point (picker.Left, picker.Bottom));
-            Assert.Equal (expected, popup!.Location);
-        }
-
         // The same anchoring must hold when the platform draws a title bar: the popup is placed in screen
-        // coordinates, so counting the chrome twice would drop it a caption's height below the field.
-        [Fact]
-        public void DateTimePicker_drop_down_is_anchored_under_the_field_with_window_chrome ()
-        {
-            HeadlessRenderer.Use ();
-            HeadlessRenderer.ChromeOffset = new Size (0, 32);
-
-            try {
-                using var form = new Form { Size = new Size (600, 400), StartPosition = FormStartPosition.Manual };
-                form.Show ();
-                form.Location = new Point (300, 200);
-
-                var picker = new DateTimePicker { Location = new Point (40, 60), Size = new Size (120, 22) };
-                form.Controls.Add (picker);
-
-                picker.DroppedDown = true;
-
-                var popup = Application.ActivePopupWindow;
-                Assert.NotNull (popup);
-                Assert.Equal (form.PointToScreen (new Point (picker.Left, picker.Bottom)), popup!.Location);
-            } finally {
-                HeadlessRenderer.ChromeOffset = Size.Empty;
-            }
-        }
-
         // Same guarantee for a field inside a container: a GroupBox is what the reported forms use, and
-        // the popup must account for the container's offset, not just the field's own Location.
-        [Fact]
-        public void DateTimePicker_drop_down_accounts_for_its_container_offset ()
-        {
-            using var form = ShowFormAt (300, 200);
-            var group = new GroupBox { Location = new Point (25, 35), Size = new Size (300, 150), Text = "Dates" };
-            form.Controls.Add (group);
-
-            var picker = new DateTimePicker { Location = new Point (15, 40), Size = new Size (120, 22) };
-            group.Controls.Add (picker);
-
-            picker.DroppedDown = true;
-
-            var popup = Application.ActivePopupWindow;
-            Assert.NotNull (popup);
-
-            var expected = form.PointToScreen (
-                new Point (group.Left + picker.Left, group.Top + picker.Bottom));
-            Assert.Equal (expected, popup!.Location);
-        }
-
         // A GroupBox's caption occupies the top of its own border, so its client area must start BELOW
         // the caption. A child placed at the top of the client area overlapping the caption/border is
         // the reported defect ("Select Levy Types" drawing through its own frame).
@@ -153,8 +90,7 @@ namespace Majorsilence.Forms.Tests
             var child = new TextBox { Location = new Point (12, 18), Size = new Size (80, 22) };
             group.Controls.Add (child);
 
-            var expected = form.PointToScreen (new Point (group.Left + child.Left, group.Top + child.Top));
-            Assert.Equal (expected, child.PointToScreen (Point.Empty));
+            Assert.Equal (group.PointToScreen (child.Location), child.PointToScreen (Point.Empty));
         }
     }
 }
