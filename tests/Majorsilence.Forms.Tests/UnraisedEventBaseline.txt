@@ -45,10 +45,7 @@ Majorsilence.Forms.DataGridTableStyle.SelectionForeColorChanged    -- upstream s
 Majorsilence.Forms.DataGridTextBox.KeyPress    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridTextBox.TextChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridView.ColumnDisplayIndexChanged    -- blocked on column ordering: DisplayIndex is not implemented
-Majorsilence.Forms.DataGridView.DefaultValuesNeeded    -- blocked on the new-row object: IsNewRow is always false and NewRowIndex is a count
-Majorsilence.Forms.DataGridView.NewRowNeeded    -- blocked on the new-row object: IsNewRow is always false and NewRowIndex is a count
 Majorsilence.Forms.DataGridView.RowUnshared    -- rows are never shared here; there is nothing to unshare
-Majorsilence.Forms.DataGridView.UserAddedRow    -- blocked on the new-row object: IsNewRow is always false and NewRowIndex is a count
 Majorsilence.Forms.Design.DesignerActionUIService.DesignerActionListsChanged    -- design-time service; there is no designer host
 Majorsilence.Forms.FolderBrowserDialog.HelpRequest    -- native dialogs; no help button to click
 Majorsilence.Forms.FontDialog.Apply    -- native dialog; no Apply button to click
@@ -71,8 +68,6 @@ Majorsilence.Forms.RichTextBox.ImeChange    -- IME composition; no IME path
 Majorsilence.Forms.RichTextBox.Protected    -- no protected-text ranges to defend
 Majorsilence.Forms.SystemEvents.DisplaySettingsChanged    -- no OS display-settings hook
 Majorsilence.Forms.TaskDialogPage.LinkClicked    -- page text renders as plain labels; no link parsing
-Majorsilence.Forms.ToolBar.ButtonClick    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items
-Majorsilence.Forms.ToolBar.ButtonDropDown    -- legacy ToolBar.Buttons surface; strips here use ToolStripDropDownButton, which has DropDownOpening
 Majorsilence.Forms.ToolStripControlHost.ContentChanged    -- not an upstream member; nothing defines what it would mean
 Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
 Majorsilence.Forms.WebBrowser.CanGoBackChanged    -- no browser engine; the control is a placeholder

@@ -417,27 +417,9 @@ Majorsilence.Forms.TaskDialogProgressBar.Minimum    -- the built dialog has fixe
 Majorsilence.Forms.TaskDialogProgressBar.State    -- framework-written (outbound state)
 Majorsilence.Forms.TaskDialogProgressBar.Value    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
 Majorsilence.Forms.Timer.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.ToolBar.Appearance    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBar.ButtonSize    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBar.Divider    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBar.DropDownArrows    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBar.ShowToolTips    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBar.TextAlign    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBar.Wrappable    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.DropDownMenu    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.Enabled    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.ImageIndex    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.ImageKey    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
 Majorsilence.Forms.ToolBarButton.Name    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.Parent    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.PartialPush    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.Pushed    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.Rectangle    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.Style    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
+Majorsilence.Forms.ToolBarButton.Rectangle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolBarButton.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.ToolBarButton.Text    -- framework-written (outbound state)
-Majorsilence.Forms.ToolBarButton.ToolTipText    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
-Majorsilence.Forms.ToolBarButton.Visible    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
 Majorsilence.Forms.ToolStrip.AllowClickThrough    -- there is no inactive-window click swallow to see through
 Majorsilence.Forms.ToolStrip.AllowMerge    -- blocked on ToolStripManager.Merge (not implemented)
 Majorsilence.Forms.ToolStrip.CanOverflow    -- blocked on overflow: items past the edge are clipped, not collected

@@ -74,7 +74,11 @@ namespace Majorsilence.Forms
         public class ToolBarButtonCollection : Majorsilence.Forms.ToolBarButtonCollection
         {
             /// <summary>Initializes a new instance of the <see cref="ToolBarButtonCollection"/> class.</summary>
-            public ToolBarButtonCollection (ToolBar? owner = null) => Owner = owner;
+            public ToolBarButtonCollection (ToolBar? owner = null)
+            {
+                Owner = owner;
+                Bar = owner;
+            }
 
             /// <summary>Gets the toolbar the buttons belong to.</summary>
             public ToolBar? Owner { get; }

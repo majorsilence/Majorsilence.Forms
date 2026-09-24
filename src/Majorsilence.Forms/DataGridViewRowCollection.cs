@@ -17,6 +17,24 @@ namespace Majorsilence.Forms
             this.owner = owner;
         }
 
+        /// <summary>Gets or sets the row at an index.</summary>
+        /// <remarks>
+        /// W6 mechanisms: with <see cref="DataGridView.AllowUserToAddRows"/> showing a new row, the index
+        /// <see cref="DataGridView.NewRowIndex"/> (which is <see cref="Collection{T}.Count"/>) answers the
+        /// uncommitted placeholder, so <c>grid.Rows[grid.NewRowIndex].IsNewRow</c> is true as it is
+        /// upstream. A DELIBERATE divergence: upstream counts the placeholder in <c>Rows.Count</c>; here
+        /// <c>Count</c> is the committed rows only, so nothing that walks the rows sees a row that is not
+        /// yet data, and <c>NewRowIndex == Rows.Count</c> keeps the meaning it always had.
+        /// </remarks>
+        public new DataGridViewRow this[int index] {
+            get => index == Count && owner.ShowsNewRow ? owner.NewRowPlaceholder : base[index];
+            set => base[index] = value;
+        }
+
+        // The commit that promotes the new-row placeholder into a real row: past ThrowIfBound (an
+        // unbound grid's own add) and through InsertItem, so RowsAdded fires.
+        internal void AddPromoted (DataGridViewRow row) => base.Add (row);
+
         /// <summary>
         /// Adds the specified existing row to the collection and returns its index.
         /// </summary>

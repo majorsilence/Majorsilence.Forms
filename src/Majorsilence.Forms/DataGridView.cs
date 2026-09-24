@@ -118,7 +118,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public void BeginEdit (int rowIndex, int columnIndex)
         {
-            if (read_only || rowIndex < 0 || rowIndex >= Rows.Count || columnIndex < 0 || columnIndex >= Columns.Count)
+            if (read_only || rowIndex < 0 || rowIndex >= RowCountWithNewRow || columnIndex < 0 || columnIndex >= Columns.Count)
                 return;
 
             // The column, the row and the cell each get a veto, not just the grid (DGV-07). A read-only
@@ -315,10 +315,14 @@ namespace Majorsilence.Forms
         /// <summary>Raised after a row has been validated (i.e. <see cref="RowValidating"/> was not cancelled).</summary>
         public event DataGridViewCellEventHandler? RowValidated { add => _rowValidated += value; remove => _rowValidated -= value; }
 
-#pragma warning disable CS0067
-        /// <summary>Raised to supply default values for new rows.</summary>
+        /// <summary>Raised to supply default values for the new row.</summary>
+        /// <remarks>Real as of W6 mechanisms: raised when the current cell enters the new row, with the
+        /// placeholder as <see cref="DataGridViewRowEventArgs.Row"/>; values a handler puts in its cells
+        /// are shown and are committed with the row.</remarks>
         public event DataGridViewRowEventHandler? DefaultValuesNeeded;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="DefaultValuesNeeded"/> event.</summary>
+        protected virtual void OnDefaultValuesNeeded (DataGridViewRowEventArgs e) => DefaultValuesNeeded?.Invoke (this, e);
 
         // Real handler storage rather than `{ add { } remove { } }`, which discarded the handler: the
         // event looked wired up and nothing could ever be called, so neither a subscriber nor an
@@ -444,19 +448,24 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the width of a column changes.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnWidthChanged;
 
-#pragma warning disable CS0067
-        /// <summary>Raised when a new row is needed (virtual mode). Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised in virtual mode when the current cell enters the new row.</summary>
+        /// <remarks>Real as of W6 mechanisms; raised before <see cref="DefaultValuesNeeded"/>, as upstream.</remarks>
         public event DataGridViewRowEventHandler? NewRowNeeded;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="NewRowNeeded"/> event.</summary>
+        protected virtual void OnNewRowNeeded (DataGridViewRowEventArgs e) => NewRowNeeded?.Invoke (this, e);
 
         /// <summary>Raised when the height of a row changes.</summary>
         public event DataGridViewRowEventHandler? RowHeightChanged;
 
 
-#pragma warning disable CS0067
-        /// <summary>Raised when the user is deleting a row. Fires before the row is deleted.</summary>
+        /// <summary>Raised when a commit in the new row has made it a real row.</summary>
+        /// <remarks>Real as of W6 mechanisms: raised after the value is stored and <c>CellValueChanged</c>
+        /// has fired, with the promoted row; a fresh placeholder follows it.</remarks>
         public event DataGridViewRowEventHandler? UserAddedRow;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="UserAddedRow"/> event.</summary>
+        protected virtual void OnUserAddedRow (DataGridViewRowEventArgs e) => UserAddedRow?.Invoke (this, e);
 
         /// <summary>Raised when a column's <see cref="DataGridViewColumn.SortMode"/> changes.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnSortModeChanged;
@@ -752,7 +761,11 @@ namespace Majorsilence.Forms
 
         private bool applying_cell_border_style;
 
-        /// <summary>Gets or sets whether users can add new rows. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether users can add new rows.</summary>
+        /// <remarks>Read as of W6 mechanisms: while set (and the grid is not read-only, and a bound list
+        /// allows adding), an uncommitted new row is laid out and painted after the last row. Entering it
+        /// raises <see cref="DefaultValuesNeeded"/> (and <see cref="NewRowNeeded"/> in virtual mode);
+        /// committing an edit in it makes it a real row and raises <see cref="UserAddedRow"/>.</remarks>
         public bool AllowUserToAddRows {
             get => allow_user_to_add_rows;
             set {
@@ -1056,6 +1069,7 @@ namespace Majorsilence.Forms
                 row.Cells.Add (string.Empty);
 
             var editing_cell = row.Cells[editing_column_index];
+            var promoted = false;
             var old_value = editing_cell.Value?.ToString () ?? string.Empty;
 
             // WinForms CellParsing: a handler converts the edited text into a typed value before the
@@ -1104,6 +1118,14 @@ namespace Majorsilence.Forms
                 }
             }
 
+            // A commit in the new row makes it a real row first, so the store and the write-back below
+            // land in a row that exists -- the value parsed, so the row is worth keeping (W6 mechanisms).
+            if (row.IsNewRow && ShowsNewRow) {
+                row = PromoteNewRow ();
+                editing_cell = row.Cells[editing_column_index];
+                promoted = true;
+            }
+
             if (old_value != (parsed_value?.ToString () ?? string.Empty) || !Equals (editing_cell.Value, parsed_value)) {
                 // The assignment is suppressed so it does not notify twice: this path parses through
                 // CellParsing first and needs the push's result to drive its own commit/validate
@@ -1146,6 +1168,11 @@ namespace Majorsilence.Forms
                     var changed_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
                     OnCellValueChanged (changed_args);
                 }
+            }
+
+            if (promoted) {
+                OnUserAddedRow (new DataGridViewRowEventArgs (row));
+                UpdateScrollBars ();
             }
 
             OnCellValidated (new DataGridViewCellEventArgs (editing_column_index, editing_row_index));
@@ -1228,6 +1255,10 @@ namespace Majorsilence.Forms
             // clear an "editing" status live in CellEndEdit -- they used to stay stuck (DGV-09).
             var cancelled_args = new DataGridViewCellEventArgs (editing_column_index, editing_row_index);
 
+            // A cancelled edit in the new row puts it back to its defaults, as upstream does.
+            if (editing_row_index == Rows.Count && ShowsNewRow)
+                new_row = null;
+
             editing_row_index = -1;
             editing_column_index = -1;
             SetCurrentCellDirty (false);
@@ -1264,7 +1295,7 @@ namespace Majorsilence.Forms
                 if (top_index == value)
                     return;
 
-                if (value < 0 || value >= Rows.Count)
+                if (value < 0 || value >= RowCountWithNewRow)
                     return;
 
                 vscrollbar.Value = Math.Min (value, vscrollbar.EffectiveMaximum);
@@ -1293,7 +1324,7 @@ namespace Majorsilence.Forms
                     ScaledHeaderHeight);
             }
 
-            if (rowIndex < 0 || rowIndex >= Rows.Count)
+            if (rowIndex < 0 || rowIndex >= RowCountWithNewRow)
                 return Rectangle.Empty;
 
             if (rowIndex < top_index)
@@ -1413,7 +1444,7 @@ namespace Majorsilence.Forms
         public HitTestInfo HitTest (int x, int y)
         {
             for (var col = 0; col < Columns.Count; col++) {
-                for (var row = 0; row < Rows.Count; row++) {
+                for (var row = 0; row < RowCountWithNewRow; row++) {
                     var rect = GetCellDisplayRectangle (col, row, false);
                     if (rect.Width > 0 && rect.Height > 0 && rect.Contains (x, y))
                         return new HitTestInfo (col, row, rect.X, rect.Y, DataGridViewHitTestType.Cell);
@@ -1645,12 +1676,12 @@ namespace Majorsilence.Forms
         // while the paint path went through RowDeviceHeight. Wiring DividerHeight into one of them
         // would have made the public rectangle disagree with where the row is actually drawn.
         internal int RowTotalHeight (int rowIndex)
-            => rowIndex >= 0 && rowIndex < Rows.Count
+            => rowIndex >= 0 && rowIndex < RowCountWithNewRow
                 ? Rows[rowIndex].Height + Math.Max (0, Rows[rowIndex].DividerHeight)
                 : 0;
 
         internal int RowDeviceHeight (int rowIndex)
-            => rowIndex >= 0 && rowIndex < Rows.Count && Rows[rowIndex].Visible
+            => rowIndex >= 0 && rowIndex < RowCountWithNewRow && Rows[rowIndex].Visible
                 ? LogicalToDeviceUnits (RowTotalHeight (rowIndex))
                 : 0;
 
@@ -1671,7 +1702,7 @@ namespace Majorsilence.Forms
 
             var y = row_top;
 
-            for (var i = top_index; i < Rows.Count; i++) {
+            for (var i = top_index; i < RowCountWithNewRow; i++) {
                 var h = RowDeviceHeight (i);
 
                 // A hidden row is zero-height, so this can never match it -- which is what keeps
@@ -1707,7 +1738,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public DataGridViewCell? CurrentCell {
             get {
-                if (selected_row_index < 0 || selected_row_index >= Rows.Count)
+                // RowCountWithNewRow: the current cell can sit in the uncommitted new row (W6).
+                if (selected_row_index < 0 || selected_row_index >= RowCountWithNewRow)
                     return null;
 
                 if (selected_column_index < 0 || selected_column_index >= Rows[selected_row_index].Cells.Count)
@@ -2996,7 +3028,11 @@ namespace Majorsilence.Forms
             if (old_row != rowIndex) {
                 current_row_dirty = false;   // a new row starts undirty (DGV-08)
 
-                if (selected_row_index >= 0 && selected_row_index < Rows.Count)
+                // Into the uncommitted new row: the application fills it in first (W6 mechanisms).
+                if (selected_row_index == Rows.Count && ShowsNewRow)
+                    EnterNewRow ();
+
+                if (selected_row_index >= 0 && selected_row_index < RowCountWithNewRow)
                     OnRowEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
             }
 
@@ -3250,7 +3286,115 @@ namespace Majorsilence.Forms
         private DataGridViewRow row_template = new DataGridViewRow ();
 
         /// <summary>Gets the index of the row for new records, or -1 if AllowUserToAddRows is false.</summary>
-        public int NewRowIndex => AllowUserToAddRows ? Rows.Count : -1;
+        /// <remarks>Real as of W6 mechanisms: the placeholder's index while one is shown -- which is
+        /// <c>Rows.Count</c>, see <see cref="DataGridViewRowCollection"/>'s indexer -- and -1 otherwise.</remarks>
+        public int NewRowIndex => ShowsNewRow ? Rows.Count : -1;
+
+        // ── the new-row object (W6 mechanisms) ─────────────────────────────────────────────────
+        // One placeholder, outside Rows, answering at index Rows.Count. Every piece of geometry and
+        // navigation counts RowCountWithNewRow instead of Rows.Count so the row is laid out, painted,
+        // hit-tested and reachable with the keyboard; a commit in it promotes it (PromoteNewRow).
+        private DataGridViewRow? new_row;
+
+        /// <summary>Whether an uncommitted new row is shown after the last row.</summary>
+        internal bool ShowsNewRow => AllowUserToAddRows && !read_only && BoundListAllowsNew;
+
+        // A bound list has the last word, as upstream's currency manager does: an IBindingList says
+        // so itself; a plain list must at least be growable.
+        private bool BoundListAllowsNew
+            => data_source is null
+               || (bound_list is { } list ? list.AllowNew : data_source is { IsFixedSize: false, IsReadOnly: false });
+
+        /// <summary>The number of rows laid out: the committed rows plus the new row when it is shown.</summary>
+        internal int RowCountWithNewRow => Rows.Count + (ShowsNewRow ? 1 : 0);
+
+        /// <summary>The uncommitted new row, created from <see cref="RowTemplate"/> on first use.</summary>
+        internal DataGridViewRow NewRowPlaceholder {
+            get {
+                if (new_row is null) {
+                    new_row = CreateRowFromTemplate ();
+                    new_row.SetOwner (this);
+                    new_row.IsNewRow = true;
+                }
+
+                // Columns added since the placeholder was built get a cell each, like a real row.
+                while (new_row.Cells.Count < Columns.Count)
+                    new_row.Cells.Add (new DataGridViewCell ());
+
+                return new_row;
+            }
+        }
+
+        // The current cell has just moved into the new row: the application may fill it in.
+        private void EnterNewRow ()
+        {
+            var placeholder = NewRowPlaceholder;
+
+            if (VirtualMode)
+                OnNewRowNeeded (new DataGridViewRowEventArgs (placeholder));
+
+            OnDefaultValuesNeeded (new DataGridViewRowEventArgs (placeholder));
+        }
+
+        // The first commit in the new row makes it real. Unbound: the placeholder itself joins Rows.
+        // Bound: a new item is added to the source (IBindingList.AddNew, else the element type's
+        // constructor) and the row that represents it is the one promoted; the placeholder's cells --
+        // what DefaultValuesNeeded put there -- are pushed into the item first.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072",
+            Justification = "The bound list's element type is the application's, created by reflection exactly as BindingSource.AddNew creates it upstream; a trimmed constructor degrades to the exception this method already throws.")]
+        private DataGridViewRow PromoteNewRow ()
+        {
+            var placeholder = NewRowPlaceholder;
+            new_row = null;
+
+            if (data_source is null) {
+                placeholder.IsNewRow = false;
+                Rows.AddPromoted (placeholder);
+                return placeholder;
+            }
+
+            object? item;
+
+            if (bound_list is { AllowNew: true } adding)
+                item = adding.AddNew ();
+            else {
+                item = GetElementType (data_source) is { } type ? Activator.CreateInstance (type) : null;
+
+                if (item is null)
+                    throw new InvalidOperationException ("The bound list cannot create a new item; handle a BindingSource's AddingNew to supply one.");
+
+                data_source.Add (item);
+            }
+
+            // An IBindingList announced the add and OnBoundListChanged built the row; a plain list did
+            // not, so the row is built here. Either way it is the row whose item this is.
+            var row = Rows.FirstOrDefault (r => ReferenceEquals (r.DataBoundItem, item));
+
+            if (row is null) {
+                row = BuildBoundRow (item!);
+                Rows.InsertBound (Rows.Count, row);
+            }
+
+            var index = Rows.IndexOf (row);
+
+            for (var c = 0; c < Math.Min (placeholder.Cells.Count, Columns.Count); c++) {
+                if (placeholder.Cells[c].Value is not { } value)
+                    continue;
+
+                TryPushValueToBoundItem (index, c, value);
+
+                suppress_cell_value_notification = true;
+
+                try {
+                    if (c < row.Cells.Count)
+                        row.Cells[c].Value = value;
+                } finally {
+                    suppress_cell_value_notification = false;
+                }
+            }
+
+            return row;
+        }
 
 
 
@@ -3346,7 +3490,7 @@ namespace Majorsilence.Forms
             var visible_rows = 0;
             var rows_height = 0;
 
-            for (var i = 0; i < Rows.Count; i++) {
+            for (var i = 0; i < RowCountWithNewRow; i++) {
                 var rh = RowDeviceHeight (i);   // hidden rows contribute nothing (DGV-20)
 
                 if (rh > 0 && rows_height + rh <= content_height) {
@@ -3561,7 +3705,7 @@ namespace Majorsilence.Forms
             var count = 0;
             var h = 0;
 
-            for (var i = 0; i < Rows.Count; i++) {
+            for (var i = 0; i < RowCountWithNewRow; i++) {
                 var rh = RowDeviceHeight (i);
 
                 // A hidden row is not displayed and does not consume space, so it neither counts nor
@@ -3584,7 +3728,7 @@ namespace Majorsilence.Forms
         /// </summary>
         private void EnsureRowVisible (int index)
         {
-            if (DisplayedRowCount (true) >= Rows.Count)
+            if (DisplayedRowCount (true) >= RowCountWithNewRow)
                 return;
 
             if (index < top_index)
@@ -3601,7 +3745,7 @@ namespace Majorsilence.Forms
 
             if (selected_column_index < Columns.Count - 1) {
                 SelectedColumnIndex = selected_column_index + 1;
-            } else if (selected_row_index < Rows.Count - 1) {
+            } else if (selected_row_index < RowCountWithNewRow - 1) {
                 SelectedColumnIndex = 0;
                 SelectedRowIndex = selected_row_index + 1;
                 EnsureRowVisible (selected_row_index);

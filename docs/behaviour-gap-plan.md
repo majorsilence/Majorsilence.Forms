@@ -3283,6 +3283,54 @@ session now writes).
 12 tests; two neutralization rounds (the session's raises; the consumers), failing 8 and 6 of the 12,
 snapshot verified before and after.
 
+**W6 mechanisms, seventh chunk: the DataGridView new-row object and the legacy ToolBar.Buttons surface. — 2026-09-24.** Part of #91.
+
+- **The new-row object.** `AllowUserToAddRows` (default true, as upstream) shows one uncommitted row
+  after the last committed row: laid out, painted (with the asterisk in its header), hit-tested,
+  scrolled to, and reachable with Down, PageDown and Tab. `DataGridViewRow.IsNewRow` is true for it and
+  `NewRowIndex` names it; a read-only grid or a bound list that refuses adds shows none. Entering it
+  raises `NewRowNeeded` (virtual mode) then `DefaultValuesNeeded` with the placeholder, and the values a
+  handler puts in its cells are shown. A commit in it -- after the value parsed, so a bad value leaves it
+  uncommitted -- promotes it: an unbound grid adds the placeholder itself to `Rows`; a bound grid adds an
+  item to its list (`IBindingList.AddNew`, else the element type's parameterless constructor) and pushes
+  the placeholder's cells into it. `RowsAdded` fires for the promotion, `CellValueChanged` for the value,
+  then `UserAddedRow` with the real row; a fresh placeholder follows. A cancelled edit puts the
+  placeholder back to its defaults. In virtual mode the placeholder is not asked of `CellValueNeeded`.
+  *Deliberate divergence:* upstream counts the placeholder in `Rows.Count`; here `Rows.Count` is the
+  committed rows only and `Rows[NewRowIndex]` (which is `Rows[Rows.Count]`) answers the placeholder
+  through a hidden indexer -- so nothing that walks the rows, in this library or in an application,
+  sees a row that is not yet data, and `NewRowIndex == Rows.Count` keeps the meaning it always had.
+  Every piece of geometry and navigation counts `RowCountWithNewRow` instead. The three paint-hook tests
+  that count rows now turn the placeholder off, as their expectations assumed.
+- **`ToolBar.Buttons`.** Each `ToolBarButton` is mirrored by a strip item in `Items` -- a
+  `ToolStripButton` (`ToolBarButtonItem`), or a separator -- that follows the button's `Text`, image
+  (`ImageKey` then `ImageIndex` into the bar's `ImageList`), `Enabled`, `Visible`, `Pushed` and
+  `ToolTipText`, so the legacy surface is laid out, painted, hit-tested and clicked by the strip's own
+  machinery, and `Rectangle` and `Parent` are real. A click raises `ButtonClick` (a `ToggleButton` flips
+  `Pushed` first); a `DropDownButton`'s arrow gutter -- or the whole button without `DropDownArrows` --
+  raises `ButtonDropDown` and opens `DropDownMenu`. On the bar: `ButtonSize` is the smallest a button is
+  laid out at; `TextAlign` stacks or side-by-sides image and caption; `ShowToolTips` shows the button's
+  tip; `Appearance.Normal` draws a raised 3D edge (sunken when pushed) and `Flat` none; `PartialPush`
+  is a lighter pressed state; `Divider` rules the top edge; `Wrappable` wraps buttons onto further rows
+  and grows the bar to hold them. The legacy chrome applies to the `ToolBar` proper only
+  (`LegacyChrome`); the `ToolStrip` family that derives from it keeps its own look.
+- **Two strip fixes found on the way.** Every `MenuBase`-derived strip was painted twice per pass
+  (`ScrollableControl.OnPaint` and `MenuBase.OnPaint` both ran the renderer; recorded last chunk):
+  `ScrollableControl` now asks `RendersInOnPaint` and the strips answer no. And the second click on the
+  same leaf item was swallowed by the "clicking the dropped-down item releases the menu" rule, which
+  matched on the selected item rather than on an item with a drop-down -- a toolbar button could not be
+  clicked twice in a row.
+
+*Counts.* Unraised **80 → 75**. Stored-only **491 → 473** (the nineteen `ToolBar`/`ToolBarButton` lines
+less `Name`, `Tag` and `Rectangle`, which stay annotated).
+
+*Not done:* `ColumnDisplayIndexChanged` (DataGridView column display order touches every column walk in
+the grid; the ListView's is done), the DataGrid family, and the rest of the annotated remainder.
+
+14 tests, and the menu owner-draw test tightened to exactly one paint; three neutralization rounds (the
+new-row events and promotion; the placeholder itself; the toolbar mirror and the two strip fixes),
+snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

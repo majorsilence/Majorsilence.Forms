@@ -302,8 +302,15 @@ namespace Majorsilence.Forms
         {
             base.OnPaint (e);
 
-            RenderManager.Render (this, e);
+            // RenderManager dispatches on the RUNTIME type, so a derived control that renders in its own
+            // OnPaint (MenuBase, after laying its items out) would otherwise be painted twice per pass --
+            // every strip was, until W6 (found by an owner-draw handler seeing two DrawItems per frame).
+            if (RendersInOnPaint)
+                RenderManager.Render (this, e);
         }
+
+        // False for a derived type whose OnPaint runs the renderer itself.
+        internal virtual bool RendersInOnPaint => true;
 
         /// <summary>
         /// Raises the Scroll event.

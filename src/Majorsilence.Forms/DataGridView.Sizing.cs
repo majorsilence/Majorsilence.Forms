@@ -184,7 +184,7 @@ namespace Majorsilence.Forms
         {
             var count = 0;
 
-            for (var i = 0; i < Rows.Count; i++)
+            for (var i = 0; i < RowCountWithNewRow; i++)
                 if (RowDeviceHeight (i) > 0)
                     count++;
 

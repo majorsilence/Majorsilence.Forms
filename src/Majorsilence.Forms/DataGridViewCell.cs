@@ -213,7 +213,7 @@ namespace Majorsilence.Forms
                 // An unbound virtual-mode grid keeps no values: the application answers every read
                 // (W6 mechanisms). The stored value is offered as the default so a handler that does
                 // not know the cell can leave it alone.
-                if (owner?.DataGridView is { IsVirtualUnbound: true } virtual_grid && RowIndex >= 0 && ColumnIndex >= 0)
+                if (owner is { IsNewRow: false } && owner.DataGridView is { IsVirtualUnbound: true } virtual_grid && RowIndex >= 0 && ColumnIndex >= 0)
                     return virtual_grid.RaiseCellValueNeeded (ColumnIndex, RowIndex, value);
 
                 return value;
@@ -221,7 +221,7 @@ namespace Majorsilence.Forms
             set {
                 // ...and every write is pushed to it rather than stored. The grid's own notification
                 // still runs so CellValueChanged follows the push, as it does upstream.
-                if (owner?.DataGridView is { IsVirtualUnbound: true } virtual_grid && RowIndex >= 0 && ColumnIndex >= 0) {
+                if (owner is { IsNewRow: false } && owner.DataGridView is { IsVirtualUnbound: true } virtual_grid && RowIndex >= 0 && ColumnIndex >= 0) {
                     var pushed_old = Value;
 
                     virtual_grid.RaiseCellValuePushed (ColumnIndex, RowIndex, value);

@@ -349,11 +349,9 @@ public class W6DragDropTests
 
         using var _ = PaintSurface.Render (menu);
 
-        // Per paint pass, not exactly once: MenuBase.OnPaint renders after ScrollableControl.OnPaint
-        // already has, a pre-existing double paint of every strip that this chunk records but does
-        // not change.
-        Assert.NotEmpty (drawn);
-        Assert.All (drawn, d => Assert.Equal ((1, DrawItemState.None), d));
+        // Exactly once per paint pass: every strip used to be painted twice (ScrollableControl.OnPaint
+        // and MenuBase.OnPaint both ran the renderer) until the seventh W6 chunk.
+        Assert.Equal ([(1, DrawItemState.None)], drawn);
         Assert.Equal (before.Height, plain.GetPreferredSize (Size.Empty).Height);
     }
 

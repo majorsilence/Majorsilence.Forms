@@ -208,7 +208,7 @@ namespace Majorsilence.Forms
         }
 
         private bool IsCellAddress (int rowIndex, int columnIndex)
-            => rowIndex >= 0 && rowIndex < Rows.Count
+            => rowIndex >= 0 && rowIndex < RowCountWithNewRow
                && columnIndex >= 0 && columnIndex < Rows[rowIndex].Cells.Count;
 
         // ---------------- extending the selection
