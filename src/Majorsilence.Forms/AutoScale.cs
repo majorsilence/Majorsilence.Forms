@@ -52,7 +52,7 @@ namespace Majorsilence.Forms
 
         /// <summary>
         /// Works out the factor a container should be scaled by, or returns <c>false</c> when there is
-        /// nothing to do.
+        /// nothing to do -- which, by the decisions recorded below, is every mode.
         /// </summary>
         /// <remarks>
         /// Every reason to do nothing lives here rather than at the three call sites, because "did not
@@ -64,41 +64,33 @@ namespace Majorsilence.Forms
         {
             factor = new SizeF (1f, 1f);
 
-            if (mode is AutoScaleMode.None or AutoScaleMode.Inherit)
-                return false;
-
-            // Dpi mode is deliberately inert, and this is the one place that decision lives. Upstream's
-            // logical coordinates ARE device pixels, so scaling by dpi/96 is what makes a form the right
-            // physical size on a scaled display. Here Bounds are logical and the backend already
-            // applies the display's factor on the way to the screen -- Control.DeviceDpi is derived
-            // from that same factor -- so applying the ratio again would scale every form twice on any
-            // HiDPI display, which is the compounding RC-8 describes. Font mode is what designer files
-            // overwhelmingly record and what FRM-17 is about; Dpi mode keeps reporting honest
-            // CurrentAutoScaleDimensions and changes nothing.
-            if (mode is AutoScaleMode.Dpi)
-                return false;
-
-            // An unrecorded AutoScaleDimensions is the common case for a form built in code, and there
-            // is no ratio to be had from it. Guarding NaN/infinity too: they arrive from a zero-sized
-            // measurement rather than from a caller, and a NaN factor silently zeroes every bound.
-            if (!IsUsable (recorded) || !IsUsable (current))
-                return false;
-
-            factor = new SizeF (current.Width / recorded.Width, current.Height / recorded.Height);
-
-            // Two fonts that agree mean no change at all, rather than a small arbitrary one: rounding
-            // a factor of 1.002 still moves children by a pixel in whichever direction the rounding
-            // falls, and that is a worse answer than leaving the designer's own numbers alone.
-            return !IsEffectivelyOne (factor);
+            // None and Inherit ask for nothing, by definition.
+            //
+            // Dpi: upstream's logical coordinates ARE device pixels, so scaling by dpi/96 is what makes
+            // a form the right physical size on a scaled display. Here Bounds are logical and the
+            // backend already applies the display's factor on the way to the screen --
+            // Control.DeviceDpi is derived from that same factor -- so applying the ratio again would
+            // scale every form twice on any HiDPI display, the compounding RC-8 describes.
+            //
+            // Font: the ratio would be between a number a Windows designer recorded and a number
+            // measured from whatever face this platform resolved for us, and those two are not
+            // comparable. Designer files overwhelmingly record (7, 15), which is Segoe UI 9pt; the
+            // default here resolves to sans-serif 8.25pt, which measures (6.50, 11) -- ascent 8.47,
+            // descent 2.53, no leading at all. Scaling by 11/15 squashed every Font-mode container to
+            // 73% of its authored height for a reason connected to neither the display nor the layout.
+            //
+            // It did so selectively, which is worse than doing it everywhere: a Font-mode UserControl
+            // inside a Dpi-mode form was the only thing that moved, so a label stayed on its designed
+            // row while the control it labelled slid up and shrank away from it.
+            //
+            // This reverses FRM-17, which added the scaling on the premise that a designer's recorded
+            // dimensions are a correction worth applying. On Windows they are, because the recorded
+            // and the measured numbers come out of the same font stack. Here they do not, so the
+            // premise does not hold and the correction is noise. CurrentAutoScaleDimensions goes on
+            // reporting honestly either way; it is only the bounds that are now left alone.
+            return false;
         }
 
-        private static bool IsUsable (SizeF size)
-            => size.Width > 0 && size.Height > 0
-               && !float.IsNaN (size.Width) && !float.IsNaN (size.Height)
-               && !float.IsInfinity (size.Width) && !float.IsInfinity (size.Height);
-
-        private static bool IsEffectivelyOne (SizeF factor)
-            => Math.Abs (factor.Width - 1f) < 0.001f && Math.Abs (factor.Height - 1f) < 0.001f;
 
         /// <summary>
         /// Scales a container control to the difference between its recorded and current dimensions,
