@@ -404,6 +404,40 @@ namespace Majorsilence.Forms
                 child.CreateControl ();
 
             OnCreateControl ();
+
+            PerformDeferredLayout ();
+        }
+
+        /// <summary>
+        /// Runs a layout that was requested, deferred, and then abandoned.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A layout requested while this control's own layout is suspended is recorded as
+        /// <c>LayoutDeferred</c> rather than performed, and <c>ResumeLayout(false)</c> -- which is
+        /// exactly how a designer file closes a container -- does not perform it on the way out. The
+        /// request survives as a flag waiting for the next <c>PerformLayout</c>, and for most
+        /// containers one duly arrives, because a parent's layout resizes them and <c>OnResize</c>
+        /// asks for one. A container given fixed designer bounds is never resized, so for that one
+        /// nothing ever arrives -- not even resizing the window.
+        /// </para>
+        /// <para>
+        /// That only matters to a container that positions children of its own, and the ones here do:
+        /// each holds an implicit docked child -- a tab strip, a web view host -- that nothing but this
+        /// control's layout pass can place. Left unplaced the child keeps its constructed default,
+        /// which is the wrong size and, for a Bottom- or Right-docked one, the wrong position too.
+        /// </para>
+        /// <para>
+        /// Keyed on <c>LayoutDeferred</c> because <c>PerformLayout</c> clears it once a pass actually
+        /// runs, so this fires only while one is genuinely outstanding. "Has a pass ever run" is not
+        /// the same test and does not work: passes do run during construction, against a control that
+        /// has no size yet.
+        /// </para>
+        /// </remarks>
+        private protected void PerformDeferredLayout ()
+        {
+            if (GetState (States.LayoutDeferred))
+                PerformLayout ();
         }
 
         /// <summary>
@@ -1606,6 +1640,11 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void PaintChildren (PaintEventArgs e)
         {
+            // Children are positioned by this control's layout, and are about to be composited at
+            // whatever bounds they currently hold -- so an abandoned pass has to run first. By paint
+            // time nothing is suspending layout, so it runs here even when creation could not.
+            PerformDeferredLayout ();
+
             var offset = ChildPaintOffset;
 
             // Bottom-to-top: WinForms z-order puts index 0 on TOP, so it must be drawn last.
