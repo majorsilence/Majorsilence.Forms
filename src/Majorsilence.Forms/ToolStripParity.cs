@@ -455,6 +455,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether a click that activates the strip also activates the item under it.</summary>
         public bool AllowClickThrough { get; set; }
 
+        // Divider, Appearance and Wrappable belong to the legacy ToolBar; a ToolStrip has none of them upstream.
+        internal override bool LegacyChrome => false;
+
         /// <summary>Gets or sets whether the user can reorder items by dragging.</summary>
         /// <remarks>Read as of W6 mechanisms: with Alt held, dragging an item past the drag threshold
         /// starts a drag of that item, and dropping it on the strip moves it to the slot under the

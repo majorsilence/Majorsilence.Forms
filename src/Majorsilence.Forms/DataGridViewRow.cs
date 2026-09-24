@@ -83,7 +83,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the index of this row in the DataGridView.
         /// </summary>
-        public int Index => owner?.Rows.IndexOf (this) ?? -1;
+        public int Index => owner is null ? -1 : IsNewRow ? owner.Rows.Count : owner.Rows.IndexOf (this);
 
         /// <summary>
         /// Gets or sets whether this row is selected. Setting it selects or deselects the row in the
@@ -129,8 +129,10 @@ namespace Majorsilence.Forms
         /// </summary>
         public object? DataBoundItem { get; set; }
 
-        /// <summary>Gets whether this row is the new-row placeholder. Always false in Majorsilence.Forms.</summary>
-        public bool IsNewRow => false;
+        /// <summary>Gets whether this row is the uncommitted new-row placeholder.</summary>
+        /// <remarks>Real as of W6 mechanisms: true for the row <see cref="DataGridView.NewRowIndex"/> names
+        /// while <see cref="DataGridView.AllowUserToAddRows"/> shows one, false once a commit promotes it.</remarks>
+        public bool IsNewRow { get; internal set; }
 
         /// <summary>Gets or sets whether all cells in this row are read-only.</summary>
         public bool ReadOnly {

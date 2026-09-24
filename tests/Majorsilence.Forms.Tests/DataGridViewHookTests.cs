@@ -43,7 +43,9 @@ namespace Majorsilence.Forms.Tests
 
         private static HookGrid MakeGrid ()
         {
-            var grid = new HookGrid { Width = 420, Height = 200 };
+            // No new-row placeholder: these tests count the rows and cells the hooks see, and the
+            // uncommitted new row (painted since W6, as upstream paints it) would be one more of each.
+            var grid = new HookGrid { Width = 420, Height = 200, AllowUserToAddRows = false };
             grid.Columns.Add ("Name", 160);
             grid.Columns.Add ("Amount", 160);
             grid.Rows.Add ("Alice", 1234.5);

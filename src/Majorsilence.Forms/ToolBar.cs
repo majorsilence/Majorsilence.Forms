@@ -1,4 +1,7 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -11,12 +14,105 @@ namespace Majorsilence.Forms
         private ToolBarButtonCollection? _buttons;
 
         /// <summary>Gets the collection of ToolBarButtons in this toolbar.</summary>
-        public ToolBarButtonCollection Buttons => _buttons ??= new ToolBarButtonCollection ();
+        /// <remarks>
+        /// Real as of W6 mechanisms. Each <see cref="ToolBarButton"/> is mirrored by a strip item in
+        /// <see cref="MenuBase.Items"/> -- a <see cref="ToolStripButton"/>, or a separator for
+        /// <see cref="ToolBarButtonStyle.Separator"/> -- that follows the button's text, image, enabled,
+        /// visible, pushed and tooltip state, so the legacy <c>Buttons</c> surface is laid out, painted,
+        /// hit-tested and clicked by the same machinery as a <see cref="ToolStrip"/>. A click raises
+        /// <see cref="ButtonClick"/> (toggling a <see cref="ToolBarButtonStyle.ToggleButton"/>'s
+        /// <see cref="ToolBarButton.Pushed"/>); the arrow of a <see cref="ToolBarButtonStyle.DropDownButton"/>
+        /// raises <see cref="ButtonDropDown"/> and opens <see cref="ToolBarButton.DropDownMenu"/>.
+        /// </remarks>
+        public ToolBarButtonCollection Buttons => _buttons ??= new ToolBarButtonCollection (this);
 
-#pragma warning disable CS0067
         /// <summary>Fires when a ToolBarButton is clicked.</summary>
+        /// <remarks>Real as of W6 mechanisms; see <see cref="Buttons"/>.</remarks>
         public event EventHandler<ToolBarButtonClickEventArgs>? ButtonClick;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="ButtonClick"/> event.</summary>
+        protected virtual void OnButtonClick (ToolBarButtonClickEventArgs e) => ButtonClick?.Invoke (this, e);
+
+        // ── the Buttons -> Items mirror (W6 mechanisms) ───────────────────────────────────────────
+        private readonly Dictionary<ToolBarButton, MenuItem> button_items = new ();
+
+        internal void ButtonsChanged ()
+        {
+            // Rebuilt in order rather than patched: a button's Style decides which item type mirrors
+            // it, and the order in Buttons is the order on the bar.
+            foreach (var item in button_items.Values)
+                Items.Remove (item);
+
+            button_items.Clear ();
+
+            foreach (var button in Buttons) {
+                button.Parent = this;
+
+                MenuItem item = button.Style == ToolBarButtonStyle.Separator
+                    ? new MenuSeparatorItem ()
+                    : new ToolBarButtonItem (this, button);
+
+                button_items[button] = item;
+                Items.Add (item);
+            }
+
+            SyncButtons ();
+        }
+
+        internal void ButtonChanged (ToolBarButton button)
+        {
+            if (button_items.TryGetValue (button, out var item) && item is ToolBarButtonItem mirror)
+                mirror.Sync ();
+            else
+                ButtonsChanged ();
+
+            PerformLayout ();
+            Invalidate ();
+        }
+
+        private void SyncButtons ()
+        {
+            foreach (var item in button_items.Values.OfType<ToolBarButtonItem> ())
+                item.Sync ();
+
+            PerformLayout ();
+            Invalidate ();
+        }
+
+        // The image a button names, by key first then by index, from the bar's ImageList.
+        internal SkiaSharp.SKBitmap? ImageFor (ToolBarButton button)
+        {
+            if (ImageList is not { } images)
+                return null;
+
+            if (!string.IsNullOrEmpty (button.ImageKey)) {
+                var index = images.Images.IndexOfKey (button.ImageKey);
+
+                if (index >= 0)
+                    return images.Images[index];
+            }
+
+            return button.ImageIndex >= 0 && button.ImageIndex < images.Images.Count ? images.Images[button.ImageIndex] : null;
+        }
+
+        internal void RaiseButtonClick (ToolBarButton button) => OnButtonClick (new ToolBarButtonClickEventArgs (button));
+
+        /// <summary>The button a strip item mirrors, or null for an item that is not one.</summary>
+        internal ToolBarButton? ButtonFor (MenuItem item) => (item as ToolBarButtonItem)?.Button;
+
+        /// <inheritdoc/>
+        /// <remarks><see cref="ShowToolTips"/> and <see cref="ToolBarButton.ToolTipText"/> (W6 mechanisms).</remarks>
+        internal override string? GetToolTipText (Point location)
+        {
+            if (!ShowToolTips || GetItemAtLocation (location) is not ToolBarButtonItem item)
+                return null;
+
+            return string.IsNullOrEmpty (item.Button.ToolTipText) ? null : item.Button.ToolTipText;
+        }
+
+        // Legacy-bar chrome (Divider, Appearance, Wrappable) applies to the ToolBar proper; the
+        // ToolStrip family that derives from it has its own look and upstream ToolStrip has none of them.
+        internal virtual bool LegacyChrome => true;
 
         private ImageList? image_list;
 
@@ -41,8 +137,21 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the size of the toolbar buttons. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Size ButtonSize { get; set; } = new System.Drawing.Size (24, 22);
+        /// <summary>Gets or sets the size of the buttons on the toolbar.</summary>
+        /// <remarks>Read as of W6 mechanisms: the smallest size a mirrored button is laid out at.</remarks>
+        public System.Drawing.Size ButtonSize {
+            get => button_size;
+            set {
+                if (button_size == value)
+                    return;
+
+                button_size = value;
+                PerformLayout ();
+                Invalidate ();
+            }
+        }
+
+        private System.Drawing.Size button_size = new System.Drawing.Size (24, 22);
         /// <summary>
         /// Initializes a new instance of the ToolBar class.
         /// </summary>
@@ -104,7 +213,44 @@ namespace Majorsilence.Forms
             StackLayoutEngine.HorizontalExpand.Layout (area, visible.Cast<ILayoutable> ());
 
             PinTrailingItems (visible);
+            WrapRows (visible, area);
+
+            foreach (var (button, item) in button_items)
+                button.Rectangle = item.Bounds;
+
             OnLayoutCompletedCore ();
+        }
+
+        // Wrappable (W6 mechanisms): items that ran past the bar's right edge start a new row, and the
+        // bar grows to hold the rows, as upstream's auto-sized ToolBar does. Only the legacy bar wraps;
+        // a ToolStrip that overflows is the overflow button's business.
+        private void WrapRows (List<MenuItem> visible, Rectangle area)
+        {
+            if (!Wrappable || !LegacyChrome || visible.Count == 0 || visible[visible.Count - 1].Bounds.Right <= area.Right)
+                return;
+
+            var row_height = visible.Max (i => i.Bounds.Height);
+            var x = area.Left;
+            var y = area.Top;
+            var rows = 1;
+
+            foreach (var item in visible) {
+                var width = item.Bounds.Width;
+
+                if (x > area.Left && x + width > area.Right) {
+                    x = area.Left;
+                    y += row_height;
+                    rows++;
+                }
+
+                item.SetBounds (x, y, width, row_height);
+                x += width;
+            }
+
+            var wanted = y + row_height - area.Top + (Height - LogicalClientRectangle.Height);
+
+            if (rows > 1 && Height < wanted)
+                Height = wanted;
         }
 
         // ToolStrip raises LayoutCompleted from this; the layout itself lives here (W6.1 sweep).
@@ -158,34 +304,55 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>Represents a button on a ToolBar control.</summary>
+    /// <remarks>Every property below reaches the bar as of W6 mechanisms; see <see cref="ToolBar.Buttons"/>.</remarks>
     public partial class ToolBarButton
     {
-        /// <summary>Gets or sets the text of the button.</summary>
-        public string Text { get; set; } = string.Empty;
+        private string text = string.Empty;
+        private string tool_tip_text = string.Empty;
+        private ToolBarButtonStyle style = ToolBarButtonStyle.PushButton;
+        private bool enabled = true;
+        private bool visible = true;
+        private bool pushed;
+        private bool partial_push;
+        private int image_index = -1;
+        private string image_key = string.Empty;
+        private ContextMenu? drop_down_menu;
 
-        /// <summary>Gets or sets the tooltip text of the button.</summary>
-        public string ToolTipText { get; set; } = string.Empty;
+        /// <summary>Gets or sets the text of the button.</summary>
+        public string Text { get => text; set => Set (ref text, value ?? string.Empty); }
+
+        /// <summary>Gets or sets the tooltip text of the button, shown when <see cref="ToolBar.ShowToolTips"/> is set.</summary>
+        public string ToolTipText { get => tool_tip_text; set => Set (ref tool_tip_text, value ?? string.Empty); }
 
         /// <summary>Gets or sets the style of the button.</summary>
-        public ToolBarButtonStyle Style { get; set; } = ToolBarButtonStyle.PushButton;
+        public ToolBarButtonStyle Style {
+            get => style;
+            set {
+                if (style == value)
+                    return;
+
+                style = value;
+                Parent?.ButtonsChanged ();   // the style decides which item type mirrors the button
+            }
+        }
 
         /// <summary>Gets or sets whether the button is enabled.</summary>
-        public bool Enabled { get; set; } = true;
+        public bool Enabled { get => enabled; set => Set (ref enabled, value); }
 
         /// <summary>Gets or sets whether the button is visible.</summary>
-        public bool Visible { get; set; } = true;
+        public bool Visible { get => visible; set => Set (ref visible, value); }
 
         /// <summary>Gets or sets whether the button is in a pushed state (toggle).</summary>
-        public bool Pushed { get; set; }
+        public bool Pushed { get => pushed; set => Set (ref pushed, value); }
 
-        /// <summary>Gets or sets whether the button is partially pushed (dropdown).</summary>
-        public bool PartialPush { get; set; }
+        /// <summary>Gets or sets whether the button is partially pushed (an indeterminate toggle).</summary>
+        public bool PartialPush { get => partial_push; set => Set (ref partial_push, value); }
 
         /// <summary>Gets or sets the image index in the parent ToolBar's ImageList.</summary>
-        public int ImageIndex { get; set; } = -1;
+        public int ImageIndex { get => image_index; set => Set (ref image_index, value); }
 
         /// <summary>Gets or sets the image key in the parent ToolBar's ImageList.</summary>
-        public string ImageKey { get; set; } = string.Empty;
+        public string ImageKey { get => image_key; set => Set (ref image_key, value ?? string.Empty); }
 
         /// <summary>Gets or sets an object with additional user data about this button.</summary>
         public object? Tag { get; set; }
@@ -193,19 +360,117 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the name of the button.</summary>
         public string Name { get; set; } = string.Empty;
 
-        /// <summary>Gets or sets the drop-down menu for DropDownButton-style buttons.</summary>
-        public ContextMenu? DropDownMenu { get; set; }
+        /// <summary>Gets or sets the menu a <see cref="ToolBarButtonStyle.DropDownButton"/> opens from its arrow.</summary>
+        public ContextMenu? DropDownMenu { get => drop_down_menu; set => Set (ref drop_down_menu, value); }
+
+        private void Set<T> (ref T field, T value)
+        {
+            if (EqualityComparer<T>.Default.Equals (field, value))
+                return;
+
+            field = value;
+            Parent?.ButtonChanged (this);
+        }
+    }
+
+    // The strip item that stands in for a ToolBarButton on the bar (W6 mechanisms).
+    internal sealed class ToolBarButtonItem : ToolStripButton
+    {
+        private readonly ToolBar bar;
+
+        internal ToolBarButtonItem (ToolBar bar, ToolBarButton button)
+        {
+            this.bar = bar;
+            Button = button;
+            Sync ();
+        }
+
+        internal ToolBarButton Button { get; }
+
+        internal void Sync ()
+        {
+            Text = Button.Text;
+            Enabled = Button.Enabled;
+            Visible = Button.Visible;
+            Checked = Button.Pushed;
+            ToolTipText = Button.ToolTipText;
+            SetImageSK (bar.ImageFor (Button));
+
+            // ToolBar.TextAlign: Underneath stacks the caption below the image, Right puts it beside.
+            TextImageRelation = bar.TextAlign == ToolBarTextAlign.Underneath
+                ? TextImageRelation.ImageAboveText
+                : TextImageRelation.ImageBeforeText;
+        }
+
+        // The arrow gutter of a drop-down button, in the strip's logical coordinates.
+        internal bool InArrowGutter (Point location)
+            => Button.Style == ToolBarButtonStyle.DropDownButton && bar.DropDownArrows && location.X >= Bounds.Right - 16;
+
+        protected internal override void OnClick (MouseEventArgs e)
+        {
+            // A drop-down button's arrow opens the menu; without arrows the whole button does. Upstream
+            // raises ButtonDropDown for that and ButtonClick for a press on the body.
+            if (Button.Style == ToolBarButtonStyle.DropDownButton && (InArrowGutter (e.Location) || !bar.DropDownArrows)) {
+                bar.RaiseButtonDropDown (Button);
+                Button.DropDownMenu?.Show (bar, new Point (Bounds.Left, Bounds.Bottom));
+                return;
+            }
+
+            if (Button.Style == ToolBarButtonStyle.ToggleButton)
+                Button.Pushed = !Button.Pushed;
+
+            base.OnClick (e);
+            bar.RaiseButtonClick (Button);
+        }
     }
 
     /// <summary>A collection of ToolBarButton objects.</summary>
     public class ToolBarButtonCollection : Collection<ToolBarButton>
     {
+        /// <summary>The bar whose items mirror this collection, when it belongs to one (W6 mechanisms).</summary>
+        internal ToolBar? Bar { get; set; }
+
         /// <summary>Adds a button with the specified text.</summary>
         public ToolBarButton Add (string text)
         {
             var button = new ToolBarButton { Text = text };
             Add (button);
             return button;
+        }
+
+        /// <inheritdoc/>
+        protected override void InsertItem (int index, ToolBarButton item)
+        {
+            Guard.ThrowIfNull (item);
+            base.InsertItem (index, item);
+            Bar?.ButtonsChanged ();
+        }
+
+        /// <inheritdoc/>
+        protected override void RemoveItem (int index)
+        {
+            this[index].Parent = null;
+            base.RemoveItem (index);
+            Bar?.ButtonsChanged ();
+        }
+
+        /// <inheritdoc/>
+        protected override void SetItem (int index, ToolBarButton item)
+        {
+            Guard.ThrowIfNull (item);
+            this[index].Parent = null;
+            base.SetItem (index, item);
+            Bar?.ButtonsChanged ();
+        }
+
+        /// <inheritdoc/>
+        protected override void ClearItems ()
+        {
+            foreach (var button in this)
+                button.Parent = null;
+
+            base.ClearItems ();
+            Bar?.ButtonsChanged ();
         }
     }
 

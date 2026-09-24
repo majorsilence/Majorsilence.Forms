@@ -92,7 +92,7 @@ namespace Majorsilence.Forms
 
         private bool MoveCurrentRowTo (int rowIndex)
         {
-            if (rowIndex < 0 || rowIndex >= Rows.Count || rowIndex == selected_row_index)
+            if (rowIndex < 0 || rowIndex >= RowCountWithNewRow || rowIndex == selected_row_index)
                 return false;
 
             SelectedRowIndex = rowIndex;

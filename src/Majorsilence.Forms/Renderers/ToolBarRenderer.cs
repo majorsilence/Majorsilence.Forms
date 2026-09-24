@@ -14,6 +14,12 @@ namespace Majorsilence.Forms.Renderers
             // StripRendererBridge for the contract.
             StripRendererBridge.Background (control, e);
 
+            // The legacy bar's Divider: a rule along the top edge (W6 mechanisms).
+            if (control.LegacyChrome && control.Divider) {
+                var client = control.ClientRectangle;
+                e.Canvas.DrawLine (client.Left, client.Top, client.Right, client.Top, Theme.BorderLowColor, Math.Max (1, e.LogicalToDeviceUnits (1)));
+            }
+
             RenderGrip (control, e);
 
             foreach (var item in control.Items) {
@@ -81,9 +87,20 @@ namespace Majorsilence.Forms.Renderers
             // the item reacts under the pointer.
             var item_style = item.Hovered || item.IsDropDownOpened || item.Checked ? ToolBar.DefaultItemHoverStyle : ToolBar.DefaultItemStyle;
             var background_color = item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ();
+
+            // A partially pushed legacy button (PartialPush: an indeterminate toggle) shows a lighter
+            // pressed state than a pushed one (W6 mechanisms).
+            var legacy = control.ButtonFor (item);
+
+            if (legacy is { PartialPush: true } && !item.Checked && !item.Hovered)
+                background_color = Theme.ControlMidColor;
             // The renderer sees the item first; Handled means it painted the background itself.
             if (!StripRendererBridge.ItemBackground (control, item, e))
                 e.Canvas.FillRectangle (item.DeviceBounds, background_color);
+
+            // ToolBarAppearance.Normal: each button carries a raised 3D border; Flat carries none.
+            if (legacy is not null && control.LegacyChrome && control.Appearance == ToolBarAppearance.Normal)
+                RenderRaisedBorder (item.DeviceBounds, e, sunken: item.Checked || legacy.PartialPush);
 
             // A ToolStripLabel with IsLink draws as a hyperlink: the link colours and the underline
             // were all stored and read by nothing, so `new ToolStripLabel { IsLink = true }` was
@@ -226,13 +243,29 @@ namespace Majorsilence.Forms.Renderers
             // button that opens a menu but is drawn as a plain button, which is how icon-only
             // "more actions" buttons are usually styled. It was stored and read by nothing, so the
             // arrow was drawn whenever the item had a submenu whatever the property said.
-            if (item.HasItems && ShowsDropDownArrow (item)) {
+            // A legacy DropDownButton draws its arrow when the bar's DropDownArrows says so (W6).
+            var legacy_arrow = legacy is { Style: ToolBarButtonStyle.DropDownButton } && control.DropDownArrows;
+
+            if ((item.HasItems && ShowsDropDownArrow (item)) || legacy_arrow) {
                 var arrow_bounds = DrawingExtensions.CenterSquare (item.DeviceBounds, 16);
                 var arrow_area = new Rectangle (item.DeviceBounds.Right - e.LogicalToDeviceUnits (16) - 4, arrow_bounds.Top, 16, 16);
 
                 if (StripRendererBridge.Arrow (control, item, arrow_area, font_color, ArrowDirection.Down, e) is { } ap)
                     ControlPaint.DrawArrowGlyph (e, ap.rect, ap.colour, ap.direction);
             }
+        }
+
+        // The 3D edge of a ToolBarAppearance.Normal button: light top-left and dark bottom-right when
+        // raised, the reverse when pushed.
+        private static void RenderRaisedBorder (Rectangle bounds, PaintEventArgs e, bool sunken)
+        {
+            var top_left = sunken ? Theme.BorderMidColor : Theme.ControlHighColor;
+            var bottom_right = sunken ? Theme.ControlHighColor : Theme.BorderMidColor;
+
+            e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Right - 1, bounds.Top, top_left);
+            e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Left, bounds.Bottom - 1, top_left);
+            e.Canvas.DrawLine (bounds.Left, bounds.Bottom - 1, bounds.Right - 1, bounds.Bottom - 1, bottom_right);
+            e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom - 1, bottom_right);
         }
 
         // LinkVisited picks the visited colour. ActiveLinkColor -- the colour WinForms uses while the
@@ -312,7 +345,17 @@ namespace Majorsilence.Forms.Renderers
 
             // Height was previously the item's current box, which made a strip's preferred height
             // depend on whatever it had already been given rather than on its content.
-            return new Size (width, Math.Max (height + control.LogicalToDeviceUnits (item.Padding.Vertical), item.DeviceBounds.Height));
+            var size = new Size (width, Math.Max (height + control.LogicalToDeviceUnits (item.Padding.Vertical), item.DeviceBounds.Height));
+
+            // A legacy button is never smaller than the bar's ButtonSize, and reserves its arrow gutter (W6).
+            if (control.ButtonFor (item) is { } legacy) {
+                var minimum = control.LogicalToDeviceUnits (control.ButtonSize);
+                var arrow = legacy.Style == ToolBarButtonStyle.DropDownButton && control.DropDownArrows ? control.LogicalToDeviceUnits (16) : 0;
+
+                size = new Size (Math.Max (size.Width + arrow, minimum.Width), Math.Max (size.Height, minimum.Height));
+            }
+
+            return size;
         }
 
         /// <summary>

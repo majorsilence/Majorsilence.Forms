@@ -229,8 +229,20 @@ namespace Majorsilence.Forms
 
     public partial class ToolBar
     {
-        /// <summary>Gets or sets whether buttons are drawn flat or raised.</summary>
-        public ToolBarAppearance Appearance { get; set; } = ToolBarAppearance.Normal;
+        /// <summary>Gets or sets whether buttons draw with a raised border (<see cref="ToolBarAppearance.Normal"/>) or flat.</summary>
+        /// <remarks>Read by <see cref="Renderers.ToolBarRenderer"/> as of W6 mechanisms.</remarks>
+        public ToolBarAppearance Appearance {
+            get => appearance;
+            set {
+                if (appearance == value)
+                    return;
+
+                appearance = value;
+                Invalidate ();
+            }
+        }
+
+        private ToolBarAppearance appearance = ToolBarAppearance.Normal;
 
         private BorderStyle border_style = BorderStyle.None;
 
@@ -247,27 +259,61 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets whether the toolbar shows a divider above it.</summary>
-        public bool Divider { get; set; } = true;
+        /// <remarks>Drawn by <see cref="Renderers.ToolBarRenderer"/> as of W6 mechanisms.</remarks>
+        public bool Divider { get => divider; set => SetChrome (ref divider, value); }
 
         /// <summary>Gets or sets whether drop-down buttons show an arrow.</summary>
-        public bool DropDownArrows { get; set; }
+        /// <remarks>Read as of W6 mechanisms: with arrows, only the arrow gutter opens the menu; without,
+        /// the whole button does, as upstream.</remarks>
+        public bool DropDownArrows { get => drop_down_arrows; set => SetChrome (ref drop_down_arrows, value); }
 
         /// <summary>Gets or sets whether button tooltips are shown.</summary>
+        /// <remarks>Read as of W6 mechanisms: <see cref="ToolBarButton.ToolTipText"/> is the tip.</remarks>
         public bool ShowToolTips { get; set; }
 
         /// <summary>Gets or sets where button text is drawn relative to the image.</summary>
-        public ToolBarTextAlign TextAlign { get; set; } = ToolBarTextAlign.Underneath;
+        /// <remarks>Read as of W6 mechanisms: mirrored buttons stack or side-by-side their image and caption.</remarks>
+        public ToolBarTextAlign TextAlign {
+            get => text_align;
+            set {
+                if (text_align == value)
+                    return;
+
+                text_align = value;
+                ButtonsChanged ();
+            }
+        }
 
         /// <summary>Gets or sets whether buttons wrap onto a second row when the bar is too narrow.</summary>
-        public bool Wrappable { get; set; } = true;
+        /// <remarks>Read by the layout as of W6 mechanisms; the bar grows to hold the rows.</remarks>
+        public bool Wrappable { get => wrappable; set => SetChrome (ref wrappable, value); }
+
+        private bool divider = true;
+        private bool drop_down_arrows;
+        private ToolBarTextAlign text_align = ToolBarTextAlign.Underneath;
+        private bool wrappable = true;
+
+        private void SetChrome<T> (ref T field, T value)
+        {
+            if (EqualityComparer<T>.Default.Equals (field, value))
+                return;
+
+            field = value;
+            PerformLayout ();
+            Invalidate ();
+        }
 
         /// <summary>Gets the size of the images the toolbar draws.</summary>
         public Size ImageSize => ImageList?.ImageSize ?? new Size (16, 16);
 
         /// <summary>Raised when a drop-down button's arrow is clicked.</summary>
-#pragma warning disable CS0067
+        /// <remarks>Real as of W6 mechanisms; see <see cref="Buttons"/>.</remarks>
         public event ToolBarButtonClickEventHandler? ButtonDropDown;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="ButtonDropDown"/> event.</summary>
+        protected virtual void OnButtonDropDown (ToolBarButtonClickEventArgs e) => ButtonDropDown?.Invoke (this, e);
+
+        internal void RaiseButtonDropDown (ToolBarButton button) => OnButtonDropDown (new ToolBarButtonClickEventArgs (button));
     }
 
     public partial class SplitContainer

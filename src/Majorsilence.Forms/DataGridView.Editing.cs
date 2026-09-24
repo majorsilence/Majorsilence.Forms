@@ -103,7 +103,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal bool IsCellEditable (int rowIndex, int columnIndex)
         {
-            if (rowIndex < 0 || rowIndex >= Rows.Count)
+            if (rowIndex < 0 || rowIndex >= RowCountWithNewRow)
                 return false;
 
             var row = Rows[rowIndex];

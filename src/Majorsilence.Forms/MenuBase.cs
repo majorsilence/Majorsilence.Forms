@@ -215,8 +215,10 @@ namespace Majorsilence.Forms
 
             var clicked_item = GetItemAtLocation (e.Location);
 
-            // Clicking the currently dropped down item releases the menu
-            if (IsActivated && IsReleaseOnClick && clicked_item == SelectedItem) {
+            // Clicking the currently dropped down item releases the menu. Only an item WITH a drop-down:
+            // a leaf button that happens to be the selected item is being clicked again, not released --
+            // the second click on the same toolbar button used to be swallowed here (W6 mechanisms).
+            if (IsActivated && IsReleaseOnClick && clicked_item == SelectedItem && clicked_item is { HasItems: true }) {
                 Deactivate ();
                 return;
             }
@@ -444,6 +446,9 @@ namespace Majorsilence.Forms
 
             RenderManager.Render (this, e);
         }
+
+        // The render above is the strip's one paint; ScrollableControl's would be a second (W6).
+        internal override bool RendersInOnPaint => false;
 
         /// <summary>
         /// Gets or sets the currently selected menu item.

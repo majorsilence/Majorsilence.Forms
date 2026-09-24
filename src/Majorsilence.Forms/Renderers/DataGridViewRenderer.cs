@@ -170,7 +170,9 @@ namespace Majorsilence.Forms.Renderers
             var header_offset = control.RowsTopOffset;
             var y = contentArea.Top + header_offset;
 
-            for (var i = control.FirstDisplayedScrollingRowIndex; i < control.Rows.Count; i++) {
+            // RowCountWithNewRow: the uncommitted new row is laid out and painted after the last row
+            // while AllowUserToAddRows shows one (W6 mechanisms).
+            for (var i = control.FirstDisplayedScrollingRowIndex; i < control.RowCountWithNewRow; i++) {
                 if (y >= contentArea.Bottom)
                     break;
 
@@ -530,6 +532,10 @@ namespace Majorsilence.Forms.Renderers
             // The row's error glyph, in the header, when the grid shows row errors (W6 mechanisms).
             if (control.ShowRowErrors && !string.IsNullOrEmpty (control.ResolveRowErrorText (row, rowIndex)))
                 RenderErrorGlyph (e, bounds);
+
+            // The new row's header carries the asterisk upstream draws there (W6 mechanisms).
+            if (row.IsNewRow)
+                e.Canvas.DrawText ("*", bounds, control, ContentAlignment.MiddleCenter, maxLines: 1);
         }
 
         /// <summary>
