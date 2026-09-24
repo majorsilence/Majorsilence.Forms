@@ -41,6 +41,72 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (1, host.ShowCount);
         }
 
+        // A bottom-aligned tab strip must sit flush against the bottom of its TabControl from the
+        // FIRST layout, not from the first thing that happens to trigger a second one.
+        //
+        // The strip settles its own wrap -- and its own height -- inside OnLayout, which the parent
+        // runs as part of its layout pass, after the dock pass has already placed the strip from the
+        // height it had on entry. Early passes run before the TabControl is sized, so the tabs wrap
+        // against a zero width and the strip arrives three rows (93px) tall; the dock pass then puts
+        // it at Bottom-93 and the strip promptly shrinks to one 31px row, leaving the headers floating
+        // 62px above the bottom edge. The parent never re-docks it: SetBoundsCore's request lands
+        // while the parent is mid-pass, so it only sets LayoutDeferred, and the parent clears that
+        // flag as the pass unwinds. Clicking a tab was simply the first thing to force a fresh
+        // top-level layout, which made a pure layout defect look like a selection one.
+        [Fact]
+        public void Bottom_aligned_tab_headers_sit_on_the_bottom_edge_before_any_selection_change ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { Size = new Size (600, 400) };
+            var tabs = new TabControl { Dock = DockStyle.Fill, Alignment = TabAlignment.Bottom };
+            tabs.TabPages.Add (new TabPage ("Invoices"));
+            tabs.TabPages.Add (new TabPage ("Details"));
+            tabs.TabPages.Add (new TabPage ("Address"));
+            form.Controls.Add (tabs);
+            form.Show ();
+
+            Assert.Equal (tabs.Height, tabs.GetTabRect (0).Bottom);
+        }
+
+        // ...and selecting a tab must not move them, in either direction.
+        [Fact]
+        public void Selecting_a_tab_does_not_move_a_bottom_aligned_header_strip ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { Size = new Size (600, 400) };
+            var tabs = new TabControl { Dock = DockStyle.Fill, Alignment = TabAlignment.Bottom };
+            tabs.TabPages.Add (new TabPage ("Invoices"));
+            tabs.TabPages.Add (new TabPage ("Details"));
+            tabs.TabPages.Add (new TabPage ("Address"));
+            form.Controls.Add (tabs);
+            form.Show ();
+
+            var before = tabs.GetTabRect (1);
+            tabs.SelectedIndex = 1;
+
+            Assert.Equal (before, tabs.GetTabRect (1));
+        }
+
+        // The same for the other edge whose position is derived from the strip's own measurement: a
+        // right-aligned strip takes the width of its widest tab, so a self-resize there has to hold
+        // the right edge the dock pass anchored it to.
+        [Fact]
+        public void Right_aligned_tab_headers_sit_on_the_right_edge_before_any_selection_change ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { Size = new Size (600, 400) };
+            var tabs = new TabControl { Dock = DockStyle.Fill, Alignment = TabAlignment.Right };
+            tabs.TabPages.Add (new TabPage ("Invoices"));
+            tabs.TabPages.Add (new TabPage ("Details"));
+            form.Controls.Add (tabs);
+            form.Show ();
+
+            Assert.Equal (tabs.Width, tabs.GetTabRect (0).Right);
+        }
+
         // Hiding and showing again is a real show, not a repeat: the guard must key on current
         // visibility rather than "has ever been shown".
         [Fact]

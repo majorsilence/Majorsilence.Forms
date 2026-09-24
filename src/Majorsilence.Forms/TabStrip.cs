@@ -169,7 +169,32 @@ namespace Majorsilence.Forms
             // Grow (or shrink) the strip to fit every row; no-op while the row count is stable.
             var desired = RowCount * row_height;
             if (Height != desired)
-                Height = desired;
+                ResizeKeepingDockedEdge (Width, desired);
+        }
+
+        // The strip measures its own wrapped size here, from inside OnLayout -- which the parent runs
+        // as part of ITS layout pass, after the dock pass has already positioned the strip from the
+        // size it had on entry. That entry size is routinely stale: the first passes run before the
+        // TabControl is sized, so the tabs wrap against a zero width and the strip comes out of them
+        // several rows tall. A bottom-docked element is placed at (container.Bottom - Height), so
+        // shrinking the height afterwards moves the strip's bottom edge off the container's and leaves
+        // the header floating above it -- 62px up, for a 93px three-row measurement settling back to
+        // one 31px row. Nothing corrects it: the resize asks the parent to lay out again, but the
+        // parent is mid-pass, so PerformLayout only records LayoutDeferred and then clears that very
+        // flag when the pass it is nested in unwinds. The first thing to trigger a fresh top-level
+        // layout -- clicking a tab, a resize -- snapped the strip into place, which made this look like
+        // a selection bug.
+        //
+        // The dock pass anchors the edge it docks to (Bottom pins Bottom, Right pins Right), so
+        // holding that edge across the resize puts the strip exactly where the pass intended and the
+        // discarded re-layout stops mattering. Top/Left dock to the origin, which a resize cannot
+        // move, so they keep the plain assignment.
+        private void ResizeKeepingDockedEdge (int width, int height)
+        {
+            var x = Dock == DockStyle.Right ? Right - width : Left;
+            var y = Dock == DockStyle.Bottom ? Bottom - height : Top;
+
+            SetBounds (x, y, width, height);
         }
 
         // Alignment = Left/Right: one column of full-width tabs, and the strip takes the width of the
@@ -186,7 +211,7 @@ namespace Majorsilence.Forms
                 Tabs[i].SetBounds (0, i * rowHeight, width, rowHeight);
 
             if (Tabs.Count > 0 && Width != width)
-                Width = width;
+                ResizeKeepingDockedEdge (width, Height);
         }
 
         // A tab's laid-out width: its measured preferred width, or the fixed one when the owner asked
