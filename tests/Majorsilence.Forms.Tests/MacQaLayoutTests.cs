@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Linq;
 using Majorsilence.Forms.Headless;
 using Xunit;
 
@@ -67,6 +68,85 @@ namespace Majorsilence.Forms.Tests
             form.Show ();
 
             Assert.Equal (tabs.Height, tabs.GetTabRect (0).Bottom);
+        }
+
+        // A layout that was requested, deferred and then abandoned still has to run, because only this
+        // control's own layout pass can position the strip and, left alone, nothing ever asks for that
+        // pass at a moment it can run.
+        //
+        // This is the designer's shape: the bounds are assigned inside SuspendLayout/ResumeLayout(false),
+        // so the requests are recorded as LayoutDeferred rather than performed, and ResumeLayout(false)
+        // by contract does not perform them on the way out. A form's closing PerformLayout lays out the
+        // FORM's children rather than ours, and a TabControl given designer bounds is never resized
+        // again, so OnResize -- the usual trigger -- never fires either. Resizing the window does not
+        // reach it.
+        //
+        // Undocked, the strip keeps what LayoutTabs gave it, measured against the strip's own 600x31
+        // default instead of the container: for a bottom-aligned strip that is near the TOP, at
+        // (0, 13, 600, 18) on an 864-wide control, with the page showing through to its right. The
+        // first selection change was the first thing to run the pass, which moved the whole header row
+        // to the bottom -- so this presented as a click bug rather than a layout one.
+        //
+        // No form and no parent layout here on purpose: that is the whole point.
+        [Fact]
+        public void An_abandoned_layout_still_docks_the_header_strip ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var tabs = new TabControl { Alignment = TabAlignment.Bottom, ItemSize = new Size (80, 18) };
+            tabs.SuspendLayout ();
+            tabs.TabPages.Add (new TabPage ("Invoices"));
+            tabs.TabPages.Add (new TabPage ("Details"));
+            tabs.TabPages.Add (new TabPage ("Address"));
+            tabs.Size = new Size (864, 399);
+            tabs.ResumeLayout (false);
+
+            tabs.CreateControl ();
+
+            Assert.Equal (tabs.Height, tabs.GetTabRect (0).Bottom);
+            Assert.Equal (tabs.Width, tabs.TabStrip.Width);
+        }
+
+        // The same abandoned pass, in the two other shapes that carry an implicit docked child. A
+        // Ribbon holds a tab strip like a TabControl's; a WebBrowser holds a Dock=Fill view host.
+        // Neither is placed by anything but its owner's layout, so both came out at their constructed
+        // defaults -- the strip 600 wide whatever the Ribbon's width, the host a 0x0 nothing.
+        //
+        // Not every implicit child is affected, and the difference is worth recording: a scroll bar is
+        // created hidden, the dock pass correctly skips hidden children, and showing one lays it out
+        // then and there. Those self-correct at the only moment they matter. These do not.
+        [Fact]
+        public void A_ribbon_built_the_designer_way_still_sizes_its_tab_strip ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var ribbon = new Ribbon ();
+            ribbon.SuspendLayout ();
+            ribbon.Size = new Size (400, 300);
+            ribbon.ResumeLayout (false);
+
+            ribbon.CreateControl ();
+
+            var strip = ribbon.Controls.GetAllControls (true).OfType<TabStrip> ().Single ();
+
+            Assert.Equal (ribbon.Width, strip.Width);
+        }
+
+        [Fact]
+        public void A_web_browser_built_the_designer_way_still_fills_its_host ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var browser = new WebBrowser ();
+            browser.SuspendLayout ();
+            browser.Size = new Size (400, 300);
+            browser.ResumeLayout (false);
+
+            browser.CreateControl ();
+
+            var host = browser.Controls.GetAllControls (true).Single (c => c.Dock == DockStyle.Fill);
+
+            Assert.Equal (new Size (400, 300), host.Size);
         }
 
         // ...and selecting a tab must not move them, in either direction.
