@@ -3340,6 +3340,8 @@ namespace Majorsilence.Forms
         // Bound: a new item is added to the source (IBindingList.AddNew, else the element type's
         // constructor) and the row that represents it is the one promoted; the placeholder's cells --
         // what DefaultValuesNeeded put there -- are pushed into the item first.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072",
+            Justification = "The bound list's element type is the application's, created by reflection exactly as BindingSource.AddNew creates it upstream; a trimmed constructor degrades to the exception this method already throws.")]
         private DataGridViewRow PromoteNewRow ()
         {
             var placeholder = NewRowPlaceholder;
