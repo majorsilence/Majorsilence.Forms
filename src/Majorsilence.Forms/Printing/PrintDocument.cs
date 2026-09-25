@@ -40,6 +40,10 @@ namespace Majorsilence.Forms.Printing
         public event EventHandler<QueryPageSettingsEventArgs>? QueryPageSettings;
 
         /// <summary>Gets or sets whether the origin of the graphics object is at the user-defined margins. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the page's drawing origin sits at the margin corner.</summary>
+        /// <remarks>Real as of W6 mechanisms: on, the page canvas is translated to the margin corner
+        /// before <c>PrintPage</c> runs and <see cref="PrintPageEventArgs.MarginBounds"/> is reported
+        /// relative to that origin, so a handler drawing at (0, 0) starts inside the margin.</remarks>
         public bool OriginAtMargins { get; set; }
 
         /// <summary>Raises the PrintPage event.</summary>
@@ -116,45 +120,125 @@ namespace Majorsilence.Forms.Printing
             // Scale so the caller can draw in pixel units while the PDF is sized in points.
             var scale = 72f / dpi;
 
-            OnBeginPrint (EventArgs.Empty);
+            using var document = SKDocument.CreatePdf (stream);
 
-            using (var document = SKDocument.CreatePdf (stream)) {
-                var page = 0;
-                bool has_more;
+            WalkPages (PrintAction.PrintToFile, settings, dpi, page_bounds, margin_bounds, () => {
+                var page_canvas = document.BeginPage (width_points, height_points);
+                page_canvas.Scale (scale);
+                return (page_canvas, () => document.EndPage ());
+            });
 
-                do {
-                    // Upstream asks before every page; a cancelled query ends the job (W6.1 sweep).
-                    var query = new QueryPageSettingsEventArgs (settings);
-                    OnQueryPageSettings (query);
+            document.Close ();
+        }
 
+        /// <summary>
+        /// Walks the document's pages through <see cref="PrintController"/> without producing a PDF:
+        /// the controller supplies the surface each page is drawn into, which is how
+        /// <see cref="PreviewPrintController"/> captures them (W6 mechanisms).
+        /// </summary>
+        internal void RunThroughController (PrintAction action)
+        {
+            var settings = DefaultPageSettings;
+            var dpi = settings.Dpi <= 0 ? 96f : settings.Dpi;
+            var width_px = settings.EffectiveWidthHundredths / 100f * dpi;
+            var height_px = settings.EffectiveHeightHundredths / 100f * dpi;
+            var margin_left = settings.Margins.Left / 100f * dpi;
+            var margin_top = settings.Margins.Top / 100f * dpi;
 
-                    if (query.Cancel)
-                        break;
+            WalkPages (action, settings, dpi,
+                new RectangleF (0, 0, width_px, height_px),
+                new RectangleF (margin_left, margin_top,
+                    width_px - margin_left - settings.Margins.Right / 100f * dpi,
+                    height_px - margin_top - settings.Margins.Bottom / 100f * dpi),
+                beginPage: null);
+        }
 
-                    var page_canvas = document.BeginPage (width_points, height_points);
-                    page_canvas.Scale (scale);
+        // The page walk both print paths share. `beginPage` supplies the PDF page canvas when there is
+        // a PDF to write; the PrintController is offered every page first and its Graphics wins, which
+        // is what makes a preview controller a real destination (W6 mechanisms). OriginAtMargins moves
+        // the canvas origin to the margin corner, as upstream's does, so a handler that draws at (0,0)
+        // starts inside the margin and MarginBounds is reported relative to that origin.
+        private void WalkPages (PrintAction action, PageSettings settings, float dpi,
+            RectangleF pageBounds, RectangleF marginBounds, Func<(SKCanvas Canvas, Action End)>? beginPage)
+        {
+            var controller = PrintController;
+            var start = new PrintEventArgs { PrintAction = action };
 
-                    var graphics = new SkiaGraphics (page_canvas) { DpiX = dpi, DpiY = dpi };
-                    var e = new PrintPageEventArgs (graphics, margin_bounds, page_bounds, settings);
+            OnBeginPrint (start);
+            controller?.OnStartPrint (this, start);
 
-                    OnPrintPage (e);
-
-                    document.EndPage ();
-
-                    if (e.Cancel)
-                        break;
-
-                    has_more = e.HasMorePages;
-                    page++;
-                } while (has_more && page < MaxPages);
-
-                document.Close ();
+            if (start.Cancel) {
+                var cancelled = new PrintEventArgs { PrintAction = action };
+                controller?.OnEndPrint (this, cancelled);
+                OnEndPrint (cancelled);
+                return;
             }
 
-            OnEndPrint (EventArgs.Empty);
+            var reported_margins = OriginAtMargins
+                ? new RectangleF (0, 0, marginBounds.Width, marginBounds.Height)
+                : marginBounds;
+
+            // A throwaway surface for the args the controller is offered when there is no PDF page to
+            // draw into: PreviewPrintController reads the page geometry from them and answers with a
+            // surface of its own, which is then what the page is drawn on.
+            using var probe_bitmap = new SKBitmap (1, 1);
+            using var probe_canvas = new SKCanvas (probe_bitmap);
+
+            var page = 0;
+            bool has_more;
+
+            do {
+                // Upstream asks before every page; a cancelled query ends the job (W6.1 sweep).
+                var query = new QueryPageSettingsEventArgs (settings);
+                OnQueryPageSettings (query);
+
+                if (query.Cancel)
+                    break;
+
+                var pdf_page = beginPage?.Invoke ();
+                var pdf_canvas = pdf_page?.Canvas;
+
+                // The args are built first so the controller sees the page geometry, then rebuilt on
+                // the controller's own surface when it supplies one.
+                var e = pdf_canvas is null
+                    ? null
+                    : new PrintPageEventArgs (new SkiaGraphics (pdf_canvas) { DpiX = dpi, DpiY = dpi }, reported_margins, pageBounds, settings);
+
+                var probe = e ?? new PrintPageEventArgs (new SkiaGraphics (probe_canvas) { DpiX = dpi, DpiY = dpi }, reported_margins, pageBounds, settings);
+                var supplied = controller?.OnStartPage (this, probe);
+
+                if (supplied?.Canvas is { } surface)
+                    e = new PrintPageEventArgs (new SkiaGraphics (surface) { DpiX = dpi, DpiY = dpi }, reported_margins, pageBounds, settings);
+
+                if (e is null)
+                    break;
+
+                if (OriginAtMargins)
+                    e.SkiaGraphics.Canvas.Translate (marginBounds.Left, marginBounds.Top);
+
+                OnPrintPage (e);
+
+                controller?.OnEndPage (this, e);
+                pdf_page?.End ();
+                supplied?.Dispose ();
+
+                if (e.Cancel)
+                    break;
+
+                has_more = e.HasMorePages;
+                page++;
+            } while (has_more && page < MaxPages);
+
+            var end = new PrintEventArgs { PrintAction = action };
+            controller?.OnEndPrint (this, end);
+            OnEndPrint (end);
         }
 
         /// <summary>Gets or sets the print controller. Stored but not used in Majorsilence.Forms — the PDF pipeline is always used.</summary>
+        /// <summary>Gets or sets the controller every page of a job is routed through.</summary>
+        /// <remarks>Read as of W6 mechanisms: the controller is told when a job starts and ends, is
+        /// offered every page, and may supply the surface the page is drawn into -- which is how
+        /// <see cref="PreviewPrintController"/> captures pages for <see cref="PrintPreviewControl"/>.</remarks>
         public PrintController PrintController { get; set; } = new StandardPrintController ();
 
         private static string MakeSafeFileName (string name)
@@ -241,6 +325,8 @@ namespace Majorsilence.Forms.Printing
         public override bool IsPreview => true;
 
         /// <summary>Gets or sets whether previewed pages are rendered with anti-aliasing.</summary>
+        /// <remarks>Read by <see cref="PrintPreviewControl"/> as of W6 mechanisms: it picks the
+        /// sampling the captured page bitmaps are scaled with.</remarks>
         public bool UseAntiAlias { get; set; }
 
         /// <summary>Returns the pages captured during the last print job.</summary>
@@ -290,6 +376,10 @@ namespace Majorsilence.Forms.Printing
     public class PrintEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Gets the reason the print operation occurred.</summary>
+        /// <summary>The kind of print job this is.</summary>
+        /// <remarks>Set by the document as it starts a job as of W6 mechanisms: <c>PrintToPreview</c>
+        /// when the run is feeding a preview controller, else <c>PrintToFile</c> -- there is no
+        /// spooler here, so a real printer destination never arises.</remarks>
         public PrintAction PrintAction { get; internal set; } = PrintAction.PrintToFile;
     }
 

@@ -258,8 +258,21 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the number of pixels the splitter moves when incremented via keyboard. Stub in Majorsilence.Forms.</summary>
-        public int SplitterIncrement { get; set; } = 1;
+        /// <summary>Gets or sets the step, in logical pixels, a drag moves the splitter by.</summary>
+        /// <remarks>Real as of W6 mechanisms: a drag is rounded down to a whole number of steps from
+        /// where it began, as upstream's <c>SplitMove</c> does, so a container asking for a 10-pixel
+        /// increment snaps to a grid instead of following the pointer exactly.</remarks>
+        public int SplitterIncrement {
+            get => splitter_increment;
+            set => splitter_increment = Math.Max (1, value);
+        }
+
+        private int splitter_increment = 1;
+
+        // Where the splitter sat when the current drag began, so the increment is measured from the
+        // start of the drag rather than from the previous move (upstream measures the same way).
+        private int drag_origin_distance = -1;
+
 
         /// <summary>Raised when the splitter has finished being moved.</summary>
         public event EventHandler<SplitterEventArgs>? SplitterMoved;
@@ -311,9 +324,18 @@ namespace Majorsilence.Forms
 
             var vertical = orientation == Orientation.Vertical;
             var before = SplitterDistance;
+
+            if (drag_origin_distance < 0)
+                drag_origin_distance = before;
+
             var proposed = before - (vertical
                 ? (int)(e.Value.X / ScaleFactor.Width)
                 : (int)(e.Value.Y / ScaleFactor.Height));
+
+            // SplitterIncrement (W6 mechanisms): the move is rounded down to whole steps measured from
+            // where this drag started.
+            if (splitter_increment > 1)
+                proposed -= (proposed - drag_origin_distance) % splitter_increment;
 
             // LAY-03: SplitterMoving is cancellable in WinForms and a handler may rewrite SplitX or
             // SplitY to steer the split elsewhere. Both events were declared here, and the drag path
@@ -340,6 +362,9 @@ namespace Majorsilence.Forms
         // persist the layout the user has just chosen, and not on every intermediate move.
         private void Splitter_MouseUp (object? sender, MouseEventArgs e)
         {
+            // The next drag measures its increment from wherever the splitter ends up.
+            drag_origin_distance = -1;
+
             if (!split_moved_by_drag)
                 return;
 

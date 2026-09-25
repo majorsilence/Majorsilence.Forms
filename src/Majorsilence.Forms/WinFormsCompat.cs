@@ -2411,7 +2411,10 @@ namespace Majorsilence.Forms
             Stretch = true;
         }
 
-        /// <summary>Gets or sets the ToolStripMenuItem for the MDI window list. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the ToolStripMenuItem that holds the MDI window list.</summary>
+        /// <remarks>Real as of W6 mechanisms: opening that item refills it with one entry per MDI child
+        /// of the strip's form, checked for the active one and activating it when clicked. The same
+        /// mechanism serves the legacy <see cref="MenuItem.MdiList"/> flag.</remarks>
         public ToolStripMenuItem? MdiWindowListItem { get; set; }
     }
 

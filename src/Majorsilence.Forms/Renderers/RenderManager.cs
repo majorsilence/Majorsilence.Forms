@@ -25,6 +25,7 @@
             SetRenderer<NavigationPane> (new NavigationPaneRenderer ());
             SetRenderer<Panel> (new PanelRenderer ());
             SetRenderer<PictureBox> (new PictureBoxRenderer ());
+            SetRenderer<PrintPreviewControl> (new PrintPreviewRenderer ());
             SetRenderer<ProgressBar> (new ProgressBarRenderer ());
             SetRenderer<RadioButton> (new RadioButtonRenderer ());
             SetRenderer<Ribbon> (new RibbonRenderer ());

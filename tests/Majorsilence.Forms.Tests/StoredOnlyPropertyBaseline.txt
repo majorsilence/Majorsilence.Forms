@@ -235,7 +235,7 @@ Majorsilence.Forms.Form.AutoScale    -- legacy .NET 1.x autoscale; AutoScaleMode
 Majorsilence.Forms.Form.AutoScaleBaseSize    -- legacy .NET 1.x autoscale; AutoScaleMode/Dimensions are the live path
 Majorsilence.Forms.Form.AutoSizeMode    -- a top-level window has no parent to size or anchor against; AutoSize is a stub
 Majorsilence.Forms.Form.FormScreenCaptureMode    -- Win32 handle/window-class detail; no equivalent here
-Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom    -- MDI child minimisation / window list are not modelled
+Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom    -- MDI child minimisation is not modelled; the window list is real as of W6 mechanisms
 Majorsilence.Forms.Form.Modal    -- framework-written (outbound state)
 Majorsilence.Forms.Form.TransparencyKey    -- needs a backend window capability (per-pixel transparency / shadow)
 Majorsilence.Forms.GiveFeedbackEventArgs.CursorOffset    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
@@ -259,7 +259,6 @@ Majorsilence.Forms.ImageList.ColorDepth    -- Win32 handle/window-class detail; 
 Majorsilence.Forms.ImageList.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.Label.LiveSetting    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.Label.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
-Majorsilence.Forms.LinkLabel+Link.LinkData    -- framework-written (outbound state)
 Majorsilence.Forms.LinkLabel+Link.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- .NET 1.1 state-image behaviour switch; neither behaviour is implemented (W6.2 ListView slice)
 Majorsilence.Forms.ListViewGroup.Name    -- framework-written (outbound state)
@@ -270,7 +269,6 @@ Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat    -- mask-engine option for 
 Majorsilence.Forms.MaskedTextBox.RejectInputOnFirstFailure    -- mask-engine option for paste/copy paths that take the default
 Majorsilence.Forms.Media.SoundPlayer.LoadTimeout    -- loads are synchronous
 Majorsilence.Forms.Media.SoundPlayer.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.MenuStrip.MdiWindowListItem    -- MDI child minimisation / window list are not modelled
 Majorsilence.Forms.Message.HWnd    -- framework-written (outbound state)
 Majorsilence.Forms.Message.Result    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.MonthCalendar.AnnuallyBoldedDates    -- framework-written (outbound state)
@@ -301,19 +299,9 @@ Majorsilence.Forms.PrintDialog.PrintToFile    -- framework-written (outbound sta
 Majorsilence.Forms.PrintDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.ShowNetwork    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.UseEXDialog    -- framework-written (outbound state)
-Majorsilence.Forms.PrintPreviewControl.AutoZoom    -- the preview control has no page renderer yet
-Majorsilence.Forms.PrintPreviewControl.Columns    -- the preview control has no page renderer yet
-Majorsilence.Forms.PrintPreviewControl.Document    -- the preview control has no page renderer yet
-Majorsilence.Forms.PrintPreviewControl.Rows    -- the preview control has no page renderer yet
-Majorsilence.Forms.PrintPreviewControl.UseAntiAlias    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
-Majorsilence.Forms.PrintPreviewControl.Zoom    -- the preview control has no page renderer yet
-Majorsilence.Forms.PrintPreviewDialog.UseAntiAlias    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
-Majorsilence.Forms.PrintPreviewDialog.UseWaitCursor    -- the preview control has no page renderer yet
 Majorsilence.Forms.Printing.PaperSize.PaperName    -- framework-written (outbound state)
-Majorsilence.Forms.Printing.PreviewPrintController.UseAntiAlias    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
-Majorsilence.Forms.Printing.PrintDocument.OriginAtMargins    -- needs the page canvas origin moved to the margin; PrintPage draws in page coordinates today
-Majorsilence.Forms.Printing.PrintDocument.PrintController    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
-Majorsilence.Forms.Printing.PrintEventArgs.PrintAction    -- one print controller (PDF); BeginPrint/EndPrint take EventArgs here
+Majorsilence.Forms.Printing.PreviewPrintController.UseAntiAlias    -- framework-written (outbound state)
+Majorsilence.Forms.Printing.PrintEventArgs.PrintAction    -- framework-written (outbound state)
 Majorsilence.Forms.ProfessionalColorTable.UseSystemColors    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.PropertyGrid.BrowsableAttributes    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
 Majorsilence.Forms.PropertyGrid.CanShowVisualStyleGlyphs    -- GDI/visual-styles rendering switch; one text and theme pipeline here
@@ -362,27 +350,14 @@ Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange    -- Win32 handle/windo
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Bottom    -- framework-written (outbound state)
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Left    -- framework-written (outbound state)
 Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Right    -- framework-written (outbound state)
-Majorsilence.Forms.SplitContainer.AutoScrollMargin    -- the split panels do not scroll
-Majorsilence.Forms.SplitContainer.AutoScrollMinSize    -- the split panels do not scroll
-Majorsilence.Forms.SplitContainer.AutoScrollPosition    -- the split panels do not scroll
-Majorsilence.Forms.SplitContainer.SplitterIncrement    -- the split panels do not scroll
+Majorsilence.Forms.SplitContainer.AutoScrollMargin    -- upstream's SplitContainer answers false from AutoScroll whatever is assigned, so the container never scrolls; the panels do, through their own
+Majorsilence.Forms.SplitContainer.AutoScrollMinSize    -- see AutoScrollMargin: the container does not scroll
+Majorsilence.Forms.SplitContainer.AutoScrollPosition    -- see AutoScrollMargin: the container does not scroll
 Majorsilence.Forms.StatusBarPanel.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.TabPage.UseVisualStyleBackColor    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.TabStripItem.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.TaskDialogButton.ShowShieldIcon    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
-Majorsilence.Forms.TaskDialogCommandLinkButton.DescriptionText    -- framework-written (outbound state)
 Majorsilence.Forms.TaskDialogControl.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.TaskDialogExpander.Position    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
-Majorsilence.Forms.TaskDialogFootnote.Icon    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
 Majorsilence.Forms.TaskDialogPage.BoundDialog    -- framework-written (outbound state)
-Majorsilence.Forms.TaskDialogPage.EnableLinks    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
-Majorsilence.Forms.TaskDialogPage.RightToLeftLayout    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
-Majorsilence.Forms.TaskDialogPage.SizeToContent    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
-Majorsilence.Forms.TaskDialogProgressBar.MarqueeSpeed    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
-Majorsilence.Forms.TaskDialogProgressBar.Maximum    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
-Majorsilence.Forms.TaskDialogProgressBar.Minimum    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
-Majorsilence.Forms.TaskDialogProgressBar.State    -- framework-written (outbound state)
-Majorsilence.Forms.TaskDialogProgressBar.Value    -- the built dialog has fixed size, no links, icons, shields or progress bar yet
 Majorsilence.Forms.Timer.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.ToolBarButton.Name    -- legacy ToolBar.Buttons surface; strips here are ToolStrip items, and the legacy buttons are not rendered
 Majorsilence.Forms.ToolBarButton.Rectangle    -- framework-written (outbound state)
