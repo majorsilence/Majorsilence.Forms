@@ -188,12 +188,11 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
-        // ActiveLinkColor stays in the stored-only baseline ON PURPOSE. WinForms uses it while the
-        // link is held down, and nothing in this layer tracks a pressed strip item -- MenuBase handles
-        // MouseMove and MouseLeave and no button state at all. This test pins the reason rather than
-        // the pixel: if a press state is ever added, it should fail and be replaced by a real one.
+        // ActiveLinkColor draws while the link is held down: the strip tracks the pressed item from
+        // its mouse-down to the release (W6 mechanisms). This replaces the test that pinned the
+        // absence of a pressed state.
         [Fact]
-        public void ActiveLinkColor_has_no_pressed_state_to_apply_to ()
+        public void ActiveLinkColor_is_drawn_while_the_link_is_pressed ()
         {
             var label = Label (out var form, out var strip);
 
@@ -201,12 +200,20 @@ namespace Majorsilence.Forms.Tests
                 label.IsLink = true;
                 label.LinkColor = Color.Red;
                 label.ActiveLinkColor = Color.Lime;
+                PaintSurface.Render (strip).Dispose ();
 
-                Assert.False (HasPixel (strip, label, p => p.Green > 180 && p.Red < 90 && p.Blue < 90),
-                    "ActiveLinkColor was drawn -- if a pressed state now exists, wire it properly and " +
-                    "replace this test.");
+                static bool Lime (SkiaSharp.SKColor p) => p.Green > 180 && p.Red < 90 && p.Blue < 90;
 
-                Assert.DoesNotContain (typeof (MenuItem).GetProperties (), p => p.Name is "Pressed");
+                Assert.False (HasPixel (strip, label, Lime), "ActiveLinkColor drawn before any press");
+
+                var centre = new Point (label.Bounds.Left + label.Bounds.Width / 2, label.Bounds.Top + label.Bounds.Height / 2);
+                strip.RaiseMouseDown (new MouseEventArgs (MouseButtons.Left, 1, centre.X, centre.Y, Point.Empty));
+                Assert.True (label.Pressed);
+                Assert.True (HasPixel (strip, label, Lime), "ActiveLinkColor not drawn while pressed");
+
+                strip.RaiseMouseUp (new MouseEventArgs (MouseButtons.Left, 1, centre.X, centre.Y, Point.Empty));
+                Assert.False (label.Pressed);
+                Assert.False (HasPixel (strip, label, Lime), "ActiveLinkColor still drawn after the release");
             }
         }
 

@@ -736,7 +736,11 @@ namespace Majorsilence.Forms
             Context = context;
         }
 
-        /// <summary>Gets or sets whether the exception should be suppressed (no further DataError notification for this operation).</summary>
+        /// <summary>
+        /// Whether the operation that failed is cancelled. For a commit the grid raises this with
+        /// <c>true</c>, which keeps the cell in edit mode; a handler that sets it to <c>false</c> has
+        /// the edit abandoned and the previous value restored, as upstream does (W6 mechanisms).
+        /// </summary>
         public bool Cancel { get; set; }
 
         /// <summary>Gets the exception that caused the error.</summary>

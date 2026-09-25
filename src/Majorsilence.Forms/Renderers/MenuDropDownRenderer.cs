@@ -32,6 +32,12 @@ namespace Majorsilence.Forms.Renderers
                     RenderItem (control, item, e);
             }
 
+            // BarBreak bars between the columns (W6 mechanisms).
+            foreach (var bar in control.ColumnBars) {
+                var x = e.LogicalToDeviceUnits (bar);
+                e.Canvas.DrawLine (x, e.LogicalToDeviceUnits (2), x, control.ClientRectangle.Height - e.LogicalToDeviceUnits (2), Theme.BorderMidColor);
+            }
+
             StripRendererBridge.Border (control, e);
         }
 

@@ -911,13 +911,20 @@ namespace Majorsilence.Forms
 
         /// <summary>Shows a message box with the specified text, caption, buttons, and icon.</summary>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+            => Show (text, caption, buttons, icon, DefaultButton, MessageBoxOptions.None);
+
+        // Every overload lands here (W6 mechanisms). The icon, the default button and the alignment
+        // options used to be accepted and dropped: the dialog showed no glyph, put Enter on the first
+        // button whatever the caller asked, and ignored RightAlign/RtlReading.
+        private static DialogResult ShowCore (Form? owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options)
         {
             // Prefer the innermost currently-shown modal dialog over the earliest-opened window: an
             // error box raised from code running inside an already-modal dialog must appear over
             // that dialog, not behind it against the (input-blocked, likely out-of-view) main
             // window -- which reads as a silent hang. See Application.ModalStack.
-            var parent = Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
-            var form = new MessageBoxForm (caption, text, buttons);
+            var parent = owner ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            var form = new MessageBoxForm (caption, text, buttons, icon, defaultButton, options);
 
             // With no open form this used to Show () and answer OK without waiting -- so a MessageBox
             // put up before Application.Run (a startup error, a "continue?" prompt) was answered for
@@ -934,27 +941,27 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
             MessageBoxDefaultButton defaultButton, MessageBoxOptions options, bool displayHelpButton)
-            => Show (text, caption, buttons, icon, defaultButton);
+            => Show (text, caption, buttons, icon, defaultButton, options);
 
         /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
             MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath)
-            => Show (text, caption, buttons, icon, defaultButton);
+            => Show (text, caption, buttons, icon, defaultButton, options);
 
         /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
             MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, string keyword)
-            => Show (text, caption, buttons, icon, defaultButton);
+            => Show (text, caption, buttons, icon, defaultButton, options);
 
         /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
             MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator)
-            => Show (text, caption, buttons, icon, defaultButton);
+            => Show (text, caption, buttons, icon, defaultButton, options);
 
         /// <inheritdoc cref="Show(string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
             MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator, object param)
-            => Show (text, caption, buttons, icon, defaultButton);
+            => Show (text, caption, buttons, icon, defaultButton, options);
 
         // The IWin32Window-owned forms. Control and Form both implement that interface here, so the
         // owner is resolved rather than discarded.
@@ -962,28 +969,33 @@ namespace Majorsilence.Forms
         /// <summary>Shows a message box owned by the given window.</summary>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
             MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options)
-            => Show ((owner as Form)!, text, caption, buttons, icon);
+            => ShowCore (OwnerForm (owner), text, caption, buttons, icon, defaultButton, options);
+
+        // See the no-owner overload for why ActiveModalForm is preferred when the passed owner does
+        // not itself resolve to a Form.
+        private static Form? OwnerForm (IWin32Window? owner)
+            => owner as Form ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
 
         /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
             MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath)
-            => Show ((owner as Form)!, text, caption, buttons, icon);
+            => ShowCore (OwnerForm (owner), text, caption, buttons, icon, defaultButton, options);
 
         /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
             MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, string keyword)
-            => Show ((owner as Form)!, text, caption, buttons, icon);
+            => ShowCore (OwnerForm (owner), text, caption, buttons, icon, defaultButton, options);
 
         /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
             MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath, HelpNavigator navigator)
-            => Show ((owner as Form)!, text, caption, buttons, icon);
+            => ShowCore (OwnerForm (owner), text, caption, buttons, icon, defaultButton, options);
 
         /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
             MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options, string helpFilePath,
             HelpNavigator navigator, object param)
-            => Show ((owner as Form)!, text, caption, buttons, icon);
+            => ShowCore (OwnerForm (owner), text, caption, buttons, icon, defaultButton, options);
 
         /// <summary>Shows a message box with the specified owner form and text.</summary>
         public static DialogResult Show (Form owner, string text)
@@ -999,20 +1011,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Shows a message box with the specified owner form, text, caption, buttons, and icon.</summary>
         public static DialogResult Show (Form owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
-        {
-            var form = new MessageBoxForm (caption, text, buttons);
-            return form.ShowDialog (owner);
-        }
+            => ShowCore (owner, text, caption, buttons, icon, DefaultButton, MessageBoxOptions.None);
 
         /// <summary>Shows a message box with IWin32Window owner, text, caption, buttons, and icon.</summary>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
-        {
-            // See the no-owner overload above for why ActiveModalForm is preferred when the passed
-            // owner does not itself resolve to a Form.
-            var form = owner as Form ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
-            var msgForm = new MessageBoxForm (caption, text, buttons);
-            return form is not null ? msgForm.ShowDialog (form) : msgForm.ShowDialog ();
-        }
+            => ShowCore (OwnerForm (owner), text, caption, buttons, icon, DefaultButton, MessageBoxOptions.None);
 
         /// <summary>Shows a message box with IWin32Window owner.</summary>
         public static DialogResult Show (IWin32Window owner, string text)
@@ -1028,17 +1031,21 @@ namespace Majorsilence.Forms
 
         /// <summary>Shows a message box with text, caption, buttons, icon, and default button. Default button is ignored in Majorsilence.Forms.</summary>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxDefaultButton defaultButton)
-            => Show (text, caption, buttons, icon);
+            => Show (text, caption, buttons, icon, defaultButton, MessageBoxOptions.None);
 
         /// <summary>Shows a message box with text, caption, buttons, icon, default button, and options. Extras are ignored in Majorsilence.Forms.</summary>
         public static DialogResult Show (string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options)
-            => Show (text, caption, buttons, icon);
+            => ShowCore (null, text, caption, buttons, icon, defaultButton, options);
 
         /// <summary>Shows a message box with owner, text, caption, buttons, icon, and default button. Default button is ignored in Majorsilence.Forms.</summary>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxDefaultButton defaultButton)
-            => Show (owner, text, caption, buttons, icon);
+            => ShowCore (OwnerForm (owner), text, caption, buttons, icon, defaultButton, MessageBoxOptions.None);
 
-        /// <summary>Gets or sets the default desktop on which message boxes appear. Stub in Majorsilence.Forms.</summary>
+        /// <summary>
+        /// The default button the overloads that take none use. Not an upstream member: it mirrors the
+        /// designer-side setting so an application can pick, say, the safe "No" of a Yes/No prompt once
+        /// rather than at every call (read as of W6 mechanisms).
+        /// </summary>
         public static MessageBoxDefaultButton DefaultButton { get; set; } = MessageBoxDefaultButton.Button1;
     }
 
@@ -1201,7 +1208,11 @@ namespace Majorsilence.Forms
         private Majorsilence.Forms.Drawing.Image? _toolStripImage;
 
         /// <summary>Gets or sets how the image is aligned on the item.</summary>
-        public ContentAlignment ImageAlign { get; set; } = ContentAlignment.MiddleLeft;
+        /// <remarks>Read by the strip renderer as of W6 mechanisms, with upstream's default of
+        /// <c>MiddleCenter</c>: the vertical part places the image in every <see cref="TextImageRelation"/>,
+        /// and the horizontal part places it under <see cref="TextImageRelation.Overlay"/>, where the
+        /// text does not fix its side.</remarks>
+        public ContentAlignment ImageAlign { get; set; } = ContentAlignment.MiddleCenter;
 
         private int image_index = -1;
         private string image_key = string.Empty;
@@ -1392,8 +1403,13 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class ToolStripButton : ToolStripItem
     {
-        /// <summary>Gets or sets the color treated as transparent in the button image. Stored for compat.</summary>
-        public new System.Drawing.Color ImageTransparentColor { get; set; }
+        /// <summary>Gets or sets the color treated as transparent in the button image.</summary>
+        /// <remarks>The button's own value wins over the base item's; the renderer reads whichever is
+        /// set (W6 mechanisms).</remarks>
+        public new System.Drawing.Color ImageTransparentColor {
+            get => base.ImageTransparentColor;
+            set => base.ImageTransparentColor = value;
+        }
 
         /// <summary>Initializes a new instance of the ToolStripButton class.</summary>
         public ToolStripButton () { }
@@ -1581,10 +1597,10 @@ namespace Majorsilence.Forms
     public partial class ToolStripControlHost : ToolStripItem
     {
         /// <summary>Initializes a new instance hosting the specified control.</summary>
-        public ToolStripControlHost (Control control) { Control = control; }
+        public ToolStripControlHost (Control control) { Control = control; natural_size = control.Size; }
 
         /// <summary>Initializes a new instance hosting the specified control with the given name.</summary>
-        public ToolStripControlHost (Control control, string name) { Control = control; Name = name; }
+        public ToolStripControlHost (Control control, string name) { Control = control; Name = name; natural_size = control.Size; }
 
         /// <summary>Gets the hosted control.</summary>
         public Control Control { get; }
@@ -2947,7 +2963,7 @@ namespace Majorsilence.Forms
             get => _selectedIndex;
             set {
                 _selectedIndex = value < 0 || value >= Items.Count ? -1 : value;
-                Text = _selectedIndex >= 0 ? Items[_selectedIndex]?.ToString () ?? string.Empty : string.Empty;
+                SetFrameworkText (_selectedIndex >= 0 ? Items[_selectedIndex]?.ToString () ?? string.Empty : string.Empty);
                 Invalidate ();
             }
         }
@@ -3354,8 +3370,43 @@ namespace Majorsilence.Forms
             ColorTable = professionalColorTable;
         }
 
-        /// <summary>Gets or sets whether rounded borders are used. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether rounded borders are used.</summary>
+        /// <remarks>Read as of W6 mechanisms: the strip border this renderer draws along the bottom of a
+        /// <see cref="ToolStrip"/> has its two bottom corners cut when this is on, the shape upstream's
+        /// professional renderer gives a docked toolbar; off, the corners are square.</remarks>
         public bool RoundedEdges { get; set; } = true;
+
+        /// <inheritdoc/>
+        /// <remarks>Draws the bottom border of a plain <see cref="ToolStrip"/> in the colour table's
+        /// <c>ToolStripBorder</c>; menu and status strips, drop-downs and the panels keep their own
+        /// chrome, as upstream's <c>OnRenderToolStripBorder</c> leaves them.</remarks>
+        protected override void OnRenderToolStripBorder (ToolStripRenderEventArgs e)
+        {
+            if (e.ToolStrip is null || e.ToolStrip is MenuStrip || e.ToolStrip is StatusStrip || e.ToolStrip is ToolStripDropDown)
+                return;
+
+            var bounds = e.AffectedBounds;
+
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+                return;
+
+            // A Graphics line excludes its end point, so the runs are drawn to Right, and the single
+            // corner pixels are filled rather than drawn as zero-length lines.
+            using var pen = new Majorsilence.Forms.Drawing.Pen (ColorTable.ToolStripBorder);
+            using var brush = new Majorsilence.Forms.Drawing.SolidBrush (ColorTable.ToolStripBorder);
+            var bottom = bounds.Bottom - 1;
+
+            if (!RoundedEdges) {
+                e.Graphics.DrawLine (pen, bounds.Left, bottom, bounds.Right, bottom);
+                return;
+            }
+
+            // Cut corners: the line stops two pixels short of each end and a diagonal pixel joins it
+            // to the edge one row up, leaving the corner pixel itself unpainted.
+            e.Graphics.DrawLine (pen, bounds.Left + 2, bottom, bounds.Right - 2, bottom);
+            e.Graphics.FillRectangle (brush, bounds.Left + 1, bottom - 1, 1, 1);
+            e.Graphics.FillRectangle (brush, bounds.Right - 2, bottom - 1, 1, 1);
+        }
     }
 
     /// <summary>Provides a system-style renderer for ToolStrip. Stub in Majorsilence.Forms.</summary>
@@ -3845,7 +3896,7 @@ namespace Majorsilence.Forms
         public int BorderSize { get; set; } = 1;
 
         /// <summary>Gets or sets the background color when the mouse button is held down. Stub in Majorsilence.Forms.</summary>
-        public System.Drawing.Color MouseDownBackColor { get; set; } = System.Drawing.Color.Empty;
+        public System.Drawing.Color MouseDownBackColor { get; set; } = System.Drawing.Color.Empty;   // painted while Control.IsPressed (W6 mechanisms)
 
         /// <summary>Gets or sets the background color when the mouse is over the button. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Color MouseOverBackColor { get; set; } = System.Drawing.Color.Empty;

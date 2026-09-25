@@ -18,6 +18,19 @@ namespace Majorsilence.Forms
         private bool scrollbar_always_visible;
         private int top_index;
         private readonly VerticalScrollBar vscrollbar;
+
+        // W6 mechanisms: the horizontal scrollbar serves two layouts. A MultiColumn list scrolls by
+        // whole columns (its value is the first visible column); a single-column list with
+        // HorizontalScrollbar scrolls by device pixels across HorizontalExtent (its value is the
+        // pixel offset, kept in h_offset).
+        private readonly HorizontalScrollBar hscrollbar;
+        private int h_offset;
+        private bool multi_column;
+        private int column_width;
+        private bool horizontal_scrollbar;
+        private int horizontal_extent;
+        private bool integral_height = true;
+        private bool use_tab_stops = true;
         private object? _dataSource;
         private string _displayMember = string.Empty;
         private string _valueMember = string.Empty;
@@ -54,6 +67,19 @@ namespace Majorsilence.Forms
             vscrollbar.ValueChanged += VerticalScrollBar_ValueChanged;
 
             Controls.AddImplicitControl (vscrollbar);
+
+            hscrollbar = new HorizontalScrollBar {
+                Minimum = 0,
+                Maximum = 0,
+                SmallChange = 1,
+                LargeChange = 1,
+                Visible = false,
+                Dock = DockStyle.Bottom
+            };
+
+            hscrollbar.ValueChanged += HorizontalScrollBar_ValueChanged;
+
+            Controls.AddImplicitControl (hscrollbar);
         }
 
         /// <inheritdoc/>
@@ -132,6 +158,11 @@ namespace Majorsilence.Forms
                 if (value < 0 || value >= Items.Count)
                     return;
 
+                if (multi_column) {
+                    TopIndex = value;
+                    return;
+                }
+
                 vscrollbar.Value = Math.Min (value, vscrollbar.EffectiveMaximum);
             }
         }
@@ -175,14 +206,80 @@ namespace Majorsilence.Forms
             if (index < 0 || index >= Items.Count)
                 throw new ArgumentOutOfRangeException (nameof (index), "Index out of range.");
 
-            var client = ClientRectangle;
+            var client = ItemsArea;
+
+            // MultiColumn (W6 mechanisms): items run down each column and the columns run across, as
+            // upstream's LBS_MULTICOLUMN lays them; top_index is the first item of the first visible
+            // column. Nothing sub-row applies: the list scrolls sideways by whole columns.
+            if (multi_column) {
+                var rows = RowsPerColumn;
+                var column = index / rows - top_index / rows;
+                var row = index % rows;
+                var column_left = client.Left + column * ScaledColumnWidth;
+                var item_top = client.Top + row * ScaledItemHeight;
+
+                return new Rectangle (column_left, item_top, Math.Min (ScaledColumnWidth, Math.Max (0, client.Right - column_left)), ScaledItemHeight);
+            }
 
             // Subtract the sub-row touch-scroll offset so a fluid drag moves items by the pixel;
             // item[top_index] is then partly above client.Top and the renderer clips it there.
+            // h_offset (HorizontalScrollbar) slides every item left by the scrolled amount; the band
+            // grows by the same so a selection still reaches the right edge.
             var height = ItemHeightDeviceAt (index);
             var top = ItemOffsetDevice (index) + client.Top - (int) Math.Round (_scrollOffsetPx);
-            return new Rectangle (client.Left, top, client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0), Math.Min (height, client.Bottom - top));
+            return new Rectangle (client.Left - h_offset, top, client.Width + h_offset, Math.Min (height, client.Bottom - top));
         }
+
+        /// <summary>
+        /// The device rectangle the items are laid into: the client area less whichever scrollbars
+        /// are showing (W6 mechanisms; the horizontal one is new).
+        /// </summary>
+        internal Rectangle ItemsArea {
+            get {
+                var client = ClientRectangle;
+                var width = client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0);
+                var height = client.Height - (hscrollbar.Visible ? hscrollbar.ScaledHeight : 0);
+                return new Rectangle (client.Left, client.Top, Math.Max (0, width), Math.Max (0, height));
+            }
+        }
+
+        /// <summary>Whole rows that fit in one column of a <see cref="MultiColumn"/> list; at least one.</summary>
+        internal int RowsPerColumn => Math.Max (1, ItemsArea.Height / Math.Max (1, ScaledItemHeight));
+
+        /// <summary>Columns a <see cref="MultiColumn"/> list needs for all its items.</summary>
+        internal int ColumnCount => multi_column ? (Items.Count + RowsPerColumn - 1) / RowsPerColumn : 1;
+
+        /// <summary>Whole columns that fit across the items area of a <see cref="MultiColumn"/> list; at least one.</summary>
+        internal int VisibleColumnCount => Math.Max (1, ItemsArea.Width / Math.Max (1, ScaledColumnWidth));
+
+        /// <summary>
+        /// The width of one column in device pixels: <see cref="ColumnWidth"/>, or when that is 0 the
+        /// widest item's text plus a margin, which is what upstream's default column width amounts to.
+        /// </summary>
+        internal int ScaledColumnWidth => LogicalToDeviceUnits (column_width > 0 ? column_width : WidestItemWidth () + 8);
+
+        // The widest item text in logical units, measured with the control's font. Measured on demand
+        // rather than cached: the count, the texts and the font can all change under it.
+        private int WidestItemWidth ()
+        {
+            var widest = 1;
+
+            for (var i = 0; i < Items.Count; i++)
+                widest = Math.Max (widest, (int) Math.Ceiling (TextMeasurer.MeasureText (GetItemText (Items[i]), this).Width));
+
+            return widest;
+        }
+
+        /// <summary>
+        /// The horizontal extent the items need, in device pixels: <see cref="HorizontalExtent"/>
+        /// when the application set one, else (as upstream measures for <see cref="DrawMode.Normal"/>)
+        /// the widest item's text plus a margin. Owner-drawn items only ever scroll to the set extent.
+        /// </summary>
+        internal int ScaledHorizontalExtent
+            => LogicalToDeviceUnits (horizontal_extent > 0 ? horizontal_extent : draw_mode == DrawMode.Normal && Items.Count > 0 ? WidestItemWidth () + 8 : 0);
+
+        /// <summary>The horizontal scroll offset in device pixels (HorizontalScrollbar).</summary>
+        internal int HorizontalOffset => h_offset;
 
         /// <summary>
         /// Gets or sets the unscaled height each item will use.
@@ -290,16 +387,24 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void OnKeyUp (KeyEventArgs e) => ChangeSelection (() => KeyUpCore (e));
 
+        // How far an arrow key moves the focus: a column in a MultiColumn list for Left/Right, else one.
+        private int NavigationStep (KeyEventArgs e)
+            => multi_column && e.KeyCode.In (Keys.Left, Keys.Right) ? RowsPerColumn : 1;
+
         // Wrapped by ChangeSelection so every branch below -- Space toggles, Shift+arrow extension, the
         // add/remove pairs -- announces its change, without each one having to remember to (LST-04).
         private void KeyUpCore (KeyEventArgs e)
         {
             // In "None" mode, the focus goes up and down
             // In "MultiSimple" mode, the focus goes up and down, and space selects or deselects
+            // MultiColumn (W6 mechanisms): Left/Right cross to the neighbouring column, one row's
+            // worth of items away, as upstream's list does; Up/Down still walk the column.
+            var step = NavigationStep (e);
+
             if (selection_mode.In (SelectionMode.None, SelectionMode.MultiSimple)) {
                 if (e.KeyCode.In (Keys.Down, Keys.Right)) {
                     if (Items.FocusedIndex < Items.Count - 1) {
-                        Items.FocusedIndex++;
+                        Items.FocusedIndex = Math.Min (Items.Count - 1, Items.FocusedIndex + step);
                         EnsureItemVisible (Items.FocusedIndex);
                         e.Handled = true;
                         return;
@@ -308,7 +413,7 @@ namespace Majorsilence.Forms
 
                 if (e.KeyCode.In (Keys.Up, Keys.Left)) {
                     if (Items.FocusedIndex > 0) {
-                        Items.FocusedIndex--;
+                        Items.FocusedIndex = Math.Max (0, Items.FocusedIndex - step);
                         EnsureItemVisible (Items.FocusedIndex);
                         e.Handled = true;
                         return;
@@ -402,7 +507,7 @@ namespace Majorsilence.Forms
 
                 if (e.KeyCode.In (Keys.Down, Keys.Right)) {
                     if (SelectedIndex < Items.Count - 1) {
-                        SelectedIndex = Items.FocusedIndex + 1;
+                        SelectedIndex = Math.Min (Items.Count - 1, Items.FocusedIndex + step);
                         EnsureItemVisible (Items.FocusedIndex);
                         e.Handled = true;
                         return;
@@ -412,7 +517,7 @@ namespace Majorsilence.Forms
 
                 if (e.KeyCode.In (Keys.Up, Keys.Left)) {
                     if (SelectedIndex > 0) {
-                        SelectedIndex = Items.FocusedIndex - 1;
+                        SelectedIndex = Math.Max (0, Items.FocusedIndex - step);
                         EnsureItemVisible (Items.FocusedIndex);
                         e.Handled = true;
                         return;
@@ -838,9 +943,25 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void SetBoundsCore (int x, int y, int width, int height, BoundsSpecified specified)
         {
-            base.SetBoundsCore (x, y, width, height, specified);
+            base.SetBoundsCore (x, y, width, IntegralHeightFor (height), specified);
 
             UpdateVerticalScrollBar ();
+        }
+
+        // IntegralHeight (W6 mechanisms): the requested height less the non-client band, snapped down
+        // to whole items, plus the band again -- never below one item, so a list cannot vanish. Left
+        // alone under variable owner draw (no single item height) and when docked to fill an edge
+        // (the container's height is not this control's to shorten).
+        private int IntegralHeightFor (int height)
+        {
+            if (!integral_height || draw_mode == DrawMode.OwnerDrawVariable || Dock is DockStyle.Fill or DockStyle.Left or DockStyle.Right)
+                return height;
+
+            var item = Math.Max (1, ItemHeight);
+            var chrome = Math.Max (0, Height - DeviceToLogicalUnits (ClientRectangle.Height));
+            var rows = Math.Max (1, (height - chrome) / item);
+
+            return rows * item + chrome;
         }
 
         /// <summary>
@@ -1012,8 +1133,28 @@ namespace Majorsilence.Forms
             Invalidate ();
         }
 
-        /// <summary>Gets or sets whether the control height resizes to avoid showing partial items. Stub in Majorsilence.Forms.</summary>
-        public bool IntegralHeight { get; set; } = true;
+        /// <summary>Gets or sets whether the control height resizes to avoid showing partial items.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms: the height is snapped down to a whole number of items (plus the
+        /// non-client band) whenever the bounds are set, as upstream's list box does, so a designer
+        /// height of 95 with 13-pixel items comes out at the height that shows seven whole rows. Not
+        /// applied under <see cref="DrawMode.OwnerDrawVariable"/>, where there is no single item height,
+        /// nor when the list is docked to fill an edge, where the container owns the height.
+        /// </remarks>
+        public bool IntegralHeight {
+            get => integral_height;
+            set {
+                if (integral_height == value)
+                    return;
+
+                integral_height = value;
+
+                // Straight to the core: SetBounds skips a call whose bounds have not changed, and
+                // the whole point here is to re-snap the height that is already set.
+                if (value)
+                    SetBoundsCore (Left, Top, Width, Height, BoundsSpecified.Height);
+            }
+        }
 
         /// <summary>Gets or sets whether the selection is hidden when the control loses focus. Stub in Majorsilence.Forms.</summary>
         public bool HideSelection { get; set; }
@@ -1030,11 +1171,36 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal bool ShowsSelection => Focused || !HideSelection;
 
-        /// <summary>Gets or sets the horizontal extent to enable horizontal scrolling. Stub in Majorsilence.Forms.</summary>
-        public int HorizontalExtent { get; set; }
+        /// <summary>Gets or sets the horizontal extent to enable horizontal scrolling.</summary>
+        /// <remarks>Logical pixels. With <see cref="HorizontalScrollbar"/> on, an extent wider than the
+        /// list shows the scrollbar; 0 lets a <see cref="DrawMode.Normal"/> list measure its own items,
+        /// as upstream does (W6 mechanisms).</remarks>
+        public int HorizontalExtent {
+            get => horizontal_extent;
+            set {
+                if (horizontal_extent == value)
+                    return;
 
-        /// <summary>Gets or sets whether tab stops are used in the ListBox. Stub in Majorsilence.Forms.</summary>
-        public bool UseTabStops { get; set; } = true;
+                horizontal_extent = Math.Max (0, value);
+                UpdateVerticalScrollBar ();
+                Invalidate ();
+            }
+        }
+
+        /// <summary>Gets or sets whether tab characters in item text are expanded to tab stops.</summary>
+        /// <remarks>Real as of W6 mechanisms: the renderer lays a tabbed item out across the stops --
+        /// every eight average characters, or <see cref="CustomTabOffsets"/> when
+        /// <see cref="UseCustomTabOffsets"/> asks for them. Off, a tab is drawn as the font draws it.</remarks>
+        public bool UseTabStops {
+            get => use_tab_stops;
+            set {
+                if (use_tab_stops == value)
+                    return;
+
+                use_tab_stops = value;
+                Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets whether the ListBox always shows a scroll bar.</summary>
         /// <remarks>
@@ -1048,21 +1214,66 @@ namespace Majorsilence.Forms
             set => ScrollbarAlwaysVisible = value;
         }
 
-        /// <summary>Gets or sets whether a horizontal scrollbar is shown. Stub in Majorsilence.Forms.</summary>
-        public bool HorizontalScrollbar { get; set; }
+        /// <summary>Gets or sets whether a horizontal scrollbar is shown when the items are wider than the list.</summary>
+        /// <remarks>Real as of W6 mechanisms: the bar appears when <see cref="HorizontalExtent"/> (or the
+        /// measured items) is wider than the list, and scrolling it slides the items sideways.</remarks>
+        public bool HorizontalScrollbar {
+            get => horizontal_scrollbar;
+            set {
+                if (horizontal_scrollbar == value)
+                    return;
 
-        /// <summary>Gets or sets whether the ListBox displays items in multiple columns. Stub in Majorsilence.Forms.</summary>
-        public bool MultiColumn { get; set; }
+                horizontal_scrollbar = value;
+                UpdateVerticalScrollBar ();
+                Invalidate ();
+            }
+        }
 
-        /// <summary>Gets or sets the width of each column in a multi-column ListBox. Stub in Majorsilence.Forms.</summary>
-        public int ColumnWidth { get; set; }
+        /// <summary>Gets or sets whether the ListBox displays items in multiple columns.</summary>
+        /// <remarks>Real as of W6 mechanisms: items run down each column and the columns across, the
+        /// list scrolls sideways by whole columns through a horizontal scrollbar, and Left/Right move
+        /// between columns. <see cref="ColumnWidth"/> sets the column; 0 measures the widest item.</remarks>
+        public bool MultiColumn {
+            get => multi_column;
+            set {
+                if (multi_column == value)
+                    return;
 
-        /// <summary>Gets or sets the index of the first visible item. Stub in Majorsilence.Forms.</summary>
+                multi_column = value;
+                top_index = 0;
+                h_offset = 0;
+                _scrollOffsetPx = 0;
+                UpdateVerticalScrollBar ();
+                Invalidate ();
+            }
+        }
+
+        /// <summary>Gets or sets the width of each column in a multi-column ListBox, in logical pixels; 0 measures the items.</summary>
+        public int ColumnWidth {
+            get => column_width;
+            set {
+                if (column_width == value)
+                    return;
+
+                column_width = Math.Max (0, value);
+                UpdateVerticalScrollBar ();
+                Invalidate ();
+            }
+        }
+
+        /// <summary>Gets or sets the index of the first visible item.</summary>
+        /// <remarks>A <see cref="MultiColumn"/> list scrolls by columns, so the index is snapped to the
+        /// first item of its column.</remarks>
         public int TopIndex {
             get => top_index;
             set {
-                top_index = Math.Max (0, Math.Min (value, Items.Count - 1));
+                var clamped = Math.Max (0, Math.Min (value, Items.Count - 1));
+                top_index = multi_column ? clamped / RowsPerColumn * RowsPerColumn : clamped;
                 _scrollOffsetPx = 0;
+
+                if (multi_column)
+                    hscrollbar.Value = Math.Max (hscrollbar.Minimum, Math.Min (top_index / RowsPerColumn, hscrollbar.EffectiveMaximum));
+
                 Invalidate ();
             }
         }
@@ -1233,13 +1444,21 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
-        // Update the vertical scroll bar to match the number of current items.
+        // Update the scroll bars to match the current items and layout (W6 mechanisms: the horizontal
+        // bar, and the multi-column shape, are new; the name is kept for its callers).
         private void UpdateVerticalScrollBar ()
         {
+            if (multi_column) {
+                UpdateMultiColumnScrollBar ();
+                return;
+            }
+
+            UpdateHorizontalScrollBar ();
+
             if (Items.Count == 0)
                 vscrollbar.Visible = ScrollbarAlwaysVisible;
 
-            if (NeededHeightForItems > Bounds.Height) {
+            if (NeededHeightForItems > ItemsArea.Height) {
                 vscrollbar.Visible = true;
                 // Maximum is the *conceptual last item index* (see ScrollBar.EffectiveMaximum), not the
                 // last valid top_index -- with LargeChange set below to the page size, EffectiveMaximum
@@ -1252,6 +1471,53 @@ namespace Majorsilence.Forms
                 vscrollbar.Visible = ScrollbarAlwaysVisible;
                 _scrollOffsetPx = 0;
             }
+        }
+
+        // A single-column list with HorizontalScrollbar: the bar spans the extent in device pixels.
+        private void UpdateHorizontalScrollBar ()
+        {
+            var visible_width = ClientRectangle.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0);
+            var extent = horizontal_scrollbar ? ScaledHorizontalExtent : 0;
+            var show = extent > visible_width && visible_width > 0;
+
+            hscrollbar.Visible = show;
+
+            if (!show) {
+                h_offset = 0;
+                return;
+            }
+
+            hscrollbar.Maximum = extent - 1;
+            hscrollbar.LargeChange = visible_width;
+            hscrollbar.SmallChange = LogicalToDeviceUnits (8);
+        }
+
+        // A MultiColumn list: no vertical bar; the horizontal bar counts columns.
+        private void UpdateMultiColumnScrollBar ()
+        {
+            vscrollbar.Visible = false;
+            _scrollOffsetPx = 0;
+
+            var columns = ColumnCount;
+            var visible = VisibleColumnCount;
+
+            hscrollbar.Visible = columns > visible || (ScrollbarAlwaysVisible && Items.Count > 0);
+            hscrollbar.Maximum = Math.Max (0, columns - 1);
+            hscrollbar.LargeChange = Math.Max (1, visible);
+            hscrollbar.SmallChange = 1;
+
+            var rows = RowsPerColumn;
+            top_index = Math.Min (top_index / rows, Math.Max (0, columns - visible)) * rows;
+        }
+
+        private void HorizontalScrollBar_ValueChanged (object? sender, EventArgs e)
+        {
+            if (multi_column)
+                top_index = Math.Max (0, hscrollbar.Value) * RowsPerColumn;
+            else
+                h_offset = Math.Max (0, hscrollbar.Value);
+
+            Invalidate ();
         }
 
         // Handle changes to the vertical scroll bar.
@@ -1272,11 +1538,14 @@ namespace Majorsilence.Forms
         /// </summary>
         public int VisibleItemCount {
             get {
+                if (multi_column)
+                    return RowsPerColumn * VisibleColumnCount;
+
                 if (draw_mode != DrawMode.OwnerDrawVariable)
-                    return ClientRectangle.Height / ScaledItemHeight;
+                    return ItemsArea.Height / ScaledItemHeight;
 
                 // Variable heights: count the whole rows that fit from the top row down.
-                var remaining = ClientRectangle.Height;
+                var remaining = ItemsArea.Height;
                 var count = 0;
 
                 for (var i = top_index; i < Items.Count; i++) {

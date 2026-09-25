@@ -152,6 +152,12 @@ namespace Majorsilence.Forms.Renderers
             var image = item.ImageSK;
             var image_size = Size.Empty;
 
+            // ImageTransparentColor (W6 mechanisms): the keyed colour is drawn transparent.
+            if (image != null && strip_item is { ImageTransparentColor: { IsEmpty: false } key })
+                image = ColorKeyedBitmaps.Apply (image, new SkiaSharp.SKColor (key.R, key.G, key.B, key.A));
+
+            var image_align = strip_item?.ImageAlign ?? ContentAlignment.MiddleCenter;
+
             if (image != null) {
                 // ImageScaling.None means "draw it at its own size" -- the whole point of assigning a
                 // large glyph to a large button. Anything else gets the standard strip icon box.
@@ -210,7 +216,7 @@ namespace Majorsilence.Forms.Renderers
                     if (!image_size.IsEmpty)
                         image_rect = new Rectangle (
                             content.Right - image_size.Width,
-                            content.Top + Math.Max (0, (content.Height - image_size.Height) / 2),
+                            AlignedTop (content, image_size.Height, image_align),
                             image_size.Width, image_size.Height);
 
                     text_rect = new Rectangle (content.Left, content.Top,
@@ -219,10 +225,11 @@ namespace Majorsilence.Forms.Renderers
                 }
 
                 case TextImageRelation.Overlay: {
+                    // ImageAlign places the image on both axes here (W6 mechanisms).
                     if (!image_size.IsEmpty)
                         image_rect = new Rectangle (
-                            content.Left + Math.Max (0, (content.Width - image_size.Width) / 2),
-                            content.Top + Math.Max (0, (content.Height - image_size.Height) / 2),
+                            AlignedLeft (content, image_size.Width, image_align),
+                            AlignedTop (content, image_size.Height, image_align),
                             image_size.Width, image_size.Height);
                     break;
                 }
@@ -232,7 +239,7 @@ namespace Majorsilence.Forms.Renderers
                     if (!image_size.IsEmpty)
                         image_rect = new Rectangle (
                             content.Left,
-                            content.Top + Math.Max (0, (content.Height - image_size.Height) / 2),
+                            AlignedTop (content, image_size.Height, image_align),
                             image_size.Width, image_size.Height);
 
                     var offset = image_size.IsEmpty ? e.LogicalToDeviceUnits (4) : image_size.Width + gap;
@@ -242,8 +249,20 @@ namespace Majorsilence.Forms.Renderers
                 }
             }
 
-            if (image is not null && !image_rect.IsEmpty && !StripRendererBridge.Image (control, item, image_rect, e))
+            if (image is not null && !image_rect.IsEmpty && !StripRendererBridge.Image (control, item, image_rect, e)) {
+                // RightToLeftAutoMirrorImage (W6 mechanisms): flipped about the image's own centre.
+                var mirror = strip_item is { RightToLeftAutoMirrorImage: true } && control.RightToLeft == RightToLeft.Yes;
+
+                if (mirror) {
+                    e.Canvas.Save ();
+                    e.Canvas.Scale (-1, 1, image_rect.Left + image_rect.Width / 2f, 0);
+                }
+
                 e.Canvas.DrawBitmap (image, image_rect, !item.Enabled);
+
+                if (mirror)
+                    e.Canvas.Restore ();
+            }
 
             // The renderer may recolour, move or take over the text. Null back means it took over.
             var text_parts = string.IsNullOrEmpty (item.Text) ? null
@@ -307,13 +326,34 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom - 1, bottom_right);
         }
 
-        // LinkVisited picks the visited colour. ActiveLinkColor -- the colour WinForms uses while the
-        // link is held down -- is deliberately NOT read: nothing in this layer tracks a pressed strip
-        // item (MenuBase handles MouseMove and MouseLeave and no button state at all), so there is no
-        // moment at which it could apply. Wiring it would be an unverifiable claim; it stays in the
-        // baseline with that reason recorded in TSM-42.
+        // The colour a link draws in: ActiveLinkColor while the button is held on it (the strip tracks
+        // the pressed item as of W6 mechanisms; TSM-42 recorded why it could not before), else the
+        // visited or the plain colour.
         private static SkiaSharp.SKColor LinkColour (ToolStripLabel link)
-            => (link.LinkVisited ? link.VisitedLinkColor : link.LinkColor).ToSKColor ();
+            => (link.Pressed ? link.ActiveLinkColor : link.LinkVisited ? link.VisitedLinkColor : link.LinkColor).ToSKColor ();
+
+        // The image's top/left within the content box for an ImageAlign; the middle when it has no room.
+        private static int AlignedTop (Rectangle content, int height, ContentAlignment align)
+        {
+            var slack = Math.Max (0, content.Height - height);
+
+            return align switch {
+                ContentAlignment.TopLeft or ContentAlignment.TopCenter or ContentAlignment.TopRight => content.Top,
+                ContentAlignment.BottomLeft or ContentAlignment.BottomCenter or ContentAlignment.BottomRight => content.Top + slack,
+                _ => content.Top + slack / 2,
+            };
+        }
+
+        private static int AlignedLeft (Rectangle content, int width, ContentAlignment align)
+        {
+            var slack = Math.Max (0, content.Width - width);
+
+            return align switch {
+                ContentAlignment.TopLeft or ContentAlignment.MiddleLeft or ContentAlignment.BottomLeft => content.Left,
+                ContentAlignment.TopRight or ContentAlignment.MiddleRight or ContentAlignment.BottomRight => content.Left + slack,
+                _ => content.Left + slack / 2,
+            };
+        }
 
         // Only ToolStripDropDownButton carries the flag; every other item type draws its arrow
         // whenever it has a submenu, which is what upstream does too.

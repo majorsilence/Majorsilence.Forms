@@ -85,26 +85,21 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.Save ();
             e.Canvas.Clip (band);
 
-            var x = band.Left + control.ScaledCheckWidth;
-
-            // Display order, so a reordered column's header sits over its cells (W6 mechanisms).
-            foreach (var column in control.DisplayColumns) {
-                var width = control.ScaledColumnWidth (column);
-                var cell = new Rectangle (x, band.Top, width, height);
+            // Display order, so a reordered column's header sits over its cells; mirrored under
+            // RightToLeftLayout (W6 mechanisms).
+            foreach (var (column, left, width) in control.ColumnCells (band.Left + control.ScaledCheckWidth, band.Right)) {
+                var cell = new Rectangle (left, band.Top, width, height);
 
                 // Owner draw: the header cell is the application's unless it asks for the default.
-                if (control.OwnerDraw && !control.RaiseDrawColumnHeader (column, cell, e)) {
-                    x += width;
+                if (control.OwnerDraw && !control.RaiseDrawColumnHeader (column, cell, e))
                     continue;
-                }
 
                 e.Canvas.DrawText (column.Text ?? string.Empty, Theme.UIFont, font_size,
                     Padded (cell, e), Theme.ForegroundColor, Align (column.TextAlign), maxLines: 1);
 
-                e.Canvas.DrawLine (cell.Right - 1, cell.Top + e.LogicalToDeviceUnits (2),
-                    cell.Right - 1, cell.Bottom - e.LogicalToDeviceUnits (2), Theme.BorderLowColor);
-
-                x += width;
+                var divider = control.MirrorsColumns ? cell.Left : cell.Right - 1;
+                e.Canvas.DrawLine (divider, cell.Top + e.LogicalToDeviceUnits (2),
+                    divider, cell.Bottom - e.LogicalToDeviceUnits (2), Theme.BorderLowColor);
             }
 
             e.Canvas.Restore ();
@@ -244,24 +239,22 @@ namespace Majorsilence.Forms.Renderers
             if (ShowsSelection (control, item)) {
                 var highlight = control.FullRowSelect || display.Count == 0
                     ? item.DeviceBounds
-                    : new Rectangle (item.DeviceBounds.Left, item.DeviceBounds.Top,
-                        control.ScaledCheckWidth + control.ScaledColumnWidth (display[0]), item.DeviceBounds.Height);
+                    : control.MirrorsColumns
+                        ? new Rectangle (item.DeviceBounds.Right - control.ScaledColumnWidth (display[0]), item.DeviceBounds.Top,
+                            control.ScaledColumnWidth (display[0]), item.DeviceBounds.Height)
+                        : new Rectangle (item.DeviceBounds.Left, item.DeviceBounds.Top,
+                            control.ScaledCheckWidth + control.ScaledColumnWidth (display[0]), item.DeviceBounds.Height);
 
                 e.Canvas.FillRectangle (highlight, ListView.DefaultSelectionStyle.GetBackgroundColor ());
             }
 
             RenderCheckBox (control, item, e);
 
-            var x = item.DeviceBounds.Left + control.ScaledCheckWidth;
-
             // Display order (W6 mechanisms): the cell for column.Index is drawn where its header is.
-            foreach (var column in display) {
-                var width = control.ScaledColumnWidth (column);
-                var cell = new Rectangle (x, item.DeviceBounds.Top, width, item.DeviceBounds.Height);
+            foreach (var (column, left, width) in control.ColumnCells (item.DeviceBounds.Left + control.ScaledCheckWidth, item.DeviceBounds.Right)) {
+                var cell = new Rectangle (left, item.DeviceBounds.Top, width, item.DeviceBounds.Height);
 
                 RenderDetailsCell (control, item, column, cell, e);
-
-                x += width;
             }
 
             if (control.GridLines)
@@ -282,31 +275,39 @@ namespace Majorsilence.Forms.Renderers
                 : i < item.SubItems.Count ? item.SubItems[i].Text : string.Empty;
 
             if (!string.IsNullOrEmpty (text)) {
+                var text_cell = Padded (cell, e);
+
+                // IndentCount (W6 mechanisms): the first cell's content starts that many small-image
+                // widths in from the column's leading edge.
+                if (i == 0 && item.IndentCount > 0) {
+                    var indent = Math.Min (text_cell.Width, item.IndentCount * control.ScaledIndentUnit);
+                    text_cell = control.MirrorsColumns
+                        ? new Rectangle (text_cell.Left, text_cell.Top, text_cell.Width - indent, text_cell.Height)
+                        : new Rectangle (text_cell.Left + indent, text_cell.Top, text_cell.Width - indent, text_cell.Height);
+                }
+
                 e.Canvas.Save ();
                 e.Canvas.Clip (cell);
-                e.Canvas.DrawText (text, Theme.UIFont, font_size, Padded (cell, e),
+                e.Canvas.DrawText (text, Theme.UIFont, font_size, text_cell,
                     ItemForeColour (control, item, Foreground (item, i, ShowsSelection (control, item))), Align (column.TextAlign), maxLines: 1);
                 e.Canvas.Restore ();
             }
 
-            if (control.GridLines)
-                e.Canvas.DrawLine (cell.Right - 1, cell.Top, cell.Right - 1, cell.Bottom, Theme.BorderLowColor);
+            if (control.GridLines) {
+                var divider = control.MirrorsColumns ? cell.Left : cell.Right - 1;
+                e.Canvas.DrawLine (divider, cell.Top, divider, cell.Bottom, Theme.BorderLowColor);
+            }
         }
 
         // An owner-drawn item whose handler declined the default: each cell is offered to DrawSubItem,
         // and painted by the default path only when that handler asks for it.
         private void RenderOwnerDrawnCells (ListView control, ListViewItem item, PaintEventArgs e)
         {
-            var x = item.DeviceBounds.Left + control.ScaledCheckWidth;
-
-            foreach (var column in control.DisplayColumns) {
-                var width = control.ScaledColumnWidth (column);
-                var cell = new Rectangle (x, item.DeviceBounds.Top, width, item.DeviceBounds.Height);
+            foreach (var (column, left, width) in control.ColumnCells (item.DeviceBounds.Left + control.ScaledCheckWidth, item.DeviceBounds.Right)) {
+                var cell = new Rectangle (left, item.DeviceBounds.Top, width, item.DeviceBounds.Height);
 
                 if (control.RaiseDrawSubItem (item, column, cell, e))
                     RenderDetailsCell (control, item, column, cell, e);
-
-                x += width;
             }
         }
 

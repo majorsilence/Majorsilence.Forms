@@ -28,7 +28,14 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Same (strip, hosted.Parent);
             Assert.Contains (hosted, strip.Controls.Cast<Control> ());
-            Assert.Equal (strip.Items[0].Bounds, hosted.Bounds);
+
+            // The control keeps the height it was given and sits centred in the item's box (its
+            // ControlAlign, W6 mechanisms); the box's width is its width.
+            var box = strip.Items[0].Bounds;
+            Assert.Equal (box.Left, hosted.Left);
+            Assert.Equal (box.Width, hosted.Width);
+            Assert.Equal (20, hosted.Height);
+            Assert.Equal (box.Top + (box.Height - 20) / 2, hosted.Top);
         }
 
         [Fact]

@@ -42,9 +42,39 @@ namespace Majorsilence.Forms
                 owner.Controls.Add (Control);
 
             // The item's bounds are already in the strip's client coordinates, which is the space the
-            // hosted control lives in too, so they transfer across unchanged.
-            Control.Bounds = Bounds;
+            // hosted control lives in too. ControlAlign (W6 mechanisms) places a control that is
+            // smaller than its box within it -- the box is the strip's row height, and an editor keeps
+            // the height it was given rather than stretching to the row, as upstream's does.
+            Control.Bounds = AlignedBounds (Bounds);
             Control.Visible = Visible;
+        }
+
+        // The size the hosted control asked for: the last explicit Size, else the size it had when it
+        // was handed to this host (its own default), so a later layout pass does not mistake the box
+        // the previous pass gave it for a size of its own.
+        private Size natural_size;
+
+        private Rectangle AlignedBounds (Rectangle box)
+        {
+            var want = new Size (
+                PreferredSizeOverride.Width > 0 ? PreferredSizeOverride.Width : natural_size.Width,
+                PreferredSizeOverride.Height > 0 ? PreferredSizeOverride.Height : natural_size.Height);
+
+            var width = want.Width > 0 && want.Width < box.Width ? want.Width : box.Width;
+            var height = want.Height > 0 && want.Height < box.Height ? want.Height : box.Height;
+
+            var x = ControlAlign switch {
+                ContentAlignment.TopCenter or ContentAlignment.MiddleCenter or ContentAlignment.BottomCenter => box.Left + (box.Width - width) / 2,
+                ContentAlignment.TopRight or ContentAlignment.MiddleRight or ContentAlignment.BottomRight => box.Right - width,
+                _ => box.Left,
+            };
+            var y = ControlAlign switch {
+                ContentAlignment.MiddleLeft or ContentAlignment.MiddleCenter or ContentAlignment.MiddleRight => box.Top + (box.Height - height) / 2,
+                ContentAlignment.BottomLeft or ContentAlignment.BottomCenter or ContentAlignment.BottomRight => box.Bottom - height,
+                _ => box.Top,
+            };
+
+            return new Rectangle (x, y, width, height);
         }
 
         /// <summary>
@@ -76,7 +106,18 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets how the hosted control is aligned within the space the item is given.</summary>
-        public ContentAlignment ControlAlign { get; set; } = ContentAlignment.MiddleCenter;
+        public ContentAlignment ControlAlign {
+            get => control_align;
+            set {
+                if (control_align == value)
+                    return;
+
+                control_align = value;
+                SetBounds (Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height);
+            }
+        }
+
+        private ContentAlignment control_align = ContentAlignment.MiddleCenter;
 
         /// <summary>Gets whether the hosted control currently has input focus.</summary>
         public bool Focused => Control.Focused;

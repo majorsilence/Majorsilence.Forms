@@ -15,13 +15,57 @@ namespace Majorsilence.Forms.Renderers
             // painting is replaced wholesale rather than drawn underneath.
             var owner = control.Parent as TabControl;
 
+            // Single-row scrolling (W6 mechanisms): tabs are clipped short of the arrow band, and the
+            // arrows are drawn over it afterwards.
+            var arrow_band = control.LogicalToDeviceUnits (control.ScrollArrowBand);
+
+            e.Canvas.Save ();
+
+            if (!arrow_band.IsEmpty)
+                e.Canvas.Clip (new Rectangle (0, 0, arrow_band.Left, control.ClientRectangle.Height));
+
             if (owner?.IsOwnerDrawn == true) {
                 RenderOwnerDrawn (owner, control, e);
+                e.Canvas.Restore ();
+                RenderScrollArrows (control, arrow_band, e);
                 return;
             }
 
             foreach (var item in control.Tabs)
                 RenderItem (control, item, e);
+
+            e.Canvas.Restore ();
+            RenderScrollArrows (control, arrow_band, e);
+        }
+
+        /// <summary>Draws the scroll arrows of an overflowing single-row strip (W6 mechanisms).</summary>
+        protected virtual void RenderScrollArrows (TabStrip control, Rectangle band, PaintEventArgs e)
+        {
+            if (band.IsEmpty)
+                return;
+
+            e.Canvas.FillRectangle (band, control.GetEffectiveBackgroundColor ());
+
+            var colour = control.Enabled ? control.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor;
+            var size = e.LogicalToDeviceUnits (4);
+            var centre_y = band.Top + band.Height / 2;
+            var left_x = band.Left + band.Width / 4;
+            var right_x = band.Left + band.Width * 3 / 4;
+
+            using var paint = new SkiaSharp.SKPaint { Color = colour, IsAntialias = true, Style = SkiaSharp.SKPaintStyle.Fill };
+            using var left = new SkiaSharp.SKPath ();
+            left.MoveTo (left_x + size / 2f, centre_y - size);
+            left.LineTo (left_x - size / 2f, centre_y);
+            left.LineTo (left_x + size / 2f, centre_y + size);
+            left.Close ();
+            e.Canvas.DrawPath (left, paint);
+
+            using var right = new SkiaSharp.SKPath ();
+            right.MoveTo (right_x - size / 2f, centre_y - size);
+            right.LineTo (right_x + size / 2f, centre_y);
+            right.LineTo (right_x - size / 2f, centre_y + size);
+            right.Close ();
+            e.Canvas.DrawPath (right, paint);
         }
 
         private static void RenderOwnerDrawn (TabControl owner, TabStrip control, PaintEventArgs e)
@@ -65,8 +109,26 @@ namespace Majorsilence.Forms.Renderers
                 : item.Selected ? TabStrip.DefaultSelectedItemStyle
                 : TabStrip.DefaultItemStyle;
 
+            // TabControl.Appearance (W6 mechanisms): Buttons draws each tab as a raised push button,
+            // sunken while selected; FlatButtons fills the selected tab and draws no frame. Both skip
+            // the accent underline, which is Normal's way of marking the selection.
+            var appearance = control.OwnerTabControl?.Appearance ?? TabAppearance.Normal;
+
             if (item_style.TryGetBackgroundColor () is { } item_bg)
                 e.Canvas.FillRectangle (bounds, item_bg);
+            else if (appearance != TabAppearance.Normal && item.Selected)
+                e.Canvas.FillRectangle (bounds, Theme.ControlLowColor);
+
+            if (appearance == TabAppearance.Buttons) {
+                var frame = Rectangle.Inflate (bounds, -e.LogicalToDeviceUnits (1), -e.LogicalToDeviceUnits (1));
+                var top_left = item.Selected ? Theme.BorderMidColor : Theme.ControlHighColor;
+                var bottom_right = item.Selected ? Theme.ControlHighColor : Theme.BorderMidColor;
+
+                e.Canvas.DrawLine (frame.Left, frame.Top, frame.Right - 1, frame.Top, top_left);
+                e.Canvas.DrawLine (frame.Left, frame.Top, frame.Left, frame.Bottom - 1, top_left);
+                e.Canvas.DrawLine (frame.Left, frame.Bottom - 1, frame.Right - 1, frame.Bottom - 1, bottom_right);
+                e.Canvas.DrawLine (frame.Right - 1, frame.Top, frame.Right - 1, frame.Bottom - 1, bottom_right);
+            }
 
             // Draw focus rectangle
             if (control.Selected && control.ShowFocusCues && control.Tabs.FocusedIndex == control.Tabs.IndexOf (item))
@@ -103,7 +165,7 @@ namespace Majorsilence.Forms.Renderers
 
             e.Canvas.DrawText (item.Text, font, font_size, text_bounds, font_color, ContentAlignment.MiddleCenter);
 
-            if (item.Selected) {
+            if (item.Selected && appearance == TabAppearance.Normal) {
                 var underline = TabStrip.DefaultSelectedItemStyle.Border.Bottom;
                 var highlight_padding = e.LogicalToDeviceUnits (10);
                 var highlight_height = e.LogicalToDeviceUnits (underline.GetWidth ());

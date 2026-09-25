@@ -58,8 +58,21 @@ namespace Majorsilence.Forms
             RenderManager.Render (this, e);
         }
 
-        /// <summary>Gets or sets the flat style of the group box. Stub in Majorsilence.Forms.</summary>
-        public FlatStyle FlatStyle { get; set; } = FlatStyle.Standard;
+        /// <summary>Gets or sets the flat style of the group box.</summary>
+        /// <remarks>Read by the renderer as of W6 mechanisms: <see cref="FlatStyle.Flat"/> draws a single
+        /// line; every other style draws the etched two-tone frame upstream's group box has.</remarks>
+        public FlatStyle FlatStyle {
+            get => flat_style;
+            set {
+                if (flat_style == value)
+                    return;
+
+                flat_style = value;
+                Invalidate ();
+            }
+        }
+
+        private FlatStyle flat_style = FlatStyle.Standard;
 
         /// <summary>Gets or sets whether compatible text rendering is used. Stub in Majorsilence.Forms.</summary>
         public bool UseCompatibleTextRendering { get; set; } = true;

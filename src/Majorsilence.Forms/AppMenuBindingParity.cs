@@ -157,12 +157,36 @@ namespace Majorsilence.Forms
     public partial class MenuItem
     {
         /// <summary>Gets or sets whether the item starts a new column with a separating bar.</summary>
-        /// <remarks>Stored: this layer lays menus out itself and has no multi-column menu, so there is
-        /// no break to place.</remarks>
-        public bool BarBreak { get; set; }
+        /// <remarks>Real as of W6 mechanisms: a drop-down lays its items out in columns, a new one
+        /// starting at every item with this or <see cref="Break"/> set; this one also draws a bar
+        /// between the columns, as the legacy menu did.</remarks>
+        public bool BarBreak {
+            get => bar_break;
+            set {
+                if (bar_break == value)
+                    return;
+
+                bar_break = value;
+                OwnerControl?.PerformLayout ();
+                OwnerControl?.Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets whether the item starts a new column. See <see cref="BarBreak"/>.</summary>
-        public bool Break { get; set; }
+        public bool Break {
+            get => column_break;
+            set {
+                if (column_break == value)
+                    return;
+
+                column_break = value;
+                OwnerControl?.PerformLayout ();
+                OwnerControl?.Invalidate ();
+            }
+        }
+
+        private bool bar_break;
+        private bool column_break;
 
         /// <summary>Gets or sets whether the item is populated with the list of MDI child windows.</summary>
         public bool MdiList { get; set; }

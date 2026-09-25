@@ -177,7 +177,22 @@ namespace Majorsilence.Forms
         public virtual bool CanSelect => Enabled && Available;
 
         /// <summary>Gets whether this item currently has the pointer pressed on it.</summary>
-        public virtual bool Pressed { get; protected set; }
+        /// <remarks>Real as of W6 mechanisms: the owning strip sets it from its mouse-down until the
+        /// release, which is when a link label draws in its <c>ActiveLinkColor</c>.</remarks>
+        public virtual bool Pressed {
+            get => pressed;
+            protected set {
+                if (pressed == value)
+                    return;
+
+                pressed = value;
+                OwnerControl?.Invalidate ();
+            }
+        }
+
+        private bool pressed;
+
+        internal void SetPressed (bool value) => Pressed = value;
 
         /// <summary>Gets whether this item has been disposed.</summary>
         public bool IsDisposed { get; private set; }
@@ -222,10 +237,13 @@ namespace Majorsilence.Forms
         public virtual ImageLayout BackgroundImageLayout { get; set; } = ImageLayout.Tile;
 
         /// <summary>Gets or sets the color treated as transparent in the item's image.</summary>
-        /// <remarks>Stored; the image is drawn with its own alpha rather than a color key.</remarks>
+        /// <remarks>Read by the strip renderer as of W6 mechanisms: pixels of this colour are drawn
+        /// transparent. <c>Empty</c>, the default, keys nothing.</remarks>
         public Color ImageTransparentColor { get; set; } = Color.Empty;
 
         /// <summary>Gets or sets whether the image is mirrored under a right-to-left layout.</summary>
+        /// <remarks>Read by the strip renderer as of W6 mechanisms: on a strip whose
+        /// <see cref="Control.RightToLeft"/> is <c>Yes</c> the image is drawn flipped left for right.</remarks>
         public bool RightToLeftAutoMirrorImage { get; set; }
 
         /// <summary>Gets or sets the direction the item's text is drawn in; Inherit takes the strip's.</summary>
@@ -483,7 +501,8 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether this strip's items can be merged into another strip.</summary>
         public bool AllowMerge { get; set; } = true;
 
-        /// <summary>Gets or sets the direction drop-downs open in by default.</summary>
+        /// <summary>Gets or sets the direction the strip's items open their drop-downs in when their own <see cref="ToolStripDropDownItem.DropDownDirection"/> is <c>Default</c>.</summary>
+        /// <remarks>Read by <see cref="MenuItem.ShowDropDown"/> as of W6 mechanisms.</remarks>
         public ToolStripDropDownDirection DefaultDropDownDirection { get; set; } = ToolStripDropDownDirection.Default;
 
         /// <summary>Gets or sets how the move grip is displayed.</summary>

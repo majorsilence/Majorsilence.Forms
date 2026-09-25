@@ -513,8 +513,13 @@ namespace Majorsilence.Forms.Renderers
             // Draw right border
             e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, DataGridView.DefaultRowHeaderStyle.Border.Right.GetColor ());
 
+            // ShowEditingIcon (W6 mechanisms): the row being edited carries the pencil upstream draws
+            // in place of the current-row arrow.
+            if (control.ShowEditingIcon && control.IsCurrentCellInEditMode && control.CurrentCellAddress.Y == rowIndex) {
+                RenderEditingPencil (bounds, e);
+            }
             // Draw selection indicator triangle for the selected row
-            if (control.SelectedRowIndex == rowIndex) {
+            else if (control.SelectedRowIndex == rowIndex) {
                 var tri_size = 6;
                 var tri_x = bounds.Left + (bounds.Width - tri_size) / 2;
                 var tri_y = bounds.Top + (bounds.Height - tri_size) / 2;
@@ -536,6 +541,25 @@ namespace Majorsilence.Forms.Renderers
             // The new row's header carries the asterisk upstream draws there (W6 mechanisms).
             if (row.IsNewRow)
                 e.Canvas.DrawText ("*", bounds, control, ContentAlignment.MiddleCenter, maxLines: 1);
+        }
+
+        /// <summary>The box the editing pencil is drawn in, centred in a row header.</summary>
+        internal static Rectangle EditingPencilBox (Rectangle headerBounds, int size)
+            => new Rectangle (headerBounds.Left + (headerBounds.Width - size) / 2, headerBounds.Top + (headerBounds.Height - size) / 2, size, size);
+
+        // A diagonal stroke from the box's bottom-left to its top-right, a short base for the nib and
+        // a square tip at the top-right corner (the pixel the tests read).
+        private static void RenderEditingPencil (Rectangle bounds, PaintEventArgs e)
+        {
+            var box = EditingPencilBox (bounds, e.LogicalToDeviceUnits (8));
+            var unit = Math.Max (1, e.LogicalToDeviceUnits (1));
+
+            using var paint = new SKPaint { Color = DataGridView.DefaultRowHeaderStyle.GetForegroundColor (), IsAntialias = false, StrokeWidth = unit, Style = SKPaintStyle.Stroke };
+            e.Canvas.DrawLine (box.Left, box.Bottom - 1, box.Right - 1, box.Top, paint);
+            e.Canvas.DrawLine (box.Left, box.Bottom - 1, box.Left + box.Width / 3, box.Bottom - 1, paint);
+
+            using var tip = new SKPaint { Color = paint.Color, IsAntialias = false, Style = SKPaintStyle.Fill };
+            e.Canvas.DrawRect (new SKRect (box.Right - unit, box.Top, box.Right, box.Top + unit), tip);
         }
 
         /// <summary>

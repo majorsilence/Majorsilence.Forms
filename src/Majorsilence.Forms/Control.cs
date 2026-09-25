@@ -2163,8 +2163,28 @@ namespace Majorsilence.Forms
                 if (Enabled) {
                     Select ();
                     Capture = true;
+
+                    if (e.Button == MouseButtons.Left)
+                        IsPressed = true;
+
                     OnMouseDown (e);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Whether the left button is held down on this control: from its mouse-down to the release,
+        /// wherever the pointer goes meanwhile (W6 mechanisms). A flat button paints its
+        /// <c>MouseDownBackColor</c> while this is set.
+        /// </summary>
+        internal bool IsPressed {
+            get => GetState (States.IsPressed);
+            private set {
+                if (GetState (States.IsPressed) == value)
+                    return;
+
+                SetState (States.IsPressed, value);
+                Invalidate ();
             }
         }
 
@@ -2299,6 +2319,8 @@ namespace Majorsilence.Forms
             // Same rule as RaiseMouseMove: the capture holder gets the release, wherever the pointer
             // ended up. It also has to be the one that drops the capture.
             if (is_captured) {
+                IsPressed = false;
+
                 if (Enabled) {
                     Capture = false;
                     OnMouseUp (e);
@@ -2312,6 +2334,8 @@ namespace Majorsilence.Forms
             if (child != null)
                 child.RaiseMouseUp (TranslateMouseEvents (e, child));
             else {
+                IsPressed = false;
+
                 if (Enabled) {
                     Capture = false;
                     OnMouseUp (e);

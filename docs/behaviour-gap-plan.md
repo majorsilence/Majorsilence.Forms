@@ -3427,6 +3427,84 @@ the display order; here they simply pin), and `Description` (accessibility).
 9 tests; two neutralization rounds (the display order; the cells and the editor), snapshot verified
 before and after.
 
+**W6 mechanisms, tenth chunk: stored-only properties across the control set. — 2026-09-25.** Part of #91.
+Thirty-six stored-only properties, in four rounds, each now doing what it says.
+
+- **ListBox.** `MultiColumn` lays the items down each column and the columns across, scrolled sideways
+  by whole columns through a horizontal scrollbar, with Left/Right crossing to the neighbouring column;
+  `ColumnWidth` sets the column (0 measures the widest item). `HorizontalScrollbar` shows a bar when
+  `HorizontalExtent` -- or, for a `DrawMode.Normal` list with no extent set, the measured items, as
+  upstream measures -- is wider than the list, and scrolling it slides the items. `IntegralHeight`
+  (upstream's default of true) snaps the height to whole items whenever the bounds are set, except
+  under variable owner draw or an edge-filling dock. `UseTabStops` expands tabs in item text at every
+  eight average characters, or at `CustomTabOffsets` (logical pixels from the item's left) when
+  `UseCustomTabOffsets` is on. `IndexFromPoint` is the real hit-test now: it divided y by the item
+  height from row 0, ignoring scrolling, scale and columns.
+- **TabControl.** `Multiline` is real with upstream's default of *false*: a single row scrolls through
+  an arrow band at the trailing edge when the tabs overflow, and selecting a tab scrolls it into
+  view; `true` wraps, which is what the strip did unconditionally before (two wrap tests now say so).
+  `Appearance`: `Buttons` draws each tab as a raised button, sunken when selected; `FlatButtons`
+  fills the selected tab; neither draws Normal's accent underline.
+- **ToolTip.** `ToolTipIcon` draws an information, warning or error glyph at the tip's leading edge
+  (shared with the message box through `MessageGlyphs`); `UseAnimation` + `UseFading` fade the tip
+  in over five 20 ms steps (it starts transparent; `AdvanceFade` is the test seam); `ShowAlways` off
+  shows no tip for a control on a form other than `Form.ActiveForm`. The owner-draw tip test sets
+  `UseFading = false`, since it reads ink straight after the show.
+- **GroupBox.FlatStyle** draws the etched two-tone frame for every style but `Flat`, which keeps the
+  single line. **ToolStripProfessionalRenderer.RoundedEdges**: the renderer now draws the bottom
+  border of a plain `ToolStrip` in `ColorTable.ToolStripBorder` (menu, status and drop-down strips
+  keep their own chrome), with the two bottom corners cut when the property is on. That made
+  `ColorTable` a read member too. **NavigationPaneItem.Padding** insets the text and image and adds
+  its vertical part to the item's height.
+- **DataGridView.** `ShowCellToolTips` routes the cell's `ToolTipText`, else the column's, through
+  `GetToolTipText` -- the standard item-tip path -- after `CellToolTipTextNeeded` has had its say;
+  the event used to be raised from the mouse-move path with its answer discarded. `ShowEditingIcon`
+  draws the pencil in the edited row's header in place of the current-row arrow.
+  `DataGridViewDataErrorEventArgs.Cancel` is raised as `true` for a commit, as upstream does; a
+  handler that clears it has the edit abandoned and the old value restored instead of staying in
+  edit mode.
+- **MessageBox.** Every `Show` overload lands in one core that builds the dialog with the icon (glyph
+  band beside the message), the default button (Enter presses it and it starts focused, falling back
+  to the first when the set has no such position) and the options (`RightAlign`, `RtlReading`). The
+  overloads that take no default button use `MessageBox.DefaultButton`, the static that mirrors the
+  designer setting. Before this every argument past the icon was accepted and dropped.
+- **UpDownBase.ChangingText** is set around the writes the spinners make to `Text` when their value
+  or selection changes, which is what upstream's `UpdateEditText` does, so an `OnTextChanged`
+  override can tell the framework's write from the user's.
+- **Menus.** `MenuItem.Break`/`BarBreak` start a new column in a drop-down (a bar drawn before a
+  `BarBreak` column). `ToolStripDropDownItem.DropDownDirection`, else the strip's
+  `DefaultDropDownDirection`, decides which side the drop-down opens on; `Default` keeps the old rule.
+- **Pressed states.** `Control.IsPressed` (internal) is set from the left mouse-down to the release;
+  a flat button paints `FlatAppearance.MouseDownBackColor` while it is set, and a strip tracks its
+  pressed item so a link label draws in `ActiveLinkColor` -- the test that pinned "no pressed state
+  exists" (TSM-42) is replaced by the real one.
+- **Images.** `ImageList.TransparentColor` keys images as they are added (upstream's moment);
+  `ToolStripItem.ImageTransparentColor` (and the button's shadow of it, which now forwards to the
+  base) keys the drawn image; `RightToLeftAutoMirrorImage` flips it under `RightToLeft.Yes`;
+  `ImageAlign` (default now upstream's `MiddleCenter`) places the image vertically in every relation
+  and on both axes under `Overlay`; `ToolStripControlHost.ControlAlign` places a hosted control
+  that is shorter than the row within its box instead of stretching it (the hosting test now
+  expects the control's own height).
+- **ListView.** `RightToLeftLayout` under `RightToLeft.Yes` runs the Details columns from the right
+  edge -- header, cells, dividers and every hit-test go through one `ColumnCells` walk -- and
+  raises `RightToLeftLayoutChanged`. `ListViewItem.IndentCount` starts the first cell's content that
+  many small-image widths in.
+
+*Counts.* Stored-only **443 → 407**. Unraised unchanged at 74. `DataGridViewCellEditEventArgs.Cancel`
+is re-annotated: it is not an upstream type and nothing raises it.
+
+*Not done:* `ToolStripLabel` has no keyboard press; the tab strip's arrows scroll only on click (no
+auto-repeat); `ListBox` custom tab offsets are taken as logical pixels where upstream's are dialog
+units; a `MultiColumn` list has no `ColumnWidth` auto-measure cache.
+
+Two RC-8 lessons from the scale-2 gate, both in the tests: a strip docked in a headless form renders
+0 wide through `RenderOnForm` even after `Show`, so strip pixels are read from `PaintSurface.Render
+(strip)`; and a `Graphics.DrawLine` excludes its end point, so the renderer's border runs to `Right`
+and fills its corner pixels as rectangles.
+
+28 tests (27 new and the replaced link test); four neutralization rounds (5, 8, 5 and 10 of 28 red),
+snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

@@ -1155,11 +1155,17 @@ namespace Majorsilence.Forms
                     // The conversion failed -- "abc" into an int column. Upstream reports this through
                     // DataError and STAYS in edit mode, so the bad text is still on screen to correct
                     // rather than silently vanishing.
+                    // Cancel starts true, as upstream sets it for a commit: a handler that clears it
+                    // asks for the edit to be abandoned and the old value put back, rather than for the
+                    // grid to stay in edit mode on the bad text (W6 mechanisms).
                     var error = new DataGridViewDataErrorEventArgs (ex, editing_column_index, editing_row_index,
-                        DataGridViewDataErrorContexts.Commit | DataGridViewDataErrorContexts.Parsing);
+                        DataGridViewDataErrorContexts.Commit | DataGridViewDataErrorContexts.Parsing) { Cancel = true };
 
                     if (OnDataError (true, error))
                         throw;
+
+                    if (!error.Cancel)
+                        CancelEdit ();
 
                     return false;
                 }
@@ -2794,14 +2800,36 @@ namespace Majorsilence.Forms
 
             UpdateHoveredCell (row, row >= 0 ? GetColumnAtLocation (LogicalToDeviceUnits (e.Location)) : -1);
 
-            // Fire CellToolTipTextNeeded if handlers are attached
-            if (CellToolTipTextNeeded != null && row >= 0) {
-                var col = GetColumnAtLocation (LogicalToDeviceUnits (e.Location));
-                if (col >= 0) {
-                    var args = new DataGridViewCellToolTipTextNeededEventArgs (col, row);
-                    CellToolTipTextNeeded?.Invoke (this, args);
-                }
+        }
+
+        /// <summary>
+        /// The tip for the cell under a logical point: the cell's <see cref="DataGridViewCell.ToolTipText"/>,
+        /// else its column's, offered to <see cref="CellToolTipTextNeeded"/> first -- which used to be
+        /// raised from the mouse-move path with its answer thrown away (W6 mechanisms). Null when
+        /// <see cref="ShowCellToolTips"/> is off or the point is not over a cell.
+        /// </summary>
+        internal override string? GetToolTipText (Point location)
+        {
+            if (!ShowCellToolTips)
+                return null;
+
+            var target = TargetAt (location);
+
+            if (!target.IsCell || target.RowIndex >= Rows.Count)
+                return null;
+
+            var text = Rows[target.RowIndex].Cells[target.ColumnIndex].ToolTipText;
+
+            if (string.IsNullOrEmpty (text))
+                text = Columns[target.ColumnIndex].ToolTipText;
+
+            if (CellToolTipTextNeeded is { } needed) {
+                var args = new DataGridViewCellToolTipTextNeededEventArgs (target.ColumnIndex, target.RowIndex) { ToolTipText = text ?? string.Empty };
+                needed (this, args);
+                text = args.ToolTipText;
             }
+
+            return string.IsNullOrEmpty (text) ? null : text;
         }
 
         /// <inheritdoc/>

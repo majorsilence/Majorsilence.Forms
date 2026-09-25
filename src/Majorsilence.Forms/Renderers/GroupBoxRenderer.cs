@@ -25,6 +25,15 @@ namespace Majorsilence.Forms.Renderers
             var border = new Rectangle (bounds.X + 1, bounds.Y + border_top, bounds.Width - 2, bounds.Height - border_top - 1);
             e.Canvas.DrawRectangle (border, Theme.BorderLowColor);
 
+            // FlatStyle (W6 mechanisms): the etched frame is the dark line with a highlight line one
+            // pixel inside it, as GroupBoxRenderer upstream draws for every style but Flat.
+            if (control.FlatStyle != FlatStyle.Flat) {
+                var inner = new Rectangle (border.X + 1, border.Y + 1, border.Width - 2, border.Height - 2);
+
+                if (inner.Width > 0 && inner.Height > 0)
+                    e.Canvas.DrawRectangle (inner, Theme.ControlHighColor);
+            }
+
             if (!string.IsNullOrEmpty (control.Text)) {
                 var text_size = TextMeasurer.MeasureText (control.Text, font, font_size);
                 var text_width = (int)text_size.Width + 6;

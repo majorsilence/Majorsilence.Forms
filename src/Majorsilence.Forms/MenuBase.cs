@@ -389,6 +389,12 @@ namespace Majorsilence.Forms
         {
             base.OnMouseDown (e);
 
+            // The pressed item (W6 mechanisms): held until the release, whichever item that lands on.
+            if (e.Button == MouseButtons.Left) {
+                pressed_item = GetItemAtLocation (e.Location) as ToolStripItem;
+                pressed_item?.SetPressed (true);
+            }
+
             reorder_candidate = this is ToolStrip { AllowItemReorder: true } && e.Button == MouseButtons.Left
                 && (e.Modifiers & Keys.Alt) == Keys.Alt
                 ? GetItemAtLocation (e.Location) as ToolStripItem
@@ -401,6 +407,15 @@ namespace Majorsilence.Forms
         {
             base.OnMouseUp (e);
             reorder_candidate = null;
+            ReleasePressedItem ();
+        }
+
+        private ToolStripItem? pressed_item;
+
+        private void ReleasePressedItem ()
+        {
+            pressed_item?.SetPressed (false);
+            pressed_item = null;
         }
 
         private void TrackItemReorder (MouseEventArgs e)

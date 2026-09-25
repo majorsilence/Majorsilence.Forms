@@ -465,6 +465,10 @@ namespace Majorsilence.Forms
         public virtual MenuItemCollection DropDownItems => Items;
 
         /// <summary>Gets or sets the direction the drop-down opens in.</summary>
+        /// <remarks>Read by <see cref="MenuItem.ShowDropDown"/> as of W6 mechanisms: the drop-down opens
+        /// to the named side of the item. <c>Default</c> defers to the strip's
+        /// <see cref="ToolStrip.DefaultDropDownDirection"/>, then to below the item (beside it for a
+        /// submenu).</remarks>
         public ToolStripDropDownDirection DropDownDirection { get; set; } = ToolStripDropDownDirection.Default;
 
         /// <summary>Gets whether a drop-down has been created for this item.</summary>
